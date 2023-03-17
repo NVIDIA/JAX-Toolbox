@@ -11,6 +11,17 @@ on:
 
 jobs:
 
+  test-runner:
+    runs-on: self-hosted
+    steps:
+      - name: List GPUs
+        run: |
+          hostname
+          date
+          nvcc --version
+          nvidia-smi -L
+          nvidia-smi
+
   build:
     runs-on: ubuntu-latest
 
