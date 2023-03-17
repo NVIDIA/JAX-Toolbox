@@ -32,4 +32,4 @@ jobs:
           push: true
           tags: ghcr.io/nvidia/jax-toolbox:latest
           build-args: |
-            BASE_IMAGE=nvidia/cuda:12.1.0-devel-ubuntu20.04
+            BASE_IMAGE=nvidia/cuda:12.1.0-runtime-ubuntu20.04
