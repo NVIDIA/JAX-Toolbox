@@ -32,13 +32,23 @@ jobs:
       # Runs a set of commands using the runners shell
       - name: Run a multi-line script
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          cat /etc/os-release
+          pip --version
+          python --version
+          docker --version
+          gcc --version
+          clang --version
 
-      # build docker image
-      - name: docker build
-        uses: docker/build-push-action@v4
-        with:
-          context: .github/container/
-          push: false
-          tags: jax-toolbox:latest
+      # - name: Login to GitHub Container Registry
+      #   uses: docker/login-action@v2
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.repository_owner }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
+
+      # - name: Build docker images
+      #   uses: docker/build-push-action@v4
+      #   with:
+      #     context: .github/container/
+      #     push: true
+      #     tags: ghcr.io/nvidia/jax-toolbox:latest
