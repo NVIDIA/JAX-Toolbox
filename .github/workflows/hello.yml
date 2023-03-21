@@ -10,62 +10,74 @@ on:
   workflow_dispatch:
 
 jobs:
-
-  # large-runner-test:
-  #   runs-on: ubuntu-latest-16-cores
-  #   steps:
-  #     - name: List CPUs
-  #       run: |
-  #         cat /proc/cpuinfo
-  variables:
-    runs-on: ubuntu-22.04
+  example:
+    runs-on: ubuntu-latest
     steps:
-      - name: Determine CI container image tag
+      - name: Set environment variable
         run: |
-          set -x
-          echo "CI_IMAGE_TAG=ghcr.io/nvidia/jax-toolbox:$GITHUB_RUN_ID" >> $GITHUB_ENV
+          echo "MY_VAR=my_value" >> $GITHUB_ENV
 
-  check_variables:
-    runs-on: ubuntu-22.04
-    needs: variables
-    steps:
-      - name: Print environment variables
+      - name: Use environment variable
         run: |
-          set -x
-          echo ${CI_IMAGE_TAG}
-          echo ${{ env.CI_IMAGE_TAG }}
+          echo "My variable value is: $MY_VAR"
 
-  # build:
-  #   runs-on: ubuntu-22.04
+# jobs:
 
-  #   steps:
-  #     - name: Check out the repository under $GITHUB_WORKSPACE
-  #       uses: actions/checkout@v3
+#   # large-runner-test:
+#   #   runs-on: ubuntu-latest-16-cores
+#   #   steps:
+#   #     - name: List CPUs
+#   #       run: |
+#   #         cat /proc/cpuinfo
+#   variables:
+#     runs-on: ubuntu-22.04
+#     steps:
+#       - name: Determine CI container image tag
+#         run: |
+#           set -x
+#           echo "CI_IMAGE_TAG=ghcr.io/nvidia/jax-toolbox:$GITHUB_RUN_ID" >> $GITHUB_ENV
 
-  #     - name: Login to GitHub Container Registry
-  #       uses: docker/login-action@v2
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.repository_owner }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
+#   check_variables:
+#     runs-on: ubuntu-22.04
+#     needs: variables
+#     steps:
+#       - name: Print environment variables
+#         run: |
+#           set -x
+#           echo ${CI_IMAGE_TAG}
+#           echo ${{ env.CI_IMAGE_TAG }}
 
-  #     - name: Build docker images
-  #       uses: docker/build-push-action@v4
-  #       with:
-  #         context: .github/container/
-  #         push: true
-  #         tags: ghcr.io/nvidia/jax-toolbox:latest
-  #         build-args: |
-  #           BASE_IMAGE=nvidia/cuda:12.1.0-runtime-ubuntu20.04
+#   # build:
+#   #   runs-on: ubuntu-22.04
 
-  gpu-runner-test:
-    runs-on: self-hosted
-    steps:
-      - name: List GPUs
-        run: |
-          hostname
-          date
-          nvcc --version
-          nvidia-smi -L
-          nvidia-smi
+#   #   steps:
+#   #     - name: Check out the repository under $GITHUB_WORKSPACE
+#   #       uses: actions/checkout@v3
+
+#   #     - name: Login to GitHub Container Registry
+#   #       uses: docker/login-action@v2
+#   #       with:
+#   #         registry: ghcr.io
+#   #         username: ${{ github.repository_owner }}
+#   #         password: ${{ secrets.GITHUB_TOKEN }}
+
+#   #     - name: Build docker images
+#   #       uses: docker/build-push-action@v4
+#   #       with:
+#   #         context: .github/container/
+#   #         push: true
+#   #         tags: ghcr.io/nvidia/jax-toolbox:latest
+#   #         build-args: |
+#   #           BASE_IMAGE=nvidia/cuda:12.1.0-runtime-ubuntu20.04
+
+#   gpu-runner-test:
+#     runs-on: self-hosted
+#     steps:
+#       - name: List GPUs
+#         run: |
+#           hostname
+#           date
+#           nvcc --version
+#           nvidia-smi -L
+#           nvidia-smi
 
