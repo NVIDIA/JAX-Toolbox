@@ -10,7 +10,9 @@ on:
   workflow_dispatch:
 
 env:
-  CI_IMAGE_TAG: ghcr.io/nvidia/jax-toolbox:${{ github.run_id }}
+  CONTAINER_REGISTRY: ghcr.io
+  CONTAINER_REPOSITORY: ${CONTAINER_REGISTRY}/${{ toLower(github.repository) }}
+  CONTAINER_IMAGE: ${CONTAINER_REPOSITORY}:${{ github.run_id }}
 
 jobs:
 
