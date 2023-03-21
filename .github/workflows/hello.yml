@@ -22,6 +22,7 @@ jobs:
     steps:
       - name: Determine CI container image tag
         run: |
+          set -x
           echo "CI_IMAGE_TAG=ghcr.io/nvidia/jax-toolbox:$GITHUB_RUN_ID" >> $GITHUB_ENV
 
   check_variables:
@@ -29,7 +30,8 @@ jobs:
     steps:
       - name: Print environment variables
         run: |
-          env
+          set -x
+          echo ${{ env.CI_IMAGE_TAG }}
 
   build:
     runs-on: ubuntu-22.04
