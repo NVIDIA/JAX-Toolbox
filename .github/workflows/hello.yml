@@ -29,6 +29,7 @@ jobs:
 
       - name: Set container tag
         run: |
+          set -x
           CONTAINER_REGISTRY="ghcr.io"
           RUN_NUMBER=`printf "%08d" $GITHUB_RUN_NUMBER`
           CONTAINER_REPO=`echo ${CONTAINER_REGISTRY}/${GITHUB_REPOSITORY} | tr [:upper:] [:lower:]`
@@ -50,7 +51,7 @@ jobs:
         with:
           context: .github/container/
           push: true
-          tags: ${{ env.CONTAINER_IMAGE }}
+          tags: ${IMAGE}
           build-args: |
             BASE_IMAGE=nvidia/cuda:12.1.0-runtime-ubuntu20.04
 
