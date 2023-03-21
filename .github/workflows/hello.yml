@@ -9,9 +9,6 @@ on:
   ## allow manual run from the Actions tab
   workflow_dispatch:
 
-env:
-  CONTAINER_IMAGE: ghcr.io/${{ github.repository }}:${{ github.run_id }}
-
 jobs:
 
   # large-runner-test:
@@ -21,16 +18,23 @@ jobs:
   #       run: |
   #         cat /proc/cpuinfo
 
-  print_variables:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Print environment variables
-        run: env
-
   build:
     runs-on: ubuntu-22.04
 
     steps:
+      - name: Print environment variables
+        run: |
+          set -x
+          env
+
+      - name: Set container tag
+        run: |
+          CONTAINER_REGISTRY="ghcr.io"
+          RUN_NUMBER=`printf "%08d" $GITHUB_RUN_NUMBER`
+          CONTAINER_REPO=`echo ${CONTAINER_REGISTRY}/${GITHUB_REPOSITORY} | tr [:upper:] [:lower:]`
+          IMAGE="${CONTAINER_REPO}:${RUN_NUMBER}"
+          echo "IMAGE=${IMAGE}" >> $GITHUB_ENV
+
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
 
