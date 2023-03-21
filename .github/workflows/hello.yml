@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  CI_IMAGE_TAG: ghcr.io/nvidia/jax-toolbox:$GITHUB_RUN_ID
+  CI_IMAGE_TAG: ghcr.io/nvidia/jax-toolbox:${{ github.run_id }}
 
 jobs:
 
