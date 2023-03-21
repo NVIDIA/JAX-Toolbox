@@ -27,6 +27,7 @@ jobs:
 
   check_variables:
     runs-on: ubuntu-22.04
+    needs: variables
     steps:
       - name: Print environment variables
         run: |
