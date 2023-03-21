@@ -32,6 +32,7 @@ jobs:
       - name: Print environment variables
         run: |
           set -x
+          echo ${CI_IMAGE_TAG}
           echo ${{ env.CI_IMAGE_TAG }}
 
   build:
