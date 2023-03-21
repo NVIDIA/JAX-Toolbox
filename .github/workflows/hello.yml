@@ -11,7 +11,7 @@ on:
 
 env:
   CONTAINER_REGISTRY: ghcr.io
-  CONTAINER_REPOSITORY: ${CONTAINER_REGISTRY}/${{ toLower(github.repository) }}
+  CONTAINER_REPOSITORY: ${CONTAINER_REGISTRY}/${{ github.repository }}
   CONTAINER_IMAGE: ${CONTAINER_REPOSITORY}:${{ github.run_id }}
 
 jobs:
