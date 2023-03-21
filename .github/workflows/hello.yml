@@ -35,28 +35,28 @@ jobs:
           echo ${CI_IMAGE_TAG}
           echo ${{ env.CI_IMAGE_TAG }}
 
-  build:
-    runs-on: ubuntu-22.04
+  # build:
+  #   runs-on: ubuntu-22.04
 
-    steps:
-      - name: Check out the repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v3
+  #   steps:
+  #     - name: Check out the repository under $GITHUB_WORKSPACE
+  #       uses: actions/checkout@v3
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Login to GitHub Container Registry
+  #       uses: docker/login-action@v2
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.repository_owner }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build docker images
-        uses: docker/build-push-action@v4
-        with:
-          context: .github/container/
-          push: true
-          tags: ghcr.io/nvidia/jax-toolbox:latest
-          build-args: |
-            BASE_IMAGE=nvidia/cuda:12.1.0-runtime-ubuntu20.04
+  #     - name: Build docker images
+  #       uses: docker/build-push-action@v4
+  #       with:
+  #         context: .github/container/
+  #         push: true
+  #         tags: ghcr.io/nvidia/jax-toolbox:latest
+  #         build-args: |
+  #           BASE_IMAGE=nvidia/cuda:12.1.0-runtime-ubuntu20.04
 
   gpu-runner-test:
     runs-on: self-hosted
