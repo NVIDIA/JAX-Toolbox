@@ -11,26 +11,28 @@ on:
 
 jobs:
 
-  large-runner-test:
-    runs-on: ubuntu-latest-16-cores
+  # large-runner-test:
+  #   runs-on: ubuntu-latest-16-cores
+  #   steps:
+  #     - name: List CPUs
+  #       run: |
+  #         cat /proc/cpuinfo
+  variables:
+    runs-on: ubuntu-22.04
     steps:
-      - name: List CPUs
+      - name: Determine CI container image tag
         run: |
-          cat /proc/cpuinfo
+          echo "CI_IMAGE_TAG=ghcr.io/nvidia/jax-toolbox:$GITHUB_RUN_ID" >> $GITHUB_ENV
 
-  gpu-runner-test:
-    runs-on: self-hosted
+  check_variables:
+    runs-on: ubuntu-22.04
     steps:
-      - name: List GPUs
+      - name: Print environment variables
         run: |
-          hostname
-          date
-          nvcc --version
-          nvidia-smi -L
-          nvidia-smi
+          env
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Check out the repository under $GITHUB_WORKSPACE
@@ -51,3 +53,15 @@ jobs:
           tags: ghcr.io/nvidia/jax-toolbox:latest
           build-args: |
             BASE_IMAGE=nvidia/cuda:12.1.0-runtime-ubuntu20.04
+
+  gpu-runner-test:
+    runs-on: self-hosted
+    steps:
+      - name: List GPUs
+        run: |
+          hostname
+          date
+          nvcc --version
+          nvidia-smi -L
+          nvidia-smi
+
