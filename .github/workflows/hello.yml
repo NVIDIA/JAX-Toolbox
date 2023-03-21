@@ -9,43 +9,23 @@ on:
   ## allow manual run from the Actions tab
   workflow_dispatch:
 
+env:
+  CI_IMAGE_TAG: ghcr.io/nvidia/jax-toolbox:$GITHUB_RUN_ID
+
 jobs:
-  example:
-    runs-on: ubuntu-latest
+
+  # large-runner-test:
+  #   runs-on: ubuntu-latest-16-cores
+  #   steps:
+  #     - name: List CPUs
+  #       run: |
+  #         cat /proc/cpuinfo
+
+  print_variables:
+    runs-on: ubuntu-22.04
     steps:
-      - name: Set environment variable
-        run: |
-          echo "MY_VAR=my_value" >> $GITHUB_ENV
-
-      - name: Use environment variable
-        run: |
-          echo "My variable value is: $MY_VAR"
-
-# jobs:
-
-#   # large-runner-test:
-#   #   runs-on: ubuntu-latest-16-cores
-#   #   steps:
-#   #     - name: List CPUs
-#   #       run: |
-#   #         cat /proc/cpuinfo
-#   variables:
-#     runs-on: ubuntu-22.04
-#     steps:
-#       - name: Determine CI container image tag
-#         run: |
-#           set -x
-#           echo "CI_IMAGE_TAG=ghcr.io/nvidia/jax-toolbox:$GITHUB_RUN_ID" >> $GITHUB_ENV
-
-#   check_variables:
-#     runs-on: ubuntu-22.04
-#     needs: variables
-#     steps:
-#       - name: Print environment variables
-#         run: |
-#           set -x
-#           echo ${CI_IMAGE_TAG}
-#           echo ${{ env.CI_IMAGE_TAG }}
+      - name: Print environment variables
+        run: env
 
 #   # build:
 #   #   runs-on: ubuntu-22.04
