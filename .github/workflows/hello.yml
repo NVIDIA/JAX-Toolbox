@@ -11,7 +11,14 @@ on:
 
 jobs:
 
-  test-runner:
+  large-runner-test:
+    runs-on: ubuntu-latest-16-cores
+    steps:
+      - name: List CPUs
+        run: |
+          cat /proc/cpuinfo
+
+  gpu-runner-test:
     runs-on: self-hosted
     steps:
       - name: List GPUs
