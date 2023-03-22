@@ -44,7 +44,7 @@ jobs:
           context: .github/container
           push: true
           tags: ${{ env.IMAGE }}
-          file: Dockerfile.jax
+          file: .github/container/Dockerfile.jax
           build-args: |
             BASE_IMAGE=nvidia/cuda:12.1.0-runtime-ubuntu20.04
 
