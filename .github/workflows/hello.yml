@@ -41,10 +41,10 @@ jobs:
       - name: Build docker images
         uses: docker/build-push-action@v4
         with:
-          context: .github/container/
+          context: .github/container
           push: true
           tags: ${{ env.IMAGE }}
-          file: .github/container/Dockerfile.jax
+          file: Dockerfile.jax
           build-args: |
             BASE_IMAGE=nvidia/cuda:12.1.0-runtime-ubuntu20.04
 
