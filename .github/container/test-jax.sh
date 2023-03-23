@@ -169,4 +169,5 @@ pip install -r `jax_source_dir`/build/test-requirements.txt
 ## Run tests
 
 cd `jax_source_dir`
-`ls build/bazel-*` test ${BAZEL_TARGET} ${COMMON_FLAGS} ${EXTRA_FLAGS}
+BAZEL=`python -c 'from build import build; print(build.download_and_verify_bazel())' | tail -n 1`
+$BAZEL test ${BAZEL_TARGET} ${COMMON_FLAGS} ${EXTRA_FLAGS}

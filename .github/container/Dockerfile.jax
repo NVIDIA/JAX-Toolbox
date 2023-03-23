@@ -3,8 +3,9 @@ FROM ${BASE_IMAGE}
 
 RUN apt-get update && apt-get install -y git python-is-python3 python3-pip
 ENV HOME=/root
+RUN git clone https://github.com/google/jax.git /opt/jax
+RUN cd /opt/jax && pip install --upgrade -e ".[cuda]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+ADD test-jax.sh /usr/local/bin
+
 WORKDIR /root/workspace
 RUN mkdir -p /root/workspace
-RUN git clone https://github.com/google/jax.git jax
-RUN cd jax && pip install --upgrade -e ".[cuda]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-ADD test-jax.sh /usr/local/bin
