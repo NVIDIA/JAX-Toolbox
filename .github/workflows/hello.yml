@@ -50,9 +50,9 @@ jobs:
 
   jax-unit-tests:
     needs: build
-    runs-on: self-hosted, GPU
+    runs-on: self-hosted
     steps:
-      - name: List GPUs
+      - name: Print host information
         run: |
           hostname
           date
