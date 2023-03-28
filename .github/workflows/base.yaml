@@ -2,7 +2,7 @@ name: Build CUDA+Python base image
 
 on:
   schedule:
-    - cron: '0 30 * * *'
+    - cron: '30 0 * * *'
   workflow_dispatch:
 
 jobs:
