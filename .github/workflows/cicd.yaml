@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -15,9 +15,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Print environment variables
-        run: |
-          set -x
-          env
+        run: env
 
       - name: Set container tag
         run: |
