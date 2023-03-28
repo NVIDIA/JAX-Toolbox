@@ -46,7 +46,7 @@ jobs:
           tags: ${{ env.IMAGE }}
           file: .github/container/Dockerfile.jax
           build-args: |
-            BASE_IMAGE=nvidia/cuda:12.1.0-devel-ubuntu20.04
+            BASE_IMAGE=ubuntu:22.04
 
   jax-unit-tests:
     needs: build
