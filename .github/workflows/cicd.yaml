@@ -1,4 +1,4 @@
-name: CI/CD
+name: Build JAX container
 
 on:
   push:
@@ -21,10 +21,16 @@ jobs:
         run: |
           set -x
           CONTAINER_REGISTRY="ghcr.io"
+          CONTAINER_REPOSITORY=`echo ${GITHUB_REPOSITORY} | tr [:upper:] [:lower:]`
           RUN_NUMBER=`printf "%08d" $GITHUB_RUN_NUMBER`
-          CONTAINER_REPO=`echo ${CONTAINER_REGISTRY}/${GITHUB_REPOSITORY} | tr [:upper:] [:lower:]`
-          IMAGE="${CONTAINER_REPO}:${RUN_NUMBER}"
-          echo "IMAGE=${IMAGE}" >> $GITHUB_ENV
+          DATE=`date +%Y-%m-%d`
+          IMAGE_BASE="${CONTAINER_REGISTRY}/${CONTAINER_REPOSITORY}:base"
+          IMAGE_JAX="${CONTAINER_REGISTRY}/${CONTAINER_REPOSITORY}:jax"
+          IMAGE_JAX_PIPELINE="${IMAGE_JAX}-${RUN_NUMBER}"
+          IMAGE_JAX_DATED="${IMAGE_JAX}-${DATE}"
+          echo "IMAGE_JAX=${IMAGE_JAX}" >> $GITHUB_ENV
+          echo "IMAGE_JAX_PIPELINE=${IMAGE_JAX_PIPELINE}" >> $GITHUB_ENV
+          echo "IMAGE_JAX_DATED=${IMAGE_JAX_DATED}" >> $GITHUB_ENV
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
@@ -41,10 +47,10 @@ jobs:
         with:
           context: .github/container
           push: true
-          tags: ${{ env.IMAGE }}
+          tags: ${{ env.IMAGE_JAX }},${{ env.IMAGE_JAX_PIPELINE }},${{ env.IMAGE_JAX_DATED }}
           file: .github/container/Dockerfile.jax
           build-args: |
-            BASE_IMAGE=nvidia/cuda:12.1.0-devel-ubuntu20.04
+            BASE_IMAGE=${{ env.IMAGE_BASE }}
 
   jax-unit-tests:
     needs: build

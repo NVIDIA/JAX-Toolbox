@@ -1,4 +1,4 @@
-name: Build CUDA+Python base image
+name: Build CUDA+Python base container
 
 on:
   schedule:
