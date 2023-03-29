@@ -1,3 +1,3 @@
 # JAX Toolbox
 
-[![JAX container](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/jax.yaml/badge.svg)](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/jax.yaml)
+[![JAX container](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/jax.yaml/badge.svg)](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/jax.yaml) [![T5X container](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/t5x.yaml/badge.svg)](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/t5x.yaml)
