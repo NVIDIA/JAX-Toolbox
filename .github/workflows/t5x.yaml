@@ -1,8 +1,13 @@
-name: Build CUDA+Python base container
+name: Build T5X container
 
 on:
+  push:
+  #   branches: [ "main" ] 
+  pull_request:
+  #   branches: [ "main" ]
   schedule:
-    - cron: '30 0 * * 5'  # runs at every Friday 00:30 AM
+    - cron: '30 3 * * *'  # runs daily at 03:30 AM
+  ## allow manual run from the Actions tab
   workflow_dispatch:
 
 jobs:
@@ -20,17 +25,17 @@ jobs:
           CONTAINER_REPOSITORY=`echo ${GITHUB_REPOSITORY} | tr [:upper:] [:lower:]`
           RUN_NUMBER=`printf "%08d" $GITHUB_RUN_NUMBER`
           DATE=`date +%Y-%m-%d`
-          IMAGE_BASE="${CONTAINER_REGISTRY}/${CONTAINER_REPOSITORY}:base"
-          IMAGE_BASE_PIPELINE="${IMAGE_BASE}-${RUN_NUMBER}"
-          IMAGE_BASE_DATED="${IMAGE_BASE}-${DATE}"
-          echo "IMAGE_BASE=${IMAGE_BASE}" >> $GITHUB_ENV
-          echo "IMAGE_BASE_PIPELINE=${IMAGE_BASE_PIPELINE}" >> $GITHUB_ENV
-          echo "IMAGE_BASE_DATED=${IMAGE_BASE_DATED}" >> $GITHUB_ENV
+          IMAGE_JAX="${CONTAINER_REGISTRY}/${CONTAINER_REPOSITORY}:jax"
+          IMAGE_T5X="${CONTAINER_REGISTRY}/${CONTAINER_REPOSITORY}:t5x"
+          IMAGE_T5X_PIPELINE="${IMAGE_JAX}-${RUN_NUMBER}"
+          IMAGE_T5X_DATED="${IMAGE_JAX}-${DATE}"
+          echo "IMAGE_JAX=${IMAGE_BASE}" >> $GITHUB_ENV
+          echo "IMAGE_T5X=${IMAGE_T5X}" >> $GITHUB_ENV
+          echo "IMAGE_T5X_PIPELINE=${IMAGE_T5X_PIPELINE}" >> $GITHUB_ENV
+          echo "IMAGE_T5X_DATED=${IMAGE_T5X_DATED}" >> $GITHUB_ENV
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
-
-      # TODO: cancel previous runs
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -44,7 +49,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          tags: ${{ env.IMAGE_BASE }},${{ env.IMAGE_BASE_PIPELINE }},${{ env.IMAGE_BASE_DATED }}
-          file: .github/container/Dockerfile.base
+          tags: ${{ env.IMAGE_T5X }},${{ env.IMAGE_T5X_PIPELINE }},${{ env.IMAGE_T5X_DATED }}
+          file: .github/container/Dockerfile.t5x
           build-args: |
-            BASE_IMAGE=nvidia/cuda:12.1.0-devel-ubuntu22.04
+            BASE_IMAGE=${{ env.IMAGE_JAX }}
