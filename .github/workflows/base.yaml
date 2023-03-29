@@ -2,7 +2,7 @@ name: Build CUDA+Python base image
 
 on:
   schedule:
-    - cron: '30 0 * * *'
+    - cron: '30 0 * * 5'  # runs at every Friday 00:30 AM
   workflow_dispatch:
 
 jobs:
@@ -19,10 +19,13 @@ jobs:
           CONTAINER_REGISTRY="ghcr.io"
           CONTAINER_REPOSITORY=`echo ${GITHUB_REPOSITORY} | tr [:upper:] [:lower:]`
           RUN_NUMBER=`printf "%08d" $GITHUB_RUN_NUMBER`
+          DATE=`date +%Y-%m-%d`
           IMAGE_BASE="${CONTAINER_REGISTRY}/${CONTAINER_REPOSITORY}:base"
           IMAGE_BASE_PIPELINE="${IMAGE_BASE}-${RUN_NUMBER}"
+          IMAGE_BASE_DATED="${IMAGE_BASE}-${DATE}"
           echo "IMAGE_BASE=${IMAGE_BASE}" >> $GITHUB_ENV
           echo "IMAGE_BASE_PIPELINE=${IMAGE_BASE_PIPELINE}" >> $GITHUB_ENV
+          echo "IMAGE_BASE_DATED=${IMAGE_BASE_DATED}" >> $GITHUB_ENV
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
@@ -39,7 +42,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          tags: ${{ env.IMAGE_BASE }},${{ env.IMAGE_BASE_PIPELINE }}
+          tags: ${{ env.IMAGE_BASE }},${{ env.IMAGE_BASE_PIPELINE }},${{ env.IMAGE_BASE_DATED }}
           file: .github/container/Dockerfile.base
           build-args: |
             BASE_IMAGE=nvidia/cuda:12.1.0-devel-ubuntu22.04
