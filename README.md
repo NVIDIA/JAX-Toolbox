@@ -1,5 +1,15 @@
 # JAX Toolbox
 
-[![JAX container](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/jax.yaml/badge.svg)](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/jax.yaml) [![T5X container](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/t5x.yaml/badge.svg)](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/t5x.yaml)
+| App                               | CUDA container | unit tests  | parallel tests |
+| --------------------------------- | -------------- | ----------- | -------------- |
+| Base                              | ![build-base]  | ![unit-jax] |                |
+| JAX                               | ![build-jax]   |             |                |
+| T5X                               | ![build-t5x]   |             |                |
+| Paxml                             |                |             |                |
 
-[![Test JAX](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/jax-test.yaml/badge.svg)](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/jax-test.yaml)
+
+[build-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/base.yaml?label=build&logo=docker
+[build-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/jax.yaml?label=build&logo=docker
+[build-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/t5x.yaml?label=build&logo=docker
+
+[unit-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/jax-test.yaml?label=test&logo=nvidia
