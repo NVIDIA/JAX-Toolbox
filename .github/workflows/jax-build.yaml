@@ -17,7 +17,7 @@ permissions:
 jobs:
 
   build:
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, builder]
     steps:
       - name: Cancel previous run
         uses: styfle/cancel-workflow-action@0.11.0
