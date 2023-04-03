@@ -10,11 +10,21 @@ on:
   ## allow manual run from the Actions tab
   workflow_dispatch:
 
+permissions:
+  contents: read  # to fetch code
+  actions: write  # to cancel previous workflows
+  
 jobs:
 
   build:
     runs-on: ubuntu-22.04
     steps:
+      - name: Cancel previous run
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+        # if: ${{github.ref != 'refs/head/main'}}
+
       - name: Print environment variables
         run: env
 
