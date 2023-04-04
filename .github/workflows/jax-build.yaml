@@ -72,7 +72,7 @@ jobs:
             ${{ env.REPO }}
           flavor: |
             latest=false
-            prefix=${{PUSH_TAG}}
+            prefix=${PUSH_TAG}
           tags: |
             type=schedule,suffix=-${{ env.BUILD_DATE }}
             type=ref,event=branch
