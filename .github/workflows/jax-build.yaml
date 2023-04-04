@@ -20,12 +20,12 @@ env:
 permissions:
   contents: read  # to fetch code
   actions: write  # to cancel previous workflows
+  packages: write # to upload container
   
 jobs:
 
   build:
-    # runs-on: [self-hosted, builder]
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, builder]
     steps:
       - name: Cancel previous run
         uses: styfle/cancel-workflow-action@0.11.0
