@@ -83,7 +83,7 @@ jobs:
             BUILD_DATE=${{ env.BUILD_DATE }}
       
   trigger:
-    uses: .github/workflows/t5x-build.yaml@main
+    uses: ./.github/workflows/t5x-build.yaml@main
     needs: build
     with:
       BASE_IMAGE: ghcr.io/nvidia/jax:latest
