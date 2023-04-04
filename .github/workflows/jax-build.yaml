@@ -53,7 +53,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE_BASE="${{ env.REPO }}:${BASE_TAG}"
-          IMAGE_PUSH="${{ env.REPO }}:${PUSH_TAG}-$(printf "%08d" $GITHUB_RUN_ID)"
+          IMAGE_PUSH="${{ env.REPO }}:${PUSH_TAG}"
           echo "IMAGE_BASE=${IMAGE_BASE}" >> $GITHUB_ENV
           echo "IMAGE_PUSH=${IMAGE_PUSH}" >> $GITHUB_ENV
 
@@ -69,10 +69,9 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ${{ env.REPO }}
+            ${{ env.IMAGE_PUSH }}:
           flavor: |
             latest=false
-            prefix=${PUSH_TAG}
           tags: |
             type=schedule,suffix=-${{ env.BUILD_DATE }}
             type=ref,event=branch
