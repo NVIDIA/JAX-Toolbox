@@ -54,7 +54,7 @@ RUN pip --disable-pip-version-check install ${SRC_PATH_JAX}/dist/*.whl && \
 RUN { pip install flax || true; } && rm -rf ~/.cache/pip
 
 # TODO: properly configure entrypoint
-COPY entrypoint.d/ /opt/nvidia/entrypoint.d/
+# COPY entrypoint.d/ /opt/nvidia/entrypoint.d/
 
 ###############################################################################
 ## Build 'devel' image with build scripts and git metadata
