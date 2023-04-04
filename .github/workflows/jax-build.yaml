@@ -4,7 +4,7 @@ on:
   push:
   pull_request:
   schedule:
-    - cron: '* * * * *'  # daily at 02:30 AM
+    - cron: '38 * * * *'  # daily at 02:30 AM
   workflow_dispatch:
 
 env:
