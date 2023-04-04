@@ -9,6 +9,19 @@ on:
   #   - cron: '30 3 * * *'  # runs daily at 03:30 AM
   ## allow manual run from the Actions tab
   workflow_dispatch:
+    inputs:
+      BASE_IMAGE:
+        description: 'a JAX image to serve as the base'
+        required: true
+        type: string
+
+env:
+  UPLD_IMAGE: ghcr.io/nvidia/t5x
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
 
 jobs:
 
@@ -18,21 +31,11 @@ jobs:
       - name: Print environment variables
         run: env
 
-      - name: Set container tag
-        run: |
-          set -x
-          CONTAINER_REGISTRY="ghcr.io"
-          CONTAINER_REPOSITORY=`echo ${GITHUB_REPOSITORY} | tr [:upper:] [:lower:]`
-          RUN_NUMBER=`printf "%08d" $GITHUB_RUN_ID`
-          DATE=`date +%Y-%m-%d`
-          IMAGE_JAX="${CONTAINER_REGISTRY}/${CONTAINER_REPOSITORY}:jax"
-          IMAGE_T5X="${CONTAINER_REGISTRY}/${CONTAINER_REPOSITORY}:t5x"
-          IMAGE_T5X_PIPELINE="${IMAGE_T5X}-${RUN_NUMBER}"
-          IMAGE_T5X_DATED="${IMAGE_T5X}-${DATE}"
-          echo "IMAGE_JAX=${IMAGE_JAX}" >> $GITHUB_ENV
-          echo "IMAGE_T5X=${IMAGE_T5X}" >> $GITHUB_ENV
-          echo "IMAGE_T5X_PIPELINE=${IMAGE_T5X_PIPELINE}" >> $GITHUB_ENV
-          echo "IMAGE_T5X_DATED=${IMAGE_T5X_DATED}" >> $GITHUB_ENV
+      - name: Cancel previous run
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+        if: ${{github.ref != 'refs/head/main'}}
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
@@ -44,12 +47,24 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=sha
+
       - name: Build docker images
         uses: docker/build-push-action@v4
         with:
           context: .github/container
           push: true
-          tags: ${{ env.IMAGE_T5X }},${{ env.IMAGE_T5X_PIPELINE }},${{ env.IMAGE_T5X_DATED }}
           file: .github/container/Dockerfile.t5x
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            BASE_IMAGE=${{ env.IMAGE_JAX }}
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
