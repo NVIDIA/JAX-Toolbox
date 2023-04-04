@@ -8,6 +8,20 @@ on:
   # schedule:
   #   - cron: '30 3 * * *'  # runs daily at 03:30 AM
   ## allow manual run from the Actions tab
+  workflow_call:
+    inputs:
+      BASE_IMAGE:
+        description: 'JAX image to serve as base'
+        required: true
+        type: string
+      NIGHTLY:
+        description: 'Is this a nightly build?'
+        required: true
+        type: boolean
+      BUILD_DATE:
+        description: 'Date of build (YYYY-MM-YY)'
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       BASE_IMAGE:
