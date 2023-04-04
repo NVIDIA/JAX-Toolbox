@@ -12,24 +12,24 @@ ARG BUILD_DATE
 ###############################################################################
 
 FROM ${BASE_IMAGE} as jax-builder
-# ARG REPO_JAX
-# ARG REPO_XLA
-# ARG REF_JAX
-# ARG REF_XLA
-# ARG SRC_PATH_JAX
-# ARG SRC_PATH_XLA
+ARG REPO_JAX
+ARG REPO_XLA
+ARG REF_JAX
+ARG REF_XLA
+ARG SRC_PATH_JAX
+ARG SRC_PATH_XLA
 
-# RUN git clone "${REPO_JAX}" "${SRC_PATH_JAX}" && cd "${SRC_PATH_JAX}" && git checkout ${REF_JAX}
-# RUN git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
+RUN git clone "${REPO_JAX}" "${SRC_PATH_JAX}" && cd "${SRC_PATH_JAX}" && git checkout ${REF_JAX}
+RUN git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
 
-# ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
-# RUN build-jax.sh \
-#     --src-path-jax ${SRC_PATH_JAX} \
-#     --src-path-xla ${SRC_PATH_XLA} \
-#     --sm all
+ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+RUN build-jax.sh \
+    --src-path-jax ${SRC_PATH_JAX} \
+    --src-path-xla ${SRC_PATH_XLA} \
+    --sm all
 
-# RUN cp -r ${SRC_PATH_JAX} ${SRC_PATH_JAX}-no-git && rm -rf ${SRC_PATH_JAX}-no-git/.git
-# RUN cp -r ${SRC_PATH_XLA} ${SRC_PATH_XLA}-no-git && rm -rf ${SRC_PATH_XLA}-no-git/.git
+RUN cp -r ${SRC_PATH_JAX} ${SRC_PATH_JAX}-no-git && rm -rf ${SRC_PATH_JAX}-no-git/.git
+RUN cp -r ${SRC_PATH_XLA} ${SRC_PATH_XLA}-no-git && rm -rf ${SRC_PATH_XLA}-no-git/.git
 
 ###############################################################################
 ## Build 'runtime' flavor without the git metadata
@@ -37,34 +37,34 @@ FROM ${BASE_IMAGE} as jax-builder
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as runtime-image
-# ARG SRC_PATH_JAX
-# ARG SRC_PATH_XLA
-# ARG BUILD_DATE
-# ENV BUILD_DATE=${BUILD_DATE}
+ARG SRC_PATH_JAX
+ARG SRC_PATH_XLA
+ARG BUILD_DATE
+ENV BUILD_DATE=${BUILD_DATE}
 
-# COPY --from=jax-builder ${SRC_PATH_JAX}-no-git ${SRC_PATH_JAX}
-# COPY --from=jax-builder ${SRC_PATH_XLA}-no-git ${SRC_PATH_XLA}
+COPY --from=jax-builder ${SRC_PATH_JAX}-no-git ${SRC_PATH_JAX}
+COPY --from=jax-builder ${SRC_PATH_XLA}-no-git ${SRC_PATH_XLA}
 
-# RUN pip --disable-pip-version-check install ${SRC_PATH_JAX}/dist/*.whl && \
-#     pip --disable-pip-version-check install -e ${SRC_PATH_JAX} && \
-#     rm -rf ~/.cache/pip/
+RUN pip --disable-pip-version-check install ${SRC_PATH_JAX}/dist/*.whl && \
+    pip --disable-pip-version-check install -e ${SRC_PATH_JAX} && \
+    rm -rf ~/.cache/pip/
 
-# # Install software stack in JAX ecosystem
-# # Made this optional since tensorstore cannot build on Ubuntu 20.04 + ARM
-# RUN { pip install flax || true; } && rm -rf ~/.cache/pip
+# Install software stack in JAX ecosystem
+# Made this optional since tensorstore cannot build on Ubuntu 20.04 + ARM
+RUN { pip install flax || true; } && rm -rf ~/.cache/pip
 
 # TODO: properly configure entrypoint
-# COPY entrypoint.d/ /opt/nvidia/entrypoint.d/
+COPY entrypoint.d/ /opt/nvidia/entrypoint.d/
 
 ###############################################################################
 ## Build 'devel' image with build scripts and git metadata
 ###############################################################################
 
 FROM runtime-image as devel-image
-# ARG SRC_PATH_JAX
-# ARG SRC_PATH_XLA
+ARG SRC_PATH_JAX
+ARG SRC_PATH_XLA
 
-# ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
-# COPY --from=jax-builder ${SRC_PATH_JAX}/.git ${SRC_PATH_JAX}/.git
-# COPY --from=jax-builder ${SRC_PATH_XLA}/.git ${SRC_PATH_XLA}/.git
+COPY --from=jax-builder ${SRC_PATH_JAX}/.git ${SRC_PATH_JAX}/.git
+COPY --from=jax-builder ${SRC_PATH_XLA}/.git ${SRC_PATH_XLA}/.git
