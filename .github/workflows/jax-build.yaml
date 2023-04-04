@@ -81,3 +81,10 @@ jobs:
           build-args: |          
             BASE_IMAGE=${{ env.BASE_IMAGE }}
             BUILD_DATE=${{ env.BUILD_DATE }}
+      
+      - name: Trigger T5X build
+        uses: ./.github/workflow/t5x-build.yaml
+        with:
+          BASE_IMAGE: ghcr.io/nvidia/jax:latest
+          NIGHTLY: false
+          BUILD_DATE: ${{ env.BUILD_DATE }}

@@ -11,8 +11,16 @@ on:
   workflow_dispatch:
     inputs:
       BASE_IMAGE:
-        description: 'a JAX image to serve as the base'
+        description: 'JAX image to serve as base'
         required: true
+        type: string
+      NIGHTLY:
+        description: 'Is this a nightly build?'
+        required: true
+        type: boolean
+      BUILD_DATE:
+        description: 'Date of build (YYYY-MM-YY)'
+        required: false
         type: string
 
 env:
@@ -57,6 +65,8 @@ jobs:
             latest=false
           tags: |
             type=sha
+            type=raw,suffix=-${{ inputs.BUILD_DATE }},enabled=${{ inputs.BUILD_DATE != "" }}
+            type=raw,value=latest,enable=${{ inputs.NIGHTLY }},priority=1000
 
       - name: Build docker images
         uses: docker/build-push-action@v4
