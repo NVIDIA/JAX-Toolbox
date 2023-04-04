@@ -70,7 +70,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ${{ env.IMAGE_PUSH }}:
+            ${{ env.IMAGE_PUSH }}
           flavor: |
             latest=false
           tags: |
