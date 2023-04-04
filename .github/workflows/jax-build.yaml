@@ -88,5 +88,5 @@ jobs:
     with:
       BASE_IMAGE: ghcr.io/nvidia/jax:latest
       NIGHTLY: false
-      BUILD_DATE: ${{ env.BUILD_DATE }}
+      BUILD_DATE: 2023-04-04
     secrets: inherit
