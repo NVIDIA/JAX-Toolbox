@@ -48,6 +48,7 @@ jobs:
             latest=false
           tags: |
             type=raw,value=base,enable=${{ github.event_name == 'schedule' }},priority=1000
+            type=raw,value=base-{{sha}},priority=100
 
       - name: Build docker images
         uses: docker/build-push-action@v4
