@@ -79,7 +79,6 @@ jobs:
             latest=false
           tags: |
             type=sha
-            # type=raw,suffix=-${{ inputs.BUILD_DATE }},enabled=${{ inputs.BUILD_DATE != "" }}
             type=raw,suffix=-${{ inputs.BUILD_DATE }}
             type=raw,value=latest,enable=${{ inputs.NIGHTLY }},priority=1000
 
