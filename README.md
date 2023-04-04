@@ -8,12 +8,12 @@
 | Paxml                             |                |             |                |
 
 
-[base-build]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/base.yaml?label=build&logo=docker
+[base-build]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/base-build.yaml?label=weekly&logo=docker
 
-[jax-build]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/jax-build.yaml?label=build&logo=docker
-[jax-test]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/jax-test.yaml?label=test&logo=nvidia
+[jax-build]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/jax-build.yaml?label=nightly&logo=docker
+[jax-test]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/jax-test.yaml?label=V100&logo=nvidia
 
-[t5x-build]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/t5x.yaml?label=build&logo=docker
+[t5x-build]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/t5x.yaml?label=nightly&logo=docker
 
 
 
