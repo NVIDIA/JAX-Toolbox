@@ -1,12 +1,12 @@
 name: Test JAX
 
 on:
-  push:
+  # push:
   #   branches: [ "main" ] 
-  pull_request:
+  # pull_request:
   #   branches: [ "main" ]
-  schedule:
-    - cron: '30 3 * * *'  # runs daily at 03:30 AM
+  # schedule:
+  #   - cron: '30 3 * * *'  # runs daily at 03:30 AM
   ## allow manual run from the Actions tab
   workflow_dispatch:
 
