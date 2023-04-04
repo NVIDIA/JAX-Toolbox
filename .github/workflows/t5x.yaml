@@ -23,7 +23,7 @@ jobs:
           set -x
           CONTAINER_REGISTRY="ghcr.io"
           CONTAINER_REPOSITORY=`echo ${GITHUB_REPOSITORY} | tr [:upper:] [:lower:]`
-          RUN_NUMBER=`printf "%08d" $GITHUB_RUN_NUMBER`
+          RUN_NUMBER=`printf "%08d" $GITHUB_RUN_ID`
           DATE=`date +%Y-%m-%d`
           IMAGE_JAX="${CONTAINER_REGISTRY}/${CONTAINER_REPOSITORY}:jax"
           IMAGE_T5X="${CONTAINER_REGISTRY}/${CONTAINER_REPOSITORY}:t5x"
