@@ -55,7 +55,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ${UPLD_IMAGE}
+            ${{ env.UPLD_IMAGE }}
           flavor: |
             latest=false
           tags: |
@@ -79,5 +79,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |          
-            BASE_IMAGE=${BASE_IMAGE}
+            BASE_IMAGE=${{ env.BASE_IMAGE }}
             BUILD_DATE=${{ env.BUILD_DATE }}
