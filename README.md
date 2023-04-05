@@ -9,7 +9,7 @@
 
 [base-build]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/base-build.yaml?label=weekly&logo=docker
 [jax-build]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/jax-build.yaml?label=nightly&logo=docker
-[t5x-build]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/t5x.yaml?label=nightly&logo=docker
+[t5x-build]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/t5x-build.yaml?label=nightly&logo=docker
 
 [jax-image]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax
 [base-image]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-toolbox
