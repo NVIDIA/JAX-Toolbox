@@ -18,10 +18,6 @@ on:
         description: 'Is this a nightly build?'
         required: true
         type: boolean
-      BUILD_DATE:
-        description: 'Date of build (YYYY-MM-YY)'
-        required: false
-        type: string
   workflow_dispatch:
     inputs:
       BASE_IMAGE:
@@ -32,10 +28,6 @@ on:
         description: 'Is this a nightly build?'
         required: true
         type: boolean
-      BUILD_DATE:
-        description: 'Date of build (YYYY-MM-YY)'
-        required: false
-        type: string
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/t5x
@@ -59,6 +51,12 @@ jobs:
           access_token: ${{ github.token }}
         if: ${{github.ref != 'refs/head/main'}}
 
+      - name: Set build date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_ENV
+
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
 
@@ -79,7 +77,8 @@ jobs:
             latest=false
           tags: |
             type=sha
-            type=raw,value=nightly-${{ inputs.BUILD_DATE }},enable=${{ inputs.NIGHTLY }},priority=900
+            type=edge,branch=main
+            type=raw,value=nightly-${{ env.BUILD_DATE }},enable=${{ inputs.NIGHTLY }},priority=900
             type=raw,value=latest,enable=${{ inputs.NIGHTLY }},priority=1000
 
       - name: Build docker images

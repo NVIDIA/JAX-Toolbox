@@ -34,14 +34,14 @@ jobs:
           access_token: ${{ github.token }}
         # if: ${{github.ref != 'refs/head/main'}}
 
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
-
       - name: Set build date
         shell: bash -x -e {0}
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_ENV
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -87,6 +87,5 @@ jobs:
     needs: build
     with:
       BASE_IMAGE: ghcr.io/nvidia/jax:latest
-      NIGHTLY: true
-      BUILD_DATE: 2023-04-04
+      NIGHTLY: ${{ github.event_name == 'schedule' }}
     secrets: inherit
