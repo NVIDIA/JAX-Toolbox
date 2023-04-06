@@ -92,8 +92,8 @@ jobs:
       - name: Upload image tags as artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: docker-image-tags
-          path: tags.txt
+          # name: docker-image-tags
+          path: docker-image-tags.txt
 
   # trigger:
   #   uses: ./.github/workflows/t5x-build.yaml
