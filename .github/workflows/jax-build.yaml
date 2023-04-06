@@ -95,10 +95,10 @@ jobs:
           name: docker-image-tags
           path: tags.txt
 
-  trigger:
-    uses: ./.github/workflows/t5x-build.yaml
-    needs: build
-    with:
-      BASE_IMAGE: ghcr.io/nvidia/jax:latest
-      NIGHTLY: ${{ github.event_name == 'schedule' }}
-    secrets: inherit
+  # trigger:
+  #   uses: ./.github/workflows/t5x-build.yaml
+  #   needs: build
+  #   with:
+  #     BASE_IMAGE: ghcr.io/nvidia/jax:latest
+  #     NIGHTLY: ${{ github.event_name == 'schedule' }}
+  #   secrets: inherit
