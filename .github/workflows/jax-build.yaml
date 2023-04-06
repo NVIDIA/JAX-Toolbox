@@ -112,14 +112,14 @@ jobs:
             const ref = context.sha;
 
             const response = await github.rest.actions.createWorkflowDispatch({
-              owner,
-              repo,
-              workflow_id,
-              ref,
+              owner: owner,
+              repo: repo,
+              workflow_id: workflow_id,
+              ref: ref,
               inputs: {
                 BASE_IMAGE: ${{ env.DOCKE_TAG }},
                 NIGHTLY: ${{ github.event_name == 'schedule' }}
-              }
+              },
             });
 
             console.log(response);
