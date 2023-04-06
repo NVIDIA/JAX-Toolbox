@@ -50,6 +50,12 @@ jobs:
             type=raw,value=base,enable=${{ github.event_name == 'schedule' }},priority=1000
             type=raw,value=base-{{sha}},priority=100
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.10.6
+
       - name: Build docker images
         uses: docker/build-push-action@v4
         with:

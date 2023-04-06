@@ -81,6 +81,12 @@ jobs:
             type=raw,value=nightly-${{ env.BUILD_DATE }},enable=${{ inputs.NIGHTLY }},priority=900
             type=raw,value=latest,enable=${{ inputs.NIGHTLY }},priority=1000
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.10.6
+
       - name: Build docker images
         uses: docker/build-push-action@v4
         with:
