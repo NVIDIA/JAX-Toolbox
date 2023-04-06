@@ -19,7 +19,7 @@ permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
   packages: write # to upload container
-  
+
 jobs:
 
   build:
@@ -70,23 +70,30 @@ jobs:
           labels:
             org.opencontainers.image.created=${{ env.BUILD_DATE }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        with:
-          driver-opts: |
-            image=moby/buildkit:v0.10.6
+      # - name: Set up Docker Buildx
+      #   uses: docker/setup-buildx-action@v2
+      #   with:
+      #     driver-opts: |
+      #       image=moby/buildkit:v0.10.6
 
-      - name: Build docker images
-        uses: docker/build-push-action@v4
+      # - name: Build docker images
+      #   uses: docker/build-push-action@v4
+      #   with:
+      #     context: .github/container
+      #     push: true
+      #     file: .github/container/Dockerfile.jax
+      #     tags: ${{ steps.meta.outputs.tags }}
+      #     labels: ${{ steps.meta.outputs.labels }}
+      #     build-args: |          
+      #       BASE_IMAGE=${{ env.BASE_IMAGE }}
+      #       BUILD_DATE=${{ env.BUILD_DATE }}
+
+      - run: echo "${{ steps.meta.outputs.tags }}" > tags.txt
+      - name: Upload image tags as artifacts
+        uses: actions/upload-artifact@v3
         with:
-          context: .github/container
-          push: true
-          file: .github/container/Dockerfile.jax
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |          
-            BASE_IMAGE=${{ env.BASE_IMAGE }}
-            BUILD_DATE=${{ env.BUILD_DATE }}
+          name: docker-image-tags
+          path: tags.txt
 
   trigger:
     uses: ./.github/workflows/t5x-build.yaml
