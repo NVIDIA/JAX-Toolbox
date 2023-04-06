@@ -70,6 +70,12 @@ jobs:
           labels:
             org.opencontainers.image.created=${{ env.BUILD_DATE }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.10.6
+
       - name: Build docker images
         uses: docker/build-push-action@v4
         with:
@@ -81,7 +87,7 @@ jobs:
           build-args: |          
             BASE_IMAGE=${{ env.BASE_IMAGE }}
             BUILD_DATE=${{ env.BUILD_DATE }}
-      
+
   trigger:
     uses: ./.github/workflows/t5x-build.yaml
     needs: build
