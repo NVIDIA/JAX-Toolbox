@@ -107,12 +107,9 @@ jobs:
         with:
           retries: 3
           script: |
-            const { owner, repo } = context.repo;
-
             console.log(
               await github.rest.actions.createWorkflowDispatch({
-                owner,
-                repo,
+                ...context.repo,
                 workflow_id: "t5x-build.yaml",
                 ref: context.ref,
                 inputs: {
