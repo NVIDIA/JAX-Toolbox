@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 
 env:
+  TARGET: jax
   BASE_IMAGE: ghcr.io/nvidia/jax-toolbox:base
   UPLD_IMAGE: ghcr.io/nvidia/jax
   REPO_JAX: https://github.com/google/jax.git
@@ -91,20 +92,26 @@ jobs:
       - name: Generate outputs and artifacts
         shell: bash -x -e {0}
         run: |
-          echo "${{ steps.meta.outputs.tags }}" > docker-tags.txt
-          DOCKER_TAG_SHA_STYLE=$(echo "${{ steps.meta.outputs.tags }}" | grep sha)
-          echo "::set-output name=DOCKER_TAG_SHA_STYLE::${DOCKER_TAG_SHA_STYLE}"
+          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
 
       - name: Upload image tags as artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: docker-tags
-          path: docker-tags.txt
+          name: image-tags-${{ env.TARGET }}
+          path: image-tags-${{ env.TARGET }}.txt
 
-  trigger:
-    uses: ./.github/workflows/t5x-build.yaml
-    needs: build
-    with:
-      BASE_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_SHA_STYLE }}
-      NIGHTLY: ${{ github.event_name == 'schedule' }}
-    secrets: inherit
+      - name: Trigger
+        uses: actions/github-script@v6
+        with:
+          retries: 3
+          script: |
+            console.log(context)
+
+
+  # trigger:
+  #   uses: ./.github/workflows/t5x-build.yaml
+  #   needs: build
+  #   with:
+  #     BASE_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_SHA_STYLE }}
+  #     NIGHTLY: ${{ github.event_name == 'schedule' }}
+  #   secrets: inherit
