@@ -108,14 +108,14 @@ jobs:
           retries: 3
           script: |
             const { owner, repo } = context.repo;
-            const workflow_id = "t5x-build.yml";
+            const workflow_id = "t5x-build.yaml";
             const ref = context.sha;
 
             const response = await github.rest.actions.createWorkflowDispatch({
-              owner: owner,
-              repo: repo,
-              workflow_id: workflow_id,
-              ref: ref,
+              owner,
+              repo,
+              workflow_id,
+              ref,
               inputs: {
                 BASE_IMAGE: "${{ env.DOCKE_TAG }}",
                 NIGHTLY: ${{ github.event_name == 'schedule' }}
