@@ -92,7 +92,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           echo "${{ steps.meta.outputs.tags }}" > docker-tags.txt
-          echo "::set-output name=DOCKER_TAG_SHA_STYLE::"$(echo ${{ steps.meta.outputs.tags }} | grep sha)
+          DOCKER_TAG_SHA_STYLE=$(echo "${{ steps.meta.outputs.tags }}" | grep sha)
+          echo "::set-output name=DOCKER_TAG_SHA_STYLE::${DOCKER_TAG_SHA_STYLE}"
 
       - name: Upload image tags as artifacts
         uses: actions/upload-artifact@v3
