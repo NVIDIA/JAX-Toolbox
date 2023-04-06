@@ -117,7 +117,7 @@ jobs:
               workflow_id: workflow_id,
               ref: ref,
               inputs: {
-                BASE_IMAGE: ${{ env.DOCKE_TAG }},
+                BASE_IMAGE: "${{ env.DOCKE_TAG }}",
                 NIGHTLY: ${{ github.event_name == 'schedule' }}
               },
             });
