@@ -121,7 +121,7 @@ jobs:
                 },
               })
             );
-            # console.log(response);
+            // console.log(response);
 
   # trigger:
   #   uses: ./.github/workflows/t5x-build.yaml
