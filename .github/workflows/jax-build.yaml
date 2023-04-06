@@ -113,7 +113,7 @@ jobs:
               await github.rest.actions.createWorkflowDispatch({
                 owner,
                 repo,
-                workflow_id: "t5x-build.yml",
+                workflow_id: "t5x-build.yaml",
                 ref: context.ref,
                 inputs: {
                   BASE_IMAGE: "${{ env.DOCKE_TAG }}",
