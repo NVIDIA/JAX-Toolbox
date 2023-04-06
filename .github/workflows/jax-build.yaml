@@ -59,14 +59,14 @@ jobs:
           flavor: |
             latest=false
           tags: |
+            type=sha
+            type=edge,branch=main
             type=schedule,suffix=-${{ env.BUILD_DATE }}
+            type=raw,value=latest,enable=${{ github.event_name == 'schedule' }},priority=1000
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=edge,branch=main
-            type=sha
-            type=raw,value=latest,enable=${{ github.event_name == 'schedule' }},priority=1000
           labels:
             org.opencontainers.image.created=${{ env.BUILD_DATE }}
 
@@ -88,17 +88,21 @@ jobs:
       #       BASE_IMAGE=${{ env.BASE_IMAGE }}
       #       BUILD_DATE=${{ env.BUILD_DATE }}
 
-      - run: echo "${{ steps.meta.outputs.tags }}" > docker-image-tags.txt
+      - name: Generate outputs and artifacts
+        run: |
+          echo "${{ steps.meta.outputs.tags }}" > docker-tags.txt
+          echo "::set-output name=DOCKER_TAG_SHA_STYLE::$(echo $DOCKER_TAGS | grep sha)"
+
       - name: Upload image tags as artifacts
         uses: actions/upload-artifact@v3
         with:
-          # name: docker-image-tags
-          path: docker-image-tags.txt
+          name: docker-tags
+          path: docker-tags.txt
 
-  # trigger:
-  #   uses: ./.github/workflows/t5x-build.yaml
-  #   needs: build
-  #   with:
-  #     BASE_IMAGE: ghcr.io/nvidia/jax:latest
-  #     NIGHTLY: ${{ github.event_name == 'schedule' }}
-  #   secrets: inherit
+  trigger:
+    uses: ./.github/workflows/t5x-build.yaml
+    needs: build
+    with:
+      BASE_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_SHA_STYLE }}
+      NIGHTLY: ${{ github.event_name == 'schedule' }}
+    secrets: inherit
