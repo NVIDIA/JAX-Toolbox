@@ -93,8 +93,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
-          DOCKE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep sha)
-          echo "DOCKE_TAG=$DOCKE_TAG" >> $GITHUB_ENV
+          DOCKER_TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep sha)
+          echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
 
       - name: Upload image tags as artifacts
         uses: actions/upload-artifact@v3
@@ -113,7 +113,7 @@ jobs:
                 workflow_id: "t5x-build.yaml",
                 ref: context.ref,
                 inputs: {
-                  BASE_IMAGE: "${{ env.DOCKE_TAG }}",
+                  BASE_IMAGE: "${{ env.DOCKER_TAG }}",
                   NIGHTLY: ${{ github.event_name == 'schedule' }}
                 },
               })
