@@ -1,11 +1,23 @@
 name: Build JAX container
 
 on:
+  workflow_call:
+    inputs:
+      BASE_IMAGE:
+        type: string
+        description: 'Base docker image that provides CUDA and Python:'
+        required: false
+        default: ghcr.io/nvidia/jax-toolbox:base
   workflow_dispatch:
+    inputs:
+      BASE_IMAGE:
+        type: string
+        description: 'Base docker image that provides CUDA and Python:'
+        required: false
+        default: ghcr.io/nvidia/jax-toolbox:base
 
 env:
   TARGET: jax
-  BASE_IMAGE: ghcr.io/nvidia/jax-toolbox:base
   UPLD_IMAGE: ghcr.io/nvidia/jax
   REPO_JAX: https://github.com/google/jax.git
   REPO_XLA: https://github.com/openxla/xla.git
@@ -82,8 +94,12 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |          
-            BASE_IMAGE=${{ env.BASE_IMAGE }}
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ env.BUILD_DATE }}
+            REPO_JAX=${{ env.REPO_JAX }}
+            REPO_XLA=${{ env.REPO_XLA }}
+            REF_JAX=${{ env.REF_JAX }}
+            REF_XLA=${{ env.REF_XLA }}
 
       - name: Generate outputs and artifacts
         shell: bash -x -e {0}
