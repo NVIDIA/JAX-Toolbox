@@ -1,10 +1,6 @@
 name: Build JAX container
 
 on:
-  push:
-  pull_request:
-  schedule:
-    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
   workflow_dispatch:
 
 env:
@@ -77,17 +73,17 @@ jobs:
           driver-opts: |
             image=moby/buildkit:v0.10.6
 
-      # - name: Build docker images
-      #   uses: docker/build-push-action@v4
-      #   with:
-      #     context: .github/container
-      #     push: true
-      #     file: .github/container/Dockerfile.jax
-      #     tags: ${{ steps.meta.outputs.tags }}
-      #     labels: ${{ steps.meta.outputs.labels }}
-      #     build-args: |          
-      #       BASE_IMAGE=${{ env.BASE_IMAGE }}
-      #       BUILD_DATE=${{ env.BUILD_DATE }}
+      - name: Build docker images
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile.jax
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |          
+            BASE_IMAGE=${{ env.BASE_IMAGE }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
 
       - name: Generate outputs and artifacts
         shell: bash -x -e {0}
