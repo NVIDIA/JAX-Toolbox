@@ -95,6 +95,7 @@ jobs:
           echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
           DOCKER_TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep sha)
           echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
+          echo "::set-output name=DOCKER_TAG::$DOCKER_TAG"
 
       - name: Upload image tags as artifacts
         uses: actions/upload-artifact@v3
@@ -102,29 +103,28 @@ jobs:
           name: image-tags-${{ env.TARGET }}
           path: image-tags-${{ env.TARGET }}.txt
 
-      - name: Trigger
-        uses: actions/github-script@v6
-        with:
-          retries: 3
-          script: |
-            console.log(
-              await github.rest.actions.createWorkflowDispatch({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: "t5x-build.yaml",
-                ref: context.ref,
-                inputs: {
-                  BASE_IMAGE: "${{ env.DOCKER_TAG }}",
-                  NIGHTLY: ${{ github.event_name == 'schedule' }}
-                },
-              })
-            );
-            // console.log(response);
+      # - name: Trigger
+      #   uses: actions/github-script@v6
+      #   with:
+      #     retries: 3
+      #     script: |
+      #       console.log(
+      #         await github.rest.actions.createWorkflowDispatch({
+      #           owner: context.repo.owner,
+      #           repo: context.repo.repo,
+      #           workflow_id: "t5x-build.yaml",
+      #           ref: context.ref,
+      #           inputs: {
+      #             BASE_IMAGE: "${{ env.DOCKER_TAG }}",
+      #             NIGHTLY: ${{ github.event_name == 'schedule' }}
+      #           },
+      #         })
+      #       );
 
-  # trigger:
-  #   uses: ./.github/workflows/t5x-build.yaml
-  #   needs: build
-  #   with:
-  #     BASE_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_SHA_STYLE }}
-  #     NIGHTLY: ${{ github.event_name == 'schedule' }}
-  #   secrets: inherit
+  trigger:
+    uses: ./.github/workflows/t5x-build.yaml
+    needs: build
+    with:
+      BASE_IMAGE: ${{ needs.build.outputs.DOCKER_TAG }}
+      NIGHTLY: ${{ github.event_name == 'schedule' }}
+    secrets: inherit
