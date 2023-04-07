@@ -8,6 +8,11 @@ on:
         description: 'Base docker image that provides CUDA and Python:'
         required: false
         default: ghcr.io/nvidia/jax-toolbox:base
+      NIGHTLY:
+        type: boolean
+        description: 'Is this a nightly build?'
+        required: false
+        default: false
   workflow_dispatch:
     inputs:
       BASE_IMAGE:
@@ -15,6 +20,11 @@ on:
         description: 'Base docker image that provides CUDA and Python:'
         required: false
         default: ghcr.io/nvidia/jax-toolbox:base
+      NIGHTLY:
+        type: boolean
+        description: 'Is this a nightly build?'
+        required: false
+        default: false
 
 env:
   TARGET: jax
@@ -70,8 +80,10 @@ jobs:
           tags: |
             type=sha
             type=edge,branch=main
-            type=schedule,suffix=-${{ env.BUILD_DATE }}
-            type=raw,value=latest,enable=${{ github.event_name == 'schedule' }},priority=1000
+            type=raw,value=nightly-${{ env.BUILD_DATE }},enable=${{ inputs.NIGHTLY }},priority=900
+            type=raw,value=latest,enable=${{ inputs.NIGHTLY }},priority=1000
+            # type=schedule,suffix=-${{ env.BUILD_DATE }}
+            # type=raw,value=latest,enable=${{ github.event_name == 'schedule' }},priority=1000
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
