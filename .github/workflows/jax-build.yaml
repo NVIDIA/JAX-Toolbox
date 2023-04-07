@@ -41,7 +41,7 @@ jobs:
         uses: styfle/cancel-workflow-action@0.11.0
         with:
           access_token: ${{ github.token }}
-        # if: ${{github.ref != 'refs/head/main'}}
+        if: ${{github.ref != 'refs/head/main'}}
 
       - name: Set build date
         shell: bash -x -e {0}
@@ -107,7 +107,6 @@ jobs:
           echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
           DOCKER_TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep sha)
           echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
-          echo "::set-output name=DOCKER_TAG::$DOCKER_TAG"
 
       - name: Upload image tags as artifacts
         uses: actions/upload-artifact@v3
@@ -133,10 +132,10 @@ jobs:
       #         })
       #       );
 
-  trigger:
-    uses: ./.github/workflows/t5x-build.yaml
-    needs: build
-    with:
-      BASE_IMAGE: ${{ needs.build.outputs.DOCKER_TAG }}
-      NIGHTLY: ${{ github.event_name == 'schedule' }}
-    secrets: inherit
+  # trigger:
+  #   uses: ./.github/workflows/t5x-build.yaml
+  #   needs: build
+  #   with:
+  #     BASE_IMAGE: ${{ needs.build.outputs.DOCKER_TAG }}
+  #     NIGHTLY: ${{ github.event_name == 'schedule' }}
+  #   secrets: inherit

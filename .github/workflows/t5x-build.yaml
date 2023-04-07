@@ -27,6 +27,7 @@ on:
         default: false
 
 env:
+  TARGET: t5x
   UPLD_IMAGE: ghcr.io/nvidia/t5x
 
 permissions:
@@ -94,3 +95,16 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+
+      - name: Generate outputs and artifacts
+        shell: bash -x -e {0}
+        run: |
+          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
+          DOCKER_TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep sha)
+          echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
+
+      - name: Upload image tags as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: image-tags-${{ env.TARGET }}
+          path: image-tags-${{ env.TARGET }}.txt

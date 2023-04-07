@@ -1,0 +1,26 @@
+name: Build nightly containers
+
+on:
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+
+  jax:
+    uses: ./.github/workflows/jax-build.yaml
+    with:
+      NIGHTLY: ${{ github.event_name == 'schedule' }}
+    secrets: inherit
+
+  t5x:
+    uses: ./.github/workflows/t5x-build.yaml
+    needs: jax
+    with:
+      NIGHTLY: ${{ github.event_name == 'schedule' }}
+    secrets: inherit
