@@ -2,7 +2,7 @@ name: Build CUDA+Python base container
 
 on:
   schedule:
-    - cron: '30 0 * * 5'  # weekly
+    - cron: '30 13 * * 5'  # 5:30 AM every Friday
   workflow_dispatch:
   workflow_call:
 
