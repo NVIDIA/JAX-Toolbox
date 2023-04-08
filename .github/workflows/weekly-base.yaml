@@ -12,6 +12,6 @@ permissions:
 
 jobs:
 
-  build:
+  base:
     uses: ./.github/workflows/_build_base.yaml
     secrets: inherit
