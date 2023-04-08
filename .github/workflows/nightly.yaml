@@ -1,6 +1,7 @@
-name: Build nightly containers
+name: Build containers
 
 on:
+  push:
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
   workflow_dispatch:
@@ -13,14 +14,37 @@ permissions:
 jobs:
 
   jax:
-    uses: ./.github/workflows/jax-build.yaml
-    with:
-      NIGHTLY: ${{ github.event_name == 'schedule' }}
-    secrets: inherit
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Trigger
+        uses: actions/github-script@v6
+        with:
+          retries: 3
+          script: |
+            workflow = await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "jax-build.yaml",
+              ref: context.ref,
+              inputs: {
+                NIGHTLY: ${{ github.event_name == 'schedule' }}
+              },
+            })
 
-  t5x:
-    uses: ./.github/workflows/t5x-build.yaml
-    needs: jax
-    with:
-      NIGHTLY: ${{ github.event_name == 'schedule' }}
-    secrets: inherit
+            console.log(workflow);
+
+
+          
+  # jax:
+  #   uses: ./.github/workflows/jax-build.yaml
+  #   with:
+  #     NIGHTLY: ${{ github.event_name == 'schedule' }}
+  #   secrets: inherit
+
+  # t5x:
+  #   uses: ./.github/workflows/t5x-build.yaml
+  #   needs: jax
+  #   with:
+  #     NIGHTLY: ${{ github.event_name == 'schedule' }}
+  #   secrets: inherit
+
