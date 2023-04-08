@@ -70,8 +70,6 @@ jobs:
         shell: bash -x -e {0}
         run: |
           echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
-          DOCKER_TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep sha)
-          echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
 
       - name: Upload image tags as artifacts
         uses: actions/upload-artifact@v3
