@@ -1,0 +1,19 @@
+name: Nightly JAX build
+
+on:
+  push:  # for debug only
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+
+  jax:
+    uses: ./.github/workflows/_build_jax.yaml
+    with:
+      NIGHTLY: ${{ github.event_name == 'schedule' }}
+    secrets: inherit

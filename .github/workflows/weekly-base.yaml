@@ -1,7 +1,6 @@
 name: Weekly base container build
 
 on:
-  push:  # for debug only
   schedule:
     - cron: '30 13 * * 5'  # 5:30 AM every Friday
 
