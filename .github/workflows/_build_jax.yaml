@@ -13,18 +13,6 @@ on:
         description: 'Is this a nightly build?'
         required: false
         default: false
-  workflow_dispatch:
-    inputs:
-      BASE_IMAGE:
-        type: string
-        description: 'Base docker image that provides CUDA and Python:'
-        required: false
-        default: ghcr.io/nvidia/jax-toolbox:base
-      NIGHTLY:
-        type: boolean
-        description: 'Is this a nightly build?'
-        required: false
-        default: false
 
 env:
   TARGET: jax

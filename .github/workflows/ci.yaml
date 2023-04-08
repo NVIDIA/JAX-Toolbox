@@ -1,9 +1,9 @@
 name: Build containers
 
 on:
-  push:
-  schedule:
-    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  # push:
+  # schedule:
+  #   - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
   workflow_dispatch:
 
 permissions:

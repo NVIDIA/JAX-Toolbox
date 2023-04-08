@@ -1,12 +1,10 @@
 name: Build CUDA+Python base container
 
 on:
-  schedule:
-    - cron: '30 13 * * 5'  # 5:30 AM every Friday
-  workflow_dispatch:
   workflow_call:
 
 env:
+  TARGET: base
   BASE_IMAGE: nvidia/cuda:12.1.0-devel-ubuntu22.04
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox
 
@@ -67,3 +65,16 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ env.BASE_IMAGE }}
+
+      - name: Generate outputs and artifacts
+        shell: bash -x -e {0}
+        run: |
+          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
+          DOCKER_TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep sha)
+          echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
+
+      - name: Upload image tags as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: image-tags-${{ env.TARGET }}
+          path: image-tags-${{ env.TARGET }}.txt

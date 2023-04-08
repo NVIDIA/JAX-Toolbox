@@ -1,7 +1,7 @@
-name: Test T5X
+name: Test JAX
 
 on:
-  push:
+  # push:
   #   branches: [ "main" ] 
   # pull_request:
   #   branches: [ "main" ]
