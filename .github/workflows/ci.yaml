@@ -36,14 +36,10 @@ jobs:
           
   # jax:
   #   uses: ./.github/workflows/jax-build.yaml
-  #   with:
-  #     NIGHTLY: ${{ github.event_name == 'schedule' }}
   #   secrets: inherit
 
   # t5x:
   #   uses: ./.github/workflows/t5x-build.yaml
   #   needs: jax
-  #   with:
-  #     NIGHTLY: ${{ github.event_name == 'schedule' }}
   #   secrets: inherit
 

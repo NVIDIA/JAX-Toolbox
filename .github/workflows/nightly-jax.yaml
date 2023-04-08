@@ -1,7 +1,6 @@
 name: Nightly JAX build
 
 on:
-  push:  # for debug only
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
 
