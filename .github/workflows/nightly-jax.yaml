@@ -1,6 +1,7 @@
 name: Nightly JAX build
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
 

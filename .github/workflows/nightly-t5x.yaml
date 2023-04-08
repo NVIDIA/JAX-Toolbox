@@ -1,7 +1,6 @@
 name: Nightly T5X build
 
 on:
-  push:  # for debug only
   workflow_run:
     workflows: [Nightly JAX build]
     types: [completed]
