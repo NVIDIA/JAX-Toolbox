@@ -19,7 +19,7 @@ jobs:
       NIGHTLY: ${{ github.event_name == 'schedule' }}
     secrets: inherit
 
-  on-failure:
+  on-upstream-failure:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     steps:

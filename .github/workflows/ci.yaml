@@ -1,9 +1,7 @@
-name: Build containers
+name: All CI tests
 
 on:
-  # push:
-  # schedule:
-  #   - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  push:
   workflow_dispatch:
 
 permissions:
@@ -14,32 +12,14 @@ permissions:
 jobs:
 
   jax:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Trigger
-        uses: actions/github-script@v6
-        with:
-          retries: 3
-          script: |
-            workflow = await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: "jax-build.yaml",
-              ref: context.ref,
-              inputs: {
-                NIGHTLY: ${{ github.event_name == 'schedule' }}
-              },
-            })
+    uses: ./.github/workflows/_build_jax.yaml
+    with:
+      NIGHTLY: false
+    secrets: inherit
 
-            console.log(workflow);
-
-          
-  # jax:
-  #   uses: ./.github/workflows/jax-build.yaml
-  #   secrets: inherit
-
-  # t5x:
-  #   uses: ./.github/workflows/t5x-build.yaml
-  #   needs: jax
-  #   secrets: inherit
-
+  t5x:
+    uses: ./.github/workflows/_build_t5x.yaml
+    needs: jax
+    with:
+      NIGHTLY: false
+    secrets: inherit
