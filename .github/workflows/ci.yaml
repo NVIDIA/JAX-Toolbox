@@ -1,7 +1,7 @@
 name: Default CI test sets
 
 on:
-  push:
+  # push:
   workflow_dispatch:
 
 permissions:
