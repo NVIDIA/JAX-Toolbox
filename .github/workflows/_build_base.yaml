@@ -1,4 +1,4 @@
-name: Build CUDA+Python base container
+name: ~build CUDA+Python base container
 
 on:
   workflow_call:

@@ -1,4 +1,4 @@
-name: Build T5X container
+name: ~build T5X container
 
 on:
   workflow_call:

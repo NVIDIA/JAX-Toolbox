@@ -3,6 +3,13 @@ name: Weekly base container build
 on:
   schedule:
     - cron: '30 13 * * 5'  # 5:30 AM every Friday
+  workflow_dispatch:
+    inputs:
+      AS_WEEKLY:
+        type: boolean
+        description: Create nightly images?
+        default: false
+        required: false
 
 permissions:
   contents: read  # to fetch code

@@ -1,4 +1,4 @@
-name: Build JAX container
+name: ~build JAX container
 
 on:
   workflow_call:
