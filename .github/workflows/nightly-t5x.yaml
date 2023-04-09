@@ -4,6 +4,13 @@ on:
   workflow_run:
     workflows: [Nightly JAX build]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      AS_NIGHTLY:
+        type: boolean
+        description: Create nightly images?
+        default: false
+        required: false
 
 permissions:
   contents: read  # to fetch code
@@ -16,7 +23,7 @@ jobs:
     uses: ./.github/workflows/_build_t5x.yaml
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     with:
-      NIGHTLY: ${{ github.event_name == 'workflow_run' }}
+      NIGHTLY: ${{ github.event_name == 'workflow_run' || input.AS_NIGHTLY }}
     secrets: inherit
 
   on-upstream-failure:
