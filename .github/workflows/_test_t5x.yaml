@@ -31,5 +31,6 @@ jobs:
           date
           hostname
           sinfo
+          salloc -N 1 -t 15:00 --gpus-per-node=8
           srun --container-image=ghcr.io#nvidia/t5x:nightly-2023-04-07 --container-entrypoint test-t5x.sh --dtype bfloat16 --batch-per-gpu 16 --gpus 0,1,2,3,4,5,6,7 --epochs 7 --steps-per-epoch 100
           EOF
