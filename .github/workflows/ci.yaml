@@ -1,4 +1,4 @@
-name: All CI tests
+name: Default CI test sets
 
 on:
   push:
