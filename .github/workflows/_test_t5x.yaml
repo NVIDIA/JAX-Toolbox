@@ -1,14 +1,13 @@
 name: ~test T5X
 
 on:
-  push:
   #   branches: [ "main" ] 
   # pull_request:
   #   branches: [ "main" ]
   # schedule:
   #   - cron: '30 3 * * *'  # runs daily at 03:30 AM
   ## allow manual run from the Actions tab
-  workflow_dispatch:
+  workflow_call:
 
 jobs:
 
@@ -26,11 +25,27 @@ jobs:
       - name: Run SLURM jobs
         shell: bash -x -e {0}
         run: |
+          DATE=$(date "+%Y-%m-%d")
           echo "168.138.192.147 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3Yj+KsRk2xL7TotfGCKiEqb03nbCTgnnDFni+4hrI9QmB9+vjHtLyLCCHDN/ndxn1ZaViMT7t+ItUVHqussnWzQg2geRlHNvMOe/2EZlCnPsp6UNlxEa6mqCZm6ARE3VQDeUFHdyG8gmy0YKshZ2s2RT6kYqo+sICOx3QLG+6ANRz+CEC/+/4FXkwW+L01BaRV+/R+WY3ompVcH7cmoo+CdWN1q7ipDtt6QNX1TvtRIz+qVt3gspQ75CkU40IZu/mjHtVlXXwog3OmSuZt0f4uV6AIRR2bfr7exj+BQKKyctJpfHIYAQRWayxGaQF3n+KOm3sR8zGhw0mJBhgSXN9" >> ~/.ssh/known_hosts
-          ssh -o "ServerAliveInterval=10" opc@168.138.192.147 << EOF
+          ssh -o "ServerAliveInterval=10" opc@168.138.192.147 |& tee t5x.log  << EOF
           date
           hostname
           sinfo
           salloc -N 1 -t 4:00:00 --gpus-per-node=8
-          srun --container-image=ghcr.io#nvidia/t5x:nightly-2023-04-10 --container-entrypoint test-t5x.sh --dtype bfloat16 --batch-per-gpu 16 --gpus 0,1,2,3,4,5,6,7 --epochs 7 --steps-per-epoch 100
+          srun \
+            --container-name=t5x \
+            --container-image=ghcr.io#nvidia/t5x:latest \
+            --container-entrypoint \
+            test-t5x.sh \
+              --output $DATE-A100-8G1N \
+              --dtype bfloat16 \
+              --batch-per-gpu 16 \
+              --gpus 0,1,2,3,4,5,6,7 \
+              --epochs 7 \
+              --steps-per-epoch 100
           EOF
+
+      - name: Postprocessing
+        shell: bash -x -e {0}
+        run: |
+          true

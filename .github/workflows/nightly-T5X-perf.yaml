@@ -1,0 +1,34 @@
+name: Nightly T5X performance benchmark
+
+on:
+  push:
+  workflow_run:
+    workflows: [Nightly T5X build]
+    types: [completed]
+  workflow_dispatch:
+    # inputs:
+    #   IMAGE:
+    #     type: string
+    #     description: T5X container
+    #     default: ghcr.io/nvidia/t5x:latest
+    #     required: false
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+
+  t5x:
+    uses: ./.github/workflows/_test_t5x.yaml
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # with:
+    #   NIGHTLY: ${{ inputs.IMAGE }}
+    secrets: inherit
+
+  on-upstream-failure:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1

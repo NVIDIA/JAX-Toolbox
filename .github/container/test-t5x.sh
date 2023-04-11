@@ -11,17 +11,17 @@ usage() {
     echo ""
     echo "Usage: $0 [OPTIONS]"
     echo ""
-    echo "  OPTIONS            DESCRIPTION"
+    echo "  OPTIONS                DESCRIPTION"
     echo "  -b, --batch-per-gpu    Batch size per GPU, defaults to 32."
     echo "  -d, --dtype            Batch size, defaults to bfloat16."
     echo "  -e, --epochs           Number of epochs to run, defaults to 7."
     echo "  -g, --gpus             IDs of GPUs to use, e.g. '0,1,2,3'."
-    echo "  -s, --steps-per-epoch  Number of steps per epoch, defaults to 100."
-    echo "  -h, --help         Print usage."
+    echo "  -o, --output NAME      Name for the output folder, defaults to 'model'."
+    echo "  -h, --help             Print usage."
     exit $1
 }
 
-args=$(getopt -o b:d:e:g:s:h --long batch-per-gpu:,dtype:,epochs:,gpus:,steps-per-epoch: -- "$@")
+args=$(getopt -o b:d:e:g:o:s:h --long batch-per-gpu:,dtype:,epochs:,gpus:,help,output:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -32,6 +32,7 @@ BATCH_PER_GPU=32
 DTYPE=bfloat16
 EPOCHS=7
 GPUS="all"
+OUTPUT="model"
 STEPS_PER_EPOCH=100
 
 eval set -- "$args"
@@ -51,6 +52,10 @@ while [ : ]; do
             ;;
         -g | --gpus)
             GPUS="$2"
+            shift 2
+            ;;
+        -o | --output)
+            OUTPUT="$2"
             shift 2
             ;;
         -s | --steps-per-epoch)
@@ -88,6 +93,7 @@ print_var DTYPE
 print_var EPOCHS
 print_var GPUS
 print_var NGPUS
+print_var OUTPUT
 print_var STEPS_PER_EPOCH
 print_var TRAIN_STEPS
 
@@ -98,7 +104,8 @@ pip install babel sacrebleu scikit-learn rouge_score
 pip install --no-deps git+https://github.com/google-research/text-to-text-transfer-transformer.git
 
 ## Enter T5X source folder
-pushd $(dirname `python -c 'import t5x; print(*t5x.__path__)'`)
+T5X_DIR=$(dirname `python -c 'import t5x; print(*t5x.__path__)'`)
+pushd ${T5X_DIR}
 
 ## Create Python module to define seqio data source
 cat > dummy_wikipedia.py <<EOF
@@ -156,16 +163,16 @@ partitioning.PjitPartitioner:
     num_partitions = 1
 EOF
 
-
 ## Launch
 set -x
-export CUDA_VISIBLE_DEVICES=${GPUS}
-python t5x/train.py \
+CUDA_VISIBLE_DEVICES=${GPUS} python -m t5x.train \
     --gin_file benchmark.gin \
-    --gin.MODEL_DIR=\"./model\" \
+    --gin.MODEL_DIR=\"./${OUTPUT}\" \
     --gin.network.T5Config.dtype=\"${DTYPE}\" \
     --gin.TRAIN_STEPS=${TRAIN_STEPS} \
     --gin.BATCH_SIZE=${BATCH_SIZE} \
     --gin.train.eval_steps=0 \
     --gin.train.eval_period=${STEPS_PER_EPOCH} \
     --gin.CheckpointConfig.save=None
+set +x
+echo "Output at $T5X_DIR/${OUTPUT}"
