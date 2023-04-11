@@ -16,7 +16,7 @@ usage() {
     echo "  -d, --dtype            Batch size, defaults to bfloat16."
     echo "  -e, --epochs           Number of epochs to run, defaults to 7."
     echo "  -g, --gpus             IDs of GPUs to use, e.g. '0,1,2,3'."
-    echo "  -o, --output NAME      Name for the output folder, defaults to 'model'."
+    echo "  -o, --output NAME      Name for the output folder, use temporary ones if not specified."
     echo "  -h, --help             Print usage."
     exit $1
 }
@@ -32,7 +32,7 @@ BATCH_PER_GPU=32
 DTYPE=bfloat16
 EPOCHS=7
 GPUS="all"
-OUTPUT="model"
+OUTPUT=$(mktemp -d)
 STEPS_PER_EPOCH=100
 
 eval set -- "$args"
@@ -167,7 +167,7 @@ EOF
 set -x
 CUDA_VISIBLE_DEVICES=${GPUS} python -m t5x.train \
     --gin_file benchmark.gin \
-    --gin.MODEL_DIR=\"./${OUTPUT}\" \
+    --gin.MODEL_DIR=\"${OUTPUT}\" \
     --gin.network.T5Config.dtype=\"${DTYPE}\" \
     --gin.TRAIN_STEPS=${TRAIN_STEPS} \
     --gin.BATCH_SIZE=${BATCH_SIZE} \
@@ -175,4 +175,4 @@ CUDA_VISIBLE_DEVICES=${GPUS} python -m t5x.train \
     --gin.train.eval_period=${STEPS_PER_EPOCH} \
     --gin.CheckpointConfig.save=None
 set +x
-echo "Output at $T5X_DIR/${OUTPUT}"
+echo "Output at ${OUTPUT}"

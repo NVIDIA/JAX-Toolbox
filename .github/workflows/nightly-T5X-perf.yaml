@@ -1,10 +1,10 @@
 name: Nightly T5X performance benchmark
 
 on:
-  push:
-  workflow_run:
-    workflows: [Nightly T5X build]
-    types: [completed]
+  # push:
+  # workflow_run:
+  #   workflows: [Nightly T5X build]
+  #   types: [completed]
   workflow_dispatch:
     # inputs:
     #   IMAGE:
