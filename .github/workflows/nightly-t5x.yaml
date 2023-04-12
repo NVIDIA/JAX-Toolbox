@@ -21,13 +21,13 @@ jobs:
 
   t5x:
     uses: ./.github/workflows/_build_t5x.yaml
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     with:
       NIGHTLY: ${{ github.event_name == 'workflow_run' || inputs.AS_NIGHTLY }}
     secrets: inherit
 
   on-upstream-failure:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
     steps:
       - run: echo 'Upstream workflow failed, aborting run' && exit 1
