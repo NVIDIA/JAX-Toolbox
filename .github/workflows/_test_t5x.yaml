@@ -12,6 +12,7 @@ on:
 env:
   OCI_TENSORBOARD_HOST: "ubuntu@165.1.79.135"
   OCI_HOSTKEY_TENSORBOARD_HOST: "165.1.79.135 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC+/i0SQXfIUF/GVFFw4XbjPObOuI5Xe7ZYS8fxYtQGXVBnaGs+2qYpmNS2GNoMhAc/w6+uP0gNJcVj0TXNWtSJgXgagO6zVqD4xGSqNOU82PsqRiJvVzjA4nTcGrBdIzh6sLwgkjuGKKjF5XhCJ6BQwPH/GLS9b16eewi3Ppmxp1SKca2sXIUPLrCOpZ4RY/hiQm9vTUfmOWuijxQcbOGWtc6ghV1IJpyCZGtvakhr/nR1LFQmDdbJ7MtKyqmoBbeiEQmlht2a7FGVQY8KTZsVSpYUUHT2zwGLBqogRlaxbv3ANavklG06ZpQJtpf300nr6Ix1UpAedhVpuJVGVJR9kyGZHrll60tjTMzy5Kq3RmxjmF9b524Ig8gMmwIi1G+sU5+OUSzVNGzeuvAhSOwKbFLFq9n8nPdBYGh2MDSm4aIv3Zl/YmyM4Ts2OdKF/BWyqUaGtgz38zUWEbZ2QvnebiTGcBkjBC4b8yMCjTubIFanjUNOFWz4E6GWW5enh5c="
+  TEST: 123
 
 jobs:
 
@@ -36,6 +37,7 @@ jobs:
           script_stop: true  # stop on first failure
           command_timeout: 60m
           script: |
+            echo ${{ env.TEST }}
             whoami
             date
             hostname
