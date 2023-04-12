@@ -71,7 +71,6 @@ apt-get install -y \
 git clone ${T5X_REPO} ${INSTALL_DIR}/t5x
 cd ${INSTALL_DIR}/t5x
 git checkout ${T5X_REF}
-pip install flax==0.6.8 # temporary fix due to Flax Egg metadata error  on Apr 11, 2023
 pip install -e .[gpu]
 
 apt-get autoremove -y
