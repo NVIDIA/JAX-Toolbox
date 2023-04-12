@@ -26,18 +26,13 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Add host key
-        shell: bash -x -e {0}
-        run: |
-          echo ${{ env.OCI_HOSTKEY_CLUSTER_BASTION }} >> ~/.ssh/known_hosts
-          echo ${{ env.OCI_HOSTKEY_TENSORBOARD_HOST }} >> ~/.ssh/known_hosts
-
       - name: Run SLURM jobs over SSH
         uses: appleboy/ssh-action@v0.1.9
         with:
           host: "168.138.192.147"
           fingerprint: "x+JEIYNhshRHYCi2l9/qiW5a3oLhN10M+dPa1KinwAQ"
           username: opc
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true  # stop on first failure
           script: |
             whoami
