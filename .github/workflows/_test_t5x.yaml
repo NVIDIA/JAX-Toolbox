@@ -38,28 +38,29 @@ jobs:
           command_timeout: 60m
           script: |
             echo ${{ env.TEST }}
-            whoami
-            date
-            hostname
-            sinfo
-            NGPU=8
-            NNODE=1
-            TZ="America/Los_Angeles" DATE=$(date "+%Y-%m-%d")
-            OUTPUT="/${DATE}-${NGPU}G${NNODE}N"
-            mkdir -p ${HOME}/${OUTPUT}
-            salloc -N 1 -t 4:00:00 --gpus-per-node=8
-            srun \
-              --container-name=t5x \
-              --container-image=ghcr.io#nvidia/t5x:latest \
-              --container-mounts=${HOME}/${OUTPUT}:${OUTPUT} \
-              --container-entrypoint \
-              test-t5x.sh \
-                --output ${OUTPUT} \
-                --dtype bfloat16 \
-                --batch-per-gpu 16 \
-                --gpus 0,1,2,3,4,5,6,7 \
-                --epochs 7 \
-                --steps-per-epoch 100
+
+          # whoami
+          # date
+          # hostname
+          # sinfo
+          # NGPU=8
+          # NNODE=1
+          # TZ="America/Los_Angeles" DATE=$(date "+%Y-%m-%d")
+          # OUTPUT="/${DATE}-${NGPU}G${NNODE}N"
+          # mkdir -p ${HOME}/${OUTPUT}
+          # salloc -N 1 -t 4:00:00 --gpus-per-node=8
+          # srun \
+          #   --container-name=t5x \
+          #   --container-image=ghcr.io#nvidia/t5x:latest \
+          #   --container-mounts=${HOME}/${OUTPUT}:${OUTPUT} \
+          #   --container-entrypoint \
+          #   test-t5x.sh \
+          #     --output ${OUTPUT} \
+          #     --dtype bfloat16 \
+          #     --batch-per-gpu 16 \
+          #     --gpus 0,1,2,3,4,5,6,7 \
+          #     --epochs 7 \
+          #     --steps-per-epoch 100
 
       #   run: |
       #     NGPU=8
