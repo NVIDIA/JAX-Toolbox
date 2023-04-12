@@ -37,17 +37,17 @@ jobs:
       - name: Run SLURM jobs
         shell: bash -x -e {0}
         run: |
+          NGPU=8
+          NNODE=1
           DATE=$(date "+%Y-%m-%d")
+          OUTPUT_HOST="${HOME}/${DATE}-${NGPU}G${NNODE}N"
+          OUTPUT_CONTAINER="/${DATE}-${NGPU}G${NNODE}N"
           ssh -o "ServerAliveInterval=10" ${{ env.OCI_CLUSTER_BASTION }} |& tee t5x.log  << EOF
           date
           hostname
           sinfo
           salloc -N 1 -t 4:00:00 --gpus-per-node=8
-          NGPU=8
-          NNODE=1
-          OUTPUT_HOST="${HOME}/${DATE}-${NGPU}G${NNODE}N"
-          OUTPUT_CONTAINER="/${DATE}-${NGPU}G${NNODE}N"
-          mkdir -p ${OUTPUT}
+          mkdir -p ${OUTPUT_HOST}
           srun \
             --container-name=t5x \
             --container-image=ghcr.io#nvidia/t5x:latest \
