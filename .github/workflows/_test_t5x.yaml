@@ -30,7 +30,7 @@ jobs:
         uses: appleboy/ssh-action@v0.1.9
         with:
           host: "168.138.192.147"
-          fingerprint: "x+JEIYNhshRHYCi2l9/qiW5a3oLhN10M+dPa1KinwAQ"
+          fingerprint: "eJ480kslMt28+pJjzp0rpNnXCfOCdSzB9PFrXFRts5M"
           username: opc
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true  # stop on first failure
