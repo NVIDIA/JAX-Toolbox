@@ -34,6 +34,7 @@ jobs:
           username: ${{ secrets.CLUSTER_LOGIN_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true  # stop on first failure
+          command_timeout: 60m
           script: |
             whoami
             date
@@ -43,8 +44,8 @@ jobs:
             NNODE=1
             TZ="America/Los_Angeles" DATE=$(date "+%Y-%m-%d")
             OUTPUT="/${DATE}-${NGPU}G${NNODE}N"
-            salloc -N 1 -t 4:00:00 --gpus-per-node=8
             mkdir -p ${HOME}/${OUTPUT}
+            salloc -N 1 -t 4:00:00 --gpus-per-node=8
             srun \
               --container-name=t5x \
               --container-image=ghcr.io#nvidia/t5x:latest \
