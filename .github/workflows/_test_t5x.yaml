@@ -48,7 +48,7 @@ jobs:
             srun \
               --container-name=t5x \
               --container-image=ghcr.io#nvidia/t5x:latest \
-              --container-mounts=${HOME}/${OUTPUT}:${OUTPUT}
+              --container-mounts=${HOME}/${OUTPUT}:${OUTPUT} \
               --container-entrypoint \
               test-t5x.sh \
                 --output ${OUTPUT} \
