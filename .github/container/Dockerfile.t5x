@@ -2,7 +2,7 @@
 ## T5X
 ###############################################################################
 
-ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:jax
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
 FROM ${BASE_IMAGE}
 
 ADD install-t5x.sh /usr/local/bin
