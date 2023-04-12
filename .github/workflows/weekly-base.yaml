@@ -5,9 +5,9 @@ on:
     - cron: '30 13 * * 5'  # 5:30 AM every Friday
   workflow_dispatch:
     inputs:
-      AS_WEEKLY:
+      LATEST:
         type: boolean
-        description: Create nightly images?
+        description: Update the 'latest' images?
         default: false
         required: false
 
@@ -21,3 +21,5 @@ jobs:
   base:
     uses: ./.github/workflows/_build_base.yaml
     secrets: inherit
+    with:
+      LATEST: ${{ inputs.LATEST }}
