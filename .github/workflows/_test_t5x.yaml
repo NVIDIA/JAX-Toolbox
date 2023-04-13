@@ -53,13 +53,13 @@ jobs:
           #SBATCH --nodes=${NNODE}
           #SBATCH --exclusive
           #SBATCH --time=00:30:00
-          date
+          srun \
+            --container-image=ghcr.io#nvidia/t5x:latest \
+            --container-mounts=${OUTPUT}:/output \
+            --container-entrypoint \
+            date
           EOF
 
-          # srun \
-          #   --container-image=ghcr.io#nvidia/t5x:latest \
-          #   --container-mounts=${OUTPUT}:/output \
-          #   --container-entrypoint \
           #   test-t5x.sh \
           #     --output ${OUTPUT}/${NGPU}G${NNODE}N \
           #     --dtype bfloat16 \
