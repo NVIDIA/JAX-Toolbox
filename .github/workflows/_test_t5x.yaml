@@ -82,14 +82,13 @@ jobs:
           script_stop: true  # stop on first failure
           command_timeout: 60m
           script: |
-            set -ex
             date
             hostname
             whoami
             sinfo
             NNODE=1
             NGPU=8
-            GPU_LIST=$(seq 0 $(($NNODE - 1)))
+            GPU_LIST=$(seq 0 $(($NGPU - 1)))
             OUTPUT=$(mktemp -d -p /nfs/cluster)
             ls ${OUTPUT}
 
