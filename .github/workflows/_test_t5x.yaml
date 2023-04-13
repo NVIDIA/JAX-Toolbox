@@ -53,7 +53,7 @@ jobs:
           #SBATCH --time=00:30:00
           #SBATCH --output=${OUTPUT}/slurm.out
           time srun \
-            --container-image=ghcr.io#nvidia/t5x:2023-04-08 \
+            --container-image=ghcr.io#nvidia/t5x:nightly-2023-04-08 \
             --container-mounts=${OUTPUT}:/output \
             --container-entrypoint \
             test-t5x.sh \
