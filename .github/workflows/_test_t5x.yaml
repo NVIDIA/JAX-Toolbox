@@ -40,9 +40,7 @@ jobs:
       - name: Run SLURM jobs over SSH
         shell: bash -x -e {0}
         run: |
-          SSH(){
-            ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }} "$*"
-          }
+          alias SSH='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}'
           SSH "date && hostname && sinfo"
           NNODE=1
           NGPU=8
