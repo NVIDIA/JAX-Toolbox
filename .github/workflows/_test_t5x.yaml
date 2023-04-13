@@ -46,26 +46,24 @@ jobs:
           NGPU=8
           GPU_LIST=$(seq -s , 0 $(($NGPU - 1)))
           OUTPUT=$(SSH mktemp -d -p /nfs/cluster)
-          time SSH sbatch << EOF
+          SSH sbatch << EOF
           #!/bin/bash
           #SBATCH --nodes=${NNODE}
           #SBATCH --exclusive
           #SBATCH --time=00:30:00
+          #SBATCH --output=${OUTPUT}/slurm.out
           time srun \
             --container-image=ghcr.io#nvidia/t5x:latest \
             --container-mounts=${OUTPUT}:/output \
             --container-entrypoint \
-            date
+            test-t5x.sh \
+              --output ${OUTPUT}/${NGPU}G${NNODE}N \
+              --dtype bfloat16 \
+              --batch-per-gpu 16 \
+              --gpus ${GPU_LIST} \
+              --epochs 7 \
+              --steps-per-epoch 100
           EOF
-
-          #   test-t5x.sh \
-          #     --output ${OUTPUT}/${NGPU}G${NNODE}N \
-          #     --dtype bfloat16 \
-          #     --batch-per-gpu 16 \
-          #     --gpus ${GPU_LIST} \
-          #     --epochs 7 \
-          #     --steps-per-epoch 100
-
 
           # srun \
           #   --container-image=ghcr.io#nvidia/t5x:latest \
