@@ -50,13 +50,15 @@ jobs:
           #!/bin/bash
           #SBATCH --nodes=${NNODE}
           #SBATCH --exclusive
+          #SBATCH --gpus-per-node 8
           #SBATCH --time=00:30:00
           #SBATCH --output=${OUTPUT}/slurm.out
           time srun \
-            --container-image=ghcr.io#nvidia/t5x:nightly-2023-04-08 \
+            --container-image=ghcr.io#nvidia/t5x:latest \
             --container-mounts=${OUTPUT}:/output \
             --container-entrypoint \
             test-t5x.sh \
+              --output ${OUTPUT}/${NGPU}G${NNODE}N \
               --dtype bfloat16 \
               --batch-per-gpu 16 \
               --gpus ${GPU_LIST} \
@@ -64,13 +66,13 @@ jobs:
               --steps-per-epoch 100
           EOF
           )
+          set +x
           while SSH squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
             sleep 15
           done
           echo "SLRUM Job $JOB finished."
-
-          # --output ${OUTPUT}/${NGPU}G${NNODE}N \
+          set -x
 
           # srun \
           #   --container-image=ghcr.io#nvidia/t5x:latest \
