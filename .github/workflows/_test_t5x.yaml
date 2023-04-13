@@ -80,7 +80,7 @@ jobs:
           mkdir output/
           rsync -avz --progress ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}:$LOG ${NGPU}G${NNODE}N.log
           rsync -avz --progress ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}:$OUTPUT/* ./output/
-          rsync -avz --progress slurm.log ./output/* ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.TENSORBOARD_SERVER_IP }}:/tensorboard-logs/${{ env.DATE }}
+          rsync -avz --progress ${NGPU}G${NNODE}N.log ./output/* ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.TENSORBOARD_SERVER_IP }}:/tensorboard-logs/${{ env.DATE }}
 
       # - name: Run SLURM jobs over SSH
       #   uses: appleboy/ssh-action@v0.1.9
