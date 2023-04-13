@@ -46,7 +46,7 @@ jobs:
           NGPU=8
           GPU_LIST=$(seq -s , 0 $(($NGPU - 1)))
           OUTPUT=$(SSH mktemp -d -p /nfs/cluster)
-          JOB=$(SSH sbatch << EOF
+          JOB=$(SSH sbatch --parsable << EOF
           #!/bin/bash
           #SBATCH --nodes=${NNODE}
           #SBATCH --exclusive
