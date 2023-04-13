@@ -53,7 +53,7 @@ jobs:
           #SBATCH --nodes=${NNODE}
           #SBATCH --exclusive
           #SBATCH --time=00:30:00
-          srun \
+          time srun \
             --container-image=ghcr.io#nvidia/t5x:latest \
             --container-mounts=${OUTPUT}:/output \
             --container-entrypoint \
