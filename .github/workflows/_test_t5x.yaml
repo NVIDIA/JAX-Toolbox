@@ -46,7 +46,7 @@ jobs:
           NGPU=8
           GPU_LIST=$(seq -s , 0 $(($NGPU - 1)))
           OUTPUT=$(SSH mktemp -d -p /nfs/cluster)
-          SSH sbatch << EOF
+          JOB=$(SSH sbatch << EOF
           #!/bin/bash
           #SBATCH --nodes=${NNODE}
           #SBATCH --exclusive
@@ -64,6 +64,12 @@ jobs:
               --epochs 7 \
               --steps-per-epoch 100
           EOF
+          )
+          while SSH squeue -j $JOB | grep -q $JOB; do
+            echo "SLURM Job $JOB is still running."
+            sleep 15
+          done
+          echo "SLRUM Job $JOB finished."
 
           # srun \
           #   --container-image=ghcr.io#nvidia/t5x:latest \
