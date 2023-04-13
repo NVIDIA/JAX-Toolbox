@@ -45,105 +45,40 @@ jobs:
           NNODE=1
           NGPU=8
           GPU_LIST=$(seq -s , 0 $(($NGPU - 1)))
-          LOG=/nfs/cluster/tmp.H1pQdWc70y.log
-          OUTPUT=/nfs/cluster/tmp.9GXVNccwRu
-          # LOG=$(SSH mktemp -p /nfs/cluster --suffix=.log)
-          # OUTPUT=$(SSH mktemp -d -p /nfs/cluster)
-          # JOB=$(SSH sbatch --parsable << EOF
-          # #!/bin/bash
-          # #SBATCH --nodes=${NNODE}
-          # #SBATCH --exclusive
-          # #SBATCH --gpus-per-node 8
-          # #SBATCH --time=00:30:00
-          # #SBATCH --output=$LOG
-          # time srun \
-          #   --container-image=ghcr.io#nvidia/t5x:latest \
-          #   --container-mounts=${OUTPUT}:/output \
-          #   --container-entrypoint \
-          #   test-t5x.sh \
-          #     --output /output/${NGPU}G${NNODE}N \
-          #     --dtype bfloat16 \
-          #     --batch-per-gpu 16 \
-          #     --gpus ${GPU_LIST} \
-          #     --epochs 7 \
-          #     --steps-per-epoch 100
-          # EOF
-          # )
-          # set +x
-          # while SSH squeue -j $JOB | grep -q $JOB; do
-          #   echo "SLURM Job $JOB is still running."
-          #   sleep 15
-          # done
-          # echo "SLRUM Job $JOB finished."
-          # set -x
+          LOG=$(SSH mktemp -p /nfs/cluster --suffix=.log)
+          OUTPUT=$(SSH mktemp -d -p /nfs/cluster)
+          JOB=$(SSH sbatch --parsable << EOF
+          #!/bin/bash
+          #SBATCH --nodes=${NNODE}
+          #SBATCH --exclusive
+          #SBATCH --gpus-per-node 8
+          #SBATCH --time=00:30:00
+          #SBATCH --output=$LOG
+          time srun \
+            --container-image=ghcr.io#nvidia/t5x:latest \
+            --container-mounts=${OUTPUT}:/output \
+            --container-entrypoint \
+            test-t5x.sh \
+              --output /output/${NGPU}G${NNODE}N \
+              --dtype bfloat16 \
+              --batch-per-gpu 16 \
+              --gpus ${GPU_LIST} \
+              --epochs 7 \
+              --steps-per-epoch 100
+          EOF
+          )
+          set +x
+          while SSH squeue -j $JOB | grep -q $JOB; do
+            echo "SLURM Job $JOB is still running."
+            sleep 15
+          done
+          echo "SLRUM Job $JOB finished."
+          set -x
 
           mkdir output/
           rsync -avz --progress ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}:$LOG ${NGPU}G${NNODE}N.log
           rsync -avz --progress ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}:$OUTPUT/* ./output/
           rsync -avz --progress ${NGPU}G${NNODE}N.log ./output/* ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.TENSORBOARD_SERVER_IP }}:/tensorboard-logs/${{ env.DATE }}
-
-      # - name: Run SLURM jobs over SSH
-      #   uses: appleboy/ssh-action@v0.1.9
-      #   with:
-      #     host: ${{ secrets.CLUSTER_LOGIN_IP }}
-      #     fingerprint: ${{ secrets.CLUSTER_LOGIN_FINGERPRINT }}
-      #     username: ${{ secrets.CLUSTER_LOGIN_USER }}
-      #     key: ${{ secrets.SSH_PRIVATE_KEY }}
-      #     script_stop: true  # stop on first failure
-      #     command_timeout: 60m
-      #     script: |
-      #       date
-      #       hostname
-      #       whoami
-      #       sinfo
-      #       NNODE=1
-      #       NGPU=8
-      #       GPU_LIST=$(seq 0 $(($NGPU - 1)))
-      #       OUTPUT=$(mktemp -d -p /nfs/cluster)
-      #       ls ${OUTPUT}
-
-      # JOB=$(sbatch << EOF
-      # #!/bin/bash
-      # #SBATCH --nodes=${NNODE}
-      # #SBATCH --gpus-per-node=${NGPU}
-      # #SBATCH --time=00:30:00
-      # #SBATCH --exclusive
-      # srun \
-      #   --container-image=ghcr.io#nvidia/t5x:latest \
-      #   --container-mounts=${OUTPUT}:/output \
-      #   --container-entrypoint \
-      #   test-t5x.sh \
-      #     --output /output/$DATE-${NGPU}G${NNODE}N \
-      #     --dtype bfloat16 \
-      #     --batch-per-gpu 16 \
-      #     --gpus ${GPU_LIST} \
-      #     --epochs 7 \
-      #     --steps-per-epoch 100
-      # EOF)
-
-
-      #   run: |
-      #     NGPU=8
-      #     NNODE=1
-      #     DATE=$(date "+%Y-%m-%d")
-      #     OUTPUT="/${DATE}-${NGPU}G${NNODE}N"
-      #     ssh -o "ServerAliveInterval=10" ${{ env.OCI_CLUSTER_BASTION }} |& tee t5x.log  << EOF
-      #     salloc -N 1 -t 4:00:00 --gpus-per-node=8
-      #     mkdir -p ${HOME}/${OUTPUT}
-      #     srun \
-      #       --container-name=t5x \
-      #       --container-image=ghcr.io#nvidia/t5x:latest \
-      #       --container-mounts=${HOME}/${OUTPUT}:${OUTPUT}
-      #       --container-entrypoint \
-      #       test-t5x.sh \
-      #         --output ${OUTPUT} \
-      #         --dtype bfloat16 \
-      #         --batch-per-gpu 16 \
-      #         --gpus 0,1,2,3,4,5,6,7 \
-      #         --epochs 7 \
-      #         --steps-per-epoch 100
-      #     scp -r ${OUTPUT_HOST} ${{ env.OCI_TENSORBOARD_HOST }}:/tensorboard-logs
-      #     EOF
 
       # - name: Postprocessing
       #   shell: bash -x -e {0}
