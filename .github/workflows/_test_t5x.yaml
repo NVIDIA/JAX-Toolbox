@@ -52,13 +52,13 @@ jobs:
           GPU_LIST=$(seq 0 $(($NGPU - 1)))
           OUTPUT=$(_ mktemp -d -p /nfs/cluster)
           _ bash -s << EOF
-#!/bin/bash
-#SBATCH --nodes=${NNODE}
-#SBATCH --gpus-per-node=${NGPU}
-#SBATCH --time=00:30:00
-#SBATCH --exclusive
-echo Hello!
-EOF
+          #!/bin/bash
+          #SBATCH --nodes=${NNODE}
+          #SBATCH --gpus-per-node=${NGPU}
+          #SBATCH --time=00:30:00
+          #SBATCH --exclusive
+          echo Hello!
+          EOF
 
           # srun \
           #   --container-image=ghcr.io#nvidia/t5x:latest \
