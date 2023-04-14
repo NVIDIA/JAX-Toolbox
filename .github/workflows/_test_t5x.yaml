@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         N_GPU: [1, 2, 4, 8]
-        N_NODE: [1]
+        N_NODE: [1, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -60,6 +60,8 @@ jobs:
           #!/bin/bash
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --nodes=${{ matrix.N_NODE }}
+          #SBATCH --ntasks=${{ matrix.N_NODE }}
+          #SBATCH --ntasks-per-node=1
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --exclusive
           #SBATCH --time=00:30:00
