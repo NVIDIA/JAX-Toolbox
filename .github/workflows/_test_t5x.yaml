@@ -49,6 +49,7 @@ jobs:
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in GPU_LIST TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
+          done
 
       # - name: Run SLURM jobs over SSH
       #   shell: bash -O expand_aliases -x -e {0}
