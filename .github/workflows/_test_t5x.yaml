@@ -89,6 +89,9 @@ jobs:
           echo "SLRUM Job $JOB finished."
           set -x
 
+      - name: Retrieve training logs and upload to TensorBoard server
+        shell: bash -x -e {0}
+        run: |
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}:${{ steps.meta.outputs.LOG_FILE }} \
@@ -100,13 +103,35 @@ jobs:
             output/* \
             ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.TENSORBOARD_SERVER_IP }}:/tensorboard-logs/${GITHUB_RUN_ID}
 
-      # - name: Postprocessing
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.meta.outputs.JOB_NAME }}
+          path: output/*
+
+      # - uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.x'
+          
+      # - name: Generate job summary
+      #   id: metric
       #   shell: bash -x -e {0}
       #   run: |
-      #     true
-        #     - name: Configure variables
-        # shell: bash -x -e {0}
-        # run: |
-        #   TZ="America/Los_Angeles" DATE=$(date "+%Y-%m-%d")
-        #   echo "DATE=${DATE}" >> $GITHUB_ENV
+      #     python | tee -a $GITHUB_STEP_SUMMARY << EOF
+      #     import re
+      #     import pandas as pd
 
+      #     metrics = pd.DataFrame([
+      #         # Extract `metric` and `value` from `timings/metric=value`
+      #         {re.split('=|/',s)[1] : float(re.split('=|/',s)[2]) for s in stat}
+      #         for stat in re.findall(
+      #             r".*collection=train .*"
+      #             r"(timing/seconds=[\d.]+), (timing/seqs=[\d.]+), (timing/seqs_per_second=[\d.]+), "
+      #             r"(timing/seqs_per_second_per_core=[\d.]+), (timing/steps_per_second=[\d.]+), "
+      #             r"(timing/target_tokens_per_second=[\d.]+), (timing/target_tokens_per_second_per_core=[\d.]+).*",
+      #             open('output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log').read()
+      #         )
+      #     ])
+      #     summary = pd.DataFrame(metrics.tail(5).mean(axis=0)).transpose()
+      #     print(summary.to_markdown(index=False))
+      #     EOF
