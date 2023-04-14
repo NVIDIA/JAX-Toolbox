@@ -5,7 +5,7 @@ on:
     - cron: '30 13 * * 5'  # 5:30 AM every Friday
   workflow_dispatch:
     inputs:
-      LATEST:
+      UPDATE_LATEST:
         type: boolean
         description: Update the 'latest' images?
         default: false
@@ -22,4 +22,4 @@ jobs:
     uses: ./.github/workflows/_build_base.yaml
     secrets: inherit
     with:
-      LATEST: ${{ inputs.LATEST }}
+      UPDATE_LATEST: ${{ github.event_name == 'schedule' || inputs.UPDATE_LATEST }}

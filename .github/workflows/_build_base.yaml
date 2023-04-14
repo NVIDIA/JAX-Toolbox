@@ -3,7 +3,7 @@ name: ~build CUDA+Python base container
 on:
   workflow_call:
     inputs:
-      LATEST:
+      UPDATE_LATEST:
         type: boolean
         description: Update the 'latest' images?
         default: false
@@ -52,7 +52,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=base,enable=${{ inputs.LATEST }},priority=1000
+            type=raw,value=base,enable=${{ inputs.UPDATE_LATEST }},priority=1000
             type=raw,value=base-{{sha}},priority=100
 
       - name: Set up Docker Buildx
