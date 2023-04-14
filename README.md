@@ -20,16 +20,16 @@
 [container-link-pax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/pax
 [container-link-te]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/te
 
-[build-badge-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/weekly-base.yaml?label=weekly&logo=github-actions&logoColor=dddddd
-[build-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax.yaml?label=nightly&logo=github-actions&logoColor=dddddd
-[build-badge-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-t5x.yaml?label=nightly&logo=github-actions&logoColor=dddddd
+[build-badge-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/weekly-base.yaml?branch=main&label=weekly&logo=github-actions&logoColor=dddddd
+[build-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
+[build-badge-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-t5x.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 
 [workflow-base]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/weekly-base.yaml
 [workflow-jax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax.yaml
 [workflow-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-t5x.yaml
 
-[test-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-unit.yaml?label=V100%20UNIT&logo=nvidia
-[test-badge-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-t5x-perf.yaml?label=A100%20MGMN&logo=nvidia
+[test-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-unit.yaml?branch=main&label=V100%20UNIT&logo=nvidia
+[test-badge-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-t5x-perf.yaml?branch=main&label=A100%20MGMN&logo=nvidia
 
 [workflow-t5x-perf]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-t5x-perf.yaml
 
