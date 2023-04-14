@@ -1,7 +1,7 @@
 name: Nightly T5X performance benchmark
 
 on:
-  push:
+  # push:
   workflow_run:
     workflows: [Nightly T5X build]
     types: [completed]

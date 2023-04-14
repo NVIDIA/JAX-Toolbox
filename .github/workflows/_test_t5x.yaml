@@ -1,18 +1,10 @@
 name: ~test T5X
 
 on:
-  #   branches: [ "main" ] 
-  # pull_request:
-  #   branches: [ "main" ]
-  # schedule:
-  #   - cron: '30 3 * * *'  # runs daily at 03:30 AM
-  ## allow manual run from the Actions tab
   workflow_call:
 
 jobs:
-
   MGMN-scaling:
-
     strategy:
       matrix:
         N_GPU: [1, 2, 4, 8]
@@ -76,7 +68,8 @@ jobs:
               --batch-per-gpu 16 \
               --gpus ${{ steps.meta.outputs.GPU_LIST }} \
               --epochs 7 \
-              --steps-per-epoch 100
+              --steps-per-epoch 100 \
+              --multiprocess
           EOF
           )
 

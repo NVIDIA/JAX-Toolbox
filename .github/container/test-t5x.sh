@@ -13,15 +13,17 @@ usage() {
     echo ""
     echo "  OPTIONS                DESCRIPTION"
     echo "  -b, --batch-per-gpu    Batch size per GPU, defaults to 32."
+    echo "  -b, --batch-per-gpu    Batch size per GPU, defaults to 32."
     echo "  -d, --dtype            Batch size, defaults to bfloat16."
     echo "  -e, --epochs           Number of epochs to run, defaults to 7."
     echo "  -g, --gpus             IDs of GPUs to use, e.g. '0,1,2,3'."
-    echo "  -o, --output NAME      Name for the output folder, use temporary ones if not specified."
+    echo "  --multiprocess         Enable the multiprocess GPU mode."
+    echo "  -o, --output NAME      Name for the output folder, a temporary folder will be created if none specified."
     echo "  -h, --help             Print usage."
     exit $1
 }
 
-args=$(getopt -o b:d:e:g:o:s:h --long batch-per-gpu:,dtype:,epochs:,gpus:,help,output:,steps-per-epoch: -- "$@")
+args=$(getopt -o b:d:e:g:o:s:h --long batch-per-gpu:,dtype:,epochs:,gpus:,help,multiprocess,output:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -32,6 +34,7 @@ BATCH_PER_GPU=32
 DTYPE=bfloat16
 EPOCHS=7
 GPUS="all"
+MULTIPROCESS=0
 OUTPUT=$(mktemp -d)
 STEPS_PER_EPOCH=100
 
@@ -53,6 +56,10 @@ while [ : ]; do
         -g | --gpus)
             GPUS="$2"
             shift 2
+            ;;
+        --multiprocess)
+            MULTIPROCESS=1
+            shift 1
             ;;
         -o | --output)
             OUTPUT="$2"
@@ -94,14 +101,14 @@ print_var EPOCHS
 print_var GPUS
 print_var NGPUS
 print_var OUTPUT
+print_var MULTIPROCESS
 print_var STEPS_PER_EPOCH
 print_var TRAIN_STEPS
 
-## Install T5 without the torch dependency
+## Install T5
 pip config set global.root-user-action ignore
 pip config set global.disable-pip-version-check true
-pip install babel sacrebleu scikit-learn rouge_score
-pip install --no-deps git+https://github.com/google-research/text-to-text-transfer-transformer.git
+pip install git+https://github.com/google-research/text-to-text-transfer-transformer.git
 
 ## Enter T5X source folder
 T5X_DIR=$(dirname `python -c 'import t5x; print(*t5x.__path__)'`)
@@ -173,6 +180,7 @@ CUDA_VISIBLE_DEVICES=${GPUS} python -m t5x.train \
     --gin.BATCH_SIZE=${BATCH_SIZE} \
     --gin.train.eval_steps=0 \
     --gin.train.eval_period=${STEPS_PER_EPOCH} \
-    --gin.CheckpointConfig.save=None
+    --gin.CheckpointConfig.save=None \
+    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 set +x
 echo "Output at ${OUTPUT}"
