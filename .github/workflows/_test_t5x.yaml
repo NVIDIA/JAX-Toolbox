@@ -28,12 +28,12 @@ jobs:
       - name: Print environment variables
         run: env
 
-      - name: Setup sshx agent
+      - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Add known sshx host
+      - name: Add known SSH host
         shell: bash -x -e {0}
         run: |
           echo "150.230.212.101 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDcOJt0Q0qYfShF03/rFPYpq+muMHBIfMlvitzEsSm4onWkG4YU0NBvG5WKcU2dLoMdhCIy+SQYtDeNm9Lj5GIqsLSsVMBSAurIMAzyiJU3DuahiWQGMa3rOVEFzgRtmo58202Ijw61WwVi47OvzJL72Oy2RO8hqVvU0ojcQo1jiQxtj39u1Be7dzIXJHLs7xdpI7V8mGxwQ1dgcjcXSh43br9V24pAebK2abGD8KRZ1H0YDgyaYek0ub5AHAeeznL/FUs0lud1xicABd5qo+w1PyIA+1A+TkRTrbHCBtc2w9w3zaO4p+Yi/ITTjhtnPTAmTD7U+km2mhiR+dLbx15D" >> ~/.ssh/known_hosts
@@ -52,7 +52,7 @@ jobs:
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
-      - name: Submit SLURM jobs over sshx
+      - name: Submit SLURM jobs over SSH
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
@@ -90,13 +90,13 @@ jobs:
           set -x
 
           mkdir output/
-          rsync -avz --progress \
+          rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log
-          rsync -avz --progress \
+          rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/
-          rsync -avz --progress \
+          rsync -rtz --progress \
             output/* \
             ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.TENSORBOARD_SERVER_IP }}:/tensorboard-logs/${GITHUB_RUN_ID}
 
