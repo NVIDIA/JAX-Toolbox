@@ -9,9 +9,6 @@ on:
   ## allow manual run from the Actions tab
   workflow_call:
 
-env:
-  OCI_TENSORBOARD_HOST: "ubuntu@165.1.79.135"
-
 jobs:
 
   MGMN-scaling:
@@ -108,6 +105,14 @@ jobs:
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
+
+  Output:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Generate TensorBoard query URL
+        run: |
+          echo "[Metrics on TensorBoard](http://${{ vars.TENSORBOARD_SERVER_IP }}:6006/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)" >> $GITHUB_STEP_SUMMARY
 
       # - uses: actions/setup-python@v4
       #   with:
