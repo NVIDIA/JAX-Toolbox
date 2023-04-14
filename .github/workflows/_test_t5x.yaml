@@ -20,6 +20,7 @@ jobs:
       matrix:
         N_GPU: [1, 2, 4, 8]
         N_NODE: [1]
+      fail-fast: false
 
     runs-on: ubuntu-22.04
 
@@ -27,12 +28,12 @@ jobs:
       - name: Print environment variables
         run: env
 
-      - name: Setup SSH agent
+      - name: Setup sshx agent
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Add known SSH host
+      - name: Add known sshx host
         shell: bash -x -e {0}
         run: |
           echo "150.230.212.101 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDcOJt0Q0qYfShF03/rFPYpq+muMHBIfMlvitzEsSm4onWkG4YU0NBvG5WKcU2dLoMdhCIy+SQYtDeNm9Lj5GIqsLSsVMBSAurIMAzyiJU3DuahiWQGMa3rOVEFzgRtmo58202Ijw61WwVi47OvzJL72Oy2RO8hqVvU0ojcQo1jiQxtj39u1Be7dzIXJHLs7xdpI7V8mGxwQ1dgcjcXSh43br9V24pAebK2abGD8KRZ1H0YDgyaYek0ub5AHAeeznL/FUs0lud1xicABd5qo+w1PyIA+1A+TkRTrbHCBtc2w9w3zaO4p+Yi/ITTjhtnPTAmTD7U+km2mhiR+dLbx15D" >> ~/.ssh/known_hosts
@@ -42,7 +43,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          GPU_LIST=$(seq -s , 0 $(($${{ matrix.N_GPU }} - 1)))
+          GPU_LIST=$(seq -s , 0 $((${{ matrix.N_GPU }} - 1)))
           TEST_CASE_NAME=${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
@@ -51,15 +52,16 @@ jobs:
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
-      - name: Submit SLURM jobs over SSH
+      - name: Submit SLURM jobs over sshx
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias SSH='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}'
-          SSH "date && hostname && sinfo"          
-          SSH mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
-          JOB=$(SSH sbatch --parsable << EOF
+          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}'
+          sshx "date && hostname && sinfo"          
+          sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
+          JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
+          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --nodes=${{ matrix.N_NODE }}
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --exclusive
@@ -80,7 +82,7 @@ jobs:
           )
 
           set +x
-          while SSH squeue -j $JOB | grep -q $JOB; do
+          while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
             sleep 15
           done
