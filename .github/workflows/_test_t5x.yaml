@@ -18,8 +18,8 @@ jobs:
 
     strategy:
       matrix:
-        N_NODE: [1]
         N_GPU: [1, 2, 4, 8]
+        N_NODE: [1]
 
     runs-on: ubuntu-22.04
 
@@ -57,6 +57,7 @@ jobs:
         run: |
           alias SSH='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}'
           SSH "date && hostname && sinfo"          
+          SSH mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(SSH sbatch --parsable << EOF
           #!/bin/bash
           #SBATCH --nodes=${{ matrix.N_NODE }}
