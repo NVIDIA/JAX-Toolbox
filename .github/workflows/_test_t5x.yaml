@@ -112,7 +112,7 @@ jobs:
     steps:
       - name: Generate TensorBoard query URL
         run: |
-          echo "[Metrics on TensorBoard](http://${{ vars.TENSORBOARD_SERVER_IP }}:6006/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)" >> $GITHUB_STEP_SUMMARY
+          echo "[view metrics](http://${{ vars.TENSORBOARD_SERVER_IP }}:6006/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)" >> $GITHUB_STEP_SUMMARY
 
       # - uses: actions/setup-python@v4
       #   with:
