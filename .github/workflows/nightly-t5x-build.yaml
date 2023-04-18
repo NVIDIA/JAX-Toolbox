@@ -26,7 +26,7 @@ permissions:
 jobs:
 
   metadata:
-    if: ${{ env.GREENLIGHT }}
+    if: env.GREENLIGHT
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
@@ -39,7 +39,7 @@ jobs:
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
   build:
-    if: ${{ env.GREENLIGHT }}
+    if: env.GREENLIGHT
     needs: metadata
     uses: ./.github/workflows/_build_t5x.yaml
     with:
@@ -47,7 +47,7 @@ jobs:
     secrets: inherit
 
   publish:
-    if: ${{ env.GREENLIGHT && env.PUBLISH }}
+    if: env.GREENLIGHT && env.PUBLISH
     runs-on: ubuntu-22.04
     needs: build
     steps:
@@ -93,6 +93,6 @@ jobs:
           
   on-upstream-failure:
     runs-on: ubuntu-latest
-    if: ${{ !env.GREENLIGHT }}
+    if: !env.GREENLIGHT
     steps:
       - run: echo 'Upstream workflow failed, aborting run' && exit 1

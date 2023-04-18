@@ -43,7 +43,7 @@ jobs:
     secrets: inherit
 
   publish:
-    if: ${{ env.PUBLISH }}
+    if: env.PUBLISH
     runs-on: ubuntu-22.04
     needs: build
     steps:
