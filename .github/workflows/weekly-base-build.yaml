@@ -5,11 +5,15 @@ on:
     - cron: '30 13 * * 5'  # 5:30 AM every Friday
   workflow_dispatch:
     inputs:
-      UPDATE_LATEST:
+      PUBLISH:
         type: boolean
-        description: Update the 'latest' images?
+        description: Publish dated images and update the 'latest' tag?
         default: false
         required: false
+
+env:
+  TARGET: jax-toolbox
+  DOCKER_REGISTRY: ghcr.io/nvidia
 
 permissions:
   contents: read  # to fetch code
@@ -18,8 +22,66 @@ permissions:
 
 jobs:
 
-  base:
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+    steps:
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: metadata
     uses: ./.github/workflows/_build_base.yaml
-    secrets: inherit
     with:
-      UPDATE_LATEST: ${{ github.event_name == 'schedule' || inputs.UPDATE_LATEST }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+    secrets: inherit
+
+  publish:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
+    runs-on: ubuntu-22.04
+    needs: build
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.TARGET }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=base-${{ needs.env.outputs.BUILD_DATE }},priority=900
+            type=raw,value=base,priority=1000
+            # type=ref,event=branch
+            # type=ref,event=pr
+
+      - name: Create manifest
+        shell: bash -x -e {0}
+        run: |
+          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+            docker manifest create $tag ${{ needs.build.outputs.DOCKER_TAGS }}
+            docker manifest push $tag
+          done
+
+      - name: Generate outputs and artifacts
+        shell: bash -x -e {0}
+        run: |
+          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
+
+      - name: Upload image tags as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: image-tags-${{ env.TARGET }}
+          path: image-tags-${{ env.TARGET }}.txt

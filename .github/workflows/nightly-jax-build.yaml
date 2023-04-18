@@ -7,7 +7,7 @@ on:
     inputs:
       PUBLISH:
         type: boolean
-        description: Publish nightly images and update the 'latest' tag?
+        description: Publish dated images and update the 'latest' tag?
         default: false
         required: false
 

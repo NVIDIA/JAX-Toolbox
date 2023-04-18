@@ -3,35 +3,38 @@ name: ~build CUDA+Python base container
 on:
   workflow_call:
     inputs:
-      UPDATE_LATEST:
-        type: boolean
-        description: Update the 'latest' images?
-        default: false
+      BASE_IMAGE:
+        type: string
+        description: 'Base CUDA image:'
         required: false
+        default: nvidia/cuda:12.1.0-devel-ubuntu22.04
+      BUILD_DATE:
+        type: string
+        description: "Build date in YYYY-MM-DD format"
+        required: false
+        default: 'NOT SPECIFIED'
+    outputs:
+      DOCKER_TAGS:
+        description: "Tags of the image built"
+        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
 
 env:
-  TARGET: base
-  BASE_IMAGE: nvidia/cuda:12.1.0-devel-ubuntu22.04
-  UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox
+  UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
 
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
   packages: write # to upload container
-  
+
 jobs:
 
   build:
+    outputs:
+      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     runs-on: ubuntu-22.04
     steps:
       - name: Print environment variables
         run: env
-
-      - name: Cancel previous run
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          access_token: ${{ github.token }}
-        if: ${{github.ref != 'refs/heads/main'}}
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
@@ -52,8 +55,9 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=base,enable=${{ inputs.UPDATE_LATEST }},priority=1000
-            type=raw,value=base-{{sha}},priority=100
+            type=raw,value=${{ github.run_id }}-jax
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -70,15 +74,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            BASE_IMAGE=${{ env.BASE_IMAGE }}
-
-      - name: Generate outputs and artifacts
-        shell: bash -x -e {0}
-        run: |
-          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
-
-      - name: Upload image tags as artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: image-tags-${{ env.TARGET }}
-          path: image-tags-${{ env.TARGET }}.txt
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
