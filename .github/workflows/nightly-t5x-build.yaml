@@ -6,11 +6,17 @@ on:
     types: [completed]
   workflow_dispatch:
     inputs:
-      DEBUG:
+      PUBLISH:
         type: boolean
-        description: Debug run, do not create nightly image
-        default: true
+        description: Publish nightly images and update the 'latest' tag?
+        default: false
         required: false
+
+env:
+  TARGET: t5x
+  DOCKER_REGISTRY: ghcr.io/nvidia
+  GREENLIGHT: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch' }}
+  PUBLISH: ${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}
 
 permissions:
   contents: read  # to fetch code
@@ -19,15 +25,74 @@ permissions:
 
 jobs:
 
-  t5x:
+  metadata:
+    if: ${{ env.GREENLIGHT }}
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+    steps:
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+  build:
+    if: ${{ env.GREENLIGHT }}
+    needs: metadata
     uses: ./.github/workflows/_build_t5x.yaml
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     with:
-      NIGHTLY: ${{ github.event_name == 'workflow_run' || !inputs.DEBUG }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
+  publish:
+    if: ${{ env.GREENLIGHT && env.PUBLISH }}
+    runs-on: ubuntu-22.04
+    needs: build
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.TARGET }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=nightly-${{ needs.env.outputs.BUILD_DATE }},priority=900
+            type=raw,value=latest,priority=1000
+            # type=ref,event=branch
+            # type=ref,event=pr
+
+      - name: Create manifest
+        shell: bash -x -e {0}
+        run: |
+          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+            docker manifest create $tag ${{ needs.build.outputs.DOCKER_TAGS }}
+            docker manifest push $tag
+          done
+
+      - name: Generate outputs and artifacts
+        shell: bash -x -e {0}
+        run: |
+          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
+
+      - name: Upload image tags as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: image-tags-${{ env.TARGET }}
+          path: image-tags-${{ env.TARGET }}.txt
+          
   on-upstream-failure:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
+    if: ${{ !env.GREENLIGHT }}
     steps:
       - run: echo 'Upstream workflow failed, aborting run' && exit 1

@@ -13,16 +13,33 @@ on:
         description: "Build date in YYYY-MM-DD format"
         required: false
         default: 'NOT SPECIFIED'
+      REPO_JAX:
+        type: string
+        description: URL of JAX repository to check out
+        required: false
+        default: "https://github.com/google/jax.git"
+      REF_JAX:
+        type: string
+        description: Git commit, tag, or branch for JAX
+        required: false
+        default: main
+      REPO_XLA:
+        type: string
+        description: URL of OpenXLA repository to check out
+        required: false
+        default: "https://github.com/openxla/xla.git"
+      REF_XLA:
+        type: string
+        description: Git commit, tag, or branch for XLA
+        required: false
+        default: main
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image built"
         value: ${{ jobs.build.outputs.DOCKER_TAGS }}
+
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
-  REPO_JAX: https://github.com/google/jax.git
-  REPO_XLA: https://github.com/openxla/xla.git
-  REF_JAX: ""
-  REF_XLA: ""
 
 permissions:
   contents: read  # to fetch code
@@ -76,10 +93,10 @@ jobs:
           file: .github/container/Dockerfile.jax
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |          
+          build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_JAX=${{ env.REPO_JAX }}
-            REPO_XLA=${{ env.REPO_XLA }}
-            REF_JAX=${{ env.REF_JAX }}
-            REF_XLA=${{ env.REF_XLA }}
+            REPO_JAX=${{ inputs.REPO_JAX }}
+            REPO_XLA=${{ inputs.REPO_XLA }}
+            REF_JAX=${{ inputs.REF_JAX }}
+            REF_XLA=${{ inputs.REF_XLA }}

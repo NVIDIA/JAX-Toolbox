@@ -5,15 +5,16 @@ on:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
   workflow_dispatch:
     inputs:
-      DEBUG:
+      PUBLISH:
         type: boolean
-        description: Debug run, do not create nightly image
-        default: true
+        description: Publish nightly images and update the 'latest' tag?
+        default: false
         required: false
 
 env:
   TARGET: jax
   DOCKER_REGISTRY: ghcr.io/nvidia
+  PUBLISH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}
 
 permissions:
   contents: read  # to fetch code
@@ -22,7 +23,7 @@ permissions:
 
 jobs:
 
-  env:
+  metadata:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
@@ -35,14 +36,14 @@ jobs:
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
   build:
-    needs: env
+    needs: metadata
     uses: ./.github/workflows/_build_jax.yaml
     with:
-      BUILD_DATE: ${{ needs.env.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
   publish:
-    if: ${{ github.event_name == 'schedule' || !inputs.DEBUG }}
+    if: ${{ env.PUBLISH }}
     runs-on: ubuntu-22.04
     needs: build
     steps:
@@ -62,16 +63,15 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=nightly-${{ needs.env.outputs.BUILD_DATE }},enable=${{ !inputs.DEBUG }},priority=900
-            type=raw,value=latest,enable=${{ !inputs.DEBUG }},priority=1000
-            # type=raw,value=latest,enable=${{ github.event_name == 'schedule' }},priority=1000
+            type=raw,value=nightly-${{ needs.env.outputs.BUILD_DATE }},priority=900
+            type=raw,value=latest,priority=1000
             # type=ref,event=branch
             # type=ref,event=pr
 
       - name: Create manifest
         shell: bash -x -e {0}
         run: |
-          for tag in $(echo ${{ steps.meta.outputs.tags }}); do
+          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
             docker manifest create $tag ${{ needs.build.outputs.DOCKER_TAGS }}
             docker manifest push $tag
           done

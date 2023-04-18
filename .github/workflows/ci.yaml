@@ -11,7 +11,7 @@ permissions:
 
 jobs:
 
-  env:
+  metadata:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
@@ -24,10 +24,10 @@ jobs:
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
   jax:
-    needs: env
+    needs: metadata
     uses: ./.github/workflows/_build_jax.yaml
     with:
-      BUILD_DATE: ${{ needs.env.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
   # t5x:
