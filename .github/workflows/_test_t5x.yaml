@@ -103,7 +103,7 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  MGMN-scaling:
+  multi-gpu-multi-node:
     strategy:
       matrix:
         N_GPU: [1, 2, 4, 8]
@@ -199,7 +199,7 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  Output:
+  summary:
     runs-on: ubuntu-22.04
 
     steps:

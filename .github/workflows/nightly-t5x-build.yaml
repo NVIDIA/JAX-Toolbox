@@ -89,7 +89,7 @@ jobs:
           name: image-tags-${{ env.TARGET }}
           path: image-tags-${{ env.TARGET }}.txt
 
-  on-upstream-failure:
+  if-upstream-failed:
     runs-on: ubuntu-latest
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
     steps:
