@@ -35,4 +35,4 @@
 
 
 ## Note
-This is NOT an officially supported NVIDIA product.
+This is a public CI for JAX on NVIDIA GPUs and covers the following libraries: [T5x](https://github.com/google-research/t5x), [PAXML](https://github.com/google/paxml), [Transformer Engine](https://github.com/NVIDIA/TransformerEngine).
