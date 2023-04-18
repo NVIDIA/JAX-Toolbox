@@ -59,7 +59,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${GITHUB_RUN_ID}-jax
+            type=raw,value=${{ github.run_id }}-jax
           labels:
             org.opencontainers.image.created=${{ env.BUILD_DATE }}
 
