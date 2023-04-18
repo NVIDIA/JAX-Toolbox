@@ -1,7 +1,7 @@
 name: CI
 
 on:
-  # push:
+  push:
   workflow_dispatch:
 
 permissions:
@@ -13,13 +13,11 @@ jobs:
 
   jax:
     uses: ./.github/workflows/_build_jax.yaml
-    with:
-      NIGHTLY: false
     secrets: inherit
 
-  t5x:
-    uses: ./.github/workflows/_build_t5x.yaml
-    needs: jax
-    with:
-      NIGHTLY: false
-    secrets: inherit
+  # t5x:
+  #   uses: ./.github/workflows/_build_t5x.yaml
+  #   needs: jax
+  #   with:
+  #     NIGHTLY: false
+  #   secrets: inherit
