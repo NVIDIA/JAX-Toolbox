@@ -1,17 +1,21 @@
 name: T5X MGMN performance test
 
 on:
-  # push:
   workflow_run:
     workflows: [Nightly T5X build]
     types: [completed]
   workflow_dispatch:
-    # inputs:
-    #   IMAGE:
-    #     type: string
-    #     description: T5X container
-    #     default: ghcr.io/nvidia/t5x:latest
-    #     required: false
+    inputs:
+      T5X_IMAGE_TAG:
+        type: string
+        description: T5X container
+        default: latest
+        required: true
+      PUBLISH:
+        type: boolean
+        description: Publish dated results to tensorboard server?
+        default: false
+        required: false
 
 permissions:
   contents: read  # to fetch code
@@ -20,15 +24,50 @@ permissions:
 
 jobs:
 
-  t5x:
+  run-jobs:
     uses: ./.github/workflows/_test_t5x.yaml
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    # with:
-    #   NIGHTLY: ${{ inputs.IMAGE }}
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      T5X_IMAGE_TAG: ${{ inputs.T5X_IMAGE_TAG }}
     secrets: inherit
 
-  # on-upstream-failure:
-  #   runs-on: ubuntu-latest
-  #   if: ${{ github.event.workflow_run.conclusion == 'failure' }}
-  #   steps:
-  #     - run: echo 'Upstream workflow failed, aborting run' && exit 1
+  on-upstream-failure:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1
+
+  publish:
+    needs: run-jobs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Generate TensorBoard query URL
+        run: |
+          echo "[view metrics](http://${{ vars.TENSORBOARD_SERVER_IP }}:6006/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)" >> $GITHUB_STEP_SUMMARY
+
+      # - uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.x'
+          
+      # - name: Generate job summary
+      #   id: metric
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     python | tee -a $GITHUB_STEP_SUMMARY << EOF
+      #     import re
+      #     import pandas as pd
+
+      #     metrics = pd.DataFrame([
+      #         # Extract `metric` and `value` from `timings/metric=value`
+      #         {re.split('=|/',s)[1] : float(re.split('=|/',s)[2]) for s in stat}
+      #         for stat in re.findall(
+      #             r".*collection=train .*"
+      #             r"(timing/seconds=[\d.]+), (timing/seqs=[\d.]+), (timing/seqs_per_second=[\d.]+), "
+      #             r"(timing/seqs_per_second_per_core=[\d.]+), (timing/steps_per_second=[\d.]+), "
+      #             r"(timing/target_tokens_per_second=[\d.]+), (timing/target_tokens_per_second_per_core=[\d.]+).*",
+      #             open('output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log').read()
+      #         )
+      #     ])
+      #     summary = pd.DataFrame(metrics.tail(5).mean(axis=0)).transpose()
+      #     print(summary.to_markdown(index=False))
+      #     EOF
