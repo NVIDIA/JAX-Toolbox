@@ -1,0 +1,9 @@
+###############################################################################
+## Pax
+###############################################################################
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
+FROM ${BASE_IMAGE}
+
+ADD install-pax.sh /usr/local/bin
+RUN install-pax.sh
