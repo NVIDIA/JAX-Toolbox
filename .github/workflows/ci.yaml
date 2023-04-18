@@ -30,9 +30,9 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
-  # t5x:
-  #   uses: ./.github/workflows/_build_t5x.yaml
-  #   needs: jax
-  #   with:
-  #     NIGHTLY: false
-  #   secrets: inherit
+  t5x:
+    uses: ./.github/workflows/_build_t5x.yaml
+    needs: jax
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+    secrets: inherit
