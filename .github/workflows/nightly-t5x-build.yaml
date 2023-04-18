@@ -15,8 +15,6 @@ on:
 env:
   TARGET: t5x
   DOCKER_REGISTRY: ghcr.io/nvidia
-  GREENLIGHT: 
-  PUBLISH: ${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}
 
 permissions:
   contents: read  # to fetch code
