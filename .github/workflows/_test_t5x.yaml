@@ -1,4 +1,4 @@
-name: ~test T5X
+name: ~test T5X, MGMN
 
 on:
   workflow_call:

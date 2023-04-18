@@ -1,4 +1,4 @@
-name: Nightly T5X performance benchmark
+name: T5X MGMN performance test
 
 on:
   # push:

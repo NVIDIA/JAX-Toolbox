@@ -28,10 +28,10 @@
 [workflow-jax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax.yaml
 [workflow-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-t5x.yaml
 
-[test-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-unit.yaml?branch=main&label=V100%20UNIT&logo=nvidia
-[test-badge-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-t5x-perf.yaml?branch=main&label=A100%20MGMN&logo=nvidia
+[test-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/test-jax-unit.yaml?branch=main&label=V100%20UNIT&logo=nvidia
+[test-badge-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/test-t5x-mgmn.yaml?branch=main&label=A100%20MGMN&logo=nvidia
 
-[workflow-t5x-perf]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-t5x-perf.yaml
+[workflow-t5x-perf]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/test-t5x-mgmn.yaml
 
 
 ## Note
