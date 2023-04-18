@@ -47,16 +47,16 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            # type=ref,event=branch
-            # type=ref,event=pr
             type=raw,value=nightly-${{ needs.build.outputs.BUILD_DATE }},enable=${{ !inputs.DEBUG }},priority=900
             type=raw,value=latest,enable=${{ !inputs.DEBUG }},priority=1000
             # type=raw,value=latest,enable=${{ github.event_name == 'schedule' }},priority=1000
+            # type=ref,event=branch
+            # type=ref,event=pr
 
       - name: Create manifest
         shell: bash -x -e {0}
         run: |
-          for tag in ${{ steps.meta.outputs.tags }}; do
+          for tag in $(echo ${{ steps.meta.outputs.tags }}); do
             docker manifest create $tag ${{ needs.build.outputs.DOCKER_TAGS }}
             docker manifest push $tag
           done
