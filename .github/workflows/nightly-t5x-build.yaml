@@ -15,7 +15,7 @@ on:
 env:
   TARGET: t5x
   DOCKER_REGISTRY: ghcr.io/nvidia
-  GREENLIGHT: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch' }}
+  GREENLIGHT: 
   PUBLISH: ${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}
 
 permissions:
@@ -26,7 +26,7 @@ permissions:
 jobs:
 
   metadata:
-    if: env.GREENLIGHT
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
@@ -39,7 +39,7 @@ jobs:
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
   build:
-    if: env.GREENLIGHT
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     needs: metadata
     uses: ./.github/workflows/_build_t5x.yaml
     with:
@@ -47,7 +47,7 @@ jobs:
     secrets: inherit
 
   publish:
-    if: env.GREENLIGHT && env.PUBLISH
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
     runs-on: ubuntu-22.04
     needs: build
     steps:
@@ -90,9 +90,9 @@ jobs:
         with:
           name: image-tags-${{ env.TARGET }}
           path: image-tags-${{ env.TARGET }}.txt
-          
+
   on-upstream-failure:
     runs-on: ubuntu-latest
-    if: !env.GREENLIGHT
+    if: !((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
     steps:
       - run: echo 'Upstream workflow failed, aborting run' && exit 1

@@ -14,7 +14,6 @@ on:
 env:
   TARGET: jax
   DOCKER_REGISTRY: ghcr.io/nvidia
-  PUBLISH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}
 
 permissions:
   contents: read  # to fetch code
@@ -43,7 +42,7 @@ jobs:
     secrets: inherit
 
   publish:
-    if: env.PUBLISH
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
     runs-on: ubuntu-22.04
     needs: build
     steps:
