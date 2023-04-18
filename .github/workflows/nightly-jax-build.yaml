@@ -26,7 +26,7 @@ jobs:
     uses: ./.github/workflows/_build_jax.yaml
     secrets: inherit
 
-  manifest:
+  publish:
     if: ${{ github.event_name == 'schedule' || !inputs.DEBUG }}
     runs-on: ubuntu-22.04
     needs: build

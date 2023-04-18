@@ -8,7 +8,13 @@ on:
         description: 'Base docker image that provides CUDA and Python:'
         required: false
         default: ghcr.io/nvidia/jax-toolbox:base
-
+    outputs:
+      BUILD_DATE:
+        description: "Build date in YYYY-MM-DD format"
+        value: ${{ jobs.build.outputs.BUILD_DATE }}
+      DOCKER_TAGS:
+        description: "Tags of the image built"
+        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
   REPO_JAX: https://github.com/google/jax.git
