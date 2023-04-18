@@ -16,14 +16,13 @@ usage() {
     echo "  -b, --batch-per-gpu    Batch size per GPU, defaults to 32."
     echo "  -d, --dtype            Batch size, defaults to bfloat16."
     echo "  -e, --epochs           Number of epochs to run, defaults to 7."
-    echo "  -g, --gpus             IDs of GPUs to use, e.g. '0,1,2,3'."
     echo "  --multiprocess         Enable the multiprocess GPU mode."
     echo "  -o, --output NAME      Name for the output folder, a temporary folder will be created if none specified."
     echo "  -h, --help             Print usage."
     exit $1
 }
 
-args=$(getopt -o b:d:e:g:o:s:h --long batch-per-gpu:,dtype:,epochs:,gpus:,help,multiprocess,output:,steps-per-epoch: -- "$@")
+args=$(getopt -o b:d:e:o:s:h --long batch-per-gpu:,dtype:,epochs:,help,multiprocess,output:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -33,7 +32,6 @@ fi
 BATCH_PER_GPU=32
 DTYPE=bfloat16
 EPOCHS=7
-GPUS="all"
 MULTIPROCESS=0
 OUTPUT=$(mktemp -d)
 STEPS_PER_EPOCH=100
@@ -51,10 +49,6 @@ while [ : ]; do
             ;;
         -e | --epochs)
             EPOCHS="$2"
-            shift 2
-            ;;
-        -g | --gpus)
-            GPUS="$2"
             shift 2
             ;;
         --multiprocess)
@@ -84,13 +78,7 @@ done
 
 ## Set derived variables
 
-if [[ $GPUS == "all" ]]; then
-    NGPUS=$(nvidia-smi -L | grep -c '^GPU')
-    GPUS=$(seq -s , 0 $((NGPUS - 1)))
-else
-    NGPUS=$(echo $GPUS | tr ',' '\n' | wc -l)
-fi
-
+NGPUS=$(nvidia-smi -L | grep -c '^GPU')
 BATCH_SIZE=$(($BATCH_PER_GPU * $NGPUS))
 TRAIN_STEPS=$(($EPOCHS * $STEPS_PER_EPOCH))
 
@@ -98,7 +86,6 @@ print_var BATCH_PER_GPU
 print_var BATCH_SIZE
 print_var DTYPE
 print_var EPOCHS
-print_var GPUS
 print_var NGPUS
 print_var OUTPUT
 print_var MULTIPROCESS
@@ -172,7 +159,7 @@ EOF
 
 ## Launch
 set -x
-CUDA_VISIBLE_DEVICES=${GPUS} python -m t5x.train \
+python -m t5x.train \
     --gin_file benchmark.gin \
     --gin.MODEL_DIR=\"${OUTPUT}\" \
     --gin.network.T5Config.dtype=\"${DTYPE}\" \
