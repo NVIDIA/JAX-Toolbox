@@ -1,4 +1,4 @@
-name: T5X MGMN performance test
+name: Nightly T5X MGMN performance test
 
 on:
   workflow_run:
