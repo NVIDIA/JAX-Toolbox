@@ -62,7 +62,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=nightly-${{ needs.env.outputs.BUILD_DATE }},priority=900
+            type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
             type=raw,value=latest,priority=1000
             # type=ref,event=branch
             # type=ref,event=pr

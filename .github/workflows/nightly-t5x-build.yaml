@@ -91,6 +91,6 @@ jobs:
 
   on-upstream-failure:
     runs-on: ubuntu-latest
-    if: !((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success') && github.event_name != 'workflow_dispatch'
     steps:
       - run: echo 'Upstream workflow failed, aborting run' && exit 1
