@@ -6,10 +6,10 @@ on:
     types: [completed]
   workflow_dispatch:
     inputs:
-      AS_NIGHTLY:
+      DEBUG:
         type: boolean
-        description: Create nightly images?
-        default: false
+        description: Debug run, do not create nightly image
+        default: true
         required: false
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
     uses: ./.github/workflows/_build_t5x.yaml
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     with:
-      NIGHTLY: ${{ github.event_name == 'workflow_run' || inputs.AS_NIGHTLY }}
+      NIGHTLY: ${{ github.event_name == 'workflow_run' || !inputs.DEBUG }}
     secrets: inherit
 
   on-upstream-failure:

@@ -10,7 +10,7 @@ on:
         default: ghcr.io/nvidia/jax-toolbox:base
       NIGHTLY:
         type: boolean
-        description: 'Is this a nightly build?'
+        description: 'Create nightly image?'
         required: false
         default: false
 

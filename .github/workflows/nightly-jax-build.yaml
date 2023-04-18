@@ -5,10 +5,10 @@ on:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
   workflow_dispatch:
     inputs:
-      AS_NIGHTLY:
+      DEBUG:
         type: boolean
-        description: Create nightly images?
-        default: false
+        description: Debug run, do not create nightly image
+        default: true
         required: false
 
 permissions:
@@ -21,5 +21,5 @@ jobs:
   jax:
     uses: ./.github/workflows/_build_jax.yaml
     with:
-      NIGHTLY: ${{ github.event_name == 'schedule' || inputs.AS_NIGHTLY }}
+      NIGHTLY: ${{ github.event_name == 'schedule' || !inputs.DEBUG }}
     secrets: inherit
