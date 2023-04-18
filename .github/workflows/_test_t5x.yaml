@@ -69,7 +69,7 @@ jobs:
             test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
-              --batch-per-gpu 16 \
+              --batch-per-gpu 32 \
               --epochs 7 \
               --steps-per-epoch 100
           EOF
@@ -164,7 +164,7 @@ jobs:
             test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
-              --batch-per-gpu 16 \
+              --batch-per-gpu 32 \
               --epochs 7 \
               --steps-per-epoch 100 \
               --multiprocess
