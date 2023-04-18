@@ -71,8 +71,7 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 16 \
               --epochs 7 \
-              --steps-per-epoch 100 \
-              --multiprocess
+              --steps-per-epoch 100
           EOF
           )
 
