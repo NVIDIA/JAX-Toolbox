@@ -10,7 +10,7 @@ on:
         default: ghcr.io/nvidia/jax-toolbox:base
 
 env:
-  UPLD_IMAGE: ghcr.io/nvidia/jax_toolbox_internal
+  UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
   REPO_JAX: https://github.com/google/jax.git
   REPO_XLA: https://github.com/openxla/xla.git
   REF_JAX: ""
