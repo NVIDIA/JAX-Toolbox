@@ -22,8 +22,23 @@ permissions:
 
 jobs:
 
+  env:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+    steps:
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
   build:
+    needs: env
     uses: ./.github/workflows/_build_jax.yaml
+    with:
+      BUILD_DATE: ${{ needs.env.outputs.BUILD_DATE }}
     secrets: inherit
 
   publish:
@@ -47,7 +62,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=nightly-${{ needs.build.outputs.BUILD_DATE }},enable=${{ !inputs.DEBUG }},priority=900
+            type=raw,value=nightly-${{ needs.env.outputs.BUILD_DATE }},enable=${{ !inputs.DEBUG }},priority=900
             type=raw,value=latest,enable=${{ !inputs.DEBUG }},priority=1000
             # type=raw,value=latest,enable=${{ github.event_name == 'schedule' }},priority=1000
             # type=ref,event=branch

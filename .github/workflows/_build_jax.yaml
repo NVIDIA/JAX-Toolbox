@@ -8,10 +8,12 @@ on:
         description: 'Base docker image that provides CUDA and Python:'
         required: false
         default: ghcr.io/nvidia/jax-toolbox:base
-    outputs:
       BUILD_DATE:
+        type: string
         description: "Build date in YYYY-MM-DD format"
-        value: ${{ jobs.build.outputs.BUILD_DATE }}
+        required: false
+        default: 'NOT SPECIFIED'
+    outputs:
       DOCKER_TAGS:
         description: "Tags of the image built"
         value: ${{ jobs.build.outputs.DOCKER_TAGS }}
@@ -31,20 +33,11 @@ jobs:
 
   build:
     outputs:
-      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     runs-on: [self-hosted, builder]
     steps:
       - name: Print environment variables
         run: env
-
-      - name: Set build date
-        id: date
-        shell: bash -x -e {0}
-        run: |
-          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
-          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_ENV
-          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
@@ -67,7 +60,7 @@ jobs:
           tags: |
             type=raw,value=${{ github.run_id }}-jax
           labels:
-            org.opencontainers.image.created=${{ env.BUILD_DATE }}
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -85,7 +78,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |          
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-            BUILD_DATE=${{ env.BUILD_DATE }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
             REPO_JAX=${{ env.REPO_JAX }}
             REPO_XLA=${{ env.REPO_XLA }}
             REF_JAX=${{ env.REF_JAX }}
