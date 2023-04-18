@@ -8,15 +8,9 @@ on:
         description: 'Base docker image that provides CUDA and Python:'
         required: false
         default: ghcr.io/nvidia/jax-toolbox:base
-      NIGHTLY:
-        type: boolean
-        description: 'Create nightly image?'
-        required: false
-        default: false
 
 env:
-  TARGET: jax
-  UPLD_IMAGE: ghcr.io/nvidia/jax
+  UPLD_IMAGE: ghcr.io/nvidia/_jax_toolbox_ci
   REPO_JAX: https://github.com/google/jax.git
   REPO_XLA: https://github.com/openxla/xla.git
   REF_JAX: ""
@@ -30,22 +24,21 @@ permissions:
 jobs:
 
   build:
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     runs-on: [self-hosted, builder]
     steps:
       - name: Print environment variables
         run: env
 
-      - name: Cancel previous run
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          access_token: ${{ github.token }}
-        if: ${{github.ref != 'refs/heads/main'}}
-
       - name: Set build date
+        id: date
         shell: bash -x -e {0}
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_ENV
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
@@ -66,16 +59,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=sha
-            type=edge,branch=main
-            type=raw,value=nightly-${{ env.BUILD_DATE }},enable=${{ inputs.NIGHTLY }},priority=900
-            type=raw,value=latest,enable=${{ inputs.NIGHTLY }},priority=1000
-            # type=schedule,suffix=-${{ env.BUILD_DATE }}
-            # type=raw,value=latest,enable=${{ github.event_name == 'schedule' }},priority=1000
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${GITHUB_RUN_ID}-jax
           labels:
             org.opencontainers.image.created=${{ env.BUILD_DATE }}
 
@@ -100,14 +84,3 @@ jobs:
             REPO_XLA=${{ env.REPO_XLA }}
             REF_JAX=${{ env.REF_JAX }}
             REF_XLA=${{ env.REF_XLA }}
-
-      - name: Generate outputs and artifacts
-        shell: bash -x -e {0}
-        run: |
-          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
-
-      - name: Upload image tags as artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: image-tags-${{ env.TARGET }}
-          path: image-tags-${{ env.TARGET }}.txt
