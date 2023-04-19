@@ -5,8 +5,8 @@
 usage() {
     echo "Usage: $0 [OPTION]..."
     echo "  -d, --dir=PATH         Path to store Pax source. Defaults to /opt"
-    echo "  --from_paxml=URL       URL of the Paxml repo. Defaults to https://github.com/google-research/paxml.git"
-    echo "  --from_praxis=URL      URL of the Praxis repo. Defaults to https://github.com/google-research/praxis.git"
+    echo "  --from_paxml=URL       URL of the Paxml repo. Defaults to https://github.com/google/paxml.git"
+    echo "  --from_praxis=URL      URL of the Praxis repo. Defaults to https://github.com/google/praxis.git"
     echo "  -h, --help             Print usage."
     echo "  --ref_paxml=REF        Git commit hash or tag name that specifies the version of Paxml to install. Defaults to HEAD."
     echo "  --ref_praxis=REF       Git commit hash or tag name that specifies the version of Praxis to install. Defaults to HEAD."
