@@ -5,15 +5,15 @@
 usage() {
     echo "Usage: $0 [OPTION]..."
     echo "  -d, --dir=PATH         Path to store Pax source. Defaults to /opt"
-    echo "  -f, --from_paxml=URL   URL of the Paxml repo. Defaults to https://github.com/google-research/paxml.git"
-    echo "  -g, --from_praxis=URL  URL of the Praxis repo. Defaults to https://github.com/google-research/praxis.git"
+    echo "  --from_paxml=URL       URL of the Paxml repo. Defaults to https://github.com/google-research/paxml.git"
+    echo "  --from_praxis=URL      URL of the Praxis repo. Defaults to https://github.com/google-research/praxis.git"
     echo "  -h, --help             Print usage."
-    echo "  -r, --ref_paxml=REF    Git commit hash or tag name that specifies the version of Paxml to install. Defaults to HEAD."
-    echo "  -q, --ref_praxis=REF   Git commit hash or tag name that specifies the version of Praxis to install. Defaults to HEAD."
+    echo "  --ref_paxml=REF        Git commit hash or tag name that specifies the version of Paxml to install. Defaults to HEAD."
+    echo "  --ref_praxis=REF       Git commit hash or tag name that specifies the version of Praxis to install. Defaults to HEAD."
     exit $1
 }
 
-args=$(getopt -o d:f:hr: --long dir:,from:,help,ref: -- "$@")
+args=$(getopt -o d:h --long dir:,from_paxml:,from_praxis:,help,ref_paxml:,ref_praxis: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -25,22 +25,22 @@ while [ : ]; do
         INSTALL_DIR="$2"
         shift 2
         ;;
-    -f | --from_paxml)
+    --from_paxml)
         PAXML_REPO="$2"
         shift 2
         ;;
-    -g | --from_praxis)
+    --from_praxis)
         PRAXIS_REPO="$2"
         shift 2
         ;;
     -h | --help)
         usage
         ;;
-    -r | --ref_paxml)
+    --ref_paxml)
         PAXML_REF="$2"
         shift 2
         ;;
-    -q | --ref_praxis)
+    --ref_praxis)
         PRAXIS_REF="$2"
         shift 2
         ;;
@@ -72,29 +72,26 @@ set -ex
 
 apt-get update
 apt-get upgrade -y
-apt-get install -y \
-    build-essential \
-    cmake \
-    clang \
-    git
+apt-get install -y git
 
 ## Install Praxis
 
 git clone ${PRAXIS_REPO} ${INSTALL_DIR}/praxis
-cd ${INSTALL_DIR}/praxis
+pushd ${INSTALL_DIR}/praxis
 git checkout ${PRAXIS_REF}
 pip install -e .
+popd
 
 ## Install Paxml
 
 git clone ${PAXML_REPO} ${INSTALL_DIR}/paxml
-cd ${INSTALL_DIR}/paxml
+pushd ${INSTALL_DIR}/paxml
 git checkout ${PAXML_REF}
 pip install -e .[gpu]
+popd
 
 apt-get autoremove -y
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 rm -rf ~/.cache/pip/
 
-export PYTHONPATH=${INSTALL_DIR}/paxml:${INSTALL_DIR}/praxis:$PYTHONPATH
