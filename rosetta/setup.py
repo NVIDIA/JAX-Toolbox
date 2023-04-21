@@ -28,6 +28,12 @@ setuptools.setup(
     install_requires=[
     ],
     extras_require={
+        'test': [
+            'pytest',
+        ],
+        'lint': [
+            'ruff',
+        ],
     },
     # TODO(terry): classifiers
     keywords='machinelearning multimodal llm',
