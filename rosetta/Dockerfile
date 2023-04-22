@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/nvidia/t5x:nightly-2023-04-10
+ARG BASE_IMAGE=ghcr.io/nvidia/t5x:latest
 FROM ${BASE_IMAGE} AS distribution-builder
 
 COPY . /opt/rosetta
