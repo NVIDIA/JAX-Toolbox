@@ -65,4 +65,6 @@ pip install --no-cache-dir pybind11 ninja
 git clone ${TE_REPO} ${INSTALL_DIR}
 cd ${INSTALL_DIR}
 git checkout ${TE_REF}
+git submodule init
+git submodule update --recursive
 NVTE_FRAMEWORK=jax pip install -e .
