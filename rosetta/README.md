@@ -2,7 +2,7 @@
 Project rosetta is a jax project maintained by NVIDIA and allows us to train
 LLM, CV, and multimodal models.
 
-## Installing within open-container/t5x
+## Installing within jax-toolbox/t5x
 ```bash
 cd rosetta
 

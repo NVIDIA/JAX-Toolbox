@@ -1,5 +1,5 @@
 # Development
-This repo builds upon [t5x](https://github.com/google-research/t5x) and patches it with features
+Rosetta builds upon [t5x](https://github.com/google-research/t5x) and patches it with features
 that are necessary to train the models defined in this repo.
 
 If a PR to T5X upstream takes time to be merged, this is fine as this project follows the
