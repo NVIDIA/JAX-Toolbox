@@ -10,8 +10,6 @@ fi
 
 PATCH_LIST=$(readlink -f $1)
 
-# This is the git directory of t5x we will build the distribution in
-INSTALLED_T5X_DIR=${INSTALLED_T5X_DIR:-}
 # If provided, this is the commit that we'll base the distribution on
 DISTRIBUTION_BASE_REF=${DISTRIBUTION_BASE_REF:-}
 INTERNAL_T5X_SUBMODULE_DIR=$SCRIPT_DIR/t5x
@@ -22,6 +20,7 @@ if [[ -z "$INSTALLED_T5X_DIR" ]]; then
   exit 1
 fi
 
+# This is the git directory of t5x we will build the distribution in
 cd $INSTALLED_T5X_DIR
 git config user.email "jax@nvidia.com"
 git config user.name "NVIDIA"
