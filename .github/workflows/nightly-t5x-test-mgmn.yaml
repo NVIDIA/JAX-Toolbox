@@ -22,6 +22,9 @@ permissions:
   actions:  write # to cancel previous workflows
   packages: write # to upload container
 
+env:
+  DEFAULT_T5X_IMAGE_TAG: latest
+
 jobs:
 
   metadata:
@@ -36,11 +39,18 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
+          if [[ -z "${{ inputs.T5X_IMAGE_TAG }}" ]]; then
+            T5X_IMAGE_TAG=${{ env.DEFAULT_T5X_IMAGE_TAG }}
+          else
+            T5X_IMAGE_TAG=${{ inputs.T5X_IMAGE_TAG }}
+          fi
+          echo "T5X_IMAGE_TAG=${T5X_IMAGE_TAG}" >> $GITHUB_OUTPUT
+
   run-jobs:
     uses: ./.github/workflows/_test_t5x.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      T5X_IMAGE_TAG: ${{ inputs.T5X_IMAGE_TAG }}
+      T5X_IMAGE_TAG: ${{ needs.metadata.outputs.T5X_IMAGE_TAG }}
     secrets: inherit
 
   publish:
