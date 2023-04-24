@@ -48,6 +48,7 @@ jobs:
           echo "T5X_IMAGE_TAG=${T5X_IMAGE_TAG}" >> $GITHUB_OUTPUT
 
   run-jobs:
+    needs: metadata
     uses: ./.github/workflows/_test_t5x.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
