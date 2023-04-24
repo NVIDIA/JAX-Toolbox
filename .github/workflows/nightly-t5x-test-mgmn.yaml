@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      T5X_IMAGE_TAG: ${{ steps.date.outputs.T5X_IMAGE_TAG }}
     steps:
       - name: Set build date
         id: date
