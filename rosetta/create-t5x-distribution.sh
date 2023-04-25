@@ -1,17 +1,58 @@
 #!/bin/bash
 
+## Parse command-line arguments
+
+usage() {
+  echo "Usage: $0 [OPTION]..."
+  echo "  -p, --patchlist=PATH   Path to patchlist.txt with feature PRs"
+  echo "  -d, --dir=PATH         Path of installed t5x. Defaults to /opt/t5x"
+  echo "  -h, --help             Print usage."
+  echo "  -r, --ref=REF          Git commit hash or tag name that specifies the base of the t5x distribution. Defaults to main (not origin main)"
+  exit 1
+}
+
+args=$(getopt -o p:d:hr: --long patchlist:,dir:,help,ref: -- "$@")
+if [[ $? -ne 0 ]]; then
+  echo
+  usage
+fi
+
+eval set -- "$args"
+while [ : ]; do
+  case "$1" in
+    -p | --patchlist)
+        PATCH_LIST=$(readlink -f "$2")
+        shift 2
+        ;;
+    -d | --dir)
+        INSTALLED_T5X_DIR="$2"
+        shift 2
+        ;;
+    -h | --help)
+        usage
+        ;;
+    -r | --ref)
+        DISTRIBUTION_BASE_REF="$2"
+        shift 2
+        ;;
+    --)
+        shift;
+        break 
+        ;;
+  esac
+done
+
+if [[ $# -ge 1 ]]; then
+    echo "Un-recognized argument: $*"
+    echo
+    usage
+fi
+
 set -euox pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-if [[ $# -ne 1 ]]; then
-  echo "[ERROR]: Need to pass a patchlist file: ./$0 <patchlist.txt>"
-  exit 1
-fi
-
-PATCH_LIST=$(readlink -f $1)
-
 # If provided, this is the commit that we'll base the distribution on
-DISTRIBUTION_BASE_REF=${DISTRIBUTION_BASE_REF:-}
+DISTRIBUTION_BASE_REF=${DISTRIBUTION_BASE_REF:-main}
 INTERNAL_T5X_SUBMODULE_DIR=$SCRIPT_DIR/t5x
 UPSTREAM_GIT_URL=https://github.com/google-research/t5x.git
 
@@ -24,11 +65,6 @@ fi
 cd $INSTALLED_T5X_DIR
 git config user.email "jax@nvidia.com"
 git config user.name "NVIDIA"
-
-if [[ -z "$DISTRIBUTION_BASE_REF" ]]; then
-  # Note: not origin/main
-  DISTRIBUTION_BASE_REF=$(git rev-parse main)
-fi
 
 echo "[INFO]: Basing distribution on t5x commit: $DISTRIBUTION_BASE_REF"
 # Switch to main so other branches can be forced updated
