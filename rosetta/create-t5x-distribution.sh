@@ -7,7 +7,7 @@ usage() {
   echo "  -p, --patchlist=PATH   Path to patchlist.txt with feature PRs"
   echo "  -d, --dir=PATH         Path of installed t5x. Defaults to /opt/t5x"
   echo "  -h, --help             Print usage."
-  echo "  -r, --ref=REF          Git commit hash or tag name that specifies the base of the t5x distribution. Defaults to main (not origin main)"
+  echo "  -r, --ref=REF          Git commit hash or tag name that specifies the base of the t5x distribution. Defaults to main (not origin/main)"
   exit 1
 }
 
@@ -51,7 +51,7 @@ fi
 set -euox pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-# If provided, this is the commit that we'll base the distribution on
+INSTALLED_T5X_DIR=${INSTALLED_T5X_DIR:-/opt/t5x}
 DISTRIBUTION_BASE_REF=${DISTRIBUTION_BASE_REF:-main}
 INTERNAL_T5X_SUBMODULE_DIR=$SCRIPT_DIR/t5x
 UPSTREAM_GIT_URL=https://github.com/google-research/t5x.git
@@ -61,7 +61,6 @@ if [[ -z "$INSTALLED_T5X_DIR" ]]; then
   exit 1
 fi
 
-# This is the git directory of t5x we will build the distribution in
 cd $INSTALLED_T5X_DIR
 git config user.email "jax@nvidia.com"
 git config user.name "NVIDIA"

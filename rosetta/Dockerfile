@@ -3,7 +3,7 @@ FROM ${BASE_IMAGE} AS distribution-builder
 
 COPY . /opt/rosetta
 WORKDIR /opt/rosetta
-RUN INSTALLED_T5X_DIR=/opt/t5x bash create-t5x-distribution.sh patchlist.txt
+RUN bash create-t5x-distribution.sh -p patchlist.txt -d /opt/t5x
 # TODO(terry): revisit whether any of these are needed
 RUN rm -rf .git $(find /opt -name "__pycache__") #&& git submodule deinit -f t5x
   
