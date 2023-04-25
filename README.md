@@ -18,7 +18,7 @@
 [container-link-jax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax
 [container-link-t5x]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x
 [container-link-pax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/pax
-[container-link-te]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/te
+[container-link-te]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-te
 
 [build-badge-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/weekly-base-build.yaml?branch=main&label=weekly&logo=github-actions&logoColor=dddddd
 [build-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
