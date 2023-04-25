@@ -2,9 +2,9 @@
 Rosetta builds upon [t5x](https://github.com/google-research/t5x) and patches it with features
 that are necessary to train the models defined in this repo.
 
-If a PR to T5X upstream takes time to be merged, this is fine as this project follows the
-[distribution model](https://opensource.com/article/18/7/forks-vs-distributions). This
-means we cherry-pick the necessary changes from branches and PRs onto the tip of upstream t5x.
+This project follows the [distribution model](https://opensource.com/article/18/7/forks-vs-distributions). This means
+we cherry-pick the necessary changes onto the tip of upstream t5x. These changes are typically available as PRs
+against upstream [t5x](https://github.com/google-research/t5x).
 
 So before committing a change to this repo, ask yourself: "Does this change need to keep up with
 upstream?" For example, if you want to add a new flag to [t5x/train.py](https://github.com/google-research/t5x/blob/main/t5x/train.py),
