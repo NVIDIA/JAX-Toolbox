@@ -13,7 +13,7 @@ on:
         required: false
 
 env:
-  TARGET: te
+  TARGET: jax-te
   DOCKER_REGISTRY: ghcr.io/nvidia
 
 permissions:
