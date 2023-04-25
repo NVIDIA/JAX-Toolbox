@@ -1,0 +1,42 @@
+name: ~test and lint Rosetta
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+  # Called from another workflow
+  workflow_call:
+    inputs:
+      ROSETTA_IMAGE_TAG:
+        type: string
+        description: Tag of image from https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta
+        default: latest
+        required: false
+
+jobs:
+  rosetta-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Print host information
+        run: |
+          hostname
+          date
+          nvcc --version
+          nvidia-smi -L
+          nvidia-smi
+
+      - name: Print environment variables
+        run: |
+          env
+
+  rosetta-lint-check:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Print host information
+        run: |
+          hostname
+          date
+
+      - name: Print environment variables
+        run: |
+          env
+

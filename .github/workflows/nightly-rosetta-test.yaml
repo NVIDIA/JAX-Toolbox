@@ -1,0 +1,45 @@
+name: Nightly Rosetta test
+
+on:
+  workflow_run:
+    workflows: [Nightly Rosetta build]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ROSETTA_IMAGE_TAG:
+        type: string
+        description: Rosetta container
+        default: latest
+        required: true
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+    steps:
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+  run-jobs:
+    uses: ./.github/workflows/_test_rosetta.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      ROSETTA_IMAGE_TAG: ${{ inputs.ROSETTA_IMAGE_TAG }}
+    secrets: inherit
+
+  if-upstream-failed:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1
