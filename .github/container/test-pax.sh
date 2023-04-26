@@ -33,27 +33,27 @@ fi
 MULTIPROCESS=0
 OUTPUT=$(mktemp -d)
 
-export BATCH_PER_GPU=4
-export DTYPE='bfloat16'
-export STEPS=500
-export DP=1
-export TP=1
-export PP=1
+BATCH_PER_GPU=4
+DTYPE="bfloat16"
+STEPS=500
+DP=1
+TP=1
+PP=1
 export VOCAB_PATH="gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model"
 
 eval set -- "$args"
 while [ : ]; do
     case "$1" in
         -b | --batch-per-gpu)
-            export BATCH_PER_GPU="$2"
+            BATCH_PER_GPU="$2"
             shift 2
             ;;
         --dtype)
-            export DTYPE="$2"
+            DTYPE="$2"
             shift 2
             ;;
         -s | --steps)
-            export STEPS="$2"
+            STEPS="$2"
             shift 2
             ;;
         --multiprocess)
@@ -65,15 +65,15 @@ while [ : ]; do
             shift 2
             ;;
         --data-parallel)
-            export DP="$2"
+            DP="$2"
             shift 2
             ;;
         --tensor-parallel)
-            export TP="$2"
+            TP="$2"
             shift 2
             ;;
         --pipeline-parallel)
-            export PP="$2"
+            PP="$2"
             shift 2
             ;;
         -h | --help)
@@ -91,7 +91,7 @@ done
 
 # # Set derived variables
 
-export NGPUS=$(nvidia-smi -L | grep -c '^GPU')
+NGPUS=$(nvidia-smi -L | grep -c '^GPU')
 
 print_var BATCH_PER_GPU
 print_var DTYPE
@@ -114,7 +114,6 @@ pushd ${PAXML_DIR}
 
 ## Create configs file
 cat > ci_configs.py <<EOF
-import os
 import math
 from paxml import tasks_lib, experiment_registry
 from paxml.contrib.gpu.scripts_gpu.configs import GPT126M, configure_gpt3_task
@@ -123,13 +122,13 @@ from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
 from praxis import base_layer
 from praxis import layers
 
-dp = int(os.getenv("DP"))
-tp = int(os.getenv("TP"))
-pp = int(os.getenv("PP"))
-num_gpus = int(os.getenv("NGPUS"))
-percore_batch_size = int(os.getenv("BATCH_PER_GPU"))
-steps = int(os.getenv("STEPS"))
-dtype = os.getenv("DTYPE")
+dp = ${DP}
+tp = ${TP}
+pp = ${PP}
+num_gpus = ${NGPUS}
+percore_batch_size = ${BATCH_PER_GPU}
+steps = ${STEPS}
+dtype = "${DTYPE}"
 
 assert num_gpus == dp*tp*pp, f'product of parallel strategies should equal number of available gpus. Have {num_gpus} gpus, but product of parallel strategies is {dp*tp*pp}'
 
