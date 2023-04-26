@@ -2,15 +2,29 @@ name: TEST K8s runners
 
 on:
   workflow_dispatch:
+    input:
+      JOB_NAME:
+        description: 'Name of the job to run'
+        required: true
+        default: "hello"
 
 jobs:
 
-  job1:
+  hello:
+    if: inputs.JOB_NAME == 'hello'
     runs-on: [self-hosted, K8s]
     steps:
-      - name: Print environment variables
+      - name: Print runner environments
         run: |
           echo "Hello world!"
           env
           docker --version
           cat /etc/os-release
+
+  sleep5min:
+    if: inputs.JOB_NAME == 'sleep5min'
+    runs-on: [self-hosted, K8s]
+    steps:
+      - name: Sleep for 5 mins
+        run: |
+          sleep 300
