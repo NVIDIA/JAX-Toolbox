@@ -11,3 +11,6 @@ jobs:
       - name: Print environment variables
         run: |
           echo "Hello world!"
+          env
+          docker --version
+          cat /etc/os-release
