@@ -1,0 +1,13 @@
+name: TEST K8s runners
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  job1:
+    runs-on: [self-hosted, K8s]
+    steps:
+      - name: Print environment variables
+        run: |
+          echo "Hello world!"
