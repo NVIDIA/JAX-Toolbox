@@ -2,7 +2,7 @@ name: TEST K8s runners
 
 on:
   workflow_dispatch:
-    input:
+    inputs:
       JOB_NAME:
         description: 'Name of the job to run'
         required: true
