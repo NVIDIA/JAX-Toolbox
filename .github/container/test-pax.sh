@@ -197,6 +197,8 @@ class GPT126MPP(TransformerLmSpmdPipelineAdam):
     task_p = super().task()
     task_p = configure_gpt3_task(self, task_p)
 
+    task_p.train.num_train_steps = self.MAX_STEPS
+
     model_p = task_p.model
     
     ### compute layernorm reductions in fp32. Needed for stable training on GPUs
@@ -259,5 +261,8 @@ python -m paxml.main \
     --alsologtostderr \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
     
+
+rm -r ${OUTPUT}/checkpoints
+
 set +x
 echo "Output at ${OUTPUT}"
