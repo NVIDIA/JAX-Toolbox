@@ -8,6 +8,11 @@ on:
         description: Tag of image from https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x
         default: latest
         required: false
+      BATCH_SIZE_PER_GPU:
+        type: number
+        description: Batch size per GPU
+        default: 32
+        required: false
 
 jobs:
 
@@ -42,7 +47,8 @@ jobs:
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          for var in TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH; do
+          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
+          for var in TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
@@ -69,7 +75,7 @@ jobs:
             test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
-              --batch-per-gpu 32 \
+              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100
           EOF
@@ -136,7 +142,8 @@ jobs:
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          for var in TEST_CASE_NAME TOTAL_TASKS JOB_NAME LOG_FILE MODEL_PATH; do
+          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
+          for var in TEST_CASE_NAME TOTAL_TASKS JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
@@ -164,7 +171,7 @@ jobs:
             test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
-              --batch-per-gpu 32 \
+              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
               --multiprocess
