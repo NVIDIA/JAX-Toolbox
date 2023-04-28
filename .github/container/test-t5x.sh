@@ -12,9 +12,8 @@ usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "  OPTIONS                DESCRIPTION"
-    echo "  -b, --batch-per-gpu    Batch size per GPU, defaults to 32."
-    echo "  -b, --batch-per-gpu    Batch size per GPU, defaults to 32."
-    echo "  -d, --dtype            Batch size, defaults to bfloat16."
+    echo "  -b, --batch-size       Global batch size (REQUIRED)"
+    echo "  -d, --dtype            Data type, defaults to bfloat16."
     echo "  -e, --epochs           Number of epochs to run, defaults to 7."
     echo "  --multiprocess         Enable the multiprocess GPU mode."
     echo "  -o, --output NAME      Name for the output folder, a temporary folder will be created if none specified."
@@ -22,14 +21,14 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o b:d:e:o:s:h --long batch-per-gpu:,dtype:,epochs:,help,multiprocess,output:,steps-per-epoch: -- "$@")
+args=$(getopt -o b:d:e:o:s:h --long batch-size:,dtype:,epochs:,help,multiprocess,output:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
 # Default arguments
 
-BATCH_PER_GPU=32
+BATCH_SIZE=0
 DTYPE=bfloat16
 EPOCHS=7
 MULTIPROCESS=0
@@ -39,8 +38,8 @@ STEPS_PER_EPOCH=100
 eval set -- "$args"
 while [ : ]; do
     case "$1" in
-        -b | --batch-per-gpu)
-            BATCH_PER_GPU="$2"
+        -b | --batch-size)
+            BATCH_SIZE="$2"
             shift 2
             ;;
         -d | --dtype)
@@ -76,13 +75,15 @@ while [ : ]; do
     esac
 done
 
+if [[ $BATCH_SIZE == 0 ]]; then
+    echo "ERROR: Batch size must be specified."
+    usage 1
+fi
+
 ## Set derived variables
 
-NGPUS=$(nvidia-smi -L | grep -c '^GPU')
-BATCH_SIZE=$(($BATCH_PER_GPU * $NGPUS))
 TRAIN_STEPS=$(($EPOCHS * $STEPS_PER_EPOCH))
 
-print_var BATCH_PER_GPU
 print_var BATCH_SIZE
 print_var DTYPE
 print_var EPOCHS
