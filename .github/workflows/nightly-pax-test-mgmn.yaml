@@ -1,0 +1,113 @@
+name: Nightly Pax MGMN performance test
+
+on:
+  workflow_run:
+    workflows: [Nightly Pax build]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      PAX_IMAGE_TAG:
+        type: string
+        description: Pax container
+        default: latest
+        required: true
+      PUBLISH:
+        type: boolean
+        description: Publish dated results to tensorboard server?
+        default: false
+        required: false
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+env:
+  DEFAULT_PAX_IMAGE_TAG: latest
+
+jobs:
+
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PAX_IMAGE_TAG: ${{ steps.date.outputs.PAX_IMAGE_TAG }}
+    steps:
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+          if [[ -z "${{ inputs.PAX_IMAGE_TAG }}" ]]; then
+            PAX_IMAGE_TAG=${{ env.DEFAULT_PAX_IMAGE_TAG }}
+          else
+            PAX_IMAGE_TAG=${{ inputs.PAX_IMAGE_TAG }}
+          fi
+          echo "PAX_IMAGE_TAG=${PAX_IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+  run-jobs:
+    needs: metadata
+    uses: ./.github/workflows/_test_pax.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      PAX_IMAGE_TAG: ${{ needs.metadata.outputs.PAX_IMAGE_TAG }}
+    secrets: inherit
+
+  publish:
+    needs: [metadata, run-jobs]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add known SSH host
+        shell: bash -x -e {0}
+        run: |
+          echo "150.230.212.101 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDcOJt0Q0qYfShF03/rFPYpq+muMHBIfMlvitzEsSm4onWkG4YU0NBvG5WKcU2dLoMdhCIy+SQYtDeNm9Lj5GIqsLSsVMBSAurIMAzyiJU3DuahiWQGMa3rOVEFzgRtmo58202Ijw61WwVi47OvzJL72Oy2RO8hqVvU0ojcQo1jiQxtj39u1Be7dzIXJHLs7xdpI7V8mGxwQ1dgcjcXSh43br9V24pAebK2abGD8KRZ1H0YDgyaYek0ub5AHAeeznL/FUs0lud1xicABd5qo+w1PyIA+1A+TkRTrbHCBtc2w9w3zaO4p+Yi/ITTjhtnPTAmTD7U+km2mhiR+dLbx15D" >> ~/.ssh/known_hosts
+          echo "165.1.79.135 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC+/i0SQXfIUF/GVFFw4XbjPObOuI5Xe7ZYS8fxYtQGXVBnaGs+2qYpmNS2GNoMhAc/w6+uP0gNJcVj0TXNWtSJgXgagO6zVqD4xGSqNOU82PsqRiJvVzjA4nTcGrBdIzh6sLwgkjuGKKjF5XhCJ6BQwPH/GLS9b16eewi3Ppmxp1SKca2sXIUPLrCOpZ4RY/hiQm9vTUfmOWuijxQcbOGWtc6ghV1IJpyCZGtvakhr/nR1LFQmDdbJ7MtKyqmoBbeiEQmlht2a7FGVQY8KTZsVSpYUUHT2zwGLBqogRlaxbv3ANavklG06ZpQJtpf300nr6Ix1UpAedhVpuJVGVJR9kyGZHrll60tjTMzy5Kq3RmxjmF9b524Ig8gMmwIi1G+sU5+OUSzVNGzeuvAhSOwKbFLFq9n8nPdBYGh2MDSm4aIv3Zl/YmyM4Ts2OdKF/BWyqUaGtgz38zUWEbZ2QvnebiTGcBkjBC4b8yMCjTubIFanjUNOFWz4E6GWW5enh5c=" >> ~/.ssh/known_hosts
+
+      - name: Make dated folder aliases
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.TENSORBOARD_SERVER_IP }} ln -s /tensorboard-logs/${GITHUB_RUN_ID} /tensorboard-logs/${{ needs.metadata.outputs.BUILD_DATE }}
+
+      - name: Generate TensorBoard query URL
+        run: |          
+          echo "[${{ needs.metadata.outputs.BUILD_DATE }} metrics](http://${{ vars.TENSORBOARD_SERVER_IP }}:6006/#scalars&regexInput=${{ needs.metadata.outputs.BUILD_DATE }}&_smoothingWeight=0&tagFilter=seqs_per)" >> $GITHUB_STEP_SUMMARY
+
+      # - uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.x'
+          
+      # - name: Generate job summary
+      #   id: metric
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     python | tee -a $GITHUB_STEP_SUMMARY << EOF
+      #     import re
+      #     import pandas as pd
+
+      #     metrics = pd.DataFrame([
+      #         # Extract `metric` and `value` from `timings/metric=value`
+      #         {re.split('=|/',s)[1] : float(re.split('=|/',s)[2]) for s in stat}
+      #         for stat in re.findall(
+      #             r".*collection=train .*"
+      #             r"(timing/seconds=[\d.]+), (timing/seqs=[\d.]+), (timing/seqs_per_second=[\d.]+), "
+      #             r"(timing/seqs_per_second_per_core=[\d.]+), (timing/steps_per_second=[\d.]+), "
+      #             r"(timing/target_tokens_per_second=[\d.]+), (timing/target_tokens_per_second_per_core=[\d.]+).*",
+      #             open('output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log').read()
+      #         )
+      #     ])
+      #     summary = pd.DataFrame(metrics.tail(5).mean(axis=0)).transpose()
+      #     print(summary.to_markdown(index=False))
+      #     EOF
+
+  if-upstream-failed:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1
