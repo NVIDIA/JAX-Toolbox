@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Print host information
         run: |
-          docker run --rm --runtime=nvidia --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+          docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
           # docker pull 
           # date
           # nvcc --version
