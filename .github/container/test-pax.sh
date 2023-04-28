@@ -39,7 +39,6 @@ STEPS=500
 DP=1
 TP=1
 PP=1
-export VOCAB_PATH="gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model"
 
 eval set -- "$args"
 while [ : ]; do

@@ -65,6 +65,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model"
           time srun \
             --container-image=ghcr.io#nvidia/pax:${{ inputs.PAX_IMAGE_TAG }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
