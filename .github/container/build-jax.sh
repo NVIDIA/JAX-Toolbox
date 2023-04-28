@@ -71,7 +71,7 @@ SRC_PATH_XLA="/opt/xla-source"
 
 args=$(getopt -o h --long build-param:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm: -- "$@")
 if [[ $? -ne 0 ]]; then
-    exit $1
+    exit 1
 fi
 
 eval set -- "$args"
@@ -208,12 +208,12 @@ echo "=================================================="
 
 if [[ ${DRY} == 1 ]]; then
     echo "Dry run, exiting..."
-    exit 0
+    exit
 fi
 
 if [[ ${CLEANONLY} == 1 ]]; then
     clean
-    exit 0
+    exit
 fi
 
 set -x

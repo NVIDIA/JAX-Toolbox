@@ -24,7 +24,7 @@ usage() {
 
 args=$(getopt -o b:d:e:o:s:h --long batch-per-gpu:,dtype:,epochs:,help,multiprocess,output:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
-    exit $1
+    exit 1
 fi
 
 # Default arguments

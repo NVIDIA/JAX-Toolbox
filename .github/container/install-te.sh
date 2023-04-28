@@ -13,7 +13,7 @@ usage() {
 
 args=$(getopt -o d:f:hr: --long dir:,from:,help,ref: -- "$@")
 if [[ $? -ne 0 ]]; then
-    exit $1
+    exit 1
 fi
 
 eval set -- "$args"

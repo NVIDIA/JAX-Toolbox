@@ -15,7 +15,7 @@ usage() {
 
 args=$(getopt -o d:h --long dir:,from_paxml:,from_praxis:,help,ref_paxml:,ref_praxis: -- "$@")
 if [[ $? -ne 0 ]]; then
-    exit $1
+    exit 1
 fi
 
 eval set -- "$args"

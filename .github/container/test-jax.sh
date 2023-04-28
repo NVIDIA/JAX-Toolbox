@@ -26,7 +26,7 @@ jax_source_dir() {
 query_tests() {
     cd `jax_source_dir`
     $(ls build/bazel-*) query tests/... 2>&1 | grep -F '//tests:'
-    exit 0
+    exit
 }
 
 print_var() {
@@ -35,7 +35,7 @@ print_var() {
 
 args=$(getopt -o b:qh --long build-jaxlib,disable-x64,enable-x64,reuse-jaxlib,query,help -- "$@")
 if [[ $? -ne 0 ]]; then
-    exit $1
+    exit 1
 fi
 
 eval set -- "$args"
