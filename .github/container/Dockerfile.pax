@@ -7,3 +7,5 @@ FROM ${BASE_IMAGE}
 
 ADD install-pax.sh /usr/local/bin
 RUN install-pax.sh
+
+ADD test-pax.sh /usr/local/bin
