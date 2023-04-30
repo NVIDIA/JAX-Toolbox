@@ -27,6 +27,11 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Pull JAX image
+        shell: bash -x -e {0}
+        run: |
+          docker pull ${{ inputs.IMAGE_JAX }}
+
       - name: Backend-independent tests
         shell: bash -x -e {0}
         run: |
