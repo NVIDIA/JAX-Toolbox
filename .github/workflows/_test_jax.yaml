@@ -33,12 +33,12 @@ jobs:
           docker pull ${{ inputs.JAX_IMAGE }}
 
       - name: Backend-independent tests
-        shell: bash -x
+        shell: bash -x {0}
         run: |
           docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
 
       - name: GPU-specific tests
-        shell: bash -x
+        shell: bash -x {0}
         run: |
           docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
 
