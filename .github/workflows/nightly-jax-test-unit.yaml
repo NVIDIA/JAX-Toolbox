@@ -44,12 +44,12 @@ jobs:
           echo "JAX_IMAGE=${JAX_IMAGE}" >> $GITHUB_OUTPUT
 
   # run-jobs:
-  #   needs: metadata
-  #   uses: ./.github/workflows/_test_jax.yaml
-  #   if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-  #   with:
-  #     JAX_IMAGE: ${{ needs.metadata.outputs.JAX_IMAGE }}
-  #   secrets: inherit
+    # needs: metadata
+    # uses: ./.github/workflows/_test_jax.yaml
+    # if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    # with:
+      # JAX_IMAGE: ${{ needs.metadata.outputs.JAX_IMAGE }}
+    # secrets: inherit
 
   publish:
     # needs: [metadata, run-jobs]
