@@ -58,7 +58,7 @@ set -ex
 
 ## Install dependencies
 
-pip install --no-cache-dir pybind11 ninja
+pip install --no-cache-dir pybind11 ninja packaging
 
 ## Install TE
 
