@@ -40,8 +40,7 @@ jobs:
       - name: GPU-specific tests
         shell: bash -x {0}
         run: |
-          # docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
-          echo "123" > test-gpu.log
+          docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
 
       - name: Upload test logs
         uses: actions/upload-artifact@v3
