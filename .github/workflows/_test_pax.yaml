@@ -39,7 +39,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          TEST_CASE_NAME={{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
@@ -139,7 +139,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          TEST_CASE_NAME={{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }}))
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
@@ -239,7 +239,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          TEST_CASE_NAME={{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
