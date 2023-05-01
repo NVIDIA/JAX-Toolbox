@@ -68,12 +68,21 @@ jobs:
           FAILED_TESTS=$(grep -c 'FAILED in' $GITHUB_WORKSPACE/test-results/*)
           PASSED_TESTS=$(grep -c 'PASSED in' $GITHUB_WORKSPACE/test-results/*)
           TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
+          if [[ $FAILED_TESTS == 0 ]]; then
+            BADGE_COLOR=green
+          else:
+            if $[[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
+              BADGE_COLOR=yellow
+            else:
+              BADGE_COLOR=red
+            fi
+          fi
           cat > endpoint.json << EOF
           {
             "schemaVersion": 1,
             "label": "V100 Unit",
             "message": "${PASSED_TESTS}/${TOTAL_TESTS} passed",
-            "color": "${{ if (FAILED_TESTS > 0) }}yellow{{ else }}green{{ endif }}"
+            "color": "${BADGE_COLOR}"
           }
           EOF
 
