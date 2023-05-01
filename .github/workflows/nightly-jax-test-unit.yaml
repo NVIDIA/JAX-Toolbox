@@ -13,7 +13,7 @@ on:
         required: true
       PUBLISH:
         type: boolean
-        description: Update test status badge?
+        description: Update status badge?
         default: false
         required: true
 
@@ -65,8 +65,9 @@ jobs:
       - name: Count the number of failed tests
         shell: bash -x -e {0}
         run: |
-          FAILED_TESTS=$(cat test-logs/* | grep -c 'FAILED in')
-          PASSED_TESTS=$(cat test-logs/* | grep -c 'PASSED in')
+          ls -lR
+          FAILED_TESTS=$(cat $GITHUB_WORKSPACE/test-logs/* | grep -c 'FAILED in')
+          PASSED_TESTS=$(cat $GITHUB_WORKSPACE/test-logs/* | grep -c 'PASSED in')
           TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
           if [[ $FAILED_TESTS == 0 ]]; then
             BADGE_COLOR=green
