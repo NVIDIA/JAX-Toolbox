@@ -1,0 +1,91 @@
+name: Nightly JAX unit test
+
+on:
+  workflow_run:
+    workflows: [Nightly JAX build]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      JAX_IMAGE:
+        type: string
+        description: 'JAX image built by NVIDIA/JAX-Toolbox'
+        default: 'ghcr.io/nvidia/jax:latest'
+        required: true
+      PUBLISH:
+        type: boolean
+        description: Update test status badge?
+        default: false
+        required: true
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+env:
+  DEFAULT_JAX_IMAGE: 'ghcr.io/nvidia/jax:latest'
+
+jobs:
+
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      JAX_IMAGE: ${{ steps.date.outputs.JAX_IMAGE }}
+    steps:
+      - name: Set metadata
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          if [[ -z "${{ inputs.JAX_IMAGE }}" ]]; then
+            JAX_IMAGE=${{ env.DEFAULT_JAX_IMAGE }}
+          else
+            JAX_IMAGE=${{ inputs.JAX_IMAGE }}
+          fi
+          echo "JAX_IMAGE=${JAX_IMAGE}" >> $GITHUB_OUTPUT
+
+  run-jobs:
+    needs: metadata
+    uses: ./.github/workflows/_test_jax.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      JAX_IMAGE: ${{ needs.metadata.outputs.JAX_IMAGE }}
+    secrets: inherit
+
+  publish:
+    needs: [metadata, run-jobs]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download artifact from the previous job
+        uses: actions/download-artifact@v2
+        with:
+          name: test-results
+          path: test-results
+
+      - name: Count the number of failed tests
+        shell: bash -x -e {0}
+        run: |
+          FAILED_TESTS=$(grep -c 'FAILED in' $GITHUB_WORKSPACE/test-results/*)
+          PASSED_TESTS=$(grep -c 'PASSED in' $GITHUB_WORKSPACE/test-results/*)
+          TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
+          cat > endpoint.json << EOF
+          {
+            "schemaVersion": 1,
+            "label": "V100 Unit",
+            "message": "${PASSED_TESTS}/${TOTAL_TESTS} passed",
+            "color": "${{ if (FAILED_TESTS > 0) }}yellow{{ else }}green{{ endif }}"
+          }
+          EOF
+
+      - name: Update status badge endpoint
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          gist_id: 913c2af68649fe568e9711c2dabb23ae
+          file_path: endpoint.json
+          file_type: text
+
+  if-upstream-failed:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1

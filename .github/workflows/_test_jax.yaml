@@ -3,7 +3,7 @@ name: ~test JAX, unit
 on:
   workflow_dispatch:
     inputs:
-      IMAGE_JAX:
+      JAX_IMAGE:
         type: string
         description: 'JAX image built by NVIDIA/JAX-Toolbox'
         required: true
@@ -30,14 +30,22 @@ jobs:
       - name: Pull JAX image
         shell: bash -x -e {0}
         run: |
-          docker pull ${{ inputs.IMAGE_JAX }}
+          docker pull ${{ inputs.JAX_IMAGE }}
 
       - name: Backend-independent tests
-        shell: bash -x -e {0}
+        shell: bash -x
         run: |
-          docker run --gpus all ${{ inputs.IMAGE_JAX }} test-jax.sh -b backend-independent
+          docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
 
       - name: GPU-specific tests
-        shell: bash -x -e {0}
+        shell: bash -x
         run: |
-          docker run --gpus all ${{ inputs.IMAGE_JAX }} test-jax.sh -b gpu
+          docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
+
+      - name: Upload test logs
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-logs
+          path: |
+            test-backend-independent.log
+            test-gpu.log
