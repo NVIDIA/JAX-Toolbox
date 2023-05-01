@@ -57,16 +57,16 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Download artifact from the previous job
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
-          name: test-results
-          path: test-results
+          name: test-logs
+          path: test-logs
 
       - name: Count the number of failed tests
         shell: bash -x -e {0}
         run: |
-          FAILED_TESTS=$(grep -c 'FAILED in' $GITHUB_WORKSPACE/test-results/*)
-          PASSED_TESTS=$(grep -c 'PASSED in' $GITHUB_WORKSPACE/test-results/*)
+          FAILED_TESTS=$(grep -c 'FAILED in' $GITHUB_WORKSPACE/test-logs/*)
+          PASSED_TESTS=$(grep -c 'PASSED in' $GITHUB_WORKSPACE/test-logs/*)
           TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
           if [[ $FAILED_TESTS == 0 ]]; then
             BADGE_COLOR=green
