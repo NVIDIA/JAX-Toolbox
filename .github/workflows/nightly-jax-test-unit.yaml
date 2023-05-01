@@ -65,9 +65,8 @@ jobs:
       - name: Count the number of failed tests
         shell: bash -x -e {0}
         run: |
-          ls -lR
-          FAILED_TESTS=$(cat $GITHUB_WORKSPACE/test-logs/* | grep -c 'FAILED in')
-          PASSED_TESTS=$(cat $GITHUB_WORKSPACE/test-logs/* | grep -c 'PASSED in')
+          FAILED_TESTS=$(cat test-logs/* | grep -c 'FAILED in' || true)
+          PASSED_TESTS=$(cat test-logs/* | grep -c 'PASSED in' || true)
           TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
           if [[ $FAILED_TESTS == 0 ]]; then
             BADGE_COLOR=green
