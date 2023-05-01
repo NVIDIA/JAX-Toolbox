@@ -69,7 +69,7 @@ jobs:
           PASSED_TESTS=$(cat test-logs/* | grep -c 'PASSED in' || true)
           TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
           if [[ $FAILED_TESTS == 0 ]]; then
-            BADGE_COLOR=green
+            BADGE_COLOR=brightgreen
           else
             if [[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
               BADGE_COLOR=yellow
