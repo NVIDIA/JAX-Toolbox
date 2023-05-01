@@ -79,7 +79,7 @@ jobs:
           if [[ $FAILED_TESTS == 0 ]]; then
             BADGE_COLOR=green
           else
-            if $[[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
+            if [[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
               BADGE_COLOR=yellow
             else
               BADGE_COLOR=red
