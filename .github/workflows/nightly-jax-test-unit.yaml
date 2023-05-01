@@ -52,8 +52,7 @@ jobs:
     secrets: inherit
 
   publish:
-    # needs: [metadata, run-jobs]
-    needs: [metadata]
+    needs: [metadata, run-jobs]
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
     runs-on: ubuntu-22.04
     steps:
