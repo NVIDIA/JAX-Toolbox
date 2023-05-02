@@ -16,14 +16,6 @@ jobs:
   rosetta-tests:
     runs-on: ubuntu-22.04
     steps:
-      - name: Print host information
-        run: |
-          hostname
-          date
-          nvcc --version
-          nvidia-smi -L
-          nvidia-smi
-
       - name: Print environment variables
         run: |
           env
@@ -31,11 +23,6 @@ jobs:
   rosetta-lint-check:
     runs-on: ubuntu-22.04
     steps:
-      - name: Print host information
-        run: |
-          hostname
-          date
-
       - name: Print environment variables
         run: |
           env
