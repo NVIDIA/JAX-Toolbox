@@ -6,11 +6,11 @@ on:
     types: [completed]
   workflow_dispatch:
     inputs:
-      ROSETTA_IMAGE_TAG:
+      ROSETTA_IMAGE:
         type: string
-        description: Rosetta container
-        default: latest
+        description: 'Rosetta image build by NVIDIA/JAX-Toolbox'
         required: true
+        default: 'ghcr.io/nvidia/rosetta:latest'
 
 permissions:
   contents: read  # to fetch code
@@ -35,7 +35,7 @@ jobs:
     uses: ./.github/workflows/_test_rosetta.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      ROSETTA_IMAGE_TAG: ${{ inputs.ROSETTA_IMAGE_TAG }}
+      ROSETTA_IMAGE: ${{ inputs.ROSETTA_IMAGE }}
     secrets: inherit
 
   if-upstream-failed:

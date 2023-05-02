@@ -6,11 +6,11 @@ on:
   # Called from another workflow
   workflow_call:
     inputs:
-      ROSETTA_IMAGE_TAG:
+      ROSETTA_IMAGE:
         type: string
-        description: Tag of image from https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta
-        default: latest
-        required: false
+        description: 'Rosetta image build by NVIDIA/JAX-Toolbox'
+        required: true
+        default: 'ghcr.io/nvidia/rosetta:latest'
 
 jobs:
   rosetta-tests:
