@@ -50,11 +50,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: |
-            ${{ env.UPLD_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=${{ github.run_id }}-rosetta
-          labels:
-            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+          images: ${{ env.UPLD_IMAGE }}
+          flavor: latest=false
+          tags: type=raw,value=${{ github.run_id }}-rosetta
+          labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
