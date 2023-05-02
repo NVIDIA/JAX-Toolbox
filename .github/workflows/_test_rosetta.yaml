@@ -1,0 +1,29 @@
+name: ~test and lint Rosetta
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+  # Called from another workflow
+  workflow_call:
+    inputs:
+      ROSETTA_IMAGE:
+        type: string
+        description: 'Rosetta image build by NVIDIA/JAX-Toolbox'
+        required: true
+        default: 'ghcr.io/nvidia/rosetta:latest'
+
+jobs:
+  rosetta-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Print environment variables
+        run: |
+          env
+
+  rosetta-lint-check:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Print environment variables
+        run: |
+          env
+
