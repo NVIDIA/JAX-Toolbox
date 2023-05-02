@@ -61,7 +61,7 @@ jobs:
       JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
     secrets: inherit
 
-  rosetta:
+  build-rosetta:
     uses: ./.github/workflows/_build_rosetta.yaml
     needs: [metadata, build-t5x]
     with:
