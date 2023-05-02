@@ -144,7 +144,7 @@ jobs:
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          for var in TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH; do
+          for var in TEST_CASE_NAME TOTAL_TASKS JOB_NAME LOG_FILE MODEL_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
@@ -277,6 +277,7 @@ jobs:
               --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --nodes 2 \
               --multiprocess
           EOF
           )

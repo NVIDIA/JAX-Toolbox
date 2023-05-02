@@ -20,11 +20,12 @@ usage() {
     echo "  --data-parallel            Data parallelism to use. Defaults to 1."
     echo "  --tensor-parallel          Tensor parallelism to use. Defaults to 1."
     echo "  --pipeline-parallel        Pipeline parallelism to use. Defaults to 1 for no pipelining." 
+    echo "  -n, --nodes                Number of nodes."
     echo "  -h, --help                 Print usage."
     exit $1
 }
 
-args=$(getopt -o b:s:o:h --long batch-per-gpu:,dtype:,steps:,help,multiprocess,output:,data-parallel:,tensor-parallel:,pipeline-parallel: -- "$@")
+args=$(getopt -o b:s:o:n:h --long batch-per-gpu:,dtype:,steps:,help,multiprocess,output:,data-parallel:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -39,6 +40,7 @@ STEPS=500
 DP=1
 TP=1
 PP=1
+NODES=1
 
 eval set -- "$args"
 while [ : ]; do
@@ -75,6 +77,10 @@ while [ : ]; do
             PP="$2"
             shift 2
             ;;
+        -n | --nodes)
+            NODES="$2"
+            shift 2
+            ;;
         -h | --help)
             usage 1
             ;;
@@ -90,7 +96,8 @@ done
 
 # # Set derived variables
 
-NGPUS=$(nvidia-smi -L | grep -c '^GPU')
+GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
+NGPUS=$(( $GPUS_PER_NODE * $NODES ))
 
 print_var BATCH_PER_GPU
 print_var DTYPE
