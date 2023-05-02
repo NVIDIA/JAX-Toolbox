@@ -7,7 +7,7 @@
 | [![container-badge-t5x]][container-link-t5x]         | [![build-badge-t5x]][workflow-t5x]         | [![test-badge-t5x]][workflow-t5x-perf] |
 | [![container-badge-pax]][container-link-pax]         | [![build-badge-pax]][workflow-pax]         |                                        |
 | [![container-badge-te]][container-link-te]           | [![build-badge-te]][workflow-te]           |                                        |
-| [![container-badge-rosetta]][container-link-rosetta] | [![build-badge-rosetta]][workflow-rosetta] | [![test-badge-rosetta]][workflow-rosetta-test] |
+| [![container-badge-rosetta]][container-link-rosetta] | [![build-badge-rosetta]][workflow-rosetta] (dummy) | [![test-badge-rosetta]][workflow-rosetta-test] (dummy) |
 
 [container-badge-base]: https://img.shields.io/static/v1?label=&message=.base&color=gray&logo=docker
 [container-badge-jax]: https://img.shields.io/static/v1?label=&message=JAX&color=gray&logo=docker
