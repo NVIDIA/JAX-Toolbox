@@ -72,7 +72,7 @@ jobs:
             test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
-              --batch-per-gpu 8 \
+              --batch-per-gpu 4 \
               --steps 500 \
               --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
@@ -173,7 +173,7 @@ jobs:
             test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
-              --batch-per-gpu 8 \
+              --batch-per-gpu 4 \
               --steps 500 \
               --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
@@ -272,7 +272,7 @@ jobs:
             test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
-              --batch-per-gpu 8 \
+              --batch-per-gpu 4 \
               --steps 500 \
               --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
