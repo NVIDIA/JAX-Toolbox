@@ -49,7 +49,7 @@ jobs:
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }}))
           GPUS_PER_NODE=$TOTAL_TASKS
           NODES=1
-          if [$TOTAL_TASKS > 8]
+          if [ $TOTAL_TASKS > 8 ]
           then
             NODES=2
             GPUS_PER_NODE=8
