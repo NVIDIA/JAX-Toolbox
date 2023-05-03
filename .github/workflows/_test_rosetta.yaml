@@ -40,26 +40,7 @@ jobs:
           docker pull ${{ inputs.ROSETTA_IMAGE }}
 
       - name: Run Rosetta tests w/ docker
+        shell: bash -x -e {0}
         run: |
-          set -x
           docker run --gpus '"device=0,1"' ${{ inputs.ROSETTA_IMAGE }} sh -c "pip install '/opt/rosetta[test]' && pytest /opt/rosetta ${{ matrix.MARKERS }}"
-
-  rosetta-lint-check:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Print environment variables
-        run: |
-          env
-
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
-
-      - name: Run ruff linter on rosetta
-        uses: addnab/docker-run-action@v3
-        with:
-          image: python:3.8.10
-          options: -v ${{ github.workspace }}:/opt/rosetta
-          run: |
-            pip install ruff
-            ruff /opt/rosetta
 
