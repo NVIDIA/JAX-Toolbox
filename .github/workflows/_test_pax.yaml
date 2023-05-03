@@ -85,6 +85,9 @@ jobs:
             echo "SLURM Job $JOB is still running."
             sleep 15
           done
+
+          sshx rm -r ${{ steps.meta.outputs.MODEL_PATH }}/${{ steps.meta.outputs.TEST_CASE_NAME }}/checkpoints
+
           echo "SLRUM Job $JOB finished."
           set -x
 
@@ -187,6 +190,9 @@ jobs:
             echo "SLURM Job $JOB is still running."
             sleep 15
           done
+
+          sshx rm -r ${{ steps.meta.outputs.MODEL_PATH }}/${{ steps.meta.outputs.TEST_CASE_NAME }}/checkpoints
+
           echo "SLRUM Job $JOB finished."
           set -x
 
@@ -287,6 +293,9 @@ jobs:
             echo "SLURM Job $JOB is still running."
             sleep 15
           done
+
+          sshx rm -r ${{ steps.meta.outputs.MODEL_PATH }}/${{ steps.meta.outputs.TEST_CASE_NAME }}/checkpoints
+
           echo "SLRUM Job $JOB finished."
           set -x
 

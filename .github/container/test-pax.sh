@@ -268,7 +268,5 @@ python -m paxml.main \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
     
 
-rm -r ${OUTPUT}/checkpoints
-
 set +x
 echo "Output at ${OUTPUT}"
