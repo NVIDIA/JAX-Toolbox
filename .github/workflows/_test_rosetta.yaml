@@ -42,5 +42,5 @@ jobs:
       - name: Run Rosetta tests w/ docker
         shell: bash -x -e {0}
         run: |
-          docker run --gpus '"device=0,1"' ${{ inputs.ROSETTA_IMAGE }} sh -c "pip install '/opt/rosetta[test]' && pytest /opt/rosetta ${{ matrix.MARKERS }}"
+          docker run --gpus all ${{ inputs.ROSETTA_IMAGE }} sh -c "pip install '/opt/rosetta[test]' && pytest /opt/rosetta ${{ matrix.MARKERS }}"
 
