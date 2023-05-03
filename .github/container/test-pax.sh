@@ -97,7 +97,7 @@ done
 # # Set derived variables
 
 GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
-NGPUS=$(( $GPUS_PER_NODE * $NODES ))
+NGPUS=$(( GPUS_PER_NODE * NODES ))
 
 print_var BATCH_PER_GPU
 print_var DTYPE
