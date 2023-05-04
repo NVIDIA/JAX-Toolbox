@@ -11,13 +11,16 @@ on:
 
 jobs:
 
-  single-process-single-device:
+  multi-gpu-multi-node:
     strategy:
       matrix:
-        N_GPU: [1]
-        DP: [1]
-        TP: [1]
-        PP: [1]
+        PARALLEL_CONFIG:
+        - [1, 1, 1]
+        - [8, 1, 1]
+        - [1, 8, 1]
+        - [2, 1, 4]
+        - [16, 1, 1]
+        - [2, 2, 4]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -41,11 +44,16 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          TEST_CASE_NAME=1P${{ matrix.N_GPU }}G${{ matrix.DP }}DP${{ matrix.TP }}TP${{ matrix.PP }}PP
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
+          TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }}))
+          MAX_GPUS_PER_NODE=8
+          NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
+          GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
+
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          for var in TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH; do
+          for var in TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
@@ -54,15 +62,16 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}'
-          sshx "date && hostname && sinfo"          
+          sshx "date && hostname && sinfo" 
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
-          #SBATCH --nodes=1
-          #SBATCH --tasks=1
-          #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+          #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
+          #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
+          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
+          #SBATCH --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model"
@@ -73,11 +82,13 @@ jobs:
             test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
-              --batch-per-gpu 8 \
+              --batch-per-gpu 4 \
               --steps 500 \
-              --data-parallel ${{ matrix.DP }} \
-              --tensor-parallel ${{ matrix.TP }} \
-              --pipeline-parallel ${{ matrix.PP }} 
+              --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
+              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
+              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --nodes ${{ steps.meta.outputs.NODES }} \
+              $([[ $TOTAL_TASKS > 1 ]] && echo --multiprocess)
           EOF
           )
 
@@ -86,6 +97,9 @@ jobs:
             echo "SLURM Job $JOB is still running."
             sleep 15
           done
+
+          sshx rm -r ${{ steps.meta.outputs.MODEL_PATH }}/${{ steps.meta.outputs.TEST_CASE_NAME }}/checkpoints
+
           echo "SLRUM Job $JOB finished."
           set -x
 
