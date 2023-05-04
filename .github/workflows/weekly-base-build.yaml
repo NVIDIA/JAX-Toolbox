@@ -48,7 +48,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: jax-te
+      TARGET_IMAGE: jax-toolbox
       TARGET_TAGS: |
         type=raw,value=base,priority=1000
         type=raw,value=base-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
