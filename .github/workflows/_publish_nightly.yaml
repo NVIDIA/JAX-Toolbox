@@ -1,0 +1,68 @@
+name: Publish nightly images from internal to public repo
+
+on:
+  workflow_call:
+    inputs:
+      SOURCE_IMAGE:
+        type: string
+        description: 'Source docker image:'
+        required: true
+      BUILD_DATE:
+        type: string
+        description: "Build date in YYYY-MM-DD format"
+        required: true
+      TARGET_IMAGE:
+        type: string
+        description: 'Target docker image (jax/t5x/etc.):'
+        required: true
+    outputs:
+      DOCKER_TAGS:
+        description: "Tags of the image published"
+        value: ${{ jobs.publish.outputs.DOCKER_TAGS }}
+
+env:
+  DOCKER_REGISTRY: 'ghcr.io/nvidia'
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    outputs:
+      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/${{ inputs.TARGET_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=latest,priority=1000
+            type=raw,value=nightly-${{ inputs.BUILD_DATE }},priority=900
+
+      - name: Create manifest
+        shell: bash -x -e {0}
+        run: |
+          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+            docker manifest create $tag ${{ inputs.SOURCE_IMAGE }}
+            docker manifest push $tag
+          done
+
+      - name: Generate outputs and artifacts
+        shell: bash -x -e {0}
+        run: |
+          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
+
+      - name: Upload image tags as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: image-tags-${{ env.TARGET }}
+          path: image-tags-${{ env.TARGET }}.txt
