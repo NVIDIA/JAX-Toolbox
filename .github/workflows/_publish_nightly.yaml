@@ -59,10 +59,10 @@ jobs:
       - name: Generate outputs and artifacts
         shell: bash -x -e {0}
         run: |
-          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
+          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ inputs.TARGET_IMAGE }}.txt
 
       - name: Upload image tags as artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: image-tags-${{ env.TARGET }}
-          path: image-tags-${{ env.TARGET }}.txt
+          name: image-tags-${{ inputs.TARGET_IMAGE }}
+          path: image-tags-${{ inputs.TARGET_IMAGE }}.txt
