@@ -14,16 +14,33 @@ on:
 
 jobs:
   rosetta-tests:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        MARKERS: ["", "-m integration"]
+      fail-fast: false
+    runs-on: [self-hosted, compute, V100]
     steps:
       - name: Print environment variables
         run: |
           env
 
-  rosetta-lint-check:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Print environment variables
+      - name: Print GPU information
+        run: nvidia-smi  
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull Rosetta image
+        shell: bash -x -e {0}
         run: |
-          env
+          docker pull ${{ inputs.ROSETTA_IMAGE }}
+
+      - name: Run Rosetta tests w/ docker
+        shell: bash -x -e {0}
+        run: |
+          docker run --gpus all ${{ inputs.ROSETTA_IMAGE }} sh -c "pip install '/opt/rosetta[test]' && pytest /opt/rosetta ${{ matrix.MARKERS }}"
 
