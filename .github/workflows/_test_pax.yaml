@@ -47,14 +47,10 @@ jobs:
         run: |
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }}))
-          GPUS_PER_NODE=$TOTAL_TASKS
-          NODES=1
-          if [ $TOTAL_TASKS > 8 ]
-          then
-            NODES=2
-            GPUS_PER_NODE=8
-          fi
-          
+          MAX_GPUS_PER_NODE=8
+          NODES=$((result=(TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
+          GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
+
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
