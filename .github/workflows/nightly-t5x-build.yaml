@@ -46,48 +46,13 @@ jobs:
 
   publish:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
-    runs-on: ubuntu-22.04
     needs: [metadata, build]
-    steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set docker metadata
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.TARGET }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
-            type=raw,value=latest,priority=1000
-            # type=ref,event=branch
-            # type=ref,event=pr
-
-      - name: Create manifest
-        shell: bash -x -e {0}
-        run: |
-          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-            docker manifest create $tag ${{ needs.build.outputs.DOCKER_TAGS }}
-            docker manifest push $tag
-          done
-
-      - name: Generate outputs and artifacts
-        shell: bash -x -e {0}
-        run: |
-          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ env.TARGET }}.txt
-
-      - name: Upload image tags as artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: image-tags-${{ env.TARGET }}
-          path: image-tags-${{ env.TARGET }}.txt
+    uses: ./.github/workflows/_publish_nightly.yaml
+    with:
+      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      TARGET_IMAGE: t5x
+    secrets: inherit
 
   if-upstream-failed:
     runs-on: ubuntu-latest
