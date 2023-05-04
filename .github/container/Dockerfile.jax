@@ -29,7 +29,7 @@ RUN build-jax.sh \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
-    --build-param --bazel_options=--remote_cache=${BAZEL_REMOTE_CACHE}
+    $([[ -z "${BAZEL_REMOTE_CACHE}" ]] || echo --bazel-remote-cache=${BAZEL_REMOTE_CACHE})
 
 RUN cp -r ${SRC_PATH_JAX} ${SRC_PATH_JAX}-no-git && rm -rf ${SRC_PATH_JAX}-no-git/.git
 RUN cp -r ${SRC_PATH_XLA} ${SRC_PATH_XLA}-no-git && rm -rf ${SRC_PATH_XLA}-no-git/.git
