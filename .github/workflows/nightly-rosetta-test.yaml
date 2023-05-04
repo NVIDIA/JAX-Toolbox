@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: [Nightly Rosetta build]
     types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       ROSETTA_IMAGE:
