@@ -7,13 +7,13 @@ on:
         type: string
         description: 'Source docker image:'
         required: true
-      BUILD_DATE:
-        type: string
-        description: "Build date in YYYY-MM-DD format"
-        required: true
       TARGET_IMAGE:
         type: string
         description: 'Target docker image (jax/t5x/etc.):'
+        required: true
+      TARGET_TAGS:
+        type: string
+        description: 'Target docker tags in docker/metadata-action format:'
         required: true
     outputs:
       DOCKER_TAGS:
@@ -40,13 +40,9 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: |
-            ${{ env.DOCKER_REGISTRY }}/${{ inputs.TARGET_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=latest,priority=1000
-            type=raw,value=nightly-${{ inputs.BUILD_DATE }},priority=900
+          images: ${{ env.DOCKER_REGISTRY }}/${{ inputs.TARGET_IMAGE }}
+          flavor: latest=false
+          tags: ${{ inputs.TARGET_TAGS }}
 
       - name: Create manifest
         shell: bash -x -e {0}

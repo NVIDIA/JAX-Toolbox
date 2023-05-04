@@ -49,11 +49,13 @@ jobs:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
     needs: [metadata, build]
     uses: ./.github/workflows/_publish_nightly.yaml
+    secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       TARGET_IMAGE: pax
-    secrets: inherit
+      TARGET_TAGS: |
+        type=raw,value=latest,priority=1000
+        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   on-upstream-failure:
     runs-on: ubuntu-latest
