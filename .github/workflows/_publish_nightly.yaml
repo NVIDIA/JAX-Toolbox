@@ -1,4 +1,4 @@
-name: Publish nightly images from internal to public repo
+name: ~publish images from internal to public repo
 
 on:
   workflow_call:
