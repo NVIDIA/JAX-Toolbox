@@ -71,7 +71,6 @@ set -ex
 ## Install dependencies
 
 apt-get update
-apt-get upgrade -y
 apt-get install -y git
 
 ## Install Praxis
