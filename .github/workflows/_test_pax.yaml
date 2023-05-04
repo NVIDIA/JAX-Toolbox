@@ -48,7 +48,7 @@ jobs:
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }}))
           MAX_GPUS_PER_NODE=8
-          NODES=$((result=(TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
+          NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
@@ -89,7 +89,7 @@ jobs:
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              --multiprocess
+              $([[ $TOTAL_TASKS > 1 ]] && echo --multiprocess)
           EOF
           )
 
