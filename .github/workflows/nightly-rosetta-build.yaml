@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: [Nightly T5X build]
     types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       PUBLISH:

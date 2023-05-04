@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: [Nightly Pax build]
     types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       PAX_IMAGE_TAG:

@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: [Nightly JAX build]
     types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       JAX_IMAGE:
