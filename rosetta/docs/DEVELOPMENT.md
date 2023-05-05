@@ -45,9 +45,9 @@ on top of an existing PR's branch.
 If you build the project's [Dockerfile](../Dockerfile), you will automatically build the distribution.
 You can build the project's image with or without the dev dependencies (used for testing/linting):
 ```bash
-docker buildx build --target rosetta --tag rosetta:latest .
+docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.t5x .
 # Or if you want a devel image with test dependencies
-docker buildx build --target rosetta-devel --tag rosetta-devel:latest .
+docker buildx build --target rosetta-devel --tag rosetta-devel:latest -f Dockerfile.t5x .
 ```
 
 ### Locally
@@ -58,10 +58,11 @@ INSTALLED_T5X_DIR=/tmp/t5x
 git clone https://github.com/google-research/t5x.git $INSTALLED_T5X_DIR
 
 # --patchlist: is the aforementioned patchlist.txt 
+# --url: Git url of the upstream repo to obtain pull request refs
 # --dir: is the directory where t5x is installed
 # --ref: is optional and can be set to a commit hash or a git-ref in case you want to build the
 #        distribution from a commit other than the tip of main.
-./create-t5x-distribution.sh --patchlist patchlist.txt ---dir $INSTALLED_T5X_DIR --ref 79909538d7d98a46966cc683ec7fa606b0f7cf78
+./createx-distribution.sh --patchlist patchlist-t5x.txt --url https://github.com/google-research/t5x.git --dir $INSTALLED_T5X_DIR --ref 79909538d7d98a46966cc683ec7fa606b0f7cf78
 ```
 
 Afterwards, you can look at the logs and the state of `$INSTALLED_T5X_DIR` to see how you'd like
