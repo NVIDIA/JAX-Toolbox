@@ -37,6 +37,7 @@ usage() {
     echo "  Usage: $0 [OPTIONS]"
     echo ""
     echo "    OPTIONS                        DESCRIPTION"
+    echo "    --bazel-cache URI              Path for local bazel cache or URL of remote bazel cache"
     echo "    --build-param PARAM            Param passed to the jaxlib build command. Can be passed many times."
     echo "    --clean                        Delete local configuration and bazel cache"
     echo "    --clean-only                   Do not build, just cleanup"
@@ -57,6 +58,7 @@ usage() {
 }
 
 # Set defaults
+BAZEL_CACHE=""
 BUILD_PARAM=""
 CLEAN=0
 CLEANONLY=0
@@ -69,7 +71,7 @@ JAXLIB_ONLY=0
 SRC_PATH_JAX="/opt/jax-source"
 SRC_PATH_XLA="/opt/xla-source"
 
-args=$(getopt -o h --long build-param:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm: -- "$@")
+args=$(getopt -o h --long bazel-cache:,build-param:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -77,6 +79,10 @@ fi
 eval set -- "$args"
 while [ : ]; do
     case "$1" in
+        --bazel-cache)
+            BAZEL_CACHE=$2
+            shift 2
+            ;;
         --build-param)
             BUILD_PARAM="$BUILD_PARAM $2"
             shift 2
@@ -172,8 +178,11 @@ if [[ ! -z "${CUDA_COMPUTE_CAPABILITIES}" ]]; then
     fi
 fi
 
-if [[ -d /cache ]]; then
-    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=/cache"
+if [[ "${BAZEL_CACHE}" == http://* ]] || \
+   [[ "${BAZEL_CACHE}" == grpc://* ]]; then
+    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_cache=${BAZEL_CACHE}"
+elif [[ ! -z "${BAZEL_CACHE}" ]] ; then
+    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=${BAZEL_CACHE}"
 fi
 
 if [[ "$DEBUG" == "1" ]]; then
@@ -186,12 +195,13 @@ echo "=================================================="
 echo "                  Configuration                   "
 echo "--------------------------------------------------"
 
+print_var BAZEL_CACHE
+print_var BUILD_PARAM
 print_var CLEAN
 print_var CLEANONLY
 print_var CPU_ARCH
 print_var CUDA_COMPUTE_CAPABILITIES
 print_var DEBUG
-print_var BUILD_PARAM
 print_var SRC_PATH_JAX
 print_var SRC_PATH_XLA
 
@@ -221,7 +231,6 @@ set -x
 ## install tools
 
 apt-get update
-apt-get upgrade -y
 apt-get install -y \
     build-essential \
     checkinstall \

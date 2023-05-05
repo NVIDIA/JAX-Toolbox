@@ -95,6 +95,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BAZEL_CACHE=${{ secrets.BAZEL_REMOTE_CACHE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             REPO_JAX=${{ inputs.REPO_JAX }}
             REPO_XLA=${{ inputs.REPO_XLA }}
