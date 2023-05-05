@@ -37,7 +37,7 @@ usage() {
     echo "  Usage: $0 [OPTIONS]"
     echo ""
     echo "    OPTIONS                        DESCRIPTION"
-    echo "    --bazel-remote-cache URL       URL of the bazel remote cache"
+    echo "    --bazel-cache URI              Path for local bazel cache or URL of remote bazel cache"
     echo "    --build-param PARAM            Param passed to the jaxlib build command. Can be passed many times."
     echo "    --clean                        Delete local configuration and bazel cache"
     echo "    --clean-only                   Do not build, just cleanup"
@@ -58,7 +58,7 @@ usage() {
 }
 
 # Set defaults
-BAZEL_REMOTE_CACHE=""
+BAZEL_CACHE=""
 BUILD_PARAM=""
 CLEAN=0
 CLEANONLY=0
@@ -71,7 +71,7 @@ JAXLIB_ONLY=0
 SRC_PATH_JAX="/opt/jax-source"
 SRC_PATH_XLA="/opt/xla-source"
 
-args=$(getopt -o h --long bazel-remote-cache:,build-param:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm: -- "$@")
+args=$(getopt -o h --long bazel-cache:,build-param:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -79,8 +79,8 @@ fi
 eval set -- "$args"
 while [ : ]; do
     case "$1" in
-        --bazel-remote-cache)
-            BAZEL_REMOTE_CACHE=$2
+        --bazel-cache)
+            BAZEL_CACHE=$2
             shift 2
             ;;
         --build-param)
@@ -178,12 +178,11 @@ if [[ ! -z "${CUDA_COMPUTE_CAPABILITIES}" ]]; then
     fi
 fi
 
-if [[ -z "${BAZEL_REMOTE_CACHE}" ]]; then 
-    BUILD_PARAM="${BUILD_PARAM} --build-param --bazel_options=--remote_cache=${BAZEL_REMOTE_CACHE})"
-fi
-
-if [[ -d /cache ]]; then
-    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=/cache"
+if [[ "${BAZEL_CACHE}" == http://* ]] || \
+   [[ "${BAZEL_CACHE}" == grpc://* ]]; then
+    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_cache=${BAZEL_CACHE})"
+elif [[ ! -z "${BAZEL_CACHE}" ]] ; then
+    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=${BAZEL_CACHE}"
 fi
 
 if [[ "$DEBUG" == "1" ]]; then
@@ -196,7 +195,7 @@ echo "=================================================="
 echo "                  Configuration                   "
 echo "--------------------------------------------------"
 
-print_var BAZEL_REMOTE_CACHE
+print_var BAZEL_CACHE
 print_var BUILD_PARAM
 print_var CLEAN
 print_var CLEANONLY

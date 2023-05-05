@@ -5,8 +5,8 @@ ARG REF_JAX=main
 ARG REF_XLA=main
 ARG SRC_PATH_JAX=/opt/jax-source
 ARG SRC_PATH_XLA=/opt/xla-source
+ARG BAZEL_CACHE=/tmp
 ARG BUILD_DATE
-ARG BAZEL_REMOTE_CACHE
 
 ###############################################################################
 ## Build JAX
@@ -19,17 +19,17 @@ ARG REF_JAX
 ARG REF_XLA
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
-ARG BAZEL_REMOTE_CACHE
+ARG BAZEL_CACHE
 
 RUN git clone "${REPO_JAX}" "${SRC_PATH_JAX}" && cd "${SRC_PATH_JAX}" && git checkout ${REF_JAX}
 RUN git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 RUN build-jax.sh \
+    --bazel-cache ${BAZEL_CACHE} \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
-    --sm all \
-    $([[ -z "${BAZEL_REMOTE_CACHE}" ]] || echo --bazel-remote-cache=${BAZEL_REMOTE_CACHE})
+    --sm all
 
 RUN cp -r ${SRC_PATH_JAX} ${SRC_PATH_JAX}-no-git && rm -rf ${SRC_PATH_JAX}-no-git/.git
 RUN cp -r ${SRC_PATH_XLA} ${SRC_PATH_XLA}-no-git && rm -rf ${SRC_PATH_XLA}-no-git/.git
