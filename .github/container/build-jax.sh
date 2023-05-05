@@ -180,7 +180,7 @@ fi
 
 if [[ "${BAZEL_CACHE}" == http://* ]] || \
    [[ "${BAZEL_CACHE}" == grpc://* ]]; then
-    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_cache=${BAZEL_CACHE})"
+    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_cache=${BAZEL_CACHE}"
 elif [[ ! -z "${BAZEL_CACHE}" ]] ; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=${BAZEL_CACHE}"
 fi
