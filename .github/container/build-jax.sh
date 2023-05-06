@@ -22,10 +22,8 @@ supported_compute_capabilities() {
 
 clean() {
     $(find -type f -executable -iname "bazel*") clean --expunge || true
-    rm -rf dist/
     rm -rf bazel
     rm -rf .jax_configure.bazelrc
-    rm -rf build WORKSPACE .bazel*
     rm -rf ${HOME}/.cache/bazel
 }
 

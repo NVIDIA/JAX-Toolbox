@@ -95,6 +95,12 @@ jobs:
           file_path: endpoint.json
           file_type: text
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: endpoint
+          path: endpoint.json
+
   if-upstream-failed:
     runs-on: ubuntu-latest
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
