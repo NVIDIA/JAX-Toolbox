@@ -62,7 +62,7 @@ git clone https://github.com/google-research/t5x.git $INSTALLED_T5X_DIR
 # --dir: is the directory where t5x is installed
 # --ref: is optional and can be set to a commit hash or a git-ref in case you want to build the
 #        distribution from a commit other than the tip of main.
-./createx-distribution.sh --patchlist patchlist-t5x.txt --url https://github.com/google-research/t5x.git --dir $INSTALLED_T5X_DIR --ref 79909538d7d98a46966cc683ec7fa606b0f7cf78
+./create-distribution.sh --patchlist patchlist-t5x.txt --url https://github.com/google-research/t5x.git --dir $INSTALLED_T5X_DIR --ref 79909538d7d98a46966cc683ec7fa606b0f7cf78
 ```
 
 Afterwards, you can look at the logs and the state of `$INSTALLED_T5X_DIR` to see how you'd like
