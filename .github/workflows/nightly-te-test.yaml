@@ -1,0 +1,105 @@
+name: Nightly Transformer Engine test
+
+on:
+  workflow_run:
+    workflows: [Nightly Transformer Engine build]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      JAX_TE_IMAGE:
+        type: string
+        description: 'JAX-TE image build by NVIDIA/JAX-Toolbox'
+        required: true
+        default: 'ghcr.io/nvidia/jax-te:latest'
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+    steps:
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+  run-jobs:
+    uses: ./.github/workflows/_test_te.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      JAX_TE_IMAGE: ${{ inputs.JAX_TE_IMAGE }}
+    secrets: inherit
+
+  publish:
+    needs: [metadata, run-jobs]
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download artifact from the previous job
+        uses: actions/download-artifact@v3
+        with:
+          name: test-logs
+          path: test-logs
+
+      - name: Count the number of failed tests
+        shell: bash -x -e {0}
+        run: |
+          all_outcomes() {
+            jq -r '. | select(.["$report_type"] == "TestReport") | .outcome'
+          }
+          cnt_type() {
+            jq '. | select((.["$report_type"] == "TestReport") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+          }
+          SKIPPED_TESTS=$(cat test-logs/report.jsonl | cnt_type skipped)
+          FAILED_TESTS=$(cat test-logs/report.jsonl | cnt_type failed)
+          PASSED_TESTS=$(cat test-logs/report.jsonl | cnt_type passed)
+          TOTAL_TESTS=$(cat test-logs/report.jsonl | all_outcomes | wc -l)
+          echo "Unit test breakdown:"
+          cat test-logs/report.jsonl | all_outcomes | sort | uniq -c
+          if [[ $FAILED_TESTS -eq 0 ]]; then
+            BADGE_COLOR=brightgreen
+          else
+            if [[ $PASSED_TESTS -eq 0 ]]; then
+              BADGE_COLOR=red
+            else
+              BADGE_COLOR=yellow
+            fi
+          fi
+          cat > endpoint.json << EOF
+          {
+            "schemaVersion": 1,
+            "label": "V100 Unit",
+            "message": "${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail",
+            "color": "${BADGE_COLOR}"
+          }
+          EOF
+
+      # TODO: re-enable after secret/gist_id is created for TE badge json
+      #- name: Update status badge endpoint
+      #  uses: exuanbo/actions-deploy-gist@v1
+      #  with:
+      #    token: ${{ secrets.NVJAX_GIST_TOKEN }}
+      #    gist_id: 913c2af68649fe568e9711c2dabb23ae
+      #    file_path: endpoint.json
+      #    file_type: text
+
+      #- name: Upload artifact
+      #  uses: actions/upload-artifact@v3
+      #  with:
+      #    name: endpoint
+      #    path: endpoint.json
+
+  if-upstream-failed:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1
