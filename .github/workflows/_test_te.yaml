@@ -1,8 +1,6 @@
 name: ~test TransformerEngine
 
 on:
-  # Manual trigger
-  workflow_dispatch:
   # Called from another workflow
   workflow_call:
     inputs:
