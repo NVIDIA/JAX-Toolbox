@@ -74,7 +74,7 @@ jobs:
               BADGE_COLOR=yellow
             fi
           fi
-          cat > endpoint.json << EOF
+          cat > te-unit-test-status.json << EOF
           {
             "schemaVersion": 1,
             "label": "V100 Unit",
@@ -83,20 +83,19 @@ jobs:
           }
           EOF
 
-      # TODO: re-enable after secret/gist_id is created for TE badge json
-      #- name: Update status badge endpoint
-      #  uses: exuanbo/actions-deploy-gist@v1
-      #  with:
-      #    token: ${{ secrets.NVJAX_GIST_TOKEN }}
-      #    gist_id: 913c2af68649fe568e9711c2dabb23ae
-      #    file_path: endpoint.json
-      #    file_type: text
+      - name: Update status badge endpoint
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          gist_id: 913c2af68649fe568e9711c2dabb23ae
+          file_path: te-unit-test-status.json
+          file_type: text
 
-      #- name: Upload artifact
-      #  uses: actions/upload-artifact@v3
-      #  with:
-      #    name: endpoint
-      #    path: endpoint.json
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: te-unit-test-status
+          path: te-unit-test-status.json
 
   if-upstream-failed:
     runs-on: ubuntu-latest
