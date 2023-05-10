@@ -25,6 +25,7 @@ permissions:
 
 env:
   DEFAULT_JAX_IMAGE: 'ghcr.io/nvidia/jax:latest'
+  BADGE_ENDPOINT: 'te-unit-test-status.json'
 
 jobs:
 
@@ -78,7 +79,7 @@ jobs:
               BADGE_COLOR=red
             fi
           fi
-          cat > endpoint.json << EOF
+          cat > ${{ env.BADGE_ENDPOINT }} << EOF
           {
             "schemaVersion": 1,
             "label": "V100 Unit",
@@ -87,13 +88,25 @@ jobs:
           }
           EOF
 
-      - name: Update status badge endpoint
-        uses: exuanbo/actions-deploy-gist@v1
+      - name: Update status badge endpoint in gist
+        uses: actions/github-script@v5
         with:
-          token: ${{ secrets.NVJAX_GIST_TOKEN }}
-          gist_id: 913c2af68649fe568e9711c2dabb23ae
-          file_path: endpoint.json
-          file_type: text
+          github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          script: |
+            const fs = require('fs').promises;
+            const gistId = "${{ vars.BADGE_ENDPOINT_GIST_ID }}";
+            const filename = "${{ env.BADGE_ENDPOINT }}";
+            const content = await fs.readFile(filename, 'utf8');
+
+            const { data: gist } = await github.gists.get({ gist_id: gistId });
+
+            await github.gists.update({
+              gist_id: gistId,
+              files: {
+                [filename]: { content },
+                ...Object.fromEntries(Object.entries(gist.files).filter(([name]) => name !== filename))
+              }
+            });
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
