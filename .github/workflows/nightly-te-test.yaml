@@ -23,25 +23,34 @@ permissions:
   actions:  write # to cancel previous workflows
   packages: write # to upload container
 
+env:
+  DEFAULT_JAX_TE_IMAGE: 'ghcr.io/nvidia/jax-te:latest'
+  BADGE_ENDPOINT: 'te-unit-test-status.json'
+
 jobs:
 
   metadata:
     runs-on: ubuntu-22.04
     outputs:
-      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      JAX_TE_IMAGE: ${{ steps.date.outputs.JAX_TE_IMAGE }}
     steps:
-      - name: Set build date
+      - name: Set metadata
         id: date
         shell: bash -x -e {0}
         run: |
-          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
-          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          if [[ -z "${{ inputs.JAX_TE_IMAGE }}" ]]; then
+            JAX_TE_IMAGE=${{ env.DEFAULT_JAX_TE_IMAGE }}
+          else
+            JAX_TE_IMAGE=${{ inputs.JAX_TE_IMAGE }}
+          fi
+          echo "JAX_TE_IMAGE=${JAX_TE_IMAGE}" >> $GITHUB_OUTPUT
 
   run-jobs:
+    needs: metadata
     uses: ./.github/workflows/_test_te.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      JAX_TE_IMAGE: ${{ inputs.JAX_TE_IMAGE }}
+      JAX_TE_IMAGE: ${{ needs.metadata.outputs.JAX_TE_IMAGE }}
     secrets: inherit
 
   publish:
@@ -79,7 +88,7 @@ jobs:
               BADGE_COLOR=yellow
             fi
           fi
-          cat > te-unit-test-status.json << EOF
+          cat > ${{ env.BADGE_ENDPOINT }} << EOF
           {
             "schemaVersion": 1,
             "label": "V100 Unit",
@@ -88,13 +97,25 @@ jobs:
           }
           EOF
 
-      - name: Update status badge endpoint
-        uses: exuanbo/actions-deploy-gist@v1
+      - name: Update status badge endpoint in gist
+        uses: actions/github-script@v5
         with:
-          token: ${{ secrets.NVJAX_GIST_TOKEN }}
-          gist_id: 913c2af68649fe568e9711c2dabb23ae
-          file_path: te-unit-test-status.json
-          file_type: text
+          github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          script: |
+            const fs = require('fs').promises;
+            const gistId = "${{ vars.BADGE_ENDPOINT_GIST_ID }}";
+            const filename = "${{ env.BADGE_ENDPOINT }}";
+            const content = await fs.readFile(filename, 'utf8');
+
+            const { data: gist } = await github.gists.get({ gist_id: gistId });
+
+            await github.gists.update({
+              gist_id: gistId,
+              files: {
+                [filename]: { content },
+                ...Object.fromEntries(Object.entries(gist.files).filter(([name]) => name !== filename))
+              }
+            });
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
