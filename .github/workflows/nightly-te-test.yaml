@@ -61,7 +61,7 @@ jobs:
       - name: Download artifact from the previous job
         uses: actions/download-artifact@v3
         with:
-          name: test-logs
+          name: unit-test-logs
           path: test-logs
 
       - name: Count the number of failed tests
