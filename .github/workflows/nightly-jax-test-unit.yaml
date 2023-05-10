@@ -89,7 +89,7 @@ jobs:
           EOF
 
       - name: Update status badge endpoint in gist
-        uses: actions/github-script@v5
+        uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
           script: |
@@ -98,9 +98,9 @@ jobs:
             const filename = "${{ env.BADGE_ENDPOINT }}";
             const content = await fs.readFile(filename, 'utf8');
 
-            const { data: gist } = await github.gists.get({ gist_id: gistId });
+            const { data: gist } = await github.rest.gists.get({ gist_id: gistId });
 
-            await github.gists.update({
+            await github.rest.gists.update({
               gist_id: gistId,
               files: {
                 [filename]: { content },

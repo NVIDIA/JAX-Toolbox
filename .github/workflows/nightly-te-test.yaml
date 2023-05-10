@@ -107,9 +107,9 @@ jobs:
             const filename = "${{ env.BADGE_ENDPOINT }}";
             const content = await fs.readFile(filename, 'utf8');
 
-            const { data: gist } = await github.gists.get({ gist_id: gistId });
+            const { data: gist } = await github.rest.gists.get({ gist_id: gistId });
 
-            await github.gists.update({
+            await github.rest.gists.update({
               gist_id: gistId,
               files: {
                 [filename]: { content },
