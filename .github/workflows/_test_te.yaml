@@ -31,9 +31,10 @@ jobs:
         shell: bash -x -e {0}
         run: |
           docker pull ${{ inputs.JAX_TE_IMAGE }}
+          docker tag ${{ inputs.JAX_TE_IMAGE }} jax-te:target
 
-      - name: Run JAX-TE unit tests w/ docker
-        shell: docker run -v /tmp/pytest-log:/tmp/pytest-log --gpus all ${{ inputs.JAX_TE_IMAGE }} bash -x -c "$(cat {0})"
+      - name: Run JAX-TE unit tests with docker
+        shell: docker run -v /tmp/pytest-log:/tmp/pytest-log --gpus all jax-te:target bash -x -c "$(cat {0})"
         run: |
           pip install pytest pytest-reportlog cuda-python
           pytest --report-log=/tmp/pytest-log/report.jsonl /opt/transformer-engine/tests/jax
