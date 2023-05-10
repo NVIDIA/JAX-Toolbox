@@ -12,6 +12,11 @@ on:
         description: 'JAX-TE image build by NVIDIA/JAX-Toolbox'
         required: true
         default: 'ghcr.io/nvidia/jax-te:latest'
+      PUBLISH:
+        type: boolean
+        description: Update status badge?
+        default: false
+        required: true
 
 permissions:
   contents: read  # to fetch code
