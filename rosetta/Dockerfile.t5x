@@ -11,7 +11,7 @@ WORKDIR /opt/rosetta
 RUN bash create-distribution.sh \
   -p patchlist-t5x.txt \
   -u https://github.com/google-research/t5x.git \
-  -d /opt/t5x
+  -d $(dirname $(python -c "import t5x; print(*t5x.__path__)"))
 # TODO(terry): revisit whether any of these are needed
 RUN rm -rf .git $(find /opt -name "__pycache__")
   
