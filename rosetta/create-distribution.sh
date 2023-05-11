@@ -4,17 +4,17 @@
 
 usage() {
   echo "Usage: $0 [OPTION]..."
-  echo "  -p, --patchlist=PATH   Path to patchlist.txt with feature PRs"
-  echo "  -u, --url=URL          Git url of the upstream repo to obtain pull request refs"
   echo "  -d, --dir=PATH         Path of installed base library. Defaults to /opt/t5x"
-  echo "  -r, --ref=REF          Git commit hash or tag name that specifies the base of the t5x distribution. Defaults to main (not origin/main)"
   echo "  -e, --extra=PATH       Path to an additional mirror of the base library to retrieve git-refs to patch upstream. Should be a fork/mirror of \
       the repo passed to -d/--dir. Helpful if you want to test your patch before PR-ing against upstream"
   echo "  -h, --help             Print usage."
+  echo "  -p, --patchlist=PATH   Path to patchlist.txt with feature PRs"
+  echo "  -r, --ref=REF          Git commit hash or tag name that specifies the base of the t5x distribution. Defaults to main (not origin/main)"
+  echo "  -u, --url=URL          Git url of the upstream repo to obtain pull request refs"
   exit $1
 }
 
-args=$(getopt -o p:u:d:r:e:h --long patchlist:,url:,dir:,ref:,extra:,help -- "$@")
+args=$(getopt -o d:e:hp:r:u: --long dir:,extra:,help,patchlist:,ref:,url: -- "$@")
 if [[ $? -ne 0 ]]; then
   echo
   usage 1
@@ -23,20 +23,8 @@ fi
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
-    -p | --patchlist)
-        PATCH_LIST=$(readlink -f "$2")
-        shift 2
-        ;;
-    -u | --url)
-        UPSTREAM_GIT_URL="$2"
-        shift 2
-        ;;
     -d | --dir)
         INSTALLED_DIR="$2"
-        shift 2
-        ;;
-    -r | --ref)
-        DISTRIBUTION_BASE_REF="$2"
         shift 2
         ;;
     -e | --extra)
@@ -45,6 +33,18 @@ while [ : ]; do
         ;;
     -h | --help)
         usage
+        ;;
+    -p | --patchlist)
+        PATCH_LIST=$(readlink -f "$2")
+        shift 2
+        ;;
+    -r | --ref)
+        DISTRIBUTION_BASE_REF="$2"
+        shift 2
+        ;;
+    -u | --url)
+        UPSTREAM_GIT_URL="$2"
+        shift 2
         ;;
     --)
         shift;
@@ -67,8 +67,8 @@ DISTRIBUTION_BASE_REF=${DISTRIBUTION_BASE_REF:-main}
 UPSTREAM_GIT_URL=${UPSTREAM_GIT_URL:-https://github.com/google-research/t5x.git}
 
 if [[ -z "$INSTALLED_DIR" ]]; then
-  echo "[ERROR]: Need to specify the env INSTALLED_DIR="
-  exit 1
+  echo "[ERROR]: Need to specify -d/--dir"
+  usage 1
 fi
 
 cd $INSTALLED_DIR
