@@ -31,10 +31,10 @@ jobs:
         shell: bash -x -e {0}
         run: |
           docker pull ${{ inputs.JAX_TE_IMAGE }}
-          docker tag ${{ inputs.JAX_TE_IMAGE }} jax-te:target
+          docker tag ${{ inputs.JAX_TE_IMAGE }} jax:te
 
       - name: Run JAX-TE unit tests with docker
-        shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log jax-te:target bash -x /cmd.sh
+        shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log jax:te bash -x /cmd.sh
         run: |
           pip install pytest pytest-reportlog cuda-python
           TE_PATH=$(dirname $(python -c "import transformer_engine as te; print(*te.__path__)"))
