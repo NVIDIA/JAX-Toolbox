@@ -2,7 +2,7 @@
 
 | Image                                                | Build                                      | Test                                   |
 | ---------------------------------------------------- | ------------------------------------------ | -------------------------------------- |
-| [![container-badge-base]][container-link-base]       | [![build-badge-base]][workflow-base]       |                                        |
+| [![container-badge-base]][container-link-base]       | [![build-badge-base]][workflow-base]       | n/a                                    |
 | [![container-badge-jax]][container-link-jax]         | [![build-badge-jax]][workflow-jax]         | [![test-badge-jax]][workflow-jax-unit] |
 | [![container-badge-t5x]][container-link-t5x]         | [![build-badge-t5x]][workflow-t5x]         | [![test-badge-t5x]][workflow-t5x-perf] |
 | [![container-badge-pax]][container-link-pax]         | [![build-badge-pax]][workflow-pax]         | [![test-badge-pax]][workflow-pax-perf] |
