@@ -31,15 +31,17 @@ jobs:
         shell: bash -x -e {0}
         run: |
           docker pull ${{ inputs.JAX_TE_IMAGE }}
+          docker tag ${{ inputs.JAX_TE_IMAGE }} jax:te
 
-      - name: Run JAX-TE unit tests w/ docker
-        shell: docker run -v /tmp/pytest-log:/tmp/pytest-log --gpus all ${{ inputs.JAX_TE_IMAGE }} bash -x -c "$(cat {0})"
+      - name: Run JAX-TE unit tests with docker
+        shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log jax:te bash -x /cmd.sh
         run: |
           pip install pytest pytest-reportlog cuda-python
-          pytest --report-log=/tmp/pytest-log/report.jsonl /opt/transformer-engine/tests/jax
+          TE_PATH=$(dirname $(python -c "import transformer_engine as te; print(*te.__path__)"))
+          pytest --report-log=/log/report.jsonl ${TE_PATH}/tests/jax
 
-      - name: Upload test json logs
+      - name: Upload test logs
         uses: actions/upload-artifact@v3
         with:
           name: test-logs
-          path: /tmp/pytest-log/report.jsonl
+          path: /log/report.jsonl
