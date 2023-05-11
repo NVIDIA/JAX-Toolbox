@@ -14,7 +14,7 @@ usage() {
   exit $1
 }
 
-args=$(getopt -o p:u:d:r:e:h --long patchlist:,upstream-url:,dir:,ref:,extra:,help -- "$@")
+args=$(getopt -o p:u:d:r:e:h --long patchlist:,url:,dir:,ref:,extra:,help -- "$@")
 if [[ $? -ne 0 ]]; then
   echo
   usage 1
