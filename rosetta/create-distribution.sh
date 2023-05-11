@@ -72,8 +72,6 @@ if [[ -z "$INSTALLED_DIR" ]]; then
 fi
 
 cd $INSTALLED_DIR
-git config user.email "jax@nvidia.com"
-git config user.name "NVIDIA"
 
 echo "[INFO]: Basing distribution on commit: $DISTRIBUTION_BASE_REF"
 # Switch to main so other branches can be forced updated

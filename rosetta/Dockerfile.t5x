@@ -1,6 +1,11 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/t5x:latest
 FROM ${BASE_IMAGE} AS distribution-builder
 
+ARG GIT_USER_EMAIL=jax@nvidia.com
+ARG GIT_USER_NAME=NVIDIA
+RUN git config --global user.email "${GIT_USER_EMAIL}" && \
+    git config --global user.name "${GIT_USER_NAME}"
+
 COPY . /opt/rosetta
 WORKDIR /opt/rosetta
 RUN bash create-distribution.sh \
