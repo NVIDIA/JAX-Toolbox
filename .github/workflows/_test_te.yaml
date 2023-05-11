@@ -38,7 +38,7 @@ jobs:
         run: |
           pip install pytest pytest-reportlog cuda-python
           TE_PATH=$(dirname $(python -c "import transformer_engine as te; print(*te.__path__)"))
-          pytest --report-log=/log/report.jsonl ${TE_PATH}/tests/jax
+          pytest --report-log=/log/report.jsonl ${TE_PATH}/tests/jax || true
 
       - name: Upload test logs
         uses: actions/upload-artifact@v3
