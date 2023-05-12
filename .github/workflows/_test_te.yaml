@@ -9,10 +9,23 @@ on:
         description: 'JAX-TE image build by NVIDIA/JAX-Toolbox'
         required: true
         default: 'ghcr.io/nvidia/jax-te:latest'
+    outputs:
+      UNIT_TEST_ARTIFACT_NAME:
+        description: 'Name of the unit test artifact for downstream workflows'
+        value: ${{ jobs.te-unit-tests.outputs.UNIT_TEST_ARTIFACT_NAME }}
+      INTEGRATION_TEST_ARTIFACT_NAME:
+        description: 'Name of the integration test artifact for downstream workflows'
+        value: ${{ jobs.single-process-multi-device.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}
+
+env:
+  UNIT_TEST_ARTIFACT_NAME: unit-test-logs
+  INTEGRATION_TEST_ARTIFACT_NAME: integration-test-logs
 
 jobs:
   te-unit-tests:
     runs-on: [self-hosted, compute, V100]
+    outputs:
+      UNIT_TEST_ARTIFACT_NAME: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
     steps:
       - name: Print environment variables
         run: env
@@ -43,7 +56,7 @@ jobs:
       - name: Upload unit test json logs
         uses: actions/upload-artifact@v3
         with:
-          name: unit-test-logs
+          name: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
           path: /log/report.jsonl
 
   single-process-multi-device:
@@ -53,6 +66,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
+    outputs:
+      INTEGRATION_TEST_ARTIFACT_NAME: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}
 
     steps:
       - name: Print environment variables
@@ -139,5 +154,5 @@ jobs:
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ steps.meta.outputs.JOB_NAME }}
+          name: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}
           path: output/*
