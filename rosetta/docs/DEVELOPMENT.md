@@ -1,10 +1,11 @@
 # Development
-Rosetta builds upon [t5x](https://github.com/google-research/t5x) and patches it with features
+Rosetta builds upon other base libraries like [t5x](https://github.com/google-research/t5x)
+and [paxml](https://github.com/google/paxml) and patches it with features
 that are necessary to train the models defined in this repo.
 
 This project follows the [distribution model](https://opensource.com/article/18/7/forks-vs-distributions). This means
-we cherry-pick the necessary changes onto the tip of upstream t5x. These changes are typically available as PRs
-against upstream [t5x](https://github.com/google-research/t5x).
+we cherry-pick the necessary changes onto the tip of upstream's `main` branch. These changes are typically available as PRs
+against upstream.
 
 So before committing a change to this repo, ask yourself: "Does this change need to keep up with
 upstream?" For example, if you want to add a new flag to [t5x/train.py](https://github.com/google-research/t5x/blob/main/t5x/train.py),
@@ -16,16 +17,18 @@ Note: The reason to create a PR, is that even if the change is not accepted, or 
 branch along with the fork is deleted, the PR and its metadata will still exist for us to
 pull.
 
-For all other changes like adding a new model or a new data pipeline library. We can add that
-to this repo.
+For all other changes like adding a new model or a new data pipeline library that is orthogonal to
+the base library: we can add that to this repo.
 
 ## Changes that need to keep up with upstream
+**Note**: Here we use [t5x](https://github.com/google-research/t5x) as an example, but the same applies to [paxml](https://github.com/google/paxml).
+
 The workflow to create a feature that we'll cherry-pick into the t5x distribution is:
 
 2. Create a [fork](https://github.com/google-research/t5x/fork) with your changes
 3. Create a PR with that fork against upstream ([example](https://github.com/google-research/t5x/pull/1204))
-4. Add that PR to [patchlist.txt](../patchlist.txt) as a line (for above example add `pull/1204/head`)
-5. Create a PR in this repo to update patchlist.txt
+4. Add that PR to [patchlist-t5x.txt](../patchlist-t5x.txt) as a line (for above example add `pull/1204/head`)
+5. Create a PR in this repo to update patchlist-t5x.txt
 
 It is possible that by adding your change to the `patchlist.txt`, you create a merge conflict
 when cherry-picking. It is for that reason that when you create a new PR for the t5x
@@ -42,15 +45,23 @@ on top of an existing PR's branch.
 ## Creating the T5X distribution
 
 ### Docker
-If you build the project's [Dockerfile](../Dockerfile), you will automatically build the distribution.
+If you build rosetta's Dockerfile, you will automatically build the distribution.
 You can build the project's image with or without the dev dependencies (used for testing/linting):
 ```bash
-docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.t5x .
-# Or if you want a devel image with test dependencies
-docker buildx build --target rosetta-devel --tag rosetta-devel:latest -f Dockerfile.t5x .
+ROSETTA_BASE=pax  # or t5x
+
+docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.${ROSETTA_BASE} .
+
+# If you want a devel image with test dependencies
+docker buildx build --target rosetta-devel --tag rosetta-devel:latest -f Dockerfile.${ROSETTA_BASE} .
+
+# If you want to specify a specific base image
+docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.${ROSETTA_BASE} --build-arg BASE_IMAGE=ghcr.io/nvidia/${ROSETTA_BASE}:nightly-2023-05-01 .
 ```
 
 ### Locally
+**Note**: Here we use [t5x](https://github.com/google-research/t5x) as an example, but the same applies to [paxml](https://github.com/google/paxml).
+
 If you need to rebuild the t5x distribution locally to work thru a merge conflict,
 you can do the following:
 ```bash

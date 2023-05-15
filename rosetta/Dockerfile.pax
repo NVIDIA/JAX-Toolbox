@@ -1,12 +1,9 @@
 # syntax=docker/dockerfile:1
-ARG BASE_IMAGE=ghcr.io/nvidia/t5x:latest
-ARG GIT_USER_EMAIL=jax@nvidia.com
-ARG GIT_USER_NAME=NVIDIA
-
+ARG BASE_IMAGE=ghcr.io/nvidia/paxml:latest
 FROM ${BASE_IMAGE} AS distribution-builder
 
-ARG GIT_USER_EMAIL
-ARG GIT_USER_NAME
+ARG GIT_USER_EMAIL=jax@nvidia.com
+ARG GIT_USER_NAME=NVIDIA
 RUN git config --global user.email "${GIT_USER_EMAIL}" && \
     git config --global user.name "${GIT_USER_NAME}"
 
@@ -14,14 +11,19 @@ COPY . /opt/rosetta
 WORKDIR /opt/rosetta
 RUN <<EOF
 bash create-distribution.sh \
-  -p patchlist-t5x.txt \
-  -u https://github.com/google-research/t5x.git \
-  -d $(dirname $(python -c "import t5x; print(*t5x.__path__)"))
-rm -rf $(find /opt -name "__pycache__")
+  -p patchlist-paxml.txt \
+  -u https://github.com/google/paxml.git \
+  -d $(dirname $(python -c "import paxml; print(*paxml.__path__)"))
+bash create-distribution.sh \
+  -p patchlist-praxis.txt \
+  -u https://github.com/google/praxis.git \
+  -d $(dirname $(python -c "import praxis; print(*praxis.__path__)"))
+rm -rf .git $(find /opt -name "__pycache__")
 EOF
   
 FROM ${BASE_IMAGE} AS rosetta
-COPY --from=distribution-builder /opt/t5x /opt/t5x
+COPY --from=distribution-builder /opt/paxml /opt/paxml
+COPY --from=distribution-builder /opt/praxis /opt/praxis
 COPY --from=distribution-builder /opt/rosetta /opt/rosetta
 
 WORKDIR /opt/rosetta

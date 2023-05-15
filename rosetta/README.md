@@ -2,18 +2,19 @@
 Project rosetta is a jax project maintained by NVIDIA and allows us to train
 LLM, CV, and multimodal models.
 
-## Installing within jax-toolbox/t5x
+## Building rosetta manually
+
+### Building rosetta with a specific base
 ```bash
-cd rosetta
+ROSETTA_BASE=pax  # or t5x
 
-# Init submodules
-#  > git submodule update --init --recursive
-# Or update
-#  > git submodule update --recursive --remote
+docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.${ROSETTA_BASE} .
 
-docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.t5x .
-# Or if you want a devel image with test dependencies
-docker buildx build --target rosetta-devel --tag rosetta-devel:latest -f Dockerfile.t5x .
+# If you want a devel image with test dependencies
+docker buildx build --target rosetta-devel --tag rosetta-devel:latest -f Dockerfile.${ROSETTA_BASE} .
+
+# If you want to specify a specific base image
+docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.${ROSETTA_BASE} --build-arg BASE_IMAGE=ghcr.io/nvidia/${ROSETTA_BASE}:nightly-2023-05-01 .
 ```
 
 ## Development
