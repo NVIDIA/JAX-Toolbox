@@ -3,11 +3,11 @@ name: "~Sandbox"
 on:
   workflow_dispatch:
     inputs:
-      BUILD_BASE:
-        description: 'Build new base image or otherwise use ghcr.io/nvidia/jax-toolbox:base'
-        type: boolean
-        required: true
-        default: true
+      # BUILD_BASE:
+      #   description: 'Build new base image or otherwise use ghcr.io/nvidia/jax-toolbox:base'
+      #   type: boolean
+      #   required: true
+      #   default: true
       REPO_JAX:
         description: 'JAX repository'
         type: string
@@ -111,3 +111,43 @@ jobs:
       JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
     secrets: inherit
 
+  test-te:
+    needs: build-te
+    uses: ./.github/workflows/_test_te.yaml
+    with:
+      JAX_TE_IMAGE: ${{ needs.build-te.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  test-t5x:
+    needs: build-t5x
+    uses: ./.github/workflows/_test_t5x.yaml
+    with:
+      T5X_IMAGE_TAG: ${{ needs.build-t5x.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  test-pax:
+    needs: build-pax
+    uses: ./.github/workflows/_test_pax.yaml
+    with:
+      T5X_IMAGE_TAG: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  build-summary:
+    needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-rosetta]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Generate job summary for container build
+        shell: bash -x -e {0}
+        run: |
+          cat > $GITHUB_STEP_SUMMARY << EOF
+          # Images created          
+
+          | Image   | Link                                           |
+          | ------- | ---------------------------------------------- |
+          | Base    | ${{ needs.build-base.outputs.DOCKER_TAGS }}    |
+          | JAX     | ${{ needs.build-jax.outputs.DOCKER_TAGS }}     |
+          | JAX-TE  | ${{ needs.build-te.outputs.DOCKER_TAGS }}      |
+          | T5X     | ${{ needs.build-t5x.outputs.DOCKER_TAGS }}     |
+          | PAX     | ${{ needs.build-pax.outputs.DOCKER_TAGS }}     |
+          | ROSETTA | ${{ needs.build-rosetta.outputs.DOCKER_TAGS }} |
+          EOF
