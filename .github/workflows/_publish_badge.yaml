@@ -3,11 +3,10 @@ name: ~publish test results into a json file that can be used to make badge
 on:
   workflow_call:
     inputs:
-      SCRIPT_PATH:
+      SCRIPT:
         type: string
-        description: 'Path to script relative to project root:'
+        description: 'Script to run :'
         required: true
-        default: '.github/workflows/scripts/pytest_log_badge.sh'
       BADGE_LABEL:
         type: string
         description: 'Badge label:'
@@ -20,7 +19,7 @@ on:
         type: string
         description: 'Paths of artifacts assuming they are all downloaded (globs can be used, but it is up to script to support):'
         required: true
-        default: '**/*.jsonl'
+        default: '**/*.jsnl'
       PUBLISH:
         type: boolean
         description: Update status badge?
@@ -43,9 +42,12 @@ jobs:
           path: ${{ env.LOCAL_TEST_LOG_DIR }}
 
       - name: Count the number of failed tests
+        env:
+          BADGE_LABEL: ${{ inputs.BADGE_LABEL }}
+          ARTIFACTS: ${{ env.LOCAL_TEST_LOG_DIR }}/${{ inputs.ARTIFACTS }}
+          BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
         shell: bash -x -e {0}
-        run: |
-          bash ${{ inputs.SCRIPT_PATH }} -f "${{ env.LOCAL_TEST_LOG_DIR }}/${{ inputs.ARTIFACTS }}" -j "${{ inputs.BADGE_FILENAME }}" -l "${{ inputs.BADGE_LABEL }}"
+        run: ${{ inputs.SCRIPT }}
 
       - name: Upload badge artifact
         uses: actions/upload-artifact@v3
