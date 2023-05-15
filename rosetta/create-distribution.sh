@@ -89,13 +89,13 @@ git switch rosetta-distribution
 # when adding local repos as remotes. Excludes origin/HEAD and origin/test_\d+
 if [[ -n "${EXTRA_MIRROR_DIR+x}" ]] && [[ -d ${EXTRA_MIRROR_DIR} ]]; then
   EXTRA_REMOTE_NAME=extra
-  function git-mirror {
+  function git+mirror {
     git -C ${EXTRA_MIRROR_DIR} "$@"
   }
-  for remote_branch in $(git-mirror branch --remotes | grep -v 'origin/HEAD' | egrep -v 'origin/test_[0-9]+'); do
+  for remote_branch in $(git+mirror branch --remotes | grep -v 'origin/HEAD' | egrep -v 'origin/test_[0-9]+'); do
     # Try creating a local tracking branch, but if already exists, then update it to match remote.
     # appending -tmp-rosetta in case there's already a local tracking branch with that name.
-    git-mirror branch --track --force $(sed 's/origin\///' <<<${remote_branch})-tmp-rosetta ${remote_branch}
+    git+mirror branch --track --force $(sed 's/origin\///' <<<${remote_branch})-tmp-rosetta ${remote_branch}
   done
   
   if git remote show ${EXTRA_REMOTE_NAME} &>/dev/null; then
