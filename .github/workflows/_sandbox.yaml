@@ -129,7 +129,7 @@ jobs:
     needs: build-pax
     uses: ./.github/workflows/_test_pax.yaml
     with:
-      T5X_IMAGE_TAG: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
+      PAX_IMAGE_TAG: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
     secrets: inherit
 
   build-summary:
