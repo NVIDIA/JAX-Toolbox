@@ -39,6 +39,12 @@ jobs:
           pip install pytest pytest-reportlog cuda-python
           TE_PATH=$(dirname $(python -c "import transformer_engine as te; print(*te.__path__)"))
           pytest --report-log=/log/report.jsonl ${TE_PATH}/tests/jax || true
+          pip install -r ${TE_PATH}/examples/jax/mnist/requirements.txt
+          python ${TE_PATH}/examples/jax/mnist/test_single_gpu_mnist.py --use-fp8
+          pip install -r ${TE_PATH}/examples/jax/encoder/requirements.txt
+          python ${TE_PATH}/examples/jax/encoder/test_single_gpu_encoder.py --use-fp8
+          python ${TE_PATH}/examples/jax/encoder/test_model_parallel_encoder.py --use-fp8
+          python ${TE_PATH}/examples/jax/encoder/test_multigpu_encoder.py --use-fp8
 
       - name: Upload test logs
         uses: actions/upload-artifact@v3
