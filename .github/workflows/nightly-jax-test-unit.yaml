@@ -26,6 +26,29 @@ permissions:
 env:
   DEFAULT_JAX_IMAGE: 'ghcr.io/nvidia/jax:latest'
   BADGE_ENDPOINT: 'jax-unit-test-status.json'
+  JAX_BADGE_SCRIPT: |
+    FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)
+    PASSED_TESTS=$(cat $ARTIFACTS | grep -c 'PASSED in' || true)
+    TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
+    if [[ $FAILED_TESTS == 0 ]]; then
+      BADGE_COLOR=brightgreen
+    else
+      if [[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
+        BADGE_COLOR=yellow
+      else
+        BADGE_COLOR=red
+      fi
+    fi
+    (
+    cat << EOF
+    {
+      "schemaVersion": 1,
+      "label": "${BADGE_LABEL}",
+      "message": "${PASSED_TESTS}/${TOTAL_TESTS} passed",
+      "color": "${BADGE_COLOR}"
+    }
+    EOF
+    ) | tee $BADGE_FILENAME
 
 jobs:
 
@@ -58,7 +81,7 @@ jobs:
     uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      SCRIPT_PATH: '.github/workflows/scripts/jax_test_unit_badge.sh'
+      SCRIPT: ${{ env.JAX_BADGE_SCRIPT }}
       BADGE_LABEL: 'V100 Unit'
       BADGE_FILENAME: 'jax-unit-test-status.json'
       ARTIFACTS: "${{ needs.run-jobs.outputs.UNIT_TEST_ARTIFACT_NAME }}/*"
