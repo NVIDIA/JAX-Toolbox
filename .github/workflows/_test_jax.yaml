@@ -8,11 +8,20 @@ on:
         description: 'JAX image built by NVIDIA/JAX-Toolbox'
         required: true
         default: 'ghcr.io/nvidia/jax:latest'
+    outputs:
+      UNIT_TEST_ARTIFACT_NAME:
+        description: 'Name of the unit test artifact for downstream workflows'
+        value: ${{ jobs.unit-tests.outputs.UNIT_TEST_ARTIFACT_NAME }}
+
+env:
+  UNIT_TEST_ARTIFACT_NAME: unit-test-logs
 
 jobs:
 
   unit-test:
     runs-on: [self-hosted, compute, V100]
+    outputs:
+      UNIT_TEST_ARTIFACT_NAME: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
     steps:
       - name: Print environment variables
         run: env
@@ -51,7 +60,7 @@ jobs:
       - name: Upload test logs
         uses: actions/upload-artifact@v3
         with:
-          name: test-logs
+          name: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
           path: |
             test-backend-independent.log
             test-gpu.log
