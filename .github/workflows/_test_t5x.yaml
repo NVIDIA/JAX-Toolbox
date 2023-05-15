@@ -68,6 +68,8 @@ jobs:
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="ENROOT_USERNAME=${{ github.repository_owner }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           time srun \
             --container-image=ghcr.io#nvidia/t5x:${{ inputs.T5X_IMAGE_TAG }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
