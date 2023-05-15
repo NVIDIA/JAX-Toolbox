@@ -8,6 +8,14 @@ on:
         description: 'Base docker image that provides T5X'
         required: false
         default: ghcr.io/nvidia/t5x:latest
+      BASE_LIBRARY:
+        type: choice
+        description: 'Choice of base library to build on:'
+        options:
+          - t5x
+          - pax
+        required: false
+        default: t5x
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -52,7 +60,7 @@ jobs:
         with:
           images: ${{ env.UPLD_IMAGE }}
           flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-rosetta
+          tags: type=raw,value=${{ github.run_id }}-rosetta-${{ inputs.BASE_LIBRARY }}
           labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Set up Docker Buildx
@@ -66,7 +74,7 @@ jobs:
         with:
           context: rosetta/
           push: true
-          file: rosetta/Dockerfile.t5x
+          file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           target: rosetta
