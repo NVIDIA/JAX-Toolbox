@@ -55,64 +55,15 @@ jobs:
 
   publish:
     needs: [metadata, run-jobs]
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Download artifact from the previous job
-        uses: actions/download-artifact@v3
-        with:
-          name: test-logs
-          path: test-logs
-
-      - name: Count the number of failed tests
-        shell: bash -x -e {0}
-        run: |
-          FAILED_TESTS=$(cat test-logs/* | grep -c 'FAILED in' || true)
-          PASSED_TESTS=$(cat test-logs/* | grep -c 'PASSED in' || true)
-          TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
-          if [[ $FAILED_TESTS == 0 ]]; then
-            BADGE_COLOR=brightgreen
-          else
-            if [[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
-              BADGE_COLOR=yellow
-            else
-              BADGE_COLOR=red
-            fi
-          fi
-          cat > ${{ env.BADGE_ENDPOINT }} << EOF
-          {
-            "schemaVersion": 1,
-            "label": "V100 Unit",
-            "message": "${PASSED_TESTS}/${TOTAL_TESTS} passed",
-            "color": "${BADGE_COLOR}"
-          }
-          EOF
-
-      - name: Update status badge endpoint in gist
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
-          script: |
-            const fs = require('fs').promises;
-            const gistId = "${{ vars.BADGE_ENDPOINT_GIST_ID }}";
-            const filename = "${{ env.BADGE_ENDPOINT }}";
-            const content = await fs.readFile(filename, 'utf8');
-
-            const { data: gist } = await github.rest.gists.get({ gist_id: gistId });
-
-            await github.rest.gists.update({
-              gist_id: gistId,
-              files: {
-                [filename]: { content },
-                ...Object.fromEntries(Object.entries(gist.files).filter(([name]) => name !== filename))
-              }
-            });
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: endpoint
-          path: endpoint.json
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      SCRIPT_PATH: '.github/workflows/scripts/jax_test_unit_badge.sh'
+      BADGE_LABEL: 'V100 Unit'
+      BADGE_FILENAME: 'jax-unit-test-status.json'
+      ARTIFACTS: "${{ needs.run-jobs.outputs.UNIT_TEST_ARTIFACT_NAME }}/*"
+      PUBLISH: ${{ inputs.PUBLISH }}
+    secrets: inherit
 
   if-upstream-failed:
     runs-on: ubuntu-latest

@@ -54,23 +54,25 @@ jobs:
 
   publish-unit:
     needs: [metadata, run-jobs]
-    uses: ./.github/workflows/_publish_pytest_badge.yaml
+    uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
+      SCRIPT_PATH: '.github/workflows/scripts/pytest_log_badge.sh'
       BADGE_LABEL: 'V100 unit'
       BADGE_FILENAME: 'te-unit-test-status.json'
-      LOG_GLOB: "${{ needs.run-jobs.outputs.UNIT_TEST_ARTIFACT_NAME }}/*.jsonl"
+      ARTIFACTS: "${{ needs.run-jobs.outputs.UNIT_TEST_ARTIFACT_NAME }}/*.jsonl"
       PUBLISH: ${{ inputs.PUBLISH }}
     secrets: inherit
 
   publish-integration:
     needs: [metadata, run-jobs]
-    uses: ./.github/workflows/_publish_pytest_badge.yaml
+    uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
+      SCRIPT_PATH: '.github/workflows/scripts/pytest_log_badge.sh'
       BADGE_LABEL: 'A100 integration'
       BADGE_FILENAME: 'te-integration-test-status.json'
-      LOG_GLOB: "${{ needs.run-jobs.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}/*.jsonl"
+      ARTIFACTS: "${{ needs.run-jobs.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}/*.jsonl"
       PUBLISH: ${{ inputs.PUBLISH }}
     secrets: inherit
 

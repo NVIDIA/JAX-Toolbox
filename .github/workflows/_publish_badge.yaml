@@ -1,8 +1,13 @@
-name: ~publish pytest results into a json file that can be used to make badge
+name: ~publish test results into a json file that can be used to make badge
 
 on:
   workflow_call:
     inputs:
+      SCRIPT_PATH:
+        type: string
+        description: 'Path to script relative to project root:'
+        required: true
+        default: '.github/workflows/scripts/pytest_log_badge.sh'
       BADGE_LABEL:
         type: string
         description: 'Badge label:'
@@ -11,9 +16,9 @@ on:
         type: string
         description: 'Filename to find the json in the gist for creating a badge:'
         required: true
-      LOG_GLOB:
+      ARTIFACTS:
         type: string
-        description: '(Recursive) glob to match pytest report logs assuming artifacts are downloaded in CWD:'
+        description: 'Paths of artifacts assuming they are all downloaded (globs can be used, but it is up to script to support):'
         required: true
         default: '**/*.jsonl'
       PUBLISH:
@@ -23,51 +28,24 @@ on:
         required: true
 
 env:
-  LOCAL_PYTEST_LOG_DIR: pytest-logs
+  LOCAL_TEST_LOG_DIR: .test-logs
 
 jobs:
   publish:
     runs-on: ubuntu-22.04
     steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
       - name: Download all artifacts from the previous jobs
         uses: actions/download-artifact@v3
         with:
-          path: ${{ env.LOCAL_PYTEST_LOG_DIR }}
+          path: ${{ env.LOCAL_TEST_LOG_DIR }}
 
       - name: Count the number of failed tests
-        shell: bash -O expand_aliases -x -e {0}
+        shell: bash -x -e {0}
         run: |
-          find ${{ env.LOCAL_PYTEST_LOG_DIR }} -type f
-          alias cat_pytest_logs="cat ${{ env.LOCAL_PYTEST_LOG_DIR }}/${{ inputs.LOG_GLOB }}"
-          all_outcomes() {
-            cat_pytest_logs | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
-          }
-          cnt_type() {
-            cat_pytest_logs | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
-          }
-          SKIPPED_TESTS=$(cnt_type skipped)
-          FAILED_TESTS=$(cnt_type failed)
-          PASSED_TESTS=$(cnt_type passed)
-          TOTAL_TESTS=$(all_outcomes | wc -l)
-          echo "Unit test breakdown:"
-          all_outcomes | sort | uniq -c
-          if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
-            BADGE_COLOR=brightgreen
-          else
-            if [[ $PASSED_TESTS -eq 0 ]]; then
-              BADGE_COLOR=red
-            else
-              BADGE_COLOR=yellow
-            fi
-          fi
-          cat > ${{ inputs.BADGE_FILENAME }} << EOF
-          {
-            "schemaVersion": 1,
-            "label": "${{ inputs.BADGE_LABEL }}",
-            "message": "${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail",
-            "color": "${BADGE_COLOR}"
-          }
-          EOF
+          bash ${{ inputs.SCRIPT_PATH }} -f "${{ env.LOCAL_TEST_LOG_DIR }}/${{ inputs.ARTIFACTS }}" -j "${{ inputs.BADGE_FILENAME }}" -l "${{ inputs.BADGE_LABEL }}"
 
       - name: Upload badge artifact
         uses: actions/upload-artifact@v3
