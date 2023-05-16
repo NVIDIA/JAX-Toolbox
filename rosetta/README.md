@@ -6,7 +6,7 @@ LLM, CV, and multimodal models.
 
 ### Building rosetta with a specific base
 ```bash
-ROSETTA_BASE=pax  # or t5x
+ROSETTA_BASE=t5x  # or pax
 
 docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.${ROSETTA_BASE} .
 

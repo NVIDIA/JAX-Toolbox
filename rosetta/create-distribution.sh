@@ -89,9 +89,10 @@ git switch rosetta-distribution
 # when adding local repos as remotes. Excludes origin/HEAD and origin/test_\d+
 if [[ -n "${EXTRA_MIRROR_DIR+x}" ]] && [[ -d ${EXTRA_MIRROR_DIR} ]]; then
   EXTRA_REMOTE_NAME=extra
-  function git+mirror {
-    git -C ${EXTRA_MIRROR_DIR} "$@"
+  git+mirror() {
+    git -C ${EXTRA_MIRROR_DIR} $@
   }
+  export -f git+mirror
   for remote_branch in $(git+mirror branch --remotes | grep -v 'origin/HEAD' | egrep -v 'origin/test_[0-9]+'); do
     # Try creating a local tracking branch, but if already exists, then update it to match remote.
     # appending -tmp-rosetta in case there's already a local tracking branch with that name.
@@ -124,7 +125,7 @@ for line in $(cat ${PATCH_LIST}); do
     branch=PR-${PR_ID}
     git fetch ${REMOTE_NAME} ${git_ref}:${branch}
   else
-    if [[ -n "${EXTRA_MIRROR_DIR+x}" ]] && [[ -d ${EXTRA_MIRROR_DIR} ]]; then
+    if [[ -z "${EXTRA_MIRROR_DIR+x}" ]] || [[ ! -d ${EXTRA_MIRROR_DIR} ]]; then
       echo "[WARNING]: EXTRA_MIRROR_DIR=${EXTRA_MIRROR_DIR} does not exist so cannot cherry-pick ${git_ref}"
       continue
     fi
@@ -161,5 +162,5 @@ for remote in ${UPSTREAM_REMOTE_NAME} ${EXTRA_REMOTE_NAME:-}; do
   fi
 done
 if [[ -n "${EXTRA_REMOTE_NAME+x}" ]]; then
-  git-mirror branch -d --list '*-tmp-rosetta'
+  git+mirror branch --list '*-tmp-rosetta' | xargs -I@ git -C ${EXTRA_MIRROR_DIR} branch -d @
 fi

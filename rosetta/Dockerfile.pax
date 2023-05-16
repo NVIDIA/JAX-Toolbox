@@ -1,30 +1,44 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/paxml:latest
-FROM ${BASE_IMAGE} AS distribution-builder
-
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
+
+FROM scratch as rosetta-source
+COPY . /
+
+FROM scratch as pax-mirror-source
+ADD --keep-git-dir=true https://github.com/google/paxml.git#main /
+
+FROM scratch as praxis-mirror-source
+ADD --keep-git-dir=true https://github.com/google/praxis.git#main /
+
+FROM ${BASE_IMAGE} AS distribution-builder
+
+ARG GIT_USER_EMAIL
+ARG GIT_USER_NAME
 RUN git config --global user.email "${GIT_USER_EMAIL}" && \
     git config --global user.name "${GIT_USER_NAME}"
 
-COPY . /opt/rosetta
+COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
-RUN <<EOF
+RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<EOF
 bash create-distribution.sh \
   -p patchlist-paxml.txt \
   -u https://github.com/google/paxml.git \
-  -d $(dirname $(python -c "import paxml; print(*paxml.__path__)"))
+  -d $(dirname $(python -c "import paxml; print(*paxml.__path__)")) \
+  -e /opt/pax-mirror
 bash create-distribution.sh \
   -p patchlist-praxis.txt \
   -u https://github.com/google/praxis.git \
   -d $(dirname $(python -c "import praxis; print(*praxis.__path__)"))
-rm -rf .git $(find /opt -name "__pycache__")
+  -e /opt/praxis-mirror
+rm -rf $(find /opt -name "__pycache__")
 EOF
   
 FROM ${BASE_IMAGE} AS rosetta
-COPY --from=distribution-builder /opt/paxml /opt/paxml
-COPY --from=distribution-builder /opt/praxis /opt/praxis
-COPY --from=distribution-builder /opt/rosetta /opt/rosetta
+COPY --link --from=distribution-builder /opt/paxml /opt/paxml
+COPY --link --from=distribution-builder /opt/praxis /opt/praxis
+COPY --link --from=distribution-builder /opt/rosetta /opt/rosetta
 
 WORKDIR /opt/rosetta
 RUN <<EOF
