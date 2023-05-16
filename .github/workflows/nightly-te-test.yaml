@@ -25,38 +25,6 @@ permissions:
 
 env:
   DEFAULT_JAX_TE_IMAGE: 'ghcr.io/nvidia/jax-te:latest'
-  PYTEST_BADGE_SCRIPT: |
-    all_outcomes() {
-      cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
-    }
-    cnt_type() {
-      cat $ARTIFACTS | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
-    }
-    SKIPPED_TESTS=$(cnt_type skipped)
-    FAILED_TESTS=$(cnt_type failed)
-    PASSED_TESTS=$(cnt_type passed)
-    TOTAL_TESTS=$(all_outcomes | wc -l)
-    echo "Unit test breakdown:"
-    all_outcomes | sort | uniq -c
-    if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
-      BADGE_COLOR=brightgreen
-    else
-      if [[ $PASSED_TESTS -eq 0 ]]; then
-        BADGE_COLOR=red
-      else
-        BADGE_COLOR=yellow
-      fi
-    fi
-    (
-    cat << EOF
-    {
-      "schemaVersion": 1,
-      "label": "${BADGE_LABEL}",
-      "message": "${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail",
-      "color": "${BADGE_COLOR}"
-    }
-    EOF
-    ) | tee ${BADGE_FILENAME}
 
 jobs:
 
@@ -89,11 +57,42 @@ jobs:
     uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      SCRIPT: ${{ env.PYTEST_BADGE_SCRIPT }}
       BADGE_LABEL: 'V100 unit'
       BADGE_FILENAME: 'te-unit-test-status.json'
       ARTIFACTS: "${{ needs.run-jobs.outputs.UNIT_TEST_ARTIFACT_NAME }}/*.jsonl"
       PUBLISH: ${{ inputs.PUBLISH }}
+      SCRIPT: |
+        all_outcomes() {
+          cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+        }
+        cnt_type() {
+          cat $ARTIFACTS | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+        }
+        SKIPPED_TESTS=$(cnt_type skipped)
+        FAILED_TESTS=$(cnt_type failed)
+        PASSED_TESTS=$(cnt_type passed)
+        TOTAL_TESTS=$(all_outcomes | wc -l)
+        echo "Unit test breakdown:"
+        all_outcomes | sort | uniq -c
+        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
+          BADGE_COLOR=brightgreen
+        else
+          if [[ $PASSED_TESTS -eq 0 ]]; then
+            BADGE_COLOR=red
+          else
+            BADGE_COLOR=yellow
+          fi
+        fi
+        (
+        cat << EOF
+        {
+          "schemaVersion": 1,
+          "label": "${BADGE_LABEL}",
+          "message": "${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail",
+          "color": "${BADGE_COLOR}"
+        }
+        EOF
+        ) | tee ${BADGE_FILENAME}
     secrets: inherit
 
   publish-integration:
@@ -101,11 +100,42 @@ jobs:
     uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      SCRIPT: ${{ env.PYTEST_BADGE_SCRIPT }}
       BADGE_LABEL: 'A100 integration'
       BADGE_FILENAME: 'te-integration-test-status.json'
       ARTIFACTS: "${{ needs.run-jobs.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}/*.jsonl"
       PUBLISH: ${{ inputs.PUBLISH }}
+      SCRIPT: |
+        all_outcomes() {
+          cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+        }
+        cnt_type() {
+          cat $ARTIFACTS | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+        }
+        SKIPPED_TESTS=$(cnt_type skipped)
+        FAILED_TESTS=$(cnt_type failed)
+        PASSED_TESTS=$(cnt_type passed)
+        TOTAL_TESTS=$(all_outcomes | wc -l)
+        echo "Unit test breakdown:"
+        all_outcomes | sort | uniq -c
+        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
+          BADGE_COLOR=brightgreen
+        else
+          if [[ $PASSED_TESTS -eq 0 ]]; then
+            BADGE_COLOR=red
+          else
+            BADGE_COLOR=yellow
+          fi
+        fi
+        (
+        cat << EOF
+        {
+          "schemaVersion": 1,
+          "label": "${BADGE_LABEL}",
+          "message": "${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail",
+          "color": "${BADGE_COLOR}"
+        }
+        EOF
+        ) | tee ${BADGE_FILENAME}
     secrets: inherit
 
   if-upstream-failed:
