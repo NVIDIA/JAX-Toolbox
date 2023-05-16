@@ -15,8 +15,7 @@ RUN bash create-distribution.sh \
   -p patchlist-t5x.txt \
   -u https://github.com/google-research/t5x.git \
   -d $(dirname $(python -c "import t5x; print(*t5x.__path__)"))
-# TODO(terry): revisit whether any of these are needed
-RUN rm -rf .git $(find /opt -name "__pycache__")
+RUN rm -rf $(find /opt -name "__pycache__")
   
 FROM ${BASE_IMAGE} AS rosetta
 COPY --from=distribution-builder /opt/t5x /opt/t5x
