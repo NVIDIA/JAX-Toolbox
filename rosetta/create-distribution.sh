@@ -92,7 +92,6 @@ if [[ -n "${EXTRA_MIRROR_DIR+x}" ]] && [[ -d ${EXTRA_MIRROR_DIR} ]]; then
   git+mirror() {
     git -C ${EXTRA_MIRROR_DIR} $@
   }
-  export -f git+mirror
   for remote_branch in $(git+mirror branch --remotes | grep -v 'origin/HEAD' | egrep -v 'origin/test_[0-9]+'); do
     # Try creating a local tracking branch, but if already exists, then update it to match remote.
     # appending -tmp-rosetta in case there's already a local tracking branch with that name.
