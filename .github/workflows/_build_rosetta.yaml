@@ -1,11 +1,11 @@
 name: ~build Rosetta container
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       BASE_IMAGE:
         type: string
-        description: 'Base docker image that provides T5X'
+        description: 'Base docker image that provides the foundation library:'
         required: false
         default: ghcr.io/nvidia/t5x:latest
       BASE_LIBRARY:
@@ -14,6 +14,23 @@ on:
         options:
           - t5x
           - pax
+        required: false
+        default: t5x
+      BUILD_DATE:
+        type: string
+        description: "Build date in YYYY-MM-DD format"
+        required: false
+        default: 'NOT SPECIFIED'
+  workflow_call:
+    inputs:
+      BASE_IMAGE:
+        type: string
+        description: 'Base docker image that provides the foundation library'
+        required: false
+        default: ghcr.io/nvidia/t5x:latest
+      BASE_LIBRARY:
+        type: string
+        description: 'Choice of base library to build on:'
         required: false
         default: t5x
       BUILD_DATE:
