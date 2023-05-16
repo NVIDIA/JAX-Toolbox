@@ -29,26 +29,6 @@ on:
         type: string
         required: true
         default: 'main'
-      REPO_T5X:
-        description: 'T5X repository'
-        type: string
-        required: true
-        default: 'https://github.com/google-research/t5x.git'
-      REF_T5X:
-        description: 'T5X branch, tag, or commit'
-        type: string
-        required: true
-        default: 'main'
-      REPO_PAX:
-        description: 'Paxml repository'
-        type: string
-        required: true
-        default: 'https://github.com/google/paxml.git'
-      REF_PAX:
-        description: 'Pax branch, tag, or commit'
-        type: string
-        required: true
-        default: 'main'
       REPO_TE:
         description: 'Transformer Engine (TE) repository'
         type: string
@@ -59,6 +39,36 @@ on:
         type: string
         required: true
         default: 'main'
+      REPO_T5X:
+        description: 'T5X repository'
+        type: string
+        required: true
+        default: 'https://github.com/google-research/t5x.git'
+      REF_T5X:
+        description: 'T5X branch, tag, or commit'
+        type: string
+        required: true
+        default: 'main'
+      REPO_PAXML:
+        description: 'Paxml repository'
+        type: string
+        required: true
+        default: 'https://github.com/google/paxml.git'
+      REF_PAXML:
+        description: 'Paxml branch, tag, or commit'
+        type: string
+        required: true
+        default: 'main'
+      REPO_PRAXIS:
+        type: string
+        description: Praxis repository
+        required: false
+        default: "https://github.com/google/praxis.git"
+      REF_PRAXIS:
+        type: string
+        description: 'Praxis branch, tag, or commit'
+        required: false
+        default: main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -128,8 +138,10 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
-      REPO_PAX: ${{ inputs.REPO_PAX }}
-      REF_PAX: ${{ inputs.REF_PAX }}
+      REPO_PAXML: ${{ inputs.REPO_PAXML }}
+      REF_PAXML: ${{ inputs.REF_PAXML }}
+      REPO_PRAXIS: ${{ inputs.REPO_PRAXIS }}
+      REF_PRAXIS: ${{ inputs.REF_PRAXIS }}
     secrets: inherit
 
   build-rosetta:
