@@ -9,71 +9,36 @@ on:
       #   type: boolean
       #   required: true
       #   default: true
-      CONFIG:
-        description: 'Custom build configuration'
+      SRC_JAX:
+        description: 'JAX source, [repository]@[branch, tag, or commit]'
         type: string
         required: true
-        default: "A\nB"
-      # REPO_JAX:
-      #   description: 'JAX repository'
-      #   type: string
-      #   required: true
-      #   default: 'https://github.com/google/jax.git'
-      # REF_JAX:
-      #   description: 'JAX branch, tag, or commit'
-      #   type: string
-      #   required: true
-      #   default: 'main'
-      # REPO_XLA:
-      #   description: 'XLA repository'
-      #   type: string
-      #   required: true
-      #   default: 'https://github.com/openxla/xla.git'
-      # REF_XLA:
-      #   description: 'XLA branch, tag, or commit'
-      #   type: string
-      #   required: true
-      #   default: 'main'
-      # REPO_TE:
-      #   description: 'Transformer Engine (TE) repository'
-      #   type: string
-      #   required: true
-      #   default: 'https://github.com/NVIDIA/TransformerEngine.git'
-      # REF_TE:
-      #   description: 'TE branch, tag, or commit'
-      #   type: string
-      #   required: true
-      #   default: 'main'
-      # REPO_T5X:
-      #   description: 'T5X repository'
-      #   type: string
-      #   required: true
-      #   default: 'https://github.com/google-research/t5x.git'
-      # REF_T5X:
-      #   description: 'T5X branch, tag, or commit'
-      #   type: string
-      #   required: true
-      #   default: 'main'
-      # REPO_PAXML:
-      #   description: 'Paxml repository'
-      #   type: string
-      #   required: true
-      #   default: 'https://github.com/google/paxml.git'
-      # REF_PAXML:
-      #   description: 'Paxml branch, tag, or commit'
-      #   type: string
-      #   required: true
-      #   default: 'main'
-      # REPO_PRAXIS:
-      #   type: string
-      #   description: Praxis repository
-      #   required: false
-      #   default: "https://github.com/google/praxis.git"
-      # REF_PRAXIS:
-      #   type: string
-      #   description: 'Praxis branch, tag, or commit'
-      #   required: false
-      #   default: main
+        default: 'https://github.com/google/jax.git@main'
+      SRC_XLA:
+        description: 'XLA source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/openxla/xla.git@main'
+      SRC_TE:
+        description: 'TE source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/NVIDIA/TransformerEngine.git@main'
+      SRC_T5X:
+        description: 'T5X source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/google-research/t5x.git@main'
+      SRC_PAXML:
+        description: 'Paxml source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/google/paxml.git@main'
+      SRC_PRAXIS:
+        description: 'Praxis source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/google/praxis.git@main'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -98,6 +63,36 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
+          REPO_JAX=$(echo ${{ inputs.SRC_JAX }} | cut -f 1 -d @)
+          REF_JAX=$(echo ${{ inputs.SRC_JAX }}  | cut -f 2 -d @)
+          echo "REPO_JAX=${REPO_JAX}" >> $GITHUB_OUTPUT
+          echo "REF_JAX=${REF_JAX}" >> $GITHUB_OUTPUT
+
+          REPO_XLA=$(echo ${{ inputs.SRC_XLA }} | cut -f 1 -d @)
+          REF_XLA=$(echo ${{ inputs.SRC_XLA }}  | cut -f 2 -d @)
+          echo "REPO_XLA=${REPO_XLA}" >> $GITHUB_OUTPUT
+          echo "REF_XLA=${REF_XLA}" >> $GITHUB_OUTPUT
+
+          REPO_TE=$(echo ${{ inputs.SRC_TE }} | cut -f 1 -d @)
+          REF_TE=$(echo ${{ inputs.SRC_TE }}  | cut -f 2 -d @)
+          echo "REPO_TE=${REPO_TE}" >> $GITHUB_OUTPUT
+          echo "REF_TE=${REF_TE}" >> $GITHUB_OUTPUT
+
+          REPO_T5X=$(echo ${{ inputs.SRC_T5X }} | cut -f 1 -d @)
+          REF_T5X=$(echo ${{ inputs.SRC_T5X }}  | cut -f 2 -d @)
+          echo "REPO_T5X=${REPO_T5X}" >> $GITHUB_OUTPUT
+          echo "REF_T5X=${REF_T5X}" >> $GITHUB_OUTPUT
+
+          REPO_PAXML=$(echo ${{ inputs.SRC_PAXML }} | cut -f 1 -d @)
+          REF_PAXML=$(echo ${{ inputs.SRC_PAXML }}  | cut -f 2 -d @)
+          echo "REPO_PAXML=${REPO_PAXML}" >> $GITHUB_OUTPUT
+          echo "REF_PAXML=${REF_PAXML}" >> $GITHUB_OUTPUT
+
+          REPO_PRAXIS=$(echo ${{ inputs.SRC_PRAXIS }} | cut -f 1 -d @)
+          REF_PRAXIS=$(echo ${{ inputs.SRC_PRAXIS }}  | cut -f 2 -d @)
+          echo "REPO_PRAXIS=${REPO_PRAXIS}" >> $GITHUB_OUTPUT
+          echo "REF_PRAXIS=${REF_PRAXIS}" >> $GITHUB_OUTPUT
+
   build-base:
     needs: metadata
     uses: ./.github/workflows/_build_base.yaml
@@ -111,10 +106,10 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAGS }}
-      REPO_JAX: ${{ inputs.REPO_JAX }}
-      REF_JAX: ${{ inputs.REF_JAX }}
-      REPO_XLA: ${{ inputs.REPO_XLA }}
-      REF_XLA: ${{ inputs.REF_XLA }}
+      REPO_JAX: ${{ needs.metadata.outputs.REPO_JAX }}
+      REF_JAX: ${{ needs.metadata.outputs.REF_JAX }}
+      REPO_XLA: ${{ needs.metadata.outputs.REPO_XLA }}
+      REF_XLA: ${{ needs.metadata.outputs.REF_XLA }}
     secrets: inherit
 
   build-te:
@@ -123,8 +118,8 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
-      REPO_TE: ${{ inputs.REPO_TE }}
-      REF_TE: ${{ inputs.REF_TE }}
+      REPO_TE: ${{ needs.metadata.outputs.REPO_TE }}
+      REF_TE: ${{ needs.metadata.outputs.REF_TE }}
     secrets: inherit
 
   build-t5x:
@@ -133,8 +128,8 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
-      REPO_T5X: ${{ inputs.REPO_T5X }}
-      REF_T5X: ${{ inputs.REF_T5X }}
+      REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
+      REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
     secrets: inherit
 
   build-pax:
@@ -143,10 +138,10 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
-      REPO_PAXML: ${{ inputs.REPO_PAXML }}
-      REF_PAXML: ${{ inputs.REF_PAXML }}
-      REPO_PRAXIS: ${{ inputs.REPO_PRAXIS }}
-      REF_PRAXIS: ${{ inputs.REF_PRAXIS }}
+      REPO_PAXML: ${{ needs.metadata.outputs.REPO_PAXML }}
+      REF_PAXML: ${{ needs.metadata.outputs.REF_PAXML }}
+      REPO_PRAXIS: ${{ needs.metadata.outputs.REPO_PRAXIS }}
+      REF_PRAXIS: ${{ needs.metadata.outputs.REF_PRAXIS }}
     secrets: inherit
 
   build-rosetta:
