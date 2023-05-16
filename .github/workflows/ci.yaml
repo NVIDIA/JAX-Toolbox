@@ -79,35 +79,22 @@ jobs:
         id: parse-inputs
         shell: bash -x -e {0}
         run: |
-          REPO_JAX=$(echo ${{ inputs.SRC_JAX }} | cut -f 1 -d @)
-          REF_JAX=$(echo ${{ inputs.SRC_JAX }}  | cut -f 2 -d @)
-          echo "REPO_JAX=${REPO_JAX}" >> $GITHUB_OUTPUT
-          echo "REF_JAX=${REF_JAX}" >> $GITHUB_OUTPUT
+          # split input in the format of [repo]@[ref] into repo and ref parts
+          parse_input_src() {
+            PACKAGE=$1
+            INPUT=$2
+            DEFAULT=$3
+            SRC=${INPUT:-${DEFAULT}}
+            echo "REPO_${PACKAGE}=$(echo ${SRC} | cut -f1 -d@)" >> $GITHUB_OUTPUT
+            echo "REF_${PACKAGE}=$(echo ${SRC}  | cut -f2 -d@)" >> $GITHUB_OUTPUT
+          }
 
-          REPO_XLA=$(echo ${{ inputs.SRC_XLA }} | cut -f 1 -d @)
-          REF_XLA=$(echo ${{ inputs.SRC_XLA }}  | cut -f 2 -d @)
-          echo "REPO_XLA=${REPO_XLA}" >> $GITHUB_OUTPUT
-          echo "REF_XLA=${REF_XLA}" >> $GITHUB_OUTPUT
-
-          REPO_TE=$(echo ${{ inputs.SRC_TE }} | cut -f 1 -d @)
-          REF_TE=$(echo ${{ inputs.SRC_TE }}  | cut -f 2 -d @)
-          echo "REPO_TE=${REPO_TE}" >> $GITHUB_OUTPUT
-          echo "REF_TE=${REF_TE}" >> $GITHUB_OUTPUT
-
-          REPO_T5X=$(echo ${{ inputs.SRC_T5X }} | cut -f 1 -d @)
-          REF_T5X=$(echo ${{ inputs.SRC_T5X }}  | cut -f 2 -d @)
-          echo "REPO_T5X=${REPO_T5X}" >> $GITHUB_OUTPUT
-          echo "REF_T5X=${REF_T5X}" >> $GITHUB_OUTPUT
-
-          REPO_PAXML=$(echo ${{ inputs.SRC_PAXML }} | cut -f 1 -d @)
-          REF_PAXML=$(echo ${{ inputs.SRC_PAXML }}  | cut -f 2 -d @)
-          echo "REPO_PAXML=${REPO_PAXML}" >> $GITHUB_OUTPUT
-          echo "REF_PAXML=${REF_PAXML}" >> $GITHUB_OUTPUT
-
-          REPO_PRAXIS=$(echo ${{ inputs.SRC_PRAXIS }} | cut -f 1 -d @)
-          REF_PRAXIS=$(echo ${{ inputs.SRC_PRAXIS }}  | cut -f 2 -d @)
-          echo "REPO_PRAXIS=${REPO_PRAXIS}" >> $GITHUB_OUTPUT
-          echo "REF_PRAXIS=${REF_PRAXIS}" >> $GITHUB_OUTPUT
+          parse_input_src JAX    ${{ inputs.SRC_JAX }}    https://github.com/google/jax.git@main
+          parse_input_src XLA    ${{ inputs.SRC_XLA }}    https://github.com/openxla/xla.git@main
+          parse_input_src TE     ${{ inputs.SRC_TE }}     https://github.com/NVIDIA/TransformerEngine.git@main
+          parse_input_src T5X    ${{ inputs.SRC_T5X }}    https://github.com/google-research/t5x.git@main
+          parse_input_src PAXML  ${{ inputs.SRC_PAXML }}  https://github.com/google/paxml.git@main
+          parse_input_src PRAXIS ${{ inputs.SRC_PRAXIS }} https://github.com/google/praxis.git@main
 
   build-base:
     needs: metadata
