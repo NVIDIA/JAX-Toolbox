@@ -55,26 +55,30 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
-      REPO_JAX: ${{ steps.date.outputs.REPO_JAX }}
-      REF_JAX: ${{ steps.date.outputs.REF_JAX }}
-      REPO_XLA: ${{ steps.date.outputs.REPO_XLA }}
-      REF_XLA: ${{ steps.date.outputs.REF_XLA }}
-      REPO_TE: ${{ steps.date.outputs.REPO_TE }}
-      REF_TE: ${{ steps.date.outputs.REF_TE }}
-      REPO_T5X: ${{ steps.date.outputs.REPO_T5X }}
-      REF_T5X: ${{ steps.date.outputs.REF_T5X }}
-      REPO_PAXML: ${{ steps.date.outputs.REPO_PAXML }}
-      REF_PAXML: ${{ steps.date.outputs.REF_PAXML }}
-      REPO_PRAXIS: ${{ steps.date.outputs.REPO_PRAXIS }}
-      REF_PRAXIS: ${{ steps.date.outputs.REF_PRAXIS }}
+      REPO_JAX: ${{ steps.parse-inputs.outputs.REPO_JAX }}
+      REF_JAX: ${{ steps.parse-inputs.outputs.REF_JAX }}
+      REPO_XLA: ${{ steps.parse-inputs.outputs.REPO_XLA }}
+      REF_XLA: ${{ steps.parse-inputs.outputs.REF_XLA }}
+      REPO_TE: ${{ steps.parse-inputs.outputs.REPO_TE }}
+      REF_TE: ${{ steps.parse-inputs.outputs.REF_TE }}
+      REPO_T5X: ${{ steps.parse-inputs.outputs.REPO_T5X }}
+      REF_T5X: ${{ steps.parse-inputs.outputs.REF_T5X }}
+      REPO_PAXML: ${{ steps.parse-inputs.outputs.REPO_PAXML }}
+      REF_PAXML: ${{ steps.parse-inputs.outputs.REF_PAXML }}
+      REPO_PRAXIS: ${{ steps.parse-inputs.outputs.REPO_PRAXIS }}
+      REF_PRAXIS: ${{ steps.parse-inputs.outputs.REF_PRAXIS }}
     steps:
-      - name: Set metadata
+      - name: Set build date
         id: date
         shell: bash -x -e {0}
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
+      - name: Parse inputs
+        id: parse-inputs
+        shell: bash -x -e {0}
+        run: |
           REPO_JAX=$(echo ${{ inputs.SRC_JAX }} | cut -f 1 -d @)
           REF_JAX=$(echo ${{ inputs.SRC_JAX }}  | cut -f 2 -d @)
           echo "REPO_JAX=${REPO_JAX}" >> $GITHUB_OUTPUT
