@@ -55,6 +55,18 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      REPO_JAX: ${{ steps.date.outputs.REPO_JAX }}
+      REF_JAX: ${{ steps.date.outputs.REF_JAX }}
+      REPO_XLA: ${{ steps.date.outputs.REPO_XLA }}
+      REF_XLA: ${{ steps.date.outputs.REF_XLA }}
+      REPO_TE: ${{ steps.date.outputs.REPO_TE }}
+      REF_TE: ${{ steps.date.outputs.REF_TE }}
+      REPO_T5X: ${{ steps.date.outputs.REPO_T5X }}
+      REF_T5X: ${{ steps.date.outputs.REF_T5X }}
+      REPO_PAXML: ${{ steps.date.outputs.REPO_PAXML }}
+      REF_PAXML: ${{ steps.date.outputs.REF_PAXML }}
+      REPO_PRAXIS: ${{ steps.date.outputs.REPO_PRAXIS }}
+      REF_PRAXIS: ${{ steps.date.outputs.REF_PRAXIS }}
     steps:
       - name: Set metadata
         id: date
