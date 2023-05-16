@@ -3,6 +3,62 @@ name: CI
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      # BUILD_BASE:
+      #   description: 'Build new base image or otherwise use ghcr.io/nvidia/jax-toolbox:base'
+      #   type: boolean
+      #   required: true
+      #   default: true
+      REPO_JAX:
+        description: 'JAX repository'
+        type: string
+        required: true
+        default: 'https://github.com/google/jax.git'
+      REF_JAX:
+        description: 'JAX branch, tag, or commit'
+        type: string
+        required: true
+        default: 'main'
+      REPO_XLA:
+        description: 'XLA repository'
+        type: string
+        required: true
+        default: 'https://github.com/openxla/xla.git'
+      REF_XLA:
+        description: 'XLA branch, tag, or commit'
+        type: string
+        required: true
+        default: 'main'
+      REPO_T5X:
+        description: 'T5X repository'
+        type: string
+        required: true
+        default: 'https://github.com/google-research/t5x.git'
+      REF_T5X:
+        description: 'T5X branch, tag, or commit'
+        type: string
+        required: true
+        default: 'main'
+      REPO_PAX:
+        description: 'Paxml repository'
+        type: string
+        required: true
+        default: 'https://github.com/google/paxml.git'
+      REF_PAX:
+        description: 'Pax branch, tag, or commit'
+        type: string
+        required: true
+        default: 'main'
+      REPO_TE:
+        description: 'Transformer Engine (TE) repository'
+        type: string
+        required: true
+        default: 'https://github.com/NVIDIA/TransformerEngine.git'
+      REF_TE:
+        description: 'TE branch, tag, or commit'
+        type: string
+        required: true
+        default: 'main'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,7 +76,7 @@ jobs:
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
     steps:
-      - name: Set build date
+      - name: Set metadata
         id: date
         shell: bash -x -e {0}
         run: |
@@ -40,6 +96,20 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAGS }}
+      REPO_JAX: ${{ inputs.REPO_JAX }}
+      REF_JAX: ${{ inputs.REF_JAX }}
+      REPO_XLA: ${{ inputs.REPO_XLA }}
+      REF_XLA: ${{ inputs.REF_XLA }}
+    secrets: inherit
+
+  build-te:
+    needs: [metadata, build-jax]
+    uses: ./.github/workflows/_build_te.yaml
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+      REPO_TE: ${{ inputs.REPO_TE }}
+      REF_TE: ${{ inputs.REF_TE }}
     secrets: inherit
 
   build-t5x:
@@ -48,6 +118,8 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+      REPO_T5X: ${{ inputs.REPO_T5X }}
+      REF_T5X: ${{ inputs.REF_T5X }}
     secrets: inherit
 
   build-pax:
@@ -56,13 +128,8 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
-    secrets: inherit
-
-  test-jax:
-    needs: build-jax
-    uses: ./.github/workflows/_test_jax.yaml
-    with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+      REPO_PAX: ${{ inputs.REPO_PAX }}
+      REF_PAX: ${{ inputs.REF_PAX }}
     secrets: inherit
 
   build-rosetta:
@@ -71,4 +138,52 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  build-summary:
+    needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-rosetta]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Generate job summary for container build
+        shell: bash -x -e {0}
+        run: |
+          cat > $GITHUB_STEP_SUMMARY << EOF
+          # Images created          
+
+          | Image   | Link                                           |
+          | ------- | ---------------------------------------------- |
+          | Base    | ${{ needs.build-base.outputs.DOCKER_TAGS }}    |
+          | JAX     | ${{ needs.build-jax.outputs.DOCKER_TAGS }}     |
+          | JAX-TE  | ${{ needs.build-te.outputs.DOCKER_TAGS }}      |
+          | T5X     | ${{ needs.build-t5x.outputs.DOCKER_TAGS }}     |
+          | PAX     | ${{ needs.build-pax.outputs.DOCKER_TAGS }}     |
+          | ROSETTA | ${{ needs.build-rosetta.outputs.DOCKER_TAGS }} |
+          EOF
+
+  test-jax:
+    needs: build-jax
+    uses: ./.github/workflows/_test_jax.yaml
+    with:
+      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  test-te:
+    needs: build-te
+    uses: ./.github/workflows/_test_te.yaml
+    with:
+      JAX_TE_IMAGE: ${{ needs.build-te.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  test-t5x:
+    needs: build-t5x
+    uses: ./.github/workflows/_test_t5x.yaml
+    with:
+      T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  test-pax:
+    needs: build-pax
+    uses: ./.github/workflows/_test_pax.yaml
+    with:
+      PAX_IMAGE_TAG: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
     secrets: inherit
