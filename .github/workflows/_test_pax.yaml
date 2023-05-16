@@ -5,7 +5,7 @@ on:
     inputs:
       PAX_IMAGE:
         type: string
-        description: T5X image from ghcr.io/nvidia/pax
+        description: PAX image from ghcr.io/nvidia/pax
         default: latest
         required: false
 
