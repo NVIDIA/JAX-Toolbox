@@ -7,10 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      T5X_IMAGE_TAG:
+      T5X_IMAGE:
         type: string
         description: T5X container
-        default: latest
+        default: 'ghcr.io/nvidia/t5x:latest'
         required: true
       PUBLISH:
         type: boolean
@@ -24,7 +24,7 @@ permissions:
   packages: write # to upload container
 
 env:
-  DEFAULT_T5X_IMAGE_TAG: latest
+  DEFAULT_T5X_IMAGE: 'ghcr.io/nvidia/t5x:latest'
 
 jobs:
 
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
-      T5X_IMAGE_TAG: ${{ steps.date.outputs.T5X_IMAGE_TAG }}
+      T5X_IMAGE: ${{ steps.date.outputs.T5X_IMAGE }}
     steps:
       - name: Set build date
         id: date
@@ -41,19 +41,19 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-          if [[ -z "${{ inputs.T5X_IMAGE_TAG }}" ]]; then
-            T5X_IMAGE_TAG=${{ env.DEFAULT_T5X_IMAGE_TAG }}
+          if [[ -z "${{ inputs.T5X_IMAGE }}" ]]; then
+            T5X_IMAGE=${{ env.DEFAULT_T5X_IMAGE }}
           else
-            T5X_IMAGE_TAG=${{ inputs.T5X_IMAGE_TAG }}
+            T5X_IMAGE=${{ inputs.T5X_IMAGE }}
           fi
-          echo "T5X_IMAGE_TAG=${T5X_IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "T5X_IMAGE=${T5X_IMAGE}" >> $GITHUB_OUTPUT
 
   run-jobs:
     needs: metadata
     uses: ./.github/workflows/_test_t5x.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      T5X_IMAGE_TAG: ${{ needs.metadata.outputs.T5X_IMAGE_TAG }}
+      T5X_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
     secrets: inherit
 
   publish:

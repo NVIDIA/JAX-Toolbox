@@ -3,10 +3,10 @@ name: ~test T5X, MGMN
 on:
   workflow_call:
     inputs:
-      T5X_IMAGE_TAG:
+      T5X_IMAGE:
         type: string
-        description: Tag of image from https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x
-        default: latest
+        description: T5X image from ghcr.io/nvidia/t5x
+        default: 'ghcr.io/nvidia/t5x:latest'
         required: false
       BATCH_SIZE_PER_GPU:
         type: number
@@ -43,12 +43,13 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
+          IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
-          for var in TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
+          for var in IMAGE TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
@@ -68,8 +69,9 @@ jobs:
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           time srun \
-            --container-image=ghcr.io#nvidia/t5x:${{ inputs.T5X_IMAGE_TAG }} \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-t5x.sh \
@@ -137,13 +139,14 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
+          IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          for var in TEST_CASE_NAME TOTAL_TASKS JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
+          for var in IMAGE TEST_CASE_NAME TOTAL_TASKS JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
@@ -164,8 +167,9 @@ jobs:
           #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           time srun \
-            --container-image=ghcr.io#nvidia/t5x:${{ inputs.T5X_IMAGE_TAG }} \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-t5x.sh \

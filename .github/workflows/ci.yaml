@@ -3,6 +3,42 @@ name: CI
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      # BUILD_BASE:
+      #   description: 'Build new base image or otherwise use ghcr.io/nvidia/jax-toolbox:base'
+      #   type: boolean
+      #   required: true
+      #   default: true
+      SRC_JAX:
+        description: 'JAX source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/google/jax.git@main'
+      SRC_XLA:
+        description: 'XLA source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/openxla/xla.git@main'
+      SRC_TE:
+        description: 'TE source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/NVIDIA/TransformerEngine.git@main'
+      SRC_T5X:
+        description: 'T5X source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/google-research/t5x.git@main'
+      SRC_PAXML:
+        description: 'Paxml source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/google/paxml.git@main'
+      SRC_PRAXIS:
+        description: 'Praxis source, [repository]@[branch, tag, or commit]'
+        type: string
+        required: true
+        default: 'https://github.com/google/praxis.git@main'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,6 +55,18 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      REPO_JAX: ${{ steps.parse-inputs.outputs.REPO_JAX }}
+      REF_JAX: ${{ steps.parse-inputs.outputs.REF_JAX }}
+      REPO_XLA: ${{ steps.parse-inputs.outputs.REPO_XLA }}
+      REF_XLA: ${{ steps.parse-inputs.outputs.REF_XLA }}
+      REPO_TE: ${{ steps.parse-inputs.outputs.REPO_TE }}
+      REF_TE: ${{ steps.parse-inputs.outputs.REF_TE }}
+      REPO_T5X: ${{ steps.parse-inputs.outputs.REPO_T5X }}
+      REF_T5X: ${{ steps.parse-inputs.outputs.REF_T5X }}
+      REPO_PAXML: ${{ steps.parse-inputs.outputs.REPO_PAXML }}
+      REF_PAXML: ${{ steps.parse-inputs.outputs.REF_PAXML }}
+      REPO_PRAXIS: ${{ steps.parse-inputs.outputs.REPO_PRAXIS }}
+      REF_PRAXIS: ${{ steps.parse-inputs.outputs.REF_PRAXIS }}
     steps:
       - name: Set build date
         id: date
@@ -26,6 +74,27 @@ jobs:
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Parse inputs
+        id: parse-inputs
+        shell: bash -x -e {0}
+        run: |
+          # split input in the format of [repo]@[ref] into repo and ref parts
+          parse_input_src() {
+            PACKAGE=$1
+            INPUT=$2
+            DEFAULT=$3
+            SRC=${INPUT:-${DEFAULT}}
+            echo "REPO_${PACKAGE}=$(echo ${SRC} | cut -f1 -d@)" >> $GITHUB_OUTPUT
+            echo "REF_${PACKAGE}=$(echo ${SRC}  | cut -f2 -d@)" >> $GITHUB_OUTPUT
+          }
+
+          parse_input_src JAX    ${{ inputs.SRC_JAX }}    https://github.com/google/jax.git@main
+          parse_input_src XLA    ${{ inputs.SRC_XLA }}    https://github.com/openxla/xla.git@main
+          parse_input_src TE     ${{ inputs.SRC_TE }}     https://github.com/NVIDIA/TransformerEngine.git@main
+          parse_input_src T5X    ${{ inputs.SRC_T5X }}    https://github.com/google-research/t5x.git@main
+          parse_input_src PAXML  ${{ inputs.SRC_PAXML }}  https://github.com/google/paxml.git@main
+          parse_input_src PRAXIS ${{ inputs.SRC_PRAXIS }} https://github.com/google/praxis.git@main
 
   build-base:
     needs: metadata
@@ -40,6 +109,20 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAGS }}
+      REPO_JAX: ${{ needs.metadata.outputs.REPO_JAX }}
+      REF_JAX: ${{ needs.metadata.outputs.REF_JAX }}
+      REPO_XLA: ${{ needs.metadata.outputs.REPO_XLA }}
+      REF_XLA: ${{ needs.metadata.outputs.REF_XLA }}
+    secrets: inherit
+
+  build-te:
+    needs: [metadata, build-jax]
+    uses: ./.github/workflows/_build_te.yaml
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+      REPO_TE: ${{ needs.metadata.outputs.REPO_TE }}
+      REF_TE: ${{ needs.metadata.outputs.REF_TE }}
     secrets: inherit
 
   build-t5x:
@@ -48,6 +131,8 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+      REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
+      REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
     secrets: inherit
 
   build-pax:
@@ -56,13 +141,10 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
-    secrets: inherit
-
-  test-jax:
-    needs: build-jax
-    uses: ./.github/workflows/_test_jax.yaml
-    with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+      REPO_PAXML: ${{ needs.metadata.outputs.REPO_PAXML }}
+      REF_PAXML: ${{ needs.metadata.outputs.REF_PAXML }}
+      REPO_PRAXIS: ${{ needs.metadata.outputs.REPO_PRAXIS }}
+      REF_PRAXIS: ${{ needs.metadata.outputs.REF_PRAXIS }}
     secrets: inherit
 
   build-rosetta:
@@ -71,4 +153,52 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  build-summary:
+    needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-rosetta]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Generate job summary for container build
+        shell: bash -x -e {0}
+        run: |
+          cat > $GITHUB_STEP_SUMMARY << EOF
+          # Images created          
+
+          | Image   | Link                                           |
+          | ------- | ---------------------------------------------- |
+          | Base    | ${{ needs.build-base.outputs.DOCKER_TAGS }}    |
+          | JAX     | ${{ needs.build-jax.outputs.DOCKER_TAGS }}     |
+          | JAX-TE  | ${{ needs.build-te.outputs.DOCKER_TAGS }}      |
+          | T5X     | ${{ needs.build-t5x.outputs.DOCKER_TAGS }}     |
+          | PAX     | ${{ needs.build-pax.outputs.DOCKER_TAGS }}     |
+          | ROSETTA | ${{ needs.build-rosetta.outputs.DOCKER_TAGS }} |
+          EOF
+
+  test-jax:
+    needs: build-jax
+    uses: ./.github/workflows/_test_jax.yaml
+    with:
+      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  test-te:
+    needs: build-te
+    uses: ./.github/workflows/_test_te.yaml
+    with:
+      JAX_TE_IMAGE: ${{ needs.build-te.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  test-t5x:
+    needs: build-t5x
+    uses: ./.github/workflows/_test_t5x.yaml
+    with:
+      T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  test-pax:
+    needs: build-pax
+    uses: ./.github/workflows/_test_pax.yaml
+    with:
+      PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
     secrets: inherit
