@@ -11,9 +11,9 @@ cd rosetta
 # Or update
 #  > git submodule update --recursive --remote
 
-docker buildx build --target rosetta --tag rosetta:latest .
+docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.t5x .
 # Or if you want a devel image with test dependencies
-docker buildx build --target rosetta-devel --tag rosetta-devel:latest .
+docker buildx build --target rosetta-devel --tag rosetta-devel:latest -f Dockerfile.t5x .
 ```
 
 ## Development

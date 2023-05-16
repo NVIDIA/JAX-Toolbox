@@ -1,0 +1,31 @@
+ARG BASE_IMAGE=ghcr.io/nvidia/t5x:latest
+ARG GIT_USER_EMAIL=jax@nvidia.com
+ARG GIT_USER_NAME=NVIDIA
+
+FROM ${BASE_IMAGE} AS distribution-builder
+
+ARG GIT_USER_EMAIL
+ARG GIT_USER_NAME
+RUN git config --global user.email "${GIT_USER_EMAIL}" && \
+    git config --global user.name "${GIT_USER_NAME}"
+
+COPY . /opt/rosetta
+WORKDIR /opt/rosetta
+RUN bash create-distribution.sh \
+  -p patchlist-t5x.txt \
+  -u https://github.com/google-research/t5x.git \
+  -d $(dirname $(python -c "import t5x; print(*t5x.__path__)"))
+RUN rm -rf $(find /opt -name "__pycache__")
+  
+FROM ${BASE_IMAGE} AS rosetta
+COPY --from=distribution-builder /opt/t5x /opt/t5x
+COPY --from=distribution-builder /opt/rosetta /opt/rosetta
+
+WORKDIR /opt/rosetta
+RUN pip install -e /opt/rosetta && rm -rf ~/.cache/pip/
+
+FROM rosetta AS rosetta-devel
+
+WORKDIR /opt/rosetta
+RUN pip install -e '/opt/rosetta[test,lint]' && rm -rf ~/.cache/pip/
+
