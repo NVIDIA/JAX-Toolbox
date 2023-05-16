@@ -2,6 +2,6 @@
 # Patch list #
 ##############
 # - Internal patches (These are branches that start with "patch/")
-# - External Pull Requests (These are pull requests with upstream t5x and are of the form "pull/$PULLID/head")
+# - External Pull Requests (These are pull requests with upstream praxis and are of the form "pull/$PULLID/head")
 # - Note: Only the first column is used as a git-ref, so anything after is a comment
 
