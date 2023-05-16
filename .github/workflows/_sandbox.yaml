@@ -1,4 +1,4 @@
-name: CI
+name: ~Sandbox
 
 on:
   workflow_dispatch:
@@ -6,8 +6,14 @@ on:
 
 jobs:
 
-  test-t5x:
-    uses: ./.github/workflows/_test_t5x.yaml
+  # test-t5x:
+  #   uses: ./.github/workflows/_test_t5x.yaml
+  #   with:
+  #     T5X_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:4985776849-t5x
+  #   secrets: inherit
+
+  test-pax:
+    uses: ./.github/workflows/_test_pax.yaml
     with:
-      T5X_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:4985776849-t5x
+      T5X_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:4985776849-pax
     secrets: inherit

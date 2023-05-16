@@ -3,9 +3,9 @@ name: ~test Pax, MGMN
 on:
   workflow_call:
     inputs:
-      PAX_IMAGE_TAG:
+      PAX_IMAGE:
         type: string
-        description: Tag of image from https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/pax
+        description: T5X image from ghcr.io/nvidia/pax
         default: latest
         required: false
 
@@ -44,6 +44,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
+          IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }}))
           MAX_GPUS_PER_NODE=8
@@ -53,7 +54,7 @@ jobs:
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          for var in TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
+          for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
@@ -74,9 +75,10 @@ jobs:
           #SBATCH --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model"
           time srun \
-            --container-image=ghcr.io#nvidia/pax:${{ inputs.PAX_IMAGE_TAG }} \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-pax.sh \
