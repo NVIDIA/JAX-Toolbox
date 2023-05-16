@@ -15,5 +15,5 @@ jobs:
   test-pax:
     uses: ./.github/workflows/_test_pax.yaml
     with:
-      T5X_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:4985776849-pax
+      PAX_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:4985776849-pax
     secrets: inherit
