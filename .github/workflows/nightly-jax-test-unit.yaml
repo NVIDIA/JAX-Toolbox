@@ -60,7 +60,7 @@ jobs:
     with:
       BADGE_LABEL: 'V100 Unit'
       BADGE_FILENAME: 'jax-unit-test-status.json'
-      ARTIFACTS: "${{ needs.run-jobs.outputs.UNIT_TEST_ARTIFACT_NAME }}/*"
+      ARTIFACTS: "${{ needs.run-jobs.outputs.ARTIFACT_NAME }}/*"
       PUBLISH: ${{ inputs.PUBLISH }}
       SCRIPT: |
         FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)

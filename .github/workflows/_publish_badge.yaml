@@ -41,7 +41,7 @@ jobs:
         with:
           path: ${{ env.LOCAL_TEST_LOG_DIR }}
 
-      - name: Count the number of failed tests
+      - name: Process test results and create badge json
         env:
           BADGE_LABEL: ${{ inputs.BADGE_LABEL }}
           ARTIFACTS: ${{ env.LOCAL_TEST_LOG_DIR }}/${{ inputs.ARTIFACTS }}
