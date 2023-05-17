@@ -41,11 +41,8 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-          if [[ -z "${{ inputs.T5X_IMAGE }}" ]]; then
-            T5X_IMAGE=${{ env.DEFAULT_T5X_IMAGE }}
-          else
-            T5X_IMAGE=${{ inputs.T5X_IMAGE }}
-          fi
+          T5X_IMAGE=${{ inputs.T5X_IMAGE }}
+          T5X_IMAGE=${T5X_IMAGE:-${{ env.DEFAULT_T5X_IMAGE }}}
           echo "T5X_IMAGE=${T5X_IMAGE}" >> $GITHUB_OUTPUT
 
   run-jobs:

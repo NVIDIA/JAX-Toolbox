@@ -10,7 +10,7 @@ on:
       PAX_IMAGE:
         type: string
         description: Pax container
-        default: latest
+        default: 'ghcr.io/nvidia/pax:latest'
         required: true
       PUBLISH:
         type: boolean
@@ -41,11 +41,8 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-          if [[ -z "${{ inputs.PAX_IMAGE }}" ]]; then
-            PAX_IMAGE=${{ env.DEFAULT_PAX_IMAGE }}
-          else
-            PAX_IMAGE=${{ inputs.PAX_IMAGE }}
-          fi
+          PAX_IMAGE=${{ inputs.PAX_IMAGE }}
+          PAX_IMAGE=${PAX_IMAGE:-${{ env.DEFAULT_PAX_IMAGE }}}
           echo "PAX_IMAGE=${PAX_IMAGE}" >> $GITHUB_OUTPUT
 
   run-jobs:
