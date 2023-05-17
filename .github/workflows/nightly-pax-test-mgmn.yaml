@@ -7,7 +7,7 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      PAX_IMAGE_TAG:
+      PAX_IMAGE:
         type: string
         description: Pax container
         default: latest
@@ -24,7 +24,7 @@ permissions:
   packages: write # to upload container
 
 env:
-  DEFAULT_PAX_IMAGE_TAG: latest
+  DEFAULT_PAX_IMAGE: 'ghcr.io/nvidia/pax:latest'
 
 jobs:
 
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
-      PAX_IMAGE_TAG: ${{ steps.date.outputs.PAX_IMAGE_TAG }}
+      PAX_IMAGE: ${{ steps.date.outputs.PAX_IMAGE }}
     steps:
       - name: Set build date
         id: date
@@ -41,19 +41,19 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-          if [[ -z "${{ inputs.PAX_IMAGE_TAG }}" ]]; then
-            PAX_IMAGE_TAG=${{ env.DEFAULT_PAX_IMAGE_TAG }}
+          if [[ -z "${{ inputs.PAX_IMAGE }}" ]]; then
+            PAX_IMAGE=${{ env.DEFAULT_PAX_IMAGE }}
           else
-            PAX_IMAGE_TAG=${{ inputs.PAX_IMAGE_TAG }}
+            PAX_IMAGE=${{ inputs.PAX_IMAGE }}
           fi
-          echo "PAX_IMAGE_TAG=${PAX_IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "PAX_IMAGE=${PAX_IMAGE}" >> $GITHUB_OUTPUT
 
   run-jobs:
     needs: metadata
     uses: ./.github/workflows/_test_pax.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      PAX_IMAGE_TAG: ${{ needs.metadata.outputs.PAX_IMAGE_TAG }}
+      PAX_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
     secrets: inherit
 
   publish:
@@ -79,33 +79,6 @@ jobs:
       - name: Generate TensorBoard query URL
         run: |          
           echo "[${{ needs.metadata.outputs.BUILD_DATE }} metrics](http://${{ vars.TENSORBOARD_SERVER_IP }}:6006/#scalars&regexInput=${{ needs.metadata.outputs.BUILD_DATE }}&_smoothingWeight=0&tagFilter=seqs_per)" >> $GITHUB_STEP_SUMMARY
-
-      # - uses: actions/setup-python@v4
-      #   with:
-      #     python-version: '3.x'
-          
-      # - name: Generate job summary
-      #   id: metric
-      #   shell: bash -x -e {0}
-      #   run: |
-      #     python | tee -a $GITHUB_STEP_SUMMARY << EOF
-      #     import re
-      #     import pandas as pd
-
-      #     metrics = pd.DataFrame([
-      #         # Extract `metric` and `value` from `timings/metric=value`
-      #         {re.split('=|/',s)[1] : float(re.split('=|/',s)[2]) for s in stat}
-      #         for stat in re.findall(
-      #             r".*collection=train .*"
-      #             r"(timing/seconds=[\d.]+), (timing/seqs=[\d.]+), (timing/seqs_per_second=[\d.]+), "
-      #             r"(timing/seqs_per_second_per_core=[\d.]+), (timing/steps_per_second=[\d.]+), "
-      #             r"(timing/target_tokens_per_second=[\d.]+), (timing/target_tokens_per_second_per_core=[\d.]+).*",
-      #             open('output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log').read()
-      #         )
-      #     ])
-      #     summary = pd.DataFrame(metrics.tail(5).mean(axis=0)).transpose()
-      #     print(summary.to_markdown(index=False))
-      #     EOF
 
   if-upstream-failed:
     runs-on: ubuntu-latest
