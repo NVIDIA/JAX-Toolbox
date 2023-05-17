@@ -26,25 +26,17 @@ on:
         default: false
         required: true
 
-env:
-  LOCAL_TEST_LOG_DIR: .test-logs
-
 jobs:
   publish:
     runs-on: ubuntu-22.04
     steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
-
       - name: Download all artifacts from the previous jobs
         uses: actions/download-artifact@v3
-        with:
-          path: ${{ env.LOCAL_TEST_LOG_DIR }}
 
       - name: Process test results and create badge json
         env:
           BADGE_LABEL: ${{ inputs.BADGE_LABEL }}
-          ARTIFACTS: ${{ env.LOCAL_TEST_LOG_DIR }}/${{ inputs.ARTIFACTS }}
+          ARTIFACTS: ${{ inputs.ARTIFACTS }}
           BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
         shell: bash -x -e {0}
         run: ${{ inputs.SCRIPT }}
