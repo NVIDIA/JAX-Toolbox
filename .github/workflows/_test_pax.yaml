@@ -89,7 +89,7 @@ jobs:
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              $([[ $TOTAL_TASKS > 1 ]] && echo --multiprocess)
+              $([[ $steps.meta.outputs.TOTAL_TASKS > 1 ]] && echo --multiprocess)
           EOF
           )
 
