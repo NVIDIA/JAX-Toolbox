@@ -1,25 +1,6 @@
 name: ~build Rosetta container
 
 on:
-  workflow_dispatch:
-    inputs:
-      BASE_LIBRARY:
-        type: choice
-        description: 'Choice of base library to build on:'
-        options:
-          - t5x
-          - pax
-        required: false
-        default: t5x
-      BASE_IMAGE:
-        type: string
-        description: 'Base docker image that provides the foundation library:'
-        required: false
-      BUILD_DATE:
-        type: string
-        description: "Build date in YYYY-MM-DD format"
-        required: false
-        default: 'NOT SPECIFIED'
   workflow_call:
     inputs:
       BASE_LIBRARY:
