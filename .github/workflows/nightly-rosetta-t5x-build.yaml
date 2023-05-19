@@ -1,4 +1,4 @@
-name: Nightly Rosetta build
+name: Nightly Rosetta T5x build and test
 
 on:
   workflow_run:
@@ -43,6 +43,16 @@ jobs:
     uses: ./.github/workflows/_build_rosetta.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_LIBRARY: t5x
+      BASE_IMAGE: ${{ env.DOCKER_REGISTRY }}/t5x:latest
+    secrets: inherit
+
+  test:
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    needs: build
+    uses: ./.github/workflows/_test_rosetta.yaml
+    with:
+      ROSETTA_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
     secrets: inherit
 
   publish:
@@ -52,7 +62,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta
+      TARGET_IMAGE: rosetta-t5x
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900

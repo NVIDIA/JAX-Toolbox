@@ -1,16 +1,13 @@
-name: ~test and lint Rosetta
+name: ~test Rosetta
 
 on:
-  # Manual trigger
-  workflow_dispatch:
-  # Called from another workflow
   workflow_call:
     inputs:
       ROSETTA_IMAGE:
         type: string
         description: 'Rosetta image build by NVIDIA/JAX-Toolbox'
         required: true
-        default: 'ghcr.io/nvidia/rosetta:latest'
+        default: 'ghcr.io/nvidia/rosetta-t5x:latest'
 
 jobs:
   rosetta-tests:

@@ -3,11 +3,15 @@ name: ~build Rosetta container
 on:
   workflow_call:
     inputs:
+      BASE_LIBRARY:
+        type: string
+        description: 'Choice of base library to build on:'
+        required: false
+        default: t5x
       BASE_IMAGE:
         type: string
-        description: 'Base docker image that provides T5X'
+        description: 'Base docker image that provides the foundation library'
         required: false
-        default: ghcr.io/nvidia/t5x:latest
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -20,6 +24,7 @@ on:
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
+  DOCKER_REGISTRY: ghcr.io/nvidia
 
 permissions:
   contents: read  # to fetch code
@@ -33,6 +38,14 @@ jobs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     runs-on: [self-hosted, small-builder]
     steps:
+      - name: Set default BASE_IMAGE
+        run: |
+          if [[ -n "${{ inputs.BASE_IMAGE }}" ]]; then
+            echo "BASE_IMAGE=${{ inputs.BASE_IMAGE }}" >> "$GITHUB_ENV"
+          else
+            echo "BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/${{ inputs.BASE_LIBRARY }}:latest" >> "$GITHUB_ENV"
+          fi
+
       - name: Print environment variables
         run: env
 
@@ -52,7 +65,7 @@ jobs:
         with:
           images: ${{ env.UPLD_IMAGE }}
           flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-rosetta
+          tags: type=raw,value=${{ github.run_id }}-rosetta-${{ inputs.BASE_LIBRARY }}
           labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Set up Docker Buildx
@@ -61,14 +74,24 @@ jobs:
           driver-opts: |
             image=moby/buildkit:v0.10.6
 
+      - name: Pull and validate BASE_IMAGE=${{ env.BASE_IMAGE }} contains BASE_LIBRARY=${{ inputs.BASE_LIBRARY }}
+        shell: bash -x -e {0}
+        run: |
+          PYTHON_PACKAGE=${{ inputs.BASE_LIBRARY }}
+          if [[ $PYTHON_PACKAGE == "pax" ]]; then
+            PYTHON_PACKAGE=paxml
+          fi
+          docker run --rm ${{ env.BASE_IMAGE }} python -c "import $PYTHON_PACKAGE"
+
+
       - name: Build docker images
         uses: docker/build-push-action@v4
         with:
           context: rosetta/
           push: true
-          file: rosetta/Dockerfile.t5x
+          file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           target: rosetta
           build-args: |
-            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BASE_IMAGE=${{ env.BASE_IMAGE }}

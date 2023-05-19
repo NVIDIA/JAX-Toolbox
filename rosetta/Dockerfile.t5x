@@ -1,6 +1,13 @@
+# syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/t5x:latest
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
+
+FROM scratch as rosetta-source
+COPY . /
+
+FROM scratch as t5x-mirror-source
+ADD --keep-git-dir=true https://github.com/google-research/t5x.git#main /
 
 FROM ${BASE_IMAGE} AS distribution-builder
 
@@ -9,23 +16,31 @@ ARG GIT_USER_NAME
 RUN git config --global user.email "${GIT_USER_EMAIL}" && \
     git config --global user.name "${GIT_USER_NAME}"
 
-COPY . /opt/rosetta
+COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
-RUN bash create-distribution.sh \
+RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite <<EOF
+bash create-distribution.sh \
   -p patchlist-t5x.txt \
   -u https://github.com/google-research/t5x.git \
-  -d $(dirname $(python -c "import t5x; print(*t5x.__path__)"))
-RUN rm -rf $(find /opt -name "__pycache__")
+  -d $(dirname $(python -c "import t5x; print(*t5x.__path__)")) \
+  -e /opt/t5x-mirror
+EOF
   
 FROM ${BASE_IMAGE} AS rosetta
-COPY --from=distribution-builder /opt/t5x /opt/t5x
-COPY --from=distribution-builder /opt/rosetta /opt/rosetta
+COPY --link --from=distribution-builder /opt/t5x /opt/t5x
+COPY --link --from=distribution-builder /opt/rosetta /opt/rosetta
 
 WORKDIR /opt/rosetta
-RUN pip install -e /opt/rosetta && rm -rf ~/.cache/pip/
+RUN <<EOF
+pip install -e /opt/rosetta
+rm -rf ~/.cache/pip/
+EOF
 
 FROM rosetta AS rosetta-devel
 
 WORKDIR /opt/rosetta
-RUN pip install -e '/opt/rosetta[test,lint]' && rm -rf ~/.cache/pip/
+RUN <<EOF
+pip install -e '/opt/rosetta[test,lint]'
+rm -rf ~/.cache/pip/
+EOF
 
