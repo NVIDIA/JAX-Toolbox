@@ -68,10 +68,10 @@ jobs:
         shell: bash -x -e {0}
         run: |
           all_outcomes() {
-            jq -r '. | select(.["$report_type"] == "TestReport") | .outcome'
+            jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
           }
           cnt_type() {
-            jq '. | select((.["$report_type"] == "TestReport") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+            jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
           }
           SKIPPED_TESTS=$(cat test-logs/report.jsonl | cnt_type skipped)
           FAILED_TESTS=$(cat test-logs/report.jsonl | cnt_type failed)
@@ -79,7 +79,7 @@ jobs:
           TOTAL_TESTS=$(cat test-logs/report.jsonl | all_outcomes | wc -l)
           echo "Unit test breakdown:"
           cat test-logs/report.jsonl | all_outcomes | sort | uniq -c
-          if [[ $FAILED_TESTS -eq 0 ]]; then
+          if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
             BADGE_COLOR=brightgreen
           else
             if [[ $PASSED_TESTS -eq 0 ]]; then
