@@ -65,7 +65,7 @@ jobs:
     steps:
       - name: Mask secret
         run: |
-          echo "::add-mask::${GITEA_TOKEN}"
+          echo "::add-mask::${{ secrets.GITEA_TOKEN }}"
 
       - name: Set build date
         id: date
