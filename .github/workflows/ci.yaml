@@ -63,6 +63,10 @@ jobs:
       REPO_PRAXIS: ${{ steps.parse-inputs.outputs.REPO_PRAXIS }}
       REF_PRAXIS: ${{ steps.parse-inputs.outputs.REF_PRAXIS }}
     steps:
+      - name: Mask secret
+        run: |
+          echo "::add-mask::${GITEA_TOKEN}"
+
       - name: Set build date
         id: date
         shell: bash -x -e {0}
