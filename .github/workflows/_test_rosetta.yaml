@@ -1,15 +1,6 @@
 name: ~test Rosetta
 
 on:
-  # Manually run
-  workflow_dispatch:
-    inputs:
-      ROSETTA_IMAGE:
-        type: string
-        description: 'Rosetta image build by NVIDIA/JAX-Toolbox'
-        required: true
-        default: 'ghcr.io/nvidia/rosetta-t5x:latest'
-  # Called from another workflow
   workflow_call:
     inputs:
       ROSETTA_IMAGE:
