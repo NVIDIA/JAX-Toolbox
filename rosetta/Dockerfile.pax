@@ -32,7 +32,7 @@ bash create-distribution.sh \
 bash create-distribution.sh \
   -p patchlist-praxis.txt \
   -u https://github.com/google/praxis.git \
-  -d $(dirname $(python -c "import praxis; print(*praxis.__path__)"))
+  -d $(dirname $(python -c "import praxis; print(*praxis.__path__)")) \
   -e /opt/praxis-mirror
 rm -rf $(find /opt -name "__pycache__")
 EOF
