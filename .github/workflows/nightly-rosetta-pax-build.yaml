@@ -28,10 +28,12 @@ jobs:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     outputs:
-      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ steps.meta-vars.outputs.BUILD_DATE }}
+      BASE_LIBRARY: ${{ steps.meta-vars.outputs.BASE_LIBRARY }}
+      DOCKER_REGISTRY: ${{ steps.meta-vars.outputs.DOCKER_REGISTRY }}
     steps:
-      - name: Set build date
-        id: date
+      - name: Set build metadata
+        id: meta-vars
         shell: bash -x -e {0}
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
