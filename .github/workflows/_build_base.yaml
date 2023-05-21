@@ -19,7 +19,7 @@ on:
         value: ${{ jobs.build.outputs.DOCKER_TAGS }}
 
 env:
-  UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
+  UPLD_IMAGE: nvcr.io/nvidian/jax-toolbox-internal
 
 permissions:
   contents: read  # to fetch code
@@ -42,9 +42,9 @@ jobs:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: nvcr.io
+          username: '$oauthtoken'
+          password: ${{ secrets.NVCR_TOKEN }}
 
       - name: Set docker metadata
         id: meta

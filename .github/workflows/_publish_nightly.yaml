@@ -36,6 +36,13 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: nvcr.io
+          username: '$oauthtoken'
+          password: ${{ secrets.NVCR_TOKEN }}
+
       - name: Set docker metadata
         id: meta
         uses: docker/metadata-action@v4
@@ -48,8 +55,9 @@ jobs:
         shell: bash -x -e {0}
         run: |
           for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-            docker manifest create $tag ${{ inputs.SOURCE_IMAGE }}
-            docker manifest push $tag
+            docker pull ${{ inputs.SOURCE_IMAGE }}
+            docker tag ${{ inputs.SOURCE_IMAGE }} $tag
+            docker push $tag
           done
 
       - name: Generate outputs and artifacts
