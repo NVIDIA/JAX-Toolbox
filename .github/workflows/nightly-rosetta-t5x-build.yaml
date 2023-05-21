@@ -14,7 +14,7 @@ on:
         required: false
 
 env:
-  TARGET: rosetta
+  BASE_LIBRARY: t5x
   DOCKER_REGISTRY: ghcr.io/nvidia
 
 permissions:
@@ -36,6 +36,8 @@ jobs:
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
+          echo "DOCKER_REGISTRY=${{ env.DOCKER_REGISTRY }}" >> $GITHUB_OUTPUT
 
   build:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
@@ -43,8 +45,8 @@ jobs:
     uses: ./.github/workflows/_build_rosetta.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_LIBRARY: t5x
-      BASE_IMAGE: ${{ env.DOCKER_REGISTRY }}/t5x:latest
+      BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
+      BASE_IMAGE: ${{ needs.metadata.outputs.DOCKER_REGISTRY }}/${{ needs.metadata.outputs.BASE_LIBRARY }}:latest
     secrets: inherit
 
   test:
@@ -62,7 +64,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta-t5x
+      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
