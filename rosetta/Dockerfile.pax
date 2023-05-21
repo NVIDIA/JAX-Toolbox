@@ -16,12 +16,14 @@ FROM ${BASE_IMAGE} AS distribution-builder
 
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
-RUN git config --global user.email "${GIT_USER_EMAIL}" && \
-    git config --global user.name "${GIT_USER_NAME}"
+RUN <<EOF bash -e
+git config --global user.email "${GIT_USER_EMAIL}"
+git config --global user.name "${GIT_USER_NAME}"
+EOF
 
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
-RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<EOF
+RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<EOF bash -e
 bash create-distribution.sh \
   -p patchlist-paxml.txt \
   -u https://github.com/google/paxml.git \

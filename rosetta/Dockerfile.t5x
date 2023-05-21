@@ -13,12 +13,14 @@ FROM ${BASE_IMAGE} AS distribution-builder
 
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
-RUN git config --global user.email "${GIT_USER_EMAIL}" && \
-    git config --global user.name "${GIT_USER_NAME}"
+RUN <<EOF bash -e
+git config --global user.email "${GIT_USER_EMAIL}"
+git config --global user.name "${GIT_USER_NAME}"
+EOF
 
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
-RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite <<EOF
+RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite <<EOF bash -e
 bash create-distribution.sh \
   -p patchlist-t5x.txt \
   -u https://github.com/google-research/t5x.git \
@@ -31,7 +33,7 @@ COPY --link --from=distribution-builder /opt/t5x /opt/t5x
 COPY --link --from=distribution-builder /opt/rosetta /opt/rosetta
 
 WORKDIR /opt/rosetta
-RUN <<EOF
+RUN <<EOF bash -e
 pip install -e /opt/rosetta
 rm -rf ~/.cache/pip/
 EOF
@@ -39,7 +41,7 @@ EOF
 FROM rosetta AS rosetta-devel
 
 WORKDIR /opt/rosetta
-RUN <<EOF
+RUN <<EOF bash -e
 pip install -e '/opt/rosetta[test,lint]'
 rm -rf ~/.cache/pip/
 EOF
