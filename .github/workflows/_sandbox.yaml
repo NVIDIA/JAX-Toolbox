@@ -19,6 +19,7 @@ jobs:
           ${{ vars.SSH_KNOWN_HOSTS }}
           EOF
           chmod 600 ~/.ssh/known_hosts
+          cp ~/.ssh/known_hosts /tmp/known_hosts
 
       - name: Generate dockerfile
         run: |
@@ -43,4 +44,4 @@ jobs:
           tags: test:latest
           ssh: default
           secret-files: |
-            "KNOWN_HOSTS=~/.ssh/known_hosts"
+            "KNOWN_HOSTS=/tmp/known_hosts"
