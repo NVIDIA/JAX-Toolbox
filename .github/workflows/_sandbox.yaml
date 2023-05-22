@@ -13,7 +13,10 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Setup SSH known hosts
-        run: echo ${{ vars.SSH_KNOWN_HOSTS }} >> ~/.ssh/known_hosts
+        run: |
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
 
       - name: Print usage
         run: |
