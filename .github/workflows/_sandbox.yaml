@@ -25,7 +25,7 @@ jobs:
           cat > Dockerfile << EOF
           FROM ubuntu:22.04
           RUN apt-get update && apt-get install -y git openssh-client
-          RUN git clone ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git
+          RUN --mount=type=ssh git clone ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git
           EOF
 
           docker build --ssh default .
