@@ -20,8 +20,12 @@ jobs:
           EOF
           chmod 600 ~/.ssh/known_hosts
 
-          cat ~/.ssh/known_hosts
-
-      - name: Print usage
+      - name: Clone repo
         run: |
-          git clone ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git
+          cat > Dockerfile << EOF
+          FROM ubuntu:22.04
+          RUN apt-get update && apt-get install -y git openssh-client
+          RUN git clone ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git
+          EOF
+
+          docker build .
