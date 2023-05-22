@@ -5,7 +5,7 @@ on:
 
 jobs:
   sandbox:
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, builder]
     steps:
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.8.0
@@ -21,6 +21,10 @@ jobs:
           EOF
           chmod 600 ~/.ssh/known_hosts
           echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Test
+        run: |
+          git clone "ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git"
 
       - name: Generate dockerfile
         run: |
