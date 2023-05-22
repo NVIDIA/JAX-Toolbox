@@ -20,7 +20,7 @@ jobs:
           EOF
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Clone repo
+      - name: Generate dockerfile
         run: |
           cat > Dockerfile << EOF
           FROM ubuntu:22.04
@@ -28,4 +28,17 @@ jobs:
           RUN --mount=type=ssh git clone ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git
           EOF
 
-          docker buildx build --ssh default .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.10.6
+
+      - name: Build docker images
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          file: Dockerfile
+          tags: test:latest
+          ssh: default
