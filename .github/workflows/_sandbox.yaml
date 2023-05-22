@@ -25,7 +25,7 @@ jobs:
           cat > Dockerfile << EOF
           FROM ubuntu:22.04
           RUN apt-get update && apt-get install -y git openssh-client
-          RUN --mount=type=ssh git clone ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git
+          RUN --mount=type=ssh --mount=type=secret,id=KNOWN_HOSTS,target=/root/.ssh/known_hosts git clone ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git
           EOF
 
       - name: Set up Docker Buildx
@@ -42,3 +42,5 @@ jobs:
           file: Dockerfile
           tags: test:latest
           ssh: default
+          secret-files: |
+            "KNOWN_HOSTS=~/.ssh/known_hosts"
