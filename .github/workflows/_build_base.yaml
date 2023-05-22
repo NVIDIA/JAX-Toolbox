@@ -39,7 +39,7 @@ jobs:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
 
-      - name: Login to GitHub Container Registry
+      - name: Login to NVIDIA Container Registry
         uses: docker/login-action@v2
         with:
           registry: nvcr.io

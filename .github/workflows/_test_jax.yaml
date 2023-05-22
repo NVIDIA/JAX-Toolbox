@@ -20,7 +20,7 @@ jobs:
       - name: Print GPU information
         run: nvidia-smi  
 
-      - name: Login to GitHub Container Registry
+      - name: Login to NVIDIA Container Registry
         uses: docker/login-action@v2
         with:
           registry: nvcr.io

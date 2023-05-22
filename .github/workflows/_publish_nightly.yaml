@@ -36,7 +36,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to GitHub Container Registry
+      - name: Login to NVIDIA Container Registry
         uses: docker/login-action@v2
         with:
           registry: nvcr.io
