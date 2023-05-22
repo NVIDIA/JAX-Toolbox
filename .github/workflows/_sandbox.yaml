@@ -28,4 +28,4 @@ jobs:
           RUN --mount=type=ssh git clone ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git
           EOF
 
-          docker build --ssh default .
+          docker buildx build --ssh default .
