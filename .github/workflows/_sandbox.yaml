@@ -12,6 +12,9 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Setup SSH known hosts
+        run: echo ${{ vars.SSH_KNOWN_HOSTS }} >> ~/.ssh/known_hosts
+
       - name: Print usage
         run: |
           git clone ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git
