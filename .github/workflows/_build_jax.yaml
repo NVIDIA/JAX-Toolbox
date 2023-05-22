@@ -108,6 +108,7 @@ jobs:
           file: .github/container/Dockerfile.jax
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          ssh: default
           secret-files: |
             "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
           build-args: |
