@@ -5,7 +5,7 @@ on:
 
 jobs:
   sandbox:
-    runs-on: [self-hosted, builder]
+    runs-on: [self-hosted, small-builder]
     steps:
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.8.0
