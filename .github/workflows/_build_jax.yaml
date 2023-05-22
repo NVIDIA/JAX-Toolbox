@@ -71,6 +71,10 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
           echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
 
+      - name: Test
+        run: |
+          git clone "ssh://git@nvjax-repo-staging.duckdns.org:20527/openxla/xla.git"
+
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
 
