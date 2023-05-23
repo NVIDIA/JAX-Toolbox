@@ -4,11 +4,11 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
-      CUDA_VERSION:
+      CUDA_IMAGE:
         type: string
-        description: 'CUDA Toolkit version:'
-        required: true
-        default: "12.1.1"
+        description: 'Base CUDA image:'
+        required: false
+        default: 'nvidia/cuda:12.1.1-devel-ubuntu22.04'
       SRC_JAX:
         description: 'JAX source: <repo>#<branch|tag|commit>'
         type: string
@@ -55,7 +55,6 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ steps.check-cuda.outputs.BASE_IMAGE }}
       REPO_JAX: ${{ steps.parse-inputs.outputs.REPO_JAX }}
       REF_JAX: ${{ steps.parse-inputs.outputs.REF_JAX }}
       REPO_XLA: ${{ steps.parse-inputs.outputs.REPO_XLA }}
@@ -75,16 +74,6 @@ jobs:
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
-
-      - name: Check CUDA version
-        id: check-cuda
-        shell: bash -x -e {0}
-        run: |
-          CUDA_VERSION=${{ inputs.CUDA_VERSION }}
-          CUDA_VERSION=${CUDA_VERSION:-12.1.1}
-          BASE_IMAGE="nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04"
-          docker manifest inspect $BASE_IMAGE
-          echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
 
       - name: Parse inputs
         id: parse-inputs
@@ -112,7 +101,7 @@ jobs:
     needs: metadata
     uses: ./.github/workflows/_build_base.yaml
     with:
-      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
+      BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
