@@ -101,7 +101,7 @@ jobs:
     needs: metadata
     uses: ./.github/workflows/_build_base.yaml
     with:
-      BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
+      BASE_IMAGE: ${{ inputs.CUDA_IMAGE || 'nvidia/cuda:12.1.1-devel-ubuntu22.04' }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
