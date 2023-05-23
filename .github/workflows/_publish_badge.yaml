@@ -1,28 +1,19 @@
-name: ~publish test results into a json file that can be used to make badge
+name: ~publish test results into a shield.io endpoint json file
 
 on:
   workflow_call:
     inputs:
       SCRIPT:
         type: string
-        description: 'Script to run :'
+        description: 'Script to run:'
         required: true
-      BADGE_LABEL:
+      ENDPOINT_FILENAME:
         type: string
-        description: 'Badge label:'
+        description: 'Filename of the shield.io endpoint json:'
         required: true
-      BADGE_FILENAME:
-        type: string
-        description: 'Filename to find the json in the gist for creating a badge:'
-        required: true
-      ARTIFACTS:
-        type: string
-        description: 'Paths of artifacts assuming they are all downloaded (globs can be used, but it is up to script to support):'
-        required: true
-        default: '**/*.jsnl'
       PUBLISH:
         type: boolean
-        description: Update status badge?
+        description: Upload the endpoint file as GitHub gist?
         default: false
         required: true
 
@@ -33,19 +24,15 @@ jobs:
       - name: Download all artifacts from the previous jobs
         uses: actions/download-artifact@v3
 
-      - name: Process test results and create badge json
-        env:
-          BADGE_LABEL: ${{ inputs.BADGE_LABEL }}
-          ARTIFACTS: ${{ inputs.ARTIFACTS }}
-          BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+      - name: Execute data processing script
         shell: bash -x -e {0}
         run: ${{ inputs.SCRIPT }}
 
       - name: Upload badge artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ inputs.BADGE_FILENAME }}
-          path: ${{ inputs.BADGE_FILENAME }}
+          name: ${{ inputs.ENDPOINT_FILENAME }}
+          path: ${{ inputs.ENDPOINT_FILENAME }}
 
       - name: Update status badge file in gist
         uses: actions/github-script@v5
@@ -55,7 +42,7 @@ jobs:
           script: |
             const fs = require('fs').promises;
             const gistId = "${{ vars.BADGE_ENDPOINT_GIST_ID }}";
-            const filename = "${{ inputs.BADGE_FILENAME }}";
+            const filename = "${{ inputs.ENDPOINT_FILENAME }}";
             const content = await fs.readFile(filename, 'utf8');
 
             const { data: gist } = await github.rest.gists.get({ gist_id: gistId });
