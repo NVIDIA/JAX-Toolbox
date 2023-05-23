@@ -58,11 +58,10 @@ jobs:
     uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      BADGE_LABEL: 'V100 Unit'
-      BADGE_FILENAME: 'jax-unit-test-status.json'
-      ARTIFACTS: "${{ needs.run-jobs.outputs.ARTIFACT_NAME }}/*"
+      ENDPOINT_FILENAME: 'jax-unit-test-status.json'
       PUBLISH: ${{ inputs.PUBLISH }}
       SCRIPT: |
+        ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}/*"
         FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)
         PASSED_TESTS=$(cat $ARTIFACTS | grep -c 'PASSED in' || true)
         TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
@@ -79,12 +78,12 @@ jobs:
         cat << EOF
         {
           "schemaVersion": 1,
-          "label": "${BADGE_LABEL}",
+          "label": "V100 Unit",
           "message": "${PASSED_TESTS}/${TOTAL_TESTS} passed",
           "color": "${BADGE_COLOR}"
         }
         EOF
-        ) | tee $BADGE_FILENAME
+        ) | tee $ENDPOINT_FILENAME
     secrets: inherit
 
   if-upstream-failed:
