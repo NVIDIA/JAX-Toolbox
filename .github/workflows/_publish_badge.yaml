@@ -25,7 +25,9 @@ jobs:
         uses: actions/download-artifact@v3
 
       - name: Execute data processing script
-        shell: bash -x -e {0}
+        env:
+          ENDPOINT_FILENAME: ${{ inputs.ENDPOINT_FILENAME }}
+        shell: bash -x -e -u {0}
         run: ${{ inputs.SCRIPT }}
 
       - name: Upload badge artifact

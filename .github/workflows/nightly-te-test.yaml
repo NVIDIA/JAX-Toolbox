@@ -100,11 +100,10 @@ jobs:
     uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      BADGE_LABEL: 'A100 integration'
-      BADGE_FILENAME: 'te-integration-test-status.json'
-      ARTIFACTS: "${{ needs.run-jobs.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}/*.jsonl"
+      ENDPOINT_FILENAME: 'te-integration-test-status.json'
       PUBLISH: ${{ inputs.PUBLISH }}
       SCRIPT: |
+        ARTIFACTS="${{ needs.run-jobs.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}/*.jsonl"
         all_outcomes() {
           cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
         }
@@ -130,12 +129,12 @@ jobs:
         cat << EOF
         {
           "schemaVersion": 1,
-          "label": "${BADGE_LABEL}",
+          "label": "V100 Unit",
           "message": "${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail",
           "color": "${BADGE_COLOR}"
         }
         EOF
-        ) | tee ${BADGE_FILENAME}
+        ) | tee $ENDPOINT_FILENAME
     secrets: inherit
 
   if-upstream-failed:
