@@ -4,6 +4,11 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      CUDA_IMAGE:
+        type: string
+        description: 'Base CUDA image:'
+        required: false
+        default: 'nvidia/cuda:12.1.1-devel-ubuntu22.04'
       SRC_JAX:
         description: 'JAX source: <repo>#<branch|tag|commit>'
         type: string
@@ -96,6 +101,7 @@ jobs:
     needs: metadata
     uses: ./.github/workflows/_build_base.yaml
     with:
+      BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
