@@ -56,6 +56,7 @@ jobs:
     needs: [metadata, run-jobs]
     uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    secrets: inherit
     with:
       ENDPOINT_FILENAME: 'te-unit-test-status.json'
       PUBLISH: ${{ inputs.PUBLISH }}
@@ -81,22 +82,15 @@ jobs:
             BADGE_COLOR=yellow
           fi
         fi
-        (
-        cat << EOF
-        {
-          "schemaVersion": 1,
-          "label": "${BADGE_LABEL}",
-          "message": "${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail",
-          "color": "${BADGE_COLOR}"
-        }
-        EOF
-        ) | tee ${BADGE_FILENAME}
-    secrets: inherit
+        echo "LABEL='Unit'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
   publish-integration:
     needs: [metadata, run-jobs]
     uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    secrets: inherit
     with:
       ENDPOINT_FILENAME: 'te-integration-test-status.json'
       PUBLISH: ${{ inputs.PUBLISH }}
@@ -123,17 +117,9 @@ jobs:
             BADGE_COLOR=yellow
           fi
         fi
-        (
-        cat << EOF
-        {
-          "schemaVersion": 1,
-          "label": "V100 Unit",
-          "message": "${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail",
-          "color": "${BADGE_COLOR}"
-        }
-        EOF
-        ) | tee $ENDPOINT_FILENAME
-    secrets: inherit
+        echo "LABEL='Integration'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
   if-upstream-failed:
     runs-on: ubuntu-latest

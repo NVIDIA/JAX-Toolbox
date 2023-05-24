@@ -57,6 +57,7 @@ jobs:
     needs: [metadata, run-jobs]
     uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    secrets: inherit
     with:
       ENDPOINT_FILENAME: 'jax-unit-test-status.json'
       PUBLISH: ${{ inputs.PUBLISH }}
@@ -74,17 +75,9 @@ jobs:
             BADGE_COLOR=red
           fi
         fi
-        (
-        cat << EOF
-        {
-          "schemaVersion": 1,
-          "label": "V100 Unit",
-          "message": "${PASSED_TESTS}/${TOTAL_TESTS} passed",
-          "color": "${BADGE_COLOR}"
-        }
-        EOF
-        ) | tee $ENDPOINT_FILENAME
-    secrets: inherit
+        echo "LABEL='V100 Unit'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
   if-upstream-failed:
     runs-on: ubuntu-latest

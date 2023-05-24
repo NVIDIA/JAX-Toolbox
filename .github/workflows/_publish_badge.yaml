@@ -9,13 +9,14 @@ on:
         required: true
       ENDPOINT_FILENAME:
         type: string
-        description: 'Filename of the shield.io endpoint json:'
+        description: 'Name for shield.io endpoint JSON:'
         required: true
       PUBLISH:
         type: boolean
         description: Upload the endpoint file as GitHub gist?
         default: false
         required: true
+
 
 jobs:
   publish:
@@ -25,10 +26,32 @@ jobs:
         uses: actions/download-artifact@v3
 
       - name: Execute data processing script
-        env:
-          ENDPOINT_FILENAME: ${{ inputs.ENDPOINT_FILENAME }}
+        id: script
         shell: bash -x -e -u {0}
         run: ${{ inputs.SCRIPT }}
+
+      - name: Create endpoint JSON file
+        shell: bash -x -e -u {0}
+        run: |
+          assert_exists() {
+            if [[ -z "$1" ]]; then
+              echo "SCRIPT did not produce $2 as output, exiting"
+              exit 1
+            fi
+          }
+          assert_exists "${{ steps.script.outputs.LABEL }}" LABEL
+          assert_exists "${{ steps.script.outputs.MESSAGE }}" MESSAGE
+          assert_exists "${{ steps.script.outputs.COLOR }}" COLOR
+
+          cat << EOF
+          {
+            "schemaVersion": 1,
+            "label": "${{ steps.script.outputs.LABEL }}",
+            "message": "${{ steps.script.outputs.MESSAGE }}",
+            "color": "${{ steps.script.outputs.COLOR }}"
+          }
+          EOF
+          ) | tee ${{ inputs.ENDPOINT_FILENAME }}
 
       - name: Upload badge artifact
         uses: actions/upload-artifact@v3
