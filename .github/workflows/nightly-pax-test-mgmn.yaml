@@ -83,11 +83,11 @@ jobs:
 
       - name: Create dated folder and generate TensorBoard query URL
         id: mkdir
-        shell: ssh -T tensorboard bash -x -e < {0}
+        shell: bash -x -e {0}
         run: |
           FOLDER="${{ needs.metadata.outputs.BUILD_DATE }}/PAX"
           # copy folder
-          rsync -av /tensorboard-logs/${GITHUB_RUN_ID}/ /tensorboard-logs/${FOLDER}/
+          ssh -T tensorboard rsync -av /tensorboard-logs/${GITHUB_RUN_ID}/ /tensorboard-logs/${FOLDER}/
           # generate query URL
           (
           cat << EOF
