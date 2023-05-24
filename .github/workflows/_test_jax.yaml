@@ -11,7 +11,7 @@ on:
     outputs:
       ARTIFACT_NAME:
         description: 'Name of the unit test artifact for downstream workflows'
-        value: ${{ jobs.unit-tests.outputs.ARTIFACT_NAME }}
+        value: ${{ jobs.unit-test.outputs.ARTIFACT_NAME }}
 
 env:
   ARTIFACT_NAME: unit-test-logs
