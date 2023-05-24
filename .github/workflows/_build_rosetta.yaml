@@ -74,15 +74,14 @@ jobs:
           driver-opts: |
             image=moby/buildkit:v0.10.6
 
-      # TODO: Can't run a cuda image yet
-      #- name: Pull and validate BASE_IMAGE=${{ env.BASE_IMAGE }} contains BASE_LIBRARY=${{ inputs.BASE_LIBRARY }}
-      #  shell: bash -x -e {0}
-      #  run: |
-      #    PYTHON_PACKAGE=${{ inputs.BASE_LIBRARY }}
-      #    if [[ $PYTHON_PACKAGE == "pax" ]]; then
-      #      PYTHON_PACKAGE=paxml
-      #    fi
-      #    docker run --rm ${{ env.BASE_IMAGE }} python -c "import $PYTHON_PACKAGE"
+      - name: Pull and validate BASE_IMAGE=${{ env.BASE_IMAGE }} contains BASE_LIBRARY=${{ inputs.BASE_LIBRARY }}
+        shell: bash -x -e {0}
+        run: |
+          PYTHON_PACKAGE=${{ inputs.BASE_LIBRARY }}
+          if [[ $PYTHON_PACKAGE == "pax" ]]; then
+            PYTHON_PACKAGE=paxml
+          fi
+          docker run --rm ${{ env.BASE_IMAGE }} python -c "import $PYTHON_PACKAGE"
 
       - name: Build docker images
         uses: docker/build-push-action@v4
