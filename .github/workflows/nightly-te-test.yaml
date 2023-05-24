@@ -61,6 +61,7 @@ jobs:
       ENDPOINT_FILENAME: 'te-unit-test-status.json'
       PUBLISH: ${{ inputs.PUBLISH }}
       SCRIPT: |
+        ARTIFACTS="${{ needs.run-jobs.outputs.UNIT_TEST_ARTIFACT_NAME }}/*.jsonl"
         all_outcomes() {
           cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
         }
