@@ -34,7 +34,7 @@ jobs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       T5X_IMAGE: ${{ steps.date.outputs.T5X_IMAGE }}
     steps:
-      - name: Set build date
+      - name: Set metadata
         id: date
         shell: bash -x -e {0}
         run: |
@@ -62,20 +62,43 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Add known SSH host
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Setup SSH config
+        id: ssh-config
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/config << EOF
+          ${{ vars.SSH_CONFIG }}
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Create dated folder and generate TensorBoard query URL
+        id: mkdir
         shell: bash -x -e {0}
         run: |
-          echo "150.230.212.101 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDcOJt0Q0qYfShF03/rFPYpq+muMHBIfMlvitzEsSm4onWkG4YU0NBvG5WKcU2dLoMdhCIy+SQYtDeNm9Lj5GIqsLSsVMBSAurIMAzyiJU3DuahiWQGMa3rOVEFzgRtmo58202Ijw61WwVi47OvzJL72Oy2RO8hqVvU0ojcQo1jiQxtj39u1Be7dzIXJHLs7xdpI7V8mGxwQ1dgcjcXSh43br9V24pAebK2abGD8KRZ1H0YDgyaYek0ub5AHAeeznL/FUs0lud1xicABd5qo+w1PyIA+1A+TkRTrbHCBtc2w9w3zaO4p+Yi/ITTjhtnPTAmTD7U+km2mhiR+dLbx15D" >> ~/.ssh/known_hosts
-          echo "165.1.79.135 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC+/i0SQXfIUF/GVFFw4XbjPObOuI5Xe7ZYS8fxYtQGXVBnaGs+2qYpmNS2GNoMhAc/w6+uP0gNJcVj0TXNWtSJgXgagO6zVqD4xGSqNOU82PsqRiJvVzjA4nTcGrBdIzh6sLwgkjuGKKjF5XhCJ6BQwPH/GLS9b16eewi3Ppmxp1SKca2sXIUPLrCOpZ4RY/hiQm9vTUfmOWuijxQcbOGWtc6ghV1IJpyCZGtvakhr/nR1LFQmDdbJ7MtKyqmoBbeiEQmlht2a7FGVQY8KTZsVSpYUUHT2zwGLBqogRlaxbv3ANavklG06ZpQJtpf300nr6Ix1UpAedhVpuJVGVJR9kyGZHrll60tjTMzy5Kq3RmxjmF9b524Ig8gMmwIi1G+sU5+OUSzVNGzeuvAhSOwKbFLFq9n8nPdBYGh2MDSm4aIv3Zl/YmyM4Ts2OdKF/BWyqUaGtgz38zUWEbZ2QvnebiTGcBkjBC4b8yMCjTubIFanjUNOFWz4E6GWW5enh5c=" >> ~/.ssh/known_hosts
+          FOLDER="${{ needs.metadata.outputs.BUILD_DATE }}/T5X"
+          # copy folder
+          ssh -T tensorboard mkdir -p /tensorboard-logs/${FOLDER}
+          ssh -T tensorboard rsync -rt /tensorboard-logs/${GITHUB_RUN_ID}/ /tensorboard-logs/${FOLDER}/
+          # generate query URL
+          (
+          cat << EOF
 
-      - name: Make dated folder aliases
-        shell: bash -x -e {0}
-        run: |
-          ssh ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.TENSORBOARD_SERVER_IP }} ln -s /tensorboard-logs/${GITHUB_RUN_ID} /tensorboard-logs/${{ needs.metadata.outputs.BUILD_DATE }}
+          ## T5X MGMN nightly training: ${{ needs.metadata.outputs.BUILD_DATE }}
 
-      - name: Generate TensorBoard query URL
-        run: |          
-          echo "[${{ needs.metadata.outputs.BUILD_DATE }} metrics](http://${{ vars.TENSORBOARD_SERVER_IP }}:6006/#scalars&regexInput=${{ needs.metadata.outputs.BUILD_DATE }}&_smoothingWeight=0&tagFilter=seqs_per)" >> $GITHUB_STEP_SUMMARY
+          [view metrics](http://${{ vars.HOSTNAME_TENSORBOARD }}:6006/#scalars&regexInput=$(jq -nr --arg url "${FOLDER}" '$url|@uri')&_smoothingWeight=0&tagFilter=seqs_per)
+
+          EOF
+          ) | tee $GITHUB_STEP_SUMMARY
 
       # - uses: actions/setup-python@v4
       #   with:
@@ -83,9 +106,8 @@ jobs:
           
       # - name: Generate job summary
       #   id: metric
-      #   shell: bash -x -e {0}
+      #   shell: python {0} >> $GITHUB_STEP_SUMMARY
       #   run: |
-      #     python | tee -a $GITHUB_STEP_SUMMARY << EOF
       #     import re
       #     import pandas as pd
 
@@ -102,7 +124,6 @@ jobs:
       #     ])
       #     summary = pd.DataFrame(metrics.tail(5).mean(axis=0)).transpose()
       #     print(summary.to_markdown(index=False))
-      #     EOF
 
   if-upstream-failed:
     runs-on: ubuntu-latest
