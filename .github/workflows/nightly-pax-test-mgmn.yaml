@@ -34,7 +34,7 @@ jobs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       PAX_IMAGE: ${{ steps.date.outputs.PAX_IMAGE }}
     steps:
-      - name: Set build date
+      - name: Set metadata
         id: date
         shell: bash -x -e {0}
         run: |
