@@ -136,8 +136,10 @@ jobs:
         run: |
           (
           cat << EOF
+
           ## PAX MGMN training logs
 
-          "[view metrics](http://${{ vars.HOSTNAME_TENSORBOARD }}:6006/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)"
+          [view metrics](http://${{ vars.HOSTNAME_TENSORBOARD }}:6006/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+
           EOF
           ) | tee $GITHUB_STEP_SUMMARY

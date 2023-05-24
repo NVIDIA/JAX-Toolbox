@@ -90,9 +90,11 @@ jobs:
           # generate query URL
           (
           cat << EOF
+
           ## T5X MGMN nightly training: ${{ needs.metadata.outputs.BUILD_DATE }}
 
           [view metrics](http://${{ vars.HOSTNAME_TENSORBOARD }}:6006/#scalars&regexInput=$(jq -nr --arg url "${FOLDER}" '$url|@uri')&_smoothingWeight=0&tagFilter=seqs_per)
+
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
 
