@@ -137,7 +137,7 @@ jobs:
           (
           cat << EOF
 
-          ## PAX MGMN training logs
+          ## PAX MGMN training
 
           [view metrics](http://${{ vars.HOSTNAME_TENSORBOARD }}:6006/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
