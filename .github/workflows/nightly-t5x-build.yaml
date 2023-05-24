@@ -2,7 +2,7 @@ name: Nightly T5X build
 
 on:
   workflow_run:
-    workflows: [Nightly JAX build]
+    workflows: [Nightly Transformer Engine build]
     types: [completed]
     branches: [main]
   workflow_dispatch:
