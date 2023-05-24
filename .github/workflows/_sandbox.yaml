@@ -37,7 +37,7 @@ jobs:
         run: |
           FOLDER="9999-99-99/PAX"
           # copy folder
-          ssh -T tensorboard rsync -av /tensorboard-logs/5072845957/ /tensorboard-logs/${FOLDER}/
+          ssh -T tensorboard rsync -av /tensorboard-logs/5072845957/ /tensorboard-logs/${FOLDER}
           # generate query URL
           (
           cat << EOF
