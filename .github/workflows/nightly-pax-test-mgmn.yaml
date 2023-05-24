@@ -87,7 +87,8 @@ jobs:
         run: |
           FOLDER="${{ needs.metadata.outputs.BUILD_DATE }}/PAX"
           # copy folder
-          ssh -T tensorboard rsync -av /tensorboard-logs/${GITHUB_RUN_ID}/ /tensorboard-logs/${FOLDER}/
+          ssh -T tensorboard mkdir -p /tensorboard-logs/${FOLDER}
+          ssh -T tensorboard rsync -rt /tensorboard-logs/${GITHUB_RUN_ID}/ /tensorboard-logs/${FOLDER}/
           # generate query URL
           (
           cat << EOF
