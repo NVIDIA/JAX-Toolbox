@@ -114,6 +114,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:05:00
           #SBATCH --output=${{ steps.meta.outputs.SLURM_LOG_FILE }}
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           time srun \
             --container-image=${{ steps.meta.outputs.PYXIS_IMAGE_NAME }} \
             --container-mounts=$(dirname ${{ steps.meta.outputs.PYTEST_LOG_FILE }}):/output \
