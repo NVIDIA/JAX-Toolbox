@@ -72,9 +72,17 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
           echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
 
+      - name: Setup SSH config
+        id: ssh-config
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/config << EOF
+          ${{ vars.SSH_CONFIG }}
+          EOF
+
       - name: Create dated folder and generate TensorBoard query URL
         id: mkdir
-        shell: ssh -T ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }} bash -x -e < {0}
+        shell: ssh -T tensorboard bash -x -e < {0}
         run: |
           FOLDER="${{ needs.metadata.outputs.BUILD_DATE }}/T5X"
           # copy folder
