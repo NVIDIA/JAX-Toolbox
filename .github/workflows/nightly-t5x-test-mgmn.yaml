@@ -79,6 +79,7 @@ jobs:
           cat >> ~/.ssh/config << EOF
           ${{ vars.SSH_CONFIG }}
           EOF
+          chmod 600 ~/.ssh/config
 
       - name: Create dated folder and generate TensorBoard query URL
         id: mkdir
