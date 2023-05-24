@@ -43,6 +43,7 @@ jobs:
           assert_exists "${{ steps.script.outputs.MESSAGE }}" MESSAGE
           assert_exists "${{ steps.script.outputs.COLOR }}" COLOR
 
+          (
           cat << EOF
           {
             "schemaVersion": 1,
