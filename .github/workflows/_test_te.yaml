@@ -107,7 +107,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}'
+          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
@@ -146,14 +146,14 @@ jobs:
         shell: bash -x -e {0}
         run: |
           mkdir output/
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }} "ls /nfs/cluster/${GITHUB_RUN_ID}*"
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} "ls /nfs/cluster/${GITHUB_RUN_ID}*"
           rsync -rtz --progress \
-            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}:${{ steps.meta.outputs.SLURM_LOG_FILE }} \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.SLURM_LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log
           cat output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log
 
           rsync -rtz --progress \
-            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ secrets.CLUSTER_LOGIN_IP }}:${{ steps.meta.outputs.PYTEST_LOG_FILE }} \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.PYTEST_LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}-pytest.jsonl
 
       - name: Upload training logs as artifacts
