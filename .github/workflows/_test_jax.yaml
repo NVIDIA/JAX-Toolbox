@@ -8,11 +8,6 @@ on:
         description: 'JAX image built by NVIDIA/JAX-Toolbox'
         required: true
         default: 'ghcr.io/nvidia/jax:latest'
-      GPU_MODEL:
-        type: string
-        description: 'GPU model'
-        required: true
-        default: 'A100'
     outputs:
       ARTIFACT_NAME:
         description: 'Name of the unit test artifact for downstream workflows'
