@@ -27,7 +27,7 @@ jobs:
     strategy:
       matrix:
         GPU_MODEL: [A100, V100]
-    runs-on: [self-hosted, compute, ${{ matrix.GPU_MODEL }}]
+    runs-on: [self-hosted, compute, "${{ matrix.GPU_MODEL }}"]
     outputs:
       ARTIFACT_NAME: ${{ env.ARTIFACT_NAME }}
     steps:
