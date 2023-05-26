@@ -8,6 +8,11 @@ on:
         description: 'JAX image built by NVIDIA/JAX-Toolbox'
         required: true
         default: 'ghcr.io/nvidia/jax:latest'
+      GPU_MODEL:
+        type: string
+        description: 'GPU model'
+        required: true
+        default: 'A100'
     outputs:
       ARTIFACT_NAME:
         description: 'Name of the unit test artifact for downstream workflows'
@@ -19,7 +24,10 @@ env:
 jobs:
 
   unit-test:
-    runs-on: [self-hosted, compute, V100]
+    strategy:
+      matrix:
+        GPU_MODEL: [A100, V100]
+    runs-on: [self-hosted, compute, ${{ matrix.GPU_MODEL }}]
     outputs:
       ARTIFACT_NAME: ${{ env.ARTIFACT_NAME }}
     steps:
