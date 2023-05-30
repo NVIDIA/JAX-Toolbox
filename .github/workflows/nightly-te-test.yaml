@@ -31,10 +31,11 @@ jobs:
   metadata:
     runs-on: ubuntu-22.04
     outputs:
-      JAX_TE_IMAGE: ${{ steps.date.outputs.JAX_TE_IMAGE }}
+      JAX_TE_IMAGE: ${{ steps.meta.outputs.JAX_TE_IMAGE }}
+      PUBLISH: ${{ steps.meta.outputs.PUBLISH }}
     steps:
       - name: Set metadata
-        id: date
+        id: meta
         shell: bash -x -e {0}
         run: |
           if [[ -z "${{ inputs.JAX_TE_IMAGE }}" ]]; then
@@ -43,6 +44,7 @@ jobs:
             JAX_TE_IMAGE=${{ inputs.JAX_TE_IMAGE }}
           fi
           echo "JAX_TE_IMAGE=${JAX_TE_IMAGE}" >> $GITHUB_OUTPUT
+          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
   run-jobs:
     needs: metadata
@@ -59,7 +61,7 @@ jobs:
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'te-unit-test-status.json'
-      PUBLISH: ${{ inputs.PUBLISH }}
+      PUBLISH: ${{ needs.metadata.outputs.PUBLISH }}
       SCRIPT: |
         ARTIFACTS="${{ needs.run-jobs.outputs.UNIT_TEST_ARTIFACT_NAME }}/*.jsonl"
         all_outcomes() {
@@ -94,7 +96,7 @@ jobs:
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'te-integration-test-status.json'
-      PUBLISH: ${{ inputs.PUBLISH }}
+      PUBLISH: ${{ needs.metadata.outputs.PUBLISH }}
       SCRIPT: |
         ARTIFACTS="${{ needs.run-jobs.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}/*.jsonl"
         all_outcomes() {
