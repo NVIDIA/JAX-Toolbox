@@ -62,7 +62,7 @@ jobs:
   publish:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
     needs: [metadata, build]
-    uses: ./.github/workflows/_publish_nightly.yaml
+    uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
