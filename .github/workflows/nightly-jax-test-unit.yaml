@@ -32,10 +32,11 @@ jobs:
   metadata:
     runs-on: ubuntu-22.04
     outputs:
-      JAX_IMAGE: ${{ steps.date.outputs.JAX_IMAGE }}
+      JAX_IMAGE: ${{ steps.meta.outputs.JAX_IMAGE }}
+      PUBLISH: ${{ steps.meta.outputs.PUBLISH }}
     steps:
       - name: Set metadata
-        id: date
+        id: meta
         shell: bash -x -e {0}
         run: |
           if [[ -z "${{ inputs.JAX_IMAGE }}" ]]; then
@@ -44,6 +45,7 @@ jobs:
             JAX_IMAGE=${{ inputs.JAX_IMAGE }}
           fi
           echo "JAX_IMAGE=${JAX_IMAGE}" >> $GITHUB_OUTPUT
+          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
   run-jobs:
     needs: metadata
@@ -60,7 +62,7 @@ jobs:
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'jax-unit-test-status.json'
-      PUBLISH: ${{ inputs.PUBLISH }}
+      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
         ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}/*"
         FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)

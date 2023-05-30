@@ -42,14 +42,16 @@ jobs:
           assert_exists "${{ steps.script.outputs.LABEL }}" LABEL
           assert_exists "${{ steps.script.outputs.MESSAGE }}" MESSAGE
           assert_exists "${{ steps.script.outputs.COLOR }}" COLOR
-
+          LABEL=${{ steps.script.outputs.LABEL }}
+          MESSAGE=${{ steps.script.outputs.MESSAGE }}
+          COLOR=${{ steps.script.outputs.COLOR }}
           (
           cat << EOF
           {
             "schemaVersion": 1,
-            "label": "${{ steps.script.outputs.LABEL }}",
-            "message": "${{ steps.script.outputs.MESSAGE }}",
-            "color": "${{ steps.script.outputs.COLOR }}"
+            "label": "$LABEL",
+            "message": "$MESSAGE",
+            "color": "$COLOR"
           }
           EOF
           ) | tee ${{ inputs.ENDPOINT_FILENAME }}
