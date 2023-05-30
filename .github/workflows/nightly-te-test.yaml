@@ -61,7 +61,7 @@ jobs:
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'te-unit-test-status.json'
-      PUBLISH: ${{ needs.metadata.outputs.PUBLISH }}
+      PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
         ARTIFACTS="${{ needs.run-jobs.outputs.UNIT_TEST_ARTIFACT_NAME }}/*.jsonl"
         all_outcomes() {
@@ -96,7 +96,7 @@ jobs:
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'te-integration-test-status.json'
-      PUBLISH: ${{ needs.metadata.outputs.PUBLISH }}
+      PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
         ARTIFACTS="${{ needs.run-jobs.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}/*.jsonl"
         all_outcomes() {

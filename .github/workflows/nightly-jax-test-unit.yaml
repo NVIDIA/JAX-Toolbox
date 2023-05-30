@@ -62,7 +62,7 @@ jobs:
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'jax-unit-test-status.json'
-      PUBLISH: ${{ needs.metadata.outputs.PUBLISH }}
+      PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
         ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}/*"
         FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)
