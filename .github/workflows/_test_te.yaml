@@ -49,6 +49,10 @@ jobs:
       - name: Run JAX-TE unit tests with docker
         shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log jax:te bash -x /cmd.sh
         run: |
+          # NOTE: This is a WAR b/c installing praxis pins the jax version, which would forcefully
+          #   down/up-grade the one already installed
+          pip install flax fiddle lingvo clu jax-bitempered-loss einops
+          pip install --no-deps praxis
           TE_PATH=$(dirname $(python -c "import transformer_engine as te; print(*te.__path__)"))
           pip install -e "$TE_PATH[test]" pytest pytest-reportlog
           pytest --report-log=/log/report.jsonl ${TE_PATH}/tests/jax || true
