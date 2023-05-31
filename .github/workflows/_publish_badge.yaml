@@ -63,7 +63,7 @@ jobs:
           path: ${{ inputs.ENDPOINT_FILENAME }}
 
       - name: Update status badge file in gist
-        uses: actions/github-script@v5
+        uses: actions/github-script@v6
         if: inputs.PUBLISH
         with:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
