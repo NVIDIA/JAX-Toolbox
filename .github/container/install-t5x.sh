@@ -65,6 +65,9 @@ apt-get install -y \
     clang \
     git
 
+# HOTFIX for https://github.com/google-research/t5x/issues/1294 
+pip install --upgrade git+https://github.com/google-research/jestimator
+
 ## Install T5X
 
 git clone ${T5X_REPO} ${INSTALL_DIR}/t5x
