@@ -105,7 +105,12 @@ jobs:
 
           sshx rm -r ${{ steps.meta.outputs.MODEL_PATH }}/${{ steps.meta.outputs.TEST_CASE_NAME }}/checkpoints
 
-          echo "SLRUM Job $JOB finished."
+          echo "SLURM Job $JOB finished."
+
+          # Gather job info
+          SLURM_STATE=$(sacct -j $JOB --format State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sacct -j $JOB--format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          if [[ $SLURM_EXITCODE != 0 ]]; then exit $SLURM_EXITCODE; elif [[ $SLURM_STATE != "COMPLETED" ]]; then exit 1; fi
           set -x
 
       - name: Retrieve training logs and upload to TensorBoard server
