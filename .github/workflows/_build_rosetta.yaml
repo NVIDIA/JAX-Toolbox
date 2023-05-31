@@ -81,7 +81,7 @@ jobs:
           if [[ $PYTHON_PACKAGE == "pax" ]]; then
             PYTHON_PACKAGE=paxml
           fi
-          docker run --rm ${{ env.BASE_IMAGE }} python -c "import $PYTHON_PACKAGE"
+          docker run --rm ${{ env.BASE_IMAGE }} python -c "import importlib,sys; sys.exit(importlib.util.find_spec('$PYTHON_PACKAGE') is None)"
 
       - name: Build docker images
         uses: docker/build-push-action@v4
