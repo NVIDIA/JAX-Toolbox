@@ -137,6 +137,12 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
+      - name: Check failure conditions
+        run: |
+          if [[ ${{ steps.submit.outputs.SLURM_EXITCODE }} != 0 ]]; then echo "SLURM job failed."; fi
+          if [[ ${{ steps.submit.outputs.SLURM_STATE }} != "COMPLETED" ]]; then echo "SLURM job failed."; fi
+
+
   summary:
     runs-on: ubuntu-22.04
 
