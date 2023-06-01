@@ -105,6 +105,7 @@ jobs:
 
           echo "SLURM Job $JOB finished."
 
+          set -x
           CKPT_PATH=${{ steps.meta.outputs.MODEL_PATH }}/${{ steps.meta.outputs.TEST_CASE_NAME }}/checkpoints
           CKPT_EXISTS=$(sshx -q [[ -f ${CKPT_PATH} ]])
           if [[ $CKPT_EXISTS ]]; then sshx rm -r $CKPT_PATH; fi
