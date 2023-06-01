@@ -260,7 +260,7 @@ else:
 EOF
 
 ## Launch
-set -x
+set -ex
 python -m paxml.main \
     --exp ci_configs.Synthetic126M \
     --job_log_dir=${OUTPUT} \
