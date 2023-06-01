@@ -106,8 +106,11 @@ jobs:
           echo "SLURM Job $JOB finished."
 
           # Gather job info
-          SLURM_STATE=$(sshx sacct -j $JOB --format State --parsable2 --noheader |& head -n 1)
-          SLURM_EXITCODE=$(sshx sacct -j $JOB--format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          echo "SLURM Job state is ${SLURM_STATE}"
+          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+
           if [[ $SLURM_EXITCODE != 0 ]]; then exit $SLURM_EXITCODE; elif [[ $SLURM_STATE != "COMPLETED" ]]; then exit 1; fi
 
           sshx rm -r ${{ steps.meta.outputs.MODEL_PATH }}/${{ steps.meta.outputs.TEST_CASE_NAME }}/checkpoints
