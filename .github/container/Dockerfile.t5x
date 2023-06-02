@@ -8,4 +8,8 @@ FROM ${BASE_IMAGE}
 ADD install-t5x.sh /usr/local/bin
 RUN install-t5x.sh
 
+# Note: Install after t5x installation b/c t5x installs flax from source
+ADD install-flax.sh /usr/local/bin
+RUN install-flax.sh
+
 ADD test-t5x.sh /usr/local/bin
