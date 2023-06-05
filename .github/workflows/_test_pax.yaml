@@ -113,6 +113,8 @@ jobs:
           SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
           echo "SLURM Job state is ${SLURM_STATE}"
           echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
 
