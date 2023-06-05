@@ -122,13 +122,13 @@ jobs:
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
-            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log
+            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
-            output/
+            output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
