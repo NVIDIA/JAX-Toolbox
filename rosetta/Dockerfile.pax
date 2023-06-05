@@ -12,6 +12,9 @@ ADD --keep-git-dir=true https://github.com/google/paxml.git#main /
 FROM scratch as praxis-mirror-source
 ADD --keep-git-dir=true https://github.com/google/praxis.git#main /
 
+FROM scratch as flax-mirror-source
+ADD --keep-git-dir=true https://github.com/google/flax.git#main /
+
 FROM ${BASE_IMAGE} AS distribution-builder
 
 ARG GIT_USER_EMAIL
@@ -23,7 +26,9 @@ EOF
 
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
-RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<EOF bash -e
+RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite \
+    --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite \
+    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<EOF bash -e
 bash create-distribution.sh \
   -p patchlist-paxml.txt \
   -u https://github.com/google/paxml.git \
@@ -34,12 +39,18 @@ bash create-distribution.sh \
   -u https://github.com/google/praxis.git \
   -d $(dirname $(python -c "import praxis; print(*praxis.__path__)")) \
   -e /opt/praxis-mirror
+bash create-distribution.sh \
+  -p patchlist-flax.txt \
+  -u https://github.com/google/flax.git \
+  -d $(dirname $(python -c "import flax; print(*flax.__path__)")) \
+  -e /opt/flax-mirror
 rm -rf $(find /opt -name "__pycache__")
 EOF
   
 FROM ${BASE_IMAGE} AS rosetta
 COPY --link --from=distribution-builder /opt/paxml /opt/paxml
 COPY --link --from=distribution-builder /opt/praxis /opt/praxis
+COPY --link --from=distribution-builder /opt/flax /opt/flax
 COPY --link --from=distribution-builder /opt/rosetta /opt/rosetta
 
 WORKDIR /opt/rosetta

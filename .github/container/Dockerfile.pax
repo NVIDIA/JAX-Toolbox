@@ -8,4 +8,7 @@ FROM ${BASE_IMAGE}
 ADD install-pax.sh /usr/local/bin
 RUN install-pax.sh
 
+ADD install-flax.sh /usr/local/bin
+RUN install-flax.sh
+
 ADD test-pax.sh /usr/local/bin
