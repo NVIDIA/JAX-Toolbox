@@ -7,6 +7,11 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      BASE_IMAGE:
+        type: string
+        description: 'PAX image built by NVIDIA/JAX-Toolbox'
+        default: 'ghcr.io/nvidia/pax:latest'
+        required: true
       PUBLISH:
         type: boolean
         description: Publish dated images and update the 'latest' tag?
@@ -30,16 +35,21 @@ jobs:
     outputs:
       BUILD_DATE: ${{ steps.meta-vars.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ steps.meta-vars.outputs.BASE_LIBRARY }}
-      DOCKER_REGISTRY: ${{ steps.meta-vars.outputs.DOCKER_REGISTRY }}
+      BASE_IMAGE: ${{ steps.meta-vars.outputs.BASE_IMAGE }}
     steps:
       - name: Set build metadata
         id: meta-vars
         shell: bash -x -e {0}
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
+            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/${{ env.BASE_LIBRARY }}:latest
+          else
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+          fi
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
           echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
-          echo "DOCKER_REGISTRY=${{ env.DOCKER_REGISTRY }}" >> $GITHUB_OUTPUT
+          echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
 
   build:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
@@ -48,7 +58,7 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ needs.metadata.outputs.DOCKER_REGISTRY }}/${{ needs.metadata.outputs.BASE_LIBRARY }}:latest
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
     secrets: inherit
 
   test:
