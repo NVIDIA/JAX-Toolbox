@@ -199,7 +199,7 @@ class GPT126MPP(TransformerLmSpmdPipelineAdam):
   LR_COS_MAX = 1.0
 
   
-  def task(self) -> tasks_lib.SingleTask.HParams:
+  def task(self):
     task_p = super().task()
     task_p = configure_gpt3_task(self, task_p)
 
@@ -239,7 +239,7 @@ if pp > 1:
     FRPOP_DTYPE = dtype
     MAX_STEPS = steps
     
-    def task(self) -> tasks_lib.SingleTask.HParams:
+    def task(self):
       task_p = super().task()
       return task_p
 
@@ -253,7 +253,7 @@ else:
     FRPOP_DTYPE = dtype
     MAX_STEPS = steps
     
-    def task(self) -> tasks_lib.SingleTask.HParams:
+    def task(self):
       task_p = super().task()
       return task_p
 
