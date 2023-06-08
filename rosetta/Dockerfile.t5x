@@ -24,7 +24,7 @@ EOF
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
 RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite \
-    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<EOF bash -e
+    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<"EOF" bash -e
 bash create-distribution.sh \
   -p patchlist-t5x.txt \
   -u https://github.com/google-research/t5x.git \
@@ -35,6 +35,7 @@ bash create-distribution.sh \
   -u https://github.com/google/flax.git \
   -d $(dirname $(python -c "import flax; print(*flax.__path__)")) \
   -e /opt/flax-mirror
+rm -rf $(find /opt -name "__pycache__")
 EOF
   
 FROM ${BASE_IMAGE} AS rosetta
