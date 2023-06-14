@@ -100,6 +100,34 @@ jobs:
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
 
+  publish-completion:
+    needs: [metadata, run-jobs]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 'pax-test-completion-status.json'
+      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
+      SCRIPT: |
+        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*TP*PP/*-status.json"
+        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' EXIT_STATUSES | wc -l)
+        FAILED_TESTS=$(jq -r '. | select ((.state == "FAILED") or (.exitcode != "0")) | .state' EXIT_STATUSES | wc -l)
+        TOTAL_TESTS=$(find -name $ARTIFACTS | wc -l)
+
+        echo "Test statuses:"
+        jq -rc 'input_filename,.' $EXIT_STATUSES
+
+        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
+          BADGE_COLOR=brightgreen
+        elif [[ $PASSED_TESTS -eq 0 ]]; then
+          BADGE_COLOR=red
+        else
+          BADGE_COLOR=yellow
+        fi
+        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} pass/total'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+
   if-upstream-failed:
     runs-on: ubuntu-latest
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
