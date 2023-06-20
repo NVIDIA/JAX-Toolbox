@@ -33,6 +33,7 @@ jobs:
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       PAX_IMAGE: ${{ steps.date.outputs.PAX_IMAGE }}
+      PUBLISH: ${{ steps.date.outputs.PUBLISH }}
     steps:
       - name: Set metadata
         id: date
@@ -44,6 +45,7 @@ jobs:
           PAX_IMAGE=${{ inputs.PAX_IMAGE }}
           PAX_IMAGE=${PAX_IMAGE:-${{ env.DEFAULT_PAX_IMAGE }}}
           echo "PAX_IMAGE=${PAX_IMAGE}" >> $GITHUB_OUTPUT
+          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
   run-jobs:
     needs: metadata
