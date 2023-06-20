@@ -55,7 +55,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-base
+            type=raw,value=${{ github.run_id }}-base,oci-mediatypes=true,compression=zstd,compression-level=6,force-compression=true
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
