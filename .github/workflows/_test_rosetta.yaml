@@ -8,14 +8,23 @@ on:
         description: 'Rosetta image build by NVIDIA/JAX-Toolbox'
         required: true
         default: 'ghcr.io/nvidia/rosetta-t5x:latest'
+    outputs:
+      TEST_ARTIFACT_NAME:
+        description: 'Name of the unit test artifact for downstream workflows'
+        value: ${{ jobs.rosetta-tests.outputs.TEST_ARTIFACT_NAME }}
+
+env:
+  TEST_ARTIFACT_NAME: test-logs
 
 jobs:
   rosetta-tests:
     strategy:
       matrix:
-        MARKERS: ["", "-m integration"]
+        TEST_TYPE: ["unit", "integration"]
       fail-fast: false
     runs-on: [self-hosted, compute, V100]
+    outputs:
+      TEST_ARTIFACT_NAME: ${{ env.TEST_ARTIFACT_NAME }}
     steps:
       - name: Print environment variables
         run: |
@@ -35,9 +44,21 @@ jobs:
         shell: bash -x -e {0}
         run: |
           docker pull ${{ inputs.ROSETTA_IMAGE }}
+          docker tag ${{ inputs.ROSETTA_IMAGE }} rosetta:latest
 
       - name: Run Rosetta tests w/ docker
-        shell: bash -x -e {0}
+        shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log rosetta:latest bash -x -e /cmd.sh
         run: |
-          docker run --gpus all ${{ inputs.ROSETTA_IMAGE }} sh -c "pip install '/opt/rosetta[test]' && pytest /opt/rosetta ${{ matrix.MARKERS }}"
+          EXTRA_ARGS=""
+          if [[ ${{ matrix.TEST_TYPE }} == integration ]]; then
+            EXTRA_ARGS="-m integration"
+          fi
+          ROSETTA_PATH=$(dirname $(python -c "import rosetta; print(*rosetta.__path__)"))
+          pip install "${ROSETTA_PATH}[test]" pytest-reportlog
+          pytest --report-log=/log/${{ matrix.TEST_TYPE }}-report.jsonl ${ROSETTA_PATH} ${EXTRA_ARGS} || true
 
+      - name: Upload unit test json logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.TEST_ARTIFACT_NAME }}
+          path: /log/${{ matrix.TEST_TYPE }}-report.jsonl
