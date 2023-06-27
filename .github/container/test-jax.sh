@@ -165,6 +165,10 @@ set -ex
 ## Install dependencies
 
 pip install -r `jax_source_dir`/build/test-requirements.txt
+# Reason for manually installing matplotlib:
+# https://github.com/google/jax/commit/6b76937c530bd8ee185cc9e1991b3696bd10e831
+# https://github.com/google/jax/blob/6bc74d2a9874e1fe93a45191bb829c07dfee04fa/tests/BUILD#L134
+pip install matplotlib
 
 ## Run tests
 
