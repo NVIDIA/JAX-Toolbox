@@ -135,7 +135,7 @@ t5x/contrib/gpu/scripts_gpu/singlenode_ft_frompile.sh \
 
 # Changelog
 - Added Transformer Engine + FP8 support
-- Added the Transposed Batch-Sequence GPU optimization
+- Updated T5x and JAX=0.4.11
 - A100 Perf gains! (BF16)
   - 80% speedup - T5-small
   - 23% speedup - T5-large
