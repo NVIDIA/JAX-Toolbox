@@ -58,3 +58,11 @@
 
 ## Note
 This repo currently hosts a public CI for JAX on NVIDIA GPUs and covers some JAX libraries like: [T5x](https://github.com/google-research/t5x), [PAXML](https://github.com/google/paxml), [Transformer Engine](https://github.com/NVIDIA/TransformerEngine), and others to come soon.
+
+## Supported Models
+We currently enable training and evaluation for the following models:
+| Model Name | Pretraining | Fine-tuning | Evaluation |
+| :--- | :---: | :---: | :---: |
+| [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
+
+We will update this table as new models become available, so stay tuned.
