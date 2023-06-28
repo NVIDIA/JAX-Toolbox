@@ -1,6 +1,6 @@
 # GPU Scripts and Usage
 
-The t5x/contrib/gpu/scripts_gpu directory contains scripts optimized for GPU usage and includes FP8 support via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine).
+The [t5x/contrib/gpu/scripts_gpu](../../t5x/contrib/gpu/scripts_gpu) directory contains scripts optimized for GPU usage and includes FP8 support via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine).
 
 Install with `pip install -r pile_requirements.txt` to get all pile dependencies.
 
@@ -28,14 +28,14 @@ For our Pile convergence runs, we used a Global batch size of 2304 for XXL and 2
 
 | size                                    | GPU              | Precision | #GPUs |  TP   | BS / GPU | Sequences/Sec | Seq/Sec/GPU | Est. Walltime | GPU-days | MNLI 2.0 - matched | SQuAD v1.1 (EM/F1) | Convergence Log                                                                              | Config | 
 | ----                                    | ------------     | --------- | ----- | ----- | -------- | ------------- | ----------- | ------------- | -------- |------------------ | ------------------ | ---------------                                                                              | ----   |
-| T5-v1.1-small | A100 80G SXM     | bf16      | 8     | 1     | 256      | ~5712         | 714         | 4.2 days      | 33       | 83.06%             | 78.33 / 86.63      | [log](https://tensorboard.dev/experiment/lWnHal7PRnOLeZuewyWVxQ/#scalars&_smoothingWeight=0) | [pile](../t5/t5_1_1/examples/small_pile_pretrain.gin)
-| T5-v1.1-large | A100 80G SXM     | bf16      | 64    | 1     | 32       | ~4853         | 75.8        | 4.8 days      | 309     | 90.50%             | 87.31 / 94.04      | [log](https://tensorboard.dev/experiment/aOxJBIvTQBeTJ8XGXxaL6Q/#scalars&_smoothingWeight=0) |[pile](../t5/t5_1_1/examples/large_pile_pretrain.gin)
-| T5-v1.1-xl       | A100 80G SXM     | bf16      | 144   | 1     | 8        | ~3021         | 21.0        | 7.9 days      | 1,133   | N/A(perf test)     | N/A (perf test)  |                |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
-| T5-v1.1-xl       | A100 80G SXM     | bf16      | 256   | 1     | 8        | ~4322         | 16.9        | 5.5 days      | 1,408   | 91.15%             | 89.36 / 95.29      | [log](https://tensorboard.dev/experiment/vuRoEYgkRgWiEtbvgxlOqw/#scalars&_smoothingWeight=0) |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
-| T5-v1.1-xxl     | A100 80G SXM     | bf16      | 512   | 8     | 36       | ~1887         | 3.69        | 12.6 days     | 6,431  |N/A(partial run)   | N/A(partial run)   |                  |[pile](../t5/t5_1_1/examples/xxl_pile_pretrain.gin)
-| T5-v1.1-large | **H100 80G SXM** | TE-fp8    | 64    | 1     | 32       | ~10156        | **158.7**   | **2.3 days**  | **147** | 89.1%              | 86.36 / 93.5       |                 |[pile](../t5/t5_1_1/examples/large_pile_pretrain.gin)
-| T5-v1.1-xl       | **H100 80G SXM** | TE-fp8    | 144   | 1     | 14       | ~7257         | **50.4**    | **3.3 days**  | **475** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
-| T5-v1.1-xl       | **H100 80G SXM** | TE-fp8    | 256   | 1     | 8        | ~9688         | **37.8**    | **2.4 days**  | **614** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
+| [T5-v1.1-small](../t5/t5_1_1/small.gin) | A100 80G SXM     | bf16      | 8     | 1     | 256      | ~5712         | 714         | 4.2 days      | 33       | 83.06%             | 78.33 / 86.63      | [log](https://tensorboard.dev/experiment/lWnHal7PRnOLeZuewyWVxQ/#scalars&_smoothingWeight=0) | [pile](../t5/t5_1_1/examples/small_pile_pretrain.gin)
+| [T5-v1.1-large](../t5/t5_1_1/large.gin) | A100 80G SXM     | bf16      | 64    | 1     | 32       | ~4853         | 75.8        | 4.8 days      | 309     | 90.50%             | 87.31 / 94.04      | [log](https://tensorboard.dev/experiment/aOxJBIvTQBeTJ8XGXxaL6Q/#scalars&_smoothingWeight=0) |[pile](../t5/t5_1_1/examples/large_pile_pretrain.gin)
+| [T5-v1.1-xl](../t5/t5_1_1/xl.gin)       | A100 80G SXM     | bf16      | 144   | 1     | 8        | ~3021         | 21.0        | 7.9 days      | 1,133   | N/A(perf test)     | N/A (perf test)  |                |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
+| [T5-v1.1-xl](../t5/t5_1_1/xl.gin)       | A100 80G SXM     | bf16      | 256   | 1     | 8        | ~4322         | 16.9        | 5.5 days      | 1,408   | 91.15%             | 89.36 / 95.29      | [log](https://tensorboard.dev/experiment/vuRoEYgkRgWiEtbvgxlOqw/#scalars&_smoothingWeight=0) |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
+| [T5-v1.1-xxl](../t5/t5_1_1/xxl.gin)     | A100 80G SXM     | bf16      | 512   | 8     | 36       | ~1887         | 3.69        | 12.6 days     | 6,431  |N/A(partial run)   | N/A(partial run)   |                  |[pile](../t5/t5_1_1/examples/xxl_pile_pretrain.gin)
+| [T5-v1.1-large](../t5/t5_1_1/large.gin) | **H100 80G SXM** | TE-fp8    | 64    | 1     | 32       | ~10156        | **158.7**   | **2.3 days**  | **147** | 89.1%              | 86.36 / 93.5       |                 |[pile](../t5/t5_1_1/examples/large_pile_pretrain.gin)
+| [T5-v1.1-xl](../t5/t5_1_1/xl.gin)       | **H100 80G SXM** | TE-fp8    | 144   | 1     | 14       | ~7257         | **50.4**    | **3.3 days**  | **475** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
+| [T5-v1.1-xl](../t5/t5_1_1/xl.gin)       | **H100 80G SXM** | TE-fp8    | 256   | 1     | 8        | ~9688         | **37.8**    | **2.4 days**  | **614** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
 
 Note: Convergence (as shown in log) was not necessarily done with the hardware topology listed, but the listed topology is tested. Estimated Walltime is calculated assuming full throughput (seq/sec) continuously. In practice, there are compilation overheads at the beginning of each run/restart(in cluster settings) + checkpointing overheads (if any).
 
@@ -54,19 +54,19 @@ All parameters can be found in the relevant script.
 Assumes 8GPU 80GB A100/H100 Nodes. `ENABLE_FP8` uses transformer engine (included in container) and requires H100
 
 * Note: To use, FP8 set `ENABLE_FP8` to `1`. This will automatically set `PREC` to `bfloat16` as is required by internals for `FP8` usage.
-#### T5-v1.1-small (60M):
+#### [T5-v1.1-small](../t5/t5_1_1/small.gin) (60M):
 ```sh
 PREC=bfloat16 T5_SIZE=small BSIZE_PER_GPU=256 TRAIN_STEPS=1000000 NUM_MICROBATCHES=1 ENABLE_FP8=1 TP_SIZE=1 \
 sbatch -N1 t5x/contrib/gpu/t5/scripts_gpu/example_slurm_pretrain_pile.sub
 ```
 
-#### T5-v1.1-large (770M):
+#### [T5-v1.1-large](../t5/t5_1_1/large.gin) (770M):
 ```sh
 PREC=bfloat16 T5_SIZE=large BSIZE_PER_GPU=32 TRAIN_STEPS=1000000 NUM_MICROBATCHES=1 ENABLE_FP8=1 TP_SIZE=1 \
 sbatch -N8 t5x/contrib/gpu/t5/scripts_gpu/example_slurm_pretrain_pile.sub
 ```
 
-#### T5-v1.1-xl (3B):
+#### [T5-v1.1-xl](../t5/t5_1_1/xl.gin) (3B):
 ```sh
 PREC=bfloat16 T5_SIZE=large BSIZE_PER_GPU=8 TRAIN_STEPS=1000000 NUM_MICROBATCHES=1 ENABLE_FP8=1 TP_SIZE=1 \
 sbatch -N 32 t5x/contrib/gpu/t5/scripts_gpu/example_slurm_pretrain_pile.sub
