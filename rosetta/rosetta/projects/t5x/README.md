@@ -1,24 +1,80 @@
-# GPU Scripts and Usage
+# T5x
 
-The t5x/contrib/gpu/scripts_gpu directory contains scripts optimized for GPU usage and includes FP8 support via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine).
+[T5x](https://github.com/google-research/t5x) is a project developed by Google, which is maintained as a [distribution](../../../docs/DEVELOPMENT.md) within rosetta.
 
-Install with `pip install -r pile_requirements.txt` to get all pile dependencies.
+Any `t5x/*` relative directory/file can be found in [google-research/t5x](https://github.com/google-research/t5x), but to
+view the most up to date version of that directory/file, please see ["Inspecting the source code"](#inspecting-the-source-code)
 
-## Building the container
+## GPU Scripts and Usage
+The `t5x/contrib/gpu/scripts_gpu` directory contains scripts optimized for GPU usage and includes FP8 support via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine).
+
+
+## Prerequisites
+The examples below will reuse these environment variables. Feel free to change them:
+```bash
+CONTAINER=ghcr.io/nvidia/t5x:te-fp8-reference
+DATASET_PATH=<NEED TO SPECIFY>
+T5X_DIR=<NEED TO SPECIFY>  # Root path of t5x
+WORKSPACE_PATH=""  # Path used for run outputs (unspecified = /t5x_home/workspace)
+```
+
+## Container
 We provide a fully built and ready-to-use container here: [ghcr.io/nvidia/t5x:te-fp8-reference](ghcr.io/nvidia/t5x:te-fp8-reference)  
-If you'd like you build your own,
-The Dockerfile in `t5x/contrib/gpu` will build a container with all gpu/pile dependencies. It can be built with `t5x/contrib/gpu/docker/build.sh <name>`. However, we **highly** recommend using the pre-built container.
 
-## Running interactively
-Note: this should only be done with singlenode jobs and/or for downloading the pile. Use `t5x/contrib/gpu/docker/interactive_pull_and_launch.sh`. This takes arguments for the URL to pull a container from and the location of the dataset directory to mount. For example:
+We **highly** recommend using the pre-built container, but if you'd like to build your own container with all of the gpu/pile dependencies,
+here is how you can build your own:
+```bash
+CONTAINER=t5x:te-fp8
+git clone git@github.com:google-research/t5x.git $T5X_DIR
+cd $T5X_DIR
+git fetch origin pull/1320/head:te-distribution && git switch te-distribution
 
-`t5x/contrib/gpu/docker/interactive_pull_and_launch.sh [URL] /my/dataset/dir`
+docker build -t t5x:te-fp8 -f t5x/contrib/gpu/Dockerfile .
+```
 
 ## Downloading The Pile
-We use The Pile for our pretraining experiments. If you would like to as well, run `download_the_pile.py` to download it. The download is approximately 1TB. It will download to the directory set in the environment variable: `TFDS_DATA_DIR`. After that, set the `TFDS_DATA_DIR` to the same directory in your scripts to use.
+We use The Pile for our pretraining experiments. If you would like to as well, run `download_the_pile.py` to download it. The download is approximately 1TB. It will download to the directory set in the environment variable: `TFDS_DATA_DIR`. After that, set the `TFDS_DATA_DIR` to the same directory in your scripts to use. Here is how you would run it:
+
+```bash
+docker run --rm -e TFDS_DATA_DIR=/t5x_home/datasets -v ${DATASET_PATH}:/t5x_home/datasets $CONTAINER python -m t5x.contrib.gpu.scripts_gpu.download_the_pile
+```
+
+## Running interactively
+**Note**: this should only be done with singlenode jobs and/or for downloading The Pile. 
+
+```bash
+docker run --rm --gpus=all -it --net=host --ipc=host -v ${PWD}:/t5x_home -v ${DATASET_PATH}:/t5x_home/datasets -v ${WORKSPACE_PATH:-${PWD}/workspace}:/t5x_home/workspace --privileged $CONTAINER bash
+```
+
+## Inspecting the source code
+If you would like to inspect t5x's source code (`t5x/*`) to learn more about what is being run, you can do so by inspecting
+the source within the container. Here are some examples:
+
+```bash
+# (Interactive = already in container): navigate to t5x/contrib/gpu/scripts_gpu/
+cd $(python -c 'import t5x; print(*t5x.__path__)'))../t5x/contrib/gpu/scripts_gpu
+
+# (Non-interactive): View t5x/contrib/gpu/Dockerfile
+FILE=t5x/contrib/gpu/Dockerfile
+docker run --entrypoint="" --rm $CONTAINER sh -c 'cat $(python -c "import t5x; print(*t5x.__path__)" 2>/dev/null)/../'$FILE
+```
 
 ## Single Node runs
 Pretraining and Finetuning can be done with `singlenode_*.sh`. These will build a T5X model with the Adam optimizer and relevant parameters. These will allow multi-gpu on one host.
+
+```bash
+# Pretraining (interactive: already inside container)
+bash t5x/contrib/gpu/scripts_gpu/singlenode_pretrain_pile.sh
+
+# Pretraining (non-interactive)
+docker run --rm --gpus=all --net=host --ipc=host -v ${DATASET_PATH}:/t5x_home/datasets $CONTAINER bash t5x/contrib/gpu/scripts_gpu/singlenode_pretrain_pile.sh
+
+# Finetuning (interactive: already inside container)
+bash t5x/contrib/gpu/scripts_gpu/singlenode_ft_frompile.sh
+
+# Finetuning (non-interactive)
+docker run --rm --gpus=all --net=host --ipc=host -v ${DATASET_PATH}:/t5x_home/datasets $CONTAINER bash t5x/contrib/gpu/scripts_gpu/singlenode_ft_frompile.sh
+```
 
 ## Multi Node runs
 For a SLURM+pyxis cluster, `example*.sub` files provide example slurm submit files (edit with your details), which call `multiprocess*.sh` to execute training. You can add a binding script in the `.sub` file for your cluster, or remove it entirely (dropping some throughput)
@@ -37,16 +93,20 @@ For our Pile convergence runs, we used a Global batch size of 2304 for XXL and 2
 | T5-v1.1-xl       | **H100 80G SXM** | TE-fp8    | 144   | 1     | 14       | ~7257         | **50.4**    | **3.3 days**  | **475** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
 | T5-v1.1-xl       | **H100 80G SXM** | TE-fp8    | 256   | 1     | 8        | ~9688         | **37.8**    | **2.4 days**  | **614** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
 
-Note: Convergence (as shown in log) was not necessarily done with the hardware topology listed, but the listed topology is tested. Estimated Walltime is calculated assuming full throughput (seq/sec) continuously. In practice, there are compilation overheads at the beginning of each run/restart(in cluster settings) + checkpointing overheads (if any).
+Note: Convergence (as shown in log) was not necessarily done with the hardware topology listed, but the listed topology is tested. Estimated Walltime is calculated assuming full throughput (seq/sec) continuously. In practice, there are compilation overheads at the beginning of each run/restart (in cluster settings) + checkpointing overheads (if any).
 
-Other hyperparameters are specified in the associated pile `gin` files in the `contrib/gpu/t5/t5_1_1/examples` directory.
+Other hyperparameters are specified in the associated pile `gin` files in the `t5x/contrib/gpu/t5/t5_1_1/examples` directory.
 
 ## Pretraining run commands
+All commands below assume you are in `$T5X_DIR` and have the scripts and slurm scripts locally.
 
 ### Multinode
 Arguments are set by environment variable as such:
 
-`PREC={PRECISION} T5_SIZE={SIZE} BSIZE_PER_GPU={BSIZE} ..... sbatch -N {NODE_CT} t5x/contrib/gpu/t5/scripts_gpu/example_slurm_pretrain_pile.sub {GPUS_PER_NODE}`
+```sh
+PREC={PRECISION} T5_SIZE={SIZE} BSIZE_PER_GPU={BSIZE} ..... \
+  sbatch -N {NODE_CT} t5x/contrib/gpu/t5/scripts_gpu/example_slurm_pretrain_pile.sub {GPUS_PER_NODE}
+```
 
 All parameters can be found in the relevant script.
 
