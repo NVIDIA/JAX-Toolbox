@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
 ARG REPO_JAX="https://github.com/google/jax.git"
 ARG REPO_XLA="https://github.com/openxla/xla.git"
@@ -21,10 +22,29 @@ ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG BAZEL_CACHE
 
-RUN git clone "${REPO_JAX}" "${SRC_PATH_JAX}" && cd "${SRC_PATH_JAX}" && git checkout ${REF_JAX}
+RUN <<"EOF" bash -e
+git clone "${REPO_JAX}" "${SRC_PATH_JAX}"
+cd "${SRC_PATH_JAX}"
+orig_ref=${REF_JAX}
+if [[ "${orig_ref}" =~ ^pull/ ]]; then
+  PR_ID=$(cut -d/ -f2 <<<"${orig_ref}")
+  REF_JAX=PR-${PR_ID}
+  git fetch origin ${orig_ref}:${REF_JAX}
+fi
+git checkout ${REF_JAX}
+EOF
 RUN --mount=type=ssh \
-    --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
-    git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
+    --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts <<"EOF" bash -e
+git clone "${REPO_XLA}" "${SRC_PATH_XLA}"
+cd "${SRC_PATH_XLA}"
+orig_ref=${REF_XLA}
+if [[ "${orig_ref}" =~ ^pull/ ]]; then
+  PR_ID=$(cut -d/ -f2 <<<"${orig_ref}")
+  REF_XLA=PR-${PR_ID}
+  git fetch origin ${orig_ref}:${REF_XLA}
+fi
+git checkout ${REF_XLA}
+EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 RUN build-jax.sh \
