@@ -128,21 +128,21 @@ jobs:
     secrets: inherit
 
   build-t5x:
-    needs: [metadata, build-jax]
+    needs: [metadata, build-te]
     uses: ./.github/workflows/_build_t5x.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+      BASE_IMAGE: ${{ needs.build-te.outputs.DOCKER_TAGS }}
       REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
       REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
     secrets: inherit
 
   build-pax:
-    needs: [metadata, build-jax]
+    needs: [metadata, build-te]
     uses: ./.github/workflows/_build_pax.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+      BASE_IMAGE: ${{ needs.build-te.outputs.DOCKER_TAGS }}
       REPO_PAXML: ${{ needs.metadata.outputs.REPO_PAXML }}
       REF_PAXML: ${{ needs.metadata.outputs.REF_PAXML }}
       REPO_PRAXIS: ${{ needs.metadata.outputs.REPO_PRAXIS }}
