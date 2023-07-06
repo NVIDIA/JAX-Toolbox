@@ -162,13 +162,13 @@ jobs:
       - name: Run pytest
         shell: bash -x {0}
         run: |
-          pwd
-          ls
           for i in ${GITHUB_RUN_ID}-*DP*TP*PP; do
             NEW_NAME=$(echo $i | cut -d'-' -f2)
             mv $i $NEW_NAME
           done
           pip install pytest pytest-reportlog
+          pwd
+          ls
           RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/pytest/test_pax_mgmn_metrics.py
 
       - name: Upload metrics test json logs
