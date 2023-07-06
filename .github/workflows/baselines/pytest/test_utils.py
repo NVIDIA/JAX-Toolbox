@@ -1,6 +1,3 @@
-import sys
-import json
-import numpy as np
 from tensorboard.backend.event_processing import event_accumulator
 from tensorboard.util import tensor_util
 
