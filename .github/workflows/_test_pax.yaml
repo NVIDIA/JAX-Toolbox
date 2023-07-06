@@ -153,19 +153,23 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
 
       - name: Run pytest
         shell: bash -x {0}
         run: |
           pwd
           ls
+          for i in ${GITHUB_RUN_ID}-*DP*TP*PP; do
+            NEW_NAME=$(echo $i | cut -d'-' -f2)
+            mv $i $NEW_NAME
+          done
           pip install pytest pytest-reportlog
-          RESULTS_DIR=$PWD pytest --report-log=report.jsonl JAX-Toolbox/.github/workflows/baselines/pytest/test_pax_mgmn_metrics.py
+          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/pytest/test_pax_mgmn_metrics.py
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v3
