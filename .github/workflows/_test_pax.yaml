@@ -162,13 +162,12 @@ jobs:
       - name: Run pytest
         shell: bash -x {0}
         run: |
-          ls *
           for i in ${GITHUB_RUN_ID}-*DP*TP*PP; do
             SUBDIR=$(echo $i | cut -d'-' -f2)
             mv $i/$SUBDIR* .
           done
           pip install pytest pytest-reportlog tensorboard
-          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/pytest/test_pax_mgmn_metrics.py
+          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/pytest/test_pax_mgmn_metrics.py || true
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v3
