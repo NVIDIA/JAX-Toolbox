@@ -79,6 +79,15 @@ jobs:
               gist_id: gistId,
               files: {
                 [filename]: { content },
-                ...Object.fromEntries(Object.entries(gist.files).filter(([name]) => name !== filename))
-              }
+                ...Object.fromEntries(
+                  Object.entries(gist.files)
+                    .filter(([name]) => name !== filename)
+                    .map(([name, value]) => [
+                      name,
+                      Object.fromEntries(
+                        Object.entries(value).filter(([nestedKey]) => nestedKey === "content")
+                      ),
+                    ])
+                ),
+              },
             });
