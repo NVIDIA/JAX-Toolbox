@@ -149,6 +149,7 @@ jobs:
           path: output/*
 
   metrics:
+    needs: multi-gpu-multi-node
     runs-on: ubuntu-22.04
 
     steps:
@@ -163,6 +164,7 @@ jobs:
         run: |
           pwd
           ls
+          pip install pytest pytest-reportlog
           RESULTS_DIR=$PWD pytest --report-log=report.jsonl JAX-Toolbox/.github/workflows/baselines/pytest/test_pax_mgmn_metrics.py
 
       - name: Upload metrics test json logs
