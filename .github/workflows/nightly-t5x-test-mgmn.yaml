@@ -95,7 +95,7 @@ jobs:
 
           ## T5X MGMN nightly training: ${{ needs.metadata.outputs.BUILD_DATE }}
 
-          [view metrics](http://${{ vars.HOSTNAME_TENSORBOARD }}:6006/#scalars&regexInput=$(jq -nr --arg url "${FOLDER}" '$url|@uri')&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=$(jq -nr --arg url "${FOLDER}" '$url|@uri')&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
