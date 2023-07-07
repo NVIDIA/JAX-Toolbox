@@ -1,137 +1,41 @@
-name: Nightly Pax MGMN performance test
+name: "~Sandbox"
 
 on:
-  workflow_run:
-    workflows: [Nightly Pax build]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
-    inputs:
-      PAX_IMAGE:
-        type: string
-        description: Pax container
-        default: 'ghcr.io/nvidia/pax:latest'
-        required: true
-      PUBLISH:
-        type: boolean
-        description: Publish dated results to tensorboard server?
-        default: false
-        required: false
-
-permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
-
-env:
-  DEFAULT_PAX_IMAGE: 'ghcr.io/nvidia/pax:latest'
 
 jobs:
-
-  metadata:
-    runs-on: ubuntu-22.04
-    outputs:
-      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
-      PAX_IMAGE: ${{ steps.date.outputs.PAX_IMAGE }}
-      PUBLISH: ${{ steps.date.outputs.PUBLISH }}
-    steps:
-      - name: Set metadata
-        id: date
-        shell: bash -x -e {0}
-        run: |
-          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
-          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
-
-          PAX_IMAGE=${{ inputs.PAX_IMAGE }}
-          PAX_IMAGE=${PAX_IMAGE:-${{ env.DEFAULT_PAX_IMAGE }}}
-          echo "PAX_IMAGE=${PAX_IMAGE}" >> $GITHUB_OUTPUT
-          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
-
-  run-jobs:
-    needs: metadata
-    uses: ./.github/workflows/_test_pax.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    with:
-      PAX_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
-    secrets: inherit
-
-  publish:
-    needs: [metadata, run-jobs]
+  sandbox:
     runs-on: ubuntu-22.04
     steps:
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.8.0
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup SSH known hosts
-        id: ssh-known-hosts
+      - name: Print usage
         run: |
-          mkdir -p ~/.ssh
-          cat >> ~/.ssh/known_hosts << EOF
-          ${{ vars.SSH_KNOWN_HOSTS }}
-          EOF
-          chmod 600 ~/.ssh/known_hosts
-          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
-
-      - name: Setup SSH config
-        id: ssh-config
-        run: |
-          mkdir -p ~/.ssh
-          cat >> ~/.ssh/config << EOF
-          ${{ vars.SSH_CONFIG }}
-          EOF
-          chmod 600 ~/.ssh/config
-
-      - name: Create dated folder and generate TensorBoard query URL
-        id: mkdir
-        shell: bash -x -e {0}
-        run: |
-          FOLDER="${{ needs.metadata.outputs.BUILD_DATE }}/PAX"
-          # copy folder
-          ssh -T tensorboard mkdir -p /tensorboard-logs/${FOLDER}
-          ssh -T tensorboard rsync -rt /tensorboard-logs/${GITHUB_RUN_ID}/ /tensorboard-logs/${FOLDER}/
-          # generate query URL
-          (
           cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
 
-          ## PAX MGMN nightly training: ${{ needs.metadata.outputs.BUILD_DATE }}
-
-          [view metrics](http://${{ vars.HOSTNAME_TENSORBOARD }}:6006/#scalars&regexInput=$(jq -nr --arg url "${FOLDER}" '$url|@uri')&_smoothingWeight=0&tagFilter=seqs_per)
-
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
           EOF
-          ) | tee $GITHUB_STEP_SUMMARY
-
-  publish-completion:
-    needs: [metadata, run-jobs]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    secrets: inherit
-    with:
-      ENDPOINT_FILENAME: 'pax-test-completion-status.json'
-      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*TP*PP/*-status.json"
-        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-        FAILED_TESTS=$(jq -r '. | select ((.state == "FAILED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
-        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
-
-        echo "Test statuses:"
-        jq -rc 'input_filename,.' $EXIT_STATUSES
-
-        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-          BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]]; then
-          BADGE_COLOR=red
-        else
-          BADGE_COLOR=yellow
-        fi
-        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-
-  if-upstream-failed:
-    runs-on: ubuntu-latest
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
-    steps:
-      - run: echo 'Upstream workflow failed, aborting run' && exit 1
