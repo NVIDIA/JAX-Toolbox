@@ -15,7 +15,7 @@ ADD --keep-git-dir=true https://github.com/google/praxis.git#main /
 FROM scratch as flax-mirror-source
 ADD --keep-git-dir=true https://github.com/google/flax.git#main /
 
-FROM ${BASE_IMAGE} AS distribution-builder
+FROM ${BASE_IMAGE} AS rosetta
 
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
@@ -47,14 +47,9 @@ bash create-distribution.sh \
 rm -rf $(find /opt -name "__pycache__")
 EOF
   
-FROM ${BASE_IMAGE} AS rosetta
-COPY --link --from=distribution-builder /opt/paxml /opt/paxml
-COPY --link --from=distribution-builder /opt/praxis /opt/praxis
-COPY --link --from=distribution-builder /opt/flax /opt/flax
-COPY --link --from=distribution-builder /opt/rosetta /opt/rosetta
-
 WORKDIR /opt/rosetta
 RUN <<EOF
+rmdir /opt/*-mirror
 pip install -e /opt/rosetta
 rm -rf ~/.cache/pip/
 EOF
