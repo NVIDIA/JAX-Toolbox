@@ -51,7 +51,7 @@ jobs:
   build:
     outputs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-    runs-on: [self-hosted, builder]
+    runs-on: [self-hosted, large-builder]
     steps:
       - name: Print environment variables
         run: env

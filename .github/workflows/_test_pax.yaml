@@ -132,6 +132,16 @@ jobs:
             output/ \
             ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
 
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
+        
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -149,7 +159,7 @@ jobs:
 
           ## PAX MGMN training
 
-          [view metrics](http://${{ vars.HOSTNAME_TENSORBOARD }}:6006/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY

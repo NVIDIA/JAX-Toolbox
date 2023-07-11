@@ -7,8 +7,8 @@
 | [![container-badge-t5x]][container-link-t5x]         | [![build-badge-t5x]][workflow-t5x]         | [![test-badge-t5x]][workflow-t5x-perf] |
 | [![container-badge-pax]][container-link-pax]         | [![build-badge-pax]][workflow-pax]         | [![test-badge-pax]][workflow-pax-perf] |
 | [![container-badge-te]][container-link-te]           | [![build-badge-te]][workflow-te]           | [![unit-test-badge-te]][workflow-te-test] <br> [![integration-test-badge-te]][workflow-te-test] |
-| [![container-badge-rosetta-t5x]][container-link-rosetta-t5x] | [![build-badge-rosetta-t5x]][workflow-rosetta-t5x] | [![test-badge-rosetta-t5x]][workflow-rosetta-t5x] (dummy) |
-| [![container-badge-rosetta-pax]][container-link-rosetta-pax] | [![build-badge-rosetta-pax]][workflow-rosetta-pax] | [![test-badge-rosetta-pax]][workflow-rosetta-pax] (dummy) |
+| [![container-badge-rosetta-t5x]][container-link-rosetta-t5x] | [![build-badge-rosetta-t5x]][workflow-rosetta-t5x] | [![test-badge-rosetta-t5x]][workflow-rosetta-t5x] |
+| [![container-badge-rosetta-pax]][container-link-rosetta-pax] | [![build-badge-rosetta-pax]][workflow-rosetta-pax] | [![test-badge-rosetta-pax]][workflow-rosetta-pax] |
 
 [container-badge-base]: https://img.shields.io/static/v1?label=&message=.base&color=gray&logo=docker
 [container-badge-jax]: https://img.shields.io/static/v1?label=&message=JAX&color=gray&logo=docker
@@ -30,8 +30,8 @@
 [build-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 [build-badge-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-t5x-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 [build-badge-pax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-pax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
-[build-badge-rosetta-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-rosetta-t5x-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
-[build-badge-rosetta-pax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-rosetta-pax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
+[build-badge-rosetta-t5x]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-t5x-build-status.json&logo=github-actions&logoColor=dddddd
+[build-badge-rosetta-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-build-status.json&logo=github-actions&logoColor=dddddd
 [build-badge-te]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-te-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 
 [workflow-base]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/weekly-base-build.yaml
@@ -44,11 +44,11 @@
 
 [test-badge-jax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fjax-unit-test-status.json&logo=nvidia
 [test-badge-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-t5x-test-mgmn.yaml?branch=main&label=A100%20MGMN&logo=nvidia
-[test-badge-pax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-pax-test-mgmn.yaml?branch=main&label=A100%20MGMN&logo=nvidia
+[test-badge-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fpax-test-completion-status.json&logo=nvidia
 [unit-test-badge-te]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fte-unit-test-status.json&logo=nvidia
 [integration-test-badge-te]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fte-integration-test-status.json&logo=nvidia
-[test-badge-rosetta-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-rosetta-t5x-build.yaml?branch=main&label=A100%20MGMN&logo=nvidia
-[test-badge-rosetta-pax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-rosetta-pax-build.yaml?branch=main&label=A100%20MGMN&logo=nvidia
+[test-badge-rosetta-t5x]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-t5x-test-status.json&logo=nvidia
+[test-badge-rosetta-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-test-status.json&logo=nvidia
 
 [workflow-jax-unit]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax-test-unit.yaml
 [workflow-t5x-perf]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-t5x-test-mgmn.yaml
@@ -58,3 +58,11 @@
 
 ## Note
 This repo currently hosts a public CI for JAX on NVIDIA GPUs and covers some JAX libraries like: [T5x](https://github.com/google-research/t5x), [PAXML](https://github.com/google/paxml), [Transformer Engine](https://github.com/NVIDIA/TransformerEngine), and others to come soon.
+
+## Supported Models
+We currently enable training and evaluation for the following models:
+| Model Name | Pretraining | Fine-tuning | Evaluation |
+| :--- | :---: | :---: | :---: |
+| [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
+
+We will update this table as new models become available, so stay tuned.
