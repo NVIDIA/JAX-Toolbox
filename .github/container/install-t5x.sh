@@ -70,7 +70,13 @@ apt-get install -y \
 git clone ${T5X_REPO} ${INSTALL_DIR}/t5x
 cd ${INSTALL_DIR}/t5x
 git checkout ${T5X_REF}
-pip install -e .[gpu]
+# The dependency chain for t5x is t5x -> seqio[any] -> tensorflow-text[any] -> tensorflow[any]
+# and tensorflow 2.13.0 has a constraint on typing_extensions that makes it
+# incompatible with transformer_engine which depends on pydantic and by
+# extension, typing_extensions: https://github.com/tensorflow/tensorflow/pull/60688
+# As the top level application, we will just exclude it since typing_extensions appears
+# to have been relaxed at the head of tensorflow.
+pip install -e .[gpu] 'tensorflow-text!=2.13.*'
 
 apt-get autoremove -y
 apt-get clean
