@@ -52,7 +52,8 @@ the source within the container. Here are some examples:
 
 ```bash
 # (Interactive = already in container): navigate to t5x/contrib/gpu/scripts_gpu/
-cd $(python -c 'import t5x; print(*t5x.__path__)'))../t5x/contrib/gpu/scripts_gpu
+cd $(python -c 'import t5x; print(*t5x.__path__)'))..
+less t5x/contrib/gpu/scripts_gpu
 
 # (Non-interactive): View t5x/contrib/gpu/Dockerfile
 FILE=t5x/contrib/gpu/Dockerfile
@@ -63,13 +64,13 @@ docker run --entrypoint="" --rm $CONTAINER sh -c 'cat $(python -c "import t5x; p
 Pretraining and Finetuning can be done with `singlenode_*.sh`. These will build a T5X model with the Adam optimizer and relevant parameters. These will allow multi-gpu on one host.
 
 ```bash
-# Pretraining (interactive: already inside container)
+# Pretraining (interactive: already inside container) with default args
 bash t5x/contrib/gpu/scripts_gpu/singlenode_pretrain_pile.sh
 
 # Pretraining (non-interactive)
 docker run --rm --gpus=all --net=host --ipc=host -v ${DATASET_PATH}:/t5x_home/datasets $CONTAINER bash t5x/contrib/gpu/scripts_gpu/singlenode_pretrain_pile.sh
 
-# Finetuning (interactive: already inside container)
+# Finetuning (interactive: already inside container) with default args
 bash t5x/contrib/gpu/scripts_gpu/singlenode_ft_frompile.sh
 
 # Finetuning (non-interactive)
