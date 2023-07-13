@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1-labs
 ###############################################################################
 ## Pax
 ###############################################################################
@@ -6,9 +7,21 @@ ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
 FROM ${BASE_IMAGE}
 
 ADD install-pax.sh /usr/local/bin
-RUN install-pax.sh
-
 ADD install-flax.sh /usr/local/bin
-RUN install-flax.sh
+ADD install-te.sh /usr/local/bin
+
+ENV NVTE_FRAMEWORK=jax
+RUN <<"EOF" bash -ex
+install-pax.sh --defer
+install-flax.sh --defer
+install-te.sh --defer
+
+if [[ -f /opt/requirements-defer.txt ]]; then
+  pip install -r /opt/requirements-defer.txt
+fi
+if [[ -f /opt/cleanup.sh ]]; then
+  bash -ex /opt/cleanup.sh
+fi
+EOF
 
 ADD test-pax.sh /usr/local/bin
