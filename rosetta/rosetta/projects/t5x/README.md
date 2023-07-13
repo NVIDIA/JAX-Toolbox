@@ -12,25 +12,17 @@ The `t5x/contrib/gpu/scripts_gpu` directory contains scripts optimized for GPU u
 ## Prerequisites
 The examples below will reuse these environment variables. Feel free to change them:
 ```bash
-CONTAINER=ghcr.io/nvidia/t5x:te-fp8-reference
+CONTAINER=ghcr.io/nvidia/rosetta-t5x:latest
 DATASET_PATH=<NEED TO SPECIFY>
-T5X_DIR=<NEED TO SPECIFY>  # Root path of t5x
 WORKSPACE_PATH=""  # Path used for run outputs (unspecified = /t5x_home/workspace)
 ```
 
 ## Container
-We provide a fully built and ready-to-use container here: `ghcr.io/nvidia/t5x:te-fp8-reference`
+We provide a fully built and ready-to-use container here: [ghcr.io/nvidia/rosetta-t5x:latest](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-t5x).
+We also provide nightly dated images with the naming pattern [ghcr.io/nvidia/rosetta-t5x:nightly-YYYY-MM-DD](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-t5x), but we encourage
+you to use the latest to get the best performance.
 
-We **highly** recommend using the pre-built container, but if you'd like to build your own container with all of the gpu/pile dependencies,
-here is how you can build your own:
-```bash
-CONTAINER=t5x:te-fp8
-git clone git@github.com:google-research/t5x.git $T5X_DIR
-cd $T5X_DIR
-git fetch origin pull/1320/head:te-distribution && git switch te-distribution
-
-docker build -t t5x:te-fp8 -f t5x/contrib/gpu/Dockerfile .
-```
+We **highly** recommend using the pre-built container, but if you'd like to build your own container, you can follow the instructions here: [Building rosetta manually](../../../README.md#building-rosetta-with-a-specific-base)
 
 ## Downloading The Pile
 We use The Pile for our pretraining experiments. If you would like to as well, run `download_the_pile.py` to download it. The download is approximately 1TB. It will download to the directory set in the environment variable: `TFDS_DATA_DIR`. After that, set the `TFDS_DATA_DIR` to the same directory in your scripts to use. Here is how you would run it:
@@ -79,7 +71,7 @@ docker run --rm --gpus=all --net=host --ipc=host -v ${DATASET_PATH}:/t5x_home/da
 ```
 
 ## Multi Node runs
-For a SLURM+pyxis cluster, `example*.sub` files provide example slurm submit files (edit with your details), which call `multiprocess*.sh` to execute training. You can add a binding script in the `.sub` file for your cluster, or remove it entirely (dropping some throughput)
+For a SLURM+pyxis cluster, [`example*.sub`](./scripts) files provide example slurm submit files, which are configurable via environment variables and command line args. The submit fules call `multiprocess*.sh` to execute training. You can add a binding script in the `.sub` file for your cluster, or remove it entirely (dropping some throughput).
 
 ## Convergence and performance
 For our Pile convergence runs, we used a Global batch size of 2304 for XXL and 2016-2048 for all other models, where GBS is defined as #GPUs * BS/GPU / Tensor Parallel(TP). Below are example (tested) hardware topologies on NVIDIA DGX A100 (8x A100-SXM4-80G) and H100-SXM-80G nodes.
@@ -100,14 +92,18 @@ Note: Convergence (as shown in log) was not necessarily done with the hardware t
 Other hyperparameters are specified in the associated pile `gin` files in the `t5x/contrib/gpu/t5/t5_1_1/examples` directory.
 
 ## Pretraining run commands
-All commands below assume you are in `$T5X_DIR` and have the scripts and slurm scripts locally.
+All slurm commands below assume you have cloned this repo to make the submit scripts available locally:
+```bash
+git clone https://github.com/NVIDIA/JAX-Toolbox.git
+cd JAX-Toolbox/rosetta/rosetta/projects/t5x/scripts
+```
 
 ### Multinode
 Arguments are set by environment variable as such:
 
 ```sh
 PREC={PRECISION} T5_SIZE={SIZE} BSIZE_PER_GPU={BSIZE} ..... \
-  sbatch -N {NODE_CT} t5x/contrib/gpu/t5/scripts_gpu/example_slurm_pretrain_pile.sub {GPUS_PER_NODE}
+  sbatch -N {NODE_CT} scripts/example_slurm_pretrain_pile.sub {GPUS_PER_NODE}
 ```
 
 All parameters can be found in the relevant script.
@@ -119,19 +115,19 @@ Assumes 8GPU 80GB A100/H100 Nodes. `ENABLE_FP8` uses transformer engine (include
 #### T5-v1.1-small (60M):
 ```sh
 PREC=bfloat16 T5_SIZE=small BSIZE_PER_GPU=256 TRAIN_STEPS=1000000 NUM_MICROBATCHES=1 ENABLE_FP8=1 TP_SIZE=1 \
-sbatch -N1 t5x/contrib/gpu/t5/scripts_gpu/example_slurm_pretrain_pile.sub
+sbatch -N1 scripts/example_slurm_pretrain_pile.sub
 ```
 
 #### T5-v1.1-large (770M):
 ```sh
 PREC=bfloat16 T5_SIZE=large BSIZE_PER_GPU=32 TRAIN_STEPS=1000000 NUM_MICROBATCHES=1 ENABLE_FP8=1 TP_SIZE=1 \
-sbatch -N8 t5x/contrib/gpu/t5/scripts_gpu/example_slurm_pretrain_pile.sub
+sbatch -N8 scripts/example_slurm_pretrain_pile.sub
 ```
 
 #### T5-v1.1-xl (3B):
 ```sh
 PREC=bfloat16 T5_SIZE=large BSIZE_PER_GPU=8 TRAIN_STEPS=1000000 NUM_MICROBATCHES=1 ENABLE_FP8=1 TP_SIZE=1 \
-sbatch -N 32 t5x/contrib/gpu/t5/scripts_gpu/example_slurm_pretrain_pile.sub
+sbatch -N 32 scripts/example_slurm_pretrain_pile.sub
 ```
 
 ### Example Finetuning Commands
@@ -140,13 +136,13 @@ Finetuning commands simply change the script and have an additional `{FT_TASK}` 
 #### MNLI v2:
 ```sh
 FT_TASK=mnli2 PREC=bfloat16 T5_SIZE={SIZE} BSIZE_PER_GPU={BSIZE} NUM_MICROBATCHES=1 ENABLE_FP8=1 TP_SIZE=1 \
-sbatch -N{NODE_CT} t5x/contrib/gpu/t5/scripts_gpu/example_slurm_ft_frompile.sub
+sbatch -N{NODE_CT} scripts/example_slurm_ft_frompile.sub
 ```
 
 #### SQuAD v1.1:
 ```sh
 FT_TASK=squad1 PREC=bfloat16 T5_SIZE={SIZE} BSIZE_PER_GPU={BSIZE} NUM_MICROBATCHES=1 ENABLE_FP8=1 TP_SIZE=1 \
-sbatch -N{NODE_CT} t5x/contrib/gpu/t5/scripts_gpu/example_slurm_ft_frompile.sub
+sbatch -N{NODE_CT} scripts/example_slurm_ft_frompile.sub
 
 ```
 
