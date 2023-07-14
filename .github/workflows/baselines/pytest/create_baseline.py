@@ -2,7 +2,7 @@ import os
 import json
 import glob
 import sys
-import numpy as np
+from statistics import mean
 from test_utils import read_tb_tag, read_e2e_time
 
 
@@ -17,7 +17,7 @@ def _create_baseline(loss, train_time, e2e_time):
         "step_interval": intervals[0],
         "loss_values": list(loss.values()),
         "step_times": list(train_time.values()),
-        "step_time_avg": np.mean(list(train_time.values())),
+        "step_time_avg": mean(list(train_time.values())),
         "e2e_time_seconds": e2e_time,
     }
     return baseline
