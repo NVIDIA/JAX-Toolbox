@@ -168,12 +168,17 @@ jobs:
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/pytest/create_baseline.py $SUBDIR # create result json in baseline format
           done
+
           (
           cat << EOF
+
           ## PAX MGMN Test Metrics
+
           $(for i in *_metrics.json; do echo $i | cut -d'.' -f1; echo '```json'; jq . $i; echo '```'; done)
+
           EOF 
           ) >> $GITHUB_STEP_SUMMARY
+
           RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/pytest/test_pax_mgmn_metrics.py || true
 
       - name: Upload metrics test json logs
