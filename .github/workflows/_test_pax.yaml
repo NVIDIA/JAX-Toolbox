@@ -162,6 +162,7 @@ jobs:
       - name: Run pytest
         shell: bash -x {0}
         run: |
+          pip install pytest pytest-reportlog tensorboard
           for i in ${GITHUB_RUN_ID}-*DP*TP*PP; do
             SUBDIR=$(echo $i | cut -d'-' -f2)
             mv $i/$SUBDIR* .
