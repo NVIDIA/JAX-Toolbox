@@ -113,7 +113,7 @@ jobs:
       SCRIPT: |
         EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*TP*PP/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-        FAILED_TESTS=$(jq -r '. | select ((.state == "FAILED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
 
         echo "Test statuses:"
