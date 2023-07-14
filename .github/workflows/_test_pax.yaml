@@ -175,7 +175,7 @@ jobs:
             echo '```json'
             jq . $i
             echo '```'
-          done | tee $GITHUB_STEP_SUMMARY
+          done | tee -a $GITHUB_STEP_SUMMARY
 
           RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/pytest/test_pax_mgmn_metrics.py || true
 
