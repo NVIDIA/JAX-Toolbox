@@ -162,6 +162,7 @@ jobs:
       - name: Run pytest
         shell: bash -x {0}
         run: |
+          pip install pytest pytest-reportlog tensorboard
           for i in ${GITHUB_RUN_ID}-*DP*TP*PP; do
             SUBDIR=$(echo $i | cut -d'-' -f2)
             mv $i/$SUBDIR* .
@@ -173,7 +174,6 @@ jobs:
           $(for i in *_metrics.json; do echo $i | cut -d'.' -f1; echo '```json'; jq . $i; echo '```'; done)
           EOF 
           ) >> $GITHUB_STEP_SUMMARY
-          pip install pytest pytest-reportlog tensorboard
           RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/pytest/test_pax_mgmn_metrics.py || true
 
       - name: Upload metrics test json logs
