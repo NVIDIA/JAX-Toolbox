@@ -67,9 +67,9 @@ See [example_slurm_pile.sub](https://github.com/google/paxml/blob/main/paxml/con
 
 To launch `example_slurm_pile.sub`, simply run the following command: 
 ```
-sbatch paxml/contrib/gpu/scripts_gpu/example_slurm_pretrain_pile.sub
+BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> sbatch paxml/contrib/gpu/scripts_gpu/example_slurm_pretrain_pile.sub
 ```
-Also, be sure to change the paths in `example_slurm_pretrain_pile.sub` to match your setup.
+where `BASE_WORKSPACE_DIR`, `BASE_TFDS_DATA_DIR`, and `BASE_VOCAB_PATH` are absolute paths and `LOG_DIR` and `OUTPUT_DIR` are relative to `BASE_WORKSPACE_DIR`.
     
 ### Customized Runs
 Paxml's [main.py](https://github.com/google/paxml/blob/main/paxml/main.py) takes an experiment config as a command-line argument via the `--exp` flag. To control which model to run, swap out the experiment config passed to `main.py`. For example, in [run_pile_multinode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh), we run the experiment [Pile126M](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/configs.py#L177-L181):
