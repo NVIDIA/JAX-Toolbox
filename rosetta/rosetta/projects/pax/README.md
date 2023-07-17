@@ -38,7 +38,7 @@ the source within the container. Here are some examples:
 
 ```bash
 # (Interactive = already in container): navigate to paxml/contrib/gpu/scripts_gpu/
-cd $(python -c 'import paxml; print(*paxml.__path__)'))../paxml/contrib/gpu/scripts_gpu
+cd $(python -c 'import paxml; print(paxml.__path__[0])')/../paxml/contrib/gpu/scripts_gpu
 
 # (Non-interactive): View paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh
 FILE=paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh
