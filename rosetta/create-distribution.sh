@@ -107,6 +107,20 @@ fi
 #################
 # Apply patches #
 #################
+fork-point() {
+  main=$1
+  feat_branch=$2
+  # 1. Try to find the common base commit assuming the refs are un-merged
+  base=$(git merge-base ${main} ${feat_branch})
+  if [[ $base != $(git rev-parse ${main}) && $base != $(git rev-parse ${feat_branch}) ]]; then
+    echo $base
+    return
+  fi
+  # 2. The refs are merged somehow, need to find the merge commit
+  echo "[WARNING] One of these two refs ('$main' or '$feat_branch') were merged into the other. Trying to come up with fork-point assuming possible merge-commit." >&2
+  merge_commit=$(git rev-list --ancestry-path ${feat_branch}..${main}  | tail -n1)
+  git merge-base ${merge_commit}^ ${feat_branch}^
+}
 UPSTREAM_REMOTE_NAME=upstream
 if git remote show ${UPSTREAM_REMOTE_NAME} &>/dev/null; then
   git remote remove ${UPSTREAM_REMOTE_NAME}
@@ -132,7 +146,7 @@ for line in $(cat ${PATCH_LIST}); do
     # Fetch both the feature branch and main so that we can cherry pick the entire branch
     branch=${REMOTE_NAME}/${git_ref}-tmp-rosetta
   fi
-  fork_point=$(git merge-base ${REMOTE_NAME}/main ${branch})
+  fork_point=$(fork-point ${REMOTE_NAME}/main ${branch})
   ret_code=0
   git cherry-pick ${fork_point}..${branch} || ret_code=$?
   if [[ ${ret_code} -ne 0 ]]; then
