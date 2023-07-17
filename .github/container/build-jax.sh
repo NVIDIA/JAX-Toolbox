@@ -238,7 +238,7 @@ apt-get install -y \
     wget \
     curl
 
-pip install wheel pre-commit mypy numpy
+pip install wheel pre-commit mypy numpy build
 
 ## Build jaxlib
 
