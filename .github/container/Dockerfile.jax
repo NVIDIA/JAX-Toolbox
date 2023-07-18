@@ -61,14 +61,16 @@ COPY --from=jax-builder ${SRC_PATH_JAX}-no-git ${SRC_PATH_JAX}
 COPY --from=jax-builder ${SRC_PATH_XLA}-no-git ${SRC_PATH_XLA}
 COPY --from=jax-builder ${SRC_PATH_TE}-no-git ${SRC_PATH_TE}
 
+RUN <<EOF
 # Transformer Engine installation dependencies
-RUN pip install --no-cache-dir pybind11 ninja packaging && rm -rf ~/.cache/pip/
+pip install --no-cache-dir pybind11 ninja packaging
 # Install JAX + Transformer Engine
-RUN NVTE_FRAMEWORK=jax pip --disable-pip-version-check install -e \
-        ${SRC_PATH_JAX}/dist/*.whl \
-        ${SRC_PATH_JAX} \
-        ${SRC_PATH_TE} \
-    && rm -rf ~/.cache/pip/
+NVTE_FRAMEWORK=jax pip --disable-pip-version-check --no-cache-dir install -e \
+    ${SRC_PATH_JAX}/dist/*.whl \
+    ${SRC_PATH_JAX} \
+    ${SRC_PATH_TE}
+rm -rf ~/.cache/pip/
+EOF
 
 # Install software stack in JAX ecosystem
 # Made this optional since tensorstore cannot build on Ubuntu 20.04 + ARM
