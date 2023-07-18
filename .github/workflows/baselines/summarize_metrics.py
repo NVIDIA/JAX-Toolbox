@@ -6,7 +6,7 @@ from statistics import mean
 from test_utils import read_tb_tag, read_e2e_time
 
 
-def _create_baseline(loss, train_time, e2e_time):
+def _create_summary(loss, train_time, e2e_time):
     steps = list(loss.keys())
     intervals = [k2 - k1 for k1, k2 in zip(loss.keys(), steps[1:])]
     assert all(i == intervals[0] for i in intervals)
@@ -38,7 +38,7 @@ def main():
         train_time = read_tb_tag(event_file, train_time_summary_name)
         e2e_time = read_e2e_time(test_config + ".log")
 
-        baseline = _create_baseline(loss, train_time, e2e_time)
+        baseline = _create_summary(loss, train_time, e2e_time)
         json_fname = test_config + "_metrics.json"
         with open(json_fname, "w") as f:
             json.dump(baseline, f)

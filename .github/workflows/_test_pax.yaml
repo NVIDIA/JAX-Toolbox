@@ -166,7 +166,7 @@ jobs:
           for i in ${GITHUB_RUN_ID}-*DP*TP*PP; do
             SUBDIR=$(echo $i | cut -d'-' -f2)
             mv $i/$SUBDIR* .
-            python3 .github/workflows/baselines/pytest/create_baseline.py $SUBDIR # create result json in baseline format
+            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
           done
 
           echo '## PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
@@ -177,7 +177,7 @@ jobs:
             echo '```'
           done | tee -a $GITHUB_STEP_SUMMARY
 
-          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/pytest/test_pax_mgmn_metrics.py || true
+          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v3
