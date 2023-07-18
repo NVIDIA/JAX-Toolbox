@@ -6,7 +6,9 @@ usage() {
 }
 
 if [[ -z $GH_TOKEN ]]; then
-  echo "GH_TOKEN env var must be set to download artifacts. Please export the GH_TOKEN var."  # TODO: add token creation URL to message
+  echo "GH_TOKEN env var must be set to download artifacts. Please export the GH_TOKEN var."
+  echo "You can create a personal access token here: https://github.com/settings/tokens"
+  echo "For more information, see GitHub official docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
   exit 1
 fi
 
