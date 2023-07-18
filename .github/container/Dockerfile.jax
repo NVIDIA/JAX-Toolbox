@@ -1,10 +1,13 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
 ARG REPO_JAX="https://github.com/google/jax.git"
 ARG REPO_XLA="https://github.com/openxla/xla.git"
+ARG REPO_TE="https://github.com/NVIDIA/TransformerEngine.git"
 ARG REF_JAX=main
 ARG REF_XLA=main
-ARG SRC_PATH_JAX=/opt/jax-source
+ARG REF_TE=main
 ARG SRC_PATH_XLA=/opt/xla-source
+ARG SRC_PATH_JAX=/opt/jax-source
+ARG SRC_PATH_TE=/opt/transformer-engine
 ARG BAZEL_CACHE=/tmp
 ARG BUILD_DATE
 
@@ -15,16 +18,20 @@ ARG BUILD_DATE
 FROM ${BASE_IMAGE} as jax-builder
 ARG REPO_JAX
 ARG REPO_XLA
+ARG REPO_TE
 ARG REF_JAX
 ARG REF_XLA
+ARG REF_TE
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
+ARG SRC_PATH_TE
 ARG BAZEL_CACHE
 
 RUN git clone "${REPO_JAX}" "${SRC_PATH_JAX}" && cd "${SRC_PATH_JAX}" && git checkout ${REF_JAX}
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
+RUN git clone "${REPO_TE}" "${SRC_PATH_TE}" && cd "${SRC_PATH_TE}" && git checkout ${REF_TE} && git submodule init && git submodule update --recursive
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 RUN build-jax.sh \
@@ -36,6 +43,7 @@ RUN build-jax.sh \
 
 RUN cp -r ${SRC_PATH_JAX} ${SRC_PATH_JAX}-no-git && rm -rf ${SRC_PATH_JAX}-no-git/.git
 RUN cp -r ${SRC_PATH_XLA} ${SRC_PATH_XLA}-no-git && rm -rf ${SRC_PATH_XLA}-no-git/.git
+RUN cp -r ${SRC_PATH_TE} ${SRC_PATH_TE}-no-git && rm -rf ${SRC_PATH_TE}-no-git/.git
 
 ###############################################################################
 ## Build 'runtime' flavor without the git metadata
@@ -45,15 +53,22 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as runtime-image
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
+ARG SRC_PATH_TE
 ARG BUILD_DATE
 ENV BUILD_DATE=${BUILD_DATE}
 
 COPY --from=jax-builder ${SRC_PATH_JAX}-no-git ${SRC_PATH_JAX}
 COPY --from=jax-builder ${SRC_PATH_XLA}-no-git ${SRC_PATH_XLA}
+COPY --from=jax-builder ${SRC_PATH_TE}-no-git ${SRC_PATH_TE}
 
-RUN pip --disable-pip-version-check install ${SRC_PATH_JAX}/dist/*.whl && \
-    pip --disable-pip-version-check install -e ${SRC_PATH_JAX} && \
-    rm -rf ~/.cache/pip/
+# Transformer Engine installation dependencies
+RUN pip install --no-cache-dir pybind11 ninja packaging && rm -rf ~/.cache/pip/
+# Install JAX + Transformer Engine
+RUN NVTE_FRAMEWORK=jax pip --disable-pip-version-check install -e \
+        ${SRC_PATH_JAX}/dist/*.whl \
+        ${SRC_PATH_JAX} \
+        ${SRC_PATH_TE} \
+    && rm -rf ~/.cache/pip/
 
 # Install software stack in JAX ecosystem
 # Made this optional since tensorstore cannot build on Ubuntu 20.04 + ARM
@@ -69,8 +84,10 @@ RUN { pip install flax || true; } && rm -rf ~/.cache/pip
 FROM runtime-image as devel-image
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
+ARG SRC_PATH_TE
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 COPY --from=jax-builder ${SRC_PATH_JAX}/.git ${SRC_PATH_JAX}/.git
 COPY --from=jax-builder ${SRC_PATH_XLA}/.git ${SRC_PATH_XLA}/.git
+COPY --from=jax-builder ${SRC_PATH_TE}/.git ${SRC_PATH_TE}/.git
