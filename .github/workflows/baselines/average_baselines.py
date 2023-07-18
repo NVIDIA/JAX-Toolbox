@@ -17,8 +17,13 @@ def main():
         with open(fname, "r") as f:
             src_data.append(json.load(f))
 
-    # TODO: Ensure start step, end step, interval equal across runs
-    assert ...
+    # Ensure start step, end step, interval equal across runs
+    src_data
+    for k in ["start_step", "end_step", "step_interval"]:
+        values = [metrics[k] for metrics in src_data]
+        print("checking equality for", k)
+        print(values)
+        assert all([v == values[0] for v in values])
 
     # Gather metrics across dirs
     avg_data = src_data[0].copy()  # Use first metrics dict as a template
