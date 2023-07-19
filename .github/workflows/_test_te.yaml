@@ -49,8 +49,14 @@ jobs:
       - name: Run JAX-TE unit tests with docker
         shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log jax:te bash -x /cmd.sh
         run: |
-          pip install pytest pytest-reportlog cuda-python
+          # TE test reqs
+          TEST_REQS="pytest-reportlog"
           TE_PATH=$(dirname $(python -c "import transformer_engine as te; print(*te.__path__)"))
+          if ! pip show praxis >/dev/null 2>&1; then
+            TEST_REQS+=" fiddle git+https://github.com/google/praxis"
+          fi
+          # SKIP_HEAD_INSTALL avoids having to install jax/fiddle at head which overwrites existing installations
+          SKIP_HEAD_INSTALLS=1 NVTE_FRAMEWORK=jax pip install -e ${TE_PATH}[test] $TEST_REQS
           pytest --report-log=/log/report.jsonl ${TE_PATH}/tests/jax || true
 
       - name: Upload unit test json logs
