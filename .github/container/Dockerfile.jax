@@ -5,8 +5,8 @@ ARG REPO_TE="https://github.com/NVIDIA/TransformerEngine.git"
 ARG REF_JAX=main
 ARG REF_XLA=main
 ARG REF_TE=main
-ARG SRC_PATH_XLA=/opt/xla-source
 ARG SRC_PATH_JAX=/opt/jax-source
+ARG SRC_PATH_XLA=/opt/xla-source
 ARG SRC_PATH_TE=/opt/transformer-engine
 ARG BAZEL_CACHE=/tmp
 ARG BUILD_DATE
