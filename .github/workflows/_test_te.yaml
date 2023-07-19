@@ -8,7 +8,7 @@ on:
         type: string
         description: 'JAX-TE image build by NVIDIA/JAX-Toolbox'
         required: true
-        default: 'ghcr.io/nvidia/jax-te:latest'
+        default: 'ghcr.io/nvidia/jax:latest'
     outputs:
       UNIT_TEST_ARTIFACT_NAME:
         description: 'Name of the unit test artifact for downstream workflows'
