@@ -65,8 +65,8 @@ RUN <<EOF
 # Transformer Engine installation dependencies
 pip install --no-cache-dir pybind11 ninja packaging
 # Install JAX + Transformer Engine
+pip --disable-pip-version-check --no-cache-dir install ${SRC_PATH_JAX}/dist/*.whl
 NVTE_FRAMEWORK=jax pip --disable-pip-version-check --no-cache-dir install -e \
-    ${SRC_PATH_JAX}/dist/*.whl \
     ${SRC_PATH_JAX} \
     ${SRC_PATH_TE}
 rm -rf ~/.cache/pip/
