@@ -10,12 +10,12 @@ on:
         required: false
         default: 'nvidia/cuda:12.1.1-devel-ubuntu22.04'
       SRC_JAX:
-        description: 'JAX source: <repo>#<branch|tag|commit|PR>'
+        description: 'JAX source: <repo>#<branch|tag|commit|PR no.>'
         type: string
         required: true
         default: 'https://github.com/google/jax.git#main'
       SRC_XLA:
-        description: 'XLA source: <repo>#<branch|tag|commit|PR>'
+        description: 'XLA source: <repo>#<branch|tag|commit|PR no.>'
         type: string
         required: true
         default: 'https://github.com/openxla/xla.git#main'
@@ -86,7 +86,11 @@ jobs:
             DEFAULT="$3"
             SRC="${INPUT:-${DEFAULT}}"
             echo "REPO_${PACKAGE}=$(echo "${SRC}" | cut -f1 -d#)" >> $GITHUB_OUTPUT
-            echo "REF_${PACKAGE}=$(echo "${SRC}"  | cut -f2 -d#)" >> $GITHUB_OUTPUT
+            GIT_REF="$(echo "${SRC}" | cut -f2 -d#)"
+            if [[ $GIT_REF =~ ^[1-9][0-9]*$ ]]; then
+              GIT_REF=pull/$GIT_REF/head
+            fi
+            echo "REF_${PACKAGE}=${GIT_REF}" >> $GITHUB_OUTPUT
           }
 
           # default values are for `pull_request`` event types
