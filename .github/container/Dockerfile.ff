@@ -1,0 +1,92 @@
+# syntax=docker/dockerfile:1-labs
+###############################################################################
+## This is a development Dockerfile that fast-fowards dependencies to allow
+## testing last HEAD changes of a few dependencies in an older image
+##
+## Any linear scan or bisection happens outside of this image, since the
+## test to determine whether the image is functional or not may depend on
+## more sophisticated testing process, e.g., submitting to slurm.
+###############################################################################
+
+# The broken image is used to extract metadata
+ARG BROKEN_IMAGE
+# The base image that we are going to fast-forward
+ARG BASE_IMAGE
+
+FROM ${BROKEN_IMAGE} AS broken
+
+RUN <<"EOF" bash -e
+echo $BUILD_DATE >/build_date
+for repo in $(find /opt -mindepth 1 -maxdepth 1 -type d); do
+  if [[ ! -d $repo/.git ]]; then
+    continue
+  fi
+  echo -e "$repo\t$(git -C $repo rev-parse HEAD)" >>/ff.txt
+done
+EOF
+
+FROM ${BASE_IMAGE} AS ff-image
+# Space separated string where each item is a repo dir JAX-Toolbox installed
+# Example:
+#  --build-arg REPO_DIRS="/opt/t5x /opt/flax"
+ARG REPO_DIRS=""
+
+COPY --from=broken /build_date /build_date
+COPY --from=broken /ff.txt /ff.txt
+
+RUN <<"EOF" bash -e
+ALL_DIRS=${REPO_DIRS}
+if [[ -z "$ALL_DIRS" ]]; then
+  ALL_DIRS="$(find /opt -mindepth 1 -maxdepth 1 -type d)"
+fi
+for repo in $ALL_DIRS; do
+  if [[ ! -d $repo/.git ]]; then
+    continue
+  fi
+  ff_git_ref=$(fgrep $repo /ff.txt | cut -f2)
+  if [[ -z "$ff_git_ref" ]]; then
+    echo "[ERROR]: There is no commit for $repo to FF to:"
+    cat /ff.txt
+    exit 1
+  fi
+  cd $repo
+  # Create a branch for reference of the previous HEAD commit
+  git branch --force previous-HEAD HEAD
+  git branch --force $BUILD_DATE previous-HEAD  # alias
+  # Grab latest update from remote, since FF commit is likely farther ahead then current main/HEAD
+  git fetch -a
+  # Checkout a new branch at this FF git ref
+  git checkout -b ff-to-$(cat /build_date) $ff_git_ref
+done
+EOF
+
+COPY --chmod=755 <<"EOF" /usr/local/bin/ff-summary
+#!/bin/bash
+
+for repo in $(find /opt -mindepth 1 -maxdepth 1 -type d | sort); do
+  if [[ ! -d $repo/.git ]]; then
+    continue
+  fi
+  cd $repo
+  SUMMARY=""
+  if ! git show previous-HEAD >/dev/null 2>&1; then
+    SUMMARY="(UNCHANGED)"
+  elif [[ $(git rev-parse HEAD) == $(git rev-parse previous-HEAD) ]]; then
+    SUMMARY="(HEAD == previous-HEAD)"
+  fi
+  echo "======================================================================================="
+  echo "[Repo]: $repo $SUMMARY"
+  echo "======================================================================================="
+  echo "**********"
+  echo "** HEAD **"
+  echo "**********"
+  git -C $repo show --quiet --format="commit %H%d%nAuthor: %an <%ae>%nCommit: %cn <%ce>%nDate: %ad%n%n%s%n%b" HEAD
+  if [[ "$SUMMARY" == "(UNCHANGED)" ]]; then
+    continue
+  fi
+  echo "*******************"
+  echo "** previous-HEAD **"
+  echo "*******************"
+  git -C $repo show --quiet --format="commit %H%d%nAuthor: %an <%ae>%nCommit: %cn <%ce>%nDate: %ad%n%n%s%n%b" previous-HEAD
+done
+EOF
