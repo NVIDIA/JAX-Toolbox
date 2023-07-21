@@ -32,7 +32,7 @@ Pax models require a pretrained SentencePiece model to tokenize the datasets. Th
 gsutil -m cp -r gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model .
 ```
 
-<span style="background-color: lightgray">_NOTE_: We are aware of an existing permissions limitation that prevents users from downloading the SentencePiece model using the above instructions. We are actively working to resolve this, but in the meantime, the SP model file can be downloaded as part of the full C4 dataset download [here](https://cloud.mlcommons.org/index.php/s/dataset_c4_spm). Note that accessing the SP model using this method will require downloading the full C4 dataset. </span>
+_NOTE_: We are aware of an existing permissions limitation that prevents users from downloading the SentencePiece model using the above instructions. We are actively working to resolve this, but in the meantime, the SP model file can be downloaded as part of the full C4 dataset download [here](https://cloud.mlcommons.org/index.php/s/dataset_c4_spm). Note that accessing the SP model using this method will require downloading the full C4 dataset.
 
 ## Inspecting the source code
 If you would like to inspect Pax's source code (`paxml/*` and `praxis/*`) to learn more about what is being run, you can do so by inspecting
