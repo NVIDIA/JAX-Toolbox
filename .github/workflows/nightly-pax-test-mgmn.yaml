@@ -105,7 +105,7 @@ jobs:
   publish-completion:
     needs: [metadata, run-jobs]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    if: ( success() || failure() ) && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'pax-test-completion-status.json'
@@ -127,7 +127,11 @@ jobs:
           BADGE_COLOR=yellow
         fi
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+        if [[ ${{ needs.run-jobs.result }} == "success" ]]; then
+          echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+        else
+          echo "MESSAGE='n/a'" >> $GITHUB_OUTPUT
+        fi
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
   if-upstream-failed:
