@@ -129,10 +129,11 @@ jobs:
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
         if [[ ${{ needs.run-jobs.result }} == "success" ]]; then
           echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+          echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
         else
           echo "MESSAGE='n/a'" >> $GITHUB_OUTPUT
+          echo "COLOR='red'" >> $GITHUB_OUTPUT
         fi
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
   if-upstream-failed:
     runs-on: ubuntu-latest
