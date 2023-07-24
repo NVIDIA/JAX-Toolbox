@@ -86,13 +86,24 @@ jobs:
               --steps-per-epoch 100
           EOF
           )
+          echo "SLURM Partition Status"
+          sshx sinfo
 
           set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
+          while true; do 
+            sshx 'tail -f ${{ steps.meta.outputs.LOG_FILE }} 2>/dev/null || echo "[WARNING]: sbatch_output=${{ steps.meta.outputs.LOG_FILE }} not created yet"'
+            sleep 15
+          done &
+          tail_pid=$!
+
+          STATE=$(sshx "squeue -j $JOB -o '%T' --noheader 2>/dev/null")
+          while [[ -n "$STATE" ]]; do
+            STATE=$(sshx "squeue -j $JOB -o '%T' --noheader 2>/dev/null")
+            echo "$JOB is ${STATE:-n/a}"
             sleep 15
           done
           echo "SLRUM Job $JOB finished."
+          kill $tail_pid
           set -x
 
       - name: Retrieve training logs and upload to TensorBoard server
@@ -189,13 +200,24 @@ jobs:
               --multiprocess
           EOF
           )
+          echo "SLURM Partition Status"
+          sshx sinfo
 
           set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
+          while true; do 
+            sshx 'tail -f ${{ steps.meta.outputs.LOG_FILE }} 2>/dev/null || echo "[WARNING]: sbatch_output=${{ steps.meta.outputs.LOG_FILE }} not created yet"'
+            sleep 15
+          done &
+          tail_pid=$!
+
+          STATE=$(sshx "squeue -j $JOB -o '%T' --noheader 2>/dev/null")
+          while [[ -n "$STATE" ]]; do
+            STATE=$(sshx "squeue -j $JOB -o '%T' --noheader 2>/dev/null")
+            echo "$JOB is ${STATE:-n/a}"
             sleep 15
           done
           echo "SLRUM Job $JOB finished."
+          kill $tail_pid
           set -x
 
       - name: Retrieve training logs and upload to TensorBoard server
