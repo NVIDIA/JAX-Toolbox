@@ -66,3 +66,21 @@ We currently enable training and evaluation for the following models:
 | [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
 
 We will update this table as new models become available, so stay tuned.
+
+## Environment Variables
+
+The [JAX image](ghcr.io/nvidia/jax) is embedded with the following flags and environment variables for performance tuning:
+
+| XLA Flags | Value | Explanation |
+| --------- | ----- | ----------- |
+| `--xla_gpu_enable_latency_hiding_scheduler` | `true`  | allows XLA to move communication collectives to increase overlap with compute kernels |
+| `--xla_gpu_enable_async_all_gather` | `true` | allows XLA to run NCCL [AllGather](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/operations.html#allgather) kernels on a separate CUDA stream to allow overlap with compute kernels |
+| `--xla_gpu_enable_async_reduce_scatter` | `true` | allows XLA to run NCCL [ReduceScatter](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/operations.html#reducescatter) kernels on a separate CUDA stream to allow overlap with compute kernels |
+| `--xla_gpu_enable_triton_gemm` | `false` | use cuBLAS instead of Trition GeMM kernels |
+
+| Environment Variable | Value | Explanation |
+| -------------------- | ----- | ----------- |
+| `CUDA_DEVICE_MAX_CONNECTIONS` | `1` | use a single queue for GPU work to lower latency of stream operations; OK since XLA already orders launches |
+| `NCCL_AVOID_RECORD_STREAMS` | `1` | **undocumented** |
+| `NCCL_IB_SL` | `1` | defines the InfiniBand Service Level ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-sl)) |
+|  |  |  |
