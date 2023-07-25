@@ -23,7 +23,7 @@ env:
 
 jobs:
   te-unit-tests:
-    runs-on: [self-hosted, compute, V100]
+    runs-on: [self-hosted, V100]
     outputs:
       UNIT_TEST_ARTIFACT_NAME: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
     steps:

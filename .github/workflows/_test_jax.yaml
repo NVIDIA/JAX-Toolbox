@@ -19,7 +19,7 @@ env:
 jobs:
 
   unit-test:
-    runs-on: [self-hosted, compute, V100]
+    runs-on: [self-hosted, V100]
     outputs:
       ARTIFACT_NAME: ${{ env.ARTIFACT_NAME }}
     steps:
