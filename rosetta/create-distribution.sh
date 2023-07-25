@@ -112,14 +112,36 @@ fork-point() {
   feat_branch=$2
   # 1. Try to find the common base commit assuming the refs are un-merged
   base=$(git merge-base ${main} ${feat_branch})
-  if [[ $base != $(git rev-parse ${main}) && $base != $(git rev-parse ${feat_branch}) ]]; then
+  if [[ $base != $(git rev-parse ${feat_branch}) ]]; then
     echo $base
     return
   fi
-  # 2. The refs are merged somehow, need to find the merge commit
+  # 2. The refs are merged somehow b/c feat_branch is an ancestor of main; need to find the merge commit
   echo "[WARNING] One of these two refs ('$main' or '$feat_branch') were merged into the other. Trying to come up with fork-point assuming possible merge-commit." >&2
   merge_commit=$(git rev-list --ancestry-path ${feat_branch}..${main}  | tail -n1)
   git merge-base ${merge_commit}^ ${feat_branch}^
+}
+apply-patches() {
+  from=$1
+  to=$2
+  # Normally we'd apply the changes with git cherry-pick, but we need to check if there are merge commits
+  num_merge_commits=$(git rev-list --min-parents=2 --count $from..$to)
+  if [[ $num_merge_commits -gt 0 ]]; then
+    echo "[WARNING] There are merge commits between ${from}..${to}. Linearizing history before cherry-picking to remove merge-commits" >&2
+    # Make a tmp branch for the linear history
+    git checkout -b tmp-linear-tmp $to
+    # This will create a linear history
+    git rebase $from
+    # switch back to the rosetta-distribution branch
+    git checkout -
+    to=tmp-linear-tmp
+  fi
+  git cherry-pick ${from}..${to}
+  ret_code=$?
+  if [[ $to == tmp-linear-tmp ]]; then
+    git branch -D tmp-linear-tmp
+  fi
+  return $ret_code
 }
 UPSTREAM_REMOTE_NAME=upstream
 if git remote show ${UPSTREAM_REMOTE_NAME} &>/dev/null; then
@@ -148,7 +170,7 @@ for line in $(cat ${PATCH_LIST}); do
   fi
   fork_point=$(fork-point ${REMOTE_NAME}/main ${branch})
   ret_code=0
-  git cherry-pick ${fork_point}..${branch} || ret_code=$?
+  apply-patches ${fork_point} ${branch} || ret_code=$?
   if [[ ${ret_code} -ne 0 ]]; then
     cat <<EOF
 [ERROR]: Tried patching commits from ${fork_point}..${branch} errored. Some possibilities include:
