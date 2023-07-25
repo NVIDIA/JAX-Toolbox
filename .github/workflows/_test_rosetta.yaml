@@ -22,7 +22,7 @@ jobs:
       matrix:
         TEST_TYPE: ["unit", "integration"]
       fail-fast: false
-    runs-on: [self-hosted, compute, V100]
+    runs-on: [self-hosted, V100]
     outputs:
       TEST_ARTIFACT_NAME: ${{ env.TEST_ARTIFACT_NAME }}
     steps:
