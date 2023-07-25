@@ -14,7 +14,7 @@ jobs:
         with:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
           script: |
-            module.exports = await ({github, context, core}) => {
+            await ({github, context, core}) => {
               const {SHA} = process.env
               const commit = await github.rest.repos.getCommit({
                 owner: "google-research",
