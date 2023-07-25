@@ -51,7 +51,6 @@ ENV XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_a
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_AVOID_RECORD_STREAMS=1
 ENV NCCL_IB_SL=1
-ENV NCCL_PROTO=LL128
 
 COPY --from=jax-builder ${SRC_PATH_JAX}-no-git ${SRC_PATH_JAX}
 COPY --from=jax-builder ${SRC_PATH_XLA}-no-git ${SRC_PATH_XLA}
