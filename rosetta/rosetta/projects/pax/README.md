@@ -32,13 +32,15 @@ Pax models require a pretrained SentencePiece model to tokenize the datasets. Th
 gsutil -m cp -r gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model .
 ```
 
+_NOTE_: We are aware of an existing permissions limitation that prevents users from downloading the SentencePiece model using the above instructions. We are actively working to resolve this, but in the meantime, the SP model file can be downloaded as part of the full C4 dataset download [here](https://cloud.mlcommons.org/index.php/s/dataset_c4_spm). Note that accessing the SP model using this method will require downloading the full C4 dataset.
+
 ## Inspecting the source code
 If you would like to inspect Pax's source code (`paxml/*` and `praxis/*`) to learn more about what is being run, you can do so by inspecting
 the source within the container. Here are some examples:
 
 ```bash
 # (Interactive = already in container): navigate to paxml/contrib/gpu/scripts_gpu/
-cd $(python -c 'import paxml; print(*paxml.__path__)'))../paxml/contrib/gpu/scripts_gpu
+cd $(python -c 'import paxml; print(paxml.__path__[0])')/../paxml/contrib/gpu/scripts_gpu
 
 # (Non-interactive): View paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh
 FILE=paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh
@@ -67,9 +69,9 @@ See [example_slurm_pile.sub](https://github.com/google/paxml/blob/main/paxml/con
 
 To launch `example_slurm_pile.sub`, simply run the following command: 
 ```
-sbatch paxml/contrib/gpu/scripts_gpu/example_slurm_pretrain_pile.sub
+BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> sbatch paxml/contrib/gpu/scripts_gpu/example_slurm_pretrain_pile.sub
 ```
-Also, be sure to change the paths in `example_slurm_pretrain_pile.sub` to match your setup.
+where `BASE_WORKSPACE_DIR`, `BASE_TFDS_DATA_DIR`, and `BASE_VOCAB_PATH` are absolute paths and `LOG_DIR` and `OUTPUT_DIR` are relative to `BASE_WORKSPACE_DIR`.
     
 ### Customized Runs
 Paxml's [main.py](https://github.com/google/paxml/blob/main/paxml/main.py) takes an experiment config as a command-line argument via the `--exp` flag. To control which model to run, swap out the experiment config passed to `main.py`. For example, in [run_pile_multinode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh), we run the experiment [Pile126M](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/configs.py#L177-L181):
