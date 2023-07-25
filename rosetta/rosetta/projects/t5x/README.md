@@ -19,7 +19,7 @@ WORKSPACE_PATH=""  # Path used for run outputs (unspecified = /t5x_home/workspac
 ```
 
 ## Container
-We provide a fully built and ready-to-use container here: [ghcr.io/nvidia/t5x:te-fp8-reference](ghcr.io/nvidia/t5x:te-fp8-reference)  
+We provide a fully built and ready-to-use container here: `ghcr.io/nvidia/t5x:te-fp8-reference`
 
 We **highly** recommend using the pre-built container, but if you'd like to build your own container with all of the gpu/pile dependencies,
 here is how you can build your own:
@@ -51,8 +51,8 @@ If you would like to inspect t5x's source code (`t5x/*`) to learn more about wha
 the source within the container. Here are some examples:
 
 ```bash
-# (Interactive = already in container): navigate to t5x/contrib/gpu/scripts_gpu/
-cd $(python -c 'import t5x; print(*t5x.__path__)'))../t5x/contrib/gpu/scripts_gpu
+# (Interactive = already in container): navigate to t5x/contrib/gpu
+cd $(python -c 'import t5x; print(*t5x.__path__)')/../t5x/contrib/gpu
 
 # (Non-interactive): View t5x/contrib/gpu/Dockerfile
 FILE=t5x/contrib/gpu/Dockerfile
@@ -62,14 +62,16 @@ docker run --entrypoint="" --rm $CONTAINER sh -c 'cat $(python -c "import t5x; p
 ## Single Node runs
 Pretraining and Finetuning can be done with `singlenode_*.sh`. These will build a T5X model with the Adam optimizer and relevant parameters. These will allow multi-gpu on one host.
 
+**Note**: When running interactively, if you encounter shape mismatch issues, check the logs to see if the train script was restoring from a previous checkpoint. Some hyperparameters like batch size are saved in the dataloader state, which when restored may be incompatible with your current run.
+
 ```bash
-# Pretraining (interactive: already inside container)
+# Pretraining (interactive: already inside container) with default args
 bash t5x/contrib/gpu/scripts_gpu/singlenode_pretrain_pile.sh
 
 # Pretraining (non-interactive)
 docker run --rm --gpus=all --net=host --ipc=host -v ${DATASET_PATH}:/t5x_home/datasets $CONTAINER bash t5x/contrib/gpu/scripts_gpu/singlenode_pretrain_pile.sh
 
-# Finetuning (interactive: already inside container)
+# Finetuning (interactive: already inside container) with default args
 bash t5x/contrib/gpu/scripts_gpu/singlenode_ft_frompile.sh
 
 # Finetuning (non-interactive)

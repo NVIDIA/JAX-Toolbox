@@ -148,6 +148,43 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
+  metrics:
+    needs: multi-gpu-multi-node
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Run pytest
+        shell: bash -x {0}
+        run: |
+          pip install pytest pytest-reportlog tensorboard
+          for i in ${GITHUB_RUN_ID}-*DP*TP*PP; do
+            SUBDIR=$(echo $i | cut -d'-' -f2)
+            mv $i/$SUBDIR* .
+            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
+          done
+
+          echo '## PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
+          for i in *_metrics.json; do
+            echo $i | cut -d'.' -f1
+            echo '```json'
+            jq . $i
+            echo '```'
+          done | tee -a $GITHUB_STEP_SUMMARY
+
+          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
+
+      - name: Upload metrics test json logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: metrics-test-log
+          path: report.jsonl
+
   summary:
     runs-on: ubuntu-22.04
 
@@ -159,7 +196,7 @@ jobs:
 
           ## PAX MGMN training
 
-          [view metrics](http://${{ vars.HOSTNAME_TENSORBOARD }}:6006/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
