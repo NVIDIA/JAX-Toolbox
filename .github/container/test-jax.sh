@@ -25,7 +25,9 @@ jax_source_dir() {
 
 query_tests() {
     cd `jax_source_dir`
-    $(ls build/bazel-*) query tests/... 2>&1 | grep -F '//tests:'
+    python build/build.py --configure_only
+    BAZEL=$(find -type f -executable -name "bazel-*")
+    $BAZEL query tests/... 2>&1 | grep -F '//tests:'
     exit
 }
 
@@ -173,5 +175,6 @@ pip install matplotlib
 ## Run tests
 
 cd `jax_source_dir`
-BAZEL=`python -c 'from build import build; print(build.download_and_verify_bazel())' | tail -n 1`
+python build/build.py --configure_only
+BAZEL=$(find -type f -executable -name "bazel-*")
 $BAZEL test ${BAZEL_TARGET} ${COMMON_FLAGS} ${EXTRA_FLAGS}
