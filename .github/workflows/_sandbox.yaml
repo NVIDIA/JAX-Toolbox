@@ -12,14 +12,11 @@ jobs:
         with:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
           script: |
-            await ({github, context, core}) => {
-              const commit = async github.rest.repos.getCommit({
+              github.rest.repos.getCommit({
                 owner: "google-research",
                 repo: "t5x",
                 ref: "main",
               })
-              core.exportVariable('author', commit.data.commit.author.email)
-            }
   sandbox:
     runs-on: ubuntu-22.04
     steps:
