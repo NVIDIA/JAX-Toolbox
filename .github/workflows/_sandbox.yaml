@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: git test
+        id: git-meta
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
@@ -17,6 +18,8 @@ jobs:
                 repo: "t5x",
                 ref: "main",
               })
+      - name: print
+        run: echo ${{ steps.git-meta.outputs.result }}
   sandbox:
     runs-on: ubuntu-22.04
     steps:
