@@ -10,6 +10,8 @@ jobs:
         include:
           - owner: google-research
             repo: t5x
+          - owner: google
+            repo: praxis
     runs-on: ubuntu-22.04
     steps:
       - name: git test
