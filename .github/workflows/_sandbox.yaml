@@ -12,6 +12,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          result-encoding: string
           script: |
               github.rest.repos.getCommit({
                 owner: "google-research",
