@@ -9,8 +9,6 @@ jobs:
     steps:
       - name: git test
         uses: actions/github-script@v6
-        env:
-          SHA: "TEST"
         with:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
           script: |
