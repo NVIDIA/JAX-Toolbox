@@ -11,8 +11,6 @@ jobs:
         id: git-meta
         uses: actions/github-script@v6
         with:
-          #github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
-          #result-encoding: string
           script: |
             return github.rest.repos.getCommit({
               owner: "google-research",
@@ -21,7 +19,7 @@ jobs:
             })
 
       - name: print
-        run: echo ${{ steps.git-meta.outputs.result }}
+        run: echo ${{ steps.git-meta.outputs.result }} | jq -r .sha
   sandbox:
     runs-on: ubuntu-22.04
     steps:
