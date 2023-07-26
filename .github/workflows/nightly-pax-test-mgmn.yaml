@@ -2,9 +2,9 @@ name: Nightly Pax MGMN performance test
 
 on:
   workflow_run:
-    workflows: [Nightly Pax build]
+    workflows: [~Sandbox]
     types: [completed]
-    branches: [main]
+    branches: [pax-badge-fail-missed]
   workflow_dispatch:
     inputs:
       PAX_IMAGE:
