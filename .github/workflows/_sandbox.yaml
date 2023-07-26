@@ -11,14 +11,14 @@ jobs:
         id: git-meta
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          #github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
           result-encoding: string
           script: |
-              github.rest.repos.getCommit({
-                owner: "google-research",
-                repo: "t5x",
-                ref: "main",
-              })
+            github.rest.repos.getCommit({
+              owner: "google-research",
+              repo: "t5x",
+              ref: "main",
+            })
       - name: print
         run: echo ${{ steps.git-meta.outputs.result }}
   sandbox:
