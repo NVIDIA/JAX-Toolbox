@@ -5,6 +5,11 @@ on:
 
 jobs:
   git-test:
+    strategy:
+      matrix:
+        include:
+          - owner: google-research
+            repo: t5x
     runs-on: ubuntu-22.04
     steps:
       - name: git test
@@ -12,10 +17,14 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
+            //const { owner, repo } = process.env
             return github.rest.repos.getCommit({
-              owner: "google-research",
-              repo: "t5x",
+              //owner: `${owner}`,
+              //repo: `${repo}`,
+              owner: "${{ matrix.owner }}",
+              repo: "${{ matrix.repo }}",
               ref: "main"
+              
             })
 
       - name: print
