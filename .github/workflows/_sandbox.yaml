@@ -12,6 +12,16 @@ jobs:
             repo: t5x
           - owner: google
             repo: praxis
+          - owner: google
+            repo: paxml
+          - owner: google
+            repo: flax
+          - owner: google
+            repo: jax
+          - owner: openxla
+            repo: xla
+          - owner: NVIDIA
+            repo: TransformerEngine
     runs-on: ubuntu-22.04
     steps:
       - name: git test
@@ -19,14 +29,10 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            //const { owner, repo } = process.env
             return github.rest.repos.getCommit({
-              //owner: `${owner}`,
-              //repo: `${repo}`,
               owner: "${{ matrix.owner }}",
               repo: "${{ matrix.repo }}",
               ref: "main"
-              
             })
 
       - name: print
