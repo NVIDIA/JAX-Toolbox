@@ -1,4 +1,4 @@
-name: "~Sandbox"
+name: "Sandbox"
 
 on:
   workflow_dispatch:
