@@ -5,8 +5,6 @@ on:
 
 jobs:
   git-test:
-    outputs:
-      SHA: ${{ steps.extract-sha.outputs.SHA }}
     strategy:
       matrix:
         include:
@@ -24,28 +22,10 @@ jobs:
             repo: xla
           - owner: NVIDIA
             repo: TransformerEngine
-    runs-on: ubuntu-22.04
-    steps:
-      - name: git test
-        id: git-meta
-        uses: actions/github-script@v6
-        with:
-          script: |
-            return github.rest.repos.getCommit({
-              owner: "${{ matrix.owner }}",
-              repo: "${{ matrix.repo }}",
-              ref: "main"
-            })
-
-      - name: extract sha from payload
-        id: extract-sha
-        shell: bash -x -e -u {0}
-        run: |
-          SHA=$(cat <<"EOF" | jq -r .data.sha
-          ${{ steps.git-meta.outputs.result }}
-          EOF
-          )
-          echo "SHA=$SHA" >> $GITHUB_OUTPUT
+    uses: ./.github/workflows/_git_sha.yaml
+    with:
+      REPO: ${{ matrix.repo }}
+      OWNER: ${{ matrix.owner }}
   sandbox:
     runs-on: ubuntu-22.04
     steps:
