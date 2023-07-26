@@ -21,7 +21,7 @@ jobs:
       - name: print
         shell: bash -x -e -u {0}
         run: |
-          cat <<"EOF" | jq -r .sha
+          cat <<"EOF" | jq -r .data.sha
           ${{ steps.git-meta.outputs.result }}
           EOF
   sandbox:
