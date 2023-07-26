@@ -5,6 +5,8 @@ on:
 
 jobs:
   git-test:
+    outputs:
+      SHA: ${{ steps.extract-sha.outputs.SHA }}
     strategy:
       matrix:
         include:
@@ -35,12 +37,15 @@ jobs:
               ref: "main"
             })
 
-      - name: print
+      - name: extract sha from payload
+        id: extract-sha
         shell: bash -x -e -u {0}
         run: |
-          cat <<"EOF" | jq -r .data.sha
+          SHA=$(cat <<"EOF" | jq -r .data.sha
           ${{ steps.git-meta.outputs.result }}
           EOF
+          )
+          echo "SHA=$SHA" >> $GITHUB_OUTPUT
   sandbox:
     runs-on: ubuntu-22.04
     steps:
