@@ -19,7 +19,11 @@ jobs:
             })
 
       - name: print
-        run: echo ${{ steps.git-meta.outputs.result }} | jq -r .sha
+        shell: bash -x -e -u {0}
+        run: |
+          cat <<"EOF" | jq -r .sha
+          ${{ steps.git-meta.outputs.result }}
+          EOF
   sandbox:
     runs-on: ubuntu-22.04
     steps:
