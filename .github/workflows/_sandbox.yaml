@@ -40,7 +40,7 @@ jobs:
              keep it empty for future testing.
           EOF
 
-      - name: Mimic build failure
-        run: |
-          echo "Pretend Docker build fails here"
-          exit 1
+      # - name: Mimic build failure
+      #   run: |
+      #     echo "Pretend Docker build fails here"
+      #     exit 1
