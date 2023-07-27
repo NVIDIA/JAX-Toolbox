@@ -17,7 +17,9 @@ install-flax.sh --defer
 install-te.sh --defer
 
 if [[ -f /opt/requirements-defer.txt ]]; then
-  pip install -r /opt/requirements-defer.txt
+  # SKIP_HEAD_INSTALLS avoids having to install jax from Github source so that
+  # we do not overwrite the jax that was already installed.
+  SKIP_HEAD_INSTALLS=true pip install -r /opt/requirements-defer.txt
 fi
 if [[ -f /opt/cleanup.sh ]]; then
   bash -ex /opt/cleanup.sh
