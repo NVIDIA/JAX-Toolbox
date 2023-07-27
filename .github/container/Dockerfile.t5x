@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1-labs
 ###############################################################################
 ## T5X
 ###############################################################################
@@ -6,10 +7,23 @@ ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
 FROM ${BASE_IMAGE}
 
 ADD install-t5x.sh /usr/local/bin
-RUN install-t5x.sh
+ADD install-flax.sh /usr/local/bin
+ADD install-te.sh /usr/local/bin
+
+ENV NVTE_FRAMEWORK=jax
+RUN <<"EOF" bash -ex
+install-t5x.sh --defer
+install-te.sh --defer
+
+if [[ -f /opt/requirements-defer.txt ]]; then
+  pip install -r /opt/requirements-defer.txt
+fi
+if [[ -f /opt/cleanup.sh ]]; then
+  bash -ex /opt/cleanup.sh
+fi
 
 # Note: Install after t5x installation b/c t5x installs flax from source
-ADD install-flax.sh /usr/local/bin
-RUN install-flax.sh
+install-flax.sh
+EOF
 
 ADD test-t5x.sh /usr/local/bin
