@@ -39,8 +39,3 @@ jobs:
              revert the changes to the sandbox.yml file in the main branch to
              keep it empty for future testing.
           EOF
-
-      - name: Mimic build failure
-        run: |
-          echo "Pretend Docker build fails here"
-          exit 1
