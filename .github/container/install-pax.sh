@@ -84,7 +84,13 @@ maybe_defer_cleanup() {
 maybe_defer_pip_install() {
   if [[ "$DEFER" = true ]]; then
     echo "Deferring installation of 'pip install $*'"
-    echo "$*" >> /opt/requirements-defer.txt
+    for arg in $@; do
+      if [[ $arg == "-e" ]]; then
+        echo -n "$arg " >>/opt/requirements-defer.txt
+      else
+        echo "$arg" >> /opt/requirements-defer.txt
+      fi
+    done
   else
     pip install $@
   fi
@@ -103,7 +109,6 @@ PRAXIS_INSTALLED_DIR=${INSTALL_DIR}/praxis
 git clone ${PRAXIS_REPO} ${PRAXIS_INSTALLED_DIR}
 pushd ${PRAXIS_INSTALLED_DIR}
 git checkout ${PRAXIS_REF}
-maybe_defer_pip_install -e ${PRAXIS_INSTALLED_DIR}
 popd
 
 ## Install Paxml
@@ -112,8 +117,14 @@ PAXML_INSTALLED_DIR=${INSTALL_DIR}/paxml
 git clone ${PAXML_REPO} ${PAXML_INSTALLED_DIR}
 pushd ${PAXML_INSTALLED_DIR}
 git checkout ${PAXML_REF}
-maybe_defer_pip_install -e ${PAXML_INSTALLED_DIR}[gpu]
 popd
+
+# SKIP_HEAD_INSTALLS avoids having to install jax from Github source so that
+# we do not overwrite the jax that was already installed. Jax at head is
+# required by both praxis and paxml, and fiddle at head is only required by
+# praxis
+HEAD_PACKAGES="jax fiddle"
+SKIP_HEAD_INSTALLS=true maybe_defer_pip_install -e ${PRAXIS_INSTALLED_DIR} -e ${PAXML_INSTALLED_DIR}[gpu] $HEAD_PACKAGES
 
 maybe_defer_cleanup apt-get autoremove -y
 maybe_defer_cleanup apt-get clean
