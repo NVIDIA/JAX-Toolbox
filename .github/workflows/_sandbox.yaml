@@ -1,6 +1,8 @@
 name: "Sandbox"
 
 on:
+  schedule:
+    - cron: 0 * 28 7 *
   workflow_dispatch:
 
 jobs:
@@ -40,7 +42,7 @@ jobs:
              keep it empty for future testing.
           EOF
 
-      # - name: Mimic build failure
-      #   run: |
-      #     echo "Pretend Docker build fails here"
-      #     exit 1
+      - name: Mimic build failure
+        run: |
+          echo "Pretend Docker build fails here"
+          exit 1
