@@ -52,11 +52,24 @@ jobs:
           # TE test reqs
           TEST_REQS="pytest-reportlog"
           TE_PATH=$(dirname $(python -c "import transformer_engine as te; print(*te.__path__)"))
+          ## WAR: BEGIN
+          # This installation step is temporary and should be removed and replaced with
+          #  $  NVTE_FRAMEWORK=jax pip install -e ${TE_PATH}[test]
+          # when praxis no longer uses jax at github head as a requirement. Praxis requirements
+          # are defined here: https://github.com/google/praxis/blob/main/requirements.in
+          
+          # After https://github.com/google/praxis/pull/20 was merged, SKIP_HEAD_INSTALLS was introduced
+          # as an environment variable to allow skipping of head installs like jax/fiddle that overrode
+          # the jax package that we already installed in our base image. Once SKIP_HEAD_INSTALLS is
+          # set, the user must specify the head installs manually to ensure they are respected by pip's
+          # dependency resolver. This is brittle since new head installs may be missed, so they must be
+          # manually added to TEST_REQS below. Praxis is still installed from head as opposed to pypi
+          # because no wheel exists with this feature yet.
           if ! pip show praxis >/dev/null 2>&1; then
             TEST_REQS+=" fiddle git+https://github.com/google/praxis"
           fi
-          # SKIP_HEAD_INSTALL avoids having to install jax/fiddle at head which overwrites existing installations
           SKIP_HEAD_INSTALLS=1 NVTE_FRAMEWORK=jax pip install -e ${TE_PATH}[test] $TEST_REQS
+          ## WAR: END
           pytest --report-log=/log/report.jsonl ${TE_PATH}/tests/jax || true
 
       - name: Upload unit test json logs
