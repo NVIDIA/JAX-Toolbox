@@ -54,7 +54,7 @@ jobs:
           TE_PATH=$(dirname $(python -c "import transformer_engine as te; print(*te.__path__)"))
           ## WAR: BEGIN
           # This installation step is temporary and should be removed and replaced with
-          #  $  NVTE_FRAMEWORK=jax pip install -e ${TE_PATH}[test]
+          #  $  NVTE_FRAMEWORK=jax pip install -e ${TE_PATH}[test] $TEST_REQS
           # when praxis no longer uses jax at github head as a requirement. Praxis requirements
           # are defined here: https://github.com/google/praxis/blob/main/requirements.in
           
