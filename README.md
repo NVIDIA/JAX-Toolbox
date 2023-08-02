@@ -1,14 +1,105 @@
 # JAX Toolbox
 
-| Image                                                | Build                                      | Test                                   |
-| ---------------------------------------------------- | ------------------------------------------ | -------------------------------------- |
-| [![container-badge-base]][container-link-base]       | [![build-badge-base]][workflow-base]       | n/a                                    |
-| [![container-badge-jax]][container-link-jax]         | [![build-badge-jax]][workflow-jax]         | [![test-badge-jax]][workflow-jax-unit] |
-| [![container-badge-t5x]][container-link-t5x]         | [![build-badge-t5x]][workflow-t5x]         | [![test-badge-t5x]][workflow-t5x-perf] |
-| [![container-badge-pax]][container-link-pax]         | [![build-badge-pax]][workflow-pax]         | [![test-badge-pax]][workflow-pax-perf] |
-| [![container-badge-te]][container-link-te]           | [![build-badge-te]][workflow-te]           | [![unit-test-badge-te]][workflow-te-test] <br> [![integration-test-badge-te]][workflow-te-test] |
-| [![container-badge-rosetta-t5x]][container-link-rosetta-t5x] | [![build-badge-rosetta-t5x]][workflow-rosetta-t5x] | [![test-badge-rosetta-t5x]][workflow-rosetta-t5x] |
-| [![container-badge-rosetta-pax]][container-link-rosetta-pax] | [![build-badge-rosetta-pax]][workflow-rosetta-pax] | [![test-badge-rosetta-pax]][workflow-rosetta-pax] |
+<table>
+    <thead>
+        <tr>
+            <th>Image</th>
+            <th>Build</th>
+            <th>Tests</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+
+[![container-badge-base]][container-link-base]
+            </td>
+            <td>
+[![build-badge-base]][workflow-base]
+            </td>
+            <td> n/a </td>
+        </tr>
+        <tr style="border-bottom-style:hidden">
+            <td colspan=3> Frameworks </td>
+        </tr>
+        <!-- JAX -->
+        <tr>
+            <td>
+[![container-badge-jax]][container-link-jax]  
+            </td>
+            <td>
+[![build-badge-jax]][workflow-jax]
+            </td>
+            <td>
+[![test-badge-jax]][workflow-jax-unit]
+            </td>
+        </tr>
+        <!-- t5x -->
+        <tr style="border-style:hidden">
+            <td>
+[![container-badge-t5x]][container-link-t5x]
+            </td>
+            <td>
+[![build-badge-t5x]][workflow-t5x] 
+            </td>
+            <td>
+[![test-badge-t5x]][workflow-t5x-perf] 
+            </td>
+        </tr>
+        <!-- pax -->
+        <tr style="border-style:hidden">
+            <td>
+[![container-badge-pax]][container-link-pax] 
+            </td>
+            <td>
+[![build-badge-pax]][workflow-pax]
+            </td>
+            <td>
+[![test-badge-pax]][workflow-pax-perf]
+            </td>
+        </tr>
+        <!-- te -->
+        <tr>
+            <td>
+[![container-badge-te]][container-link-te]
+            </td>
+            <td>
+[![build-badge-te]][workflow-te]
+            </td>
+            <td>
+[![unit-test-badge-te]][workflow-te-test] <br> [![integration-test-badge-te]][workflow-te-test]
+            </td>
+        </tr>
+        <tr style="border-bottom-style:hidden">
+            <td colspan=3> Rosetta </td>
+        </tr>
+        <!-- rosetta-t5x -->
+        <tr style="border-style:hidden">
+            <td>
+[![container-badge-rosetta-t5x]][container-link-rosetta-t5x] 
+            </td>
+            <td>
+[![build-badge-rosetta-t5x]][workflow-rosetta-t5x] 
+            </td>
+            <td>
+[![test-badge-rosetta-t5x]][workflow-rosetta-t5x]
+            </td>
+        </tr>
+        <!-- rosetta-pax -->
+        <tr>
+            <td>
+[![container-badge-rosetta-pax]][container-link-rosetta-pax]
+            </td>
+            <td>
+[![build-badge-rosetta-pax]][workflow-rosetta-pax]
+            </td>
+            <td>
+[![test-badge-rosetta-pax]][workflow-rosetta-pax]
+            </td>
+        </tr>
+    </tbody>
+</table>
+
 
 [container-badge-base]: https://img.shields.io/static/v1?label=&message=.base&color=gray&logo=docker
 [container-badge-jax]: https://img.shields.io/static/v1?label=&message=JAX&color=gray&logo=docker
