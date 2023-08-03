@@ -72,7 +72,7 @@ jobs:
     with:
       ENDPOINT_FILENAME: 't5x-test-completion-status.json'
       PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT:
+      SCRIPT: |
         if [[ ${{ needs.run-jobs.result }} == "success" ]]; then
           EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
           PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
