@@ -71,6 +71,7 @@ jobs:
           context: .github/container
           push: true
           file: .github/container/Dockerfile.base
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
