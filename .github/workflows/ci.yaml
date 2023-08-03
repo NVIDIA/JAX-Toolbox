@@ -153,7 +153,7 @@ jobs:
 
   build-rosetta-t5x:
     uses: ./.github/workflows/_build_rosetta.yaml
-    needs: [metadata, build-t5x]
+    needs: [metadata, build-t5x, test-t5x]
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAGS }}
@@ -162,7 +162,7 @@ jobs:
 
   build-rosetta-pax:
     uses: ./.github/workflows/_build_rosetta.yaml
-    needs: [metadata, build-pax]
+    needs: [metadata, build-pax, test-pax]
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAGS }}

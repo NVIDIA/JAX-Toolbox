@@ -2,7 +2,7 @@ name: Nightly Rosetta T5x build and test
 
 on:
   workflow_run:
-    workflows: [Nightly T5X build]
+    workflows: [Nightly T5X MGMN performance test]
     types: [completed]
     branches: [main]
   workflow_dispatch:

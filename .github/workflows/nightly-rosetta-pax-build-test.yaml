@@ -2,7 +2,7 @@ name: Nightly Rosetta Paxml build and test
 
 on:
   workflow_run:
-    workflows: [Nightly Pax build]
+    workflows: [Nightly Pax MGMN performance test]
     types: [completed]
     branches: [main]
   workflow_dispatch:
