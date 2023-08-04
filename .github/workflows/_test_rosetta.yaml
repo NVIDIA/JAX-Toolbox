@@ -12,6 +12,9 @@ on:
       TEST_ARTIFACT_NAME:
         description: 'Name of the unit test artifact for downstream workflows'
         value: ${{ jobs.rosetta-tests.outputs.TEST_ARTIFACT_NAME }}
+      TEST_STATUS:
+        description: 'Summary pass/fail value indicating if results from tests are acceptable'
+        value: ${{ jobs.test_status.outputs.TEST_STATUS }}
 
 env:
   TEST_ARTIFACT_NAME: test-logs
@@ -62,3 +65,35 @@ jobs:
         with:
           name: ${{ env.TEST_ARTIFACT_NAME }}
           path: /log/${{ matrix.TEST_TYPE }}-report.jsonl
+
+  test_status:
+    needs: rosetta-tests
+    runs-on: ubuntu-22.04
+    outputs:
+      TEST_STATUS: ${{ steps.status.outputs.TEST_STATUS }}
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Check status of unit tests
+        shell: bash -x -e {0}
+        id: status
+        run: |
+          ARTIFACTS="${{ env.TEST_ARTIFACT_NAME }}/*.jsonl"
+          all_outcomes() {
+            cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+          }
+          cnt_type() {
+            cat $ARTIFACTS | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+          }
+          SKIPPED_TESTS=$(cnt_type skipped)
+          FAILED_TESTS=$(cnt_type failed)
+          PASSED_TESTS=$(cnt_type passed)
+          TOTAL_TESTS=$(all_outcomes | wc -l)
+          if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
+            BADGE_COLOR=brightgreen
+            echo "TEST_STATUS='success'" >> $GITHUB_OUTPUT
+          else
+            echo "TEST_STATUS='failure'" >> $GITHUB_OUTPUT
+          fi
