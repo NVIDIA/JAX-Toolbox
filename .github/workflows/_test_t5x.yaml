@@ -13,6 +13,10 @@ on:
         description: Batch size per GPU
         default: 32
         required: false
+    outputs:
+      TEST_STATUS:
+        description: 'Summary pass/fail value indicating if results from tests are acceptable'
+        value: ${{ jobs.test_status.outputs.TEST_STATUS }}
 
 jobs:
 
@@ -256,6 +260,31 @@ jobs:
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
+
+  test_status:
+    needs: [multi-gpu-multi-node, single-process-multi-device]
+    if: ( always() )
+    runs-on: ubuntu-22.04
+    outputs:
+      TEST_STATUS: ${{ steps.status.outputs.TEST_STATUS }}
+    
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Check status of all tests
+        shell: bash -x -e {0}
+        id: status
+        run: |
+          EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
+          PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
+          if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
+            echo "TEST_STATUS='success'" >> $GITHUB_OUTPUT
+          else
+            echo "TEST_STATUS='failure'" >> $GITHUB_OUTPUT
+          fi
 
   summary:
     runs-on: ubuntu-22.04
