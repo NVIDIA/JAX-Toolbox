@@ -1,0 +1,39 @@
+# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+include 'rosetta/projects/vit/configs/base.gin'
+
+from __gin__ import dynamic_registration
+import __main__ as ckpt_script
+from t5x import partitioning
+
+PT_CKPT_DIR = %gin.REQUIRED
+FT_CKPT_DIR = %gin.REQUIRED
+HIDDEN_DROPOUT_PROB = 0.0
+REP_SIZE=768
+LN_EPSILON=1e-5
+
+OPTIMIZER = None
+
+ckpt_script.convert_t5x_finetune_to_pretrain:
+  pretrain_ckpt_dir = %PT_CKPT_DIR
+  finetune_ckpt_dir = %FT_CKPT_DIR
+  pretrained_model = %MODEL
+  finetune_resolution = 384
+  partitioner = @partitioning.PjitPartitioner()
+
+partitioning.PjitPartitioner.num_partitions = 1
+partitioning.PjitPartitioner:
+  model_parallel_submesh = None
+  logical_axis_rules = @partitioning.standard_logical_axis_rules()
