@@ -52,11 +52,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        PLATFORM: ["linux/amd64", "linux/arm64"]
+        PLATFORM: [amd64, arm64]
     outputs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-    # runs-on: [self-hosted, x86, large]
-    runs-on: [self-hosted, arm, small]
+    runs-on: [self-hosted, "${{ matrix.PLATFORM }}", large]
     steps:
       - name: Print environment variables
         run: env
@@ -95,7 +94,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-jax
+            type=raw,value=${{ github.run_id }}-jax-${{  matrix.PLATFORM }}
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
@@ -111,7 +110,7 @@ jobs:
           context: .github/container
           push: true
           file: .github/container/Dockerfile.jax
-          platforms: linux/arm64
+          platforms: linux/${{ matrix.PLATFORM }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           ssh: default
