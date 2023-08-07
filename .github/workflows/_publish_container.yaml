@@ -60,11 +60,7 @@ jobs:
               ;;
             # Docker image manifest
             "application/vnd.docker.distribution.manifest.v2+json")
-              MANIFESTS=$(
-                docker manifest inspect ${{ inputs.SOURCE_IMAGE }} |\
-                jq -r '.config.digest' |\
-                xargs -I{} echo ${SOURCE_REPO}@{}
-              )
+              MANIFESTS=${{ inputs.SOURCE_IMAGE }}
               ;;
             *)
               echo "Unknown media type: $MEDIA_TYPE"
