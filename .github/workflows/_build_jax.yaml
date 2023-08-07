@@ -49,6 +49,10 @@ permissions:
 jobs:
 
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        PLATFORM: ["linux/amd64", "linux/arm64"]
     outputs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     # runs-on: [self-hosted, x86, large]
