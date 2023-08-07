@@ -16,8 +16,9 @@ Use the following command to launch a container:
 ```
 docker run -ti --gpus=all --net=host --ipc=host -v <DATASET_PATH>:/opt/paxml/datasets -v <WORKSPACE_PATH>:/opt/paxml/workspace -v <VOCAB_PATH>:/opt/paxml/vocab <CONTAINER> /bin/bash
 ```
-where `DATASET_PATH` is the path to the Pile or Lambada dataset. If these datasets have not yet been downloaded, they can be downloaded inside of the container (see [Downloading The Pile and Lambada Datasets](#Downloading-the-pile-and-lambada-datasets) for more). `WORKSPACE_PATH` is the path to the directory where you would like to store any persistent files, and `VOCAB_PATH` is the path to the pretrained sentencepiece model to use during tokenization (see [Downloading the SentencePiece Model](#Downloading-the-sentencepiece-model) for more).
+where `DATASET_PATH` is the path to the Pile or Lambada dataset. If these datasets have not yet been downloaded, they can be downloaded inside of the container (see [Downloading The Pile and Lambada Datasets](#Downloading-the-pile-and-lambada-datasets) for more). `WORKSPACE_PATH` is the path to the directory where you would like to store any persistent files, and `VOCAB_PATH` is the path to the pretrained sentencepiece model to use during tokenization (see [Downloading the SentencePiece Model](#Downloading-the-sentencepiece-model) for more). 
 
+Note that when running interactively, we generally assume you are running on a single node with 8 GPUs. If this is not the case, the [Customized Runs](#Customized-runs) section explains how to adjust the example scripts to suit your hardware configuration. 
 
 ## Downloading The Pile and Lambada Datasets
 All models are trained using The Pile dataset and evaluated using the Lambada dataset. The scripts [download_the_pile.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_the_pile.py) and [download_lambada.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_lambada.py) will download The Pile and the Lambada datasets to the `TFDS_DATA_DIR` enviroment variable. To control the location of the downloaded datasets, use the following command prior to running the download scripts: `export TFDS_DATA_DIR=<path_to_dowload_data_to>`. After the data has been successfully downloaded, use the same `TFDS_DATA_DIR` when running experiments.
@@ -52,36 +53,46 @@ Note that when training with The Pile dataset, you must provide the `TFDS_DATA_D
 
 ### Quick Runs
 #### Interactive: Single Node
-See [run_pile_singlenode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh) for an example of training a 126m model on a single node using The Pile. Once inside of your container, this script can be run interactively using the following command: 
+See [run_pile_singlenode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh) for an example of training a 126m model on a single node with 8 GPUs using The Pile. Once inside of your container, this script can be run interactively using the following command:
 ``` 
-bash paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh <TFDS_DATA_DIR> <VOCAB_PATH> <LOGDIR>
+bash paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh <TFDS_DATA_DIR> <VOCAB_PATH> <PRECISION> <NUM_GPUS> <PERCORE_BATCH_SIZE> <LOGDIR>
 ```
-where `TFDS_DATA_DIR` is the path to the downloaded datasets, `VOCAB_PATH` is the path to the pretrained SentencePiece `.model` file, and `LOGDIR` is the relative path of the directory to which to write checkpoints and logging information.
+where `TFDS_DATA_DIR` is the path to the downloaded datasets, `VOCAB_PATH` is the path to the pretrained SentencePiece `.model` file, and `LOGDIR` is the relative path of the directory to which to write checkpoints and logging information. `PERCORE_BATCH_SIZE` is the batch size per GPU _prior_ to sharding according to the parallel strategy. See [Customized Runs](#Customized-runs) for more information about this hyperparameter. 
 
 See [run_lambada_singlenode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_lambada_singlenode.sh) for an example of running zero-shot evaluation on the 126m model using the Lambada dataset. Use the following command to run this script:
 ``` 
-bash paxml/contrib/gpu/scripts_gpu/run_lambada_singlenode.sh <TFDS_DATA_DIR> <VOCAB_PATH> <LOGDIR>
+bash paxml/contrib/gpu/scripts_gpu/run_lambada_singlenode.sh <TFDS_DATA_DIR> <VOCAB_PATH> <LOGDIR> <PRECISION> <NUM_GPUS> <PERCORE_BATCH_SIZE>
 ```
 `TFDS_DATA_DIR` should contain the path to the Lambada dataset and `LOGDIR` should match the `LOGDIR` from the pretraining run.
 
 #### Multi Node
-See [example_slurm_pile.sub](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/example_slurm_pile.sub) for an example slurm submit file that launches an 8 node run with a 126 million parameter GPT model. Note that this script must be edited with your slurm account information. 
+See [example_slurm_pile.sub](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/example_slurm_pile.sub) for an example slurm submit file that launches an 8-node run with a 126 million parameter GPT model.
 
-To launch `example_slurm_pile.sub`, simply run the following command: 
+To launch `example_slurm_pile.sub`, simply run the following command:
 ```
-BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> sbatch paxml/contrib/gpu/scripts_gpu/example_slurm_pretrain_pile.sub
+BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=bfloat16 GPUS_PER_NODE=8 PERCORE_BATCH_SIZE=4 sbatch -N 8 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> paxml/contrib/gpu/scripts_gpu/example_slurm_pretrain_pile.sub
 ```
 where `BASE_WORKSPACE_DIR`, `BASE_TFDS_DATA_DIR`, and `BASE_VOCAB_PATH` are absolute paths and `LOG_DIR` and `OUTPUT_DIR` are relative to `BASE_WORKSPACE_DIR`.
     
 ### Customized Runs
-Paxml's [main.py](https://github.com/google/paxml/blob/main/paxml/main.py) takes an experiment config as a command-line argument via the `--exp` flag. To control which model to run, swap out the experiment config passed to `main.py`. For example, in [run_pile_multinode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh), we run the experiment [Pile126M](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/configs.py#L177-L181):
+Paxml's [main.py](https://github.com/google/paxml/blob/main/paxml/main.py) takes an experiment config as a command-line argument via the `--fdl_config` flag. To control which model to run, swap out the experiment config passed to `main.py`. For example, in [run_pile_multinode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh), we run the experiment [Pile126M](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/configs.py#L177-L181):
 ```
     ...
-    --exp=paxml.contrib.gpu.scripts_gpu.configs.Pile126M \
+    --fdl_config=paxml.contrib.gpu.scripts_gpu.configs.Pile126M \
     ...
 ```
-    
-Note that hyperparameters currently cannot be overwritten from the command line. In order to change a training hyperparameter (e.g. number of nodes, number of layers, precision), add a new config to [configs.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/configs.py) which inherits from the desired config and overwrites the relevant hyperparameters. See the [configs](#Configs) section below for more information about the provided base configs, and see [SmallPileTest](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/configs.py#L285-L287) for an example config that overwrites the number of GPUs from an existing base config.
+
+Paxml uses [Fiddle](https://github.com/google/fiddle/tree/main) for configuring hyperparameters. To overwrite an existing hyperparameter from the command line, use the following syntax: 
+```
+--fld.<PARAM_NAME>=<NEW_VALUE>
+```
+For example, in our [*.sh] scripts, we override the default values of `FPROP_DTYPE`, `ICI_MESH_SHAPE`, and `PERCORE_BATCH_SIZE`. 
+
+We provide a list of some of the frequently overridden hyperparameters, and an explanation of each, below:
+- `ICI_MESH_SHAPE`: This refers to the parallelism strategy used on chips connected by a fast network (e.g. NVLink). `ICI_MESH_SHAPE` typically has 3 dimensions, `[replica, data, model]`, corresponding to data parallelism, fully-sharded data parallelism (ZeRO-3), and tensor parallelism, respectively. To use pure data parallelism, you should set `ICI_MESH_SHAPE` to `[NUM_GPUS, 1, 1]`.
+- `DCN_MESH_SHAPE`: This refers to the parallelism strategy for machines connected by a datacenter network. This is the generally parallel strategy used _across_ nodes.  
+- `PERCORE_BATCH_SIZE`: This is the batch size loaded by each worker _prior_ to sharding the data according to the parallel strategy. We should always have that `GLOBAL_BATCH_SIZE = PERCORE_BATCH_SIZE * NUM_GPUS`, regardless of the parallel strategy. Note that a consequence of this is that `PERCORE_BATCH_SIZE` will not always equal `MICROBATCH_SIZE`, particularly when using tensor parallelism (TP). If using 2-way TP, for example, `MICROBATCH_SIZE` will be twice the `PERCORE_BATCH_SIZE`. 
+- `NUM_LAYERS`, `NUM_HEADS`, `MODEL_DIMS`, `HIDDEN_DIMS`: These are hyperparameters of the transformer model. `MODEL_DIMS` refers to the hidden dimension of the transformer, and `HIDDEN_DIMS` refers to the hidden dimension of the transformer feed-forward network. 
 
 ## XLA flags
 We recommend setting the following XLA flags when running experiments: 
@@ -89,7 +100,7 @@ We recommend setting the following XLA flags when running experiments:
 1. `--xla_gpu_enable_latency_hiding_scheduler=true`: Allows XLA:GPU to move communication collectives to increase overlap with compute kernels
 2. `--xla_gpu_enable_async_all_gather=true`: Allows XLA:GPU to run All Gather NCCL kernels on a separate CUDA stream to allow overlap with compute kernels
 3. `--xla_gpu_enable_async_reduce_scatter=true`: Allows XLA:GPU to run Reduce Scatter NCCL kernels on a separate CUDA stream to allow overlap with compute kernels
-4. `--xla_gpu_enable_triton_gemm=false`: Disallows Trition GeMM kernels; uses CUBLAS GeMM kernels instead. CUBLAS kernels are currently better tuned for GPUs and thus provide better performance
+4. `--xla_gpu_enable_triton_gemm=false`: Disallows Triton GeMM kernels; uses CUBLAS GeMM kernels instead. CUBLAS kernels are currently better tuned for GPUs and thus provide better performance
     
 These flags are enabled by default in the pre-built container. The `XLA_FLAGS` environment variable controls these flags; to configure XLA flags explicitly, you can use the following command.
 ```
