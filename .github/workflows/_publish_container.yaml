@@ -47,11 +47,31 @@ jobs:
       - name: Create manifest
         shell: bash -x -e {0}
         run: |
-          MANIFESTS=$(
-            docker manifest inspect ${{ inputs.SOURCE_IMAGE }} |\
-            jq -r '.manifests[] | select(.platform.os == "linux") | .digest' |\
-            xargs -I{} echo ghcr.io/nvidia/jax-toolbox-internal@{}
-          )
+          SOURCE_REPO=$(echo ${{ inputs.SOURCE_IMAGE }} | cut -d: -f1)
+          MEDIA_TYPE=$(docker manifest inspect ${{ inputs.SOURCE_IMAGE }} | jq -r '.mediaType')
+          case "$MEDIA_TYPE" in
+            # OCI image index
+            "application/vnd.oci.image.index.v1+json")
+              MANIFESTS=$(
+                docker manifest inspect ${{ inputs.SOURCE_IMAGE }} |\
+                jq -r '.manifests[] | select(.platform.os == "linux") | .digest' |\
+                xargs -I{} echo ${SOURCE_REPO}@{}
+              )
+              ;;
+            # Docker image manifest
+            "application/vnd.docker.distribution.manifest.v2+json")
+              MANIFESTS=$(
+                docker manifest inspect ${{ inputs.SOURCE_IMAGE }} |\
+                jq -r '.config.digest' |\
+                xargs -I{} echo ${SOURCE_REPO}@{}
+              )
+              ;;
+            *)
+              echo "Unknown media type: $MEDIA_TYPE"
+              exit 1
+              ;;
+          esac
+
           for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
             docker manifest create $tag $MANIFESTS
             docker manifest push $tag
