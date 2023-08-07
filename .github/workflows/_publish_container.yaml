@@ -47,8 +47,13 @@ jobs:
       - name: Create manifest
         shell: bash -x -e {0}
         run: |
+          MANIFESTS=$(
+            docker manifest inspect ${{ inputs.SOURCE_IMAGE }} |\
+            jq -r '.manifests[] | select(.platform.os == "linux") | .digest' |\
+            xargs -I{} echo ghcr.io/nvidia/jax-toolbox-internal@{}
+          )
           for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-            docker manifest create $tag ${{ inputs.SOURCE_IMAGE }}
+            docker manifest create $tag $MANIFESTS
             docker manifest push $tag
           done
 
