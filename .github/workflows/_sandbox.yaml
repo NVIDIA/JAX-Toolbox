@@ -13,5 +13,5 @@ jobs:
   build:
     uses: ./.github/workflows/_build_jax.yaml
     with:
-      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5754848229-base
+      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox:base-2023-08-07
     secrets: inherit
