@@ -47,6 +47,7 @@ jobs:
       - name: Create manifest
         shell: bash -x -e {0}
         run: |
+          # Get all manifests from the source image
           SOURCE_REPO=$(echo ${{ inputs.SOURCE_IMAGE }} | cut -d: -f1)
           MEDIA_TYPE=$(docker manifest inspect ${{ inputs.SOURCE_IMAGE }} | jq -r '.mediaType')
           case "$MEDIA_TYPE" in
