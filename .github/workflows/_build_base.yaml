@@ -16,7 +16,7 @@ on:
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
+        value: ${{ jobs.merge.outputs.DOCKER_TAGS }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
