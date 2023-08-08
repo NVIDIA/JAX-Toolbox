@@ -147,6 +147,8 @@ jobs:
     steps:
       - name: Download image name files into separate folders
         uses: actions/download-artifact@v3
+        with:
+          name: image-name-jax-*
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
