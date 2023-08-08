@@ -36,7 +36,7 @@ on:
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
+        value: ${{ jobs.merge.outputs.DOCKER_TAGS }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -53,8 +53,6 @@ jobs:
       fail-fast: false
       matrix:
         PLATFORM: [amd64, arm64]
-    outputs:
-      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     runs-on: [self-hosted, "${{ matrix.PLATFORM }}", large]
     steps:
       - name: Print environment variables
@@ -139,9 +137,11 @@ jobs:
           name: image-name-${{ matrix.PLATFORM }}
           path: image-name.txt
 
-  postprocessing:
+  merge:
     runs-on: ubuntu-latest
     needs: build
+    outputs:
+      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     steps:
       # Repetitive artifact downloads due to:
       # https://github.com/orgs/community/discussions/17245
