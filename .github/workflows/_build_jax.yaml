@@ -53,85 +53,84 @@ jobs:
       fail-fast: false
       matrix:
         PLATFORM: [amd64, arm64]
-    # runs-on: [self-hosted, "${{ matrix.PLATFORM }}", large]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, "${{ matrix.PLATFORM }}", large]
     steps:
-      # - name: Print environment variables
-      #   run: env
+      - name: Print environment variables
+        run: env
 
-      # - name: Setup SSH agent
-      #   uses: webfactory/ssh-agent@v0.8.0
-      #   with:
-      #     ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      # - name: Setup SSH known hosts
-      #   id: ssh-known-hosts
-      #   run: |
-      #     mkdir -p ~/.ssh
-      #     cat >> ~/.ssh/known_hosts << EOF
-      #     ${{ vars.SSH_KNOWN_HOSTS }}
-      #     EOF
-      #     chmod 600 ~/.ssh/known_hosts
-      #     echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
 
-      # - name: Check out the repository under ${GITHUB_WORKSPACE}
-      #   uses: actions/checkout@v3
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
 
-      # - name: Login to GitHub Container Registry
-      #   uses: docker/login-action@v2
-      #   with:
-      #     registry: ghcr.io
-      #     username: ${{ github.repository_owner }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Set docker metadata
-      #   id: meta
-      #   uses: docker/metadata-action@v4
-      #   with:
-      #     images: |
-      #       ${{ env.UPLD_IMAGE }}
-      #     flavor: |
-      #       latest=false
-      #     tags: |
-      #       type=raw,value=${{ github.run_id }}-jax-${{  matrix.PLATFORM }}
-      #     labels:
-      #       org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-jax-${{  matrix.PLATFORM }}
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      # - name: Set up Docker Buildx
-      #   uses: docker/setup-buildx-action@v2
-      #   with:
-      #     driver-opts: |
-      #       image=moby/buildkit:v0.12.1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.12.1
 
-      # - name: Build docker images
-      #   uses: docker/build-push-action@v4
-      #   with:
-      #     context: .github/container
-      #     push: true
-      #     file: .github/container/Dockerfile.jax
-      #     platforms: linux/${{ matrix.PLATFORM }}
-      #     tags: ${{ steps.meta.outputs.tags }}
-      #     labels: ${{ steps.meta.outputs.labels }}
-      #     ssh: default
-      #     secret-files: |
-      #       "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
-      #     build-args: |
-      #       BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-      #       BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}/${{ matrix.PLATFORM }}
-      #       BUILD_DATE=${{ inputs.BUILD_DATE }}
-      #       REPO_JAX=${{ inputs.REPO_JAX }}
-      #       REPO_XLA=${{ inputs.REPO_XLA }}
-      #       REF_JAX=${{ inputs.REF_JAX }}
-      #       REF_XLA=${{ inputs.REF_XLA }}
+      - name: Build docker images
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile.jax
+          platforms: linux/${{ matrix.PLATFORM }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          ssh: default
+          secret-files: |
+            "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}/${{ matrix.PLATFORM }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
+            REPO_JAX=${{ inputs.REPO_JAX }}
+            REPO_XLA=${{ inputs.REPO_XLA }}
+            REF_JAX=${{ inputs.REF_JAX }}
+            REF_XLA=${{ inputs.REF_XLA }}
 
       # Temporary workaround until the following issues are solved:
       # https://github.com/orgs/community/discussions/17245
       # https://github.com/actions/runner/pull/2477
       # https://github.com/orgs/community/discussions/26639
       - name: Save image name as text file
+        shell: bash -x -e {0}
         run: |
-          # echo "${{ steps.meta.outputs.tags }}" >> image-name.txt
-          echo ghcr.io/nvidia/jax-toolbox-internal:5791429902-jax-${{ matrix.PLATFORM }} >> image-name.txt
+          echo "${{ steps.meta.outputs.tags }}" >> image-name.txt
 
       - name: Upload image name file as artifact
         uses: actions/upload-artifact@v3
@@ -145,10 +144,11 @@ jobs:
     outputs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     steps:
+      # TODO: currently downloading all artifacts of the entire workflow
+      # Revise when this request is fulfilled:
+      # https://github.com/actions/download-artifact/issues/214
       - name: Download image name files into separate folders
         uses: actions/download-artifact@v3
-        with:
-          name: image-name-jax-*
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
