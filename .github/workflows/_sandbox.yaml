@@ -6,7 +6,6 @@ on:
 jobs:
 
   build:
-    needs: metadata
     uses: ./.github/workflows/_build_jax.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
