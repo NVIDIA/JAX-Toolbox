@@ -155,9 +155,9 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
+      TARGET_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
       TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
+        type=raw,value=tag-test-success,priority=1000
 
   publish-container:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
