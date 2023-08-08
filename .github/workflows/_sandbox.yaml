@@ -5,7 +5,22 @@ on:
 
 jobs:
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create dummy artifact
+        run: |
+          mkdir -p artifacts
+          echo "Hello world" > hello.txt
+      
+      - name: Upload dummy artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: hello
+          path: artifacts/hello.txt
+
   build:
+    needs: test
     uses: ./.github/workflows/_build_jax.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
