@@ -53,7 +53,8 @@ jobs:
       fail-fast: false
       matrix:
         PLATFORM: [amd64, arm64]
-    runs-on: [self-hosted, "${{ matrix.PLATFORM }}", large]
+    # runs-on: [self-hosted, "${{ matrix.PLATFORM }}", large]
+    runs-on: ubuntu-latest
     steps:
       # - name: Print environment variables
       #   run: env
