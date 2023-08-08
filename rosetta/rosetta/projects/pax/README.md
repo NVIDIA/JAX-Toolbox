@@ -18,8 +18,6 @@ docker run -ti --gpus=all --net=host --ipc=host -v <DATASET_PATH>:/opt/paxml/dat
 ```
 where `DATASET_PATH` is the path to the Pile or Lambada dataset. If these datasets have not yet been downloaded, they can be downloaded inside of the container (see [Downloading The Pile and Lambada Datasets](#Downloading-the-pile-and-lambada-datasets) for more). `WORKSPACE_PATH` is the path to the directory where you would like to store any persistent files, and `VOCAB_PATH` is the path to the pretrained sentencepiece model to use during tokenization (see [Downloading the SentencePiece Model](#Downloading-the-sentencepiece-model) for more). 
 
-Note that when running interactively, we generally assume you are running on a single node with 8 GPUs. If this is not the case, the [Customized Runs](#Customized-runs) section explains how to adjust the example scripts to suit your hardware configuration. 
-
 ## Downloading The Pile and Lambada Datasets
 All models are trained using The Pile dataset and evaluated using the Lambada dataset. The scripts [download_the_pile.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_the_pile.py) and [download_lambada.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_lambada.py) will download The Pile and the Lambada datasets to the `TFDS_DATA_DIR` enviroment variable. To control the location of the downloaded datasets, use the following command prior to running the download scripts: `export TFDS_DATA_DIR=<path_to_dowload_data_to>`. After the data has been successfully downloaded, use the same `TFDS_DATA_DIR` when running experiments.
 
@@ -53,7 +51,7 @@ Note that when training with The Pile dataset, you must provide the `TFDS_DATA_D
 
 ### Quick Runs
 #### Interactive: Single Node
-See [run_pile_singlenode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh) for an example of training a 126m model on a single node with 8 GPUs using The Pile. Once inside of your container, this script can be run interactively using the following command:
+See [run_pile_singlenode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh) for an example of training a 126m model on a single node GPUs using The Pile. Once inside of your container, this script can be run interactively using the following command:
 ``` 
 bash paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh <TFDS_DATA_DIR> <VOCAB_PATH> <PRECISION> <NUM_GPUS> <PERCORE_BATCH_SIZE> <LOGDIR>
 ```
@@ -68,7 +66,7 @@ bash paxml/contrib/gpu/scripts_gpu/run_lambada_singlenode.sh <TFDS_DATA_DIR> <VO
 #### Multi Node
 See [example_slurm_pile.sub](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/example_slurm_pile.sub) for an example slurm submit file that launches an 8-node run with a 126 million parameter GPT model.
 
-To launch `example_slurm_pile.sub`, simply run the following command:
+To launch `example_slurm_pile.sub`, run the following command:
 ```
 BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=bfloat16 GPUS_PER_NODE=8 PERCORE_BATCH_SIZE=4 sbatch -N 8 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> paxml/contrib/gpu/scripts_gpu/example_slurm_pretrain_pile.sub
 ```
@@ -86,7 +84,7 @@ Paxml uses [Fiddle](https://github.com/google/fiddle/tree/main) for configuring 
 ```
 --fld.<PARAM_NAME>=<NEW_VALUE>
 ```
-For example, in our [*.sh] scripts, we override the default values of `FPROP_DTYPE`, `ICI_MESH_SHAPE`, and `PERCORE_BATCH_SIZE`. 
+For example, in our `*.sh` scripts, we override the default values of `FPROP_DTYPE`, `ICI_MESH_SHAPE`, and `PERCORE_BATCH_SIZE`. 
 
 We provide a list of some of the frequently overridden hyperparameters, and an explanation of each, below:
 - `ICI_MESH_SHAPE`: This refers to the parallelism strategy used on chips connected by a fast network (e.g. NVLink). `ICI_MESH_SHAPE` typically has 3 dimensions, `[replica, data, model]`, corresponding to data parallelism, fully-sharded data parallelism (ZeRO-3), and tensor parallelism, respectively. To use pure data parallelism, you should set `ICI_MESH_SHAPE` to `[NUM_GPUS, 1, 1]`.
