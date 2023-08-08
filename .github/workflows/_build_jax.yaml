@@ -132,7 +132,7 @@ jobs:
           echo "${{ steps.meta.outputs.tags }}" >> image-name.txt
 
       - name: Upload image name file as artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: image-name-${{ matrix.PLATFORM }}
           path: image-name.txt
@@ -148,13 +148,13 @@ jobs:
       # https://github.com/actions/runner/pull/2477
       # https://github.com/orgs/community/discussions/26639
       - name: Download image name files into separate folders
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: image-name-amd64
           path: image-name-amd64
 
       - name: Download image name files into separate folders
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: image-name-arm64
           path: image-name-arm64
