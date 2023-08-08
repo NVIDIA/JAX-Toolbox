@@ -200,7 +200,7 @@ jobs:
           docker manifest create ${{ steps.meta.outputs.tags }} $(
             for IMAGE in $(cat image-name-*/image-name.txt); do
               REPO=$(echo $IMAGE | cut -d: -f1)
-              DIGEST=$(docker manifest inspect $IMAGE | | jq -r '.manifests[] | select(.platform.os == "linux") | .digest')
+              DIGEST=$(docker manifest inspect $IMAGE | jq -r '.manifests[] | select(.platform.os == "linux") | .digest')
               echo $REPO@${DIGEST}
             done
           )
