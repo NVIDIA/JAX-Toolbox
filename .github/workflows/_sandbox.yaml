@@ -53,102 +53,31 @@ jobs:
           echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
           echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-  build:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    needs: metadata
-    uses: ./.github/workflows/_build_rosetta.yaml
-    with:
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
-    secrets: inherit
-
-  publish-build:
-    needs: [metadata, build]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: ( success() || failure() ) && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    secrets: inherit
-    with:
-      ENDPOINT_FILENAME: 'rosetta-pax-build-status.json'
-      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        if [[ ${{ needs.build.result }} == "success" ]]; then
-          BADGE_COLOR=brightgreen
-          MSG=passing
-        else
-          BADGE_COLOR=red
-          MSG=failing
-        fi
-        echo "LABEL='nightly'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${MSG}'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-
   test:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    needs: build
     uses: ./.github/workflows/_test_rosetta.yaml
     with:
-      ROSETTA_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      ROSETTA_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5813676140-rosetta-pax
     secrets: inherit
-
-  publish-test:
-    needs: [metadata, build, test]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: ( success() || failure() ) && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    secrets: inherit
-    with:
-      ENDPOINT_FILENAME: 'rosetta-pax-test-status.json'
-      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        ARTIFACTS="${{ needs.test.outputs.TEST_ARTIFACT_NAME }}/*.jsonl"
-        all_outcomes() {
-          cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
-        }
-        cnt_type() {
-          cat $ARTIFACTS | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
-        }
-        SKIPPED_TESTS=$(cnt_type skipped)
-        FAILED_TESTS=$(cnt_type failed)
-        PASSED_TESTS=$(cnt_type passed)
-        TOTAL_TESTS=$(all_outcomes | wc -l)
-        echo "Unit/Integration test breakdown:"
-        all_outcomes | sort | uniq -c
-        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
-          BADGE_COLOR=brightgreen
-        else
-          if [[ $PASSED_TESTS -eq 0 ]]; then
-            BADGE_COLOR=red
-          else
-            BADGE_COLOR=yellow
-          fi
-        fi
-        echo "LABEL='V100'" >> $GITHUB_OUTPUT
-        if [[ ${{ needs.build.result }} == "success" ]]; then
-          echo "MESSAGE='${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail'" >> $GITHUB_OUTPUT
-          echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-        else
-          echo "MESSAGE='n/a'" >> $GITHUB_OUTPUT
-          echo "COLOR='red'" >> $GITHUB_OUTPUT
-        fi
 
   publish-latest-container:
-    needs: [metadata, build, test]
+    needs: [metadata, test]
     if: ( ${{ needs.test.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
-      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5813676140-rosetta-pax
       TARGET_IMAGE: jax-toolbox-internal
       TARGET_TAGS: |
         type=raw,value=pax-tag-test-success,priority=1000
 
   publish-container:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
-    needs: [metadata, build]
+    needs: [metadata]
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
-      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5813676140-rosetta-pax
       TARGET_IMAGE: jax-toolbox-internal
       TARGET_TAGS: |
         type=raw,value=pax-tag-test-always-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
