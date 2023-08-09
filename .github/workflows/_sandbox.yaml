@@ -1,41 +1,160 @@
 name: "~Sandbox"
 
 on:
+  workflow_run:
+    workflows: [Nightly Pax build]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      BASE_IMAGE:
+        type: string
+        description: 'PAX image built by NVIDIA/JAX-Toolbox'
+        default: 'ghcr.io/nvidia/pax:latest'
+        required: true
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
+        required: false
+
+env:
+  BASE_LIBRARY: pax
+  DOCKER_REGISTRY: ghcr.io/nvidia
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
 
 jobs:
-  sandbox:
+
+  metadata:
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.meta-vars.outputs.BUILD_DATE }}
+      BASE_LIBRARY: ${{ steps.meta-vars.outputs.BASE_LIBRARY }}
+      BASE_IMAGE: ${{ steps.meta-vars.outputs.BASE_IMAGE }}
+      PUBLISH: ${{ steps.meta-vars.outputs.PUBLISH }}
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print usage
+      - name: Set build metadata
+        id: meta-vars
+        shell: bash -x -e {0}
         run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
+            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/${{ env.BASE_LIBRARY }}:latest
+          else
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+          fi
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
+          echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
+          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+  build:
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    needs: metadata
+    uses: ./.github/workflows/_build_rosetta.yaml
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
+    secrets: inherit
+
+  publish-build:
+    needs: [metadata, build]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: ( success() || failure() ) && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 'rosetta-pax-build-status.json'
+      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
+      SCRIPT: |
+        if [[ ${{ needs.build.result }} == "success" ]]; then
+          BADGE_COLOR=brightgreen
+          MSG=passing
+        else
+          BADGE_COLOR=red
+          MSG=failing
+        fi
+        echo "LABEL='nightly'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${MSG}'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+
+  test:
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    needs: build
+    uses: ./.github/workflows/_test_rosetta.yaml
+    with:
+      ROSETTA_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  publish-test:
+    needs: [metadata, build, test]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: ( success() || failure() ) && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 'rosetta-pax-test-status.json'
+      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
+      SCRIPT: |
+        ARTIFACTS="${{ needs.test.outputs.TEST_ARTIFACT_NAME }}/*.jsonl"
+        all_outcomes() {
+          cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+        }
+        cnt_type() {
+          cat $ARTIFACTS | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+        }
+        SKIPPED_TESTS=$(cnt_type skipped)
+        FAILED_TESTS=$(cnt_type failed)
+        PASSED_TESTS=$(cnt_type passed)
+        TOTAL_TESTS=$(all_outcomes | wc -l)
+        echo "Unit/Integration test breakdown:"
+        all_outcomes | sort | uniq -c
+        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
+          BADGE_COLOR=brightgreen
+        else
+          if [[ $PASSED_TESTS -eq 0 ]]; then
+            BADGE_COLOR=red
+          else
+            BADGE_COLOR=yellow
+          fi
+        fi
+        echo "LABEL='V100'" >> $GITHUB_OUTPUT
+        if [[ ${{ needs.build.result }} == "success" ]]; then
+          echo "MESSAGE='${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail'" >> $GITHUB_OUTPUT
+          echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+        else
+          echo "MESSAGE='n/a'" >> $GITHUB_OUTPUT
+          echo "COLOR='red'" >> $GITHUB_OUTPUT
+        fi
+
+  publish-latest-container:
+    needs: [metadata, build, test]
+    if: (${{ needs.test.outputs.TEST_STATUS }} == 'success') && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    uses: ./.github/workflows/_publish_container.yaml
+    secrets: inherit
+    with:
+      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      TARGET_IMAGE: jax-toolbox-internal
+      TARGET_TAGS: |
+        type=raw,value=pax-tag-test-success,priority=1000
+
+  publish-container:
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
+    needs: [metadata, build]
+    uses: ./.github/workflows/_publish_container.yaml
+    secrets: inherit
+    with:
+      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      TARGET_IMAGE: jax-toolbox-internal
+      TARGET_TAGS: |
+        type=raw,value=pax-tag-test-always-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+
+  if-upstream-failed:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1
