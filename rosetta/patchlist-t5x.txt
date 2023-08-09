@@ -5,4 +5,6 @@
 # - External Pull Requests (These are pull requests with upstream t5x and are of the form "pull/$PULLID/head")
 # - Note: Only the first column is used as a git-ref, so anything after is a comment
 
+pull/1357/head
+pull/1358/head
 pull/1320/head  # https://github.com/google-research/t5x/pull/1320: Adds transformer engine support and GPU optimizations to T5x (enables H100)

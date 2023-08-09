@@ -1,0 +1,154 @@
+# Copyright (c) 2023, The T5X Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Defaults for pretraining with train.py.
+#
+#
+# You must also include a binding for MODEL.
+#
+# Required to be set:
+#
+# - MIXTURE_OR_TASK_NAME
+# - TASK_FEATURE_LENGTHS
+# - TRAIN_STEPS
+# - MODEL_DIR: # automatically set when using xm_launch
+#
+# Commonly overridden options:
+#
+# - train/DatasetConfig.batch_size
+# - train_eval/DatasetConfig.batch_size
+# - PjitPartitioner.num_partitions
+# - Trainer.num_microbatches
+# - DROPOUT_RATE
+from __gin__ import dynamic_registration
+
+import __main__ as train_script
+import optax
+from t5x import gin_utils
+from t5x import optimizers
+from t5x import partitioning
+from t5x import utils
+from t5x import trainer
+from rosetta.data import wds_utils
+
+from rosetta.data import dali
+from rosetta.projects.vit import dali_utils
+
+MIXTURE_OR_TASK_NAME = %gin.REQUIRED
+TRAIN_STEPS = %gin.REQUIRED
+MODEL_DIR = %gin.REQUIRED
+BATCH_SIZE = 128
+INFER_BS = %BATCH_SIZE
+HIDDEN_DROPOUT_PROB=0.1
+LN_EPSILON=1e-5
+TRAIN_INDEX_DIR=None
+EVAL_INDEX_DIR=None
+
+# HW RNG is faster than SW, but has limited determinism.
+# Most notably it is not deterministic across different
+# submeshes.
+USE_HARDWARE_RNG = False
+# None always uses faster, hardware RNG
+RANDOM_SEED = None
+
+SHUFFLE_TRAIN_EXAMPLES = True
+
+# Can be overridden with `train.*`.`
+train_script.train:
+  model = %MODEL  # imported from separate gin file
+  model_dir = %MODEL_DIR
+  train_dataset_cfg = @train/wds_utils.WebDatasetConfig()
+  train_eval_dataset_cfg = @train_eval/wds_utils.WebDatasetConfig()
+  infer_eval_dataset_cfg = None
+  checkpoint_cfg = @utils.CheckpointConfig()
+  partitioner = @partitioning.PjitPartitioner()
+  trainer_cls = @trainer.Trainer
+  total_steps = %TRAIN_STEPS
+  eval_period = 1000
+  random_seed = %RANDOM_SEED
+  use_hardware_rng = %USE_HARDWARE_RNG
+  summarize_config_fn = @gin_utils.summarize_gin_config
+  get_dataset_fn = @dali.get_dali_dataset
+  train_eval_get_dataset_fn = @dali.get_dali_eval_dataset
+  run_eval_before_training = True
+  run_dali_eval = True
+  eval_steps = None
+  verify_matching_vocabs_fn = None
+  prepare_train_iter_fn = @dali.create_sharded_iterator
+  prepare_eval_iter_fn = @dali.create_sharded_iterator
+
+partitioning.PjitPartitioner:
+  num_partitions = 1
+  model_parallel_submesh = None
+  logical_axis_rules = @partitioning.standard_logical_axis_rules()
+
+dali.get_dali_dataset:
+  pipeline = @train/dali_utils.ViTPipeline
+
+dali.get_dali_eval_dataset:
+  pipeline = @train_eval/dali_utils.ViTPipeline
+
+## setting seed here currently does nothing
+train/wds_utils.WebDatasetConfig:
+  urls = %MIXTURE_OR_TASK_NAME
+  index_dir = %TRAIN_INDEX_DIR
+  batch_size = %BATCH_SIZE
+  shuffle = %SHUFFLE_TRAIN_EXAMPLES
+  seed = %RANDOM_SEED 
+ 
+train_eval/wds_utils.WebDatasetConfig:
+  urls = %EVAL_MIXTURE_OR_TASK_NAME
+  index_dir = %EVAL_INDEX_DIR
+  batch_size = %BATCH_SIZE
+  shuffle = False 
+  seed = None
+
+utils.CheckpointConfig:
+  restore = @utils.RestoreCheckpointConfig()
+  save = @utils.SaveCheckpointConfig()
+utils.RestoreCheckpointConfig:
+  path = []  # initialize from scratch
+  fallback_to_scratch = False
+  strict = True
+
+trainer.Trainer:
+  num_microbatches = None
+  learning_rate_fn = @optax.warmup_cosine_decay_schedule()
+
+utils.SaveCheckpointConfig:
+  period = 10000
+  dtype = 'float32'
+  keep = 2  # keep 2 checkpoints
+  save_dataset = False  # checkpoint dataset state
+
+optax.warmup_cosine_decay_schedule:
+  init_value = 0.0
+  peak_value = 0.003
+  warmup_steps = 10000
+  decay_steps = 85000
+  end_value = 1.0e-5
+
+OPTIMIZER = @optimizers.chain()
+optimizers.chain:
+  transformations = [@optax.clip_by_global_norm(), @optax.adamw()]
+  
+optax.clip_by_global_norm:
+  max_norm = 1.0
+
+optax.adamw:
+  learning_rate = @optax.warmup_cosine_decay_schedule()
+  weight_decay = 0.3
+  b1 = 0.9
+  b2 = 0.999
+
