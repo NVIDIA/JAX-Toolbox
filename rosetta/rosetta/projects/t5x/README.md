@@ -18,9 +18,10 @@ WORKSPACE_PATH=""  # Path used for run outputs (unspecified = /t5x_home/workspac
 ```
 
 ## Container
-We provide a fully built and ready-to-use container here: [ghcr.io/nvidia/rosetta-t5x:latest](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-t5x).
+We provide the latest fully built, ready-to-use, and verified container here: `ghcr.io/nvidia/rosetta-t5x:latest-verified`. The verified containers will be updated
+periodically, but if you wish to use the bleeding edge (which may come have unexpected behavior), please use `ghcr.io/nvidia/rosetta-t5x:latest`.
 We also provide nightly dated images with the naming pattern [ghcr.io/nvidia/rosetta-t5x:nightly-YYYY-MM-DD](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-t5x), but we encourage
-you to use the latest to get the best performance.
+you to use the latest ones to get the best performance.
 
 We **highly** recommend using the pre-built container, but if you'd like to build your own container, you can follow the instructions here: [Building rosetta manually](../../../README.md#building-rosetta-with-a-specific-base)
 
