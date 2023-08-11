@@ -82,7 +82,7 @@ jobs:
         id: base
         shell: bash -x -e {0}
         run: |
-          IMG="${{ inputs.CUDA_IMAGE }}"
+          IMG=${{ inputs.CUDA_IMAGE }}
           echo "BASE_IMAGE=${IMG:-'NOT SPECIFIED'}" >> $GITHUB_OUTPUT
 
       - name: Parse inputs
