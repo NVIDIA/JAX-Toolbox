@@ -67,6 +67,15 @@ jobs:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
+      - name: Print BASE_IMAGE
+        run: |
+          echo ${{ inputs.BASE_IMAGE }}
+          echo ${{
+                inputs.BASE_IMAGE == 'NOT SPECIFIED'
+                && ''
+                || format('BASE_IMAGE={0}', inputs.BASE_IMAGE)
+          }}
+
       - name: Build docker images
         uses: docker/build-push-action@v4
         with:
