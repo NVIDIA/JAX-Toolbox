@@ -70,8 +70,8 @@ jobs:
       - name: Print BASE_IMAGE
         run: |
           echo ${{ inputs.BASE_IMAGE }}
-          echo ${{ inputs.BASE_IMAGE == 'NOT SPECIFIED' }}
-          echo ${{ inputs.BASE_IMAGE != 'NOT SPECIFIED' }}
+          echo ${{inputs.BASE_IMAGE}} equals 'NOT SPECIFIED' is ${{ inputs.BASE_IMAGE == 'NOT SPECIFIED' }}
+          echo ${{inputs.BASE_IMAGE}} does not equal 'NOT SPECIFIED' is ${{ inputs.BASE_IMAGE != 'NOT SPECIFIED' }}
           echo ${{
                 inputs.BASE_IMAGE != 'NOT SPECIFIED'
                 && format('BASE_IMAGE={0}', inputs.BASE_IMAGE)
