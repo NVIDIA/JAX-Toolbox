@@ -99,9 +99,8 @@ jobs:
           parse_git_src PAXML  "${{ inputs.SRC_PAXML }}"  "https://github.com/google/paxml.git#main"
           parse_git_src PRAXIS "${{ inputs.SRC_PRAXIS }}" "https://github.com/google/praxis.git#main"
 
-      - name: Print CUDA_IMAGE
-        run: |
-          echo ${{ inputs.CUDA_IMAGE }}
+      - name: Print inputs
+        run: echo ${{ toJSON(inputs) }}
 
   build-base:
     needs: metadata
