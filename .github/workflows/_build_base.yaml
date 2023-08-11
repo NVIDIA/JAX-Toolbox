@@ -3,6 +3,11 @@ name: ~build CUDA+Python base container
 on:
   workflow_call:
     inputs:
+      BASE_IMAGE:
+        type: string
+        description: 'Base CUDA image:'
+        required: false
+        default: 'NOT SPECIFIED'
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -73,6 +78,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BUILD_DATE=${{ inputs.BUILD_DATE }}
+            ${{
+                inputs.BASE_IMAGE == 'NOT SPECIFIED'
+                && ''
+                || format('BASE_IMAGE={0}', inputs.BASE_IMAGE)
+            }}
 
       # Temporary workaround until the following issues are solved:
       # https://github.com/orgs/community/discussions/17245
