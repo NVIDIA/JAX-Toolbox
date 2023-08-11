@@ -71,9 +71,10 @@ jobs:
         run: |
           echo ${{ inputs.BASE_IMAGE }}
           echo ${{
-                inputs.BASE_IMAGE == 'NOT SPECIFIED'
-                && ''
-                || format('BASE_IMAGE={0}', inputs.BASE_IMAGE)
+                inputs.BASE_IMAGE != 'NOT SPECIFIED'
+                && format('BASE_IMAGE={0}', inputs.BASE_IMAGE)
+                || ''
+
           }}
 
       - name: Build docker images
@@ -88,9 +89,9 @@ jobs:
           build-args: |
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             ${{
-                inputs.BASE_IMAGE == 'NOT SPECIFIED'
-                && ''
-                || format('BASE_IMAGE={0}', inputs.BASE_IMAGE)
+                inputs.BASE_IMAGE != 'NOT SPECIFIED'
+                && format('BASE_IMAGE={0}', inputs.BASE_IMAGE)
+                || ''
             }}
 
       # Temporary workaround until the following issues are solved:
