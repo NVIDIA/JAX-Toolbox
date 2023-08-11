@@ -10,7 +10,7 @@ on:
         type: string
         description: 'Base CUDA image:'
         required: false
-        default: 'nvidia/cuda:12.1.1-devel-ubuntu22.04'
+        default: 'NOT SPECIFIED' # use the Dockefile.base default
       SRC_JAX:
         description: 'JAX source: <repo>#<branch|tag|commit>'
         type: string
@@ -103,7 +103,7 @@ jobs:
     needs: metadata
     uses: ./.github/workflows/_build_base.yaml
     with:
-      BASE_IMAGE: ${{ inputs.CUDA_IMAGE || 'nvidia/cuda:12.1.1-devel-ubuntu22.04' }}
+      BASE_IMAGE: ${{ inputs.CUDA_IMAGE  }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
