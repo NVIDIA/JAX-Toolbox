@@ -51,12 +51,11 @@ jobs:
         with:
           github-token: ${{ secrets.TEST_TOKEN }}
           script: |
-            const response = JSON.parse(
-              await github.actions.createRegistrationTokenForRepo({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-              })
-            );
+            const response = await github.actions.createRegistrationTokenForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+            });
+            console.log(response)
             core.setSecret(response.token);
             core.setOutput('RUNNER_TOKEN', response.token);
 
