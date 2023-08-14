@@ -18,8 +18,20 @@ env:
 
 jobs:
 
+  runner:
+    uses: ./.github/workflows/_add_slurm_runner.yaml
+    with:
+      NAME: "A100-${{ github.run_id }}"
+      LABELS: "A100:${{ github.run_id }}"
+      TIME: "01:00:00"
+    secrets: inherit
+
   unit-test:
-    runs-on: [self-hosted, V100]
+    strategy:
+      fail-fast: false
+      matrix:
+        GPU_ARCH: [V100, A100]
+    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && join(matrix.GPU_ARCH, ':', github.run_id) || matrix.GPU_ARCH }}"]
     outputs:
       ARTIFACT_NAME: ${{ env.ARTIFACT_NAME }}
     steps:
@@ -60,7 +72,7 @@ jobs:
       - name: Upload test logs
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.ARTIFACT_NAME }}
+          name: ${{ env.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
           path: |
             test-backend-independent.log
             test-gpu.log

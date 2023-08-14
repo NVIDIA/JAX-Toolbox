@@ -4,32 +4,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  runner:
-    uses: ./.github/workflows/_add_slurm_runner.yaml
+  run-jobs:
+    uses: ./.github/workflows/_test_jax.yaml
     with:
-      NAME: "A100-test-${{ github.run_id }}"
-      LABELS: "test,A100,SLURM"
-      TIME: "01:00:00"
+      JAX_IMAGE: ghcr.io/nvidia/jax:latest
     secrets: inherit
-
-  test:
-    needs: runner
-    runs-on: [A100, SLURM]
-    steps:
-      - name: Print environment variables
-        run: env
-      
-      - name: docker login
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Show GPU info
-        run: |
-          nvidia-smi
-
-      - name: run tests
-        run: |
-          docker run --gpus all ghcr.io/nvidia/jax:latest test-jax.sh -b gpu
