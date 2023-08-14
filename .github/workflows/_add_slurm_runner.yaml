@@ -3,14 +3,19 @@ name: ~create an ephemeral runner using a SLURM job
 on:
   workflow_call:
     inputs:
+      NAME:
+        type: string
+        description: 'Name of the runner'
+        required: true
       LABELS:
         type: string
         description: 'comma-separated list of runner labels'
         required: true
-    # outputs:
-    #   ARTIFACT_NAME:
-    #     description: 'Name of the unit test artifact for downstream workflows'
-    #     value: ${{ jobs.unit-test.outputs.ARTIFACT_NAME }}
+      TIME:
+        type: string
+        description: 'SLURM time limit'
+        default: '01:00:00'
+        required: true
 
 jobs:
 
@@ -39,7 +44,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          JOB_NAME=${GITHUB_RUN_ID}
+          JOB_NAME=${{ github.run_id }}-${{ inputs.NAME }}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           for var in JOB_NAME LOG_FILE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
@@ -66,29 +71,25 @@ jobs:
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
-          #SBATCH --job-name=RUNNER
+          #SBATCH --job-name=${{steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
           #SBATCH --nodes=1
           #SBATCH --tasks=1
           #SBATCH --gpus-per-node=8
-          #SBATCH --time=01:00:00
+          #SBATCH --time="${{ inputs.TIME }}"
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           time docker run \
             --network host \
             --gpus all \
             --privileged \
             -v /runner \
-            -e RUNNER_NAME=ABC \
-            -e RUNNER_LABELS="A100,XYZ" \
-            -e RUNNER_REPO="NVIDIA/JAX-Toolbox" \
-            -e RUNNER_TOKEN=${{ steps.runner-token.outputs.RUNNER_TOKEN }} \
+            -e RUNNER_NAME="${{ inputs.NAME }}" \
+            -e RUNNER_LABELS="${{ inputs.LABELS }}" \
+            -e RUNNER_REPO="${{ github.action_repository }}" \
+            -e RUNNER_TOKEN="${{ steps.runner-token.outputs.RUNNER_TOKEN }}" \
             -e RUNNER_EPHEMERAL=true \
             -e DOCKER_ENABLED=true \
             -e DOCKERD_IN_RUNNER=true \
             ghcr.io/yhtang/actions-runner-dind:ubuntu-22.04  # use personal repo for the time being to avoid auth/cost issues
           EOF
           )
-
-
-# srun --pty docker run --network host --gpus all --privileged -v /runner -e RUNNER_NAME=ABC -e RUNNER_ORG=NVIDIA -e RUNNER_REPO=JAX-Toolbox -e RUNNER_TOKEN= ghcr.io/yhtang/actions-runner-dind:ubuntu-22.04-2023-07-17
-# srun --pty docker run --network host --gpus all --privileged -v /runner -e RUNNER_NAME=ABC -e RUNNER_REPO="NVIDIA/JAX-Toolbox" -e RUNNER_TOKEN=XXXXX -e RUNNER_EPHEMERAL=true -e RUNNER_LABELS="A100,XYZ" -e DOCKER_ENABLED=true -e DOCKERD_IN_RUNNER=true  ghcr.io/yhtang/actions-runner-dind:ubuntu-22.04-2023-07-17
