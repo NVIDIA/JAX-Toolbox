@@ -85,7 +85,7 @@ jobs:
             -e RUNNER_EPHEMERAL=true \
             -e DOCKER_ENABLED=true \
             -e DOCKERD_IN_RUNNER=true \
-            ghcr.io/nvidia/actions-runner-dind:ubuntu-22.04
+            ghcr.io/yhtang/actions-runner-dind:ubuntu-22.04  # use personal repo for the time being to avoid auth/cost issues
           EOF
           )
 
