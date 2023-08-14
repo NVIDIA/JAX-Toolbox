@@ -94,7 +94,7 @@ jobs:
           TOTAL_TESTS=$(all_outcomes | wc -l)
           if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
             BADGE_COLOR=brightgreen
-            echo "TEST_STATUS='success'" >> $GITHUB_OUTPUT
+            echo "TEST_STATUS=success" >> $GITHUB_OUTPUT
           else
-            echo "TEST_STATUS='failure'" >> $GITHUB_OUTPUT
+            echo "TEST_STATUS=failure" >> $GITHUB_OUTPUT
           fi

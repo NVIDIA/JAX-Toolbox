@@ -281,9 +281,9 @@ jobs:
           FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
           if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-            echo "TEST_STATUS='success'" >> $GITHUB_OUTPUT
+            echo "TEST_STATUS=success" >> $GITHUB_OUTPUT
           else
-            echo "TEST_STATUS='failure'" >> $GITHUB_OUTPUT
+            echo "TEST_STATUS=failure" >> $GITHUB_OUTPUT
           fi
 
   summary:
