@@ -49,6 +49,7 @@ jobs:
         uses: actions/github-script@v2.1.0
         id: runner-token
         with:
+          github-token: ${{ secrets.TEST_TOKEN }}
           script: |
             const response = JSON.parse(
               await github.actions.createRegistrationTokenForRepo({
