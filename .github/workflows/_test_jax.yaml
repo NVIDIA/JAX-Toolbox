@@ -31,7 +31,7 @@ jobs:
       fail-fast: false
       matrix:
         GPU_ARCH: [V100, A100]
-    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && join(matrix.GPU_ARCH, ':', github.run_id) || matrix.GPU_ARCH }}"]
+    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
     outputs:
       ARTIFACT_NAME: ${{ env.ARTIFACT_NAME }}
     steps:
