@@ -14,7 +14,7 @@ on:
         value: ${{ jobs.unit-test.outputs.ARTIFACT_NAME }}
 
 env:
-  ARTIFACT_NAME: unit-test-logs
+  ARTIFACT_NAME: jax-unit-test-logs
 
 jobs:
 

@@ -57,14 +57,18 @@ jobs:
 
   publish:
     needs: [metadata, run-jobs]
+    strategy:
+      fail-fast: false
+      matrix:
+        GPU_ARCH: [V100, A100]
     uses: ./.github/workflows/_publish_badge.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'jax-unit-test-status.json'
+      ENDPOINT_FILENAME: 'jax-unit-test-status-${{ matrix.GPU_ARCH }}.json'
       PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
-        ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}/*"
+        ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}/*"
         FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)
         PASSED_TESTS=$(cat $ARTIFACTS | grep -c 'PASSED in' || true)
         TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))

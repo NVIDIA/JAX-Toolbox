@@ -9,3 +9,32 @@ jobs:
     with:
       JAX_IMAGE: ghcr.io/nvidia/jax:latest
     secrets: inherit
+
+  publish:
+    needs: [run-jobs]
+    strategy:
+      fail-fast: false
+      matrix:
+        GPU_ARCH: [V100, A100]
+    uses: ./.github/workflows/_publish_badge.yaml
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 'jax-unit-test-status-${{ matrix.GPU_ARCH }}.json'
+      PUBLISH: true
+      SCRIPT: |
+        ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}/*"
+        FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)
+        PASSED_TESTS=$(cat $ARTIFACTS | grep -c 'PASSED in' || true)
+        TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
+        if [[ $FAILED_TESTS == 0 ]]; then
+          BADGE_COLOR=brightgreen
+        else
+          if [[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
+            BADGE_COLOR=yellow
+          else
+            BADGE_COLOR=red
+          fi
+        fi
+        echo "LABEL='${{ matrix.GPU_ARCH }} Unit'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
