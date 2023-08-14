@@ -15,7 +15,6 @@ on:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
         value: ${{ jobs.publish-test.outputs.TEST_STATUS }}
-        default: failure
 
 env:
   TEST_ARTIFACT_NAME: test-logs
