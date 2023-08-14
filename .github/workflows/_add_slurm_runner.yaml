@@ -85,7 +85,7 @@ jobs:
             -v /runner \
             -e RUNNER_NAME="${{ inputs.NAME }}" \
             -e RUNNER_LABELS="${{ inputs.LABELS }}" \
-            -e RUNNER_REPO="${{ github.action_repository }}" \
+            -e RUNNER_REPO="${{ github.repository }}" \
             -e RUNNER_TOKEN="${{ steps.runner-token.outputs.RUNNER_TOKEN }}" \
             -e RUNNER_EPHEMERAL=true \
             -e DOCKER_ENABLED=true \
