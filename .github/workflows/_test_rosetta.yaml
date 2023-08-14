@@ -74,6 +74,7 @@ jobs:
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-unit-integration-test-status.json'
+      PUBLISH: false
       SCRIPT: |
           ARTIFACTS="${{ needs.rosetta-tests.outputs.TEST_ARTIFACT_NAME }}/*.jsonl"
           all_outcomes() {
