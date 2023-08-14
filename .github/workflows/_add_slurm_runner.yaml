@@ -47,6 +47,17 @@ jobs:
 
       - name: Obtain runner registration token
         uses: actions/github-script@v2.1.0
+        id: runner-token
+        with:
+          script: |
+            const response = JSON.parse(
+              await github.actions.createRegistrationTokenForRepo({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+              })
+            );
+            core.setSecret(response.token);
+            core.setOutput('RUNNER_TOKEN', response.token);
 
       - name: Submit SLURM jobs over SSH
         id: submit
@@ -70,7 +81,7 @@ jobs:
             -e RUNNER_NAME=ABC \
             -e RUNNER_LABELS="A100,XYZ" \
             -e RUNNER_REPO="NVIDIA/JAX-Toolbox" \
-            -e RUNNER_TOKEN=XXXXX \
+            -e RUNNER_TOKEN=${{ steps.runner-token.outputs.RUNNER_TOKEN }} \
             -e RUNNER_EPHEMERAL=true \
             -e DOCKER_ENABLED=true \
             -e DOCKERD_IN_RUNNER=true \
