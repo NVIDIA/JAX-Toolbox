@@ -75,7 +75,7 @@ jobs:
     with:
       ENDPOINT_FILENAME: 'rosetta-unit-integration-test-status.json'
       SCRIPT: |
-          ARTIFACTS="${{ env.TEST_ARTIFACT_NAME }}/*.jsonl"
+          ARTIFACTS="${{ needs.rosetta-tests.outputs.TEST_ARTIFACT_NAME }}/*.jsonl"
           all_outcomes() {
             cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
           }
