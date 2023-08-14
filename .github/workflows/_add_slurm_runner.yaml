@@ -44,7 +44,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          JOB_NAME=${{ github.run_id }}-${{ inputs.NAME }}
+          JOB_NAME=${{ inputs.NAME }}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           for var in JOB_NAME LOG_FILE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
