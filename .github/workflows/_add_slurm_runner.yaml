@@ -49,15 +49,15 @@ jobs:
         uses: actions/github-script@v2.1.0
         id: runner-token
         with:
-          github-token: ${{ secrets.TEST_TOKEN }}
+          github-token: ${{ secrets.RUNNER_REGISTRATION_AUTH_TOKEN }}
           script: |
             const response = await github.actions.createRegistrationTokenForRepo({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
             });
-            console.log(response)
-            core.setSecret(response.token);
-            core.setOutput('RUNNER_TOKEN', response.token);
+            token = response.data.token;
+            core.setSecret(token);
+            core.setOutput('RUNNER_TOKEN', token);
 
       - name: Submit SLURM jobs over SSH
         id: submit
