@@ -53,14 +53,18 @@ jobs:
           echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
           echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-  test-unit:
+  build:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    uses: ./.github/workflows/_test_rosetta.yaml
-    with:
-      ROSETTA_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x
-    secrets: inherit
+    needs: metadata
+    runs-on: ubuntu-22.04
+    steps:
+      - name: simulate failure
+        shell: bash -x {0}
+        run: |
+          exit 1
 
   test-t5x:
+    needs: build
     uses: ./.github/workflows/_test_t5x.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
@@ -69,25 +73,14 @@ jobs:
 
   publish-latest-container:
     needs: [metadata, test-t5x, test-unit]
-    if: ( ${{ needs.test-unit.outputs.TEST_STATUS == 'success' }} && ${{ needs.test-t5x.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
-    uses: ./.github/workflows/_publish_container.yaml
-    secrets: inherit
-    with:
-      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x
-      TARGET_IMAGE: jax-toolbox-internal
-      TARGET_TAGS: |
-        type=raw,value=t5x-tag-test-fail,priority=1000
-
-  publish-container:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
-    needs: [metadata]
-    uses: ./.github/workflows/_publish_container.yaml
-    secrets: inherit
-    with:
-      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x
-      TARGET_IMAGE: jax-toolbox-internal
-      TARGET_TAGS: |
-        type=raw,value=t5x-tag-test-always-fail-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+    if: ( ${{ needs.test-t5x.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    runs-on: ubuntu-22.04
+    steps:
+      - name: check var
+        shell: bash -x {0}
+        run: |
+          echo  ${{ needs.test-t5x.outputs.TEST_STATUS }} 
+          echo  ${{ needs.test-t5x.outputs.TEST_STATUS == 'success' }} 
 
   if-upstream-failed:
     runs-on: ubuntu-latest
