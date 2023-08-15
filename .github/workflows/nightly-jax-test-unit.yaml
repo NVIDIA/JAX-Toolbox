@@ -25,7 +25,6 @@ permissions:
 
 env:
   DEFAULT_JAX_IMAGE: 'ghcr.io/nvidia/jax:latest'
-  BADGE_ENDPOINT: 'jax-unit-test-status.json'
 
 jobs:
 

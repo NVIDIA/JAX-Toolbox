@@ -19,7 +19,7 @@ env:
 jobs:
 
   runner:
-    uses: ./.github/workflows/_add_slurm_runner.yaml
+    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
     with:
       NAME: "A100-${{ github.run_id }}"
       LABELS: "A100:${{ github.run_id }}"

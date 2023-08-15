@@ -19,7 +19,7 @@ on:
 
 jobs:
 
-  start-runner:
+  launch:
     runs-on: ubuntu-latest
     steps:
       - name: Print environment variables
@@ -50,20 +50,6 @@ jobs:
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
-      - name: Obtain runner registration token
-        uses: actions/github-script@v2.1.0
-        id: runner-token
-        with:
-          github-token: ${{ secrets.RUNNER_REGISTRATION_AUTH_TOKEN }}
-          script: |
-            const response = await github.actions.createRegistrationTokenForRepo({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-            });
-            token = response.data.token;
-            core.setSecret(token);
-            core.setOutput('RUNNER_TOKEN', token);
-
       - name: Submit SLURM jobs over SSH
         id: submit
         shell: bash -O expand_aliases -x -e {0}
@@ -78,6 +64,21 @@ jobs:
           #SBATCH --gpus-per-node=8
           #SBATCH --time="${{ inputs.TIME }}"
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+
+          # obtain runner registration token
+          RUNNER_TOKEN=$(
+            curl \
+              -L \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.RUNNER_REGISTRATION_AUTH_TOKEN }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/${{ github.repository }}/actions/runners/registration-token |\
+            jq -r '.token'
+          )
+          echo "::add-mask::${RUNNER_TOKEN}"
+
+          # launch runner
           time docker run \
             --network host \
             --gpus all \
@@ -86,7 +87,7 @@ jobs:
             -e RUNNER_NAME="${{ inputs.NAME }}" \
             -e RUNNER_LABELS="${{ inputs.LABELS }}" \
             -e RUNNER_REPO="${{ github.repository }}" \
-            -e RUNNER_TOKEN="${{ steps.runner-token.outputs.RUNNER_TOKEN }}" \
+            -e RUNNER_TOKEN="${RUNNER_TOKEN}" \
             -e RUNNER_EPHEMERAL=true \
             -e DOCKER_ENABLED=true \
             -e DOCKERD_IN_RUNNER=true \
