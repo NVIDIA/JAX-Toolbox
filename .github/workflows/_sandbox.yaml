@@ -76,7 +76,7 @@ jobs:
       SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x
       TARGET_IMAGE: jax-toolbox-internal
       TARGET_TAGS: |
-        type=raw,value=t5x-tag-test-success,priority=1000
+        type=raw,value=t5x-tag-test-fail,priority=1000
 
   publish-container:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
@@ -87,7 +87,7 @@ jobs:
       SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x
       TARGET_IMAGE: jax-toolbox-internal
       TARGET_TAGS: |
-        type=raw,value=t5x-tag-test-always-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+        type=raw,value=t5x-tag-test-always-fail-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   if-upstream-failed:
     runs-on: ubuntu-latest
