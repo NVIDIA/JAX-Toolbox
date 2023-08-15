@@ -73,8 +73,9 @@ jobs:
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-unit-integration-test-status.json'
+      PUBLISH: false
       SCRIPT: |
-          ARTIFACTS="${{ env.TEST_ARTIFACT_NAME }}/*.jsonl"
+          ARTIFACTS="${{ needs.rosetta-tests.outputs.TEST_ARTIFACT_NAME }}/*.jsonl"
           all_outcomes() {
             cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
           }
@@ -99,3 +100,5 @@ jobs:
             fi
           fi
           echo "LABEL='V100'" >> $GITHUB_OUTPUT
+          echo "MESSAGE='${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail'" >> $GITHUB_OUTPUT
+          echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
