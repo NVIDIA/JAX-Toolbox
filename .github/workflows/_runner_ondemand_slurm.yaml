@@ -54,8 +54,9 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          JOB=$(sshx sbatch --parsable <<"EOF"
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            sbatch --parsable \
+          <<"EOF"
           #!/bin/bash
           #SBATCH --job-name=${{steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
@@ -92,4 +93,3 @@ jobs:
             -e DOCKERD_IN_RUNNER=true \
             ghcr.io/yhtang/actions-runner-dind:ubuntu-22.04  # use personal repo for the time being to avoid auth/cost issues
           EOF
-          )
