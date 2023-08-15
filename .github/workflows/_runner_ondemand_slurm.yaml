@@ -1,4 +1,4 @@
-name: ~create an ephemeral runner using a SLURM job
+name: ~create an on-demand, ephemeral runner out of a SLURM job
 
 on:
   workflow_call:
@@ -52,11 +52,9 @@ jobs:
 
       - name: Submit SLURM jobs over SSH
         id: submit
-        shell: bash -O expand_aliases -x -e {0}
+        shell: ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} bash -ex < {0}
         run: |
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
-            sbatch --parsable \
-          <<"EOF"
+          sbatch --parsable <<"EOF"
           #!/bin/bash
           #SBATCH --job-name=${{steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
