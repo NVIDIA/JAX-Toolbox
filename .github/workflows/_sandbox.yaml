@@ -2,80 +2,40 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
-    inputs:
-      JAX_IMAGE:
-        type: string
-        description: 'JAX image built by NVIDIA/JAX-Toolbox'
-        default: 'ghcr.io/nvidia/jax:latest'
-        required: true
-      PUBLISH:
-        type: boolean
-        description: Update status badge?
-        default: false
-        required: true
-
-permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
-
-env:
-  DEFAULT_JAX_IMAGE: 'ghcr.io/nvidia/jax:latest'
 
 jobs:
-
-  metadata:
+  sandbox:
     runs-on: ubuntu-22.04
-    outputs:
-      JAX_IMAGE: ${{ steps.meta.outputs.JAX_IMAGE }}
-      PUBLISH: ${{ steps.meta.outputs.PUBLISH }}
     steps:
-      - name: Set metadata
-        id: meta
-        shell: bash -x -e {0}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print usage
         run: |
-          if [[ -z "${{ inputs.JAX_IMAGE }}" ]]; then
-            JAX_IMAGE=${{ env.DEFAULT_JAX_IMAGE }}
-          else
-            JAX_IMAGE=${{ inputs.JAX_IMAGE }}
-          fi
-          echo "JAX_IMAGE=${JAX_IMAGE}" >> $GITHUB_OUTPUT
-          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
 
-  run-jobs:
-    needs: metadata
-    uses: ./.github/workflows/_test_jax.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    with:
-      JAX_IMAGE: ${{ needs.metadata.outputs.JAX_IMAGE }}
-    secrets: inherit
-
-  publish:
-    needs: [metadata, run-jobs]
-    strategy:
-      fail-fast: false
-      matrix:
-        GPU_ARCH: [V100, A100]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    secrets: inherit
-    with:
-      ENDPOINT_FILENAME: 'jax-unit-test-status-${{ matrix.GPU_ARCH }}.json'
-      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}/*"
-        FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)
-        PASSED_TESTS=$(cat $ARTIFACTS | grep -c 'PASSED in' || true)
-        TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
-        if [[ $FAILED_TESTS == 0 ]]; then
-          BADGE_COLOR=brightgreen
-        else
-          if [[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
-            BADGE_COLOR=yellow
-          else
-            BADGE_COLOR=red
-          fi
-        fi
-        echo "LABEL='${{ matrix.GPU_ARCH }} Unit'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
