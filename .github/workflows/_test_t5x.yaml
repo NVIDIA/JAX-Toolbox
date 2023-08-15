@@ -261,36 +261,6 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  publish-test:
-    needs: [multi-gpu-multi-node, single-process-multi-device]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: ( always() )
-    secrets: inherit
-    with:
-      ENDPOINT_FILENAME: 't5x-test-completion-status.json'
-      PUBLISH: false
-      SCRIPT: |
-        EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
-        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
-        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
-
-        echo "Test statuses:"
-        jq -rc 'input_filename,.' $EXIT_STATUSES
-
-        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-          echo "TEST_STATUS=success" >> $GITHUB_OUTPUT
-          BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]]; then
-          echo "TEST_STATUS=failure" >> $GITHUB_OUTPUT
-          BADGE_COLOR=red
-        else
-          echo "TEST_STATUS=failure" >> $GITHUB_OUTPUT
-          BADGE_COLOR=yellow
-        fi
-        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
   summary:
     runs-on: ubuntu-22.04
