@@ -2,15 +2,15 @@ name: "~Sandbox"
 
 on:
   workflow_run:
-    workflows: [Nightly Pax build]
+    workflows: [Nightly T5X build]
     types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
       BASE_IMAGE:
         type: string
-        description: 'PAX image built by NVIDIA/JAX-Toolbox'
-        default: 'ghcr.io/nvidia/pax:latest'
+        description: 'T5x image built by NVIDIA/JAX-Toolbox'
+        default: 'ghcr.io/nvidia/t5x:latest'
         required: true
       PUBLISH:
         type: boolean
@@ -19,7 +19,7 @@ on:
         required: false
 
 env:
-  BASE_LIBRARY: pax
+  BASE_LIBRARY: t5x
   DOCKER_REGISTRY: ghcr.io/nvidia
 
 permissions:
@@ -53,23 +53,30 @@ jobs:
           echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
           echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-  test:
+  test-unit:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/_test_rosetta.yaml
     with:
-      ROSETTA_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5813676140-rosetta-pax
+      ROSETTA_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x
+    secrets: inherit
+
+  test-t5x:
+    uses: ./.github/workflows/_test_t5x.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      T5X_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x 
     secrets: inherit
 
   publish-latest-container:
-    needs: [metadata, test]
-    if: ( ${{ needs.test.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    needs: [metadata, test-t5x, test-unit]
+    if: ( ${{ needs.test-unit.outputs.TEST_STATUS == 'success' }} && ${{ needs.test-t5x.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
-      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5813676140-rosetta-pax
+      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x
       TARGET_IMAGE: jax-toolbox-internal
       TARGET_TAGS: |
-        type=raw,value=pax-tag-test-fail,priority=1000
+        type=raw,value=t5x-tag-test-success,priority=1000
 
   publish-container:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
@@ -77,10 +84,10 @@ jobs:
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
-      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5813676140-rosetta-pax
+      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x
       TARGET_IMAGE: jax-toolbox-internal
       TARGET_TAGS: |
-        type=raw,value=pax-tag-test-always-fail-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+        type=raw,value=t5x-tag-test-always-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   if-upstream-failed:
     runs-on: ubuntu-latest
