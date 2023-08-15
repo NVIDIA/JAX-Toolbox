@@ -55,7 +55,7 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          JOB=$(sshx sbatch --parsable << EOF
+          JOB=$(sshx sbatch --parsable <<"EOF"
           #!/bin/bash
           #SBATCH --job-name=${{steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
