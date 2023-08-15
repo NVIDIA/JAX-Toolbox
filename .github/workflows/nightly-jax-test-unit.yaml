@@ -81,7 +81,7 @@ jobs:
             BADGE_COLOR=red
           fi
         fi
-        echo "LABEL='V100 Unit'" >> $GITHUB_OUTPUT
+        echo "LABEL='${{ matrix.GPU_ARCH }} Unit'" >> $GITHUB_OUTPUT
         echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
