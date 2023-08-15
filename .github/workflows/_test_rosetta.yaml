@@ -101,3 +101,5 @@ jobs:
             fi
           fi
           echo "LABEL='V100'" >> $GITHUB_OUTPUT
+          echo "MESSAGE='${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail'" >> $GITHUB_OUTPUT
+          echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
