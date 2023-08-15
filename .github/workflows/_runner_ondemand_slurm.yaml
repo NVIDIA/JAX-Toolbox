@@ -76,7 +76,6 @@ jobs:
               https://api.github.com/repos/${{ github.repository }}/actions/runners/registration-token |\
             jq -r '.token'
           )
-          echo "::add-mask::${RUNNER_TOKEN}"
 
           # launch runner
           time docker run \
