@@ -5,7 +5,7 @@ Any `paxml/*` or `praxis/*` relative directory/file can be found in [google/paxm
 view the most up-to-date version of that directory/file with any GPU-specific patches, please see [Inspecting the source code](#inspecting-the-source-code).
 
 ## Containers
-We provide a fully built and ready-to-use container which includes the latest optimizations, experimental features, and examples benchmarked for multi-node, multi-GPU training: `ghcr.io/nvidia/pax:pax-release-2023-06-23`. This container contains clones of the Paxml and Praxis repositories from 06/23/2023.
+We provide a fully built and ready-to-use container which includes the latest optimizations, experimental features, and examples benchmarked for multi-node, multi-GPU training: `ghcr.io/nvidia/pax:pax-2023-06-23.2`. This container contains clones of the Paxml and Praxis repositories from 06/23/2023.
 
 For more information on the Pax build and for details on how to manually build the Pax distribution, please refer to [DEVELOPMENT.md](../../../docs/DEVELOPMENT.md). 
 
