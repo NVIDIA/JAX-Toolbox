@@ -82,7 +82,7 @@ Paxml's [main.py](https://github.com/google/paxml/blob/main/paxml/main.py) takes
 
 Paxml uses [Fiddle](https://github.com/google/fiddle/tree/main) for configuring hyperparameters. To overwrite an existing hyperparameter from the command line, use the following syntax: 
 ```
---fld.<PARAM_NAME>=<NEW_VALUE>
+--fdl.<PARAM_NAME>=<NEW_VALUE>
 ```
 For example, in our `*.sh` scripts, we override the default values of `FPROP_DTYPE`, `ICI_MESH_SHAPE`, and `PERCORE_BATCH_SIZE`. 
 
