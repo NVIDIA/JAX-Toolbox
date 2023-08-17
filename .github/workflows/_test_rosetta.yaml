@@ -52,14 +52,13 @@ jobs:
       - name: Run Rosetta tests w/ docker
         shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log rosetta:latest bash -x -e /cmd.sh
         run: |
-          # EXTRA_ARGS=""
-          # if [[ ${{ matrix.TEST_TYPE }} == integration ]]; then
-          #   EXTRA_ARGS="-m integration"
-          # fi
-          # ROSETTA_PATH=$(dirname $(python -c "import rosetta; print(*rosetta.__path__)"))
-          # pip install "${ROSETTA_PATH}[test]" pytest-reportlog
-          # pytest --report-log=/log/${{ matrix.TEST_TYPE }}-report.jsonl ${ROSETTA_PATH} ${EXTRA_ARGS} || true
-          exit 1 # force failure
+          EXTRA_ARGS=""
+          if [[ ${{ matrix.TEST_TYPE }} == integration ]]; then
+            EXTRA_ARGS="-m integration"
+          fi
+          ROSETTA_PATH=$(dirname $(python -c "import rosetta; print(*rosetta.__path__)"))
+          pip install "${ROSETTA_PATH}[test]" pytest-reportlog
+          pytest --report-log=/log/${{ matrix.TEST_TYPE }}-report.jsonl ${ROSETTA_PATH} ${EXTRA_ARGS} || true
 
       - name: Upload unit test json logs
         uses: actions/upload-artifact@v3
