@@ -81,6 +81,4 @@ The [JAX image](ghcr.io/nvidia/jax) is embedded with the following flags and env
 | Environment Variable | Value | Explanation |
 | -------------------- | ----- | ----------- |
 | `CUDA_DEVICE_MAX_CONNECTIONS` | `1` | use a single queue for GPU work to lower latency of stream operations; OK since XLA already orders launches |
-| `NCCL_AVOID_RECORD_STREAMS` | `1` | **undocumented** |
 | `NCCL_IB_SL` | `1` | defines the InfiniBand Service Level ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-sl)) |
-|  |  |  |
