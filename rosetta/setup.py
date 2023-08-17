@@ -26,10 +26,16 @@ setuptools.setup(
     },
     scripts=[],
     install_requires=[
+        'nvidia-dali-cuda120',
+        'webdataset',
     ],
+
     extras_require={
         'test': [
+            'pandas',
             'pytest',
+            'pytest-xdist',
+            'Pillow'
         ],
         'lint': [
             'ruff',

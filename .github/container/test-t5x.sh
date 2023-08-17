@@ -159,7 +159,7 @@ partitioning.PjitPartitioner:
 EOF
 
 ## Launch
-set -x
+set -ex
 python -m t5x.train \
     --gin_file benchmark.gin \
     --gin.MODEL_DIR=\"${OUTPUT}\" \

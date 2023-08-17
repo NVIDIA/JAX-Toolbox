@@ -83,7 +83,7 @@ jobs:
         echo "MESSAGE='${MSG}'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
-  test:
+  test-unit:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     needs: build
     uses: ./.github/workflows/_test_rosetta.yaml
@@ -91,8 +91,8 @@ jobs:
       ROSETTA_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
     secrets: inherit
 
-  publish-test:
-    needs: [metadata, build, test]
+  publish-test-unit:
+    needs: [metadata, build, test-unit]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( success() || failure() ) && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     secrets: inherit
@@ -100,7 +100,7 @@ jobs:
       ENDPOINT_FILENAME: 'rosetta-t5x-test-status.json'
       PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
-        ARTIFACTS="${{ needs.test.outputs.TEST_ARTIFACT_NAME }}/*.jsonl"
+        ARTIFACTS="${{ needs.test-unit.outputs.TEST_ARTIFACT_NAME }}/*.jsonl"
         all_outcomes() {
           cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
         }
@@ -125,10 +125,39 @@ jobs:
         echo "LABEL='V100'" >> $GITHUB_OUTPUT
         if [[ ${{ needs.build.result }} == "success" ]]; then
           echo "MESSAGE='${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail'" >> $GITHUB_OUTPUT
+          echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
         else
           echo "MESSAGE='n/a'" >> $GITHUB_OUTPUT
+          echo "COLOR='red'" >> $GITHUB_OUTPUT
         fi
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+
+  test-t5x:
+    needs: build
+    uses: ./.github/workflows/_test_t5x.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      T5X_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  publish-t5x:
+    needs: [metadata, test-t5x]
+    uses: ./.github/workflows/_publish_t5x_results.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      EXPERIMENT_SUBDIR: ROSETTA_T5X
+    secrets: inherit
+
+  publish-latest-container:
+    needs: [metadata, build, test-t5x, test-unit]
+    if: ( ${{ needs.test-unit.outputs.TEST_STATUS == 'success' }} && ${{ needs.test-t5x.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    uses: ./.github/workflows/_publish_container.yaml
+    secrets: inherit
+    with:
+      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
+      TARGET_TAGS: |
+        type=raw,value=latest,priority=1000
 
   publish-container:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
@@ -139,7 +168,6 @@ jobs:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
       TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
       TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   if-upstream-failed:

@@ -7,7 +7,7 @@ on:
         type: string
         description: 'Base docker image that provides JAX'
         required: false
-        default: ghcr.io/nvidia/jax-te:latest
+        default: ghcr.io/nvidia/jax:latest
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"

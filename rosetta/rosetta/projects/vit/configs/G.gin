@@ -1,0 +1,54 @@
+# Copyright (c) 2023, The T5X Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from __gin__ import dynamic_registration
+import optax
+import seqio
+
+from rosetta.projects.vit import config
+from rosetta.projects.vit import layers
+from rosetta.projects.vit import models
+import jax.numpy as jnp
+
+# ------------------- Model ----------------------------------------------------
+MODEL = @models.ViTModel()
+
+# ------------------- Network specification ------------------------------------
+CONFIG = @config.GoogleViTConfig()
+config.GoogleViTConfig:
+  hidden_size = 1664
+  num_hidden_layers = 48
+  num_attention_heads = 16
+  intermediate_size = 8192
+  hidden_dropout_prob = %HIDDEN_DROPOUT_PROB
+  attention_probs_dropout_prob = 0.0
+  patch_size = 14
+  encoder_stride = 14
+  classifier = 'token'
+  ## single linear layer for fine-tuning
+  ## one hidden layer for pretraining
+  representation_size = %REP_SIZE
+  num_classes = 1000
+  dtype = @jnp.float32
+  layer_norm_eps = %LN_EPSILON
+  
+MODULE = @layers.FlaxGViTForImageClassificationModule()
+layers.FlaxGViTForImageClassificationModule:
+  config = %CONFIG
+
+models.ViTModel:
+  module = %MODULE
+  optimizer_def = %OPTIMIZER
+
+

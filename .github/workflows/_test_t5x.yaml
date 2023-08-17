@@ -13,6 +13,10 @@ on:
         description: Batch size per GPU
         default: 32
         required: false
+    outputs:
+      TEST_STATUS:
+        description: 'Summary pass/fail value indicating if results from tests are acceptable'
+        value: ${{ jobs.publish-test.outputs.TEST_STATUS }}
 
 jobs:
 
@@ -93,6 +97,15 @@ jobs:
             sleep 15
           done
           echo "SLRUM Job $JOB finished."
+
+          # Gather job info
+          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          echo "SLURM Job state is ${SLURM_STATE}"
+          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
           set -x
 
       - name: Retrieve training logs and upload to TensorBoard server
@@ -101,14 +114,24 @@ jobs:
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
-            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log
+            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
-            output/
+            output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
 
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
+ 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -196,6 +219,15 @@ jobs:
             sleep 15
           done
           echo "SLRUM Job $JOB finished."
+
+          # Gather job info
+          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          echo "SLURM Job state is ${SLURM_STATE}"
+          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
           set -x
 
       - name: Retrieve training logs and upload to TensorBoard server
@@ -205,19 +237,60 @@ jobs:
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
-            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log
+            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
-            output/
+            output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
 
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
+ 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
+
+  publish-test:
+    needs: [multi-gpu-multi-node, single-process-multi-device]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: ( always() )
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 't5x-test-completion-status.json'
+      PUBLISH: false
+      SCRIPT: |
+        EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
+        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
+
+        echo "Test statuses:"
+        jq -rc 'input_filename,.' $EXIT_STATUSES
+
+        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
+          echo "TEST_STATUS=success" >> $GITHUB_OUTPUT
+          BADGE_COLOR=brightgreen
+        elif [[ $PASSED_TESTS -eq 0 ]]; then
+          echo "TEST_STATUS=failure" >> $GITHUB_OUTPUT
+          BADGE_COLOR=red
+        else
+          echo "TEST_STATUS=failure" >> $GITHUB_OUTPUT
+          BADGE_COLOR=yellow
+        fi
+        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
   summary:
     runs-on: ubuntu-22.04

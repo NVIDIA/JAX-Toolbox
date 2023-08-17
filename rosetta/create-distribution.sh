@@ -63,7 +63,7 @@ set -euox pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 INSTALLED_DIR=${INSTALLED_DIR:-/opt/t5x}
-DISTRIBUTION_BASE_REF=${DISTRIBUTION_BASE_REF:-main}
+DISTRIBUTION_BASE_REF=${DISTRIBUTION_BASE_REF:-HEAD}
 UPSTREAM_GIT_URL=${UPSTREAM_GIT_URL:-https://github.com/google-research/t5x.git}
 
 if [[ -z "${INSTALLED_DIR}" ]]; then
@@ -73,9 +73,24 @@ fi
 
 cd ${INSTALLED_DIR}
 
-echo "[INFO]: Basing distribution on commit: ${DISTRIBUTION_BASE_REF}"
-# Switch to main so other branches can be forced updated
-git switch main
+for git_command in cherry-pick rebase merge revert; do
+  RESERVED_INPROGRESS_REF=$(echo $git_command | tr 'a-z' 'A-Z' | sed 's/-/_/g')_HEAD
+  if git rev-parse --verfiy $RESERVED_INPROGRESS_REF >/dev/null 2>&1; then
+    echo -e "[ERROR]: There is an inprogress $git_command. If you'd like to abort then run:\n"
+    echo "  git -C ${INSTALLED_DIR} $git_command --abort"
+    exit 1
+  fi
+done
+
+echo "[INFO]: Basing distribution on git-ref: ${DISTRIBUTION_BASE_REF} ($(git rev-parse ${DISTRIBUTION_BASE_REF}))"
+# previous-HEAD's purpose is to point to the state of the repo before any changes are made whereas
+# distribution-base is to point to the commit where we want to begin building the distribution on.
+# Most of the time it will be the same, but it can be different.
+if ! git rev-parse --verify previous-HEAD >/dev/null 2>&1; then
+  git branch --force previous-HEAD HEAD
+else
+  git switch previous-HEAD
+fi
 # Create a local branch to mark the base commit
 git branch --force distribution-base ${DISTRIBUTION_BASE_REF}
 # Create a local branch for the distribution that starts from the base
@@ -159,6 +174,7 @@ for line in $(cat ${PATCH_LIST}); do
     PR_ID=$(cut -d/ -f2 <<<"${git_ref}")
     branch=PR-${PR_ID}
     git fetch ${REMOTE_NAME} ${git_ref}:${branch}
+    main_branch=${REMOTE_NAME}/main
   else
     if [[ -z "${EXTRA_MIRROR_DIR+x}" ]] || [[ ! -d ${EXTRA_MIRROR_DIR} ]]; then
       echo "[WARNING]: EXTRA_MIRROR_DIR=${EXTRA_MIRROR_DIR} does not exist so cannot cherry-pick ${git_ref}"
@@ -167,8 +183,10 @@ for line in $(cat ${PATCH_LIST}); do
     REMOTE_NAME=${EXTRA_REMOTE_NAME}
     # Fetch both the feature branch and main so that we can cherry pick the entire branch
     branch=${REMOTE_NAME}/${git_ref}-tmp-rosetta
+    # Use main-tmp-rosetta instead of main b/c remote branches may have been updated and the local main is stale
+    main_branch=${REMOTE_NAME}/main-tmp-rosetta
   fi
-  fork_point=$(fork-point ${REMOTE_NAME}/main ${branch})
+  fork_point=$(fork-point ${main_branch} ${branch})
   ret_code=0
   apply-patches ${fork_point} ${branch} || ret_code=$?
   if [[ ${ret_code} -ne 0 ]]; then
@@ -178,7 +196,7 @@ for line in $(cat ${PATCH_LIST}); do
     1. Merge conflict encountered; need to resolve.
     2. It's possible the branch=${branch} wasn't fetched, doesn't exist, or was deleted.
 
-Note: ${fork_point}=\$(git merge-base ${REMOTE_NAME}/main ${branch})
+Note: ${fork_point}=\$(git merge-base ${main_branch} ${branch})
 
 ==== git status ====
 $(git status)
