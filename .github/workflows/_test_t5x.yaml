@@ -92,7 +92,7 @@ jobs:
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
-              --steps-per-epoch 100 ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args \"{}\"', inputs.EXTRA_GIN_ARGS) || '' }}
+              --steps-per-epoch 100 ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
 
@@ -214,7 +214,7 @@ jobs:
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              --multiprocess ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args \"{}\"', inputs.EXTRA_GIN_ARGS) || '' }}
+              --multiprocess ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
 
