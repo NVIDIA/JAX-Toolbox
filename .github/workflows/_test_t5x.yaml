@@ -13,6 +13,11 @@ on:
         description: Batch size per GPU
         default: 32
         required: false
+      EXTRA_GIN_ARGS:
+        type: string
+        description: Extra gin args to pass to test-t5x.sh
+        default: ""
+        required: false
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -87,7 +92,7 @@ jobs:
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
-              --steps-per-epoch 100
+              --steps-per-epoch 100 ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args \"{}\"', inputs.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
 
@@ -209,7 +214,7 @@ jobs:
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              --multiprocess
+              --multiprocess ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args \"{}\"', inputs.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
 

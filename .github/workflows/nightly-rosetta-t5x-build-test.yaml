@@ -137,6 +137,8 @@ jobs:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
       T5X_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      # Disable packing b/c rosetta-t5x images run with TE by default, and TE does not currently support packing
+      EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
     secrets: inherit
 
   publish-t5x:
