@@ -131,7 +131,7 @@
 [workflow-jax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax-build.yaml
 [workflow-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-t5x-build.yaml
 [workflow-pax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-pax-build.yaml
-[workflow-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-t5x-build.yaml
+[workflow-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-t5x-build-test.yaml
 [workflow-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-pax-build.yaml
 [workflow-te]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-te-build.yaml
 
