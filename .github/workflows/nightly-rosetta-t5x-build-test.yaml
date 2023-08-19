@@ -116,7 +116,7 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'rosetta-t5x-test-status.json'
+      ENDPOINT_FILENAME: 'rosetta-t5x-overall-test-status.json'
       PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
         UNIT_STATUS=${{ needs.test-unit.outputs.TEST_STATUS }}
