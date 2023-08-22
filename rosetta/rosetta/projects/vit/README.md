@@ -52,11 +52,11 @@ Note that torchvision is required and must be manually installed prior to perfor
 ViT uses [DALI](https://github.com/NVIDIA/DALI/tree/c4f105e1119ef887f037830a5551c04f9062bb74) on CPU for performant dataloading. Loading WebDataset tar files is done using DALI's [webdataset reader](https://docs.nvidia.com/deeplearning/dali/user-guide/docs/operations/nvidia.dali.fn.readers.webdataset.html#nvidia.dali.fn.readers.webdataset). The reader expects each tar file to have a corresponding index file. These files can be generated using `rosetta/data/generate_wds_indices.py`. To generate the indices for the training data, use the following command. Note that braceexpand notation is used to specify the range of tar files to generate index files for.
 
 ```
-python3 -m rosetta.data.scripts.generate_wds_indices --archive "/opt/rosetta/datasets/imagenet/imagenet-train-{000000..000146}.tar" --index_dir "/opt/rosetta/train_indices"
+python3 -m rosetta.data.generate_wds_indices --archive "/opt/rosetta/datasets/imagenet/imagenet-train-{000000..000146}.tar" --index_dir "/opt/rosetta/train_indices"
 ```
 Similarly, to generate indices for the validation dataset,
 ```
-python3 -m rosetta.data.scripts.generate_wds_indices --archive "/opt/rosetta/datasets/imagenet/imagenet-val-{000000..000006}.tar" --index_dir "/opt/rosetta/eval_indices"
+python3 -m rosetta.data.generate_wds_indices --archive "/opt/rosetta/datasets/imagenet/imagenet-val-{000000..000006}.tar" --index_dir "/opt/rosetta/eval_indices"
 ```
 This step is optional. If no indices are provided to the WebDataset reader, they will be inferred automatically, but it typically takes around 10 minutes to infer the index files for the train dataset. 
 
