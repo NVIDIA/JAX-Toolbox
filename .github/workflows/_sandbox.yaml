@@ -53,50 +53,18 @@ jobs:
           echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
           echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-  build:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    needs: metadata
-    uses: ./.github/workflows/_build_rosetta.yaml
-    with:
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
-    secrets: inherit
-
-  publish-build:
-    needs: [metadata, build]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: ( success() || failure() ) && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    secrets: inherit
-    with:
-      ENDPOINT_FILENAME: 'rosetta-t5x-build-status.json'
-      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        if [[ ${{ needs.build.result }} == "success" ]]; then
-          BADGE_COLOR=brightgreen
-          MSG=passing
-        else
-          BADGE_COLOR=red
-          MSG=failing
-        fi
-        echo "LABEL='nightly'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${MSG}'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-
   test-unit:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    needs: build
     uses: ./.github/workflows/_test_rosetta.yaml
     with:
-      ROSETTA_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      ROSETTA_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x 
     secrets: inherit
 
   test-t5x:
-    needs: build
     uses: ./.github/workflows/_test_t5x.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      T5X_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      T5X_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x 
     secrets: inherit
 
   publish-t5x:
@@ -109,7 +77,7 @@ jobs:
     secrets: inherit
 
   publish-test:
-    needs: [metadata, build, test-unit, test-t5x]
+    needs: [metadata, test-unit, test-t5x]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
@@ -122,7 +90,7 @@ jobs:
 
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
-        if [[ ${{ needs.build.result }} == "success" ]]; then
+        if [[ "success" == "success" ]]; then
           if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]]; then
             COLOR=brightgreen
             MESSAGE="Unit passed / MGMN passed"
@@ -145,23 +113,23 @@ jobs:
         echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
 
   publish-latest-container:
-    needs: [metadata, build, test-t5x, test-unit]
+    needs: [metadata, test-t5x, test-unit]
     if: ( ${{ needs.test-unit.outputs.TEST_STATUS == 'success' }} && ${{ needs.test-t5x.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
-      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x 
       TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
 
   publish-container:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
-    needs: [metadata, build]
+    needs: [metadata]
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
-      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:5807724330-rosetta-t5x 
       TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
       TARGET_TAGS: |
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
