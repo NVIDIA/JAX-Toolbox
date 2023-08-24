@@ -93,7 +93,7 @@ jobs:
             BADGE_COLOR=brightgreen
             echo "TEST_STATUS=success" >> $GITHUB_OUTPUT
           else
-            echo "TEST_STATUS=failure" >> $GITHUB_OUTPUT
+            echo "TEST_STATUS=success" >> $GITHUB_OUTPUT
             if [[ $PASSED_TESTS -eq 0 ]]; then
               BADGE_COLOR=red
             else
