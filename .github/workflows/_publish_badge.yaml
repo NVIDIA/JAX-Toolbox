@@ -16,11 +16,17 @@ on:
         description: Upload the endpoint file as GitHub gist?
         default: false
         required: true
+    outputs:
+      STATUS:
+        description: 'Summary pass/fail value indicating if badge results are acceptable overall'
+        value: ${{ jobs.publish.outputs.STATUS }}
 
 
 jobs:
   publish:
     runs-on: ubuntu-22.04
+    outputs:
+      STATUS: ${{ steps.script.outputs.STATUS }}
     steps:
       - name: Download all artifacts from the previous jobs
         uses: actions/download-artifact@v3
