@@ -282,6 +282,14 @@ jobs:
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
 
+        echo '## T5x MGMN+SPMD Test Status' >> $GITHUB_STEP_SUMMARY
+        for i in $EXIT_STATUSES; do
+          echo $i | cut -d'.' -f1
+          echo '```json'
+          jq . $i
+          echo '```'
+        done | tee -a $GITHUB_STEP_SUMMARY
+
         echo "Test statuses:"
         jq -rc 'input_filename,.' $EXIT_STATUSES
 
