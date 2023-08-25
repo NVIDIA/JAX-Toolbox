@@ -5,9 +5,9 @@ on:
     inputs:
       BASE_IMAGE:
         type: string
-        description: 'Base CUDA image:'
+        description: 'Base CUDA image, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04'
         required: false
-        default: nvidia/cuda:12.2.0-devel-ubuntu22.04
+        default: latest
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -77,8 +77,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
+            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE: {0}', inputs.BASE_IMAGE) }}
 
       # Temporary workaround until the following issues are solved:
       # https://github.com/orgs/community/discussions/17245
