@@ -63,7 +63,6 @@ else
   export BASE_SCRIPT="/mnt/workspace/${BASE_SCRIPT}"
 fi
 
-# << INSERT SENTENCEPIECE MODEL NAME ! >>
 cmd="$(cat <<EOF
 echo "*******STARTING********"
 cd ${PAXML_DIR}
