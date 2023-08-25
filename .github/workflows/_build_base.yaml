@@ -78,7 +78,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE: {0}', inputs.BASE_IMAGE) }}
+            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
 
       # Temporary workaround until the following issues are solved:
       # https://github.com/orgs/community/discussions/17245
