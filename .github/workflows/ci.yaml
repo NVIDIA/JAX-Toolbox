@@ -103,8 +103,8 @@ jobs:
     needs: metadata
     uses: ./.github/workflows/_build_base.yaml
     with:
+      BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      ${{ inputs.CUDA_IMAGE != 'latest' && format('BASE_IMAGE: {0}', inputs.CUDA_IMAGE) }}
     secrets: inherit
 
   build-jax:
