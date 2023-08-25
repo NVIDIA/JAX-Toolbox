@@ -59,8 +59,10 @@ LOG_DIR_LOCAL=${LOG_DIR_LOCAL}
 
 if [[ -z "${BASE_SCRIPT:-}" ]]; then
   export BASE_SCRIPT="${PAXML_DIR}/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh"
+  echo "Using default BASE_SCRIPT=$BASE_SCRIPT"
 else
   export BASE_SCRIPT="/mnt/workspace/${BASE_SCRIPT}"
+  echo "Using custom BASE_SCRIPT=$BASE_SCRIPT"
 fi
 
 cmd="$(cat <<EOF
