@@ -178,3 +178,17 @@ The [JAX image](ghcr.io/nvidia/jax) is embedded with the following flags and env
 | -------------------- | ----- | ----------- |
 | `CUDA_DEVICE_MAX_CONNECTIONS` | `1` | use a single queue for GPU work to lower latency of stream operations; OK since XLA already orders launches |
 | `NCCL_IB_SL` | `1` | defines the InfiniBand Service Level ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-sl)) |
+
+## FAQ (Frequently Asked Questions)
+
+
+Question: A "bus error"
+-----------------------
+
+**Q:** When I execute my JAX code, I come across a `bus error`. How can I address this issue?
+
+**A:** The `bus error` might occur due to the size limitation of `/dev/shm`. You can address this by increasing the shared memory size using
+the `--shm-size` option when launching your container. Here is a demonstration of how this can be achieved using Docker:
+
+```bash
+docker run -it --shm-size=1g ...
