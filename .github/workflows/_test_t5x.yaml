@@ -21,7 +21,7 @@ on:
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
-        value: ${{ jobs.publish-test.outputs.TEST_STATUS }}
+        value: ${{ jobs.publish-test.outputs.STATUS }}
 
 jobs:
 
@@ -294,13 +294,13 @@ jobs:
         jq -rc 'input_filename,.' $EXIT_STATUSES
 
         if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-          echo "TEST_STATUS=success" >> $GITHUB_OUTPUT
+          echo "STATUS=success" >> $GITHUB_OUTPUT
           BADGE_COLOR=brightgreen
         elif [[ $PASSED_TESTS -eq 0 ]]; then
-          echo "TEST_STATUS=failure" >> $GITHUB_OUTPUT
+          echo "STATUS=failure" >> $GITHUB_OUTPUT
           BADGE_COLOR=red
         else
-          echo "TEST_STATUS=failure" >> $GITHUB_OUTPUT
+          echo "STATUS=failure" >> $GITHUB_OUTPUT
           BADGE_COLOR=yellow
         fi
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
