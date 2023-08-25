@@ -36,3 +36,5 @@ RUN install-cudnn.sh
 
 ADD install-ofed.sh /usr/local/bin
 RUN install-ofed.sh
+ADD install-efa.sh /usr/local/bin
+RUN install-efa.sh
