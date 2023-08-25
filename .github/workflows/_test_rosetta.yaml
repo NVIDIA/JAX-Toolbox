@@ -14,7 +14,7 @@ on:
         value: ${{ jobs.rosetta-tests.outputs.TEST_ARTIFACT_NAME }}
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
-        value: ${{ jobs.publish-test.outputs.TEST_STATUS }}
+        value: ${{ jobs.publish-test.outputs.STATUS }}
 
 env:
   TEST_ARTIFACT_NAME: test-logs
@@ -86,13 +86,13 @@ jobs:
           FAILED_TESTS=$(cnt_type failed)
           PASSED_TESTS=$(cnt_type passed)
           TOTAL_TESTS=$(all_outcomes | wc -l)
-          echo "Unit/Integration test breakdown:"
-          all_outcomes | sort | uniq -c
+          echo "## Unit/Integration test breakdown" | tee -a $GITHUB_STEP_SUMMARY
+          all_outcomes | sort | uniq -c | tee -a $GITHUB_STEP_SUMMARY
           if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
             BADGE_COLOR=brightgreen
-            echo "TEST_STATUS=success" >> $GITHUB_OUTPUT
+            echo "STATUS=success" >> $GITHUB_OUTPUT
           else
-            echo "TEST_STATUS=failure" >> $GITHUB_OUTPUT
+            echo "STATUS=failure" >> $GITHUB_OUTPUT
             if [[ $PASSED_TESTS -eq 0 ]]; then
               BADGE_COLOR=red
             else
