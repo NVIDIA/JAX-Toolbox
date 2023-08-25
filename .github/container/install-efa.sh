@@ -1,6 +1,6 @@
 #!/bin/bash
 
-function copy_libefa() {
+function copy_libefa_from() {
     PACKAGE_NAME=$1
     EXTRACT_FOLDER="${PACKAGE_NAME}_"
     # unpack downloaded package and copy libefa* stuff to /usr/lib    
@@ -34,8 +34,8 @@ apt-get remove -y libibverbs-dev ibverbs-providers
 # download deb-files without installation
 apt-get download -y libibverbs-dev ibverbs-providers
 
-copy_libefa libibverbs-dev
-copy_libefa ibverbs-providers
+copy_libefa_from libibverbs-dev
+copy_libefa_from ibverbs-providers
 
 popd
 
