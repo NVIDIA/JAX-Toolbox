@@ -36,5 +36,16 @@ RUN install-cudnn.sh
 
 ADD install-ofed.sh /usr/local/bin
 RUN install-ofed.sh
+
+##############################################################################
+## Amazon EFA support
+##############################################################################
+
 ADD install-efa.sh /usr/local/bin
 RUN install-efa.sh
+
+###############################################################################
+## Emergency fix: nsys not in PATH
+###############################################################################
+
+RUN ln -s /opt/nvidia/nsight-compute/*/host/target-linux-x64/nsys /usr/local/cuda/bin
