@@ -68,7 +68,7 @@ See [example_slurm_pile.sub](https://github.com/google/paxml/blob/main/paxml/con
 
 To launch `example_slurm_pile.sub`, run the following command:
 ```
-BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=bfloat16 GPUS_PER_NODE=8 PERCORE_BATCH_SIZE=4 sbatch -N 8 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> paxml/contrib/gpu/scripts_gpu/example_slurm_pretrain_pile.sub
+BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=bfloat16 GPUS_PER_NODE=8 PERCORE_BATCH_SIZE=4 sbatch -N 8 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> paxml/contrib/gpu/scripts_gpu/example_slurm_pile.sub
 ```
 where `BASE_WORKSPACE_DIR`, `BASE_TFDS_DATA_DIR`, and `BASE_VOCAB_PATH` are absolute paths and `LOG_DIR` and `OUTPUT_DIR` are relative to `BASE_WORKSPACE_DIR`.
     
@@ -87,10 +87,12 @@ Paxml uses [Fiddle](https://github.com/google/fiddle/tree/main) for configuring 
 For example, in our `*.sh` scripts, we override the default values of `FPROP_DTYPE`, `ICI_MESH_SHAPE`, and `PERCORE_BATCH_SIZE`. 
 
 We provide a list of some of the frequently overridden hyperparameters, and an explanation of each, below:
-- `ICI_MESH_SHAPE`: This refers to the parallelism strategy used on chips connected by a fast network (e.g. NVLink). `ICI_MESH_SHAPE` typically has 3 dimensions, `[data, fsdp, tensor]`, corresponding to data parallelism, fully-sharded data parallelism (ZeRO-3), and tensor parallelism, respectively. To use pure data parallelism, you should set `ICI_MESH_SHAPE` to `[NUM_GPUS, 1, 1]`.
+- `ICI_MESH_SHAPE`: This refers to the parallelism strategy used on chips connected by a fast network (e.g. NVLink). `ICI_MESH_SHAPE` typically has 3 dimensions, `[data, fsdp, tensor]`, corresponding to data parallelism (DP), fully-sharded data parallelism (FSDP/ZeRO-3), and tensor parallelism (TP), respectively. To use pure data parallelism, you should set `ICI_MESH_SHAPE` to `[NUM_GPUS, 1, 1]`.
 - `DCN_MESH_SHAPE`: This refers to the parallelism strategy for machines connected by a datacenter network. This is the generally parallel strategy used _across_ nodes.
 - `PERCORE_BATCH_SIZE`: This is the batch size loaded by each worker _prior_ to sharding the data according to the parallel strategy. We should always have that `GLOBAL_BATCH_SIZE = PERCORE_BATCH_SIZE * NUM_GPUS`, regardless of the parallel strategy. Note that a consequence of this is that `PERCORE_BATCH_SIZE` will not always equal `MICROBATCH_SIZE`, particularly when using tensor parallelism (TP). If using 2-way TP, for example, `MICROBATCH_SIZE` will be twice the `PERCORE_BATCH_SIZE`. If using tensor or pipeline parallelism, `PERCORE_BATCH_SIZE` may be fractional. For example, when using 2-way TP, setting `PERCORE_BATCH_SIZE` to 0.5 will result in a microbatch size of `PERCORE_BATCH_SIZE * TP = 1`.
 - `NUM_LAYERS`, `NUM_HEADS`, `MODEL_DIMS`, `HIDDEN_DIMS`: These are hyperparameters of the transformer model. `MODEL_DIMS` refers to the hidden dimension of the transformer, and `HIDDEN_DIMS` refers to the hidden dimension of the transformer feed-forward network. 
+
+We provide three "base" configurations in [configs.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/configs.py). For more information about these configurations and how to run experiments using them, please refer to the [Configs](#Configs) section below.
 
 ## XLA flags
 We recommend setting the following XLA flags when running experiments: 
@@ -110,13 +112,18 @@ We provide three "base" model configurations in [configs.py](https://github.com/
 
 The table below describes current performance of the given configs. Experiments were run using NVIDIA DGX A100 (8x A100 80G) nodes. Note that Lambada accuracy reported corresponds to the best accuracy seen across the run.
 
-| Size | #GPUs | BS / GPU | Sequences/Sec | Estimated Walltime (days) | Lambada Accuracy | Convergence Log |
-| ---- | ----- | -------- | ------------- | ------------------------- | ---------------- | --------------- |
-| 126M |  64    | 4        |   2068.5      |   0.86                     |        0.397 (± 0.012)     | [log](https://tensorboard.dev/experiment/RCroDLAUQzGUoudzqD1NmQ/) |
-| 5B   | 256    | 8       |    450.6       |     3.95                   |       N/A        | N/A             |
-| 175B | 256    | 6       |    17.5       |      76.15                 |    N/A           |  N/A           |
+| Size | #GPUs | DP | FSDP | TP | BS / GPU | Sequences/Sec | Estimated Walltime (days) | Lambada Accuracy | Convergence Log |
+| ---- | ----- | -- | ---- | -- | ---------|---------------| ------------------------- | ---------------- |---------------- |
+| 126M |  64    |64    |1    |1    | 4        |   2068.5      |   0.86                     |        0.397 (± 0.012)     | [log](https://tensorboard.dev/experiment/RCroDLAUQzGUoudzqD1NmQ/) |
+| 5B   | 256    | 32    |4    |2    | 8       |    450.6       |     3.95                   |       N/A        | N/A             |
+| 175B | 256    |1    |256    |1    | 6       |    17.5       |      76.15                 |    N/A           |  N/A           |
 
 *Note*: Estimated walltime is computed assuming full throughput continuously. In practice, true walltime may be greater due to compilation overheads, interleaved evaluation, and checkpointing. Linked convergence logs were not necessarily done with the topology described in `configs.py` and may have different walltimes, but the configs provided are the most performant configs tested. The throughput for these performant configs is reported in the table above.
+
+To run an experiment with any base model configuration with the default parallel strategy reported in the table, make the following modifications to [run_pile_multinode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh): replace `--fdl_config=paxml.contrib.gpu.scripts_gpu.configs.Pile126M` with the experiment you are interested in running (e.g. `paxml.contrib.gpu.scripts_gpu.configs.GPT5B` or `paxml.contrib.gpu.scripts_gpu.configs.GPT175B`) and remove `--fdl.ICI_MESH_SHAPE="[${TRAIN_GPUS}, 1, 1]"`. The resulting bash script (call it `run_my_model_multinode.sh`) can be passed into `example_slurm_pile.sub` as follows:
+```
+BASE_SCRIPT=run_my_model_multinode.sh BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=<PRECISION> GPUS_PER_NODE=<GPUS_PER_NODE> PERCORE_BATCH_SIZE=<BS_PER_GPU> sbatch -N <NUM_NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> paxml/contrib/gpu/scripts_gpu/example_slurm_pile.sub
+```
 
 ## Changelog
 - Updated 175B config. 175B now trained on 32 nodes using fully sharded data parallel (FSDP)
