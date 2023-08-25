@@ -51,7 +51,6 @@ jobs:
           LABEL=${{ steps.script.outputs.LABEL }}
           MESSAGE=${{ steps.script.outputs.MESSAGE }}
           COLOR=${{ steps.script.outputs.COLOR }}
-          echo ${{ steps.script.outputs.STATUS }}
           (
           cat << EOF
           {

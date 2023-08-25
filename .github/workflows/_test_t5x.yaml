@@ -307,16 +307,6 @@ jobs:
         echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
-  print-status:
-    needs: publish-test
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Print status
-        run: |
-          echo "status: " ${{ needs.publish-test.outputs.STATUS }}
-          echo "test status: " ${{ needs.publish-test.outputs.TEST_STATUS }}
-
   summary:
     runs-on: ubuntu-22.04
 

@@ -103,13 +103,3 @@ jobs:
           echo "LABEL='V100'" >> $GITHUB_OUTPUT
           echo "MESSAGE='${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail'" >> $GITHUB_OUTPUT
           echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-
-  print-status:
-    needs: publish-test
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Print status
-        run: |
-          echo "status: " ${{ needs.publish-test.outputs.STATUS }}
-          echo "test status: " ${{ needs.publish-test.outputs.TEST_STATUS }}
