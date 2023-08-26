@@ -12,15 +12,15 @@ The `t5x/contrib/gpu/scripts_gpu` directory contains scripts optimized for GPU u
 ## Prerequisites
 The examples below will reuse these environment variables. Feel free to change them:
 ```bash
-CONTAINER=ghcr.io/nvidia/rosetta-t5x:latest
+CONTAINER=ghcr.io/nvidia/t5x:latest
 DATASET_PATH=<NEED TO SPECIFY>
 WORKSPACE_PATH=""  # Path used for run outputs (unspecified = /t5x_home/workspace)
 ```
 
 ## Container
-We provide the latest fully built, ready-to-use, and verified container here: `ghcr.io/nvidia/rosetta-t5x:latest-verified`. The verified containers will be updated
-periodically, but if you wish to use the bleeding edge (which may come have unexpected behavior), please use `ghcr.io/nvidia/rosetta-t5x:latest`.
-We also provide nightly dated images with the naming pattern [ghcr.io/nvidia/rosetta-t5x:nightly-YYYY-MM-DD](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-t5x), but we encourage
+We provide the latest fully built, ready-to-use, and verified container here: `ghcr.io/nvidia/t5x:latest-verified`. The verified containers will be updated
+periodically, but if you wish to use the bleeding edge (which may come have unexpected behavior), please use `ghcr.io/nvidia/t5x:latest`.
+We also provide nightly dated images with the naming pattern [ghcr.io/nvidia/t5x:nightly-YYYY-MM-DD](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x), but we encourage
 you to use the latest ones to get the best performance.
 
 We **highly** recommend using the pre-built container, but if you'd like to build your own container, you can follow the instructions here: [Building rosetta manually](../../../README.md#building-rosetta-with-a-specific-base)
