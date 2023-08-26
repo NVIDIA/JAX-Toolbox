@@ -57,9 +57,14 @@ GPUS_PER_NODE=${GPUS_PER_NODE}
 PERCORE_BATCH_SIZE=${PERCORE_BATCH_SIZE}
 LOG_DIR_LOCAL=${LOG_DIR_LOCAL}
 
-export BASE_SCRIPT=${BASE_SCRIPT:-"${PAXML_DIR}/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh"}
+if [[ -z "${BASE_SCRIPT:-}" ]]; then
+  export BASE_SCRIPT="${PAXML_DIR}/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh"
+  echo "Using default BASE_SCRIPT=$BASE_SCRIPT"
+else
+  export BASE_SCRIPT="/mnt/workspace/${BASE_SCRIPT}"
+  echo "Using custom BASE_SCRIPT=$BASE_SCRIPT"
+fi
 
-# << INSERT SENTENCEPIECE MODEL NAME ! >>
 cmd="$(cat <<EOF
 echo "*******STARTING********"
 cd ${PAXML_DIR}
