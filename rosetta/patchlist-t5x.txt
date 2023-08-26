@@ -7,4 +7,4 @@
 
 pull/1357/head
 pull/1358/head
-pull/1320/head  # https://github.com/google-research/t5x/pull/1320: Adds transformer engine support and GPU optimizations to T5x (enables H100)
+pull/1385/head  # https://github.com/google-research/t5x/pull/1385: Adds transformer engine support and GPU optimizations to T5x (enables H100)
