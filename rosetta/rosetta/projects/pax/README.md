@@ -64,7 +64,7 @@ bash paxml/contrib/gpu/scripts_gpu/run_lambada_singlenode.sh <TFDS_DATA_DIR> <VO
 `TFDS_DATA_DIR` should contain the path to the Lambada dataset and `LOGDIR` should match the `LOGDIR` from the pretraining run.
 
 #### Multi Node
-See [example_slurm_pile.sub](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/example_slurm_pile.sub) for an example slurm submit file that launches an 8-node run with a 126 million parameter GPT model.
+See [example_slurm_pile.sub](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/scripts/example_slurm_pile.sub) for an example slurm submit file that launches an 8-node run with a 126 million parameter GPT model.
 
 To launch `example_slurm_pile.sub`, run the following command:
 ```
@@ -120,9 +120,9 @@ The table below describes current performance of the given configs. Experiments 
 
 *Note*: Estimated walltime is computed assuming full throughput continuously. In practice, true walltime may be greater due to compilation overheads, interleaved evaluation, and checkpointing. Linked convergence logs were not necessarily done with the topology described in `configs.py` and may have different walltimes, but the configs provided are the most performant configs tested. The throughput for these performant configs is reported in the table above.
 
-To run an experiment with any base model configuration with the default parallel strategy reported in the table, make the following modifications to [run_pile_multinode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh): replace `--fdl_config=paxml.contrib.gpu.scripts_gpu.configs.Pile126M` with the experiment you are interested in running (e.g. `paxml.contrib.gpu.scripts_gpu.configs.GPT5B` or `paxml.contrib.gpu.scripts_gpu.configs.GPT175B`) and remove `--fdl.ICI_MESH_SHAPE="[${TRAIN_GPUS}, 1, 1]"`. The resulting bash script (call it `run_my_model_multinode.sh`) can be passed into `example_slurm_pile.sub` as follows:
+To run an experiment with any base model configuration with the default parallel strategy reported in the table, copy [run_pile_multinode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh) to your workspace and make the following modifications: replace `--fdl_config=paxml.contrib.gpu.scripts_gpu.configs.Pile126M` with the experiment you are interested in running (e.g. `paxml.contrib.gpu.scripts_gpu.configs.GPT5B` or `paxml.contrib.gpu.scripts_gpu.configs.GPT175B`) and remove `--fdl.ICI_MESH_SHAPE="[${TRAIN_GPUS}, 1, 1]"`. The resulting bash script (call it `run_my_model_multinode.sh`) can be passed into `example_slurm_pile.sub` using the following command. This command presumes that `run_my_model_multinode.sh` lives in `BASE_WORKSPACE_DIR`.
 ```
-BASE_SCRIPT=run_my_model_multinode.sh BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=<PRECISION> GPUS_PER_NODE=<GPUS_PER_NODE> PERCORE_BATCH_SIZE=<BS_PER_GPU> sbatch -N <NUM_NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> paxml/contrib/gpu/scripts_gpu/example_slurm_pile.sub
+BASE_SCRIPT=run_my_model_multinode.sh CONTAINER=<CONTAINER> BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=<PRECISION> GPUS_PER_NODE=<GPUS_PER_NODE> PERCORE_BATCH_SIZE=<BS_PER_GPU> sbatch -N <NUM_NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> paxml/contrib/gpu/scripts_gpu/example_slurm_pile.sub
 ```
 
 ## Changelog
