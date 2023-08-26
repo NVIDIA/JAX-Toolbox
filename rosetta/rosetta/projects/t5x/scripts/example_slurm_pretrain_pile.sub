@@ -15,10 +15,12 @@ set -eoux
 #-------------------------------------------------------------------------------
 
 # << CHANGE ! >>
-CONTAINER="${CONTAINER:-ghcr.io/nvidia/rosetta-t5x:latest}" # Add link to your built container
+CONTAINER="${CONTAINER:-ghcr.io/nvidia/rosetta-t5x:latest-verified}" # Add link to your built container
 
 # << CHANGE ! >>
-BASE_TFDS_DATA_DIR=${BASE_TFDS_DATA_DIR}           # path to tfds data directory
+# BASE_TFDS_DATA_DIR and DATASET_MAP are mutually exclusive
+BASE_TFDS_DATA_DIR=${BASE_TFDS_DATA_DIR:-}         # path to tfds data directory
+DATASET_MAP=${DATASET_MAP:-}                       # Colon-sep mapping of local dataset dir to name of dataset dir within container. If multiple datasets, separate by comma Format expected: "local_dir1:dataset_name1(,local_dir2:dataset_name2,...)". Example: "/mnt/the_pile:the_pile,/mnt/foobar/squad:squad"
 BASE_T5X_OUTPUTS_DIR="${BASE_T5X_OUTPUTS_DIR}"     # path to slurm output logs
 BASE_T5X_WORKSPACE_DIR="${BASE_T5X_WORKSPACE_DIR}" # path to where training outputs will be dumped
 T5X_DIR=${T5X_DIR:-/opt/t5x}
@@ -28,10 +30,22 @@ TFDS_DATA_DIR=/t5x_home/datasets
 T5X_WORKSPACE_DIR=/t5x_home/workspace
 
 # Add the T5x/JAX specific mounts
-MOUNTS="--container-mounts=$BASE_TFDS_DATA_DIR:$TFDS_DATA_DIR,$BASE_T5X_WORKSPACE_DIR:$T5X_WORKSPACE_DIR"
+MOUNTS="--container-mounts=$BASE_T5X_WORKSPACE_DIR:$T5X_WORKSPACE_DIR"
+if [[ -z "$BASE_TFDS_DATA_DIR" && -z "$DATASET_MAP" ]]; then
+  echo "BASE_TFDS_DATA_DIR and DATASET_MAP cannot both be empty"
+  exit 1
+elif [[ -n "$BASE_TFDS_DATA_DIR" && -n "$DATASET_MAP" ]]; then
+  echo "BASE_TFDS_DATA_DIR=$BASE_TFDS_DATA_DIR and DATASET_MAP=$DATASET_MAP cannot both be specified"
+  exit 1
+elif [[ -n "$BASE_TFDS_DATA_DIR" ]]; then
+  MOUNTS+=",$BASE_TFDS_DATA_DIR:$TFDS_DATA_DIR"
+else # [[ -n "$DATASET_MAP" ]]
+  # Converts /local/path/to/squad:squad to /local/poath/to/squad:$TFDS_DATA_DIR/squad
+  MOUNTS+=",${DATASET_MAP//:/:$TFDS_DATA_DIR/}"
+fi
+
 # Make directories that may not exist
 mkdir -p $BASE_T5X_OUTPUTS_DIR $BASE_T5X_WORKSPACE_DIR
-
 EXPORTS="--export=ALL"
 #-------------------------------------------------------------------------------
 
@@ -75,5 +89,6 @@ mkdir -p ${FOLDER}
 OUTFILE="${FOLDER}/output-%j-%t.txt"
 
 echo $cmd
-srun --ntasks-per-node=${GPUS_PER_NODE} -o $OUTFILE -e $OUTFILE --container-image="$CONTAINER" $MOUNTS $EXPORTS bash -c "${cmd}"
+# --no-container-mount-home: local python packages can interfere with the packages pre-installed
+srun --no-container-mount-home --ntasks-per-node=${GPUS_PER_NODE} -o $OUTFILE -e $OUTFILE --container-image="$CONTAINER" $MOUNTS $EXPORTS bash -c "${cmd}"
 set +x
