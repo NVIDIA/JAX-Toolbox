@@ -192,3 +192,4 @@ the `--shm-size` option when launching your container. Here is a demonstration o
 
 ```bash
 docker run -it --shm-size=1g ...
+```
