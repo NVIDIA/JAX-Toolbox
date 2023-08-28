@@ -125,6 +125,31 @@ To run an experiment with any base model configuration with the default parallel
 BASE_SCRIPT=run_my_model_multinode.sh CONTAINER=<CONTAINER> BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=<PRECISION> GPUS_PER_NODE=<GPUS_PER_NODE> PERCORE_BATCH_SIZE=<BS_PER_GPU> sbatch -N <NUM_NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> paxml/contrib/gpu/scripts_gpu/example_slurm_pile.sub
 ```
 
+## Known Issues
+* The Paxml container does not fully support Hopper yet. Future releases will add Hopper support.
+* Pipeline parallelism is not supported with NVIDIA Transformer Engine enabled in the Paxml container.
+* There are known CVEs that affect the Paxml container related to TensorFlow 2.9.x due to pinning TensorFlow to 2.9.x in Paxml and Lingvo. We will fix these in the next release. The known CVEs are:
+    * CVE-2023-25668 
+    * CVE-2023-25658
+    * CVE-2023-25663
+    * CVE-2023-25664
+    * CVE-2023-25664
+    * CVE-2023-25672
+    * CVE-2023-25674
+    * CVE-2023-25660
+    * CVE-2023-27579
+    * CVE-2023-25671
+    * CVE-2023-25659
+    * CVE-2023-25662
+    * CVE-2023-25675
+    * CVE-2023-25801
+    * CVE-2023-25670
+    * CVE-2023-25669
+    * CVE-2023-25665
+    * CVE-2023-25673
+    * CVE-2023-25666
+
+
 ## Changelog
 - Updated 175B config. 175B now trained on 32 nodes using fully sharded data parallel (FSDP)
 - A100 perf gains

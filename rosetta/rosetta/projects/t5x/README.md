@@ -192,6 +192,9 @@ t5x/contrib/gpu/scripts_gpu/singlenode_ft_frompile.sh \
   {PACK (0 by default)}
 ```
 
+# Known Issues
+* There is a known sporadic NCCL crash that happens when using the T5x container at node counts greater than or equal to 32 nodes. We will fix this in the next release. The issue is tracked [here](https://github.com/NVIDIA/JAX-Toolbox/issues/194).
+
 # Changelog
 - Added Transformer Engine + FP8 support
 - Updated T5x and JAX=0.4.11
