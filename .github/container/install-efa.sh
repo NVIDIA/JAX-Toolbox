@@ -1,43 +1,36 @@
 #!/bin/bash
 
-function copy_libefa_from() {
-    PACKAGE_NAME=$1
-    EXTRACT_FOLDER="${PACKAGE_NAME}_"
-    # unpack downloaded package and copy libefa* stuff to /usr/lib    
-    dpkg -x ${PACKAGE_NAME}* ${EXTRACT_FOLDER}
-    # copy all libefa stuff to /usr/lib
-    for n in $(find ${EXTRACT_FOLDER}/ -name libefa*)
-    do
-        mkdir -p "$(dirname $(echo ${n} | cut -d'_' -f2-))"
-        cp -a "${n}" $(echo ${n} | cut -d'_' -f2-)
-    done
-}
-
 set -ex
 
 # Update distro
 apt-get update
 
-# Workaround to have libefa* for Amazon EFA: 
-# for some reason NVIDIA/Mellanox's OFED distribution does not contain libefa*
-# Temporary solution:
-# 1. download libibverbs-dev and ibverbs-providers that contains required libefa*
-# 2. unpack them
-# 3. copy libefa to /usr/lib
+# Install required packages
+apt-get install -y curl
 
+# clean up all previously installed library to avoid conflicts
+# while installing Amazon EFA version
+dpkg --purge efa-config efa-profile libfabric openmpi \
+             ibacm ibverbs-providers ibverbs-utils infiniband-diags \
+             libibmad-dev libibmad5 libibnetdisc-dev libibnetdisc5 \
+             libibumad-dev libibumad3 libibverbs-dev libibverbs1 librdmacm-dev \
+             librdmacm1 rdma-core rdmacm-utils
+
+# Download Amazon EFA package and install
+EFA_INSTALLER_VERSION=latest
 WORKDIR=$(mktemp -d)
+
 pushd ${WORKDIR}
 
-# just in case remove related packages that contains libefa
-apt-get remove -y libibverbs-dev ibverbs-providers
-
-# download deb-files without installation
-apt-get download -y libibverbs-dev ibverbs-providers
-
-copy_libefa_from libibverbs-dev
-copy_libefa_from ibverbs-providers
+AMAZON_EFA_LINK="https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz"
+curl -O "$AMAZON_EFA_LINK" 
+tar -xf aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && cd aws-efa-installer
+./efa_installer.sh -y --skip-kmod
 
 popd
+
+# check the installation is successful
+/opt/amazon/efa/bin/fi_info --version
 
 # Clean up
 apt-get clean

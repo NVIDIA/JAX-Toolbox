@@ -30,20 +30,20 @@ RUN pip install --upgrade --no-cache-dir pip
 ADD install-cudnn.sh /usr/local/bin
 RUN install-cudnn.sh
 
-
-##############################################################################
-## Amazon EFA support (thru libefa*)
-##############################################################################
-
-ADD install-efa.sh /usr/local/bin
-RUN install-efa.sh
-
 ###############################################################################
 ## RoCE and InfiniteBand support
 ###############################################################################
 
 ADD install-ofed.sh /usr/local/bin
 RUN install-ofed.sh
+
+##############################################################################
+## Amazon EFA support (need to run it inside container separately)
+##############################################################################
+
+ADD install-efa.sh /usr/local/bin
+ENV LD_LIBRARY_PATH=/opt/amazon/efa/lib:$LD_LIBRARY_PATH
+ENV PATH=/opt/amazon/efa/bin:$PATH
 
 ###############################################################################
 ## Emergency fix: nsys not in PATH
