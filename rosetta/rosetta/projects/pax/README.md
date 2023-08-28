@@ -128,7 +128,7 @@ BASE_SCRIPT=run_my_model_multinode.sh CONTAINER=<CONTAINER> BASE_WORKSPACE_DIR=<
 ## Known Issues
 * The Paxml container does not fully support Hopper yet. Future releases will add Hopper support.
 * Pipeline parallelism is not supported with NVIDIA Transformer Engine enabled in the Paxml container.
-* There are known CVEs that affect the Paxml container related to TensorFlow 2.9.x due to pinning TensorFlow to 2.9.x in Paxml and Lingvo. We will fix these in the next release. The known CVEs are:
+* There are known Common Vulnerabilities and Exposures (CVE) that affect the Paxml container related to TensorFlow 2.9.x due to pinning TensorFlow to 2.9.x in Paxml and Lingvo. We will fix these in the next release. The known CVEs are:
     * CVE-2023-25668 
     * CVE-2023-25658
     * CVE-2023-25663
