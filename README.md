@@ -36,30 +36,6 @@
 [![test-badge-jax-A100]][workflow-jax-unit]
             </td>
         </tr>
-        <!-- t5x -->
-        <tr style="border-style:hidden">
-            <td>
-[![container-badge-t5x]][container-link-t5x]
-            </td>
-            <td>
-[![build-badge-t5x]][workflow-t5x] 
-            </td>
-            <td>
-[![test-badge-t5x]][workflow-t5x-perf] 
-            </td>
-        </tr>
-        <!-- pax -->
-        <tr style="border-style:hidden">
-            <td>
-[![container-badge-pax]][container-link-pax] 
-            </td>
-            <td>
-[![build-badge-pax]][workflow-pax]
-            </td>
-            <td>
-[![test-badge-pax]][workflow-pax-perf]
-            </td>
-        </tr>
         <!-- te -->
         <tr>
             <td>
@@ -72,29 +48,40 @@
 [![unit-test-badge-te]][workflow-te-test] <br> [![integration-test-badge-te]][workflow-te-test]
             </td>
         </tr>
-        <tr style="border-bottom-style:hidden">
-            <td colspan=3> Rosetta </td>
-        </tr>
         <!-- rosetta-t5x -->
-        <tr style="border-style:hidden">
-            <td>
-[![container-badge-rosetta-t5x]][container-link-rosetta-t5x] 
+        <tr>
+            <td rowspan=3>
+[![container-badge-rosetta-t5x]][container-link-rosetta-t5x]
             </td>
-            <td>
+            <td rowspan=3>
 [![build-badge-rosetta-t5x]][workflow-rosetta-t5x] 
             </td>
+        </tr>
+        <tr>
+            <td>
+[![test-badge-t5x]][workflow-t5x-perf]
+            </td>
+        </tr>
+        <tr>
             <td>
 [![test-badge-rosetta-t5x]][workflow-rosetta-t5x]
             </td>
         </tr>
-        <!-- rosetta-pax -->
+        <!-- rosetta pax -->
         <tr>
-            <td>
+            <td rowspan=3>
 [![container-badge-rosetta-pax]][container-link-rosetta-pax]
             </td>
-            <td>
+            <td rowspan=3>
 [![build-badge-rosetta-pax]][workflow-rosetta-pax]
             </td>
+        </tr>
+        <tr>
+            <td>
+[![test-badge-pax]][workflow-pax-perf]
+            </td>
+        </tr>
+        <tr>
             <td>
 [![test-badge-rosetta-pax]][workflow-rosetta-pax]
             </td>
@@ -105,35 +92,27 @@
 
 [container-badge-base]: https://img.shields.io/static/v1?label=&message=.base&color=gray&logo=docker
 [container-badge-jax]: https://img.shields.io/static/v1?label=&message=JAX&color=gray&logo=docker
-[container-badge-t5x]: https://img.shields.io/static/v1?label=&message=T5X&color=gray&logo=docker
-[container-badge-pax]: https://img.shields.io/static/v1?label=&message=PAX&color=gray&logo=docker
-[container-badge-rosetta-t5x]: https://img.shields.io/static/v1?label=&message=ROSETTA(T5X)&color=gray&logo=docker
-[container-badge-rosetta-pax]: https://img.shields.io/static/v1?label=&message=ROSETTA(PAX)&color=gray&logo=docker
 [container-badge-te]: https://img.shields.io/static/v1?label=&message=TE&color=gray&logo=docker
+[container-badge-rosetta-t5x]: https://img.shields.io/static/v1?label=&message=T5X&color=gray&logo=docker
+[container-badge-rosetta-pax]: https://img.shields.io/static/v1?label=&message=PAX&color=gray&logo=docker
 
 [container-link-base]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-toolbox
 [container-link-jax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax
-[container-link-t5x]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x
-[container-link-pax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/pax
 [container-link-te]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-te
 [container-link-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-t5x
 [container-link-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-pax
 
 [build-badge-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/weekly-base-build.yaml?branch=main&label=weekly&logo=github-actions&logoColor=dddddd
 [build-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
-[build-badge-t5x]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-t5x-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
-[build-badge-pax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-pax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
+[build-badge-te]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-te-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 [build-badge-rosetta-t5x]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-t5x-build-status.json&logo=github-actions&logoColor=dddddd
 [build-badge-rosetta-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-build-status.json&logo=github-actions&logoColor=dddddd
-[build-badge-te]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-te-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 
 [workflow-base]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/weekly-base-build.yaml
 [workflow-jax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax-build.yaml
-[workflow-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-t5x-build.yaml
-[workflow-pax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-pax-build.yaml
+[workflow-te]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-te-build.yaml
 [workflow-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-t5x-build-test.yaml
 [workflow-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-pax-build.yaml
-[workflow-te]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-te-build.yaml
 
 [test-badge-jax-V100]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fjax-unit-test-status-V100.json&logo=nvidia
 [test-badge-jax-A100]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fjax-unit-test-status-A100.json&logo=nvidia
@@ -145,9 +124,9 @@
 [test-badge-rosetta-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-test-status.json&logo=nvidia
 
 [workflow-jax-unit]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax-test-unit.yaml
+[workflow-te-test]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-te-test.yaml
 [workflow-t5x-perf]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-t5x-test-mgmn.yaml
 [workflow-pax-perf]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-pax-test-mgmn.yaml
-[workflow-te-test]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-te-test.yaml
 
 
 ## Note
