@@ -139,7 +139,7 @@ jobs:
   
   build-t5x-ff:
     needs: [metadata, broken-t5x-retest]
-    if: ${{ needs.broken-t5x-retest.outputs.STATUS != 'success' }}
+    if: ${{ needs.broken-t5x-retest.outputs.TEST_STATUS != 'success' }}
     runs-on: [self-hosted, small-builder]
     strategy:
       # To enforce sequential execution, set to 1
