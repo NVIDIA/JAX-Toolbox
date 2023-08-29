@@ -167,7 +167,7 @@ BASE_SCRIPT=run_my_model_multinode.sh CONTAINER=<CONTAINER> BASE_WORKSPACE_DIR=<
 
 ## Changelog
 ### 8/29/2023
-- Added Transformer Engine + bfloat16 support
+- Added bfloat16 Transformer Engine support
 - Disabled packing by default in all base configurations for TE compatibility
 - Updated 5B config to use fully sharded data parallel (FSDP)
 - bfloat16 perf changes (no TE)
