@@ -24,10 +24,7 @@ The given models are trained using The Pile dataset and evaluated using the Lamb
 ## Downloading the SentencePiece Model
 Pax models require a pretrained SentencePiece model to tokenize the datasets. The SentencePiece model used in the following experiments is `gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model`. This model was trained using [these instructions](https://github.com/sgpyc/training/blob/paxml-llm-draft/large_language_model/paxml/utils/generate_spm.md). Use the following commands to download the tokenizer locally. This should be done _prior_ to launching the container.  
 ```
-mkdir c4_sentencepiece
-cd c4_sentencepiece
-wget https://github.com/nvjax-svc-0/assets/blob/main/sentencepiece_c4/c4_en_301_5Mexp2_spm.model
-cd ..
+wget -P c4_sentencepiece https://github.com/nvjax-svc-0/assets/raw/main/sentencepiece_c4/c4_en_301_5Mexp2_spm.model
 ```
 You can then use the following mount to attach the tokenizer to your container:
 ```
