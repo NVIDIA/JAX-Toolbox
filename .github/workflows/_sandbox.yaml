@@ -82,6 +82,18 @@ jobs:
       UPLD_IMAGE: ${{ steps.meta.outputs.UPLD_IMAGE }}
     runs-on: ubuntu-22.04
     steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set docker metadata
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ghcr.io/nvidia/rosetta-t5x:latest
       - name:
         id: meta
         shell: bash -x -e {0}
@@ -91,7 +103,8 @@ jobs:
         
           BASE_IMAGE_REPO=$(echo $BASE_IMAGE | rev | cut -d: -f2- | rev)
           FRAMEWORK_BASE=$(echo $BASE_IMAGE_REPO | rev | cut -d/ -f1 | rev)
-          ALL_BASE_TAGS="$(docker run --rm quay.io/skopeo/stable list-tags docker://${BASE_IMAGE_REPO} | jq -r '.Tags[]')"
+          #ALL_BASE_TAGS="$(docker run --rm quay.io/skopeo/stable list-tags docker://${BASE_IMAGE_REPO} | jq -r '.Tags[]')"
+          ALL_BASE_TAGS="$(curl -H "Authorization: Bearer $(echo ${{ secrets.GITHUB_TOKEN }} | base64 ) https://ghcr.io/v2/NVIDIA/${FRAMEWORK_BASE}/tags/list)" | jq -r '.tags[]')"
           generate_tags() {
             start_date=$1
             end_date=$2
