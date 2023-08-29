@@ -22,16 +22,17 @@ where `DATASET_PATH` is the path to the Pile or Lambada dataset. If these datase
 The given models are trained using The Pile dataset and evaluated using the Lambada dataset. The scripts [download_the_pile.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_the_pile.py) and [download_lambada.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_lambada.py) will download The Pile and the Lambada datasets to the `TFDS_DATA_DIR` enviroment variable. To control the location of the downloaded datasets, use the following command prior to running the download scripts: `export TFDS_DATA_DIR=<path_to_dowload_data_to>`. After the data has been successfully downloaded, use the same `TFDS_DATA_DIR` when running experiments.
 
 ## Downloading the SentencePiece Model
-Pax models require a pretrained SentencePiece model to tokenize the datasets. The SentencePiece model used in the following experiments is `gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model`. This model was trained using [these instructions](https://github.com/sgpyc/training/blob/paxml-llm-draft/large_language_model/paxml/utils/generate_spm.md). See below for information on downloading `gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model` from Google Cloud. 
-
-1. Ensure you have the [Google Clould SDK](https://cloud.google.com/sdk/docs/install) installed.
-2. Log into the Cloud by using the following command: `gcloud auth login` and following the prompts. 
-3. Once logged in, use the following command to download the vocab file to your current working directory: 
+Pax models require a pretrained SentencePiece model to tokenize the datasets. The SentencePiece model used in the following experiments is `gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model`. This model was trained using [these instructions](https://github.com/sgpyc/training/blob/paxml-llm-draft/large_language_model/paxml/utils/generate_spm.md). Use the following commands to download the tokenizer locally. This should be done _prior_ to launching the container.  
 ```
-gsutil -m cp -r gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model .
+mkdir c4_sentencepiece
+cd c4_sentencepiece
+wget https://github.com/nvjax-svc-0/assets/blob/main/sentencepiece_c4/c4_en_301_5Mexp2_spm.model
+cd ..
 ```
-
-_NOTE_: We are aware of an existing permissions limitation that prevents users from downloading the SentencePiece model using the above instructions. We are actively working to resolve this, but in the meantime, the SP model file can be downloaded as part of the full C4 dataset download [here](https://cloud.mlcommons.org/index.php/s/dataset_c4_spm). Note that accessing the SP model using this method will require downloading the full C4 dataset.
+You can then use the following mount to attach the tokenizer to your container:
+```
+-v ${PWD}/c4_sentencepiece/c4_en_301_5Mexp2_spm.model:/opt/paxml/vocab 
+```
 
 ## Inspecting the source code
 If you would like to inspect Pax's source code (`paxml/*` and `praxis/*`) to learn more about what is being run, you can do so by inspecting
@@ -55,7 +56,12 @@ See [run_pile_singlenode.sh](https://github.com/google/paxml/blob/main/paxml/con
 ``` 
 bash paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh <TFDS_DATA_DIR> <VOCAB_PATH> <PRECISION> <NUM_GPUS> <PERCORE_BATCH_SIZE> <LOGDIR>
 ```
-where `TFDS_DATA_DIR` is the path to the downloaded datasets, `VOCAB_PATH` is the path to the pretrained SentencePiece `.model` file, and `LOGDIR` is the relative path of the directory to which to write checkpoints and logging information. `PERCORE_BATCH_SIZE` is the batch size per GPU _prior_ to sharding according to the parallel strategy. See [Customized Runs](#Customized-runs) for more information about this hyperparameter. 
+where `TFDS_DATA_DIR` is the path to The Pile dataset, `VOCAB_PATH` is the path to the pretrained SentencePiece `.model` file, and `LOGDIR` is the relative path of the directory to which to write checkpoints and logging information. `PERCORE_BATCH_SIZE` is the batch size per GPU _prior_ to sharding according to the parallel strategy. See [Customized Runs](#Customized-runs) for more information about this hyperparameter. 
+
+For example, to train the 126m model using a percore batch size of 4 on 8 gpus, you can use the following command: 
+```
+bash paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh /opt/paxml/datasets /opt/paxml/vocab bfloat16 8 4 log_dir
+```
 
 See [run_lambada_singlenode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_lambada_singlenode.sh) for an example of running zero-shot evaluation on the 126m model using the Lambada dataset. Use the following command to run this script:
 ``` 
