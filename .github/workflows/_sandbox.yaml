@@ -66,7 +66,7 @@ jobs:
   
   metadata:
     outputs:
-      # Dates will be generated [S, S+1, S+2, ..., E-1]
+      # Dates will be generated [E, S, S+1, S+2, ..., E-1]
       # The reason is:
       #  - If E succeeds, then the issue is the test is not-reproducible and no need to continue,
       #    so it is run outside of the matrix first
