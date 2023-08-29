@@ -16,6 +16,7 @@ import argparse
 import os
 
 import wds2idx
+from absl import logging
 from braceexpand import braceexpand
 
 
@@ -38,3 +39,5 @@ for (i, url) in enumerate(urls):
     creator = wds2idx.IndexCreator(url, os.path.join(args.index_dir, f'idx_{i}.txt'))
     creator.create_index()
     creator.close()
+
+logging.info(f'Done! Index files written to {args.index_dir}.')
