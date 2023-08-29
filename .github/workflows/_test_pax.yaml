@@ -8,6 +8,10 @@ on:
         description: PAX image from ghcr.io/nvidia/pax
         default: latest
         required: false
+    outputs:
+      TEST_STATUS:
+        description: 'Summary pass/fail value indicating if results from tests are acceptable'
+        value: ${{ jobs.publish-test.outputs.STATUS }}
 
 jobs:
 
@@ -184,6 +188,47 @@ jobs:
         with:
           name: metrics-test-log
           path: report.jsonl
+
+
+  publish-test:
+    needs: [multi-gpu-multi-node, metrics]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: ( always() )
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 'pax-test-status.json'
+      PUBLISH: false
+      SCRIPT: |
+        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*TP*PP/*-status.json"
+        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
+
+        echo '## PAX MGMN Test Status' >> $GITHUB_STEP_SUMMARY
+        for i in $EXIT_STATUSES; do
+          echo $i | cut -d'.' -f1
+          echo '```json'
+          jq . $i
+          echo '```'
+        done | tee -a $GITHUB_STEP_SUMMARY
+
+        echo "Test statuses:"
+        jq -rc 'input_filename,.' $EXIT_STATUSES
+
+        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
+          echo "STATUS=success" >> $GITHUB_OUTPUT
+          BADGE_COLOR=brightgreen
+        elif [[ $PASSED_TESTS -eq 0 ]]; then
+          echo "STATUS=failure" >> $GITHUB_OUTPUT
+          BADGE_COLOR=red
+        else
+          echo "STATUS=failure" >> $GITHUB_OUTPUT
+          BADGE_COLOR=yellow
+        fi
+        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+
 
   summary:
     runs-on: ubuntu-22.04
