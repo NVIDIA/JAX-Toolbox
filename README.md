@@ -157,7 +157,7 @@ This repo currently hosts a public CI for JAX on NVIDIA GPUs and covers some JAX
 We currently enable training and evaluation for the following models:
 | Model Name | Pretraining | Fine-tuning | Evaluation |
 | :--- | :---: | :---: | :---: |
-| [GPT-3(paxml)](./rosetta/rosetta/projects/pax) | ✔️ | ✔️ | ✔️ |
+| [GPT-3(paxml)](./rosetta/rosetta/projects/pax) | ✔️ |   | ✔️ |
 | [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
 | [ViT](./rosetta/rosetta/projects/vit) | ✔️ | ✔️ | ✔️ |
 
