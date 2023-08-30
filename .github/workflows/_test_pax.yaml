@@ -215,18 +215,32 @@ jobs:
         echo "Test statuses:"
         jq -rc 'input_filename,.' $EXIT_STATUSES
 
-        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-          echo "STATUS=success" >> $GITHUB_OUTPUT
+        PYTEST_LOG=metrics-test-log/report.jsonl
+        all_outcomes() {
+          cat $PYTEST_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+        }
+        cnt_type() {
+          cat $PYTEST_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+        }
+        PYTEST_FAILED_TESTS=$(cnt_type failed)
+        PYTEST_PASSED_TESTS=$(cnt_type passed)
+        PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
+
+        if ([[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
+            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]) || \
+            ([[ $PASSED_TESTS -eq $TOTAL_TESTS ]] && [[ $PYTEST_PASSED_TESTS -eq $PYTEST_TOTAL_TESTS ]]); then
+          STATUS=success
           BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]]; then
-          echo "STATUS=failure" >> $GITHUB_OUTPUT
+        elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
+          STATUS=failure
           BADGE_COLOR=red
         else
-          echo "STATUS=failure" >> $GITHUB_OUTPUT
+          STATUS=failure
           BADGE_COLOR=yellow
         fi
+        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
 
