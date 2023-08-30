@@ -82,29 +82,26 @@ jobs:
       UPLD_IMAGE: ${{ steps.meta.outputs.UPLD_IMAGE }}
     runs-on: ubuntu-22.04
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
 
-      - name: Set docker metadata
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ghcr.io/nvidia/rosetta-t5x:latest
       - name:
         id: meta
         shell: bash -x -e {0}
         run: |
+          source .github/workflows/util.sh
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BROKEN_IMAGE=${{ inputs.BROKEN_IMAGE }}
         
           BASE_IMAGE_REPO=$(echo $BASE_IMAGE | rev | cut -d: -f2- | rev)
           FRAMEWORK_BASE=$(echo $BASE_IMAGE_REPO | rev | cut -d/ -f1 | rev)
+          if [[ $FRAMEWORK_BASE != t5x && $FRAMEWORK_BASE != pax ]]; then
+            echo "BASE_IMAGE=$BASE_IMAGE can only be ghcr.io/nvidia/pax or ghcr.io/nvidia/t5x"
+            exit 1
+          fi
           #ALL_BASE_TAGS="$(docker run --rm quay.io/skopeo/stable list-tags docker://${BASE_IMAGE_REPO} | jq -r '.Tags[]')"
-          ALL_BASE_TAGS="$(curl -H "Authorization: Bearer $(echo ${{ secrets.GITHUB_TOKEN }} | base64 ) https://ghcr.io/v2/NVIDIA/${FRAMEWORK_BASE}/tags/list)" | jq -r '.tags[]')"
+          #ALL_BASE_TAGS="$(curl -s -H "Authorization: Bearer $(echo ${{ secrets.GITHUB_TOKEN }} | base64 ) https://ghcr.io/v2/NVIDIA/${FRAMEWORK_BASE}/tags/list)" | jq -r '.tags[]')"
+          ALL_BASE_TAGS="$(all_image_tags ${{ secrets.GITHUB_TOKEN }} $BASE_IMAGE_REPO)"
           generate_tags() {
             start_date=$1
             end_date=$2
@@ -122,8 +119,9 @@ jobs:
             fgrep -x -f <(echo "$ALL_BASE_TAGS")
           }
           start_date=${BASE_IMAGE##*nightly-}
-          end_date=$(docker run --rm quay.io/skopeo/stable inspect docker://$BROKEN_IMAGE | jq -r '.Labels["org.opencontainers.image.created"]')
-          if ! docker manifest inspect ${BASE_IMAGE} >/dev/null 2&1; then
+          #end_date=$(docker run --rm quay.io/skopeo/stable inspect docker://$BROKEN_IMAGE | jq -r '.Labels["org.opencontainers.image.created"]')
+          end_date=$(get_build_date ${{ secrets.GITHUB_TOKEN }} $BROKEN_IMAGE )
+          if ! docker manifest inspect ${BASE_IMAGE} >/dev/null 2>&1; then
             echo "Script assumes $BASE_IMAGE exists, but it wasn't found"
             exit 1
           elif ! docker manifest inspect ${BROKEN_IMAGE} >/dev/null 2>&1; then

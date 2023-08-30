@@ -72,6 +72,9 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          # TODO: REMOVE
+          exit 1
+
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"          
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
@@ -196,6 +199,9 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          # TODO: REMOVE
+          exit 1
+
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"          
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
