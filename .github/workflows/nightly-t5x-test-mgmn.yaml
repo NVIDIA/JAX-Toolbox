@@ -70,7 +70,7 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 't5x-test-completion-status.json'
+      ENDPOINT_FILENAME: 't5x-test-overall-status.json'
       PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
         if [[ ${{ needs.run-jobs.result }} == "success" ]]; then
