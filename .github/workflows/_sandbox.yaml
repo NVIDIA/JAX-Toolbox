@@ -257,6 +257,20 @@ jobs:
       T5X_IMAGE: "${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }}"
     secrets: inherit
   
+  t5x-ff-summary:
+    needs: [metadata, test-t5x-ff]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Create table summarizing
+        run: |
+          cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
+          | Rewind to | Test result | Image |
+          | ---   | --- | --- |
+          EOF
+          for tag in ${{ needs.metadata.outputs.TAGS_BETWEEN }}; do
+            echo "| $tag | FOOBAR | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
+          done | tee -a $GITHUB_STEP_SUMMARY
+  
   #######
   # PAX #
   #######
