@@ -118,8 +118,8 @@ jobs:
             fi
         
             while [[ "$start_date" < "$end_date" ]]; do
-                echo nightly-$start_date
-                start_date=$(date -I -d "$start_date + 1 day")
+              echo nightly-$start_date
+              start_date=$(date -I -d "$start_date + 1 day")
             done
           }
           filter_valid_tags() {

@@ -1,3 +1,4 @@
+#!/bin/bash
 
 all_image_tags() {
   GH_TOKEN=$1
@@ -6,7 +7,8 @@ all_image_tags() {
 
   PACKAGE=$(echo $IMAGE_REPO | rev | cut -d/ -f1 | rev)
   ORG=$(echo $IMAGE_REPO | rev | cut -d/ -f2 | rev)
-  curl -s -H "Authorization: Bearer $(echo $GH_TOKEN | base64 )" "https://ghcr.io/v2/$ORG/$PACKAGE/tags/list" | jq -r '.tags[]'
+  # Set n=123456789 to get all tags (impossibly large value)
+  curl -s -H "Authorization: Bearer $(echo $GH_TOKEN | base64 )" "https://ghcr.io/v2/$ORG/$PACKAGE/tags/list?n=123456789" | jq -r '.tags[]'
 }
 inspect_remote_img() {
   GH_TOKEN=$1
