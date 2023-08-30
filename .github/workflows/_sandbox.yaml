@@ -163,7 +163,8 @@ jobs:
       - name: Dummy step
         id: dummy
         run: |
-          echo "TEST_STATUS=success" | tee -a $GITHUB_OUTPUT
+          #echo "TEST_STATUS=success" | tee -a $GITHUB_OUTPUT
+          echo "TEST_STATUS=failure" | tee -a $GITHUB_OUTPUT
 
   broken-t5x-retest-summary:
     needs: [metadata, broken-t5x-retest]
@@ -173,7 +174,7 @@ jobs:
       - name: Log Github Step Summary
         run: |
           cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
-          ## Testing ${{ needs.metadata.outputs.BROKEN_IMAGE }}: ${{ needs.broken-t5x-retest.outputs.TEST_STATUS }}
+          ## [Testing] ${{ needs.metadata.outputs.BROKEN_IMAGE }}: ${{ needs.broken-t5x-retest.outputs.TEST_STATUS }}
           EOF
   
   build-t5x-ff:
@@ -234,7 +235,7 @@ jobs:
       - name: Log image to Github Step Summary
         run: |
           cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
-          ## Built ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }}
+          * ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }}
           EOF
 
   test-t5x-ff:
