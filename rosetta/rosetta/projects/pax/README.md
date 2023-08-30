@@ -28,7 +28,7 @@ wget -P c4_sentencepiece https://github.com/nvjax-svc-0/assets/raw/main/sentence
 ```
 You can then use the following mount to attach the tokenizer to your container:
 ```
--v ${PWD}/c4_sentencepiece/c4_en_301_5Mexp2_spm.model:/opt/paxml/vocab 
+docker run -v ${PWD}/c4_sentencepiece/c4_en_301_5Mexp2_spm.model:/opt/paxml/vocab ...
 ```
 
 ## Inspecting the source code
