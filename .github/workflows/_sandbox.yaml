@@ -173,8 +173,14 @@ jobs:
     steps:
       - name: Log Github Step Summary
         run: |
+          if [[ ${{ needs.broken-t5x-retest.outputs.TEST_STATUS }} == "success" ]]; then
+            MSG="Test succeeded: meaning the triage tool does not need to be run OR it means the error is not deterministic"
+          else
+            MSG="Test failed: meaning we will now linearly scan over previous images to find a working one"
+          fi
           cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
-          ## [Testing] ${{ needs.metadata.outputs.BROKEN_IMAGE }}: ${{ needs.broken-t5x-retest.outputs.TEST_STATUS }}
+          ## [Testing] ${{ needs.metadata.outputs.BROKEN_IMAGE }}: __${{ needs.broken-t5x-retest.outputs.TEST_STATUS }}__
+          ${MSG}
           EOF
   
   build-t5x-ff:
