@@ -158,10 +158,10 @@ jobs:
   broken-t5x-retest:
     runs-on: ubuntu-22.04
     outputs:
-      TEST_STATUS: ${{ steps.output.TEST_STATUS }}
+      TEST_STATUS: ${{ steps.dummy.outputs.TEST_STATUS }}
     steps:
-      - name: Generate TensorBoard query URL
-        id: output
+      - name: Dummy step
+        id: dummy
         run: |
           echo "TEST_STATUS=success" | tee -a $GITHUB_OUTPUT
 
@@ -179,7 +179,7 @@ jobs:
   build-t5x-ff:
     needs: [metadata, broken-t5x-retest]
     if: ${{ needs.broken-t5x-retest.outputs.TEST_STATUS != 'success' }}
-    runs-on: [self-hosted, small-builder]
+    runs-on: [self-hosted, x86, small]
     strategy:
       # To enforce sequential execution, set to 1
       max-parallel: 2
