@@ -42,8 +42,8 @@ RUN install-ofed.sh
 ##############################################################################
 
 ADD install-efa.sh /usr/local/bin
-ENV LD_LIBRARY_PATH=/opt/amazon/efa/lib:$LD_LIBRARY_PATH
-ENV PATH=/opt/amazon/efa/bin:$PATH
+ENV LD_LIBRARY_PATH=/opt/amazon/efa/lib:${LD_LIBRARY_PATH}
+ENV PATH=/opt/amazon/efa/bin:${PATH}
 
 ###############################################################################
 ## Emergency fix: nsys not in PATH
