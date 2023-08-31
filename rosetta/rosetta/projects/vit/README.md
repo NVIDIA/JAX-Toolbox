@@ -10,6 +10,7 @@ We provide and fully built and ready-to-use container here: `ghcr.io/nvidia/rose
 
 If you do not plan on making changes to the Rosetta source code and would simply like to run experiments on top of Rosetta, we strongly recommend using the pre-built container. Run the following command to launch a container interactively: 
 ```
+export CONTAINER=ghcr.io/nvidia/rosetta-t5x:vit-2023-07-21
 docker run -ti --gpus=all --net=host --ipc=host -v <IMAGENET_PATH>:/opt/rosetta/datasets/imagenet -v <WORKSPACE_PATH>:/opt/rosetta/workspace -v <TRAIN_INDEX_PATH>:/opt/rosetta/train_idxs -v <EVAL_INDEX_PATH>:/opt/rosetta/eval_idxs --privileged $CONTAINER /bin/bash
 ```
 where  `<IMAGENET_PATH>` is the path to the ImageNet-1k dataset (see the [downloading the dataset](#Downloading-the-dataset) section below for details) and ``<TRAIN_INDEX_PATH>`` and ``<EVAL_INDEX_PATH>`` refer to the paths to the train and eval indices for the ImageNet tar files (see the [before launching a run](#before-launching-a-run) section below for more information about these paths). ``<WORKSPACE_PATH>`` refers to the directory where you would like to store any persistent files. Any custom configurations or run scripts needed for your experiments should reside here.
@@ -44,11 +45,11 @@ wget -qO- https://raw.githubusercontent.com/soumith/imagenetloader.torch/master/
 cd ../../..
 ```
 4. Download "Development kit (Tasks 1 & 2)" from [here](https://image-net.org/challenges/LSVRC/2012/2012-downloads.php) and place it in the root data directory (`raw_data/imagenet_1k`).
-5. Rosetta expects the dataset to be in WebDataset format. To convert the data to the appropriate format, first enter into the container. Be sure to mount the raw data to the container. Also, mount the location where you would like to store the dataset to the container:
+5. Rosetta expects the dataset to be in WebDataset format. To convert the data to the appropriate format, first enter into the container. Be sure to mount the raw data to the container. Also, mount the location where you would like to store the dataset (referred to here as `<IMAGENET_PATH>`) to the container:
 ```
-docker run -ti --gpus=all --net=host --ipc=host -v raw_data/imagenet_1k:/opt/rosetta/raw_data/imagenet_1k -v <IMAGENET_PATH>:/opt/rosetta/datasets/imagenet --privileged $CONTAINER /bin/bash
+docker run -ti --gpus=all --net=host --ipc=host -v ${PWD}/raw_data/imagenet_1k:/opt/rosetta/raw_data/imagenet_1k -v <IMAGENET_PATH>:/opt/rosetta/datasets/imagenet --privileged $CONTAINER /bin/bash
 ```
-Here, `<IMAGENET_PATH>` is the location you would like to store the WebDataset shards.
+
 6. Next, we will run [makeshards.py](https://github.com/webdataset/webdataset-lightning/blob/main/makeshards.py) to convert the data to WebDataset format. `makeshards.py` requires torchvision, which can be installed in the container using the following command:
 ```
 pip install torchvision
@@ -62,7 +63,7 @@ python3 makeshards.py --shards datasets/imagenet --data raw_data/imagenet_1k
 ## Before Launching a Run
 ViT uses [DALI](https://github.com/NVIDIA/DALI/tree/c4f105e1119ef887f037830a5551c04f9062bb74) on CPU for performant dataloading. Loading WebDataset tar files is done using DALI's [webdataset reader](https://docs.nvidia.com/deeplearning/dali/user-guide/docs/operations/nvidia.dali.fn.readers.webdataset.html#nvidia.dali.fn.readers.webdataset). The reader expects each tar file to have a corresponding index file. These files can be generated using `rosetta/data/generate_wds_indices.py`. To generate the indices for the training data, first enter into the container, being sure to mount the locations where you would like to store the index files:
 ```
-docker run -ti --gpus=all --net=host --ipc=host -v <TRAIN_INDEX_PATH>:/opt/rosetta/train_idxs -v <EVAL_INDEX_PATH>:/opt/rosetta/eval_idxs --privileged $CONTAINER /bin/bash
+docker run -ti --gpus=all --net=host --ipc=host -v <IMAGENET_PATH>:/opt/rosetta/datasets/imagenet -v <TRAIN_INDEX_PATH>:/opt/rosetta/train_idxs -v <EVAL_INDEX_PATH>:/opt/rosetta/eval_idxs --privileged $CONTAINER /bin/bash
 ```
 The train and eval indices will be saved to `<TRAIN_INDEX_PATH>` and `<EVAL_INDEX_PATH>`, respectively. Once inside of the container, run the following command. Note that braceexpand notation is used to specify the range of tar files to generate index files for.
 ```
