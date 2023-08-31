@@ -25,7 +25,7 @@ pushd ${WORKDIR}
 AMAZON_EFA_LINK="https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz"
 curl -O "$AMAZON_EFA_LINK" 
 tar -xf aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && cd aws-efa-installer
-./efa_installer.sh -y --skip-kmod
+./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify
 
 popd
 
