@@ -3,7 +3,7 @@
 This directory provides an implementation of the [Vision Transformer (ViT)](https://arxiv.org/pdf/2010.11929.pdf) model. This implementation is a direct adaptation of Google's [original ViT implementation](https://github.com/google-research/vision_transformer/tree/main). We have extended the original ViT implementation to include model parallel support. Model configurations are also based on the the original ViT implementation. Presently, convergence has been verified on ViT-B/16. Support for a wider range of models will be added in the future.
 
 ## Hardware Specifications
-Convergence and performance has been validated on NVIDIA DGX A100 (8x A100 80G) nodes. If running on a machine with less memory, some of the configurations provided may run out of memory; if this occurs, increase your GPU count and decrease you batch size per GPU.
+Convergence and performance has been validated on NVIDIA DGX A100 (8x A100 80G) nodes. Pretraining and fine-tuning of ViT/B-16 can be performed on a single DGX A100 80G node, but we provide both singlenode and multinode support. If running on a machine with less memory, some of the default configurations may run out of memory; if this occurs, increase your GPU count and decrease your batch size per GPU.
 
 ## Building a Container
 We provide and fully built and ready-to-use container here: `ghcr.io/nvidia/rosetta-t5x:vit-2023-07-21`
