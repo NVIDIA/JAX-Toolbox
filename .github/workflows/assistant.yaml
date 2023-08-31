@@ -1,0 +1,88 @@
+name: Assistant
+
+on:
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  modify_comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Respond to chatbot requests
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            if (context.payload.comment.body.startsWith("/assistant")) {
+              const issue = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              })
+              const issueComments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number
+              })
+
+              const dialogue = []
+
+              let issueDescription = `# Issue Title: ${issue.data.title}\n\n`
+
+              issueDescription += `* **Author**: ${issue.data.user.login}\n`
+              issueDescription += `* **Date**: ${issue.data.created_at}\n\n`
+
+              issueDescription += `## Issue Description\n${issue.data.body}\n\n`
+
+              issueDescription += '## Discussion\n\n'
+
+              for (const comment of issueComments.data) {
+                  if (comment.id != context.payload.comment.id) {
+                    issueDescription += `### Comment by ${comment.user.login}\n`
+                    issueDescription += `* **Date**: ${comment.created_at}\n\n`
+                    issueDescription += `${comment.body.replace(/^\/assistant\s*/i, "")}\n\n`
+                  } else {
+                    dialogue.push({
+                      role: 'user',
+                      content: issueDescription
+                    })
+                    dialogue.push({
+                      role: 'user',
+                      content: `${comment.body.replace(/^\/assistant\s*/i, "")}`
+                    })
+                    break
+                  }
+              }
+
+              console.log(dialogue)
+
+              const post_response = await fetch(
+                "https://api.openai.com/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${{ secrets.OPENAI_API_KEY }}`
+                  },
+                  body: JSON.stringify({
+                    model: "gpt-4",
+                    messages: [
+                      {
+                        role: "system",
+                        content: "You are a helpful consultant to people in the discussion below."
+                      },
+                      ...dialogue
+                    ]
+                  })
+                }
+              )
+
+              const assistant_response = await post_response.json()
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                body: assistant_response.choices[0].message.content
+              })
+            }
