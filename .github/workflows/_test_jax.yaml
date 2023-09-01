@@ -39,8 +39,8 @@ jobs:
       - name: Print environment variables
         run: env
 
-      - name: Print GPU information
-        run: nvidia-smi  
+      # - name: Print GPU information
+      #   run: nvidia-smi  
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -49,10 +49,10 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull JAX image
-        shell: bash -x -e {0}
-        run: |
-          docker pull ${{ inputs.JAX_IMAGE }}
+      # - name: Pull JAX image
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     docker pull ${{ inputs.JAX_IMAGE }}
 
       # - name: Backend-independent tests
       #   shell: bash -x {0}
