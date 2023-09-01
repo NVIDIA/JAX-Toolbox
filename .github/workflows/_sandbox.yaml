@@ -12,7 +12,7 @@ jobs:
       - name: generate output
         id: generate
         run: |
-          echo "Hello!" >> $GITHUB_OUTPUT
+          echo "OUTPUT=Hello" >> $GITHUB_OUTPUT
       
       - name: fail
         run: |
