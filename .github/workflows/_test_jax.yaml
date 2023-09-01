@@ -15,13 +15,13 @@ on:
 
 jobs:
 
-  runner:
-    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
-    with:
-      NAME: "A100-${{ github.run_id }}"
-      LABELS: "A100:${{ github.run_id }}"
-      TIME: "01:00:00"
-    secrets: inherit
+  # runner:
+  #   uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+  #   with:
+  #     NAME: "A100-${{ github.run_id }}"
+  #     LABELS: "A100:${{ github.run_id }}"
+  #     TIME: "01:00:00"
+  #   secrets: inherit
 
   unit-test:
     strategy:
@@ -29,7 +29,8 @@ jobs:
       matrix:
         GPU_ARCH: [V100, A100]
     # ensures A100 job lands on dedicated runner for this particular job
-    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+    # runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+    runs-on: ubuntu-22.04
     env:
       ARTIFACTS: 'jax-unit-test-logs'
     outputs:
