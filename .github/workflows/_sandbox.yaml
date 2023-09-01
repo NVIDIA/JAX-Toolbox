@@ -3,26 +3,64 @@ name: "~Sandbox"
 on:
   workflow_dispatch:
 
-jobs:
-  sandbox:
-    runs-on: ubuntu-22.04
-    outputs:
-      OUTPUT: ${{ steps.generate.outputs.OUTPUT }}
-    steps:
-      - name: generate output
-        id: generate
-        run: |
-          echo "OUTPUT=Hello" >> $GITHUB_OUTPUT
-      
-      - name: fail
-        run: |
-          exit 1
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
 
-  query:
+jobs:
+
+  run-jobs:
+    needs: metadata
+    uses: ./.github/workflows/_test_jax.yaml
+    with:
+      JAX_IMAGE: 'ghcr.io/nvidia/jax:latest'
+    secrets: inherit
+
+  summary:
+    needs: [run-jobs]
     runs-on: ubuntu-22.04
-    needs: sandbox
-    if: always()
+    strategy:
+      fail-fast: false
+      matrix:
+        GPU_ARCH: [V100, A100]
     steps:
-      - name: print output
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.run-jobs.outputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
+
+      - name: Write output to step summary
         run: |
-          echo "${{ needs.sandbox.outputs.OUTPUT}}" >> $GITHUB_STEP_SUMMARY
+          source outputs.env
+          echo "${SUMMARY}" >> $GITHUB_STEP_SUMMARY
+
+  # publish-badge:
+  #   needs: [metadata, run-jobs]
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       GPU_ARCH: [V100, A100]
+  #   uses: ./.github/workflows/_publish_badge.yaml
+  #   if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+  #   secrets: inherit
+  #   with:
+  #     ENDPOINT_FILENAME: 'jax-unit-test-status-${{ matrix.GPU_ARCH }}.json'
+  #     PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
+  #     SCRIPT: |
+  #       ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}/*"
+  #       FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)
+  #       PASSED_TESTS=$(cat $ARTIFACTS | grep -c 'PASSED in' || true)
+  #       TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
+  #       if [[ $FAILED_TESTS == 0 ]]; then
+  #         BADGE_COLOR=brightgreen
+  #       else
+  #         if [[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
+  #           BADGE_COLOR=yellow
+  #         else
+  #           BADGE_COLOR=red
+  #         fi
+  #       fi
+  #       echo "LABEL='${{ matrix.GPU_ARCH }} Unit'" >> $GITHUB_OUTPUT
+  #       echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+  #       echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT

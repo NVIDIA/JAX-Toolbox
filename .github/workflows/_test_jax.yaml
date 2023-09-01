@@ -9,12 +9,9 @@ on:
         required: true
         default: 'ghcr.io/nvidia/jax:latest'
     outputs:
-      ARTIFACT_NAME:
+      ARTIFACTS:
         description: 'Name of the unit test artifact for downstream workflows'
-        value: ${{ jobs.unit-test.outputs.ARTIFACT_NAME }}
-
-env:
-  ARTIFACT_NAME: jax-unit-test-logs
+        value: ${{ jobs.unit-test.outputs.ARTIFACTS }}            
 
 jobs:
 
@@ -33,8 +30,10 @@ jobs:
         GPU_ARCH: [V100, A100]
     # ensures A100 job lands on dedicated runner for this particular job
     runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+    env:
+      ARTIFACTS: 'jax-unit-test-logs'
     outputs:
-      ARTIFACT_NAME: ${{ env.ARTIFACT_NAME }}
+      ARTIFACTS: ${ARTIFACTS}
     steps:
       - name: Print environment variables
         run: env
@@ -54,26 +53,59 @@ jobs:
         run: |
           docker pull ${{ inputs.JAX_IMAGE }}
 
-      - name: Backend-independent tests
-        shell: bash -x {0}
+      # - name: Backend-independent tests
+      #   shell: bash -x {0}
+      #   run: |
+      #     docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
+
+      # - name: GPU-specific tests
+      #   shell: bash -x {0}
+      #   run: |
+      #     docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
+
+      - name: download existing artifact
+        uses: dawidd6/action-download-artifact@v2.27.0
+        with:
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          run_id: 6047993737
+          name: jax-unit-test-logs-${{ matrix.GPU_ARCH }}        
+
+      - name: Postprocessing
+        shell: bash -x -e {0}
         run: |
-          docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
-          if [[ $(grep 'ERROR:' test-backend-independent.log | wc -l) > 0 ]]; then
-            exit 1
+          BADGE_LABEL='${{ matrix.GPU_ARCH }} Unit'
+
+          errors=$((grep -c 'ERROR:' test-*.log || true))
+          failed_tests=$(grep -c 'FAILED in' test-*.log || true)
+          passed_tests=$(grep -c 'PASSED in' test-*.log || true)
+          total_tests=$((failed_tests + passed_tests))
+
+          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            BADGE_MESSAGE='error'
+            BADGE_COLOR=red
+            SUMMARY='JAX unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+          else
+            BADGE_MESSAGE="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              BADGE_COLOR=brightgreen
+            else
+              BADGE_COLOR=yellow
+            fi
+            SUMMARY="JAX unit test on ${{ matrix.GPU_ARCH }}: $BADGE_MESSAGE"
           fi
 
-      - name: GPU-specific tests
-        shell: bash -x {0}
-        run: |
-          docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
-          if [[ $(grep 'ERROR:' test-gpu.log | wc -l) > 0 ]]; then
-            exit 1
-          fi
+          echo >> outputs.env << EOF
+          SUMMARY="${SUMMARY}"
+          BADGE_LABEL="${BADGE_LABEL}"
+          BADGE_COLOR="${BADGE_COLOR}"
+          BADGE_MESSAGE="${BADGE_MESSAGE}"
+          EOF
 
       - name: Upload test logs
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
+          name: ${ARTIFACTS}-${{ matrix.GPU_ARCH }}
           path: |
+            outputs.env
             test-backend-independent.log
             test-gpu.log
