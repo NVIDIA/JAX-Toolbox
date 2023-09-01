@@ -70,6 +70,7 @@ jobs:
           github_token: ${{secrets.GITHUB_TOKEN}}
           run_id: 6047993737
           name: jax-unit-test-logs-${{ matrix.GPU_ARCH }}        
+          path: .
 
       - name: Postprocessing
         shell: bash -x -e {0}
