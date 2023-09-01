@@ -25,4 +25,4 @@ jobs:
     steps:
       - name: print output
         run: |
-          echo ${{ needs.sandbox.outputs.OUTPUT}} >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.sandbox.outputs.OUTPUT}}" >> $GITHUB_STEP_SUMMARY
