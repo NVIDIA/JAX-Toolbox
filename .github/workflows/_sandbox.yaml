@@ -32,6 +32,8 @@ jobs:
       - name: Write output to step summary
         shell: bash -x -e {0}
         run: |
+          ls -lR
+          cat outputs.env
           source outputs.env
           echo "${SUMMARY}" >> $GITHUB_STEP_SUMMARY
 
