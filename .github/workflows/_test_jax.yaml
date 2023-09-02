@@ -34,7 +34,7 @@ jobs:
     env:
       ARTIFACTS: 'jax-unit-test-logs'
     outputs:
-      ARTIFACTS: ${ARTIFACTS}
+      ARTIFACTS: ${{ env.ARTIFACTS }}
     steps:
       - name: Print environment variables
         run: env
