@@ -107,7 +107,7 @@ jobs:
       - name: Upload test logs
         uses: actions/upload-artifact@v3
         with:
-          name: ${ARTIFACTS}-${{ matrix.GPU_ARCH }}
+          name: ${{ env.ARTIFACTS }}-${{ matrix.GPU_ARCH }}
           path: |
             outputs.env
             test-backend-independent.log
