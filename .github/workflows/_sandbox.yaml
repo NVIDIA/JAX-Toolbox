@@ -27,7 +27,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
-          name: ${{ needs.run-jobs.outputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
+          name: ${{ needs.run-jobs.outputs.ARTIFACTS }}-${{ matrix.GPU_ARCH }}
 
       - name: Write output to step summary
         run: |
