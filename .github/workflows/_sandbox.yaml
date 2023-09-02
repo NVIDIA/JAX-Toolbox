@@ -19,23 +19,17 @@ jobs:
   summary:
     needs: [run-jobs]
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        GPU_ARCH: [V100, A100]
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v3
-        with:
-          name: ${{ needs.run-jobs.outputs.ARTIFACTS }}-${{ matrix.GPU_ARCH }}
 
       - name: Write output to step summary
         shell: bash -x -e {0}
         run: |
-          ls -lR
-          cat outputs.env
-          source outputs.env
-          echo "${SUMMARY}" >> $GITHUB_STEP_SUMMARY
+          find -name outputs.env | while read -s f; do
+            source "$f"
+            echo "${SUMMARY}" >> $GITHUB_STEP_SUMMARY
+          done
 
   # publish-badge:
   #   needs: [metadata, run-jobs]
