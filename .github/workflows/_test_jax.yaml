@@ -78,7 +78,7 @@ jobs:
           ls -lR
           BADGE_LABEL='${{ matrix.GPU_ARCH }} Unit'
 
-          errors=$((grep -c 'ERROR:' test-*.log || true))
+          errors=$(grep -c 'ERROR:' test-*.log || true)
           failed_tests=$(grep -c 'FAILED in' test-*.log || true)
           passed_tests=$(grep -c 'PASSED in' test-*.log || true)
           total_tests=$((failed_tests + passed_tests))
