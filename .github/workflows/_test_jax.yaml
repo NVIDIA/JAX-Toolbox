@@ -75,6 +75,7 @@ jobs:
       - name: Postprocessing
         shell: bash -x -e {0}
         run: |
+          ls -lR
           BADGE_LABEL='${{ matrix.GPU_ARCH }} Unit'
 
           errors=$((grep -c 'ERROR:' test-*.log || true))
