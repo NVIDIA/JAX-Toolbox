@@ -97,7 +97,7 @@ jobs:
             SUMMARY="JAX unit test on ${{ matrix.GPU_ARCH }}: $BADGE_MESSAGE"
           fi
 
-          echo >> outputs.env << EOF
+          cat > outputs.env << EOF
           SUMMARY="${SUMMARY}"
           BADGE_LABEL="${BADGE_LABEL}"
           BADGE_COLOR="${BADGE_COLOR}"
