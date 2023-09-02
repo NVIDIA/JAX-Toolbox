@@ -30,6 +30,7 @@ jobs:
           name: ${{ needs.run-jobs.outputs.ARTIFACTS }}-${{ matrix.GPU_ARCH }}
 
       - name: Write output to step summary
+        shell: bash -x -e {0}
         run: |
           source outputs.env
           echo "${SUMMARY}" >> $GITHUB_STEP_SUMMARY
