@@ -2,6 +2,9 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - unify-output
 
 permissions:
   contents: read  # to fetch code
