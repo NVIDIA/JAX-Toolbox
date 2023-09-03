@@ -75,6 +75,10 @@ jobs:
       - name: Generate job summary for unit test
         shell: bash -x -e {0}
         run: |
+          pwd
+
+          ls -lR
+
           # bring in utility functions
           . .github/workflows/_util.sh
 
