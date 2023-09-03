@@ -26,37 +26,20 @@ jobs:
       - name: Write output to step summary
         shell: bash -x -e {0}
         run: |
-          find -name outputs.env | while read -s f; do
-            source "$f"
-            echo "${SUMMARY}" >> $GITHUB_STEP_SUMMARY
+          find -name "sitrep.json" | while read -s f; do
+            cat "$f" | jq -r '.summary' | tee -a $GITHUB_STEP_SUMMARY
           done
 
   # publish-badge:
-  #   needs: [metadata, run-jobs]
+  #   needs: [run-jobs]
   #   strategy:
   #     fail-fast: false
   #     matrix:
   #       GPU_ARCH: [V100, A100]
-  #   uses: ./.github/workflows/_publish_badge.yaml
-  #   if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+  #   uses: ./.github/workflows/_publish_badge_v2.yaml
+  #   if: always()
   #   secrets: inherit
   #   with:
   #     ENDPOINT_FILENAME: 'jax-unit-test-status-${{ matrix.GPU_ARCH }}.json'
-  #     PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-  #     SCRIPT: |
-  #       ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}/*"
-  #       FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)
-  #       PASSED_TESTS=$(cat $ARTIFACTS | grep -c 'PASSED in' || true)
-  #       TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
-  #       if [[ $FAILED_TESTS == 0 ]]; then
-  #         BADGE_COLOR=brightgreen
-  #       else
-  #         if [[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
-  #           BADGE_COLOR=yellow
-  #         else
-  #           BADGE_COLOR=red
-  #         fi
-  #       fi
-  #       echo "LABEL='${{ matrix.GPU_ARCH }} Unit'" >> $GITHUB_OUTPUT
-  #       echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-  #       echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+  #     PUBLISH: false
+      

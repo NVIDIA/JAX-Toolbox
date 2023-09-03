@@ -72,11 +72,13 @@ jobs:
           name: jax-unit-test-logs-${{ matrix.GPU_ARCH }}        
           path: .
 
-      - name: Postprocessing
+      - name: Generate job summary for unit test
         shell: bash -x -e {0}
         run: |
-          ls -lR
-          BADGE_LABEL='${{ matrix.GPU_ARCH }} Unit'
+          # bring in utility functions
+          . .github/workflows/_util.sh
+
+          badge_label='${{ matrix.GPU_ARCH }} Unit'
 
           errors=$(cat test-*.log | grep -c 'ERROR:' || true)
           failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
@@ -84,31 +86,30 @@ jobs:
           total_tests=$((failed_tests + passed_tests))
 
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
-            BADGE_MESSAGE='error'
-            BADGE_COLOR=red
-            SUMMARY='JAX unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+            badge_message='error'
+            badge_color=red
+            summary='JAX unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
           else
-            BADGE_MESSAGE="${passed_tests}/${total_tests} passed"
+            badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
-              BADGE_COLOR=brightgreen
+              badge_color=brightgreen
             else
-              BADGE_COLOR=yellow
+              badge_color=yellow
             fi
-            SUMMARY="JAX unit test on ${{ matrix.GPU_ARCH }}: $BADGE_MESSAGE"
+            summary="JAX unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
           fi
 
-          cat > outputs.env << EOF
-          SUMMARY="${SUMMARY}"
-          BADGE_LABEL="${BADGE_LABEL}"
-          BADGE_COLOR="${BADGE_COLOR}"
-          BADGE_MESSAGE="${BADGE_MESSAGE}"
-          EOF
+          to_json \
+            summary \
+            errors total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > sitrep.json
 
       - name: Upload test logs
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.ARTIFACTS }}-${{ matrix.GPU_ARCH }}
           path: |
-            outputs.env
+            sitrep.json
             test-backend-independent.log
             test-gpu.log
