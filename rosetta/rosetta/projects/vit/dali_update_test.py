@@ -227,6 +227,11 @@ def test_comapre_dali_rosetta_dataset_with_dali_peekable_iterator():
     iterator = get_dali_peekable_iterator_for_vit_mono()
     iterator_rosetta = get_dali_rosetta_dataset()
     
+    iterator_element_spec = iterator.element_spec
+    iterator_rosetta_element_spec = iterator_rosetta.element_spec
+    
+    assert iterator_element_spec == iterator_rosetta_element_spec
+    
     for i in range(10):
         peeked_out = iterator.peek()
         peeked_roseeta_out = iterator_rosetta.peek()
@@ -238,3 +243,30 @@ def test_comapre_dali_rosetta_dataset_with_dali_peekable_iterator():
         
         compare_iterators_outpus(out, out_rosetta)
         compare_iterators_outpus(out, peeked_out)
+        
+        
+def test_benchmark_for_dali_peekable_iterator(benchmark):
+    iterator = get_dali_peekable_iterator_for_vit_mono()
+    
+    @benchmark
+    def run():
+        for i in range(10):
+            out = iterator.next()
+            
+            
+def test_benchmark_for_dali_rosetta_dataset(benchmark):
+    iterator = get_dali_rosetta_dataset()
+    
+    @benchmark
+    def run():
+        for i in range(10):
+            out = next(iterator)
+            
+            
+def test_benchmark_for_dali_peekable_iterator_gpu(benchmark):
+    iterator = get_dali_peekable_iterator_for_vit_mono(use_gpu=True)
+    
+    @benchmark
+    def run():
+        for i in range(10):
+            out = iterator.next()
