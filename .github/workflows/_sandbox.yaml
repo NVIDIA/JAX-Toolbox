@@ -217,6 +217,7 @@ jobs:
     secrets: inherit
   
   t5x-ff-summary:
+    if: always()
     needs: [metadata, test-t5x-ff]
     runs-on: ubuntu-22.04
     steps:
@@ -248,10 +249,103 @@ jobs:
   ########
   ## PAX #
   ########
-  #broken-pax-retest:
-  #  needs: metadata
-  #  uses: ./.github/workflows/_test_pax.yaml
-  #  if: ${{ needs.metadata.outputs.FRAMEWORK_BASE == 'pax' }}
-  #  with:
-  #    PAX_IMAGE: ${{ needs.metadata.outputs.BROKEN_IMAGE }}
-  #  secrets: inherit
+  build-pax-ff:
+    needs: [metadata]
+    if: ${{ needs.metadata.outputs.FRAMEWORK_BASE == 'pax' }}
+    runs-on: [self-hosted, x86, small]
+    strategy:
+      # To enforce sequential execution, set to 1
+      max-parallel: 2
+      matrix:
+        base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-${{ matrix.base_tag }}-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }}
+          labels:
+            org.opencontainers.image.created=${{ needs.metadata.outputs.BROKEN_DATE }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.10.6
+
+      - name: "Build docker image: ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }}"
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile.ff
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BROKEN_IMAGE=${{ inputs.BROKEN_IMAGE }}
+            REPO_DIRS=${{ inputs.REPO_DIRS }}
+      
+      - name: Log image to Github Step Summary
+        run: |
+          cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
+          * ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }}
+          EOF
+
+  test-pax-ff:
+    needs: [metadata, build-pax-ff]
+    strategy:
+      max-parallel: 1
+      matrix:
+        base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
+    uses: ./.github/workflows/_test_pax.yaml
+    with:
+      PAX_IMAGE: "${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }}"
+    secrets: inherit
+  
+  pax-ff-summary:
+    if: always()
+    needs: [metadata, test-pax-ff]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Create table summarizing
+        run: |
+          json_data=$(curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}/jobs")
+          name_conclusion_array=()
+          while IFS= read -r line; do
+            name_conclusion_array+=("$line")
+          done < <(echo "$json_data" | jq -r '.jobs[] | select(.name | startswith("test-pax-ff") and contains("outcome")) | "\(.name)\t\(.conclusion)"')
+        
+          cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
+          | Rewind to | Test result | Image |
+          | --- | --- | --- |
+          EOF
+          i=0
+          for tag in $(echo '${{ needs.metadata.outputs.TAGS_BETWEEN }}' | jq -r '.[]'); do
+            job_step_name=$(echo "${name_conclusion_array[$i]}" | cut -f1)
+            conclusion=$(echo "${name_conclusion_array[$i]}" | cut -f2)
+            if [[ ! "$job_step_name" == *$tag* ]]; then
+              echo "The runs from the GH API ($name_conclusion_array) do not align with TAGS_BETWEEN=${{ needs.metadata.outputs.TAGS_BETWEEN }}"
+              exit 1
+            fi
+            echo "| $tag | $conclusion | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
+            i=$((i+1))
+          done | tee -a $GITHUB_STEP_SUMMARY
