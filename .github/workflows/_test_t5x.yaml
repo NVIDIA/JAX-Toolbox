@@ -28,9 +28,7 @@ jobs:
   single-process-multi-device:
     strategy:
       matrix:
-        # TODO: re-enable after done testing
-        #N_GPU: [1, 2, 4, 8]
-        N_GPU: [1]
+        N_GPU: [1, 2, 4, 8]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -149,11 +147,8 @@ jobs:
   multi-gpu-multi-node:
     strategy:
       matrix:
-        # TODO: re-enable after done testing
-        #N_GPU: [1, 2, 4, 8]
-        #N_NODE: [1, 2]
-        N_GPU: [1]
-        N_NODE: [1]
+        N_GPU: [1, 2, 4, 8]
+        N_NODE: [1, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04

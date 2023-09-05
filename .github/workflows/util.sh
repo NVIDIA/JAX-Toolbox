@@ -35,5 +35,3 @@ get_remote_labels() {
 get_build_date() {
   inspect_remote_img $@ | jq -r '.config.Labels["org.opencontainers.image.created"]'
 }
-
-
