@@ -47,11 +47,8 @@ permissions:
 jobs:
   metadata:
     outputs:
-      # Dates will be generated [E, S, S+1, S+2, ..., E-1]
-      # The reason is:
-      #  - If E succeeds, then the issue is the test is not-reproducible and no need to continue,
-      #    so it is run outside of the matrix first
-      #  - Then go thru S, S+1, ..., E-1 in this order since it is assumed that S was the latest
+      # Dates will be generated [S, S+1, S+2, ..., E-1]
+      #  - Will go thru S, S+1, ..., E-1 in this order since it is assumed that S was the latest
       #    working image, so it has the best chance to succed.
       TAGS_BETWEEN: ${{ steps.meta.outputs.TAGS_BETWEEN }}
       # If the BASE_IMAGE is ghcr.io/nvidia/t5x:nightly-YYYY-MM-DD, then BASE_IMAGE_REPO is ghcr.io/nvidia/t5x
@@ -198,7 +195,7 @@ jobs:
     secrets: inherit
   
   t5x-ff-summary:
-    if: always()
+    if: '!cancelled()'
     needs: [metadata, test-t5x-ff]
     runs-on: ubuntu-22.04
     steps:
@@ -226,7 +223,6 @@ jobs:
             i=$((i+1))
           done | tee -a $GITHUB_STEP_SUMMARY
   
-  # TODO: re-enable PAX once its workflow is the same as t5x w.r.t. outputs
   ########
   ## PAX #
   ########
@@ -285,12 +281,6 @@ jobs:
             BROKEN_IMAGE=${{ inputs.BROKEN_IMAGE }}
             REPO_DIRS=${{ inputs.REPO_DIRS }}
       
-      - name: Log image to Github Step Summary
-        run: |
-          cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
-          * ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }}
-          EOF
-
   test-pax-ff:
     needs: [metadata, build-pax-ff]
     strategy:
@@ -303,7 +293,7 @@ jobs:
     secrets: inherit
   
   pax-ff-summary:
-    if: always()
+    if: '!cancelled()'
     needs: [metadata, test-pax-ff]
     runs-on: ubuntu-22.04
     steps:
