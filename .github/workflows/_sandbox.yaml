@@ -223,15 +223,19 @@ jobs:
       - name: Create table summarizing
         run: |
           json_data=$(curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}/jobs")
-          name_conclusion_array=($(echo "$json_data" | jq -r '.jobs[] | select(.name | startswith("test-t5x-ff") and contains("outcome")) | "\(.name).\(.conclusion)"'))
+          name_conclusion_array=()
+          while IFS= read -r line; do
+            name_conclusion_array+=("$line")
+          done < <(echo "$json_data" | jq -r '.jobs[] | select(.name | startswith("test-t5x-ff") and contains("outcome")) | "\(.name)\t\(.conclusion)"')
         
           cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
           | Rewind to | Test result | Image |
           | --- | --- | --- |
           EOF
           i=0
-          for tag in ${{ needs.metadata.outputs.TAGS_BETWEEN }}; do
-            IFS='.' read -r job_step_name conclusion <<< "${name_conclusion_array[$i]}"
+          for tag in $(echo '${{ needs.metadata.outputs.TAGS_BETWEEN }}' | jq -r '.[]'); do
+            job_step_name=$(echo "${name_conclusion_array[$i]}" | cut -f1)
+            conclusion=$(echo "${name_conclusion_array[$i]}" | cut -f2)
             if [[ ! "$job_step_name" == *$tag* ]]; then
               echo "The runs from the GH API ($name_conclusion_array) do not align with TAGS_BETWEEN=${{ needs.metadata.outputs.TAGS_BETWEEN }}"
               exit 1
