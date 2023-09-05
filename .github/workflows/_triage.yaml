@@ -195,7 +195,7 @@ jobs:
     secrets: inherit
   
   t5x-ff-summary:
-    if: '!cancelled()'
+    if: (success() || failure()) && needs.metadata.outputs.FRAMEWORK_BASE == 't5x'
     needs: [metadata, test-t5x-ff]
     runs-on: ubuntu-22.04
     steps:
@@ -293,7 +293,7 @@ jobs:
     secrets: inherit
   
   pax-ff-summary:
-    if: '!cancelled()'
+    if: (success() || failure()) && needs.metadata.outputs.FRAMEWORK_BASE == 'pax'
     needs: [metadata, test-pax-ff]
     runs-on: ubuntu-22.04
     steps:
