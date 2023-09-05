@@ -3,16 +3,16 @@ name: "~Sandbox"
 on:
   workflow_dispatch:
     inputs:
-      BROKEN_IMAGE:
-        type: string
-        description: 'Broken image (newer)'
-        required: false
-        default: "ghcr.io/nvidia/t5x:nightly-2023-07-20"
       BASE_IMAGE:
         type: string
         description: "Base image to fast-forward dependencies (older)"
         required: false
         default: "ghcr.io/nvidia/t5x:nightly-2023-07-18"
+      BROKEN_IMAGE:
+        type: string
+        description: 'Broken image (newer)'
+        required: false
+        default: "ghcr.io/nvidia/t5x:nightly-2023-07-20"
       REPO_DIRS:
         type: string
         description: "Space separated dirs to fast-forward (e.g., '/opt/flax /opt/t5x')"
@@ -145,8 +145,8 @@ jobs:
   # T5X #
   #######
   build-t5x-ff:
-    needs: [metadata]
-    if: ${{ needs.metadata.outputs.FRAMEWORK_BASE == 't5x' }}
+    needs: metadata
+    if: needs.metadata.outputs.FRAMEWORK_BASE == 't5x'
     runs-on: [self-hosted, x86, small]
     strategy:
       # To enforce sequential execution, set to 1
@@ -250,8 +250,8 @@ jobs:
   ## PAX #
   ########
   build-pax-ff:
-    needs: [metadata]
-    if: ${{ needs.metadata.outputs.FRAMEWORK_BASE == 'pax' }}
+    needs: metadata
+    if: needs.metadata.outputs.FRAMEWORK_BASE == 'pax'
     runs-on: [self-hosted, x86, small]
     strategy:
       # To enforce sequential execution, set to 1
