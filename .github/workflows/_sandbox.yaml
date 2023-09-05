@@ -106,8 +106,6 @@ jobs:
             echo "BASE_IMAGE=$BASE_IMAGE can only be ghcr.io/nvidia/pax or ghcr.io/nvidia/t5x"
             exit 1
           fi
-          #ALL_BASE_TAGS="$(docker run --rm quay.io/skopeo/stable list-tags docker://${BASE_IMAGE_REPO} | jq -r '.Tags[]')"
-          #ALL_BASE_TAGS="$(curl -s -H "Authorization: Bearer $(echo ${{ secrets.GITHUB_TOKEN }} | base64 ) https://ghcr.io/v2/NVIDIA/${FRAMEWORK_BASE}/tags/list)" | jq -r '.tags[]')"
           ALL_BASE_TAGS="$(all_image_tags ${{ secrets.GITHUB_TOKEN }} $BASE_IMAGE_REPO)"
           generate_tags() {
             start_date=$1
@@ -126,7 +124,6 @@ jobs:
             fgrep -x -f <(echo "$ALL_BASE_TAGS")
           }
           start_date=${BASE_IMAGE##*nightly-}
-          #end_date=$(docker run --rm quay.io/skopeo/stable inspect docker://$BROKEN_IMAGE | jq -r '.Labels["org.opencontainers.image.created"]')
           end_date=$(get_build_date ${{ secrets.GITHUB_TOKEN }} $BROKEN_IMAGE )
           if ! docker manifest inspect ${BASE_IMAGE} >/dev/null 2>&1; then
             echo "Script assumes $BASE_IMAGE exists, but it wasn't found"
@@ -147,45 +144,9 @@ jobs:
   #######
   # T5X #
   #######
-  #broken-t5x-retest:
-  #  needs: metadata
-  #  uses: ./.github/workflows/_test_t5x.yaml
-  #  if: ${{ needs.metadata.outputs.FRAMEWORK_BASE == 't5x' }}
-  #  with:
-  #    T5X_IMAGE: ${{ needs.metadata.outputs.BROKEN_IMAGE }}
-  #  secrets: inherit
-
-  broken-t5x-retest:
-    runs-on: ubuntu-22.04
-    outputs:
-      TEST_STATUS: ${{ steps.dummy.outputs.TEST_STATUS }}
-    steps:
-      - name: Dummy step
-        id: dummy
-        run: |
-          #echo "TEST_STATUS=success" | tee -a $GITHUB_OUTPUT
-          echo "TEST_STATUS=failure" | tee -a $GITHUB_OUTPUT
-
-  broken-t5x-retest-summary:
-    needs: [metadata, broken-t5x-retest]
-    runs-on: ubuntu-22.04
-    if: always()
-    steps:
-      - name: Log Github Step Summary
-        run: |
-          if [[ ${{ needs.broken-t5x-retest.outputs.TEST_STATUS }} == "success" ]]; then
-            MSG="Test succeeded: meaning the triage tool does not need to be run OR it means the error is not deterministic"
-          else
-            MSG="Test failed: meaning we will now linearly scan over previous images to find a working one"
-          fi
-          cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
-          ## [Testing] ${{ needs.metadata.outputs.BROKEN_IMAGE }}: __${{ needs.broken-t5x-retest.outputs.TEST_STATUS }}__
-          ${MSG}
-          EOF
-  
   build-t5x-ff:
-    needs: [metadata, broken-t5x-retest]
-    if: ${{ needs.broken-t5x-retest.outputs.TEST_STATUS != 'success' }}
+    needs: [metadata]
+    if: ${{ needs.metadata.outputs.FRAMEWORK_BASE == 't5x' }}
     runs-on: [self-hosted, x86, small]
     strategy:
       # To enforce sequential execution, set to 1
@@ -251,8 +212,6 @@ jobs:
       matrix:
         base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
     uses: ./.github/workflows/_test_t5x.yaml
-    # TODO: maybe needed if skipped pipelines don't trigger stopping branch
-    if: ${{ needs.metadata.outputs.FRAMEWORK_BASE == 't5x' }}
     with:
       T5X_IMAGE: "${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }}"
     secrets: inherit
@@ -263,21 +222,32 @@ jobs:
     steps:
       - name: Create table summarizing
         run: |
+          json_data=$(curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}/jobs")
+          name_conclusion_array=($(echo "$json_data" | jq -r '.jobs[] | select(.name | startswith("test-t5x-ff") and contains("outcome")) | "\(.name).\(.conclusion)"'))
+        
           cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
           | Rewind to | Test result | Image |
-          | ---   | --- | --- |
+          | --- | --- | --- |
           EOF
+          i=0
           for tag in ${{ needs.metadata.outputs.TAGS_BETWEEN }}; do
-            echo "| $tag | FOOBAR | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
+            IFS='.' read -r job_step_name conclusion <<< "${name_conclusion_array[$i]}"
+            if [[ ! "$job_step_name" == *$tag* ]]; then
+              echo "The runs from the GH API ($name_conclusion_array) do not align with TAGS_BETWEEN=${{ needs.metadata.outputs.TAGS_BETWEEN }}"
+              exit 1
+            fi
+            echo "| $tag | $conclusion | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
+            i=$((i+1))
           done | tee -a $GITHUB_STEP_SUMMARY
   
-  #######
-  # PAX #
-  #######
-  broken-pax-retest:
-    needs: metadata
-    uses: ./.github/workflows/_test_pax.yaml
-    if: ${{ needs.metadata.outputs.FRAMEWORK_BASE == 'pax' }}
-    with:
-      PAX_IMAGE: ${{ needs.metadata.outputs.BROKEN_IMAGE }}
-    secrets: inherit
+  # TODO: re-enable PAX once its workflow is the same as t5x w.r.t. outputs
+  ########
+  ## PAX #
+  ########
+  #broken-pax-retest:
+  #  needs: metadata
+  #  uses: ./.github/workflows/_test_pax.yaml
+  #  if: ${{ needs.metadata.outputs.FRAMEWORK_BASE == 'pax' }}
+  #  with:
+  #    PAX_IMAGE: ${{ needs.metadata.outputs.BROKEN_IMAGE }}
+  #  secrets: inherit

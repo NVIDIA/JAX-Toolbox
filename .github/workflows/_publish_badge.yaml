@@ -62,11 +62,11 @@ jobs:
           EOF
           ) | tee ${{ inputs.ENDPOINT_FILENAME }}
 
-      - name: Upload badge artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ inputs.ENDPOINT_FILENAME }}
-          path: ${{ inputs.ENDPOINT_FILENAME }}
+      #- name: Upload badge artifact
+      #  uses: actions/upload-artifact@v3
+      #  with:
+      #    name: ${{ inputs.ENDPOINT_FILENAME }}
+      #    path: ${{ inputs.ENDPOINT_FILENAME }}
 
       - name: Update status badge file in gist
         uses: actions/github-script@v6
