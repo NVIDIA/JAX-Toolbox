@@ -46,7 +46,8 @@ jobs:
               `Created: ${currentDateTime}`;
 
             const fs = require('fs').promises;
-            const files = await fs.readdir('${{ steps.collect.outputs.WORKDIR }}');
+            const workdir = '${{ steps.collect.outputs.WORKDIR }}'
+            const files = fs.readdirSync(workdir);
 
             gist = await github.rest.gists.create({
               description: gistDescription,
@@ -55,7 +56,7 @@ jobs:
                 await Promise.all(
                   files.map(
                     async filename => {
-                      const content = await fs.readFile(filename, 'utf8');
+                      const content = await fs.readFile(`${workdir}/${filename}`, 'utf8');
                       return [filename, { content }];
                     }
                   )
