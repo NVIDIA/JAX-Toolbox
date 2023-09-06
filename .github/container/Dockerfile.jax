@@ -63,6 +63,12 @@ RUN pip --disable-pip-version-check install ${SRC_PATH_JAX}/dist/*.whl && \
 # Made this optional since tensorstore cannot build on Ubuntu 20.04 + ARM
 RUN { pip install flax || true; } && rm -rf ~/.cache/pip
 
+###########################################################
+# Upgrade certifi to latest version to fix CVE
+# https://github.com/advisories/GHSA-xqr8-7jwr-rhp7
+###########################################################
+RUN pip install --no-cache-dir --upgrade certifi && rm -rf ~/.cache/pip
+
 # TODO: properly configure entrypoint
 # COPY entrypoint.d/ /opt/nvidia/entrypoint.d/
 
