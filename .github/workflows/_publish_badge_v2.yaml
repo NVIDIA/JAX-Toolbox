@@ -28,9 +28,9 @@ jobs:
         run: |
           workdir=$(mktemp -d)
           find -name "${{ inputs.BADGE_FILES }}" | while read -s f; do
-            mv "$f" $workdir
+            cp "$f" $workdir
           done
-          echo "WORKDIR=$workdir" >> $GITHUB_OUTPUTS
+          echo "WORKDIR=$workdir" >> $GITHUB_OUTPUT
 
       - name: Upload badge files to gist
         uses: actions/github-script@v6
