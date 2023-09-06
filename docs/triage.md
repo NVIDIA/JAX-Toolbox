@@ -32,7 +32,7 @@ There are two ways the triage workflow can be used:
 1. As a [re-usable workflow](https://docs.github.com/en/actions/using-workflows/reusing-workflows)
 (example: [nightly-pax-test-mgmn.yaml](../.github/workflows/nightly-pax-test-mgmn.yaml)). Existing
 workflows will trigger the `_triage.yaml` workflow if the tests fail.
-2. Or triggered from the web-ui: [here](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/_triage.yaml).
+2. Or triggered from the web-ui [here](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/_triage.yaml).
 
 ### Inspecting the output
 After the job is finished, you can inspect the summary of the run and there should be a table
