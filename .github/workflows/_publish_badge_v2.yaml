@@ -1,0 +1,58 @@
+name: ~publish test results into a shields.io endpoint json file
+
+on:
+  workflow_call:
+    inputs:
+      BADGE_FILES:
+        type: string
+        description: 'Name/wildcard pattern for shields.io endpoint JSON'
+        required: true
+    # outputs:
+      # GIST_ID:
+      #   description: 'Id of the GitHub Gist that hosts all endpoint JSON files'
+      #   value: ${{ jobs.publish.outputs.STATUS }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    # outputs:
+    #   STATUS: ${{ steps.script.outputs.STATUS }}
+    steps:
+      - name: Download artifacts specified by input
+        uses: actions/download-artifact@v3
+
+      - name: Update status badge file in gist
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          script: |
+            const fs = require('fs').promises;
+            const filesInDirectory = await fs.readdir('.');
+            const matchingFiles = filesInDirectory.filter(
+              filename => filename.includes(${{ inputs.BADGE_FILES }})
+            );
+            const filesToCreate = await Promise.all(
+              matchingFiles.map(
+                async filename => {
+                  const content = await fs.readFile(filename, 'utf8');
+                  return [filename, { content }];
+                }
+              )
+            );
+
+            const currentDateTime = new Date().toISOString();
+            const gistDescription = 
+              `Badge endpoint files from Workflow: ${{ github.workflow }}, ` +
+              `Run ID: ${{ github.run_id }}, ` +
+              `Repository: ${{ github.repository }}, ` +
+              `Event: ${{ github.event_name }}, ` +
+              `Created: ${currentDateTime}`;
+
+            gist = await github.rest.gists.create({
+              description: gistDescription,
+              public: false,
+              files: Object.fromEntries(filesToCreate)
+            });
+
+            console.log(gist)
+            // return gist.data.id;

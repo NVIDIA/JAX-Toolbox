@@ -8,10 +8,16 @@ on:
         description: 'JAX image built by NVIDIA/JAX-Toolbox'
         required: true
         default: 'ghcr.io/nvidia/jax:latest'
-    outputs:
-      ARTIFACTS:
-        description: 'Name of the unit test artifact for downstream workflows'
-        value: ${{ jobs.unit-test.outputs.ARTIFACTS }}            
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'jax-unit-test-logs'
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'jax-unit-test-badge'
 
 jobs:
 
@@ -32,9 +38,7 @@ jobs:
     # runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
     runs-on: ubuntu-22.04
     env:
-      ARTIFACTS: 'jax-unit-test-logs'
-    outputs:
-      ARTIFACTS: ${{ env.ARTIFACTS }}
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
     steps:
       - name: Print environment variables
         run: env
@@ -78,12 +82,8 @@ jobs:
       - name: Generate job summary for unit test
         shell: bash -x -e {0}
         run: |
-          pwd
-
-          ls -lR
-
           # bring in utility functions
-          . .github/workflows/_util.sh
+          source .github/workflows/scripts/to_json.sh
 
           badge_label='${{ matrix.GPU_ARCH }} Unit'
 
@@ -112,11 +112,19 @@ jobs:
             badge_label badge_color badge_message \
           > sitrep.json
 
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
       - name: Upload test logs
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.ARTIFACTS }}-${{ matrix.GPU_ARCH }}
+          name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
           path: |
-            sitrep.json
             test-backend-independent.log
             test-gpu.log
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}

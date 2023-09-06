@@ -33,16 +33,8 @@ jobs:
             cat "$f" | jq -r '.summary' | tee -a $GITHUB_STEP_SUMMARY
           done
 
-  # publish-badge:
-  #   needs: [run-jobs]
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       GPU_ARCH: [V100, A100]
-  #   uses: ./.github/workflows/_publish_badge_v2.yaml
-  #   if: always()
-  #   secrets: inherit
-  #   with:
-  #     ENDPOINT_FILENAME: 'jax-unit-test-status-${{ matrix.GPU_ARCH }}.json'
-  #     PUBLISH: false
-      
+  publish-badge:
+    needs: [run-jobs]
+    uses: ./.github/workflows/_publish_badge_v2.yaml
+    if: always()
+    secrets: inherit
