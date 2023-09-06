@@ -222,6 +222,7 @@ jobs:
             echo "| $tag | $conclusion | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
             i=$((i+1))
           done | tee -a $GITHUB_STEP_SUMMARY
+          echo "| | failure | ${{ inputs.BROKEN_IMAGE }} |" | tee -a $GITHUB_STEP_SUMMARY
   
   ########
   ## PAX #
@@ -320,3 +321,4 @@ jobs:
             echo "| $tag | $conclusion | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
             i=$((i+1))
           done | tee -a $GITHUB_STEP_SUMMARY
+          echo "| | failure | ${{ inputs.BROKEN_IMAGE }} |" | tee -a $GITHUB_STEP_SUMMARY
