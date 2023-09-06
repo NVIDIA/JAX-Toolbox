@@ -8,16 +8,16 @@ on:
         description: 'Name/bash regex for shields.io endpoint JSON files'
         default: '*badge*.json'
         required: false
-    # outputs:
-      # GIST_ID:
-      #   description: 'Id of the GitHub Gist that hosts all endpoint JSON files'
-      #   value: ${{ jobs.publish.outputs.STATUS }}
+    outputs:
+      GIST_ID:
+        description: 'Id of the GitHub Gist that hosts all endpoint JSON files'
+        value: ${{ jobs.publish.outputs.GIST_ID }}
 
 jobs:
-  publish:
+  upload:
     runs-on: ubuntu-22.04
-    # outputs:
-    #   STATUS: ${{ steps.script.outputs.STATUS }}
+    outputs:
+      GIST_ID: ${{ steps.upload.outputs.result }}
     steps:
       - name: Download artifacts specified by input
         uses: actions/download-artifact@v3
@@ -33,6 +33,7 @@ jobs:
           echo "WORKDIR=$workdir" >> $GITHUB_OUTPUT
 
       - name: Upload badge files to gist
+        id: upload
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
@@ -65,4 +66,5 @@ jobs:
             });
 
             console.log(gist)
-            // return gist.data.id;
+
+            return gist.data.id;
