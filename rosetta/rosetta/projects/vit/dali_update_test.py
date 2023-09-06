@@ -160,15 +160,6 @@ def test_dali_vit_pipeline_only():
     for i in range(10):
         pipeline.run()
         
-      
-@pytest.mark.benchmark 
-def test_benchmark_for_vit_pipeline(benchmark):
-    pipeline = get_pure_dali_pipeline_for_vit()
-    
-    @benchmark
-    def run():
-        pipeline.run()
-        
 
 def test_vit_pipeline_mono():
     pipeline = get_pure_dali_pipeline_for_vit_mono()
@@ -177,21 +168,7 @@ def test_vit_pipeline_mono():
         out = pipeline.run()
         out[0].source_info()
         
-@pytest.mark.benchmark
-def test_benchmark_for_vit_pipeline_mono(benchmark):
-    pipeline = get_pure_dali_pipeline_for_vit_mono()
-    
-    @benchmark
-    def run():
-        pipeline.run()
-    
-@pytest.mark.benchmark
-def test_benchamrk_for_vit_pipeline_mono_gpu(benchmark):
-    pipeline = get_pure_dali_pipeline_for_vit_mono(use_gpu=True)
-    
-    @benchmark
-    def run():
-        pipeline.run()
+
     
 def test_compare_dali_pipeline_outputs():
     pipeline = get_pure_dali_pipeline_for_vit()
@@ -243,30 +220,3 @@ def test_comapre_dali_rosetta_dataset_with_dali_peekable_iterator():
         
         compare_iterators_outpus(out, out_rosetta)
         compare_iterators_outpus(out, peeked_out)
-        
-        
-def test_benchmark_for_dali_peekable_iterator(benchmark):
-    iterator = get_dali_peekable_iterator_for_vit_mono()
-    
-    @benchmark
-    def run():
-        for i in range(10):
-            out = iterator.next()
-            
-            
-def test_benchmark_for_dali_rosetta_dataset(benchmark):
-    iterator = get_dali_rosetta_dataset()
-    
-    @benchmark
-    def run():
-        for i in range(10):
-            out = next(iterator)
-            
-            
-def test_benchmark_for_dali_peekable_iterator_gpu(benchmark):
-    iterator = get_dali_peekable_iterator_for_vit_mono(use_gpu=True)
-    
-    @benchmark
-    def run():
-        for i in range(10):
-            out = iterator.next()
