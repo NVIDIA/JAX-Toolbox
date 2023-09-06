@@ -36,5 +36,4 @@ jobs:
   upload-badge:
     needs: [run-jobs]
     uses: ./.github/workflows/_upload_badge.yaml
-    if: always()
     secrets: inherit

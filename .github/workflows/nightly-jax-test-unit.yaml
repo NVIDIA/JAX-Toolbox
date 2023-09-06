@@ -28,6 +28,12 @@ env:
 
 jobs:
 
+  if-upstream-failed:
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1
+
   metadata:
     runs-on: ubuntu-22.04
     outputs:
@@ -54,38 +60,54 @@ jobs:
       JAX_IMAGE: ${{ needs.metadata.outputs.JAX_IMAGE }}
     secrets: inherit
 
-  publish:
-    needs: [metadata, run-jobs]
-    strategy:
-      fail-fast: false
-      matrix:
-        GPU_ARCH: [V100, A100]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    secrets: inherit
-    with:
-      ENDPOINT_FILENAME: 'jax-unit-test-status-${{ matrix.GPU_ARCH }}.json'
-      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}/*"
-        FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)
-        PASSED_TESTS=$(cat $ARTIFACTS | grep -c 'PASSED in' || true)
-        TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
-        if [[ $FAILED_TESTS == 0 ]]; then
-          BADGE_COLOR=brightgreen
-        else
-          if [[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
-            BADGE_COLOR=yellow
-          else
-            BADGE_COLOR=red
-          fi
-        fi
-        echo "LABEL='${{ matrix.GPU_ARCH }} Unit'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-
-  if-upstream-failed:
-    runs-on: ubuntu-latest
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+  summary:
+    needs: [run-jobs]
+    runs-on: ubuntu-22.04
     steps:
-      - run: echo 'Upstream workflow failed, aborting run' && exit 1
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Write output to step summary
+        shell: bash -x -e {0}
+        run: |
+          find -name "sitrep.json" | while read -s f; do
+            cat "$f" | jq -r '.summary' | tee -a $GITHUB_STEP_SUMMARY
+          done
+
+  upload-badge:
+    needs: [run-jobs]
+    uses: ./.github/workflows/_upload_badge.yaml
+    secrets: inherit
+
+  publish-badge:
+    needs: [metadata, upload-badge]
+    if: github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: copy badge to primary Gist
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          script: |
+            const srcId = "${{ needs.upload-badge.outputs.GIST_ID }}";
+            const dstId = "${{ vars.BADGE_ENDPOINT_GIST_ID }}";
+
+            // Fetch files from source gist
+            const { data: srcData } = await octokit.gists.get({
+              gist_id: srcId
+            });
+
+            // Prepare file upload
+            let filesToUpdate = {};
+            for (const [filename, fileObj] of Object.entries(srcData.files)) {
+              filesToUpdate[filename] = {
+                content: fileObj.content
+              };
+            }
+
+            // Update files in destination gist
+            await octokit.gists.update({
+              gist_id: dstId,
+              files: filesToUpdate
+            });
+            console.log("Files copied successfully.");
