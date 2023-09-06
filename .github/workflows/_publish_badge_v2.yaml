@@ -5,8 +5,8 @@ on:
     inputs:
       BADGE_FILES:
         type: string
-        description: 'Name/wildcard pattern for shields.io endpoint JSON'
-        default: '.*badge.*\.json'
+        description: 'Name/bash regex for shields.io endpoint JSON files'
+        default: '*badge*.json'
         required: false
     # outputs:
       # GIST_ID:
@@ -22,29 +22,21 @@ jobs:
       - name: Download artifacts specified by input
         uses: actions/download-artifact@v3
 
-      - name: Update status badge file in gist
+      - name: Collect all badge files to temporary folder
+        id: collect
+        shell: bash -x -e {0}
+        run: |
+          workdir=$(mktemp -d)
+          find -name "${{ inputs.BADGE_FILES }}" | while read -s f; do
+            mv "$f" $workdir
+          done
+          echo "WORKDIR=$workdir" >> $GITHUB_OUTPUTS
+
+      - name: Upload badge files to gist
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
           script: |
-            const fs = require('fs').promises;
-            const filesInDirectory = await fs.readdir('.');
-            const pattern = new RegExp('${{ inputs.BADGE_FILES }}');
-            const matchingFiles = filesInDirectory.filter(
-              filename => {
-                console.log(filename, pattern, filename.match(pattern));
-                return filename.match(pattern);
-              }
-            );
-            const filesToCreate = await Promise.all(
-              matchingFiles.map(
-                async filename => {
-                  const content = await fs.readFile(filename, 'utf8');
-                  return [filename, { content }];
-                }
-              )
-            );
-
             const currentDateTime = new Date().toISOString();
             const gistDescription = 
               `Badge endpoint files from Workflow: ${{ github.workflow }}, ` +
@@ -53,10 +45,22 @@ jobs:
               `Event: ${{ github.event_name }}, ` +
               `Created: ${currentDateTime}`;
 
+            const fs = require('fs').promises;
+            const files = await fs.readdir('${{ steps.collect.outputs.WORKDIR }}');
+
             gist = await github.rest.gists.create({
               description: gistDescription,
               public: false,
-              files: Object.fromEntries(filesToCreate)
+              files: Object.fromEntries(
+                await Promise.all(
+                  files.map(
+                    async filename => {
+                      const content = await fs.readFile(filename, 'utf8');
+                      return [filename, { content }];
+                    }
+                  )
+                )
+              )
             });
 
             console.log(gist)
