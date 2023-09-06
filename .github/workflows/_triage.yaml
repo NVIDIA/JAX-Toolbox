@@ -211,6 +211,8 @@ jobs:
           | Rewind to | Test result | Image |
           | --- | --- | --- |
           EOF
+
+          last_success_img_date=""
           i=0
           for tag in $(echo '${{ needs.metadata.outputs.TAGS_BETWEEN }}' | jq -r '.[]'); do
             job_step_name=$(echo "${name_conclusion_array[$i]}" | cut -f1)
@@ -221,8 +223,17 @@ jobs:
             fi
             echo "| $tag | $conclusion | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
             i=$((i+1))
+            if [[ $conclusion == success ]]; then
+              last_success_img_date=$tag
+            fi
           done | tee -a $GITHUB_STEP_SUMMARY
-          echo "| | failure | ${{ inputs.BROKEN_IMAGE }} |" | tee -a $GITHUB_STEP_SUMMARY
+          echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n" | tee -a $GITHUB_STEP_SUMMARY
+
+          if [[ -z "$last_success_img_date" ]]; then
+            echo "Found a working base nightly image (based on $last_success_img_date)); issue likely lies in more recent base nightly images."
+          else
+            echo "Cannot find a working base nightly image; issue likely lies in the ${{ needs.metadata.outputs.FRAMEWORK_BASE }} libraries."
+          fi | tee -a $GITHUB_STEP_SUMMARY
   
   ########
   ## PAX #
@@ -310,6 +321,8 @@ jobs:
           | Rewind to | Test result | Image |
           | --- | --- | --- |
           EOF
+
+          last_success_img_date=""
           i=0
           for tag in $(echo '${{ needs.metadata.outputs.TAGS_BETWEEN }}' | jq -r '.[]'); do
             job_step_name=$(echo "${name_conclusion_array[$i]}" | cut -f1)
@@ -320,5 +333,14 @@ jobs:
             fi
             echo "| $tag | $conclusion | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
             i=$((i+1))
+            if [[ $conclusion == success ]]; then
+              last_success_img_date=$tag
+            fi
           done | tee -a $GITHUB_STEP_SUMMARY
-          echo "| | failure | ${{ inputs.BROKEN_IMAGE }} |" | tee -a $GITHUB_STEP_SUMMARY
+          echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n" | tee -a $GITHUB_STEP_SUMMARY
+
+          if [[ -z "$last_success_img_date" ]]; then
+            echo "Found a working base nightly image (based on $last_success_img_date)); issue likely lies in more recent base nightly images."
+          else
+            echo "Cannot find a working base nightly image; issue likely lies in the ${{ needs.metadata.outputs.FRAMEWORK_BASE }} libraries."
+          fi | tee -a $GITHUB_STEP_SUMMARY

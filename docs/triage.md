@@ -44,7 +44,19 @@ Both should show a table like this:
 | --- | --- | --- |
 | nightly-2023-07-18 | success | ghcr.io/nvidia/jax-toolbox-internal:6087387492-nightly-2023-07-18-ff-t5x-to-2023-07-20 |
 | nightly-2023-07-19 | success | ghcr.io/nvidia/jax-toolbox-internal:6087387492-nightly-2023-07-19-ff-t5x-to-2023-07-20 |
+| | failure <br> (assumed broken) | ghcr.io/nvidia/t5x:nightly-2023-07-20 (BROKEN_IMAGE) |
 
 Where "Rewind to" is which nightly we started from and then fast-forwarded the libraries to;
 "Test result" is the updated test result with this new fast-forwarded image; and "Image" is
 the updated image with fast-fowarded code.
+
+The last row in this table always has "Test result" = `failure (assumed broken)`, since we
+do not need to re-run tests for the BROKEN_IMAGE since the user would have already observed
+the failure.
+
+There are two conclusions you can make from this table:
+1. If any row has `Test result=success`, then that older nightly tag under `Rewind to` works with the
+state of the libraries in `BROKEN_IMAGE`. The latest dated "success" can be used as a starting point
+for a git-bisect to investigate the issue.
+2. If all rows have `Test result=failure`, then a change in the libraries (e.g., pax/t5x) likely
+caused the failure and should be investigated.
