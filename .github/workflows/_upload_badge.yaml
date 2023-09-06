@@ -11,10 +11,10 @@ on:
     outputs:
       GIST_ID:
         description: 'Id of the GitHub Gist that hosts all endpoint JSON files'
-        value: ${{ jobs.publish.outputs.GIST_ID }}
+        value: ${{ jobs.gist.outputs.GIST_ID }}
 
 jobs:
-  upload:
+  gist:
     runs-on: ubuntu-22.04
     outputs:
       GIST_ID: ${{ steps.upload.outputs.result }}
