@@ -6,7 +6,8 @@ on:
       BADGE_FILES:
         type: string
         description: 'Name/wildcard pattern for shields.io endpoint JSON'
-        required: true
+        default: '.*badge.*\.json'
+        required: false
     # outputs:
       # GIST_ID:
       #   description: 'Id of the GitHub Gist that hosts all endpoint JSON files'
@@ -28,8 +29,9 @@ jobs:
           script: |
             const fs = require('fs').promises;
             const filesInDirectory = await fs.readdir('.');
+            const pattern = new RegExp('${{ inputs.BADGE_FILES }}');
             const matchingFiles = filesInDirectory.filter(
-              filename => filename.includes(${{ inputs.BADGE_FILES }})
+              filename => filename.match(pattern)
             );
             const filesToCreate = await Promise.all(
               matchingFiles.map(

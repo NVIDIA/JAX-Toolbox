@@ -79,7 +79,7 @@ jobs:
           name: jax-unit-test-logs-${{ matrix.GPU_ARCH }}        
           path: .
 
-      - name: Generate job summary for unit test
+      - name: Process results and generate report
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
@@ -119,7 +119,7 @@ jobs:
           to_json schemaVersion label message color \
           > ${{ env.BADGE_FILENAME_FULL }}
 
-      - name: Upload test logs
+      - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
