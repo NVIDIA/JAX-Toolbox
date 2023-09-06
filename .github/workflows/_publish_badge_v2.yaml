@@ -47,7 +47,7 @@ jobs:
 
             const fs = require('fs').promises;
             const workdir = '${{ steps.collect.outputs.WORKDIR }}'
-            const files = fs.readdirSync(workdir);
+            const files = await fs.readdir(workdir);
 
             gist = await github.rest.gists.create({
               description: gistDescription,
