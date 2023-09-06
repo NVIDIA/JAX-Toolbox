@@ -31,7 +31,10 @@ jobs:
             const filesInDirectory = await fs.readdir('.');
             const pattern = new RegExp('${{ inputs.BADGE_FILES }}');
             const matchingFiles = filesInDirectory.filter(
-              filename => filename.match(pattern)
+              filename => {
+                console.log(filename, pattern, filename.match(pattern));
+                return filename.match(pattern);
+              }
             );
             const filesToCreate = await Promise.all(
               matchingFiles.map(
