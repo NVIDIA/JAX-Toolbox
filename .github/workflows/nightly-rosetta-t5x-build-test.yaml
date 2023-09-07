@@ -10,7 +10,7 @@ on:
       BASE_IMAGE:
         type: string
         description: 'T5x image built by NVIDIA/JAX-Toolbox'
-        default: 'ghcr.io/nvidia/t5x:latest'
+        default: 'ghcr.io/nvidia/upstream-t5x:latest'
         required: true
       PUBLISH:
         type: boolean
@@ -19,7 +19,7 @@ on:
         required: false
 
 env:
-  BASE_LIBRARY: t5x
+  BASE_LIBRARY: upstream-t5x
   DOCKER_REGISTRY: ghcr.io/nvidia
 
 permissions:
@@ -153,7 +153,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
+      TARGET_IMAGE: t5x
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
 
@@ -164,7 +164,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
+      TARGET_IMAGE: t5x
       TARGET_TAGS: |
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 

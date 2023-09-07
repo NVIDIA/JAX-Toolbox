@@ -10,7 +10,7 @@ on:
       BASE_IMAGE:
         type: string
         description: 'PAX image built by NVIDIA/JAX-Toolbox'
-        default: 'ghcr.io/nvidia/pax:latest'
+        default: 'ghcr.io/nvidia/upstream-pax:latest'
         required: true
       PUBLISH:
         type: boolean
@@ -19,7 +19,7 @@ on:
         required: false
 
 env:
-  BASE_LIBRARY: pax
+  BASE_LIBRARY: upstream-pax
   DOCKER_REGISTRY: ghcr.io/nvidia
 
 permissions:
@@ -142,7 +142,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
+      TARGET_IMAGE: pax
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
 
@@ -153,7 +153,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
+      TARGET_IMAGE: pax
       TARGET_TAGS: |
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
