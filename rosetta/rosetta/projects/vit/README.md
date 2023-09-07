@@ -3,7 +3,7 @@
 This directory provides an implementation of the [Vision Transformer (ViT)](https://arxiv.org/pdf/2010.11929.pdf) model. This implementation is a direct adaptation of Google's [original ViT implementation](https://github.com/google-research/vision_transformer/tree/main). We have extended the original ViT implementation to include model parallel support. Model configurations are also based on the the original ViT implementation. Presently, convergence has been verified on ViT-B/16. Support for a wider range of models will be added in the future.
 
 ## Hardware Specifications
-Convergence and performance has been validated on NVIDIA DGX A100 (8x A100 80G) nodes. Pretraining and fine-tuning of ViT/B-16 can be performed on a single DGX A100 80G node, but we provide both singlenode and multinode support. If running on a machine with less memory, some of the default configurations may run out of memory; if this occurs, increase your GPU count and decrease your batch size per GPU.
+Convergence and performance has been validated on NVIDIA DGX A100 (8x A100 80G) nodes. Pretraining and fine-tuning of ViT/B-16 can be performed on a single DGX A100 80G node. We provide both singlenode and multinode support for pre-training and fine-tuning. If running on a machine with less than 80G memory, some of the default configurations may run out of memory; if you run out of memory and have more GPUs available, increase your GPU count and decrease your batch size per GPU. You may also use gradient accumulation to reduce the microbatch size while keeping the global batch size and GPU count constant, but note that gradient accumulation with ViT works only with scale-invariant optimizers such as Adam and Adafactor. See the [known issues](#Known-issues) section below for more information.
 
 ## Building a Container
 We provide and fully built and ready-to-use container here: `ghcr.io/nvidia/rosetta-t5x:vit-2023-07-21`
@@ -83,19 +83,19 @@ _Note_: This step is optional. If no indices are provided to the webdataset read
 #### Single-process
 Use the following command to launch a single-process pre-training run interactively from the top-level directory of the repository:
 ```
-bash rosetta/projects/vit/scripts/singleprocess_pretrain.sh base bfloat16 <NUM GPUS> <BATCH SIZE PER GPU> <LOG DIR> <MODEL DIR LOCAL> <TRAIN INDEX DIR> <EVAL INDEX DIR>
+bash rosetta/projects/vit/scripts/singleprocess_pretrain.sh base bfloat16 <NUM GPUS> <BATCH SIZE PER GPU> <LOG DIR> <MODEL DIR LOCAL> <TRAIN INDEX DIR> <EVAL INDEX DIR> <GRADIENT ACCUMULATION>
 ```
 `<MODEL DIR LOCAL>` refers to the _relative_ path to save checkpoints, summaries and configuration details to.
 
 The following command can be used to launch a pre-training convergence run interactively on 8 GPUs:
 ```
-bash rosetta/projects/vit/scripts/singleprocess_pretrain.sh base bfloat16 8 512 log_dir base_pretrain_dir /opt/rosetta/train_idxs /opt/rosetta/eval_idxs
+bash rosetta/projects/vit/scripts/singleprocess_pretrain.sh base bfloat16 8 512 log_dir base_pretrain_dir /opt/rosetta/train_idxs /opt/rosetta/eval_idxs 1
 ```
 
 #### Multi-process
 See  `rosetta/projects/vit/scripts/example_slurm_pretrain.sub` for an example submit file that can be used to launch a multiprocess pre-training run with a SLURM + pyxis cluster. The following command can be used to launch a pre-training convergence run on a single node:
 ```
-BASE_WORKSPACE_DIR=<PATH TO WORKSPACE> BASE_WDS_DATA_DIR=<PATH TO DATASET> BASE_TRAIN_IDX_DIR=<PATH TO TRAIN INDICES> BASE_EVAL_IDX_DIR=<PATH TO EVAL INDICES> VIT_SIZE=base PREC=bfloat16 GPUS_PER_NODE=8 BSIZE_PER_GPU=512 MODEL_DIR_LOCAL=base_pretrain_dir sbatch -N 1 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> example_slurm_pretrain.sub
+BASE_WORKSPACE_DIR=<PATH TO WORKSPACE> BASE_WDS_DATA_DIR=<PATH TO DATASET> BASE_TRAIN_IDX_DIR=<PATH TO TRAIN INDICES> BASE_EVAL_IDX_DIR=<PATH TO EVAL INDICES> VIT_SIZE=base PREC=bfloat16 GPUS_PER_NODE=8 BSIZE_PER_GPU=512 GRAD_ACCUM=1 MODEL_DIR_LOCAL=base_pretrain_dir sbatch -N 1 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> example_slurm_pretrain.sub
 ```
 Here, `MODEL_DIR_LOCAL` is the directory to save checkpoints, summaries and configuration details to, relative to `BASE_WORKSPACE_DIR`.
 
@@ -110,14 +110,14 @@ python3 -m rosetta.projects.vit.scripts.convert_t5x_pretrain_to_finetune_ckpt --
 #### Single-process
 Use the following command to launch a single-process fine-tuning run:
 ```
-bash rosetta/projects/vit/scripts/singleprocess_finetune.sh base bfloat16 <NUM GPUS> <BATCH SIZE PER GPU> <LOG DIR> <MODEL DIR LOCAL> <TRAIN INDEX DIR> <EVAL INDEX DIR>
+bash rosetta/projects/vit/scripts/singleprocess_finetune.sh base bfloat16 <NUM GPUS> <BATCH SIZE PER GPU> <LOG DIR> <MODEL DIR LOCAL> <TRAIN INDEX DIR> <EVAL INDEX DIR> <GRADIENT ACCUMULATION>
 ```
 where `<MODEL DIR LOCAL>` corresponds to the directory containing the converted pre-training checkpoint.
 
 #### Multi-process
 See  `rosetta/projects/vit/scripts/example_slurm_finetune.sub` for an example submit file for launching a fine-tuning run with a SLURM + pyxis cluster. The following command can be used to launch a fine-tuning convergence run:
 ```
-BASE_WORKSPACE_DIR=<PATH TO WORKSPACE> BASE_WDS_DATA_DIR=<PATH TO DATASET> BASE_TRAIN_IDX_DIR=<PATH TO TRAIN INDICES> BASE_EVAL_IDX_DIR=<PATH TO EVAL INDICES> VIT_SIZE=base PREC=bfloat16 GPUS_PER_NODE=8 BSIZE_PER_GPU=128 MODEL_DIR_LOCAL=base_finetune_dir sbatch -N 1 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> example_slurm_finetune.sub
+BASE_WORKSPACE_DIR=<PATH TO WORKSPACE> BASE_WDS_DATA_DIR=<PATH TO DATASET> BASE_TRAIN_IDX_DIR=<PATH TO TRAIN INDICES> BASE_EVAL_IDX_DIR=<PATH TO EVAL INDICES> VIT_SIZE=base PREC=bfloat16 GPUS_PER_NODE=8 BSIZE_PER_GPU=128 GRAD_ACCUM=1 MODEL_DIR_LOCAL=base_finetune_dir sbatch -N 1 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> example_slurm_finetune.sub
 ```
 
 ## Convergence Results
@@ -154,3 +154,7 @@ Pre-training was performed on 1 node with a global batch size of 4096. Models we
 
 ## Future Improvements
 1. ViT currently does not support [Transformer Engine](https://github.com/NVIDIA/TransformerEngine). We plan to add Transformer Engine support to further accelerate pre-training and fine-tuning in the near future.
+
+## Known Issues
+1. By default, gradient accumulation (GA) sums loss across the microbatches. As a result, loss is scaled up when using gradient accumulation, and training with GA only works when using a scale-invariant optimizer such as Adam or Adafactor. ViT fine-tuning is performed using SGD; thus, GA should not be used when fine-tuning.
+
