@@ -57,11 +57,12 @@ PREC=${PREC:="bfloat16"}            # bfloat16, float32
 GPUS_PER_NODE=${GPUS_PER_NODE:=8}    # usually 8
 BSIZE_PER_GPU=${BSIZE_PER_GPU:=512}     # local batch size/gpu
 MODEL_DIR_LOCAL=${MODEL_DIR_LOCAL:="pretrain_dir"}   # directory to save checkpoints and config dump to, relative to BASE_WORKSPACE_DIR
+GRAD_ACCUM=${GRAD_ACCUM:=1}
 
 read -r -d '' cmd <<EOF
 echo "*******STARTING********" \
 && nvidia-smi \
-&& bash rosetta/projects/vit/scripts/multiprocess_pretrain.sh $VIT_SIZE $PREC $GPUS_PER_NODE $BSIZE_PER_GPU workspace/$MODEL_DIR_LOCAL $TRAIN_IDX_DIR $EVAL_IDX_DIR
+&& bash rosetta/projects/vit/scripts/multiprocess_pretrain.sh $VIT_SIZE $PREC $GPUS_PER_NODE $BSIZE_PER_GPU workspace/$MODEL_DIR_LOCAL $TRAIN_IDX_DIR $EVAL_IDX_DIR $GRAD_ACCUM
 EOF
 
 OUTPUT_DIR="${BASE_WORKSPACE_DIR}/outputs/pretrain-${VIT_SIZE}-${PREC}-N${SLURM_JOB_NUM_NODES}-n${GPUS_PER_NODE}-BS${BSIZE_PER_GPU}"
