@@ -4,6 +4,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  make-issue:
+    runs-on: ubuntu-22.04
+    uses: octokit/request-action@v2.x
+    with:
+      route: POST /repos/{owner}/{repo}/issues
+      owner: NVIDIA
+      repo: JAX-Toolbox
+      title: "[Test] Issue title"
+      body: |
+        This is the body
+        | header1 | header2 |
+        | --- | --- |
+        | foo | bar |
+      assignee: terrykong
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   sandbox:
     runs-on: ubuntu-22.04
     steps:
