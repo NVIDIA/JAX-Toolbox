@@ -17,7 +17,7 @@ jobs:
           repo: JAX-Toolbox
           issue_number: 215 # DELETE ME
           title: |
-            [Test Issue] title
+            (Test Issue) title
           body: |
             | 
             This is the body
