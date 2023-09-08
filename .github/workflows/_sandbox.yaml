@@ -11,11 +11,15 @@ jobs:
     steps:
       - uses: octokit/request-action@v2.x
         with:
-          route: POST /repos/{owner}/{repo}/issues
+          #route: POST /repos/{owner}/{repo}/issues
+          route: PATCH /repos/{owner}/{repo}/issues/{issue_number}
           owner: NVIDIA
           repo: JAX-Toolbox
-          title: "Test Issue title"
+          issue_number: 215 # DELETE ME
+          title: |
+            [Test Issue] title
           body: |
+            | 
             This is the body
             | header1 | header2 |
             | --- | --- |
