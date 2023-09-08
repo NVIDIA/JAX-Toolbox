@@ -14,7 +14,7 @@ jobs:
           route: POST /repos/{owner}/{repo}/issues
           owner: NVIDIA
           repo: JAX-Toolbox
-          title: "[Test] Issue title"
+          title: "Test Issue title"
           body: |
             This is the body
             | header1 | header2 |
