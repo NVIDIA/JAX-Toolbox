@@ -186,6 +186,7 @@ jobs:
   test-t5x-ff:
     needs: [metadata, build-t5x-ff]
     strategy:
+      fail-fast: false
       max-parallel: 1
       matrix:
         base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
@@ -296,6 +297,7 @@ jobs:
   test-pax-ff:
     needs: [metadata, build-pax-ff]
     strategy:
+      fail-fast: false
       max-parallel: 1
       matrix:
         base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
