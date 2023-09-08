@@ -6,6 +6,8 @@ on:
 env:
   TRIAGE_CC: "@terrykong @terrykong"
   T5X_FIRST_RESPONDER: terrykong
+  FRAMEWORK: T5x
+  BUILD_DATE: nightly-2023-09-08
 
 jobs:
   make-issue:
@@ -21,11 +23,10 @@ jobs:
           issue_number: 215 # DELETE ME
           title: |
             |
-            [Bot-triages] XXX failure
+            [Bot] ${{ env.FRAMEWORK }} test failures on ${{ env.BUILD_DATE }}
           body: |
             | 
-            Result:
-            * https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            * Github Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             | header1 | header2 |
             | --- | --- |
