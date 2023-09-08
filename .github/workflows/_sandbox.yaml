@@ -3,6 +3,10 @@ name: "~Sandbox"
 on:
   workflow_dispatch:
 
+env:
+  TRIAGE_CC: "@terrykong @terrykong"
+  T5X_FIRST_RESPONDER: terrykong
+
 jobs:
   make-issue:
     runs-on: ubuntu-22.04
@@ -11,11 +15,8 @@ jobs:
     steps:
       - uses: octokit/request-action@v2.x
         with:
-          #route: POST /repos/{owner}/{repo}/issues
-          #route: PATCH /repos/{owner}/{repo}/issues/{issue_number}
+          #route: POST /repos/{owner_and_repo}/issues
           route: PATCH /repos/{owner_and_repo}/issues/{issue_number}
-          #owner: ${{ github.repository_owner }}
-          #repo: JAX-Toolbox
           owner_and_repo: ${{ github.repository }}
           issue_number: 215 # DELETE ME
           title: |
@@ -29,7 +30,9 @@ jobs:
             | header1 | header2 |
             | --- | --- |
             | foo | bar |
-          assignee: terrykong
+
+            ${{ env.TRIAGE_CC }}
+          assignee: ${{ env.T5X_FIRST_RESPONDER }}
           labels: "[\"auto-triage\"]"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
