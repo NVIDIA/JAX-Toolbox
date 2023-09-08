@@ -19,11 +19,13 @@ jobs:
           owner_and_repo: ${{ github.repository }}
           issue_number: 215 # DELETE ME
           title: |
-            (Bot-triages) XXX failure
+            |
+            [Bot-triages] XXX failure
           body: |
             | 
             Result:
-            * https://github.
+            * https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
             | header1 | header2 |
             | --- | --- |
             | foo | bar |
