@@ -6,6 +6,8 @@ on:
 jobs:
   make-issue:
     runs-on: ubuntu-22.04
+    permissions:
+      issues: write
     steps:
       - uses: octokit/request-action@v2.x
         with:
