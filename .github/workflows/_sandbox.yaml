@@ -21,6 +21,7 @@ jobs:
           assignee: terrykong
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTIONS_STEP_DEBUG: true
   sandbox:
     runs-on: ubuntu-22.04
     steps:
