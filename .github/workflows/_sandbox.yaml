@@ -12,19 +12,24 @@ jobs:
       - uses: octokit/request-action@v2.x
         with:
           #route: POST /repos/{owner}/{repo}/issues
-          route: PATCH /repos/{owner}/{repo}/issues/{issue_number}
-          owner: NVIDIA
-          repo: JAX-Toolbox
+          #route: PATCH /repos/{owner}/{repo}/issues/{issue_number}
+          route: PATCH /repos/{owner_and_repo}/issues/{issue_number}
+          #owner: ${{ github.repository_owner }}
+          #repo: JAX-Toolbox
+          owner_and_repo: ${{ github.repository }}
           issue_number: 215 # DELETE ME
           title: |
-            (Test Issue) title
+            (Bot-triages) XXX failure
           body: |
             | 
-            This is the body
+            Result:
+            * https://github.
             | header1 | header2 |
             | --- | --- |
             | foo | bar |
           assignee: terrykong
+          labels:
+            - auto-triage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ACTIONS_STEP_DEBUG: true
