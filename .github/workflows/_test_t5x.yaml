@@ -268,6 +268,36 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
+  metrics:
+    needs: [multi-gpu-multi-node, single-process-multi-device]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Run pytest
+        shell: bash -x {0}
+        run: |
+          pip install pytest pytest-reportlog tensorboard
+          for i in ${GITHUB_RUN_ID}-*; do
+            SUBDIR=$(echo $i | cut -d'-' -f2)
+            mv $i/$SUBDIR* .
+            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
+          done
+
+          echo '## PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
+          for i in *_metrics.json; do
+            echo $i | cut -d'.' -f1
+            echo '```json'
+            jq . $i
+            echo '```'
+          done | tee -a $GITHUB_STEP_SUMMARY
+
+
   publish-test:
     needs: [multi-gpu-multi-node, single-process-multi-device]
     uses: ./.github/workflows/_publish_badge.yaml
