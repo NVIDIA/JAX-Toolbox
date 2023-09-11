@@ -74,7 +74,8 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          source .github/workflows/util.sh
+          source .github/workflows/scripts/get_build_date.sh
+          source .github/workflows/scripts/all_image_tags.sh
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BROKEN_IMAGE=${{ inputs.BROKEN_IMAGE }}
         
@@ -202,7 +203,20 @@ jobs:
     steps:
       - name: Create table summarizing
         run: |
-          json_data=$(curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}/jobs")
+          set -ou pipefail
+          get_jobs() {
+            page=$1
+            curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}/jobs?page=$page"
+          }
+          page=1
+          json_data=$(get_jobs $page)
+          total_jobs=$(echo "$json_data" | jq -r '.total_count')
+          # Jobs are paginated, so we need to aggregate them
+          while [[ "$(echo "$json_data" | jq -r '.jobs | length')" -lt $total_jobs ]]; do
+            page=$((page+1))
+            json_data=$(jq '.jobs += input.jobs' <(echo "$json_data") <(get_jobs $page))
+          done
+
           name_conclusion_array=()
           while IFS= read -r line; do
             name_conclusion_array+=("$line")
@@ -313,7 +327,20 @@ jobs:
     steps:
       - name: Create table summarizing
         run: |
-          json_data=$(curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}/jobs")
+          set -ou pipefail
+          get_jobs() {
+            page=$1
+            curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}/jobs?page=$page"
+          }
+          page=1
+          json_data=$(get_jobs $page)
+          total_jobs=$(echo "$json_data" | jq -r '.total_count')
+          # Jobs are paginated, so we need to aggregate them
+          while [[ "$(echo "$json_data" | jq -r '.jobs | length')" -lt $total_jobs ]]; do
+            page=$((page+1))
+            json_data=$(jq '.jobs += input.jobs' <(echo "$json_data") <(get_jobs $page))
+          done
+
           name_conclusion_array=()
           while IFS= read -r line; do
             name_conclusion_array+=("$line")
