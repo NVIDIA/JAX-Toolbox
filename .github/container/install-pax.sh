@@ -136,8 +136,8 @@ popd
 # required by both praxis and paxml, and fiddle at head is only required by
 # praxis
 HEAD_PACKAGES="jax fiddle"
-SKIP_HEAD_INSTALLS=true maybe_defer_pip_install ${PRAXIS_INSTALLED_DIR}
-SKIP_HEAD_INSTALLS=true maybe_defer_pip_install ${PAXML_INSTALLED_DIR}[gpu] $HEAD_PACKAGES
+SKIP_HEAD_INSTALLS=true maybe_defer_pip_install -e ${PRAXIS_INSTALLED_DIR}
+SKIP_HEAD_INSTALLS=true maybe_defer_pip_install -e ${PAXML_INSTALLED_DIR}[gpu] $HEAD_PACKAGES
 
 if [[ $(uname -m) == "aarch64" ]]; then
   # array-record pip package is broken on ARM64 right now, we build it from source here.
