@@ -272,7 +272,7 @@ jobs:
           done
           echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n"
 
-          if [[ -z "$last_success_img_date" ]]; then
+          if [[ -n "$last_success_img_date" ]]; then
             echo "Found a working base nightly image (based on $last_success_img_date)); issue likely lies in more recent base nightly images."
             echo "ASSIGNEE=${{ env.JAX_ASSIGNEE }}" >> $GITHUB_OUTPUT
           else
@@ -300,7 +300,7 @@ jobs:
             [Bot] ${{ needs.metadata.outputs.FRAMEWORK_BASE }} test failures on ${{ needs.metadata.outputs.BROKEN_DATE }}
           body: |
             | 
-            * Github Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }} |
+            * Github Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   
             ${{ steps.summary-table.outputs.TABLE_MD }}
             
@@ -432,7 +432,7 @@ jobs:
           done
           echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n"
 
-          if [[ -z "$last_success_img_date" ]]; then
+          if [[ -n "$last_success_img_date" ]]; then
             echo "Found a working base nightly image (based on $last_success_img_date)); issue likely lies in more recent base nightly images."
             echo "ASSIGNEE=${{ env.JAX_ASSIGNEE }}" >> $GITHUB_OUTPUT
           else
@@ -460,7 +460,7 @@ jobs:
             [Bot] ${{ needs.metadata.outputs.FRAMEWORK_BASE }} test failures on ${{ needs.metadata.outputs.BROKEN_DATE }}
           body: |
             | 
-            * Github Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }} |
+            * Github Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   
             ${{ steps.summary-table.outputs.TABLE_MD }}
             
