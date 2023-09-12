@@ -10,7 +10,7 @@ on:
         default: ghcr.io/nvidia/jax:latest
     outputs:
       DOCKER_TAGS:
-        description: "Tags of the image built"
+        description: 'Tags of the image built'
         value: ${{ jobs.build.outputs.DOCKER_TAGS }}
 
 env:
