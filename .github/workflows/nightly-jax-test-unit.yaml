@@ -61,12 +61,12 @@ jobs:
     secrets: inherit
 
   upload-badge:
-    needs: [run-jobs]
+    needs: [run]
     uses: ./.github/workflows/_upload_badge.yaml
     secrets: inherit
 
   report:
-    needs: [run-jobs]
+    needs: [run]
     uses: ./.github/workflows/_summary.yaml
     secrets: inherit
 

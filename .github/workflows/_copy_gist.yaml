@@ -30,7 +30,7 @@ jobs:
             const dstId = "${{ inputs.DST_GIST_ID }}";
 
             // Fetch files from source gist
-            const { data: srcData } = await octokit.gists.get({
+            const { data: srcData } = await github.gists.get({
               gist_id: srcId
             });
 
@@ -46,7 +46,7 @@ jobs:
             }
 
             // Update files in destination gist
-            await octokit.gists.update({
+            await github.gists.update({
               gist_id: dstId,
               files: filesToUpdate
             });
