@@ -8,6 +8,11 @@ on:
         description: PAX image from ghcr.io/nvidia/pax
         default: latest
         required: false
+      EXTRA_TEST_ARGS:
+        type: string
+        description: Extra command line args to pass to test-pax.sh
+        default: ""
+        required: false
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -97,7 +102,8 @@ jobs:
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
+              ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
           )
 
