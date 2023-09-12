@@ -28,13 +28,14 @@ RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite \
 bash create-distribution.sh \
   -p patchlist-t5x.txt \
   -u https://github.com/google-research/t5x.git \
-  -d $(dirname $(python -c "import t5x; print(*t5x.__path__)")) \
+  -d /opt/t5x \
   -e /opt/t5x-mirror
 bash create-distribution.sh \
   -p patchlist-flax.txt \
   -u https://github.com/google/flax.git \
-  -d $(dirname $(python -c "import flax; print(*flax.__path__)")) \
+  -d /opt/flax \
   -e /opt/flax-mirror
+pip install --no-dep /opt/t5x /opt/flax
 rm -rf $(find /opt -name "__pycache__")
 EOF
   

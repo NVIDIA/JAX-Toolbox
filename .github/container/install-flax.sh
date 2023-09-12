@@ -76,4 +76,4 @@ set -ex
 git clone ${FLAX_REPO} ${INSTALL_DIR}
 cd ${INSTALL_DIR}
 git checkout ${FLAX_REF}
-maybe_defer_pip_install -e ${INSTALL_DIR}
+maybe_defer_pip_install ${INSTALL_DIR}

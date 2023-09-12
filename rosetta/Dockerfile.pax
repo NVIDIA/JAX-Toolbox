@@ -32,19 +32,20 @@ RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite \
 bash create-distribution.sh \
   -p patchlist-paxml.txt \
   -u https://github.com/google/paxml.git \
-  -d $(dirname $(python -c "import paxml; print(*paxml.__path__)")) \
+  -d /opt/paxml \
   -e /opt/pax-mirror
 bash create-distribution.sh \
   -p patchlist-praxis.txt \
   -u https://github.com/google/praxis.git \
-  -d $(dirname $(python -c "import praxis; print(*praxis.__path__)")) \
+  -d /opt/praxis \
   -e /opt/praxis-mirror
 bash create-distribution.sh \
   -p patchlist-flax.txt \
   -u https://github.com/google/flax.git \
-  -d $(dirname $(python -c "import flax; print(*flax.__path__)")) \
+  -d /opt/flax \
   -e /opt/flax-mirror
 rm -rf $(find /opt -name "__pycache__")
+pip install --no-dep /opt/paxml /opt/praxis /opt/flax
 EOF
   
 WORKDIR /opt/rosetta

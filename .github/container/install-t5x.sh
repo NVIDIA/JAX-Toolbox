@@ -96,7 +96,7 @@ T5X_INSTALLED_DIR=${INSTALL_DIR}/t5x
 git clone ${T5X_REPO} ${T5X_INSTALLED_DIR}
 cd ${T5X_INSTALLED_DIR}
 git checkout ${T5X_REF}
-maybe_defer_pip_install -e ${T5X_INSTALLED_DIR}[gpu]
+maybe_defer_pip_install ${T5X_INSTALLED_DIR}[gpu]
 
 maybe_defer_cleanup apt-get autoremove -y
 maybe_defer_cleanup apt-get clean
