@@ -67,10 +67,11 @@ jobs:
 
             console.log(gist)
 
-            return gist;
+            return gist.data.id;
 
       - name: Return Gist ID
         id: extract-id
+        shell: bash -x -e {0}
         run: |
-          GIST_ID=$(echo '${{ steps.upload.outputs.result }}' | jq -r '.data.id')
-          echo "GIST_ID=$GIST_ID" >> $GITHUB_OUTPUT
+          GIST_ID="${{ steps.upload.outputs.result }}"
+          echo "GIST_ID=${GIST_ID//\"/}" >> $GITHUB_OUTPUT
