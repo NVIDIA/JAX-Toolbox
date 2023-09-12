@@ -36,7 +36,7 @@ jobs:
 
             // Prepare file upload
             let filesToUpdate = {};
-            pattern = new RegExp(${{ inputs.FILES }});
+            pattern = new RegExp("${{ inputs.FILES }}");
             for (const [filename, fileObj] of Object.entries(srcData.files)) {
               if filename.match(pattern) {
                 filesToUpdate[filename] = {
