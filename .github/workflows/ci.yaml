@@ -151,17 +151,17 @@ jobs:
       REF_PRAXIS: ${{ needs.metadata.outputs.REF_PRAXIS }}
     secrets: inherit
 
-  build-pax-aarch64:
-    needs: [metadata, build-jax]
-    uses: ./.github/workflows/_build_pax_aarch64.yaml
-    with:
-      # BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
-      # REPO_PAXML: ${{ needs.metadata.outputs.REPO_PAXML }}
-      # REF_PAXML: ${{ needs.metadata.outputs.REF_PAXML }}
-      # REPO_PRAXIS: ${{ needs.metadata.outputs.REPO_PRAXIS }}
-      # REF_PRAXIS: ${{ needs.metadata.outputs.REF_PRAXIS }}
-    secrets: inherit
+  # build-pax-aarch64:
+  #   needs: [metadata, build-jax]
+  #   uses: ./.github/workflows/_build_pax_aarch64.yaml
+  #   with:
+  #     # BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+  #     # REPO_PAXML: ${{ needs.metadata.outputs.REPO_PAXML }}
+  #     # REF_PAXML: ${{ needs.metadata.outputs.REF_PAXML }}
+  #     # REPO_PRAXIS: ${{ needs.metadata.outputs.REPO_PRAXIS }}
+  #     # REF_PRAXIS: ${{ needs.metadata.outputs.REF_PRAXIS }}
+  #   secrets: inherit
 
   build-rosetta-t5x:
     uses: ./.github/workflows/_build_rosetta.yaml
@@ -182,7 +182,8 @@ jobs:
     secrets: inherit
 
   build-summary:
-    needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-pax-aarch64, build-rosetta-t5x, build-rosetta-pax]
+    needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-rosetta-t5x, build-rosetta-pax]
+    # needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-pax-aarch64, build-rosetta-t5x, build-rosetta-pax]
     if: always()
     runs-on: ubuntu-22.04
     steps:
@@ -199,7 +200,6 @@ jobs:
           | JAX-TE       | ${{ needs.build-te.outputs.DOCKER_TAGS }}          |
           | T5X          | ${{ needs.build-t5x.outputs.DOCKER_TAGS }}         |
           | PAX          | ${{ needs.build-pax.outputs.DOCKER_TAGS }}         |
-          | PAX(arm64)   | ${{ needs.build-pax-aarch64.outputs.DOCKER_TAGS }} |
           | ROSETTA(t5x) | ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAGS }} |
           | ROSETTA(pax) | ${{ needs.build-rosetta-pax.outputs.DOCKER_TAGS }} |
           EOF
