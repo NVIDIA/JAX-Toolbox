@@ -1,4 +1,4 @@
-name: ~publish test results into a shields.io endpoint json file
+name: ~upload shields.io endpoint json files as a GitHub Gist
 
 on:
   workflow_call:
@@ -10,8 +10,8 @@ on:
         required: false
     outputs:
       GIST_ID:
-        description: 'Id of the GitHub Gist that hosts all endpoint JSON files'
-        value: ${{ jobs.gist.outputs.GIST_ID }}
+        description: 'Id of the created Gist'
+        value: ${{ jobs.action.outputs.GIST_ID }}
 
 jobs:
   action:

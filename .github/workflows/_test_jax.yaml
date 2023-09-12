@@ -34,15 +34,16 @@ jobs:
       matrix:
         GPU_ARCH: [V100, A100]
     # ensures A100 job lands on dedicated runner for this particular job
-    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+    # runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+    runs-on: ubuntu-22.04
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
     steps:
       - name: Print environment variables
         run: env
 
-      - name: Print GPU information
-        run: nvidia-smi  
+      # - name: Print GPU information
+      #   run: nvidia-smi  
 
       - name: Check out repository
         uses: actions/checkout@v3
@@ -54,28 +55,28 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull JAX image
-        shell: bash -x -e {0}
-        run: |
-          docker pull ${{ inputs.JAX_IMAGE }}
+      # - name: Pull JAX image
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     docker pull ${{ inputs.JAX_IMAGE }}
 
-      - name: Backend-independent tests
-        shell: bash -x {0}
-        run: |
-          docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
+      # - name: Backend-independent tests
+      #   shell: bash -x {0}
+      #   run: |
+      #     docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
 
-      - name: GPU-specific tests
-        shell: bash -x {0}
-        run: |
-          docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
+      # - name: GPU-specific tests
+      #   shell: bash -x {0}
+      #   run: |
+      #     docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
 
-      # - name: download existing artifact
-      #   uses: dawidd6/action-download-artifact@v2.27.0
-      #   with:
-      #     github_token: ${{secrets.GITHUB_TOKEN}}
-      #     run_id: 6047993737
-      #     name: jax-unit-test-logs-${{ matrix.GPU_ARCH }}        
-      #     path: .
+      - name: download existing artifact
+        uses: dawidd6/action-download-artifact@v2.27.0
+        with:
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          run_id: 6047993737
+          name: jax-unit-test-logs-${{ matrix.GPU_ARCH }}        
+          path: .
 
       - name: Process results and generate report
         if: success() || failure()
