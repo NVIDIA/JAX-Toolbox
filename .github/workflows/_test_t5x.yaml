@@ -289,7 +289,7 @@ jobs:
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
           done
 
-          echo '## PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
+          echo '## T5X MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
           for i in *_metrics.json; do
             echo $i | cut -d'.' -f1
             echo '```json'
