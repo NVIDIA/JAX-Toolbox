@@ -8,6 +8,15 @@ on:
         description: PAX image from ghcr.io/nvidia/pax
         default: latest
         required: false
+      EXTRA_TEST_ARGS:
+        type: string
+        description: Extra command line args to pass to test-pax.sh
+        default: ""
+        required: false
+    outputs:
+      TEST_STATUS:
+        description: 'Summary pass/fail value indicating if results from tests are acceptable'
+        value: ${{ jobs.publish-test.outputs.STATUS }}
 
 jobs:
 
@@ -93,7 +102,8 @@ jobs:
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
+              ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
           )
 
@@ -184,6 +194,61 @@ jobs:
         with:
           name: metrics-test-log
           path: report.jsonl
+
+
+  publish-test:
+    needs: [multi-gpu-multi-node, metrics]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: ( always() )
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 'pax-test-status.json'
+      PUBLISH: false
+      SCRIPT: |
+        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*TP*PP/*-status.json"
+        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
+
+        echo '## PAX MGMN Test Status' >> $GITHUB_STEP_SUMMARY
+        for i in $EXIT_STATUSES; do
+          echo $i | cut -d'.' -f1
+          echo '```json'
+          jq . $i
+          echo '```'
+        done | tee -a $GITHUB_STEP_SUMMARY
+
+        echo "Test statuses:"
+        jq -rc 'input_filename,.' $EXIT_STATUSES
+
+        PYTEST_LOG=metrics-test-log/report.jsonl
+        all_outcomes() {
+          cat $PYTEST_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+        }
+        cnt_type() {
+          cat $PYTEST_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+        }
+        PYTEST_FAILED_TESTS=$(cnt_type failed)
+        PYTEST_PASSED_TESTS=$(cnt_type passed)
+        PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
+
+        if ([[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
+            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]) || \
+            ([[ $PASSED_TESTS -eq $TOTAL_TESTS ]] && [[ $PYTEST_PASSED_TESTS -eq $PYTEST_TOTAL_TESTS ]]); then
+          STATUS=success
+          BADGE_COLOR=brightgreen
+        elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
+          STATUS=failure
+          BADGE_COLOR=red
+        else
+          STATUS=failure
+          BADGE_COLOR=yellow
+        fi
+        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
+        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+
 
   summary:
     runs-on: ubuntu-22.04
