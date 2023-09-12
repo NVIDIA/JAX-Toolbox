@@ -1,0 +1,53 @@
+name: ~copy files from one Gist to another
+
+on:
+  workflow_call:
+    inputs:
+      SRC_GIST_ID:
+        type: string
+        description: 'ID of source Gist'
+        required: true
+      DST_GIST_ID:
+        type: string
+        description: 'ID of destination Gist'
+        required: true
+      FILES:
+        type: string
+        description: 'Name/Javascript regex for files to be copied'
+        required: false
+        default: '.*'
+
+jobs:
+  action:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: copy badge to primary Gist
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          script: |
+            const srcId = "${{ inputs.SRC_GIST_ID }}";
+            const dstId = "${{ inputs.DST_GIST_ID }}";
+
+            // Fetch files from source gist
+            const { data: srcData } = await octokit.gists.get({
+              gist_id: srcId
+            });
+
+            // Prepare file upload
+            let filesToUpdate = {};
+            pattern = new RegExp(${{ inputs.FILES }});
+            for (const [filename, fileObj] of Object.entries(srcData.files)) {
+              if filename.match(pattern) {
+                filesToUpdate[filename] = {
+                  content: fileObj.content
+                };
+              }
+            }
+
+            // Update files in destination gist
+            await octokit.gists.update({
+              gist_id: dstId,
+              files: filesToUpdate
+            });
+            console.log("Files copied successfully.");

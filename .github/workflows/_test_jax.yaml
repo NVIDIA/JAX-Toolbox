@@ -12,15 +12,14 @@ on:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'jax-unit-test-logs'
+        default: 'artifact-jax-unit-test'
       BADGE_FILENAME:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'jax-unit-test-badge'
+        default: 'badge-jax-unit-test'
 
 jobs:
-
   runner:
     uses: ./.github/workflows/_runner_ondemand_slurm.yaml
     with:

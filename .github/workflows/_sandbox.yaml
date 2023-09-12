@@ -19,21 +19,21 @@ jobs:
       JAX_IMAGE: 'ghcr.io/nvidia/jax:latest'
     secrets: inherit
 
-  summary:
-    needs: [run-jobs]
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-
-      - name: Write output to step summary
-        shell: bash -x -e {0}
-        run: |
-          find -name "sitrep.json" | while read -s f; do
-            cat "$f" | jq -r '.summary' | tee -a $GITHUB_STEP_SUMMARY
-          done
-
   upload-badge:
     needs: [run-jobs]
     uses: ./.github/workflows/_upload_badge.yaml
+    secrets: inherit
+
+  report:
+    needs: [run-jobs]
+    uses: ./.github/workflows/_summary.yaml
+    secrets: inherit
+
+  publish-badge:
+    needs: [upload-badge]
+    uses: ./.github/workflows/_copy_gist.yaml
+    with:
+      SRC_GIST_ID: ${{ needs.upload-badge.outputs.GIST_ID }}
+      DST_GIST_ID: '2a125e4324bcc45f581bece2620e1b30'
+      FILES: '.*badge.*.json'
     secrets: inherit

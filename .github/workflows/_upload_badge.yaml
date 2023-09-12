@@ -14,7 +14,7 @@ on:
         value: ${{ jobs.gist.outputs.GIST_ID }}
 
 jobs:
-  gist:
+  action:
     runs-on: ubuntu-22.04
     outputs:
       GIST_ID: ${{ steps.upload.outputs.result }}
