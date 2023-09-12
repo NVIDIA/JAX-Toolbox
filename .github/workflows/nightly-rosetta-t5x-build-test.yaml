@@ -12,6 +12,11 @@ on:
         description: 'T5x image built by NVIDIA/JAX-Toolbox'
         default: 'ghcr.io/nvidia/t5x:latest'
         required: true
+      TEST_IMAGE:
+        type: string
+        description: 'T5x image to test with. If provided, will skip building and only test with this image'
+        default: ''
+        required: false
       PUBLISH:
         type: boolean
         description: Publish dated images and update the 'latest' tag?
@@ -54,7 +59,7 @@ jobs:
           echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
   build:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    if: (inputs.TEST_IMAGE == '') && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     needs: metadata
     uses: ./.github/workflows/_build_rosetta.yaml
     with:
@@ -88,7 +93,7 @@ jobs:
     needs: build
     uses: ./.github/workflows/_test_rosetta.yaml
     with:
-      ROSETTA_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      ROSETTA_IMAGE: ${{ inputs.TEST_IMAGE == '' && needs.build.outputs.DOCKER_TAGS || inputs.TEST_IMAGE }}
     secrets: inherit
 
   test-t5x:
@@ -96,7 +101,7 @@ jobs:
     uses: ./.github/workflows/_test_t5x.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      T5X_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      T5X_IMAGE: ${{ inputs.TEST_IMAGE == '' && needs.build.outputs.DOCKER_TAGS || inputs.TEST_IMAGE }}
       # Disable packing b/c rosetta-t5x images run with TE by default, and TE does not currently support packing
       EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
     secrets: inherit
