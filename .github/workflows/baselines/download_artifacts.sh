@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -euo pipefail
 usage() {
     echo -e "Usage: ${0} WORKFLOW_IDS..."
     exit 1
