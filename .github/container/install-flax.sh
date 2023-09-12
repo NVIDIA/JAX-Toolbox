@@ -76,4 +76,6 @@ set -ex
 git clone ${FLAX_REPO} ${INSTALL_DIR}
 cd ${INSTALL_DIR}
 git checkout ${FLAX_REF}
+# We currently require installing editable (-e) to build a distribution since
+# we edit the source in place and do not re-install
 maybe_defer_pip_install -e ${INSTALL_DIR}
