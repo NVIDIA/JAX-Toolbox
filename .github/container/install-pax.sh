@@ -136,6 +136,8 @@ popd
 # required by both praxis and paxml, and fiddle at head is only required by
 # praxis
 HEAD_PACKAGES="jax fiddle"
+# We currently require installing editable (-e) to build a distribution since
+# we edit the source in place and do not re-install
 SKIP_HEAD_INSTALLS=true maybe_defer_pip_install -e ${PRAXIS_INSTALLED_DIR}
 SKIP_HEAD_INSTALLS=true maybe_defer_pip_install -e ${PAXML_INSTALLED_DIR}[gpu] $HEAD_PACKAGES
 
