@@ -18,6 +18,11 @@ on:
         description: "Space separated dirs to fast-forward (e.g., '/opt/flax /opt/t5x')"
         required: false
         default: ""
+      FILE_ISSUE:
+        type: boolean
+        description: "If true, will create a github issue if the test fails"
+        required: false
+        default: true
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -273,7 +278,7 @@ jobs:
           echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n"
 
           if [[ -n "$last_success_img_date" ]]; then
-            echo "Found a working base nightly image (based on $last_success_img_date)); issue likely lies in more recent base nightly images."
+            echo "Found a working base nightly image (based on $last_success_img_date); issue likely lies in more recent base nightly images."
             echo "ASSIGNEE=${{ env.JAX_ASSIGNEE }}" >> $GITHUB_OUTPUT
           else
             echo "Cannot find a working base nightly image; issue likely lies in the ${{ needs.metadata.outputs.FRAMEWORK_BASE }} libraries."
@@ -289,7 +294,8 @@ jobs:
 
           exit $ret_code
 
-      - uses: octokit/request-action@v2.x
+      - if: inputs.FILE_ISSUE
+        uses: octokit/request-action@v2.x
         with:
           #route: POST /repos/{owner_and_repo}/issues
           route: PATCH /repos/{owner_and_repo}/issues/{issue_number}
@@ -433,7 +439,7 @@ jobs:
           echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n"
 
           if [[ -n "$last_success_img_date" ]]; then
-            echo "Found a working base nightly image (based on $last_success_img_date)); issue likely lies in more recent base nightly images."
+            echo "Found a working base nightly image (based on $last_success_img_date); issue likely lies in more recent base nightly images."
             echo "ASSIGNEE=${{ env.JAX_ASSIGNEE }}" >> $GITHUB_OUTPUT
           else
             echo "Cannot find a working base nightly image; issue likely lies in the ${{ needs.metadata.outputs.FRAMEWORK_BASE }} libraries."
@@ -449,7 +455,8 @@ jobs:
 
           exit $ret_code
       
-      - uses: octokit/request-action@v2.x
+      - if: inputs.FILE_ISSUE
+        uses: octokit/request-action@v2.x
         with:
           #route: POST /repos/{owner_and_repo}/issues
           route: PATCH /repos/{owner_and_repo}/issues/{issue_number}

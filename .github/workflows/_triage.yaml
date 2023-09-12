@@ -18,6 +18,11 @@ on:
         description: "Space separated dirs to fast-forward (e.g., '/opt/flax /opt/t5x')"
         required: false
         default: ""
+      FILE_ISSUE:
+        type: boolean
+        description: "If true, will create a github issue"
+        required: false
+        default: false
   workflow_dispatch:
     inputs:
       BASE_IMAGE:
@@ -35,9 +40,18 @@ on:
         description: "Space separated dirs to fast-forward (e.g., '/opt/flax /opt/t5x')"
         required: false
         default: ""
+      FILE_ISSUE:
+        type: boolean
+        description: "If true, will create a github issue"
+        required: false
+        default: false
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
+  PAX_ASSIGNEE: ashors1
+  T5X_ASSIGNEE: terrykong
+  JAX_ASSIGNEE: yhtang
+  STAKEHOLDERS: "@ashors1 @terrykong @yhtang"
 
 permissions:
   contents: read  # to fetch code
@@ -200,8 +214,11 @@ jobs:
     if: (success() || failure()) && needs.metadata.outputs.FRAMEWORK_BASE == 't5x'
     needs: [metadata, test-t5x-ff]
     runs-on: ubuntu-22.04
+    permissions:
+      issues: write
     steps:
       - name: Create table summarizing
+        id: summary-table
         run: |
           set -ou pipefail
           get_jobs() {
@@ -222,7 +239,8 @@ jobs:
             name_conclusion_array+=("$line")
           done < <(echo "$json_data" | jq -r '.jobs[] | select(.name | startswith("test-t5x-ff") and contains("outcome")) | "\(.name)\t\(.conclusion)"')
         
-          cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
+          TABLE_MD=$(
+          cat <<EOF
           | Rewind to | Test result | Image |
           | --- | --- | --- |
           EOF
@@ -233,7 +251,7 @@ jobs:
             job_step_name=$(echo "${name_conclusion_array[$i]}" | cut -f1)
             conclusion=$(echo "${name_conclusion_array[$i]}" | cut -f2)
             if [[ ! "$job_step_name" == *$tag* ]]; then
-              echo "The runs from the GH API ($name_conclusion_array) do not align with TAGS_BETWEEN=${{ needs.metadata.outputs.TAGS_BETWEEN }}"
+              echo "The runs from the GH API ($name_conclusion_array) do not align with TAGS_BETWEEN=${{ needs.metadata.outputs.TAGS_BETWEEN }}" >&2
               exit 1
             fi
             echo "| $tag | $conclusion | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
@@ -241,14 +259,45 @@ jobs:
             if [[ $conclusion == success ]]; then
               last_success_img_date=$tag
             fi
-          done | tee -a $GITHUB_STEP_SUMMARY
-          echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n" | tee -a $GITHUB_STEP_SUMMARY
+          done
+          echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n"
 
-          if [[ -z "$last_success_img_date" ]]; then
-            echo "Found a working base nightly image (based on $last_success_img_date)); issue likely lies in more recent base nightly images."
+          if [[ -n "$last_success_img_date" ]]; then
+            echo "Found a working base nightly image (based on $last_success_img_date); issue likely lies in more recent base nightly images."
+            echo "ASSIGNEE=${{ env.JAX_ASSIGNEE }}" >> $GITHUB_OUTPUT
           else
             echo "Cannot find a working base nightly image; issue likely lies in the ${{ needs.metadata.outputs.FRAMEWORK_BASE }} libraries."
-          fi | tee -a $GITHUB_STEP_SUMMARY
+            echo "ASSIGNEE=${{ env.T5X_ASSIGNEE }}" >> $GITHUB_OUTPUT
+          fi
+          )
+          ret_code=$?
+
+          # Writes to both the step summary and the github output
+          echo 'TABLE_MD<<EOF' >> $GITHUB_OUTPUT
+          echo "$TABLE_MD" | tee -a $GITHUB_STEP_SUMMARY >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+          exit $ret_code
+
+      - if: inputs.FILE_ISSUE
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/{owner_and_repo}/issues
+          owner_and_repo: ${{ github.repository }}
+          title: |
+            |
+            [Bot] ${{ needs.metadata.outputs.FRAMEWORK_BASE }} test failures on ${{ needs.metadata.outputs.BROKEN_DATE }}
+          body: |
+            | 
+            * Github Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  
+            ${{ steps.summary-table.outputs.TABLE_MD }}
+            
+            ${{ env.STAKEHOLDERS }}
+          assignee: ${{ steps.summary-table.outputs.ASSIGNEE }}
+          labels: "[\"auto-triage\"]"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
   ########
   ## PAX #
@@ -324,8 +373,11 @@ jobs:
     if: (success() || failure()) && needs.metadata.outputs.FRAMEWORK_BASE == 'pax'
     needs: [metadata, test-pax-ff]
     runs-on: ubuntu-22.04
+    permissions:
+      issues: write
     steps:
       - name: Create table summarizing
+        id: summary-table
         run: |
           set -ou pipefail
           get_jobs() {
@@ -346,7 +398,8 @@ jobs:
             name_conclusion_array+=("$line")
           done < <(echo "$json_data" | jq -r '.jobs[] | select(.name | startswith("test-pax-ff") and contains("outcome")) | "\(.name)\t\(.conclusion)"')
         
-          cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
+          TABLE_MD=$(
+          cat <<EOF
           | Rewind to | Test result | Image |
           | --- | --- | --- |
           EOF
@@ -357,7 +410,7 @@ jobs:
             job_step_name=$(echo "${name_conclusion_array[$i]}" | cut -f1)
             conclusion=$(echo "${name_conclusion_array[$i]}" | cut -f2)
             if [[ ! "$job_step_name" == *$tag* ]]; then
-              echo "The runs from the GH API ($name_conclusion_array) do not align with TAGS_BETWEEN=${{ needs.metadata.outputs.TAGS_BETWEEN }}"
+              echo "The runs from the GH API ($name_conclusion_array) do not align with TAGS_BETWEEN=${{ needs.metadata.outputs.TAGS_BETWEEN }}" >&2
               exit 1
             fi
             echo "| $tag | $conclusion | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
@@ -365,11 +418,42 @@ jobs:
             if [[ $conclusion == success ]]; then
               last_success_img_date=$tag
             fi
-          done | tee -a $GITHUB_STEP_SUMMARY
-          echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n" | tee -a $GITHUB_STEP_SUMMARY
+          done
+          echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n"
 
-          if [[ -z "$last_success_img_date" ]]; then
-            echo "Found a working base nightly image (based on $last_success_img_date)); issue likely lies in more recent base nightly images."
+          if [[ -n "$last_success_img_date" ]]; then
+            echo "Found a working base nightly image (based on $last_success_img_date); issue likely lies in more recent base nightly images."
+            echo "ASSIGNEE=${{ env.JAX_ASSIGNEE }}" >> $GITHUB_OUTPUT
           else
             echo "Cannot find a working base nightly image; issue likely lies in the ${{ needs.metadata.outputs.FRAMEWORK_BASE }} libraries."
-          fi | tee -a $GITHUB_STEP_SUMMARY
+            echo "ASSIGNEE=${{ env.PAX_ASSIGNEE }}" >> $GITHUB_OUTPUT
+          fi
+          )
+          ret_code=$?
+
+          # Writes to both the step summary and the github output
+          echo 'TABLE_MD<<EOF' >> $GITHUB_OUTPUT
+          echo "$TABLE_MD" | tee -a $GITHUB_STEP_SUMMARY >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+          exit $ret_code
+
+      - if: inputs.FILE_ISSUE 
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/{owner_and_repo}/issues
+          owner_and_repo: ${{ github.repository }}
+          title: |
+            |
+            [Bot] ${{ needs.metadata.outputs.FRAMEWORK_BASE }} test failures on ${{ needs.metadata.outputs.BROKEN_DATE }}
+          body: |
+            | 
+            * Github Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  
+            ${{ steps.summary-table.outputs.TABLE_MD }}
+            
+            ${{ env.STAKEHOLDERS }}
+          assignee: ${{ steps.summary-table.outputs.ASSIGNEE }}
+          labels: "[\"auto-triage\"]"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

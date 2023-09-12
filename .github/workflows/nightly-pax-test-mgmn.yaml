@@ -158,3 +158,4 @@ jobs:
       BROKEN_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
       BASE_IMAGE: ghcr.io/nvidia/pax:latest-verified
       REPO_DIRS: "/opt/paxml /opt/praxis"
+      FILE_ISSUE: true

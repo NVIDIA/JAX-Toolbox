@@ -120,3 +120,4 @@ jobs:
       BROKEN_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
       BASE_IMAGE: ghcr.io/nvidia/t5x:latest-verified
       REPO_DIRS: "/opt/t5x /opt/flax"
+      FILE_ISSUE: true
