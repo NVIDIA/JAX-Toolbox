@@ -59,7 +59,7 @@ jobs:
           echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
   build:
-    if: (inputs.TEST_IMAGE == '') && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.TEST_IMAGE == '')
     needs: metadata
     uses: ./.github/workflows/_build_rosetta.yaml
     with:
