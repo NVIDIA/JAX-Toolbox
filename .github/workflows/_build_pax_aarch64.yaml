@@ -8,10 +8,10 @@ on:
         description: 'Base docker image that provides JAX'
         required: false
         default: ghcr.io/nvidia/jax:latest
-    outputs:
-      DOCKER_TAGS:
-        description: "Tags of the image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
+    # outputs:
+    #   DOCKER_TAGS:
+    #     description: 'Tags of the image built'
+    #     value: ${{ jobs.build.outputs.DOCKER_TAGS }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -22,7 +22,6 @@ permissions:
   packages: write # to upload container
 
 jobs:
-
   build:
     outputs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
@@ -50,7 +49,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-pax
+            type=raw,value=${{ github.run_id }}-pax-aarch64
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
@@ -65,7 +64,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.pax
+          file: .github/container/Dockerfile.aarch64.pax
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
