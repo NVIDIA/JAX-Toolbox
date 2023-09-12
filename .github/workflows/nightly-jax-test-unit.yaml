@@ -76,6 +76,6 @@ jobs:
     uses: ./.github/workflows/_copy_gist.yaml
     with:
       SRC_GIST_ID: ${{ needs.upload-badge.outputs.GIST_ID }}
-      DST_GIST_ID: ${{ secrets.BADGE_ENDPOINT_GIST_ID }}
+      DST_GIST_ID: ${{ vars.BADGE_ENDPOINT_GIST_ID }}
       FILES: '.*badge.*.json'
     secrets: inherit
