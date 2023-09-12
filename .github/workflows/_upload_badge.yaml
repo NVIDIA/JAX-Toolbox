@@ -17,7 +17,7 @@ jobs:
   action:
     runs-on: ubuntu-22.04
     outputs:
-      GIST_ID: ${{ steps.upload.outputs.result }}
+      GIST_ID: ${{ steps.extract-id.outputs.result }}
     steps:
       - name: Download artifacts specified by input
         uses: actions/download-artifact@v3
@@ -67,4 +67,10 @@ jobs:
 
             console.log(gist)
 
-            return gist.data.id;
+            return gist;
+
+      - name: Return Gist ID
+        id: extract-id
+        run: |
+          GIST_ID=$(echo '${{ steps.upload.outputs.result }}' | jq -r '.data.id')
+          echo "GIST_ID=$GIST_ID" >> $GITHUB_OUTPUT

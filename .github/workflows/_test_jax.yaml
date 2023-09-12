@@ -20,13 +20,13 @@ on:
         default: 'badge-jax-unit-test'
 
 jobs:
-  runner:
-    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
-    with:
-      NAME: "A100-${{ github.run_id }}"
-      LABELS: "A100:${{ github.run_id }}"
-      TIME: "01:00:00"
-    secrets: inherit
+  # runner:
+  #   uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+  #   with:
+  #     NAME: "A100-${{ github.run_id }}"
+  #     LABELS: "A100:${{ github.run_id }}"
+  #     TIME: "01:00:00"
+  #   secrets: inherit
 
   unit-test:
     strategy:
