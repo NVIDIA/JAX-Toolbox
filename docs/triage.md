@@ -36,8 +36,8 @@ workflows will trigger the `_triage.yaml` workflow if the tests fail.
 
 ### Inspecting the output
 After the job is finished, you can inspect the summary of the run and there should be a table
-like [this](https://github.com/NVIDIA/JAX-Toolbox/actions/runs/6089563249#summary-16523914207) for pax
-or like [this](https://github.com/NVIDIA/JAX-Toolbox/actions/runs/6087387492#summary-16516484677) for t5x.
+like [this](https://github.com/NVIDIA/JAX-Toolbox/actions/runs/6152793581#summary-16699715277) for pax
+or like [this](https://github.com/NVIDIA/JAX-Toolbox/actions/runs/6152785988#summary-16698903888) for t5x.
 
 Both should show a table like this:
 | Rewind to | Test result | Image |
