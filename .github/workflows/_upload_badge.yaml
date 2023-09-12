@@ -17,7 +17,7 @@ jobs:
   action:
     runs-on: ubuntu-22.04
     outputs:
-      GIST_ID: ${{ steps.extract-id.outputs.result }}
+      GIST_ID: ${{ steps.extract-id.outputs.GIST_ID }}
     steps:
       - name: Download artifacts specified by input
         uses: actions/download-artifact@v3
