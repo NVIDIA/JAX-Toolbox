@@ -99,7 +99,7 @@ jobs:
   test-t5x:
     needs: build
     uses: ./.github/workflows/_test_t5x.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (always() && github.event_name == 'workflow_dispatch')
     with:
       T5X_IMAGE: ${{ inputs.TEST_IMAGE == '' && needs.build.outputs.DOCKER_TAGS || inputs.TEST_IMAGE }}
       # Disable packing b/c rosetta-t5x images run with TE by default, and TE does not currently support packing
