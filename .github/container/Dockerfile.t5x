@@ -4,7 +4,7 @@
 ###############################################################################
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
-ARG T5X_REF=main
+
 FROM ${BASE_IMAGE}
 
 # For AARCH64 WAR
@@ -32,9 +32,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh &
   grep -v cargo /root/.bashrc.save > /root/.bashrc && \
   rm /root/.bashrc.save && \
   rm -Rf /root/.cache /tmp/*
-
-
 # END AARCH64 WAR
+
 ADD install-t5x.sh /usr/local/bin
 ADD install-flax.sh /usr/local/bin
 ADD install-te.sh /usr/local/bin

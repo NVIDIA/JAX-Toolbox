@@ -59,7 +59,7 @@ T5X_REPO="${T5X_REPO:-https://github.com/google-research/t5x.git}"
 INSTALL_DIR="${INSTALL_DIR:-/opt}"
 
 echo "Installing T5X $T5X_REF from $T5X_REPO to $INSTALL_DIR"
-echo T5X_REF=$T5X_REF
+
 maybe_defer_cleanup() {
   if [[ "$DEFER" = true ]]; then
     echo "# Cleanup from: $0"
