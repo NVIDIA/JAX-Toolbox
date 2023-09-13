@@ -11,8 +11,15 @@ permissions:
 
 jobs:
 
+  build:
+    uses: ./.github/workflows/_build_jax.yaml
+    with:
+      BUILD_DATE: '2023-09-12'
+    secrets: inherit
+
   run:
+    needs: build
     uses: ./.github/workflows/_test_jax.yaml
     with:
-      JAX_IMAGE: 'ghcr.io/nvidia/jax:latest'
+      JAX_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
     secrets: inherit
