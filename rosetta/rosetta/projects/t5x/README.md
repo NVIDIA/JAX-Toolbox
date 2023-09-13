@@ -6,7 +6,7 @@ Any `t5x/*` relative directory/file can be found in [google-research/t5x](https:
 view the most up to date version of that directory/file, please see ["Inspecting the source code"](#inspecting-the-source-code)
 
 ## Hardware Specifications
-Convergence and performance has been validated on NVIDIA DGX A100 and H100 nodes. We provide both singlenode and multinode support for pre-training and fine-tuning. If running on a machine with less than 80G memory, some of the default configurations may run out of memory; in such instances, gradient accumulation can be used to reduce the memory requirement.
+Convergence and performance has been validated on NVIDIA DGX A100 and H100 nodes; for details, please refer to the [Convergence and performance](#Convergence-and-performance) section below. We provide both singlenode and multinode support for pre-training and fine-tuning. If running on a machine with less than 80G memory, some of the default configurations may run out of memory; in such instances, gradient accumulation can be used to reduce the memory requirement.
 
 ## GPU Scripts and Usage
 The `t5x/contrib/gpu/scripts_gpu` directory contains scripts optimized for GPU usage and includes FP8 support via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine).
