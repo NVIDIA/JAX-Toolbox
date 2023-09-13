@@ -82,4 +82,5 @@ cd ${INSTALL_DIR}
 git checkout ${TE_REF}
 git submodule init
 git submodule update --recursive
+export NVTE_FRAMEWORK=jax
 maybe_defer_pip_install -e ${INSTALL_DIR}

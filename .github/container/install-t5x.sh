@@ -59,7 +59,7 @@ T5X_REPO="${T5X_REPO:-https://github.com/google-research/t5x.git}"
 INSTALL_DIR="${INSTALL_DIR:-/opt}"
 
 echo "Installing T5X $T5X_REF from $T5X_REPO to $INSTALL_DIR"
-
+echo T5X_REF=$T5X_REF
 maybe_defer_cleanup() {
   if [[ "$DEFER" = true ]]; then
     echo "# Cleanup from: $0"
@@ -99,44 +99,49 @@ git checkout ${T5X_REF}
 
 if [[ $(uname -m) == "aarch64" ]]; then
     # WAR some aarch64 issues by pre-installing some packages
+    echo "AARCH64 WARs"
     pip install chex==0.1.7
-    sed -i 's/^tensorflow/#tensorflow/' setup.py
-    sed -i 's/^t5/#t5/' setup.py
-    sed -i 's/^jax/#jax/' setup.py
-    sed -i 's/^protobuf/#protobuf/' setup.py
-    sed -i 's/^numpy/#numpy/' setup.py
+    sed -i 's/tensorflow/#tensorflow/' ${T5X_INSTALLED_DIR}/setup.py
+    sed -i 's/t5=/#t5=/' ${T5X_INSTALLED_DIR}/setup.py
+    sed -i 's/^jax/#jax/' ${T5X_INSTALLED_DIR}/setup.py
 
+    sed -i "s/f'jax/#f'jax/" ${T5X_INSTALLED_DIR}/setup.py
+    sed -i "s/'tpu/#'tpu/" ${T5X_INSTALLED_DIR}/setup.py
+    
+    sed -i 's/protobuf/#protobuf/' ${T5X_INSTALLED_DIR}/setup.py
+    sed -i 's/numpy/#numpy/' ${T5X_INSTALLED_DIR}/setup.py
+    cat ${T5X_INSTALLED_DIR}/setup.py
     # Manuall install troublesome dependency.
-    wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel
-    chmod a+x /usr/bin/bazel
 
     ## Install tensorflow-text
-    pip install tensorflow_datasets==4.9.2 # force a recent version to have latest protobuf dep
-    pip install auditwheel
-    pip install tensorflow==2.13.0
-    git clone http://github.com/tensorflow/text.git
-    pushd text
-    git checkout v2.13.0
-    ./oss_scripts/run_build.sh
-    find * | grep '.whl$'
-    pip install ./tensorflow_text-*.whl
-    popd
-    rm -Rf text
+#    pip install tensorflow_datasets==4.9.2 # force a recent version to have latest protobuf dep
+#    pip install auditwheel
+#    pip install tensorflow==2.13.0
+    # git clone http://github.com/tensorflow/text.git
+    # pushd text
+    # git checkout v2.13.0
+    # ./oss_scripts/run_build.sh
+    # find * | grep '.whl$'
+    # pip install ./tensorflow_text-*.whl
+    # popd
+    # rm -Rf text
 
+
+    
     # Install T5 now, Pip will build the wheel from source, it needs Rust.
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
-    echo "be3535b3033ff5e0ecc4d589a35d3656f681332f860c5fd6684859970165ddcc /tmp/rustup.sh" | sha256sum --check && \
-    bash /tmp/rustup.sh -y && \
-    export PATH=$PATH:/root/.cargo/bin && \
-    pip install t5 && \
-    rm -Rf /root/.cargo /root/.rustup && \
-    mv /root/.profile /root/.profile.save && \
-    grep -v cargo /root/.profile.save > /root/.profile && \
-    rm /root/.profile.save && \
-    mv /root/.bashrc /root/.bashrc.save && \
-    grep -v cargo /root/.bashrc.save > /root/.bashrc && \
-    rm /root/.bashrc.save && \
-    rm -Rf /root/.cache /tmp/*
+    # curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
+    # echo "be3535b3033ff5e0ecc4d589a35d3656f681332f860c5fd6684859970165ddcc /tmp/rustup.sh" | sha256sum --check && \
+    # bash /tmp/rustup.sh -y && \
+    # export PATH=$PATH:/root/.cargo/bin && \
+    # pip install t5 && \
+    # rm -Rf /root/.cargo /root/.rustup && \
+    # mv /root/.profile /root/.profile.save && \
+    # grep -v cargo /root/.profile.save > /root/.profile && \
+    # rm /root/.profile.save && \
+    # mv /root/.bashrc /root/.bashrc.save && \
+    # grep -v cargo /root/.bashrc.save > /root/.bashrc && \
+    # rm /root/.bashrc.save && \
+    # rm -Rf /root/.cache /tmp/*
 fi
 
 # We currently require installing editable (-e) to build a distribution since

@@ -43,7 +43,7 @@ index ef62c432e..659e78956 100755
  if ! [[ $SKIP_TESTS ]]; then
    # Just test the core for the purposes of the pip package.
 -  bazel test $@ lingvo/core/...
-+  bazel test $@ lingvo/core/... --  -//lingvo/tasks/mt:model_test -//lingvo/core:saver_test
++  bazel test $@ lingvo/core/... --  -//lingvo/tasks/mt:model_test -//lingvo/core:saver_test -//lingvo/core:saver_test
  fi
 
  DST_DIR="/tmp/lingvo/dist"
