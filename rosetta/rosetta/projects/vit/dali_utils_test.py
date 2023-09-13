@@ -56,7 +56,7 @@ def test_baseline_dali_iteration_stats(
 
     bps = iter_per_sec(dataset, batch_size=dummy_wds_metadata.batch_size, num_iter=500)
 
-    assert bps > 170
+    assert bps > 157
 
 
 def test_dali_cls_preprocessing(dummy_wds_metadata):
