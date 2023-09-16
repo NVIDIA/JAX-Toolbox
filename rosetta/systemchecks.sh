@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Grab the second line / second field of the output of `df`, 
-# which is the size of 
+# which is the size of shm in KBs. 
 shm_size=$(df /dev/shm | awk 'NR==2 {print $2}')
 minimum_shm_size=1048576 # ~1GB in KB
 
@@ -20,7 +20,6 @@ $ docker run ... --shm-size=1g ...
 ${STOPCOLOR}
 "
 
-# Check
 if (( shm_size < minimum_shm_size )); then
     echo -e ${SHM_WARNING}
 fi
