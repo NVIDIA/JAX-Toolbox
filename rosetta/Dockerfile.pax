@@ -54,6 +54,9 @@ pip install -e /opt/rosetta
 rm -rf ~/.cache/pip/
 EOF
 
+# Run the system checks before entering bash.
+CMD ["/opt/rosetta/systemchecks.sh", "/bin/bash"]
+
 FROM rosetta AS rosetta-devel
 
 WORKDIR /opt/rosetta
@@ -61,4 +64,3 @@ RUN <<EOF
 pip install -e '/opt/rosetta[test,lint]'
 rm -rf ~/.cache/pip/
 EOF
-
