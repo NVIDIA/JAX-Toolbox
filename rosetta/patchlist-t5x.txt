@@ -5,6 +5,6 @@
 # - External Pull Requests (These are pull requests with upstream t5x and are of the form "pull/$PULLID/head")
 # - Note: Only the first column is used as a git-ref, so anything after is a comment
 
-pull/1357/head
-pull/1358/head
-pull/1385/head  # https://github.com/google-research/t5x/pull/1385: Adds transformer engine support and GPU optimizations to T5x (enables H100)
+pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
+pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
+pull/1391/head  # https://github.com/google-research/t5x/pull/1385: Adds transformer engine support and GPU optimizations to T5x (enables H100)
