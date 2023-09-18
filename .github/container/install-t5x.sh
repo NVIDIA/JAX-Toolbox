@@ -96,6 +96,8 @@ T5X_INSTALLED_DIR=${INSTALL_DIR}/t5x
 git clone ${T5X_REPO} ${T5X_INSTALLED_DIR}
 cd ${T5X_INSTALLED_DIR}
 git checkout ${T5X_REF}
+# We currently require installing editable (-e) to build a distribution since
+# we edit the source in place and do not re-install
 maybe_defer_pip_install -e ${T5X_INSTALLED_DIR}[gpu]
 
 maybe_defer_cleanup apt-get autoremove -y
