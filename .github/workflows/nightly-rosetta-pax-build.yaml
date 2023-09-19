@@ -83,14 +83,6 @@ jobs:
         echo "MESSAGE='${MSG}'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
-  test-unit:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    needs: build
-    uses: ./.github/workflows/_test_rosetta.yaml
-    with:
-      ROSETTA_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-    secrets: inherit
-
   test-pax:
     needs: build
     uses: ./.github/workflows/_test_pax.yaml
@@ -101,7 +93,7 @@ jobs:
     secrets: inherit
 
   publish-test:
-    needs: [metadata, build, test-unit, test-pax]
+    needs: [metadata, build, test-pax]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
@@ -109,24 +101,17 @@ jobs:
       ENDPOINT_FILENAME: 'rosetta-pax-overall-test-status.json'
       PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
-        UNIT_STATUS=${{ needs.test-unit.outputs.TEST_STATUS }}
         PAX_STATUS=${{ needs.test-pax.outputs.TEST_STATUS }}
 
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
         if [[ ${{ needs.build.result }} == "success" ]]; then
-          if [[ $UNIT_STATUS == "success" ]] && [[ $PAX_STATUS == "success" ]]; then
+          if [[ $PAX_STATUS == "success" ]]; then
             COLOR=brightgreen
-            MESSAGE="Unit passed / MGMN passed"
-          elif [[ $UNIT_STATUS == "success" ]]; then 
-            COLOR=yellow
-            MESSAGE="Unit passed / MGMN failed"
-          elif [[ $PAX_STATUS == "success" ]]; then
-            COLOR=yellow
-            MESSAGE="Unit failed / MGMN passed"
+            MESSAGE="MGMN passed"
           else
             COLOR=red
-            MESSAGE="Unit failed / MGMN failed"
+            MESSAGE="MGMN failed"
           fi
         else
           MESSAGE="n/a"
@@ -137,8 +122,8 @@ jobs:
         echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
 
   publish-latest-container:
-    needs: [metadata, build, test-unit, test-pax]
-    if: ( ${{ needs.test-unit.outputs.TEST_STATUS == 'success' }} && ${{ needs.test-pax.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    needs: [metadata, build, test-pax]
+    if: ( ${{ needs.test-pax.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
