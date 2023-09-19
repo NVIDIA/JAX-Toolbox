@@ -21,6 +21,3 @@ ${STOPCOLOR}"
 if (( 0 < minimum_shm_size )); then
     echo -e "$SHM_WARNING"
 fi
-
-# Run whatever command is provided by the user.
-exec "$@"
