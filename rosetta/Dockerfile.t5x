@@ -45,7 +45,6 @@ pip install -e /opt/rosetta --extra-index-url https://developer.download.nvidia.
 rm -rf ~/.cache/pip/
 EOF
 
-CMD ["/opt/rosetta/systemchecks.sh", "/bin/bash"]
 
 FROM rosetta AS rosetta-devel
 
