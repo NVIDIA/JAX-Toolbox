@@ -1,3 +1,6 @@
+# The commit pining only work for XLA and JAX.
+set -e
+
 ARCH=`uname -m`
 
 REPO_JAX="https://github.com/google/jax.git"
@@ -70,11 +73,12 @@ fi
 #install-te.sh -r
 #install-pax.sh --ref_paxml=REF --ref_praxis=REF
 
-#docker build --network=host -f Dockerfile.base -t base .
-#DOCKER_BUILDKIT=1 docker build --network=host -f Dockerfile.jax -t jax --build-arg BASE_IMAGE=base --build-arg REF_JAX=$REF_JAX --build-arg REF_XLA=$REF_XLA .
+docker build --network=host -f Dockerfile.base -t base .
+DOCKER_BUILDKIT=1 docker build --network=host -f Dockerfile.jax -t jax --build-arg BASE_IMAGE=base --build-arg REF_JAX=$REF_JAX --build-arg REF_XLA=$REF_XLA .
 # the REF doesn't work for T5X and TE!
-echo DOCKER_BUILDKIT=1 docker build --network=host -f Dockerfile.t5x -t t5x --build-arg BASE_IMAGE=jax --build-arg T5X_REF=$REF_T5X --build-arg REF_TE=$REF_TE .
-#DOCKER_BUILDKIT=1 docker build --network=host -f Dockerfile.aarch64.pax -t pax --build-arg BASE_IMAGE=jax .
+DOCKER_BUILDKIT=1 docker build --network=host -f Dockerfile.t5x -t t5x --build-arg BASE_IMAGE=jax --build-arg T5X_REF=$REF_T5X --build-arg REF_TE=$REF_TE .
+# TODO: Missing REF*
+DOCKER_BUILDKIT=1 docker build --network=host -f Dockerfile.aarch64.pax -t pax --build-arg BASE_IMAGE=jax .
 
 #docker tag jax gitlab-master.nvidia.com:5005/fbastien/scripts:jax_gh_manual_cuda12.2_2023-09-13_$ARCH
 #docker tag pax gitlab-master.nvidia.com:5005/fbastien/scripts:pax_gh_manual_cuda12.2_2023-09-13_$ARCH

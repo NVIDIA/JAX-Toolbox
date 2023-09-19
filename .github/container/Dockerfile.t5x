@@ -4,43 +4,16 @@
 ###############################################################################
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
-
 FROM ${BASE_IMAGE}
-
-# For AARCH64 WAR
-RUN pip install chex==0.1.7 tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel ;\
-    chmod a+x /usr/bin/bazel
-RUN git clone http://github.com/tensorflow/text.git ;\
-    cd text ;\
-    git checkout v2.13.0 ;\
-    ./oss_scripts/run_build.sh ;\
-    find * | grep '.whl$' ;\
-    pip install ./tensorflow_text-*.whl ;\
-    cd .. ;\
-    rm -Rf text
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
-  echo "be3535b3033ff5e0ecc4d589a35d3656f681332f860c5fd6684859970165ddcc /tmp/rustup.sh" | sha256sum --check && \
-  bash /tmp/rustup.sh -y && \
-  export PATH=$PATH:/root/.cargo/bin && \
-  pip install t5 && \
-  rm -Rf /root/.cargo /root/.rustup && \
-  mv /root/.profile /root/.profile.save && \
-  grep -v cargo /root/.profile.save > /root/.profile && \
-  rm /root/.profile.save && \
-  mv /root/.bashrc /root/.bashrc.save && \
-  grep -v cargo /root/.bashrc.save > /root/.bashrc && \
-  rm /root/.bashrc.save && \
-  rm -Rf /root/.cache /tmp/*
-# END AARCH64 WAR
 
 ADD install-t5x.sh /usr/local/bin
 ADD install-flax.sh /usr/local/bin
 ADD install-te.sh /usr/local/bin
 
-RUN install-t5x.sh
-RUN install-te.sh
 ENV NVTE_FRAMEWORK=jax
+RUN install-te.sh
+RUN install-t5x.sh
+
 RUN <<"EOF" bash -ex
 #install-t5x.sh --defer
 #install-te.sh --defer
