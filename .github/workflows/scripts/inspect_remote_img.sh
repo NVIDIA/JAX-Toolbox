@@ -1,6 +1,12 @@
 #!/bin/bash
 
 inspect_remote_img() {
+  if [[ $# -ne 2 ]]; then
+    echo 'inspect_remote_img $GH_TOKEN $IMAGE'
+    echo 'Example: inspect_remote_img XXXXXXXXXXXX ghcr.io/nvidia/t5x:latest'
+    echo 'Returns the metadata of a tagged remote image (no download)'
+    return 1
+  fi
   GH_TOKEN=$1
   IMAGE=$2
 
