@@ -4,6 +4,9 @@
 Any `paxml/*` or `praxis/*` relative directory/file can be found in [google/paxml](https://github.com/google/paxml/tree/main) or [google/praxis](https://github.com/google/praxis/tree/main), respectively, but to
 view the most up-to-date version of that directory/file with any GPU-specific patches, please see [Inspecting the source code](#inspecting-the-source-code).
 
+## Hardware Specifications
+Convergence and performance has been validated on NVIDIA DGX A100 (8x A100 80G) nodes; for details, please refer to the [Configs](#configs) section below. We provide both singlenode and multinode pre-training support. If running on a machine with less than 80G memory, some of the default configurations may run out of memory; if you run out of memory and have more GPUs available, increase your GPU count and decrease your batch size per GPU.
+
 ## Containers
 We provide a fully built and ready-to-use container which includes the latest optimizations, experimental features, and examples benchmarked for multi-node, multi-GPU training: `nvcr.io/nvidia/jax:23.08-paxml-py3`. This container also provides bfloat16 [Transformer Engine](https://github.com/NVIDIA/TransformerEngine) support.
 
