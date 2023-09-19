@@ -54,7 +54,6 @@ pip install -e /opt/rosetta
 rm -rf ~/.cache/pip/
 EOF
 
-
 FROM rosetta AS rosetta-devel
 
 WORKDIR /opt/rosetta
