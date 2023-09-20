@@ -144,7 +144,7 @@ if [[ -n "${EXTRA_DIR+x}" ]] && [[ -d ${EXTRA_DIR} ]]; then
     git+extra branch --track --force $(sed 's/origin\///' <<<${remote_branch})${TMP_BRANCH_SUFFIX} ${remote_branch}
   done
   # Now create a tracking branch for all local branches that don't already have a temporary branch
-  for local_branch in $(git+extra branch | egrep -v -- ${TMP_BRANCH_SUFFIX}'$' | cut -c3- | egrep -v '^('); do
+  for local_branch in $(git+extra branch | egrep -v -- ${TMP_BRANCH_SUFFIX}'$' | cut -c3- | egrep -v '^\('); do
     if git rev-parse --verify ${local_branch}${TMP_BRANCH_SUFFIX} >/dev/null 2>&1; then
       # Skipping refs already created from previous loop
       continue
