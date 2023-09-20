@@ -149,7 +149,9 @@ if [[ -n "${EXTRA_DIR+x}" ]] && [[ -d ${EXTRA_DIR} ]]; then
       # Skipping refs already created from previous loop
       continue
     fi
-    git+extra branch --force ${local_branch}${TMP_BRANCH_SUFFIX} $local_branch
+    # To deal with the anomolous situation where a local_branch matches another git-ref like a tag
+    # We will use refs/heads/$local_branch instead of $local_branch
+    git+extra branch --force ${local_branch}${TMP_BRANCH_SUFFIX} refs/heads/$local_branch
   done
   
   if git remote show ${EXTRA_REMOTE_NAME} &>/dev/null; then
