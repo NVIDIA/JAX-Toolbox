@@ -12,7 +12,7 @@ TYPE=$1
 if [[ "$TYPE" == "pax" ]]; then
     CONFIGS=("1DP1TP1PP" "8DP1TP1PP" "2DP1TP4PP" "16DP1TP1PP")
 elif [[ "$TYPE" == "t5x" ]]; then
-    CONFIGS=("1G1N" "1G2N" "1P1G" "1P2G" "1P4G" "1P8G" "2G1N" "2G2N" "4G1N" "4G2N" "8G1N" "8G2N")
+    CONFIGS=("1G1N" "1G2N" "1P1G" "1P2G" "1P4G" "1P8G")
 else
     usage
 fi
