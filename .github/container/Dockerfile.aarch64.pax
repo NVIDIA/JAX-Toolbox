@@ -31,6 +31,10 @@ RUN /opt/install_lingvo_aarch64.sh
 ADD install-pax.sh /usr/local/bin
 RUN install-pax.sh
 
+ENV NVTE_FRAMEWORK=jax
+ADD install-te.sh /usr/local/bin
+RUN install-te.sh
+
 # Install T5 now, Pip will build the wheel from source, it needs Rust.
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
   echo "be3535b3033ff5e0ecc4d589a35d3656f681332f860c5fd6684859970165ddcc /tmp/rustup.sh" | sha256sum --check && \
