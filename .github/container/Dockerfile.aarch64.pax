@@ -26,6 +26,7 @@ RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazeli
 
 # Lingvo
 ADD install_lingvo_aarch64.sh /opt/
+ADD lingvo.patch /opt/
 RUN /opt/install_lingvo_aarch64.sh
 
 ADD install-pax.sh /usr/local/bin
