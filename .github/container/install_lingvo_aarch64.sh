@@ -1,5 +1,5 @@
 #!/bin/bash -exu
-
+set -o pipefail
 INSTALL_DIR="${INSTALL_DIR:-/opt}"
 LINGVO_REF="${LINGVO_REF:-HEAD}"
 LINGVO_REPO="${LINGVO_REPO:-https://github.com/tensorflow/lingvo.git}"
