@@ -39,10 +39,10 @@ def main():
         if not os.path.exists(searchpath):
             searchpath = os.path.join(args.test_config, "summaries/train")
         assert os.path.exists(searchpath), f"Neither {args.test_config}/train nor {args.test_config}/summaries/train dirs exist"
-        event_file = glob.glob(os.path.join(searchpath, "events*"))
-        assert event_file != [], f"{searchpath} did not contain a tensorboard events file"
+        event_files = glob.glob(os.path.join(searchpath, "events*"))
+        assert len(event_files) > 0, f"{searchpath} did not contain a tensorboard events file"
 
-        event_file = event_file[0]
+        event_file = event_files[0]
         print(f'EVENT FILE: {event_file}')
         loss = read_tb_tag(event_file, args.loss_summary_name)
         train_time = read_tb_tag(event_file, args.perf_summary_name)
