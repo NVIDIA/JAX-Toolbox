@@ -135,7 +135,6 @@ class BaseDALIPipeline(abc.ABC):
 
     pass
 
-
 class DALIIterator:
 
   """Wrapper around BaseDaliPipeline that makes iterator compatible
