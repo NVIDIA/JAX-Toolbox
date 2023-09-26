@@ -79,12 +79,8 @@ class BaseDALIPipeline(abc.ABC):
     self.training = training
 
     ## set up the wds reader
-    try:
-      self.pipe = self.get_wds_pipeline()
-      self.pipe.build()
-    except Exception as e:
-      # Make this compatible with the monolithyc DALI pipeline
-      pass
+    self.pipe = self.get_wds_pipeline()
+    self.pipe.build()
 
     ## dataset metadata
     meta_dict = self.pipe.reader_meta()
@@ -138,46 +134,7 @@ class BaseDALIPipeline(abc.ABC):
     """
 
     pass
-  
-  
-  
-class BaseDALIPipelineMono(abc.ABC):
 
-  def __init__(self,
-               wds_config: wds_utils.WebDatasetConfig,
-               modalities: wds_utils.ModalityConfig,
-               shard_id: int,
-               num_shards: int,
-               training: bool=True):
-
-
-    index_dir = wds_config.index_dir
-    index_paths = [os.path.join(index_dir, f) for f in os.listdir(index_dir)] if index_dir else None
-    self.index_paths = sorted(index_paths, key=lambda x: int(re.split('_|\\.', x)[-2])) if index_paths else None
-
-    self.urls = list(braceexpand(wds_config.urls))
-    self.modalities = modalities
-    self.shard_id = shard_id
-    self.num_shards = num_shards
-    self.seed = wds_config.seed
-    self.per_shard_batch_size = wds_config.batch_size // num_shards
-    self.shuffle = wds_config.shuffle
-    self.num_workers = wds_config.num_parallel_processes
-    self.prefetch = wds_config.prefetch
-    self.training = training
-
-    self.pipe = self.get_dali_pipeline()
-    self.pipe.build()
-
-    ## dataset metadata
-    meta_dict = self.pipe.reader_meta()
-    assert(len(meta_dict) == 1), 'Pipeline has multiple readers but is expected to have only one'
-    self.meta = list(meta_dict.values())[0]
-
-
-  @abc.abstractmethod
-  def get_dali_pipeline(self):
-    pass
 
 class DALIIterator:
 
@@ -370,4 +327,3 @@ def create_sharded_iterator(train_iter,
   )
 
   return ShardedDatasetIterator(train_iter, partitioner, input_shapes)
-
