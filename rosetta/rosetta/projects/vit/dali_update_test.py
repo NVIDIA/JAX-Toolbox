@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# To supress various deprecation warnings from the dependencies for better log readability.
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning) 
+
 import numpy as np
 
 from rosetta.data import dali, wds_utils
@@ -29,20 +33,19 @@ index_dir_path= '/home/awolant/Projects/datasets/webdataset/validation/index/'
 # This file contains tests for updated DALI pipelines used for ViT.
 # The main goal is to compare the outputs of the new pipelines with the old ones.
 
-#===================================================================================================================
 # This section has all code necessary to run DALI pipelines for ViT in the updated approach.
 
 import os
 import numpy as np
+from braceexpand import braceexpand
+
 import nvidia.dali.types as types
 from nvidia.dali import fn, pipeline_def
 from nvidia.dali.auto_aug import auto_augment
 
-from braceexpand import braceexpand
 
-from nvidia.dali.pipeline import Pipeline
-
-
+# Updated pipeline definition for ViT and the creation of the iterator compatible with CLU. This should be the only code neccesary
+# for the updated approach.
 def non_image_preprocessing(raw_text):      
     return np.array([int(bytes(raw_text).decode('utf-8'))])
 
@@ -106,33 +109,6 @@ def vit_pipeline_updated(wds_config, num_classes, image_shape, is_training=True,
     return img, labels
 
 
-def get_dali_pipeline_for_vit_updated(use_gpu=False):
-    image_shape = (384,384,3)
-    num_classes = 1000
-    config = wds_utils.WebDatasetConfig(
-        urls=wds_imagenet_url,
-        index_dir=index_dir_path,
-        batch_size=8,
-        shuffle=False,
-        seed=0,
-        num_parallel_processes=1)
-    
-    pipeline = pipeline_def(
-        vit_pipeline_updated,
-        enable_conditionals=True,
-        batch_size=config.batch_size,
-        num_threads=config.num_parallel_processes,
-        seed=0,
-        device_id=0 if use_gpu else None)(
-            wds_config=config,
-            num_classes=num_classes,
-            image_shape=image_shape,
-            is_training=True)
-    pipeline.build()
-    
-    return pipeline
-
-
 def get_dali_dataset_updated(use_gpu=False):
     image_shape = (384,384,3)
     num_classes = 1000
@@ -153,6 +129,7 @@ def get_dali_dataset_updated(use_gpu=False):
             num_threads=config.num_parallel_processes,
             seed=0,
             device_id=0 if use_gpu else None,
+            use_gpu=use_gpu,
             wds_config=config,
             num_classes=num_classes,
             image_shape=image_shape,
@@ -160,10 +137,11 @@ def get_dali_dataset_updated(use_gpu=False):
     
     return iterator
 
-#===================================================================================================================
+
+# Tests to check if the updated pipeline outputs are the same as the current implementation.
 
 def get_dali_pipeline_for_vit():
-    "Gets DALI pipeline object for ViT how it is currently implemented."
+    "Gets DALI pipeline object for ViT from current implementation."
     
     image_shape = (384,384,3)
     num_classes = 1000
@@ -189,7 +167,39 @@ def get_dali_pipeline_for_vit():
     return pipeline
 
 
+def get_dali_pipeline_for_vit_updated(use_gpu=False):
+    "Gets DALI pipeline object for ViT from updated implementation - no wrappers, just a pipeline def function"
+    
+    image_shape = (384,384,3)
+    num_classes = 1000
+    config = wds_utils.WebDatasetConfig(
+        urls=wds_imagenet_url,
+        index_dir=index_dir_path,
+        batch_size=8,
+        shuffle=False,
+        seed=0,
+        num_parallel_processes=1)
+    
+    pipeline = pipeline_def(
+        vit_pipeline_updated,
+        enable_conditionals=True,
+        batch_size=config.batch_size,
+        num_threads=config.num_parallel_processes,
+        seed=0,
+        device_id=0 if use_gpu else None)(
+            use_gpu=use_gpu,
+            wds_config=config,
+            num_classes=num_classes,
+            image_shape=image_shape,
+            is_training=True)
+    pipeline.build()
+    
+    return pipeline
+
+
 def test_compare_dali_pipelines_outputs():
+    "Test comapres pipeline outputs - without CLU wrappers"
+    
     pipeline = get_dali_pipeline_for_vit()
     pipeline_mono = get_dali_pipeline_for_vit_updated()
     
@@ -202,8 +212,9 @@ def test_compare_dali_pipelines_outputs():
                 pipeline_out[j].as_array(),
                 pipeline_mono_out[j].as_array())
             
-            
-            
+
+# Test to check if the updated iterator outputs are the same as the current implementation.
+
 def get_dali_dataset_configured():
     "Wrapper for get_dali_dataset that configures it for ViT. This configuration is normally done in gin files."
     
