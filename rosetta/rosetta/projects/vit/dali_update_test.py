@@ -45,7 +45,7 @@ from nvidia.dali.auto_aug import auto_augment
 
 
 # Updated pipeline definition for ViT and the creation of the iterator compatible with CLU. This should be the only code neccesary
-# for the updated approach.
+# for the updated approach. Plus it implements GPU support.
 def non_image_preprocessing(raw_text):      
     return np.array([int(bytes(raw_text).decode('utf-8'))])
 
