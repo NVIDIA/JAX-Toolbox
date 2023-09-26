@@ -93,9 +93,7 @@ class ViTPipeline(BaseDALIPipeline):
     def main_vit_pipeline():
       jpegs, labels = fn.external_source(source=self.data_source(self.num_classes), num_outputs=2)
       
-      
-      device = 'mixed' if self._use_gpu else 'cpu'
-      img = fn.decoders.image(jpegs, device=device, output_type=types.RGB)
+      img = fn.decoders.image(jpegs, device='cpu', output_type=types.RGB)
 
       if self.training:
         img = fn.random_resized_crop(img, size=self.image_shape[:-1])
