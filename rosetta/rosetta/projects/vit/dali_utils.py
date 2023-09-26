@@ -179,8 +179,6 @@ class ViTPipelineMono(BaseDALIPipelineMono):
         pad_last_batch=False if self.training else True,
         name='webdataset_reader')
       
-      # jpegs, labels = fn.external_source(source=self.data_source(self.num_classes), num_outputs=2)
-      
       labels = fn.python_function(clss, function=non_image_preprocessing, num_outputs=1)
       
       if self._use_gpu:

@@ -13,19 +13,20 @@
 # limitations under the License.
 
 import numpy as np
-import pytest
-
 
 from rosetta.data import dali, wds_utils
 from rosetta.projects.vit.dali_utils import ViTPipeline, ViTPipelineMono
 from functools import partial
 
-from nvidia.dali.plugin.jax import DALIGenericPeekableIterator as DALIIterator
+from nvidia.dali.plugin.jax.clu import DALIGenericPeekableIterator as DALIIterator
 
 
 wds_imagenet_url = '/home/awolant/Projects/datasets/webdataset/validation/{0..6}.tar'
 index_dir_path= '/home/awolant/Projects/datasets/webdataset/validation/index/'
 
+
+# This file contains tests for updated DALI pipelines used for ViT.
+# The main goal is to compare the outputs of the new pipelines with the old ones.
 
 def test_dali_dataset_iterator():
     image_shape = (384,384,3)
@@ -63,7 +64,7 @@ def get_dali_rosetta_dataset():
     config = wds_utils.WebDatasetConfig(
         urls=wds_imagenet_url,
         index_dir=index_dir_path,
-        batch_size=128,
+        batch_size=8,
         shuffle=False,
         seed=0,
         num_parallel_processes=1)
@@ -98,7 +99,7 @@ def get_pure_dali_pipeline_for_vit():
     config = wds_utils.WebDatasetConfig(
         urls=wds_imagenet_url,
         index_dir=index_dir_path,
-        batch_size=128,
+        batch_size=8,
         shuffle=False,
         seed=0,
         num_parallel_processes=1)
@@ -123,7 +124,7 @@ def get_pure_dali_pipeline_for_vit_mono(use_gpu=False):
     config = wds_utils.WebDatasetConfig(
         urls=wds_imagenet_url,
         index_dir=index_dir_path,
-        batch_size=128,
+        batch_size=8,
         shuffle=False,
         seed=0,
         num_parallel_processes=1)
@@ -166,7 +167,6 @@ def test_vit_pipeline_mono():
     
     for i in range(10):
         out = pipeline.run()
-        out[0].source_info()
         
 
     
