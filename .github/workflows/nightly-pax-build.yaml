@@ -13,11 +13,6 @@ on:
         default: false
         required: false
 
-env:
-  TARGET: pax
-  DOCKER_REGISTRY: ghcr.io/nvidia
-  PUBLISH: ${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}
-
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
