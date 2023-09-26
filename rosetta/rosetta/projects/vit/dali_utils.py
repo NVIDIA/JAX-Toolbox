@@ -31,14 +31,10 @@ class ViTPipeline(BaseDALIPipeline):
                num_classes,
                image_shape,
                training=True,
-               use_gpu=False,
-               device_id=None
               ):
 
     self.num_classes = num_classes
     self.image_shape = image_shape
-    self._use_gpu = use_gpu
-    self._device_id = None if not use_gpu else device_id
     modalities = [ModalityConfig(name='images',
                                  ftype='jpg',
                                  out_type='float32',
@@ -93,7 +89,7 @@ class ViTPipeline(BaseDALIPipeline):
   def get_dali_pipeline(self):
 
     ## need to enable conditionals for auto-augment
-    @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=self.num_workers, device_id=self._device_id, enable_conditionals=True, seed=self.seed, prefetch_queue_depth=self.prefetch)
+    @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=self.num_workers, device_id=None, enable_conditionals=True, seed=self.seed, prefetch_queue_depth=self.prefetch)
     def main_vit_pipeline():
       jpegs, labels = fn.external_source(source=self.data_source(self.num_classes), num_outputs=2)
       
