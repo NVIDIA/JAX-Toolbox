@@ -148,7 +148,7 @@ jobs:
 
   publish-latest-container:
     needs: [metadata, build, test-t5x, test-unit]
-    if: ( ${{ needs.test-unit.outputs.TEST_STATUS == 'success' }} && ${{ needs.test-t5x.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    if: ( needs.test-unit.outputs.TEST_STATUS == 'success' && needs.test-t5x.outputs.TEST_STATUS == 'success' ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:

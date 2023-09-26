@@ -265,3 +265,14 @@ jobs:
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
+
+  outcome:
+    needs: publish-test
+    runs-on: ubuntu-22.04
+    if: ( always() )
+    steps:
+      - name: Sets workflow status based on test outputs 
+        run: |
+          if [[ ${{ needs.publish-test.outputs.STATUS }} != success ]]; then
+            exit 1
+          fi
