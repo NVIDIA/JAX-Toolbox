@@ -65,7 +65,7 @@ jobs:
         with:
           images: ${{ env.UPLD_IMAGE }}
           flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-rosetta-${{ inputs.BASE_LIBRARY }}
+          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}
           labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Set up Docker Buildx

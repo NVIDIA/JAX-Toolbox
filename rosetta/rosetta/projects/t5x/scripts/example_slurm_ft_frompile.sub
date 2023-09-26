@@ -15,7 +15,7 @@ set -eoux
 #-------------------------------------------------------------------------------
 
 # << CHANGE ! >>
-CONTAINER="${CONTAINER:-ghcr.io/nvidia/rosetta-t5x:latest-verified}" # Add link to your built container
+CONTAINER="${CONTAINER:-ghcr.io/nvidia/t5x:latest-verified}" # Add link to your built container
 
 # << CHANGE ! >>
 # BASE_TFDS_DATA_DIR and DATASET_MAP are mutually exclusive

@@ -30,7 +30,7 @@ set -x
 # File system and volume glue code
 #-------------------------------------------------------------------------------
 
-CONTAINER="${CONTAINER:=ghcr.io/nvidia/rosetta-t5x:vit-2023-07-21}"
+CONTAINER="${CONTAINER:=ghcr.io/nvidia/t5x:vit-2023-07-21}"
 
 # << CHANGE ! >>
 BASE_WORKSPACE_DIR=${BASE_WORKSPACE_DIR} # path to workspace directory where outputs will reside
