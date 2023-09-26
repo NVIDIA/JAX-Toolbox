@@ -15,12 +15,13 @@
 import numpy as np
 
 from rosetta.data import dali, wds_utils
-from rosetta.projects.vit.dali_utils import ViTPipeline, ViTPipelineMono
+from rosetta.projects.vit.dali_utils import ViTPipeline
 from functools import partial
 
-from nvidia.dali.plugin.jax.clu import DALIGenericPeekableIterator as DALIIterator
+from nvidia.dali.plugin.jax.clu import peekable_data_iterator
 
 
+# Paths to validation dataset
 wds_imagenet_url = '/home/awolant/Projects/datasets/webdataset/validation/{0..6}.tar'
 index_dir_path= '/home/awolant/Projects/datasets/webdataset/validation/index/'
 
@@ -28,37 +29,84 @@ index_dir_path= '/home/awolant/Projects/datasets/webdataset/validation/index/'
 # This file contains tests for updated DALI pipelines used for ViT.
 # The main goal is to compare the outputs of the new pipelines with the old ones.
 
-def test_dali_dataset_iterator():
-    image_shape = (384,384,3)
-    num_classes = 1000
-    config = wds_utils.WebDatasetConfig(
-        urls=wds_imagenet_url,
-        index_dir=index_dir_path,
-        batch_size=8,
-        shuffle=False,
-        seed=0,
-        num_parallel_processes=1)
+#===================================================================================================================
+# This section has all code necessary to run DALI pipelines for ViT in the updated approach.
+
+import os
+import numpy as np
+import nvidia.dali.types as types
+from nvidia.dali import fn, pipeline_def
+from nvidia.dali.auto_aug import auto_augment
+
+from braceexpand import braceexpand
+
+from nvidia.dali.pipeline import Pipeline
+
+
+def non_image_preprocessing(raw_text):      
+    return np.array([int(bytes(raw_text).decode('utf-8'))])
+
+
+def vit_pipeline_updated(wds_config, num_classes, image_shape, is_training=True, use_gpu=False):
+    index_paths = [os.path.join(wds_config.index_dir, f) for f in os.listdir(wds_config.index_dir)] if wds_config.index_dir else None
     
-    pipeline = ViTPipeline(
-        config,
+    img, clss = fn.readers.webdataset(
+        paths=list(braceexpand(wds_config.urls)),
+        index_paths=index_paths,
+        ext=['jpg', 'cls'],
+        missing_component_behavior='error',
+        random_shuffle=False,
         shard_id=0,
         num_shards=1,
-        num_classes=num_classes,
-        image_shape=image_shape,
-        training=True,
-        use_gpu=False,
-        device_id=None)
+        pad_last_batch=False if is_training else True,
+        name='webdataset_reader')
+    
+    labels = fn.python_function(clss, function=non_image_preprocessing, num_outputs=1)
+    if use_gpu:
+        labels = labels.gpu()
+    labels = fn.one_hot(labels, num_classes=num_classes)
+    
+    device = 'mixed' if use_gpu else 'cpu'
+    img = fn.decoders.image(img, device=device, output_type=types.RGB)
+    
+    if is_training:
+        img = fn.random_resized_crop(img, size=image_shape[:-1])
+        img = fn.flip(img, depthwise=0, horizontal=fn.random.coin_flip())
 
-    # Ten iterator jest opakowaniem na pipeline i ma być kompatybilny z CLU PeekableDatasetIterator
-    # https://github.com/google/CommonLoopUtils
-    iterator = dali.DALIIterator(pipeline)
+        # color jitter
+        brightness = fn.random.uniform(range=[0.6,1.4])
+        contrast = fn.random.uniform(range=[0.6,1.4])
+        saturation = fn.random.uniform(range=[0.6,1.4])
+        hue = fn.random.uniform(range=[0.9,1.1])
+        img = fn.color_twist(
+            img,
+            brightness=brightness,
+            contrast=contrast,
+            hue=hue,
+            saturation=saturation)
 
-    for id, batch in enumerate(iterator):    
-        if id == 10:
-            break
-  
+        # auto-augment
+        # `shape` controls the magnitude of the translation operations
+        img = auto_augment.auto_augment_image_net(img)
+    else:
+        img = fn.resize(img, size=image_shape[:-1])
+        
+    ## normalize
+    ## https://github.com/NVIDIA/DALI/issues/4469
+    mean = np.asarray([0.485, 0.456, 0.406])[None, None, :]
+    std = np.asarray([0.229, 0.224, 0.225])[None, None, :]
+    scale = 1 / 255.
+    img = fn.normalize(
+        img,
+        mean=mean / scale,
+        stddev=std,
+        scale=scale,
+        dtype=types.FLOAT)
 
-def get_dali_rosetta_dataset():
+    return img, labels
+
+
+def get_dali_pipeline_for_vit_updated(use_gpu=False):
     image_shape = (384,384,3)
     num_classes = 1000
     config = wds_utils.WebDatasetConfig(
@@ -69,31 +117,54 @@ def get_dali_rosetta_dataset():
         seed=0,
         num_parallel_processes=1)
     
-    vit_pipeline_configured = partial(ViTPipeline, num_classes=num_classes, image_shape=image_shape)
-    iterator = dali.get_dali_dataset(config, 0, 1, None, vit_pipeline_configured)
+    pipeline = pipeline_def(
+        vit_pipeline_updated,
+        enable_conditionals=True,
+        batch_size=config.batch_size,
+        num_threads=config.num_parallel_processes,
+        seed=0,
+        device_id=0 if use_gpu else None)(
+            wds_config=config,
+            num_classes=num_classes,
+            image_shape=image_shape,
+            is_training=True)
+    pipeline.build()
+    
+    return pipeline
+
+
+def get_dali_dataset_updated(use_gpu=False):
+    image_shape = (384,384,3)
+    num_classes = 1000
+    config = wds_utils.WebDatasetConfig(
+        urls=wds_imagenet_url,
+        index_dir=index_dir_path,
+        batch_size=8,
+        shuffle=False,
+        seed=0,
+        num_parallel_processes=1)
+    
+    iterator = peekable_data_iterator(
+        vit_pipeline_updated,
+        output_map=['images', 'labels'],
+        reader_name='webdataset_reader')(
+            enable_conditionals=True,
+            batch_size=config.batch_size,
+            num_threads=config.num_parallel_processes,
+            seed=0,
+            device_id=0 if use_gpu else None,
+            wds_config=config,
+            num_classes=num_classes,
+            image_shape=image_shape,
+            is_training=True)
+    
     return iterator
-  
-          
-def test_dali_get_dali_dataset():    
-    # Właścieiwe API używanym do stworzenia iteratora jest chyba
-    # Żeby to działało w Pythonie trzeba sobie zrobić dodatkową konfigurację, bo normalnie te argumenty
-    # są ustawiane w plikach konfiguracyjnych .gin. 
-    iterator = get_dali_rosetta_dataset()
-    
-    for id, batch in enumerate(iterator):    
-        if id == 10:
-            break
-        
-    # BaseDALIPipeline to jest abstrakcyjny interfejs, który ma być opakowaniem na DALI pipeline
-    # Trzyma trochę rzeczy związanych z konfiguracją (czy training czy eval, jaki shard itd.) i ma mieć funkcję
-    # która produkuje pipeliney. Ta funkcja musi uzwzględnić tą dziwną zależność, że są potrzebne dwa
-    # ViT pipeline to jest przykład implementacji tego
-    
-    # Ten podział na pipeline jest dlatego, że wds ma labele jako stringi. Trzeba je przekonwertować do intów.
-    # Wtedy drugi pipeline ma external source, gdzie woła ten pierwszy
 
+#===================================================================================================================
 
-def get_pure_dali_pipeline_for_vit():
+def get_dali_pipeline_for_vit():
+    "Gets DALI pipeline object for ViT how it is currently implemented."
+    
     image_shape = (384,384,3)
     num_classes = 1000
     config = wds_utils.WebDatasetConfig(
@@ -118,7 +189,24 @@ def get_pure_dali_pipeline_for_vit():
     return pipeline
 
 
-def get_pure_dali_pipeline_for_vit_mono(use_gpu=False):
+def test_compare_dali_pipelines_outputs():
+    pipeline = get_dali_pipeline_for_vit()
+    pipeline_mono = get_dali_pipeline_for_vit_updated()
+    
+    for i in range(10):
+        pipeline_out = pipeline.run()
+        pipeline_mono_out = pipeline_mono.run()
+        
+        for j in range(len(pipeline_out)):
+            assert np.array_equal(
+                pipeline_out[j].as_array(),
+                pipeline_mono_out[j].as_array())
+            
+            
+            
+def get_dali_dataset_configured():
+    "Wrapper for get_dali_dataset that configures it for ViT. This configuration is normally done in gin files."
+    
     image_shape = (384,384,3)
     num_classes = 1000
     config = wds_utils.WebDatasetConfig(
@@ -129,69 +217,10 @@ def get_pure_dali_pipeline_for_vit_mono(use_gpu=False):
         seed=0,
         num_parallel_processes=1)
     
-    pipeline = ViTPipelineMono(
-        config,
-        shard_id=0,
-        num_shards=1,
-        num_classes=num_classes,
-        image_shape=image_shape,
-        training=True,
-        use_gpu=use_gpu,
-        device_id=0 if use_gpu else None).get_dali_pipeline()
-    
-    pipeline.build()
-    
-    return pipeline
-
-
-def get_dali_peekable_iterator_for_vit_mono(use_gpu=False):
-    pipeline = get_pure_dali_pipeline_for_vit_mono(use_gpu=use_gpu)
-    
-    iterator = DALIIterator(
-        pipelines=[pipeline],
-        output_map=['images', 'labels'],
-        reader_name='webdataset_reader')
-    
+    vit_pipeline_configured = partial(ViTPipeline, num_classes=num_classes, image_shape=image_shape)
+    iterator = dali.get_dali_dataset(config, 0, 1, None, vit_pipeline_configured)
     return iterator
-    
 
-def test_dali_vit_pipeline_only(): 
-    pipeline = get_pure_dali_pipeline_for_vit()
-    
-    for i in range(10):
-        pipeline.run()
-        
-
-def test_vit_pipeline_mono():
-    pipeline = get_pure_dali_pipeline_for_vit_mono()
-    
-    for i in range(10):
-        out = pipeline.run()
-        
-
-    
-def test_compare_dali_pipeline_outputs():
-    pipeline = get_pure_dali_pipeline_for_vit()
-    pipeline_mono = get_pure_dali_pipeline_for_vit_mono()
-    
-    for i in range(10):
-        pipeline_out = pipeline.run()
-        pipeline_mono_out = pipeline_mono.run()
-        
-        for j in range(len(pipeline_out)):
-            assert np.array_equal(
-                pipeline_out[j].as_array(),
-                pipeline_mono_out[j].as_array())
-
-
-def test_dali_peekable_iterator():
-    iterator = get_dali_peekable_iterator_for_vit_mono()
-    
-    out = iterator.peek()
-    
-    for i in range(10):
-        out = iterator.next()
-    
 
 def compare_iterators_outpus(out, out_rosetta):
     for key in out.keys():
@@ -201,8 +230,8 @@ def compare_iterators_outpus(out, out_rosetta):
     
         
 def test_comapre_dali_rosetta_dataset_with_dali_peekable_iterator():
-    iterator = get_dali_peekable_iterator_for_vit_mono()
-    iterator_rosetta = get_dali_rosetta_dataset()
+    iterator = get_dali_dataset_updated()
+    iterator_rosetta = get_dali_dataset_configured()
     
     iterator_element_spec = iterator.element_spec
     iterator_rosetta_element_spec = iterator_rosetta.element_spec

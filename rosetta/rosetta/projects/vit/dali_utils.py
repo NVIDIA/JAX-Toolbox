@@ -102,23 +102,23 @@ class ViTPipeline(BaseDALIPipeline):
       img = fn.decoders.image(jpegs, device=device, output_type=types.RGB)
 
       if self.training:
-        img = fn.random_resized_crop(img, size=self.image_shape[:-1], seed=self.seed)
-        img = fn.flip(img, depthwise=0, horizontal=fn.random.coin_flip(seed=self.seed))
+        img = fn.random_resized_crop(img, size=self.image_shape[:-1])
+        img = fn.flip(img, depthwise=0, horizontal=fn.random.coin_flip())
 
-        ## color jitter
-        brightness = fn.random.uniform(range=[0.6,1.4], seed=self.seed)
-        contrast = fn.random.uniform(range=[0.6,1.4], seed=self.seed)
-        saturation = fn.random.uniform(range=[0.6,1.4], seed=self.seed)
-        hue = fn.random.uniform(range=[0.9,1.1], seed=self.seed)
+        # color jitter
+        brightness = fn.random.uniform(range=[0.6,1.4])
+        contrast = fn.random.uniform(range=[0.6,1.4])
+        saturation = fn.random.uniform(range=[0.6,1.4])
+        hue = fn.random.uniform(range=[0.9,1.1])
         img = fn.color_twist(img,
                              brightness=brightness,
                              contrast=contrast,
                              hue=hue,
                              saturation=saturation)
 
-        ## auto-augment
-        ## `shape` controls the magnitude of the translation operations
-        img = auto_augment.auto_augment_image_net(img, seed=self.seed)
+        # auto-augment
+        # `shape` controls the magnitude of the translation operations
+        img = auto_augment.auto_augment_image_net(img)
 
       else:
         img = fn.resize(img, size=self.image_shape[:-1])

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pytest
-from dali_update_test import get_pure_dali_pipeline_for_vit, get_pure_dali_pipeline_for_vit_mono, get_dali_peekable_iterator_for_vit_mono, get_dali_peekable_iterator_for_vit_mono, get_dali_rosetta_dataset
+from dali_update_test import get_pure_dali_pipeline_for_vit, get_dali_pipeline_for_vit_updated, get_dali_peekable_iterator_for_vit_mono, get_dali_peekable_iterator_for_vit_mono, get_dali_dataset_configured
 
       
 @pytest.mark.benchmark 
@@ -28,7 +28,7 @@ def test_benchmark_for_vit_pipeline(benchmark):
         
 @pytest.mark.benchmark
 def test_benchmark_for_vit_pipeline_mono(benchmark):
-    pipeline = get_pure_dali_pipeline_for_vit_mono()
+    pipeline = get_dali_pipeline_for_vit_updated()
     
     @benchmark
     def run():
@@ -37,7 +37,7 @@ def test_benchmark_for_vit_pipeline_mono(benchmark):
     
 @pytest.mark.benchmark
 def test_benchamrk_for_vit_pipeline_mono_gpu(benchmark):
-    pipeline = get_pure_dali_pipeline_for_vit_mono(use_gpu=True)
+    pipeline = get_dali_pipeline_for_vit_updated(use_gpu=True)
     
     @benchmark
     def run():
@@ -55,7 +55,7 @@ def test_benchmark_for_dali_peekable_iterator(benchmark):
             
             
 def test_benchmark_for_dali_rosetta_dataset(benchmark):
-    iterator = get_dali_rosetta_dataset()
+    iterator = get_dali_dataset_configured()
     
     @benchmark
     def run():
