@@ -17,7 +17,7 @@ import nvidia.dali.types as types
 from nvidia.dali import fn, pipeline_def
 from nvidia.dali.auto_aug import auto_augment
 
-from rosetta.data.dali import BaseDALIPipeline, BaseDALIPipelineMono
+from rosetta.data.dali import BaseDALIPipeline
 from rosetta.data.wds_utils import ModalityConfig
 
 
@@ -119,94 +119,6 @@ class ViTPipeline(BaseDALIPipeline):
         # auto-augment
         # `shape` controls the magnitude of the translation operations
         img = auto_augment.auto_augment_image_net(img)
-
-      else:
-        img = fn.resize(img, size=self.image_shape[:-1])
-
-      ## normalize
-      ## https://github.com/NVIDIA/DALI/issues/4469
-      mean = np.asarray([0.485, 0.456, 0.406])[None, None, :]
-      std = np.asarray([0.229, 0.224, 0.225])[None, None, :]
-      scale = 1 / 255.
-      img = fn.normalize(img,
-          mean=mean / scale,
-          stddev=std,
-          scale=scale,
-          dtype=types.FLOAT)
-
-      return img, labels
-
-    return main_vit_pipeline()
-
-
-class ViTPipelineMono(BaseDALIPipelineMono):
-  def __init__(self, wds_config, shard_id, num_shards, num_classes, image_shape, training=True, use_gpu=False, device_id=None):
-    self.num_classes = num_classes
-    self.image_shape = image_shape
-    self._use_gpu = use_gpu
-    self._device_id = None if not use_gpu else device_id
-    modalities = [ModalityConfig(name='images',
-                                 ftype='jpg',
-                                 out_type='float32',
-                                 shape=self.image_shape),
-                  ModalityConfig(name='labels',
-                                 ftype='cls',
-                                 out_type='float32',
-                                 shape=(self.num_classes,))]
-
-    super().__init__(wds_config=wds_config,
-                     modalities=modalities,
-                     shard_id=shard_id,
-                     num_shards=num_shards,
-                     training=training)
-
-
-  def get_dali_pipeline(self):
-    def non_image_preprocessing(raw_text):      
-      return np.array([int(bytes(raw_text).decode('utf-8'))])
-    
-    
-    @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=self.num_workers, device_id=self._device_id, enable_conditionals=True, seed=self.seed, prefetch_queue_depth=self.prefetch)
-    def main_vit_pipeline():
-      img, clss = fn.readers.webdataset(
-        paths=self.urls,
-        index_paths=self.index_paths,
-        ext=[m.ftype for m in self.modalities],
-        missing_component_behavior='error',
-        random_shuffle=self.shuffle,
-        shard_id=self.shard_id,
-        num_shards=self.num_shards,
-        pad_last_batch=False if self.training else True,
-        name='webdataset_reader')
-      
-      labels = fn.python_function(clss, function=non_image_preprocessing, num_outputs=1)
-      
-      if self._use_gpu:
-        labels = labels.gpu()
-      labels = fn.one_hot(labels, num_classes=self.num_classes)
-      
-      
-      device = 'mixed' if self._use_gpu else 'cpu'
-      img = fn.decoders.image(img, device=device, output_type=types.RGB)
-
-      if self.training:
-        img = fn.random_resized_crop(img, size=self.image_shape[:-1], seed=self.seed)
-        img = fn.flip(img, depthwise=0, horizontal=fn.random.coin_flip(seed=self.seed))
-
-        ## color jitter
-        brightness = fn.random.uniform(range=[0.6,1.4], seed=self.seed)
-        contrast = fn.random.uniform(range=[0.6,1.4], seed=self.seed)
-        saturation = fn.random.uniform(range=[0.6,1.4], seed=self.seed)
-        hue = fn.random.uniform(range=[0.9,1.1], seed=self.seed)
-        img = fn.color_twist(img,
-                             brightness=brightness,
-                             contrast=contrast,
-                             hue=hue,
-                             saturation=saturation)
-
-        ## auto-augment
-        ## `shape` controls the magnitude of the translation operations
-        img = auto_augment.auto_augment_image_net(img, seed=self.seed)
 
       else:
         img = fn.resize(img, size=self.image_shape[:-1])
