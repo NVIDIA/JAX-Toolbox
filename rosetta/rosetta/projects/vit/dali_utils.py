@@ -92,14 +92,14 @@ class ViTPipeline(BaseDALIPipeline):
     @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=self.num_workers, device_id=None, enable_conditionals=True, seed=self.seed, prefetch_queue_depth=self.prefetch)
     def main_vit_pipeline():
       jpegs, labels = fn.external_source(source=self.data_source(self.num_classes), num_outputs=2)
-      
+
       img = fn.decoders.image(jpegs, device='cpu', output_type=types.RGB)
 
       if self.training:
         img = fn.random_resized_crop(img, size=self.image_shape[:-1])
         img = fn.flip(img, depthwise=0, horizontal=fn.random.coin_flip())
 
-        # color jitter
+        ## color jitter
         brightness = fn.random.uniform(range=[0.6,1.4])
         contrast = fn.random.uniform(range=[0.6,1.4])
         saturation = fn.random.uniform(range=[0.6,1.4])
@@ -110,8 +110,8 @@ class ViTPipeline(BaseDALIPipeline):
                              hue=hue,
                              saturation=saturation)
 
-        # auto-augment
-        # `shape` controls the magnitude of the translation operations
+        ## auto-augment
+        ## `shape` controls the magnitude of the translation operations
         img = auto_augment.auto_augment_image_net(img)
 
       else:
