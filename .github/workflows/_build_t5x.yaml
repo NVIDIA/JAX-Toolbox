@@ -65,7 +65,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-t5x
+            type=raw,value=${{ github.run_id }}-upstream-t5x
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
