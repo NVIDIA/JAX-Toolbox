@@ -159,9 +159,7 @@ def get_dali_pipeline_for_vit():
         num_shards=1,
         num_classes=num_classes,
         image_shape=image_shape,
-        training=True,
-        use_gpu=False,
-        device_id=None).get_dali_pipeline()
+        training=True).get_dali_pipeline()
     
     pipeline.build()
     return pipeline

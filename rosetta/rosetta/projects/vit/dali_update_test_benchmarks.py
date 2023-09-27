@@ -20,6 +20,10 @@ import pytest
 from rosetta.projects.vit.dali_update_test import \
     get_dali_dataset_configured, get_dali_dataset_updated, \
     get_dali_pipeline_for_vit, get_dali_pipeline_for_vit_updated
+    
+
+# Number of iterations for the benchmark
+num_iters = 25
 
       
 @pytest.mark.benchmark 
@@ -28,7 +32,7 @@ def test_benchmark_for_vit_pipeline(benchmark):
     
     @benchmark
     def run():
-        for i in range(10):
+        for i in range(num_iters):
             pipeline.run()
 
 
@@ -38,7 +42,7 @@ def test_benchmark_for_vit_pipeline_updated(benchmark):
     
     @benchmark
     def run():
-        for i in range(10):
+        for i in range(num_iters):
             pipeline.run()
 
 
@@ -48,7 +52,7 @@ def test_benchamrk_for_vit_pipeline_updated_gpu(benchmark):
     
     @benchmark
     def run():
-        for i in range(10):
+        for i in range(num_iters):
             pipeline.run()
 
 
@@ -58,7 +62,7 @@ def test_benchmark_for_dali_peekable_iterator(benchmark):
     
     @benchmark
     def run():
-        for i in range(10):
+        for i in range(num_iters):
             out = iterator.next()
             
             
@@ -68,7 +72,7 @@ def test_benchmark_for_dali_rosetta_dataset(benchmark):
     
     @benchmark
     def run():
-        for i in range(10):
+        for i in range(num_iters):
             out = next(iterator)
             
             
@@ -77,5 +81,5 @@ def test_benchmark_for_dali_peekable_iterator_gpu(benchmark):
     
     @benchmark
     def run():
-        for i in range(10):
+        for i in range(num_iters):
             out = iterator.next()
