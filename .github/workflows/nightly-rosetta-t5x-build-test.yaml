@@ -19,7 +19,7 @@ on:
         required: false
 
 env:
-  BASE_LIBRARY: upstream-t5x
+  BASE_LIBRARY: t5x
   DOCKER_REGISTRY: ghcr.io/nvidia
 
 permissions:
@@ -44,7 +44,7 @@ jobs:
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
-            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/${{ env.BASE_LIBRARY }}:latest
+            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:latest
           else
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           fi
