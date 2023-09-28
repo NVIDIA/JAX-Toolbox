@@ -1,32 +1,17 @@
-name: ~build T5X container
+name: ~transitional Pax ARM64 build workflow
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       BASE_IMAGE:
         type: string
         description: 'Base docker image that provides JAX'
         required: false
         default: ghcr.io/nvidia/jax:latest
-      BUILD_DATE:
-        type: string
-        description: "Build date in YYYY-MM-DD format"
-        required: false
-        default: 'NOT SPECIFIED'
-      REPO_T5X:
-        type: string
-        description: URL of T5X repository to check out
-        required: false
-        default: "https://github.com/google-research/t5x.git"
-      REF_T5X:
-        type: string
-        description: Git commit, tag, or branch for T5X
-        required: false
-        default: main
-    outputs:
-      DOCKER_TAGS:
-        description: "Tags of the image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
+    # outputs:
+    #   DOCKER_TAGS:
+    #     description: 'Tags of the image built'
+    #     value: ${{ jobs.build.outputs.DOCKER_TAGS }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -37,11 +22,10 @@ permissions:
   packages: write # to upload container
 
 jobs:
-
   build:
     outputs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-    runs-on: [self-hosted, x86, small]
+    runs-on: [self-hosted, arm, small]
     steps:
       - name: Print environment variables
         run: env
@@ -65,7 +49,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-upstream-t5x
+            type=raw,value=${{ github.run_id }}-pax-aarch64
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
@@ -80,11 +64,8 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.t5x
+          file: .github/container/Dockerfile.aarch64.pax
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-            BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_T5X=${{ inputs.REPO_T5X }}
-            REF_T5X=${{ inputs.REF_T5X }}

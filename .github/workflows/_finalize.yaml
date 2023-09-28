@@ -1,0 +1,29 @@
+name: ~finalize workflow run with job report and badge updates
+
+on:
+  workflow_call:
+    inputs:
+      PUBLISH_BADGE:
+        type: boolean
+        description: Update the landing page badges with run outcomes
+        default: false
+        required: false
+
+jobs:
+  upload-badge:
+    uses: ./.github/workflows/_upload_badge.yaml
+    secrets: inherit
+
+  report:
+    uses: ./.github/workflows/_summary.yaml
+    secrets: inherit
+
+  publish-badge:
+    needs: [upload-badge]
+    if: inputs.PUBLISH_BADGE == true
+    uses: ./.github/workflows/_copy_gist.yaml
+    with:
+      SRC_GIST_ID: ${{ needs.upload-badge.outputs.GIST_ID }}
+      DST_GIST_ID: ${{ vars.BADGE_ENDPOINT_GIST_ID }}
+      FILES: '.*badge.*.json'
+    secrets: inherit

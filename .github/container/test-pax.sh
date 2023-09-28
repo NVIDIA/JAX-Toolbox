@@ -12,8 +12,10 @@ usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "  OPTIONS                    DESCRIPTION"
+    echo "  -a, --additional-args      Additional fiddle args to pass to paxml/main.py"
     echo "  -b, --batch-per-gpu        Batch size per GPU, defaults to 4."
     echo "  --dtype                    Batch size, defaults to bfloat16."
+    echo "  --enable-te                If set, will run with env var ENABLE_TE=1." 
     echo "  -s, --steps                Number of steps to run, defaults to 500."
     echo "  --multiprocess             Enable the multiprocess GPU mode."
     echo "  -o, --output NAME          Name for the output folder, a temporary folder will be created if none specified."
@@ -25,7 +27,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o b:s:o:n:h --long batch-per-gpu:,dtype:,steps:,help,multiprocess,output:,data-parallel:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,steps:,help,multiprocess,output:,data-parallel:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -41,10 +43,16 @@ DP=1
 TP=1
 PP=1
 NODES=1
+ENABLE_TE=0
+ADDITIONAL_ARGS=""
 
 eval set -- "$args"
 while [ : ]; do
     case "$1" in
+        -a | --additional-args)
+            ADDITIONAL_ARGS="$2"
+            shift 2
+            ;;
         -b | --batch-per-gpu)
             BATCH_PER_GPU="$2"
             shift 2
@@ -52,6 +60,10 @@ while [ : ]; do
         --dtype)
             DTYPE="$2"
             shift 2
+            ;;
+        --enable-te)
+            ENABLE_TE=1
+            shift 1
             ;;
         -s | --steps)
             STEPS="$2"
@@ -261,12 +273,13 @@ EOF
 
 ## Launch
 set -ex
-python -m paxml.main \
-    --exp ci_configs.Synthetic126M \
+ENABLE_TE=$ENABLE_TE python -m paxml.main \
+    --fdl_config=ci_configs.Synthetic126M \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
+    --enable_checkpoint_saving=False \
+    $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
-    
 
 set +x
 echo "Output at ${OUTPUT}"

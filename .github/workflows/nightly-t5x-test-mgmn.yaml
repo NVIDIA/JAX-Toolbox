@@ -73,6 +73,7 @@ jobs:
       ENDPOINT_FILENAME: 't5x-test-overall-status.json'
       PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
+        STATUS=failure
         if [[ ${{ needs.run-jobs.result }} == "success" ]]; then
           EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
           PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
@@ -84,16 +85,39 @@ jobs:
 
           if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
             BADGE_COLOR=brightgreen
+            STATUS=success
           elif [[ $PASSED_TESTS -eq 0 ]]; then
             BADGE_COLOR=red
           else
             BADGE_COLOR=yellow
           fi
-          echo "LABEL='Completion'" >> $GITHUB_OUTPUT
           echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
           echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
         else
-          echo "LABEL='Completion'" >> $GITHUB_OUTPUT
           echo "MESSAGE='n/a'" >> $GITHUB_OUTPUT
           echo "COLOR='red'" >> $GITHUB_OUTPUT
         fi
+        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
+        echo "STATUS='$STATUS'" >> $GITHUB_OUTPUT
+
+  publish-verified:
+    if: needs.publish-completion.outputs.STATUS == 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    needs: [metadata, publish-completion]
+    uses: ./.github/workflows/_publish_container.yaml
+    secrets: inherit
+    with:
+      SOURCE_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
+      TARGET_IMAGE: t5x
+      TARGET_TAGS: |
+        type=raw,value=latest-verified,priority=1000
+
+  triage:
+    needs: [metadata, publish-completion]
+    uses: ./.github/workflows/_triage.yaml
+    if: needs.publish-completion.outputs.STATUS != 'success'
+    secrets: inherit
+    with:
+      BROKEN_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
+      BASE_IMAGE: ghcr.io/nvidia/t5x:latest-verified
+      REPO_DIRS: "/opt/t5x /opt/flax"
+      FILE_ISSUE: true

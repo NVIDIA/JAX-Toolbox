@@ -5,6 +5,9 @@
 Any `t5x/*` relative directory/file can be found in [google-research/t5x](https://github.com/google-research/t5x), but to
 view the most up to date version of that directory/file, please see ["Inspecting the source code"](#inspecting-the-source-code)
 
+## Hardware Specifications
+Convergence and performance has been validated on NVIDIA DGX A100 and H100 nodes; for details, please refer to the [Convergence and performance](#Convergence-and-performance) section below. We provide both singlenode and multinode support for pre-training and fine-tuning. If running on a machine with less than 80G memory, some of the default configurations may run out of memory; in such instances, gradient accumulation can be used to reduce the memory requirement.
+
 ## GPU Scripts and Usage
 The `t5x/contrib/gpu/scripts_gpu` directory contains scripts optimized for GPU usage and includes FP8 support via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine).
 
@@ -12,15 +15,15 @@ The `t5x/contrib/gpu/scripts_gpu` directory contains scripts optimized for GPU u
 ## Prerequisites
 The examples below will reuse these environment variables. Feel free to change them:
 ```bash
-CONTAINER=ghcr.io/nvidia/rosetta-t5x:latest
+CONTAINER=ghcr.io/nvidia/t5x:latest
 DATASET_PATH=<NEED TO SPECIFY>
 WORKSPACE_PATH=""  # Path used for run outputs (unspecified = /t5x_home/workspace)
 ```
 
 ## Container
-We provide the latest fully built, ready-to-use, and verified container here: `ghcr.io/nvidia/rosetta-t5x:latest-verified`. The verified containers will be updated
-periodically, but if you wish to use the bleeding edge (which may come have unexpected behavior), please use `ghcr.io/nvidia/rosetta-t5x:latest`.
-We also provide nightly dated images with the naming pattern [ghcr.io/nvidia/rosetta-t5x:nightly-YYYY-MM-DD](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-t5x), but we encourage
+We provide the latest fully built, ready-to-use, and verified container here: `ghcr.io/nvidia/t5x:latest-verified`. The verified containers will be updated
+periodically, but if you wish to use the bleeding edge (which may come have unexpected behavior), please use `ghcr.io/nvidia/t5x:latest`.
+We also provide nightly dated images with the naming pattern [ghcr.io/nvidia/t5x:nightly-YYYY-MM-DD](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x), but we encourage
 you to use the latest ones to get the best performance.
 
 We **highly** recommend using the pre-built container, but if you'd like to build your own container, you can follow the instructions here: [Building rosetta manually](../../../README.md#building-rosetta-with-a-specific-base)
@@ -194,6 +197,7 @@ t5x/contrib/gpu/scripts_gpu/singlenode_ft_frompile.sh \
 
 # Known Issues
 * There is a known sporadic NCCL crash that happens when using the T5x container at node counts greater than or equal to 32 nodes. We will fix this in the next release. The issue is tracked [here](https://github.com/NVIDIA/JAX-Toolbox/issues/194).
+* The T5x nightlies disable `NCCL_NVLS_ENABLE=0` ([doc](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature.
 
 # Changelog
 - Added Transformer Engine + FP8 support
