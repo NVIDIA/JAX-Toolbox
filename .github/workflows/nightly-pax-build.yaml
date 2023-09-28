@@ -13,11 +13,6 @@ on:
         default: false
         required: false
 
-env:
-  TARGET: pax
-  DOCKER_REGISTRY: ghcr.io/nvidia
-  PUBLISH: ${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}
-
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
@@ -53,7 +48,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: pax
+      TARGET_IMAGE: upstream-pax
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900

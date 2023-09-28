@@ -99,8 +99,8 @@
 [container-link-base]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-toolbox
 [container-link-jax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax
 [container-link-te]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-te
-[container-link-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-t5x
-[container-link-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-pax
+[container-link-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x
+[container-link-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/pax
 
 [build-badge-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/weekly-base-build.yaml?branch=main&label=weekly&logo=github-actions&logoColor=dddddd
 [build-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
@@ -157,6 +157,7 @@ The [JAX image](ghcr.io/nvidia/jax) is embedded with the following flags and env
 | -------------------- | ----- | ----------- |
 | `CUDA_DEVICE_MAX_CONNECTIONS` | `1` | use a single queue for GPU work to lower latency of stream operations; OK since XLA already orders launches |
 | `NCCL_IB_SL` | `1` | defines the InfiniBand Service Level ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-sl)) |
+| `NCCL_NVLS_ENABLE` | `0` | Disables NVLink SHARP ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature. |
 
 ## FAQ (Frequently Asked Questions)
 

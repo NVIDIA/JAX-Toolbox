@@ -10,7 +10,7 @@ on:
       BASE_IMAGE:
         type: string
         description: 'T5x image built by NVIDIA/JAX-Toolbox'
-        default: 'ghcr.io/nvidia/t5x:latest'
+        default: 'ghcr.io/nvidia/upstream-t5x:latest'
         required: true
       PUBLISH:
         type: boolean
@@ -44,7 +44,7 @@ jobs:
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
-            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/${{ env.BASE_LIBRARY }}:latest
+            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:latest
           else
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           fi
@@ -148,12 +148,12 @@ jobs:
 
   publish-latest-container:
     needs: [metadata, build, test-t5x, test-unit]
-    if: ( ${{ needs.test-unit.outputs.TEST_STATUS == 'success' }} && ${{ needs.test-t5x.outputs.TEST_STATUS == 'success' }} ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    if: ( needs.test-unit.outputs.TEST_STATUS == 'success' && needs.test-t5x.outputs.TEST_STATUS == 'success' ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
+      TARGET_IMAGE: t5x
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
 
@@ -164,7 +164,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
+      TARGET_IMAGE: t5x
       TARGET_TAGS: |
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 

@@ -59,23 +59,11 @@ jobs:
     with:
       JAX_IMAGE: ${{ needs.metadata.outputs.JAX_IMAGE }}
     secrets: inherit
-
-  upload-badge:
+  
+  finalize:
+    if: always()
     needs: [run]
-    uses: ./.github/workflows/_upload_badge.yaml
-    secrets: inherit
-
-  report:
-    needs: [run]
-    uses: ./.github/workflows/_summary.yaml
-    secrets: inherit
-
-  publish-badge:
-    needs: [metadata, upload-badge]
-    if: github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true'
-    uses: ./.github/workflows/_copy_gist.yaml
+    uses: ./.github/workflows/_finalize.yaml
     with:
-      SRC_GIST_ID: ${{ needs.upload-badge.outputs.GIST_ID }}
-      DST_GIST_ID: ${{ vars.BADGE_ENDPOINT_GIST_ID }}
-      FILES: '.*badge.*.json'
+      PUBLISH_BADGE: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit

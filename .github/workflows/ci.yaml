@@ -204,6 +204,11 @@ jobs:
           | ROSETTA(pax) | ${{ needs.build-rosetta-pax.outputs.DOCKER_TAGS }} |
           EOF
 
+  test-distribution:
+    needs: metadata
+    uses: ./.github/workflows/_test_distribution.yaml
+    secrets: inherit
+
   test-jax:
     needs: build-jax
     uses: ./.github/workflows/_test_jax.yaml
@@ -230,4 +235,13 @@ jobs:
     uses: ./.github/workflows/_test_pax.yaml
     with:
       PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  finalize:
+    if: always()
+    # TODO: use dynamic matrix to make dependencies self-updating
+    needs: [build-summary, test-distribution, test-jax, test-te, test-t5x, test-pax]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: false
     secrets: inherit

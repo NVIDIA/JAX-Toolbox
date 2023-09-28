@@ -1,5 +1,5 @@
 #!/bin/bash -exu
-
+set -o pipefail
 INSTALL_DIR="${INSTALL_DIR:-/opt}"
 LINGVO_REF="${LINGVO_REF:-HEAD}"
 LINGVO_REPO="${LINGVO_REPO:-https://github.com/tensorflow/lingvo.git}"
@@ -33,21 +33,7 @@ git config user.email "jax@toolbox"
 git cherry-pick pr326 pr328 pr329
 
 # Disable 2 flaky tests here
-cat << EOF | patch -p1
-diff --git a/pip_package/build.sh b/pip_package/build.sh
-index ef62c432e..659e78956 100755
---- a/pip_package/build.sh
-+++ b/pip_package/build.sh
-@@ -89,7 +89,7 @@ bazel clean
- bazel build $@ ...
- if ! [[ $SKIP_TESTS ]]; then
-   # Just test the core for the purposes of the pip package.
--  bazel test $@ lingvo/core/...
-+  bazel test $@ lingvo/core/... --  -//lingvo/tasks/mt:model_test -//lingvo/core:saver_test
- fi
-
- DST_DIR="/tmp/lingvo/dist"
-EOF
+patch -p1 < /opt/lingvo.patch
 
 sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
 sed -i 's/tensorflow-text=/#tensorflow-text=/'  docker/dev.requirements.txt
@@ -58,6 +44,7 @@ pip install patchelf
 
 # Some tests are flaky right now (see the patch abovbe), if needed we can skip
 # running the tests entirely by uncommentin the following line.
+# SKIP_TEST=1
 PYTHON_MINOR_VERSION=10 pip_package/build.sh
 pip install /tmp/lingvo/dist/lingvo*linux_aarch64.whl
 popd

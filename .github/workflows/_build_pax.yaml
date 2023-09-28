@@ -75,7 +75,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-pax
+            type=raw,value=${{ github.run_id }}-upstream-pax
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
