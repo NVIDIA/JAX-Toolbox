@@ -307,7 +307,7 @@ jobs:
 
           ## ViT MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${GITHUB_RUN_ID}/VIT&_smoothingWeight=0&tagFilter=samples_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
