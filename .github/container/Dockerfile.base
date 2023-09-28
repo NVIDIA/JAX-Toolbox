@@ -50,3 +50,9 @@ ENV PATH=/opt/amazon/efa/bin:${PATH}
 ###############################################################################
 
 RUN ln -s /opt/nvidia/nsight-compute/*/host/target-linux-x64/nsys /usr/local/cuda/bin
+
+###############################################################################
+## Add the systemcheck to the entrypoint.
+###############################################################################
+
+COPY check-shm.sh /opt/nvidia/entrypoint.d/

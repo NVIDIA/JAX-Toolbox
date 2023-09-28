@@ -61,4 +61,3 @@ RUN <<EOF
 pip install -e '/opt/rosetta[test,lint]'
 rm -rf ~/.cache/pip/
 EOF
-
