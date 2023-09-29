@@ -48,3 +48,11 @@ jobs:
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+
+  finalize:
+    if: always()
+    needs: [build]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}
+    secrets: inherit

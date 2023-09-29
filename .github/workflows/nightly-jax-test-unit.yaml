@@ -50,7 +50,7 @@ jobs:
             JAX_IMAGE=${{ inputs.JAX_IMAGE }}
           fi
           echo "JAX_IMAGE=${JAX_IMAGE}" >> $GITHUB_OUTPUT
-          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
   run:
     needs: metadata
@@ -59,11 +59,11 @@ jobs:
     with:
       JAX_IMAGE: ${{ needs.metadata.outputs.JAX_IMAGE }}
     secrets: inherit
-  
+
   finalize:
     if: always()
     needs: [run]
     uses: ./.github/workflows/_finalize.yaml
     with:
-      PUBLISH_BADGE: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit
