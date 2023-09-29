@@ -16,6 +16,7 @@ usage() {
     echo "  -b, --batch-per-gpu        Batch size per GPU, defaults to 4."
     echo "  --dtype                    Batch size, defaults to bfloat16."
     echo "  --enable-te                If set, will run with env var ENABLE_TE=1." 
+    echo "  --enable-dropout           If set, will set DROPOUT_PROB to 0.1."
     echo "  -s, --steps                Number of steps to run, defaults to 500."
     echo "  --multiprocess             Enable the multiprocess GPU mode."
     echo "  -o, --output NAME          Name for the output folder, a temporary folder will be created if none specified."
@@ -44,6 +45,7 @@ TP=1
 PP=1
 NODES=1
 ENABLE_TE=0
+DROPOUT=0
 ADDITIONAL_ARGS=""
 
 eval set -- "$args"
@@ -65,6 +67,10 @@ while [ : ]; do
             ENABLE_TE=1
             shift 1
             ;;
+        --enable-dropout)
+           DROPOUT='0.1'
+           shift 1
+           ;;
         -s | --steps)
             STEPS="$2"
             shift 2
@@ -147,6 +153,7 @@ num_gpus = ${NGPUS}
 percore_batch_size = ${BATCH_PER_GPU}
 steps = ${STEPS}
 dtype = "${DTYPE}"
+dropout = float(${DROPOUT})
 
 assert num_gpus == dp*tp*pp, f'product of parallel strategies should equal number of available gpus. Have {num_gpus} gpus, but product of parallel strategies is {dp*tp*pp}'
 
@@ -210,6 +217,9 @@ class GPT126MPP(TransformerLmSpmdPipelineAdam):
   R_COS_MIN_RATIO = 0.1
   LR_COS_MAX = 1.0
 
+  ## dropout
+  DROPOUT_PROB = dropout
+
   
   def task(self):
     task_p = super().task()
@@ -236,6 +246,12 @@ class GPT126MPP(TransformerLmSpmdPipelineAdam):
     
     model_p.apply_eval_sample_weights = True
     
+    ## set input, residual, attention dropout to DROPOUT_PROB, remaining dropout to 0
+    stacked_p.dropout_prob = 0.0
+    stacked_p.input_dropout_prob = self.DROPOUT_PROB
+    stacked_p.residual_dropout_prob = self.DROPOUT_PROB
+    stacked_p.atten_dropout_prob = self.DROPOUT_PROB
+
     return task_p
 
 
@@ -264,9 +280,18 @@ else:
     PERCORE_BATCH_SIZE = percore_batch_size
     FRPOP_DTYPE = dtype
     MAX_STEPS = steps
+
+    DROPOUT_PROB = dropout
     
     def task(self):
       task_p = super().task()
+
+      ## set input, residual, attention dropout to DROPOUT_PROB, remaining dropout to 0
+      stacked_p.dropout_prob = 0.0
+      stacked_p.input_dropout_prob = self.DROPOUT_PROB
+      stacked_p.residual_dropout_prob = self.DROPOUT_PROB
+      stacked_p.atten_dropout_prob = self.DROPOUT_PROB
+
       return task_p
 
 EOF
