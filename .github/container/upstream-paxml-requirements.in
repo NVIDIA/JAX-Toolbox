@@ -1,0 +1,6 @@
+-c jax-requirements.in
+/opt/paxml
+/opt/praxis
+# Re-introduce the dependency that was skipped by SKIP_HEAD_INSTALLS=true
+# Omitting jax since it is included by the jax-requirements.in constraint
+fiddle @ git+https://github.com/google/fiddle

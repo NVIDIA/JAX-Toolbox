@@ -1,0 +1,82 @@
+# syntax=docker/dockerfile:1-labs
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
+ARG BAZEL_CACHE=/tmp
+ARG BUILD_DATE
+
+###############################################################################
+## Build JAX
+###############################################################################
+
+FROM ${BASE_IMAGE} as jax-builder
+ARG BAZEL_CACHE
+
+ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+RUN build-jax.sh \
+    --bazel-cache ${BAZEL_CACHE} \
+    --src-path-jax ${SRC_PATH_JAX} \
+    --src-path-xla ${SRC_PATH_XLA} \
+    --sm all \
+    --clean && [ -d ${BAZEL_CACHE} ] && rm -r ${BAZEL_CACHE}
+
+# TODO(terry): don't delete /tmp and re-create. Only doing this for now b/c I want to cache ^
+RUN mkdir /tmp
+
+FROM jax-builder as runtime-image
+# The following environment variables tune performance
+ENV XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_async_all_gather=true --xla_gpu_enable_async_reduce_scatter=true --xla_gpu_enable_triton_gemm=false"
+ENV CUDA_DEVICE_MAX_CONNECTIONS=1
+ENV NCCL_IB_SL=1
+ENV NCCL_NVLS_ENABLE=0
+ENV NVTE_FRAMEWORK=jax
+
+# TODO: properly configure entrypoint
+# COPY entrypoint.d/ /opt/nvidia/entrypoint.d/
+
+FROM jax-builder as jax
+# Since jaxlib is not explicitly listed by the jax package itself, we append it
+RUN <<"EOF" bash -e
+if [[ $(ls ${SRC_PATH_JAX}/dist/ | wc -l) -ne 1 ]]; then
+  echo "Expect only 1 jax wheel to be built"
+  exit 1
+fi
+echo "jaxlib @ file://${SRC_PATH_JAX}/dist/"$(ls ${SRC_PATH_JAX}/dist/) >> /opt/jax-requirements.txt
+EOF
+
+RUN pip-sync /opt/jax-requirements.txt && rm -rf /root/.cache/pip
+
+FROM jax-builder as upstream-t5x
+
+# Since upstream-t5x adds jaxlib from pypi, we need to replace it
+RUN <<"EOF" bash -e
+if [[ $(ls ${SRC_PATH_JAX}/dist/ | wc -l) -ne 1 ]]; then
+  echo "Expect only 1 jax wheel to be built"
+  exit 1
+fi
+sed -i "s|^jaxlib[ =].*|jaxlib @ file://${SRC_PATH_JAX}/dist/$(ls ${SRC_PATH_JAX}/dist/)|" /opt/upstream-t5x-requirements.txt
+EOF
+
+# T5x uses a flax distribution so we will use the flax source, which should be identical to one we'd pull from VCS in t5x's requirements
+RUN sed -i "s|^flax[ =].*|flax @ file://${SRC_PATH_FLAX}|" /opt/upstream-t5x-requirements.txt
+
+# We will also comment out t5x as a requirement since it introduces dependencies like "seqio @ git+${URL}" which are in conflict with the ones we manually add like "seqio @ git+${URL}@$SHA"
+RUN sed -i 's/^t5x/#t5x/' /opt/upstream-t5x-requirements.txt
+
+RUN pip-sync /opt/upstream-t5x-requirements.txt && rm -rf /root/.cache/pip
+RUN pip install --no-deps --no-cache-dir ${SRC_PATH_T5X}
+
+FROM jax-builder as upstream-pax
+
+# Since upstream-pax adds jaxlib from pypi, we need to replace it
+RUN <<"EOF" bash -e
+if [[ $(ls ${SRC_PATH_JAX}/dist/ | wc -l) -ne 1 ]]; then
+  echo "Expect only 1 jax wheel to be built"
+  exit 1
+fi
+sed -i "s|^jaxlib[ =].*|jaxlib @ file://${SRC_PATH_JAX}/dist/$(ls ${SRC_PATH_JAX}/dist/)|" /opt/upstream-paxml-requirements.txt
+EOF
+# We will also comment out paxml/praxis as a requirement since it introduces dependencies like "fiddle @ git+${URL}" which are in conflict with the ones we manually add like "fiddle @ git+${URL}@$SHA"
+RUN sed -i 's/^paxml/#paxml/' /opt/upstream-paxml-requirements.txt
+RUN sed -i 's/^praxis/#praxis/' /opt/upstream-paxml-requirements.txt
+
+RUN pip-sync /opt/upstream-paxml-requirements.txt && rm -rf /root/.cache/pip
+RUN pip install --no-deps --no-cache-dir ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}

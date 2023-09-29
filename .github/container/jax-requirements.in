@@ -1,0 +1,4 @@
+jax @ file:///opt/jax-source
+# TODO: Brittle, may be possible to use --find-links=./wheel_dir instead
+#jaxlib @ file:///opt/jax-source/dist/jaxlib-0.4.14-cp310-cp310-linux_x86_64.whl
+transformer_engine @ file:///opt/transformer-engine

@@ -1,5 +1,29 @@
+# syntax=docker/dockerfile:1-labs
+ARG REPO_JAX="https://github.com/google/jax.git"
+ARG REPO_XLA="https://github.com/openxla/xla.git"
+ARG REPO_TE="https://github.com/NVIDIA/TransformerEngine.git"
+ARG REPO_T5X="https://github.com/google-research/t5x.git"
+ARG REPO_PAXML="https://github.com/google/paxml.git"
+ARG REPO_PRAXIS="https://github.com/google/praxis.git"
+ARG REPO_FLAX="https://github.com/google/flax.git"
+ARG REF_JAX=main
+ARG REF_XLA=main
+ARG REF_TE=main
+ARG REF_T5X=main
+ARG REF_PAXML=main
+ARG REF_PRAXIS=main
+ARG REF_FLAX=main
+ARG SRC_PATH_JAX=/opt/jax-source
+ARG SRC_PATH_XLA=/opt/xla-source
+ARG SRC_PATH_TE=/opt/transformer-engine
+ARG SRC_PATH_T5X=/opt/t5x
+ARG SRC_PATH_PAXML=/opt/paxml
+ARG SRC_PATH_PRAXIS=/opt/praxis
+ARG SRC_PATH_FLAX=/opt/flax
+ARG BUILD_DATE
+
 ARG BASE_IMAGE=nvidia/cuda:12.2.0-devel-ubuntu22.04
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE} as lib-base
 
 ###############################################################################
 ## Install Python
@@ -50,3 +74,103 @@ ENV PATH=/opt/amazon/efa/bin:${PATH}
 ###############################################################################
 
 RUN ln -s /opt/nvidia/nsight-compute/*/host/target-linux-x64/nsys /usr/local/cuda/bin
+
+FROM lib-base AS src-base
+ARG REPO_JAX
+ENV REPO_JAX=${REPO_JAX}
+ARG REPO_XLA
+ENV REPO_XLA=${REPO_XLA}
+ARG REPO_TE
+ENV REPO_TE=${REPO_TE}
+ARG REPO_T5X
+ENV REPO_T5X=${REPO_T5X}
+ARG REPO_PAXML
+ENV REPO_PAXML=${REPO_PAXML}
+ARG REPO_PRAXIS
+ENV REPO_PRAXIS=${REPO_PRAXIS}
+ARG REPO_FLAX
+ENV REPO_FLAX=${REPO_FLAX}
+ARG REF_JAX
+ENV REF_JAX=${REF_JAX}
+ARG REF_XLA
+ENV REF_XLA=${REF_XLA}
+ARG REF_TE
+ENV REF_TE=${REF_TE}
+ARG REF_T5X
+ENV REF_T5X=${REF_T5X}
+ARG REF_PAXML
+ENV REF_PAXML=${REF_PAXML}
+ARG REF_PRAXIS
+ENV REF_PRAXIS=${REF_PRAXIS}
+ARG REF_FLAX
+ENV REF_FLAX=${REF_FLAX}
+ARG SRC_PATH_JAX
+ENV SRC_PATH_JAX=${SRC_PATH_JAX}
+ARG SRC_PATH_XLA
+ENV SRC_PATH_XLA=${SRC_PATH_XLA}
+ARG SRC_PATH_TE
+ENV SRC_PATH_TE=${SRC_PATH_TE}
+ARG SRC_PATH_T5X
+ENV SRC_PATH_T5X=${SRC_PATH_T5X}
+ARG SRC_PATH_PAXML
+ENV SRC_PATH_PAXML=${SRC_PATH_PAXML}
+ARG SRC_PATH_PRAXIS
+ENV SRC_PATH_PRAXIS=${SRC_PATH_PRAXIS}
+ARG SRC_PATH_FLAX
+ENV SRC_PATH_FLAX=${SRC_PATH_FLAX}
+ARG BUILD_DATE
+ENV BUILD_DATE=${BUILD_DATE}
+
+RUN --mount=type=ssh \
+    --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
+    <<"EOF" bash -e
+git clone -b ${REF_JAX}    ${REPO_JAX}    ${SRC_PATH_JAX}
+git clone -b ${REF_XLA}    ${REPO_XLA}    ${SRC_PATH_XLA}
+git clone -b ${REF_TE}     ${REPO_TE}     ${SRC_PATH_TE}
+git -C ${SRC_PATH_TE} submodule update --init --recursive
+git clone -b ${REF_T5X}    ${REPO_T5X}    ${SRC_PATH_T5X}
+git clone -b ${REF_PAXML}  ${REPO_PAXML}  ${SRC_PATH_PAXML}
+git clone -b ${REF_PRAXIS} ${REPO_PRAXIS} ${SRC_PATH_PRAXIS}
+git clone -b ${REF_FLAX}   ${REPO_FLAX}   ${SRC_PATH_FLAX}
+EOF
+
+RUN pip install --no-cache-dir pip-tools
+
+ADD --link jax-requirements.in /opt/
+ADD --link upstream-t5x-requirements.in /opt/
+ADD --link upstream-paxml-requirements.in /opt/
+
+WORKDIR /opt
+# Note: This will not specify the compiled jaxlib wheel under $REPO_JAX. That needs to be replaced after
+# the requirements are compiled. This should be okay since at the time of writing, jaxlib's requirements
+# are a subset of jax's
+RUN pip-compile jax-requirements.in && rm -rf /root/.cache/pip-tools
+RUN pip-compile upstream-t5x-requirements.in && rm -rf /root/.cache/pip-tools
+RUN SKIP_HEAD_INSTALLS=true pip-compile upstream-paxml-requirements.in && rm -rf /root/.cache/pip-tools
+
+# Handle head installs by appending their SHAs to the requirement file. Aggregate all of them
+# to ensure we specify the same commit if a package is repeated
+RUN <<"EOF" bash -e -u -o pipefail
+declare -A old_to_new_req
+IFS=$'\n'
+for head_req in $(cat *requirements.txt | egrep '^[^#].+ @ git\+'); do
+  pkg_name=$(echo "$head_req" | awk '{print $1}')
+  pkg_url=$(echo "$head_req" | awk '{sub(/^git\+/,"",$3); print $3}')
+  old_to_new_req["$head_req"]="${head_req}@$(git ls-remote $pkg_url HEAD | awk '{print $1}')"
+done
+unset IFS
+
+for req_file in *requirements.txt; do
+  rm -f "${req_file}.tmp"
+  while IFS= read -r line; do
+    # Check if the line should be replaced
+    if [[ -v old_to_new_req["$line"] ]]; then
+        echo "${old_to_new_req["$line"]}" >> "${req_file}.tmp"
+    else
+        echo "$line" >> "${req_file}.tmp"
+    fi
+  done < "${req_file}"
+  mv "${req_file}.tmp" "${req_file}"
+done
+EOF
+
