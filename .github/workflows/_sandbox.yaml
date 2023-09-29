@@ -8,7 +8,14 @@ jobs:
   sandbox:
     runs-on: ubuntu-22.04
     steps:
-      - name: test command
+      - name: Install Skopeo
         run: |
-          echo "Hello World!"
-          reg
+          . /etc/os-release
+          echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/x${NAME^}_${VERSION_ID}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+          curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/x${NAME^}_${VERSION_ID}/Release.key | sudo apt-key add -
+          sudo apt-get update
+          sudo apt-get -y install skopeo
+
+      - name: Use Skopeo
+        run: |
+          skopeo --version
