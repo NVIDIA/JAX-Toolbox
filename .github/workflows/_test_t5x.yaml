@@ -297,6 +297,7 @@ jobs:
             echo '```'
           done | tee -a $GITHUB_STEP_SUMMARY
 
+          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
 
   publish-test:
     needs: [multi-gpu-multi-node, single-process-multi-device]
