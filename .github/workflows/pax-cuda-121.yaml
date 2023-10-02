@@ -1,4 +1,4 @@
-name: CI
+name: Night Pax on CUDA 12.1
 
 on:
   schedule:
