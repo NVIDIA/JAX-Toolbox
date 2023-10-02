@@ -99,8 +99,8 @@
 [container-link-base]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-toolbox
 [container-link-jax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax
 [container-link-te]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-te
-[container-link-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-t5x
-[container-link-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/rosetta-pax
+[container-link-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x
+[container-link-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/pax
 
 [build-badge-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/weekly-base-build.yaml?branch=main&label=weekly&logo=github-actions&logoColor=dddddd
 [build-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
@@ -161,18 +161,38 @@ The [JAX image](ghcr.io/nvidia/jax) is embedded with the following flags and env
 
 ## FAQ (Frequently Asked Questions)
 
+<details>
+    <summary>`bus error` when running JAX in a docker container</summary>
 
-Question: A "bus error"
------------------------
-
-**Q:** When I execute my JAX code, I come across a `bus error`. How can I address this issue?
-
-**A:** The `bus error` might occur due to the size limitation of `/dev/shm`. You can address this by increasing the shared memory size using
-the `--shm-size` option when launching your container. Here is a demonstration of how this can be achieved using Docker:
-
+**Solution:**
 ```bash
 docker run -it --shm-size=1g ...
 ```
+
+**Explanation:**
+The `bus error` might occur due to the size limitation of `/dev/shm`. You can address this by increasing the shared memory size using
+the `--shm-size` option when launching your container.
+</details>
+
+<details>
+
+<summary>enroot/pyxis reports error code 404 when importing multi-arch images</summary>
+
+**Problem description:**
+```
+slurmstepd: error: pyxis:     [INFO] Authentication succeeded
+slurmstepd: error: pyxis:     [INFO] Fetching image manifest list
+slurmstepd: error: pyxis:     [INFO] Fetching image manifest
+slurmstepd: error: pyxis:     [ERROR] URL https://ghcr.io/v2/nvidia/jax/manifests/<TAG> returned error code: 404 Not Found
+```
+
+**Solution:**
+Upgrade enroot or [apply a single-file patch](https://github.com/NVIDIA/enroot/releases/tag/v3.4.0) as mentioned in the enroot v3.4.0 release note.
+
+**Explanation:**
+Docker has traditionally used Docker Schema V2.2 for multi-arch manifest lists but has switched to using the Open Container Initiative (OCI) format since 20.10. Enroot added support for OCI format in version 3.4.0.
+</details>
+
 ## JAX on Public Clouds
 
 * AWS

@@ -10,7 +10,7 @@ on:
       BASE_IMAGE:
         type: string
         description: 'PAX image built by NVIDIA/JAX-Toolbox'
-        default: 'ghcr.io/nvidia/pax:latest'
+        default: 'ghcr.io/nvidia/upstream-pax:latest'
         required: true
       PUBLISH:
         type: boolean
@@ -44,7 +44,7 @@ jobs:
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
-            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/${{ env.BASE_LIBRARY }}:latest
+            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:latest
           else
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           fi
@@ -128,7 +128,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
+      TARGET_IMAGE: pax
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
 
@@ -139,7 +139,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: rosetta-${{ needs.metadata.outputs.BASE_LIBRARY }}
+      TARGET_IMAGE: pax
       TARGET_TAGS: |
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 

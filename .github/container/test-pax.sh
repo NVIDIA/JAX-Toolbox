@@ -277,6 +277,7 @@ ENABLE_TE=$ENABLE_TE python -m paxml.main \
     --fdl_config=ci_configs.Synthetic126M \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
+    --enable_checkpoint_saving=False \
     $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 

@@ -7,7 +7,7 @@ on:
         type: string
         description: 'Rosetta image build by NVIDIA/JAX-Toolbox'
         required: true
-        default: 'ghcr.io/nvidia/rosetta-t5x:latest'
+        default: 'ghcr.io/nvidia/t5x:latest'
     outputs:
       TEST_ARTIFACT_NAME:
         description: 'Name of the unit test artifact for downstream workflows'

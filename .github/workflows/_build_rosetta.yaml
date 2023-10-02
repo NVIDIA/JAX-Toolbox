@@ -43,7 +43,7 @@ jobs:
           if [[ -n "${{ inputs.BASE_IMAGE }}" ]]; then
             echo "BASE_IMAGE=${{ inputs.BASE_IMAGE }}" >> "$GITHUB_ENV"
           else
-            echo "BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/${{ inputs.BASE_LIBRARY }}:latest" >> "$GITHUB_ENV"
+            echo "BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/upstream-${{ inputs.BASE_LIBRARY }}:latest" >> "$GITHUB_ENV"
           fi
 
       - name: Print environment variables
@@ -65,7 +65,7 @@ jobs:
         with:
           images: ${{ env.UPLD_IMAGE }}
           flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-rosetta-${{ inputs.BASE_LIBRARY }}
+          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}
           labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Set up Docker Buildx

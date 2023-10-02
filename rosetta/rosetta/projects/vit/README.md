@@ -6,11 +6,11 @@ This directory provides an implementation of the [Vision Transformer (ViT)](http
 Convergence and performance has been validated on NVIDIA DGX A100 (8x A100 80G) nodes. Pretraining and fine-tuning of ViT/B-16 can be performed on a single DGX A100 80G node. We provide both singlenode and multinode support for pre-training and fine-tuning. If running on a machine with less than 80G memory, some of the default configurations may run out of memory; if you run out of memory and have more GPUs available, increase your GPU count and decrease your batch size per GPU. You may also use gradient accumulation to reduce the microbatch size while keeping the global batch size and GPU count constant, but note that gradient accumulation with ViT works only with scale-invariant optimizers such as Adam and Adafactor. See the [known issues](#Known-issues) section below for more information.
 
 ## Building a Container
-We provide and fully built and ready-to-use container here: `ghcr.io/nvidia/rosetta-t5x:vit-2023-07-21`
+We provide and fully built and ready-to-use container here: `ghcr.io/nvidia/t5x:vit-2023-07-21`
 
 If you do not plan on making changes to the Rosetta source code and would simply like to run experiments on top of Rosetta, we strongly recommend using the pre-built container. Run the following command to launch a container interactively: 
 ```
-export CONTAINER=ghcr.io/nvidia/rosetta-t5x:vit-2023-07-21
+export CONTAINER=ghcr.io/nvidia/t5x:vit-2023-07-21
 docker run -ti --gpus=all --net=host --ipc=host -v <IMAGENET_PATH>:/opt/rosetta/datasets/imagenet -v <WORKSPACE_PATH>:/opt/rosetta/workspace -v <TRAIN_INDEX_PATH>:/opt/rosetta/train_idxs -v <EVAL_INDEX_PATH>:/opt/rosetta/eval_idxs --privileged $CONTAINER /bin/bash
 ```
 where  `<IMAGENET_PATH>` is the path to the ImageNet-1k dataset (see the [downloading the dataset](#Downloading-the-dataset) section below for details) and ``<TRAIN_INDEX_PATH>`` and ``<EVAL_INDEX_PATH>`` refer to the paths to the train and eval indices for the ImageNet tar files (see the [before launching a run](#before-launching-a-run) section below for more information about these paths). ``<WORKSPACE_PATH>`` refers to the directory where you would like to store any persistent files. Any custom configurations or run scripts needed for your experiments should reside here.

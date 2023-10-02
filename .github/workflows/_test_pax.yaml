@@ -115,9 +115,6 @@ jobs:
 
           echo "SLURM Job $JOB finished."
 
-          CKPT_PATH=${{ steps.meta.outputs.MODEL_PATH }}/${{ steps.meta.outputs.TEST_CASE_NAME }}/checkpoints
-          if sshx -q [[ -d $CKPT_PATH ]]; then sshx rm -r $CKPT_PATH; fi
-
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
           SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
