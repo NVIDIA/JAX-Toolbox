@@ -1,6 +1,7 @@
 name: Nightly Distribution test
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: [Nightly JAX build]
     types: [completed]

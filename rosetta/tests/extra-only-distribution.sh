@@ -17,6 +17,7 @@ DISTRIBUTION_BASE_REF=22117ce5a3606706ba9519ccdd77b532ad8ff7b2
 
 git clone $UPSTREAM_URL $repo_tmp
 git clone $UPSTREAM_URL $extra_tmp
+git -C $extra_tmp checkout $DISTRIBUTION_BASE_REF
 echo "patch/delete-readme" >> $patchlist_tmp
 
 cd $extra_tmp
