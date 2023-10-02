@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+    steps:
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+  build-base:
+    needs: metadata
+    uses: ./.github/workflows/_build_base.yaml
+    with:
+      BASE_IMAGE: 'nvidia/cuda:12.1.1-devel-ubuntu22.04'
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+    secrets: inherit
+
+  build-jax:
+    needs: [metadata, build-base]
+    uses: ./.github/workflows/_build_jax.yaml
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  build-pax:
+    needs: [metadata, build-jax]
+    uses: ./.github/workflows/_build_pax.yaml
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  build-rosetta-pax:
+    uses: ./.github/workflows/_build_rosetta.yaml
+    needs: [metadata, build-pax]
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
+      BASE_LIBRARY: pax
+    secrets: inherit
+
+  build-summary:
+    needs: [build-base, build-jax, build-pax, build-rosetta-pax]
+    if: always()
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Generate job summary for container build
+        shell: bash -x -e {0}
+        run: |
+          cat > $GITHUB_STEP_SUMMARY << EOF
+          # Images created          
+
+          | Image        | Link                                               |
+          | ------------ | -------------------------------------------------- |
+          | Base         | ${{ needs.build-base.outputs.DOCKER_TAGS }}        |
+          | JAX          | ${{ needs.build-jax.outputs.DOCKER_TAGS }}         |
+          | PAX          | ${{ needs.build-pax.outputs.DOCKER_TAGS }}         |
+          | ROSETTA(pax) | ${{ needs.build-rosetta-pax.outputs.DOCKER_TAGS }} |
+          EOF
+
+  test-jax:
+    needs: build-jax
+    uses: ./.github/workflows/_test_jax.yaml
+    with:
+      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  test-pax:
+    needs: build-pax
+    uses: ./.github/workflows/_test_pax.yaml
+    with:
+      PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
+  finalize:
+    if: always()
+    # TODO: use dynamic matrix to make dependencies self-updating
+    needs: [build-summary, test-jax, test-pax]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: false
+    secrets: inherit
