@@ -136,3 +136,6 @@ Imagen base 500M + Efficient SR1 (600M):
 | 3 | 10.23 |
 | 4 | 11.33 |
 | 6 | 12.34 |
+
+## Known Issues
+* Currently, the nightly images will not be able to run Imagen since they lack a patch that needs refactoring. This will be released soon!
