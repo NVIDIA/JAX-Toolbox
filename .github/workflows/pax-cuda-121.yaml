@@ -1,4 +1,4 @@
-name: Night Pax on CUDA 12.1
+name: Nightly Pax on CUDA 12.1
 
 on:
   schedule:
