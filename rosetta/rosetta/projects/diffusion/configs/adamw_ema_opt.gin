@@ -1,0 +1,36 @@
+from __gin__ import dynamic_registration
+
+import optax
+from t5x import optimizers
+from rosetta.projects.diffusion.common import gin_utils as gin_utils
+
+EMA=%gin.REQUIRED
+
+OPTIMIZER = @optimizers.chain()
+optimizers.chain:
+  transformations = [@optax.clip_by_global_norm(), @adamw/gin_utils.call(), @optimizers.apply_ema_weights()]
+
+optimizers.apply_ema_weights:
+  decay = %EMA
+  debias = False
+
+optax.clip_by_global_norm:
+  max_norm = 1.0
+
+adamw/optimizers.inject_hyperparams:
+  inner_factory = @optax.adamw
+  # If jax.config.x64_enabled, you may want to pass your model parameter dtype to
+  #   avoid inject_hyperparams inferring the dtype, which may be wrong, i.e. float64,
+  #   and that causes the gradient updates to be promoted.
+  # hyperparam_dtype = @jnp.float32
+
+# Same as gin_utils.partial, except it will call the wrapped function as well.
+#   This is a workaround since in gin-config you cannot do @functools.partial()() 
+adamw/gin_utils.call:
+  func = @adamw/optimizers.inject_hyperparams()
+  #learning_rate = @utils.create_learning_rate_scheduler()
+  learning_rate = @optax.join_schedules()
+  weight_decay = 0.01
+  b1 = 0.9
+  b2 = 0.999
+  eps = 1e-8

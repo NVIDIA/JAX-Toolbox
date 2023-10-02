@@ -1,0 +1,107 @@
+#!/bin/bash
+#SBATCH -A <YOUR_ACCOUNT>
+#SBATCH -p <YOUR_PARTITION>     
+#SBATCH -N 1                    # number of nodes
+#SBATCH -t 04:00:00              # wall time  (8 for backfill, 4 for Luna)
+#SBATCH -J <YOUR_JOBNAME>     # job name (<< CHANGE ! >>)
+#SBATCH --exclusive             # exclusive node access
+#SBATCH --mem=0                 # all mem avail
+#SBATCH --mail-type=FAIL        # only send email on failure
+#SBATCH --overcommit            # Needed for pytorch
+#SBATCH --dependency=singleton
+set -x
+
+# File system and volume glue code
+#-------------------------------------------------------------------------------
+# << CHANGE ! >>
+SLURM_ACCOUNT=<YOUR_ACCOUNT>
+USERID=<YOUR_USERNAME>
+
+# << CHANGE ! >>
+CONTAINER=<CONTAINER>
+
+# << CHANGE ! >>
+BASE_ROSETTA_DIR="<YOURPATH>/jax-toolbox-mirror/rosetta/" # path to your clone of the repo
+BASE_DATA_DIR="<YOURDATA>/datasets/"
+BASE_WORKSPACE_DIR="${BASE_ROSETTA_DIR}/workspace" # path to where outputs will be dumped
+BASE_HOSTNAME_COMM="${BASE_WORKSPACE_DIR}/outputs/multinode/communicators/${SLURM_JOB_ID}-inf-server-comms/"
+
+# Default env variables for paths required by t5x training scripts
+DATA_DIR=/mnt/datasets/
+ROSETTA_DIR=/opt/rosetta/
+WORKSPACE_DIR=/opt/rosetta/workspace
+HOSTNAMES_DIR=/inference_srv/
+HOSTNAMES_FILE=${HOSTNAMES_DIR}/hostnames.txt
+
+# Add the T5x/JAX specific mounts
+MOUNTS="--container-mounts=$BASE_ROSETTA_DIR:$ROSETTA_DIR,$BASE_DATA_DIR:$DATA_DIR,$BASE_WORKSPACE_DIR:$WORKSPACE_DIR,$BASE_HOSTNAME_COMM:$HOSTNAMES_DIR"
+
+# Add T5x/JAX specific exports
+EXPORTS="--export=ALL,DATA_DIR=${DATA_DIR},ROSETTA_DIR=${ROSETTA_DIR},WORKSPACE_DIR=${WORKSPACE_DIR}"
+#-------------------------------------------------------------------------------
+
+# Command line arguments needed by the underlying scripts
+DATASET=$1
+T5_SIZE=$2          # base
+PREC="$3"           # bfloat16, float32
+GPUS_PER_NODE=$4    # usually 8
+BSIZE_PER_GPU=$5    # local batch size/gpu
+MODEL_DIR_LOCAL=$6  # directory to save checkpoints and config dump to
+INF_SERV_CT=$7	    # number of inference server processes
+INF_SIZE=${8:-"xxl"} # t5 model size of inference server
+NUM_MICROBATCHES=${9} # number of gradient accumulation steps
+MP=${10}              # tensor parallel count
+
+NUM_GPUS=$(( GPUS_PER_NODE * SLURM_JOB_NUM_NODES ))
+
+# remove hostnames file if there are no inference servers
+if [ -z "${INF_SERV_CT}" ] || [ "${INF_SERV_CT}" -eq 0 ]; then
+    HOSTNAMES_FILE=None
+fi
+
+
+# << CHANGE ! >>
+# You can add binding to the command below with the following line (after nvidia-smi). Remove the '&&' on the next bash line.
+# && bash <<path_to_bind_script>>/bind.sh --cpu=exclusive --ib=single -- \
+read -r -d '' train_cmd <<EOF
+echo "*******STARTING********" \
+&& nvidia-smi \
+&& bash ${ROSETTA_DIR}/rosetta/projects/imagen/scripts/multinode_train.sh ${DATASET} ${T5_SIZE} ${PREC} ${GPUS_PER_NODE} ${BSIZE_PER_GPU} ${MODEL_DIR_LOCAL} ${INF_SERV_CT} ${HOSTNAMES_FILE} ${NUM_MICROBATCHES} ${MP}
+EOF
+
+INF_CONFIG_BASE=${ROSETTA_DIR}/rosetta/projects/inference_serving/configs/
+if [ $INF_SIZE == "large" ]
+then
+    INF_CONFIG_FILE=${INF_CONFIG_BASE}/t5_large_server.yml
+elif [ $INF_SIZE == "xxl" ]
+then
+    INF_CONFIG_FILE=${INF_CONFIG_BASE}/t5_xxl_server.yml
+fi
+
+read -r -d '' inf_cmd <<EOF
+echo "*******STARTING********" \
+&& nvidia-smi \
+&& DISABLE_TE=True python ${ROSETTA_DIR}/rosetta/projects/inference_serving/server.py --total_devices=${INF_SERV_CT} --gpu_name=a100_80g --config_file=${INF_CONFIG_FILE}
+EOF
+
+
+read -r -d '' multiserver_cmd <<EOF
+echo "*******SPECIALIZING********" \
+&& DISABLE_TE=True python ${ROSETTA_DIR}/rosetta/projects/imagen/scripts/specialized_run.py --proc_total_ct ${NUM_GPUS} --inf_server_ct ${INF_SERV_CT} --train_run_command "${train_cmd}" --inf_server_run_command "${inf_cmd}" --hostnames_file ${HOSTNAMES_FILE} --gpus_per_node ${GPUS_PER_NODE}
+EOF
+
+# create run specific output directory for ease of analysis
+OUTDIR=${BASE_WORKSPACE_DIR}/outputs/multinode/${T5_SIZE}-prec_${PREC}-nodes_${SLURM_JOB_NUM_NODES}-gpus_${NUM_GPUS}-bs_${BSIZE_PER_GPU}-sl_${SL}-mp_${MP}
+
+mkdir -p "${OUTDIR}"
+mkdir -p "${BASE_HOSTNAME_COMM}"
+
+# redirect both stdout and stderr in the same file for ease of analysis
+OUTFILE="${OUTDIR}/output-%j-%t.txt"
+echo $multiserver_cmd
+echo $train_cmd
+echo $inf_cmd
+# no container mount home because pytriton needs files in the root/.cache dir (backend python custom install)
+srun --ntasks-per-node=${GPUS_PER_NODE} --no-container-mount-home -o $OUTFILE -e $OUTFILE --container-image="$CONTAINER" $MOUNTS $EXPORTS bash -c "${multiserver_cmd}"
+set +x
+
