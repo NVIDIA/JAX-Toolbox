@@ -95,8 +95,7 @@ jobs:
       SOURCE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
       TARGET_IMAGE: upstream-pax
       TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }}-cuda-12.1,priority=900
 
   test-jax:
     needs: build-jax
