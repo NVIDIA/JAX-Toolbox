@@ -8,8 +8,8 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        N_GPU: []
-        FOOBAR: []
+        N_GPU: [1]
+        FOOBAR: [5]
         include:
           - N_GPU: 1
             FOOBAR: 5
