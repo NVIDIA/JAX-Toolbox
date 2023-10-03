@@ -22,6 +22,7 @@ permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
   packages: write # to upload container
+  issues: write   # to create issues
 
 env:
   DEFAULT_T5X_IMAGE: 'ghcr.io/nvidia/t5x:latest'
