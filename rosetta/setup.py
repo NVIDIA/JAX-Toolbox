@@ -31,7 +31,7 @@ setuptools.setup(
         'einops',
         'pillow',
         'webdataset',
-        'matplotlib'
+        'matplotlib',
         'nvidia-dali-cuda120',
     ],
 
