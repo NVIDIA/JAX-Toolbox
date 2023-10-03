@@ -22,8 +22,8 @@ from torchvision import datasets, transforms
 
 from torch.utils.data import Dataset
 
-from jax_multimodal.common.generative_metrics.fid_metric import fid
-from jax_multimodal.common.generative_metrics.inception_v3 import load_pretrained_inception_v3
+from rosetta.projects.diffusion.common.generative_metrics.fid_metric import fid
+from rosetta.projects.diffusion.common.generative_metrics.inception_v3 import load_pretrained_inception_v3
 import sys
 import os
 import glob

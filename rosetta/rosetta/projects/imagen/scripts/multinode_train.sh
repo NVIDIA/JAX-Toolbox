@@ -49,7 +49,7 @@ echo $CUDA_DEVICE_MAX_CONNECTIONS
 unset CUDA_DEVICE_MAX_CONNECTIONS
 export CUDA_MODULE_LOADING=EAGER
 
-CUDA_MODULE_LOADING=EAGER python3 -u /opt/t5x/t5x/train.py \
+CUDA_MODULE_LOADING=EAGER python3 -u -m t5x.train \
   --gin_file="${ROSETTA_DIR}/rosetta/projects/imagen/configs/${MODEL_TYPE}_${DATASET}.gin" \
   --gin.MODEL_DIR=\"${MODEL_DIR}\" \
   --gin.DTYPE=\"${PREC}\" \

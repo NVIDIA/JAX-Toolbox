@@ -45,7 +45,7 @@ INFER_SAMPLES=${INFER_SAMPLES:=$BSIZE}
 
 
 CUDA_VISIBLE_DEVICES=${PROC_ID} \
-python3 -u /opt/t5x/t5x/train.py \
+python3 -u -m t5x.train \
   --gin_file="/opt/rosetta/rosetta/projects/imagen/configs/${MODEL_TYPE}_${DATASET}.gin" \
   --gin.MODEL_DIR=\"${MODEL_DIR}\" \
   --gin.DTYPE=\"${PREC}\" \
