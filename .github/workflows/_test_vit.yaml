@@ -271,12 +271,14 @@ jobs:
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
 
-        echo '## ViT MGMN+SPMD Test Status' >> $GITHUB_STEP_SUMMARY
+        cat <<EOF >>$GITHUB_STEP_SUMMARY
+        ## ViT MGMN+SPMD Test Status
+        | Test Case | State | Exit Code |
+        | --- | --- | --- |
+        EOF
         for i in $EXIT_STATUSES; do
-          echo $i | cut -d'.' -f1
-          echo '```json'
-          jq . $i
-          echo '```'
+          # Files are named <GHID>-<NAME>/<NAME>-status.json
+          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f2) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
         done | tee -a $GITHUB_STEP_SUMMARY
 
         echo "Test statuses:"
@@ -311,3 +313,15 @@ jobs:
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
+
+
+  outcome:
+    needs: publish-test
+    runs-on: ubuntu-22.04
+    if: ( always() )
+    steps:
+      - name: Sets workflow status based on test outputs
+        run: |
+          if [[ ${{ needs.publish-test.outputs.STATUS }} != success ]]; then
+            exit 1
+          fi
