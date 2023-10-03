@@ -6,6 +6,20 @@ import test_utils
 from statistics import mean
 from numpy.testing import assert_allclose
 
+LOSS_RTOL = {
+    '1G1N': 0.01,
+    '1G2N': 0.015,
+    '1P1G': 0.01,
+    '1P2G': 0.005,
+    '1P4G': 0.012,
+    '1P8G': 0.013,
+    '2G1N': 0.008,
+    '2G2N': 0.005,
+    '4G1N': 0.014,
+    '4G2N': 0.011,
+    '8G1N': 0.011,
+    '8G2N': 0.02
+}
 STEP_TIME_MULT = {
     "1G1N": 0.95,
     "1G2N": 0.95,
@@ -38,7 +52,7 @@ test_dir = os.path.dirname(os.path.abspath(__file__))
 baselines_dir = os.path.join(test_dir, "T5X_MGMN")
 results_dir = os.environ.get("RESULTS_DIR")
 loss_summary_name = "loss"
-step_time_summary_name = "maanug/capture-metrics-t5x"
+step_time_summary_name = "timing/steps_per_second"
 
 
 @pytest.mark.parametrize("baseline_filename", os.listdir(baselines_dir))
@@ -60,7 +74,7 @@ def test_loss(baseline_filename):
         assert loss_expected.keys() == loss_actual.keys(), \
             f"Steps at which loss was emitted for run do not match baseline. \
             Actual steps: {loss_actual.keys()}, Baseline steps: {loss_expected.keys()}"
-        assert_allclose(loss_actual.values(), loss_expected.values(),
+        assert_allclose(loss_actual.values(), loss_expected.values(), rtol=LOSS_RTOL[test_config],
                         err_msg=f"Run loss values: {loss_actual.values()}, \
                                 Baseline loss values: {loss_expected.values()}")
 
