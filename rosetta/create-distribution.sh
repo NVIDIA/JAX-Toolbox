@@ -192,7 +192,7 @@ apply-patches() {
     git checkout -
     to=tmp-linear-tmp
   fi
-  git cherry-pick ${from}..${to}
+  git cherry-pick --allow-empty ${from}..${to}
   ret_code=$?
   if [[ $to == tmp-linear-tmp ]]; then
     git branch -D tmp-linear-tmp
