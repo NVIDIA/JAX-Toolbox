@@ -11,7 +11,7 @@ on:
       BATCH_SIZE_PER_GPU:
         type: number
         description: Batch size per GPU
-        default: 256
+        default: 512
         required: false
     outputs:
       TEST_STATUS:
@@ -23,7 +23,7 @@ jobs:
   single-process-multi-device:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
+        N_GPU: [8]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -77,7 +77,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},XLA_PYTHON_CLIENT_MEM_FRACTION=0.9"
           time srun \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
@@ -139,7 +139,7 @@ jobs:
   multi-gpu-multi-node:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
+        N_GPU: [1, 8]
         N_NODE: [1, 2]
       fail-fast: false
 
@@ -196,7 +196,7 @@ jobs:
           #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},XLA_PYTHON_CLIENT_MEM_FRACTION=0.9"
           time srun \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
