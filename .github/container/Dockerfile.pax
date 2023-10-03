@@ -42,9 +42,9 @@ RUN cd ${INSTALL_DIR} && \
     rm -Rf text
 
 # Lingvo
-ADD install_lingvo_aarch64.sh /opt/
+ADD install-lingvo.sh /usr/local/bin
 ADD lingvo.patch /opt/
-RUN /opt/install_lingvo_aarch64.sh
+RUN install-lingvo.sh
 
 ADD install-pax.sh /usr/local/bin
 RUN install-pax.sh
