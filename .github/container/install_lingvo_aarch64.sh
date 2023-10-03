@@ -25,13 +25,13 @@ LINGVO_INSTALLED_DIR=${INSTALL_DIR}/lingvo
 
 pushd ${LINGVO_INSTALLED_DIR}
 # Local patches, two PR waiting to be merged + one custom patch
-git fetch origin pull/326/head:pr326
+# git fetch origin pull/326/head:pr326  ## merged upstream
 # git fetch origin pull/328/head:pr328  ## merged upstream
-# git fetch origin pull/329/head:pr329
+git fetch origin pull/329/head:pr329
 git config user.name "JAX Toolbox"
-git config user.email "jax@toolbox"
-# git cherry-pick pr326 pr328 pr329  ## pr328, pr329 merged
-git cherry-pick --allow-empty pr326
+git config user.email "jax@nvidia.com"
+# git cherry-pick pr326 pr328 pr329  ## pr326, pr328 merged
+git cherry-pick --allow-empty pr329
 
 # Disable 2 flaky tests here
 patch -p1 < /opt/lingvo.patch
