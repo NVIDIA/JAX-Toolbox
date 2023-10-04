@@ -60,17 +60,19 @@ jobs:
           docker pull ${{ inputs.JAX_IMAGE }}
 
       - name: Backend-independent tests
-        shell: bash -x {0}
+        shell: bash -x -e {0}
+        # todo: distinguish between test failures and errors
+        continue-on-error: true
         run: |
           docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
 
       - name: GPU-specific tests
-        shell: bash -x {0}
+        shell: bash -x -e {0}
+        continue-on-error: true
         run: |
           docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
 
-      - name: Process results and generate report
-        if: success() || failure()
+      - name: Generate sitrep
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
@@ -111,7 +113,6 @@ jobs:
           > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload artifacts
-        if: success() || failure()
         uses: actions/upload-artifact@v3
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
