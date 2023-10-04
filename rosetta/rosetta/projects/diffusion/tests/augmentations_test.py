@@ -73,5 +73,5 @@ class AugTest(absltest.TestCase):
 
 if __name__ == '__main__':
   sys.path.append('../')
-  import augmentations
+  import rosetta.projects.diffusion.augmentations as augmentations
   absltest.main()
