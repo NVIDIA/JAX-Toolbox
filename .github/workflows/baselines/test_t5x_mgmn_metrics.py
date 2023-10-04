@@ -74,7 +74,8 @@ def test_loss(baseline_filename):
         assert loss_expected.keys() == loss_actual.keys(), \
             f"Steps at which loss was emitted for run do not match baseline. \
             Actual steps: {loss_actual.keys()}, Baseline steps: {loss_expected.keys()}"
-        assert_allclose(loss_actual.values(), loss_expected.values(), rtol=LOSS_RTOL[test_config],
+        assert_allclose(list(loss_actual.values()), list(loss_expected.values()),
+                        rtol=LOSS_RTOL[test_config],
                         err_msg=f"Run loss values: {loss_actual.values()}, \
                                 Baseline loss values: {loss_expected.values()}")
 
