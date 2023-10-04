@@ -97,12 +97,13 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 500 \
-              --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
-              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
-              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
+              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
+              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               --enable-te \
-              --additional-args \"--fdl.PACKED_INPUT=False\"" \
+              --additional-args \"--fdl.PACKED_INPUT=False\" \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
@@ -232,9 +233,10 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 500 \
-              --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
-              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
-              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
+              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
+              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ inputs.EXTRA_TEST_ARGS }}
@@ -471,7 +473,7 @@ jobs:
       ENDPOINT_FILENAME: 'pax-test-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="$$GITHUB_RUN_ID}-*DP*FSDP*TP*PP*/*-status.json ${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
+        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*FSDP*TP*PP*/*-status.json ${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)

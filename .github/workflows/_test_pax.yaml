@@ -99,9 +99,10 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 500 \
-              --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
-              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
-              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
+              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
+              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ inputs.EXTRA_TEST_ARGS }}

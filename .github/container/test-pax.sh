@@ -21,6 +21,7 @@ usage() {
     echo "  --multiprocess             Enable the multiprocess GPU mode."
     echo "  -o, --output NAME          Name for the output folder, a temporary folder will be created if none specified."
     echo "  --data-parallel            Data parallelism to use. Defaults to 1."
+    echo "  --fsdp                     Fully-sharded data parallelism to use. Defaults to 1."
     echo "  --tensor-parallel          Tensor parallelism to use. Defaults to 1."
     echo "  --pipeline-parallel        Pipeline parallelism to use. Defaults to 1 for no pipelining." 
     echo "  -n, --nodes                Number of nodes."
@@ -41,6 +42,7 @@ BATCH_PER_GPU=4
 DTYPE="bfloat16"
 STEPS=500
 DP=1
+FSDP=1
 TP=1
 PP=1
 NODES=1
@@ -85,6 +87,10 @@ while [ : ]; do
             ;;
         --data-parallel)
             DP="$2"
+            shift 2
+            ;;
+        --fsdp)
+            FSDP="$2"
             shift 2
             ;;
         --tensor-parallel)
@@ -147,6 +153,7 @@ from praxis import base_layer
 from praxis import layers
 
 dp = ${DP}
+fsdp = ${FSDP}
 tp = ${TP}
 pp = ${PP}
 num_gpus = ${NGPUS}
@@ -155,7 +162,7 @@ steps = ${STEPS}
 dtype = "${DTYPE}"
 dropout = float(${DROPOUT})
 
-assert num_gpus == dp*tp*pp, f'product of parallel strategies should equal number of available gpus. Have {num_gpus} gpus, but product of parallel strategies is {dp*tp*pp}'
+assert num_gpus == dp*fsdp*tp*pp, f'product of parallel strategies should equal number of available gpus. Have {num_gpus} gpus, but product of parallel strategies is {dp*fsdp*tp*pp}'
 
 ## heuristics to get ici and dcn mesh shapes.
 ## these heuristics only support one parallel strategy across nodes
@@ -167,6 +174,9 @@ if dcn_factor > 1:
   if dp % dcn_factor == 0:
     dcn_dp = dcn_factor
     dp = int(dp / dcn_factor)
+  elif fsdp % dcn_factor == 0: 
+    dcn_fsdp = dcn_factor
+    fsdp = int(fsdp / dcn_factor)
   elif pp % dcn_factor == 0: 
     dcn_pp = dcn_factor
     pp = int(pp / dcn_factor)
@@ -259,8 +269,8 @@ if pp > 1:
   @experiment_registry.register
   class Synthetic126M(GPT126MPP, SyntheticDataset):
     
-    ICI_MESH_SHAPE = [pp, dp, 1, tp]
-    DCN_MESH_SHAPE = [dcn_pp, dcn_dp, 1, 1]
+    ICI_MESH_SHAPE = [pp, dp, fsdp, tp]
+    DCN_MESH_SHAPE = [dcn_pp, dcn_dp, dcn_fsdp, 1]
     MICROBATCH_SIZE = 2
     NUM_STAGES = pp
     PERCORE_BATCH_SIZE = percore_batch_size
@@ -275,8 +285,8 @@ else:
   @experiment_registry.register
   class Synthetic126M(GPT126M, SyntheticDataset):
     
-    ICI_MESH_SHAPE = [dp, 1, tp]
-    DCN_MESH_SHAPE = [dcn_dp, 1, 1]
+    ICI_MESH_SHAPE = [dp, fsdp, tp]
+    DCN_MESH_SHAPE = [dcn_dp, dcn_fsdp, 1]
     PERCORE_BATCH_SIZE = percore_batch_size
     FRPOP_DTYPE = dtype
     MAX_STEPS = steps
