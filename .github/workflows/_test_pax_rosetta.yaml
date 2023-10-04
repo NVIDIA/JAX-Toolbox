@@ -27,10 +27,8 @@ jobs:
         - [1, 1, 1, 1]
         - [1, 8, 1, 1]
         - [1, 1, 8, 1]
-        - [4, 2, 1, 1]
         - [1, 4, 1, 2]
         - [1, 16, 1, 1]
-        - [4, 2, 1, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -59,7 +57,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_TE
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
           MAX_GPUS_PER_NODE=8
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
@@ -163,6 +161,8 @@ jobs:
       matrix:
         PARALLEL_CONFIG:
         - [1, 8, 1, 1]
+        - [1, 4, 1, 2]
+        - [4, 2, 1, 1]
         - [4, 2, 1, 2]
       fail-fast: false
 
@@ -290,7 +290,7 @@ jobs:
           path: output/*
 
 
-  single-gpu-multi-node-dropout-te:
+  multi-gpu-single-node-dropout-te:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -323,7 +323,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP_dropout
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP_TE_dropout
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
           MAX_GPUS_PER_NODE=8
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
@@ -425,7 +425,7 @@ jobs:
 
 
   metrics:
-    needs: multi-gpu-multi-node
+    needs: [multi-gpu-multi-node, multi-gpu-multi-node-te, multi-gpu-single-node-dropout-te]
     runs-on: ubuntu-22.04
 
     steps:
@@ -439,7 +439,7 @@ jobs:
         shell: bash -x {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
-          for i in ${GITHUB_RUN_ID}-*DP*TP*PP; do
+          for i in ${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${GITHUB_RUN_ID}-*DP_TE_dropout; do
             SUBDIR=$(echo $i | cut -d'-' -f2)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
@@ -463,7 +463,7 @@ jobs:
 
 
   publish-test:
-    needs: [multi-gpu-multi-node, metrics]
+    needs: [multi-gpu-multi-node, multi-gpu-multi-node-te, multi-gpu-single-node-dropout-te, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
@@ -471,7 +471,7 @@ jobs:
       ENDPOINT_FILENAME: 'pax-test-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*TP*PP/*-status.json"
+        EXIT_STATUSES="$$GITHUB_RUN_ID}-*DP*FSDP*TP*PP*/*-status.json ${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
