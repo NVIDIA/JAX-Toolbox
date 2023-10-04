@@ -90,6 +90,7 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
       EXTRA_TEST_ARGS: "--enable-te --additional-args \"--fdl.PACKED_INPUT=False\""
+      SUFFIX: "-rosetta"
     secrets: inherit
 
   publish-test:
