@@ -37,11 +37,11 @@ jobs:
   metadata:
     runs-on: ubuntu-22.04
     outputs:
-      JAX_IMAGE: ${{ steps.meta.outputs.JAX_IMAGE }}
-      PUBLISH: ${{ steps.meta.outputs.PUBLISH }}
+      JAX_IMAGE: ${{ steps.image.outputs.JAX_IMAGE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
-      - name: Set metadata
-        id: meta
+      - name: Determine jax image to use
+        id: image
         shell: bash -x -e {0}
         run: |
           if [[ -z "${{ inputs.JAX_IMAGE }}" ]]; then
@@ -50,6 +50,11 @@ jobs:
             JAX_IMAGE=${{ inputs.JAX_IMAGE }}
           fi
           echo "JAX_IMAGE=${JAX_IMAGE}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
           echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
   run:
@@ -62,7 +67,7 @@ jobs:
 
   finalize:
     if: always()
-    needs: [run]
+    needs: [metadata, run]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH }}
