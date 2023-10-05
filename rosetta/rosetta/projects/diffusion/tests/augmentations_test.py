@@ -18,6 +18,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import sys
+from rosetta.projects.diffusion import augmentations
 
 class AugTest(absltest.TestCase):
 
