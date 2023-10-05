@@ -38,16 +38,15 @@ jobs:
       fail-fast: false
       matrix:
         PLATFORM: [amd64, arm64]
-    outputs:
-      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     runs-on: [self-hosted, "${{ matrix.PLATFORM }}", small]
     steps:
       - name: Set default BASE_IMAGE
+        id: defaults
         run: |
           if [[ -n "${{ inputs.BASE_IMAGE }}" ]]; then
-            echo "BASE_IMAGE=${{ inputs.BASE_IMAGE }}" >> "$GITHUB_ENV"
+            echo "BASE_IMAGE=${{ inputs.BASE_IMAGE }}" >> "$GITHUB_OUTPUT"
           else
-            echo "BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/upstream-${{ inputs.BASE_LIBRARY }}:latest" >> "$GITHUB_ENV"
+            echo "BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/upstream-${{ inputs.BASE_LIBRARY }}:latest" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Print environment variables
@@ -76,16 +75,16 @@ jobs:
         uses: docker/setup-buildx-action@v2
         with:
           driver-opts: |
-            image=moby/buildkit:v0.10.6
+            image=moby/buildkit:v0.12.1
 
-      - name: Pull and validate BASE_IMAGE=${{ inputs.BASE_IMAGE }} contains BASE_LIBRARY=${{ inputs.BASE_LIBRARY }}
+      - name: Pull and validate BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }} contains BASE_LIBRARY=${{ inputs.BASE_LIBRARY }}
         shell: bash -x -e {0}
         run: |
           PYTHON_PACKAGE=${{ inputs.BASE_LIBRARY }}
           if [[ $PYTHON_PACKAGE == "pax" ]]; then
             PYTHON_PACKAGE=paxml
           fi
-          docker run --rm ${{ inputs.BASE_IMAGE }} python -c "import importlib,sys; sys.exit(importlib.util.find_spec('$PYTHON_PACKAGE') is None)"
+          docker run --rm ${{ steps.defaults.outputs.BASE_IMAGE }} python -c "import importlib,sys; sys.exit(importlib.util.find_spec('$PYTHON_PACKAGE') is None)"
 
       - name: Build docker images
         uses: docker/build-push-action@v4
@@ -98,7 +97,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: rosetta
           build-args: |
-            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
 
       # Temporary workaround until the following issues are solved:
       # https://github.com/orgs/community/discussions/17245
