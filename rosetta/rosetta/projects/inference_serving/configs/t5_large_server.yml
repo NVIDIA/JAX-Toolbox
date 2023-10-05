@@ -1,0 +1,38 @@
+---
+models:
+  t5_large:
+    # Model config
+    max_bs:
+      a100_80g: 4096
+      a6000: 2048
+      gv100_32g: 1024
+      default: null
+    find_max_bs:
+      cache_dir: "/opt/rosetta/server_bs_cache.json" #null to disable reading/writing batch size information to cache
+    
+    # Command to start a server per gpu group
+    run_command: "/opt/rosetta/rosetta/projects/inference_serving/t5/embed_t5x.sh large"
+    gpus_per_process: 1
+
+    # PyTriton config
+    inputs:
+      - sequence: 
+         dtype: "bytes_"
+         shape: !!python/tuple [-1]
+    outputs:
+      - encodings_padded:
+          dtype: "float16"
+          shape: !!python/tuple [-1]
+      - encodings_seqlens:
+          dtype: 'int32'
+          shape: !!python/tuple [-1]
+
+    # "static" or "dymanic"
+    batching:
+      "dynamic"
+
+    # specify fraction or absolute count of allocated GPUs to commit here.
+    resources:
+      fraction: 1.0
+      count: null
+...
