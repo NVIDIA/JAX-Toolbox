@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
       - name: Set build date
         id: date
@@ -29,6 +30,12 @@ jobs:
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
   build:
     needs: metadata
@@ -51,8 +58,8 @@ jobs:
 
   finalize:
     if: always()
-    needs: [build]
+    needs: [metadata, build]
     uses: ./.github/workflows/_finalize.yaml
     with:
-      PUBLISH_BADGE: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit
