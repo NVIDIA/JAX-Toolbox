@@ -57,18 +57,17 @@ jobs:
         run: |
           echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
-  # run:
-  #   needs: metadata
-  #   uses: ./.github/workflows/_test_jax.yaml
-  #   if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-  #   with:
-  #     JAX_IMAGE: ${{ needs.metadata.outputs.JAX_IMAGE }}
-  #   secrets: inherit
+  run:
+    needs: metadata
+    uses: ./.github/workflows/_test_jax.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      JAX_IMAGE: ${{ needs.metadata.outputs.JAX_IMAGE }}
+    secrets: inherit
 
   finalize:
     if: always()
-    # needs: [metadata, run]
-    needs: [metadata]
+    needs: [metadata, run]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
