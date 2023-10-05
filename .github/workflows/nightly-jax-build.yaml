@@ -61,5 +61,5 @@ jobs:
     needs: [metadata, build]
     uses: ./.github/workflows/_finalize.yaml
     with:
-      PUBLISH_BADGE: '${{ needs.metadata.outputs.PUBLISH }}'
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit
