@@ -65,6 +65,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
       BASE_LIBRARY: pax
+      PLATFORMS: '["amd64"]'
     secrets: inherit
 
   build-t5x:
@@ -82,6 +83,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
       BASE_LIBRARY: t5x
+      PLATFORMS: '["amd64"]'
     secrets: inherit
 
   build-summary:
