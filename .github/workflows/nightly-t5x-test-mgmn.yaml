@@ -68,7 +68,7 @@ jobs:
   publish-completion:
     needs: [metadata, run-jobs]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: ( always() )
+    if: success() || failure()
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 't5x-test-overall-status.json'
@@ -108,17 +108,23 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
-      TARGET_IMAGE: t5x
+      TARGET_IMAGE: upstream-t5x
       TARGET_TAGS: |
         type=raw,value=latest-verified,priority=1000
 
   triage:
     needs: [metadata, publish-completion]
     uses: ./.github/workflows/_triage.yaml
-    if: needs.publish-completion.outputs.STATUS != 'success'
+    if: needs.publish-completion.outputs.STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
     secrets: inherit
     with:
       BROKEN_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
-      BASE_IMAGE: ghcr.io/nvidia/t5x:latest-verified
+      BASE_IMAGE: ghcr.io/nvidia/upstream-t5x:latest-verified
       REPO_DIRS: "/opt/t5x /opt/flax"
       FILE_ISSUE: true
+
+  if-upstream-failed:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1
