@@ -7,7 +7,7 @@ print_var() {
 }
 
 usage() {
-    echo "Test T5X throughput on a fake-data Wikipedia benchmark."
+    echo "Test Pax throughput on a fake-data benchmark."
     echo ""
     echo "Usage: $0 [OPTIONS]"
     echo ""
@@ -29,7 +29,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,steps:,help,multiprocess,output:,data-parallel:,fsdp,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -130,15 +130,10 @@ print_var NGPUS
 print_var OUTPUT
 print_var MULTIPROCESS
 print_var DP
+print_var FSDP
 print_var TP
 print_var PP
 
-## Enter Paxml source folder
-### TODO: check this.. not quite sure what's happening here
-## getting paxml path? I guess we are just using python import to find where paxml is located
-
-## TODO: figure out how to disable checkpoint saving altogether!! 
-## do not want to save checkpoint 0!
 PAXML_DIR=$(dirname `python -c 'import paxml; print(*paxml.__path__)'`)
 pushd ${PAXML_DIR}
 
@@ -169,6 +164,7 @@ assert num_gpus == dp*fsdp*tp*pp, f'product of parallel strategies should equal 
 ## but should be sufficient for now
 dcn_factor = math.ceil(num_gpus / 8)
 dcn_dp = 1
+dcn_fsdp = 1
 dcn_pp = 1
 if dcn_factor > 1:
   if dp % dcn_factor == 0:
@@ -295,6 +291,14 @@ else:
     
     def task(self):
       task_p = super().task()
+
+      model_p = task_p.model
+      stacked_p = model_p.lm_tpl.stacked_transformer_tpl
+      if stacked_p.cls == layers.PipelinedTransformer:
+        stacked_p = stacked_p.pipeline_stage
+      if issubclass(stacked_p.cls, layers.StackedTransformerRepeated):
+        stacked_p = stacked_p.block
+
 
       ## set input, residual, attention dropout to DROPOUT_PROB, remaining dropout to 0
       stacked_p.dropout_prob = 0.0
