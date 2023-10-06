@@ -17,6 +17,11 @@ on:
         description: "Build date in YYYY-MM-DD format"
         required: false
         default: 'NOT SPECIFIED'
+      PLATFORMS:
+        type: string
+        description: 'JSON list of platforms. Ex: ["amd64"]'
+        required: false
+        default: '["arm64", "amd64"]'
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image built"
@@ -37,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        PLATFORM: [amd64, arm64]
+        PLATFORM: ${{ fromJSON(inputs.PLATFORMS) }}
     runs-on: [self-hosted, "${{ matrix.PLATFORM }}", small]
     steps:
       - name: Set default BASE_IMAGE
