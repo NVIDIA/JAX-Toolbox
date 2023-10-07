@@ -371,7 +371,7 @@ jobs:
               --nodes ${{ steps.meta.outputs.NODES }} \
               --enable_dropout \
               --enable-te \
-              --additional-args \"--fdl.PACKED_INPUT=False\"" \
+              --additional-args \"--fdl.PACKED_INPUT=False\" \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
