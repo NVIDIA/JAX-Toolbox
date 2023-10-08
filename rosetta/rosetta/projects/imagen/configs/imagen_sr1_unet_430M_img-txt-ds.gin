@@ -1,0 +1,9 @@
+include "rosetta/projects/imagen/configs/imagen_sr1_unet_430M.gin"
+include "rosetta/projects/imagen/configs/pretrain.gin"
+include "rosetta/projects/imagen/configs/img-txt-ds-sr1.gin"
+
+TRAIN_STEPS = 2500000
+IM_SHAPE=(256,256,3)   #nhwc
+LOW_RES_SHAPE=(64,64,3)   #nhwc
+TXT_SHAPE=(128,4096) #l, c
+TXT_SEQLEN=(128,)     #l

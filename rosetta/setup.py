@@ -26,8 +26,13 @@ setuptools.setup(
     },
     scripts=[],
     install_requires=[
-        'nvidia-dali-cuda120',
+        'zmq',
+        'nvidia-pytriton',
+        'einops',
+        'pillow',
         'webdataset',
+        'matplotlib',
+        'nvidia-dali-cuda120',
     ],
 
     extras_require={

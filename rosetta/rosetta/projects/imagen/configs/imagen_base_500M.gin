@@ -1,0 +1,23 @@
+# Imagen tiny model.
+include 'rosetta/projects/imagen/configs/imagen_base_2B.gin'
+
+network.DiffusionConfig:
+  dtype = %DTYPE
+  model_dim = 256
+  attn_cond_dim = 512
+  cond_dim = 1024
+  resblocks_per_level = 3
+  width_multipliers = (1, 2, 3, 4)
+  attn_resolutions = (32, 16, 8)
+  mha_head_dim = 64
+  attn_heads = 4
+  resblock_activation = 'silu'
+  dropout_rate = %DROPOUT_RATE
+  upsample_mode = 'shuffle'
+  downsample_mode = 'shuffle'
+  spatial_skip = False
+  cond_strategy = 'shift_scale'
+  norm_32 = True
+  scale_attn_logits = True
+  float32_attention_logits=False
+  text_conditionable = True
