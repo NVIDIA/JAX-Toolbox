@@ -1,0 +1,8 @@
+include "rosetta/projects/imagen/configs/imagen_base_2B.gin"
+include "rosetta/projects/imagen/configs/pretrain.gin"
+include "rosetta/projects/imagen/configs/img-txt-ds-base.gin"
+
+TRAIN_STEPS = 2500000
+IM_SHAPE=(64,64,3)   #nhwc
+TXT_SHAPE=(128,4096) #l, c
+TXT_SEQLEN=(128,)     #l
