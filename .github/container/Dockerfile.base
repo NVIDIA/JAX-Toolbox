@@ -34,10 +34,8 @@ RUN install-cudnn.sh
 ## Install NCCL
 ###############################################################################
 
-RUN apt-get update && \
-    apt-get install -y libnccl-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+ADD install-nccl.sh /usr/local/bin
+RUN install-nccl.sh
 
 ###############################################################################
 ## RoCE and InfiniteBand support
