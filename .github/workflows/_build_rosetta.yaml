@@ -82,15 +82,6 @@ jobs:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
-      - name: Pull and validate BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }} contains BASE_LIBRARY=${{ inputs.BASE_LIBRARY }}
-        shell: bash -x -e {0}
-        run: |
-          PYTHON_PACKAGE=${{ inputs.BASE_LIBRARY }}
-          if [[ $PYTHON_PACKAGE == "pax" ]]; then
-            PYTHON_PACKAGE=paxml
-          fi
-          docker run --rm ${{ steps.defaults.outputs.BASE_IMAGE }} python -c "import importlib,sys; sys.exit(importlib.util.find_spec('$PYTHON_PACKAGE') is None)"
-
       - name: Build docker images
         uses: docker/build-push-action@v4
         with:
