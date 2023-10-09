@@ -44,7 +44,7 @@ RUN cd ${INSTALL_DIR} && \
 # Lingvo
 ADD install-lingvo.sh /usr/local/bin
 ADD lingvo.patch /opt/
-RUN install-lingvo.sh
+RUN ARCH=`dpkg --print-architecture`; if [ "$ARCH" = "arm64" ] ; then install-lingvo.sh; else pip install lingvo; fi;
 
 ADD install-pax.sh /usr/local/bin
 RUN install-pax.sh
