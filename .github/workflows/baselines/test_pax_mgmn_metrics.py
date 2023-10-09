@@ -23,7 +23,7 @@ E2E_TIME_MULT = {
     "2DP2TP4PP":  0.95,
 }
 test_dir = os.path.dirname(os.path.abspath(__file__))
-baselines_dir = sos.path.join(test_dir, sys.argv[1])
+baselines_dir = os.path.join(test_dir, sys.argv[1])
 results_dir = os.environ.get("RESULTS_DIR")
 loss_summary_name = "loss"
 step_time_summary_name = "Steps/sec"
