@@ -6,7 +6,7 @@ export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 
 # If NCCL is already installed, don't reinstall it. Print a message and exit
-if ![[ dpkg -s libnccl2 libnccl-dev ]]; then
+if dpkg -s libnccl2 libnccl-dev &> /dev/null; then
     echo "NCCL is already installed. Skipping installation."
     exit 0
 fi
