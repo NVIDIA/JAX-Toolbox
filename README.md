@@ -139,6 +139,7 @@ We currently enable training and evaluation for the following models:
 | [GPT-3(paxml)](./rosetta/rosetta/projects/pax) | ✔️ |   | ✔️ |
 | [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
 | [ViT](./rosetta/rosetta/projects/vit) | ✔️ | ✔️ | ✔️ |
+| [Imagen](./rosetta/rosetta/projects/imagen) | ✔️ |   | ✔️ |
 
 We will update this table as new models become available, so stay tuned.
 
