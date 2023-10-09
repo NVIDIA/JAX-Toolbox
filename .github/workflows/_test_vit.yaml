@@ -11,7 +11,7 @@ on:
       BATCH_SIZE_PER_GPU:
         type: number
         description: Batch size per GPU
-        default: 512
+        default: 256
         required: false
     outputs:
       TEST_STATUS:
