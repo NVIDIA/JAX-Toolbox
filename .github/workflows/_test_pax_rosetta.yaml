@@ -103,7 +103,7 @@ jobs:
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               --enable-te \
-              --additional-args \"--fdl.PACKED_INPUT=False\" \
+              --additional-args --fdl.PACKED_INPUT=False \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ inputs.EXTRA_TEST_ARGS }}'
           EOF
@@ -369,9 +369,9 @@ jobs:
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              --enable_dropout \
+              --enable-dropout \
               --enable-te \
-              --additional-args \"--fdl.PACKED_INPUT=False\" \
+              --additional-args --fdl.PACKED_INPUT=False \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ inputs.EXTRA_TEST_ARGS }}'
           EOF
