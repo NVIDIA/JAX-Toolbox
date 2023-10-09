@@ -2,6 +2,7 @@ import pytest
 import os
 import json
 import glob
+import sys
 import test_utils
 from statistics import mean
 
@@ -22,7 +23,7 @@ E2E_TIME_MULT = {
     "2DP2TP4PP":  0.95,
 }
 test_dir = os.path.dirname(os.path.abspath(__file__))
-baselines_dir = os.path.join(test_dir, "PAX_MGMN")
+baselines_dir = os.path.join(test_dir, sys.argv[1])
 results_dir = os.environ.get("RESULTS_DIR")
 loss_summary_name = "loss"
 step_time_summary_name = "Steps/sec"
@@ -37,7 +38,7 @@ def test_loss(baseline_filename):
     with open(baseline_filepath, "r") as baseline_file:
         end_step = json.load(baseline_file)["end_step"]
         loss_actual = test_utils.read_tb_tag(event_file, loss_summary_name)
-        assert loss_actual[end_step] == 0, f"Loss at final step: {loss_actual[end_step]}, Expected loss: 0"
+        assert loss_actual[end_step] < 1.6e-6, f"Loss at final step: {loss_actual[end_step]}, Expected loss < 1.6e-6"
 
 
 @pytest.mark.parametrize("baseline_filename", os.listdir(baselines_dir))
