@@ -1,0 +1,87 @@
+# Defaults for a T5 large embedding server
+#
+# Required to be set:
+#
+# - CHECKPOINT_PATH: The model checkpoint to evaluate
+# - EVAL_OUTPUT_DIR: The dir to write results to.
+#
+#
+# Commonly overridden options:
+#
+# - BATCH_SIZE
+from __gin__ import dynamic_registration
+
+import __main__ as embed_script
+from t5x import partitioning
+from t5x import utils
+from t5x import adafactor
+import seqio
+from rosetta.projects.inference_serving.t5 import network
+from rosetta.projects.inference_serving.t5 import models
+
+# =====================================
+# === T5 Encoder only configuration ===
+# =====================================
+CHECKPOINT_PATH = "/opt/rosetta/rosetta/projects/inference_serving/checkpoints/checkpoint_1000000_t5_1_1_xxl"
+EVAL_OUTPUT_DIR = %gin.REQUIRED
+BATCH_SIZE = 256 # Will be overridden
+SEQ_LEN = 128    # MAX seqlen
+
+# Vocabulary 
+VOCABULARY = @seqio.SentencePieceVocabulary()
+seqio.SentencePieceVocabulary.sentencepiece_model_file = "gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model"
+TASK_FEATURE_LENGTHS = None # auto-computes the maximum features length to use.
+
+# --------------- Model ------------------
+MODEL = @models.EncoderOnlyModel()
+models.EncoderOnlyModel:
+  module = @network.TransformerEncoderOnly()
+  input_vocabulary = %VOCABULARY
+  output_vocabulary = %VOCABULARY
+  optimizer_def = None
+  z_loss = 0.0001
+  label_smoothing = 0.0
+  loss_normalizing_factor = None
+
+# -------- Network specification ---------
+network.TransformerEncoderOnly.config = @network.T5Config()
+network.T5Config:
+  vocab_size = 32128  # vocab size rounded to a multiple of 128 for TPU efficiency
+  dtype = 'bfloat16'
+  emb_dim = 4096
+  num_heads = 64
+  num_encoder_layers = 24
+  num_decoder_layers = 0
+  head_dim = 64
+  mlp_dim = 10240
+  mlp_activations = ('gelu', 'linear')
+  dropout_rate = 0.0
+
+# ======================================
+# === Embedding script configuration ===
+# ======================================
+embed_script.zmq_run:
+  infer_fn = @embed_script.get_infer_fn()
+
+embed_script.get_infer_fn:
+  model = %MODEL  # imported from separate gin file
+  vocab = %VOCABULARY
+  restore_checkpoint_cfg = @utils.RestoreCheckpointConfig()
+  partitioner = @partitioning.PjitPartitioner()
+  preproc_fn = @embed_script.seqio_preprocessing_pow2
+  output_dir = %EVAL_OUTPUT_DIR
+  batch_size = %BATCH_SIZE
+  seq_len = %SEQ_LEN
+
+embed_script.seqio_preprocessing_pow2:
+  vocab = %VOCABULARY
+  seq_len = %SEQ_LEN
+
+partitioning.PjitPartitioner:
+  num_partitions = 1
+  logical_axis_rules = @partitioning.standard_logical_axis_rules()
+
+utils.RestoreCheckpointConfig:
+  path = %CHECKPOINT_PATH
+  mode = 'specific'
+  dtype = 'bfloat16'

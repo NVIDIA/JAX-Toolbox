@@ -1,0 +1,79 @@
+from __gin__ import dynamic_registration
+import jax.numpy as jnp
+from rosetta.projects.diffusion import mm_utils
+from rosetta.projects.diffusion import samplers
+from rosetta.projects.diffusion import wds_utils
+import t5.data
+
+IM_SHAPE=%gin.REQUIRED  #[h, w, c] i.e. (64,64,3)
+TXT_SHAPE=%gin.REQUIRED #[l, c]    i.e. (128, 4096)
+TXT_SEQLEN=%gin.REQURED #[l,]       i.e. (128). Should match dim[0] above. Must be a tuple (include trailing comma)
+
+MIXTURE_OR_TASK_NAME = ("/mnt/datasets/folder_containing_image_txt_dataset_shards", "/mnt/datasets/optionally_another_folder_containing_image_txt_dataset_shards") # Can be a single/tuple of directories or file paths in braceexpand format
+MIXTURE_OR_TASK_NAME_SAMPLING = "/opt/rosetta/rosetta/projects/diffusion/tests/custom_eval_prompts"
+DROPOUT_RATE = 0.0
+MODALITIES = {'samples': @images/wds_utils.ModalityConfig(), 'text': @text/wds_utils.ModalityConfig(), 'text_mask': @text_mask/wds_utils.ModalityConfig()}
+MODALITIES_SAMPLE = {'samples': @images_sample/wds_utils.ModalityConfig(), 'text': @text_sample/wds_utils.ModalityConfig(), 'text_mask': @text_mask_sample/wds_utils.ModalityConfig()}
+BATCH_PROC = @wds_utils.batch_infer_extern
+
+SAMPLING_CONFIG = @samplers.CFGSamplingConfig()
+samplers.CFGSamplingConfig:
+  num_steps=150
+  cf_guidance_weight=7.50
+  cf_guidance_nulls=None
+
+images/wds_utils.ModalityConfig:
+  ftype='jpg'
+  out_type='float32'
+  shape=%IM_SHAPE
+  process_func=@wds_utils.image_crop_scale
+  prefilter_func=@wds_utils.filter_lowres
+
+wds_utils.image_crop_scale:
+  out_img_shape=%IM_SHAPE
+
+wds_utils.filter_lowres:
+  min_dims=%IM_SHAPE
+  nhwc=True
+
+text/wds_utils.ModalityConfig:
+  ftype='txt'
+  out_type='float16'
+  shape=%TXT_SHAPE
+  process_func=@wds_utils.bare_txt_process
+
+wds_utils.bare_txt_process:
+  shape = %TXT_SHAPE
+
+text_mask/wds_utils.ModalityConfig:
+  ftype=None
+  out_type='int'
+  shape=%TXT_SEQLEN
+  process_func=None
+  no_load=True
+
+wds_utils.batch_infer_extern:
+  text_emb_shape=%TXT_SHAPE
+
+# Sampling modalities
+images_sample/wds_utils.ModalityConfig:
+  ftype=None 
+  out_type='float32'
+  shape=%IM_SHAPE
+  process_func=@wds_utils.blank_image
+
+wds_utils.blank_image:
+  out_img_shape=%IM_SHAPE
+
+text_sample/wds_utils.ModalityConfig:
+  ftype='txt'
+  out_type='float16'
+  shape=%TXT_SHAPE
+  process_func=@wds_utils.bare_txt_process
+
+text_mask_sample/wds_utils.ModalityConfig:
+  ftype=None
+  out_type='int'
+  shape=%TXT_SEQLEN
+  process_func=None
+  no_load=True

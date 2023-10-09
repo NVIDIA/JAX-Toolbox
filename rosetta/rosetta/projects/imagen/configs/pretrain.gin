@@ -1,0 +1,132 @@
+# Defaults for pretraining with train.py.
+#
+#
+# You must also include a binding for MODEL.
+#
+# Required to be set:
+#
+# - MIXTURE_OR_TASK_NAME
+# - TRAIN_STEPS
+# - MODALITIES
+# - MODEL_DIR
+#
+# Commonly overridden options:
+#
+# - train/DatasetConfig.batch_size
+# - train_eval/DatasetConfig.batch_size
+# - PjitPartitioner.num_partitions
+# - Trainer.num_microbatches
+# - DROPOUT_RATE
+from __gin__ import dynamic_registration
+
+import __main__ as train_script
+from t5x import gin_utils
+from t5x import partitioning
+from t5x import utils
+from t5x import trainer
+from rosetta.projects.diffusion import wds_utils
+from rosetta.projects.diffusion import mm_utils
+import optax
+
+MIXTURE_OR_TASK_NAME = %gin.REQUIRED
+MIXTURE_OR_TASK_NAME_SAMPLING = %MIXTURE_OR_TASK_NAME
+TRAIN_STEPS = %gin.REQUIRED
+MODEL_DIR = %gin.REQUIRED
+BATCH_SIZE = 128
+INFER_BS = %BATCH_SIZE
+INFER_SAMPLES = %INFER_BS
+BATCH_PROC=None
+HOSTNAMES_FILE=None
+SAMPLING_CONFIG= %gin.REQUIRED
+SAMPLING_ENABLE=True
+EMA = 0.9999
+
+# DEPRECATED: Import the this module in your gin file.
+MIXTURE_OR_TASK_MODULE = None
+SHUFFLE_TRAIN_EXAMPLES = True
+
+# HW RNG is faster than SW, but has limited determinism.
+# Most notably it is not deterministic across different
+# submeshes.
+USE_HARDWARE_RNG = False
+# None always uses faster, hardware RNG
+RANDOM_SEED = None
+
+# Can be overridden with `train.*`.`
+train_script.train:
+  model = %MODEL  # imported from separate gin file
+  model_dir = %MODEL_DIR
+  train_dataset_cfg = @train/wds_utils.WebDatasetConfig()
+  train_eval_dataset_cfg = None 
+  infer_eval_dataset_cfg = @sampling/wds_utils.WebDatasetConfig()
+  inference_evaluator_cls = @mm_utils.DiffusionSamplingEvaluator
+  checkpoint_cfg = @utils.CheckpointConfig()
+  partitioner = @partitioning.PjitPartitioner()
+  trainer_cls = @trainer.Trainer
+  total_steps = %TRAIN_STEPS
+  eval_steps = 20
+  eval_period = 5000
+  random_seed = %RANDOM_SEED
+  use_hardware_rng = %USE_HARDWARE_RNG
+  summarize_config_fn = @gin_utils.summarize_gin_config
+  get_dataset_fn = @mm_utils.get_dataset
+  run_eval_before_training=True
+  gc_period=1000
+  actions = {'TRAIN': @trainer.TerminateOnNanAction}
+  verify_matching_vocabs_fn = None
+
+partitioning.PjitPartitioner:
+  num_partitions = 1
+  model_parallel_submesh = None
+  logical_axis_rules = @partitioning.standard_logical_axis_rules()
+
+train/wds_utils.WebDatasetConfig:
+  mixture_or_task_name = %MIXTURE_OR_TASK_NAME
+  batch_size = %BATCH_SIZE
+  shuffle = %SHUFFLE_TRAIN_EXAMPLES
+  seed = None  # use a new seed each run/restart
+  modalities = %MODALITIES
+  batch_proc=%BATCH_PROC
+  hostnames_file=%HOSTNAMES_FILE
+  
+
+sampling/wds_utils.WebDatasetConfig:
+  mixture_or_task_name = %MIXTURE_OR_TASK_NAME_SAMPLING
+  batch_size = %INFER_BS 
+  shuffle = False
+  seed = None  # use a new seed each run/restart
+  modalities = %MODALITIES_SAMPLE
+  samples=%INFER_SAMPLES
+  batch_proc=%BATCH_PROC
+  hostnames_file=%HOSTNAMES_FILE
+
+utils.CheckpointConfig:
+  restore = @utils.RestoreCheckpointConfig()
+  save = @utils.SaveCheckpointConfig()
+utils.RestoreCheckpointConfig:
+  path = []  # initialize from scratch
+
+trainer.Trainer:
+  num_microbatches = None
+
+utils.SaveCheckpointConfig:
+  period = 5000
+  dtype = 'float32'
+  keep = 2  # keep 2 checkpoints
+  save_dataset = False  # checkpoint dataset state
+
+# This scheduler is made with adam in mind. Use the scheduler from pretrain.gin if using adafactor
+WARMUP_STEPS = 10000
+warmup/optax.linear_schedule:
+  init_value = 0.000001
+  end_value = 0.0001
+  transition_steps = %WARMUP_STEPS
+decay/optax.linear_schedule:
+  init_value = 0.0001
+  end_value = 0.00001
+  transition_steps = 2_490_000
+optax.join_schedules:
+  schedules = [@warmup/optax.linear_schedule(), @decay/optax.linear_schedule()]
+  boundaries = [%WARMUP_STEPS]
+
+

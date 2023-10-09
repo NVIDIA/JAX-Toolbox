@@ -31,6 +31,15 @@ ADD install-cudnn.sh /usr/local/bin
 RUN install-cudnn.sh
 
 ###############################################################################
+## Install NCCL
+###############################################################################
+
+RUN apt-get update && \
+    apt-get install -y libnccl-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+###############################################################################
 ## RoCE and InfiniteBand support
 ###############################################################################
 
@@ -50,3 +59,9 @@ ENV PATH=/opt/amazon/efa/bin:${PATH}
 ###############################################################################
 
 RUN ln -s /opt/nvidia/nsight-compute/*/host/target-linux-x64/nsys /usr/local/cuda/bin
+
+###############################################################################
+## Add the systemcheck to the entrypoint.
+###############################################################################
+
+COPY check-shm.sh /opt/nvidia/entrypoint.d/
