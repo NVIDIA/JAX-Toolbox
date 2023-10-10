@@ -186,7 +186,7 @@ jobs:
             echo '```'
           done | tee -a $GITHUB_STEP_SUMMARY
 
-          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py PAX_MGMN/upstream || true
+          RESULTS_DIR=$PWD BASELINES_DIR=PAX_MGMN/upstream pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v3
