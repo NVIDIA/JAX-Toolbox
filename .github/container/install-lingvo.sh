@@ -21,11 +21,9 @@ git cherry-pick --allow-empty pr329
 
 # Disable 2 flaky tests here
 patch -p1 < /opt/lingvo.patch
-popd
 
 
 ## Install lingvo
-pushd ${LINGVO_INSTALLED_DIR}
 sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
 sed -i 's/tensorflow-text=/#tensorflow-text=/'  docker/dev.requirements.txt
 sed -i 's/dataclasses=/#dataclasses=/'  docker/dev.requirements.txt
