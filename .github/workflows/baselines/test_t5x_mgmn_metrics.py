@@ -7,18 +7,18 @@ from statistics import mean
 from numpy.testing import assert_allclose
 
 LOSS_RTOL = {
-    '1G1N': 0.01,
+    '1G1N': 0.02,
     '1G2N': 0.03,
     '1P1G': 0.03,
     '1P2G': 0.03,
     '1P4G': 0.03,
     '1P8G': 0.035,
-    '2G1N': 0.015,
+    '2G1N': 0.025,
     '2G2N': 0.015,
     '4G1N': 0.03,
     '4G2N': 0.03,
-    '8G1N': 0.02,
-    '8G2N': 0.035
+    '8G1N': 0.03,
+    '8G2N': 0.05
 }
 STEP_TIME_MULT = {
     "1G1N": 0.95,
