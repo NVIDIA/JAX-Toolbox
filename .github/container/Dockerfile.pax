@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 ###############################################################################
-## Pax for AArch64 and Amd64 for GraceHopper.
+## Pax for Amd64 and Aarch64 for GraceHopper.
 ## We want both containers to be equivalent.
 ## GH need special treatments as not all pip wheel support it.
 ## So this is more complex than what x86 needs.
