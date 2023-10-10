@@ -31,6 +31,7 @@ RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazeli
 RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
 
 ## Install tensorflow-text
+## The checkout version must match the TF version.
 RUN cd ${INSTALL_DIR} && \
     git clone http://github.com/tensorflow/text.git && \
     cd text && \
@@ -47,14 +48,27 @@ ADD lingvo.patch /opt/
 RUN ARCH=`dpkg --print-architecture`; if [ "$ARCH" = "arm64" ] ; then install-lingvo.sh; else pip install lingvo; fi;
 
 ADD install-pax.sh /usr/local/bin
-RUN install-pax.sh
-
 ENV NVTE_FRAMEWORK=jax
 ADD install-te.sh /usr/local/bin
-RUN install-te.sh
-
 ADD install-flax.sh /usr/local/bin
-RUN install-flax.sh
+
+# Don't defer install pax as on ARM we have this error:
+# pip._vendor.resolvelib.resolvers.ResolutionTooDeep
+RUN install-pax.sh
+
+RUN <<"EOF" bash -ex
+install-flax.sh --defer
+install-te.sh --defer
+
+if [[ -f /opt/requirements-defer.txt ]]; then
+  # SKIP_HEAD_INSTALLS avoids having to install jax from Github source so that
+  # we do not overwrite the jax that was already installed.
+  SKIP_HEAD_INSTALLS=true pip install -r /opt/requirements-defer.txt
+fi
+if [[ -f /opt/cleanup.sh ]]; then
+  bash -ex /opt/cleanup.sh
+fi
+EOF
 
 # Install T5 now, Pip will build the wheel from source, it needs Rust.
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
