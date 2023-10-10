@@ -61,6 +61,8 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
+      # TODO: Can't build ARM until https://github.com/NVIDIA/JAX-Toolbox/pull/252 is available
+      PLATFORMS: '["amd64"]'
     secrets: inherit
 
   publish-build:

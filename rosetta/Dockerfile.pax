@@ -37,18 +37,4 @@ bash create-distribution.sh \
   -e /opt/praxis-mirror
 rm -rf $(find /opt -name "__pycache__")
 EOF
-  
-WORKDIR /opt/rosetta
-RUN <<EOF
-rmdir /opt/*-mirror
-pip install -e /opt/rosetta
-rm -rf ~/.cache/pip/
-EOF
 
-FROM rosetta AS rosetta-devel
-
-WORKDIR /opt/rosetta
-RUN <<EOF
-pip install -e '/opt/rosetta[test,lint]'
-rm -rf ~/.cache/pip/
-EOF

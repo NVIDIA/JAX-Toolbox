@@ -40,7 +40,6 @@ EOF
   
 WORKDIR /opt/rosetta
 RUN <<EOF bash -e
-rmdir /opt/*-mirror
 pip install -e /opt/rosetta --extra-index-url https://developer.download.nvidia.com/compute/redist
 rm -rf ~/.cache/pip/
 EOF
