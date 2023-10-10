@@ -38,16 +38,17 @@ bash create-distribution.sh \
 rm -rf $(find /opt -name "__pycache__")
 EOF
   
-WORKDIR /opt/rosetta
-RUN <<EOF bash -e
-pip install -e /opt/rosetta
-rm -rf ~/.cache/pip/
-EOF
-
-FROM rosetta AS rosetta-devel
-
-WORKDIR /opt/rosetta
-RUN <<EOF bash -e
-pip install -e '/opt/rosetta[test,lint]'
-rm -rf ~/.cache/pip/
-EOF
+# TODO(terry): Disabling for now since there all packages are currently intended for t5x based images
+#WORKDIR /opt/rosetta
+#RUN <<EOF bash -e
+#pip install -e /opt/rosetta
+#rm -rf ~/.cache/pip/
+#EOF
+#
+#FROM rosetta AS rosetta-devel
+#
+#WORKDIR /opt/rosetta
+#RUN <<EOF bash -e
+#pip install -e '/opt/rosetta[test,lint]'
+#rm -rf ~/.cache/pip/
+#EOF
