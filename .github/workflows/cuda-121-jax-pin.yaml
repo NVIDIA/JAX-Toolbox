@@ -1,4 +1,4 @@
-name: Nightly Pax on CUDA 12.1 (JAX pinned)
+name: Nightly Containers on CUDA 12.1 (JAX pinned)
 
 on:
   schedule:
