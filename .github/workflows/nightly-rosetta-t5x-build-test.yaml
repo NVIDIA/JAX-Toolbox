@@ -103,8 +103,16 @@ jobs:
       EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
     secrets: inherit
 
+  test-vit:
+    needs: build
+    uses: ./.github/workflows/_test_vit.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      ROSETTA_T5X_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+    secrets: inherit
+
   publish-t5x:
-    needs: [metadata, test-t5x]
+    needs: [metadata, test-t5x, test-vit]
     uses: ./.github/workflows/_publish_t5x_results.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
@@ -113,7 +121,7 @@ jobs:
     secrets: inherit
 
   publish-test:
-    needs: [metadata, build, test-unit, test-t5x]
+    needs: [metadata, build, test-unit, test-t5x, test-vit]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
@@ -123,17 +131,18 @@ jobs:
       SCRIPT: |
         UNIT_STATUS=${{ needs.test-unit.outputs.TEST_STATUS }}
         T5X_STATUS=${{ needs.test-t5x.outputs.TEST_STATUS }}
+        VIT_STATUS=${{ needs.test-vit.outputs.TEST_STATUS }}
 
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
         if [[ ${{ needs.build.result }} == "success" ]]; then
-          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]]; then
+          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]] then
             COLOR=brightgreen
             MESSAGE="Unit passed / MGMN passed"
           elif [[ $UNIT_STATUS == "success" ]]; then 
             COLOR=yellow
             MESSAGE="Unit passed / MGMN failed"
-          elif [[ $T5X_STATUS == "success" ]]; then
+          elif [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]]; then
             COLOR=yellow
             MESSAGE="Unit failed / MGMN passed"
           else
@@ -149,8 +158,8 @@ jobs:
         echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
 
   publish-latest-container:
-    needs: [metadata, build, test-t5x, test-unit]
-    if: ( needs.test-unit.outputs.TEST_STATUS == 'success' && needs.test-t5x.outputs.TEST_STATUS == 'success' ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    needs: [metadata, build, test-t5x, test-unit, test-vit]
+    if: ( needs.test-unit.outputs.TEST_STATUS == 'success' && needs.test-t5x.outputs.TEST_STATUS == 'success' && needs.test-vit.outputs.TEST_STATUS == 'success' ) && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
