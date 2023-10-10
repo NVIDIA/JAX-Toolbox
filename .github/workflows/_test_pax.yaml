@@ -98,7 +98,7 @@ jobs:
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-per-gpu 4 \
-              --steps 300 \
+              --steps 500 \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
               --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
