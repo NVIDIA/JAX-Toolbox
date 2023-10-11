@@ -101,6 +101,7 @@ jobs:
       T5X_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
       # Disable packing b/c rosetta-t5x images run with TE by default, and TE does not currently support packing
       EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
+      SUFFIX: "-rosetta"
     secrets: inherit
 
   test-vit:

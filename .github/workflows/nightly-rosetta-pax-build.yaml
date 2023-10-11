@@ -89,6 +89,7 @@ jobs:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
       PAX_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      SUFFIX: "-rosetta"
     secrets: inherit
 
   publish-test:
