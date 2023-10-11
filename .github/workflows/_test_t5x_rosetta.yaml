@@ -297,7 +297,7 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 't5x-test-completion-status.json'
+      ENDPOINT_FILENAME: 'rosetta-t5x-test-completion-status.json'
       PUBLISH: false
       SCRIPT: |
         EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
