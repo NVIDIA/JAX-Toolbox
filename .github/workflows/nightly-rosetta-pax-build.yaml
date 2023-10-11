@@ -85,11 +85,10 @@ jobs:
 
   test-pax:
     needs: build
-    uses: ./.github/workflows/_test_pax.yaml
+    uses: ./.github/workflows/_test_pax_rosetta.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
       PAX_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      EXTRA_TEST_ARGS: "--enable-te --additional-args \"--fdl.PACKED_INPUT=False\""
     secrets: inherit
 
   publish-test:

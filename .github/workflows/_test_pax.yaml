@@ -24,12 +24,13 @@ jobs:
     strategy:
       matrix:
         PARALLEL_CONFIG:
-        - [1, 1, 1]
-        - [8, 1, 1]
-        - [1, 8, 1]
-        - [2, 1, 4]
-        - [16, 1, 1]
-        - [2, 2, 4]
+        - [1, 1, 1, 1]
+        - [1, 8, 1, 1]
+        - [1, 1, 8, 1]
+        - [4, 2, 1, 1]
+        - [1, 4, 1, 2]
+        - [1, 16, 1, 1]
+        - [4, 2, 1, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -58,8 +59,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
-          TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }}))
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP
+          TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
           MAX_GPUS_PER_NODE=8
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
@@ -98,9 +99,10 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 500 \
-              --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
-              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
-              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
+              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
+              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ inputs.EXTRA_TEST_ARGS }}
@@ -170,7 +172,7 @@ jobs:
         shell: bash -x {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
-          for i in ${GITHUB_RUN_ID}-*DP*TP*PP; do
+          for i in ${GITHUB_RUN_ID}-*DP*FSDP*TP*PP; do
             SUBDIR=$(echo $i | cut -d'-' -f2)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
@@ -184,7 +186,7 @@ jobs:
             echo '```'
           done | tee -a $GITHUB_STEP_SUMMARY
 
-          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
+          RESULTS_DIR=$PWD BASELINES_DIR=PAX_MGMN/upstream pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v3
@@ -202,7 +204,7 @@ jobs:
       ENDPOINT_FILENAME: 'pax-test-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*TP*PP/*-status.json"
+        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*FSDP*TP*PP/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)

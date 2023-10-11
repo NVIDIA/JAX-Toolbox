@@ -34,12 +34,15 @@ def main():
     try:
         event_file = os.path.join(test_config, "summaries/train/events*")
         event_file = glob.glob(event_file)[0]
+        print(f'EVENT FILE: {event_file}')
         loss = read_tb_tag(event_file, loss_summary_name)
         train_time = read_tb_tag(event_file, train_time_summary_name)
         e2e_time = read_e2e_time(test_config + ".log")
 
         baseline = _create_summary(loss, train_time, e2e_time)
         json_fname = test_config + "_metrics.json"
+        print(f'JSON FILENAME: {json_fname}')
+
         with open(json_fname, "w") as f:
             json.dump(baseline, f)
 
