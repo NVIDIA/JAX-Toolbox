@@ -6,7 +6,7 @@ on:
       PAX_IMAGE:
         type: string
         description: PAX image from ghcr.io/nvidia/pax
-        default: latest
+        default: ghcr.io/nvidia/pax:latest
         required: false
       EXTRA_TEST_ARGS:
         type: string

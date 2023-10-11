@@ -5,8 +5,8 @@ on:
     inputs:
       T5X_IMAGE:
         type: string
-        description: T5X image from ghcr.io/nvidia/t5x
-        default: 'ghcr.io/nvidia/t5x:latest'
+        description: T5X image from ghcr.io/nvidia
+        default: 'ghcr.io/nvidia/upstream-t5x:latest'
         required: false
       BATCH_SIZE_PER_GPU:
         type: number
