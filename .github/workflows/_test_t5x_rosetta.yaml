@@ -21,24 +21,22 @@ jobs:
   single-process-multi-device:
     strategy:
       matrix:
-        TEST_NAME: ["1P1G-te-1"]
-        N_GPU: [1]
-        ADDITIONAL_ARGS: [""]
-        EXTRA_GIN_ARGS: ["--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"]
         include:
-          # First test should match the above
           - TEST_NAME: "1P1G_te-1"
             N_GPU: 1
+            ADDITIONAL_ARGS: ""
+            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
           - TEST_NAME: "1P1G_te-0"
             N_GPU: 1
             ADDITIONAL_ARGS: "--uninstall-te"
             EXTRA_GIN_ARGS: ""
           - TEST_NAME: "1P8G_te-1"
             N_GPU: 8
+            ADDITIONAL_ARGS: ""
+            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
     steps:
       - name: Print environment variables
         run: env
@@ -153,22 +151,22 @@ jobs:
   multi-gpu-multi-node:
     strategy:
       matrix:
-        TEST_NAME: ["1N1G-te-1"]
-        N_GPU: [1]
-        N_NODE: [1]
-        ADDITIONAL_ARGS: [""]
-        EXTRA_GIN_ARGS: ["--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"]
         include:
-          # First test should match the above
           - TEST_NAME: "1N1G-te-1"
             N_GPU: 1
             N_NODE: 1
+            ADDITIONAL_ARGS: ""
+            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
           - TEST_NAME: "1N8G-te-1"
             N_GPU: 8
             N_NODE: 1
+            ADDITIONAL_ARGS: ""
+            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
           - TEST_NAME: "2N8G-te-1"
             N_GPU: 8
             N_NODE: 2
+            ADDITIONAL_ARGS: ""
+            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
           - TEST_NAME: "2N2G_te-0"
             N_GPU: 2
             N_NODE: 2
