@@ -7,12 +7,12 @@ on:
         type: string
         description: "Base image to fast-forward dependencies (older)"
         required: false
-        default: "ghcr.io/nvidia/pax:nightly-2023-07-06"
+        default: "ghcr.io/nvidia/upstream-pax:nightly-2023-07-06"
       BROKEN_IMAGE:
         type: string
         description: 'Broken image (newer)'
         required: false
-        default: "ghcr.io/nvidia/pax:nightly-2023-07-08"
+        default: "ghcr.io/nvidia/upstream-pax:nightly-2023-07-08"
       REPO_DIRS:
         type: string
         description: "Space separated dirs to fast-forward (e.g., '/opt/flax /opt/t5x')"
@@ -29,12 +29,12 @@ on:
         type: string
         description: "Base image to fast-forward dependencies (older)"
         required: false
-        default: "ghcr.io/nvidia/t5x:nightly-2023-07-18"
+        default: "ghcr.io/nvidia/upstream-t5x:nightly-2023-07-18"
       BROKEN_IMAGE:
         type: string
         description: 'Broken image (newer)'
         required: false
-        default: "ghcr.io/nvidia/t5x:nightly-2023-07-20"
+        default: "ghcr.io/nvidia/upstream-t5x:nightly-2023-07-20"
       REPO_DIRS:
         type: string
         description: "Space separated dirs to fast-forward (e.g., '/opt/flax /opt/t5x')"
@@ -66,10 +66,10 @@ jobs:
       #  - Will go thru S, S+1, ..., E-1 in this order since it is assumed that S was the latest
       #    working image, so it has the best chance to succed.
       TAGS_BETWEEN: ${{ steps.meta.outputs.TAGS_BETWEEN }}
-      # If the BASE_IMAGE is ghcr.io/nvidia/t5x:nightly-YYYY-MM-DD, then BASE_IMAGE_REPO is ghcr.io/nvidia/t5x
+      # If the BASE_IMAGE is ghcr.io/nvidia/upstream-t5x:nightly-YYYY-MM-DD, then BASE_IMAGE_REPO is ghcr.io/nvidia/upstream-t5x
       BASE_IMAGE_REPO: ${{ steps.meta.outputs.BASE_IMAGE_REPO }}
       BROKEN_IMAGE: ${{ steps.meta.outputs.BROKEN_IMAGE }}
-      # This would be something like either t5x or pax
+      # This would be something like either upstream-t5x or upstream-pax
       FRAMEWORK_BASE: ${{ steps.meta.outputs.FRAMEWORK_BASE }}
       BROKEN_DATE: ${{ steps.meta.outputs.BROKEN_DATE }}
       UPLD_IMAGE: ${{ steps.meta.outputs.UPLD_IMAGE }}
@@ -96,8 +96,8 @@ jobs:
         
           BASE_IMAGE_REPO=$(echo $BASE_IMAGE | rev | cut -d: -f2- | rev)
           FRAMEWORK_BASE=$(echo $BASE_IMAGE_REPO | rev | cut -d/ -f1 | rev)
-          if [[ $FRAMEWORK_BASE != t5x && $FRAMEWORK_BASE != pax ]]; then
-            echo "BASE_IMAGE=$BASE_IMAGE can only be ghcr.io/nvidia/pax or ghcr.io/nvidia/t5x"
+          if [[ $FRAMEWORK_BASE != upstream-t5x && $FRAMEWORK_BASE != upstream-pax ]]; then
+            echo "BASE_IMAGE=$BASE_IMAGE can only be ghcr.io/nvidia/upstream-pax or ghcr.io/nvidia/upstream-t5x"
             exit 1
           fi
           ALL_BASE_TAGS="$(all_image_tags ${{ secrets.GITHUB_TOKEN }} $BASE_IMAGE_REPO)"
@@ -140,7 +140,7 @@ jobs:
   #######
   build-t5x-ff:
     needs: [metadata]
-    if: needs.metadata.outputs.FRAMEWORK_BASE == 't5x'
+    if: needs.metadata.outputs.FRAMEWORK_BASE == 'upstream-t5x'
     runs-on: [self-hosted, x86, small]
     strategy:
       # To enforce sequential execution, set to 1
@@ -212,7 +212,7 @@ jobs:
     secrets: inherit
   
   t5x-ff-summary:
-    if: (success() || failure()) && needs.metadata.outputs.FRAMEWORK_BASE == 't5x'
+    if: (success() || failure()) && needs.metadata.outputs.FRAMEWORK_BASE == 'upstream-t5x'
     needs: [metadata, test-t5x-ff]
     runs-on: ubuntu-22.04
     steps:
@@ -303,7 +303,7 @@ jobs:
   ########
   build-pax-ff:
     needs: metadata
-    if: needs.metadata.outputs.FRAMEWORK_BASE == 'pax'
+    if: needs.metadata.outputs.FRAMEWORK_BASE == 'upstream-pax'
     runs-on: [self-hosted, x86, small]
     strategy:
       # To enforce sequential execution, set to 1
@@ -369,7 +369,7 @@ jobs:
     secrets: inherit
   
   pax-ff-summary:
-    if: (success() || failure()) && needs.metadata.outputs.FRAMEWORK_BASE == 'pax'
+    if: (success() || failure()) && needs.metadata.outputs.FRAMEWORK_BASE == 'upstream-pax'
     needs: [metadata, test-pax-ff]
     runs-on: ubuntu-22.04
     steps:
