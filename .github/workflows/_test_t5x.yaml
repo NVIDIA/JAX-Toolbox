@@ -333,20 +333,19 @@ jobs:
         echo "Test statuses:"
         jq -rc 'input_filename,.' $EXIT_STATUSES
 
-        PYTEST_LOG=metrics-test-log/report.jsonl
+        METRICS_LOG=metrics-test-log/report.jsonl
         all_outcomes() {
-          cat $PYTEST_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+          cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
         }
         cnt_type() {
-          cat $PYTEST_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+          cat $METRICS_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
         }
         PYTEST_FAILED_TESTS=$(cnt_type failed)
         PYTEST_PASSED_TESTS=$(cnt_type passed)
         PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
 
         if ([[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
-            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]) || \
-            ([[ $PASSED_TESTS -eq $TOTAL_TESTS ]] && [[ $PYTEST_PASSED_TESTS -eq $PYTEST_TOTAL_TESTS ]]); then
+            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]); then
           STATUS=success
           BADGE_COLOR=brightgreen
         elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
