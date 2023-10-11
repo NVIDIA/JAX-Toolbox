@@ -28,14 +28,14 @@ RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazeli
     chmod a+x /usr/bin/bazel
 
 # force a recent tensorflow_datasets version to have latest protobuf dep
-RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
+RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.14.0
 
 ## Install tensorflow-text
 ## The checkout version must match the TF version.
 RUN cd ${INSTALL_DIR} && \
     git clone http://github.com/tensorflow/text.git && \
     cd text && \
-    git checkout v2.13.0 && \
+    git checkout v2.14.0 && \
     ./oss_scripts/run_build.sh && \
     find * | grep '.whl$' && \
     pip install ./tensorflow_text-*.whl && \
