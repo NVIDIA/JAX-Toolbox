@@ -234,7 +234,7 @@ jobs:
     needs: build-rosetta-t5x
     uses: ./.github/workflows/_test_t5x.yaml
     with:
-      T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAGS }}
+      T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAGS }}
       # Disable packing b/c rosetta-t5x images run with TE by default, and TE does not currently support packing
       EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
       SUFFIX: "-rosetta"
@@ -251,7 +251,7 @@ jobs:
     needs: build-rosetta-pax
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
-      PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAGS }}
+      PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAGS }}
       SUFFIX: "-rosetta"
     secrets: inherit
 
