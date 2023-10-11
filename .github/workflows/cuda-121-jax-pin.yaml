@@ -97,7 +97,7 @@ jobs:
 
           | Image        | Link                                               |
           | ------------ | -------------------------------------------------- |
-          | JAX (input)  | ${{ needs.metadata.outputs.JAX_BASE_IMAGE }}         |
+          | JAX (input)  | ${{ needs.metadata.outputs.JAX_BASE_IMAGE }}       |
           | T5X          | ${{ needs.build-t5x.outputs.DOCKER_TAGS }}         |
           | ROSETTA(T5X) | ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAGS }} |
           | PAX          | ${{ needs.build-pax.outputs.DOCKER_TAGS }}         |
