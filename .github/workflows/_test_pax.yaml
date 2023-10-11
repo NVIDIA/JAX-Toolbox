@@ -206,7 +206,7 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'pax-test-status.json'
+      ENDPOINT_FILENAME: 'pax-test-status${{ inputs.SUFFIX }}.json'
       PUBLISH: false
       SCRIPT: |
         EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*FSDP*TP*PP${{ inputs.SUFFIX }}/*-status.json"
