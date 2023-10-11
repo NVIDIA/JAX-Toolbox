@@ -52,3 +52,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh &
   rm -Rf /root/.cache /tmp/*
 
 ADD test-pax.sh /usr/local/bin
+
+# TODO: Utilize these build-args and use them when installing pax
+# ARG REPO_PAXML=https://github.com/google/paxml.git
+# ARG REPO_PRAXIS=https://github.com/google/praxis.git
+# ARG REF_PAXML=main
+# ARG REF_PRAXIS=main
+# install-pax.sh --defer --from_paxml ${REPO_PAXML} --from_praxis ${REPO_PRAXIS} --ref_paxml ${REF_PAXML} --ref_praxis ${REF_PRAXIS}

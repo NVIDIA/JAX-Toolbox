@@ -11,8 +11,10 @@ ADD install-flax.sh /usr/local/bin
 ADD install-te.sh /usr/local/bin
 
 ENV NVTE_FRAMEWORK=jax
+ARG REPO_T5X=https://github.com/google-research/t5x.git
+ARG REF_T5X=main
 RUN <<"EOF" bash -ex
-install-t5x.sh --defer
+install-t5x.sh --defer --from ${REPO_T5X} --ref ${REF_T5X}
 install-te.sh --defer
 
 if [[ -f /opt/requirements-defer.txt ]]; then
