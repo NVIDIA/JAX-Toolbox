@@ -448,7 +448,7 @@ jobs:
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
           done
 
-          echo '## PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
+          echo '## Rosetta PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
           for i in *_metrics.json; do
             echo $i | cut -d'.' -f1
             echo '```json'
@@ -471,7 +471,7 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'pax-test-status.json'
+      ENDPOINT_FILENAME: 'rosetta-pax-test-status.json'
       PUBLISH: false
       SCRIPT: |
         EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*FSDP*TP*PP*/*-status.json ${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
