@@ -44,6 +44,8 @@ pip install -e /opt/rosetta --extra-index-url https://developer.download.nvidia.
 rm -rf ~/.cache/pip/
 EOF
 
+ADD test-vit.sh /usr/local/bin
+
 FROM rosetta AS rosetta-devel
 
 WORKDIR /opt/rosetta

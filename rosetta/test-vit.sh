@@ -12,7 +12,7 @@ usage() {
     echo "  OPTIONS                DESCRIPTION"
     echo "  -b, --batch-size       Global batch size (REQUIRED)"
     echo "  -d, --dtype            Data type, defaults to bfloat16."
-    echo "  -t, --train-steps           Number of train steps to run, defaults to 100."
+    echo "  -t, --train-steps           Number of train steps to run, defaults to 500."
     echo "  --multiprocess         Enable the multiprocess GPU mode."
     echo "  -o, --output NAME      Name for the output folder, a temporary folder will be created if none specified."
     echo "  -h, --help             Print usage."
@@ -28,7 +28,7 @@ fi
 
 BATCH_SIZE=0
 DTYPE=bfloat16
-TRAIN_STEPS=100
+TRAIN_STEPS=500
 MULTIPROCESS=0
 OUTPUT=$(mktemp -d)
 
@@ -139,8 +139,6 @@ EOF
 set -x
 DATA_PATH="/tmp/dummy_vit_data"
 python -m generate_dummy_wds --output_tar_path=${DATA_PATH}
-
-head -n 2 ${DATA_PATH}/dataset.tar
 
 python -m t5x.train \
     --gin_file="/opt/rosetta/rosetta/projects/vit/configs/tests/small_pretrain_dummy.gin" \
