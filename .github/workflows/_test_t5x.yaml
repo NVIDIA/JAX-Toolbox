@@ -18,9 +18,9 @@ on:
         description: Extra gin args to pass to test-t5x.sh
         default: ""
         required: false
-      SUFFIX:
+      ARTIFACT_NAME:
         type: string
-        description: If provided, will append a suffix to the arfiact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
+        description:  If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
         default: ""
         required: false
     outputs:
@@ -63,7 +63,7 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
-          JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}${{ inputs.SUFFIX }}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -279,10 +279,10 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 't5x-test-completion-status${{ inputs.SUFFIX }}.json'
+      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}t5x-test-completion-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="${GITHUB_RUN_ID}-*[PG]*[GN]${{ inputs.SUFFIX }}/*-status.json"
+        EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-*[PG]*[GN]/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
