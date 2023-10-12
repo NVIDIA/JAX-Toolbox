@@ -23,6 +23,16 @@ on:
         description: Git commit, tag, or branch for T5X
         required: false
         default: main
+      REPO_TE:
+        type: string
+        description: URL of TE repository to check out
+        required: false
+        default: "https://github.com/NVIDIA/TransformerEngine.git"
+      REF_TE:
+        type: string
+        description: Git commit, tag, or branch for TE
+        required: false
+        default: main
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image built"
