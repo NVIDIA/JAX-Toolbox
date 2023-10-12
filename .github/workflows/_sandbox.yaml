@@ -18,6 +18,16 @@ on:
         description: Git commit, tag, or branch for T5X
         required: false
         default: unpin-tfds-gpu-extra
+      REPO_TE:
+        type: string
+        description: URL of TE repository to check out
+        required: false
+        default: "https://github.com/NVIDIA/TransformerEngine.git"
+      REF_TE:
+        type: string
+        description: Git commit, tag, or branch for TE
+        required: false
+        default: v0.13
       PUBLISH:
         type: boolean
         description: Publish dated images and update the 'latest' tag?
@@ -37,6 +47,8 @@ env:
   DEFAULT_JAX_BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6475553977-jax-multiarch
   DEFAULT_REPO_T5X: https://github.com/nvjax-svc-0/t5x.git
   DEFAULT_REF_T5X: unpin-tfds-gpu-extra
+  DEFAULT_REPO_TE: https://github.com/NVIDIA/TransformerEngine.git
+  DEFAULT_REF_TE: v0.13
 
 jobs:
 
@@ -47,6 +59,8 @@ jobs:
       JAX_BASE_IMAGE: ${{ steps.meta.outputs.JAX_BASE_IMAGE}}
       REPO_T5X: ${{ steps.meta.outputs.REPO_T5X }}
       REF_T5X: ${{ steps.meta.outputs.REF_T5X }}
+      REPO_TE: ${{ steps.meta.outputs.REPO_TE }}
+      REF_TE: ${{ steps.meta.outputs.REF_TE }}
     steps:
       - name: Set build date and base image
         id: meta
@@ -68,6 +82,16 @@ jobs:
             echo "REF_T5X=${{ env.DEFAULT_REF_T5X }}" >> $GITHUB_OUTPUT
           else
             echo "REF_T5X=${{ inputs.REF_T5X }}" >> $GITHUB_OUTPUT
+          fi
+          if [[ -z "${{ inputs.REPO_TE }}" ]]; then
+            echo "REPO_TE=${{ env.DEFAULT_REPO_TE }}" >> $GITHUB_OUTPUT
+          else
+            echo "REPO_TE=${{ inputs.REPO_TE }}" >> $GITHUB_OUTPUT
+          fi
+          if [[ -z "${{ inputs.REF_TE }}" ]]; then
+            echo "REF_TE=${{ env.DEFAULT_REF_TE }}" >> $GITHUB_OUTPUT
+          else
+            echo "REF_TE=${{ inputs.REF_TE }}" >> $GITHUB_OUTPUT
           fi
 
   build-pax:
@@ -95,6 +119,8 @@ jobs:
       BASE_IMAGE: ${{ needs.metadata.outputs.JAX_BASE_IMAGE }}
       REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
       REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
+      REPO_TE: ${{ needs.metadata.outputs.REPO_TE }}
+      REF_TE: ${{ needs.metadata.outputs.REF_TE }}
     secrets: inherit
 
   build-rosetta-t5x:
