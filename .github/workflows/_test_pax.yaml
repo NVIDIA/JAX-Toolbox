@@ -5,8 +5,8 @@ on:
     inputs:
       PAX_IMAGE:
         type: string
-        description: PAX image from ghcr.io/nvidia/pax
-        default: latest
+        description: PAX image from ghcr.io/nvidia
+        default: ghcr.io/nvidia/upstream-pax:latest
         required: false
       EXTRA_TEST_ARGS:
         type: string
