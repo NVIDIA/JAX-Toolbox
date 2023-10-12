@@ -5,6 +5,8 @@ set -ex
 export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 
+apt-get update
+
 # Extract CUDA version from `nvcc --version` output line
 # Input: "Cuda compilation tools, release X.Y, VX.Y.Z"
 # Output: X.Y
