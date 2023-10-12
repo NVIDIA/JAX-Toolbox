@@ -154,7 +154,6 @@ export TF_CUDNN_PATHS=/usr/lib/$(uname -p)-linux-gnu
 export TF_CUDA_VERSION=$(ls /usr/local/cuda/lib64/libcudart.so.*.*.* | cut -d . -f 3-4)
 export TF_CUBLAS_VERSION=$(ls /usr/local/cuda/lib64/libcublas.so.*.*.* | cut -d . -f 3)
 export TF_CUDNN_VERSION=$(echo "${NV_CUDNN_VERSION}" | cut -d . -f 1)
-export TF_NCCL_VERSION=$(echo "${NCCL_VERSION}" | cut -d . -f 1)
 
 case "${CPU_ARCH}" in
     "amd64")
