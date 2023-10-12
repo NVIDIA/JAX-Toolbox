@@ -52,9 +52,14 @@ ENV NVTE_FRAMEWORK=jax
 ADD install-te.sh /usr/local/bin
 ADD install-flax.sh /usr/local/bin
 
+ARG REPO_PAXML=https://github.com/google/paxml.git
+ARG REPO_PRAXIS=https://github.com/google/praxis.git
+ARG REF_PAXML=main
+ARG REF_PRAXIS=main
+
 # Don't defer install pax as on ARM we have this error:
 # pip._vendor.resolvelib.resolvers.ResolutionTooDeep
-RUN install-pax.sh
+RUN install-pax.sh --from_paxml ${REPO_PAXML} --from_praxis ${REPO_PRAXIS} --ref_paxml ${REF_PAXML} --ref_praxis ${REF_PRAXIS}
 
 RUN <<"EOF" bash -ex
 install-flax.sh --defer
@@ -86,10 +91,3 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh &
   rm -Rf /root/.cache /tmp/*
 
 ADD test-pax.sh /usr/local/bin
-
-# TODO: Utilize these build-args and use them when installing pax
-# ARG REPO_PAXML=https://github.com/google/paxml.git
-# ARG REPO_PRAXIS=https://github.com/google/praxis.git
-# ARG REF_PAXML=main
-# ARG REF_PRAXIS=main
-# install-pax.sh --defer --from_paxml ${REPO_PAXML} --from_praxis ${REPO_PRAXIS} --ref_paxml ${REF_PAXML} --ref_praxis ${REF_PRAXIS}
