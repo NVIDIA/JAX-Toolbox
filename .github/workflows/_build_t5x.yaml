@@ -98,3 +98,5 @@ jobs:
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             REPO_T5X=${{ inputs.REPO_T5X }}
             REF_T5X=${{ inputs.REF_T5X }}
+            REPO_TE=${{ inputs.REPO_TE }}
+            REF_TE=${{ inputs.REF_TE }}
