@@ -13,7 +13,7 @@ on:
         description: Extra command line args to pass to test-pax.sh
         default: ""
         required: false
-    ARTIFACT_NAME:
+      ARTIFACT_NAME:
         type: string
         description: If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
         default: ""
