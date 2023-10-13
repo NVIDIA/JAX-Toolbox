@@ -5,8 +5,8 @@ on:
     inputs:
       T5X_IMAGE:
         type: string
-        description: T5X image from ghcr.io/nvidia/t5x
-        default: 'ghcr.io/nvidia/t5x:latest'
+        description: T5X image from ghcr.io/nvidia
+        default: 'ghcr.io/nvidia/upstream-t5x:latest'
         required: false
       BATCH_SIZE_PER_GPU:
         type: number
@@ -273,8 +273,46 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  publish-test:
+  metrics:
     needs: [multi-gpu-multi-node, single-process-multi-device]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Run pytest
+        shell: bash -x {0}
+        run: |
+          pip install pytest pytest-reportlog tensorboard
+          for i in ${GITHUB_RUN_ID}-*; do
+            SUBDIR=$(echo $i | cut -d'-' -f2)
+            mv $i/$SUBDIR* .
+            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
+          done
+
+          echo '## T5X MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
+          for i in *_metrics.json; do
+            echo $i | cut -d'.' -f1
+            echo '```json'
+            jq . $i
+            echo '```'
+          done | tee -a $GITHUB_STEP_SUMMARY
+
+          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
+
+      - name: Upload metrics test json logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: metrics-test-log
+          path: report.jsonl
+
+
+  publish-test:
+    needs: [multi-gpu-multi-node, single-process-multi-device, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
@@ -300,18 +338,31 @@ jobs:
         echo "Test statuses:"
         jq -rc 'input_filename,.' $EXIT_STATUSES
 
-        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-          echo "STATUS=success" >> $GITHUB_OUTPUT
+        METRICS_LOG=metrics-test-log/report.jsonl
+        all_outcomes() {
+          cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+        }
+        cnt_type() {
+          cat $METRICS_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+        }
+        PYTEST_FAILED_TESTS=$(cnt_type failed)
+        PYTEST_PASSED_TESTS=$(cnt_type passed)
+        PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
+
+        if ([[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
+            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]); then
+          STATUS=success
           BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]]; then
-          echo "STATUS=failure" >> $GITHUB_OUTPUT
+        elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
+          STATUS=failure
           BADGE_COLOR=red
         else
-          echo "STATUS=failure" >> $GITHUB_OUTPUT
+          STATUS=failure
           BADGE_COLOR=yellow
         fi
+        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
   summary:
