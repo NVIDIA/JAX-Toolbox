@@ -5,11 +5,11 @@ set -ex -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 
-# If NCCL is already installed, don't reinstall it. Print a message and exit
-if dpkg -s libnccl2 libnccl-dev &> /dev/null; then
-    echo "NCCL is already installed. Skipping installation."
-    exit 0
-fi
+# # If NCCL is already installed, don't reinstall it. Print a message and exit
+# if dpkg -s libnccl2 libnccl-dev &> /dev/null; then
+#     echo "NCCL is already installed. Skipping installation."
+#     exit 0
+# fi
 
 apt-get update
 
@@ -27,7 +27,7 @@ if [[ -z "${libnccl2_version}" || -z "${libnccl_dev_version}" ]]; then
     exit 1
 fi
 
-apt-get install -y \
+apt-get install -y --allow-change-held-packages \
     libnccl2=${libnccl2_version} \
     libnccl-dev=${libnccl_dev_version}
 
