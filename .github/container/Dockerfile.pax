@@ -45,7 +45,7 @@ RUN cd ${INSTALL_DIR} && \
 # Lingvo
 ADD install-lingvo.sh /usr/local/bin
 ADD lingvo.patch /opt/
-RUN ARCH=`dpkg --print-architecture`; if [ "$ARCH" = "arm64" ] ; then install-lingvo.sh; else pip install lingvo; fi;
+RUN ARCH=$(dpkg --print-architecture); if [ "$ARCH" = "arm64" ] ; then install-lingvo.sh; else pip install lingvo; fi;
 
 ADD install-pax.sh /usr/local/bin
 ENV NVTE_FRAMEWORK=jax
@@ -62,7 +62,6 @@ ARG REF_PRAXIS=main
 RUN install-pax.sh --from_paxml ${REPO_PAXML} --from_praxis ${REPO_PRAXIS} --ref_paxml ${REF_PAXML} --ref_praxis ${REF_PRAXIS}
 
 RUN <<"EOF" bash -ex
-install-flax.sh --defer
 install-te.sh --defer
 
 if [[ -f /opt/requirements-defer.txt ]]; then
@@ -73,9 +72,9 @@ fi
 if [[ -f /opt/cleanup.sh ]]; then
   bash -ex /opt/cleanup.sh
 fi
-EOF
+OF
 
-# Install T5 now, Pip will build the wheel from source, it needs Rust.
+ Install T5 now, Pip will build the wheel from source, it needs Rust.
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
   echo "be3535b3033ff5e0ecc4d589a35d3656f681332f860c5fd6684859970165ddcc /tmp/rustup.sh" | sha256sum --check && \
   bash /tmp/rustup.sh -y && \
