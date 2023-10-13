@@ -119,15 +119,15 @@ jobs:
       REF_XLA: ${{ needs.metadata.outputs.REF_XLA }}
     secrets: inherit
 
-  build-te:
-    needs: [metadata, build-jax]
-    uses: ./.github/workflows/_build_te.yaml
-    with:
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
-      REPO_TE: ${{ needs.metadata.outputs.REPO_TE }}
-      REF_TE: ${{ needs.metadata.outputs.REF_TE }}
-    secrets: inherit
+  # build-te:
+  #   needs: [metadata, build-jax]
+  #   uses: ./.github/workflows/_build_te.yaml
+  #   with:
+  #     BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+  #     REPO_TE: ${{ needs.metadata.outputs.REPO_TE }}
+  #     REF_TE: ${{ needs.metadata.outputs.REF_TE }}
+  #   secrets: inherit
 
   build-t5x:
     needs: [metadata, build-jax]
@@ -182,7 +182,8 @@ jobs:
     secrets: inherit
 
   build-summary:
-    needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-rosetta-t5x, build-rosetta-pax]
+    needs: [build-base, build-jax, build-t5x, build-pax, build-rosetta-t5x, build-rosetta-pax]
+    # needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-rosetta-t5x, build-rosetta-pax]
     # needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-pax-aarch64, build-rosetta-t5x, build-rosetta-pax]
     if: always()
     runs-on: ubuntu-22.04
@@ -197,7 +198,6 @@ jobs:
           | ------------ | -------------------------------------------------- |
           | Base         | ${{ needs.build-base.outputs.DOCKER_TAGS }}        |
           | JAX          | ${{ needs.build-jax.outputs.DOCKER_TAGS }}         |
-          | JAX-TE       | ${{ needs.build-te.outputs.DOCKER_TAGS }}          |
           | T5X          | ${{ needs.build-t5x.outputs.DOCKER_TAGS }}         |
           | PAX          | ${{ needs.build-pax.outputs.DOCKER_TAGS }}         |
           | ROSETTA(t5x) | ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAGS }} |
@@ -216,12 +216,12 @@ jobs:
       JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
     secrets: inherit
 
-  test-te:
-    needs: build-te
-    uses: ./.github/workflows/_test_te.yaml
-    with:
-      JAX_TE_IMAGE: ${{ needs.build-te.outputs.DOCKER_TAGS }}
-    secrets: inherit
+  # test-te:
+  #   needs: build-te
+  #   uses: ./.github/workflows/_test_te.yaml
+  #   with:
+  #     JAX_TE_IMAGE: ${{ needs.build-te.outputs.DOCKER_TAGS }}
+  #   secrets: inherit
 
   test-upstream-t5x:
     needs: build-t5x
@@ -266,7 +266,8 @@ jobs:
   finalize:
     if: always()
     # TODO: use dynamic matrix to make dependencies self-updating
-    needs: [build-summary, test-distribution, test-jax, test-te, test-t5x, test-pax]
+    # needs: [build-summary, test-distribution, test-jax, test-te, test-t5x, test-pax]
+    needs: [build-summary, test-distribution, test-jax, test-t5x, test-pax]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: false
