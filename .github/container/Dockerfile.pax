@@ -1,0 +1,93 @@
+# syntax=docker/dockerfile:1-labs
+###############################################################################
+## Pax for Amd64 and Aarch64 for GraceHopper.
+## We want both containers to be equivalent.
+## GH need special treatments as not all pip wheel support it.
+## So this is more complex than what x86 needs.
+## Overtime the GH installation should be simpler.
+###############################################################################
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
+FROM ${BASE_IMAGE}
+
+# We need to build some packages from source, bring some dependencies.
+RUN apt-get update && \
+  apt-get update && \
+  apt-get install -y \
+    bat \
+    curl \
+    git \
+    gnupg \
+    rsync \
+    liblzma-dev \
+    && \
+  apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists
+
+
+RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-$(dpkg --print-architecture) -O /usr/bin/bazel && \
+    chmod a+x /usr/bin/bazel
+
+# force a recent tensorflow_datasets version to have latest protobuf dep
+RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.14.0
+
+## Install tensorflow-text
+## The checkout version must match the TF version.
+RUN cd ${INSTALL_DIR} && \
+    git clone http://github.com/tensorflow/text.git && \
+    cd text && \
+    git checkout v2.14.0 && \
+    ./oss_scripts/run_build.sh && \
+    find * | grep '.whl$' && \
+    pip install ./tensorflow_text-*.whl && \
+    cd .. && \
+    rm -Rf text
+
+# Lingvo
+ADD install-lingvo.sh /usr/local/bin
+ADD lingvo.patch /opt/
+RUN ARCH=`dpkg --print-architecture`; if [ "$ARCH" = "arm64" ] ; then install-lingvo.sh; else pip install lingvo; fi;
+
+ADD install-pax.sh /usr/local/bin
+ENV NVTE_FRAMEWORK=jax
+ADD install-te.sh /usr/local/bin
+ADD install-flax.sh /usr/local/bin
+
+ARG REPO_PAXML=https://github.com/google/paxml.git
+ARG REPO_PRAXIS=https://github.com/google/praxis.git
+ARG REF_PAXML=main
+ARG REF_PRAXIS=main
+
+# Don't defer install pax as on ARM we have this error:
+# pip._vendor.resolvelib.resolvers.ResolutionTooDeep
+RUN install-pax.sh --from_paxml ${REPO_PAXML} --from_praxis ${REPO_PRAXIS} --ref_paxml ${REF_PAXML} --ref_praxis ${REF_PRAXIS}
+
+RUN <<"EOF" bash -ex
+install-flax.sh --defer
+install-te.sh --defer
+
+if [[ -f /opt/requirements-defer.txt ]]; then
+  # SKIP_HEAD_INSTALLS avoids having to install jax from Github source so that
+  # we do not overwrite the jax that was already installed.
+  SKIP_HEAD_INSTALLS=true pip install -r /opt/requirements-defer.txt
+fi
+if [[ -f /opt/cleanup.sh ]]; then
+  bash -ex /opt/cleanup.sh
+fi
+EOF
+
+# Install T5 now, Pip will build the wheel from source, it needs Rust.
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
+  echo "be3535b3033ff5e0ecc4d589a35d3656f681332f860c5fd6684859970165ddcc /tmp/rustup.sh" | sha256sum --check && \
+  bash /tmp/rustup.sh -y && \
+  export PATH=$PATH:/root/.cargo/bin && \
+  pip install t5 && \
+  rm -Rf /root/.cargo /root/.rustup && \
+  mv /root/.profile /root/.profile.save && \
+  grep -v cargo /root/.profile.save > /root/.profile && \
+  rm /root/.profile.save && \
+  mv /root/.bashrc /root/.bashrc.save && \
+  grep -v cargo /root/.bashrc.save > /root/.bashrc && \
+  rm /root/.bashrc.save && \
+  rm -Rf /root/.cache /tmp/*
+
+ADD test-pax.sh /usr/local/bin

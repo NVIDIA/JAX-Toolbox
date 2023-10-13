@@ -92,7 +92,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.pax.${{ matrix.PLATFORM }}
+          file: .github/container/Dockerfile.pax
           platforms: linux/${{ matrix.PLATFORM }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
