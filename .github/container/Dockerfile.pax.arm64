@@ -35,6 +35,10 @@ RUN install-pax.sh
 ENV NVTE_FRAMEWORK=jax
 ADD install-te.sh /usr/local/bin
 RUN install-te.sh
+# Lingvo has pinned TF to 2.13, so we need to downgrade the pydantic version so that its
+# transitive dependency on typing-extensions satisfies TF 2.13's req of typing-extensions>=3.6.6,<4.6.0.
+# This version of pydantic is the latest version that satisfies the typing-extensions requirement
+RUN pip install pydantic==1.10.13 
 
 # Install T5 now, Pip will build the wheel from source, it needs Rust.
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
