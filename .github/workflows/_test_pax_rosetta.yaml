@@ -447,13 +447,13 @@ jobs:
         shell: bash -x {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
-          for i in ${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${GITHUB_RUN_ID}-*DP_TE_dropout; do
+          for i in ${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-*DP_TE_dropout; do
             SUBDIR=$(echo $i | cut -d'-' -f2)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
           done
 
-          echo '## PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
+          echo '## Rosetta PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
           for i in *_metrics.json; do
             echo $i | cut -d'.' -f1
             echo '```json'
@@ -533,9 +533,9 @@ jobs:
           (
           cat << EOF
 
-          ## PAX MGMN training
+          ## Rosetta PAX MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
