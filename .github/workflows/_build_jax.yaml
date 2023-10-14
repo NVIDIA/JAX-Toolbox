@@ -114,17 +114,6 @@ jobs:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
-      - name: Obtain digest of base image
-        id: base-digest
-        run: |
-          BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BASE_IMAGE_DIGEST=$(
-            docker manifest inspect $BASE_IMAGE |\
-            jq -r '.manifests[] | select(.platform.os == "linux") | select(.platform.architecture == "${{ matrix.PLATFORM }}") | .digest' |\
-            sed "s/sha256://g"
-          )
-          echo "BASE_IMAGE_DIGEST=${BASE_IMAGE_DIGEST}" >> $GITHUB_OUTPUT
-
       - name: Build docker images
         id: build
         uses: docker/build-push-action@v4
@@ -140,7 +129,7 @@ jobs:
             "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-            BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}/${{ steps.base-digest.outputs.BASE_IMAGE_DIGEST }}
+            BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             REPO_JAX=${{ inputs.REPO_JAX }}
             REPO_XLA=${{ inputs.REPO_XLA }}
