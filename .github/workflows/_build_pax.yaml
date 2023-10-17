@@ -34,9 +34,13 @@ on:
         required: false
         default: main
     outputs:
-      DOCKER_TAGS:
-        description: "Tags of the image built"
-        value: ${{ jobs.merge.outputs.DOCKER_TAGS }}
+      MULTIARCH_IMAGE:
+        description: "Tags of the created multi-arch image"
+        value: ${{ jobs.merge.outputs.MULTIARCH_IMAGE }}
+      SINGLEARCH_IMAGES:
+        description: "Tags of the created single-arch images"
+        value: ${{ jobs.merge.outputs.SINGLEARCH_IMAGES }}
+
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -77,32 +81,33 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-upstream-pax-${{  matrix.PLATFORM }}
+            # type=raw,value=${{ github.run_id }}-upstream-pax-${{  matrix.PLATFORM }}
+            type=raw,value=6551373817-upstream-pax-${{  matrix.PLATFORM }}
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        with:
-          driver-opts: |
-            image=moby/buildkit:v0.12.1
+      # - name: Set up Docker Buildx
+      #   uses: docker/setup-buildx-action@v2
+      #   with:
+      #     driver-opts: |
+      #       image=moby/buildkit:v0.12.1
 
-      - name: Build docker images
-        uses: docker/build-push-action@v4
-        with:
-          context: .github/container
-          push: true
-          file: .github/container/Dockerfile.pax.${{ matrix.PLATFORM }}
-          platforms: linux/${{ matrix.PLATFORM }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-            BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_PAXML=${{ inputs.REPO_PAXML }}
-            REPO_PRAXIS=${{ inputs.REPO_PRAXIS }}
-            REF_PAXML=${{ inputs.REF_PAXML }}
-            REF_PRAXIS=${{ inputs.REF_PRAXIS }}
+      # - name: Build docker images
+      #   uses: docker/build-push-action@v4
+      #   with:
+      #     context: .github/container
+      #     push: true
+      #     file: .github/container/Dockerfile.pax.${{ matrix.PLATFORM }}
+      #     platforms: linux/${{ matrix.PLATFORM }}
+      #     tags: ${{ steps.meta.outputs.tags }}
+      #     labels: ${{ steps.meta.outputs.labels }}
+      #     build-args: |
+      #       BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+      #       BUILD_DATE=${{ inputs.BUILD_DATE }}
+      #       REPO_PAXML=${{ inputs.REPO_PAXML }}
+      #       REPO_PRAXIS=${{ inputs.REPO_PRAXIS }}
+      #       REF_PAXML=${{ inputs.REF_PAXML }}
+      #       REF_PRAXIS=${{ inputs.REF_PRAXIS }}
 
       # Temporary workaround until the following issues are solved:
       # https://github.com/orgs/community/discussions/17245
@@ -123,7 +128,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     outputs:
-      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
+      MULTIARCH_IMAGE: ${{ steps.meta.outputs.tags }}
+      SINGLEARCH_IMAGES: ${{ steps.collect.outputs.tags }}
     steps:
       # TODO: currently downloading all artifacts of the entire workflow
       # Revise when this request is fulfilled:
@@ -150,12 +156,20 @@ jobs:
             type=raw,value=${{ github.run_id }}-upstream-pax-multiarch
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+        
+      - name: Collect single-arch images
+        id: collect
+        shell: bash -x -e {0}
+        run: |
+          tags=$(cat image-name-upstream-pax-*/image-name.txt)
+          echo "tags='${tags}'" >> $GITHUB_OUTPUT
 
       - name: Combine images into a single multi-arch image
+        id: manifest
         shell: bash -x -e {0}
         run: |
           docker manifest create ${{ steps.meta.outputs.tags }} $(
-            for IMAGE in $(cat image-name-upstream-pax-*/image-name.txt); do
+            for IMAGE in ${{ steps.collect.outputs.tags }}; do
               REPO=$(echo $IMAGE | cut -d: -f1)
               DIGEST=$(
                 docker manifest inspect $IMAGE |\
