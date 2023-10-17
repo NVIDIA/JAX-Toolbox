@@ -24,12 +24,12 @@ on:
         type: string
         description: URL of TE repository to check out
         required: false
-        default: "https://github.com/NVIDIA/TransformerEngine.git"
+        default: "https://github.com/terrykong/TransformerEngine.git"
       REF_TE:
         type: string
         description: Git commit, tag, or branch for TE
         required: false
-        default: v0.13
+        default: v0.13-canonical-dtype-backport
       PUBLISH:
         type: boolean
         description: Publish dated images and update the 'latest' tag?
