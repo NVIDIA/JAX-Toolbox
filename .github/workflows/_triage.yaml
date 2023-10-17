@@ -236,7 +236,7 @@ jobs:
           name_conclusion_array=()
           while IFS= read -r line; do
             name_conclusion_array+=("$line")
-          done < <(echo "$json_data" | jq -r '.jobs[] | select(.name | startswith("test-t5x-ff") and contains("outcome")) | "\(.name)\t\(.conclusion)"')
+          done < <(echo "$json_data" | jq -r '.jobs[] | select(.name | contains("test-t5x-ff") and endswith(" / outcome")) | "\(.name)\t\(.conclusion)"')
         
           TABLE_MD=$(
           cat <<EOF
@@ -393,7 +393,7 @@ jobs:
           name_conclusion_array=()
           while IFS= read -r line; do
             name_conclusion_array+=("$line")
-          done < <(echo "$json_data" | jq -r '.jobs[] | select(.name | startswith("test-pax-ff") and contains("outcome")) | "\(.name)\t\(.conclusion)"')
+          done < <(echo "$json_data" | jq -r '.jobs[] | select(.name | contains("test-pax-ff") and endswith(" / outcome")) | "\(.name)\t\(.conclusion)"')
         
           TABLE_MD=$(
           cat <<EOF
