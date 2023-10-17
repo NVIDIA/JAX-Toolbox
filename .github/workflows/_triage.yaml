@@ -117,8 +117,8 @@ jobs:
           filter_valid_tags() {
             fgrep -x -f <(echo "$ALL_BASE_TAGS")
           }
-          start_date=${BASE_IMAGE##*nightly-}
-          end_date=$(get_build_date ${{ secrets.GITHUB_TOKEN }} $BROKEN_IMAGE )
+          start_date=$(get_build_date ${{ secrets.GITHUB_TOKEN }} $BASE_IMAGE linux amd64)
+          end_date=$(get_build_date ${{ secrets.GITHUB_TOKEN }} $BROKEN_IMAGE linux amd64)
           if ! docker manifest inspect ${BASE_IMAGE} >/dev/null 2>&1; then
             echo "Script assumes $BASE_IMAGE exists, but it wasn't found"
             exit 1
