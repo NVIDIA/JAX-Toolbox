@@ -14,7 +14,7 @@ usage() {
     echo "  OPTIONS                   DESCRIPTION"
     echo "  -a, --additional-args     Additional gin args to pass to t5x/train.py"
     echo "  -b, --batch-size          Global batch size (REQUIRED)"
-    echo "  -c --use-contrib-configs  If provided uses contrib/gpu configs instead of top-level configs. Notably, gpu configs use adamw instead of adafactor"
+    echo "  -c, --use-contrib-configs If provided uses contrib/gpu configs instead of top-level configs. Notably, gpu configs use adamw instead of adafactor"
     echo "  -d, --dtype               Data type, defaults to bfloat16."
     echo "  -e, --epochs              Number of epochs to run, defaults to 7."
     echo "  --multiprocess            Enable the multiprocess GPU mode."
