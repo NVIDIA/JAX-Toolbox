@@ -97,6 +97,7 @@ jobs:
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
+              --use-gpu-configs \
               ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
@@ -239,6 +240,7 @@ jobs:
               --epochs 7 \
               --steps-per-epoch 100 \
               --multiprocess \
+              --use-gpu-configs \
               ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
@@ -294,7 +296,7 @@ jobs:
   publish-test:
     needs: [multi-gpu-multi-node, single-process-multi-device]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: ( always() )
+    if: success() || failure()
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-t5x-test-completion-status.json'
@@ -351,7 +353,7 @@ jobs:
   outcome:
     needs: publish-test
     runs-on: ubuntu-22.04
-    if: ( always() )
+    if: success() || failure()
     steps:
       - name: Sets workflow status based on test outputs 
         run: |
