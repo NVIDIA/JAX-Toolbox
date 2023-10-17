@@ -161,7 +161,7 @@ jobs:
         id: collect
         shell: bash -x -e {0}
         run: |
-          tags=$(cat image-name-upstream-pax-*/image-name.txt)
+          tags=$(cat image-name-upstream-pax-*/image-name.txt | tr '\n' ' ')
           echo "tags='${tags}'" >> $GITHUB_OUTPUT
 
       - name: Combine images into a single multi-arch image
