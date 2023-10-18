@@ -169,7 +169,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           docker manifest create ${{ steps.meta.outputs.tags }} $(
-            for IMAGE in ${{ steps.collect.outputs.tags }}; do
+            echo ${{ steps.collect.outputs.tags }} | while read -s IMAGE; do
               REPO=$(echo $IMAGE | cut -d: -f1)
               DIGEST=$(
                 docker manifest inspect $IMAGE |\
