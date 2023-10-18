@@ -29,5 +29,5 @@ jobs:
           | Image        | Link                                               |
           | ------------ | -------------------------------------------------- |
           | PAX          | ${{ needs.build-pax.outputs.MULTIARCH_IMAGE }}     |
-          |              | $(echo ${{ needs.build-pax.outputs.SINGLEARCH_IMAGEs }} | sed "s/ /<br>/g" |
+          |              | $(echo ${{ needs.build-pax.outputs.SINGLEARCH_IMAGEs }} | sed "s/ /<br>/g") |
           EOF
