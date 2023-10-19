@@ -68,7 +68,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -204,7 +204,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -336,7 +336,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -447,7 +447,7 @@ jobs:
         shell: bash -x {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
-          for i in ${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-*DP_TE_dropout; do
+          for i in ${{ inputs.ARTIFACT_NAME }}rosetta-${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${{ inputs.ARTIFACT_NAME }}rosetta-${GITHUB_RUN_ID}-*DP_TE_dropout; do
             SUBDIR=$(echo $i | rev | cut -d'-' -f1 | rev)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
@@ -476,10 +476,10 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}pax-test-status.json'
+      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}rosetta-pax-test-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-*DP*FSDP*TP*PP*/*-status.json ${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
+        EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}rosetta-${GITHUB_RUN_ID}-*DP*FSDP*TP*PP*/*-status.json ${{ inputs.ARTIFACT_NAME }}rosetta-${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
@@ -535,7 +535,7 @@ jobs:
 
           ## Rosetta PAX MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}rosetta-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
