@@ -17,6 +17,10 @@ jobs:
         BUILTKIT_VERSION: [latest, v0.12.2, v0.11.6, v0.10.6, v0.9.3]
     runs-on: [self-hosted, amd64, small]
     steps:
+      - name: print docker version
+        run: |
+          docker --version
+
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
 
