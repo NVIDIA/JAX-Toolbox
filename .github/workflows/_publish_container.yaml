@@ -85,6 +85,10 @@ jobs:
             docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
           done
 
+      - name: Skopeo Login to GitHub Container Registry
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - ghcr.io
+
       - name: Create single-arch images
         if: ${{ inputs.EXPOSE_SINGLE_ARCH_IMAGES }}
         shell: bash -x -e {0}
@@ -94,10 +98,11 @@ jobs:
             os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
             arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
             for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+              skopeo copy $manifest $tag-${os}-${arch}
               # docker buildx imagetools create --tag $tag-${os}-${arch} $manifest
-              docker pull $manifest
-              docker tag $manifest $tag-${os}-${arch}
-              docker push $tag-${os}-${arch}
+              # docker pull $manifest
+              # docker tag $manifest $tag-${os}-${arch}
+              # docker push $tag-${os}-${arch}
             done
           done
 

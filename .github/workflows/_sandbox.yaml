@@ -9,19 +9,12 @@ permissions:
   packages: write # to upload container
 
 jobs:
-  test:
-    runs-on: ubuntu-22.04
-    steps:
-    - name: Print environment variables
-      run: |
-        skopeo --version
-
-  # publish:
-  #   uses: ./.github/workflows/_publish_container.yaml
-  #   secrets: inherit
-  #   with:
-  #     SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6570834658-base-multiarch
-  #     TARGET_IMAGE: jax-toolbox-internal
-  #     TARGET_TAGS: |
-  #       type=raw,value=${{ github.run_id }},priority=900
-  #     EXPOSE_SINGLE_ARCH_IMAGES: true
+  publish:
+    uses: ./.github/workflows/_publish_container.yaml
+    secrets: inherit
+    with:
+      SOURCE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6570834658-base-multiarch
+      TARGET_IMAGE: jax-toolbox-internal
+      TARGET_TAGS: |
+        type=raw,value=${{ github.run_id }},priority=900
+      EXPOSE_SINGLE_ARCH_IMAGES: true
