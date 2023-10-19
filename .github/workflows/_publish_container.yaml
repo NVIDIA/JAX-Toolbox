@@ -19,7 +19,7 @@ on:
         type: boolean
         description: 'Also expose single-arch images:'
         required: false
-        default: false
+        default: true
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image published"
@@ -99,10 +99,6 @@ jobs:
             arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
             for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
               skopeo copy --format v2s2 docker://$manifest docker://$tag-${os}-${arch}
-              # docker buildx imagetools create --tag $tag-${os}-${arch} $manifest
-              # docker pull $manifest
-              # docker tag $manifest $tag-${os}-${arch}
-              # docker push $tag-${os}-${arch}
             done
           done
 
