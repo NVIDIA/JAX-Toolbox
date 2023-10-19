@@ -61,7 +61,8 @@ jobs:
               MANIFESTS=$(
                 docker manifest inspect ${{ inputs.SOURCE_IMAGE }} |\
                 jq -r '.manifests[] | select(.platform.os != "unknown") | .digest' |\
-                xargs -I{} echo ${SOURCE_REPO}@{}
+                xargs -I{} echo ${SOURCE_REPO}@{} |\
+                tr '\n' ' '
               )
               ;;
             # Docker image manifest
