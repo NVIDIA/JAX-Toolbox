@@ -28,7 +28,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            image
+            ghcr.io/nvidia/jax-toolbox-internal
           flavor: |
             latest=false
           tags: |
@@ -74,7 +74,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            image
+            ghcr.io/nvidia/jax-toolbox-internal
           flavor: |
             latest=false
           tags: |
