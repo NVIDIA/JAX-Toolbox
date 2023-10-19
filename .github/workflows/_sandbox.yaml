@@ -10,7 +10,7 @@ permissions:
 
 jobs:
 
-  build:
+  build-with-platform:
     runs-on: [self-hosted, amd64, small]
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
@@ -40,7 +40,44 @@ jobs:
           context: .github/container
           push: false
           file: .github/container/Dockerfile.test
-          platforms: linux/${{ matrix.PLATFORM }}
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Examine manifest
+        shell: bash -x -e {0}
+        run: |
+          docker manifest inspect ${{ steps.meta.outputs.tags }}
+
+  build-without-platform:
+    runs-on: [self-hosted, amd64, small]
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            image
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=tag
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.12.1
+
+      - name: Build docker images
+        id: build
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: false
+          file: .github/container/Dockerfile.test
           tags: ${{ steps.meta.outputs.tags }}
 
       - name: Examine manifest
