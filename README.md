@@ -145,7 +145,7 @@ We will update this table as new models become available, so stay tuned.
 
 ## Environment Variables
 
-The [JAX image](ghcr.io/nvidia/jax) is embedded with the following flags and environment variables for performance tuning:
+The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is embedded with the following flags and environment variables for performance tuning:
 
 | XLA Flags | Value | Explanation |
 | --------- | ----- | ----------- |
