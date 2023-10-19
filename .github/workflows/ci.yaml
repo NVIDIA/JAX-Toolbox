@@ -170,6 +170,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAGS }}
       BASE_LIBRARY: t5x
+      PLATFORMS: '["amd64"]'
     secrets: inherit
 
   build-rosetta-pax:
