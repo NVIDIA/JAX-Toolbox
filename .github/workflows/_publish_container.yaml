@@ -98,7 +98,7 @@ jobs:
             os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
             arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
             for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-              skopeo copy $manifest $tag-${os}-${arch}
+              skopeo copy --format v2s2 docker://$manifest docker://$tag-${os}-${arch}
               # docker buildx imagetools create --tag $tag-${os}-${arch} $manifest
               # docker pull $manifest
               # docker tag $manifest $tag-${os}-${arch}
