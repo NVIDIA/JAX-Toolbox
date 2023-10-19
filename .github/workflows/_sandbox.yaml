@@ -32,7 +32,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=tag
+            type=raw,value=${{ github.run_id }}-with-platform
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -45,8 +45,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .github/container
-          push: false
-          load: true
+          push: true
           file: .github/container/Dockerfile.test
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
@@ -78,7 +77,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=tag
+            type=raw,value=${{ github.run_id }}-without-platform
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -91,8 +90,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .github/container
-          push: false
-          load: true
+          push: true
           file: .github/container/Dockerfile.test
           tags: ${{ steps.meta.outputs.tags }}
 
