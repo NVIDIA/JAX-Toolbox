@@ -91,8 +91,8 @@ jobs:
         run: |
           # Create new manifest list from extracted manifests
           for manifest in ${{ steps.get-manifests.outputs.manifests }}; do
-            os=$(docker manifest inspect $manifest | jq -r '.platform.os')
-            arch=$(docker manifest inspect $manifest | jq -r '.platform.architecture')
+            os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
+            arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
             for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
               docker buildx imagetools create --tag $tag-${os}-${arch} $manifest
             done
