@@ -448,7 +448,7 @@ jobs:
         run: |
           pip install pytest pytest-reportlog tensorboard
           for i in ${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-*DP_TE_dropout; do
-            SUBDIR=(echo $i | rev | cut -d'-' -f1 | rev)
+            SUBDIR=$(echo $i | rev | cut -d'-' -f1 | rev)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
           done
