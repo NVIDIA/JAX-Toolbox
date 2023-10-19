@@ -39,6 +39,7 @@ jobs:
         with:
           context: .github/container
           push: false
+          load: true
           file: .github/container/Dockerfile.test
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
@@ -77,6 +78,7 @@ jobs:
         with:
           context: .github/container
           push: false
+          load: true
           file: .github/container/Dockerfile.test
           tags: ${{ steps.meta.outputs.tags }}
 
