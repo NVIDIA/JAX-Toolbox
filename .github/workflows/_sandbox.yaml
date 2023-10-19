@@ -17,4 +17,3 @@ jobs:
       TARGET_IMAGE: jax-toolbox-internal
       TARGET_TAGS: |
         type=raw,value=${{ github.run_id }},priority=900
-      EXPOSE_SINGLE_ARCH_IMAGES: true
