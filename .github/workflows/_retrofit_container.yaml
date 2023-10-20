@@ -17,9 +17,9 @@ on:
         required: false
         default: true
     outputs:
-      MULTIARCH_TAG:
-        description: "Tags of the multi-arch image published"
-        value: ${{ jobs.publish.outputs.MULTIARCH_TAG }}
+      # MULTIARCH_TAG:
+      #   description: "Tags of the multi-arch image published"
+      #   value: ${{ jobs.publish.outputs.MULTIARCH_TAG }}
       SINGLEARCH_TAGS:
         description: "Tags of the single-arch images published"
         value: ${{ jobs.publish.outputs.SINGLEARCH_TAGS }}
@@ -31,7 +31,7 @@ jobs:
   publish:
     runs-on: ubuntu-22.04
     outputs:
-      MULTIARCH_TAG: ${{ steps.meta.outputs.tags }}
+      # MULTIARCH_TAG: ${{ steps.meta.outputs.tags }}
       SINGLEARCH_TAGS: ${{ steps.single-arch.outputs.tags }}
     steps:
       - name: Login to GitHub Container Registry
@@ -69,19 +69,14 @@ jobs:
 
           echo "manifests=$MANIFESTS" >> $GITHUB_OUTPUT
 
-      - name: Skopeo Login to GitHub Container Registry
-        run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - ghcr.io
-          skopeo --version
-          skopeo copy --help
-
-      - name: Create Docker v2s2 multi-arch manifest list
-        id: multi-arch
-        shell: bash -x -e {0}
-        run: |
-          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-            skopeo copy --multi-arch all --format v2s2 docker://${{ inputs.SOURCE_IMAGE }} docker://$tag
-          done
+      ## Requires skopeo >= v1.6.0, but Actions only has v1.4.0
+      # - name: Create Docker v2s2 multi-arch manifest list
+      #   id: multi-arch
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+      #       skopeo copy --multi-arch all --format v2s2 docker://${{ inputs.SOURCE_IMAGE }} docker://$tag
+      #     done
 
       - name: Create Docker v2s2 single-arch manifests
         id: single-arch

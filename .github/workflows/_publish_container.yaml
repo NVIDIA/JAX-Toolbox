@@ -77,10 +77,6 @@ jobs:
 
           echo "manifests=$MANIFESTS" >> $GITHUB_OUTPUT
 
-      - name: Skopeo Login to GitHub Container Registry
-        run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - ghcr.io
-
       - name: Create multi-arch images
         id: multi-arch
         shell: bash -x -e {0}
