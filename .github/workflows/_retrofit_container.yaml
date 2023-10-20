@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       MULTIARCH_TAG: ${{ steps.meta.outputs.tags }}
-      SINGLEARCH_TAGS: ${{ step.create-single-arch.outputs.tags }}
+      SINGLEARCH_TAGS: ${{ steps.single-arch.outputs.tags }}
     steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -78,7 +78,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           manifests=""
-          for m in ${{ step.get-manifests.outputs.manifests }}; do
+          for m in ${{ steps.get-manifests.outputs.manifests }}; do
             manifests="${manifests} docker://${m}"
           done
 
@@ -87,7 +87,7 @@ jobs:
           done
 
       - name: Create single-arch images
-        id: create-single-arch
+        id: single-arch
         if: ${{ inputs.EXPOSE_SINGLE_ARCH_IMAGES }}
         shell: bash -x -e {0}
         run: |
