@@ -61,7 +61,7 @@ jobs:
               tr '\n' ' '
             )
 
-            for manifest in ${{ steps.get-manifests.outputs.manifests }}; do
+            for manifest in ${manifests}; do
               os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
               arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
               single_arch_tag="ghcr.io/nvidia/jax-toolbox-retrofit:${{ github.run_id }}-${os}-${arch}"
