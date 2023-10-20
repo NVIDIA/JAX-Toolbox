@@ -50,8 +50,8 @@ jobs:
             source_repo=$(echo ${source} | cut -d: -f1)
             media_type=$(docker manifest inspect ${source} | jq -r '.mediaType')
             if [[ ${media_type} != "application/vnd.oci.image.index.v1+json" ]]; then
-              echo "This workflow only work with OCI manifest lists"
-              exit 1
+              echo "Image ${source} is already in Docker format v2s2"
+              continue
             fi
 
             manifests=$(
@@ -64,10 +64,8 @@ jobs:
             for manifest in ${{ steps.get-manifests.outputs.manifests }}; do
               os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
               arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
-              for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-                single_arch_tag="ghcr.io/nvidia/jax-toolbox-retrofit:${{ github.run_id }}-${os}-${arch}"
-                skopeo copy --format v2s2 docker://$manifest docker://${single_arch_tag}
-                echo "${single_arch_tag}" >> $GITHUB_STEP_SUMMARY
-              done
+              single_arch_tag="ghcr.io/nvidia/jax-toolbox-retrofit:${{ github.run_id }}-${os}-${arch}"
+              skopeo copy --format v2s2 docker://$manifest docker://${single_arch_tag}
+              echo "${single_arch_tag}" >> $GITHUB_STEP_SUMMARY
             done
           done
