@@ -55,7 +55,7 @@ jobs:
             fi
 
             manifests=$(
-              docker manifest inspect ${{ inputs.SOURCE_IMAGE }} |\
+              docker manifest inspect ${source} |\
               jq -r '.manifests[] | select(.platform.os != "unknown") | .digest' |\
               xargs -I{} echo ${source_repo}@{} |\
               tr '\n' ' '
