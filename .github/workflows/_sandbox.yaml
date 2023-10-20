@@ -21,11 +21,12 @@ jobs:
   retrofit-containers:
     runs-on: ubuntu-22.04
     steps:
-      - name: Skopeo Login to GitHub Container Registry
-        shell: bash -x -e {0}
-        run: |
-          skopeo --version
-          echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - ghcr.io
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       ## Requires skopeo >= v1.6.0, but Actions only has v1.4.0
       # - name: Create Docker v2s2 multi-arch manifest list
