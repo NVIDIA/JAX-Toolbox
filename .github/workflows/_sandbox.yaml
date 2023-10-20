@@ -61,10 +61,11 @@ jobs:
               tr '\n' ' '
             )
 
+            dest_tag=$(echo ${source} | cut -d: -f1 | cut -d/ -f3)-$(echo ${source} | cut -d: -f2)
             for manifest in ${manifests}; do
               os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
               arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
-              single_arch_tag="ghcr.io/nvidia/jax-toolbox-retrofit:${{ github.run_id }}-${os}-${arch}"
+              single_arch_tag="ghcr.io/nvidia/jax-toolbox-retrofit:${{ github.run_id }}-${dest_tag}-${os}-${arch}"
               skopeo copy --format v2s2 docker://$manifest docker://${single_arch_tag}
               echo "${single_arch_tag}" >> $GITHUB_STEP_SUMMARY
             done
