@@ -1,24 +1,10 @@
 name: "~Sandbox"
 
 on:
-  push:
-
-permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
+  workflow_dispatch:
 
 jobs:
-  retrofit:
-    uses: ./.github/workflows/_retrofit_container.yaml
-    with:
-      SOURCE_IMAGE: 'ghcr.io/nvidia/jax:latest'
-      TARGET_TAGS: |
-        type=raw,value=${{ github.run_id }},priority=900
-      EXPOSE_SINGLE_ARCH_IMAGES: true
-    secrets: inherit
-
-  retrofit-containers:
+  sandbox:
     runs-on: ubuntu-22.04
     steps:
       - name: Login to GitHub Container Registry
@@ -28,45 +14,28 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      ## Requires skopeo >= v1.6.0, but Actions only has v1.4.0
-      # - name: Create Docker v2s2 multi-arch manifest list
-      #   id: multi-arch
-      #   shell: bash -x -e {0}
-      #   run: |
-      #     for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-      #       skopeo copy --multi-arch all --format v2s2 docker://${{ inputs.SOURCE_IMAGE }} docker://$tag
-      #     done
-
-      - name: Create Docker v2s2 single-arch manifests
-        id: single-arch
-        shell: bash -x -e {0}
+      - name: Print usage
         run: |
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
 
-          for source in \
-            ghcr.io/nvidia/jax-toolbox:base   \
-            ghcr.io/nvidia/jax:latest         \
-            ghcr.io/nvidia/t5x:latest         \
-          ; do
-            source_repo=$(echo ${source} | cut -d: -f1)
-            media_type=$(docker manifest inspect ${source} | jq -r '.mediaType')
-            if [[ ${media_type} != "application/vnd.oci.image.index.v1+json" ]]; then
-              echo "Image ${source} is already in Docker format v2s2"
-              continue
-            fi
-
-            manifests=$(
-              docker manifest inspect ${source} |\
-              jq -r '.manifests[] | select(.platform.os != "unknown") | .digest' |\
-              xargs -I{} echo ${source_repo}@{} |\
-              tr '\n' ' '
-            )
-
-            dest_tag=$(echo ${source} | cut -d: -f1 | cut -d/ -f3)-$(echo ${source} | cut -d: -f2)
-            for manifest in ${manifests}; do
-              os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
-              arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
-              single_arch_tag="ghcr.io/nvidia/jax-toolbox-retrofit:${{ github.run_id }}-${dest_tag}-${os}-${arch}"
-              skopeo copy --format v2s2 docker://$manifest docker://${single_arch_tag}
-              echo "${single_arch_tag}" >> $GITHUB_STEP_SUMMARY
-            done
-          done
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
