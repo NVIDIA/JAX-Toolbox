@@ -73,20 +73,15 @@ jobs:
         run: |
           echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - ghcr.io
 
-      - name: Create Docker v2s2 multi-arch manifest list from extracted manifests
+      - name: Create Docker v2s2 multi-arch manifest list
         id: multi-arch
         shell: bash -x -e {0}
         run: |
-          manifests=""
-          for m in ${{ steps.get-manifests.outputs.manifests }}; do
-            manifests="${manifests} docker://${m}"
-          done
-
           for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-            skopeo copy --format v2s2 ${manifests} docker://$tag
+            skopeo copy --format v2s2 docker://${{ inputs.SOURCE_IMAGE }} docker://$tag
           done
 
-      - name: Create single-arch images
+      - name: Create Docker v2s2 single-arch manifests
         id: single-arch
         if: ${{ inputs.EXPOSE_SINGLE_ARCH_IMAGES }}
         shell: bash -x -e {0}
