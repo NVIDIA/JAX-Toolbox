@@ -12,7 +12,7 @@ jobs:
   retrofit:
     uses: ./.github/workflows/_retrofit_container.yaml
     with:
-      SOURCE_IMAGE: 'ghcr.io/nvidia/jax-toolbox:latest'
+      SOURCE_IMAGE: 'ghcr.io/nvidia/jax:latest'
       TARGET_TAGS: |
         type=raw,value=${{ github.run_id }},priority=900
       EXPOSE_SINGLE_ARCH_IMAGES: true
