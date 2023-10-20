@@ -67,9 +67,7 @@ jobs:
               for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
                 single_arch_tag="ghcr.io/nvidia/jax-toolbox-retrofit:${{ github.run_id }}-${os}-${arch}"
                 skopeo copy --format v2s2 docker://$manifest docker://${single_arch_tag}
-                cat >> $GITHUB_STEP_SUMMARY << EOF
-                ${single_arch_tag}
-                EOF
+                echo "${single_arch_tag}" >> $GITHUB_STEP_SUMMARY
               done
             done
           done
