@@ -97,7 +97,7 @@ jobs:
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              --use-gpu-configs \
+              --use-contrib-configs \
               ${{ matrix.ADDITIONAL_ARGS }} \
               ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}
           EOF
@@ -241,7 +241,7 @@ jobs:
               --epochs 7 \
               --steps-per-epoch 100 \
               --multiprocess \
-              --use-gpu-configs \
+              --use-contrib-configs \
               ${{ matrix.ADDITIONAL_ARGS }} \
               ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}
           EOF
