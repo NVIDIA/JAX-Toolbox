@@ -72,6 +72,8 @@ jobs:
       - name: Skopeo Login to GitHub Container Registry
         run: |
           echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - ghcr.io
+          skopeo --version
+          skopeo copy --help
 
       - name: Create Docker v2s2 multi-arch manifest list
         id: multi-arch
