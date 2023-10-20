@@ -77,6 +77,10 @@ jobs:
 
           echo "manifests=$MANIFESTS" >> $GITHUB_OUTPUT
 
+      - name: Skopeo Login to GitHub Container Registry
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - ghcr.io
+
       - name: Create multi-arch images
         id: multi-arch
         shell: bash -x -e {0}
@@ -84,10 +88,6 @@ jobs:
           for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
             docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
           done
-
-      - name: Skopeo Login to GitHub Container Registry
-        run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - ghcr.io
 
       - name: Create single-arch images
         if: ${{ inputs.EXPOSE_SINGLE_ARCH_IMAGES }}
