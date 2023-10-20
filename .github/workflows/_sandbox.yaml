@@ -13,11 +13,9 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Skopeo Login to GitHub Container Registry
-        env:
-          PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
           skopeo --version
-          echo $PASSWORD | skopeo login --authfile - ghcr.io
+          echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - --password-stdin ghcr.io
 
       ## Requires skopeo >= v1.6.0, but Actions only has v1.4.0
       # - name: Create Docker v2s2 multi-arch manifest list
