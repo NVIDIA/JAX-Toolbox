@@ -78,7 +78,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-            skopeo copy --format v2s2 docker://${{ inputs.SOURCE_IMAGE }} docker://$tag
+            skopeo copy --multi-arch all --format v2s2 docker://${{ inputs.SOURCE_IMAGE }} docker://$tag
           done
 
       - name: Create Docker v2s2 single-arch manifests
