@@ -48,7 +48,7 @@ jobs:
             ghcr.io/nvidia/t5x:latest         \
           ; do
             source_repo=$(echo ${source} | cut -d: -f1)
-            media_type=$(docker manifest inspect ${{ inputs.SOURCE_IMAGE }} | jq -r '.mediaType')
+            media_type=$(docker manifest inspect ${source} | jq -r '.mediaType')
             if [[ ${media_type} != "application/vnd.oci.image.index.v1+json" ]]; then
               echo "This workflow only work with OCI manifest lists"
               exit 1
