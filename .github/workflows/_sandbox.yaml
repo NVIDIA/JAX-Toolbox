@@ -1,7 +1,13 @@
 name: "~Sandbox"
 
 on:
-  workflow_dispatch:
+  # workflow_dispatch:
+  # push:
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
 
 jobs:
   sandbox:
