@@ -6,7 +6,7 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
 FROM ${BASE_IMAGE}
 
-ADD install-t5x.sh /usr/local/bin
+ADD get-t5x.sh /usr/local/bin
 ADD install-flax.sh /usr/local/bin
 ADD install-te.sh /usr/local/bin
 
