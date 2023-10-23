@@ -37,6 +37,17 @@ RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
 
+# TODO: This is a WAR to NCCL errors we observe in TOT. Should be removed when no longer needed
+RUN <<EOF bash -ex
+cd ${SRC_PATH_XLA}
+
+git config user.name "JAX Toolbox"
+git config user.email "jax@nvidia.com"
+git remote add -f ashors1 https://github.com/ashors1/xla
+git cherry-pick --allow-empty $(git merge-base ashors/main ashors1/revert-84222)..ashors1/revert-84222
+git remote remove ashors1
+EOF
+
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 ADD xla-arm64-neon.patch /opt
 RUN build-jax.sh \
@@ -68,15 +79,35 @@ COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
-COPY --from=jax-builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
-COPY --from=jax-builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
+COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
+COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
-RUN <<EOF
-echo "-e ${SRC_PATH_JAX}"               >> /opt/pip-tools.d/requirements-jax.in
-echo "$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/requirements-jax.in
-echo "flax"                             >> /opt/pip-tools.d/requirements-jax.in
+RUN <<"EOF" bash -ex
+echo "-e file://${SRC_PATH_JAX}"                        >> /opt/pip-tools.d/manifest.jax
+echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
+EOF
+
+## Flax
+ARG REPO_FLAX
+ARG REF_FLAX
+ARG SRC_PATH_FLAX
+RUN get-source.sh -f ${REPO_FLAX} -r ${REF_FLAX} -d ${SRC_PATH_FLAX} -m /opt/pip-tools.d/manifest.flax
+
+## Transformer engine: check out source and build wheel
+ARG REPO_TE
+ARG REF_TE
+ARG SRC_PATH_TE
+ENV NVTE_FRAMEWORK=jax
+ENV SRC_PATH_TE=${SRC_PATH_TE}
+RUN <<"EOF" bash -ex
+set -o pipefail
+pip install ninja && rm -rf ~/.cache/pip
+get-source.sh -f ${REPO_TE} -r ${REF_TE} -d ${SRC_PATH_TE}
+pushd ${SRC_PATH_TE}
+python setup.py bdist_wheel && rm -rf build
+echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/manifest.te
 EOF
 
 # TODO: properly configure entrypoint
