@@ -169,7 +169,6 @@ BASE_SCRIPT=run_my_model_multinode.sh CONTAINER=<CONTAINER> BASE_WORKSPACE_DIR=<
     * CVE-2023-25665
     * CVE-2023-25673
     * CVE-2023-25666
-* The Paxml nightlies disable `NCCL_NVLS_ENABLE=0` ([doc](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature.
 
 
 ## Changelog
