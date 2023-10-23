@@ -197,7 +197,6 @@ t5x/contrib/gpu/scripts_gpu/singlenode_ft_frompile.sh \
 
 # Known Issues
 * There is a known sporadic NCCL crash that happens when using the T5x container at node counts greater than or equal to 32 nodes. We will fix this in the next release. The issue is tracked [here](https://github.com/NVIDIA/JAX-Toolbox/issues/194).
-* The T5x nightlies disable `NCCL_NVLS_ENABLE=0` ([doc](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature.
 
 # Changelog
 - Added Transformer Engine + FP8 support
