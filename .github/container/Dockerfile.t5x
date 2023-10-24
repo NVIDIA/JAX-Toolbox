@@ -31,3 +31,4 @@ install-flax.sh
 EOF
 
 ADD test-t5x.sh /usr/local/bin
+ADD test-t5x-fmha.sh /usr/local/bin
