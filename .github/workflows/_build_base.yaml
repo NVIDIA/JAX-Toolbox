@@ -3,6 +3,10 @@ name: ~build CUDA+Python base container
 on:
   workflow_call:
     inputs:
+      ARCHITECTURE:
+        type: string
+        description: 'CPU architecture to build the image for, e.g. amd64, arm64'
+        required: true
       BASE_IMAGE:
         type: string
         description: 'Base CUDA image, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04'
@@ -14,9 +18,9 @@ on:
         required: false
         default: 'NOT SPECIFIED'
     outputs:
-      DOCKER_TAGS:
-        description: "Tags of the image built"
-        value: ${{ jobs.merge.outputs.DOCKER_TAGS }}
+      DOCKER_TAG:
+        description: "Tag of the image built"
+        value: ${{ jobs.build.outputs.DOCKER_TAG }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -29,11 +33,9 @@ permissions:
 jobs:
 
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        PLATFORM: [amd64, arm64]
-    runs-on: [self-hosted, "${{ matrix.PLATFORM }}", small]
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+    outputs:
+      DOCKER_TAG: ${{ steps.meta.outputs.tags }}
     steps:
       - name: Print environment variables
         run: env
@@ -57,7 +59,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-base-${{  matrix.PLATFORM }}
+            type=raw,value=${{ github.run_id }}-base-${{ inputs.ARCHITECTURE }}
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
@@ -80,61 +82,61 @@ jobs:
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
 
-      # Temporary workaround until the following issues are solved:
-      # https://github.com/orgs/community/discussions/17245
-      # https://github.com/actions/runner/pull/2477
-      # https://github.com/orgs/community/discussions/26639
-      - name: Save image name as text file
-        shell: bash -x -e {0}
-        run: |
-          echo "${{ steps.meta.outputs.tags }}" >> image-name.txt
+      # # Temporary workaround until the following issues are solved:
+      # # https://github.com/orgs/community/discussions/17245
+      # # https://github.com/actions/runner/pull/2477
+      # # https://github.com/orgs/community/discussions/26639
+      # - name: Save image name as text file
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     echo "${{ steps.meta.outputs.tags }}" >> image-name.txt
 
-      - name: Upload image name file as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: image-name-base-${{ matrix.PLATFORM }}
-          path: image-name.txt
+      # - name: Upload image name file as artifact
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: image-name-base-${{ matrix.PLATFORM }}
+      #     path: image-name.txt
 
-  merge:
-    runs-on: ubuntu-latest
-    needs: build
-    outputs:
-      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-    steps:
-      - name: Download image name files into separate folders
-        uses: actions/download-artifact@v3
+  # merge:
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   outputs:
+  #     DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
+  #   steps:
+  #     - name: Download image name files into separate folders
+  #       uses: actions/download-artifact@v3
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Login to GitHub Container Registry
+  #       uses: docker/login-action@v2
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.repository_owner }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set docker metadata
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ${{ env.UPLD_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=${{ github.run_id }}-base-multiarch
-          labels:
-            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+  #     - name: Set docker metadata
+  #       id: meta
+  #       uses: docker/metadata-action@v4
+  #       with:
+  #         images: |
+  #           ${{ env.UPLD_IMAGE }}
+  #         flavor: |
+  #           latest=false
+  #         tags: |
+  #           type=raw,value=${{ github.run_id }}-base-multiarch
+  #         labels:
+  #           org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Combine images into a single multi-arch image
-        shell: bash -x -e {0}
-        run: |
-          docker manifest create ${{ steps.meta.outputs.tags }} $(
-            for IMAGE in $(cat image-name-base-*/image-name.txt); do
-              REPO=$(echo $IMAGE | cut -d: -f1)
-              DIGEST=$(
-                docker manifest inspect $IMAGE |\
-                jq -r '.manifests[] | select(.platform.os == "linux") | .digest'
-              )
-              echo $REPO@${DIGEST}
-            done
-          )
-          docker manifest push ${{ steps.meta.outputs.tags }}
+  #     - name: Combine images into a single multi-arch image
+  #       shell: bash -x -e {0}
+  #       run: |
+  #         docker manifest create ${{ steps.meta.outputs.tags }} $(
+  #           for IMAGE in $(cat image-name-base-*/image-name.txt); do
+  #             REPO=$(echo $IMAGE | cut -d: -f1)
+  #             DIGEST=$(
+  #               docker manifest inspect $IMAGE |\
+  #               jq -r '.manifests[] | select(.platform.os == "linux") | .digest'
+  #             )
+  #             echo $REPO@${DIGEST}
+  #           done
+  #         )
+  #         docker manifest push ${{ steps.meta.outputs.tags }}

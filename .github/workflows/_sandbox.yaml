@@ -12,6 +12,8 @@ jobs:
 
   build-base:
     uses: ./.github/workflows/_build_base.yaml
+    with:
+      ARCHITECTURE: amd64
     secrets: inherit
 
   build-jax:
@@ -19,7 +21,7 @@ jobs:
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: amd64
-      BASE_IMAGE: ${{ needs.build-base.outputs.IMAGE }}
+      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
   build-t5x:
