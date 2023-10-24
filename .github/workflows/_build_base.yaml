@@ -75,7 +75,7 @@ jobs:
           context: .github/container
           push: true
           file: .github/container/Dockerfile.base
-          platforms: linux/${{ matrix.PLATFORM }}
+          platforms: linux/${{ inputs.ARCHITECTURE }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -94,7 +94,7 @@ jobs:
       # - name: Upload image name file as artifact
       #   uses: actions/upload-artifact@v3
       #   with:
-      #     name: image-name-base-${{ matrix.PLATFORM }}
+      #     name: image-name-base-${{ inputs.ARCHITECTURE }}
       #     path: image-name.txt
 
   # merge:
