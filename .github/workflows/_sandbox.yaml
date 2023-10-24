@@ -12,7 +12,7 @@ on:
         type: string
         description: "Build date in YYYY-MM-DD format"
         required: true
-        default: 'NOT SPECIFIED'
+        default: '2023-10-24'
       REPO_T5X:
         type: string
         description: URL of T5X repository to check out
