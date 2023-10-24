@@ -2,7 +2,27 @@ name: "~Sandbox"
 
 on:
   workflow_call:
+    outputs:
+      DOCKER_TAGS:
+        description: "Tags of the image built"
+        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
+        
+  workflow_run: 
+    workflows: [Nightly T5X build]
+    types: [completed]
+    branches: [hmonish_test_t5x_fmha]
+  workflow_dispatch:
     inputs:
+      T5X_IMAGE:
+        type: string
+        description: T5X container
+        default: 'ghcr.io/nvidia/upstream-t5x:latest'
+        required: true
+      PUBLISH:
+        type: boolean
+        description: Publish dated results to tensorboard server?
+        default: false
+        required: false
       BASE_IMAGE:
         type: string
         description: 'Base docker image that provides JAX'
@@ -33,27 +53,6 @@ on:
         description: Git commit, tag, or branch for TE
         required: true
         default: "hmonish_test_t5x_fmha"
-    outputs:
-      DOCKER_TAGS:
-        description: "Tags of the image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
-        
-  workflow_run: 
-    workflows: [Nightly T5X build]
-    types: [completed]
-    branches: [hmonish_test_t5x_fmha]
-  workflow_dispatch:
-    inputs:
-      T5X_IMAGE:
-        type: string
-        description: T5X container
-        default: 'ghcr.io/nvidia/upstream-t5x:latest'
-        required: true
-      PUBLISH:
-        type: boolean
-        description: Publish dated results to tensorboard server?
-        default: false
-        required: false
 
 permissions:
   contents: read  # to fetch code
