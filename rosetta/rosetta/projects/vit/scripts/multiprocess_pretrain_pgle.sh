@@ -104,7 +104,5 @@ case $PGLE_PROF in
       --gin.TRAIN_INDEX_DIR=\"${TRAIN_IDX_DIR}\" \
       --gin.EVAL_INDEX_DIR=\"${EVAL_IDX_DIR}\" \
       --gin_search_paths=/opt/rosetta \
-      --gin.TRAIN_STEPS=600 \
-      --gin.utils.CheckpointConfig.save=None \
   ;;
 esac
