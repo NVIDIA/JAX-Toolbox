@@ -85,7 +85,7 @@ jobs:
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           echo "$PATH"
           echo "$PWD"
-          ls -l
+          ls -al
           which test-t5x.sh
           time srun \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
