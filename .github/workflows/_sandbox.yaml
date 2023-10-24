@@ -22,6 +22,8 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+      REF_JAX: jax-v0.4.19
+      REF_XLA: ecb73da4b7b2e3b54aa6d6b7f08a5c662bb19c6e
     secrets: inherit
 
   build-t5x:
