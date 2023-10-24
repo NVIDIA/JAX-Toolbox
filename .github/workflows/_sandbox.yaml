@@ -1,221 +1,151 @@
 name: "~Sandbox"
 
 on:
-  workflow_call:
-    outputs:
-      DOCKER_TAGS:
-        description: "Tags of the image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
-        
-  workflow_run: 
-    workflows: [Nightly T5X build]
-    types: [completed]
-    branches: [hmonish_test_t5x_fmha]
+  pull_request:
+    paths-ignore:
+      - '**.md'
   workflow_dispatch:
     inputs:
-      T5X_IMAGE:
+      CUDA_IMAGE:
         type: string
-        description: T5X container
-        default: 'ghcr.io/nvidia/upstream-t5x:latest'
-        required: true
-      PUBLISH:
-        type: boolean
-        description: Publish dated results to tensorboard server?
-        default: false
+        description: 'Base CUDA image, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04'
         required: false
-      BASE_IMAGE:
+        default: 'latest'
+      SRC_JAX:
+        description: 'JAX source: <repo>#<branch|tag|commit>'
         type: string
-        description: 'Base docker image that provides JAX'
         required: true
-        default: "ghcr.io/nvidia/jax:latest"
-      BUILD_DATE:
+        default: 'https://github.com/google/jax.git#main'
+      SRC_XLA:
+        description: 'XLA source: <repo>#<branch|tag|commit>'
         type: string
-        description: "Build date in YYYY-MM-DD format"
         required: true
-        default: '2023-10-24'
-      REPO_T5X:
+        default: 'https://github.com/openxla/xla.git#main'
+      SRC_TE:
+        description: 'TE source: <repo>#<branch|tag|commit>'
         type: string
-        description: URL of T5X repository to check out
         required: true
-        default: "https://github.com/google-research/t5x.git"
-      REF_T5X:
+        default: 'https://github.com/NVIDIA/TransformerEngine.git#main'
+      SRC_T5X:
+        description: 'T5X source: <repo>#<branch|tag|commit>'
         type: string
-        description: Git commit, tag, or branch for T5X
         required: true
-        default: "main"
-      REPO_TE:
-        type: string
-        description: URL of TE repository to check out
-        required: true
-        default: "https://github.com/NVIDIA/TransformerEngine.git"
-      REF_TE:
-        type: string
-        description: Git commit, tag, or branch for TE
-        required: true
-        default: "main"
+        default: 'https://github.com/google-research/t5x.git#main'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
   packages: write # to upload container
-  issues: write   # to create issues
-
-env:
-  DEFAULT_T5X_IMAGE: 'ghcr.io/nvidia/upstream-t5x:latest'
-  UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
 
 jobs:
-          
+
   metadata:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
-      T5X_IMAGE: ${{ steps.date.outputs.T5X_IMAGE }}
-      PUBLISH: ${{ steps.date.outputs.PUBLISH }}
+      REPO_JAX: ${{ steps.parse-inputs.outputs.REPO_JAX }}
+      REF_JAX: ${{ steps.parse-inputs.outputs.REF_JAX }}
+      REPO_XLA: ${{ steps.parse-inputs.outputs.REPO_XLA }}
+      REF_XLA: ${{ steps.parse-inputs.outputs.REF_XLA }}
+      REPO_TE: ${{ steps.parse-inputs.outputs.REPO_TE }}
+      REF_TE: ${{ steps.parse-inputs.outputs.REF_TE }}
+      REPO_T5X: ${{ steps.parse-inputs.outputs.REPO_T5X }}
+      REF_T5X: ${{ steps.parse-inputs.outputs.REF_T5X }}
+
     steps:
-      - name: Set metadata
+      - name: Set build date
         id: date
         shell: bash -x -e {0}
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-          T5X_IMAGE=${{ inputs.T5X_IMAGE }}
-          T5X_IMAGE=${T5X_IMAGE:-${{ env.DEFAULT_T5X_IMAGE }}}
-          echo "T5X_IMAGE=${T5X_IMAGE}" >> $GITHUB_OUTPUT
-          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
+      - name: Parse inputs
+        id: parse-inputs
+        shell: bash -x -e {0}
+        run: |
+          # split input in the format of repo#ref into repo and ref parts
+          parse_git_src() {
+            PACKAGE=$1
+            INPUT="$2"
+            DEFAULT="$3"
+            SRC="${INPUT:-${DEFAULT}}"
+            echo "REPO_${PACKAGE}=$(echo "${SRC}" | cut -f1 -d#)" >> $GITHUB_OUTPUT
+            echo "REF_${PACKAGE}=$(echo "${SRC}"  | cut -f2 -d#)" >> $GITHUB_OUTPUT
+          }
 
-  build:
+          # default values are for `pull_request`` event types
+          parse_git_src JAX    "${{ inputs.SRC_JAX }}"    "https://github.com/google/jax.git#main"
+          parse_git_src XLA    "${{ inputs.SRC_XLA }}"    "https://github.com/openxla/xla.git#main"
+          parse_git_src TE     "${{ inputs.SRC_TE }}"     "https://github.com/NVIDIA/TransformerEngine.git#main"
+          parse_git_src T5X    "${{ inputs.SRC_T5X }}"    "https://github.com/google-research/t5x.git#main"
+
+  build-base:
     needs: metadata
-    outputs:
-      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-    runs-on: [self-hosted, x86, small]
-    steps:
-      - name: Print environment variables
-        run: env
-
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set docker metadata
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ${{ env.UPLD_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=${{ github.run_id }}-upstream-t5x
-          labels:
-            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        with:
-          driver-opts: |
-            image=moby/buildkit:v0.10.6
-
-      - name: Build docker images
-        uses: docker/build-push-action@v4
-        with:
-          context: .github/container
-          push: true
-          file: .github/container/Dockerfile.t5x
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-            BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_T5X=${{ inputs.REPO_T5X }}
-            REF_T5X=${{ inputs.REF_T5X }}
-            REPO_TE=${{ inputs.REPO_TE }}
-            REF_TE=${{ inputs.REF_TE }}
-
-  run-jobs:
-    needs: build
-    uses: ./.github/workflows/_test_t5x_fmha.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/_build_base.yaml
     with:
-      T5X_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
+      BASE_IMAGE: ${{ inputs.CUDA_IMAGE || 'latest' }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
-  publish:
-    needs: [metadata, build, run-jobs]
-    uses: ./.github/workflows/_publish_t5x_results.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+  build-jax:
+    needs: [metadata, build-base]
+    uses: ./.github/workflows/_build_jax.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      EXPERIMENT_SUBDIR: T5X
+      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAGS }}
+      REPO_JAX: ${{ needs.metadata.outputs.REPO_JAX }}
+      REF_JAX: ${{ needs.metadata.outputs.REF_JAX }}
+      REPO_XLA: ${{ needs.metadata.outputs.REPO_XLA }}
+      REF_XLA: ${{ needs.metadata.outputs.REF_XLA }}
     secrets: inherit
 
-  publish-completion:
-    needs: [metadata, build, run-jobs]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: success() || failure()
-    secrets: inherit
+  build-t5x:
+    needs: [metadata, build-jax]
+    uses: ./.github/workflows/_build_t5x.yaml
     with:
-      ENDPOINT_FILENAME: 't5x-test-overall-status.json'
-      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        STATUS=failure
-        if [[ ${{ needs.run-jobs.result }} == "success" ]]; then
-          EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
-          PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-          FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
-          TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
-
-          echo "Test statuses:"
-          jq -rc 'input_filename,.' $EXIT_STATUSES
-
-          if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-            BADGE_COLOR=brightgreen
-            STATUS=success
-          elif [[ $PASSED_TESTS -eq 0 ]]; then
-            BADGE_COLOR=red
-          else
-            BADGE_COLOR=yellow
-          fi
-          echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-          echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-        else
-          echo "MESSAGE='n/a'" >> $GITHUB_OUTPUT
-          echo "COLOR='red'" >> $GITHUB_OUTPUT
-        fi
-        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "STATUS='$STATUS'" >> $GITHUB_OUTPUT
-
-  publish-verified:
-    if: needs.publish-completion.outputs.STATUS == 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
-    needs: [metadata, publish-completion]
-    uses: ./.github/workflows/_publish_container.yaml
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+      REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
+      REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
     secrets: inherit
-    with:
-      SOURCE_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
-      TARGET_IMAGE: upstream-t5x
-      TARGET_TAGS: |
-        type=raw,value=latest-verified,priority=1000
 
-  triage:
-    needs: [metadata, publish-completion]
-    uses: ./.github/workflows/_triage.yaml
-    if: needs.publish-completion.outputs.STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
-    secrets: inherit
-    with:
-      BROKEN_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
-      BASE_IMAGE: ghcr.io/nvidia/upstream-t5x:latest-verified
-      REPO_DIRS: "/opt/t5x /opt/flax"
-      FILE_ISSUE: true
-
-  if-upstream-failed:
-    runs-on: ubuntu-latest
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+  build-summary:
+    needs: [ build-t5x ]
+    # needs: [build-base, build-jax, build-t5x]
+    if: always()
+    runs-on: ubuntu-22.04
     steps:
-      - run: echo 'Upstream workflow failed, aborting run' && exit 1
+      - name: Generate job summary for container build
+        shell: bash -x -e {0}
+        run: |
+          cat > $GITHUB_STEP_SUMMARY << EOF
+          # Images created          
+
+          | Image        | Link                                               |
+          | ------------ | -------------------------------------------------- |
+          | Base         | ${{ needs.build-base.outputs.DOCKER_TAGS }}        |
+          | JAX          | ${{ needs.build-jax.outputs.DOCKER_TAGS }}         |
+          | T5X          | ${{ needs.build-t5x.outputs.DOCKER_TAGS }}         |
+
+          EOF
+
+  test-t5x:
+    needs: build-t5x
+    uses: ./.github/workflows/_test_t5x_fmha.yaml
+    with:
+      T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAGS }}
+    secrets: inherit
+ 
+  finalize:
+    if: always()
+    # TODO: use dynamic matrix to make dependencies self-updating
+    needs: [build-summary, test-t5x ]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: false
+    secrets: inherit
