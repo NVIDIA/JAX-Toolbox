@@ -7,7 +7,7 @@ on:
         type: string
         description: 'Base docker image that provides JAX'
         required: false
-        default: ghcr.io/nvidia/jax:latest
+        default: "ghcr.io/nvidia/jax:latest"
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -22,7 +22,7 @@ on:
         type: string
         description: Git commit, tag, or branch for T5X
         required: false
-        default: main
+        default: "hmonish_test_t5x_fmha"
       REPO_TE:
         type: string
         description: URL of TE repository to check out
@@ -32,7 +32,7 @@ on:
         type: string
         description: Git commit, tag, or branch for TE
         required: false
-        default: main
+        default: "hmonish_test_t5x_fmha"
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image built"
