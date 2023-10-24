@@ -6,32 +6,32 @@ on:
       BASE_IMAGE:
         type: string
         description: 'Base docker image that provides JAX'
-        required: false
+        required: true
         default: "ghcr.io/nvidia/jax:latest"
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
-        required: false
+        required: true
         default: 'NOT SPECIFIED'
       REPO_T5X:
         type: string
         description: URL of T5X repository to check out
-        required: false
+        required: true
         default: "https://github.com/google-research/t5x.git"
       REF_T5X:
         type: string
         description: Git commit, tag, or branch for T5X
-        required: false
+        required: true
         default: "hmonish_test_t5x_fmha"
       REPO_TE:
         type: string
         description: URL of TE repository to check out
-        required: false
+        required: true
         default: "https://github.com/NVIDIA/TransformerEngine.git"
       REF_TE:
         type: string
         description: Git commit, tag, or branch for TE
-        required: false
+        required: true
         default: "hmonish_test_t5x_fmha"
     outputs:
       DOCKER_TAGS:
