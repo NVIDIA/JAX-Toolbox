@@ -54,8 +54,8 @@ ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_IB_SL=1
 ENV NCCL_NVLS_ENABLE=0
 
-COPY --from=jax-builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
-COPY --from=jax-builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
+COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
+COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
