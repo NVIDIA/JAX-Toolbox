@@ -42,7 +42,7 @@ on:
         type: string
         description: Git commit, tag, or branch for T5X
         required: true
-        default: "hmonish_test_t5x_fmha"
+        default: "main"
       REPO_TE:
         type: string
         description: URL of TE repository to check out
@@ -52,7 +52,7 @@ on:
         type: string
         description: Git commit, tag, or branch for TE
         required: true
-        default: "hmonish_test_t5x_fmha"
+        default: "main"
 
 permissions:
   contents: read  # to fetch code
@@ -65,8 +65,28 @@ env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
 
 jobs:
+          
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      T5X_IMAGE: ${{ steps.date.outputs.T5X_IMAGE }}
+      PUBLISH: ${{ steps.date.outputs.PUBLISH }}
+    steps:
+      - name: Set metadata
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+          T5X_IMAGE=${{ inputs.T5X_IMAGE }}
+          T5X_IMAGE=${T5X_IMAGE:-${{ env.DEFAULT_T5X_IMAGE }}}
+          echo "T5X_IMAGE=${T5X_IMAGE}" >> $GITHUB_OUTPUT
+          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
   build:
+    needs: metadata
     outputs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     runs-on: [self-hosted, x86, small]
@@ -118,28 +138,9 @@ jobs:
             REF_T5X=${{ inputs.REF_T5X }}
             REPO_TE=${{ inputs.REPO_TE }}
             REF_TE=${{ inputs.REF_TE }}
-            
-  metadata:
-    runs-on: ubuntu-22.04
-    outputs:
-      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
-      T5X_IMAGE: ${{ steps.date.outputs.T5X_IMAGE }}
-      PUBLISH: ${{ steps.date.outputs.PUBLISH }}
-    steps:
-      - name: Set metadata
-        id: date
-        shell: bash -x -e {0}
-        run: |
-          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
-          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
-
-          T5X_IMAGE=${{ inputs.T5X_IMAGE }}
-          T5X_IMAGE=${T5X_IMAGE:-${{ env.DEFAULT_T5X_IMAGE }}}
-          echo "T5X_IMAGE=${T5X_IMAGE}" >> $GITHUB_OUTPUT
-          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
   run-jobs:
-    needs: metadata
+    needs: build
     uses: ./.github/workflows/_test_t5x_fmha.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
@@ -147,7 +148,7 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [metadata, run-jobs]
+    needs: [metadata, build, run-jobs]
     uses: ./.github/workflows/_publish_t5x_results.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
@@ -156,7 +157,7 @@ jobs:
     secrets: inherit
 
   publish-completion:
-    needs: [metadata, run-jobs]
+    needs: [metadata, build, run-jobs]
     uses: ./.github/workflows/_publish_badge.yaml
     if: success() || failure()
     secrets: inherit
