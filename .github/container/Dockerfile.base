@@ -1,4 +1,5 @@
 ARG BASE_IMAGE=nvidia/cuda:12.2.0-devel-ubuntu22.04
+
 FROM ${BASE_IMAGE}
 
 ###############################################################################
@@ -24,6 +25,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 RUN pip install --upgrade --no-cache-dir pip pip-tools && rm -rf ~/.cache/*
+ADD --chmod=777 get-source.sh /usr/local/bin
+ADD --chmod=777 pip-finalize.sh /usr/local/bin
 
 ###############################################################################
 ## Install cuDNN

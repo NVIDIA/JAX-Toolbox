@@ -3,6 +3,10 @@ name: ~build T5X container
 on:
   workflow_call:
     inputs:
+      ARCHITECTURE:
+        type: string
+        description: 'CPU architecture to build the image for, e.g. amd64, arm64'
+        required: true
       BASE_IMAGE:
         type: string
         description: 'Base docker image that provides JAX'
@@ -51,7 +55,7 @@ jobs:
   build:
     outputs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-    runs-on: [self-hosted, x86, small]
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     steps:
       - name: Print environment variables
         run: env
@@ -66,8 +70,14 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set docker metadata
-        id: meta
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.12.1
+
+      - name: Set docker metadata - staging
+        id: meta-staging
         uses: docker/metadata-action@v4
         with:
           images: |
@@ -75,24 +85,50 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-upstream-t5x
+            type=raw,value=${{ github.run_id }}-upstream-t5x-${{ inputs.ARCHITECTURE }}-staging
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        with:
-          driver-opts: |
-            image=moby/buildkit:v0.10.6
-
-      - name: Build docker images
+      - name: Build staging image
         uses: docker/build-push-action@v4
         with:
           context: .github/container
           push: true
           file: .github/container/Dockerfile.t5x
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          target: staging
+          tags: ${{ steps.meta-staging.outputs.tags }}
+          labels: ${{ steps.meta-staging.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
+            REPO_T5X=${{ inputs.REPO_T5X }}
+            REF_T5X=${{ inputs.REF_T5X }}
+            REPO_TE=${{ inputs.REPO_TE }}
+            REF_TE=${{ inputs.REF_TE }}
+
+      - name: Set docker metadata - final
+        id: meta-final
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-upstream-t5x-${{ inputs.ARCHITECTURE }}
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+
+      - name: Build final image
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile.t5x
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          tags: ${{ steps.meta-staging.outputs.tags }}
+          labels: ${{ steps.meta-staging.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}

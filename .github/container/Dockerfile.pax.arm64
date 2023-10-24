@@ -32,7 +32,6 @@ RUN /opt/install_lingvo_aarch64.sh
 ADD install-pax.sh /usr/local/bin
 RUN install-pax.sh
 
-ENV NVTE_FRAMEWORK=jax
 ADD install-te.sh /usr/local/bin
 RUN install-te.sh
 # Lingvo has pinned TF to 2.13, so we need to downgrade the pydantic version so that its
