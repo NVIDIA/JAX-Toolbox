@@ -91,7 +91,7 @@ jobs:
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            test-t5x.sh \
+            bash -c 'wget -P /tmp/ https://raw.githubusercontent.com/NVIDIA/JAX-Toolbox/${{ github.sha }}/.github/container/test-t5x.sh && sleep 10 && bash /tmp/test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
@@ -234,7 +234,7 @@ jobs:
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            test-t5x.sh \
+            bash -c 'wget -P /tmp/ https://raw.githubusercontent.com/NVIDIA/JAX-Toolbox/${{ github.sha }}/.github/container/test-t5x.sh && sleep 10 && bash /tmp/test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
