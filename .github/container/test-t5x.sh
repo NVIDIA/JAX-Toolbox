@@ -19,11 +19,13 @@ usage() {
     echo "  -e, --epochs              Number of epochs to run, defaults to 7."
     echo "  --multiprocess            Enable the multiprocess GPU mode."
     echo "  -o, --output NAME         Name for the output folder, a temporary folder will be created if none specified."
+    echo "  --seed INT                Random seed for deterministim. Defaults to 42."
+    echo "  -s, --steps-per-epoch INT Steps per epoch. Detauls to 100"
     echo "  -h, --help                Print usage."
     exit $1
 }
 
-args=$(getopt -o a:b:cd:e:o:s:h --long additional-args:,batch-size:,use-contrib-configs,dtype:,epochs:,help,multiprocess,output:,steps-per-epoch: -- "$@")
+args=$(getopt -o a:b:cd:e:o:s:h --long additional-args:,batch-size:,use-contrib-configs,dtype:,epochs:,help,multiprocess,output:,seed:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -37,6 +39,7 @@ DTYPE=bfloat16
 EPOCHS=7
 MULTIPROCESS=0
 OUTPUT=$(mktemp -d)
+SEED=42
 STEPS_PER_EPOCH=100
 
 eval set -- "$args"
@@ -68,6 +71,10 @@ while [ : ]; do
             ;;
         -o | --output)
             OUTPUT="$2"
+            shift 2
+            ;;
+        --seed)
+            SEED="$2"
             shift 2
             ;;
         -s | --steps-per-epoch)
@@ -185,6 +192,9 @@ python -m t5x.train \
     --gin.train.eval_steps=0 \
     --gin.train.eval_period=${STEPS_PER_EPOCH} \
     --gin.CheckpointConfig.save=None \
+    --gin.train/utils.DatasetConfig.seed=${SEED} \
+    --gin.train_eval/utils.DatasetConfig.seed=${SEED} \
+    --gin.train.random_seed=${SEED} \
     $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 set +x
