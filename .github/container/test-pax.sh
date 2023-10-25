@@ -17,6 +17,7 @@ usage() {
     echo "  --dtype                    Batch size, defaults to bfloat16."
     echo "  --enable-te                If set, will run with env var ENABLE_TE=1." 
     echo "  --enable-dropout           If set, will set DROPOUT_PROB to 0.1."
+    echo "  --evaluate                 Whether to test evaluation rather than training."
     echo "  -s, --steps                Number of steps to run, defaults to 500."
     echo "  --multiprocess             Enable the multiprocess GPU mode."
     echo "  -o, --output NAME          Name for the output folder, a temporary folder will be created if none specified."
@@ -29,7 +30,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
++args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,evaluate,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -48,6 +49,7 @@ PP=1
 NODES=1
 ENABLE_TE=0
 DROPOUT=0
+EVALUATE=0
 ADDITIONAL_ARGS=""
 
 eval set -- "$args"
@@ -70,9 +72,13 @@ while [ : ]; do
             shift 1
             ;;
         --enable-dropout)
-           DROPOUT='0.1'
-           shift 1
-           ;;
+            DROPOUT='0.1'
+            shift 1
+            ;;
+        --evaluate)
+            EVALUATE=1
+            shift 1
+            ;;
         -s | --steps)
             STEPS="$2"
             shift 2
@@ -129,6 +135,9 @@ print_var STEPS
 print_var NGPUS
 print_var OUTPUT
 print_var MULTIPROCESS
+print_var ENABLE_TE
+print_var EVALUATE
+print_var DROPOUT
 print_var DP
 print_var FSDP
 print_var TP
@@ -312,13 +321,36 @@ EOF
 
 ## Launch
 set -ex
-ENABLE_TE=$ENABLE_TE python -m paxml.main \
+if [[ ${EVALUATE} -ne 0 ]]; then
+  ## train for 0 steps to generate an initial checkpoint
+  ENABLE_TE=$ENABLE_TE python -m paxml.main \
+    --fdl_config=ci_configs.Synthetic126M \
+    --fdl.MAX_STEPS=0 \
+    --job_log_dir=${OUTPUT} \
+    --alsologtostderr \
+    $ADDITIONAL_ARGS \
+    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
+
+  ## restore from initial checkpoint for eval
+  ENABLE_TE=$ENABLE_TE python -m paxml.main \
+    --fdl_config=ci_configs.Synthetic126M \
+    --job_log_dir=${OUTPUT} \
+    --mode='eval' \
+    --alsologtostderr \
+    --enable_checkpoint_saving=False \
+    $ADDITIONAL_ARGS \
+    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
+
+  rm -rf ${OUTPUT}/checkpoints
+else
+  ENABLE_TE=$ENABLE_TE python -m paxml.main \
     --fdl_config=ci_configs.Synthetic126M \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
     --enable_checkpoint_saving=False \
     $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
+fi
 
 set +x
 echo "Output at ${OUTPUT}"
