@@ -13,6 +13,7 @@ FROM ${BASE_IMAGE} as staging
 
 ARG REPO_T5X
 ARG REF_T5X
+ARG SRC_PATH_T5X
 RUN get-source.sh -f ${REPO_T5X} -r ${REF_T5X} -d ${SRC_PATH_T5X} -o /opt/pip-tools.d/manifest.t5x
 
 ADD test-t5x.sh /usr/local/bin
