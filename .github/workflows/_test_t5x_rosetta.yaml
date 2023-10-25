@@ -99,7 +99,7 @@ jobs:
               --steps-per-epoch 100 \
               --use-contrib-configs \
               ${{ matrix.ADDITIONAL_ARGS }} \
-              ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}
+              ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}'
           EOF
           )
 
@@ -243,7 +243,7 @@ jobs:
               --multiprocess \
               --use-contrib-configs \
               ${{ matrix.ADDITIONAL_ARGS }} \
-              ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}
+              ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}'
           EOF
           )
 
