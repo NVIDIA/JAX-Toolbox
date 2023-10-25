@@ -2,6 +2,8 @@
 
 set -ex -o pipefail
 
+sed -i "s|flax @ git+https://github.com/google/flax#egg=flax||g"
+
 pip-compile $(ls /opt/pip-tools.d/manifest.*) -o /opt/pip-tools.d/requirements.txt
 
 pip-sync /opt/pip-tools.d/requirements.txt
