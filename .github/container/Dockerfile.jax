@@ -62,7 +62,7 @@ RUN pip --disable-pip-version-check install ${SRC_PATH_JAX}/dist/*.whl && \
 
 # Install software stack in JAX ecosystem
 # Made this optional since tensorstore cannot build on Ubuntu 20.04 + ARM
-RUN { pip install flax || true; } && rm -rf ~/.cache/pip
+RUN { pip install flax || true; } && rm -rf ~/.cache/*
 
 # TODO: properly configure entrypoint
 # COPY entrypoint.d/ /opt/nvidia/entrypoint.d/
