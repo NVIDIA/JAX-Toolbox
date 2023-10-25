@@ -7,7 +7,7 @@ on:
         type: string
         description: 'Base docker image that provides JAX'
         required: false
-        default: ghcr.io/nvidia/jax-te:latest
+        default: ghcr.io/nvidia/jax:latest
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -36,7 +36,7 @@ on:
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
+        value: ${{ jobs.merge.outputs.DOCKER_TAGS }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -49,9 +49,11 @@ permissions:
 jobs:
 
   build:
-    outputs:
-      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-    runs-on: [self-hosted, x86, small]
+    strategy:
+      fail-fast: false
+      matrix:
+        PLATFORM: [amd64, arm64]
+    runs-on: [self-hosted, "${{ matrix.PLATFORM }}", small]
     steps:
       - name: Print environment variables
         run: env
@@ -75,7 +77,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-pax
+            type=raw,value=${{ github.run_id }}-upstream-pax-${{  matrix.PLATFORM }}
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
@@ -83,14 +85,15 @@ jobs:
         uses: docker/setup-buildx-action@v2
         with:
           driver-opts: |
-            image=moby/buildkit:v0.10.6
+            image=moby/buildkit:v0.12.1
 
       - name: Build docker images
         uses: docker/build-push-action@v4
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.pax
+          file: .github/container/Dockerfile.pax.${{ matrix.PLATFORM }}
+          platforms: linux/${{ matrix.PLATFORM }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -100,3 +103,65 @@ jobs:
             REPO_PRAXIS=${{ inputs.REPO_PRAXIS }}
             REF_PAXML=${{ inputs.REF_PAXML }}
             REF_PRAXIS=${{ inputs.REF_PRAXIS }}
+
+      # Temporary workaround until the following issues are solved:
+      # https://github.com/orgs/community/discussions/17245
+      # https://github.com/actions/runner/pull/2477
+      # https://github.com/orgs/community/discussions/26639
+      - name: Save image name as text file
+        shell: bash -x -e {0}
+        run: |
+          echo "${{ steps.meta.outputs.tags }}" >> image-name.txt
+
+      - name: Upload image name file as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: image-name-upstream-pax-${{ matrix.PLATFORM }}
+          path: image-name.txt
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: build
+    outputs:
+      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
+    steps:
+      # TODO: currently downloading all artifacts of the entire workflow
+      # Revise when this request is fulfilled:
+      # https://github.com/actions/download-artifact/issues/214
+      - name: Download image name files into separate folders
+        uses: actions/download-artifact@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-upstream-pax-multiarch
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+
+      - name: Combine images into a single multi-arch image
+        shell: bash -x -e {0}
+        run: |
+          docker manifest create ${{ steps.meta.outputs.tags }} $(
+            for IMAGE in $(cat image-name-upstream-pax-*/image-name.txt); do
+              REPO=$(echo $IMAGE | cut -d: -f1)
+              DIGEST=$(
+                docker manifest inspect $IMAGE |\
+                jq -r '.manifests[] | select(.platform.os == "linux") | .digest'
+              )
+              echo $REPO@${DIGEST}
+            done
+          )
+          docker manifest push ${{ steps.meta.outputs.tags }}

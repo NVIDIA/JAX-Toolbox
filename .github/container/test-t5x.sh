@@ -11,24 +11,28 @@ usage() {
     echo ""
     echo "Usage: $0 [OPTIONS]"
     echo ""
-    echo "  OPTIONS                DESCRIPTION"
-    echo "  -b, --batch-size       Global batch size (REQUIRED)"
-    echo "  -d, --dtype            Data type, defaults to bfloat16."
-    echo "  -e, --epochs           Number of epochs to run, defaults to 7."
-    echo "  --multiprocess         Enable the multiprocess GPU mode."
-    echo "  -o, --output NAME      Name for the output folder, a temporary folder will be created if none specified."
-    echo "  -h, --help             Print usage."
+    echo "  OPTIONS                   DESCRIPTION"
+    echo "  -a, --additional-args     Additional gin args to pass to t5x/train.py"
+    echo "  -b, --batch-size          Global batch size (REQUIRED)"
+    echo "  -c --use-contrib-configs  If provided uses contrib/gpu configs instead of top-level configs. Notably, gpu configs use adamw instead of adafactor"
+    echo "  -d, --dtype               Data type, defaults to bfloat16."
+    echo "  -e, --epochs              Number of epochs to run, defaults to 7."
+    echo "  --multiprocess            Enable the multiprocess GPU mode."
+    echo "  -o, --output NAME         Name for the output folder, a temporary folder will be created if none specified."
+    echo "  -h, --help                Print usage."
     exit $1
 }
 
-args=$(getopt -o b:d:e:o:s:h --long batch-size:,dtype:,epochs:,help,multiprocess,output:,steps-per-epoch: -- "$@")
+args=$(getopt -o a:b:cd:e:o:s:h --long additional-args:,batch-size:,use-contrib-configs,dtype:,epochs:,help,multiprocess,output:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
 # Default arguments
 
+ADDITIONAL_ARGS=""
 BATCH_SIZE=0
+USE_CONTRIB_CONFIGS=0
 DTYPE=bfloat16
 EPOCHS=7
 MULTIPROCESS=0
@@ -38,9 +42,17 @@ STEPS_PER_EPOCH=100
 eval set -- "$args"
 while [ : ]; do
     case "$1" in
+        -a | --additional-args)
+            ADDITIONAL_ARGS="$2"
+            shift 2
+            ;;
         -b | --batch-size)
             BATCH_SIZE="$2"
             shift 2
+            ;;
+        -c | --use-contrib-configs)
+            USE_CONTRIB_CONFIGS=1
+            shift 1
             ;;
         -d | --dtype)
             DTYPE="$2"
@@ -84,19 +96,15 @@ fi
 
 TRAIN_STEPS=$(($EPOCHS * $STEPS_PER_EPOCH))
 
+print_var ADDITIONAL_ARGS
 print_var BATCH_SIZE
+print_var USE_CONTRIB_CONFIGS
 print_var DTYPE
 print_var EPOCHS
-print_var NGPUS
 print_var OUTPUT
 print_var MULTIPROCESS
 print_var STEPS_PER_EPOCH
 print_var TRAIN_STEPS
-
-## Install T5
-pip config set global.root-user-action ignore
-pip config set global.disable-pip-version-check true
-pip install git+https://github.com/google-research/text-to-text-transfer-transformer.git
 
 ## Enter T5X source folder
 T5X_DIR=$(dirname `python -c 'import t5x; print(*t5x.__path__)'`)
@@ -139,10 +147,18 @@ EOF
 cat > benchmark.gin <<EOF
 from __gin__ import dynamic_registration
 from t5x import partitioning
-from t5x.examples.t5 import network
-
-include "t5x/examples/t5/t5_1_1/small.gin"
-include 't5x/configs/runs/pretrain.gin'
+$(
+  if [[ "$USE_CONTRIB_CONFIGS" -eq 0 ]]; then
+    echo "from t5x.examples.t5 import network"
+    echo "include 't5x/examples/t5/t5_1_1/small.gin'"
+    echo "include 't5x/configs/runs/pretrain.gin'"
+  else
+    echo "from t5x.contrib.gpu.t5 import network"
+    echo "include 't5x/contrib/gpu/t5/t5_1_1/small.gin'"
+    echo "include 't5x/contrib/gpu/t5/configs/runs/pretrain.gin'"
+    echo "include 't5x/contrib/gpu/t5/t5_1_1/adamw_opt.gin'"
+  fi
+)
 
 # Register Dummy Wikipedia Seqio Task for benchmarking
 import dummy_wikipedia
@@ -159,7 +175,7 @@ partitioning.PjitPartitioner:
 EOF
 
 ## Launch
-set -x
+set -exou pipefail
 python -m t5x.train \
     --gin_file benchmark.gin \
     --gin.MODEL_DIR=\"${OUTPUT}\" \
@@ -169,6 +185,7 @@ python -m t5x.train \
     --gin.train.eval_steps=0 \
     --gin.train.eval_period=${STEPS_PER_EPOCH} \
     --gin.CheckpointConfig.save=None \
+    $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 set +x
 echo "Output at ${OUTPUT}"

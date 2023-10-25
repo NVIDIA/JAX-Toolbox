@@ -1,0 +1,456 @@
+name: "~Triage T5x or Pax"
+
+on:
+  workflow_call:
+    inputs:
+      BASE_IMAGE:
+        type: string
+        description: "Base image to fast-forward dependencies (older)"
+        required: false
+        default: "ghcr.io/nvidia/upstream-pax:nightly-2023-07-06"
+      BROKEN_IMAGE:
+        type: string
+        description: 'Broken image (newer)'
+        required: false
+        default: "ghcr.io/nvidia/upstream-pax:nightly-2023-07-08"
+      REPO_DIRS:
+        type: string
+        description: "Space separated dirs to fast-forward (e.g., '/opt/flax /opt/t5x')"
+        required: false
+        default: ""
+      FILE_ISSUE:
+        type: boolean
+        description: "If true, will create a github issue"
+        required: false
+        default: false
+  workflow_dispatch:
+    inputs:
+      BASE_IMAGE:
+        type: string
+        description: "Base image to fast-forward dependencies (older)"
+        required: false
+        default: "ghcr.io/nvidia/upstream-t5x:nightly-2023-07-18"
+      BROKEN_IMAGE:
+        type: string
+        description: 'Broken image (newer)'
+        required: false
+        default: "ghcr.io/nvidia/upstream-t5x:nightly-2023-07-20"
+      REPO_DIRS:
+        type: string
+        description: "Space separated dirs to fast-forward (e.g., '/opt/flax /opt/t5x')"
+        required: false
+        default: ""
+      FILE_ISSUE:
+        type: boolean
+        description: "If true, will create a github issue"
+        required: false
+        default: false
+
+env:
+  UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
+  PAX_ASSIGNEE: ashors1
+  T5X_ASSIGNEE: terrykong
+  JAX_ASSIGNEE: yhtang
+  STAKEHOLDERS: "@ashors1 @terrykong @yhtang"
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+  issues: write   # to create issues
+
+jobs:
+  metadata:
+    outputs:
+      # Dates will be generated [S, S+1, S+2, ..., E-1]
+      #  - Will go thru S, S+1, ..., E-1 in this order since it is assumed that S was the latest
+      #    working image, so it has the best chance to succed.
+      TAGS_BETWEEN: ${{ steps.meta.outputs.TAGS_BETWEEN }}
+      # If the BASE_IMAGE is ghcr.io/nvidia/upstream-t5x:nightly-YYYY-MM-DD, then BASE_IMAGE_REPO is ghcr.io/nvidia/upstream-t5x
+      BASE_IMAGE_REPO: ${{ steps.meta.outputs.BASE_IMAGE_REPO }}
+      BROKEN_IMAGE: ${{ steps.meta.outputs.BROKEN_IMAGE }}
+      # This would be something like either upstream-t5x or upstream-pax
+      FRAMEWORK_BASE: ${{ steps.meta.outputs.FRAMEWORK_BASE }}
+      BROKEN_DATE: ${{ steps.meta.outputs.BROKEN_DATE }}
+      UPLD_IMAGE: ${{ steps.meta.outputs.UPLD_IMAGE }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name:
+        id: meta
+        shell: bash -x -e {0}
+        run: |
+          source .github/workflows/scripts/get_build_date.sh
+          source .github/workflows/scripts/all_image_tags.sh
+          BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+          BROKEN_IMAGE=${{ inputs.BROKEN_IMAGE }}
+        
+          BASE_IMAGE_REPO=$(echo $BASE_IMAGE | rev | cut -d: -f2- | rev)
+          FRAMEWORK_BASE=$(echo $BASE_IMAGE_REPO | rev | cut -d/ -f1 | rev)
+          if [[ $FRAMEWORK_BASE != upstream-t5x && $FRAMEWORK_BASE != upstream-pax ]]; then
+            echo "BASE_IMAGE=$BASE_IMAGE can only be ghcr.io/nvidia/upstream-pax or ghcr.io/nvidia/upstream-t5x"
+            exit 1
+          fi
+          ALL_BASE_TAGS="$(all_image_tags ${{ secrets.GITHUB_TOKEN }} $BASE_IMAGE_REPO)"
+          generate_tags() {
+            start_date=$1
+            end_date=$2
+            if [[ "$start_date" > "$end_date" ]]; then
+              echo "$start_date > $end_date, which is not supported"
+              exit 1
+            fi
+        
+            while [[ "$start_date" < "$end_date" ]]; do
+              echo nightly-$start_date
+              start_date=$(date -I -d "$start_date + 1 day")
+            done
+          }
+          filter_valid_tags() {
+            fgrep -x -f <(echo "$ALL_BASE_TAGS")
+          }
+          start_date=${BASE_IMAGE##*nightly-}
+          end_date=$(get_build_date ${{ secrets.GITHUB_TOKEN }} $BROKEN_IMAGE )
+          if ! docker manifest inspect ${BASE_IMAGE} >/dev/null 2>&1; then
+            echo "Script assumes $BASE_IMAGE exists, but it wasn't found"
+            exit 1
+          elif ! docker manifest inspect ${BROKEN_IMAGE} >/dev/null 2>&1; then
+            echo "Script assumes $BROKEN_IMAGE exists, but it wasn't found"
+            exit 1
+          fi
+        
+          echo "TAGS_BETWEEN=$(generate_tags $start_date $end_date | filter_valid_tags | jq -R -s -c 'split("\n")[:-1]')" | tee -a $GITHUB_OUTPUT
+          echo "BASE_IMAGE_REPO=$BASE_IMAGE_REPO" | tee -a $GITHUB_OUTPUT
+          echo "BROKEN_IMAGE=$BROKEN_IMAGE" | tee -a $GITHUB_OUTPUT
+          echo "FRAMEWORK_BASE=$FRAMEWORK_BASE" | tee -a $GITHUB_OUTPUT
+
+          echo "BROKEN_DATE=$end_date" | tee -a $GITHUB_OUTPUT
+          echo "UPLD_IMAGE=${{ env.UPLD_IMAGE }}" | tee -a $GITHUB_OUTPUT
+
+  #######
+  # T5X #
+  #######
+  build-t5x-ff:
+    needs: [metadata]
+    if: needs.metadata.outputs.FRAMEWORK_BASE == 'upstream-t5x'
+    runs-on: [self-hosted, x86, small]
+    strategy:
+      # To enforce sequential execution, set to 1
+      max-parallel: 2
+      matrix:
+        base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-${{ matrix.base_tag }}-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }}
+          labels:
+            org.opencontainers.image.created=${{ needs.metadata.outputs.BROKEN_DATE }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.10.6
+
+      - name: "Build docker image: ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }}"
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile.ff
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BROKEN_IMAGE=${{ inputs.BROKEN_IMAGE }}
+            REPO_DIRS=${{ inputs.REPO_DIRS }}
+      
+      - name: Log image to Github Step Summary
+        run: |
+          cat <<EOF | tee -a $GITHUB_STEP_SUMMARY
+          * ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }}
+          EOF
+
+  test-t5x-ff:
+    needs: [metadata, build-t5x-ff]
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
+    uses: ./.github/workflows/_test_t5x.yaml
+    with:
+      T5X_IMAGE: "${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }}"
+    secrets: inherit
+  
+  t5x-ff-summary:
+    if: (success() || failure()) && needs.metadata.outputs.FRAMEWORK_BASE == 'upstream-t5x'
+    needs: [metadata, test-t5x-ff]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Create table summarizing
+        id: summary-table
+        run: |
+          set -ou pipefail
+          get_jobs() {
+            page=$1
+            curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}/jobs?page=$page"
+          }
+          page=1
+          json_data=$(get_jobs $page)
+          total_jobs=$(echo "$json_data" | jq -r '.total_count')
+          # Jobs are paginated, so we need to aggregate them
+          while [[ "$(echo "$json_data" | jq -r '.jobs | length')" -lt $total_jobs ]]; do
+            page=$((page+1))
+            json_data=$(jq '.jobs += input.jobs' <(echo "$json_data") <(get_jobs $page))
+          done
+
+          name_conclusion_array=()
+          while IFS= read -r line; do
+            name_conclusion_array+=("$line")
+          done < <(echo "$json_data" | jq -r '.jobs[] | select(.name | startswith("test-t5x-ff") and contains("outcome")) | "\(.name)\t\(.conclusion)"')
+        
+          TABLE_MD=$(
+          cat <<EOF
+          | Rewind to | Test result | Image |
+          | --- | --- | --- |
+          EOF
+
+          last_success_img_date=""
+          i=0
+          for tag in $(echo '${{ needs.metadata.outputs.TAGS_BETWEEN }}' | jq -r '.[]'); do
+            job_step_name=$(echo "${name_conclusion_array[$i]}" | cut -f1)
+            conclusion=$(echo "${name_conclusion_array[$i]}" | cut -f2)
+            if [[ ! "$job_step_name" == *$tag* ]]; then
+              echo "The runs from the GH API ($name_conclusion_array) do not align with TAGS_BETWEEN=${{ needs.metadata.outputs.TAGS_BETWEEN }}" >&2
+              exit 1
+            fi
+            echo "| $tag | $conclusion | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
+            i=$((i+1))
+            if [[ $conclusion == success ]]; then
+              last_success_img_date=$tag
+            fi
+          done
+          echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n"
+
+          if [[ -n "$last_success_img_date" ]]; then
+            echo "Found a working base nightly image (based on $last_success_img_date); issue likely lies in more recent base nightly images."
+            echo "ASSIGNEE=${{ env.JAX_ASSIGNEE }}" >> $GITHUB_OUTPUT
+          else
+            echo "Cannot find a working base nightly image; issue likely lies in the ${{ needs.metadata.outputs.FRAMEWORK_BASE }} libraries."
+            echo "ASSIGNEE=${{ env.T5X_ASSIGNEE }}" >> $GITHUB_OUTPUT
+          fi
+          )
+          ret_code=$?
+
+          # Writes to both the step summary and the github output
+          echo 'TABLE_MD<<EOF' >> $GITHUB_OUTPUT
+          echo "$TABLE_MD" | tee -a $GITHUB_STEP_SUMMARY >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+          exit $ret_code
+
+      - if: inputs.FILE_ISSUE
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/{owner_and_repo}/issues
+          owner_and_repo: ${{ github.repository }}
+          title: |
+            |
+            [Bot] ${{ needs.metadata.outputs.FRAMEWORK_BASE }} test failures on ${{ needs.metadata.outputs.BROKEN_DATE }}
+          body: |
+            | 
+            * Github Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  
+            ${{ steps.summary-table.outputs.TABLE_MD }}
+            
+            ${{ env.STAKEHOLDERS }}
+          assignee: ${{ steps.summary-table.outputs.ASSIGNEE }}
+          labels: "[\"auto-triage\"]"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+  ########
+  ## PAX #
+  ########
+  build-pax-ff:
+    needs: metadata
+    if: needs.metadata.outputs.FRAMEWORK_BASE == 'upstream-pax'
+    runs-on: [self-hosted, x86, small]
+    strategy:
+      # To enforce sequential execution, set to 1
+      max-parallel: 2
+      matrix:
+        base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-${{ matrix.base_tag }}-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }}
+          labels:
+            org.opencontainers.image.created=${{ needs.metadata.outputs.BROKEN_DATE }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.10.6
+
+      - name: "Build docker image: ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }}"
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile.ff
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BROKEN_IMAGE=${{ inputs.BROKEN_IMAGE }}
+            REPO_DIRS=${{ inputs.REPO_DIRS }}
+      
+  test-pax-ff:
+    needs: [metadata, build-pax-ff]
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
+    uses: ./.github/workflows/_test_pax.yaml
+    with:
+      PAX_IMAGE: "${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }}"
+    secrets: inherit
+  
+  pax-ff-summary:
+    if: (success() || failure()) && needs.metadata.outputs.FRAMEWORK_BASE == 'upstream-pax'
+    needs: [metadata, test-pax-ff]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Create table summarizing
+        id: summary-table
+        run: |
+          set -ou pipefail
+          get_jobs() {
+            page=$1
+            curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}/jobs?page=$page"
+          }
+          page=1
+          json_data=$(get_jobs $page)
+          total_jobs=$(echo "$json_data" | jq -r '.total_count')
+          # Jobs are paginated, so we need to aggregate them
+          while [[ "$(echo "$json_data" | jq -r '.jobs | length')" -lt $total_jobs ]]; do
+            page=$((page+1))
+            json_data=$(jq '.jobs += input.jobs' <(echo "$json_data") <(get_jobs $page))
+          done
+
+          name_conclusion_array=()
+          while IFS= read -r line; do
+            name_conclusion_array+=("$line")
+          done < <(echo "$json_data" | jq -r '.jobs[] | select(.name | startswith("test-pax-ff") and contains("outcome")) | "\(.name)\t\(.conclusion)"')
+        
+          TABLE_MD=$(
+          cat <<EOF
+          | Rewind to | Test result | Image |
+          | --- | --- | --- |
+          EOF
+
+          last_success_img_date=""
+          i=0
+          for tag in $(echo '${{ needs.metadata.outputs.TAGS_BETWEEN }}' | jq -r '.[]'); do
+            job_step_name=$(echo "${name_conclusion_array[$i]}" | cut -f1)
+            conclusion=$(echo "${name_conclusion_array[$i]}" | cut -f2)
+            if [[ ! "$job_step_name" == *$tag* ]]; then
+              echo "The runs from the GH API ($name_conclusion_array) do not align with TAGS_BETWEEN=${{ needs.metadata.outputs.TAGS_BETWEEN }}" >&2
+              exit 1
+            fi
+            echo "| $tag | $conclusion | ${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-$tag-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }} |"
+            i=$((i+1))
+            if [[ $conclusion == success ]]; then
+              last_success_img_date=$tag
+            fi
+          done
+          echo -e "| | failure <br> (assumed broken) | ${{ inputs.BROKEN_IMAGE }} (BROKEN_IMAGE) |\n"
+
+          if [[ -n "$last_success_img_date" ]]; then
+            echo "Found a working base nightly image (based on $last_success_img_date); issue likely lies in more recent base nightly images."
+            echo "ASSIGNEE=${{ env.JAX_ASSIGNEE }}" >> $GITHUB_OUTPUT
+          else
+            echo "Cannot find a working base nightly image; issue likely lies in the ${{ needs.metadata.outputs.FRAMEWORK_BASE }} libraries."
+            echo "ASSIGNEE=${{ env.PAX_ASSIGNEE }}" >> $GITHUB_OUTPUT
+          fi
+          )
+          ret_code=$?
+
+          # Writes to both the step summary and the github output
+          echo 'TABLE_MD<<EOF' >> $GITHUB_OUTPUT
+          echo "$TABLE_MD" | tee -a $GITHUB_STEP_SUMMARY >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+          exit $ret_code
+
+      - if: inputs.FILE_ISSUE 
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/{owner_and_repo}/issues
+          owner_and_repo: ${{ github.repository }}
+          title: |
+            |
+            [Bot] ${{ needs.metadata.outputs.FRAMEWORK_BASE }} test failures on ${{ needs.metadata.outputs.BROKEN_DATE }}
+          body: |
+            | 
+            * Github Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  
+            ${{ steps.summary-table.outputs.TABLE_MD }}
+            
+            ${{ env.STAKEHOLDERS }}
+          assignee: ${{ steps.summary-table.outputs.ASSIGNEE }}
+          labels: "[\"auto-triage\"]"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,63 @@
+# Imagen Base model.
+from __gin__ import dynamic_registration
+
+import seqio
+from rosetta.projects.imagen import network
+from rosetta.projects.diffusion import models
+from rosetta.projects.diffusion import augmentations
+from rosetta.projects.diffusion import denoisers
+from rosetta.projects.diffusion import samplers
+from rosetta.projects.diffusion import losses
+
+include 'rosetta/projects/diffusion/configs/adamw_ema_opt.gin'
+
+# ------------------- Loss HParam ----------------------------------------------
+# Dropout should be specified in the "run" files
+DROPOUT_RATE = %gin.REQUIRED
+DTYPE= %gin.REQUIRED
+SAMPLING_CONFIG = None
+
+# ------------------- Model ----------------------------------------------------
+MODEL = @models.DenoisingDiffusionModel()
+SIGMA_DATA = 0.5
+models.DenoisingDiffusionModel:
+  denoiser= @denoisers.EDMTextConditionedDenoiser()
+  diffusion_loss= @losses.EDMLoss()
+  diffusion_sampler= @samplers.EDMSampler()
+  optimizer_def = %OPTIMIZER
+  sampling_cfg = %SAMPLING_CONFIG
+
+#   |--- Denoiser
+denoisers.EDMTextConditionedDenoiser:
+  raw_model= @network.ImagenUNet()
+
+#   |--- Diffusion Loss/Trainer
+losses.EDMLoss:
+  sigma_data = %SIGMA_DATA
+  cond_aug_fn = @augmentations.text_conditioning_dropout
+
+augmentations.text_conditioning_dropout:
+  dropout_rate = 0.1
+
+# ------------------- Network specification ------------------------------------
+network.ImagenUNet.config = @network.DiffusionConfig()
+network.DiffusionConfig:
+  dtype = %DTYPE
+  model_dim = 512
+  attn_cond_dim = 2048
+  cond_dim = 2048
+  resblocks_per_level = 3
+  width_multipliers = (1, 2, 3, 4)
+  attn_resolutions = (32, 16, 8)
+  mha_head_dim = 64
+  attn_heads = 8
+  resblock_activation = 'silu'
+  dropout_rate = %DROPOUT_RATE
+  upsample_mode = 'shuffle'
+  downsample_mode = 'shuffle'
+  spatial_skip = False
+  cond_strategy = 'shift_scale'
+  norm_32 = True
+  scale_attn_logits = True
+  float32_attention_logits=False
+  text_conditionable = True

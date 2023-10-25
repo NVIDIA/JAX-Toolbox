@@ -7,7 +7,7 @@ on:
         type: string
         description: 'Base docker image that provides JAX'
         required: false
-        default: ghcr.io/nvidia/jax-te:latest
+        default: ghcr.io/nvidia/jax:latest
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -21,6 +21,16 @@ on:
       REF_T5X:
         type: string
         description: Git commit, tag, or branch for T5X
+        required: false
+        default: main
+      REPO_TE:
+        type: string
+        description: URL of TE repository to check out
+        required: false
+        default: "https://github.com/NVIDIA/TransformerEngine.git"
+      REF_TE:
+        type: string
+        description: Git commit, tag, or branch for TE
         required: false
         default: main
     outputs:
@@ -65,7 +75,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-t5x
+            type=raw,value=${{ github.run_id }}-upstream-t5x
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
@@ -88,3 +98,5 @@ jobs:
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             REPO_T5X=${{ inputs.REPO_T5X }}
             REF_T5X=${{ inputs.REF_T5X }}
+            REPO_TE=${{ inputs.REPO_TE }}
+            REF_TE=${{ inputs.REF_TE }}

@@ -1,0 +1,24 @@
+name: Nightly Distribution test
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Nightly JAX build]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+
+jobs:
+
+  test-distribution:
+    uses: ./.github/workflows/_test_distribution.yaml
+    secrets: inherit
+
+  if-upstream-failed:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1

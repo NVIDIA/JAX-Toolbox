@@ -5,14 +5,23 @@ on:
     inputs:
       T5X_IMAGE:
         type: string
-        description: T5X image from ghcr.io/nvidia/t5x
-        default: 'ghcr.io/nvidia/t5x:latest'
+        description: T5X image from ghcr.io/nvidia
+        default: 'ghcr.io/nvidia/upstream-t5x:latest'
         required: false
       BATCH_SIZE_PER_GPU:
         type: number
         description: Batch size per GPU
         default: 32
         required: false
+      EXTRA_GIN_ARGS:
+        type: string
+        description: Extra gin args to pass to test-t5x.sh
+        default: ""
+        required: false
+    outputs:
+      TEST_STATUS:
+        description: 'Summary pass/fail value indicating if results from tests are acceptable'
+        value: ${{ jobs.publish-test.outputs.STATUS }}
 
 jobs:
 
@@ -83,7 +92,8 @@ jobs:
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
-              --steps-per-epoch 100
+              --steps-per-epoch 100 \
+              ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
           echo "SLURM Partition Status"
@@ -104,6 +114,15 @@ jobs:
           done
           echo "SLRUM Job $JOB finished."
           kill $tail_pid
+
+          # Gather job info
+          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          echo "SLURM Job state is ${SLURM_STATE}"
+          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
           set -x
 
       - name: Retrieve training logs and upload to TensorBoard server
@@ -112,14 +131,24 @@ jobs:
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
-            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log
+            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
-            output/
+            output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
 
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
+ 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -197,7 +226,8 @@ jobs:
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              --multiprocess
+              --multiprocess \
+              ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
           echo "SLURM Partition Status"
@@ -218,6 +248,15 @@ jobs:
           done
           echo "SLRUM Job $JOB finished."
           kill $tail_pid
+
+          # Gather job info
+          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          echo "SLURM Job state is ${SLURM_STATE}"
+          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
           set -x
 
       - name: Retrieve training logs and upload to TensorBoard server
@@ -227,19 +266,121 @@ jobs:
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
-            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log
+            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
-            output/
+            output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
 
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
+ 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
+
+  metrics:
+    needs: [multi-gpu-multi-node, single-process-multi-device]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Run pytest
+        shell: bash -x {0}
+        run: |
+          pip install pytest pytest-reportlog tensorboard
+          for i in ${GITHUB_RUN_ID}-*; do
+            SUBDIR=$(echo $i | cut -d'-' -f2)
+            mv $i/$SUBDIR* .
+            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
+          done
+
+          echo '## T5X MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
+          for i in *_metrics.json; do
+            echo $i | cut -d'.' -f1
+            echo '```json'
+            jq . $i
+            echo '```'
+          done | tee -a $GITHUB_STEP_SUMMARY
+
+          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
+
+      - name: Upload metrics test json logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: metrics-test-log
+          path: report.jsonl
+
+
+  publish-test:
+    needs: [multi-gpu-multi-node, single-process-multi-device, metrics]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: ( always() )
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 't5x-test-completion-status.json'
+      PUBLISH: false
+      SCRIPT: |
+        EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
+        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
+
+        cat <<EOF >>$GITHUB_STEP_SUMMARY
+        ## T5x MGMN+SPMD Test Status
+        | Test Case | State | Exit Code |
+        | --- | --- | --- |
+        EOF
+        for i in $EXIT_STATUSES; do
+          # Files are named <GHID>-<NAME>/<NAME>-status.json
+          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f2) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
+        done | tee -a $GITHUB_STEP_SUMMARY
+
+        echo "Test statuses:"
+        jq -rc 'input_filename,.' $EXIT_STATUSES
+
+        METRICS_LOG=metrics-test-log/report.jsonl
+        all_outcomes() {
+          cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+        }
+        cnt_type() {
+          cat $METRICS_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+        }
+        PYTEST_FAILED_TESTS=$(cnt_type failed)
+        PYTEST_PASSED_TESTS=$(cnt_type passed)
+        PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
+
+        if ([[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
+            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]); then
+          STATUS=success
+          BADGE_COLOR=brightgreen
+        elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
+          STATUS=failure
+          BADGE_COLOR=red
+        else
+          STATUS=failure
+          BADGE_COLOR=yellow
+        fi
+        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
+        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
   summary:
     runs-on: ubuntu-22.04
@@ -256,3 +397,14 @@ jobs:
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
+
+  outcome:
+    needs: publish-test
+    runs-on: ubuntu-22.04
+    if: ( always() )
+    steps:
+      - name: Sets workflow status based on test outputs 
+        run: |
+          if [[ ${{ needs.publish-test.outputs.STATUS }} != success ]]; then
+            exit 1
+          fi

@@ -25,18 +25,23 @@ permissions:
 
 env:
   DEFAULT_JAX_IMAGE: 'ghcr.io/nvidia/jax:latest'
-  BADGE_ENDPOINT: 'jax-unit-test-status.json'
 
 jobs:
+
+  if-upstream-failed:
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1
 
   metadata:
     runs-on: ubuntu-22.04
     outputs:
-      JAX_IMAGE: ${{ steps.meta.outputs.JAX_IMAGE }}
-      PUBLISH: ${{ steps.meta.outputs.PUBLISH }}
+      JAX_IMAGE: ${{ steps.image.outputs.JAX_IMAGE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
-      - name: Set metadata
-        id: meta
+      - name: Determine jax image to use
+        id: image
         shell: bash -x -e {0}
         run: |
           if [[ -z "${{ inputs.JAX_IMAGE }}" ]]; then
@@ -45,9 +50,14 @@ jobs:
             JAX_IMAGE=${{ inputs.JAX_IMAGE }}
           fi
           echo "JAX_IMAGE=${JAX_IMAGE}" >> $GITHUB_OUTPUT
-          echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-  run-jobs:
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+
+  run:
     needs: metadata
     uses: ./.github/workflows/_test_jax.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
@@ -55,34 +65,10 @@ jobs:
       JAX_IMAGE: ${{ needs.metadata.outputs.JAX_IMAGE }}
     secrets: inherit
 
-  publish:
-    needs: [metadata, run-jobs]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    secrets: inherit
+  finalize:
+    if: always()
+    needs: [metadata, run]
+    uses: ./.github/workflows/_finalize.yaml
     with:
-      ENDPOINT_FILENAME: 'jax-unit-test-status.json'
-      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        ARTIFACTS="${{ needs.run-jobs.outputs.ARTIFACT_NAME }}/*"
-        FAILED_TESTS=$(cat $ARTIFACTS | grep -c 'FAILED in' || true)
-        PASSED_TESTS=$(cat $ARTIFACTS | grep -c 'PASSED in' || true)
-        TOTAL_TESTS=$((FAILED_TESTS + PASSED_TESTS))
-        if [[ $FAILED_TESTS == 0 ]]; then
-          BADGE_COLOR=brightgreen
-        else
-          if [[ $FAILED_TESTS < $TOTAL_TESTS ]]; then
-            BADGE_COLOR=yellow
-          else
-            BADGE_COLOR=red
-          fi
-        fi
-        echo "LABEL='V100 Unit'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-
-  if-upstream-failed:
-    runs-on: ubuntu-latest
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
-    steps:
-      - run: echo 'Upstream workflow failed, aborting run' && exit 1
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit

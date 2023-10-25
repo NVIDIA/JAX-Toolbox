@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1-labs
+###############################################################################
+## Pax
+###############################################################################
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
+FROM ${BASE_IMAGE}
+
+ADD install-pax.sh /usr/local/bin
+ADD install-flax.sh /usr/local/bin
+ADD install-te.sh /usr/local/bin
+
+ENV NVTE_FRAMEWORK=jax
+ARG REPO_PAXML=https://github.com/google/paxml.git
+ARG REPO_PRAXIS=https://github.com/google/praxis.git
+ARG REF_PAXML=main
+ARG REF_PRAXIS=main
+RUN <<"EOF" bash -ex
+install-pax.sh --defer --from_paxml ${REPO_PAXML} --from_praxis ${REPO_PRAXIS} --ref_paxml ${REF_PAXML} --ref_praxis ${REF_PRAXIS}
+install-flax.sh --defer
+install-te.sh --defer
+
+if [[ -f /opt/requirements-defer.txt ]]; then
+  # SKIP_HEAD_INSTALLS avoids having to install jax from Github source so that
+  # we do not overwrite the jax that was already installed.
+  SKIP_HEAD_INSTALLS=true pip install -r /opt/requirements-defer.txt
+fi
+if [[ -f /opt/cleanup.sh ]]; then
+  bash -ex /opt/cleanup.sh
+fi
+EOF
+
+ADD test-pax.sh /usr/local/bin

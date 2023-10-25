@@ -1,0 +1,74 @@
+#!/bin/bash
+#SBATCH -A example
+#SBATCH -p partition
+#SBATCH -N 1                    # number of nodes
+#SBATCH -t 04:00:00             # wall time  (8 for backfill, 4 for Luna)
+#SBATCH -J jobname              # slurm job name
+#SBATCH --exclusive             # exclusive node access
+#SBATCH --mem=0                 # all mem avail
+#SBATCH --mail-type=FAIL        # only send email on failure
+#SBATCH --ntasks-per-node=8     # n tasks per machine (one task per gpu)
+#SBATCH --overcommit            # Needed for pytorch
+#SBATCH --dependency=singleton  # only run one instance at a time
+
+# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -x
+
+# File system and volume glue code
+#-------------------------------------------------------------------------------
+
+CONTAINER="${CONTAINER:=ghcr.io/nvidia/t5x:vit-2023-07-21}"
+
+# << CHANGE ! >>
+BASE_WORKSPACE_DIR=${BASE_WORKSPACE_DIR} # path to workspace directory where outputs will reside
+BASE_WDS_DATA_DIR=${BASE_WDS_DATA_DIR} # path to imagenet dataset
+BASE_TRAIN_IDX_DIR=${BASE_TRAIN_IDX_DIR} # path to train indices (if any)
+BASE_EVAL_IDX_DIR=${BASE_EVAL_IDX_DIR} # path to eval indices (if any)
+
+# Default env variables for paths required by ViT training scripts
+WORKSPACE_DIR=/opt/rosetta/workspace
+WDS_DATA_DIR=/opt/rosetta/datasets/imagenet
+TRAIN_IDX_DIR=/opt/rosetta/train_idxs
+EVAL_IDX_DIR=/opt/rosetta/eval_idxs
+
+# Add the Rosetta/JAX specific mounts
+MOUNTS="--container-mounts=$BASE_WORKSPACE_DIR:$WORKSPACE_DIR,$BASE_WDS_DATA_DIR:/$WDS_DATA_DIR,$BASE_TRAIN_IDX_DIR:$TRAIN_IDX_DIR,$BASE_EVAL_IDX_DIR:$EVAL_IDX_DIR"
+
+# Add Rosetta/JAX specific exports
+EXPORTS="--export=ALL,WORKSPACE_DIR=${WORKSPACE_DIR},WDS_DATA_DIR=${WDS_DATA_DIR},TRAIN_IDX_DIR=${TRAIN_IDX_DIR},EVAL_IDX_DIR=${EVAL_IDX_DIR}"
+#-------------------------------------------------------------------------------
+
+# Command line arguments needed by the underlying scripts
+VIT_SIZE=${VIT_SIZE:="base"}          # base
+PREC=${PREC:="bfloat16"}            # bfloat16, float32
+GPUS_PER_NODE=${GPUS_PER_NODE:=8}    # usually 8
+BSIZE_PER_GPU=${BSIZE_PER_GPU:=128}     # local batch size/gpu
+MODEL_DIR_LOCAL=${MODEL_DIR_LOCAL:="finetune_dir"}  # directory to save checkpoints and config dump to, relative to BASE_WORKSPACE_DIR
+GRAD_ACCUM=${GRAD_ACCUM:=1}
+
+read -r -d '' cmd <<EOF
+echo "*******STARTING********" \
+&& nvidia-smi \
+&& bash rosetta/projects/vit/scripts/multiprocess_finetune.sh $VIT_SIZE $PREC $GPUS_PER_NODE $BSIZE_PER_GPU workspace/$MODEL_DIR_LOCAL $TRAIN_IDX_DIR $EVAL_IDX_DIR $GRAD_ACCUM
+EOF
+
+OUTPUT_DIR="${BASE_WORKSPACE_DIR}/outputs/finetune-${VIT_SIZE}-${PREC}-N${SLURM_JOB_NUM_NODES}-n${GPUS_PER_NODE}-BS${BSIZE_PER_GPU}"
+mkdir -p ${OUTPUT_DIR}
+OUTFILE="${OUTPUT_DIR}/output-%j-%n-%t.txt"
+
+echo $cmd
+srun -o $OUTFILE -e $OUTFILE --container-image="$CONTAINER" $MOUNTS $EXPORTS bash -c "${cmd}"
+

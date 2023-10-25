@@ -26,10 +26,21 @@ setuptools.setup(
     },
     scripts=[],
     install_requires=[
+        'zmq',
+        'nvidia-pytriton',
+        'einops',
+        'pillow',
+        'webdataset',
+        'matplotlib',
+        'nvidia-dali-cuda120',
     ],
+
     extras_require={
         'test': [
+            'pandas',
             'pytest',
+            'pytest-xdist',
+            'Pillow'
         ],
         'lint': [
             'ruff',

@@ -2,7 +2,7 @@ name: Nightly T5X build
 
 on:
   workflow_run:
-    workflows: [Nightly Transformer Engine build]
+    workflows: [Nightly JAX build]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -12,10 +12,6 @@ on:
         description: Publish dated images and update the 'latest' tag?
         default: false
         required: false
-
-env:
-  TARGET: t5x
-  DOCKER_REGISTRY: ghcr.io/nvidia
 
 permissions:
   contents: read  # to fetch code
@@ -52,7 +48,7 @@ jobs:
     secrets: inherit
     with:
       SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: t5x
+      TARGET_IMAGE: upstream-t5x
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900

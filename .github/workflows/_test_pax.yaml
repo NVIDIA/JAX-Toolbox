@@ -5,9 +5,18 @@ on:
     inputs:
       PAX_IMAGE:
         type: string
-        description: PAX image from ghcr.io/nvidia/pax
-        default: latest
+        description: PAX image from ghcr.io/nvidia
+        default: ghcr.io/nvidia/upstream-pax:latest
         required: false
+      EXTRA_TEST_ARGS:
+        type: string
+        description: Extra command line args to pass to test-pax.sh
+        default: ""
+        required: false
+    outputs:
+      TEST_STATUS:
+        description: 'Summary pass/fail value indicating if results from tests are acceptable'
+        value: ${{ jobs.publish-test.outputs.STATUS }}
 
 jobs:
 
@@ -15,12 +24,13 @@ jobs:
     strategy:
       matrix:
         PARALLEL_CONFIG:
-        - [1, 1, 1]
-        - [8, 1, 1]
-        - [1, 8, 1]
-        - [2, 1, 4]
-        - [16, 1, 1]
-        - [2, 2, 4]
+        - [1, 1, 1, 1]
+        - [1, 8, 1, 1]
+        - [1, 1, 8, 1]
+        - [4, 2, 1, 1]
+        - [1, 4, 1, 2]
+        - [1, 16, 1, 1]
+        - [4, 2, 1, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -49,8 +59,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}TP${{ matrix.PARALLEL_CONFIG[2] }}PP
-          TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }}))
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP
+          TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
           MAX_GPUS_PER_NODE=8
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
@@ -89,11 +99,13 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 500 \
-              --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
-              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
-              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
+              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
+              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
+              ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
           )
           echo "SLURM Partition Status"
@@ -114,9 +126,6 @@ jobs:
           done
           echo "SLRUM Job $JOB finished."
           kill $tail_pid
-
-          CKPT_PATH=${{ steps.meta.outputs.MODEL_PATH }}/${{ steps.meta.outputs.TEST_CASE_NAME }}/checkpoints
-          if sshx -q [[ -d $CKPT_PATH ]]; then sshx rm -r $CKPT_PATH; fi
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -173,7 +182,7 @@ jobs:
         shell: bash -x {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
-          for i in ${GITHUB_RUN_ID}-*DP*TP*PP; do
+          for i in ${GITHUB_RUN_ID}-*DP*FSDP*TP*PP; do
             SUBDIR=$(echo $i | cut -d'-' -f2)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
@@ -187,13 +196,68 @@ jobs:
             echo '```'
           done | tee -a $GITHUB_STEP_SUMMARY
 
-          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
+          RESULTS_DIR=$PWD BASELINES_DIR=PAX_MGMN/upstream pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v3
         with:
           name: metrics-test-log
           path: report.jsonl
+
+
+  publish-test:
+    needs: [multi-gpu-multi-node, metrics]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: ( always() )
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 'pax-test-status.json'
+      PUBLISH: false
+      SCRIPT: |
+        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*FSDP*TP*PP/*-status.json"
+        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
+
+        echo '## PAX MGMN Test Status' >> $GITHUB_STEP_SUMMARY
+        for i in $EXIT_STATUSES; do
+          echo $i | cut -d'.' -f1
+          echo '```json'
+          jq . $i
+          echo '```'
+        done | tee -a $GITHUB_STEP_SUMMARY
+
+        echo "Test statuses:"
+        jq -rc 'input_filename,.' $EXIT_STATUSES
+
+        PYTEST_LOG=metrics-test-log/report.jsonl
+        all_outcomes() {
+          cat $PYTEST_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+        }
+        cnt_type() {
+          cat $PYTEST_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+        }
+        PYTEST_FAILED_TESTS=$(cnt_type failed)
+        PYTEST_PASSED_TESTS=$(cnt_type passed)
+        PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
+
+        if ([[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
+            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]) || \
+            ([[ $PASSED_TESTS -eq $TOTAL_TESTS ]] && [[ $PYTEST_PASSED_TESTS -eq $PYTEST_TOTAL_TESTS ]]); then
+          STATUS=success
+          BADGE_COLOR=brightgreen
+        elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
+          STATUS=failure
+          BADGE_COLOR=red
+        else
+          STATUS=failure
+          BADGE_COLOR=yellow
+        fi
+        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
+        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+
 
   summary:
     runs-on: ubuntu-22.04
@@ -210,3 +274,14 @@ jobs:
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
+
+  outcome:
+    needs: publish-test
+    runs-on: ubuntu-22.04
+    if: ( always() )
+    steps:
+      - name: Sets workflow status based on test outputs 
+        run: |
+          if [[ ${{ needs.publish-test.outputs.STATUS }} != success ]]; then
+            exit 1
+          fi

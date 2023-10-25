@@ -10,7 +10,7 @@ on:
       PAX_IMAGE:
         type: string
         description: Pax container
-        default: 'ghcr.io/nvidia/pax:latest'
+        default: 'ghcr.io/nvidia/upstream-pax:latest'
         required: true
       PUBLISH:
         type: boolean
@@ -22,9 +22,10 @@ permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
   packages: write # to upload container
+  issues:   write # to create issues
 
 env:
-  DEFAULT_PAX_IMAGE: 'ghcr.io/nvidia/pax:latest'
+  DEFAULT_PAX_IMAGE: 'ghcr.io/nvidia/upstream-pax:latest'
 
 jobs:
 
@@ -105,30 +106,60 @@ jobs:
   publish-completion:
     needs: [metadata, run-jobs]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    if: success() || failure()
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'pax-test-completion-status.json'
       PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
-        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*TP*PP/*-status.json"
-        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
-        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
+        STATUS=failure
+        if [[ ${{ needs.run-jobs.result }} == "success" ]]; then
+          EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*TP*PP/*-status.json"
+          PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
 
-        echo "Test statuses:"
-        jq -rc 'input_filename,.' $EXIT_STATUSES
+          echo "Test statuses:"
+          jq -rc 'input_filename,.' $EXIT_STATUSES
 
-        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-          BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]]; then
-          BADGE_COLOR=red
+          if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
+            BADGE_COLOR=brightgreen
+            STATUS=success
+          elif [[ $PASSED_TESTS -eq 0 ]]; then
+            BADGE_COLOR=red
+          else
+            BADGE_COLOR=yellow
+          fi
+          echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+          echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
         else
-          BADGE_COLOR=yellow
+          echo "MESSAGE='n/a'" >> $GITHUB_OUTPUT
+          echo "COLOR='red'" >> $GITHUB_OUTPUT
         fi
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+        echo "STATUS='$STATUS'" >> $GITHUB_OUTPUT
+
+  publish-verified:
+    if: needs.publish-completion.outputs.STATUS == 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    needs: [metadata, publish-completion]
+    uses: ./.github/workflows/_publish_container.yaml
+    secrets: inherit
+    with:
+      SOURCE_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
+      TARGET_IMAGE: upstream-pax
+      TARGET_TAGS: |
+        type=raw,value=latest-verified,priority=1000
+
+  triage:
+    needs: [metadata, publish-completion]
+    uses: ./.github/workflows/_triage.yaml
+    if: needs.publish-completion.outputs.STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
+    secrets: inherit
+    with:
+      BROKEN_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
+      BASE_IMAGE: ghcr.io/nvidia/upstream-pax:latest-verified
+      REPO_DIRS: "/opt/paxml /opt/praxis"
+      FILE_ISSUE: true
 
   if-upstream-failed:
     runs-on: ubuntu-latest
