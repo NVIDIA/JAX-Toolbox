@@ -86,7 +86,7 @@ echo "Fetching $GIT_REPO#$GIT_REF to $INSTALL_DIR"
 
 set -ex
 
-git clone --depth 1 ${GIT_REPO} ${INSTALL_DIR}
+git clone ${GIT_REPO} ${INSTALL_DIR}
 pushd ${INSTALL_DIR}
 git checkout ${GIT_REF}
 git submodule init
