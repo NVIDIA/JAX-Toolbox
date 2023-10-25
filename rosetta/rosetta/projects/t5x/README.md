@@ -22,7 +22,7 @@ WORKSPACE_PATH=""  # Path used for run outputs (unspecified = /t5x_home/workspac
 
 ## Container
 We provide the latest fully built, ready-to-use, and verified container here: `ghcr.io/nvidia/t5x:latest-verified`. The verified containers will be updated
-periodically, but if you wish to use the bleeding edge (which may come have unexpected behavior), please use `ghcr.io/nvidia/t5x:latest`.
+periodically, but if you wish to use the bleeding edge (which may come with unexpected behavior), please use `ghcr.io/nvidia/t5x:latest`.
 We also provide nightly dated images with the naming pattern [ghcr.io/nvidia/t5x:nightly-YYYY-MM-DD](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x), but we encourage
 you to use the latest ones to get the best performance.
 
