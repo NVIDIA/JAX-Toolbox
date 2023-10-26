@@ -284,6 +284,8 @@ if pp > 1:
     
     def task(self):
       task_p = super().task()
+      task_p.train.always_use_train_for_model_init=False
+      task_p.model.report_strict_acc=True
       return task_p
 
 else:
@@ -314,6 +316,9 @@ else:
       stacked_p.input_dropout_prob = self.DROPOUT_PROB
       stacked_p.residual_dropout_prob = self.DROPOUT_PROB
       stacked_p.atten_dropout_prob = self.DROPOUT_PROB
+
+      task_p.train.always_use_train_for_model_init=False
+      task_p.model.report_strict_acc=True
 
       return task_p
 
