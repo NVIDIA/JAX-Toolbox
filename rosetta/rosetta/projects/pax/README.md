@@ -185,6 +185,7 @@ Here, it is assumed that you are running with the number of nodes reported in th
 
 ## Known Issues
 * Pipeline parallelism is not supported with NVIDIA Transformer Engine enabled in the Paxml container.
+* The Paxml nightlies disable `NCCL_NVLS_ENABLE=0` ([doc](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature.
 * The release container has a known XLA bug which affects single-process training in some cases. This bug has been fixed in newer XLA versions. If running into issues with single-process training, try using a Pax nightly container after 10/3. You can also try cherry-picking [this commit](https://github.com/openxla/xla/commit/aa8e7340cb319b9419a097155874bf105da05e1d) in the tested container.  
 * Infrequent hangs have been observed in multinode settings. Setting `CUDA_MODULE_LOADING=EAGER` helps with these hangs. This environment variable is set by default in `nvcr.io/nvidia/jax:23.10-paxml-py3`, `nvcr.io/nvidia/jax:23.10-paxml-py3-amd64`, and `nvcr.io/nvidia/jax:23.10-paxml-py3-arm64`.
 * We currently see unexpected convergence behavior when dropout is used with Transformer Engine. Default configs do not enable dropout within transformer layers and thus should be unaffected by this bug, but users may encounter this bug if manually enabling dropout in their models.
