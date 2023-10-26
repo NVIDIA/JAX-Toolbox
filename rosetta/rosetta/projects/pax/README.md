@@ -150,12 +150,12 @@ The tables below describe current performance of the given configs. Experiments 
 
 | Size | GPU | Precision | #GPUs | DP | FSDP | TP | BS / GPU | Sequences/Sec | Est. Walltime (days) | Lambada Accuracy (± standard deviation) | Convergence Log |
 | ---- | ----- |----- |----- | -- | ---- | -- | ---------| ---------------| ------------------------- | ---------------- |---------------- |
-| 126M | A100 80G SXM | bf16 |  64    |64    |1    |1    | 4     |   1877.20  |         0.95        |   0.397 (± 0.012)     | [log](https://tensorboard.dev/experiment/RCroDLAUQzGUoudzqD1NmQ/) |
-| 5B   | A100 80G SXM | bf16 | 256    | 1    |256    |1    | 8       |  465.45     |       3.82           |       N/A        |            |
-| 175B | A100 80G SXM | bf16 | 256    |1    |256    |1    | 6       |   18.29     |        72.92         |        N/A       |    |
-| 126M | A100 80G SXM | TE bf16 |  64    |64    |1    |1    | 4     |  2512.2   |     0.71            |   N/A | |
-| 5B   | A100 80G SXM | TE bf16 | 256    | 1    |256    |1    | 8       | 586.82    |    3.02    |       N/A        |            |
-| 175B | A100 80G SXM | TE bf16 | 256    |1    |256    |1    | 6       |   19.47    |      68.49     |        N/A       |    |
+| 126M | A100 80G SXM | BF16 |  64    |64    |1    |1    | 4     |   1877.20  |         0.95        |   0.397 (± 0.012)     | [log](https://tensorboard.dev/experiment/RCroDLAUQzGUoudzqD1NmQ/) |
+| 5B   | A100 80G SXM | BF16 | 256    | 1    |256    |1    | 8       |  465.45     |       3.82           |       N/A        |            |
+| 175B | A100 80G SXM | BF16 | 256    |1    |256    |1    | 6       |   18.29     |        72.92         |        N/A       |    |
+| 126M | A100 80G SXM | TE BF16 |  64    |64    |1    |1    | 4     |  2512.2   |     0.71            |   N/A | |
+| 5B   | A100 80G SXM | TE BF16 | 256    | 1    |256    |1    | 8       | 586.82    |    3.02    |       N/A        |            |
+| 175B | A100 80G SXM | TE BF16 | 256    |1    |256    |1    | 6       |   19.47    |      68.49     |        N/A       |    |
 
 ## H100 results
 
