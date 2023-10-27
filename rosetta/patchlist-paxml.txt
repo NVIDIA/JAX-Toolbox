@@ -5,4 +5,4 @@
 # - External Pull Requests (These are pull requests with upstream paxml and are of the form "pull/$PULLID/head")
 # - Note: Only the first column is used as a git-ref, so anything after is a comment
 
-mirror/patch/add_dropout_support_to_te # adds Transformer Engine support (+ dropout support)
+mirror/patch/te_support_rebased  # adds Transformer Engine support (+ dropout support)
