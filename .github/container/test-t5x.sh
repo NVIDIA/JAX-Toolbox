@@ -16,15 +16,15 @@ usage() {
     echo "  -b, --batch-size          Global batch size (REQUIRED)"
     echo "  -c, --use-contrib-configs If provided uses contrib/gpu configs instead of top-level configs. Notably, gpu configs use adamw instead of adafactor"
     echo "  -d, --dtype               Data type, defaults to bfloat16."
+    echo "  --enable-te {0,1}         1 to enable, 0 to disable; defaults to ENABLE_TE in env or 0 if unset"
     echo "  -e, --epochs              Number of epochs to run, defaults to 7."
     echo "  --multiprocess            Enable the multiprocess GPU mode."
     echo "  -o, --output NAME         Name for the output folder, a temporary folder will be created if none specified."
-    echo "  -u, --uninstall-te        If provided, will un-install TE. Note that this is destructive to your environment"
     echo "  -h, --help                Print usage."
     exit $1
 }
 
-args=$(getopt -o a:b:cd:e:ho:s:u --long additional-args:,batch-size:,use-contrib-configs,dtype:,epochs:,help,multiprocess,output:,steps-per-epoch:,uninstall-te -- "$@")
+args=$(getopt -o a:b:cd:e:ho:s: --long additional-args:,batch-size:,use-contrib-configs,dtype:,enable-te:,epochs:,help,multiprocess,output:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -39,7 +39,7 @@ EPOCHS=7
 MULTIPROCESS=0
 OUTPUT=$(mktemp -d)
 STEPS_PER_EPOCH=100
-UNINSTALL_TE=0
+ENABLE_TE=${ENABLE_TE:-0}
 
 eval set -- "$args"
 while [ : ]; do
@@ -60,6 +60,10 @@ while [ : ]; do
             DTYPE="$2"
             shift 2
             ;;
+        --enable-te)
+            ENABLE_TE="$2"
+            shift 2
+            ;;
         -e | --epochs)
             EPOCHS="$2"
             shift 2
@@ -78,10 +82,6 @@ while [ : ]; do
         -s | --steps-per-epoch)
             STEPS_PER_EPOCH="$2"
             shift 2
-            ;;
-        -u | --uninstall-te)
-            UNINSTALL_TE=1
-            shift 1
             ;;
         --)
             shift;
@@ -106,12 +106,12 @@ print_var ADDITIONAL_ARGS
 print_var BATCH_SIZE
 print_var USE_CONTRIB_CONFIGS
 print_var DTYPE
+print_var ENABLE_TE
 print_var EPOCHS
 print_var OUTPUT
 print_var MULTIPROCESS
 print_var STEPS_PER_EPOCH
 print_var TRAIN_STEPS
-print_var UNINSTALL_TE
 
 ## Enter T5X source folder
 T5X_DIR=$(dirname `python -c 'import t5x; print(*t5x.__path__)'`)
@@ -183,11 +183,8 @@ EOF
 
 ## Launch
 set -exou pipefail
-if [[ $UNINSTALL_TE -eq 1 ]]; then
-  pip uninstall -y transformer-engine
-fi
 
-python -m t5x.train \
+ENABLE_TE=$ENABLE_TE python -m t5x.train \
     --gin_file benchmark.gin \
     --gin.MODEL_DIR=\"${OUTPUT}\" \
     --gin.network.T5Config.dtype=\"${DTYPE}\" \
