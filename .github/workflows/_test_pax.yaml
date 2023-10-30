@@ -458,7 +458,7 @@ jobs:
 
 
   publish-test:
-    needs: [single-process-multi-device, , multi-process-multi-device, single-process-evaluation, metrics]
+    needs: [single-process-multi-device, multi-process-multi-device, single-process-evaluation, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
