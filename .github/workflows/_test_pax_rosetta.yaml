@@ -20,7 +20,139 @@ on:
 
 jobs:
 
-  multi-gpu-multi-node-te:
+  single-process-multi-device-te:
+    strategy:
+      matrix:
+        PARALLEL_CONFIG:
+        - [1, 8, 1, 1]
+        - [1, 1, 2, 4]
+      fail-fast: false
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Labels and metadata
+        id: meta
+        shell: bash -x -e {0}
+        run: |
+          IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_single_process_te
+          TOTAL_TASKS=1
+          MAX_GPUS_PER_NODE=8
+          NODES=1
+          GPUS_PER_NODE=8
+
+          JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          LOG_FILE=/nfs/cluster/${JOB_NAME}.log
+          MODEL_PATH=/nfs/cluster/${JOB_NAME}
+          for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
+            echo "$var=${!var}" >> $GITHUB_OUTPUT
+          done
+
+      - name: Submit SLURM jobs over SSH
+        id: submit
+        shell: bash -O expand_aliases -x -e {0}
+        run: |
+          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          sshx "date && hostname && sinfo" 
+          sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
+          JOB=$(sshx sbatch --parsable << EOF
+          #!/bin/bash
+          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+          #SBATCH --exclusive
+          #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
+          #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
+          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
+          #SBATCH --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
+          #SBATCH --time=00:30:00
+          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          time srun \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
+            --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
+            --container-entrypoint \
+            test-pax.sh \
+              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
+              --dtype bfloat16 \
+              --batch-per-gpu 4 \
+              --steps 500 \
+              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
+              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
+              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
+              --nodes ${{ steps.meta.outputs.NODES }} \
+              --enable-te \
+              ${{ inputs.EXTRA_TEST_ARGS }}
+          EOF
+          )
+
+          set +x
+          while sshx squeue -j $JOB | grep -q $JOB; do
+            echo "SLURM Job $JOB is still running."
+            sleep 15
+          done
+
+          echo "SLURM Job $JOB finished."
+
+          # Gather job info
+          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          echo "SLURM Job state is ${SLURM_STATE}"
+          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
+          set -x
+
+      - name: Retrieve training logs and upload to TensorBoard server
+        shell: bash -x -e {0}
+        run: |
+          mkdir output/
+          rsync -rtz --progress \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
+            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
+          rsync -rtz --progress \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
+            output/ || true
+          rsync -rtz --progress \
+            output/ \
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
+
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
+        
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.meta.outputs.JOB_NAME }}
+          path: output/*
+
+  multi-process-multi-device-te:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -157,7 +289,7 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  multi-gpu-multi-node:
+  multi-process-multi-device:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -292,7 +424,7 @@ jobs:
           path: output/*
 
 
-  multi-gpu-single-node-dropout-te:
+  multi-process-multi-device-dropout-te:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -426,7 +558,7 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  single-process-evaluation:
+  single-process-evaluation-te:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -459,7 +591,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_eval
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_eval_te
           TOTAL_TASKS=1
           MAX_GPUS_PER_NODE=8
           NODES=1
@@ -505,6 +637,7 @@ jobs:
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
+              --enable-te \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
@@ -559,7 +692,7 @@ jobs:
           path: output/*
 
   metrics:
-    needs: [multi-gpu-multi-node, multi-gpu-multi-node-te, multi-gpu-single-node-dropout-te, single-process-evaluation]
+    needs: [single-process-multi-device-te, multi-process-multi-device, multi-process-multi-device-te, multi-process-multi-device-dropout-te, single-process-evaluation-te]
     runs-on: ubuntu-22.04
 
     steps:
@@ -573,7 +706,7 @@ jobs:
         shell: bash -x {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
-          for i in ${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${GITHUB_RUN_ID}-*DP_TE_dropout ${GITHUB_RUN_ID}-*DP*FSDP*TP*PP_eval; do
+          for i in ${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${GITHUB_RUN_ID}-*DP_TE_dropout; do
             SUBDIR=$(echo $i | cut -d'-' -f2)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
@@ -597,7 +730,7 @@ jobs:
 
 
   publish-test:
-    needs: [multi-gpu-multi-node, multi-gpu-multi-node-te, multi-gpu-single-node-dropout-te, single-process-evaluation, metrics]
+    needs: [single-process-multi-device-te, multi-process-multi-device, multi-process-multi-device-te, multi-process-multi-device-dropout-te, single-process-evaluation-te, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
@@ -605,7 +738,7 @@ jobs:
       ENDPOINT_FILENAME: 'pax-test-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*FSDP*TP*PP*/*-status.json ${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json ${GITHUB_RUN_ID}-*DP*FSDP*TP*PP_eval/*-status.json"
+        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*FSDP*TP*PP*/*-status.json ${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
