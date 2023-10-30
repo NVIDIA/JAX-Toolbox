@@ -28,7 +28,7 @@ jobs:
             EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
           - TEST_NAME: "1P1G_te-0"
             N_GPU: 1
-            ADDITIONAL_ARGS: "--uninstall-te"
+            ADDITIONAL_ARGS: "--enable-te 0"
             EXTRA_GIN_ARGS: ""
           - TEST_NAME: "1P8G_te-1"
             N_GPU: 8
@@ -172,7 +172,7 @@ jobs:
           - TEST_NAME: "2N2G_te-0"
             N_GPU: 2
             N_NODE: 2
-            ADDITIONAL_ARGS: "--uninstall-te"
+            ADDITIONAL_ARGS: "--enable-te 0"
             EXTRA_GIN_ARGS: ""
       fail-fast: false
 
