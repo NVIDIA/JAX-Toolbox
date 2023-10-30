@@ -8,6 +8,11 @@ on:
         description: T5X image from ghcr.io/nvidia/t5x
         default: 'ghcr.io/nvidia/t5x:latest'
         required: false
+      ARTIFACT_NAME:
+        type: string
+        description:  If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
+        default: ""
+        required: false
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -62,7 +67,7 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
-          JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -204,7 +209,7 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
@@ -301,10 +306,10 @@ jobs:
     if: success() || failure()
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'rosetta-t5x-test-completion-status.json'
+      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}rosetta-t5x-test-completion-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
+        EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}-*/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
@@ -315,7 +320,7 @@ jobs:
         | --- | --- | --- |
         EOF
         for i in $EXIT_STATUSES; do
-          # Files are named <GHID>-<NAME>/<NAME>-status.json
+          # Files are named ${{ inputs.ARTIFACT_NAME }}<GHID>-<NAME>/<NAME>-status.json
           echo "| $(echo $i | cut -d/ -f1 | cut -d- -f2-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
         done | tee -a $GITHUB_STEP_SUMMARY
 
@@ -347,7 +352,7 @@ jobs:
 
           ## T5X MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
