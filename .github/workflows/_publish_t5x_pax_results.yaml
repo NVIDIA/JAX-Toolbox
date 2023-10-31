@@ -1,4 +1,4 @@
-name: ~publish t5x integration test results
+name: ~publish t5x/pax integration test results
 
 on:
   workflow_call:
@@ -9,12 +9,17 @@ on:
         required: true
       EXPERIMENT_SUBDIR:
         type: string
-        description: Subdirectory to easily filter experiments, e.g., T5X, ROSETTA_T5X
+        description: Subdirectory to easily filter experiments, e.g., T5X, ROSETTA_PAX
         default: T5X
+        required: false
+      ARTIFACT_NAME:
+        type: string
+        description:  If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
+        default: ""
         required: false
 
 jobs:
-  publish-t5x:
+  publish:
     runs-on: ubuntu-22.04
     steps:
       - name: Setup SSH agent
@@ -48,7 +53,7 @@ jobs:
           FOLDER="${{ inputs.BUILD_DATE }}/${{ inputs.EXPERIMENT_SUBDIR }}"
           # copy folder
           ssh -T tensorboard mkdir -p /tensorboard-logs/${FOLDER}
-          ssh -T tensorboard rsync -rt /tensorboard-logs/${GITHUB_RUN_ID}/ /tensorboard-logs/${FOLDER}/
+          ssh -T tensorboard rsync -rt /tensorboard-logs/${{ inputs.ARTIFACT_NAME }}${GITHUB_RUN_ID}/ /tensorboard-logs/${FOLDER}/
           # generate query URL
           (
           cat << EOF
