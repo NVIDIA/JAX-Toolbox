@@ -6,5 +6,5 @@
 # - Note: Only the first column is used as a git-ref, so anything after is a comment
 
 mirror/patch/partial-checkpoint-restore  # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
-mirror/patch/dali-support                # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
+mirror/patch/dali-support/rebase                # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
 mirror/patch/t5x_te_in_contrib_noindent  # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
