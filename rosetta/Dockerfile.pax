@@ -2,6 +2,9 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/upstream-pax:latest
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
+# These patchlist paths should be relative to this script
+ARG PAXML_PATCHLIST=patchlist-paxml.txt
+ARG PRAXIS_PATCHLIST=patchlist-praxis.txt
 
 FROM scratch as rosetta-source
 COPY . /
@@ -17,6 +20,8 @@ ENV ENABLE_TE=1
 
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
+ARG PAXML_PATCHLIST
+ARG PRAXIS_PATCHLIST
 RUN <<EOF bash -e
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
@@ -27,12 +32,12 @@ WORKDIR /opt/rosetta
 RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite \
     --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<"EOF" bash -e
 bash create-distribution.sh \
-  -p patchlist-paxml.txt \
+  -p ${PAXML_PATCHLIST} \
   -m https://github.com/nvjax-svc-0/paxml.git \
   -d $(dirname $(python -c "import paxml; print(*paxml.__path__)")) \
   -e /opt/pax-mirror
 bash create-distribution.sh \
-  -p patchlist-praxis.txt \
+  -p ${PRAXIS_PATCHLIST} \
   -m https://github.com/nvjax-svc-0/praxis.git \
   -d $(dirname $(python -c "import praxis; print(*praxis.__path__)")) \
   -e /opt/praxis-mirror

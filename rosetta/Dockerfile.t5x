@@ -2,6 +2,9 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/upstream-t5x:latest
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
+# These patchlist paths should be relative to this script
+ARG T5X_PATCHLIST=patchlist-t5x.txt
+ARG FLAX_PATCHLIST=patchlist-flax.txt
 
 FROM scratch as rosetta-source
 COPY . /
@@ -17,6 +20,8 @@ ENV ENABLE_TE=1
 
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
+ARG T5X_PATCHLIST
+ARG FLAX_PATCHLIST
 RUN <<EOF bash -e
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
@@ -27,12 +32,12 @@ WORKDIR /opt/rosetta
 RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite \
     --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<"EOF" bash -e
 bash create-distribution.sh \
-  -p patchlist-t5x.txt \
+  -p ${T5X_PATCHLIST} \
   -m https://github.com/nvjax-svc-0/t5x.git \
   -d $(dirname $(python -c "import t5x; print(*t5x.__path__)")) \
   -e /opt/t5x-mirror
 bash create-distribution.sh \
-  -p patchlist-flax.txt \
+  -p ${FLAX_PATCHLIST} \
   -m https://github.com/nvjax-svc-0/flax.git \
   -d $(dirname $(python -c "import flax; print(*flax.__path__)")) \
   -e /opt/flax-mirror
