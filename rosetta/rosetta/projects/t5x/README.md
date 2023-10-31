@@ -22,7 +22,7 @@ WORKSPACE_PATH=""  # Path used for run outputs (unspecified = /t5x_home/workspac
 
 ## Container
 We provide the latest fully built, ready-to-use, and verified container here: `ghcr.io/nvidia/t5x:latest-verified`. The verified containers will be updated
-periodically, but if you wish to use the bleeding edge (which may come have unexpected behavior), please use `ghcr.io/nvidia/t5x:latest`.
+periodically, but if you wish to use the bleeding edge (which may come with unexpected behavior), please use `ghcr.io/nvidia/t5x:latest`.
 We also provide nightly dated images with the naming pattern [ghcr.io/nvidia/t5x:nightly-YYYY-MM-DD](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x), but we encourage
 you to use the latest ones to get the best performance.
 
@@ -80,16 +80,16 @@ For a SLURM+pyxis cluster, [`example*.sub`](./scripts) files provide example slu
 ## Convergence and performance
 For our Pile convergence runs, we used a Global batch size of 2304 for XXL and 2016-2048 for all other models, where GBS is defined as #GPUs * BS/GPU / Tensor Parallel(TP). Below are example (tested) hardware topologies on NVIDIA DGX A100 (8x A100-SXM4-80G) and H100-SXM-80G nodes.
 
-| size                                    | GPU              | Precision | #GPUs |  TP   | BS / GPU | Sequences/Sec | Seq/Sec/GPU | Est. Walltime | GPU-days | MNLI 2.0 - matched | SQuAD v1.1 (EM/F1) | Convergence Log                                                                              | Config | 
-| ----                                    | ------------     | --------- | ----- | ----- | -------- | ------------- | ----------- | ------------- | -------- |------------------ | ------------------ | ---------------                                                                              | ----   |
-| T5-v1.1-small | A100 80G SXM     | bf16      | 8     | 1     | 256      | ~5712         | 714         | 4.2 days      | 33       | 83.06%             | 78.33 / 86.63      | [log](https://tensorboard.dev/experiment/lWnHal7PRnOLeZuewyWVxQ/#scalars&_smoothingWeight=0) | [pile](../t5/t5_1_1/examples/small_pile_pretrain.gin)
-| T5-v1.1-large | A100 80G SXM     | bf16      | 64    | 1     | 32       | ~4853         | 75.8        | 4.8 days      | 309     | 89.23%             | 86.12 / 93.21      | [log](https://tensorboard.dev/experiment/aOxJBIvTQBeTJ8XGXxaL6Q/#scalars&_smoothingWeight=0) |[pile](../t5/t5_1_1/examples/large_pile_pretrain.gin)
-| T5-v1.1-xl       | A100 80G SXM     | bf16      | 144   | 1     | 8        | ~3021         | 21.0        | 7.9 days      | 1,133   | N/A(perf test)     | N/A (perf test)  |                |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
-| T5-v1.1-xl       | A100 80G SXM     | bf16      | 256   | 1     | 8        | ~4322         | 16.9        | 5.5 days      | 1,408   | 91.15%             | 89.36 / 95.29      | [log](https://tensorboard.dev/experiment/vuRoEYgkRgWiEtbvgxlOqw/#scalars&_smoothingWeight=0) |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
-| T5-v1.1-xxl     | A100 80G SXM     | bf16      | 512   | 8     | 36       | ~1887         | 3.69        | 12.6 days     | 6,431  |N/A(partial run)   | N/A(partial run)   |                  |[pile](../t5/t5_1_1/examples/xxl_pile_pretrain.gin)
-| T5-v1.1-large | **H100 80G SXM** | TE-fp8    | 64    | 1     | 32       | ~10156        | **158.7**   | **2.3 days**  | **147** | 89.1%              | 86.36 / 93.5       | [log](https://tensorboard.dev/experiment/QJYnDaaBSeuZtYPXXtAG3Q/#scalars&_smoothingWeight=0) |[pile](../t5/t5_1_1/examples/large_pile_pretrain.gin)
-| T5-v1.1-xl       | **H100 80G SXM** | TE-fp8    | 144   | 1     | 14       | ~7257         | **50.4**    | **3.3 days**  | **475** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
-| T5-v1.1-xl       | **H100 80G SXM** | TE-fp8    | 256   | 1     | 8        | ~9688         | **37.8**    | **2.4 days**  | **614** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
+| size          | GPU              | Precision | #GPUs |  TP   | BS / GPU | Sequences/Sec | Seq/Sec/GPU | Est. Walltime | GPU-days | MNLI 2.0 - matched | SQuAD v1.1 (EM/F1) | Convergence Log                                                                              | Config | 
+| ----          | ------------     | --------- | ----- | ----- | -------- | ------------- | ----------- | ------------- | -------- |------------------ | ------------------  | ---------------                                                                              | ----   |
+| T5-v1.1-small | A100 80G SXM     | bf16      | 8     | 1     | 256      | ~5712         | 714         | 4.2 days      | 33       | 83.06%             | 78.33 / 86.63      | [log](https://tensorboard.dev/experiment/lWnHal7PRnOLeZuewyWVxQ/#scalars&_smoothingWeight=0) | `t5x/contrib/gpu/t5/t5_1_1/examples/small_pile_pretrain.gin` |
+| T5-v1.1-large | A100 80G SXM     | bf16      | 64    | 1     | 32       | ~4853         | 75.8        | 4.8 days      | 309      | 89.23%             | 86.12 / 93.21      | [log](https://tensorboard.dev/experiment/aOxJBIvTQBeTJ8XGXxaL6Q/#scalars&_smoothingWeight=0) | `t5x/contrib/gpu/t5/t5_1_1/examples/large_pile_pretrain.gin` |
+| T5-v1.1-xl    | A100 80G SXM     | bf16      | 144   | 1     | 8        | ~3021         | 21.0        | 7.9 days      | 1,133    | N/A(perf test)     | N/A (perf test)    |                                                                                              | `t5x/contrib/gpu/t5/t5_1_1/examples/xl_pile_pretrain.gin` |
+| T5-v1.1-xl    | A100 80G SXM     | bf16      | 256   | 1     | 8        | ~4322         | 16.9        | 5.5 days      | 1,408    | 91.15%             | 89.36 / 95.29      | [log](https://tensorboard.dev/experiment/vuRoEYgkRgWiEtbvgxlOqw/#scalars&_smoothingWeight=0) | `t5x/contrib/gpu/t5/t5_1_1/examples/xl_pile_pretrain.gin` |
+| T5-v1.1-xxl   | A100 80G SXM     | bf16      | 512   | 8     | 36       | ~1887         | 3.69        | 12.6 days     | 6,431    | N/A(partial run)   | N/A(partial run)   |                                                                                              | `t5x/contrib/gpu/t5/t5_1_1/examples/xxl_pile_pretrain.gin` |
+| T5-v1.1-large | **H100 80G SXM** | TE-fp8    | 64    | 1     | 32       | ~11139        | **174.1**   | **2.1 days**  | **134**  | 89.1%              | 86.36 / 93.5       | [log](https://tensorboard.dev/experiment/QJYnDaaBSeuZtYPXXtAG3Q/#scalars&_smoothingWeight=0) | `t5x/contrib/gpu/t5/t5_1_1/examples/large_pile_pretrain.gin` |
+| T5-v1.1-xl    | **H100 80G SXM** | TE-fp8    | 144   | 1     | 14       | ~7257         | **50.4**    | **3.3 days**  | **475**  | N/A (perf test)    | N/A (perf test)    |                                                                                              | `t5x/contrib/gpu/t5/t5_1_1/examples/xl_pile_pretrain.gin` |
+| T5-v1.1-xl    | **H100 80G SXM** | TE-fp8    | 256   | 1     | 8        | ~9688         | **37.8**    | **2.4 days**  | **614**  | N/A (perf test)    | N/A (perf test)    |                                                                                              | `t5x/contrib/gpu/t5/t5_1_1/examples/xl_pile_pretrain.gin` |
 
 Note: Convergence (as shown in log) was not necessarily done with the hardware topology listed, but the listed topology is tested. Estimated Walltime is calculated assuming full throughput (seq/sec) continuously. In practice, there are compilation overheads at the beginning of each run/restart (in cluster settings) + checkpointing overheads (if any).
 
@@ -197,7 +197,6 @@ t5x/contrib/gpu/scripts_gpu/singlenode_ft_frompile.sh \
 
 # Known Issues
 * There is a known sporadic NCCL crash that happens when using the T5x container at node counts greater than or equal to 32 nodes. We will fix this in the next release. The issue is tracked [here](https://github.com/NVIDIA/JAX-Toolbox/issues/194).
-* The T5x nightlies disable `NCCL_NVLS_ENABLE=0` ([doc](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature.
 
 # Changelog
 - Added Transformer Engine + FP8 support

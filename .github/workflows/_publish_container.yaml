@@ -15,6 +15,11 @@ on:
         type: string
         description: 'Target docker tags in docker/metadata-action format:'
         required: true
+      EXPOSE_SINGLE_ARCH_IMAGES:
+        type: boolean
+        description: 'Also expose single-arch images:'
+        required: false
+        default: true
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image published"
@@ -44,10 +49,10 @@ jobs:
           flavor: latest=false
           tags: ${{ inputs.TARGET_TAGS }}
 
-      - name: Create manifest
+      - name: Extract manifests from the source manifest list
+        id: get-manifests
         shell: bash -x -e {0}
         run: |
-          # Extract manifests from the source image
           SOURCE_REPO=$(echo ${{ inputs.SOURCE_IMAGE }} | cut -d: -f1)
           MEDIA_TYPE=$(docker manifest inspect ${{ inputs.SOURCE_IMAGE }} | jq -r '.mediaType')
           case "$MEDIA_TYPE" in
@@ -55,8 +60,9 @@ jobs:
             "application/vnd.oci.image.index.v1+json")
               MANIFESTS=$(
                 docker manifest inspect ${{ inputs.SOURCE_IMAGE }} |\
-                jq -r '.manifests[] | select(.platform.os == "linux") | .digest' |\
-                xargs -I{} echo ${SOURCE_REPO}@{}
+                jq -r '.manifests[] | select(.platform.os != "unknown") | .digest' |\
+                xargs -I{} echo ${SOURCE_REPO}@{} |\
+                tr '\n' ' '
               )
               ;;
             # Docker image manifest
@@ -69,10 +75,27 @@ jobs:
               ;;
           esac
 
-          # Create new manifest list from extracted manifests
+          echo "manifests=$MANIFESTS" >> $GITHUB_OUTPUT
+
+      - name: Create multi-arch images
+        id: multi-arch
+        shell: bash -x -e {0}
+        run: |
           for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-            docker manifest create $tag $MANIFESTS
-            docker manifest push $tag
+            docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
+          done
+
+      - name: Create single-arch images
+        if: ${{ inputs.EXPOSE_SINGLE_ARCH_IMAGES }}
+        shell: bash -x -e {0}
+        run: |
+          # Create new manifest list from extracted manifests
+          for manifest in ${{ steps.get-manifests.outputs.manifests }}; do
+            os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
+            arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
+            for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+              skopeo copy --format v2s2 docker://$manifest docker://$tag-${os}-${arch}
+            done
           done
 
       - name: Generate outputs and artifacts

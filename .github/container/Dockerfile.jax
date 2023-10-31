@@ -51,7 +51,7 @@ ENV BUILD_DATE=${BUILD_DATE}
 ENV XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_async_all_gather=true --xla_gpu_enable_async_reduce_scatter=true --xla_gpu_enable_triton_gemm=false"
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_IB_SL=1
-ENV NCCL_NVLS_ENABLE=0
+ENV CUDA_MODULE_LOADING=EAGER
 
 COPY --from=jax-builder ${SRC_PATH_JAX}-no-git ${SRC_PATH_JAX}
 COPY --from=jax-builder ${SRC_PATH_XLA}-no-git ${SRC_PATH_XLA}
@@ -62,7 +62,7 @@ RUN pip --disable-pip-version-check install ${SRC_PATH_JAX}/dist/*.whl && \
 
 # Install software stack in JAX ecosystem
 # Made this optional since tensorstore cannot build on Ubuntu 20.04 + ARM
-RUN { pip install flax || true; } && rm -rf ~/.cache/pip
+RUN { pip install flax || true; } && rm -rf ~/.cache/*
 
 # TODO: properly configure entrypoint
 # COPY entrypoint.d/ /opt/nvidia/entrypoint.d/
