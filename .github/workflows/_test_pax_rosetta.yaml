@@ -54,7 +54,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_single_process_te
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_single_process_TE
           TOTAL_TASKS=1
           MAX_GPUS_PER_NODE=8
           NODES=1
@@ -590,7 +590,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_eval_te
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_eval_TE
           TOTAL_TASKS=1
           MAX_GPUS_PER_NODE=8
           NODES=1
