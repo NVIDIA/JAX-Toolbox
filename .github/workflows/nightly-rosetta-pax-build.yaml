@@ -54,17 +54,8 @@ jobs:
                "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
           cat  # blocks execution in case workflow cancellation takes time
 
-      - name: Determine if the resulting container should be 'published'
-        id: if-publish
-        shell: bash -x -e {0}
-        run:
-          # A container should be published if:
-          # 1) the workflow is triggered by workflow_dispatch and the PUBLISH input is true, or
-          # 2) the workflow is triggered by workflow_run (i.e., a nightly build)
-          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
-    
-      - name: Set build date
-        id: date
+      - name: Set build metadata
+        id: meta-vars
         shell: bash -x -e {0}
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
@@ -84,6 +75,10 @@ jobs:
           echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
           echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
           echo "BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}" >> $GITHUB_OUTPUT
+          # A container should be published if:
+          # 1) the workflow is triggered by workflow_dispatch and the PUBLISH input is true, or
+          # 2) the workflow is triggered by workflow_run (i.e., a nightly build)
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
   amd64:
     needs: metadata
@@ -105,6 +100,28 @@ jobs:
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
     secrets: inherit
 
+  publish-build-badge:
+    needs: [metadata, amd64, arm64]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: always()
+    with:
+      ENDPOINT_FILENAME: 'rosetta-pax-build-status.json'
+      PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+      SCRIPT: |
+        if [[ ${{ needs.amd64.result }} == "success" && ${{ needs.arm64.result }} == "success" ]]; then
+          BADGE_COLOR=brightgreen
+          MSG=passing
+          STATUS=success
+        else
+          BADGE_COLOR=red
+          MSG=failing
+          STATUS=failure
+        fi
+        echo "LABEL='nightly'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${MSG}'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
+  
   publish-mealkit:
     needs: [metadata, amd64, arm64]
     if: needs.metadata.outputs.PUBLISH == 'true'
@@ -118,8 +135,17 @@ jobs:
         type=raw,value=mealkit,priority=500
         type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
+  # TODO: Test ARM when runners available
+  test-amd64:
+    needs: amd64
+    uses: ./.github/workflows/_test_pax_rosetta.yaml
+    with:
+      PAX_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  # TODO: ARM Tests
   publish-final:
-    needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64, arm64, test-amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
     with:
@@ -128,19 +154,11 @@ jobs:
         ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: pax
       TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900  
-
-  test-pax:
-    needs: [metadata, amd64, arm64]
-    uses: ./.github/workflows/_test_pax_rosetta.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    with:
-      PAX_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
+        ${{ needs.test-amd64.outputs.TEST_STATUS == 'success' && 'type=raw,value=latest,priority=1000' || '' }}
+        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   publish-pax:
-    needs: [metadata, test-pax]
+    needs: [metadata, test-amd64]
     uses: ./.github/workflows/_publish_t5x_pax_results.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
@@ -149,38 +167,42 @@ jobs:
       ARTIFACT_NAME: "rosetta-pax-"
     secrets: inherit
 
-  publish-test:
-    needs: [metadata, amd64, arm64, test-pax]
+  # TODO: ARM
+  publish-test-badge:
+    needs: [metadata, amd64, test-amd64]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: ( always() )
+    if: always()
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-pax-overall-test-status.json'
-      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
+      PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
-        PAX_STATUS=${{ needs.test-pax.outputs.TEST_STATUS }}
+        PAX_STATUS=${{ needs.test-amd64.outputs.TEST_STATUS }}
 
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
-        if [[ ${{ needs.amd64.result }} == "success" && ${{ needs.arm64.result }} == "success" ]]; then
+        STATUS=failure
+        if [[ ${{ needs.amd64.result }} == "success" ]]; then
           if [[ $PAX_STATUS == "success" ]]; then
             COLOR=brightgreen
             MESSAGE="MGMN passed"
+            STATUS=success
           else
             COLOR=red
             MESSAGE="MGMN failed"
           fi
         else
-          MESSAGE="n/a"
           COLOR="red"
+          MESSAGE="n/a"
         fi
 
-        echo "MESSAGE='${MESSAGE}'" >> $GITHUB_OUTPUT
         echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${MESSAGE}'" >> $GITHUB_OUTPUT
+        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
 
   finalize:
     if: "!cancelled()"
-    needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64, arm64, test-amd64]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}

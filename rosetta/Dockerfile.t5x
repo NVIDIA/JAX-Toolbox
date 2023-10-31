@@ -28,11 +28,13 @@ ARG T5X_PATCHLIST
 ARG FLAX_PATCHLIST
 
 COPY --from=rosetta-source / /opt/rosetta
+ADD test-vit.sh /usr/local/bin
 WORKDIR /opt/rosetta
 RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite \
-    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<EOF bash -e
+    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<"EOF" bash -e
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
+
 bash create-distribution.sh \
   -p ${T5X_PATCHLIST} \
   -m https://github.com/nvjax-svc-0/t5x.git \
@@ -43,6 +45,8 @@ bash create-distribution.sh \
   -m https://github.com/nvjax-svc-0/flax.git \
   -d /opt/flax \
   -e /opt/flax-mirror
+rm -rf ~/.gitconfig
+
 echo "--extra-index-url https://developer.download.nvidia.com/compute/redist" >> /opt/pip-tools.d/manifest.t5x
 echo "-e file:///opt/rosetta" >> /opt/pip-tools.d/manifest.t5x
 EOF

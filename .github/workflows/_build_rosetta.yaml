@@ -21,9 +21,14 @@ on:
         description: 'Build date in YYYY-MM-DD format'
         required: false
         default: 'NOT SPECIFIED'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-rosetta-build'
       BADGE_FILENAME:
         type: string
-        description: 'Name of the endpoint JSON file for shields.io badge'
+        description: 'Name of the endpoint JSON file for shields.io badge (w/o .json || arch || library)'
         required: false
         default: 'badge-rosetta-build'
     outputs:
@@ -48,7 +53,8 @@ jobs:
   build-rosetta:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME}}-${{ inputs.ARCHITECTURE}}.json
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}.json
+      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME}}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
       DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
@@ -108,12 +114,17 @@ jobs:
         id: final-metadata
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.UPLD_IMAGE }}
-          flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}-final
-          labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Build docker images - final
+      - name: Build final image
+        id: final-build
         uses: docker/build-push-action@v4
         with:
           context: rosetta/
@@ -125,3 +136,54 @@ jobs:
           target: final
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
+
+      - name: Extract patches
+        run: rosetta/scripts/extract-patches.sh ${{ steps.final-metadata.outputs.tags }}
+
+      - name: Archive generated patches
+        uses: actions/upload-artifact@v3
+        with:
+          name: patches-${{ inputs.BASE_LIBRARY }}-${{ inputs.BUILD_DATE }}-${{ github.run_id }}-${{ inputs.ARCHITECTURE }}
+          path: rosetta/patches
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='${{ inputs.BASE_LIBRARY }} ${{ inputs.ARCHITECTURE }} build'
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="${{ inputs.BASE_LIBRARY }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="${{ inputs.BASE_LIBRARY }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
+      - name: Upload sitrep and badge
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.ARTIFACT_NAME_FULL }}
+          path: |
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}

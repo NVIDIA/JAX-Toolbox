@@ -35,7 +35,7 @@ ARG PRAXIS_PATCHLIST
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
 RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite \
-    --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<EOF bash -e
+    --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<"EOF" bash -e
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
 
@@ -49,6 +49,7 @@ bash create-distribution.sh \
   -m https://github.com/nvjax-svc-0/praxis.git \
   -d /opt/praxis \
   -e /opt/praxis-mirror
+rm -f ~/.gitconfig
 EOF
 
 ###############################################################################
