@@ -194,7 +194,8 @@ jobs:
           EOF
 
   retrofit-containers:
-    needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-rosetta-t5x, build-rosetta-pax]
+    #needs: [build-base, build-jax, build-te, build-t5x, build-pax, build-rosetta-t5x, build-rosetta-pax]
+    needs: [build-base, build-jax, build-t5x, build-pax, build-rosetta-t5x, build-rosetta-pax]
     if: always()
     runs-on: ubuntu-22.04
     env:
