@@ -189,7 +189,7 @@ fork-point() {
   merge_commit=$(git rev-list --ancestry-path ${feat_branch}..${main}  | tail -n1)
   git merge-base ${merge_commit}^ ${feat_branch}^
 }
-# git-am + adds to patchlist + copy patchlist file
+# git-am + adds to generated patchlist
 am+record() {
   # Canonicalize path to remove extra slashes or dot syntax
   patch_path=$(readlink -f $1)
