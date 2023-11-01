@@ -114,7 +114,7 @@ ENABLE_FP8=1 bash paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh /opt/paxm
 Note that packing is currently not supported when using TE. All configs disable packing by default, but beware that if packing is manually enabled, training with TE will error.
 
 ### Native FP8 Support
-The most recent version of XLA already supports FP8 GEMMs through the utilization of custom quantization operations provided by Paxml/Praxis. To enable this feature, users simply need to include the option `--fdl.USE_FP8=True` in their experiment configuration. This will activate the recommended layers to use FP8 GEMMs within the transformer layer. It's important to note that `ENABLE_TE` must be turned off.
+The most recent version of XLA already supports FP8 GEMM (General Matrix Muliptlication) through the utilization of custom quantization operations provided by Paxml/Praxis. To enable this feature, users simply need to include the option `--fdl.USE_FP8=True` in their experiment configuration. This will activate the recommended layers to use FP8 GEMMs within the transformer layer. It's important to note that `ENABLE_TE` must be turned off.
 
 In addition to the suggested XLA flags mentioned in [this section](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/README.md#xla-flags), we also recommend setting these following XLA flags. The execution script should look like:
 ```bash
