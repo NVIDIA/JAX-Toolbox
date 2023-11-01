@@ -95,6 +95,15 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
 
+      - name: Extract patches
+        run: rosetta/scripts/extract-patches.sh ${{ steps.meta.outputs.tags }}
+
+      - name: Archive generated patches
+        uses: actions/upload-artifact@v3
+        with:
+          name: patches-${{ inputs.BASE_LIBRARY }}-${{ matrix.PLATFORM }}
+          path: rosetta/patches
+
       # Temporary workaround until the following issues are solved:
       # https://github.com/orgs/community/discussions/17245
       # https://github.com/actions/runner/pull/2477
