@@ -7,7 +7,7 @@ on:
         type: string
         description: 'Base docker image that provides CUDA and Python:'
         required: false
-        default: ghcr.io/nvidia/jax-toolbox:base
+        default: ghcr.io/nvidia/jax-toolbox:${{ github.run_id }}-base-multiarch
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -63,7 +63,7 @@ jobs:
       fail-fast: false
       matrix:
         PLATFORM: [amd64, arm64]
-    runs-on: [self-hosted, "${{ matrix.PLATFORM }}", large]
+    runs-on: [self-hosted, "${{ matrix.PLATFORM }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.PLATFORM }}.json
     steps:
