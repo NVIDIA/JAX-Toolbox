@@ -7,6 +7,4 @@
 
 mirror/patch/partial-checkpoint-restore  # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
 mirror/patch/dali-support                # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
-# TEMP DISABLE TO TEST WITH WORKING
-#mirror/patch/t5x_te_in_contrib_noindent  # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
-mirror/patch/t5x_te_in_contrib_noindent-enable-te-env-var # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
+mirror/patch/t5x_te_in_contrib_noindent  # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
