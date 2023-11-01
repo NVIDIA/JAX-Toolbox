@@ -198,14 +198,14 @@ am+record() {
     exit 1
   fi
   # Apply the patch
-  git am <$patch_path || ret_code=$?
+  git am --3way <$patch_path || ret_code=$?
   if [[ ${ret_code:-0} -ne 0 ]]; then
     cat <<EOF
 [ERROR]: Tried patching commits from $patch_path, but failed:
 ==== git status ====
 $(git status)
-==== git am --show-current-patch=diff ====
-$(git am --show-current-patch=diff)
+==== git diff ====
+$(git diff)
 ==================
 EOF
     exit 1
