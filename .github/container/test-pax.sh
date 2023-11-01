@@ -326,9 +326,11 @@ EOF
 
 ## Launch
 set -ex
+
+export ENABLE_TE=$ENABLE_TE
 if [[ ${EVALUATE} -ne 0 ]]; then
   ## train for 0 steps to generate an initial checkpoint
-  ENABLE_TE=$ENABLE_TE python -m paxml.main \
+  python -m paxml.main \
     --fdl_config=ci_configs.Synthetic126M \
     --fdl.MAX_STEPS=0 \
     --job_log_dir=${OUTPUT} \
@@ -337,7 +339,7 @@ if [[ ${EVALUATE} -ne 0 ]]; then
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 
   ## restore from initial checkpoint for eval
-  ENABLE_TE=$ENABLE_TE python -m paxml.main \
+  python -m paxml.main \
     --fdl_config=ci_configs.Synthetic126M \
     --job_log_dir=${OUTPUT} \
     --mode='eval' \
@@ -348,7 +350,7 @@ if [[ ${EVALUATE} -ne 0 ]]; then
 
   rm -rf ${OUTPUT}/checkpoints
 else
-  ENABLE_TE=$ENABLE_TE python -m paxml.main \
+  python -m paxml.main \
     --fdl_config=ci_configs.Synthetic126M \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
