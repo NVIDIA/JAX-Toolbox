@@ -134,7 +134,7 @@ jobs:
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
         if [[ ${{ needs.build.result }} == "success" ]]; then
-          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]] then
+          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]]; then
             COLOR=brightgreen
             MESSAGE="Unit passed / MGMN passed"
           elif [[ $UNIT_STATUS == "success" ]]; then 
