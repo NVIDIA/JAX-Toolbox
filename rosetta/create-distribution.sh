@@ -204,8 +204,8 @@ am+record() {
 [ERROR]: Tried patching commits from $patch_path, but failed:
 ==== git status ====
 $(git status)
-==== git diff ====
-$(git diff)
+==== git am --show-current-patch=diff ====
+$(git am --show-current-patch=diff)
 ==================
 EOF
     exit 1
