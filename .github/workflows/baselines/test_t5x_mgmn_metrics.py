@@ -19,6 +19,11 @@ LOSS_RTOL = {
     '4G2N': 0.10,  # orig = 0.03
     '8G1N': 0.10,  # orig = 0.03
     '8G2N': 0.10,  # orig = 0.05
+    #'VIT1G1N': TODO,
+    #'VIT1G2N': TODO,
+    #'VIT1P8G': TODO,
+    #'VIT8G1N': TODO,
+    #'VIT8G2N': TODO
 }
 STEP_TIME_MULT = {
     "1G1N": 0.95,
@@ -33,6 +38,11 @@ STEP_TIME_MULT = {
     "4G2N": 0.95,
     "8G1N": 0.95,
     "8G2N": 0.95,
+    'VIT1G1N': 0.95,
+    'VIT1G2N': 0.95,
+    'VIT1P8G': 0.95,
+    'VIT8G1N': 0.95,
+    'VIT8G2N': 0.95,
 }
 E2E_TIME_MULT = {
     "1G1N": 0.95,
@@ -47,15 +57,23 @@ E2E_TIME_MULT = {
     "4G2N": 0.95,
     "8G1N": 0.95,
     "8G2N": 0.95,
+    'VIT1G1N': 0.95,
+    'VIT1G2N': 0.95,
+    'VIT1P8G': 0.95,
+    'VIT8G1N': 0.95,
+    'VIT8G2N': 0.95,
 }
+
 test_dir = os.path.dirname(os.path.abspath(__file__))
-baselines_dir = os.path.join(test_dir, "T5X_MGMN")
+t5x_baselines_dir = os.path.join(test_dir, "T5X_MGMN")
+vit_baselines_dir = os.path.join(test_dir, "VIT_MGMN")
 results_dir = os.environ.get("RESULTS_DIR")
 loss_summary_name = "loss"
 step_time_summary_name = "timing/steps_per_second"
 
 
-@pytest.mark.parametrize("baseline_filename", os.listdir(baselines_dir))
+@pytest.mark.parametrize("baseline_filename", [os.listdir(t5x_baselines_dir),
+                                               os.listdir(vit_baselines_dir)])
 def test_loss(baseline_filename):
     baseline_filepath = os.path.join(baselines_dir, baseline_filename)
     test_config = baseline_filename.split(".")[0]
@@ -80,7 +98,8 @@ def test_loss(baseline_filename):
                                 Baseline loss values: {loss_expected.values()}")
 
 
-@pytest.mark.parametrize("baseline_filename", os.listdir(baselines_dir))
+@pytest.mark.parametrize("baseline_filename", [os.listdir(t5x_baselines_dir),
+                                               os.listdir(vit_baselines_dir)])
 def test_step_time(baseline_filename):
     baseline_filepath = os.path.join(baselines_dir, baseline_filename)
     test_config = baseline_filename.split(".")[0]
@@ -94,7 +113,8 @@ def test_step_time(baseline_filename):
             STEP_TIME_MULT[test_config], f"Step time values: {step_time_values} (Avg: {step_time_avg_actual}), Expected avg: {step_time_avg_expected}"
 
 
-@pytest.mark.parametrize("baseline_filename", os.listdir(baselines_dir))
+@pytest.mark.parametrize("baseline_filename", [os.listdir(t5x_baselines_dir),
+                                               os.listdir(vit_baselines_dir)])
 def test_e2e_time(baseline_filename):
     baseline_filepath = os.path.join(baselines_dir, baseline_filename)
     test_config = baseline_filename.split(".")[0]
