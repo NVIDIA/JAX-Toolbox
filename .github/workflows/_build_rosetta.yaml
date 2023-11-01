@@ -101,7 +101,7 @@ jobs:
       - name: Archive generated patches
         uses: actions/upload-artifact@v3
         with:
-          name: patches-${{ inputs.BASE_LIBRARY }}-${{ matrix.PLATFORM }}
+          name: patches-${{ inputs.BASE_LIBRARY }}-${{ inputs.BUILD_DATE }}-${{ matrix.PLATFORM }}
           path: rosetta/patches
 
       # Temporary workaround until the following issues are solved:
