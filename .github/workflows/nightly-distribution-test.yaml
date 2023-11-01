@@ -4,9 +4,9 @@ run-name: Nightly Distribution test (${{ github.event_name == 'workflow_run' && 
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: [~Sandbox]
+    workflows: [Nightly JAX build]
     types: [completed]
-    branches: [dynamic-names]
+    branches: [main]
 
 permissions:
   contents: read  # to fetch code
