@@ -13,6 +13,7 @@ FROM scratch as flax-mirror-source
 ADD --keep-git-dir=true https://github.com/google/flax.git#main /
 
 FROM ${BASE_IMAGE} AS rosetta
+ENV ENABLE_TE=1
 
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
