@@ -129,17 +129,11 @@ case "${BATTERY}" in
         EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
         BAZEL_TARGET="${BAZEL_TARGET} //tests:image_test_gpu //tests:scipy_stats_test_gpu"
         ;;
-    gpu)
+    gpu|backend-independent)
         JOBS_PER_GPU=8
         JOBS=$((NGPUS * JOBS_PER_GPU))
         EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
         BAZEL_TARGET="${BAZEL_TARGET} //tests:gpu_tests"
-        ;;
-    backend-independent)
-        JOBS_PER_ACC=4
-        JOBS=$(($NGPUS * JOBS_PER_ACC))
-        EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_ACC}"
-        BAZEL_TARGET="${BAZEL_TARGET} //tests:backend_independent_tests"
         ;;
     "")
         JOBS_PER_GPU=4

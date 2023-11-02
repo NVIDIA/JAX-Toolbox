@@ -7,7 +7,7 @@ on:
         type: string
         description: 'JAX image built by NVIDIA/JAX-Toolbox'
         required: true
-        default: 'ghcr.io/nvidia/jax:${{ github.run_id }}-jax-multiarch'
+        default: 'ghcr.io/nvidia/jax:latest'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
