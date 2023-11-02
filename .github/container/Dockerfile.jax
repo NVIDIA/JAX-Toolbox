@@ -63,7 +63,10 @@ RUN echo "-e ${SRC_PATH_JAX}"               >> /opt/pip-tools.d/manifest.jax
 RUN echo "$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
 
 ## Flax
-RUN get-source.sh -f https://github.com/google/flax.git -r v0.7.4 -d /opt/flax -o /opt/pip-tools.d/manifest.flax
+# RUN get-source.sh -f https://github.com/google/flax.git -r v0.7.5 -d /opt/flax -o /opt/pip-tools.d/manifest.flax
+## Temporary WAR Part 1 (Part 2 in pip-finalize.sh) due to https://github.com/pypa/pip/issues/12380
+RUN get-source.sh -f https://github.com/google/flax.git -r v0.7.5 -d /opt/flax -o /dev/null
+RUN echo "flax @ git+https://github.com/google/flax.git" > /opt/pip-tools.d/manifest.flax
 
 ## Transformer engine
 ARG REPO_TE
