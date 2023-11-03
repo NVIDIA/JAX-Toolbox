@@ -5,4 +5,4 @@
 # - External Pull Requests (These are pull requests with upstream paxml and are of the form "pull/$PULLID/head")
 # - Note: Only the first column is used as a git-ref, so anything after is a comment
 
-mirror/patch/te_support_rebased_1101 #pull/46/head  # adds Transformer Engine support
+mirror/patch/te_support_fix_excluded_for_learner #pull/46/head  # adds Transformer Engine support
