@@ -15,12 +15,12 @@ on:
         required: true
       PAXML_PATCHES:
         type: string
-        description: "Comma separated patches (Ex1: 'p1,p2' converted to 'p1\np2'). (Ex2: ',' == empty patchlist). Default: use upstream"
+        description: "[Paxml] patches (Ex1: 'p1,p2' converted to 'p1\np2'). (Ex2: ',' == empty patchlist). Default: use upstream"
         default: ''
         required: false
       PRAXIS_PATCHES:
         type: string
-        description: "Comma separated patches (Ex1: 'p1,p2' converted to 'p1\np2'). (Ex2: ',' == empty patchlist). Default: use upstream"
+        description: "[Praxis] patches (Ex1: 'p1,p2' converted to 'p1\np2'). (Ex2: ',' == empty patchlist). Default: use upstream"
         default: ''
         required: false
       PUBLISH:
