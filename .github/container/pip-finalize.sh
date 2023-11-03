@@ -2,8 +2,10 @@
 
 set -ex -o pipefail
 
-pip-compile $(ls /opt/pip-tools.d/manifest.*) -o /opt/pip-tools.d/requirements.txt
+pushd /opt/pip-tools.d
 
-pip install --src /opt -r /opt/pip-tools.d/requirements.txt
+pip-compile $(ls manifest.*) -o requirements.txt
+
+pip-sync --pip-args '--src /opt' requirements.txt
 
 rm -rf ~/.cache/*
