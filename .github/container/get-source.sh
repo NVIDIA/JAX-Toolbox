@@ -9,17 +9,17 @@
 
 usage() {
     echo "Usage: $0 [OPTION]..."
-    echo "  -d, --dir=PATH         [Required] Local path to check out the source code."
-    echo "  -f, --from=URL         [Required] URL of the source repo."
+    echo "  -d, --dir PATH         [Required] Local path to check out the source code."
+    echo "  -f, --from URL         [Required] URL of the source repo."
     echo "  -h, --help             Print usage."
     echo "  -i, --install          Install the package immediately using pip install."
-    echo "  -o, --output           File to write pip manifests. Defaults to stdout"
-    echo "  -r, --ref=REF          Git commit SHA, branch name, or tag name to checkout. Uses default branch if not specified."
+    echo "  -m, --manifest FILE    Create a pip manifest file if specified"
+    echo "  -r, --ref REF          Git commit SHA, branch name, or tag name to checkout. Uses default branch if not specified."
     echo
     exit $1
 }
 
-args=$(getopt -o d:f:hio:r: --long dir:,from:,help,install,output:,ref: -- "$@")
+args=$(getopt -o d:f:hi:m:r: --long dir:,from:,help,install,manifest:,ref: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -30,7 +30,7 @@ GIT_REPO=""
 GIT_REF="${GIT_REF:-HEAD}"
 INSTALL=${INSTALL:-0}
 INSTALL_DIR=""
-OUTPUT_FILE="/dev/stdout"
+MANIFEST_FILE=""
 
 eval set -- "$args"
 while [ : ]; do
@@ -50,8 +50,8 @@ while [ : ]; do
         INSTALL=true
         shift
         ;;
-    -o | --output)
-        OUTPUT_FILE="$2"
+    -m | --manifest)
+        MANIFEST_FILE="$2"
         shift 2
         ;;
     -r | --ref)
@@ -95,7 +95,7 @@ popd
 
 if (( INSTALL == 1 )); then
   pip install -e ${INSTALL_DIR}
-else
-  echo "Writing to $OUTPUT_FILE:"
-  echo "-e ${INSTALL_DIR}" | tee -a $OUTPUT_FILE
+elif [[ -n "${MANIFEST_FILE}" ]]; then
+  echo "Writing to ${MANIFEST_FILE}:"
+  echo "-e file://${INSTALL_DIR}" | tee -a ${MANIFEST_FILE}
 fi

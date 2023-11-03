@@ -1,12 +1,15 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
 ARG REPO_JAX="https://github.com/google/jax.git"
 ARG REPO_XLA="https://github.com/openxla/xla.git"
+ARG REPO_FLAX="https://github.com/google/flax.git"
 ARG REPO_TE="https://github.com/NVIDIA/TransformerEngine.git"
 ARG REF_JAX=main
 ARG REF_XLA=main
+ARG REF_FLAX=main
 ARG REF_TE=main
 ARG SRC_PATH_JAX=/opt/jax-source
 ARG SRC_PATH_XLA=/opt/xla-source
+ARG SRC_PATH_FLAX=/opt/flax
 ARG SRC_PATH_TE=/opt/transformer-engine
 
 ARG BAZEL_CACHE=/tmp
@@ -60,17 +63,20 @@ ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
 RUN echo "-e file://${SRC_PATH_JAX}"               >> /opt/pip-tools.d/manifest.jax
-RUN echo "$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
+RUN echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
 
 ## Flax
-RUN echo "-e git+https://github.com/google/flax@v0.7.5#egg=flax" > /opt/pip-tools.d/manifest.flax
+ARG REPO_FLAX
+ARG REF_FLAX
+ARG SRC_PATH_FLAX
+RUN get-source.sh -f ${REPO_FLAX} -r ${REF_FLAX} -d ${SRC_PATH_FLAX} -m /opt/pip-tools.d/manifest.flax
 
 ## Transformer engine
 ARG REPO_TE
 ARG REF_TE
 ARG SRC_PATH_TE
 ENV NVTE_FRAMEWORK=jax
-RUN get-source.sh -f ${REPO_TE} -r ${REF_TE} -d ${SRC_PATH_TE} -o /opt/pip-tools.d/manifest.te
+RUN get-source.sh -f ${REPO_TE} -r ${REF_TE} -d ${SRC_PATH_TE} -m /opt/pip-tools.d/manifest.te
 
 # TODO: properly configure entrypoint
 
