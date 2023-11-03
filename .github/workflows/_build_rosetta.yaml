@@ -73,9 +73,9 @@ jobs:
           CUSTOM_PATCHLISTS='${{ inputs.CUSTOM_PATCHLISTS }}'
           for plist_rule in $CUSTOM_PATCHLISTS; do
             path=$(cut -d= -f1 <<<"$plist_rule")
-            patches=$(cut -d= -f1 <<<"$plist_rule")
+            patches=$(cut -d= -f2 <<<"$plist_rule")
             [[ -n "$(dirname $path)" ]] && mkdir -p $(dirname $path)
-            echo $patches | tr ',' '\n' >$path
+            echo $patches | tr ',' '\n' | tee $path
           done
           unset IFS
           popd
