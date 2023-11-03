@@ -5,4 +5,4 @@
 # - External Pull Requests (These are pull requests with upstream flax and are of the form "pull/$PULLID/head")
 # - Note: Only the first column is used as a git-ref, so anything after is a comment
 
-pull/3340/head  # Add Sharding Annotations to Flax Modules
+mirror/patch/t5x-layers-rebase-1103  # Add Sharding Annotations to Flax Modules
