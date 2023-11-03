@@ -26,8 +26,10 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 RUN pip install --upgrade --no-cache-dir pip pip-tools && rm -rf ~/.cache/*
 RUN mkdir -p /opt/pip-tools.d
-ADD --chmod=777 get-source.sh /usr/local/bin
-ADD --chmod=777 pip-finalize.sh /usr/local/bin
+ADD --chmod=777 \
+    get-source.sh \
+    pip-finalize.sh \
+    /usr/local/bin/
 
 ###############################################################################
 ## Install cuDNN
