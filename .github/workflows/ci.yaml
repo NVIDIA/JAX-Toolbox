@@ -320,7 +320,8 @@ jobs:
   finalize:
     if: always()
     # TODO: use dynamic matrix to make dependencies self-updating
-    needs: [build-summary, test-distribution, test-jax, test-upstream-t5x, test-upstream-pax, test-rosetta-t5x, test-rosetta-pax]
+    #needs: [build-summary, test-distribution, test-jax, test-upstream-t5x, test-upstream-pax, test-rosetta-t5x, test-rosetta-pax]
+    needs: [build-summary, test-upstream-t5x, test-upstream-pax, test-rosetta-t5x, test-rosetta-pax] 
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: false
