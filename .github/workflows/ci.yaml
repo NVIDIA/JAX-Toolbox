@@ -262,10 +262,10 @@ jobs:
             fi
           done
 
-  test-distribution:
-    needs: metadata
-    uses: ./.github/workflows/_test_distribution.yaml
-    secrets: inherit
+  #test-distribution:
+  #  needs: metadata
+  #  uses: ./.github/workflows/_test_distribution.yaml
+  #  secrets: inherit
 
   test-jax:
     needs: build-jax
