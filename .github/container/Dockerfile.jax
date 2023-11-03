@@ -63,7 +63,7 @@ RUN echo "-e jax @ file://${SRC_PATH_JAX}"               >> /opt/pip-tools.d/man
 RUN echo "jaxlib @ $(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
 
 ## Flax
-RUN echo "-e flax @ git+https://github.com/google/flax.git@v0.7.5#egg=flax" > /opt/pip-tools.d/manifest.flax
+RUN echo "-e flax @ git+https://github.com/google/flax@v0.7.5#egg=flax" > /opt/pip-tools.d/manifest.flax
 
 ## Transformer engine
 ARG REPO_TE
