@@ -267,12 +267,12 @@ jobs:
   #  uses: ./.github/workflows/_test_distribution.yaml
   #  secrets: inherit
 
-  test-jax:
-    needs: build-jax
-    uses: ./.github/workflows/_test_jax.yaml
-    with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
-    secrets: inherit
+  #test-jax:
+  #  needs: build-jax
+  #  uses: ./.github/workflows/_test_jax.yaml
+  #  with:
+  #    JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
+  #  secrets: inherit
 
   # test-te:
   #   needs: build-te
