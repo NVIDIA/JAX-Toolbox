@@ -10,9 +10,19 @@ on:
     inputs:
       BASE_IMAGE:
         type: string
-        description: 'T5x image built by NVIDIA/JAX-Toolbox'
+        description: 'Upstream T5x image built by NVIDIA/JAX-Toolbox'
         default: 'ghcr.io/nvidia/upstream-t5x:latest'
         required: true
+      T5X_PATCHES:
+        type: string
+        description: Comma separated patches (can be public PRs `pull/1320/head`, mirror branches `mirror/...` or mirror PRs `mirror/pull/...`)
+        default: ''
+        required: false
+      FLAX_PATCHES:
+        type: string
+        description: Comma separated patches (can be public PRs `pull/1320/head`, mirror branches `mirror/...` or mirror PRs `mirror/pull/...`)
+        default: ''
+        required: false
       PUBLISH:
         type: boolean
         description: Publish dated images and update the 'latest' tag?
@@ -22,6 +32,9 @@ on:
 env:
   BASE_LIBRARY: t5x
   DOCKER_REGISTRY: ghcr.io/nvidia
+  # Relative to rosetta/
+  CUSTOM_T5X_PATCHLIST: patchlist-t5x.txt
+  CUSTOM_FLAX_PATCHLIST: patchlist-flax.txt
 
 permissions:
   contents: read  # to fetch code
@@ -37,6 +50,7 @@ jobs:
       BUILD_DATE: ${{ steps.meta-vars.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ steps.meta-vars.outputs.BASE_LIBRARY }}
       BASE_IMAGE: ${{ steps.meta-vars.outputs.BASE_IMAGE }}
+      CUSTOM_PATCHLISTS: ${{ steps.meta-vars.outputs.CUSTOM_PATCHLISTS }}
       PUBLISH: ${{ steps.meta-vars.outputs.PUBLISH }}
     steps:
       - name: Set build metadata
@@ -52,6 +66,12 @@ jobs:
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
           echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
           echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
+          CUSTOM_PATCHLISTS=()
+          [[ -n "${{ inputs.T5X_PATCHES }}" ]] && CUSTOM_PATCHLISTS+=(${{ env.CUSTOM_T5X_PATCHLIST }}=${{ inputs.T5X_PATCHES }})
+          [[ -n "${{ inputs.FLAX_PATCHES }}" ]] && CUSTOM_PATCHLISTS+=(${{ env.CUSTOM_FLAX_PATCHLIST }}=${{ inputs.FLAX_PATCHES }})
+          IFS=";"
+          echo "CUSTOM_PATCHLISTS=${CUSTOM_PATCHLISTS[*]}" >> $GITHUB_OUTPUT
+          unset IFS
           echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
   build:
@@ -62,6 +82,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
+      CUSTOM_PATCHLISTS: ${{ needs.metadata.outputs.CUSTOM_PATCHLISTS }}
       # TODO: Can't build ARM until https://github.com/NVIDIA/JAX-Toolbox/pull/252 is available
       PLATFORMS: '["amd64"]'
     secrets: inherit
