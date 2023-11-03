@@ -59,11 +59,11 @@ COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
-RUN echo "-e ${SRC_PATH_JAX}"               >> /opt/pip-tools.d/manifest.jax
-RUN echo "$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
+RUN echo "-e jax @ file://${SRC_PATH_JAX}"               >> /opt/pip-tools.d/manifest.jax
+RUN echo "jaxlib @ $(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
 
 ## Flax
-RUN echo "flax @ git+https://github.com/google/flax.git@v0.7.5#egg=flax" > /opt/pip-tools.d/manifest.flax
+RUN echo "-e flax @ git+https://github.com/google/flax.git@v0.7.5#egg=flax" > /opt/pip-tools.d/manifest.flax
 
 ## Transformer engine
 ARG REPO_TE
