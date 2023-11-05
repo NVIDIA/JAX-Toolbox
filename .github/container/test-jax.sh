@@ -126,24 +126,25 @@ case "${BATTERY}" in
     large)
         JOBS_PER_GPU=1
         JOBS=$((NGPUS * JOBS_PER_GPU))
-        EXTRA_FLAGS="--jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
+        EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
         BAZEL_TARGET="${BAZEL_TARGET} //tests:image_test_gpu //tests:scipy_stats_test_gpu"
         ;;
     gpu)
         JOBS_PER_GPU=8
         JOBS=$((NGPUS * JOBS_PER_GPU))
-        EXTRA_FLAGS="--jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
+        EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
         BAZEL_TARGET="${BAZEL_TARGET} //tests:gpu_tests"
         ;;
     backend-independent)
-        JOBS=$NCPUS
-        EXTRA_FLAGS="--jobs=${JOBS} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
+        JOBS_PER_GPU=4
+        JOBS=$(($NGPUS * JOBS_PER_GPU))
+        EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
         BAZEL_TARGET="${BAZEL_TARGET} //tests:backend_independent_tests"
         ;;
     "")
         JOBS_PER_GPU=4
         JOBS=$((NGPUS * JOBS_PER_GPU))
-        EXTRA_FLAGS="--jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU}"
+        EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU}"
         ;;
     *)
         echo "Unknown battery ${BATTERY}"
