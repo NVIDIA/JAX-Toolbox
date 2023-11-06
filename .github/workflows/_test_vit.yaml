@@ -286,7 +286,7 @@ jobs:
             echo '```'
           done | tee -a $GITHUB_STEP_SUMMARY
 
-          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
+          RESULTS_DIR=$PWD BASELINES_DIR=T5X_MGMN/rosetta/vit/ TESTS_NAME=VIT pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v3
