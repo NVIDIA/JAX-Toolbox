@@ -4,7 +4,7 @@ set -ex -o pipefail
 
 pushd /opt/pip-tools.d
 
-pip-compile $(ls manifest.*) -o requirements.txt
+pip-compile -o requirements.txt $(ls manifest.*)
 
 pip-sync --pip-args '--src /opt' requirements.txt
 
