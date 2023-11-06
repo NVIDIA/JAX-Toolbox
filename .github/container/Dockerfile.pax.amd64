@@ -24,18 +24,25 @@ RUN <<EOF bash -ex
 get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}  -m /opt/pip-tools.d/manifest.paxml
 get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS} -m /opt/pip-tools.d/manifest.praxis
 
-for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
-  pushd $src
-  sed -i "s| @ git+https://github.com/google/flax||g" setup.py
-  sed -i "s| @ git+https://github.com/google/jax||g" setup.py
-  if git diff --quiet; then
-      echo "head-of-tree specs no longer present in select dependencies"
-      exit 1
-  else
-      git commit -a -m "remove head-of-tree specs from select dependencies"
-  fi
-  popd
-done
+pushd ${SRC_PATH_PAXML}
+sed -i "s| @ git+https://github.com/google/flax||g" setup.py
+sed -i "s| @ git+https://github.com/google/jax||g" setup.py
+if git diff --quiet; then
+    echo "head-of-tree specs no longer present in select dependencies"
+    exit 1
+else
+    git commit -a -m "remove head-of-tree specs from select dependencies"
+fi
+
+pushd ${SRC_PATH_PRAXIS}
+sed -i "s| @ git+https://github.com/google/flax||g" setup.py
+sed -i "s| @ git+https://github.com/google/jax||g" setup.py
+if git diff --quiet; then
+    echo "head-of-tree specs no longer present in select dependencies"
+    exit 1
+else
+    git commit -a -m "remove head-of-tree specs from select dependencies"
+fi
 EOF
 
 ADD test-pax.sh /usr/local/bin
