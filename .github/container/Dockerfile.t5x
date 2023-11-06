@@ -14,10 +14,10 @@ FROM ${BASE_IMAGE} as staging
 ARG REPO_T5X
 ARG REF_T5X
 ARG SRC_PATH_T5X
-RUN <<EOF
+RUN <<EOF bash -ex
 get-source.sh -f ${REPO_T5X} -r ${REF_T5X} -d ${SRC_PATH_T5X} -m /opt/pip-tools.d/manifest.t5x
 # remove head-of-tree specs from select dependencies
-cd ${SRC_PATH_T5X}
+pushd ${SRC_PATH_T5X}
 sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
 if git diff --quiet; then
     echo "head-of-tree specs no longer present in select dependencies"
@@ -25,6 +25,7 @@ if git diff --quiet; then
 else
     git commit -a -m "remove head-of-tree specs from select dependencies"
 fi
+popd
 EOF
 
 ADD test-t5x.sh /usr/local/bin
