@@ -179,6 +179,16 @@ jobs:
             N_NODE: 2
             ADDITIONAL_ARGS: "--enable-te 0"
             EXTRA_GIN_ARGS: ""
+          - TEST_NAME: "1N2G-ft_te-1"
+            N_GPU: 2
+            N_NODE: 1
+            ADDITIONAL_ARGS: "--finetune"
+            EXTRA_GIN_ARGS: ""
+          - TEST_NAME: "1N2G-ft_te-0"
+            N_GPU: 2
+            N_NODE: 1
+            ADDITIONAL_ARGS: "--enable-te 0 --finetune"
+            EXTRA_GIN_ARGS: ""
       fail-fast: false
 
     runs-on: ubuntu-22.04
