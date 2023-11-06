@@ -34,6 +34,13 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
     secrets: inherit
  
+  build-pax:
+    needs: [build-jax]
+    uses: ./.github/workflows/_build_pax.yaml
+    with:
+      ARCHITECTURE: amd64
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
+    secrets: inherit
 
   #  merge:
   #   runs-on: ubuntu-latest

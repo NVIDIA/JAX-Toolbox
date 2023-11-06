@@ -1,32 +1,49 @@
 # syntax=docker/dockerfile:1-labs
-###############################################################################
-## Pax
-###############################################################################
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
-FROM ${BASE_IMAGE}
-
-ADD install-pax.sh /usr/local/bin
-
 ARG REPO_PAXML=https://github.com/google/paxml.git
 ARG REPO_PRAXIS=https://github.com/google/praxis.git
 ARG REF_PAXML=main
 ARG REF_PRAXIS=main
 ARG SRC_PATH_PAXML=/opt/paxml
 ARG SRC_PATH_PRAXIS=/opt/praxis
-RUN <<"EOF" bash -ex
-install-pax.sh --defer --from_paxml ${REPO_PAXML} --from_praxis ${REPO_PRAXIS} --ref_paxml ${REF_PAXML} --ref_praxis ${REF_PRAXIS}
-install-flax.sh --defer
-install-te.sh --defer
 
-if [[ -f /opt/requirements-defer.txt ]]; then
-  # SKIP_HEAD_INSTALLS avoids having to install jax from Github source so that
-  # we do not overwrite the jax that was already installed.
-  SKIP_HEAD_INSTALLS=true pip install -r /opt/requirements-defer.txt
-fi
-if [[ -f /opt/cleanup.sh ]]; then
-  bash -ex /opt/cleanup.sh
-fi
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as staging
+ARG REPO_PAXML
+ARG REPO_PRAXIS
+ARG REF_PAXML
+ARG REF_PRAXIS
+ARG SRC_PATH_PAXML
+ARG SRC_PATH_PRAXIS
+
+RUN <<EOF bash -ex
+get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}  -m /opt/pip-tools.d/manifest.paxml
+get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS} -m /opt/pip-tools.d/manifest.praxis
+
+for repo in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
+  pushd ${repo}
+  sed -i "s| @ git+https://github.com/google/flax||g" setup.py
+  sed -i "s| @ git+https://github.com/google/jax||g" setup.py
+  if git diff --quiet; then
+      echo "head-of-tree specs no longer present in select dependencies"
+      exit 1
+  else
+      git commit -a -m "remove head-of-tree specs from select dependencies"
+  fi
+  popd
+done
 EOF
 
 ADD test-pax.sh /usr/local/bin
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM staging as final
+
+RUN pip-finalize.sh
