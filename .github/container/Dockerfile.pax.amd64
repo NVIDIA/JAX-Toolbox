@@ -25,24 +25,27 @@ get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}  -m /opt/p
 get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS} -m /opt/pip-tools.d/manifest.praxis
 
 pushd ${SRC_PATH_PAXML}
-sed -i "s| @ git+https://github.com/google/flax||g" setup.py
-sed -i "s| @ git+https://github.com/google/jax||g" setup.py
+sed -i "s| @ git+https://github.com/google/flax||g" requirements.in
+sed -i "s| @ git+https://github.com/google/jax||g" requirements.in
 if git diff --quiet; then
     echo "head-of-tree specs no longer present in select dependencies"
     exit 1
 else
     git commit -a -m "remove head-of-tree specs from select dependencies"
 fi
+popd
 
 pushd ${SRC_PATH_PRAXIS}
-sed -i "s| @ git+https://github.com/google/flax||g" setup.py
-sed -i "s| @ git+https://github.com/google/jax||g" setup.py
+sed -i "s| @ git+https://github.com/google/flax||g" requirements.in
+sed -i "s| @ git+https://github.com/google/jax||g" requirements.in
 if git diff --quiet; then
     echo "head-of-tree specs no longer present in select dependencies"
     exit 1
 else
     git commit -a -m "remove head-of-tree specs from select dependencies"
 fi
+popd
+
 EOF
 
 ADD test-pax.sh /usr/local/bin
