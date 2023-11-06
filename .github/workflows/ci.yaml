@@ -195,7 +195,7 @@ jobs:
     secrets: inherit
 
   test-te:
-    needs: build-te
+    needs: build-jax
     uses: ./.github/workflows/_test_te.yaml
     with:
       JAX_TE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAGS }}
