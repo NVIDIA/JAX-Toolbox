@@ -2,7 +2,7 @@ name: Nightly Transformer Engine test
 
 on:
   workflow_run:
-    workflows: [Nightly Transformer Engine build]
+    workflows: [Nightly JAX build]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -11,7 +11,7 @@ on:
         type: string
         description: 'JAX-TE image build by NVIDIA/JAX-Toolbox'
         required: true
-        default: 'ghcr.io/nvidia/jax-te:latest'
+        default: 'ghcr.io/nvidia/jax:latest'
       PUBLISH:
         type: boolean
         description: Update status badge?
@@ -24,7 +24,7 @@ permissions:
   packages: write # to upload container
 
 env:
-  DEFAULT_JAX_TE_IMAGE: 'ghcr.io/nvidia/jax-te:latest'
+  DEFAULT_JAX_TE_IMAGE: 'ghcr.io/nvidia/jax:latest'
 
 jobs:
 
