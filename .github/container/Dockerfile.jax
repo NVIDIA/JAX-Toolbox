@@ -62,7 +62,7 @@ COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
-RUN <<EOF
+RUN <<"EOF" bash -ex
 echo "-e file://${SRC_PATH_JAX}"                        >> /opt/pip-tools.d/manifest.jax
 echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
 EOF
@@ -73,15 +73,15 @@ ARG REF_FLAX
 ARG SRC_PATH_FLAX
 RUN get-source.sh -f ${REPO_FLAX} -r ${REF_FLAX} -d ${SRC_PATH_FLAX} -m /opt/pip-tools.d/manifest.flax
 
-## Transformer engine
+## Transformer engine: check out source and build wheel
 ARG REPO_TE
 ARG REF_TE
 ARG SRC_PATH_TE
 ENV NVTE_FRAMEWORK=jax
-RUN <<EOF
+RUN <<"EOF" bash -ex
 get-source.sh -f ${REPO_TE} -r ${REF_TE} -d ${SRC_PATH_TE}
 cd ${SRC_PATH_TE} && python setup.py bdist_wheel && rm -rf build
-echo "transformer_engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/manifest.te
+echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/manifest.te
 EOF
 
 # TODO: properly configure entrypoint

@@ -20,32 +20,22 @@ ARG REF_PRAXIS
 ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 
-RUN <<EOF bash -ex
+RUN <<"EOF" bash -ex
 get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}  -m /opt/pip-tools.d/manifest.paxml
 get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS} -m /opt/pip-tools.d/manifest.praxis
 
-pushd ${SRC_PATH_PAXML}
-sed -i "s| @ git+https://github.com/google/flax||g" requirements.in
-sed -i "s| @ git+https://github.com/google/jax||g" requirements.in
-if git diff --quiet; then
-    echo "head-of-tree specs no longer present in select dependencies"
-    exit 1
-else
-    git commit -a -m "remove head-of-tree specs from select dependencies"
-fi
-popd
-
-pushd ${SRC_PATH_PRAXIS}
-sed -i "s| @ git+https://github.com/google/flax||g" requirements.in
-sed -i "s| @ git+https://github.com/google/jax||g" requirements.in
-if git diff --quiet; then
-    echo "head-of-tree specs no longer present in select dependencies"
-    exit 1
-else
-    git commit -a -m "remove head-of-tree specs from select dependencies"
-fi
-popd
-
+for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
+  pushd ${src}
+  sed -i "s| @ git+https://github.com/google/flax||g" requirements.in
+  sed -i "s| @ git+https://github.com/google/jax||g" requirements.in
+  if git diff --quiet; then
+      echo "URL specs no longer present in select dependencies for ${src}"
+      exit 1
+  else
+      git commit -a -m "remove URL specs from select dependencies for ${src}"
+  fi
+  popd
+done
 EOF
 
 ADD test-pax.sh /usr/local/bin
