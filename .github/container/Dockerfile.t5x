@@ -17,7 +17,7 @@ ARG SRC_PATH_T5X
 RUN <<EOF
 get-source.sh -f ${REPO_T5X} -r ${REF_T5X} -d ${SRC_PATH_T5X} -m /opt/pip-tools.d/manifest.t5x
 # remove head-of-tree specs from select dependencies
-pushd ${SRC_PATH_T5X}
+cd ${SRC_PATH_T5X}
 sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
 if git diff --quiet; then
     echo "head-of-tree specs no longer present in select dependencies"
