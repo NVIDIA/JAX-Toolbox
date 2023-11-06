@@ -3,6 +3,7 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
 ARG REPO_T5X=https://github.com/google-research/t5x.git
 ARG REF_T5X=main
+ARG SRC_PATH_T5X=/opt/t5x
 
 ###############################################################################
 ## Download source and add auxiliary scripts
@@ -13,9 +14,18 @@ FROM ${BASE_IMAGE} as staging
 ARG REPO_T5X
 ARG REF_T5X
 ARG SRC_PATH_T5X
-RUN get-source.sh -f ${REPO_T5X} -r ${REF_T5X} -d ${SRC_PATH_T5X} -m /opt/pip-tools.d/manifest.t5x
+RUN <<EOF
+get-source.sh -f ${REPO_T5X} -r ${REF_T5X} -d ${SRC_PATH_T5X} -m /opt/pip-tools.d/manifest.t5x
 # remove head-of-tree specs from select dependencies
-RUN sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" ${SRC_PATH_T5X}/setup.py
+pushd ${SRC_PATH_T5X}
+sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
+if git diff --quiet; then
+    echo "head-of-tree specs no longer present in select dependencies"
+    exit 1
+else
+    git commit -a -m "remove head-of-tree specs from select dependencies"
+fi
+EOF
 
 ADD test-t5x.sh /usr/local/bin
 

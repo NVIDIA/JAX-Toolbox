@@ -62,8 +62,10 @@ COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
-RUN echo "-e file://${SRC_PATH_JAX}"               >> /opt/pip-tools.d/manifest.jax
-RUN echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
+RUN <<EOF
+echo "-e file://${SRC_PATH_JAX}"                        >> /opt/pip-tools.d/manifest.jax
+echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
+EOF
 
 ## Flax
 ARG REPO_FLAX

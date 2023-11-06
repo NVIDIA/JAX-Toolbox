@@ -24,6 +24,10 @@ RUN apt-get update && \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+RUN <<EOF
+git config user.name "JAX Toolbox"
+git config user.email "jax@nvidia.com"
+EOF
 RUN pip install --upgrade --no-cache-dir pip pip-tools && rm -rf ~/.cache/*
 RUN mkdir -p /opt/pip-tools.d
 ADD --chmod=777 \

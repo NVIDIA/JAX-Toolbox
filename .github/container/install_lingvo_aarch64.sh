@@ -28,8 +28,6 @@ pushd ${LINGVO_INSTALLED_DIR}
 # git fetch origin pull/326/head:pr326  ## merged upstream
 # git fetch origin pull/328/head:pr328  ## merged upstream
 git fetch origin pull/329/head:pr329
-git config user.name "JAX Toolbox"
-git config user.email "jax@nvidia.com"
 # git cherry-pick pr326 pr328 pr329  ## pr326, pr328 merged
 git cherry-pick --allow-empty pr329
 
