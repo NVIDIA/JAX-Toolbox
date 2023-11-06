@@ -7,7 +7,7 @@ print_var() {
 }
 
 usage() {
-    echo "Test T5X throughput on a fake-data Wikipedia benchmark or real glue/mnli."
+    echo "Test T5X throughput on a fake-data Wikipedia benchmark or real squad."
     echo ""
     echo "Usage: $0 [OPTIONS]"
     echo ""
