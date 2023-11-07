@@ -537,7 +537,7 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-   vit-metrics:
+  vit-metrics:
     needs: [vit-multi-gpu-multi-node, vit-single-process-multi-device]
     runs-on: ubuntu-22.04
 
