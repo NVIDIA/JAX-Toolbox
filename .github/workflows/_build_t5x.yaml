@@ -37,10 +37,23 @@ on:
         description: Git commit, tag, or branch for TE
         required: false
         default: main
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-t5x-build'
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-t5x-build'
     outputs:
-      DOCKER_TAGS:
-        description: "Tags of the image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
+      DOCKER_TAG_FINAL:
+        description: "Tags of the complete image built"
+        value: ${{ jobs.build.outputs.DOCKER_TAG_FINAL }}
+      DOCKER_TAG_STAGING:
+        description: "Tags of the 'staging' image built"
+        value: ${{ jobs.build.outputs.DOCKER_TAG_STAGING }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -53,9 +66,12 @@ permissions:
 jobs:
 
   build:
-    outputs:
-      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+    env:
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
+    outputs:
+      DOCKER_TAG_FINAL: ${{ steps.meta-staging.outputs.tags }}
+      DOCKER_TAG_STAGING: ${{ steps.meta-final.outputs.tags }}
     steps:
       - name: Print environment variables
         run: env
@@ -136,3 +152,45 @@ jobs:
             REF_T5X=${{ inputs.REF_T5X }}
             REPO_TE=${{ inputs.REPO_TE }}
             REF_TE=${{ inputs.REF_TE }}
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='T5X ${{ inputs.ARCHITECTURE }} build'
+          tags="${{ steps.meta-final.outputs.tags }}"
+          digest="${{ steps.build-final.outputs.digest }}"
+          outcome="${{ steps.build-final.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="T5X build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="T5X build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
+      - name: Upload sitrep and badge
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
+          path: |
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}

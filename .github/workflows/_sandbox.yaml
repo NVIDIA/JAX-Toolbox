@@ -10,36 +10,37 @@ permissions:
 
 jobs:
 
-  # build-base:
-  #   uses: ./.github/workflows/_build_base.yaml
-  #   with:
-  #     ARCHITECTURE: amd64
-  #   secrets: inherit
+  build-base:
+    uses: ./.github/workflows/_build_base.yaml
+    with:
+      ARCHITECTURE: amd64
+    secrets: inherit
 
-  # build-jax:
-  #   needs: [build-base]
-  #   uses: ./.github/workflows/_build_jax.yaml
-  #   with:
-  #     ARCHITECTURE: amd64
-  #     BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-  #     REF_JAX: jax-v0.4.20
-  #     REF_XLA: ca31652cdbeb6ea187589dea546ff8019274f8b2
-  #   secrets: inherit
+  build-jax:
+    needs: [build-base]
+    uses: ./.github/workflows/_build_jax.yaml
+    with:
+      ARCHITECTURE: amd64
+      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+      REF_JAX: jax-v0.4.20
+      REF_XLA: ca31652cdbeb6ea187589dea546ff8019274f8b2
+    secrets: inherit
 
-  # build-t5x:
-  #   needs: [build-jax]
-  #   uses: ./.github/workflows/_build_t5x.yaml
-  #   with:
-  #     ARCHITECTURE: amd64
-  #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
-  #   secrets: inherit
+  build-t5x:
+    needs: [build-jax]
+    uses: ./.github/workflows/_build_t5x.yaml
+    with:
+      ARCHITECTURE: amd64
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
+    secrets: inherit
  
   build-pax:
-    # needs: [build-jax]
+    needs: [build-jax]
     uses: ./.github/workflows/_build_pax.yaml
     with:
-      # BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
-      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6768482418-jax-amd64-staging
+      ARCHITECTURE: amd64
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
+      # BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6768482418-jax-amd64-staging
     secrets: inherit
 
   #  merge:

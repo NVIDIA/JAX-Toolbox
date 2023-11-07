@@ -193,11 +193,11 @@ jobs:
           if [[ ${outcome} == "success" ]]; then
             badge_message="pass"
             badge_color=brightgreen
-            summary="JAX build on ${{ matrix.PLATFORM }}: $badge_message"
+            summary="JAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
           else
             badge_message="fail"
             badge_color=red
-            summary="JAX build on ${{ matrix.PLATFORM }}: $badge_message"
+            summary="JAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
           fi
 
           to_json \
@@ -224,7 +224,7 @@ jobs:
       # - name: Upload image name file as artifact
       #   uses: actions/upload-artifact@v3
       #   with:
-      #     name: image-name-jax-${{ matrix.PLATFORM }}
+      #     name: image-name-jax-${{ inputs.ARCHITECTURE }}
       #     path: image-name.txt
 
       - name: Upload sitrep and badge
