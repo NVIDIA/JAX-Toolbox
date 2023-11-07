@@ -133,4 +133,4 @@ def test_e2e_time(baseline_filename):
         e2e_time_expected = json.load(baseline_file)["e2e_time_seconds"]
         e2e_time_actual = test_utils.read_e2e_time(run_log)
         assert e2e_time_actual < e2e_time_expected / \
-            E2E_TIME_MULT[test_config], f"Run E2E time: {e2e_time_actual}, Expected E2E time: {e2e_time_expected}"
+            E2E_TIME_MULT[tests_name][test_config], f"Run E2E time: {e2e_time_actual}, Expected E2E time: {e2e_time_expected}"
