@@ -30,7 +30,6 @@ LOSS_RTOL = {
   }
 }
 
-}
 STEP_TIME_MULT = {
   'T5X': {
     "1G1N": 0.95,
