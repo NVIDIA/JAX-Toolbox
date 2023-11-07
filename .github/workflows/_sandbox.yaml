@@ -8,19 +8,22 @@ permissions:
   actions:  write # to cancel previous workflows
   packages: write # to upload container
 
+env:
+  ARCHITECTURE: arm64
+
 jobs:
 
   build-base:
     uses: ./.github/workflows/_build_base.yaml
     with:
-      ARCHITECTURE: amd64
+      ARCHITECTURE: ${{ env.ARCHITECTURE }}
     secrets: inherit
 
   build-jax:
     needs: [build-base]
     uses: ./.github/workflows/_build_jax.yaml
     with:
-      ARCHITECTURE: amd64
+      ARCHITECTURE: ${{ env.ARCHITECTURE }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
       REF_JAX: jax-v0.4.20
       REF_XLA: ca31652cdbeb6ea187589dea546ff8019274f8b2
@@ -30,7 +33,7 @@ jobs:
     needs: [build-jax]
     uses: ./.github/workflows/_build_t5x.yaml
     with:
-      ARCHITECTURE: amd64
+      ARCHITECTURE: ${{ env.ARCHITECTURE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
     secrets: inherit
  
@@ -38,7 +41,7 @@ jobs:
     needs: [build-jax]
     uses: ./.github/workflows/_build_pax.yaml
     with:
-      ARCHITECTURE: amd64
+      ARCHITECTURE: ${{ env.ARCHITECTURE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
       # BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6768482418-jax-amd64-staging
     secrets: inherit
