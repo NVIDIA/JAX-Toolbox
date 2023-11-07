@@ -70,8 +70,8 @@ jobs:
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
-      DOCKER_TAG_FINAL: ${{ steps.meta-staging.outputs.tags }}
-      DOCKER_TAG_STAGING: ${{ steps.meta-final.outputs.tags }}
+      DOCKER_TAG_FINAL: ${{ steps.staging-metadata.outputs.tags }}
+      DOCKER_TAG_STAGING: ${{ steps.final-metadata.outputs.tags }}
     steps:
       - name: Print environment variables
         run: env
@@ -93,7 +93,7 @@ jobs:
             image=moby/buildkit:v0.12.1
 
       - name: Set docker metadata - staging
-        id: meta-staging
+        id: staging-metadata
         uses: docker/metadata-action@v4
         with:
           images: |
@@ -106,6 +106,7 @@ jobs:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Build staging image
+        id: staging-build
         uses: docker/build-push-action@v4
         with:
           context: .github/container
@@ -113,8 +114,8 @@ jobs:
           file: .github/container/Dockerfile.t5x
           platforms: linux/${{ inputs.ARCHITECTURE }}
           target: staging
-          tags: ${{ steps.meta-staging.outputs.tags }}
-          labels: ${{ steps.meta-staging.outputs.labels }}
+          tags: ${{ steps.staging-metadata.outputs.tags }}
+          labels: ${{ steps.staging-metadata.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
@@ -124,7 +125,7 @@ jobs:
             REF_TE=${{ inputs.REF_TE }}
 
       - name: Set docker metadata - final
-        id: meta-final
+        id: final-metadata
         uses: docker/metadata-action@v4
         with:
           images: |
@@ -137,14 +138,15 @@ jobs:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Build final image
+        id: final-build
         uses: docker/build-push-action@v4
         with:
           context: .github/container
           push: true
           file: .github/container/Dockerfile.t5x
           platforms: linux/${{ inputs.ARCHITECTURE }}
-          tags: ${{ steps.meta-staging.outputs.tags }}
-          labels: ${{ steps.meta-staging.outputs.labels }}
+          tags: ${{ steps.final-metadata.outputs.tags }}
+          labels: ${{ steps.final-metadata.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
@@ -161,9 +163,9 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           badge_label='T5X ${{ inputs.ARCHITECTURE }} build'
-          tags="${{ steps.meta-final.outputs.tags }}"
-          digest="${{ steps.build-final.outputs.digest }}"
-          outcome="${{ steps.build-final.outcome }}"
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
 
           if [[ ${outcome} == "success" ]]; then
             badge_message="pass"

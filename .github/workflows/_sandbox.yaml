@@ -43,6 +43,15 @@ jobs:
       # BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6768482418-jax-amd64-staging
     secrets: inherit
 
+  finalize:
+    if: always()
+    # TODO: use dynamic matrix to make dependencies self-updating
+    needs: [build-jax, build-t5x, build-pax]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: false
+    secrets: inherit
+
   #  merge:
   #   runs-on: ubuntu-latest
   #   needs: build
