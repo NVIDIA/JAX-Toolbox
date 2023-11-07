@@ -27,8 +27,11 @@ RUN --mount=type=ssh \
     git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
 
 # TODO: This is a WAR to NCCL errors we observe in TOT. Should be removed when no longer needed
-RUN <<EOF bash -e
+RUN <<EOF bash -ex
 cd ${SRC_PATH_XLA}
+
+git config user.name "JAX Toolbox"
+git config user.email "jax@nvidia.com"
 git remote add -f ashors1 https://github.com/ashors1/xla
 git cherry-pick --allow-empty $(git merge-base ashors/main ashors1/revert-84222)..ashors1/revert-84222
 git remote remove ashors1
