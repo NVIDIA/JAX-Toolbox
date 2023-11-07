@@ -14,16 +14,19 @@ usage() {
     echo "  OPTIONS                   DESCRIPTION"
     echo "  -a, --additional-args     Additional gin args to pass to t5x/train.py"
     echo "  -b, --batch-size          Global batch size (REQUIRED)"
-    echo "  -c --use-contrib-configs  If provided uses contrib/gpu configs instead of top-level configs. Notably, gpu configs use adamw instead of adafactor"
+    echo "  -c, --use-contrib-configs If provided uses contrib/gpu configs instead of top-level configs. Notably, gpu configs use adamw instead of adafactor"
     echo "  -d, --dtype               Data type, defaults to bfloat16."
+    echo "  --enable-te {0,1}         1 to enable, 0 to disable; defaults to ENABLE_TE in env or 0 if unset"
     echo "  -e, --epochs              Number of epochs to run, defaults to 7."
     echo "  --multiprocess            Enable the multiprocess GPU mode."
     echo "  -o, --output NAME         Name for the output folder, a temporary folder will be created if none specified."
+    echo "  --seed INT                Random seed for deterministim. Defaults to 42."
+    echo "  -s, --steps-per-epoch INT Steps per epoch. Detauls to 100"
     echo "  -h, --help                Print usage."
     exit $1
 }
 
-args=$(getopt -o a:b:cd:e:o:s:h --long additional-args:,batch-size:,use-contrib-configs,dtype:,epochs:,help,multiprocess,output:,steps-per-epoch: -- "$@")
+args=$(getopt -o a:b:cd:e:ho:s: --long additional-args:,batch-size:,use-contrib-configs,dtype:,enable-te:,epochs:,help,multiprocess,output:,seed:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -37,7 +40,9 @@ DTYPE=bfloat16
 EPOCHS=7
 MULTIPROCESS=0
 OUTPUT=$(mktemp -d)
+SEED=42
 STEPS_PER_EPOCH=100
+ENABLE_TE=${ENABLE_TE:-0}
 
 eval set -- "$args"
 while [ : ]; do
@@ -58,9 +63,16 @@ while [ : ]; do
             DTYPE="$2"
             shift 2
             ;;
+        --enable-te)
+            ENABLE_TE="$2"
+            shift 2
+            ;;
         -e | --epochs)
             EPOCHS="$2"
             shift 2
+            ;;
+        -h | --help)
+            usage 1
             ;;
         --multiprocess)
             MULTIPROCESS=1
@@ -70,12 +82,13 @@ while [ : ]; do
             OUTPUT="$2"
             shift 2
             ;;
+        --seed)
+            SEED="$2"
+            shift 2
+            ;;
         -s | --steps-per-epoch)
             STEPS_PER_EPOCH="$2"
             shift 2
-            ;;
-        -h | --help)
-            usage 1
             ;;
         --)
             shift;
@@ -100,6 +113,7 @@ print_var ADDITIONAL_ARGS
 print_var BATCH_SIZE
 print_var USE_CONTRIB_CONFIGS
 print_var DTYPE
+print_var ENABLE_TE
 print_var EPOCHS
 print_var OUTPUT
 print_var MULTIPROCESS
@@ -176,7 +190,8 @@ EOF
 
 ## Launch
 set -exou pipefail
-python -m t5x.train \
+
+ENABLE_TE=$ENABLE_TE python -m t5x.train \
     --gin_file benchmark.gin \
     --gin.MODEL_DIR=\"${OUTPUT}\" \
     --gin.network.T5Config.dtype=\"${DTYPE}\" \
@@ -185,7 +200,9 @@ python -m t5x.train \
     --gin.train.eval_steps=0 \
     --gin.train.eval_period=${STEPS_PER_EPOCH} \
     --gin.CheckpointConfig.save=None \
+    --gin.train/utils.DatasetConfig.seed=${SEED} \
+    --gin.train_eval/utils.DatasetConfig.seed=${SEED} \
+    --gin.train.random_seed=${SEED} \
     $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
-set +x
 echo "Output at ${OUTPUT}"
