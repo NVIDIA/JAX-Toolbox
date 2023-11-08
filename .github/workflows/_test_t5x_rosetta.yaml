@@ -20,6 +20,7 @@ on:
 
 env:
   BATCH_SIZE_PER_GPU: 32
+  VIT_BATCH_SIZE_PER_GPU: 256
 
 jobs:
 
@@ -336,7 +337,7 @@ jobs:
           JOB_NAME=VIT${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
+          BATCH_SIZE=$((${{ env.VIT_BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
           for var in IMAGE TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
@@ -454,7 +455,7 @@ jobs:
           JOB_NAME=VIT${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
+          BATCH_SIZE=$((${{ env.VIT_BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
