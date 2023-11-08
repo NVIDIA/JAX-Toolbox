@@ -64,7 +64,7 @@ git fetch origin pull/329/head:pr329
 git cherry-pick --allow-empty pr329
 
 # Disable 2 flaky tests here
-patch -p1 <<EOF
+patch -p1 <<"EOF"
 diff --git a/pip_package/build.sh b/pip_package/build.sh
 index ef62c432e..659e78956 100755
 --- a/pip_package/build.sh
