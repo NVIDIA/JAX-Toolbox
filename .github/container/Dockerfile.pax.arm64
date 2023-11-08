@@ -31,7 +31,13 @@ RUN apt-get update && \
 RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
     chmod a+x /usr/bin/bazel
 
-RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 protobuf==3.20 patchelf
+RUN pip install \
+  tensorflow_datasets==4.9.2 \
+  auditwheel \
+  tensorflow==2.13.0
+
+  # protobuf==3.20 \
+  # patchelf
 
 # build lingvo
 RUN <<"EOT" bash -exu
@@ -45,7 +51,6 @@ LINGVO_INSTALLED_DIR=${INSTALL_DIR}/lingvo
 
 git clone ${LINGVO_REPO} ${LINGVO_INSTALLED_DIR}
 # get-source.sh -f ${LINGVO_REPO} -r ${LINGVO_REF} -d ${LINGVO_INSTALLED_DIR}
-
 
 pushd ${LINGVO_INSTALLED_DIR}
 git fetch origin pull/329/head:pr329
