@@ -14,8 +14,6 @@
 
 import sys
 
-import pytest
-
 
 def print_output(stdout, stderr):
     def box_print(text):
@@ -29,7 +27,6 @@ def print_output(stdout, stderr):
     print(stderr.decode())
 
 
-@pytest.mark.integration
 def test_small_vit_train_on_dummy_data(dummy_wds_metadata, run_subprocess_blocking, package_root_dir, tmp_path):
     tmp_model_dir = str(tmp_path)
     stdout, stderr, returncode = run_subprocess_blocking(
