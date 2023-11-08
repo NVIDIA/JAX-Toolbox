@@ -45,7 +45,9 @@ pip install patchelf
 # running the tests entirely by uncommentin the following line.
 # SKIP_TEST=1
 PYTHON_MINOR_VERSION=10 pip_package/build.sh
-pip install /tmp/lingvo/dist/lingvo*linux_aarch64.whl
+# pip install /tmp/lingvo/dist/lingvo*linux_aarch64.whl
+cp /tmp/lingvo/dist/lingvo*linux_aarch64.whl /opt
+echo "lingvo @ file://$(ls /opt/lingvo*linux_aarch64.whl)" >> /opt/pip-tools.d/manifest.pax
 popd
 rm -Rf *lingvo*
 rm -Rf /root/.cache
