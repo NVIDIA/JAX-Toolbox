@@ -23,6 +23,11 @@ on:
         description: URL of Praxis repository to check out
         required: false
         default: "https://github.com/google/praxis.git"
+      REPO_TE:
+        type: string
+        description: URL of TE repository to check out
+        required: false
+        default: "https://github.com/NVIDIA/TransformerEngine.git"
       REF_PAXML:
         type: string
         description: Git commit, tag, or branch for Paxml
@@ -31,6 +36,11 @@ on:
       REF_PRAXIS:
         type: string
         description: Git commit, tag, or branch for Praxis
+        required: false
+        default: main
+      REF_TE:
+        type: string
+        description: Git commit, tag, or branch for TE
         required: false
         default: main
     outputs:
@@ -101,8 +111,10 @@ jobs:
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             REPO_PAXML=${{ inputs.REPO_PAXML }}
             REPO_PRAXIS=${{ inputs.REPO_PRAXIS }}
+            REPO_TE=${{ inputs.REPO_TE }}
             REF_PAXML=${{ inputs.REF_PAXML }}
             REF_PRAXIS=${{ inputs.REF_PRAXIS }}
+            REF_TE=${{ inputs.REF_TE }}
 
       # Temporary workaround until the following issues are solved:
       # https://github.com/orgs/community/discussions/17245

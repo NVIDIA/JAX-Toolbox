@@ -8,11 +8,25 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      REPO_TE:
+        type: string
+        description: URL of TE repository to check out
+        required: false
+        default: "https://github.com/NVIDIA/TransformerEngine.git"
+      REF_TE:
+        type: string
+        description: Git commit, tag, or branch for TE
+        required: false
+        default: main
       PUBLISH:
         type: boolean
         description: Publish nightly images and update the 'latest' tag?
         default: false
         required: false
+
+env:
+  DEFAULT_REPO_TE: https://github.com/NVIDIA/TransformerEngine.git
+  DEFAULT_REF_TE: main
 
 permissions:
   contents: read  # to fetch code
@@ -25,14 +39,28 @@ jobs:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     outputs:
-      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ steps.meta.outputs.BUILD_DATE }}
+      REPO_TE: ${{ steps.meta.outputs.REPO_TE }}
+      REF_TE: ${{ steps.meta.outputs.REF_TE }}
     steps:
-      - name: Set build date
-        id: date
+      - name: Set build metadata
+        id: meta
         shell: bash -x -e {0}
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          if [[ -z "${{ inputs.REPO_TE }}" ]]; then
+            REPO_TE=${{ env.DEFAULT_REPO_TE }}
+          else
+            REPO_TE=${{ inputs.REPO_TE }}
+          fi
+          echo "REPO_TE=$REPO_TE" >> $GITHUB_OUTPUT
+          if [[ -z "${{ inputs.REF_TE }}" ]]; then
+            REF_TE=${{ env.DEFAULT_REF_TE }}
+          else
+            REF_TE=${{ inputs.REF_TE }}
+          fi
+          echo "REF_TE=$REF_TE" >> $GITHUB_OUTPUT
 
   build:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
@@ -40,6 +68,8 @@ jobs:
     uses: ./.github/workflows/_build_pax.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      REPO_TE: ${{ needs.metadata.outputs.REPO_TE }}
+      REF_TE: ${{ needs.metadata.outputs.REF_TE }}
     secrets: inherit
 
   publish:

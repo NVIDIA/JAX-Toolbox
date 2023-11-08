@@ -60,6 +60,9 @@ ADD test-pax.sh /usr/local/bin
 # TODO: Utilize these build-args and use them when installing pax
 # ARG REPO_PAXML=https://github.com/google/paxml.git
 # ARG REPO_PRAXIS=https://github.com/google/praxis.git
+# ARG REPO_TE=https://github.com/NVIDIA/TransformerEngine.git
 # ARG REF_PAXML=main
 # ARG REF_PRAXIS=main
+# ARG REF_TE=main
 # install-pax.sh --defer --from_paxml ${REPO_PAXML} --from_praxis ${REPO_PRAXIS} --ref_paxml ${REF_PAXML} --ref_praxis ${REF_PRAXIS}
+# install-te.sh --defer --from ${REPO_TE} --ref ${REF_TE}

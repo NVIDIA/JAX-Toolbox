@@ -13,12 +13,14 @@ ADD install-te.sh /usr/local/bin
 ENV NVTE_FRAMEWORK=jax
 ARG REPO_PAXML=https://github.com/google/paxml.git
 ARG REPO_PRAXIS=https://github.com/google/praxis.git
+ARG REPO_TE=https://github.com/NVIDIA/TransformerEngine.git
 ARG REF_PAXML=main
 ARG REF_PRAXIS=main
+ARG REF_TE=main
 RUN <<"EOF" bash -ex
 install-pax.sh --defer --from_paxml ${REPO_PAXML} --from_praxis ${REPO_PRAXIS} --ref_paxml ${REF_PAXML} --ref_praxis ${REF_PRAXIS}
 install-flax.sh --defer
-install-te.sh --defer
+install-te.sh --defer --from ${REPO_TE} --ref ${REF_TE}
 
 if [[ -f /opt/requirements-defer.txt ]]; then
   # SKIP_HEAD_INSTALLS avoids having to install jax from Github source so that
