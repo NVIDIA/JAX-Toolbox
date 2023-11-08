@@ -6,15 +6,16 @@ LINGVO_REPO="${LINGVO_REPO:-https://github.com/tensorflow/lingvo.git}"
 
 ## Install tensorflow-text
 cd ${INSTALL_DIR}
-pip install tensorflow_datasets==4.9.2 # force a recent version to have latest protobuf dep
-pip install auditwheel
-pip install tensorflow==2.13.0
+# pip install tensorflow_datasets==4.9.2 # force a recent version to have latest protobuf dep
+# pip install auditwheel
+# pip install tensorflow==2.13.0
 git clone http://github.com/tensorflow/text.git
 pushd text
 git checkout v2.13.0
 ./oss_scripts/run_build.sh
-find * | grep '.whl$'
-pip install ./tensorflow_text-*.whl
+echo "tensorflow-text @ file://$PWD/$(ls *.whl)" >> /opt/pip-tools.d/manifest.pax
+# find * | grep '.whl$'
+# pip install ./tensorflow_text-*.whl
 popd
 rm -Rf text
 
@@ -37,9 +38,12 @@ patch -p1 < /opt/lingvo.patch
 sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
 sed -i 's/tensorflow-text=/#tensorflow-text=/'  docker/dev.requirements.txt
 sed -i 's/dataclasses=/#dataclasses=/'  docker/dev.requirements.txt
-pip install -r docker/dev.requirements.txt
-pip install protobuf==3.20
-pip install patchelf
+# pip install -r docker/dev.requirements.txt
+# pip install protobuf==3.20
+# pip install patchelf
+echo "-r $PWD/docker/dev.requirements.txt" >> /opt/pip-tools.d/manifest.pax
+echo "-r protobuf==3.20" >> /opt/pip-tools.d/manifest.pax
+echo "-r patchelf" >> /opt/pip-tools.d/manifest.pax
 
 # Some tests are flaky right now (see the patch abovbe), if needed we can skip
 # running the tests entirely by uncommentin the following line.
