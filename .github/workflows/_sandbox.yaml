@@ -38,7 +38,7 @@ jobs:
   #   secrets: inherit
  
   build-pax:
-    needs: [build-jax]
+    # needs: [build-jax]
     uses: ./.github/workflows/_build_pax.yaml
     with:
       ARCHITECTURE: arm64
