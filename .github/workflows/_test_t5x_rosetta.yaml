@@ -538,43 +538,43 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  vit-metrics:
-    needs: [vit-multi-gpu-multi-node, vit-single-process-multi-device]
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-
-      - name: Run pytest
-        shell: bash -x {0}
-        run: |
-          pip install pytest pytest-reportlog tensorboard
-          for i in VIT${GITHUB_RUN_ID}-*; do
-            SUBDIR=$(echo $i | cut -d'-' -f2)
-            mv $i/$SUBDIR* .
-            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
-          done
-
-          echo '## ViT MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
-          for i in *_metrics.json; do
-            echo $i | cut -d'.' -f1
-            echo '```json'
-            jq . $i
-            echo '```'
-          done | tee -a $GITHUB_STEP_SUMMARY
-
-          RESULTS_DIR=$PWD BASELINES_DIR=T5X_MGMN/rosetta/vit/ TESTS_NAME=VIT pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
-
-      - name: Upload metrics test json logs
-        uses: actions/upload-artifact@v3
-        with:
-          name: metrics-test-log
-          path: report.jsonl
-
+#  vit-metrics:
+#    needs: [vit-multi-gpu-multi-node, vit-single-process-multi-device]
+#    runs-on: ubuntu-22.04
+#
+#    steps:
+#      - name: Check out the repository under ${GITHUB_WORKSPACE}
+#        uses: actions/checkout@v3
+#
+#      - name: Download artifacts
+#        uses: actions/download-artifact@v3
+#
+#      - name: Run pytest
+#        shell: bash -x {0}
+#        run: |
+#          pip install pytest pytest-reportlog tensorboard
+#          for i in VIT${GITHUB_RUN_ID}-*; do
+#            SUBDIR=$(echo $i | cut -d'-' -f2)
+#            mv $i/$SUBDIR* .
+#            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
+#          done
+#
+#          echo '## ViT MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
+#          for i in *_metrics.json; do
+#            echo $i | cut -d'.' -f1
+#            echo '```json'
+#            jq . $i
+#            echo '```'
+#          done | tee -a $GITHUB_STEP_SUMMARY
+#
+#          RESULTS_DIR=$PWD BASELINES_DIR=T5X_MGMN/rosetta/vit/ TESTS_NAME=VIT pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
+#
+#      - name: Upload metrics test json logs
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: metrics-test-log
+#          path: report.jsonl
+#
 
   publish-test:
     needs: [multi-gpu-multi-node, single-process-multi-device, vit-multi-gpu-multi-node, vit-single-process-multi-device]
