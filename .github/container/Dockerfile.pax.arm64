@@ -31,19 +31,26 @@ RUN apt-get update && \
 RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
     chmod a+x /usr/bin/bazel
 
-RUN pip install \
-  tensorflow_datasets==4.9.2 \
-  auditwheel \
-  tensorflow==2.13.0
+FROM wheel-builder as tftext-builder
 
-  # protobuf==3.20 \
-  # patchelf
+# build tensorflow-text 2.13.0 from source
+RUN <<"EOT" bash -exu
+set -o pipefail
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
+mkdir -p /opt
+pushd /opt
+git clone http://github.com/tensorflow/text.git
+pushd text
+git checkout v2.13.0
+./oss_scripts/run_build.sh
+popd
+EOT
+
+FROM wheel-builder as lingvo-builder
 
 # build lingvo
 RUN <<"EOT" bash -exu
-
 set -o pipefail
-
 INSTALL_DIR="${INSTALL_DIR:-/opt}"
 LINGVO_REF="${LINGVO_REF:-HEAD}"
 LINGVO_REPO="${LINGVO_REPO:-https://github.com/tensorflow/lingvo.git}"
@@ -76,22 +83,13 @@ EOF
 sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
 sed -i 's/tensorflow-text=/#tensorflow-text=/'  docker/dev.requirements.txt
 sed -i 's/dataclasses=/#dataclasses=/'  docker/dev.requirements.txt
-pip install -r docker/dev.requirements.txt
+pip install -r docker/dev.requirements.txt protobuf==3.20 patchelf
 
 # Some tests are flaky right now (see the patch abovbe), if needed we can skip
 # running the tests entirely by uncommentin the following line.
 # SKIP_TEST=1
 PYTHON_MINOR_VERSION=10 pip_package/build.sh
 cp /tmp/lingvo/dist/lingvo*linux_aarch64.whl /opt/lingvo.whl
-EOT
-
-# build tensorflow-text 2.13.0 from source
-RUN <<"EOT" bash -exu
-git clone http://github.com/tensorflow/text.git
-pushd text
-git checkout v2.13.0
-./oss_scripts/run_build.sh
-popd
 EOT
 
 ###############################################################################
@@ -107,10 +105,10 @@ ARG REF_PRAXIS
 ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 
-COPY --from=wheel-builder /opt/lingvo.whl /opt/
+COPY --from=lingvo-builder /opt/lingvo.whl /opt/
 RUN echo "lingvo @ file:///opt/lingvo.whl" >> /opt/pip-tools.d/manifest.pax
 
-COPY --from=wheel-builder /opt/tensorflow-text.whl /opt/
+COPY --from=tftext-builder /opt/tensorflow-text.whl /opt/
 RUN echo "tensorflow-text @ file:///opt/tensorflow-text.whl" >> /opt/pip-tools.d/manifest.pax
 
 # paxml + praxis
