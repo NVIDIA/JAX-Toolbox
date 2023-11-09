@@ -27,11 +27,13 @@ RUN --mount=type=ssh \
     git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+ADD xla-arm64-neon.patch /opt
 RUN build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
+    --xla-arm64-patch /opt/xla-arm64-neon.patch \ 
     --clean
 
 RUN cp -r ${SRC_PATH_JAX} ${SRC_PATH_JAX}-no-git && rm -rf ${SRC_PATH_JAX}-no-git/.git
