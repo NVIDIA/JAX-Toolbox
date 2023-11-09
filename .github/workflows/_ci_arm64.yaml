@@ -110,16 +110,16 @@ jobs:
       REF_TE: ${{ needs.metadata.outputs.REF_TE }}
     secrets: inherit
 
-  build-t5x:
-    needs: [metadata, build-jax]
-    uses: ./.github/workflows/_build_t5x.yaml
-    with:
-      ARCHITECTURE: arm64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
-      REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
-      REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
-    secrets: inherit
+  # build-t5x:
+  #   needs: [metadata, build-jax]
+  #   uses: ./.github/workflows/_build_t5x.yaml
+  #   with:
+  #     ARCHITECTURE: arm64
+  #     BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
+  #     REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
+  #     REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
+  #   secrets: inherit
 
   build-pax:
     needs: [metadata, build-jax]
