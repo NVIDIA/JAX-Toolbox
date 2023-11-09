@@ -81,6 +81,7 @@ ENV NVTE_FRAMEWORK=jax
 ENV SRC_PATH_TE=${SRC_PATH_TE}
 RUN <<"EOF" bash -ex
 set -o pipefail
+pip install ninja && rm -rf ~/.cache/pip
 get-source.sh -f ${REPO_TE} -r ${REF_TE} -d ${SRC_PATH_TE}
 pushd ${SRC_PATH_TE}
 git remote add yhtang https://github.com/yhtang/TransformerEngine.git
