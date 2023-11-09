@@ -15,11 +15,11 @@ on:
         type: string
         description: 'Target docker tags in docker/metadata-action format:'
         required: true
-      EXPOSE_SINGLE_ARCH_IMAGES:
-        type: boolean
-        description: 'Also expose single-arch images:'
-        required: false
-        default: true
+      # EXPOSE_SINGLE_ARCH_IMAGES:
+      #   type: boolean
+      #   description: 'Also expose single-arch images:'
+      #   required: false
+      #   default: false
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image published"
@@ -85,30 +85,26 @@ jobs:
             docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
           done
 
-      - name: Skopeo Login to GitHub Container Registry
-        run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - ghcr.io
+      # - name: Create single-arch images
+      #   if: ${{ inputs.EXPOSE_SINGLE_ARCH_IMAGES }}
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     # Create new manifest list from extracted manifests
+      #     for manifest in ${{ steps.get-manifests.outputs.manifests }}; do
+      #       os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
+      #       arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
+      #       for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+      #         skopeo copy --format v2s2 docker://$manifest docker://$tag-${os}-${arch}
+      #       done
+      #     done
 
-      - name: Create single-arch images
-        if: ${{ inputs.EXPOSE_SINGLE_ARCH_IMAGES }}
-        shell: bash -x -e {0}
-        run: |
-          # Create new manifest list from extracted manifests
-          for manifest in ${{ steps.get-manifests.outputs.manifests }}; do
-            os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
-            arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
-            for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-              skopeo copy --format v2s2 docker://$manifest docker://$tag-${os}-${arch}
-            done
-          done
+      # - name: Generate outputs and artifacts
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ inputs.TARGET_IMAGE }}.txt
 
-      - name: Generate outputs and artifacts
-        shell: bash -x -e {0}
-        run: |
-          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ inputs.TARGET_IMAGE }}.txt
-
-      - name: Upload image tags as artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: image-tags-${{ inputs.TARGET_IMAGE }}
-          path: image-tags-${{ inputs.TARGET_IMAGE }}.txt
+      # - name: Upload image tags as artifacts
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: image-tags-${{ inputs.TARGET_IMAGE }}
+      #     path: image-tags-${{ inputs.TARGET_IMAGE }}.txt
