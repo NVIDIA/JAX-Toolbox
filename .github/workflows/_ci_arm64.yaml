@@ -62,6 +62,9 @@ jobs:
       REPO_PRAXIS: ${{ steps.parse-inputs.outputs.REPO_PRAXIS }}
       REF_PRAXIS: ${{ steps.parse-inputs.outputs.REF_PRAXIS }}
     steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
       - name: Set build date
         id: date
         shell: bash -x -e {0}
