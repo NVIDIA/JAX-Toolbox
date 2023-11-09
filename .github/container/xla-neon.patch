@@ -10,3 +10,4 @@ index 26a60c122..0a4011d9b 100644
 +#if defined(__ARM_NEON) && !defined(__ARM_BIG_ENDIAN) && !defined(__CUDACC__)
  #define XLA_HAS_ARM_NEON
  #endif
+ 
