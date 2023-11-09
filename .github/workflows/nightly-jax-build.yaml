@@ -37,28 +37,70 @@ jobs:
         run: |
           echo "PUBLISH=${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
-  build:
+  build-amd64:
     needs: metadata
     uses: ./.github/workflows/_build_jax.yaml
     with:
+      ARCHITECTURE: amd64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+    secrets: inherit
+
+  build-arm64:
+    needs: metadata
+    uses: ./.github/workflows/_build_jax.yaml
+    with:
+      ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
   publish:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
-    needs: [metadata, build]
-    uses: ./.github/workflows/_publish_container.yaml
-    secrets: inherit
-    with:
-      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: jax
-      TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+    runs-on: ubuntu-latest
+    needs: [metadata, build-amd64, build-arm64]
+    env:
+      UPLD_IMAGE: 'ghcr.io/nvidia/jax'
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=latest,priority=1000
+            type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+          labels:
+            org.opencontainers.image.created=${{ needs.metadata.outputs.BUILD_DATE }}
+
+      - name: Combine images into a single multi-arch image
+        shell: bash -x -e {0}
+        run: |
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            docker manifest create ${tag} $(
+              for IMAGE in ${{ needs.build-amd64.outputs.DOCKER_TAG_FINAL }} ${{ needs.build-arm64.outputs.DOCKER_TAG_FINAL }}; do
+                REPO=$(echo $IMAGE | cut -d: -f1)
+                DIGEST=$(
+                  docker manifest inspect $IMAGE |\
+                  jq -r '.manifests[] | select(.platform.os == "linux") | .digest'
+                )
+                echo $REPO@${DIGEST}
+              done
+            )
+            docker manifest push ${tag}
+          done
 
   finalize:
     if: always()
-    needs: [metadata, build]
+    needs: [metadata, build-amd64, build-arm64]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
