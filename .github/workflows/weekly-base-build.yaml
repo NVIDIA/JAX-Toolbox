@@ -79,9 +79,9 @@ jobs:
       - name: Combine images into a single multi-arch image
         shell: bash -x -e {0}
         run: |
-          for tag in ${{ steps.meta.outputs.tags }}; do
+          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
             docker manifest create ${tag} $(
-              for IMAGE in ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }} ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}; do
+              for IMAGE in ${{ needs.amd64.outputs.DOCKER_TAG }} ${{ needs.arm64.outputs.DOCKER_TAG }}; do
                 REPO=$(echo $IMAGE | cut -d: -f1)
                 DIGEST=$(
                   docker manifest inspect $IMAGE |\
