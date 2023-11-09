@@ -317,7 +317,7 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'upstream-t5x-test-overall-status.json'
+      ENDPOINT_FILENAME: 'upstream-t5x-test-overall-status.deleteme.json'
       PUBLISH: ${{ inputs.PUBLISH }}
       SCRIPT: |
         EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"

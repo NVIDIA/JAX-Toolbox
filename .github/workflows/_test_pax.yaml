@@ -206,7 +206,7 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'upstream-pax-test-overall-status.json'
+      ENDPOINT_FILENAME: 'upstream-pax-test-overall-status.deleteme.json'
       PUBLISH: ${{ inputs.PUBLISH }}
       SCRIPT: |
         EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*FSDP*TP*PP/*-status.json"
