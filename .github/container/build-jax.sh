@@ -252,9 +252,12 @@ pushd $SRC_PATH_XLA
 if [[ "${CPU_ARCH}" == "arm64" ]]; then
     # apply patches if any
     for p in $(echo $XLA_ARM64_PATCH_LIST | tr "," "\n"); do
+        echo Apply patch $p
         patch -p1 < $p
     done
 fi
+
+git diff
 
 popd
 
