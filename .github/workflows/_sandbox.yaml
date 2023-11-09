@@ -86,18 +86,18 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set docker metadata
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ${{ env.UPLD_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=${{ github.run_id }}-jax-${{  matrix.PLATFORM }}
-          labels:
-            org.opencontainers.image.created=today
+      # - name: Set docker metadata
+      #   id: meta
+      #   uses: docker/metadata-action@v4
+      #   with:
+      #     images: |
+      #       ${{ env.UPLD_IMAGE }}
+      #     flavor: |
+      #       latest=false
+      #     tags: |
+      #       type=raw,value=${{ github.run_id }}-jax-${{  matrix.PLATFORM }}
+      #     labels:
+      #       org.opencontainers.image.created=today
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
