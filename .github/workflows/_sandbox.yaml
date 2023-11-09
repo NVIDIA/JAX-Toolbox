@@ -107,14 +107,14 @@ jobs:
 
       - name: Build docker images
         id: build
-        uses: docker/build-action@v4
+        uses: docker/build-push-action@v4
         with:
           context: .github/container
           push: true
           file: .github/container/Dockerfile.jax
           platforms: linux/${{ matrix.PLATFORM }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: xla-neon-patch
+          labels: org.opencontainers.image.created=today
           ssh: default
           secret-files: |
             "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
