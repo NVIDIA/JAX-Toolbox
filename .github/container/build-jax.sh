@@ -257,11 +257,7 @@ if [[ "${CPU_ARCH}" == "arm64" ]]; then
     done
 fi
 
-git diff
-
 popd
-
-exit 1
 
 ## Build jaxlib
 
