@@ -116,7 +116,7 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
       REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
     secrets: inherit
@@ -127,7 +127,7 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       REPO_PAXML: ${{ needs.metadata.outputs.REPO_PAXML }}
       REF_PAXML: ${{ needs.metadata.outputs.REF_PAXML }}
       REPO_PRAXIS: ${{ needs.metadata.outputs.REPO_PRAXIS }}
@@ -139,7 +139,7 @@ jobs:
   #   needs: [metadata, build-t5x]
   #   with:
   #     BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-  #     BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_STAGING }}
+  #     BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
   #     BASE_LIBRARY: t5x
   #   secrets: inherit
 
@@ -148,7 +148,7 @@ jobs:
   #   needs: [metadata, build-pax]
   #   with:
   #     BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-  #     BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_STAGING }}
+  #     BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
   #     BASE_LIBRARY: pax
   #   secrets: inherit
 

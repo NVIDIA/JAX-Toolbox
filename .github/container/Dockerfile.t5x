@@ -9,7 +9,7 @@ ARG SRC_PATH_T5X=/opt/t5x
 ## Download source and add auxiliary scripts
 ###############################################################################
 
-FROM ${BASE_IMAGE} as staging
+FROM ${BASE_IMAGE} as mealkit
 
 ARG REPO_T5X
 ARG REF_T5X
@@ -34,6 +34,6 @@ ADD test-t5x.sh /usr/local/bin
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
-FROM staging as final
+FROM mealkit as final
 
 RUN pip-finalize.sh

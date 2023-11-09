@@ -53,7 +53,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
-  publish-staging:
+  publish-mealkit:
     needs: [metadata, amd64, arm64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
@@ -63,8 +63,8 @@ jobs:
         ${{ needs.amd64.outputs.DOCKER_TAG_STAGING }}
       TARGET_IMAGE: jax-toolbox
       TARGET_TAGS: |
-        type=raw,value=jax-staging-latest,priority=1000
-        type=raw,value=jax-staging-nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+        type=raw,value=jax-mealkit-latest,priority=1000
+        type=raw,value=jax-mealkit-nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   publish-final:
     needs: [metadata, amd64, arm64]

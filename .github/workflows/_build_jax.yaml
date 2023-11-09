@@ -58,9 +58,9 @@ on:
         required: false
         default: 'badge-jax-build'
     outputs:
-      DOCKER_TAG_STAGING:
-        description: "Tags of the 'staging' image built"
-        value: ${{ jobs.build-jax.outputs.DOCKER_TAG_STAGING }}
+      DOCKER_TAG_MEALKIT:
+        description: "Tags of the 'mealkit' image built"
+        value: ${{ jobs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:
         description: "Tags of the complete image built"
         value: ${{ jobs.build-jax.outputs.DOCKER_TAG_FINAL }}
@@ -80,7 +80,7 @@ jobs:
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
-      DOCKER_TAG_STAGING: ${{ steps.staging-metadata.outputs.tags }}
+      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
       DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
     steps:
       - name: Print environment variables
@@ -117,8 +117,8 @@ jobs:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
-      - name: Set docker metadata - staging
-        id: staging-metadata
+      - name: Set docker metadata - mealkit
+        id: mealkit-metadata
         uses: docker/metadata-action@v4
         with:
           images: |
@@ -126,21 +126,21 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-jax-${{ inputs.ARCHITECTURE }}-staging
+            type=raw,value=${{ github.run_id }}-jax-${{ inputs.ARCHITECTURE }}-mealkit
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Build staging image
-        id: staging-build
+      - name: Build mealkit image
+        id: mealkit-build
         uses: docker/build-push-action@v4
         with:
           context: .github/container
           push: true
           file: .github/container/Dockerfile.jax
           platforms: linux/${{ inputs.ARCHITECTURE }}
-          target: staging
-          tags: ${{ steps.staging-metadata.outputs.tags }}
-          labels: ${{ steps.staging-metadata.outputs.labels }}
+          target: mealkit
+          tags: ${{ steps.mealkit-metadata.outputs.tags }}
+          labels: ${{ steps.mealkit-metadata.outputs.labels }}
           ssh: default
           secret-files: |
             "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"

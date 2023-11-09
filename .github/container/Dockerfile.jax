@@ -46,7 +46,7 @@ RUN build-jax.sh \
 ###############################################################################
 
 ARG BASE_IMAGE
-FROM ${BASE_IMAGE} as staging
+FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG BUILD_DATE
@@ -97,6 +97,6 @@ EOF
 ## Install primary packages and transitive dependencies
 ###############################################################################
 
-FROM staging as final
+FROM mealkit as final
 
 RUN pip-finalize.sh

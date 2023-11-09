@@ -35,7 +35,7 @@ jobs:
   #   uses: ./.github/workflows/_build_t5x.yaml
   #   with:
   #     ARCHITECTURE: arm64
-  #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
+  #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
   #   secrets: inherit
  
   build-pax:
@@ -43,9 +43,9 @@ jobs:
     uses: ./.github/workflows/_build_pax.yaml
     with:
       ARCHITECTURE: arm64
-      # BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_STAGING }}
-      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6792001145-jax-arm64-staging
-      # BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6768482418-jax-amd64-staging
+      # BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6792001145-jax-arm64-mealkit
+      # BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6768482418-jax-amd64-mealkit
     secrets: inherit
 
   # finalize:

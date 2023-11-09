@@ -12,7 +12,7 @@ ARG SRC_PATH_PRAXIS=/opt/praxis
 ## Download source and add auxiliary scripts
 ###############################################################################
 
-FROM ${BASE_IMAGE} as staging
+FROM ${BASE_IMAGE} as mealkit
 ARG REPO_PAXML
 ARG REPO_PRAXIS
 ARG REF_PAXML
@@ -44,6 +44,6 @@ ADD test-pax.sh /usr/local/bin
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
-FROM staging as final
+FROM mealkit as final
 
 RUN pip-finalize.sh
