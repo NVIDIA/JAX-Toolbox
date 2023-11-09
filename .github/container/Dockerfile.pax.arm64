@@ -9,57 +9,64 @@ ARG SRC_PATH_PAXML=/opt/paxml
 ARG SRC_PATH_PRAXIS=/opt/praxis
 
 ###############################################################################
-## build dependencies
+## build tensorflow-text and lingvo, which do not have working arm64 pip wheels
 ###############################################################################
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as wheel-builder
 
 # We need to build some packages from source, bring some dependencies.
-RUN apt-get update && \
-  apt-get update && \
-  apt-get install -y \
-    bat \
-    curl \
-    git \
-    gnupg \
-    rsync \
-    liblzma-dev \
-    && \
-  apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists
+RUN <<EOF
+apt-get update
+apt-get install -y \
+  bat \
+  curl \
+  git \
+  gnupg \
+  rsync \
+  liblzma-dev
+apt-get autoremove -y
+apt-get clean
+rm -rf /var/lib/apt/lists
+EOF
 
+# tensorflow-text and lingvo build needs bazel
 RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
     chmod a+x /usr/bin/bazel
 
+#------------------------------------------------------------------------------
+# build tensorflow-text 2.13.0 from source
+#------------------------------------------------------------------------------
+
 FROM wheel-builder as tftext-builder
 
-# build tensorflow-text 2.13.0 from source
 RUN <<"EOT" bash -exu
 set -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-mkdir -p /opt
-pushd /opt
-git clone http://github.com/tensorflow/text.git
-pushd text
+git clone http://github.com/tensorflow/text.git /opt/tensorflow-text
+cd /opt/tensorflow-text
 git checkout v2.13.0
 ./oss_scripts/run_build.sh
-popd
 EOT
 
+#------------------------------------------------------------------------------
+# build lingvo
+#------------------------------------------------------------------------------
+
 FROM wheel-builder as lingvo-builder
+ARG REPO_LINGVO=https://github.com/tensorflow/lingvo.git
+ARG REF_LINGVO=master
+ARG SRC_PATH_LINGVO=/opt/lingvo
+
+COPY --from=tftext-builder /opt/tensorflow-text/tensorflow_text*.whl /opt/
+
+RUN get-source.sh -f ${REPO_LINGVO} -r ${REF_LINGVO} -d ${SRC_PATH_LINGVO}
 
 # build lingvo
 RUN <<"EOT" bash -exu
 set -o pipefail
-INSTALL_DIR="${INSTALL_DIR:-/opt}"
-LINGVO_REF="${LINGVO_REF:-HEAD}"
-LINGVO_REPO="${LINGVO_REPO:-https://github.com/tensorflow/lingvo.git}"
-LINGVO_INSTALLED_DIR=${INSTALL_DIR}/lingvo
 
-git clone ${LINGVO_REPO} ${LINGVO_INSTALLED_DIR}
-# get-source.sh -f ${LINGVO_REPO} -r ${LINGVO_REF} -d ${LINGVO_INSTALLED_DIR}
-
-pushd ${LINGVO_INSTALLED_DIR}
+pushd ${SRC_PATH_LINGVO}
 git fetch origin pull/329/head:pr329
 git cherry-pick --allow-empty pr329
 
@@ -80,18 +87,16 @@ index ef62c432e..659e78956 100755
  DST_DIR="/tmp/lingvo/dist"
 EOF
 
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 /opt/tensorflow_text*.whl
 sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
 sed -i 's/tensorflow-text=/#tensorflow-text=/'  docker/dev.requirements.txt
 sed -i 's/dataclasses=/#dataclasses=/'  docker/dev.requirements.txt
-sed -i 's/protobuf==3.20.3/protobuf==3.20/'  docker/dev.requirements.txt
-sed -i 's/patchelf==0.17.2.1/patchelf/'  docker/dev.requirements.txt
 pip install -r docker/dev.requirements.txt
 
 # Some tests are flaky right now (see the patch abovbe), if needed we can skip
 # running the tests entirely by uncommentin the following line.
 # SKIP_TEST=1
-PYTHON_MINOR_VERSION=10 pip_package/build.sh
-cp /tmp/lingvo/dist/lingvo*linux_aarch64.whl /opt/lingvo.whl
+PYTHON_MINOR_VERSION=$(python --version | cut -d ' ' -f 2 | cut -d '.' -f 2) pip_package/build.sh
 EOT
 
 ###############################################################################
@@ -107,16 +112,25 @@ ARG REF_PRAXIS
 ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 
-COPY --from=lingvo-builder /opt/lingvo.whl /opt/
-RUN echo "lingvo @ file:///opt/lingvo.whl" >> /opt/pip-tools.d/manifest.pax
+RUN <<EOF
+apt-get update
+apt-get install -y liblzma-dev
+apt-get autoremove -y
+apt-get clean
+rm -rf /var/lib/apt/lists
+EOF
 
-COPY --from=tftext-builder /opt/tensorflow-text.whl /opt/
-RUN echo "tensorflow-text @ file:///opt/tensorflow-text.whl" >> /opt/pip-tools.d/manifest.pax
+COPY --from=lingvo-builder /tmp/lingvo/dist/lingvo*linux_aarch64.whl /opt/
+RUN echo "lingvo @ file://$(ls /opt/lingvo*.whl)" >> /opt/pip-tools.d/manifest.pax
+
+COPY --from=tftext-builder /opt/tensorflow-text/tensorflow_text*.whl /opt/
+RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/manifest.pax
 
 # paxml + praxis
 RUN <<"EOT" bash -ex
 echo "tensorflow==2.13.0" >> /opt/pip-tools.d/manifest.pax
 echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/manifest.pax
+echo "chex==0.1.7" >> /opt/pip-tools.d/manifest.pax
 echo "auditwheel" >> /opt/pip-tools.d/manifest.pax
 
 get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}  -m /opt/pip-tools.d/manifest.pax
@@ -124,13 +138,25 @@ get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS} -m /opt/p
 
 for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
   pushd ${src}
-  sed -i "s| @ git+https://github.com/google/flax||g" requirements.in
-  sed -i "s| @ git+https://github.com/google/jax||g" requirements.in
+
+  for pattern in \
+    "s| @ git+https://github.com/google/flax||g" \
+    "s| @ git+https://github.com/google/jax||g" \
+    "s|^tensorflow|#tensorflow|" \
+    "s|^lingvo|#lingvo|" \
+    "s|^scikit-learn|#scikit-learn|" \
+    "s|^t5|#t5|" \
+    "s|^protobuf|#protobuf|" \
+    "s|^numpy|#numpy|" \
+  ; do
+    sed -i "${pattern}" */pip_package/requirements.txt requirements.in
+  done
+
   if git diff --quiet; then
-      echo "URL specs no longer present in select dependencies for ${src}"
+      echo "broken dependencies no longer present in ${src}"
       exit 1
   else
-      git commit -a -m "remove URL specs from select dependencies for ${src}"
+      git commit -a -m "remove broken dependencies from ${src}"
   fi
   popd
 done
