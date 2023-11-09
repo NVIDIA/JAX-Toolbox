@@ -18,14 +18,37 @@ permissions:
   actions:  write # to cancel previous workflows
   packages: write # to upload container
 
+env:
+  DOCKER_REGISTRY: ghcr.io/nvidia
+  DOCKER_IMAGE: upstream-t5x
+
 jobs:
 
   metadata:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     outputs:
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
     steps:
+      - name: Check if the triggering workflow failed
+        id: if-upstream-failed
+        shell: bash -x -e {0}
+        run: |
+          echo "UPSTREAM_FAILED=${{ github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
+
+      - name: Cancel workflow if upstream workflow did not success
+        if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
+        uses: styfle/cancel-workflow-action@0.12.0
+
+      - name: Determine if the resulting container should be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run:
+          # A container should be published if:
+          # 1) the workflow is triggered by workflow_dispatch and the PUBLISH input is true, or
+          # 2) the workflow is triggered by workflow_run (i.e., a nightly build)
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+
       - name: Set build date
         id: date
         shell: bash -x -e {0}
@@ -33,28 +56,72 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-  build:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+  amd64:
     needs: metadata
     uses: ./.github/workflows/_build_t5x.yaml
     with:
+      ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
-  publish:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
-    needs: [metadata, build]
-    uses: ./.github/workflows/_publish_container.yaml
-    secrets: inherit
-    with:
-      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      TARGET_IMAGE: upstream-t5x
-      TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
-
-  if-upstream-failed:
-    runs-on: ubuntu-latest
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+  arm64:
+    needs: metadata
+    runs-on: ubuntu-22.04
+    outputs:
+      DOCKER_TAG_FINAL: ''
     steps:
-      - run: echo 'Upstream workflow failed, aborting run' && exit 1
+      - name: Generate placeholder warning
+        shell: bash -x -e {0}
+        run: |
+          echo "WARNING: arm64 build is not yet supported" >> $GITHUB_OUTPUT
+
+  publish:
+    needs: [metadata, amd64, arm64]
+    if: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=latest,priority=1000
+            type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+          labels:
+            org.opencontainers.image.created=${{ needs.metadata.outputs.BUILD_DATE }}
+
+      - name: Combine images into a single multi-arch image
+        shell: bash -x -e {0}
+        run: |
+          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+            docker manifest create ${tag} $(
+              for IMAGE in ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }} ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}; do
+                REPO=$(echo $IMAGE | cut -d: -f1)
+                DIGEST=$(
+                  docker manifest inspect $IMAGE |\
+                  jq -r '.manifests[] | select(.platform.os == "linux") | .digest'
+                )
+                echo $REPO@${DIGEST}
+              done
+            )
+            docker manifest push ${tag}
+          done
+
+  finalize:
+    if: always()
+    needs: [metadata, amd64, arm64]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit
