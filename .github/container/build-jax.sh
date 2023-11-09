@@ -68,7 +68,7 @@ EDITABLE=0
 JAXLIB_ONLY=0
 SRC_PATH_JAX="/opt/jax-source"
 SRC_PATH_XLA="/opt/xla-source"
-XLA_PATCH_LIST=""
+XLA_ARM64_PATCH_LIST=""
 
 args=$(getopt -o h --long bazel-cache:,build-param:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-patch: -- "$@")
 if [[ $? -ne 0 ]]; then
@@ -129,8 +129,8 @@ while [ : ]; do
             CUDA_COMPUTE_CAPABILITIES=$2
             shift 2
             ;;
-        --xla-patch)
-            XLA_PATCH_LIST=$2
+        --xla-arm64-patch)
+            XLA_ARM64_PATCH_LIST=$2
             shift 2
             ;;
         --)
@@ -216,7 +216,7 @@ print_var TF_NCCL_VERSION
 print_var CC_OPT_FLAGS
 
 print_var BUILD_PARAM
-print_var XLA_PATCH_LIST
+print_var XLA_ARM64_PATCH_LIST
 
 echo "=================================================="
 
@@ -249,12 +249,16 @@ pip install wheel pre-commit mypy numpy build
 # apply patch for XLA
 pushd $SRC_PATH_XLA
 
-# apply patches if any
-for p in $(echo $XLA_PATCH_LIST | tr "," "\n"); do
-    patch -p1 < $p
-done
+if [[ "${CPU_ARCH}" == "arm64" ]]; then
+    # apply patches if any
+    for p in $(echo $XLA_ARM64_PATCH_LIST | tr "," "\n"); do
+        patch -p1 < $p
+    done
+fi
 
 popd
+
+exit 1
 
 ## Build jaxlib
 
