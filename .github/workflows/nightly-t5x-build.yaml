@@ -83,7 +83,7 @@ jobs:
       - name: Generate placeholder warning
         shell: bash -x -e {0}
         run: |
-          echo "WARNING: arm64 build is not yet supported" >> $GITHUB_OUTPUT
+          echo "WARNING: arm64 build is not yet supported"
 
   publish:
     needs: [metadata, amd64, arm64]

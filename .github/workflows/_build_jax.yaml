@@ -41,7 +41,7 @@ on:
         type: string
         description: URL of transformer engine repository to check out
         required: false
-        default: "https://github.com/openxla/xla.git"
+        default: "https://github.com/NVIDIA/TransformerEngine.git"
       REF_TE:
         type: string
         description: Git commit, tag, or branch for XLA
