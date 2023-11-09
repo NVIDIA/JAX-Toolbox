@@ -55,6 +55,7 @@ jobs:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
       PAX_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
+      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit
 
   publish:
@@ -104,45 +105,9 @@ jobs:
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
 
-  publish-completion:
-    needs: [metadata, run-jobs]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: success() || failure()
-    secrets: inherit
-    with:
-      ENDPOINT_FILENAME: 'pax-test-completion-status.json'
-      PUBLISH: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        STATUS=failure
-        if [[ ${{ needs.run-jobs.result }} == "success" ]]; then
-          EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*TP*PP/*-status.json"
-          PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-          FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
-          TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
-
-          echo "Test statuses:"
-          jq -rc 'input_filename,.' $EXIT_STATUSES
-
-          if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-            BADGE_COLOR=brightgreen
-            STATUS=success
-          elif [[ $PASSED_TESTS -eq 0 ]]; then
-            BADGE_COLOR=red
-          else
-            BADGE_COLOR=yellow
-          fi
-          echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-          echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-        else
-          echo "MESSAGE='n/a'" >> $GITHUB_OUTPUT
-          echo "COLOR='red'" >> $GITHUB_OUTPUT
-        fi
-        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "STATUS='$STATUS'" >> $GITHUB_OUTPUT
-
   publish-verified:
-    if: needs.publish-completion.outputs.STATUS == 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
-    needs: [metadata, publish-completion]
+    if: needs.run-jobs.outputs.TEST_STATUS == 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+    needs: [metadata, run-jobs]
     uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
@@ -152,9 +117,9 @@ jobs:
         type=raw,value=latest-verified,priority=1000
 
   triage:
-    needs: [metadata, publish-completion]
+    needs: [metadata, run-jobs]
     uses: ./.github/workflows/_triage.yaml
-    if: needs.publish-completion.outputs.STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
+    if: needs.run-jobs.outputs.TEST_STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
     secrets: inherit
     with:
       BROKEN_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
