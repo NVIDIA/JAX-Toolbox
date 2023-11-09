@@ -60,10 +60,10 @@ on:
     outputs:
       DOCKER_TAG_FINAL:
         description: "Tags of the complete image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAG_FINAL }}
+        value: ${{ jobs.build-jax.outputs.DOCKER_TAG_FINAL }}
       DOCKER_TAG_STAGING:
         description: "Tags of the 'staging' image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAG_STAGING }}
+        value: ${{ jobs.build-jax.outputs.DOCKER_TAG_STAGING }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -75,7 +75,7 @@ permissions:
 
 jobs:
 
-  build:
+  build-jax:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", large]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json

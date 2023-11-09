@@ -30,7 +30,7 @@ on:
     outputs:
       DOCKER_TAG:
         description: "Tag of the image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAG }}
+        value: ${{ jobs.build-base.outputs.DOCKER_TAG }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -42,7 +42,7 @@ permissions:
 
 jobs:
 
-  build:
+  build-base:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
