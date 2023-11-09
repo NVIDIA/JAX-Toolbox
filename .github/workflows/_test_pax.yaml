@@ -1,4 +1,4 @@
-name: ~test Pax, MGMN
+name: ~test Pax, multi-node
 
 on:
   workflow_call:
@@ -20,7 +20,7 @@ on:
 
 jobs:
 
-  multi-gpu-multi-node:
+  pax-multi-node:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -158,7 +158,7 @@ jobs:
           path: output/*
 
   metrics:
-    needs: multi-gpu-multi-node
+    needs: pax-multi-node
     runs-on: ubuntu-22.04
 
     steps:
@@ -196,7 +196,7 @@ jobs:
 
 
   publish-test:
-    needs: [multi-gpu-multi-node, metrics]
+    needs: [pax-multi-node, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
