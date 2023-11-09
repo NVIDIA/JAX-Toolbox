@@ -113,6 +113,7 @@ In addition to the suggested XLA flags mentioned in [this section](https://githu
 export XLA_FLAGS=" \
     --xla_gpu_enable_reduction_epilogue_fusion=false \
     --xla_gpu_enable_triton_gemm=false \
+    --xla_gpu_enable_cudnn_layer_norm=true \
     --xla_gpu_enable_cublaslt=true \
     --xla_gpu_enable_latency_hiding_scheduler=true \
     --xla_gpu_enable_async_collectives=true \
@@ -124,6 +125,8 @@ python -m paxml.main \
     --fdl.USE_FP8=True \
     ...
 ```
+
+Please ensure you include the first two flags, `--xla_gpu_enable_reduction_epilogue_fusion=false` and `--xla_gpu_enable_triton_gemm=false`, as they are essential for enabling the FP8 functionality. The additional flags primarily focus on performance enhancement and should also prove beneficial for non-FP8 executions.
 
 ### Transformer Engine vs Native FP8 Support
 Native XLA-FP8 specifically targets matrix multiplication operations. In contrast, the Transformer Engine focuses on enhancing the overall performance of the entire transformer layer. This encompasses not only the FP8 matrix multiplication but also attention mechanisms, layer normalizations, and other components.
