@@ -2,51 +2,51 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
-  inputs:
-      BASE_IMAGE:
-        type: string
-        description: 'Base docker image that provides CUDA and Python:'
-        required: false
-        default: ghcr.io/nvidia/jax-toolbox:base
-      BUILD_DATE:
-        type: string
-        description: "Build date in YYYY-MM-DD format"
-        required: false
-        default: 'NOT SPECIFIED'
-      REPO_JAX:
-        type: string
-        description: URL of JAX repository to check out
-        required: false
-        default: "https://github.com/google/jax.git"
-      REF_JAX:
-        type: string
-        description: Git commit, tag, or branch for JAX
-        required: false
-        default: main
-      REPO_XLA:
-        type: string
-        description: URL of OpenXLA repository to check out
-        required: false
-        default: "https://github.com/openxla/xla.git"
-      REF_XLA:
-        type: string
-        description: Git commit, tag, or branch for XLA
-        required: false
-        default: main
-      ARTIFACT_NAME:
-        type: string
-        description: 'Name of the artifact zip file'
-        required: false
-        default: 'artifact-jax-build'
-      BADGE_FILENAME:
-        type: string
-        description: 'Name of the endpoint JSON file for shields.io badge'
-        required: false
-        default: 'badge-jax-build'
-    outputs:
-      DOCKER_TAGS:
-        description: "Tags of the image built"
-        value: ${{ jobs.merge.outputs.DOCKER_TAGS }}
+    inputs:
+        BASE_IMAGE:
+          type: string
+          description: 'Base docker image that provides CUDA and Python:'
+          required: false
+          default: ghcr.io/nvidia/jax-toolbox:base
+        BUILD_DATE:
+          type: string
+          description: "Build date in YYYY-MM-DD format"
+          required: false
+          default: 'NOT SPECIFIED'
+        REPO_JAX:
+          type: string
+          description: URL of JAX repository to check out
+          required: false
+          default: "https://github.com/google/jax.git"
+        REF_JAX:
+          type: string
+          description: Git commit, tag, or branch for JAX
+          required: false
+          default: main
+        REPO_XLA:
+          type: string
+          description: URL of OpenXLA repository to check out
+          required: false
+          default: "https://github.com/openxla/xla.git"
+        REF_XLA:
+          type: string
+          description: Git commit, tag, or branch for XLA
+          required: false
+          default: main
+        ARTIFACT_NAME:
+          type: string
+          description: 'Name of the artifact zip file'
+          required: false
+          default: 'artifact-jax-build'
+        BADGE_FILENAME:
+          type: string
+          description: 'Name of the endpoint JSON file for shields.io badge'
+          required: false
+          default: 'badge-jax-build'
+      outputs:
+        DOCKER_TAGS:
+          description: "Tags of the image built"
+          value: ${{ jobs.merge.outputs.DOCKER_TAGS }}
 
 jobs:
   build:
