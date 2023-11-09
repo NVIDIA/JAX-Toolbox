@@ -78,10 +78,15 @@ ARG REPO_TE
 ARG REF_TE
 ARG SRC_PATH_TE
 ENV NVTE_FRAMEWORK=jax
+ENV SRC_PATH_TE=${SRC_PATH_TE}
 RUN <<"EOF" bash -ex
 set -o pipefail
 get-source.sh -f ${REPO_TE} -r ${REF_TE} -d ${SRC_PATH_TE}
-cd ${SRC_PATH_TE} && python setup.py bdist_wheel && rm -rf build
+pushd ${SRC_PATH_TE}
+git remote add yhtang https://github.com/yhtang/TransformerEngine.git
+git fetch yhtang
+git merge yhtang/yhtang-add-nspkgs
+python setup.py bdist_wheel && rm -rf build
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/manifest.te
 EOF
 
