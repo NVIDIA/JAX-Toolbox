@@ -77,6 +77,32 @@ jobs:
       SRC_PRAXIS: ${{ inputs.SRC_PRAXIS || "https://github.com/google/praxis.git#main"}}
     secrets: inherit
 
+  build-summary:
+    needs: [amd64, arm64]
+    if: always()
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Generate job summary for container build
+        shell: bash -x -e {0}
+        run: |
+          cat > $GITHUB_STEP_SUMMARY << EOF
+          # Images created          
+
+          | Image        | Link                                               |
+          | ------------ | -------------------------------------------------- |
+          | Base         | ${{ needs.amd64.outputs.TAG_BASE }}                |
+          |              | ${{ needs.arm64.outputs.TAG_BASE }}                |
+          | JAX          | ${{ needs.amd64.outputs.TAG_JAX }}                 |
+          |              | ${{ needs.arm64.outputs.TAG_JAX }}                 |
+          | T5X          | ${{ needs.amd64.outputs.TAG_T5X }}                 |
+          |              | ${{ needs.arm64.outputs.TAG_T5X }}                 |
+          | PAX          | ${{ needs.amd64.outputs.TAG_PAX }}                 |
+          |              | ${{ needs.arm64.outputs.TAG_PAX }}                 |
+          EOF
+
+          # | ROSETTA(t5x) | ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAGS }} |
+          # | ROSETTA(pax) | ${{ needs.build-rosetta-pax.outputs.DOCKER_TAGS }} |
+
   finalize:
     if: always()
     # TODO: use dynamic matrix to make dependencies self-updating
