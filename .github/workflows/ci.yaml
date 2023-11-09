@@ -104,9 +104,8 @@ jobs:
           # | ROSETTA(pax) | ${{ needs.build-rosetta-pax.outputs.DOCKER_TAGS }} |
 
   finalize:
+    needs: [amd64, arm64]
     if: always()
-    # TODO: use dynamic matrix to make dependencies self-updating
-    needs: [build-summary, test-distribution, test-jax, test-te, test-t5x, test-pax]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: false
