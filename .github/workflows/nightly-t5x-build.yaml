@@ -18,10 +18,6 @@ permissions:
   actions:  write # to cancel previous workflows
   packages: write # to upload container
 
-env:
-  DOCKER_REGISTRY: ghcr.io/nvidia
-  DOCKER_IMAGE: upstream-t5x
-
 jobs:
 
   metadata:
@@ -84,6 +80,32 @@ jobs:
         shell: bash -x -e {0}
         run: |
           echo "WARNING: arm64 build is not yet supported"
+
+  publish-mealkit:
+    needs: [metadata, amd64, arm64]
+    if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+      TARGET_IMAGE: jax-toolbox
+      TARGET_TAGS: |
+        type=raw,value=upstream-t5x-mealkit-latest,priority=1000
+        type=raw,value=upstream-t5x-mealkit-nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+
+  publish-final:
+    needs: [metadata, amd64, arm64]
+    if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+      TARGET_IMAGE: upstream-t5x
+      TARGET_TAGS: |
+        type=raw,value=latest,priority=1000
+        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   publish:
     needs: [metadata, amd64, arm64]

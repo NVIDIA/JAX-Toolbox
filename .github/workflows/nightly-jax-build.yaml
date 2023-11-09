@@ -59,8 +59,8 @@ jobs:
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_STAGING }}
-        ${{ needs.amd64.outputs.DOCKER_TAG_STAGING }}
+        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
       TARGET_IMAGE: jax-toolbox
       TARGET_TAGS: |
         type=raw,value=jax-mealkit-latest,priority=1000
