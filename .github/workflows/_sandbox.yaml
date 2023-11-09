@@ -1,7 +1,7 @@
 name: "~Sandbox"
 
 on:
-  workflow_dispatch:
+  push:
     inputs:
         BASE_IMAGE:
           type: string
@@ -54,7 +54,7 @@ jobs:
       fail-fast: false
       matrix:
         PLATFORM: [amd64, arm64]
-    runs-on: [self-hosted, "${{ matrix.PLATFORM }}", large]
+    runs-on: [self-hosted, "${{ matrix.PLATFORM }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.PLATFORM }}.json
     steps:
@@ -126,60 +126,3 @@ jobs:
             REPO_XLA=${{ inputs.REPO_XLA }}
             REF_JAX=${{ inputs.REF_JAX }}
             REF_XLA=${{ inputs.REF_XLA }}
-
-      - name: Generate sitrep
-        if: success() || failure()
-        shell: bash -x -e {0}
-        run: |
-          # bring in utility functions
-          source .github/workflows/scripts/to_json.sh
-
-          badge_label='JAX ${{ matrix.PLATFORM }} build'
-          tags="${{ steps.meta.outputs.tags }}"
-          digest="${{ steps.build.outputs.digest }}"
-          outcome="${{ steps.build.outcome }}"
-
-          if [[ ${outcome} == "success" ]]; then
-            badge_message="pass"
-            badge_color=brightgreen
-            summary="JAX build on ${{ matrix.PLATFORM }}: $badge_message"
-          else
-            badge_message="fail"
-            badge_color=red
-            summary="JAX build on ${{ matrix.PLATFORM }}: $badge_message"
-          fi
-
-          to_json \
-            summary \
-            badge_label tags digest outcome \
-          > sitrep.json
-
-          schemaVersion=1 \
-          label="${badge_label}" \
-          message="${badge_message}" \
-          color="${badge_color}" \
-          to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
-
-      # Temporary workaround until the following issues are solved:
-      # https://github.com/orgs/community/discussions/17245
-      # https://github.com/actions/runner/pull/2477
-      # https://github.com/orgs/community/discussions/26639
-      - name: Save image name as text file
-        shell: bash -x -e {0}
-        run: |
-          echo "${{ steps.meta.outputs.tags }}" >> image-name.txt
-
-      - name: Upload image name file as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: image-name-jax-${{ matrix.PLATFORM }}
-          path: image-name.txt
-
-      - name: Upload sitrep and badge
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.PLATFORM }}
-          path: |
-            sitrep.json
-            ${{ env.BADGE_FILENAME_FULL }}
