@@ -83,7 +83,9 @@ EOF
 sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
 sed -i 's/tensorflow-text=/#tensorflow-text=/'  docker/dev.requirements.txt
 sed -i 's/dataclasses=/#dataclasses=/'  docker/dev.requirements.txt
-pip install -r docker/dev.requirements.txt protobuf==3.20 patchelf
+sed -i 's/protobuf==3.20.3/protobuf==3.20/'  docker/dev.requirements.txt
+sed -i 's/patchelf==0.17.2.1/patchelf/'  docker/dev.requirements.txt
+pip install -r docker/dev.requirements.txt
 
 # Some tests are flaky right now (see the patch abovbe), if needed we can skip
 # running the tests entirely by uncommentin the following line.
