@@ -68,8 +68,9 @@ EDITABLE=0
 JAXLIB_ONLY=0
 SRC_PATH_JAX="/opt/jax-source"
 SRC_PATH_XLA="/opt/xla-source"
+XLA_PATCH_LIST=""
 
-args=$(getopt -o h --long bazel-cache:,build-param:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm: -- "$@")
+args=$(getopt -o h --long bazel-cache:,build-param:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-patch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -126,6 +127,10 @@ while [ : ]; do
             ;;
         --sm)
             CUDA_COMPUTE_CAPABILITIES=$2
+            shift 2
+            ;;
+        --xla-patch)
+            XLA_PATCH_LIST=$2
             shift 2
             ;;
         --)
@@ -211,6 +216,7 @@ print_var TF_NCCL_VERSION
 print_var CC_OPT_FLAGS
 
 print_var BUILD_PARAM
+print_var XLA_PATCH_LIST
 
 echo "=================================================="
 
@@ -239,6 +245,16 @@ apt-get install -y \
     curl
 
 pip install wheel pre-commit mypy numpy build
+
+# apply patch for XLA
+pushd $SRC_PATH_XLA
+
+# apply patches if any
+for p in $(echo $XLA_PATCH_LIST | tr "," "\n"); do
+    patch -p1 < $p
+done
+
+popd
 
 ## Build jaxlib
 
