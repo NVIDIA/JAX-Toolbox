@@ -107,49 +107,6 @@ jobs:
         type=raw,value=latest,priority=1000
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
-  publish:
-    needs: [metadata, amd64, arm64]
-    if: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set docker metadata
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=latest,priority=1000
-            type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
-          labels:
-            org.opencontainers.image.created=${{ needs.metadata.outputs.BUILD_DATE }}
-
-      - name: Combine images into a single multi-arch image
-        shell: bash -x -e {0}
-        run: |
-          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-            docker manifest create ${tag} $(
-              for IMAGE in ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }} ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}; do
-                REPO=$(echo $IMAGE | cut -d: -f1)
-                DIGEST=$(
-                  docker manifest inspect $IMAGE |\
-                  jq -r '.manifests[] | select(.platform.os == "linux") | .digest'
-                )
-                echo $REPO@${DIGEST}
-              done
-            )
-            docker manifest push ${tag}
-          done
-
   finalize:
     if: always()
     needs: [metadata, amd64, arm64]
