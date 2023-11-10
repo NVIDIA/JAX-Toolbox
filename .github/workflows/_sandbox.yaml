@@ -14,6 +14,17 @@ env:
 
 jobs:
 
+  publish-mealkit:
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ghcr.io/nvidia/jax-toolbox-internal:6818759132-jax-amd64-mealkit
+        ghcr.io/nvidia/jax-toolbox-internal:6818759132-jax-arm64-mealkit
+      TARGET_IMAGE: jax-toolbox-internal
+      TARGET_TAGS: |
+        type=raw,value=test-mealkit-latest,priority=1000
+        type=raw,value=test-mealkit-nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+
   # build-base:
   #   uses: ./.github/workflows/_build_base.yaml
   #   with:
@@ -38,15 +49,15 @@ jobs:
   #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
   #   secrets: inherit
  
-  build-pax:
-    # needs: [build-jax]
-    uses: ./.github/workflows/_build_pax.yaml
-    with:
-      ARCHITECTURE: arm64
-      # BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6792001145-jax-arm64-mealkit
-      # BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6768482418-jax-amd64-mealkit
-    secrets: inherit
+  # build-pax:
+  #   # needs: [build-jax]
+  #   uses: ./.github/workflows/_build_pax.yaml
+  #   with:
+  #     ARCHITECTURE: arm64
+  #     # BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+  #     BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6792001145-jax-arm64-mealkit
+  #     # BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6768482418-jax-amd64-mealkit
+  #   secrets: inherit
 
   # finalize:
   #   if: always()

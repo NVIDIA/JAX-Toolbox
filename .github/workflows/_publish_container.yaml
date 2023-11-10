@@ -53,29 +53,36 @@ jobs:
         id: get-manifests
         shell: bash -x -e {0}
         run: |
-          SOURCE_REPO=$(echo ${{ inputs.SOURCE_IMAGE }} | cut -d: -f1)
-          MEDIA_TYPE=$(docker manifest inspect ${{ inputs.SOURCE_IMAGE }} | jq -r '.mediaType')
-          case "$MEDIA_TYPE" in
-            # OCI image index
-            "application/vnd.oci.image.index.v1+json")
-              MANIFESTS=$(
-                docker manifest inspect ${{ inputs.SOURCE_IMAGE }} |\
-                jq -r '.manifests[] | select(.platform.os != "unknown") | .digest' |\
-                xargs -I{} echo ${SOURCE_REPO}@{} |\
-                tr '\n' ' '
-              )
-              ;;
-            # Docker image manifest
-            "application/vnd.docker.distribution.manifest.v2+json")
-              MANIFESTS=${{ inputs.SOURCE_IMAGE }}
-              ;;
-            *)
-              echo "Unknown media type: $MEDIA_TYPE"
-              exit 1
-              ;;
-          esac
+          manifests=""
+          for src_img in $(echo ${{ inputs.SOURCE_IMAGE }} | tr '\n' ' '); do
+            repo=$(echo $src_img | cut -d: -f1)
+            media_type=$(docker manifest inspect $src_img | jq -r '.mediaType')
+            case "$media_type" in
+              
+              # OCI image index
+              "application/vnd.oci.image.index.v1+json")
+                manifest=$(
+                  docker manifest inspect ${src_img} |\
+                  jq -r '.manifests[] | select(.platform.os != "unknown") | .digest' |\
+                  xargs -I{} echo ${repo}@{} |\
+                  tr '\n' ' '
+                )
+                ;;
 
-          echo "manifests=$MANIFESTS" >> $GITHUB_OUTPUT
+              # Docker image manifest
+              "application/vnd.docker.distribution.manifest.v2+json")
+                manifest=${src_img}
+                ;;
+
+              *)
+                echo "Unknown media type: $MEDIA_TYPE"
+                exit 1
+                ;;
+            esac
+            manifests="$manifests $manifest"
+          done
+
+          echo "manifests=$manifests" >> $GITHUB_OUTPUT
 
       - name: Create multi-arch images
         id: multi-arch

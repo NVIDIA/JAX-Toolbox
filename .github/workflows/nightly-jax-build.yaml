@@ -60,7 +60,7 @@ jobs:
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
-        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
       TARGET_IMAGE: jax-toolbox
       TARGET_TAGS: |
         type=raw,value=jax-mealkit-latest,priority=1000
@@ -73,7 +73,7 @@ jobs:
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: jax
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000

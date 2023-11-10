@@ -32,19 +32,9 @@ jobs:
         run: |
           echo "UPSTREAM_FAILED=${{ github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
 
-      # - name: Cancel workflow if upstream workflow did not success
-      #   if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
-      #   uses: styfle/cancel-workflow-action@0.12.0
-
       - name: Cancel workflow if upstream workflow did not success
         if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
-        run: |
-          # call the GitHub API to cancel the workflow
-          curl \
-            -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/actions/workflows/${{ github.event.workflow_run.workflow_id }}/cancel
+        uses: styfle/cancel-workflow-action@0.12.0
 
       - name: Determine if the resulting container should be 'published'
         id: if-publish
@@ -85,7 +75,7 @@ jobs:
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
-        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
       TARGET_IMAGE: jax-toolbox
       TARGET_TAGS: |
         type=raw,value=upstream-pax-mealkit-latest,priority=1000
@@ -98,7 +88,7 @@ jobs:
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: upstream-pax
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
