@@ -133,8 +133,10 @@ echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/manifest.pax
 echo "chex==0.1.7" >> /opt/pip-tools.d/manifest.pax
 echo "auditwheel" >> /opt/pip-tools.d/manifest.pax
 
-get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}  -m /opt/pip-tools.d/manifest.pax
-get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS} -m /opt/pip-tools.d/manifest.pax
+get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}
+get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS}
+echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/manifest.pax
+echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/manifest.pax
 
 for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
   pushd ${src}

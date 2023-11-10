@@ -21,8 +21,10 @@ ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 
 RUN <<"EOF" bash -ex
-get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}  -m /opt/pip-tools.d/manifest.paxml
-get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS} -m /opt/pip-tools.d/manifest.praxis
+get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}
+get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS}
+echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/manifest.pax
+echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/manifest.pax
 
 for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
   pushd ${src}
