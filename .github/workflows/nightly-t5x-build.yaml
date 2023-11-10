@@ -79,10 +79,10 @@ jobs:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
         ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
-      TARGET_IMAGE: jax-toolbox
+      TARGET_IMAGE: upstream-t5x
       TARGET_TAGS: |
-        type=raw,value=upstream-t5x-mealkit-latest,priority=1000
-        type=raw,value=upstream-t5x-mealkit-nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+        type=raw,value=mealkit,priority=500
+        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   publish-final:
     needs: [metadata, amd64, arm64]
