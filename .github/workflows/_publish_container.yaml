@@ -54,7 +54,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           manifests=""
-          for src_img in $(echo ${{ inputs.SOURCE_IMAGE }} | tr '\n' ' '); do
+          for src_img in $(echo "${{ inputs.SOURCE_IMAGE }}" | tr '\n' ' '); do
             repo=$(echo $src_img | cut -d: -f1)
             media_type=$(docker manifest inspect $src_img | jq -r '.mediaType')
             case "$media_type" in
