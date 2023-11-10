@@ -54,8 +54,9 @@ permissions:
 jobs:
 
   amd64:
-    uses: ./.github/workflows/_ci_amd64.yaml
+    uses: ./.github/workflows/_ci.yaml
     with:
+      ARCHITECTURE: amd64
       CUDA_IMAGE: ${{ inputs.CUDA_IMAGE || 'latest' }}
       SRC_JAX: ${{ inputs.SRC_JAX || 'https://github.com/google/jax.git#main' }}
       SRC_XLA: ${{ inputs.SRC_XLA || 'https://github.com/openxla/xla.git#main'}}
@@ -66,8 +67,9 @@ jobs:
     secrets: inherit
  
   arm64:
-    uses: ./.github/workflows/_ci_arm64.yaml
+    uses: ./.github/workflows/_ci.yaml
     with:
+      ARCHITECTURE: arm64
       CUDA_IMAGE: ${{ inputs.CUDA_IMAGE || 'latest' }}
       SRC_JAX: ${{ inputs.SRC_JAX || 'https://github.com/google/jax.git#main' }}
       SRC_XLA: ${{ inputs.SRC_XLA || 'https://github.com/openxla/xla.git#main'}}
