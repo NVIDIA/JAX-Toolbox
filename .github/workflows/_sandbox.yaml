@@ -11,11 +11,11 @@ permissions:
 
 jobs:
 
-  # build-jax:
-  #   uses: ./.github/workflows/_build_jax.yaml
-  #   with:
-  #     ARCHITECTURE: amd64
-  #   secrets: inherit
+  build-jax:
+    uses: ./.github/workflows/_build_jax.yaml
+    with:
+      ARCHITECTURE: amd64
+    secrets: inherit
 
   build-pax:
     # needs: [build-jax]
@@ -25,11 +25,17 @@ jobs:
       # BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
     secrets: inherit
 
-  test-pax:
+  test-te:
     needs: [build-pax]
-    uses: ./.github/workflows/_test_pax.yaml
+    uses: ./.github/workflows/_test_te.yaml
     with:
-      PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
+      TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
+
+  # test-pax:
+  #   needs: [build-pax]
+  #   uses: ./.github/workflows/_test_pax.yaml
+  #   with:
+  #     PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
 
   # finalize:
   #   if: always()
