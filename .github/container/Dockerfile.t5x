@@ -15,7 +15,9 @@ ARG REPO_T5X
 ARG REF_T5X
 ARG SRC_PATH_T5X
 RUN <<"EOF" bash -ex
-get-source.sh -f ${REPO_T5X} -r ${REF_T5X} -d ${SRC_PATH_T5X} -m /opt/pip-tools.d/manifest.t5x
+get-source.sh -f ${REPO_T5X} -r ${REF_T5X} -d ${SRC_PATH_T5X}
+echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/manifest.t5x
+
 # remove head-of-tree specs from select dependencies
 pushd ${SRC_PATH_T5X}
 sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
