@@ -2,7 +2,7 @@ name: "~Sandbox"
 
 on:
   # workflow_dispatch:
-  # push:
+  push:
 
 permissions:
   contents: read  # to fetch code
@@ -32,12 +32,12 @@ jobs:
       TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  test-pax:
-    needs: [build-pax]
-    uses: ./.github/workflows/_test_pax.yaml
-    with:
-      PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
+  # test-pax:
+  #   needs: [build-pax]
+  #   uses: ./.github/workflows/_test_pax.yaml
+  #   with:
+  #     PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
+  #   secrets: inherit
 
   # finalize:
   #   if: always()

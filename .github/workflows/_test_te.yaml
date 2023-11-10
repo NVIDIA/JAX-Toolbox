@@ -124,7 +124,7 @@ jobs:
             --container-entrypoint \
             bash -e -x -c 'nvidia-smi
                      pip install pytest pytest-reportlog cuda-python
-                     cd \$(dirname \$(python -c "import transformer_engine as te; print(*te.__path__)"))/examples/jax/encoder
+                     cd \${SRC_PATH_TE}/examples/jax/encoder
                      pip install -r requirements.txt
                      pytest --report-log=/output/$(basename ${{ steps.meta.outputs.PYTEST_LOG_FILE }}) \
                      test_single_gpu_encoder.py \
