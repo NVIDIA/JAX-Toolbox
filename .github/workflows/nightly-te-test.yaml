@@ -1,4 +1,5 @@
 name: Nightly Transformer Engine test
+run-name: Nightly Transformer Engine test (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
   workflow_run:

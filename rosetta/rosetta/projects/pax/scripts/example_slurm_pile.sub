@@ -29,16 +29,18 @@ set -eux
 # File system and volume glue code
 #-------------------------------------------------------------------------------
 # << CHANGE ! >>
-CONTAINER="${CONTAINER:-nvcr.io/nvidia/jax:23.08-paxml-py3}"
+CONTAINER="${CONTAINER:-nvcr.io/nvidia/jax:23.10-paxml-py3}"
 
 # << CHANGE ! >>
 BASE_WORKSPACE_DIR=${BASE_WORKSPACE_DIR} ## location to write logs and checkpoints to
 BASE_TFDS_DATA_DIR=${BASE_TFDS_DATA_DIR}
 BASE_VOCAB_PATH=${BASE_VOCAB_PATH}
 PAXML_DIR=${PAXML_DIR:-/opt/paxml}
+ENABLE_TE=${ENABLE_TE:-1}
+ENABLE_FP8=${ENABLE_FP8:-0}
 
 # Default env variables for paths required by pax training scripts
-WORKSPACE_DIR=/mnt/workspace
+WORKSPACE_DIR=/opt/paxml/workspace
 TFDS_DATA_DIR=/mnt/datasets
 GPT_VOCAB_PATH=/mnt/vocab
 
@@ -61,7 +63,7 @@ if [[ -z "${BASE_SCRIPT:-}" ]]; then
   export BASE_SCRIPT="${PAXML_DIR}/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh"
   echo "Using default BASE_SCRIPT=$BASE_SCRIPT"
 else
-  export BASE_SCRIPT="/mnt/workspace/${BASE_SCRIPT}"
+  export BASE_SCRIPT="${WORKSPACE_DIR}/${BASE_SCRIPT}"
   echo "Using custom BASE_SCRIPT=$BASE_SCRIPT"
 fi
 
@@ -69,7 +71,7 @@ cmd="$(cat <<EOF
 echo "*******STARTING********"
 cd ${PAXML_DIR}
 nvidia-smi
-bash $BASE_SCRIPT $TFDS_DATA_DIR $GPT_VOCAB_PATH $PREC $GPUS_PER_NODE $PERCORE_BATCH_SIZE ${WORKSPACE_DIR}/${LOG_DIR_LOCAL}
+ENABLE_TE=$ENABLE_TE ENABLE_FP8=$ENABLE_FP8 bash $BASE_SCRIPT $TFDS_DATA_DIR $GPT_VOCAB_PATH $PREC $GPUS_PER_NODE $PERCORE_BATCH_SIZE ${WORKSPACE_DIR}/${LOG_DIR_LOCAL}
 EOF
 )"
 

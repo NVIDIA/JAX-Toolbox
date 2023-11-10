@@ -1,4 +1,5 @@
 name: Nightly Rosetta T5x build and test
+run-name: Nightly Rosetta T5x build and test (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
   workflow_run:
@@ -68,7 +69,7 @@ jobs:
   publish-build:
     needs: [metadata, build]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: ( success() || failure() ) && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    if: ( always() )
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-t5x-build-status.json'
@@ -95,12 +96,10 @@ jobs:
 
   test-t5x:
     needs: build
-    uses: ./.github/workflows/_test_t5x.yaml
+    uses: ./.github/workflows/_test_t5x_rosetta.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
       T5X_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
-      # Disable packing b/c rosetta-t5x images run with TE by default, and TE does not currently support packing
-      EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
     secrets: inherit
 
   test-vit:
@@ -136,7 +135,7 @@ jobs:
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
         if [[ ${{ needs.build.result }} == "success" ]]; then
-          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]] then
+          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]]; then
             COLOR=brightgreen
             MESSAGE="Unit passed / MGMN passed"
           elif [[ $UNIT_STATUS == "success" ]]; then 
