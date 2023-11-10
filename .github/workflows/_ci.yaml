@@ -175,7 +175,7 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
     uses: ./.github/workflows/_test_te.yaml
     with:
-      JAX_TE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+      TE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-t5x:
