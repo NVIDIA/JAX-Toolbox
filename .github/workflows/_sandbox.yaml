@@ -1,63 +1,35 @@
 name: "~Sandbox"
 
 on:
-  workflow_dispatch:
-  # push:
+  # workflow_dispatch:
+  push:
 
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
   packages: write # to upload container
 
-env:
-  ARCHITECTURE: arm64
-
 jobs:
 
-  publish-mealkit:
-    uses: ./.github/workflows/_publish_container.yaml
+  build-jax:
+    uses: ./.github/workflows/_build_jax.yaml
     with:
-      SOURCE_IMAGE: |
-        ghcr.io/nvidia/jax-toolbox-internal:6818759132-jax-amd64-mealkit
-        ghcr.io/nvidia/jax-toolbox-internal:6818759132-jax-arm64-mealkit
-      TARGET_IMAGE: jax-toolbox-internal
-      TARGET_TAGS: |
-        type=raw,value=test-mealkit-latest,priority=1000
-        type=raw,value=test-mealkit-nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+      ARCHITECTURE: amd64
+    secrets: inherit
 
-  # build-base:
-  #   uses: ./.github/workflows/_build_base.yaml
-  #   with:
-  #     ARCHITECTURE: arm64
-  #   secrets: inherit
+  build-pax:
+    needs: [build-jax]
+    uses: ./.github/workflows/_build_pax.yaml
+    with:
+      ARCHITECTURE: amd64
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+    secrets: inherit
 
-  # build-jax:
-  #   needs: [build-base]
-  #   uses: ./.github/workflows/_build_jax.yaml
-  #   with:
-  #     ARCHITECTURE: arm64
-  #     BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-  #     REF_JAX: jax-v0.4.20
-  #     REF_XLA: ca31652cdbeb6ea187589dea546ff8019274f8b2
-  #   secrets: inherit
-
-  # build-t5x:
-  #   needs: [build-jax]
-  #   uses: ./.github/workflows/_build_t5x.yaml
-  #   with:
-  #     ARCHITECTURE: arm64
-  #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-  #   secrets: inherit
- 
-  # build-pax:
-  #   # needs: [build-jax]
-  #   uses: ./.github/workflows/_build_pax.yaml
-  #   with:
-  #     ARCHITECTURE: arm64
-  #     # BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-  #     BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6792001145-jax-arm64-mealkit
-  #     # BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6768482418-jax-amd64-mealkit
-  #   secrets: inherit
+  test-te:
+    needs: [build-pax]
+    uses: ./.github/workflows/_test_te.yaml
+    with:
+      TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
 
   # finalize:
   #   if: always()
@@ -67,94 +39,3 @@ jobs:
   #   with:
   #     PUBLISH_BADGE: false
   #   secrets: inherit
-
-  #  merge:
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   outputs:
-  #     DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-  #   steps:
-  #     # TODO: currently downloading all artifacts of the entire workflow
-  #     # Revise when this request is fulfilled:
-  #     # https://github.com/actions/download-artifact/issues/214
-  #     - name: Download image name files into separate folders
-  #       uses: actions/download-artifact@v3
-
-  #     - name: Login to GitHub Container Registry
-  #       uses: docker/login-action@v2
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.repository_owner }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
-
-  #     - name: Set docker metadata
-  #       id: meta
-  #       uses: docker/metadata-action@v4
-  #       with:
-  #         images: |
-  #           ${{ env.UPLD_IMAGE }}
-  #         flavor: |
-  #           latest=false
-  #         tags: |
-  #           type=raw,value=${{ github.run_id }}-jax-multiarch
-  #         labels:
-  #           org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
-
-  #     - name: Combine images into a single multi-arch image
-  #       shell: bash -x -e {0}
-  #       run: |
-  #         docker manifest create ${{ steps.meta.outputs.tags }} $(
-  #           for IMAGE in $(cat image-name-jax-*/image-name.txt); do
-  #             REPO=$(echo $IMAGE | cut -d: -f1)
-  #             DIGEST=$(
-  #               docker manifest inspect $IMAGE |\
-  #               jq -r '.manifests[] | select(.platform.os == "linux") | .digest'
-  #             )
-  #             echo $REPO@${DIGEST}
-  #           done
-  #         )
-  #         docker manifest push ${{ steps.meta.outputs.tags }}
-
-  # merge:
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   outputs:
-  #     DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-  #   steps:
-  #     - name: Download image name files into separate folders
-  #       uses: actions/download-artifact@v3
-
-  #     - name: Login to GitHub Container Registry
-  #       uses: docker/login-action@v2
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.repository_owner }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
-
-  #     - name: Set docker metadata
-  #       id: meta
-  #       uses: docker/metadata-action@v4
-  #       with:
-  #         images: |
-  #           ${{ env.UPLD_IMAGE }}
-  #         flavor: |
-  #           latest=false
-  #         tags: |
-  #           type=raw,value=${{ github.run_id }}-base-multiarch
-  #         labels:
-  #           org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
-
-  #     - name: Combine images into a single multi-arch image
-  #       shell: bash -x -e {0}
-  #       run: |
-  #         docker manifest create ${{ steps.meta.outputs.tags }} $(
-  #           for IMAGE in $(cat image-name-base-*/image-name.txt); do
-  #             REPO=$(echo $IMAGE | cut -d: -f1)
-  #             DIGEST=$(
-  #               docker manifest inspect $IMAGE |\
-  #               jq -r '.manifests[] | select(.platform.os == "linux") | .digest'
-  #             )
-  #             echo $REPO@${DIGEST}
-  #           done
-  #         )
-  #         docker manifest push ${{ steps.meta.outputs.tags }}

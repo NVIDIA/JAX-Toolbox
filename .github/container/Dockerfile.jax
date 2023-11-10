@@ -84,11 +84,8 @@ set -o pipefail
 pip install ninja && rm -rf ~/.cache/pip
 get-source.sh -f ${REPO_TE} -r ${REF_TE} -d ${SRC_PATH_TE}
 pushd ${SRC_PATH_TE}
-git remote add yhtang https://github.com/yhtang/TransformerEngine.git
-git fetch yhtang
-git merge yhtang/yhtang-add-nspkgs
 python setup.py bdist_wheel && rm -rf build
-echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/manifest.te
+echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)[test]" >> /opt/pip-tools.d/manifest.te
 EOF
 
 # TODO: properly configure entrypoint

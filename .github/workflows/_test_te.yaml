@@ -1,14 +1,13 @@
 name: ~test TransformerEngine
 
 on:
-  # Called from another workflow
   workflow_call:
     inputs:
-      JAX_TE_IMAGE:
+      TE_IMAGE:
         type: string
-        description: 'JAX-TE image build by NVIDIA/JAX-Toolbox'
+        description: 'JAX+TE+PAXML image'
         required: true
-        default: 'ghcr.io/nvidia/jax-te:latest'
+        default: 'ghcr.io/nvidia/upstream-pax:latest'
     outputs:
       UNIT_TEST_ARTIFACT_NAME:
         description: 'Name of the unit test artifact for downstream workflows'
@@ -40,39 +39,20 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull JAX-TE image
+      - name: Pull TE image
         shell: bash -x -e {0}
         run: |
-          docker pull ${{ inputs.JAX_TE_IMAGE }}
-          docker tag ${{ inputs.JAX_TE_IMAGE }} jax:te
+          docker pull ${{ inputs.TE_IMAGE }}
+          docker tag ${{ inputs.TE_IMAGE }} te:local
 
-      - name: Run JAX-TE unit tests with docker
-        shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log jax:te bash -x /cmd.sh
+      - name: Run TE unit tests with docker
+        shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log te:local bash -x /cmd.sh
         run: |
-          # TE test reqs
-          TEST_REQS="pytest-reportlog"
-          TE_PATH=$(dirname $(python -c "import transformer_engine as te; print(*te.__path__)"))
-          ## WAR: BEGIN
-          # This installation step is temporary and should be removed and replaced with
-          #  $  NVTE_FRAMEWORK=jax pip install -e ${TE_PATH}[test] $TEST_REQS
-          # when praxis no longer uses jax at github head as a requirement. Praxis requirements
-          # are defined here: https://github.com/google/praxis/blob/main/requirements.in
-          
-          # After https://github.com/google/praxis/pull/20 was merged, SKIP_HEAD_INSTALLS was introduced
-          # as an environment variable to allow skipping of head installs like jax/fiddle that overrode
-          # the jax package that we already installed in our base image. Once SKIP_HEAD_INSTALLS is
-          # set, the user must specify the head installs manually to ensure they are respected by pip's
-          # dependency resolver. This is brittle since new head installs may be missed, so they must be
-          # manually added to TEST_REQS below. Praxis is still installed from head as opposed to pypi
-          # because no wheel exists with this feature yet.
-          if ! pip show praxis >/dev/null 2>&1; then
-            TEST_REQS+=" fiddle git+https://github.com/google/praxis"
-          fi
-          SKIP_HEAD_INSTALLS=1 NVTE_FRAMEWORK=jax pip install -e ${TE_PATH}[test] $TEST_REQS
-          ## WAR: END
-          pytest --report-log=/log/report.jsonl ${TE_PATH}/tests/jax || true
+          pip install pytest-reportlog
+          pytest --report-log=/log/report.jsonl ${SRC_PATH_TE}/tests/jax
 
       - name: Upload unit test json logs
+        if: success() || failure()
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
@@ -111,7 +91,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          PYXIS_IMAGE_NAME=${{ inputs.JAX_TE_IMAGE }}
+          PYXIS_IMAGE_NAME=${{ inputs.TE_IMAGE }}
           PYXIS_IMAGE_NAME=${PYXIS_IMAGE_NAME/ghcr.io\//ghcr.io#}
           TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
