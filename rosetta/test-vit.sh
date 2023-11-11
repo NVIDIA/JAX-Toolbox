@@ -138,6 +138,8 @@ EOF
 
 set -exou pipefail
 
+nvidia-smi
+
 DATA_PATH="/tmp/dummy_vit_data"
 python -m generate_dummy_wds --output_tar_path=${DATA_PATH}
 

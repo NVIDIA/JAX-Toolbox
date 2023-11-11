@@ -188,6 +188,8 @@ partitioning.PjitPartitioner:
     num_partitions = 1
 EOF
 
+nvidia-smi
+
 ## Launch
 set -exou pipefail
 
