@@ -14,7 +14,7 @@ on:
         value: ${{ jobs.te-unit-tests.outputs.UNIT_TEST_ARTIFACT_NAME }}
       INTEGRATION_TEST_ARTIFACT_NAME:
         description: 'Name of the integration test artifact for downstream workflows'
-        value: ${{ jobs.single-process-multi-device.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}
+        value: ${{ jobs.te-multi-gpu.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}
 
 env:
   UNIT_TEST_ARTIFACT_NAME: unit-test-logs
@@ -58,7 +58,7 @@ jobs:
           name: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
           path: /log/report.jsonl
 
-  single-process-multi-device:
+  te-multi-gpu:
     strategy:
       matrix:
         N_GPU: [1, 2, 4, 8]
