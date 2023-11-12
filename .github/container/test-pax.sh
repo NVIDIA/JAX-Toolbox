@@ -310,8 +310,6 @@ else:
 
 EOF
 
-nvidia-smi
-
 ## Launch
 set -ex
 ENABLE_TE=$ENABLE_TE python -m paxml.main \
