@@ -97,13 +97,8 @@ ARG REF_PRAXIS
 ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 
-RUN <<EOF
-apt-get update
-apt-get install -y liblzma-dev
-apt-get autoremove -y
-apt-get clean
-rm -rf /var/lib/apt/lists
-EOF
+# update TE manifest file to install the [test] extras
+RUN sed -i "s/transformer-engine/transformer-engine[test]/g" /opt/pip-tools.d/manifest.te
 
 COPY --from=lingvo-builder /tmp/lingvo/dist/lingvo*linux_aarch64.whl /opt/
 RUN echo "lingvo @ file://$(ls /opt/lingvo*.whl)" >> /opt/pip-tools.d/manifest.pax
