@@ -171,7 +171,7 @@ jobs:
     secrets: inherit
 
   test-te:
-    needs: build-jax
+    needs: build-pax
     if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
     uses: ./.github/workflows/_test_te.yaml
     with:
