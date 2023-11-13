@@ -8,13 +8,10 @@ LLM, CV, and multimodal models.
 ```bash
 ROSETTA_BASE=t5x  # or pax
 
-docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.${ROSETTA_BASE} .
-
-# If you want a devel image with test dependencies
-docker buildx build --target rosetta-devel --tag rosetta-devel:latest -f Dockerfile.${ROSETTA_BASE} .
+docker buildx build --tag rosetta:latest -f Dockerfile.${ROSETTA_BASE} .
 
 # If you want to specify a specific base image
-docker buildx build --target rosetta --tag rosetta:latest -f Dockerfile.${ROSETTA_BASE} --build-arg BASE_IMAGE=ghcr.io/nvidia/${ROSETTA_BASE}:nightly-2023-05-01 .
+docker buildx build --tag rosetta:latest -f Dockerfile.${ROSETTA_BASE} --build-arg BASE_IMAGE=ghcr.io/nvidia/${ROSETTA_BASE}:mealkit-YYYY-MM-DD .
 ```
 
 ### Advanced use-cases
