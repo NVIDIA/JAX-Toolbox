@@ -2,7 +2,7 @@ name: "~Sandbox"
 
 on:
   # workflow_dispatch:
-  push:
+  # push:
 
 permissions:
   contents: read  # to fetch code
