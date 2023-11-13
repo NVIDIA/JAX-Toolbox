@@ -113,6 +113,7 @@ In addition to the suggested XLA flags mentioned in [this section](https://githu
 export XLA_FLAGS=" \
     --xla_gpu_enable_reduction_epilogue_fusion=false \
     --xla_gpu_enable_triton_gemm=false \
+    --xla_gpu_enable_cudnn_fmha=false \
     --xla_gpu_enable_cudnn_layer_norm=true \
     --xla_gpu_enable_cublaslt=true \
     --xla_gpu_enable_latency_hiding_scheduler=true \
