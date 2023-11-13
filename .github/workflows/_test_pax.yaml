@@ -89,12 +89,13 @@ jobs:
           #SBATCH --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},NCCL_DEBUG=INFO"
           time srun \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            nvidia-smi && bash test-pax.sh \
+            nvidia-smi -l 1 & \
+            && bash test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-per-gpu 4 \
