@@ -10,9 +10,19 @@ on:
     inputs:
       BASE_IMAGE:
         type: string
-        description: 'PAX image built by NVIDIA/JAX-Toolbox'
+        description: 'Upstream PAX image built by NVIDIA/JAX-Toolbox'
         default: 'ghcr.io/nvidia/upstream-pax:latest'
         required: true
+      PAXML_PATCHES:
+        type: string
+        description: "[Paxml] patches (Ex1: 'p1,p2' converted to 'p1\np2'). (Ex2: ',' == empty patchlist). Default: use upstream"
+        default: ''
+        required: false
+      PRAXIS_PATCHES:
+        type: string
+        description: "[Praxis] patches (Ex1: 'p1,p2' converted to 'p1\np2'). (Ex2: ',' == empty patchlist). Default: use upstream"
+        default: ''
+        required: false
       PUBLISH:
         type: boolean
         description: Publish dated images and update the 'latest' tag?
@@ -22,6 +32,9 @@ on:
 env:
   BASE_LIBRARY: pax
   DOCKER_REGISTRY: ghcr.io/nvidia
+  # Relative to rosetta/
+  CUSTOM_PAXML_PATCHLIST: patchlist-paxml.txt
+  CUSTOM_PRAXIS_PATCHLIST: patchlist-praxis.txt
 
 permissions:
   contents: read  # to fetch code
@@ -37,6 +50,7 @@ jobs:
       BUILD_DATE: ${{ steps.meta-vars.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ steps.meta-vars.outputs.BASE_LIBRARY }}
       BASE_IMAGE: ${{ steps.meta-vars.outputs.BASE_IMAGE }}
+      CUSTOM_PATCHLISTS: ${{ steps.meta-vars.outputs.CUSTOM_PATCHLISTS }}
       PUBLISH: ${{ steps.meta-vars.outputs.PUBLISH }}
     steps:
       - name: Set build metadata
@@ -52,6 +66,12 @@ jobs:
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
           echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
           echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
+          CUSTOM_PATCHLISTS=()
+          [[ -n "${{ inputs.PAXML_PATCHES }}" ]] && CUSTOM_PATCHLISTS+=(${{ env.CUSTOM_PAXML_PATCHLIST }}=${{ inputs.PAXML_PATCHES }})
+          [[ -n "${{ inputs.PRAXIS_PATCHES }}" ]] && CUSTOM_PATCHLISTS+=(${{ env.CUSTOM_PRAXIS_PATCHLIST }}=${{ inputs.PRAXIS_PATCHES }})
+          IFS=";"
+          echo "CUSTOM_PATCHLISTS=${CUSTOM_PATCHLISTS[*]}" >> $GITHUB_OUTPUT
+          unset IFS
           echo "PUBLISH=${{ inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
   build:
@@ -62,6 +82,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
+      CUSTOM_PATCHLISTS: ${{ needs.metadata.outputs.CUSTOM_PATCHLISTS }}
     secrets: inherit
 
   publish-build:
