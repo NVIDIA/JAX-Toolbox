@@ -20,6 +20,9 @@ ARG REF_PRAXIS
 ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 
+# update TE manifest file to install the [test] extras
+RUN sed -i "s/.whl/.whl[test]/g" /opt/pip-tools.d/manifest.te
+
 RUN <<"EOF" bash -ex
 get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}
 get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS}
