@@ -91,7 +91,7 @@ jobs:
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},NCCL_DEBUG=INFO"
           
-          cmd="$(cat <<EOF
+          cmd="$(cat <<INNER_EOF
           nvidia-smi -l 1 & test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
@@ -104,7 +104,7 @@ jobs:
               --nodes ${{ steps.meta.outputs.NODES }} \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ inputs.EXTRA_TEST_ARGS }}
-          EOF
+          INNER_EOF
           )"
 
           time srun \
