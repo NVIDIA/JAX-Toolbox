@@ -2,9 +2,25 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
+    inputs:
+      SOURCE_IMAGE_TAGS:
+        type: string
+        description: Space separated images to merge into a single manifest
+        default: 'ghcr.io/nvidia/upstream-t5x:latest'
+        required: true
+      TARGET_IMAGE:
+        type: string
+        description: Target image without the tag to merge images into
+        default: ghcr.io/nvidia/jax-toolbox-internal
+        required: true
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
 
 jobs:
-  sandbox:
+  merge:
     runs-on: ubuntu-22.04
     steps:
       - name: Login to GitHub Container Registry
@@ -14,28 +30,25 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Print usage
-        run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
+      - name: Set docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ inputs.TARGET_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-manual-merge
 
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+      - name: Combine images into a single multi-manifest image
+        shell: bash -x -e {0}
+        run: |
+          docker buildx imagetools create ${{ inputs.SOURCE_IMAGE_TAGS }} --tag ${{ steps.meta.outputs.tags }}
+      
+      - name: Print into step summary
+        shell: bash -x -e {0}
+        run: |
+          echo "# Image built" | tee -a $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | tee -a $GITHUB_STEP_SUMMARY
+
