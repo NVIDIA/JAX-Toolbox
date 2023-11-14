@@ -94,8 +94,8 @@ jobs:
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            nvidia-smi -l 1 & \
-            bash /usr/local/bin/test-pax.sh \
+            "nvidia-smi -l 1 & \
+            test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-per-gpu 4 \
@@ -106,7 +106,7 @@ jobs:
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
-              ${{ inputs.EXTRA_TEST_ARGS }}
+              ${{ inputs.EXTRA_TEST_ARGS }}"
           EOF
           )
 
