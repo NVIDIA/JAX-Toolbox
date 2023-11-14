@@ -312,6 +312,8 @@ EOF
 
 ## Launch
 set -ex
+nvidia-smi -l 1 &
+
 ENABLE_TE=$ENABLE_TE python -m paxml.main \
     --fdl_config=ci_configs.Synthetic126M \
     --job_log_dir=${OUTPUT} \
