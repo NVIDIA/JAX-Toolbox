@@ -5,5 +5,4 @@
 # - External Pull Requests (These are pull requests with upstream paxml and are of the form "pull/$PULLID/head")
 # - Note: Only the first column is used as a git-ref, so anything after is a comment
 
-pull/46/head  # adds Transformer Engine support
 mirror/mingh/adapting_to_te_cp
