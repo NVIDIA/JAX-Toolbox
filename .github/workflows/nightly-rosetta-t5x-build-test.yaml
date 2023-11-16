@@ -98,7 +98,7 @@ jobs:
         run: |
           echo "WARNING: arm64 build is not yet supported"
     
- public-mealkit:
+  publish-mealkit:
     needs: [metadata, amd64, arm64]
     if: needs.metadata.output.PUBLISH == 'true' 
     uses: ./.github/workflows/_publish_container.yaml
