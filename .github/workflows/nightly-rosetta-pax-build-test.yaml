@@ -99,7 +99,7 @@ jobs:
 
   public-mealkit:
     needs: [metadata, amd64, arm64]
-    if: needs.metadata.output.PUBLISH == 'true' 
+    if: needs.metadata.outputs.PUBLISH == 'true' 
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
@@ -122,14 +122,6 @@ jobs:
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900  
-
-  finalize:
-    if: always()
-    needs: [metadata, amd64, arm64]
-    uses: ./.github/workflows/_finalize.yaml
-    with:
-      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
-    secrets: inherit
 
   test-pax:
     needs: [metadata, amd64, arm64]
@@ -167,3 +159,11 @@ jobs:
 
         echo "MESSAGE='${MESSAGE}'" >> $GITHUB_OUTPUT
         echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
+
+  finalize:
+    if: always()
+    needs: [metadata, amd64, arm64]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit
