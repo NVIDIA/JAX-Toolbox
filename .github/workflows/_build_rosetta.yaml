@@ -29,7 +29,7 @@ on:
     outputs:
       DOCKER_TAG_MEALKIT:
         description: 'Tags of the mealkit image build'
-        value: $ {{ jobs.build-rosetta.output.DOCKER_TAG_MEALKIT }}
+        value: $ {{ jobs.build-rosetta.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:
         description: "Tags of the complete image built"
         value: ${{ jobs.build-rosetta.outputs.DOCKER_TAG_FINAL }}
@@ -49,7 +49,7 @@ jobs:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME}}-${{ inputs.ARCHITECTURE}}.json
-    output:
+    outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
       DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
     steps:
