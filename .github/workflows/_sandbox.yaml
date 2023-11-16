@@ -2,7 +2,7 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
-  #push:
+  push:
 
 permissions:
   contents: read  # to fetch code
@@ -16,8 +16,9 @@ jobs:
     with:
       ARCHITECTURE: amd64
     secrets: inherit
-    
+
   build-jax:
+    needs: [build-base]
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: amd64
