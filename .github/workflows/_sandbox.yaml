@@ -34,7 +34,7 @@ jobs:
 
   build-rosetta:
     needs: [build-pax]
-    uses: ./.github/worklows/_build_rosetta.yaml
+    uses: ./.github/workflows/_build_rosetta.yaml
     with:
       ARCHITECTURE: amd64
       BASE_LIBRARY: pax
