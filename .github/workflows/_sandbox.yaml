@@ -22,6 +22,7 @@ jobs:
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: amd64
+      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
   build-pax:
