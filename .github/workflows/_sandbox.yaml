@@ -62,6 +62,6 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: "2023-11-15"
-      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6896408819-upstream-pax-amd64-mealkit
+      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:6896408819-upstream-pax-amd64
       BASE_LIBRARY: pax
     secrets: inherit

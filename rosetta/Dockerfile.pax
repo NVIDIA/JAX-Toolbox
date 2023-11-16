@@ -1,9 +1,14 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=ghcr.io/nvidia/upstream-pax:mealkit
+ARG BASE_IMAGE=ghcr.io/nvidia/upstream-pax:latest
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
+ARG SRC_PATH_PAXML=/opt/paxml
+ARG SRC_PATH_PRAXIS=/opt/praxis
 
 FROM scratch as rosetta-source
+ARG SRC_PATH_PAXML
+ARG SRC_PATH_PRAXIS
+
 COPY . /
 
 FROM scratch as pax-mirror-source
@@ -25,7 +30,7 @@ EOF
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
 RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite \
-    --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<"EOF" bash -e
+    --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<EOF bash -e
 bash create-distribution.sh \
   -p patchlist-paxml.txt \
   -m https://github.com/nvjax-svc-0/paxml.git \
