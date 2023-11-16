@@ -11,6 +11,12 @@ permissions:
 
 jobs:
 
+  build-base:
+    uses: ./.github/workflows/_build_base.yaml
+    with:
+      ARCHITECTURE: amd64
+    secrets: inherit
+    
   build-jax:
     uses: ./.github/workflows/_build_jax.yaml
     with:
