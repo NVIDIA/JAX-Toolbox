@@ -31,7 +31,7 @@ on:
     outputs:
       TAG_BASE:
         description: "Tags of the base image built"
-        value: ${{ jobs.build-base.outputs.DOCKER_TAGS }}
+        value: ${{ jobs.build-base.outputs.DOCKER_TAG }}
       TAG_JAX:
         description: "Tags of the JAX image built"
         value: ${{ jobs.build-jax.outputs.DOCKER_TAG_FINAL }}

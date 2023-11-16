@@ -12,10 +12,6 @@ on:
         default: false
         required: false
 
-env:
-  DOCKER_REGISTRY: ghcr.io/nvidia
-  DOCKER_IMAGE: jax-toolbox
-
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
@@ -27,6 +23,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
       - name: Set build date
         id: date
@@ -34,6 +31,12 @@ jobs:
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+      
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
   amd64:
     needs: metadata
@@ -52,47 +55,17 @@ jobs:
     secrets: inherit
 
   publish:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
-    runs-on: ubuntu-latest
     needs: [metadata, amd64, arm64]
-    steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set docker metadata
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=base,priority=1000
-            type=raw,value=base-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
-          labels:
-            org.opencontainers.image.created=${{ needs.metadata.outputs.BUILD_DATE }}
-
-      - name: Combine images into a single multi-arch image
-        shell: bash -x -e {0}
-        run: |
-          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-            docker manifest create ${tag} $(
-              for IMAGE in ${{ needs.amd64.outputs.DOCKER_TAG }} ${{ needs.arm64.outputs.DOCKER_TAG }}; do
-                REPO=$(echo $IMAGE | cut -d: -f1)
-                DIGEST=$(
-                  docker manifest inspect $IMAGE |\
-                  jq -r '.manifests[] | select(.platform.os == "linux") | .digest'
-                )
-                echo $REPO@${DIGEST}
-              done
-            )
-            docker manifest push ${tag}
-          done
+    if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG }}
+        ${{ needs.arm64.outputs.DOCKER_TAG }}
+      TARGET_IMAGE: jax-toolbox
+      TARGET_TAGS: |
+        type=raw,value=base,priority=1000
+        type=raw,value=base-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   finalize:
     if: always()
