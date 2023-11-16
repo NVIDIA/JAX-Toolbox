@@ -101,8 +101,8 @@ jobs:
     needs: [metadata, amd64, arm64]
     if: needs.metadata.output.PUBLISH == 'true' 
     uses: ./.github/workflows/_publish_container.yaml
-    with: |
-        SOURCE_IMAGE: |
+    with:
+      SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
         ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
       TARGET_IMAGE: upstream-pax
