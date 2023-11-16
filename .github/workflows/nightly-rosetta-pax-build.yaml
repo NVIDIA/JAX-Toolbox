@@ -67,7 +67,7 @@ jobs:
   publish-build:
     needs: [metadata, build]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: ( success() || failure() ) && (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    if: ( always() )
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-pax-build-status.json'

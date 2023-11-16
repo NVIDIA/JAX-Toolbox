@@ -136,7 +136,8 @@ with wds.TarWriter(out_tar_path) as dst:
 
 EOF
 
-set -x
+set -exou pipefail
+
 DATA_PATH="/tmp/dummy_vit_data"
 python -m generate_dummy_wds --output_tar_path=${DATA_PATH}
 
@@ -151,5 +152,4 @@ python -m t5x.train \
     --gin_search_paths=/opt/rosetta \
     --gin.CheckpointConfig.save=None \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
-set +x
 echo "Output at ${OUTPUT}"
