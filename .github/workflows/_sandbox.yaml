@@ -32,6 +32,14 @@ jobs:
       TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
+  build-rosetta:
+    needs: [build-pax]
+    uses: ./.github/worklows/_build_rosetta.yaml
+    with:
+      ARCHITECTURE: amd64
+      BASE_LIBRARY: pax
+      BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
+
   # test-pax:
   #   needs: [build-pax]
   #   uses: ./.github/workflows/_test_pax.yaml

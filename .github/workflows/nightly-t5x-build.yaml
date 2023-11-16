@@ -65,7 +65,7 @@ jobs:
     needs: metadata
     runs-on: ubuntu-22.04
     outputs:
-      DOCKER_TAG_FINAL: ''
+      DOCKER_TAG_MEALKIT: ''
     steps:
       - name: Generate placeholder warning
         shell: bash -x -e {0}

@@ -1,4 +1,4 @@
-name: ~test Pax, MGMN
+name: ~test Pax, multi-node
 
 on:
   workflow_call:
@@ -20,7 +20,7 @@ on:
 
 jobs:
 
-  multi-gpu-multi-node-te:
+  rosetta-pax-multi-node-te:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -157,7 +157,7 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  multi-gpu-multi-node:
+  rosetta-pax-multi-node:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -292,7 +292,7 @@ jobs:
           path: output/*
 
 
-  multi-gpu-single-node-dropout-te:
+  rosetta-pax-single-node-dropout-te:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -428,7 +428,7 @@ jobs:
 
 
   metrics:
-    needs: [multi-gpu-multi-node, multi-gpu-multi-node-te, multi-gpu-single-node-dropout-te]
+    needs: [rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te]
     runs-on: ubuntu-22.04
 
     steps:
@@ -466,7 +466,7 @@ jobs:
 
 
   publish-test:
-    needs: [multi-gpu-multi-node, multi-gpu-multi-node-te, multi-gpu-single-node-dropout-te, metrics]
+    needs: [rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
