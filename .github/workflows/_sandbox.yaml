@@ -34,7 +34,7 @@ jobs:
     secrets: inherit
 
   build-t5x:
-   needs: [build-jax]
+    needs: [build-jax]
     uses: ./.github/workflows/_build_t5x.yaml
     with:
       ARCHITECTURE: amd64
