@@ -111,7 +111,7 @@ jobs:
         type=raw,value=mealkit,priority=500
         type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500  
 
-   publish-final:
+  publish-final:
     needs: [metadata, amd64, arm64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
@@ -194,7 +194,7 @@ jobs:
         echo "MESSAGE='${MESSAGE}'" >> $GITHUB_OUTPUT
         echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
 
-   finalize:
+  finalize:
     if: always()
     needs: [metadata, amd64, arm64]
     uses: ./.github/workflows/_finalize.yaml
