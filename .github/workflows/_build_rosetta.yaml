@@ -46,9 +46,9 @@ permissions:
 jobs:
 
   build-rosetta:
-    runs-on: [self-hosted, "${{ input.ARCHITECTURE }}", small]
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
-      BADGE_FILENAME_FULL: ${{ input.BADGE_FILENAME}}-${{ input.ARCHITECTURE}}.json
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME}}-${{ inputs.ARCHITECTURE}}.json
     output:
       DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
       DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
@@ -87,7 +87,7 @@ jobs:
         with:
           images: ${{ env.UPLD_IMAGE }}
           flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ input.ARCHITECHTURE }}-mealkit
+          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECHTURE }}-mealkit
           labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Build docker images - mealkit
@@ -97,7 +97,7 @@ jobs:
           context: rosetta/
           push: true
           file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
-          platforms: linux/${{ input.ARCHITECHTURE }}
+          platforms: linux/${{ inputs.ARCHITECHTURE }}
           tags: ${{ steps.mealkit-metadata.outputs.tags }}
           labels: ${{ steps.mealkit-metadata.outputs.labels }}
           target: rosetta
@@ -110,7 +110,7 @@ jobs:
         with:
           images: ${{ env.UPLD_IMAGE }}
           flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ input.ARCHITECHTURE }}-final
+          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECHTURE }}-final
           labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Build docker images - final
@@ -119,44 +119,9 @@ jobs:
           context: rosetta/
           push: true
           file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
-          platforms: linux/${{ input.ARCHITECHTURE }}
+          platforms: linux/${{ inputs.ARCHITECHTURE }}
           tags: ${{ steps.final-metadata.outputs.tags }}
           labels: ${{ steps.final-metadata.outputs.labels }}
           target: rosetta
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
-
-      
-      - name: Generate sitrep
-        if: success() || failure()
-        shell: bash -x -e {0}
-        run: |
-          # bring in utility functions
-          source .github/workflows/scripts/to_json.sh
-
-          badge_label='JAX ${{ inputs.ARCHITECTURE }} build'
-          tags="${{ steps.final-metadata.outputs.tags }}"
-          digest="${{ steps.final-build.outputs.digest }}"
-          outcome="${{ steps.final-build.outcome }}"
-
-          if [[ ${outcome} == "success" ]]; then
-            badge_message="pass"
-            badge_color=brightgreen
-            summary="JAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
-          else
-            badge_message="fail"
-            badge_color=red
-            summary="JAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
-          fi
-
-          to_json \
-            summary \
-            badge_label tags digest outcome \
-          > sitrep.json
-
-          schemaVersion=1 \
-          label="${badge_label}" \
-          message="${badge_message}" \
-          color="${badge_color}" \
-          to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
