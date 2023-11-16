@@ -87,7 +87,7 @@ jobs:
         with:
           images: ${{ env.UPLD_IMAGE }}
           flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECHTURE }}-mealkit
+          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}-mealkit
           labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Build docker images - mealkit
@@ -97,7 +97,7 @@ jobs:
           context: rosetta/
           push: true
           file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
-          platforms: linux/${{ inputs.ARCHITECHTURE }}
+          platforms: linux/${{ inputs.ARCHITECTURE }}
           tags: ${{ steps.mealkit-metadata.outputs.tags }}
           labels: ${{ steps.mealkit-metadata.outputs.labels }}
           target: rosetta
@@ -110,7 +110,7 @@ jobs:
         with:
           images: ${{ env.UPLD_IMAGE }}
           flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECHTURE }}-final
+          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}-final
           labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Build docker images - final
@@ -119,7 +119,7 @@ jobs:
           context: rosetta/
           push: true
           file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
-          platforms: linux/${{ inputs.ARCHITECHTURE }}
+          platforms: linux/${{ inputs.ARCHITECTURE }}
           tags: ${{ steps.final-metadata.outputs.tags }}
           labels: ${{ steps.final-metadata.outputs.labels }}
           target: rosetta
