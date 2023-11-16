@@ -97,9 +97,9 @@ jobs:
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
     secrets: inherit
 
-  public-mealkit:
+  publish-mealkit:
     needs: [metadata, amd64, arm64]
-    if: needs.metadata.outputs.PUBLISH == 'true' 
+    if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
@@ -108,7 +108,7 @@ jobs:
       TARGET_IMAGE: upstream-pax
       TARGET_TAGS: |
         type=raw,value=mealkit,priority=500
-        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500  
+        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   publish-final:
     needs: [metadata, amd64, arm64]
