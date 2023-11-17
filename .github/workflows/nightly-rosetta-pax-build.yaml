@@ -11,7 +11,7 @@ on:
       BASE_IMAGE:
         type: string
         description: 'PAX image built by NVIDIA/JAX-Toolbox'
-        default: 'ghcr.io/nvidia/upstream-pax:latest'
+        default: 'ghcr.io/nvidia/upstream-pax:mealkit'
         required: true
       PUBLISH:
         type: boolean
@@ -70,11 +70,11 @@ jobs:
         shell: bash -x -e {0}
         run: |
           if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
-            BASE_IMAGE_AMD64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:latest
-            BASE_IMAGE_ARM64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:latest
+            BASE_IMAGE_AMD64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:mealkit
+            BASE_IMAGE_ARM64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:mealkit
           else
-            BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE }}-amd64
-            BASE_IMAGE_ARM64=${{ inputs.BASE_IMAGE }}-arm64
+            BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}-amd64-mealkit
+            BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}-arm64-mealkit
           fi
           echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
           echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
