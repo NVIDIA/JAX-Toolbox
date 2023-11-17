@@ -1,7 +1,7 @@
 #!/bin/bash
-## Fetch a Python package from a git repo and write the pip-tools input manifest to stdout
+## Clone a git repo and write the pip-compile input to stdout
 ## Example:
-## get-source.sh -f https://github.com/google/flax.git -r main -d /opt/flax
+## get-source.sh -m manifest.yaml -l flax
 ## Output:
 ## -e /opt/flax
 
@@ -9,47 +9,46 @@
 
 usage() {
     echo "Usage: $0 [OPTION]..."
-    echo "  -d, --dir PATH         [Required] Local path to check out the source code."
-    echo "  -f, --from URL         [Required] URL of the source repo."
+    echo "  -b, --base-dir DIR     Directory to install package under. Default /opt"
     echo "  -h, --help             Print usage."
-    echo "  -m, --manifest FILE    Create a pip manifest file if specified"
-    echo "  -r, --ref REF          Git commit SHA, branch name, or tag name to checkout. Uses default branch if not specified."
+    echo "  -l, --library LIB      The library to clone, e.g., jax, flax, t5x"
+    echo "  -m, --manifest FILE    The JAX-Toolbox manifest yaml file"
+    echo "  -o, --out-requirements Create a pip manifest file if specified"
     echo
     exit $1
 }
 
-args=$(getopt -o d:f:hm:r: --long dir:,from:,help,manifest:,ref: -- "$@")
+args=$(getopt -o b:hl:m:o: --long base-dir:,help,library:,manifest:,out-requirements: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
 ## Set default arguments
 
-GIT_REPO=""
-GIT_REF="${GIT_REF:-HEAD}"
-INSTALL_DIR=""
-MANIFEST_FILE=""
+BASE_INSTALL_DIR="/opt"
+MANIFEST=""
+OUT_REQUIREMENTS_FILE=""
 
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
-    -d | --dir)
-        INSTALL_DIR="$2"
-        shift 2
-        ;;
-    -f | --from)
-        GIT_REPO="$2"
+    -b | --base-dir)
+        BASE_INSTALL_DIR=$(readlink -f "$2")
         shift 2
         ;;
     -h | --help)
         usage
         ;;
-    -m | --manifest)
-        MANIFEST_FILE="$2"
+    -l | --library)
+        LIBRARY="$2"
         shift 2
         ;;
-    -r | --ref)
-        GIT_REF="$2"
+    -m | --manifest)
+        MANIFEST="$2"
+        shift 2
+        ;;
+    -o | --out-requirements)
+        OUT_REQUIREMENTS_FILE="$2"
         shift 2
         ;;
     --)
@@ -60,21 +59,30 @@ while [ : ]; do
 done
 
 if [[ $# -ge 1 ]]; then
-    echo "Un-recognized argument: $*" && echo
+    echo "Un-recognized argument: $*"
     usage 1
 fi
 
-if [[ ! -n "${GIT_REPO}" ]]; then
-    echo "Source repository not speicified." && echo
+if [[ -z "${LIBRARY}" ]]; then
+    echo "Library not specified."
     usage 1
 fi
 
-if [[ ! -n "${INSTALL_DIR}" ]]; then
-    echo "Check out destination not specified." && echo
+if [[ -z "${MANIFEST}" ]]; then
+    echo "Manifest not specified."
     usage 1
 fi
 
 ## check out the source
+PACKAGE_MODE=$(yq e ".${LIBRARY}.mode" $MANIFEST)
+if [[ "${PACKAGE_MODE}" != "git-clone" ]]; then
+  echo "--library=${LIBRARY} mode is ${PACKAGE_MODE} which is not meant to be cloned. Update mode to \"git-clone\" if this repo should be cloned"
+  exit 1
+fi
+
+GIT_REPO=$(yq e ".${LIBRARY}.url" $MANIFEST)
+GIT_REF=$(yq e ".${LIBRARY}.ref" $MANIFEST)
+INSTALL_DIR=${BASE_INSTALL_DIR}/$LIBRARY
 
 echo "Fetching $GIT_REPO#$GIT_REF to $INSTALL_DIR"
 
@@ -87,5 +95,5 @@ git submodule init
 git submodule update --recursive
 popd
 
-echo "Writing to ${MANIFEST_FILE}:"
-echo "-e file://${INSTALL_DIR}" | tee -a ${MANIFEST_FILE}
+echo "Writing to ${OUT_REQUIREMENTS_FILE}:"
+echo "-e file://${INSTALL_DIR}" | tee -a ${OUT_REQUIREMENTS_FILE}

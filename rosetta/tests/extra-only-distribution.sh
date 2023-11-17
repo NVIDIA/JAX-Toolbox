@@ -6,31 +6,50 @@ cd $SCRIPT_DIR
 set -eou pipefail
 
 # Version should work on Linux || Darwin
-#repo_tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'mytmpdir')
-repo_tmp=/tmp/t5x
-extra_tmp=/tmp/extra
-patchlist_tmp=$(mktemp /tmp/patchlist.txt.XXXXXX)
+repo_tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'upstream')
+extra_tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'extra')
+workspace_tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'workspace')
+manifest_tmp=$(mktemp /tmp/manifest.yaml.XXXXXX)
 
+LIBRARY=t5x
 UPSTREAM_URL=https://github.com/google-research/t5x.git
 # Commit was taken just before PR-1372
 DISTRIBUTION_BASE_REF=22117ce5a3606706ba9519ccdd77b532ad8ff7b2
+EXTRA_PATCH_BRANCH=patch/delete-readme
 
 git clone $UPSTREAM_URL $repo_tmp
 git clone $UPSTREAM_URL $extra_tmp
+git -C $repo_tmp checkout $DISTRIBUTION_BASE_REF
 git -C $extra_tmp checkout $DISTRIBUTION_BASE_REF
-echo "patch/delete-readme" >> $patchlist_tmp
 
 cd $extra_tmp
-git switch -c patch/delete-readme
+git switch -c $EXTRA_PATCH_BRANCH
 git rm README.md
 git commit -m 'TEST DELETE README'
 cd -
 
-bash ../create-distribution.sh \
-    -r $DISTRIBUTION_BASE_REF \
-    -d $repo_tmp \
-    -e $extra_tmp \
-    -p $patchlist_tmp
+cat <<EOF >> $manifest_tmp
+t5x:
+  url: https://github.com/google-research/t5x.git
+  mirror_url: https://github.com/nvjax-svc-0/t5x.git
+  extra_dir: $extra_tmp
+  tracking_ref: main
+  ref: $DISTRIBUTION_BASE_REF
+  mode: git-clone
+  patches:
+    $EXTRA_PATCH_BRANCH: null
+EOF
+
+cp ../../.github/container/create-distribution.sh $workspace_tmp/
+base_cmd() {
+  bash $workspace_tmp/create-distribution.sh \
+    --manifest $manifest_tmp \
+    --override_dir $repo_tmp \
+    --package $LIBRARY \
+    $@
+}
+base_cmd --skip-apply
+base_cmd
 
 # TESTS
 EXPECTED_HEAD_COMMIT_MSG="*TEST DELETE README"
@@ -50,5 +69,5 @@ elif [[ "$PENULTIMATE_COMMIT_MSG" == "$EXPECTED_PENULTIMATE_COMMIT_MSG" ]]; then
   exit 1
 fi
 
-rm -rf $repo_tmp $patchlist_tmp $extra_tmp
+rm -rf $repo_tmp $manifest_tmp $workspace_tmp $extra_tmp
 echo "TEST SUCCESS"
