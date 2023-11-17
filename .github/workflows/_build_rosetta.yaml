@@ -80,29 +80,30 @@ jobs:
         with:
           driver-opts: |
             image=moby/buildkit:v0.12.1
+      
+      # TODO: not sure, we need this here
+      # - name: Set docker metadata - mealkit
+      #   id: mealkit-metadata
+      #   uses: docker/metadata-action@v4
+      #   with:
+      #     images: ${{ env.UPLD_IMAGE }}
+      #     flavor: latest=false
+      #     tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}-mealkit
+      #     labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Set docker metadata - mealkit
-        id: mealkit-metadata
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{ env.UPLD_IMAGE }}
-          flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}-mealkit
-          labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
-
-      - name: Build docker images - mealkit
-        id: mealkit-build
-        uses: docker/build-push-action@v4
-        with:
-          context: rosetta/
-          push: true
-          file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
-          platforms: linux/${{ inputs.ARCHITECTURE }}
-          tags: ${{ steps.mealkit-metadata.outputs.tags }}
-          labels: ${{ steps.mealkit-metadata.outputs.labels }}
-          target: rosetta
-          build-args: |
-            BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
+      # - name: Build docker images - mealkit
+      #   id: mealkit-build
+      #   uses: docker/build-push-action@v4
+      #   with:
+      #     context: rosetta/
+      #     push: true
+      #     file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
+      #     platforms: linux/${{ inputs.ARCHITECTURE }}
+      #     tags: ${{ steps.mealkit-metadata.outputs.tags }}
+      #     labels: ${{ steps.mealkit-metadata.outputs.labels }}
+      #     target: rosetta
+      #     build-args: |
+      #       BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
 
       - name: Set docker metadata - final
         id: final-metadata
