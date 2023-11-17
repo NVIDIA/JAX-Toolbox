@@ -128,7 +128,7 @@ jobs:
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      PAX_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      PAX_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   publish-test:

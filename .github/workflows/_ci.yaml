@@ -200,6 +200,6 @@ jobs:
     needs: build-rosetta-t5x
     uses: ./.github/workflows/_test_vit.yaml
     with:
-      ROSETTA_T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAGS }}
+      ROSETTA_T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAGS_FINAL }}
     secrets: inherit 
  
