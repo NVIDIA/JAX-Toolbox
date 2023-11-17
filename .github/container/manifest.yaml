@@ -1,0 +1,43 @@
+# Updated in: XXX
+#jax:
+#  url: https://github.com/google/jax.git
+#  tracking_ref: main
+#  ref: TODO
+#  mode: git-clone
+t5x:
+  url: https://github.com/google-research/t5x.git 
+  mirror_url: https://github.com/nvjax-svc-0/t5x.git
+  tracking_ref: main
+  ref: TODO
+  mode: git-clone
+  patches:
+    mirror/patch/partial-checkpoint-restore: null  # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
+    mirror/patch/dali-support: null                # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
+    mirror/patch/t5x_te_in_contrib_noindent: null  # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
+#paxml:
+#  url: https://github.com/google/paxml.git 
+#  tracking_ref: main
+#  ref: TODO
+#  mode: git-clone
+#  patches:
+#    - pull/46/head  # adds Transformer Engine support
+#praxis:
+#  url: https://github.com/google/praxis.git 
+#  tracking_ref: main
+#  ref: TODO
+#  mode: git-clone
+#  patches:
+#    - pull/27/head # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
+#lingvo:
+#  url: https://github.com/tensorflow/lingvo.git 
+#  tracking_ref: master
+#  ref: TODO
+#  mode: git-clone
+#pydantic:
+#  version: X.Y.Z
+#  mode: pip-constraint
+#clu:
+#  url: https://github.com/google/CommonLoopUtils.git 
+#  tracking_ref: main
+#  ref: TODO
+#  mode: pip-vcs
