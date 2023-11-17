@@ -14,9 +14,7 @@ ENV NVTE_FRAMEWORK=jax
 ARG REPO_T5X=https://github.com/google-research/t5x.git
 ARG REF_T5X=main
 ARG REPO_TE=https://github.com/NVIDIA/TransformerEngine.git
-# TODO: This is a temporary pinning of TE as the API in TE no longer matches the TE patch
-#   This should be reverted to main ASAP
-ARG REF_TE=7976bd003fcf084dd068069b92a9a79b1743316a
+ARG REF_TE=main
 RUN <<"EOF" bash -ex
 install-t5x.sh --defer --from ${REPO_T5X} --ref ${REF_T5X}
 install-te.sh --defer --from ${REPO_TE} --ref ${REF_TE}

@@ -32,9 +32,7 @@ on:
         type: string
         description: Git commit, tag, or branch for TE
         required: false
-        # TODO: This is a temporary pinning of TE as the API in TE no longer matches the TE patch
-        #   This should be reverted to main ASAP
-        default: 7976bd003fcf084dd068069b92a9a79b1743316a
+        default: main
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image built"
