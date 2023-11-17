@@ -73,8 +73,8 @@ jobs:
             BASE_IMAGE_AMD64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:mealkit
             BASE_IMAGE_ARM64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:mealkit
           else
-            BASE_IMAGE_AMD64=${inputs.BASE_IMAGE}-amd64-mealkit
-            BASE_IMAGE_ARM64=${inputs.BASE_IMAGE}-arm64-mealkit
+            BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE }}-amd64-mealkit
+            BASE_IMAGE_ARM64=${{ inputs.BASE_IMAGE }}-arm64-mealkit
           fi
           echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
           echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
