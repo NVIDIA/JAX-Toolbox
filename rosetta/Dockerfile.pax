@@ -30,7 +30,7 @@ EOF
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
 RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite \
-    --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<EOF bash -e
+    --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<EOF
 bash create-distribution.sh \
   -p patchlist-paxml.txt \
   -m https://github.com/nvjax-svc-0/paxml.git \

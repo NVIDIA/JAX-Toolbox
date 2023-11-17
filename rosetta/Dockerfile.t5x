@@ -25,7 +25,7 @@ EOF
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
 RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite \
-    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<"EOF" bash -e
+    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<EOF
 bash create-distribution.sh \
   -p patchlist-t5x.txt \
   -m https://github.com/nvjax-svc-0/t5x.git \
