@@ -35,7 +35,8 @@ jobs:
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ steps.base-metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ steps.base-metadata.outputs.BASE_IMAGE }}
+      BASE_IMAGE_AMD64: ${{ steps.base-metadata.outputs.BASE_IMAGE_AMD64 }}
+      BASE_IMAGE_ARM64: ${{ steps.base-metadata.outputs.BASE_IMAGE_ARM64 }}
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
       - name: Check if the triggering workflow failed
@@ -69,13 +70,15 @@ jobs:
         shell: bash -x -e {0}
         run: |
           if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
-            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:latest
+            BASE_IMAGE_AMD64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:latest
+            BASE_IMAGE_ARM64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:latest
           else
-            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE }}-amd64
+            BASE_IMAGE_ARM64=${{ inputs.BASE_IMAGE }}-arm64
           fi
-          
           echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
-          echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
+          echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
+          echo "BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}" >> $GITHUB_OUTPUT
 
   amd64:
     needs: metadata
@@ -84,7 +87,7 @@ jobs:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
     secrets: inherit
 
   arm64:
@@ -94,7 +97,7 @@ jobs:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
     secrets: inherit
 
   publish-mealkit:

@@ -84,7 +84,7 @@ jobs:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}-amd64
     secrets: inherit
       
   arm64:
