@@ -10,7 +10,7 @@ Convergence and performance has been validated on NVIDIA DGX H100 (8x H100 80G) 
 The [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit) is required to run the subsequent commands with GPU support. Ensure the NVIDIA Container Toolkit is installed before proceeding.
 
 ## Containers
-We provide a fully built and ready-to-use multi-arch container which includes the latest optimizations, experimental features, and examples benchmarked for multi-node, multi-GPU training: `nvcr.io/nvidia/jax:23.10-paxml-py3` (amd64 and arm64 support). This container also provide FP8 support via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine). Verified containers will be updated periodically, but if you wish to use the bleeding edge (which may come with unexpected behavior), please use `ghcr.io/nvidia/pax:latest`. We also provide nightly dated images with the naming pattern `ghcr.io/nvidia/pax:nightly-YYYY-MM-DD`, but we encourage you to use the latest ones for the best performance.
+We provide a fully built and ready-to-use multi-arch container which includes the latest optimizations, experimental features, and examples benchmarked for multi-node, multi-GPU training: `nvcr.io/nvidia/jax:23.10-paxml-py3` (amd64 and arm64 support). This container also provides FP8 support via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine). Verified containers will be updated periodically, but if you wish to use the bleeding edge (which may come with unexpected behavior), please use `ghcr.io/nvidia/pax:latest`. We also provide nightly dated images with the naming pattern `ghcr.io/nvidia/pax:nightly-YYYY-MM-DD`, but we encourage you to use the latest ones for the best performance.
 
 For more information on the Pax build and for details on how to manually build the Pax distribution, please refer to [DEVELOPMENT.md](../../../docs/DEVELOPMENT.md). 
 
@@ -26,7 +26,7 @@ You can then use the following mount to attach the tokenizer to your container:
 docker run -v ${PWD}/c4_sentencepiece/c4_en_301_5Mexp2_spm.model:/opt/paxml/vocab ...
 ```
 
-### Launching a container
+## Launching a container
 Use the following command to launch a container:
 ```
 docker run -ti --gpus=all --net=host --ipc=host -v <DATASET_PATH>:/opt/paxml/datasets -v <WORKSPACE_PATH>:/opt/paxml/workspace -v <VOCAB_PATH>:/opt/paxml/vocab -w /opt/paxml <CONTAINER> /bin/bash
@@ -34,9 +34,9 @@ docker run -ti --gpus=all --net=host --ipc=host -v <DATASET_PATH>:/opt/paxml/dat
 where `DATASET_PATH` is the path to the Pile or Lambada dataset. If these datasets have not yet been downloaded, they can be downloaded from inside of the container (see [Downloading The Pile and Lambada Datasets](#Downloading-the-pile-and-lambada-datasets) for more). `WORKSPACE_PATH` is the path to the directory where you would like to store any persistent files, and `VOCAB_PATH` is the path to the pretrained SentencePiece model to use during tokenization (see [Downloading the SentencePiece Model](#Downloading-the-sentencepiece-model) for more). 
 
 ## Downloading The Pile and Lambada Datasets
-The GPT model configs we provide are trained using The Pile dataset and evaluated using the Lambada dataset. The scripts [download_the_pile.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_the_pile.py) and [download_lambada.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_lambada.py) will download The Pile and Lambada datasets to the `TFDS_DATA_DIR` enviroment variable. To control the location of the downloaded datasets, use the following command prior to running the download scripts: `export TFDS_DATA_DIR=<path_to_dowload_data_to>`. For example, the following commands download the Pile dataset to `/mnt/datasets/`:
+The GPT model configs we provide are trained using The Pile dataset and evaluated using the Lambada dataset. The scripts [download_the_pile.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_the_pile.py) and [download_lambada.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_lambada.py) will download The Pile and Lambada datasets to the `TFDS_DATA_DIR` enviroment variable. To control the location of the downloaded datasets, use the following command prior to running the download scripts: `export TFDS_DATA_DIR=<path_to_dowload_data_to>`. For example, the following commands download the Pile dataset to `/opt/paxml/datasets/`:
 ```
-export TFDS_DATA_DIR=/mnt/datasets/
+export TFDS_DATA_DIR=/opt/paxml/datasets/
 python3 paxml/contrib/gpu/scripts_gpu/download_the_pile.py
 ```
 
@@ -194,7 +194,7 @@ Here, it is assumed that you are running with the number of nodes reported in th
 ## Known Issues
 * Pipeline parallelism is not supported with NVIDIA Transformer Engine enabled in the Paxml container.
 * The release container has a known XLA bug which affects single-process training in some cases. This bug has been fixed in newer XLA versions. If running into issues with single-process training, try using a Pax nightly container after 10/3. You can also try cherry-picking [this commit](https://github.com/openxla/xla/commit/aa8e7340cb319b9419a097155874bf105da05e1d) in the tested container.  
-* Infrequent hangs have been observed in multinode settings. Setting `CUDA_MODULE_LOADING=EAGER` helps with these hangs. This environment variable is set by default in `nvcr.io/nvidia/jax:23.10-paxml-py3`, `nvcr.io/nvidia/jax:23.10-paxml-py3-amd64`, and `nvcr.io/nvidia/jax:23.10-paxml-py3-arm64`.
+* Infrequent hangs have been observed in multinode settings. Setting `CUDA_MODULE_LOADING=EAGER` helps with these hangs. This environment variable is set by default in `nvcr.io/nvidia/jax:23.10-paxml-py3`.
 * We currently see unexpected convergence behavior when dropout is used with Transformer Engine. Default configs do not enable dropout within transformer layers and thus should be unaffected by this bug, but users may encounter this bug if manually enabling dropout in their models.
 
 
