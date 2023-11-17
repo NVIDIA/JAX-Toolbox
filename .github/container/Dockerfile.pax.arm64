@@ -1,12 +1,10 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
-ARG REPO_PAXML=https://github.com/google/paxml.git
-ARG REPO_PRAXIS=https://github.com/google/praxis.git
-ARG REF_PAXML=main
-ARG REF_PRAXIS=main
 ARG SRC_PATH_PAXML=/opt/paxml
 ARG SRC_PATH_PRAXIS=/opt/praxis
+ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
+ARG SRC_PATH_LINGVO=/opt/lingvo
 
 ###############################################################################
 ## build tensorflow-text and lingvo, which do not have working arm64 pip wheels
@@ -24,13 +22,11 @@ RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazeli
 #------------------------------------------------------------------------------
 
 FROM wheel-builder as tftext-builder
-
-RUN <<"EOT" bash -exu
-set -o pipefail
+ARG SRC_PATH_TFTEXT
+RUN <<"EOT" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-git clone http://github.com/tensorflow/text.git /opt/tensorflow-text
-cd /opt/tensorflow-text
-git checkout v2.13.0
+get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
+cd ${SRC_PATH_TFTEXT}
 ./oss_scripts/run_build.sh
 EOT
 
@@ -39,17 +35,15 @@ EOT
 #------------------------------------------------------------------------------
 
 FROM wheel-builder as lingvo-builder
-ARG REPO_LINGVO=https://github.com/tensorflow/lingvo.git
-ARG REF_LINGVO=master
-ARG SRC_PATH_LINGVO=/opt/lingvo
+ARG SRC_PATH_TFTEXT
+ARG SRC_PATH_LINGVO
 
-COPY --from=tftext-builder /opt/tensorflow-text/tensorflow_text*.whl /opt/
+COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 
-RUN get-source.sh -f ${REPO_LINGVO} -r ${REF_LINGVO} -d ${SRC_PATH_LINGVO}
+RUN get-source.sh -l lingvo -m ${MANIFEST_FILE}
 
 # build lingvo
-RUN <<"EOT" bash -exu
-set -o pipefail
+RUN <<"EOT" bash -exu -o pipefail
 
 pushd ${SRC_PATH_LINGVO}
 git fetch origin pull/329/head:pr329
@@ -90,30 +84,27 @@ EOT
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
-ARG REPO_PAXML
-ARG REPO_PRAXIS
-ARG REF_PAXML
-ARG REF_PRAXIS
 ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
+ARG SRC_PATH_TFTEXT
 
 COPY --from=lingvo-builder /tmp/lingvo/dist/lingvo*linux_aarch64.whl /opt/
-RUN echo "lingvo @ file://$(ls /opt/lingvo*.whl)" >> /opt/pip-tools.d/manifest.pax
+RUN echo "lingvo @ file://$(ls /opt/lingvo*.whl)" >> /opt/pip-tools.d/requirements-paxml.in
 
-COPY --from=tftext-builder /opt/tensorflow-text/tensorflow_text*.whl /opt/
-RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/manifest.pax
+COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
+RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-paxml.in
 
 # paxml + praxis
 RUN <<"EOT" bash -ex
-echo "tensorflow==2.13.0" >> /opt/pip-tools.d/manifest.pax
-echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/manifest.pax
-echo "chex==0.1.7" >> /opt/pip-tools.d/manifest.pax
-echo "auditwheel" >> /opt/pip-tools.d/manifest.pax
+echo "tensorflow==2.13.0" >> /opt/pip-tools.d/requirements-paxml.in
+echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-paxml.in
+echo "chex==0.1.7" >> /opt/pip-tools.d/requirements-paxml.in
+echo "auditwheel" >> /opt/pip-tools.d/requirements-paxml.in
 
-get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}
-get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS}
-echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/manifest.pax
-echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/manifest.pax
+get-source.sh -l paxml  -m ${MANIFEST_FILE} 
+get-source.sh -l praxis -m ${MANIFEST_FILE}
+echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/requirements-paxml.in
+echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/requirements-paxml.in
 
 for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
   pushd ${src}

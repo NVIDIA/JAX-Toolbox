@@ -100,7 +100,9 @@ jobs:
         id: mealkit-build
         uses: docker/build-push-action@v4
         with:
-          context: rosetta/
+          context: .
+          build-contexts: |
+            jax-toolbox=.
           push: true
           file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
           platforms: linux/${{ inputs.ARCHITECTURE }}
@@ -127,7 +129,9 @@ jobs:
         id: final-build
         uses: docker/build-push-action@v4
         with:
-          context: rosetta/
+          context: .
+          build-contexts: |
+            jax-toolbox=.
           push: true
           file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
           platforms: linux/${{ inputs.ARCHITECTURE }}
