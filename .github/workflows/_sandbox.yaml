@@ -28,5 +28,6 @@ jobs:
           trial_branch=nightly-${{ github.run_id }}
           git switch -c $trial_branch
           git add -u
-          git commit -m "generated"
+          git add $(find ./github/container/patches -name '*.patch')
+          git commit -m "generated ${{github.run_id }}"
           git push --set-upstream origin $trial_branch
