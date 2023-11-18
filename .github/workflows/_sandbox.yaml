@@ -1,7 +1,7 @@
 name: "~Sandbox"
 
 on:
-  # workflow_dispatch:
+  workflow_dispatch:
   # push:
 
 permissions:
@@ -11,39 +11,22 @@ permissions:
 
 jobs:
 
-  build-jax:
-    uses: ./.github/workflows/_build_jax.yaml
-    with:
-      ARCHITECTURE: amd64
-    secrets: inherit
-
-  build-pax:
-    needs: [build-jax]
-    uses: ./.github/workflows/_build_pax.yaml
-    with:
-      ARCHITECTURE: amd64
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-    secrets: inherit
-
-  test-te:
-    needs: [build-pax]
-    uses: ./.github/workflows/_test_te.yaml
-    with:
-      TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
-  # test-pax:
-  #   needs: [build-pax]
-  #   uses: ./.github/workflows/_test_pax.yaml
-  #   with:
-  #     PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
-  #   secrets: inherit
-
-  # finalize:
-  #   if: always()
-  #   # TODO: use dynamic matrix to make dependencies self-updating
-  #   needs: [build-jax, build-t5x, build-pax]
-  #   uses: ./.github/workflows/_finalize.yaml
-  #   with:
-  #     PUBLISH_BADGE: false
-  #   secrets: inherit
+  bump-world-state:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+      - name: Update manifest and patches
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          bash bump.sh manifest.yaml
+      - name: Commit trial branch
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          trial_branch=nightly-${{ github.run_id }}
+          git switch -c $trial_branch
+          git add -u
+          git commit -m "generated"
+          git push --set-upstream origin $trial_branch

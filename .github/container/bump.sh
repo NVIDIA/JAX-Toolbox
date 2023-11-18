@@ -11,10 +11,7 @@ cp $MANIFEST_IN $MANIFEST_OUT
 
 for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
     mode=$(yq e ".${pkg}.mode" $MANIFEST_OUT)
-    if [[ $mode == root ]]; then
-        new_ref=$(git rev-parse HEAD)
-        yq e ".${pkg}.ref = \"$new_ref\"" -i $MANIFEST_OUT
-    elif [[ $mode == git-clone || $mode == pip-vcs ]]; then
+    if [[ $mode == git-clone || $mode == pip-vcs ]]; then
         url=$(yq e ".${pkg}.url" $MANIFEST_OUT)
         tracking_ref=$(yq e ".${pkg}.tracking_ref" $MANIFEST_OUT)
         new_ref=$(git ls-remote $url $tracking_ref | awk '{print $1}')
