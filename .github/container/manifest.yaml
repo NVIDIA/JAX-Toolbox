@@ -5,15 +5,15 @@
 #  ref: TODO
 #  mode: git-clone
 t5x:
-  url: https://github.com/google-research/t5x.git 
+  url: https://github.com/google-research/t5x.git
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
   tracking_ref: main
-  ref: TODO
+  ref: 476271d9d1c15030e0bf6663badab10c2a9dff87
   mode: git-clone
   patches:
-    mirror/patch/partial-checkpoint-restore: null  # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
-    mirror/patch/dali-support: null                # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
-    mirror/patch/t5x_te_in_contrib_noindent: null  # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
+    mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
+    mirror/patch/dali-support: file://patches/t5x/mirror-patch-dali-support.patch # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
+    mirror/patch/t5x_te_in_contrib_noindent: file://patches/t5x/mirror-patch-t5x_te_in_contrib_noindent.patch # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
 #paxml:
 #  url: https://github.com/google/paxml.git 
 #  tracking_ref: main
