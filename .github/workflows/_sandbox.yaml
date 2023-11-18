@@ -22,12 +22,14 @@ jobs:
         run: |
           bash bump.sh manifest.yaml
       - name: Commit trial branch
+        shell: bash -x -e {0}
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           trial_branch=nightly-${{ github.run_id }}
           git switch -c $trial_branch
+          git status
           git add -u
-          git add $(find ./github/container/patches -name '*.patch')
+          git add .github/container/patches/
           git commit -m "generated ${{github.run_id }}"
           git push --set-upstream origin $trial_branch
