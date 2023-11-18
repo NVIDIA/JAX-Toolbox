@@ -31,5 +31,6 @@ jobs:
           git status
           git add -u
           git add .github/container/patches/
+          git status
           git commit -m "generated ${{github.run_id }}"
           git push --set-upstream origin $trial_branch
