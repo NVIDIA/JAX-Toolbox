@@ -5,9 +5,9 @@ set -eou pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 MANIFEST_IN=$1
-MANIFEST_OUT=${1}.bump
+MANIFEST_OUT=${1}
 
-cp $MANIFEST_IN $MANIFEST_OUT
+#cp $MANIFEST_IN $MANIFEST_OUT
 
 for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
     mode=$(yq e ".${pkg}.mode" $MANIFEST_OUT)

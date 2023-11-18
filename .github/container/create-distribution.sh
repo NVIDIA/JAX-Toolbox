@@ -284,7 +284,7 @@ for line in $(yq e ".${PACKAGE}.patches | keys | .[]" $MANIFEST); do
     PR_ID=$(cut -d/ -f2 <<<"${git_ref}")
     branch=PR-${PR_ID}
     git fetch ${REMOTE_NAME} ${git_ref}:${branch}
-    main_branch=${REMOTE_NAME}/main
+    main_branch=${REMOTE_NAME}/${TRACKING_REF}
   elif [[ "${git_ref}" =~ ^mirror/pull/ ]]; then
     if [[ -z "${MIRROR_GIT_URL}" ]] ; then
       echo "[Error]: MIRROR_GIT_URL not provided so cannot apply patch=${git_ref}"
@@ -294,7 +294,7 @@ for line in $(yq e ".${PACKAGE}.patches | keys | .[]" $MANIFEST); do
     PR_ID=$(cut -d/ -f3 <<<"${git_ref}")
     branch=PR-${PR_ID}
     git fetch ${REMOTE_NAME} $(cut -d/ -f2- <<<${git_ref}):${branch}
-    main_branch=${REMOTE_NAME}/main
+    main_branch=${REMOTE_NAME}/${TRACKING_REF}
   elif [[ "${git_ref}" =~ ^mirror/ ]]; then
     if [[ -z "${MIRROR_GIT_URL}" ]] ; then
       echo "[Error]: MIRROR_GIT_URL not provided so cannot apply patch=${git_ref}"
@@ -303,7 +303,7 @@ for line in $(yq e ".${PACKAGE}.patches | keys | .[]" $MANIFEST); do
     REMOTE_NAME=${MIRROR_REMOTE_NAME}
     # REMOTE_NAME not needed b/c git_ref already prefixed
     branch=${git_ref}
-    main_branch=${REMOTE_NAME}/main
+    main_branch=${REMOTE_NAME}/${TRACKING_REF}
   else
     if [[ -z "${EXTRA_DIR+x}" ]] || [[ ! -d ${EXTRA_DIR} ]]; then
       echo "[Error]: EXTRA_DIR=${EXTRA_DIR} does not exist so cannot apply patch=${git_ref}"
@@ -313,7 +313,7 @@ for line in $(yq e ".${PACKAGE}.patches | keys | .[]" $MANIFEST); do
     # Fetch both the feature branch and main so that we can cherry pick the entire branch
     branch=${REMOTE_NAME}/${git_ref}${TMP_BRANCH_SUFFIX}
     # Use main-tmp-rosetta instead of main b/c remote branches may have been updated and the local main is stale
-    main_branch=${REMOTE_NAME}/main${TMP_BRANCH_SUFFIX}
+    main_branch=${REMOTE_NAME}/${TRACKING_REF}${TMP_BRANCH_SUFFIX}
   fi
   fork_point=$(fork-point ${main_branch} ${branch})
   apply-ref-patches ${git_ref} ${fork_point} ${branch} || ret_code=$?
