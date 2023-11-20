@@ -2,35 +2,51 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
-  # push:
+  workflow_run:
+    workflows:
+      - Nightly Dsitribution test
+      - Nightly JAX unit test
+      - Nightly Transformer Engine test
+      - Nightly Pax MGMN performance test  # The trial branch is propagated thru this workflow
+      - Nightly T5X MGMN performance test
+      - Nightly Rosetta Paxml build and test
+      - Nightly Rosetta T5x build and test
+    types: [completed]
+    branches: [main]
 
 permissions:
-  contents: write  # to fetch code
+  contents: read  # to fetch code
   actions:  write # to cancel previous workflows
-  packages: write # to upload container
 
 jobs:
-
-  bump-world-state:
+  waitForWorkflows:
+    name: Wait for workflows
     runs-on: ubuntu-22.04
     steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
-      - name: Update manifest and patches
-        working-directory: .github/container
-        shell: bash -x -e {0}
+
+      - name: Wait for workflows
+        id: wait
+        uses: smartcontractkit/chainlink-github-actions/utils/wait-for-workflows@main
+        with:
+          max-timeout: "900"
+          polling-interval: "30"
+          exclude-workflow-names: ""
+          exclude-workflow-ids: ""
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          DEBUG: "true"
+
+  afterWait:
+    name: after-wait
+    needs: [waitForWorkflows]
+    runs-on: ubuntu-22.04
+    if: always()
+    steps:
+      - name:
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
         run: |
-          bash bump.sh manifest.yaml
-      - name: Commit trial branch
-        shell: bash -x -e {0}
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          trial_branch=nightly-${{ github.run_id }}
-          git switch -c $trial_branch
-          git status
-          git add -u
-          git add .github/container/patches/
-          git status
-          git commit -m "generated ${{github.run_id }}"
-          git push --set-upstream origin $trial_branch
+          echo "$GITHUB_CONTEXT"
+      - name: Check needs results
+        if: needs.waitForWorkflows.result != 'success'
+        run: exit 1
