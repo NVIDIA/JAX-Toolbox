@@ -11,7 +11,7 @@ on:
       BASE_IMAGE:
         type: string
         description: 'PAX image built by NVIDIA/JAX-Toolbox'
-        default: 'ghcr.io/nvidia/upstream-pax:mealkit'
+        default: ''
         required: true
       PUBLISH:
         type: boolean
