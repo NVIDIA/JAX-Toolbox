@@ -1,9 +1,12 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=ghcr.io/nvidia/upstream-pax:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/upstream-pax:mealkit
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
 ARG SRC_PATH_PAXML=/opt/paxml
 ARG SRC_PATH_PRAXIS=/opt/praxis
+# These patchlist paths should be relative to this script
+ARG PAXML_PATCHLIST=patchlist-paxml.txt
+ARG PRAXIS_PATCHLIST=patchlist-praxis.txt
 
 FROM scratch as rosetta-source
 ARG SRC_PATH_PAXML
@@ -17,29 +20,43 @@ ADD --keep-git-dir=true https://github.com/google/paxml.git#main /
 FROM scratch as praxis-mirror-source
 ADD --keep-git-dir=true https://github.com/google/praxis.git#main /
 
-FROM ${BASE_IMAGE} AS rosetta
+###############################################################################
+### Download source and add auxiliary scripts
+################################################################################
+
+FROM ${BASE_IMAGE} AS mealkit
 ENV ENABLE_TE=1
 
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
-RUN <<EOF bash -e
-git config --global user.email "${GIT_USER_EMAIL}"
-git config --global user.name "${GIT_USER_NAME}"
-EOF
+ARG PAXML_PATCHLIST
+ARG PRAXIS_PATCHLIST
 
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
 RUN --mount=target=/opt/pax-mirror,from=pax-mirror-source,readwrite \
-    --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<EOF bash -e
+    --mount=target=/opt/praxis-mirror,from=praxis-mirror-source,readwrite <<EOF 
+bash -e
+git config --global user.email "${GIT_USER_EMAIL}"
+git config --global user.name "${GIT_USER_NAME}"
+
 bash create-distribution.sh \
-  -p patchlist-paxml.txt \
+  -p ${PAXML_PATCHLIST} \
   -m https://github.com/nvjax-svc-0/paxml.git \
-  -d $(dirname $(python -c "import paxml; print(*paxml.__path__)")) \
+  -d /opt/paxml \
   -e /opt/pax-mirror
 bash create-distribution.sh \
-  -p patchlist-praxis.txt \
+  -p ${PRAXIS_PATCHLIST} \
   -m https://github.com/nvjax-svc-0/praxis.git \
-  -d $(dirname $(python -c "import praxis; print(*praxis.__path__)")) \
+  -d /opt/praxis \
   -e /opt/praxis-mirror
+rm -rf $(find /opt -name "__pycache__") ~/.gitconfig
 EOF
 
+###############################################################################
+### Install accumulated packages from the base image and the previous stage
+################################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh
