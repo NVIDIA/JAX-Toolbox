@@ -5,7 +5,7 @@ on:
   inputs:
     max-timeout:
       description: "Max timeout in seconds to wait for workflows to finish"
-      type: number
+      type: string
       default: "900"
       required: false
     polling-interval:
