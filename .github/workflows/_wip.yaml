@@ -23,11 +23,8 @@ on:
       type: string
       default: ""
       required: false
-    github-token:
-      description: "Github access token"
-      type: string
-      default: ${{ github.token }}
-      required: true
+env:
+  DEBUG: "true"
 jobs:
   runs:
     runs-on: ubuntu-22.04
@@ -42,7 +39,7 @@ jobs:
           EXCLUDE_WORKFLOW_IDS: ${{ inputs.exclude-workflow-ids }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
         with:
-          github-token: ${{ inputs.github-token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
           script: |
             async function checkWorkflows(github, context, EXCLUDE_WORKFLOW_NAMES, EXCLUDE_WORKFLOW_IDS, EXCLUDE_WORKFLOW_RUN_IDS) {

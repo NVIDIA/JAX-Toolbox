@@ -15,26 +15,19 @@ on:
     branches: [main]
 
 permissions:
-  contents: read  # to fetch code
+  contents: write # to fetch code, and create commits
   actions:  write # to cancel previous workflows
+  packages: write # to upload container
 
 jobs:
   waitForWorkflows:
     name: Wait for workflows
-    runs-on: ubuntu-22.04
-    steps:
-
-      - name: Wait for workflows
-        id: wait
-        uses: ./github/workflows/_wip.yaml
-        with:
-          max-timeout: "900"
-          polling-interval: "30"
-          exclude-workflow-names: ""
-          exclude-workflow-ids: ""
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          DEBUG: "true"
+    uses: ./.github/workflows/_wip.yaml
+    with:
+      max-timeout: "900"
+      polling-interval: "30"
+      exclude-workflow-names: ""
+      exclude-workflow-ids: ""
 
   afterWait:
     name: after-wait
