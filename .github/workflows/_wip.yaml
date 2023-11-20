@@ -5,22 +5,27 @@ on:
   inputs:
     max-timeout:
       description: "Max timeout in seconds to wait for workflows to finish"
+      type: int
       default: "900"
       required: true
     polling-interval:
       description: "Polling interval in seconds to check whether the workflow(s) to wait for are still running"
+      type: string
       default: "30"
       required: true
     exclude-workflow-names:
       description: "Optional - Command separated list of workflow names to exclude"
+      type: string
       default: ""
       required: false
     exclude-workflow-ids:
       description: "Optional - Command separated list of workflow ids to exclude"
+      type: string
       default: ""
       required: false
     github-token:
       description: "Github access token"
+      type: string
       default: ${{ github.token }}
       required: true
 jobs:
