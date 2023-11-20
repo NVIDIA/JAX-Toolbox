@@ -26,7 +26,7 @@ jobs:
 
       - name: Wait for workflows
         id: wait
-        uses: smartcontractkit/chainlink-github-actions/utils/wait-for-workflows@main
+        uses: ./github/workflows/wip.yaml
         with:
           max-timeout: "900"
           polling-interval: "30"
