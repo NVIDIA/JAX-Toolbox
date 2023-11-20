@@ -1,0 +1,117 @@
+name: Wait for workflows
+  #description: "Action that checks and waits for workflows w/ the same reference (head_sha) to complete"
+on:
+ workflow_call:
+  inputs:
+    max-timeout:
+      description: "Max timeout in seconds to wait for workflows to finish"
+      default: "900"
+      required: true
+    polling-interval:
+      description: "Polling interval in seconds to check whether the workflow(s) to wait for are still running"
+      default: "30"
+      required: true
+    exclude-workflow-names:
+      description: "Optional - Command separated list of workflow names to exclude"
+      default: ""
+      required: false
+    exclude-workflow-ids:
+      description: "Optional - Command separated list of workflow ids to exclude"
+      default: ""
+      required: false
+    github-token:
+      description: "Github access token"
+      default: ${{ github.token }}
+      required: true
+jobs:
+  runs:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: wait-for-workflows
+        id: wfw
+        uses: actions/github-script@e69ef5462fd455e02edcaf4dd7708eda96b9eda0 # v7.0.0
+        env:
+          MAX_TIMEOUT: ${{ inputs.max-timeout }}
+          POLLING_INTERVAL: ${{ inputs.polling-interval }}
+          EXCLUDE_WORKFLOW_NAMES: ${{ inputs.exclude-workflow-names }}
+          EXCLUDE_WORKFLOW_IDS: ${{ inputs.exclude-workflow-ids }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+        with:
+          github-token: ${{ inputs.github-token }}
+          result-encoding: string
+          script: |
+            async function checkWorkflows(github, context, EXCLUDE_WORKFLOW_NAMES, EXCLUDE_WORKFLOW_IDS, EXCLUDE_WORKFLOW_RUN_IDS) {
+              const { DEBUG, GITHUB_SHA } = process.env
+  
+              // https://octokit.github.io/rest.js/v19#actions-list-workflow-runs-for-repo
+              const WORKFLOW_RUNS_FOR_REPO_RESPONSE = await github.rest.actions.listWorkflowRunsForRepo({
+                owner: context.payload.organization.login,
+                repo: context.payload.repository.name,
+                head_sha: context.payload.after || GITHUB_SHA
+              })
+  
+              if (DEBUG) {
+                console.log("workflow_runs length:", WORKFLOW_RUNS_FOR_REPO_RESPONSE.data.workflow_runs.length)
+                const workflows = WORKFLOW_RUNS_FOR_REPO_RESPONSE.data.workflow_runs.reduce((acc, val) => acc.concat([{ run_id: val.id, name: val.name, workflow_id: val.workflow_id, run_attempt: val.run_attempt }]), [])
+                console.log("workflow_runs:", workflows)
+              }
+  
+              // pending workflows
+              const PENDING_WORKFLOWS = WORKFLOW_RUNS_FOR_REPO_RESPONSE.data.workflow_runs.filter(
+                (run) => !EXCLUDE_WORKFLOW_RUN_IDS.includes(run.id) && !EXCLUDE_WORKFLOW_NAMES.includes(run.name) && !EXCLUDE_WORKFLOW_IDS.includes(run.workflow_id) && (run.status == 'queued' || run.status == 'in_progress')
+              );
+  
+              if (PENDING_WORKFLOWS.length > 0) {
+                console.log(`Waiting for ${PENDING_WORKFLOWS.length} workflows to finish:`);
+                PENDING_WORKFLOWS.forEach((workflow) => {
+                  console.log(`Workflow: name=${workflow.name} id=${workflow.id} status=${workflow.status}`);
+                });
+  
+                return true
+              }
+              return false
+            }
+  
+            async function sleep(seconds) {
+              return new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+            }
+  
+            const { DEBUG } = process.env
+  
+            if (DEBUG) {
+              console.log(`process.env.MAX_TIMEOUT: ${process.env.MAX_TIMEOUT}`)
+              console.log(`process.env.POLLING_INTERVAL: ${process.env.POLLING_INTERVAL}`)
+              console.log(`process.env.EXCLUDE_WORKFLOW_NAMES: ${process.env.EXCLUDE_WORKFLOW_NAMES}`)
+              console.log(`process.env.EXCLUDE_WORKFLOW_IDS: ${process.env.EXCLUDE_WORKFLOW_IDS}`)
+              console.log("context:", context)
+            }
+  
+            const MAX_TIMEOUT = Number(process.env.MAX_TIMEOUT)
+            const POLLING_INTERVAL = Number(process.env.POLLING_INTERVAL)
+            const EXCLUDE_WORKFLOW_NAMES = process.env.EXCLUDE_WORKFLOW_NAMES == "" ? [] : process.env.EXCLUDE_WORKFLOW_NAMES.split(",")
+            const EXCLUDE_WORKFLOW_IDS = process.env.EXCLUDE_WORKFLOW_IDS == "" ? [] : process.env.EXCLUDE_WORKFLOW_IDS.split(",")
+            const EXCLUDE_WORKFLOW_RUN_IDS = [Number(process.env.WORKFLOW_RUN_ID)]
+  
+            if (DEBUG) {
+              console.log(`MAX_TIMEOUT: ${MAX_TIMEOUT}`)
+              console.log(`POLLING_INTERVAL: ${POLLING_INTERVAL}`)
+              console.log(`EXCLUDE_WORKFLOW_NAMES: ${EXCLUDE_WORKFLOW_NAMES}`)
+              console.log(`EXCLUDE_WORKFLOW_IDS: ${EXCLUDE_WORKFLOW_IDS}`)
+              console.log(`EXCLUDE_WORKFLOW_RUN_IDS: ${EXCLUDE_WORKFLOW_RUN_IDS}`)
+            }
+  
+            let timer = 0
+  
+            await sleep(5)
+  
+            console.log(`Waiting time ${timer}s out of ${MAX_TIMEOUT}s with polling interval ${POLLING_INTERVAL}s`);
+            while (timer < MAX_TIMEOUT && (await checkWorkflows(github, context, EXCLUDE_WORKFLOW_NAMES, EXCLUDE_WORKFLOW_IDS, EXCLUDE_WORKFLOW_RUN_IDS))) {
+              await sleep(POLLING_INTERVAL)
+              timer += POLLING_INTERVAL
+              console.log(`Waiting time ${timer}s out of ${MAX_TIMEOUT}s with polling interval ${POLLING_INTERVAL}s`);
+            }
+  
+            if (timer >= MAX_TIMEOUT) {
+              console.error(`Wait for workflows is over MAX_TIMEOUT of ${MAX_TIMEOUT}s`)
+              process.exit(1)
+            }

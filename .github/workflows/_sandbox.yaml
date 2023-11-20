@@ -26,7 +26,7 @@ jobs:
 
       - name: Wait for workflows
         id: wait
-        uses: ./github/workflows/wip.yaml
+        uses: ./github/workflows/_wip.yaml
         with:
           max-timeout: "900"
           polling-interval: "30"
