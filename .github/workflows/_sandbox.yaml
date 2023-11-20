@@ -23,11 +23,7 @@ jobs:
   waitForWorkflows:
     name: Wait for workflows
     uses: ./.github/workflows/_wip.yaml
-    with:
-      max-timeout: "900"
-      polling-interval: "30"
-      exclude-workflow-names: ""
-      exclude-workflow-ids: ""
+    secrets: inherit
 
   afterWait:
     name: after-wait

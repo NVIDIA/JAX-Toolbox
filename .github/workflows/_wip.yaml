@@ -7,12 +7,12 @@ on:
       description: "Max timeout in seconds to wait for workflows to finish"
       type: number
       default: "900"
-      required: true
+      required: false
     polling-interval:
       description: "Polling interval in seconds to check whether the workflow(s) to wait for are still running"
       type: string
       default: "30"
-      required: true
+      required: false
     exclude-workflow-names:
       description: "Optional - Command separated list of workflow names to exclude"
       type: string
