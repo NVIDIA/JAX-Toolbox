@@ -2,30 +2,7 @@ name: ~test core distribution logic
 
 on:
   workflow_call:
-    inputs:
-      GIT_USER_NAME:
-        type: string
-        description: 'Username in GIT to perform git pull/push'
-        required: false
-        default: 'JAX Toolbox'
-      GIT_USER_EMAIL:
-        type: string
-        description: 'User email in GIT to perform git pull/push'
-        required: false
-        default: 'jax@nvidia.com'
   workflow_dispatch:
-    inputs:
-      GIT_USER_NAME:
-        type: string
-        description: 'Username in GIT to perform git pull/push'
-        required: false
-        default: 'JAX Toolbox'
-      GIT_USER_EMAIL:
-        type: string
-        description: 'User email in GIT to perform git pull/push'
-        required: false
-        default: 'jax@nvidia.com'
-
 
 jobs:
   test-create-distribution:
@@ -40,9 +17,9 @@ jobs:
       
       - name: Set git login for tests
         run: |
-          git config --global user.name "${GIT_USER_NAME}"
-          git config --global user.email "${GIT_USER_EMAIL}"
-
+          git config --global user.email "jax@nvidia.com"
+          git config --global user.name "JAX-Toolbox CI"
+          
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
       
