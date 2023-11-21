@@ -25,7 +25,9 @@ on:
         description: 'TE source: <repo>#<branch|tag|commit>'
         type: string
         required: true
-        default: 'https://github.com/NVIDIA/TransformerEngine.git#main'
+        # TODO: This is a temporary pinning of TE as the API in TE no longer matches the TE patch
+        #   This should be reverted to main ASAP
+        default: 'https://github.com/NVIDIA/TransformerEngine.git#7976bd003fcf084dd068069b92a9a79b1743316a'
       SRC_T5X:
         description: 'T5X source: <repo>#<branch|tag|commit>'
         type: string
