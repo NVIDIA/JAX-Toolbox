@@ -100,7 +100,7 @@ jobs:
           platforms: linux/${{ inputs.ARCHITECTURE }}
           tags: ${{ steps.mealkit-metadata.outputs.tags }}
           labels: ${{ steps.mealkit-metadata.outputs.labels }}
-          target: rosetta
+          target: mealkit
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
 
@@ -122,6 +122,6 @@ jobs:
           platforms: linux/${{ inputs.ARCHITECTURE }}
           tags: ${{ steps.final-metadata.outputs.tags }}
           labels: ${{ steps.final-metadata.outputs.labels }}
-          target: rosetta
+          target: final
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}

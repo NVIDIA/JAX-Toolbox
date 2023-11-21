@@ -147,6 +147,7 @@ jobs:
           platforms: linux/${{ inputs.ARCHITECTURE }}
           tags: ${{ steps.final-metadata.outputs.tags }}
           labels: ${{ steps.final-metadata.outputs.labels }}
+          target: final
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
