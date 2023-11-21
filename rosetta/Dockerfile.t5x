@@ -30,8 +30,7 @@ ARG FLAX_PATCHLIST
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
 RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite \
-    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<EOF 
-bash -e
+    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<EOF bash -e
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
 bash create-distribution.sh \
@@ -42,7 +41,7 @@ bash create-distribution.sh \
 bash create-distribution.sh \
   -p ${FLAX_PATCHLIST} \
   -m https://github.com/nvjax-svc-0/flax.git \
-  -d /opt/t5x \
+  -d /opt/flax \
   -e /opt/flax-mirror
 rm -rf $(find /opt -name "__pycache__") ~/.gitconfig
 
