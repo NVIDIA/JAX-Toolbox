@@ -43,8 +43,6 @@ bash create-distribution.sh \
   -m https://github.com/nvjax-svc-0/flax.git \
   -d /opt/flax \
   -e /opt/flax-mirror
-rm -rf $(find /opt -name "__pycache__") ~/.gitconfig
-
 echo "--extra-index-url https://developer.download.nvidia.com/compute/redist" >> /opt/pip-tools.d/manifest.t5x
 echo "-e file:///opt/rosetta" >> /opt/pip-tools.d/manifest.t5x
 EOF
