@@ -1,35 +1,42 @@
 # syntax=docker/dockerfile:1-labs
-###############################################################################
-## T5X
-###############################################################################
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
-FROM ${BASE_IMAGE}
-
-ADD install-t5x.sh /usr/local/bin
-ADD install-flax.sh /usr/local/bin
-ADD install-te.sh /usr/local/bin
-
-ENV NVTE_FRAMEWORK=jax
 ARG REPO_T5X=https://github.com/google-research/t5x.git
 ARG REF_T5X=main
-ARG REPO_TE=https://github.com/NVIDIA/TransformerEngine.git
-# TODO: This is a temporary pinning of TE as the API in TE no longer matches the TE patch
-#   This should be reverted to main ASAP
-ARG REF_TE=7976bd003fcf084dd068069b92a9a79b1743316a
+ARG SRC_PATH_T5X=/opt/t5x
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+
+ARG REPO_T5X
+ARG REF_T5X
+ARG SRC_PATH_T5X
+
 RUN <<"EOF" bash -ex
-install-t5x.sh --defer --from ${REPO_T5X} --ref ${REF_T5X}
-install-te.sh --defer --from ${REPO_TE} --ref ${REF_TE}
+get-source.sh -f ${REPO_T5X} -r ${REF_T5X} -d ${SRC_PATH_T5X}
+echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/manifest.t5x
 
-if [[ -f /opt/requirements-defer.txt ]]; then
-  pip install -r /opt/requirements-defer.txt
+# remove head-of-tree specs from select dependencies
+pushd ${SRC_PATH_T5X}
+sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
+if git diff --quiet; then
+    echo "URL specs no longer present in select dependencies of t5x"
+    exit 1
+else
+    git commit -a -m "remove URL specs from select dependencies of t5x"
 fi
-if [[ -f /opt/cleanup.sh ]]; then
-  bash -ex /opt/cleanup.sh
-fi
-
-# Note: Install after t5x installation b/c t5x installs flax from source
-install-flax.sh
+popd
 EOF
 
 ADD test-t5x.sh /usr/local/bin
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh
