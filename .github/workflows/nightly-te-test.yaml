@@ -52,7 +52,7 @@ jobs:
     uses: ./.github/workflows/_test_te.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      JAX_TE_IMAGE: ${{ needs.metadata.outputs.JAX_TE_IMAGE }}
+      TE_IMAGE: ${{ needs.metadata.outputs.JAX_TE_IMAGE }}
     secrets: inherit
 
   publish-unit:
