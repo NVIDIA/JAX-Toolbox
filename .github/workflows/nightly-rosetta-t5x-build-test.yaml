@@ -132,7 +132,7 @@ jobs:
     needs: [metadata, amd64, arm64]
     uses: ./.github/workflows/_test_rosetta.yaml
     with:
-      ROSETTA_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAGS_FINAL }}
+      ROSETTA_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-t5x:
@@ -140,7 +140,7 @@ jobs:
     uses: ./.github/workflows/_test_t5x_rosetta.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      T5X_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAGS_FINAL }}
+      T5X_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-vit:
