@@ -2,11 +2,16 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/upstream-pax:mealkit
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
+ARG SRC_PATH_PAXML=/opt/paxml
+ARG SRC_PATH_PRAXIS=/opt/praxis
 # These patchlist paths should be relative to this script
 ARG PAXML_PATCHLIST=patchlist-paxml.txt
 ARG PRAXIS_PATCHLIST=patchlist-praxis.txt
 
 FROM scratch as rosetta-source
+ARG SRC_PATH_PAXML
+ARG SRC_PATH_PRAXIS
+
 COPY . /
 
 FROM scratch as pax-mirror-source
@@ -44,7 +49,7 @@ bash create-distribution.sh \
   -m https://github.com/nvjax-svc-0/praxis.git \
   -d /opt/praxis \
   -e /opt/praxis-mirror
-rm -rf $(find /opt -name "__pycache__") ~/.gitconfig
+rm -rf ~/.gitconfig
 EOF
 
 ###############################################################################

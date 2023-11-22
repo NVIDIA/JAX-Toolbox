@@ -18,7 +18,7 @@ on:
         required: false
       BUILD_DATE:
         type: string
-        description: "Build date in YYYY-MM-DD format"
+        description: 'Build date in YYYY-MM-DD format'
         required: false
         default: 'NOT SPECIFIED'
       ARTIFACT_NAME:
@@ -54,11 +54,14 @@ jobs:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}.json
-      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME}}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
       DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
     steps:
+      - name: Print environment variables
+        run: env
+
       - name: Set default BASE_IMAGE
         id: defaults
         run: |
@@ -67,9 +70,6 @@ jobs:
           else
             echo "BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/upstream-${{ inputs.BASE_LIBRARY }}:latest" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Print environment variables
-        run: env
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
@@ -86,21 +86,18 @@ jobs:
         with:
           driver-opts: |
             image=moby/buildkit:v0.12.1
-
+      
       - name: Set docker metadata - mealkit
         id: mealkit-metadata
         uses: docker/metadata-action@v4
         with:
-          images: |
-            ${{ env.UPLD_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}-mealkit
-          labels:
-            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+          images: ${{ env.UPLD_IMAGE }}
+          flavor: latest=false
+          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}-mealkit
+          labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Build mealkit image
+      - name: Build docker images - mealkit
+        id: mealkit-build
         uses: docker/build-push-action@v4
         with:
           context: rosetta/
@@ -117,17 +114,12 @@ jobs:
         id: final-metadata
         uses: docker/metadata-action@v4
         with:
-          images: |
-            ${{ env.UPLD_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
-          labels:
-            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+          images: ${{ env.UPLD_IMAGE }}
+          flavor: latest=false
+          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}-final
+          labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Build final image
-        id: final-build
+      - name: Build docker images - final
         uses: docker/build-push-action@v4
         with:
           context: rosetta/

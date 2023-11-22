@@ -31,7 +31,7 @@ on:
     outputs:
       TAG_BASE:
         description: "Tags of the base image built"
-        value: ${{ jobs.build-base.outputs.DOCKER_TAGS }}
+        value: ${{ jobs.build-base.outputs.DOCKER_TAG }}
       TAG_JAX:
         description: "Tags of the JAX image built"
         value: ${{ jobs.build-jax.outputs.DOCKER_TAG_FINAL }}
@@ -141,10 +141,9 @@ jobs:
 
   build-rosetta-t5x:
     uses: ./.github/workflows/_build_rosetta.yaml
-    if: inputs.ARCHITECTURE == 'amd64'  # T5X arm64 build is wip in PR 252
     needs: [metadata, build-t5x]
     with:
-      ARCHITECTURE: amd64
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: t5x
@@ -197,4 +196,10 @@ jobs:
       PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
+  test-vit:
+    needs: build-rosetta-t5x
+    uses: ./.github/workflows/_test_vit.yaml
+    with:
+      ROSETTA_T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit 
  

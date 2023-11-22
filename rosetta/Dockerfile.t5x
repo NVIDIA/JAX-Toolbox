@@ -26,6 +26,7 @@ ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
 ARG T5X_PATCHLIST
 ARG FLAX_PATCHLIST
+
 COPY --from=rosetta-source / /opt/rosetta
 ADD test-vit.sh /usr/local/bin
 WORKDIR /opt/rosetta
@@ -44,7 +45,7 @@ bash create-distribution.sh \
   -m https://github.com/nvjax-svc-0/flax.git \
   -d /opt/flax \
   -e /opt/flax-mirror
-rm -rf $(find /opt -name "__pycache__") ~/.gitconfig
+rm -rf ~/.gitconfig
 
 echo "--extra-index-url https://developer.download.nvidia.com/compute/redist" >> /opt/pip-tools.d/manifest.t5x
 echo "-e file:///opt/rosetta" >> /opt/pip-tools.d/manifest.t5x
@@ -59,4 +60,3 @@ WORKDIR /opt/rosetta
 FROM mealkit as final
 
 RUN pip-finalize.sh
-

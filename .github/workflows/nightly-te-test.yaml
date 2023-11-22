@@ -3,7 +3,7 @@ run-name: Nightly Transformer Engine test (${{ github.event_name == 'workflow_ru
 
 on:
   workflow_run:
-    workflows: [Nightly JAX build]
+    workflows: [Nightly Pax build]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -12,7 +12,7 @@ on:
         type: string
         description: 'JAX-TE image build by NVIDIA/JAX-Toolbox'
         required: true
-        default: 'ghcr.io/nvidia/jax:latest'
+        default: 'ghcr.io/nvidia/upstream-pax:latest'
       PUBLISH:
         type: boolean
         description: Update status badge?
@@ -25,7 +25,7 @@ permissions:
   packages: write # to upload container
 
 env:
-  DEFAULT_JAX_TE_IMAGE: 'ghcr.io/nvidia/jax:latest'
+  DEFAULT_JAX_TE_IMAGE: 'ghcr.io/nvidia/upstream-pax:latest'
 
 jobs:
 
@@ -52,7 +52,7 @@ jobs:
     uses: ./.github/workflows/_test_te.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      JAX_TE_IMAGE: ${{ needs.metadata.outputs.JAX_TE_IMAGE }}
+      TE_IMAGE: ${{ needs.metadata.outputs.JAX_TE_IMAGE }}
     secrets: inherit
 
   publish-unit:

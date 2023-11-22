@@ -11,7 +11,7 @@ on:
       BASE_IMAGE:
         type: string
         description: 'T5x image built by NVIDIA/JAX-Toolbox'
-        default: 'ghcr.io/nvidia/upstream-t5x:latest'
+        default: ''
         required: true
       PUBLISH:
         type: boolean
@@ -31,13 +31,13 @@ permissions:
 jobs:
 
   metadata:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     outputs:
-      BUILD_DATE: ${{ steps.meta-vars.outputs.BUILD_DATE }}
-      BASE_LIBRARY: ${{ steps.meta-vars.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ steps.meta-vars.outputs.BASE_IMAGE }}
-      PUBLISH: ${{ steps.meta-vars.outputs.PUBLISH }}
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      BASE_LIBRARY: ${{ steps.base-metadata.outputs.BASE_LIBRARY }}
+      BASE_IMAGE_AMD64: ${{ steps.base-metadata.outputs.BASE_IMAGE_AMD64 }}
+      BASE_IMAGE_ARM64: ${{ steps.base-metadata.outputs.BASE_IMAGE_ARM64 }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
       - name: Check if the triggering workflow failed
         id: if-upstream-failed
@@ -49,24 +49,41 @@ jobs:
         if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
         uses: styfle/cancel-workflow-action@0.12.0
 
-      - name: Set build metadata
-        id: meta-vars
+      - name: Determine if the resulting container should be 'published'
+        id: if-publish
         shell: bash -x -e {0}
-        run: |
-          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
-          if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
-            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:latest
-          else
-            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          fi
-          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
-          echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
-          echo "BASE_IMAGE=${BASE_IMAGE}" >> $GITHUB_OUTPUT
+        run:
           # A container should be published if:
           # 1) the workflow is triggered by workflow_dispatch and the PUBLISH input is true, or
           # 2) the workflow is triggered by workflow_run (i.e., a nightly build)
           echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Set base library and image
+        id: base-metadata
+        shell: bash -x -e {0}
+        run: |
+          if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
+            BASE_IMAGE_AMD64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:mealkit
+            BASE_IMAGE_ARM64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:mealkit
+          else
+            BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE }}-amd64-mealkit
+            BASE_IMAGE_ARM64=${{ inputs.BASE_IMAGE }}-arm64-mealkit
+          fi
+          echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
+          # A container should be published if:
+          # 1) the workflow is triggered by workflow_dispatch and the PUBLISH input is true, or
+          # 2) the workflow is triggered by workflow_run (i.e., a nightly build)
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+          echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
+          echo "BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}" >> $GITHUB_OUTPUT
+          
   amd64:
     needs: metadata
     uses: ./.github/workflows/_build_rosetta.yaml
@@ -74,8 +91,32 @@ jobs:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE }}
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
     secrets: inherit
+      
+  arm64:
+    needs: metadata
+    runs-on: ubuntu-22.04
+    outputs:
+      DOCKER_TAG_MEALKIT: ''
+    steps:
+      - name: Generate placeholder warning
+        shell: bash -x -e {0}
+        run: |
+          echo "WARNING: arm64 build is not yet supported"
+    
+  publish-mealkit:
+    needs: [metadata, amd64, arm64]
+    if: needs.metadata.output.PUBLISH == 'true' 
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
+      TARGET_IMAGE: upstream-t5x
+      TARGET_TAGS: |
+        type=raw,value=mealkit,priority=500
+        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500  
 
   # TODO: Can't build ARM until https://github.com/NVIDIA/JAX-Toolbox/pull/252 is available
   arm64:
