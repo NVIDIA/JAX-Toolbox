@@ -10,7 +10,7 @@ on:
     inputs:
       BASE_IMAGE:
         type: string
-        description: 'PAX image built by NVIDIA/JAX-Toolbox'
+        description: 'Upstream Pax mealkit image without $arch-mealkit suffix, e.g., (ghcr.io/nvidia/jax-toolbox-internal:6857094059-upstream-pax). Leaving empty implies ghcr.io/nvidia/upstream-pax:mealkit'
         default: ''
         required: true
       PUBLISH:
