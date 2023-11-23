@@ -148,7 +148,7 @@ jobs:
     uses: ./.github/workflows/_test_vit.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      ROSETTA_T5X_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      ROSETTA_T5X_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   publish-t5x:
