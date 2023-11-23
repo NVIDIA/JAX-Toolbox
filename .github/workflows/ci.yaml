@@ -62,7 +62,7 @@ jobs:
       CUDA_IMAGE: ${{ inputs.CUDA_IMAGE || 'latest' }}
       SRC_JAX: ${{ inputs.SRC_JAX || 'https://github.com/google/jax.git#main' }}
       SRC_XLA: ${{ inputs.SRC_XLA || 'https://github.com/openxla/xla.git#main'}}
-      SRC_TE: ${{ inputs.SRC_TE || 'https://github.com/NVIDIA/TransformerEngine.git#main'}}
+      SRC_TE: ${{ inputs.SRC_TE || 'https://github.com/NVIDIA/TransformerEngine.git#7976bd003fcf084dd068069b92a9a79b1743316a'}}
       SRC_T5X: ${{ inputs.SRC_T5X || 'https://github.com/google-research/t5x.git#main'}}
       SRC_PAXML: ${{ inputs.SRC_PAXML || 'https://github.com/google/paxml.git#main'}}
       SRC_PRAXIS: ${{ inputs.SRC_PRAXIS || 'https://github.com/google/praxis.git#main'}}
@@ -75,7 +75,7 @@ jobs:
       CUDA_IMAGE: ${{ inputs.CUDA_IMAGE || 'latest' }}
       SRC_JAX: ${{ inputs.SRC_JAX || 'https://github.com/google/jax.git#main' }}
       SRC_XLA: ${{ inputs.SRC_XLA || 'https://github.com/openxla/xla.git#main'}}
-      SRC_TE: ${{ inputs.SRC_TE || 'https://github.com/NVIDIA/TransformerEngine.git#main'}}
+      SRC_TE: ${{ inputs.SRC_TE || 'https://github.com/NVIDIA/TransformerEngine.git#7976bd003fcf084dd068069b92a9a79b1743316a'}}
       SRC_T5X: ${{ inputs.SRC_T5X || 'https://github.com/google-research/t5x.git#main'}}
       SRC_PAXML: ${{ inputs.SRC_PAXML || 'https://github.com/google/paxml.git#main'}}
       SRC_PRAXIS: ${{ inputs.SRC_PRAXIS || 'https://github.com/google/praxis.git#main'}}
