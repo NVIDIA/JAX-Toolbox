@@ -263,6 +263,9 @@ popd
 
 pushd $SRC_PATH_JAX
 
+# Delete old wheel if one already exist.
+rm -rf dist/j*.whl
+
 time CC=clang CXX=clang++ python build/build.py \
     --enable_cuda \
     --cuda_path=$TF_CUDA_PATHS \
