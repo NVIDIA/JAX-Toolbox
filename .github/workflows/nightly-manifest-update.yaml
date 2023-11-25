@@ -1,0 +1,68 @@
+name: Nightly Manifest Update
+run-name: Nightly Manifest Update (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }}) parent_id=${{ github.event.workflow_run.id }}
+
+on:
+  workflow_run:
+    workflows:
+      - Nightly JAX unit test
+      - Nightly Transformer Engine test
+      - Nightly Distribution test
+      - Nightly Pax MGMN performance test
+      - Nightly T5X MGMN performance test
+      - Nightly Rosetta Paxml build and test
+      - Nightly Rosetta T5x build and test
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write # to fetch code, and create commits
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+  save_parent:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Save Parent workflow_id ${{ github.event.workflow_run.id }}
+        run: echo ${{ github.event.workflow_run.id }} | tee parent-run-id.txt
+      - uses: actions/upload-artifact@v3
+        with:
+          name: parent-run-id
+          path: parent-run-id.txt
+  check-concurrent:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360  # This is the max time we expect between runs of this workflow 
+    outputs:
+      # Outcome is before continue-on-error is appled and conclusion is after
+      status: ${{ steps.k_step.outcome }}
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+      - name: Check if not latest
+        id: k_step
+        continue-on-error: true
+        run: |
+          export THIS_WORKFLOW_PARENT_RUN_ID=${{ github.event.workflow_run.id }}
+          source ./.github/workflows/scripts/block_and_check_if_largest.sh
+          echo block_and_check_if_largest ${{ secrets.GITHUB_TOKEN }} ${{ github.repository }} ${{ github.sha }} ${{ github.run_id }} 120
+          block_and_check_if_largest ${{ secrets.GITHUB_TOKEN }} ${{ github.repository }} ${{ github.sha }} ${{ github.run_id }} 120
+  
+  afterWait:
+    name: after-wait
+    needs: [check-concurrent]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Print kill status
+        run: echo ${{ needs.check-concurrent.outputs.status }}
+      - name: Cancel workflow if this is not the most recent instance of this workflow
+        if: needs.check-concurrent.outputs.status != 'success'
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/{repository}/actions/runs/{run_id}/cancel
+          repository: ${{ github.repository }}
+          run_id: ${{ github.run_id }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Dummy wait if things were not successful
+        if: needs.check-concurrent.outputs.status != 'success'
+        run: sleep 60

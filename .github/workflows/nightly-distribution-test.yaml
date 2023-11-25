@@ -13,6 +13,15 @@ permissions:
   actions:  write # to cancel previous workflows
 
 jobs:
+  save_parent:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Save Parent workflow_id ${{ github.event.workflow_run.id }}
+        run: echo ${{ github.event.workflow_run.id }} | tee parent-run-id.txt
+      - uses: actions/upload-artifact@v3
+        with:
+          name: parent-run-id
+          path: parent-run-id.txt
 
   test-distribution:
     uses: ./.github/workflows/_test_distribution.yaml

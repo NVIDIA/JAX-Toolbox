@@ -20,6 +20,15 @@ permissions:
   packages: write # to upload container
 
 jobs:
+  save_parent:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Save Parent workflow_id ${{ github.event.workflow_run.id }}
+        run: echo ${{ github.event.workflow_run.id }} | tee parent-run-id.txt
+      - uses: actions/upload-artifact@v3
+        with:
+          name: parent-run-id
+          path: parent-run-id.txt
 
   metadata:
     runs-on: ubuntu-22.04
