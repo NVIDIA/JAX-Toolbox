@@ -1,9 +1,34 @@
 #!/bin/bash
 set -u
 
+_get_workflow_json() {
+  WORKFLOW_RUN_ID=$1
+  curl -s -L -H "Authorization: Bearer $GH_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$REPOSITORY/actions/runs/$WORKFLOW_RUN_ID"
+}
+
 _get_workflow_id() {
   WORKFLOW_RUN_ID=$1
-  curl -s -L -H "Authorization: Bearer $GH_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$REPOSITORY/actions/runs/$WORKFLOW_RUN_ID" | jq -r '.workflow_id'
+  _get_workflow_json $WORKFLOW_RUN_ID | jq -r '.workflow_id'
+}
+
+_print_artifact_from_run() {
+  WORKFLOW_RUN_ID=$1
+  ARTIFACT_NAME=$2
+  
+  download_url=$(curl -s -L -H "Authorization: Bearer $GH_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$REPOSITORY/actions/runs/$WORKFLOW_RUN_ID/artifacts" | jq -r ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .archive_download_url // \"\"")
+  if [[ -z $download_url ]]; then
+    echo ""
+  else
+    # Download the zipped artifact to a temporary file
+    temp_zip=$(mktemp)
+    curl -s -L -H "Authorization: Bearer $GH_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" $download_url -o "$temp_zip"
+    # Unzip the content to another temporary file
+    temp_unzipped=$(mktemp)
+    unzip -p "$temp_zip" > "$temp_unzipped"
+    # Read the content of the unzipped file
+    cat "$temp_unzipped"
+    rm "$temp_zip" "$temp_unzipped"
+  fi
 }
 
 _get_parent_run_id() {
@@ -18,20 +43,7 @@ _get_parent_run_id() {
     return
   fi
   
-  download_url=$(curl -s -L -H "Authorization: Bearer $GH_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$REPOSITORY/actions/runs/$WORKFLOW_RUN_ID/artifacts" | jq -r '.artifacts[] | select(.name == "parent-run-id") | .archive_download_url // ""')
-  if [[ -z $download_url ]]; then
-    echo ""
-  else
-    # Download the zipped artifact to a temporary file
-    temp_zip=$(mktemp)
-    curl -s -L -H "Authorization: Bearer $GH_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" $download_url -o "$temp_zip"
-    # Unzip the content to another temporary file
-    temp_unzipped=$(mktemp)
-    unzip -p "$temp_zip" > "$temp_unzipped"
-    # Read the content of the unzipped file
-    cat "$temp_unzipped"
-    rm "$temp_zip" "$temp_unzipped"
-  fi
+  _print_artifact_from_run $WORKFLOW_RUN_ID parent-run-id
 }
 
 _get_root_run_id() {
@@ -66,9 +78,10 @@ _get_workflow_tree() {
 
   # Print all workflows
   ALL_WORKFLOWS=$(curl -s -L -H "Authorization: Bearer $GH_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" | jq -r '.workflow_runs[] | "\(.id)\t\(.workflow_id)\t\(.name)"' | sort -k1,1nr)
-  echo "[DEBUG]: START all workflows:" >&2
+  echo "[DEBUG]: START all workflows" >&2
+  echo -e "id\tworkflow_id\tname" >&2
   echo "$ALL_WORKFLOWS" >&2
-  echo "[DEBUG]: END all workflows:" >&2
+  echo "[DEBUG]: END all workflows" >&2
   # TODO: Max is 100, but may need to use jq to combine
   echo "$ALL_WORKFLOWS" | while IFS=$'\t' read -r run_id workflow_id workflow_name; do
     if [[ $workflow_id != $THIS_WORKFLOW_ID ]]; then
@@ -86,7 +99,6 @@ _get_workflow_tree() {
 
 block_and_check_if_largest() {
   if [[ $# -lt 4 || $# -gt 5 ]]; then
-    echo $#
     echo 'block_and_check_if_largest $GH_TOKEN $REPOSITORY $GITHUB_SHA $WORKFLOW_RUN_ID ${DELAY:-60}'
     echo 'Example: block_and_check_if_largest ${{ secrets.GITHUB_TOKEN }} ${{ github.repository }} ${{ github.sha }} ${{ github.run_id }} 60'
     echo 'Requires you to set the following outside this script: export THIS_WORKFLOW_PARENT_RUN_ID=${{ github.event.workflow_run.id }}'
