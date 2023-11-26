@@ -38,28 +38,24 @@ jobs:
         run: |
           echo "PUBLISH=${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
-  # The trial-branch artifact will be passed to the following descendant workflows:
-  #
-  #  Nightly Jax Build -> Nightly Pax Build -> Nightly Pax Test -> Nightly Manifest Update
-  #
-  # Note: we do not pass the artifact along the T5x route, since it only needs
-  #       to be present in one of the workflow_run.workflows[]
   bump-world-state:
     needs: metadata
     runs-on: ubuntu-22.04
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
-      - name: Update manifest and patches in-place
+      - name: Update manifest and patches in-place - show diff
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
           bash bump.sh manifest.yaml
-      - name: Commit trial branch
+          git diff
+      - name: Push trial branch
+        if: needs.metadata.outputs.PUBLISH == 'true'
         shell: bash -x -e {0}
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+          git config user.name "JAX-Toolbox CI"
+          git config user.email "jax@nvidia.com"
           # Prepend trial branch with "z" to make it appear at the end
           trial_branch=znightly-${{ github.run_id }}-${{ needs.metadata.outputs.BUILD_DATE }}
           git switch -c $trial_branch
@@ -71,10 +67,8 @@ jobs:
           git push --set-upstream origin $trial_branch
 
           echo "$trial_branch" > ./trial-branch.txt
-      # This trial branch artifact will be propagated to all dependent workflows. 
-      #  This works around the restriction that `workflow_run` triggered events cannot
-      #  be passed inputs like in `workflow_dispatch` or `workflow_call`
       - name: 'Upload trial branch artifact'
+        if: needs.metadata.outputs.PUBLISH == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: trial-branch
