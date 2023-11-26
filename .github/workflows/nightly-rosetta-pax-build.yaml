@@ -147,7 +147,7 @@ jobs:
 
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
-        if [[ ${{ needs.build.result }} == "success" ]]; then
+        if [[ ${{ needs.amd64.result }} == "success" && ${{ needs.arm64.result }} == "success" ]]; then
           if [[ $PAX_STATUS == "success" ]]; then
             COLOR=brightgreen
             MESSAGE="MGMN passed"

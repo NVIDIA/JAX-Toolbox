@@ -148,7 +148,7 @@ jobs:
     uses: ./.github/workflows/_test_vit.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      ROSETTA_T5X_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_FINAL }}
+      ROSETTA_T5X_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   publish-t5x:
@@ -161,7 +161,7 @@ jobs:
     secrets: inherit
 
   publish-test:
-    needs: [metadata, test-unit, test-t5x, test-vit]
+    needs: [metadata, amd64, arm64, test-unit, test-t5x, test-vit]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
@@ -175,7 +175,7 @@ jobs:
 
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
-        if [[ ${{ needs.build.result }} == "success" ]]; then
+        if [[ ${{ needs.amd64.result }} == "success" && ${{ needs.arm64.result }} == "success" ]]; then
           if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]]; then
             COLOR=brightgreen
             MESSAGE="Unit passed / MGMN passed"
