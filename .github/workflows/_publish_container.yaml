@@ -15,11 +15,11 @@ on:
         type: string
         description: 'Target docker tags in docker/metadata-action format:'
         required: true
-      EXPOSE_SINGLE_ARCH_IMAGES:
-        type: boolean
-        description: 'Also expose single-arch images:'
-        required: false
-        default: true
+      # EXPOSE_SINGLE_ARCH_IMAGES:
+      #   type: boolean
+      #   description: 'Also expose single-arch images:'
+      #   required: false
+      #   default: false
     outputs:
       DOCKER_TAGS:
         description: "Tags of the image published"
@@ -53,29 +53,36 @@ jobs:
         id: get-manifests
         shell: bash -x -e {0}
         run: |
-          SOURCE_REPO=$(echo ${{ inputs.SOURCE_IMAGE }} | cut -d: -f1)
-          MEDIA_TYPE=$(docker manifest inspect ${{ inputs.SOURCE_IMAGE }} | jq -r '.mediaType')
-          case "$MEDIA_TYPE" in
-            # OCI image index
-            "application/vnd.oci.image.index.v1+json")
-              MANIFESTS=$(
-                docker manifest inspect ${{ inputs.SOURCE_IMAGE }} |\
-                jq -r '.manifests[] | select(.platform.os != "unknown") | .digest' |\
-                xargs -I{} echo ${SOURCE_REPO}@{} |\
-                tr '\n' ' '
-              )
-              ;;
-            # Docker image manifest
-            "application/vnd.docker.distribution.manifest.v2+json")
-              MANIFESTS=${{ inputs.SOURCE_IMAGE }}
-              ;;
-            *)
-              echo "Unknown media type: $MEDIA_TYPE"
-              exit 1
-              ;;
-          esac
+          manifests=""
+          for src_img in $(echo "${{ inputs.SOURCE_IMAGE }}" | tr '\n' ' '); do
+            repo=$(echo $src_img | cut -d: -f1)
+            media_type=$(docker manifest inspect $src_img | jq -r '.mediaType')
+            case "$media_type" in
+              
+              # OCI image index
+              "application/vnd.oci.image.index.v1+json")
+                manifest=$(
+                  docker manifest inspect ${src_img} |\
+                  jq -r '.manifests[] | select(.platform.os != "unknown") | .digest' |\
+                  xargs -I{} echo ${repo}@{} |\
+                  tr '\n' ' '
+                )
+                ;;
 
-          echo "manifests=$MANIFESTS" >> $GITHUB_OUTPUT
+              # Docker image manifest
+              "application/vnd.docker.distribution.manifest.v2+json")
+                manifest=${src_img}
+                ;;
+
+              *)
+                echo "Unknown media type: $MEDIA_TYPE"
+                exit 1
+                ;;
+            esac
+            manifests="$manifests $manifest"
+          done
+
+          echo "manifests=$manifests" >> $GITHUB_OUTPUT
 
       - name: Create multi-arch images
         id: multi-arch
@@ -85,26 +92,26 @@ jobs:
             docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
           done
 
-      - name: Create single-arch images
-        if: ${{ inputs.EXPOSE_SINGLE_ARCH_IMAGES }}
-        shell: bash -x -e {0}
-        run: |
-          # Create new manifest list from extracted manifests
-          for manifest in ${{ steps.get-manifests.outputs.manifests }}; do
-            os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
-            arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
-            for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
-              skopeo copy --format v2s2 docker://$manifest docker://$tag-${os}-${arch}
-            done
-          done
+      # - name: Create single-arch images
+      #   if: ${{ inputs.EXPOSE_SINGLE_ARCH_IMAGES }}
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     # Create new manifest list from extracted manifests
+      #     for manifest in ${{ steps.get-manifests.outputs.manifests }}; do
+      #       os=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.os')
+      #       arch=$(docker manifest inspect -v $manifest | jq -r '.Descriptor.platform.architecture')
+      #       for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+      #         skopeo copy --format v2s2 docker://$manifest docker://$tag-${os}-${arch}
+      #       done
+      #     done
 
-      - name: Generate outputs and artifacts
-        shell: bash -x -e {0}
-        run: |
-          echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ inputs.TARGET_IMAGE }}.txt
+      # - name: Generate outputs and artifacts
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ inputs.TARGET_IMAGE }}.txt
 
-      - name: Upload image tags as artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: image-tags-${{ inputs.TARGET_IMAGE }}
-          path: image-tags-${{ inputs.TARGET_IMAGE }}.txt
+      # - name: Upload image tags as artifacts
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: image-tags-${{ inputs.TARGET_IMAGE }}
+      #     path: image-tags-${{ inputs.TARGET_IMAGE }}.txt

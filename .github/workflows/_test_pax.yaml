@@ -1,4 +1,4 @@
-name: ~test Pax, MGMN
+name: ~test Pax, multi-node
 
 on:
   workflow_call:
@@ -53,7 +53,6 @@ jobs:
           EOF
           chmod 600 ~/.ssh/known_hosts
           echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
-
       - name: Labels and metadata
         id: meta
         shell: bash -x -e {0}
@@ -64,14 +63,12 @@ jobs:
           MAX_GPUS_PER_NODE=8
           NODES=1
           GPUS_PER_NODE=8
-
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
-
       - name: Submit SLURM jobs over SSH
         id: submit
         shell: bash -O expand_aliases -x -e {0}
@@ -106,15 +103,12 @@ jobs:
               ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
           )
-
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
             sleep 15
           done
-
           echo "SLURM Job $JOB finished."
-
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
           SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
@@ -122,9 +116,7 @@ jobs:
           echo "SLURM Job exit code is ${SLURM_EXITCODE}"
           echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
-
           set -x
-
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -138,7 +130,6 @@ jobs:
           rsync -rtz --progress \
             output/ \
             ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
-
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
         run: |
@@ -154,8 +145,8 @@ jobs:
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
-  
-  multi-process-multi-device:
+
+  pax-multi-node:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -424,7 +415,7 @@ jobs:
           path: output/*
 
   metrics:
-    needs: [single-process-multi-device, multi-process-multi-device, single-process-evaluation]
+    needs: [single-process-multi-device, pax-multi-node, single-process-evaluation]
     runs-on: ubuntu-22.04
 
     steps:
@@ -462,7 +453,7 @@ jobs:
 
 
   publish-test:
-    needs: [single-process-multi-device, multi-process-multi-device, single-process-evaluation, metrics]
+    needs: [single-process-multi-device, pax-multi-node, single-process-evaluation, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit

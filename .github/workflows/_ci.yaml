@@ -1,0 +1,222 @@
+name: CI
+run-name: CI-${{ inputs.ARCHITECTURE }}
+
+on:
+  workflow_call:
+    inputs:
+      ARCHITECTURE:
+        type: string
+        required: true
+      CUDA_IMAGE:
+        type: string
+        required: true
+      SRC_JAX:
+        type: string
+        required: true
+      SRC_XLA:
+        type: string
+        required: true
+      SRC_TE:
+        type: string
+        required: true
+      SRC_T5X:
+        type: string
+        required: true
+      SRC_PAXML:
+        type: string
+        required: true
+      SRC_PRAXIS:
+        type: string
+        required: true
+    outputs:
+      TAG_BASE:
+        description: "Tags of the base image built"
+        value: ${{ jobs.build-base.outputs.DOCKER_TAG }}
+      TAG_JAX:
+        description: "Tags of the JAX image built"
+        value: ${{ jobs.build-jax.outputs.DOCKER_TAG_FINAL }}
+      TAG_T5X:
+        description: "Tags of the T5X image built"
+        value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_FINAL }}
+      TAG_PAX:
+        description: "Tags of the PAX image built"
+        value: ${{ jobs.build-pax.outputs.DOCKER_TAG_FINAL }}
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      REPO_JAX: ${{ steps.parse-inputs.outputs.REPO_JAX }}
+      REF_JAX: ${{ steps.parse-inputs.outputs.REF_JAX }}
+      REPO_XLA: ${{ steps.parse-inputs.outputs.REPO_XLA }}
+      REF_XLA: ${{ steps.parse-inputs.outputs.REF_XLA }}
+      REPO_TE: ${{ steps.parse-inputs.outputs.REPO_TE }}
+      REF_TE: ${{ steps.parse-inputs.outputs.REF_TE }}
+      REPO_T5X: ${{ steps.parse-inputs.outputs.REPO_T5X }}
+      REF_T5X: ${{ steps.parse-inputs.outputs.REF_T5X }}
+      REPO_PAXML: ${{ steps.parse-inputs.outputs.REPO_PAXML }}
+      REF_PAXML: ${{ steps.parse-inputs.outputs.REF_PAXML }}
+      REPO_PRAXIS: ${{ steps.parse-inputs.outputs.REPO_PRAXIS }}
+      REF_PRAXIS: ${{ steps.parse-inputs.outputs.REF_PRAXIS }}
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: split input "repo#ref" into repo and ref parts
+        id: parse-inputs
+        shell: bash -x -e {0}
+        run: |
+          source .github/workflows/scripts/parse_git_src.sh
+
+          # default values are for `pull_request` event types
+          parse_git_src JAX    "${{ inputs.SRC_JAX }}"
+          parse_git_src XLA    "${{ inputs.SRC_XLA }}"
+          parse_git_src TE     "${{ inputs.SRC_TE }}"
+          parse_git_src T5X    "${{ inputs.SRC_T5X }}"
+          parse_git_src PAXML  "${{ inputs.SRC_PAXML }}"
+          parse_git_src PRAXIS "${{ inputs.SRC_PRAXIS }}"
+
+  build-base:
+    needs: metadata
+    uses: ./.github/workflows/_build_base.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BASE_IMAGE: ${{ inputs.CUDA_IMAGE || 'latest' }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+    secrets: inherit
+
+  build-jax:
+    needs: [metadata, build-base]
+    uses: ./.github/workflows/_build_jax.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+      REPO_JAX: ${{ needs.metadata.outputs.REPO_JAX }}
+      REF_JAX: ${{ needs.metadata.outputs.REF_JAX }}
+      REPO_XLA: ${{ needs.metadata.outputs.REPO_XLA }}
+      REF_XLA: ${{ needs.metadata.outputs.REF_XLA }}
+      REPO_TE: ${{ needs.metadata.outputs.REPO_TE }}
+      REF_TE: ${{ needs.metadata.outputs.REF_TE }}
+    secrets: inherit
+
+  build-t5x:
+    needs: [metadata, build-jax]
+    if: inputs.ARCHITECTURE == 'amd64'  # T5X arm64 build is wip in PR 252
+    uses: ./.github/workflows/_build_t5x.yaml
+    with:
+      ARCHITECTURE: amd64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
+      REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
+    secrets: inherit
+
+  build-pax:
+    needs: [metadata, build-jax]
+    uses: ./.github/workflows/_build_pax.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      REPO_PAXML: ${{ needs.metadata.outputs.REPO_PAXML }}
+      REF_PAXML: ${{ needs.metadata.outputs.REF_PAXML }}
+      REPO_PRAXIS: ${{ needs.metadata.outputs.REPO_PRAXIS }}
+      REF_PRAXIS: ${{ needs.metadata.outputs.REF_PRAXIS }}
+    secrets: inherit
+
+  build-rosetta-t5x:
+    uses: ./.github/workflows/_build_rosetta.yaml
+    needs: [metadata, build-t5x]
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: t5x
+    secrets: inherit
+
+  build-rosetta-pax:
+    uses: ./.github/workflows/_build_rosetta.yaml
+    needs: [metadata, build-pax]
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: pax
+    secrets: inherit
+
+  test-distribution:
+    needs: metadata
+    uses: ./.github/workflows/_test_distribution.yaml
+    secrets: inherit
+
+  test-jax:
+    needs: build-jax
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_jax.yaml
+    with:
+      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-te:
+    needs: build-pax
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_te.yaml
+    with:
+      TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-upstream-t5x:
+    needs: build-t5x
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_t5x.yaml
+    with:
+      T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-rosetta-t5x:
+    needs: build-rosetta-t5x
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_t5x_rosetta.yaml
+    with:
+      T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
+      # Disable packing b/c rosetta-t5x images run with TE by default, and TE does not currently support packing
+    secrets: inherit
+
+  test-upstream-pax:
+    needs: build-pax
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_pax.yaml
+    with:
+      PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-rosetta-pax:
+    needs: build-rosetta-pax
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_pax_rosetta.yaml
+    with:
+      PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-vit:
+    needs: build-rosetta-t5x
+    uses: ./.github/workflows/_test_vit.yaml
+    with:
+      ROSETTA_T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit 
+ 

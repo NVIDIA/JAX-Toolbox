@@ -4,28 +4,20 @@
 Any `paxml/*` or `praxis/*` relative directory/file can be found in [google/paxml](https://github.com/google/paxml/tree/main) or [google/praxis](https://github.com/google/praxis/tree/main), respectively, but to
 view the most up-to-date version of that directory/file with any GPU-specific patches, please see [Inspecting the Source Code](#inspecting-the-source-code).
 
-## Hardware Specifications
+## Hardware and Software Specifications
 Convergence and performance has been validated on NVIDIA DGX H100 (8x H100 80G) and A100 (8x A100 80G) nodes; for details, please refer to the [Configs](#configs) section below. We provide both singlenode and multinode pre-training support. If running on a machine with less than 80G memory, some of the default configurations may run out of memory; if you run out of memory and have more GPUs available, increase your GPU count and decrease your batch size per GPU.
 
+The [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit) is required to run the subsequent commands with GPU support. Ensure the NVIDIA Container Toolkit is installed before proceeding.
+
 ## Containers
-We provide fully built and ready-to-use containers which include the latest optimizations, experimental features, and examples benchmarked for multi-node, multi-GPU training: `nvcr.io/nvidia/jax:23.10-paxml-py3` (multi-arch), `nvcr.io/nvidia/jax:23.10-paxml-py3-amd64` and `nvcr.io/nvidia/jax:23.10-paxml-py3-arm64`. These containers also provide FP8 support via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine). Verified containers will be updated periodically, but if you wish to use the bleeding edge (which may come with unexpected behavior), please use `ghcr.io/nvidia/pax:latest`. We also provide nightly dated images with the naming pattern `ghcr.io/nvidia/pax:nightly-YYYY-MM-DD`, but we encourage you to use the latest ones for the best performance.
+We provide a fully built and ready-to-use multi-arch container which includes the latest optimizations, experimental features, and examples benchmarked for multi-node, multi-GPU training: `nvcr.io/nvidia/jax:23.10-paxml-py3` (amd64 and arm64 support). This container also provides FP8 support via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine). Verified containers will be updated periodically, but if you wish to use the bleeding edge (which may come with unexpected behavior), please use `ghcr.io/nvidia/pax:latest`. We also provide nightly dated images with the naming pattern `ghcr.io/nvidia/pax:nightly-YYYY-MM-DD`, but we encourage you to use the latest ones for the best performance.
 
 For more information on the Pax build and for details on how to manually build the Pax distribution, please refer to [DEVELOPMENT.md](../../../docs/DEVELOPMENT.md). 
 
 *Note*: All paths mentioned in subsequent sections are relative to the top-level directory of the Paxml repository. When working interactively with containers, make sure you navigate to `/opt/paxml` before running any commmands.
 
-### Launching a container
-Use the following command to launch a container:
-```
-docker run -ti --gpus=all --net=host --ipc=host -v <DATASET_PATH>:/opt/paxml/datasets -v <WORKSPACE_PATH>:/opt/paxml/workspace -v <VOCAB_PATH>:/opt/paxml/vocab -w /opt/paxml <CONTAINER> /bin/bash
-```
-where `DATASET_PATH` is the path to the Pile or Lambada dataset. If these datasets have not yet been downloaded, they can be downloaded from inside of the container (see [Downloading The Pile and Lambada Datasets](#Downloading-the-pile-and-lambada-datasets) for more). `WORKSPACE_PATH` is the path to the directory where you would like to store any persistent files, and `VOCAB_PATH` is the path to the pretrained SentencePiece model to use during tokenization (see [Downloading the SentencePiece Model](#Downloading-the-sentencepiece-model) for more). 
-
-## Downloading The Pile and Lambada Datasets
-The GPT model configs we provide are trained using The Pile dataset and evaluated using the Lambada dataset. The scripts [download_the_pile.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_the_pile.py) and [download_lambada.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_lambada.py) will download The Pile and Lambada datasets to the `TFDS_DATA_DIR` enviroment variable. To control the location of the downloaded datasets, use the following command prior to running the download scripts: `export TFDS_DATA_DIR=<path_to_dowload_data_to>`. After the data has been successfully downloaded, use the same `TFDS_DATA_DIR` when running experiments.
-
 ## Downloading the SentencePiece Model
-Pax models require a pretrained SentencePiece model to tokenize the datasets. The SentencePiece model used in the following experiments is `gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model`. This model was trained using [these instructions](https://github.com/sgpyc/training/blob/paxml-llm-draft/large_language_model/paxml/utils/generate_spm.md). Use the following commands to download the tokenizer locally. This should be done _prior_ to launching the container.  
+Pax models require a pretrained SentencePiece model to tokenize the datasets. The SentencePiece model used in the following experiments is `gs://mlperf-llm-public2/vocab/c4_en_301_5Mexp2_spm.model`. This model was trained using [these instructions](https://github.com/sgpyc/training/blob/paxml-llm-draft/large_language_model/paxml/utils/generate_spm.md). Use the following commands to download the tokenizer locally. This should be done _prior_ to launching the container.
 ```
 wget -P c4_sentencepiece https://github.com/nvjax-svc-0/assets/raw/main/sentencepiece_c4/c4_en_301_5Mexp2_spm.model
 ```
@@ -33,6 +25,22 @@ You can then use the following mount to attach the tokenizer to your container:
 ```
 docker run -v ${PWD}/c4_sentencepiece/c4_en_301_5Mexp2_spm.model:/opt/paxml/vocab ...
 ```
+
+## Launching a container
+Use the following command to launch a container:
+```
+docker run -ti --gpus=all --net=host --ipc=host -v <DATASET_PATH>:/opt/paxml/datasets -v <WORKSPACE_PATH>:/opt/paxml/workspace -v <VOCAB_PATH>:/opt/paxml/vocab -w /opt/paxml <CONTAINER> /bin/bash
+```
+where `DATASET_PATH` is the path to the Pile or Lambada dataset. If these datasets have not yet been downloaded, they can be downloaded from inside of the container (see [Downloading The Pile and Lambada Datasets](#Downloading-the-pile-and-lambada-datasets) for more). `WORKSPACE_PATH` is the path to the directory where you would like to store any persistent files, and `VOCAB_PATH` is the path to the pretrained SentencePiece model to use during tokenization (see [Downloading the SentencePiece Model](#Downloading-the-sentencepiece-model) for more). 
+
+## Downloading The Pile and Lambada Datasets
+The GPT model configs we provide are trained using The Pile dataset and evaluated using the Lambada dataset. The scripts [download_the_pile.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_the_pile.py) and [download_lambada.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_lambada.py) will download The Pile and Lambada datasets to the `TFDS_DATA_DIR` enviroment variable. To control the location of the downloaded datasets, use the following command prior to running the download scripts: `export TFDS_DATA_DIR=<path_to_dowload_data_to>`. For example, the following commands download the Pile dataset to `/opt/paxml/datasets/`:
+```
+export TFDS_DATA_DIR=/opt/paxml/datasets/
+python3 paxml/contrib/gpu/scripts_gpu/download_the_pile.py
+```
+
+After the data has been successfully downloaded, use the same `TFDS_DATA_DIR` when running experiments.
 
 ## Inspecting the Source Code
 If you would like to inspect Pax's source code (`paxml/*` and `praxis/*`) to learn more about what is being run, you can do so by inspecting
@@ -67,7 +75,7 @@ See [run_lambada_singlenode.sh](https://github.com/google/paxml/blob/main/paxml/
 ``` 
 bash paxml/contrib/gpu/scripts_gpu/run_lambada_singlenode.sh <TFDS_DATA_DIR> <VOCAB_PATH> <PRECISION> <NUM_GPUS> <PERCORE_BATCH_SIZE> <LOGDIR>
 ```
-`TFDS_DATA_DIR` should contain the path to the Lambada dataset and `LOGDIR` should match the `LOGDIR` from the pretraining run.
+`TFDS_DATA_DIR` should contain the path to the Lambada dataset and `LOGDIR` should match the `LOGDIR` from the pretraining run. Note that a pre-trained checkpoint is required in order for this script to run successfully.
 
 #### Multi Node
 See [example_slurm_pile.sub](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/scripts/example_slurm_pile.sub) for an example slurm submit file that launches an 8-node training run with a 126 million parameter GPT model.
@@ -157,7 +165,7 @@ The tables below describe current performance of the given configs. Experiments 
 | 5B   | A100 80G SXM | TE BF16 | 256    | 1    |256    |1    | 8       | 586.82    |    3.02    |       N/A        |            |
 | 175B | A100 80G SXM | TE BF16 | 256    |1    |256    |1    | 6       |   19.47    |      68.49     |        N/A       |    |
 
-## H100 results
+## H100 Results
 
 | Size | GPU | Precision | #GPUs | DP | FSDP | TP | BS / GPU | Sequences/Sec | Est. Walltime (days) | Lambada Accuracy (± standard deviation) | Convergence Log |
 | ---- | ----- |----- |----- | -- | ---- | -- | ---------| ---------------| ------------------------- | ---------------- |---------------- |
@@ -185,8 +193,9 @@ Here, it is assumed that you are running with the number of nodes reported in th
 
 ## Known Issues
 * Pipeline parallelism is not supported with NVIDIA Transformer Engine enabled in the Paxml container.
+* The Paxml nightlies disable `NCCL_NVLS_ENABLE=0` ([doc](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature.
 * The release container has a known XLA bug which affects single-process training in some cases. This bug has been fixed in newer XLA versions. If running into issues with single-process training, try using a Pax nightly container after 10/3. You can also try cherry-picking [this commit](https://github.com/openxla/xla/commit/aa8e7340cb319b9419a097155874bf105da05e1d) in the tested container.  
-* Infrequent hangs have been observed in multinode settings. Setting `CUDA_MODULE_LOADING=EAGER` helps with these hangs. This environment variable is set by default in `nvcr.io/nvidia/jax:23.10-paxml-py3`, `nvcr.io/nvidia/jax:23.10-paxml-py3-amd64`, and `nvcr.io/nvidia/jax:23.10-paxml-py3-arm64`.
+* Infrequent hangs have been observed in multinode settings. Setting `CUDA_MODULE_LOADING=EAGER` helps with these hangs. This environment variable is set by default in `nvcr.io/nvidia/jax:23.10-paxml-py3`.
 * We currently see unexpected convergence behavior when dropout is used with Transformer Engine. Default configs do not enable dropout within transformer layers and thus should be unaffected by this bug, but users may encounter this bug if manually enabling dropout in their models.
 
 
