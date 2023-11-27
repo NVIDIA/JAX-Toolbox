@@ -263,6 +263,8 @@ popd
 
 pushd $SRC_PATH_JAX
 
+# Delete version file that gets updated by the build to avoid google/jax#18252
+rm -fv build/lib/jax/version.py
 # Delete old wheel if one already exist.
 rm -rf dist/j*.whl
 
