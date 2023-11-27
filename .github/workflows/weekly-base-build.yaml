@@ -12,10 +12,6 @@ on:
         default: false
         required: false
 
-env:
-  TARGET: jax-toolbox
-  DOCKER_REGISTRY: ghcr.io/nvidia
-
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
@@ -27,6 +23,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
       - name: Set build date
         id: date
@@ -34,22 +31,46 @@ jobs:
         run: |
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+      
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
-  build:
+  amd64:
     needs: metadata
     uses: ./.github/workflows/_build_base.yaml
     with:
+      ARCHITECTURE: amd64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+    secrets: inherit
+
+  arm64:
+    needs: metadata
+    uses: ./.github/workflows/_build_base.yaml
+    with:
+      ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
   publish:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
-    needs: [metadata, build]
+    needs: [metadata, amd64, arm64]
+    if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
-    secrets: inherit
     with:
-      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG }}
+        ${{ needs.arm64.outputs.DOCKER_TAG }}
       TARGET_IMAGE: jax-toolbox
       TARGET_TAGS: |
         type=raw,value=base,priority=1000
         type=raw,value=base-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+
+  finalize:
+    if: always()
+    needs: [metadata, amd64, arm64]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit

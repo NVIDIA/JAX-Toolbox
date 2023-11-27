@@ -3,11 +3,15 @@ name: ~build T5X container
 on:
   workflow_call:
     inputs:
+      ARCHITECTURE:
+        type: string
+        description: 'CPU architecture to build the image for, e.g. amd64, arm64'
+        required: true
       BASE_IMAGE:
         type: string
         description: 'Base docker image that provides JAX'
         required: false
-        default: ghcr.io/nvidia/jax:latest
+        default: ghcr.io/nvidia/jax:mealkit
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -33,10 +37,23 @@ on:
         description: Git commit, tag, or branch for TE
         required: false
         default: main
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-t5x-build'
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-t5x-build'
     outputs:
-      DOCKER_TAGS:
-        description: "Tags of the image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAGS }}
+      DOCKER_TAG_MEALKIT:
+        description: "Tags of the 'mealkit' image built"
+        value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:
+        description: "Tags of the complete image built"
+        value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_FINAL }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -48,10 +65,13 @@ permissions:
 
 jobs:
 
-  build:
+  build-t5x:
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+    env:
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
-      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-    runs-on: [self-hosted, x86, small]
+      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
+      DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
     steps:
       - name: Print environment variables
         run: env
@@ -66,8 +86,14 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set docker metadata
-        id: meta
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.12.1
+
+      - name: Set docker metadata - mealkit
+        id: mealkit-metadata
         uses: docker/metadata-action@v4
         with:
           images: |
@@ -75,24 +101,21 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-upstream-t5x
+            type=raw,value=${{ github.run_id }}-upstream-t5x-${{ inputs.ARCHITECTURE }}-mealkit
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        with:
-          driver-opts: |
-            image=moby/buildkit:v0.10.6
-
-      - name: Build docker images
+      - name: Build mealkit image
+        id: mealkit-build
         uses: docker/build-push-action@v4
         with:
           context: .github/container
           push: true
           file: .github/container/Dockerfile.t5x
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          target: mealkit
+          tags: ${{ steps.mealkit-metadata.outputs.tags }}
+          labels: ${{ steps.mealkit-metadata.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
@@ -100,3 +123,77 @@ jobs:
             REF_T5X=${{ inputs.REF_T5X }}
             REPO_TE=${{ inputs.REPO_TE }}
             REF_TE=${{ inputs.REF_TE }}
+
+      - name: Set docker metadata - final
+        id: final-metadata
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-upstream-t5x-${{ inputs.ARCHITECTURE }}
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+
+      - name: Build final image
+        id: final-build
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile.t5x
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          tags: ${{ steps.final-metadata.outputs.tags }}
+          labels: ${{ steps.final-metadata.outputs.labels }}
+          target: final
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
+            REPO_T5X=${{ inputs.REPO_T5X }}
+            REF_T5X=${{ inputs.REF_T5X }}
+            REPO_TE=${{ inputs.REPO_TE }}
+            REF_TE=${{ inputs.REF_TE }}
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='T5X ${{ inputs.ARCHITECTURE }} build'
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="T5X build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="T5X build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
+      - name: Upload sitrep and badge
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
+          path: |
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}

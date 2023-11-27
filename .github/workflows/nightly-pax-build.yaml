@@ -22,11 +22,30 @@ permissions:
 jobs:
 
   metadata:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     outputs:
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
     steps:
+      - name: Check if the triggering workflow failed
+        id: if-upstream-failed
+        shell: bash -x -e {0}
+        run: |
+          echo "UPSTREAM_FAILED=${{ github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
+
+      - name: Cancel workflow if upstream workflow did not success
+        if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
+        uses: styfle/cancel-workflow-action@0.12.0
+
+      - name: Determine if the resulting container should be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run:
+          # A container should be published if:
+          # 1) the workflow is triggered by workflow_dispatch and the PUBLISH input is true, or
+          # 2) the workflow is triggered by workflow_run (i.e., a nightly build)
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+
       - name: Set build date
         id: date
         shell: bash -x -e {0}
@@ -34,28 +53,52 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-  build:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+  amd64:
     needs: metadata
     uses: ./.github/workflows/_build_pax.yaml
     with:
+      ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
-  publish:
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH)
-    needs: [metadata, build]
-    uses: ./.github/workflows/_publish_container.yaml
-    secrets: inherit
+  arm64:
+    needs: metadata
+    uses: ./.github/workflows/_build_pax.yaml
     with:
-      SOURCE_IMAGE: ${{ needs.build.outputs.DOCKER_TAGS }}
+      ARCHITECTURE: arm64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+    secrets: inherit
+
+  publish-mealkit:
+    needs: [metadata, amd64, arm64]
+    if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
+      TARGET_IMAGE: upstream-pax
+      TARGET_TAGS: |
+        type=raw,value=mealkit,priority=500
+        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+
+  publish-final:
+    needs: [metadata, amd64, arm64]
+    if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: upstream-pax
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
-  on-upstream-failure:
-    runs-on: ubuntu-latest
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
-    steps:
-      - run: echo 'Upstream workflow failed, aborting run' && exit 1
+  finalize:
+    if: always()
+    needs: [metadata, amd64, arm64]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit

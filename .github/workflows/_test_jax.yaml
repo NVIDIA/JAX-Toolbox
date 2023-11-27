@@ -28,7 +28,7 @@ jobs:
       TIME: "01:00:00"
     secrets: inherit
 
-  unit-test:
+  jax-unit-test:
     strategy:
       fail-fast: false
       matrix:

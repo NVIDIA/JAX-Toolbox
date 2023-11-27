@@ -1,65 +1,152 @@
 # syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
+ARG REPO_PAXML=https://github.com/google/paxml.git
+ARG REPO_PRAXIS=https://github.com/google/praxis.git
+ARG REF_PAXML=main
+ARG REF_PRAXIS=main
+ARG SRC_PATH_PAXML=/opt/paxml
+ARG SRC_PATH_PRAXIS=/opt/praxis
+
+###############################################################################
+## build tensorflow-text and lingvo, which do not have working arm64 pip wheels
+###############################################################################
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} as wheel-builder
+
+# tensorflow-text and lingvo build needs bazel
+RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
+    chmod a+x /usr/bin/bazel
+
+#------------------------------------------------------------------------------
+# build tensorflow-text 2.13.0 from source
+#------------------------------------------------------------------------------
+
+FROM wheel-builder as tftext-builder
+
+RUN <<"EOT" bash -exu
+set -o pipefail
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
+git clone http://github.com/tensorflow/text.git /opt/tensorflow-text
+cd /opt/tensorflow-text
+git checkout v2.13.0
+./oss_scripts/run_build.sh
+EOT
+
+#------------------------------------------------------------------------------
+# build lingvo
+#------------------------------------------------------------------------------
+
+FROM wheel-builder as lingvo-builder
+ARG REPO_LINGVO=https://github.com/tensorflow/lingvo.git
+ARG REF_LINGVO=master
+ARG SRC_PATH_LINGVO=/opt/lingvo
+
+COPY --from=tftext-builder /opt/tensorflow-text/tensorflow_text*.whl /opt/
+
+RUN get-source.sh -f ${REPO_LINGVO} -r ${REF_LINGVO} -d ${SRC_PATH_LINGVO}
+
+# build lingvo
+RUN <<"EOT" bash -exu
+set -o pipefail
+
+pushd ${SRC_PATH_LINGVO}
+git fetch origin pull/329/head:pr329
+git cherry-pick --allow-empty pr329
+
+# Disable 2 flaky tests here
+patch -p1 <<"EOF"
+diff --git a/pip_package/build.sh b/pip_package/build.sh
+index ef62c432e..659e78956 100755
+--- a/pip_package/build.sh
++++ b/pip_package/build.sh
+@@ -89,7 +89,7 @@ bazel clean
+ bazel build $@ ...
+ if ! [[ $SKIP_TESTS ]]; then
+   # Just test the core for the purposes of the pip package.
+-  bazel test $@ lingvo/core/...
++  bazel test $@ lingvo/core/... --  -//lingvo/tasks/mt:model_test -//lingvo/core:saver_test
+ fi
+
+ DST_DIR="/tmp/lingvo/dist"
+EOF
+
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 /opt/tensorflow_text*.whl
+sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
+sed -i 's/tensorflow-text=/#tensorflow-text=/'  docker/dev.requirements.txt
+sed -i 's/dataclasses=/#dataclasses=/'  docker/dev.requirements.txt
+pip install -r docker/dev.requirements.txt
+
+# Some tests are flaky right now (see the patch abovbe), if needed we can skip
+# running the tests entirely by uncommentin the following line.
+# SKIP_TEST=1
+PYTHON_MINOR_VERSION=$(python --version | cut -d ' ' -f 2 | cut -d '.' -f 2) pip_package/build.sh
+EOT
+
 ###############################################################################
 ## Pax for AArch64
 ###############################################################################
 
-ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
-FROM ${BASE_IMAGE}
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} as mealkit
+ARG REPO_PAXML
+ARG REPO_PRAXIS
+ARG REF_PAXML
+ARG REF_PRAXIS
+ARG SRC_PATH_PAXML
+ARG SRC_PATH_PRAXIS
 
-# We need to build some packages from source, bring some dependencies.
-RUN apt-get update && \
-  apt-get update && \
-  apt-get install -y \
-    bat \
-    curl \
-    git \
-    gnupg \
-    rsync \
-    liblzma-dev \
-    && \
-  apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists
+COPY --from=lingvo-builder /tmp/lingvo/dist/lingvo*linux_aarch64.whl /opt/
+RUN echo "lingvo @ file://$(ls /opt/lingvo*.whl)" >> /opt/pip-tools.d/manifest.pax
 
+COPY --from=tftext-builder /opt/tensorflow-text/tensorflow_text*.whl /opt/
+RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/manifest.pax
 
-RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
-    chmod a+x /usr/bin/bazel
+# paxml + praxis
+RUN <<"EOT" bash -ex
+echo "tensorflow==2.13.0" >> /opt/pip-tools.d/manifest.pax
+echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/manifest.pax
+echo "chex==0.1.7" >> /opt/pip-tools.d/manifest.pax
+echo "auditwheel" >> /opt/pip-tools.d/manifest.pax
 
+get-source.sh -f ${REPO_PAXML}  -r ${REF_PAXML}  -d ${SRC_PATH_PAXML}
+get-source.sh -f ${REPO_PRAXIS} -r ${REF_PRAXIS} -d ${SRC_PATH_PRAXIS}
+echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/manifest.pax
+echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/manifest.pax
 
-# Lingvo
-ADD install_lingvo_aarch64.sh /opt/
-ADD lingvo.patch /opt/
-RUN /opt/install_lingvo_aarch64.sh
+for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
+  pushd ${src}
 
-ADD install-pax.sh /usr/local/bin
-RUN install-pax.sh
+  for pattern in \
+    "s| @ git+https://github.com/google/flax||g" \
+    "s| @ git+https://github.com/google/jax||g" \
+    "s|^tensorflow|#tensorflow|" \
+    "s|^lingvo|#lingvo|" \
+    "s|^scikit-learn|#scikit-learn|" \
+    "s|^t5|#t5|" \
+    "s|^protobuf|#protobuf|" \
+    "s|^numpy|#numpy|" \
+  ; do
+    sed -i "${pattern}" */pip_package/requirements.txt requirements.in
+  done
 
-ENV NVTE_FRAMEWORK=jax
-ADD install-te.sh /usr/local/bin
-RUN install-te.sh
-# Lingvo has pinned TF to 2.13, so we need to downgrade the pydantic version so that its
-# transitive dependency on typing-extensions satisfies TF 2.13's req of typing-extensions>=3.6.6,<4.6.0.
-# This version of pydantic is the latest version that satisfies the typing-extensions requirement
-RUN pip install pydantic==1.10.13 
-
-# Install T5 now, Pip will build the wheel from source, it needs Rust.
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
-  echo "be3535b3033ff5e0ecc4d589a35d3656f681332f860c5fd6684859970165ddcc /tmp/rustup.sh" | sha256sum --check && \
-  bash /tmp/rustup.sh -y && \
-  export PATH=$PATH:/root/.cargo/bin && \
-  pip install t5 && \
-  rm -Rf /root/.cargo /root/.rustup && \
-  mv /root/.profile /root/.profile.save && \
-  grep -v cargo /root/.profile.save > /root/.profile && \
-  rm /root/.profile.save && \
-  mv /root/.bashrc /root/.bashrc.save && \
-  grep -v cargo /root/.bashrc.save > /root/.bashrc && \
-  rm /root/.bashrc.save && \
-  rm -Rf /root/.cache /tmp/*
+  if git diff --quiet; then
+      echo "broken dependencies no longer present in ${src}"
+      exit 1
+  else
+      git commit -a -m "remove broken dependencies from ${src}"
+  fi
+  popd
+done
+EOT
 
 ADD test-pax.sh /usr/local/bin
 
-# TODO: Utilize these build-args and use them when installing pax
-# ARG REPO_PAXML=https://github.com/google/paxml.git
-# ARG REPO_PRAXIS=https://github.com/google/praxis.git
-# ARG REF_PAXML=main
-# ARG REF_PRAXIS=main
-# install-pax.sh --defer --from_paxml ${REPO_PAXML} --from_praxis ${REPO_PRAXIS} --ref_paxml ${REF_PAXML} --ref_praxis ${REF_PRAXIS}
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh
