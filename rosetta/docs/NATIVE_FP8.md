@@ -106,13 +106,14 @@ In a similar vein, managing FP8 variables is handled within the `overwrite_with_
 ### Transformer Layer
 PAXML models are constructed using the transformer layer provided by praxis. In theory, users can locate the matmul layers and reconfigure them to incorporate custom FP8 operations. However, we recommend utilizing FP8 matmul specifically for the QKV projection, attention output projection and the linear transformations in the feed-forward networks.
 
-Enabling this feature is effortless. Users only need to include the option `--fdl.USE_FP8=True` in their experiment configuration. This simple step activates the recommended layers, allowing the transformer layer to employ FP8 matmul. It's crucial to highlight that ENABLE_TE must be turned off for this functionality to work effectively.
+Enabling this feature is effortless. Users only need to include the option `--fdl.USE_FP8=True` in their experiment configuration. This simple step activates the recommended layers, allowing the transformer layer to employ FP8 matmul. We recommend configuring `CHECKPOINT_POLICY = layers.AutodiffCheckpointType.SAVE_NOTHING`. This setting facilitates a trade-off between memory usage and FLOPS, optimizing the balance between the two. It's crucial to highlight that ENABLE_TE must be turned off for this functionality to work effectively.
 
 In addition to the suggested XLA flags mentioned in [this section](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/README.md#xla-flags), we also recommend setting these following XLA flags. The execution script should look like:
 ```bash
 export XLA_FLAGS=" \
     --xla_gpu_enable_reduction_epilogue_fusion=false \
     --xla_gpu_enable_triton_gemm=false \
+    --xla_gpu_enable_cudnn_fmha=false \
     --xla_gpu_enable_cudnn_layer_norm=true \
     --xla_gpu_enable_cublaslt=true \
     --xla_gpu_enable_latency_hiding_scheduler=true \

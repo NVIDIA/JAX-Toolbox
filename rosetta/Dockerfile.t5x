@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=ghcr.io/nvidia/upstream-t5x:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/upstream-t5x:mealkit
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
+# These patchlist paths should be relative to this script
+ARG T5X_PATCHLIST=patchlist-t5x.txt
+ARG FLAX_PATCHLIST=patchlist-flax.txt
 
 FROM scratch as rosetta-source
 COPY . /
@@ -12,45 +15,44 @@ ADD --keep-git-dir=true https://github.com/google-research/t5x.git#main /
 FROM scratch as flax-mirror-source
 ADD --keep-git-dir=true https://github.com/google/flax.git#main /
 
-FROM ${BASE_IMAGE} AS rosetta
+###############################################################################
+### Download source and add auxiliary scripts
+################################################################################
+
+FROM ${BASE_IMAGE} AS mealkit
 ENV ENABLE_TE=1
 
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
-RUN <<EOF bash -e
-git config --global user.email "${GIT_USER_EMAIL}"
-git config --global user.name "${GIT_USER_NAME}"
-EOF
+ARG T5X_PATCHLIST
+ARG FLAX_PATCHLIST
 
 COPY --from=rosetta-source / /opt/rosetta
 WORKDIR /opt/rosetta
 RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite \
-    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<"EOF" bash -e
+    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<EOF bash -e
+git config --global user.email "${GIT_USER_EMAIL}"
+git config --global user.name "${GIT_USER_NAME}"
 bash create-distribution.sh \
-  -p patchlist-t5x.txt \
+  -p ${T5X_PATCHLIST} \
   -m https://github.com/nvjax-svc-0/t5x.git \
-  -d $(dirname $(python -c "import t5x; print(*t5x.__path__)")) \
+  -d /opt/t5x \
   -e /opt/t5x-mirror
 bash create-distribution.sh \
-  -p patchlist-flax.txt \
+  -p ${FLAX_PATCHLIST} \
   -m https://github.com/nvjax-svc-0/flax.git \
-  -d $(dirname $(python -c "import flax; print(*flax.__path__)")) \
+  -d /opt/flax \
   -e /opt/flax-mirror
-rm -rf $(find /opt -name "__pycache__")
+echo "--extra-index-url https://developer.download.nvidia.com/compute/redist" >> /opt/pip-tools.d/manifest.t5x
+echo "-e file:///opt/rosetta" >> /opt/pip-tools.d/manifest.t5x
 EOF
   
 WORKDIR /opt/rosetta
-RUN <<EOF bash -e
-pip install -e /opt/rosetta --extra-index-url https://developer.download.nvidia.com/compute/redist
-rm -rf ~/.cache/pip/
-EOF
 
-ADD test-vit.sh /usr/local/bin
+###############################################################################
+### Install accumulated packages from the base image and the previous stage
+################################################################################
 
-FROM rosetta AS rosetta-devel
+FROM mealkit as final
 
-WORKDIR /opt/rosetta
-RUN <<EOF bash -e
-pip install -e '/opt/rosetta[test,lint]' --extra-index-url https://developer.download.nvidia.com/compute/redist
-rm -rf ~/.cache/pip/
-EOF
+RUN pip-finalize.sh
