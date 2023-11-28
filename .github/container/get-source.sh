@@ -69,7 +69,12 @@ if [[ -z "${MANIFEST}" ]]; then
 fi
 
 ## check out the source
-CAN_GIT_CLONE=$(yq e ".${LIBRARY}.mode == \"git-clone\"" $MANIFEST)
+PACKAGE_MODE=$(yq e ".${LIBRARY}.mode" $MANIFEST)
+if [[ "${PACKAGE_MODE}" != "git-clone" ]]; then
+  echo "--library=${LIBRARY} mode is ${PACKAGE_MODE} which is not meant to be cloned. Update mode to \"git-clone\" if this repo should be cloned"
+  exit 1
+fi
+
 GIT_REPO=$(yq e ".${LIBRARY}.url" $MANIFEST)
 GIT_REF=$(yq e ".${LIBRARY}.ref" $MANIFEST)
 INSTALL_DIR=${BASE_INSTALL_DIR}/$LIBRARY

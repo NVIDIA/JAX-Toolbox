@@ -1,8 +1,8 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
 ARG SRC_PATH_JAX=/opt/jax
-ARG SRC_PATH_XLA=/opt/xla-source
+ARG SRC_PATH_XLA=/opt/xla
 ARG SRC_PATH_FLAX=/opt/flax
-ARG SRC_PATH_TE=/opt/transformer-engine-source
+ARG SRC_PATH_TE=/opt/transformer-engine
 ARG MANIFEST_FILE=manifest.yaml
 
 ARG BAZEL_CACHE=/tmp
@@ -21,10 +21,10 @@ ARG BAZEL_CACHE
 COPY ${MANIFEST_FILE} /opt/manifest.d/manifest.yaml
 COPY patches/ /opt/manifest.d/patches/
 
-RUN git clone "${REPO_JAX}" "${SRC_PATH_JAX}" && cd "${SRC_PATH_JAX}" && git checkout ${REF_JAX}
+RUN get-source.sh -l jax -m /opt/manifest.d/manifest.yaml
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
-    git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
+    get-source.sh -l xla -m /opt/manifest.d/manifest.yaml
 
 # TODO: This is a WAR to NCCL errors we observe in TOT. Should be removed when no longer needed
 RUN <<EOF bash -ex
@@ -38,6 +38,7 @@ git remote remove ashors1
 EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+# TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt
 RUN build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
@@ -63,6 +64,9 @@ ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_IB_SL=1
 ENV CUDA_MODULE_LOADING=EAGER
 
+COPY ${MANIFEST_FILE} /opt/manifest.d/manifest.yaml
+COPY patches/ /opt/manifest.d/patches/
+
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
@@ -74,24 +78,17 @@ echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/mani
 EOF
 
 ## Flax
-ARG REPO_FLAX
-ARG REF_FLAX
-ARG SRC_PATH_FLAX
-RUN get-source.sh -f ${REPO_FLAX} -r ${REF_FLAX} -d ${SRC_PATH_FLAX} -m /opt/pip-tools.d/manifest.flax
+RUN get-source.sh -l flax -m /opt/manifest.d/manifest.yaml -o /opt/pip-tools.d/requirements-flax.in
 
 ## Transformer engine: check out source and build wheel
-ARG REPO_TE
-ARG REF_TE
-ARG SRC_PATH_TE
 ENV NVTE_FRAMEWORK=jax
 ENV SRC_PATH_TE=${SRC_PATH_TE}
-RUN <<"EOF" bash -ex
-set -o pipefail
+RUN <<"EOF" bash -ex -o pipefail
 pip install ninja && rm -rf ~/.cache/pip
-get-source.sh -f ${REPO_TE} -r ${REF_TE} -d ${SRC_PATH_TE}
+get-source.sh -l transformer-engine -m /opt/manifest.d/manifest.yaml
 pushd ${SRC_PATH_TE}
 python setup.py bdist_wheel && rm -rf build
-echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/manifest.te
+echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in
 EOF
 
 # TODO: properly configure entrypoint

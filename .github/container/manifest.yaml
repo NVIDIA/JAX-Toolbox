@@ -2,33 +2,33 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  ref: TODO
+  ref: b032a0271e3e2ea8d0df64d2f3f1a1e450a38dc9  # 2023-11-15
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  ref: TODO
+  ref: 8fb606ffa03c030035d6c0c9d05534dbf6701906  # 2023-11-15
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
   tracking_ref: main
-  ref: todo
+  ref: 632e6c0aaf6b14042e8389dec669a10915b71d15
   mode: git-clone
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  ref: todo
+  ref: 54e46e21a989ac2808e29ce3c20275738d506afe
   mode: git-clone
 t5x:
-  url: https://github.com/google-research/t5x.git 
+  url: https://github.com/google-research/t5x.git
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
   tracking_ref: main
-  ref: TODO
+  ref: c39a33a35bb2f03f6d36455e6378620c6634a995
   mode: git-clone
   patches:
-    mirror/patch/partial-checkpoint-restore: null  # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
-    mirror/patch/dali-support: null                # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
-    mirror/patch/t5x_te_in_contrib_noindent: null  # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
+    mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
+    mirror/patch/dali-support: file://patches/t5x/mirror-patch-dali-support.patch # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
+    mirror/patch/t5x_te_in_contrib_noindent: file://patches/t5x/mirror-patch-t5x_te_in_contrib_noindent.patch # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
 #paxml:
 #  url: https://github.com/google/paxml.git 
 #  tracking_ref: main

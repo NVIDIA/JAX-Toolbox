@@ -40,6 +40,8 @@ ADD --chmod=777 \
     get-source.sh \
     pip-finalize.sh \
     /usr/local/bin/
+RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) -O /usr/local/bin/yq && \
+    chmod 777 /usr/local/bin/yq
 
 ###############################################################################
 ## Install cuDNN
