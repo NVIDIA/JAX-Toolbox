@@ -1,10 +1,10 @@
 #!/bin/bash
 
-set -ex -o pipefail
+set -exo pipefail
 
 pushd /opt/pip-tools.d
 
-pip-compile -o requirements.txt $(ls manifest.*)
+pip-compile -o requirements.txt $(ls requirements-*.in)
 
 pip-sync --pip-args '--src /opt' requirements.txt
 
