@@ -46,7 +46,7 @@ on:
         type: string
         description: Git commit, tag, or branch for XLA
         required: false
-        default: 7976bd003fcf084dd068069b92a9a79b1743316a
+        default: main
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
