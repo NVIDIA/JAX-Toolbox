@@ -85,10 +85,6 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Skopeo Login to GitHub Container Registry
-        run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | skopeo login --authfile - ghcr.io
-
       - name:
         id: meta
         shell: bash -x -e {0}
