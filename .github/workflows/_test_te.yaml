@@ -115,7 +115,7 @@ jobs:
           #SBATCH --nodes=1
           #SBATCH --tasks=1
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-          #SBATCH --time=00:05:00
+          #SBATCH --time=00:15:00
           #SBATCH --output=${{ steps.meta.outputs.SLURM_LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           time srun \
