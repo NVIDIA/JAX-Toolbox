@@ -1,9 +1,14 @@
 # Updated in: XXX
-#jax:
-#  url: https://github.com/google/jax.git
-#  tracking_ref: main
-#  ref: TODO
-#  mode: git-clone
+jax:
+  url: https://github.com/google/jax.git
+  tracking_ref: main
+  ref: TODO
+  mode: git-clone
+xla:
+  url: https://github.com/openxla/xla.git
+  tracking_ref: main
+  ref: TODO
+  mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git 
   mirror_url: https://github.com/nvjax-svc-0/t5x.git

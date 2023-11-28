@@ -40,6 +40,8 @@ jobs:
 
   bump-world-state:
     needs: metadata
+    outputs:
+      TRIAL_BRANCH: ${{ steps.trial-meta.outputs.TRIAL_BRANCH }}
     runs-on: ubuntu-22.04
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
@@ -51,6 +53,7 @@ jobs:
           bash bump.sh manifest.yaml
           git diff
       - name: Push trial branch
+        id: trial-meta
         if: needs.metadata.outputs.PUBLISH == 'true'
         shell: bash -x -e {0}
         run: |
@@ -67,6 +70,7 @@ jobs:
           git push --set-upstream origin $trial_branch
 
           echo "$trial_branch" > ./trial-branch.txt
+          echo TRIAL_BRANCH=$trial_branch | tee $GITHUB_OUTPUT
       - name: 'Upload trial branch artifact'
         if: needs.metadata.outputs.PUBLISH == 'true'
         uses: actions/upload-artifact@v3
@@ -75,19 +79,21 @@ jobs:
           path: trial-branch.txt
 
   amd64:
-    needs: metadata
+    needs: [metadata, bump-world-state]
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      TRIAL_BRANCH: ${{ needs.bump-world-state.outputs.TRIAL_BRANCH }}
     secrets: inherit
 
   arm64:
-    needs: metadata
+    needs: [metadata, bump-world-state]
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      TRIAL_BRANCH: ${{ needs.bump-world-state.outputs.TRIAL_BRANCH }}
     secrets: inherit
 
   publish-mealkit:

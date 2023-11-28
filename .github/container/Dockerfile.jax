@@ -1,16 +1,9 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
-ARG REPO_JAX="https://github.com/google/jax.git"
-ARG REPO_XLA="https://github.com/openxla/xla.git"
-ARG REPO_FLAX="https://github.com/google/flax.git"
-ARG REPO_TE="https://github.com/NVIDIA/TransformerEngine.git"
-ARG REF_JAX=main
-ARG REF_XLA=main
-ARG REF_FLAX=main
-ARG REF_TE=main
 ARG SRC_PATH_JAX=/opt/jax
 ARG SRC_PATH_XLA=/opt/xla-source
 ARG SRC_PATH_FLAX=/opt/flax
 ARG SRC_PATH_TE=/opt/transformer-engine-source
+ARG MANIFEST_FILE=manifest.yaml
 
 ARG BAZEL_CACHE=/tmp
 ARG BUILD_DATE
@@ -20,13 +13,13 @@ ARG BUILD_DATE
 ###############################################################################
 
 FROM ${BASE_IMAGE} as builder
-ARG REPO_JAX
-ARG REPO_XLA
-ARG REF_JAX
-ARG REF_XLA
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
+ARG MANIFEST_FILE
 ARG BAZEL_CACHE
+
+COPY ${MANIFEST_FILE} /opt/manifest.d/manifest.yaml
+COPY patches/ /opt/manifest.d/patches/
 
 RUN git clone "${REPO_JAX}" "${SRC_PATH_JAX}" && cd "${SRC_PATH_JAX}" && git checkout ${REF_JAX}
 RUN --mount=type=ssh \
