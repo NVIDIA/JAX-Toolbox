@@ -329,7 +329,7 @@ jobs:
       STATUS: ${{ steps.script.outputs.STATUS }}
     steps:
       - name: Write Test Status
-        shell: bash -x -e {0}
+        shell: bash -x -e -u {0}
         run: |
           EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
 
@@ -347,7 +347,7 @@ jobs:
           jq -rc 'input_filename,.' $EXIT_STATUSES
 
       - name: script
-        shell: bash -x -e {0}
+        shell: bash -x -e -u {0}
         run: |
           EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
