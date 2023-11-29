@@ -20,14 +20,13 @@ ARG GIT_USER_NAME
 ARG UPDATE_PATCHES
 
 ENV ENABLE_TE=1
-# TODO: set in base jax mealkit
-ENV MANIFEST_FILE=/opt/manifest.d/manifest.yaml
 
 RUN --mount=target=/mnt/jax-toolbox,from=jax-toolbox <<"EOF" bash -exu
+MANIFEST_DIR=$(dirname ${MANIFEST_FILE})
 if [[ "${UPDATE_PATCHES}" -ne 0 ]]; then
-  cp -r /mnt/jax-toolbox/.github/container/patches /opt/manifest.d/patches
-  cp /mnt/jax-toolbox/.github/container/manifest.yaml /opt/manifest.d/manifest.yaml
-  cp /mnt/jax-toolbox/.github/container/create-distribution.sh /opt/manifest.d/create-distribution.sh
+  cp -r /mnt/jax-toolbox/.github/container/patches ${MANIFEST_DIR}/patches
+  cp /mnt/jax-toolbox/.github/container/manifest.yaml ${MANIFEST_DIR}/manifest.yaml
+  cp /mnt/jax-toolbox/.github/container/create-distribution.sh ${MANIFEST_DIR}/create-distribution.sh
 fi
 cp -r /mnt/jax-toolbox/rosetta /opt/rosetta
 #
@@ -35,11 +34,11 @@ cp -r /mnt/jax-toolbox/rosetta /opt/rosetta
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
 
-bash /opt/manifest.d/create-distribution.sh \
-  --manifest $MANIFEST_FILE \
+bash ${MANIFEST_DIR}/create-distribution.sh \
+  --manifest ${MANIFEST_FILE} \
   --package paxml
-bash /opt/manifest.d/create-distribution.sh \
-  --manifest $MANIFEST_FILE \
+bash ${MANIFEST_DIR}/create-distribution.sh \
+  --manifest ${MANIFEST_FILE} \
   --package praxis
 # Remove .gitconfig to avoid end-user authoring commits as the "build user"
 rm -f ~/.gitconfig

@@ -35,14 +35,11 @@ git config --global user.name "JAX Toolbox"
 git config --global user.email "jax@nvidia.com"
 EOF
 RUN pip install --upgrade --no-cache-dir pip pip-tools && rm -rf ~/.cache/*
-RUN mkdir -p /opt/pip-tools.d /opt/manifest.d
+RUN mkdir -p /opt/pip-tools.d
 ADD --chmod=777 \
     get-source.sh \
     pip-finalize.sh \
     /usr/local/bin/
-ADD --chmod=777 \
-    create-distribution.sh \
-    /opt/manifest.d/
 RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) -O /usr/local/bin/yq && \
     chmod 777 /usr/local/bin/yq
 

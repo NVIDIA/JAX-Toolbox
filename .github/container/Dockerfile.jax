@@ -1,5 +1,6 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
-ARG MANIFEST_FILE=manifest.yaml
+ARG SRC_MANIFEST_FILE=manifest.yaml
+ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG SRC_PATH_JAX=/opt/jax
 ARG SRC_PATH_XLA=/opt/xla
 ARG SRC_PATH_FLAX=/opt/flax
@@ -13,18 +14,23 @@ ARG BUILD_DATE
 ###############################################################################
 
 FROM ${BASE_IMAGE} as builder
-ARG MANIFEST_FILE
+ARG SRC_MANIFEST_FILE
+ARG DEST_MANIFEST_DIR
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG BAZEL_CACHE
 
-COPY ${MANIFEST_FILE} /opt/manifest.d/manifest.yaml
-COPY patches/ /opt/manifest.d/patches/
+# Set the manifest env vars
+ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 
-RUN get-source.sh -l jax -m /opt/manifest.d/manifest.yaml
+ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
+COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+COPY patches/ ${DEST_MANIFEST_DIR}/patches/
+
+RUN get-source.sh -l jax -m ${MANIFEST_FILE}
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
-    get-source.sh -l xla -m /opt/manifest.d/manifest.yaml
+    get-source.sh -l xla -m ${MANIFEST_FILE}
 
 # TODO: This is a WAR to NCCL errors we observe in TOT. Should be removed when no longer needed
 RUN <<EOF bash -ex
@@ -54,7 +60,8 @@ RUN build-jax.sh \
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
-ARG MANIFEST_FILE
+ARG SRC_MANIFEST_FILE
+ARG DEST_MANIFEST_DIR
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG SRC_PATH_TE
@@ -66,9 +73,12 @@ ENV XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_a
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_IB_SL=1
 ENV CUDA_MODULE_LOADING=EAGER
+# Set the manifest env vars
+ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 
-COPY ${MANIFEST_FILE} /opt/manifest.d/manifest.yaml
-COPY patches/ /opt/manifest.d/patches/
+ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
+COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+COPY patches/ ${DEST_MANIFEST_DIR}/patches/
 
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
@@ -76,19 +86,19 @@ ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
 RUN <<"EOF" bash -ex
-echo "-e file://${SRC_PATH_JAX}"                        >> /opt/pip-tools.d/manifest.jax
-echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
+echo "-e file://${SRC_PATH_JAX}"                        >> /opt/pip-tools.d/requirements-jax.in
+echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax
-RUN get-source.sh -l flax -m /opt/manifest.d/manifest.yaml -o /opt/pip-tools.d/requirements-flax.in
+RUN get-source.sh -l flax -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-flax.in
 
 ## Transformer engine: check out source and build wheel
 ENV NVTE_FRAMEWORK=jax
 ENV SRC_PATH_TE=${SRC_PATH_TE}
 RUN <<"EOF" bash -ex -o pipefail
 pip install ninja && rm -rf ~/.cache/pip
-get-source.sh -l transformer-engine -m /opt/manifest.d/manifest.yaml
+get-source.sh -l transformer-engine -m ${MANIFEST_FILE}
 pushd ${SRC_PATH_TE}
 python setup.py bdist_wheel && rm -rf build
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in
@@ -103,3 +113,4 @@ EOF
 FROM mealkit as final
 
 RUN pip-finalize.sh
+

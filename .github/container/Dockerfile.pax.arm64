@@ -25,7 +25,7 @@ FROM wheel-builder as tftext-builder
 ARG SRC_PATH_TFTEXT
 RUN <<"EOT" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-get-source.sh -l tensorflow-text -m /opt/manifest.d/manifest.yaml
+get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
 cd ${SRC_PATH_TFTEXT}
 ./oss_scripts/run_build.sh
 EOT
@@ -40,7 +40,7 @@ ARG SRC_PATH_LINGVO
 
 COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 
-RUN get-source.sh -l lingvo -m /opt/manifest.d/manifest.yaml
+RUN get-source.sh -l lingvo -m ${MANIFEST_FILE}
 
 # build lingvo
 RUN <<"EOT" bash -exu -o pipefail
@@ -101,8 +101,8 @@ echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-paxml.in
 echo "chex==0.1.7" >> /opt/pip-tools.d/requirements-paxml.in
 echo "auditwheel" >> /opt/pip-tools.d/requirements-paxml.in
 
-get-source.sh -l paxml -m /opt/manifest.d/manifest.yaml
-get-source.sh -l praxis -m /opt/manifest.d/manifest.yaml
+get-source.sh -l paxml ${MANIFEST_FILE} 
+get-source.sh -l praxis -m ${MANIFEST_FILE}
 echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/requirements-paxml.in
 echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/requirements-paxml.in
 
