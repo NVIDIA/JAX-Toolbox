@@ -13,14 +13,14 @@ flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
-  ref: 632e6c0aaf6b14042e8389dec669a10915b71d15
+  ref: a572f6af2fef565c0f9ba2fc12b781e9e3385140
   mode: git-clone
   patches:
-    pull/3340/head: null  # Add Sharding Annotations to Flax Modules
+    pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  ref: 54e46e21a989ac2808e29ce3c20275738d506afe
+  ref: d76118d90df0422d52261adc26a5f4351a1dd71f
   mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git
@@ -33,38 +33,38 @@ t5x:
     mirror/patch/dali-support: file://patches/t5x/mirror-patch-dali-support.patch # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
     mirror/patch/t5x_te_in_contrib_noindent: file://patches/t5x/mirror-patch-t5x_te_in_contrib_noindent.patch # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
 paxml:
-  url: https://github.com/google/paxml.git 
+  url: https://github.com/google/paxml.git
   mirror_url: https://github.com/nvjax-svc-0/paxml.git
   tracking_ref: main
-  ref: TODO
+  ref: 6c811d5e8f82a8aa75530b50223302d98f47e984
   mode: git-clone
   patches:
-    pull/46/head: null  # adds Transformer Engine support
+    pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
 praxis:
-  url: https://github.com/google/praxis.git 
+  url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
   tracking_ref: main
-  ref: TODO
+  ref: fcadc09773e32a18abd5b0240e07da33316a9636
   mode: git-clone
   patches:
-    pull/27/head: null # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
+    pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
 lingvo:
   # Used only in ARM pax builds
-  url: https://github.com/tensorflow/lingvo.git 
+  url: https://github.com/tensorflow/lingvo.git
   tracking_ref: master
-  ref: TODO
+  ref: 36a1e314864533eeb1cc1e6590e86c10c03b1516
   mode: git-clone
 tensorflow-text:
   # Used only in ARM pax builds
-  url: https://github.com/tensorflow/text.git 
+  url: https://github.com/tensorflow/text.git
   tracking_ref: v2.13.0
-  ref: TODO
+  ref: 917a681d7220ebf9b62a08b6f9ce7b7db886ddef
   mode: git-clone
 pydantic:
   version: X.Y.Z
   mode: pip-constraint
 clu:
-  url: https://github.com/google/CommonLoopUtils.git 
+  url: https://github.com/google/CommonLoopUtils.git
   tracking_ref: main
-  ref: TODO
+  ref: 7ba2a9d83a3bc1a97b59482c2f02dc4b3614bc31
   mode: pip-vcs
