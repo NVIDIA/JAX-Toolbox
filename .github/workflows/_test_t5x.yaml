@@ -388,7 +388,6 @@ jobs:
             badge_message='error'
           fi
 
-          echo "STATUS='${status}'" >> ${GITHUB_OUTPUT}
           badge_label='Completion'
 
           to_json \
@@ -403,6 +402,8 @@ jobs:
           color="${badge_color}" \
           to_json schemaVersion label message color \
           > ${{ env.BADGE_FILENAME_FULL }}
+
+          echo "STATUS='${status}'" >> ${GITHUB_OUTPUT}
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
