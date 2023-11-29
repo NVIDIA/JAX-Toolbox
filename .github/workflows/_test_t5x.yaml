@@ -141,6 +141,7 @@ jobs:
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
         run: |
+          touch output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json
           python << EOF
           import json
           with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
@@ -265,6 +266,7 @@ jobs:
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
         run: |
+          touch output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json
           python << EOF
           import json
           with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
