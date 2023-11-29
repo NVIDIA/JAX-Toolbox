@@ -135,5 +135,5 @@ jobs:
     needs: [metadata, run-jobs]
     uses: ./.github/workflows/_finalize.yaml
     with:
-      PUBLISH_BADGE: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
+      PUBLISH_BADGE: true
     secrets: inherit
