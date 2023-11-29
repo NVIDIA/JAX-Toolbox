@@ -150,11 +150,11 @@ jobs:
               json.dump(dump, f)
           EOF
  
-      # - name: Upload training logs as artifacts
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: ${{ steps.meta.outputs.JOB_NAME }}
-      #     path: output/*
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.meta.outputs.JOB_NAME }}
+          path: output/*
 
   t5x-multi-node:
     strategy:
@@ -276,11 +276,11 @@ jobs:
               json.dump(dump, f)
           EOF
  
-      # - name: Upload training logs as artifacts
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: ${{ steps.meta.outputs.JOB_NAME }}
-      #     path: output/*
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.meta.outputs.JOB_NAME }}
+          path: output/*
 
   metrics:
     needs: [t5x-multi-node, t5x-multi-gpu]
