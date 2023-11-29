@@ -328,6 +328,9 @@ jobs:
     outputs:
       STATUS: ${{ steps.script.outputs.STATUS }}
     steps:
+      - name: Download all artifacts from the previous jobs
+        uses: actions/download-artifact@v3
+        
       - name: Write Test Status
         shell: bash -x -e -u {0}
         run: |
