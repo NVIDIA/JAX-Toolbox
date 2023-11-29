@@ -129,3 +129,11 @@ jobs:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
     steps:
       - run: echo 'Upstream workflow failed, aborting run' && exit 1
+
+  finalize:
+    if: always()
+    needs: [metadata, run-jobs]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: ${{ github.event_name == 'workflow_run' || needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit
