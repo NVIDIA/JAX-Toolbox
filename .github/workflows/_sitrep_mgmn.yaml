@@ -14,10 +14,10 @@ on:
     outputs:
       STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
-        value: ${{ jobs.publish.outputs.STATUS }}
+        value: ${{ jobs.sitrep.outputs.STATUS }}
 
 jobs:
-  publish:
+  sitrep:
     runs-on: ubuntu-22.04
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}.json
