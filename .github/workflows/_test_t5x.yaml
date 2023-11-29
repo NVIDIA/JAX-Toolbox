@@ -326,7 +326,7 @@ jobs:
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}.json
     outputs:
-      STATUS: ${{ steps.script.outputs.STATUS }}
+      STATUS: ${{ steps.gen-sitrep.outputs.STATUS }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
@@ -352,7 +352,8 @@ jobs:
           echo "Test statuses:"
           jq -rc 'input_filename,.' $EXIT_STATUSES
 
-      - name: script
+      - name: Generate sitrep
+        id: gen-sitrep
         shell: bash -x -e {0}
         run: |
           source .github/workflows/scripts/to_json.sh
