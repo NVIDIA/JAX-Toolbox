@@ -57,36 +57,36 @@ jobs:
       T5X_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
     secrets: inherit
 
-  publish:
-    needs: [metadata, run-jobs]
-    uses: ./.github/workflows/_publish_t5x_results.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    with:
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      EXPERIMENT_SUBDIR: T5X
-    secrets: inherit
+  # publish:
+  #   needs: [metadata, run-jobs]
+  #   uses: ./.github/workflows/_publish_t5x_results.yaml
+  #   if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+  #   with:
+  #     BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #     EXPERIMENT_SUBDIR: T5X
+  #   secrets: inherit
 
-  publish-verified:
-    if: needs.run-jobs.outputs.TEST_STATUS == 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
-    needs: [metadata, run-jobs]
-    uses: ./.github/workflows/_publish_container.yaml
-    secrets: inherit
-    with:
-      SOURCE_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
-      TARGET_IMAGE: upstream-t5x
-      TARGET_TAGS: |
-        type=raw,value=latest-verified,priority=1000
+  # publish-verified:
+  #   if: needs.run-jobs.outputs.TEST_STATUS == 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+  #   needs: [metadata, run-jobs]
+  #   uses: ./.github/workflows/_publish_container.yaml
+  #   secrets: inherit
+  #   with:
+  #     SOURCE_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
+  #     TARGET_IMAGE: upstream-t5x
+  #     TARGET_TAGS: |
+  #       type=raw,value=latest-verified,priority=1000
 
-  triage:
-    needs: [metadata, run-jobs]
-    uses: ./.github/workflows/_triage.yaml
-    if: needs.run-jobs.outputs.TEST_STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
-    secrets: inherit
-    with:
-      BROKEN_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
-      BASE_IMAGE: ghcr.io/nvidia/upstream-t5x:latest-verified
-      REPO_DIRS: "/opt/t5x /opt/flax"
-      FILE_ISSUE: true
+  # triage:
+  #   needs: [metadata, run-jobs]
+  #   uses: ./.github/workflows/_triage.yaml
+  #   if: needs.run-jobs.outputs.TEST_STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
+  #   secrets: inherit
+  #   with:
+  #     BROKEN_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
+  #     BASE_IMAGE: ghcr.io/nvidia/upstream-t5x:latest-verified
+  #     REPO_DIRS: "/opt/t5x /opt/flax"
+  #     FILE_ISSUE: true
 
   if-upstream-failed:
     runs-on: ubuntu-latest
