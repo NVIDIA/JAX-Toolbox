@@ -2,10 +2,10 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/upstream-pax:mealkit
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
-# If set to non-zero, then will pull new local patches, the manifest.yaml and create-distribution.sh (in case it was updated).
+# If set to "true", then will pull new local patches, the manifest.yaml and create-distribution.sh (in case it was updated).
 # This is useful for development if you run `./bump.sh -i manifest.yaml` manually and do not want to trigger a full rebuild all
 # the way up to the jax build.
-ARG UPDATE_PATCHES=0
+ARG UPDATE_PATCHES=false
 
 # Rosetta and optionally patches are pulled from this
 FROM scratch AS jax-toolbox
@@ -23,7 +23,7 @@ ENV ENABLE_TE=1
 
 RUN --mount=target=/mnt/jax-toolbox,from=jax-toolbox <<"EOF" bash -exu
 MANIFEST_DIR=$(dirname ${MANIFEST_FILE})
-if [[ "${UPDATE_PATCHES}" -ne 0 ]]; then
+if [[ "${UPDATE_PATCHES}" == "true" ]]; then
   cp -r /mnt/jax-toolbox/.github/container/patches ${MANIFEST_DIR}/patches
   cp /mnt/jax-toolbox/.github/container/manifest.yaml ${MANIFEST_DIR}/manifest.yaml
   cp /mnt/jax-toolbox/.github/container/create-distribution.sh ${MANIFEST_DIR}/create-distribution.sh

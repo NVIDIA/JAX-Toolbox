@@ -17,26 +17,6 @@ on:
         description: "Build date in YYYY-MM-DD format"
         required: false
         default: 'NOT SPECIFIED'
-      REPO_T5X:
-        type: string
-        description: URL of T5X repository to check out
-        required: false
-        default: "https://github.com/google-research/t5x.git"
-      REF_T5X:
-        type: string
-        description: Git commit, tag, or branch for T5X
-        required: false
-        default: main
-      REPO_TE:
-        type: string
-        description: URL of TE repository to check out
-        required: false
-        default: "https://github.com/NVIDIA/TransformerEngine.git"
-      REF_TE:
-        type: string
-        description: Git commit, tag, or branch for TE
-        required: false
-        default: main
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
@@ -119,10 +99,6 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_T5X=${{ inputs.REPO_T5X }}
-            REF_T5X=${{ inputs.REF_T5X }}
-            REPO_TE=${{ inputs.REPO_TE }}
-            REF_TE=${{ inputs.REF_TE }}
 
       - name: Set docker metadata - final
         id: final-metadata
@@ -150,10 +126,6 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_T5X=${{ inputs.REPO_T5X }}
-            REF_T5X=${{ inputs.REF_T5X }}
-            REPO_TE=${{ inputs.REPO_TE }}
-            REF_TE=${{ inputs.REF_TE }}
 
       - name: Generate sitrep
         if: success() || failure()
