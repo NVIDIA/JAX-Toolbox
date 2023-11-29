@@ -1,9 +1,9 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
+ARG MANIFEST_FILE=manifest.yaml
 ARG SRC_PATH_JAX=/opt/jax
 ARG SRC_PATH_XLA=/opt/xla
 ARG SRC_PATH_FLAX=/opt/flax
 ARG SRC_PATH_TE=/opt/transformer-engine
-ARG MANIFEST_FILE=manifest.yaml
 
 ARG BAZEL_CACHE=/tmp
 ARG BUILD_DATE
@@ -13,9 +13,9 @@ ARG BUILD_DATE
 ###############################################################################
 
 FROM ${BASE_IMAGE} as builder
+ARG MANIFEST_FILE
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
-ARG MANIFEST_FILE
 ARG BAZEL_CACHE
 
 COPY ${MANIFEST_FILE} /opt/manifest.d/manifest.yaml
@@ -54,6 +54,7 @@ RUN build-jax.sh \
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
+ARG MANIFEST_FILE
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG BUILD_DATE
