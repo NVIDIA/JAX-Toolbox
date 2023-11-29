@@ -10,7 +10,23 @@ Usage: $0 [OPTION]...
   -m, --manifest=PATH       Path to the manifest. Updates it in-place
   -o, --override_dir=PATH   [Optional] Use this if thehre is a custom location of the upstream clone. If not specified, uses /opt/\${PACKAGE}
   -p, --package=KEY         The package name in the manifest to use, e.g., t5x, paxml
-  -s, --skip-apply          If provided, will only create patches and skip applying.
+  -s, --skip-apply          [Optional] If provided, will only create patches, update manifest, and skip applying. When not provided, applies local patches.
+
+--------------
+
+This script has two modes of operation:
+  1. $0 --skip-apply ...
+  2. $0 ...
+
+Assuming you have:
+t5x:
+  patches:
+   pull/3340/head: file://patches/t5x/pull-3340-head.patch
+
+(1) looks at the tracking-refs (pull/3340/head) of the patch and updates the local patch and the filename in the manifest (file://patches/t5x/pull-3340-head.patch)
+(2) looks only at the filename value (file://patches/t5x/pull-3340-head.patch) and applies it
+
+--------------
 
 The manifest can contain three versions of the repo:
   url: The upstream repo, locally cloned
@@ -90,7 +106,6 @@ fi
 BASE_DIR=${BASE_DIR:-/opt}
 CLEAN_PATCHES=${CLEAN_PATCHES:-0}
 UPSTREAM_URL=$(yq e ".${PACKAGE}.url" $MANIFEST)
-DISTRIBUTION_BASE_REF=$(yq e ".${PACKAGE}.ref" $MANIFEST)
 # The tracking_ref is interpreted as the default "main" branch and all patches are 
 # assumed to be rooted on a sha on the tracking_ref's history
 TRACKING_REF=$(yq e ".${PACKAGE}.tracking_ref" $MANIFEST)
@@ -130,17 +145,17 @@ done
 # upstream main to prevent this.
 git fetch origin $TRACKING_REF
 
-echo "[INFO]: Basing distribution on git-ref: ${DISTRIBUTION_BASE_REF} ($(git rev-parse ${DISTRIBUTION_BASE_REF}))"
-# previous-HEAD's purpose is to point to the state of the repo before any changes are made whereas
-# distribution-base is to point to the commit where we want to begin building the distribution on.
-# Most of the time it will be the same, but it can be different.
+# previous-HEAD's purpose is to point to the state of the repo before any distribution changes are made
+# We do not rely on the manifest.yaml's .${library}.ref because local commits may be made on top by the upstream docker builds
 if ! git rev-parse --verify previous-HEAD >/dev/null 2>&1; then
+  echo "[INFO]: Basing distribution on HEAD ($(git rev-parse HEAD)) and marking that with the local branch: previous-HEAD"
   git branch --force previous-HEAD HEAD
 else
+  echo "[INFO]: Basing distribution on ref: previous-HEAD ($(git rev-parse previous-HEAD))"
   git switch previous-HEAD
 fi
 # Create a local branch to mark the base commit
-git branch --force distribution-base ${DISTRIBUTION_BASE_REF}
+git branch --force distribution-base previous-HEAD
 # Create a local branch for the distribution that starts from the base
 git branch --force rosetta-distribution distribution-base
 git switch rosetta-distribution
@@ -209,7 +224,7 @@ apply-local-patch() {
   # Create a new generated patchlist (for reproducibility)
   PATCH_KEYS+=($patch_name)
   PATCH_VALUES+=("file://${patch_path#$SCRIPT_DIR/}")
-  if [[ $SKIP_APPLY ]]; then
+  if [[ "$SKIP_APPLY" -eq 1 ]]; then
     echo "[INFO]: Skipping patch application: $patch_path"
     return
   fi
@@ -266,13 +281,11 @@ fi
 # Apply patches #
 #################
 IFS=$'\n'
-for line in $(yq e ".${PACKAGE}.patches | keys | .[]" $MANIFEST); do
-  if [[ "${line}" =~ ^[[:blank:]]*$ ]] || [[ "${line}" =~ ^[[:blank:]]*\# ]]; then
-    continue
-  fi
-  git_ref=$(awk '{print $1}' <<< "${line}")
-  if [[ "${git_ref}" =~ ^file:// ]]; then
-    patch_path=$SCRIPT_DIR/${git_ref#file://}
+for git_ref in $(yq e ".${PACKAGE}.patches | keys | .[]" $MANIFEST); do
+  if [[ $SKIP_APPLY -eq 0 ]]; then
+    # If we apply, then use the value, not the key
+    patch_uri=$(yq e ".${PACKAGE}.patches.${git_ref}" $MANIFEST)
+    patch_path=$SCRIPT_DIR/${patch_uri#file://}
     if [[ ! -f $patch_path ]]; then
       echo "[ERROR]: ${git_ref} refers to $patch_path which does not exist"
       exit 1

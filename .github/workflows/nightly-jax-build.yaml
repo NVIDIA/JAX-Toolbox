@@ -50,7 +50,7 @@ jobs:
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
-          bash bump.sh manifest.yaml
+          bash bump.sh --input-manifest manifest.yaml
           git diff
       - name: Push trial branch
         id: trial-meta
