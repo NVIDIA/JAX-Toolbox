@@ -16,8 +16,8 @@ ARG SRC_PATH_PRAXIS
 RUN sed -i "s/transformer-engine @/transformer-engine[test] @/g" /opt/pip-tools.d/requirements-te.in
 
 RUN <<"EOF" bash -ex
-RUN get-source.sh -l paxml -m /opt/manifest.d/manifest.yaml
-RUN get-source.sh -l praxis -m /opt/manifest.d/manifest.yaml
+get-source.sh -l paxml -m /opt/manifest.d/manifest.yaml
+get-source.sh -l praxis -m /opt/manifest.d/manifest.yaml
 echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/requirements-paxml.in
 echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/requirements-paxml.in
 

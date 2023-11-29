@@ -11,7 +11,7 @@ FROM ${BASE_IMAGE} as mealkit
 
 ARG SRC_PATH_T5X
 RUN <<"EOF" bash -ex
-RUN get-source.sh -l t5x -m /opt/manifest.d/manifest.yaml
+get-source.sh -l t5x -m /opt/manifest.d/manifest.yaml
 echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
 
 # remove head-of-tree specs from select dependencies

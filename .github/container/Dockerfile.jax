@@ -82,6 +82,7 @@ EOF
 RUN get-source.sh -l flax -m /opt/manifest.d/manifest.yaml -o /opt/pip-tools.d/requirements-flax.in
 
 ## Transformer engine: check out source and build wheel
+ARG SRC_PATH_TE  # TODO: move to top
 ENV NVTE_FRAMEWORK=jax
 ENV SRC_PATH_TE=${SRC_PATH_TE}
 RUN <<"EOF" bash -ex -o pipefail
