@@ -335,7 +335,7 @@ jobs:
         uses: actions/download-artifact@v3
 
       - name: Write Test Status
-        shell: bash -x -e -u {0}
+        shell: bash -x -e {0}
         run: |
           EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
 
@@ -353,7 +353,7 @@ jobs:
           jq -rc 'input_filename,.' $EXIT_STATUSES
 
       - name: script
-        shell: bash -x -e -u {0}
+        shell: bash -x -e {0}
         run: |
           source .github/workflows/scripts/to_json.sh
 
