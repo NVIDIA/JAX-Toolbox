@@ -330,7 +330,7 @@ jobs:
     steps:
       - name: Download all artifacts from the previous jobs
         uses: actions/download-artifact@v3
-        
+
       - name: Write Test Status
         shell: bash -x -e -u {0}
         run: |
@@ -352,6 +352,8 @@ jobs:
       - name: script
         shell: bash -x -e -u {0}
         run: |
+          source .github/workflows/scripts/to_json.sh
+
           EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
