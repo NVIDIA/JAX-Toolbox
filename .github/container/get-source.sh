@@ -9,6 +9,7 @@
 
 usage() {
     echo "Usage: $0 [OPTION]..."
+    echo "  -b, --base-dir DIR     Directory to install package under. Default /opt"
     echo "  -h, --help             Print usage."
     echo "  -l, --library LIB      The library to clone, e.g., jax, flax, t5x"
     echo "  -m, --manifest FILE    The JAX-Toolbox manifest yaml file"
@@ -17,7 +18,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o hl:m:o: --long help,library:,manifest:,out-requirements: -- "$@")
+args=$(getopt -o b:hl:m:o: --long base-dir:,help,library:,manifest:,out-requirements: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -31,6 +32,10 @@ OUT_REQUIREMENTS_FILE=""
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
+    -b | --base-dir)
+        BASE_INSTALL_DIR=$(readlink -f "$2")
+        shift 2
+        ;;
     -h | --help)
         usage
         ;;

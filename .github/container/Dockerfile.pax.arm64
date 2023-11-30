@@ -101,7 +101,7 @@ echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-paxml.in
 echo "chex==0.1.7" >> /opt/pip-tools.d/requirements-paxml.in
 echo "auditwheel" >> /opt/pip-tools.d/requirements-paxml.in
 
-get-source.sh -l paxml ${MANIFEST_FILE} 
+get-source.sh -l paxml  -m ${MANIFEST_FILE} 
 get-source.sh -l praxis -m ${MANIFEST_FILE}
 echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/requirements-paxml.in
 echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/requirements-paxml.in

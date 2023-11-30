@@ -8,7 +8,7 @@ Usage: $0 [OPTION]...
   -c, --clean               [Optional] If set, will clean the patch dir. Default is not to clean
   -h, --help                [Optional] Print usage.
   -m, --manifest=PATH       Path to the manifest. Updates it in-place
-  -o, --override_dir=PATH   [Optional] Use this if thehre is a custom location of the upstream clone. If not specified, uses /opt/\${PACKAGE}
+  -o, --override_dir=PATH   [Optional] Use this if there is a custom location of the upstream clone. If not specified, uses /opt/\${PACKAGE}
   -p, --package=KEY         The package name in the manifest to use, e.g., t5x, paxml
   -s, --skip-apply          [Optional] If provided, will only create patches, update manifest, and skip applying. When not provided, applies local patches.
 
@@ -66,7 +66,7 @@ while [ : ]; do
     -h | --help)
         usage
         ;;
-    --manifest)
+    -m | --manifest)
         MANIFEST=$(readlink -f "$2")
         shift 2
         ;;
@@ -95,8 +95,9 @@ if [[ $# -ge 1 ]]; then
     usage 1
 fi
 
-set -euox pipefail
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+set -eou pipefail
+# readlink -f $(pwd) is cross-platform way to ensure /tmp gets resolved correctly on macos
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && readlink -f $(pwd) )
 
 if [[ -z "$MANIFEST" || -z "$PACKAGE" ]]; then
   echo "--manifest and --package must be provided"

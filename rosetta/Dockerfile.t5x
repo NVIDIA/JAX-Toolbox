@@ -48,7 +48,7 @@ echo "-e file:///opt/rosetta" >> /opt/pip-tools.d/requirements-t5x.in
 EOF
   
 WORKDIR /opt/rosetta
-COPY --from=jax-toolbox rosetta/scripts/test-vit.sh /usr/local/bin
+COPY --from=jax-toolbox rosetta/tests/test-vit.sh /usr/local/bin
 
 ###############################################################################
 ### Install accumulated packages from the base image and the previous stage
