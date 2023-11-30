@@ -318,6 +318,7 @@ jobs:
     with:
       BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
       ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+      FW_NAME: T5X
 
   summary:
     runs-on: ubuntu-22.04

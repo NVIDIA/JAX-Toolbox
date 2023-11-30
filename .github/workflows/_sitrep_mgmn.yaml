@@ -11,6 +11,10 @@ on:
         type: string
         description: 'Name of the artifact zip file'
         required: true
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: true
     outputs:
       STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -35,7 +39,7 @@ jobs:
           EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
 
           cat <<EOF >>$EXIT_STATUS_SUMMARY
-          ## T5x MGMN+SPMD Test Status
+          ## ${{ inputs.FW_NAME }} MGMN+SPMD Test Status
           | Test Case | State | Exit Code |
           | --- | --- | --- |
           EOF
@@ -53,7 +57,7 @@ jobs:
         id: metrics
         shell: bash -x -e {0}
         run: |
-          echo '## T5X MGMN Test Metrics' >> $METRICS_SUMMARY
+          echo '## ${{ inputs.FW_NAME }} MGMN Test Metrics' >> $METRICS_SUMMARY
           for i in *_metrics.json; do
             echo $i | cut -d'.' -f1
             echo '```json'
@@ -101,7 +105,7 @@ jobs:
           fi
 
           badge_label='Upstream Tests'
-          summary="T5X MGMN Test: $badge_message\n\n${{ steps.exit-status.outputs.EXIT_STATUS_SUMMARY }}\n\n${{ steps.metrics.outputs.METRICS_SUMMARY }}"
+          summary="${{ inputs.FW_NAME }} MGMN Test: $badge_message\n\n${{ steps.exit-status.outputs.EXIT_STATUS_SUMMARY }}\n\n${{ steps.metrics.outputs.METRICS_SUMMARY }}"
 
           to_json \
             summary \
