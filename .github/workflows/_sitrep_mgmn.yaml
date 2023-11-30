@@ -105,7 +105,9 @@ jobs:
           fi
 
           badge_label='Upstream Tests'
-          summary="${{ inputs.FW_NAME }} MGMN Test: $badge_message\n\n${{ steps.exit-status.outputs.EXIT_STATUS_SUMMARY }}\n\n${{ steps.metrics.outputs.METRICS_SUMMARY }}"
+          summary="${{ inputs.FW_NAME }} MGMN Test: $badge_message\n\n"
+          summary+="${{ steps.exit-status.outputs.EXIT_STATUS_SUMMARY }}\n\n"
+          summary+="${{ steps.metrics.outputs.METRICS_SUMMARY }}"
 
           to_json \
             summary \
