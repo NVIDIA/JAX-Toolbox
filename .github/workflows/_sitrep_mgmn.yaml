@@ -51,7 +51,9 @@ jobs:
           echo "Test statuses:"
           jq -rc 'input_filename,.' $EXIT_STATUSES
 
-          echo "EXIT_STATUS_SUMMARY='${EXIT_STATUS_SUMMARY}'" >> ${GITHUB_OUTPUT}
+          echo "EXIT_STATUS_SUMMARY<<EOF" >> ${GITHUB_OUTPUT}
+          echo "$EXIT_STATUS_SUMMARY" >> ${GITHUB_OUTPUT}
+          echo "EOF" >> ${GITHUB_OUTPUT}
 
       - name: Write metrics summary
         id: metrics
@@ -64,7 +66,10 @@ jobs:
             jq . $i
             echo '```'
           done | tee -a METRICS_SUMMARY
-          echo "METRICS_SUMMARY='${METRICS_SUMMARY}'" >> ${GITHUB_OUTPUT}
+
+          echo "METRICS_SUMMARY<<EOF" >> ${GITHUB_OUTPUT}
+          echo "$METRICS_SUMMARY" >> ${GITHUB_OUTPUT}
+          echo "EOF" >> ${GITHUB_OUTPUT}
 
       - name: Generate sitrep
         id: gen-sitrep
