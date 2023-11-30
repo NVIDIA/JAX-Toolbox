@@ -57,74 +57,74 @@ jobs:
       PAX_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
     secrets: inherit
 
-  publish:
-    needs: [metadata, run-jobs]
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+  # publish:
+  #   needs: [metadata, run-jobs]
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Setup SSH agent
+  #       uses: webfactory/ssh-agent@v0.8.0
+  #       with:
+  #         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Setup SSH known hosts
-        id: ssh-known-hosts
-        run: |
-          mkdir -p ~/.ssh
-          cat >> ~/.ssh/known_hosts << EOF
-          ${{ vars.SSH_KNOWN_HOSTS }}
-          EOF
-          chmod 600 ~/.ssh/known_hosts
-          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+  #     - name: Setup SSH known hosts
+  #       id: ssh-known-hosts
+  #       run: |
+  #         mkdir -p ~/.ssh
+  #         cat >> ~/.ssh/known_hosts << EOF
+  #         ${{ vars.SSH_KNOWN_HOSTS }}
+  #         EOF
+  #         chmod 600 ~/.ssh/known_hosts
+  #         echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
 
-      - name: Setup SSH config
-        id: ssh-config
-        run: |
-          mkdir -p ~/.ssh
-          cat >> ~/.ssh/config << EOF
-          ${{ vars.SSH_CONFIG }}
-          EOF
-          chmod 600 ~/.ssh/config
+  #     - name: Setup SSH config
+  #       id: ssh-config
+  #       run: |
+  #         mkdir -p ~/.ssh
+  #         cat >> ~/.ssh/config << EOF
+  #         ${{ vars.SSH_CONFIG }}
+  #         EOF
+  #         chmod 600 ~/.ssh/config
 
-      - name: Create dated folder and generate TensorBoard query URL
-        id: mkdir
-        shell: bash -x -e {0}
-        run: |
-          FOLDER="${{ needs.metadata.outputs.BUILD_DATE }}/PAX"
-          # copy folder
-          ssh -T tensorboard mkdir -p /tensorboard-logs/${FOLDER}
-          ssh -T tensorboard rsync -rt /tensorboard-logs/${GITHUB_RUN_ID}/ /tensorboard-logs/${FOLDER}/
-          # generate query URL
-          (
-          cat << EOF
+  #     - name: Create dated folder and generate TensorBoard query URL
+  #       id: mkdir
+  #       shell: bash -x -e {0}
+  #       run: |
+  #         FOLDER="${{ needs.metadata.outputs.BUILD_DATE }}/PAX"
+  #         # copy folder
+  #         ssh -T tensorboard mkdir -p /tensorboard-logs/${FOLDER}
+  #         ssh -T tensorboard rsync -rt /tensorboard-logs/${GITHUB_RUN_ID}/ /tensorboard-logs/${FOLDER}/
+  #         # generate query URL
+  #         (
+  #         cat << EOF
 
-          ## PAX MGMN nightly training: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #         ## PAX MGMN nightly training: ${{ needs.metadata.outputs.BUILD_DATE }}
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=$(jq -nr --arg url "${FOLDER}" '$url|@uri')&_smoothingWeight=0&tagFilter=seqs_per)
+  #         [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=$(jq -nr --arg url "${FOLDER}" '$url|@uri')&_smoothingWeight=0&tagFilter=seqs_per)
 
-          EOF
-          ) | tee $GITHUB_STEP_SUMMARY
+  #         EOF
+  #         ) | tee $GITHUB_STEP_SUMMARY
 
-  publish-verified:
-    if: needs.run-jobs.outputs.TEST_STATUS == 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
-    needs: [metadata, run-jobs]
-    uses: ./.github/workflows/_publish_container.yaml
-    secrets: inherit
-    with:
-      SOURCE_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
-      TARGET_IMAGE: upstream-pax
-      TARGET_TAGS: |
-        type=raw,value=latest-verified,priority=1000
+  # publish-verified:
+  #   if: needs.run-jobs.outputs.TEST_STATUS == 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH))
+  #   needs: [metadata, run-jobs]
+  #   uses: ./.github/workflows/_publish_container.yaml
+  #   secrets: inherit
+  #   with:
+  #     SOURCE_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
+  #     TARGET_IMAGE: upstream-pax
+  #     TARGET_TAGS: |
+  #       type=raw,value=latest-verified,priority=1000
 
-  triage:
-    needs: [metadata, run-jobs]
-    uses: ./.github/workflows/_triage.yaml
-    if: needs.run-jobs.outputs.TEST_STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
-    secrets: inherit
-    with:
-      BROKEN_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
-      BASE_IMAGE: ghcr.io/nvidia/upstream-pax:latest-verified
-      REPO_DIRS: "/opt/paxml /opt/praxis"
-      FILE_ISSUE: true
+  # triage:
+  #   needs: [metadata, run-jobs]
+  #   uses: ./.github/workflows/_triage.yaml
+  #   if: needs.run-jobs.outputs.TEST_STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
+  #   secrets: inherit
+  #   with:
+  #     BROKEN_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
+  #     BASE_IMAGE: ghcr.io/nvidia/upstream-pax:latest-verified
+  #     REPO_DIRS: "/opt/paxml /opt/praxis"
+  #     FILE_ISSUE: true
 
   if-upstream-failed:
     runs-on: ubuntu-latest
