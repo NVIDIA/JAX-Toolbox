@@ -309,7 +309,10 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: metrics-test-log
-          path: report.jsonl
+          path: |
+            report.jsonl
+            *_metrics.json
+
 
   sitrep:
     needs: [t5x-multi-node, t5x-multi-gpu, metrics]
