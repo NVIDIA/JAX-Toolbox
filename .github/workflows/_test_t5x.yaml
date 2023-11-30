@@ -315,7 +315,7 @@ jobs:
       ENDPOINT_FILENAME: 't5x-test-completion-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="${GITHUB_RUN_ID}-*/*N*G-status.json ${GITHUB_RUN_ID}-*/*P*G-status.json"
+        EXIT_STATUSES="${GITHUB_RUN_ID}-*/*G*N-status.json ${GITHUB_RUN_ID}-*/*P*G-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
