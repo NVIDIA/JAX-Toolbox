@@ -37,11 +37,10 @@ jobs:
         shell: bash -x -e {0}
         run: |
           EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
-          EXIT_STATUS_SUMMARY="## ${{ inputs.FW_NAME }} MGMN+SPMD Test Status"
-          cat <<EOF >>$EXIT_STATUS_SUMMARY
+          EXIT_STATUS_SUMMARY="## ${{ inputs.FW_NAME }} MGMN+SPMD Test Status
           | Test Case | State | Exit Code |
           | --- | --- | --- |
-          EOF
+          "
           for i in $EXIT_STATUSES; do
             # Files are named <GHID>-<NAME>/<NAME>-status.json
             echo "| $(echo $i | cut -d/ -f1 | cut -d- -f2) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
