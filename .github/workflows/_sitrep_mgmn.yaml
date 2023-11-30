@@ -37,39 +37,37 @@ jobs:
         shell: bash -x -e {0}
         run: |
           EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
-          EXIT_STATUS_SUMMARY="## ${{ inputs.FW_NAME }} MGMN+SPMD Test Status"
-          echo "`cat <<EOF
+          EXIT_STATUS_SUMMARY_FILE="exit_status_summary.json"
+          echo -e "\n\n## ${{ inputs.FW_NAME }} MGMN+SPMD Test Status" >> $EXIT_STATUS_SUMMARY_FILE
+          cat <<EOF >>$EXIT_STATUS_SUMMARY_FILE
           | Test Case | State | Exit Code |
           | --- | --- | --- |
-          EOF`" | tee -a EXIT_STATUS_SUMMARY
+          EOF
 
           for i in $EXIT_STATUSES; do
             # Files are named <GHID>-<NAME>/<NAME>-status.json
             echo "| $(echo $i | cut -d/ -f1 | cut -d- -f2) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
-          done | tee -a EXIT_STATUS_SUMMARY
+          done | tee -a $EXIT_STATUS_SUMMARY_FILE
 
           echo "Test statuses:"
           jq -rc 'input_filename,.' $EXIT_STATUSES
 
-          echo "EXIT_STATUS_SUMMARY<<EOF" >> ${GITHUB_OUTPUT}
-          echo "$EXIT_STATUS_SUMMARY" >> ${GITHUB_OUTPUT}
-          echo "EOF" >> ${GITHUB_OUTPUT}
+          echo "EXIT_STATUS_SUMMARY_FILE=$EXIT_STATUS_SUMMARY_FILE" >> ${GITHUB_OUTPUT}
 
       - name: Write metrics summary
         id: metrics
         shell: bash -x -e {0}
         run: |
-          METRICS_SUMMARY="## ${{ inputs.FW_NAME }} MGMN Test Metrics"
-          for i in *_metrics.json; do
+          METRICS_SUMMARY_FILE="metrics_summary.json"
+          echo -e "\n\n## ${{ inputs.FW_NAME }} MGMN Test Metrics" >> $METRICS_SUMMARY_FILE
+          for i in metrics-test-log/*_metrics.json; do
             echo $i | cut -d'.' -f1
             echo '```json'
             jq . $i
             echo '```'
-          done | tee -a METRICS_SUMMARY
+          done | tee -a $METRICS_SUMMARY_FILE
 
-          echo "METRICS_SUMMARY<<EOF" >> ${GITHUB_OUTPUT}
-          echo "$METRICS_SUMMARY" >> ${GITHUB_OUTPUT}
-          echo "EOF" >> ${GITHUB_OUTPUT}
+          echo "METRICS_SUMMARY_FILE=$METRICS_SUMMARY_FILE" >> ${GITHUB_OUTPUT}
 
       - name: Generate sitrep
         id: gen-sitrep
@@ -110,9 +108,9 @@ jobs:
           fi
 
           badge_label='Upstream Tests'
-          summary="${{ inputs.FW_NAME }} MGMN Test: $badge_message\n\n"
-          summary+="${{ steps.exit-status.outputs.EXIT_STATUS_SUMMARY }}\n\n"
-          summary+="${{ steps.metrics.outputs.METRICS_SUMMARY }}"
+          summary="${{ inputs.FW_NAME }} MGMN Test: $badge_message"
+          summary+=`cat ${{ steps.exit-status.outputs.EXIT_STATUS_SUMMARY_FILE }}`
+          summary+=`cat ${{ steps.metrics.outputs.METRICS_SUMMARY_FILE }}`
 
           to_json \
             summary \
