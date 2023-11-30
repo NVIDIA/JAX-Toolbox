@@ -454,7 +454,9 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: metrics-test-log
-          path: report.jsonl
+          path: |
+            report.jsonl
+            *_metrics.json
 
   sitrep:
     needs: [single-process-multi-device, pax-multi-node, single-process-evaluation, metrics]
