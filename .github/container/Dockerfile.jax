@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
+ARG BASE_IMAGE=cuda12.3-test
 ARG REPO_JAX="https://github.com/google/jax.git"
 ARG REPO_XLA="https://github.com/openxla/xla.git"
 ARG REPO_FLAX="https://github.com/google/flax.git"
@@ -38,15 +38,15 @@ RUN --mount=type=ssh \
     git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
 
 # TODO: This is a WAR to NCCL errors we observe in TOT. Should be removed when no longer needed
-RUN <<EOF bash -ex
-cd ${SRC_PATH_XLA}
+# RUN <<EOF bash -ex
+# cd ${SRC_PATH_XLA}
 
-git config --global user.name "${GIT_USER_NAME}"
-git config --global user.email "${GIT_USER_EMAIL}"
-git remote add -f ashors1 https://github.com/ashors1/xla
-git cherry-pick --allow-empty $(git merge-base ashors/main ashors1/revert-84222)..ashors1/revert-84222
-git remote remove ashors1
-EOF
+# git config --global user.name "${GIT_USER_NAME}"
+# git config --global user.email "${GIT_USER_EMAIL}"
+# git remote add -f ashors1 https://github.com/ashors1/xla
+# git cherry-pick --allow-empty $(git merge-base ashors/main ashors1/revert-84222)..ashors1/revert-84222
+# git remote remove ashors1
+# EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 ADD xla-arm64-neon.patch /opt
