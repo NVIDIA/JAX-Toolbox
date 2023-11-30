@@ -37,14 +37,16 @@ jobs:
         shell: bash -x -e {0}
         run: |
           EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
-          EXIT_STATUS_SUMMARY="## ${{ inputs.FW_NAME }} MGMN+SPMD Test Status
+          EXIT_STATUS_SUMMARY="## ${{ inputs.FW_NAME }} MGMN+SPMD Test Status"
+          echo "`cat <<EOF
           | Test Case | State | Exit Code |
           | --- | --- | --- |
-          "
+          EOF`" | tee -a EXIT_STATUS_SUMMARY
+
           for i in $EXIT_STATUSES; do
             # Files are named <GHID>-<NAME>/<NAME>-status.json
             echo "| $(echo $i | cut -d/ -f1 | cut -d- -f2) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
-          done | tee -a $EXIT_STATUS_SUMMARY
+          done | tee -a EXIT_STATUS_SUMMARY
 
           echo "Test statuses:"
           jq -rc 'input_filename,.' $EXIT_STATUSES
@@ -61,7 +63,7 @@ jobs:
             echo '```json'
             jq . $i
             echo '```'
-          done | tee -a $METRICS_SUMMARY
+          done | tee -a METRICS_SUMMARY
           echo "METRICS_SUMMARY='${METRICS_SUMMARY}'" >> ${GITHUB_OUTPUT}
 
       - name: Generate sitrep
