@@ -60,7 +60,7 @@ jobs:
           git config user.name "JAX-Toolbox CI"
           git config user.email "jax@nvidia.com"
           # Prepend trial branch with "z" to make it appear at the end
-          trial_branch=znightly-${{ github.run_id }}-${{ needs.metadata.outputs.BUILD_DATE }}
+          trial_branch=znightly-${{ needs.metadata.outputs.BUILD_DATE }}-${{ github.run_id }}
           git switch -c $trial_branch
           git status
           git add -u

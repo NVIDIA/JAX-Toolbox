@@ -11,7 +11,7 @@ pushd /opt/pip-tools.d
 pip-compile -o requirements.pre $(ls requirements-*.in)
 
 IFS=$'\n'
-for line in $(cat requirements.pre | egrep '^[^#].+ @ git\+'); do
+for line in $(cat requirements.pre | egrep '^[^#].+ @ git\+' || true); do
   # VCS installs are of the form "PACKAGE @ git+..."
   PACKAGE=$(echo "$line" | awk '{print $1}')
   ref=$(yq e ".${PACKAGE}.ref" ${MANIFEST_FILE})
@@ -30,13 +30,14 @@ unset IFS
 # that treats the above as equivalent and prefers the URI wit the SHA
 JAX_TOOLBOX_VCS_EQUIVALENCY=true pip-compile -o requirements.txt requirements.vcs $(ls requirements-*.in)
 
-unpinned_vcs_dependencies=$(cat requirements.txt | egrep '^[^#].+ @ git\+' | egrep -v '^[^#].+ @ git\+.+@')
-if [[ $(echo "$unpinned_vcs_dependencies" | wc -l) -gt 0 ]]; then
+unpinned_vcs_dependencies=$(cat requirements.txt | egrep '^[^#].+ @ git\+' | egrep -v '^[^#].+ @ git\+.+@' || true)
+if [[ $(echo -n "$unpinned_vcs_dependencies" | wc -l) -gt 0 ]]; then
   echo "Unpinned VCS installs found in $(readlink -f requirements.txt):"
   echo "$unpinned_vcs_dependencies"
   exit 1
 fi
 
-pip-sync --pip-args '--src /opt' requirements.txt
+# --no-deps is required since conflicts can still appear during pip-sync
+pip-sync --pip-args '--no-deps --src /opt' requirements.txt
 
 rm -rf ~/.cache/*
