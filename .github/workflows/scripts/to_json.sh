@@ -4,7 +4,7 @@
 function to_json() {
   CMD="jq -n "
   CMD+=$(for var in "$@"; do
-    echo "--arg _$var \"\$$var\" "
+    echo "$([[ "${!var}" =~ ^[0-9]+$ ]] && echo --argjson || echo --arg) _$var \"\$$var\" "
   done)
 
   JSON=$(for var in "$@"; do
