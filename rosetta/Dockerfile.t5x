@@ -22,11 +22,31 @@ ARG UPDATE_PATCHES
 ENV ENABLE_TE=1
 
 RUN --mount=target=/mnt/jax-toolbox,from=jax-toolbox <<"EOF" bash -exu
+############DELETE
+git config --global user.email "${GIT_USER_EMAIL}"
+git config --global user.name "${GIT_USER_NAME}"
+
+git clone -b 23.3.1 https://github.com/pypa/pip.git /opt/pip
+cp /mnt/jax-toolbox/.github/container/pip-vcs-equivalency.patch /opt/pip/
+cd /opt/pip
+git apply </opt/pip/pip-vcs-equivalency.patch
+git add -u
+git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github VCS installs for a package as equivalent. The spec of the last encountered version will be used'
+pip install --upgrade --no-cache-dir /opt/pip pip-tools && rm -rf ~/.cache/*
+cd -
+############DELETE
+#
 MANIFEST_DIR=$(dirname ${MANIFEST_FILE})
+if [[ "${UPDATE_PATCHES}" != "true" && "${UPDATE_PATCHES}" != "false" ]]; then
+  echo "UPDATE_PATCHES can only be true or false"
+  exit 1
+fi
 if [[ "${UPDATE_PATCHES}" == "true" ]]; then
   cp -r /mnt/jax-toolbox/.github/container/patches ${MANIFEST_DIR}/patches
   cp /mnt/jax-toolbox/.github/container/manifest.yaml ${MANIFEST_DIR}/manifest.yaml
   cp /mnt/jax-toolbox/.github/container/create-distribution.sh ${MANIFEST_DIR}/create-distribution.sh
+  # TODO: remove
+  cp /mnt/jax-toolbox/.github/container/pip-finalize.sh /usr/local/bin/
 fi
 cp -r /mnt/jax-toolbox/rosetta /opt/rosetta
 
