@@ -104,7 +104,6 @@ if [[ -z "$MANIFEST" || -z "$PACKAGE" ]]; then
   usage 1
 fi
 
-BASE_DIR=${BASE_DIR:-/opt}
 CLEAN_PATCHES=${CLEAN_PATCHES:-0}
 UPSTREAM_URL=$(yq e ".${PACKAGE}.url" $MANIFEST)
 # The tracking_ref is interpreted as the default "main" branch and all patches are 
@@ -115,7 +114,7 @@ MIRROR_GIT_URL=$(yq e ".${PACKAGE}.mirror_url // \"\"" $MANIFEST)
 EXTRA_DIR=$(yq e ".${PACKAGE}.extra_dir // \"\"" $MANIFEST)
 
 SKIP_APPLY=${SKIP_APPLY:-0}
-GEN_PATCH_DIR=${GEN_PATCH_DIR:-$SCRIPT_DIR/patches/$PACKAGE}
+GEN_PATCH_DIR=$SCRIPT_DIR/patches/$PACKAGE
 # Associative arrays aren't available before bash <4.0, so maintaining separate key/value arrays
 PATCH_KEYS=()
 PATCH_VALUES=()
