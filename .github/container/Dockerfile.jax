@@ -36,17 +36,6 @@ RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     get-source.sh -l xla -m ${MANIFEST_FILE}
 
-# TODO: This is a WAR to NCCL errors we observe in TOT. Should be removed when no longer needed
-RUN <<EOF bash -ex
-cd ${SRC_PATH_XLA}
-
-git config user.name "JAX Toolbox"
-git config user.email "jax@nvidia.com"
-git remote add -f ashors1 https://github.com/ashors1/xla
-git cherry-pick --allow-empty $(git merge-base ashors/main ashors1/revert-84222)..ashors1/revert-84222
-git remote remove ashors1
-EOF
-
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 # TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt
