@@ -5,16 +5,16 @@
 usage() {
 cat <<EOF
 Usage: $0 [OPTION]...
+  -b, --only-bump-patches        [Optional] If provided, update patch files and the patchlist in the manifest, but skip bumping refs
   -i, --input-manifest  PATH     If set, will clean the patch dir. Default is not to clean
   -h, --help                     [Optional] Print usage.
   -o, --output-manifest PATH     [Optional] Use this if you don't want to update manifest in-place
-      --only-bump-patches        [Optional] If provided, update patch files and the patchlist in the manifest, but skip bumping refs
 
 EOF
 exit $1
 }
 
-args=$(getopt -o i:ho: --long input-manifest:,help,output-manifest:,only-bump-patches -- "$@")
+args=$(getopt -o bi:ho: --long only-bump-patches,input-manifest:,help,output-manifest: -- "$@")
 if [[ $? -ne 0 ]]; then
   echo
   usage 1
@@ -23,6 +23,10 @@ fi
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
+    -b | --only-bump-patches)
+        ONLY_BUMP_PATCHES=1
+        shift 1
+        ;;
     -i | --input-manifest)
         MANIFEST_IN=$(readlink -f "$2")
         shift 2
@@ -33,10 +37,6 @@ while [ : ]; do
     -o | --output-manifest)
         MANIFEST_OUT=$(readlink -f "$2")
         shift 2
-        ;;
-    --only-bump-patches)
-        ONLY_BUMP_PATCHES=1
-        shift 1
         ;;
     --)
         shift;
