@@ -178,7 +178,7 @@ jobs:
     secrets: inherit
 
   publish-test-badge:
-    needs: [metadata, publish-build-badge, test-unit-amd64, test-t5x-amd64, test-vit-amd64]
+    needs: [metadata, amd64, arm64, test-unit-amd64, test-t5x-amd64, test-vit-amd64]
     uses: ./.github/workflows/_publish_badge.yaml
     if: always()
     secrets: inherit

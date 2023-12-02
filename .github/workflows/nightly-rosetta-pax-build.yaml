@@ -99,6 +99,7 @@ jobs:
     needs: [metadata, amd64, arm64]
     uses: ./.github/workflows/_publish_badge.yaml
     if: always()
+    with:
       ENDPOINT_FILENAME: 'rosetta-pax-build-status.json'
       PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
       SCRIPT: |
@@ -152,7 +153,7 @@ jobs:
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   publish-test-badge:
-    needs: [metadata, publish-build-badge, test-amd64]
+    needs: [metadata, amd64, arm64, test-amd64]
     uses: ./.github/workflows/_publish_badge.yaml
     if: always()
     secrets: inherit
