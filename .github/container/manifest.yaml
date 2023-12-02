@@ -1,32 +1,32 @@
-# Updated in: XXX
+# Updated in: 2023-12-01
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  ref: b032a0271e3e2ea8d0df64d2f3f1a1e450a38dc9  # 2023-11-15
+  ref: 595117b70c11055e569480b80907d8c8a9901805
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  ref: 8fb606ffa03c030035d6c0c9d05534dbf6701906  # 2023-11-15
+  ref: 78a5297d8e4301cb3ba2514061f56f89104e3d88
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
-  ref: a572f6af2fef565c0f9ba2fc12b781e9e3385140
+  ref: 230b0d77e98da22b6e574c3cbff743ca1504bfca
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  ref: d76118d90df0422d52261adc26a5f4351a1dd71f
+  ref: 92c1e500dd14608e54f75df8276baa1104c61d48
   mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
   tracking_ref: main
-  ref: c39a33a35bb2f03f6d36455e6378620c6634a995
+  ref: 1bfd2f15e5e77b09d60301367f67fdc9bb756b46
   mode: git-clone
   patches:
     mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
@@ -36,7 +36,7 @@ paxml:
   url: https://github.com/google/paxml.git
   mirror_url: https://github.com/nvjax-svc-0/paxml.git
   tracking_ref: main
-  ref: 6c811d5e8f82a8aa75530b50223302d98f47e984
+  ref: 7ae682d4d99630008e190b96c5296990297175c2
   mode: git-clone
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
@@ -44,15 +44,16 @@ praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
   tracking_ref: main
-  ref: fcadc09773e32a18abd5b0240e07da33316a9636
+  ref: b6f32fa0fc6721db1cec75972b0f569c82095956
   mode: git-clone
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
+    pull/36/head: file://patches/praxis/PR-36.patch # adds Transformer Engine support
 lingvo:
   # Used only in ARM pax builds
   url: https://github.com/tensorflow/lingvo.git
   tracking_ref: master
-  ref: 36a1e314864533eeb1cc1e6590e86c10c03b1516
+  ref: 0274fa20b4ff194c1c118b94b5f778caa5d9a84a
   mode: git-clone
 tensorflow-text:
   # Used only in ARM pax builds
@@ -67,7 +68,7 @@ pydantic:
 fiddle:
   url: https://github.com/google/fiddle.git
   tracking_ref: main
-  ref: b13db6481720bc897f4efd7e04c7ba4f5907ce74
+  ref: d409cf95164599a88e49d2b6a23a0972a7170b0b
   mode: pip-vcs
 # Used by t5x
 airio:
@@ -87,8 +88,8 @@ dllogger:
   mode: pip-vcs
 jestimator:
   url: https://github.com/google-research/jestimator.git
-  tracking_ref: master
-  ref: fa143d93e337ca8ab77c4510baf21ae52af24ab2
+  tracking_ref: main
+  ref: "fa143d93e337ca8ab77c4510baf21ae52af24ab2"
   mode: pip-vcs
 optax:
   url: https://github.com/deepmind/optax.git
