@@ -55,16 +55,14 @@ set -eou pipefail
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-MANIFEST_IN=${MANIFEST_IN:-}
-MANIFEST_OUT=${MANIFEST_OUT:-}
 ONLY_BUMP_PATCHES=${ONLY_BUMP_PATCHES:-0}
 
-if [[ -z "$MANIFEST_IN" ]]; then
+if [[ -z "${MANIFEST_IN:-}" ]]; then
   echo "Need to provide a value for -i/--input-manifest"
   usage 1
 fi
 
-if [[ -z "$MANIFEST_OUT" ]]; then
+if [[ -z "${MANIFEST_OUT:-}" ]]; then
   # Perform the update in place
   MANIFEST_OUT=$MANIFEST_IN
 else
