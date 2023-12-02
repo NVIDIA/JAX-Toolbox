@@ -91,8 +91,7 @@ set -ex -o pipefail
 git clone ${GIT_REPO} ${INSTALL_DIR}
 pushd ${INSTALL_DIR}
 git checkout ${GIT_REF}
-git submodule init
-git submodule update --recursive
+git submodule update --init --recursive
 popd
 
 echo "Writing to ${OUT_REQUIREMENTS_FILE}:"
