@@ -5,10 +5,10 @@
 usage() {
 cat <<EOF
 Usage: $0 [OPTION]...
-  -b, --only-bump-patches        [Optional] If provided, update patch files and the patchlist in the manifest, but skip bumping refs
+  -b, --only-bump-patches        If provided, update patch files and the patchlist in the manifest, but skip bumping refs
   -i, --input-manifest  PATH     If set, will clean the patch dir. Default is not to clean
-  -h, --help                     [Optional] Print usage.
-  -o, --output-manifest PATH     [Optional] Use this if you don't want to update manifest in-place
+  -h, --help                     Print usage.
+  -o, --output-manifest PATH     Use this if you don't want to update manifest in-place
 
 EOF
 exit $1
