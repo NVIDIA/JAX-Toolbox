@@ -326,8 +326,8 @@ jobs:
         | --- | --- | --- |
         EOF
         for i in $EXIT_STATUSES; do
-          # Files are named <GHID>-<NAME>/<NAME>-status.json
-          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f2) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
+          # Files are named t5x-<GHID>-<NAME>/<NAME>-status.json
+          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f3) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
         done | tee -a $GITHUB_STEP_SUMMARY
 
         echo "Test statuses:"
