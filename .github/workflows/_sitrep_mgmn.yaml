@@ -96,16 +96,14 @@ jobs:
               [[ $pytest_failed_tests -eq 0 ]] && [[ $pytest_total_tests -gt 0 ]]); then
             status=success
             badge_color=brightgreen
-            badge_message="${passed_tests}/${total_tests} ran ${pytest_passed_tests}/${pytest_total_tests} pass loss+perf"
           elif [[ $passed_tests -eq 0 ]] || [[ $pytest_passed_tests -eq 0 ]]; then
             status=failure
             badge_color=red
-            badge_message="${passed_tests}/${total_tests} ran ${pytest_passed_tests}/${pytest_total_tests} pass loss+perf"
           else
             status=failure
             badge_color=yellow
-            badge_message='error'
           fi
+          badge_message="${passed_tests}/${total_tests} ran ${pytest_passed_tests}/${pytest_total_tests} pass loss+perf"
 
           badge_label='Upstream Tests'
           summary="# ${{ inputs.FW_NAME }} MGMN Test: $badge_message"
