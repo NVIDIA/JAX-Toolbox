@@ -557,8 +557,8 @@ jobs:
         | --- | --- | --- |
         EOF
         for i in $T5X_EXIT_STATUSES; do
-          # Files are named ${{ inputs.ARTIFACT_NAME }}<GHID>-<NAME>/<NAME>-status.json
-          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f2-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
+          # Files are named ${{ inputs.ARTIFACT_NAME }}-rosetta-t5x-<GHID>-<NAME>/<NAME>-status.json
+          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
         done | tee -a $GITHUB_STEP_SUMMARY
 
         VIT_EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}rosetta-VIT-${GITHUB_RUN_ID}-*/*-status.json"
@@ -573,7 +573,7 @@ jobs:
         EOF
         for i in $VIT_EXIT_STATUSES; do
           # Files are named ${{ inputs.ARTIFACT_NAME }}<GHID>-<NAME>/<NAME>-status.json
-          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f2-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
+          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
         done | tee -a $GITHUB_STEP_SUMMARY
 
         EXIT_STATUSES="$VIT_EXIT_STATUSES $T5X_EXIT_STATUSES
