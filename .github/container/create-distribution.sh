@@ -4,7 +4,7 @@
 
 usage() {
 cat <<EOF
-$0 is a utility script that creates patches from remotes and applies them to the an upstream library
+$0 is a utility script that creates patches from remotes and applies them to an upstream library
 that has been locally cloned. The end result is a "distribution" of the library that includes features
 or fixes from the patches. This script does not build or install the library, but creates a local branch
 that includes all of the patches.
