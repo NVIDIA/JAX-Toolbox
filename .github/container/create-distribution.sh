@@ -4,6 +4,11 @@
 
 usage() {
 cat <<EOF
+$0 is a utility script that creates patches from remotes and applies them to the an upstream library
+that has been locally cloned. The end result is a "distribution" of the library that includes features
+or fixes from the patches. This script does not build or install the library, but creates a local branch
+that includes all of the patches.
+
 Usage: $0 [OPTION]...
   -c, --clean               [Optional] If set, will clean the patch dir. Default is not to clean
   -h, --help                [Optional] Print usage.
