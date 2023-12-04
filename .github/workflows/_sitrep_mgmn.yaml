@@ -17,7 +17,7 @@ on:
         required: true
     outputs:
       STATUS:
-        description: 'Summary pass/fail value indicating if results from tests are acceptable'
+        description: 'Summary of all tests run for the workflow. Set to "success" when all metrics per job and all jobs pass, whereas a single metric failure or job error sets the status to "failure"'
         value: ${{ jobs.sitrep.outputs.STATUS }}
 
 jobs:
@@ -103,7 +103,7 @@ jobs:
             status=failure
             badge_color=yellow
           fi
-          badge_message="${passed_tests}/${total_tests} ran ${pytest_passed_tests}/${pytest_total_tests} pass loss+perf"
+          badge_message="${passed_tests}/${total_tests} jobs | ${pytest_passed_tests}/${pytest_total_tests} metrics"
 
           badge_label='Upstream Tests'
           summary="# ${{ inputs.FW_NAME }} MGMN Test: $badge_message"
