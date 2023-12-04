@@ -66,7 +66,7 @@ DEBUG=0
 DRY=0
 EDITABLE=0
 JAXLIB_ONLY=0
-SRC_PATH_JAX="/opt/jax-source"
+SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla-source"
 XLA_ARM64_PATCH_LIST=""
 
@@ -262,6 +262,9 @@ popd
 ## Build jaxlib
 
 pushd $SRC_PATH_JAX
+
+# Delete old wheel if one already exist.
+rm -rf dist/j*.whl
 
 time CC=clang CXX=clang++ python build/build.py \
     --enable_cuda \
