@@ -19,7 +19,7 @@ on:
 
 jobs:
 
-  launch:
+  launch-slurm-runner:
     runs-on: ubuntu-latest
     steps:
       - name: Print environment variables

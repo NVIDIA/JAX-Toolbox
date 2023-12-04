@@ -1,0 +1,13 @@
+diff --git a/xla/pjrt/transpose_kernels.h b/xla/pjrt/transpose_kernels.h
+index 26a60c122..0a4011d9b 100644
+--- a/xla/pjrt/transpose_kernels.h
++++ b/xla/pjrt/transpose_kernels.h
+@@ -33,7 +33,7 @@ limitations under the License.
+ #define XLA_HAS_SSE2
+ #endif
+ 
+-#if defined(__ARM_NEON) && !defined(__ARM_BIG_ENDIAN)
++#if defined(__ARM_NEON) && !defined(__ARM_BIG_ENDIAN) && !defined(__CUDACC__)
+ #define XLA_HAS_ARM_NEON
+ #endif
+ 

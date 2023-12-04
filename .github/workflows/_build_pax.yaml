@@ -3,11 +3,15 @@ name: ~build Pax container
 on:
   workflow_call:
     inputs:
+      ARCHITECTURE:
+        type: string
+        description: 'CPU architecture to build the image for, e.g. amd64, arm64'
+        required: true
       BASE_IMAGE:
         type: string
         description: 'Base docker image that provides JAX'
         required: false
-        default: ghcr.io/nvidia/jax:latest
+        default: ghcr.io/nvidia/jax:mealkit
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -33,10 +37,23 @@ on:
         description: Git commit, tag, or branch for Praxis
         required: false
         default: main
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-pax-build'
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-pax-build'
     outputs:
-      DOCKER_TAGS:
-        description: "Tags of the image built"
-        value: ${{ jobs.merge.outputs.DOCKER_TAGS }}
+      DOCKER_TAG_MEALKIT:
+        description: "Tags of the 'mealkit' image built"
+        value: ${{ jobs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:
+        description: "Tags of the complete image built"
+        value: ${{ jobs.build-pax.outputs.DOCKER_TAG_FINAL }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -48,12 +65,13 @@ permissions:
 
 jobs:
 
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        PLATFORM: [amd64, arm64]
-    runs-on: [self-hosted, "${{ matrix.PLATFORM }}", small]
+  build-pax:
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+    env:
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
+      DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
     steps:
       - name: Print environment variables
         run: env
@@ -68,8 +86,14 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set docker metadata
-        id: meta
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.12.1
+
+      - name: Set docker metadata - mealkit
+        id: mealkit-metadata
         uses: docker/metadata-action@v4
         with:
           images: |
@@ -77,25 +101,21 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-upstream-pax-${{  matrix.PLATFORM }}
+            type=raw,value=${{ github.run_id }}-upstream-pax-${{ inputs.ARCHITECTURE }}-mealkit
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        with:
-          driver-opts: |
-            image=moby/buildkit:v0.12.1
-
-      - name: Build docker images
+      - name: Build mealkit image
+        id: mealkit-build
         uses: docker/build-push-action@v4
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.pax.${{ matrix.PLATFORM }}
-          platforms: linux/${{ matrix.PLATFORM }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          file: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          target: mealkit
+          tags: ${{ steps.mealkit-metadata.outputs.tags }}
+          labels: ${{ steps.mealkit-metadata.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
@@ -104,42 +124,8 @@ jobs:
             REF_PAXML=${{ inputs.REF_PAXML }}
             REF_PRAXIS=${{ inputs.REF_PRAXIS }}
 
-      # Temporary workaround until the following issues are solved:
-      # https://github.com/orgs/community/discussions/17245
-      # https://github.com/actions/runner/pull/2477
-      # https://github.com/orgs/community/discussions/26639
-      - name: Save image name as text file
-        shell: bash -x -e {0}
-        run: |
-          echo "${{ steps.meta.outputs.tags }}" >> image-name.txt
-
-      - name: Upload image name file as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: image-name-upstream-pax-${{ matrix.PLATFORM }}
-          path: image-name.txt
-
-  merge:
-    runs-on: ubuntu-latest
-    needs: build
-    outputs:
-      DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
-    steps:
-      # TODO: currently downloading all artifacts of the entire workflow
-      # Revise when this request is fulfilled:
-      # https://github.com/actions/download-artifact/issues/214
-      - name: Download image name files into separate folders
-        uses: actions/download-artifact@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set docker metadata
-        id: meta
+      - name: Set docker metadata - final
+        id: final-metadata
         uses: docker/metadata-action@v4
         with:
           images: |
@@ -147,21 +133,67 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-upstream-pax-multiarch
+            type=raw,value=${{ github.run_id }}-upstream-pax-${{ inputs.ARCHITECTURE }}
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Combine images into a single multi-arch image
+      - name: Build final image
+        id: final-build
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          target: final
+          tags: ${{ steps.final-metadata.outputs.tags }}
+          labels: ${{ steps.final-metadata.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
+            REPO_PAXML=${{ inputs.REPO_PAXML }}
+            REPO_PRAXIS=${{ inputs.REPO_PRAXIS }}
+            REF_PAXML=${{ inputs.REF_PAXML }}
+            REF_PRAXIS=${{ inputs.REF_PRAXIS }}
+
+      - name: Generate sitrep
+        if: success() || failure()
         shell: bash -x -e {0}
         run: |
-          docker manifest create ${{ steps.meta.outputs.tags }} $(
-            for IMAGE in $(cat image-name-upstream-pax-*/image-name.txt); do
-              REPO=$(echo $IMAGE | cut -d: -f1)
-              DIGEST=$(
-                docker manifest inspect $IMAGE |\
-                jq -r '.manifests[] | select(.platform.os == "linux") | .digest'
-              )
-              echo $REPO@${DIGEST}
-            done
-          )
-          docker manifest push ${{ steps.meta.outputs.tags }}
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='PAX ${{ inputs.ARCHITECTURE }} build'
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="PAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="PAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
+      - name: Upload sitrep and badge
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
+          path: |
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}

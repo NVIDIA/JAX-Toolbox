@@ -1,4 +1,4 @@
-name: ~test T5X, MGMN
+name: ~test T5X, multi-node
 
 on:
   workflow_call:
@@ -25,7 +25,7 @@ on:
 
 jobs:
 
-  single-process-multi-device:
+  t5x-multi-gpu:
     strategy:
       matrix:
         N_GPU: [1, 2, 4, 8]
@@ -144,7 +144,7 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  multi-gpu-multi-node:
+  t5x-multi-node:
     strategy:
       matrix:
         N_GPU: [1, 2, 4, 8]
@@ -269,7 +269,7 @@ jobs:
           path: output/*
 
   metrics:
-    needs: [multi-gpu-multi-node, single-process-multi-device]
+    needs: [t5x-multi-node, t5x-multi-gpu]
     runs-on: ubuntu-22.04
 
     steps:
@@ -307,7 +307,7 @@ jobs:
 
 
   publish-test:
-    needs: [multi-gpu-multi-node, single-process-multi-device, metrics]
+    needs: [t5x-multi-node, t5x-multi-gpu, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
