@@ -331,7 +331,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          IMAGE="$(echo ${{inputs.ROSETTA_T5X_IMAGE}} | sed 's/\//#/')"
+          IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=VIT1P${{ matrix.N_GPU }}G
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-VIT-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
@@ -448,7 +448,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          IMAGE="$(echo ${{inputs.ROSETTA_T5X_IMAGE}} | sed 's/\//#/')"
+          IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=VIT${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-VIT-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
