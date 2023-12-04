@@ -20,7 +20,7 @@ t5x:
   url: https://github.com/google-research/t5x.git
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
   tracking_ref: main
-  ref: $DISTRIBUTION_BASE_REF
+  latest_verified_commit: $DISTRIBUTION_BASE_REF
   mode: git-clone
   patches:
     pull/1372/head: null
