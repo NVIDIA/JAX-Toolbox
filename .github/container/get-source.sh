@@ -81,7 +81,7 @@ if [[ "${PACKAGE_MODE}" != "git-clone" ]]; then
 fi
 
 GIT_REPO=$(yq e ".${LIBRARY}.url" $MANIFEST)
-GIT_REF=$(yq e ".${LIBRARY}.ref" $MANIFEST)
+GIT_REF=$(yq e ".${LIBRARY}.latest_verified_commit" $MANIFEST)
 INSTALL_DIR=${BASE_INSTALL_DIR}/$LIBRARY
 
 echo "Fetching $GIT_REPO#$GIT_REF to $INSTALL_DIR"

@@ -146,7 +146,7 @@ done
 git fetch origin $TRACKING_REF
 
 # previous-HEAD's purpose is to point to the state of the repo before any distribution changes are made
-# We do not rely on the manifest.yaml's .${library}.ref because local commits may be made on top by the upstream docker builds
+# We do not rely on the manifest.yaml's .${library}.latest_verified_commit because local commits may be made on top by the upstream docker builds
 if ! git rev-parse --verify previous-HEAD >/dev/null 2>&1; then
   echo "[INFO]: Basing distribution on HEAD ($(git rev-parse HEAD)) and marking that with the local branch: previous-HEAD"
   git branch --force previous-HEAD HEAD

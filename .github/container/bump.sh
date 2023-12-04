@@ -76,7 +76,7 @@ for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
         url=$(yq e ".${pkg}.url" $MANIFEST_OUT)
         tracking_ref=$(yq e ".${pkg}.tracking_ref" $MANIFEST_OUT)
         new_ref=$(git ls-remote $url $tracking_ref | awk '{print $1}')
-        yq e ".${pkg}.ref = \"$new_ref\"" -i $MANIFEST_OUT
+        yq e ".${pkg}.latest_verified_commit = \"$new_ref\"" -i $MANIFEST_OUT
     fi
 
     has_patches=$(yq e ".${pkg} | has(\"patches\")" $MANIFEST_OUT)
