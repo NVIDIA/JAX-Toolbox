@@ -18,6 +18,11 @@ on:
         description: Extra gin args to pass to test-t5x.sh
         default: ""
         required: false
+      PUBLISH:
+        type: boolean
+        description: Publish badge?
+        default: false
+        required: false
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -312,8 +317,8 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 't5x-test-completion-status.json'
-      PUBLISH: false
+      ENDPOINT_FILENAME: 'upstream-t5x-test-overall-status.deleteme.json'
+      PUBLISH: ${{ inputs.PUBLISH }}
       SCRIPT: |
         EXIT_STATUSES="${GITHUB_RUN_ID}-*/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
@@ -356,7 +361,7 @@ jobs:
           BADGE_COLOR=yellow
         fi
         echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
-        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
+        echo "LABEL='Upstream tests'" >> $GITHUB_OUTPUT
         echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
