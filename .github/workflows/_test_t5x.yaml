@@ -284,7 +284,7 @@ jobs:
         run: |
           pip install pytest pytest-reportlog tensorboard
           for i in ${{ inputs.ARTIFACT_NAME }}T5X-${GITHUB_RUN_ID}-*; do
-            SUBDIR=$(echo $i | cut -d'-' -f2)
+            SUBDIR=$(echo $i | cut -d'-' -f3)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
           done
