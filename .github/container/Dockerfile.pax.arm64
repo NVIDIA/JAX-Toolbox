@@ -23,12 +23,12 @@ RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazeli
 
 FROM wheel-builder as tftext-builder
 ARG SRC_PATH_TFTEXT
-RUN <<"EOT" bash -exu -o pipefail
+RUN <<"EOF" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
 get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
 cd ${SRC_PATH_TFTEXT}
 ./oss_scripts/run_build.sh
-EOT
+EOF
 
 #------------------------------------------------------------------------------
 # build lingvo
@@ -43,14 +43,14 @@ COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 RUN get-source.sh -l lingvo -m ${MANIFEST_FILE}
 
 # build lingvo
-RUN <<"EOT" bash -exu -o pipefail
+RUN <<"EOF" bash -exu -o pipefail
 
 pushd ${SRC_PATH_LINGVO}
 git fetch origin pull/329/head:pr329
 git cherry-pick --allow-empty pr329
 
 # Disable 2 flaky tests here
-patch -p1 <<"EOF"
+patch -p1 <<"EOFINNER"
 diff --git a/pip_package/build.sh b/pip_package/build.sh
 index ef62c432e..659e78956 100755
 --- a/pip_package/build.sh
@@ -64,7 +64,7 @@ index ef62c432e..659e78956 100755
  fi
 
  DST_DIR="/tmp/lingvo/dist"
-EOF
+EOFINNER
 
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 /opt/tensorflow_text*.whl
 sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
@@ -76,7 +76,7 @@ pip install -r docker/dev.requirements.txt
 # running the tests entirely by uncommentin the following line.
 # SKIP_TEST=1
 PYTHON_MINOR_VERSION=$(python --version | cut -d ' ' -f 2 | cut -d '.' -f 2) pip_package/build.sh
-EOT
+EOF
 
 ###############################################################################
 ## Pax for AArch64
@@ -95,7 +95,7 @@ COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-paxml.in
 
 # paxml + praxis
-RUN <<"EOT" bash -ex
+RUN <<"EOF" bash -ex
 echo "tensorflow==2.13.0" >> /opt/pip-tools.d/requirements-paxml.in
 echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-paxml.in
 echo "chex==0.1.7" >> /opt/pip-tools.d/requirements-paxml.in
@@ -130,7 +130,7 @@ for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
   fi
   popd
 done
-EOT
+EOF
 
 ADD test-pax.sh /usr/local/bin
 
