@@ -25,7 +25,7 @@
         <!-- JAX -->
         <tr>
             <td>
-[![container-badge-jax]][container-link-jax]  
+[![container-badge-jax]][container-link-jax]
             </td>
             <td>
 [![build-badge-jax]][workflow-jax]
@@ -42,7 +42,7 @@
 [![container-badge-te]][container-link-te]
             </td>
             <td>
-[![build-badge-te]][workflow-te]
+Included in JAX build
             </td>
             <td>
 [![unit-test-badge-te]][workflow-te-test] <br> [![integration-test-badge-te]][workflow-te-test]
@@ -54,7 +54,7 @@
 [![container-badge-rosetta-t5x]][container-link-rosetta-t5x]
             </td>
             <td rowspan=3>
-[![build-badge-rosetta-t5x]][workflow-rosetta-t5x] 
+[![build-badge-rosetta-t5x]][workflow-rosetta-t5x]
             </td>
         </tr>
         <tr>
@@ -104,13 +104,11 @@
 
 [build-badge-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/weekly-base-build.yaml?branch=main&label=weekly&logo=github-actions&logoColor=dddddd
 [build-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
-[build-badge-te]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-te-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 [build-badge-rosetta-t5x]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-t5x-build-status.json&logo=github-actions&logoColor=dddddd
 [build-badge-rosetta-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-build-status.json&logo=github-actions&logoColor=dddddd
 
 [workflow-base]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/weekly-base-build.yaml
 [workflow-jax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax-build.yaml
-[workflow-te]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-te-build.yaml
 [workflow-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-t5x-build-test.yaml
 [workflow-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-pax-build.yaml
 
@@ -205,10 +203,9 @@ Docker has traditionally used Docker Schema V2.2 for multi-arch manifest lists b
 * Azure
     * [Accelerating AI applications using the JAX framework on Azure’s NDm A100 v4 Virtual Machines](https://techcommunity.microsoft.com/t5/azure-high-performance-computing/accelerating-ai-applications-using-the-jax-framework-on-azure-s/ba-p/3735314)
 * OCI
-    * [Running a deep learning workload with JAX on multinode multi-GPU clusters on OCI](https://blogs.oracle.com/cloud-infrastructure/post/running-multinode-jax-clusters-on-oci-gpu-cloud) 
+    * [Running a deep learning workload with JAX on multinode multi-GPU clusters on OCI](https://blogs.oracle.com/cloud-infrastructure/post/running-multinode-jax-clusters-on-oci-gpu-cloud)
 
 ## Resources
 * [What's New in JAX | GTC Spring 2023](https://www.nvidia.com/en-us/on-demand/session/gtcspring23-s51956/)
 * [Slurm and OpenMPI zero config integration](https://jax.readthedocs.io/en/latest/_autosummary/jax.distributed.initialize.html)
 * [Adding custom GPU ops](https://jax.readthedocs.io/en/latest/Custom_Operation_for_GPUs.html)
-
