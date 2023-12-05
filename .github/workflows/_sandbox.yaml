@@ -2,27 +2,10 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Nightly Dsitribution test
-      - Nightly JAX unit test
-      - Nightly Transformer Engine test
-      - Nightly Pax MGMN performance test  # The trial branch is propagated thru this workflow
-      - Nightly T5X MGMN performance test
-      - Nightly Rosetta Paxml build and test
-      - Nightly Rosetta T5x build and test
-    types: [completed]
-    branches: [main]
-
-permissions:
-  contents: write # to fetch code, and create commits
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
 
 jobs:
   sandbox:
     runs-on: ubuntu-22.04
-    if: always()
     steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
