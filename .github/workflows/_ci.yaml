@@ -9,7 +9,9 @@ on:
         required: true
       TRIAL_BRANCH:
         type: string
+        description: 'Name of (branch|tag|sha) with bumped manifest and patches'
         required: true
+        default: 'main'
     outputs:
       TAG_BASE:
         description: "Tags of the base image built"
