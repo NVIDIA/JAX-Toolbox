@@ -19,10 +19,10 @@ on:
         default: ""
         required: false
       BADGE_FILENAME:
-          type: string
-          description: 'Name of the endpoint JSON file for shields.io badge'
-          required: false
-          default: 'badge-t5x-mgmn-test.json'
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-t5x-mgmn-test.json'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
