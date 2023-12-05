@@ -457,7 +457,7 @@ jobs:
     with:
       BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
       ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
-      FW_NAME: PAX
+      FW_NAME: pax
 
   summary:
     runs-on: ubuntu-22.04
