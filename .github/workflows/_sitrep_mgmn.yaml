@@ -46,7 +46,7 @@ jobs:
 
           for i in $EXIT_STATUSES; do
             # Files are named <FW_NAME>-<GHID>-<NAME>/<NAME>-status.json
-            echo "| $(echo $i | cut -d/ -f1 | cut -d- -f2) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
+            echo "| $(echo $i | cut -d/ -f1 | awk -F- '{print $NF}') | $(jq -r .state $i) | $(jq -r .exitcode $i)"
           done | tee -a $EXIT_STATUS_SUMMARY_FILE
 
           echo "Test statuses:"
