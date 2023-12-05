@@ -28,6 +28,7 @@ popd
 EOF
 
 ADD test-t5x.sh /usr/local/bin
+ADD test-t5x-fmha.sh /usr/local/bin
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
