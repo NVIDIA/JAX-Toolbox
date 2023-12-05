@@ -149,7 +149,7 @@ jobs:
           python << EOF
           import json
           with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
-              dump = {'state': "COMPLETED", 'exitcode': "0"}
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
 
@@ -273,7 +273,7 @@ jobs:
           python << EOF
           import json
           with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
-              dump = {'state': "FAILED", 'exitcode': "1"}
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
 
