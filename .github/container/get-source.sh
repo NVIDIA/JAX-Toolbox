@@ -1,20 +1,24 @@
 #!/bin/bash
-## Clone a git repo and write the pip-compile input to stdout
-## Example:
-## get-source.sh -m manifest.yaml -l flax
-## Output:
-## -e /opt/flax
 
 ## Parse command-line arguments
 
 usage() {
-    echo "Usage: $0 [OPTION]..."
-    echo "  -b, --base-dir DIR     Directory to install package under. Default /opt"
-    echo "  -h, --help             Print usage."
-    echo "  -l, --library LIB      The library to clone, e.g., jax, flax, t5x"
-    echo "  -m, --manifest FILE    The JAX-Toolbox manifest yaml file"
-    echo "  -o, --out-requirements Create a pip manifest file if specified"
-    echo
+cat <<EOF
+Clones a git repo from the manifest and write the pip-compile input to stdout
+
+Usage: $0 [OPTION]...
+  -b, --base-dir DIR     Directory to install package under. Default /opt
+  -h, --help             Print usage.
+  -l, --library LIB      The library to clone, e.g., jax, flax, t5x
+  -m, --manifest FILE    The JAX-Toolbox manifest yaml file
+  -o, --out-requirements Create a pip manifest file if specified
+
+Example:
+  get-source.sh -m manifest.yaml -l flax
+Output:
+  -e /opt/flax
+
+EOF
     exit $1
 }
 
