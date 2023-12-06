@@ -141,7 +141,7 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       EXPERIMENT_SUBDIR: ROSETTA_PAX
-      ARTIFACT_NAME: "rosetta-"
+      ARTIFACT_NAME: "rosetta-pax-"
     secrets: inherit
 
   publish-test:
