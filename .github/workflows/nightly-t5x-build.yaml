@@ -31,7 +31,7 @@ jobs:
         id: if-upstream-failed
         shell: bash -x -e {0}
         run: |
-          echo "UPSTREAM_FAILED=${{ github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
+          echo "UPSTREAM_FAILED=${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
 
       - name: Cancel workflow if upstream workflow did not success
         if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
