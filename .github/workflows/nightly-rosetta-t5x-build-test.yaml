@@ -144,7 +144,7 @@ jobs:
     secrets: inherit
 
   publish-t5x:
-    needs: [metadata, test-t5x, test-vit]
+    needs: [metadata, test-t5x]
     uses: ./.github/workflows/_publish_t5x_pax_results.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
@@ -154,7 +154,7 @@ jobs:
     secrets: inherit
 
   publish-test:
-    needs: [metadata, amd64, arm64, test-unit, test-t5x, test-vit]
+    needs: [metadata, amd64, arm64, test-unit, test-t5x]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
@@ -164,18 +164,17 @@ jobs:
       SCRIPT: |
         UNIT_STATUS=${{ needs.test-unit.outputs.TEST_STATUS }}
         T5X_STATUS=${{ needs.test-t5x.outputs.TEST_STATUS }}
-        VIT_STATUS=${{ needs.test-vit.outputs.TEST_STATUS }}
 
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
         if [[ ${{ needs.amd64.result }} == "success" && ${{ needs.arm64.result }} == "success" ]]; then
-          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]]; then
+          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]]; then
             COLOR=brightgreen
             MESSAGE="Unit passed / MGMN passed"
           elif [[ $UNIT_STATUS == "success" ]]; then 
             COLOR=yellow
             MESSAGE="Unit passed / MGMN failed"
-          elif [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]]; then
+          elif [[ $T5X_STATUS == "success" ]]; then
             COLOR=yellow
             MESSAGE="Unit failed / MGMN passed"
           else
