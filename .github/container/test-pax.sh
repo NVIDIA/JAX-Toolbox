@@ -27,10 +27,11 @@ usage() {
     echo "  --pipeline-parallel        Pipeline parallelism to use. Defaults to 1 for no pipelining." 
     echo "  -n, --nodes                Number of nodes."
     echo "  -h, --help                 Print usage."
+    echo "  --seed                     Random seed to use during initialization."
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,evaluate,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,evaluate,steps:,seed:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -51,6 +52,7 @@ ENABLE_TE=0
 DROPOUT=0
 EVALUATE=0
 ADDITIONAL_ARGS=""
+RANDOM_SEED=1234
 
 eval set -- "$args"
 while [ : ]; do
@@ -114,6 +116,10 @@ while [ : ]; do
         -h | --help)
             usage 1
             ;;
+        --seed)
+            RANDOM_SEED=$2
+            shift 2
+            ;;
         --)
             shift;
             break 
@@ -142,6 +148,7 @@ print_var DP
 print_var FSDP
 print_var TP
 print_var PP
+print_var RANDOM_SEED
 
 PAXML_DIR=$(dirname `python -c 'import paxml; print(*paxml.__path__)'`)
 pushd ${PAXML_DIR}
@@ -165,6 +172,7 @@ percore_batch_size = ${BATCH_PER_GPU}
 steps = ${STEPS}
 dtype = "${DTYPE}"
 dropout = float(${DROPOUT})
+seed = ${RANDOM_SEED}
 
 assert num_gpus == dp*fsdp*tp*pp, f'product of parallel strategies should equal number of available gpus. Have {num_gpus} gpus, but product of parallel strategies is {dp*fsdp*tp*pp}'
 
@@ -281,17 +289,22 @@ if pp > 1:
     PERCORE_BATCH_SIZE = percore_batch_size
     FRPOP_DTYPE = dtype
     MAX_STEPS = steps
+    RANDOM_SEED = seed
     
     def task(self):
       task_p = super().task()
       task_p.train.always_use_train_for_model_init=False
       task_p.model.report_strict_acc=True
+
+      task_p.train.random_seed = self.RANDOM_SEED
       return task_p
 
 else:
   @experiment_registry.register
   class Synthetic126M(GPT126M, SyntheticDataset):
-    
+   
+    RANDOM_SEED = seed
+
     ICI_MESH_SHAPE = [dp, fsdp, tp]
     DCN_MESH_SHAPE = [dcn_dp, dcn_fsdp, 1]
     PERCORE_BATCH_SIZE = percore_batch_size
@@ -318,6 +331,7 @@ else:
       stacked_p.atten_dropout_prob = self.DROPOUT_PROB
 
       task_p.train.always_use_train_for_model_init=False
+      task_p.train.random_seed=self.RANDOM_SEED
       task_p.model.report_strict_acc=True
 
       return task_p
@@ -355,6 +369,7 @@ else
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
     --enable_checkpoint_saving=False \
+    --globally_use_hardware_rng=False \
     $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 fi
