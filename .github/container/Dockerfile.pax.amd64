@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 
-ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
 ARG REPO_PAXML=https://github.com/google/paxml.git
 ARG REPO_PRAXIS=https://github.com/google/praxis.git
 ARG REF_PAXML=main
