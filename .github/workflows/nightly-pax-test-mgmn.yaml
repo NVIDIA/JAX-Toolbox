@@ -154,7 +154,7 @@ jobs:
   triage:
     needs: [metadata, publish-completion]
     uses: ./.github/workflows/_triage.yaml
-    if: needs.publish-completion.outputs.STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
+    if: failure() && needs.publish-completion.outputs.STATUS != 'success' && ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch')
     secrets: inherit
     with:
       BROKEN_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
