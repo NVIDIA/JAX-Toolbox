@@ -18,6 +18,11 @@ on:
         description: Extra gin args to pass to test-t5x.sh
         default: ""
         required: false
+      ARTIFACT_NAME:
+        type: string
+        description:  If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
+        default: ""
+        required: false
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'

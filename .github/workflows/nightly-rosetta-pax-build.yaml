@@ -139,6 +139,16 @@ jobs:
       PAX_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
+  publish-pax:
+    needs: [metadata, test-pax]
+    uses: ./.github/workflows/_publish_t5x_pax_results.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      EXPERIMENT_SUBDIR: ROSETTA_PAX
+      ARTIFACT_NAME: "rosetta-pax-"
+    secrets: inherit
+
   publish-test:
     needs: [metadata, amd64, arm64, test-pax]
     uses: ./.github/workflows/_publish_badge.yaml
