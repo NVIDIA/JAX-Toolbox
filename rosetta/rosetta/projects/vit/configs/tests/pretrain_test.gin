@@ -44,6 +44,7 @@ from rosetta.data import wds_utils
 
 from rosetta.data import dali
 from rosetta.projects.vit import dali_utils
+from rosetta.projects.vit import utils as v_utils
 
 MIXTURE_OR_TASK_NAME = %gin.REQUIRED
 TRAIN_STEPS = %gin.REQUIRED
@@ -52,6 +53,7 @@ BATCH_SIZE = 128
 INFER_BS = %BATCH_SIZE
 HIDDEN_DROPOUT_PROB=0.1
 LN_EPSILON=1e-5
+TRAIN_INDEX_DIR=None
 
 # HW RNG is faster than SW, but has limited determinism.
 # Most notably it is not deterministic across different
@@ -98,7 +100,8 @@ train/wds_utils.WebDatasetConfig:
   urls = %MIXTURE_OR_TASK_NAME
   batch_size = %BATCH_SIZE
   shuffle = %SHUFFLE_TRAIN_EXAMPLES
-  seed = %RANDOM_SEED 
+  seed = %RANDOM_SEED
+  index_dir = %TRAIN_INDEX_DIR
  
 utils.CheckpointConfig:
   restore = @utils.RestoreCheckpointConfig()
@@ -107,6 +110,7 @@ utils.RestoreCheckpointConfig:
   path = []  # initialize from scratch
   fallback_to_scratch = True
   strict = False
+  state_transformation_fns = [@v_utils.just_states_transform]
 
 trainer.Trainer:
   num_microbatches = None
