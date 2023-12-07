@@ -54,48 +54,48 @@ jobs:
         id: submit
         shell: bash -x -e {0}
         run: |
-          SLURM_JOB_ID=$(
-            ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
-              sbatch --parsable \
-            <<"EOF"
-            #!/bin/bash
-            #SBATCH --job-name=${{steps.meta.outputs.JOB_NAME }}
-            #SBATCH --exclusive
-            #SBATCH --nodes=1
-            #SBATCH --tasks=1
-            #SBATCH --gpus-per-node=8
-            #SBATCH --time="${{ inputs.TIME }}"
-            #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          SLURM_JOB_ID_FILE=$(mktemp)
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} >${SLURM_JOB_ID_FILE} \
+            sbatch --parsable \
+          <<"EOF"
+          #!/bin/bash
+          #SBATCH --job-name=${{steps.meta.outputs.JOB_NAME }}
+          #SBATCH --exclusive
+          #SBATCH --nodes=1
+          #SBATCH --tasks=1
+          #SBATCH --gpus-per-node=8
+          #SBATCH --time="${{ inputs.TIME }}"
+          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
 
-            # obtain runner registration token
-            RUNNER_TOKEN=$(
-              curl \
-                -L \
-                -X POST \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer ${{ secrets.RUNNER_REGISTRATION_AUTH_TOKEN }}" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                https://api.github.com/repos/${{ github.repository }}/actions/runners/registration-token |\
-              jq -r '.token'
-            )
-
-            # launch runner
-            time docker run \
-              --network host \
-              --gpus all \
-              --privileged \
-              -v /runner \
-              -e RUNNER_NAME="${{ inputs.NAME }}" \
-              -e RUNNER_LABELS="${{ inputs.LABELS }}" \
-              -e RUNNER_REPO="${{ github.repository }}" \
-              -e RUNNER_TOKEN="${RUNNER_TOKEN}" \
-              -e RUNNER_EPHEMERAL=true \
-              -e DOCKER_ENABLED=true \
-              -e DOCKERD_IN_RUNNER=true \
-              ghcr.io/yhtang/actions-runner-dind:ubuntu-22.04  # use personal repo for the time being to avoid auth/cost issues
-            EOF
+          # obtain runner registration token
+          RUNNER_TOKEN=$(
+            curl \
+              -L \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.RUNNER_REGISTRATION_AUTH_TOKEN }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/${{ github.repository }}/actions/runners/registration-token |\
+            jq -r '.token'
           )
-          echo "SLURM_JOB_ID=$SLURM_JOB_ID" >> $GITHUB_OUTPUT
+
+          # launch runner
+          time docker run \
+            --network host \
+            --gpus all \
+            --privileged \
+            -v /runner \
+            -e RUNNER_NAME="${{ inputs.NAME }}" \
+            -e RUNNER_LABELS="${{ inputs.LABELS }}" \
+            -e RUNNER_REPO="${{ github.repository }}" \
+            -e RUNNER_TOKEN="${RUNNER_TOKEN}" \
+            -e RUNNER_EPHEMERAL=true \
+            -e DOCKER_ENABLED=true \
+            -e DOCKERD_IN_RUNNER=true \
+            ghcr.io/yhtang/actions-runner-dind:ubuntu-22.04  # use personal repo for the time being to avoid auth/cost issues
+          EOF
+
+          echo "SLURM_JOB_ID=$(cat ${SLURM_JOB_ID_FILE})" >> $GITHUB_OUTPUT
 
       - name: Wait for SLURM job to complete
         shell: bash -x -e {0}
