@@ -20,6 +20,7 @@ usage() {
     echo "  -e, --epochs              Number of epochs to run, defaults to 7."
     echo "  --multiprocess            Enable the multiprocess GPU mode."
     echo "  -o, --output NAME         Name for the output folder, a temporary folder will be created if none specified."
+    echo "  --save-hlo {0, 1}         1 to save the dumped hlo, 0 to remove the hlo dumped folder"
     echo "  --seed INT                Random seed for deterministim. Defaults to 42."
     echo "  -s, --steps-per-epoch INT Steps per epoch. Detauls to 100"
     echo "  -h, --help                Print usage."
@@ -43,6 +44,7 @@ OUTPUT=$(mktemp -d)
 SEED=42
 STEPS_PER_EPOCH=100
 ENABLE_TE=${ENABLE_TE:-0}
+SAVE_HLO=${SAVE_HLO:-0}
 
 eval set -- "$args"
 while [ : ]; do
@@ -80,6 +82,10 @@ while [ : ]; do
             ;;
         -o | --output)
             OUTPUT="$2"
+            shift 2
+            ;;
+        --save-hlo)
+            SAVE_HLO="$2"
             shift 2
             ;;
         --seed)
@@ -218,6 +224,11 @@ echo "Output at ${OUTPUT}"
 fmha_regex="fmha[-bmm]?[-scale]?[-bias]?[-mask]?[-softmax]?[-dropout]?[-bmm]?[-backward]?*"
 
 result=$(grep -irlnE "$fmha_regex" "${HLO_DIR}/"*.txt)
+
+if [[ $SAVE_HLO -eq 0 ]]; then
+	rm -rf $HLO_DIR
+ 	echo "Removed dumped HLO directory!"
+fi
 
 if [ -z "$result" ]; then
         echo "E: No FMHA instructions were found in the hlo files!"
