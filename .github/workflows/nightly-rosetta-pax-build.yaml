@@ -169,7 +169,7 @@ jobs:
         echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
 
   finalize:
-    if: always()
+    if: "!cancelled()"
     needs: [metadata, amd64, arm64]
     uses: ./.github/workflows/_finalize.yaml
     with:
