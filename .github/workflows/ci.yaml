@@ -83,7 +83,7 @@ jobs:
 
   finalize:
     needs: [amd64, arm64]
-    if: always()
+    if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: false
