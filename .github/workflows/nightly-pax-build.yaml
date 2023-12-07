@@ -35,7 +35,12 @@ jobs:
 
       - name: Cancel workflow if upstream workflow did not success
         if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
-        uses: styfle/cancel-workflow-action@0.12.0
+        run: |
+          echo "Upstream worflow failed, cancelling this workflow"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          cat  # blocks execution in case workflow cancellation takes time
 
       - name: Determine if the resulting container should be 'published'
         id: if-publish
