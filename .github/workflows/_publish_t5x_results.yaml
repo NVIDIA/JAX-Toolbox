@@ -1,4 +1,4 @@
-name: ~publish t5x integration test results
+name: ~publish t5x integration test results on Tensorboard server
 
 on:
   workflow_call:
