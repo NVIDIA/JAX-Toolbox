@@ -34,7 +34,7 @@ jobs:
           echo "UPSTREAM_FAILED=${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
 
       - name: Cancel workflow if upstream workflow did not success
-        if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
+        # if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
         uses: styfle/cancel-workflow-action@0.12.0
         with:
           workflow_id: ${{ github.run_id }}
