@@ -132,6 +132,7 @@ print_var MULTIPROCESS
 print_var STEPS_PER_EPOCH
 print_var TRAIN_STEPS
 print_var HLO_DIR
+print_var SAVE_HLO
 
 ## Enter T5X source folder
 T5X_DIR=$(dirname `python -c 'import t5x; print(*t5x.__path__)'`)
