@@ -67,7 +67,7 @@ jobs:
     secrets: inherit
 
   finalize:
-    if: always()
+    if: "!cancelled()"
     needs: [metadata, run]
     uses: ./.github/workflows/_finalize.yaml
     with:
