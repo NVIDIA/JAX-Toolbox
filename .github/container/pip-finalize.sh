@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -exo pipefail
+set -eoux pipefail
 
 pushd /opt/pip-tools.d
 
@@ -30,6 +30,7 @@ unset IFS
 # that treats the above as equivalent and prefers the URI wit the SHA
 JAX_TOOLBOX_VCS_EQUIVALENCY=true pip-compile -o requirements.txt requirements.vcs $(ls requirements-*.in)
 
+# If there are unpinned VCS dependencies, error since these should be included in the manifest
 unpinned_vcs_dependencies=$(cat requirements.txt | egrep '^[^#].+ @ git\+' | egrep -v '^[^#].+ @ git\+.+@' || true)
 if [[ $(echo -n "$unpinned_vcs_dependencies" | wc -l) -gt 0 ]]; then
   echo "Unpinned VCS installs found in $(readlink -f requirements.txt):"
