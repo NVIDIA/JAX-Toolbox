@@ -33,11 +33,11 @@ jobs:
   metadata:
     runs-on: ubuntu-22.04
     outputs:
-      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ steps.meta-vars.outputs.BUILD_DATE }}
       BASE_LIBRARY: ${{ steps.base-metadata.outputs.BASE_LIBRARY }}
       BASE_IMAGE_AMD64: ${{ steps.base-metadata.outputs.BASE_IMAGE_AMD64 }}
       BASE_IMAGE_ARM64: ${{ steps.base-metadata.outputs.BASE_IMAGE_ARM64 }}
-      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+      PUBLISH: ${{ steps.base-metadata.outputs.PUBLISH }}
     steps:
       - name: Check if the triggering workflow failed
         id: if-upstream-failed
