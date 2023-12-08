@@ -18,6 +18,11 @@ on:
         description: Publish dated results to tensorboard server?
         default: false
         required: false
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: false
+        default: 'T5X'
 
 permissions:
   contents: read  # to fetch code
@@ -86,6 +91,7 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       EXPERIMENT_SUBDIR: T5X
+      ARTIFACT_NAME: "${{ inputs.FW_NAME }}-"
     secrets: inherit
 
   publish-verified-image:
