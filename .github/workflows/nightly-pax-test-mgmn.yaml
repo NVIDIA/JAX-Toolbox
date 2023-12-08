@@ -118,7 +118,7 @@ jobs:
       FILE_ISSUE: true
 
   finalize:
-    if: "!cancelled()"
+    if: ${{ !cancelled() }}
     needs: [metadata, run-jobs]
     uses: ./.github/workflows/_finalize.yaml
     with:
