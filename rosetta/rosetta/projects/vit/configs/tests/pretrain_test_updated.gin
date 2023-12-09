@@ -43,6 +43,7 @@ from t5x import optimizers
 from rosetta.data import wds_utils
 
 from rosetta.data import dali
+from rosetta.data import dali_iterator
 from rosetta.projects.vit import dali_utils
 from rosetta.projects.vit import utils as v_utils
 
@@ -79,7 +80,7 @@ train_script.train:
   random_seed = %RANDOM_SEED
   use_hardware_rng = %USE_HARDWARE_RNG
   summarize_config_fn = @gin_utils.summarize_gin_config
-  get_dataset_fn = @dali.get_dali_dataset
+  get_dataset_fn = @dali_iterator.get_dali_dataset
   train_eval_get_dataset_fn = None
   run_eval_before_training=False
   eval_steps = None
