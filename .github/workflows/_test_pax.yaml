@@ -27,7 +27,7 @@ on:
         type: string
         description: 'Name of the framework being used'
         required: false
-        default: 'pax'
+        default: 'PAXML'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
