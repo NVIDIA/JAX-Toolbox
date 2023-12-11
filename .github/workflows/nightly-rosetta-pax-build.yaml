@@ -85,58 +85,58 @@ jobs:
           echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
           echo "BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}" >> $GITHUB_OUTPUT
 
-  amd64:
-    needs: metadata
-    uses: ./.github/workflows/_build_rosetta.yaml
-    with:
-      ARCHITECTURE: amd64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
-    secrets: inherit
+  #amd64:
+  #  needs: metadata
+  #  uses: ./.github/workflows/_build_rosetta.yaml
+  #  with:
+  #    ARCHITECTURE: amd64
+  #    BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #    BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
+  #    BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
+  #  secrets: inherit
 
-  arm64:
-    needs: metadata
-    uses: ./.github/workflows/_build_rosetta.yaml
-    with:
-      ARCHITECTURE: arm64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
-    secrets: inherit
+  #arm64:
+  #  needs: metadata
+  #  uses: ./.github/workflows/_build_rosetta.yaml
+  #  with:
+  #    ARCHITECTURE: arm64
+  #    BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #    BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
+  #    BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
+  #  secrets: inherit
 
-  publish-mealkit:
-    needs: [metadata, amd64, arm64]
-    if: needs.metadata.outputs.PUBLISH == 'true'
-    uses: ./.github/workflows/_publish_container.yaml
-    with:
-      SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
-        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
-      TARGET_IMAGE: pax
-      TARGET_TAGS: |
-        type=raw,value=mealkit,priority=500
-        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+  #publish-mealkit:
+  #  needs: [metadata, amd64, arm64]
+  #  if: needs.metadata.outputs.PUBLISH == 'true'
+  #  uses: ./.github/workflows/_publish_container.yaml
+  #  with:
+  #    SOURCE_IMAGE: |
+  #      ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+  #      ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
+  #    TARGET_IMAGE: pax
+  #    TARGET_TAGS: |
+  #      type=raw,value=mealkit,priority=500
+  #      type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
-  publish-final:
-    needs: [metadata, amd64, arm64]
-    if: needs.metadata.outputs.PUBLISH == 'true'
-    uses: ./.github/workflows/_publish_container.yaml
-    with:
-      SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
-      TARGET_IMAGE: pax
-      TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900  
+  #publish-final:
+  #  needs: [metadata, amd64, arm64]
+  #  if: needs.metadata.outputs.PUBLISH == 'true'
+  #  uses: ./.github/workflows/_publish_container.yaml
+  #  with:
+  #    SOURCE_IMAGE: |
+  #      ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+  #      ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+  #    TARGET_IMAGE: pax
+  #    TARGET_TAGS: |
+  #      type=raw,value=latest,priority=1000
+  #      type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900  
 
   test-pax:
     needs: [metadata, amd64, arm64]
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
-      PAX_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+      PAX_IMAGE: ${{ inputs.BASE_IMAGE }}
     secrets: inherit
 
   publish-pax:
