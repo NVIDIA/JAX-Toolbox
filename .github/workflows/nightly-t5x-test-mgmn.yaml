@@ -91,6 +91,8 @@ jobs:
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       EXPERIMENT_SUBDIR: T5X
+      # This is derived from https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/workflows/_test_t5x.yaml#L144.
+      # The format is name of the framework followed by a dash.
       ARTIFACT_NAME: "${{ inputs.FW_NAME }}-"
     secrets: inherit
 
