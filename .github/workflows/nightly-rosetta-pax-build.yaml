@@ -132,7 +132,7 @@ jobs:
   #      type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900  
 
   test-pax:
-    needs: [metadata, amd64, arm64]
+    needs: [metadata]
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
@@ -150,7 +150,7 @@ jobs:
     secrets: inherit
 
   publish-test:
-    needs: [metadata, amd64, arm64, test-pax]
+    needs: [metadata, test-pax]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
@@ -162,18 +162,18 @@ jobs:
 
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
-        if [[ ${{ needs.amd64.result }} == "success" && ${{ needs.arm64.result }} == "success" ]]; then
-          if [[ $PAX_STATUS == "success" ]]; then
-            COLOR=brightgreen
-            MESSAGE="MGMN passed"
-          else
-            COLOR=red
-            MESSAGE="MGMN failed"
-          fi
+        #if [[ ${{ needs.amd64.result }} == "success" && ${{ needs.arm64.result }} == "success" ]]; then
+        if [[ $PAX_STATUS == "success" ]]; then
+          COLOR=brightgreen
+          MESSAGE="MGMN passed"
         else
-          MESSAGE="n/a"
-          COLOR="red"
+          COLOR=red
+          MESSAGE="MGMN failed"
         fi
+        #else
+        #  MESSAGE="n/a"
+        #  COLOR="red"
+        #fi
 
         echo "MESSAGE='${MESSAGE}'" >> $GITHUB_OUTPUT
         echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
