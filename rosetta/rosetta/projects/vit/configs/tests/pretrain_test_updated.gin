@@ -85,7 +85,7 @@ train_script.train:
   run_eval_before_training=False
   eval_steps = None
   verify_matching_vocabs_fn = None
-  prepare_train_iter_fn = @dali.create_sharded_iterator
+  prepare_train_iter_fn = @dali_iterator.prepare_dali_iterator
   prepare_eval_iter_fn = None
 
 partitioning.PjitPartitioner:
