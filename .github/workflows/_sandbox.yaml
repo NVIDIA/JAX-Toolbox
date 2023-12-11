@@ -11,3 +11,7 @@ jobs:
       LABELS: "TEST:${{ github.run_id }}"
       TIME: "01:00:00"
     secrets: inherit
+
+  pax-multi-node:
+    uses: ./.github/workflows/_test_pax.yaml
+    secrets: inherit
