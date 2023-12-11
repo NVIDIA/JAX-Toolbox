@@ -180,7 +180,7 @@ jobs:
 
   finalize:
     if: "!cancelled()"
-    needs: [metadata, amd64, arm64]
+    needs: [metadata]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
