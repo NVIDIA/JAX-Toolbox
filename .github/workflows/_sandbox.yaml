@@ -1,4 +1,4 @@
-name: ~build T5X container
+name: ~build Levanter container
 
 on:
   workflow_call:
@@ -29,23 +29,23 @@ on:
         description: Git commit, tag, or branch for TE
         required: false
         default: main
-      ARTIFACT_NAME:
-        type: string
-        description: 'Name of the artifact zip file'
-        required: false
-        default: 'artifact-levanter-build'
-      BADGE_FILENAME:
-        type: string
-        description: 'Name of the endpoint JSON file for shields.io badge'
-        required: false
-        default: 'badge-levanter-build'
+      # ARTIFACT_NAME:
+      #   type: string
+      #   description: 'Name of the artifact zip file'
+      #   required: false
+      #   default: 'artifact-levanter-build'
+      # BADGE_FILENAME:
+      #   type: string
+      #   description: 'Name of the endpoint JSON file for shields.io badge'
+      #   required: false
+      #   default: 'badge-levanter-build'
     outputs:
       DOCKER_TAG_MEALKIT:
         description: "Tags of the 'mealkit' image built"
-        value: ${{ jobs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}
+        value: ${{ jobs.build.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:
         description: "Tags of the complete image built"
-        value: ${{ jobs.build-levanter.outputs.DOCKER_TAG_FINAL }}
+        value: ${{ jobs.build.outputs.DOCKER_TAG_FINAL }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -57,7 +57,7 @@ permissions:
 
 jobs:
 
-  build-levanter:
+  build:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
