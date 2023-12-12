@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
 ARG REPO_JAX="https://github.com/google/jax.git"
 ARG REPO_XLA="https://github.com/openxla/xla.git"
