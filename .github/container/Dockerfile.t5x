@@ -1,4 +1,6 @@
 # syntax=docker/dockerfile:1-labs
+# Example command to build manually:
+#   docker buildx build -f Dockerfile.t5x --tag t5x --build-arg BASE_IMAGE=ghcr.io/nvidia/jax:mealkit-2023-12-12 .
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
 ARG REPO_T5X=https://github.com/google-research/t5x.git
@@ -38,6 +40,7 @@ find * | grep '.whl$'
 EOF
 RUN pip install /opt/text/tensorflow_text-*.whl
 #RUN echo "-e file:///opt/text/tensorflow_text-*.whl"  >> /opt/pip-tools.d/manifest.t5x
+RUN echo "tensorflow-text @  file://$(ls /opt/text/tensorflow_text-*.whl)" >> /opt/pip-tools.d/manifest.t5x
 
 # Install T5 now, Pip will build the wheel from source, it needs Rust.
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
@@ -53,7 +56,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh &
     grep -v cargo /root/.bashrc.save > /root/.bashrc && \
     rm /root/.bashrc.save && \
         rm -Rf /root/.cache /tmp/*
-
+RUN "t5 >> /opt/pip-tools.d/manifest.t5x"
 
 RUN <<"EOF" bash -ex
 get-source.sh -f ${REPO_T5X} -r ${REF_T5X} -d ${SRC_PATH_T5X}
@@ -90,4 +93,15 @@ ADD test-t5x.sh /usr/local/bin
 
 FROM mealkit as final
 
+RUN pip uninstall -y tensorflow-text
 RUN pip-finalize.sh
+# Super basic test. It failed on GH as some dependency on pypi install no-arch wheels on ARM when they are in fact x86-64 wheels.
+RUN python -c "import t5x"
+
+#pip install grain-nightly # Install x86 so on ARM.
+#pip install git+https://github.com/google/grain.git # Don't work
+## So try to manually build it.
+#cd /opt
+#git clone https://github.com/google/grain.git
+#cd grain
+#bash grain/oss/build_whl.sh # Many issues.
