@@ -2,6 +2,7 @@ name: ~build T5X container
 
 on:
   workflow_call:
+  workflow_dispatch:
     inputs:
       ARCHITECTURE:
         type: string
