@@ -76,7 +76,7 @@ jobs:
         id: publish
         shell: bash -x -e {0}
         run: |
-          echo "PUBLISH=${{ github.event_name == 'workflow_run' || inputs.PUBLISH == 'true' }}" >> $GITHUB_OUTPUT
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || inputs.PUBLISH == true }}" >> $GITHUB_OUTPUT
 
   run-jobs:
     needs: metadata
