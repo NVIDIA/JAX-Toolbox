@@ -1,8 +1,7 @@
-name: ~build Levanter container
+name: ~build T5X container
 
 on:
   workflow_call:
-  workflow_dispatch:
     inputs:
       ARCHITECTURE:
         type: string
@@ -18,34 +17,44 @@ on:
         type: string
         description: "Build date in YYYY-MM-DD format"
         required: false
-        default: '2023-12-12'
-      REPO_LEVANTER:
+        default: 'NOT SPECIFIED'
+      REPO_T5X:
         type: string
         description: URL of T5X repository to check out
         required: false
-        default: "https://github.com/stanford-crfm/levanter.git"
-      REF_LEVANTER:
+        default: "https://github.com/google-research/t5x.git"
+      REF_T5X:
+        type: string
+        description: Git commit, tag, or branch for T5X
+        required: false
+        default: main
+      REPO_TE:
+        type: string
+        description: URL of TE repository to check out
+        required: false
+        default: "https://github.com/NVIDIA/TransformerEngine.git"
+      REF_TE:
         type: string
         description: Git commit, tag, or branch for TE
         required: false
         default: main
-      # ARTIFACT_NAME:
-      #   type: string
-      #   description: 'Name of the artifact zip file'
-      #   required: false
-      #   default: 'artifact-levanter-build'
-      # BADGE_FILENAME:
-      #   type: string
-      #   description: 'Name of the endpoint JSON file for shields.io badge'
-      #   required: false
-      #   default: 'badge-levanter-build'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-t5x-build'
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-t5x-build'
     outputs:
       DOCKER_TAG_MEALKIT:
         description: "Tags of the 'mealkit' image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAG_MEALKIT }}
+        value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:
         description: "Tags of the complete image built"
-        value: ${{ jobs.build.outputs.DOCKER_TAG_FINAL }}
+        value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_FINAL }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -57,7 +66,7 @@ permissions:
 
 jobs:
 
-  build:
+  build-t5x:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
@@ -93,7 +102,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-levanter-test-${{ inputs.ARCHITECTURE }}-mealkit
+            type=raw,value=${{ github.run_id }}-upstream-t5x-${{ inputs.ARCHITECTURE }}-mealkit
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
@@ -103,7 +112,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.levanter
+          file: .github/container/Dockerfile.t5x
           platforms: linux/${{ inputs.ARCHITECTURE }}
           target: mealkit
           tags: ${{ steps.mealkit-metadata.outputs.tags }}
@@ -111,8 +120,10 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_LEVANTER=${{ inputs.REPO_LEVANTER }}
-            REF_LEVANTER=${{ inputs.REF_LEVANTER }}
+            REPO_T5X=${{ inputs.REPO_T5X }}
+            REF_T5X=${{ inputs.REF_T5X }}
+            REPO_TE=${{ inputs.REPO_TE }}
+            REF_TE=${{ inputs.REF_TE }}
 
       - name: Set docker metadata - final
         id: final-metadata
@@ -123,7 +134,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-levanter-test-${{ inputs.ARCHITECTURE }}
+            type=raw,value=${{ github.run_id }}-upstream-t5x-${{ inputs.ARCHITECTURE }}
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
@@ -133,7 +144,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.levanter
+          file: .github/container/Dockerfile.t5x
           platforms: linux/${{ inputs.ARCHITECTURE }}
           tags: ${{ steps.final-metadata.outputs.tags }}
           labels: ${{ steps.final-metadata.outputs.labels }}
@@ -141,5 +152,49 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_LEVANTER=${{ inputs.REPO_LEVANTER }}
-            REF_LEVANTER=${{ inputs.REF_LEVANTER }}
+            REPO_T5X=${{ inputs.REPO_T5X }}
+            REF_T5X=${{ inputs.REF_T5X }}
+            REPO_TE=${{ inputs.REPO_TE }}
+            REF_TE=${{ inputs.REF_TE }}
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='T5X ${{ inputs.ARCHITECTURE }} build'
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="T5X build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="T5X build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
+      - name: Upload sitrep and badge
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
+          path: |
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}
