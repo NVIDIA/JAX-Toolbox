@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG REPO_LEVANTER=https://github.com/stanford-crfm/levanter.git
+ARG REF_LEVANTER=main
+ARG SRC_PATH_LEVANTER=/opt/levanter
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+
+ARG REPO_LEVANTER
+ARG REF_LEVANTER
+ARG SRC_PATH_LEVANTER
+
+RUN <<"EOF" bash -ex
+RUN pip install pytest
+get-source.sh -f ${REPO_LEVANTER} -r ${REF_LEVANTER} -d ${SRC_PATH_LEVANTER}
+echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/manifest.levanter
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh

@@ -1,12 +1,75 @@
-name: "~Sandbox"
+name: ~build T5X container
 
 on:
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ARCHITECTURE:
+        type: string
+        description: 'CPU architecture to build the image for, e.g. amd64, arm64'
+        required: false
+        default: amd64
+      BASE_IMAGE:
+        type: string
+        description: 'Base docker image that provides JAX'
+        required: false
+        default: ghcr.io/nvidia/jax:mealkit
+      BUILD_DATE:
+        type: string
+        description: "Build date in YYYY-MM-DD format"
+        required: false
+        default: '2023-12-12'
+      REPO_LEVANTER:
+        type: string
+        description: URL of T5X repository to check out
+        required: false
+        default: "https://github.com/stanford-crfm/levanter.git"
+      REF_LEVANTER:
+        type: string
+        description: Git commit, tag, or branch for TE
+        required: false
+        default: main
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-levanter-build'
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-levanter-build'
+    outputs:
+      DOCKER_TAG_MEALKIT:
+        description: "Tags of the 'mealkit' image built"
+        value: ${{ jobs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:
+        description: "Tags of the complete image built"
+        value: ${{ jobs.build-levanter.outputs.DOCKER_TAG_FINAL }}
+
+env:
+  UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
 
 jobs:
-  sandbox:
-    runs-on: ubuntu-22.04
+
+  build-levanter:
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+    env:
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
+      DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
     steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
@@ -14,28 +77,68 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Print usage
-        run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.12.1
 
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+      - name: Set docker metadata - mealkit
+        id: mealkit-metadata
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-levanter-test-${{ inputs.ARCHITECTURE }}-mealkit
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+
+      - name: Build mealkit image
+        id: mealkit-build
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile.levanter
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          target: mealkit
+          tags: ${{ steps.mealkit-metadata.outputs.tags }}
+          labels: ${{ steps.mealkit-metadata.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
+            REPO_LEVANTER=${{ inputs.REPO_LEVANTER }}
+            REF_LEVANTER=${{ inputs.REF_LEVANTER }}
+
+      - name: Set docker metadata - final
+        id: final-metadata
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-levanter-test-${{ inputs.ARCHITECTURE }}
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+
+      - name: Build final image
+        id: final-build
+        uses: docker/build-push-action@v4
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile.levanter
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          tags: ${{ steps.final-metadata.outputs.tags }}
+          labels: ${{ steps.final-metadata.outputs.labels }}
+          target: final
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
+            REPO_LEVANTER=${{ inputs.REPO_LEVANTER }}
+            REF_LEVANTER=${{ inputs.REF_LEVANTER }}
