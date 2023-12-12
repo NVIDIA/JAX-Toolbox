@@ -31,11 +31,16 @@ jobs:
         id: if-upstream-failed
         shell: bash -x -e {0}
         run: |
-          echo "UPSTREAM_FAILED=${{ github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
+          echo "UPSTREAM_FAILED=${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
 
       - name: Cancel workflow if upstream workflow did not success
         if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
-        uses: styfle/cancel-workflow-action@0.12.0
+        run: |
+          echo "Upstream workflow failed, cancelling this workflow"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          cat  # blocks execution in case workflow cancellation takes time
 
       - name: Determine if the resulting container should be 'published'
         id: if-publish
@@ -99,7 +104,7 @@ jobs:
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   finalize:
-    if: always()
+    if: "!cancelled()"
     needs: [metadata, amd64, arm64]
     uses: ./.github/workflows/_finalize.yaml
     with:
