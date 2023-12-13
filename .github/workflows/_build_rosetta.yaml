@@ -48,7 +48,7 @@ jobs:
   build-rosetta:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME}}-${{ inputs.ARCHITECTURE}}.json
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME}}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE}}.json
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
       DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
@@ -125,3 +125,44 @@ jobs:
           target: final
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='Rosetta ${{ inputs.BASE_LIBRARY }} ${{ inputs.ARCHITECTURE }} build'
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="Rosetta ${{ inputs.BASE_LIBRARY }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="Rosetta ${{ inputs.BASE_LIBRARY }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
+      - name: Upload sitrep and badge
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
+          path: |
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}
