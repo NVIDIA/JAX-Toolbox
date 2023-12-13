@@ -20,12 +20,12 @@ on:
         default: '2023-12-12'
       REPO_LEVANTER:
         type: string
-        description: URL of T5X repository to check out
+        description: URL of Levanter repository to check out
         required: false
         default: "https://github.com/stanford-crfm/levanter.git"
       REF_LEVANTER:
         type: string
-        description: Git commit, tag, or branch for TE
+        description: Git commit, tag, or branch for Levanter
         required: false
         default: main
     #   ARTIFACT_NAME:

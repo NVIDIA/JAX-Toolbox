@@ -30,4 +30,3 @@ FROM mealkit as final
 RUN pip-finalize.sh
 
 WORKDIR ${SRC_PATH_LEVANTER}
-RUN python -m levanter.main.cache_dataset --id dlwh/wikitext_103_detokenized --cache_dir cache/
