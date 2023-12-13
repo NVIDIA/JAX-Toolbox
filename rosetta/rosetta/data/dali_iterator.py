@@ -97,13 +97,17 @@ def get_dali_dataset(
     config,
     ds_shard_id,
     ds_num_shards,
-    feature_converter
+    feature_converter,
+    total_steps
 ):  
     assert not bool(feature_converter), 'Passing `feature_converter_cls` is not supported'
     
+    # Note: DALI iterator for multiple GPUs has to now the sharding during the initialization.
+    # Therefore, we have to create it in prepare_dali_iterator (conntected to prepare_train_iter_fn in config).
+    
     # TODO(awolant): Implement support for multiple hosts
-    assert ds_shard_id == 0, 'DALI does not support multi host training'
-    assert ds_num_shards == 1, 'DALI does not support multi host training'
+    # assert ds_shard_id == 0, 'DALI does not support multi host training'
+    # assert ds_num_shards == 1, 'DALI does not support multi host training'
     
     # For multihost training we have ds_num_shards > 1 and ds_shard_id points to the shard id of the current host.
     # For single host training we have ds_num_shards == 1 and ds_shard_id == 0.
@@ -117,7 +121,7 @@ def get_dali_dataset(
     print("Local devices: ", jax.local_devices())
     
     
-    return (config, ds_shard_id, ds_num_shards, seed)
+    return (config, ds_shard_id, ds_num_shards, total_steps, seed)
 
 
 def prepare_dali_iterator(
@@ -126,33 +130,41 @@ def prepare_dali_iterator(
     checkpoint_cfg,
     data_layout
 ):
-    config, ds_shard_id, ds_num_shards, seed = iterator_args
-    
-    
+    config, ds_shard_id, ds_num_shards, total_steps, seed = iterator_args
     
     num_classes = 1000
     image_shape = (384,384,3)
-    use_gpu = False
+    use_gpu = True
+    is_training = True
+    
+    global_mesh = partitioner.mesh
+    axes = partitioner.data_partition_spec
+    local_devices = global_mesh.local_devices
+    local_device_count = jax.local_device_count()
+    sharding = jax.sharding.NamedSharding(global_mesh, axes)
+    
+    # TODO(awolant): Implement support for multiple hosts 
+    # jax.process_index() is the index of the current host
+    
+    # TODO(awolant): Add index support
 
     iterator = peekable_data_iterator(
         vit_pipeline,
         output_map=['images', 'labels'],
         auto_reset=True,
-        # TODO(awolant): Implement support for passing iterator size
-        size=1000000000,
-        # reader_name='webdataset_reader'
+        size=total_steps*config.batch_size,
+        sharding=sharding,
         )(
             enable_conditionals=True,
             batch_size=config.batch_size,
             num_threads=config.num_parallel_processes,
             seed=seed,
-            device_id=0 if use_gpu else None,
             use_gpu=use_gpu,
             wds_config=config,
-            num_shards=ds_num_shards,
-            shard_id=ds_shard_id,
+            # num_shards=ds_num_shards,
+            # shard_id=ds_shard_id,
             num_classes=num_classes,
             image_shape=image_shape,
-            is_training=True)
+            is_training=is_training)
 
     return iterator
