@@ -169,7 +169,16 @@ jobs:
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.PYTEST_LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}-pytest.jsonl
-
+            
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
