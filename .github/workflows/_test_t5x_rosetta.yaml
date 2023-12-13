@@ -11,8 +11,18 @@ on:
       ARTIFACT_NAME:
         type: string
         description:  If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
-        default: ""
+        default: "artifact-t5x-rosetta-mgmn-test"
         required: false
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-t5x-rosetta-mgmn-test.json'
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: false
+        default: 'T5X'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -615,6 +625,15 @@ jobs:
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
+
+  sitrep:
+    needs: [single-process-multi-device, multi-gpu-multi-node, vit-single-process-multi-device, vit-multi-gpu-multi-node]
+    if: success() || failure()
+    uses: ./.github/workflows/_sitrep_mgmn.yaml
+    with:
+      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+      FW_NAME: ${{ inputs.FW_NAME }}
 
   outcome:
     needs: publish-test
