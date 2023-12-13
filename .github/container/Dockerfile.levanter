@@ -16,7 +16,6 @@ ARG REF_LEVANTER
 ARG SRC_PATH_LEVANTER
 
 RUN <<"EOF" bash -ex
-pip install pytest
 get-source.sh -f ${REPO_LEVANTER} -r ${REF_LEVANTER} -d ${SRC_PATH_LEVANTER}
 echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/manifest.levanter
 EOF
