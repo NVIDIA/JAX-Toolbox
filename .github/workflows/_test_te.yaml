@@ -8,6 +8,21 @@ on:
         description: 'JAX+TE+PAXML image'
         required: true
         default: 'ghcr.io/nvidia/upstream-pax:latest'
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'te-unit-mg-test.json'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-te-unit-mg-test'
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: false
+        default: 'TE'
     outputs:
       UNIT_TEST_ARTIFACT_NAME:
         description: 'Name of the unit test artifact for downstream workflows'
@@ -17,8 +32,8 @@ on:
         value: ${{ jobs.te-multi-gpu.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}
 
 env:
-  UNIT_TEST_ARTIFACT_NAME: unit-test-logs
-  INTEGRATION_TEST_ARTIFACT_NAME: integration-test-logs
+  UNIT_TEST_ARTIFACT_NAME: artifact-te-unit-test
+  INTEGRATION_TEST_ARTIFACT_NAME: artifact-te-mg-integration-test
 
 jobs:
   te-unit-tests:
@@ -160,3 +175,11 @@ jobs:
         with:
           name: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}
           path: output/*
+  sitrep:
+    needs: [single-process-multi-device, pax-multi-node, single-process-evaluation, metrics]
+    if: success() || failure()
+    uses: ./.github/workflows/_sitrep_mgmn.yaml
+    with:
+      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+      FW_NAME: ${{ inputs.FW_NAME }}
