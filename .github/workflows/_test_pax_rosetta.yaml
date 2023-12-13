@@ -16,8 +16,18 @@ on:
       ARTIFACT_NAME:
         type: string
         description: If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
-        default: ""
+        default: "artifact-pax-rosetta-mgmn-test"
         required: false
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-pax-rosetta-mgmn-test.json'
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: false
+        default: 'PAXML'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -777,6 +787,15 @@ jobs:
         echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
+
+  sitrep:
+    needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te, metrics]
+    if: success() || failure()
+    uses: ./.github/workflows/_sitrep_mgmn.yaml
+    with:
+      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+      FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
     runs-on: ubuntu-22.04
