@@ -41,7 +41,6 @@ on:
         type: string
         description: 'Name of branch with bumped manifest and patches'
         required: true
-        default: 'main'
     outputs:
       DOCKER_TAG_MEALKIT:
         description: "Tags of the 'mealkit' image built"
