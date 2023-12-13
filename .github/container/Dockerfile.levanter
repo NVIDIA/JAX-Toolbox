@@ -28,3 +28,7 @@ EOF
 FROM mealkit as final
 
 RUN pip-finalize.sh
+
+WORKDIR ${SRC_PATH_LEVANTER}
+RUN PYTHONPATH=${SRC_PATH_LEVANTER}/tests pytest
+RUN python -m levanter.main.cache_dataset --id dlwh/wikitext_103_detokenized --cache_dir cache/
