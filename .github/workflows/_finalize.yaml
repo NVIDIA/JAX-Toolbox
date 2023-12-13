@@ -8,7 +8,11 @@ on:
         description: Update the landing page badges with run outcomes
         default: false
         required: false
-
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: true
+        default: 'artifact-final-job-status'
 jobs:
   # show-containers:
   #   runs-on: ubuntu-22.04
@@ -112,16 +116,20 @@ jobs:
             cat "$f" | jq -r '.summary' | tee -a $GITHUB_STEP_SUMMARY
           done
 
-      # - name: Concatenate all sitreps
-      #   shell: bash -x -e {0}
-      #   run: |
-      #     # combine all sitreps files into a single file, where each sitrep json sits
-      #     # in a field named by the folder that contained it
+      - name: Concatenate all sitreps
+        shell: bash -x -e {0}
+        run: |
+          # combine all sitreps files into a single file, where each sitrep json sits
+          # in a field named by the folder that contained it
 
-      #     find -name "sitrep.json" | while read -s f; do
-      #       echo "$(dirname $f): $(cat $f)," >> 
-      #     done
-
+          find -name "sitrep.json" | while read -s f; do
+            echo "$(dirname $f): $(cat $f)," >> final_sitrep.json
+          done
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}
+          path: ./final_sitrep.json
   publish-badge:
     needs: [upload-badge]
     if: inputs.PUBLISH_BADGE == true
