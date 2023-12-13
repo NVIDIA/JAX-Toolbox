@@ -21,6 +21,11 @@ on:
         description: 'Build date in YYYY-MM-DD format'
         required: false
         default: 'NOT SPECIFIED'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-rosetta-build'
       BADGE_FILENAME:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
