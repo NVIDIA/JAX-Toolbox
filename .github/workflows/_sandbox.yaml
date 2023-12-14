@@ -155,3 +155,11 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+    
+  finalize:
+    needs: [test-upstream-pax, test-upstream-t5x, test-jax, test-distribution, build-base, build-t5x, build-pax]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: false
+    secrets: inherit
