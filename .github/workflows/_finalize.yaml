@@ -123,7 +123,7 @@ jobs:
           # in a field named by the folder that contained it
 
           find -name "sitrep.json" | while read -s f; do
-            echo "$(dirname $f): $(cat $f)," >> final_sitrep.json
+            echo "$(dirname $f)": "$(cat $f)," >> final_sitrep.json
           done
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
