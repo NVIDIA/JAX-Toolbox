@@ -184,11 +184,10 @@ jobs:
         with:
           name: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}
           path: output/*
-  sitrep:
-    needs: [te-unit-tests, te-multi-gpu]
-    if: success() || failure()
-    uses: ./.github/workflows/_sitrep_mgmn.yaml
-    with:
-      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
-      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
-      FW_NAME: ${{ inputs.FW_NAME }}
+    sitrep:
+      if: success() || failure()
+      uses: ./.github/workflows/_sitrep_mgmn.yaml
+      with:
+        BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+        ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+        FW_NAME: ${{ inputs.FW_NAME }}
