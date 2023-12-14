@@ -11,7 +11,7 @@ on:
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
-        required: true
+        required: false
         default: 'artifact-final-job-status'
 jobs:
   # show-containers:
