@@ -115,6 +115,18 @@ jobs:
       REF_PRAXIS: ${{ needs.metadata.outputs.REF_PRAXIS }}
     secrets: inherit
 
+  build-t5x:
+    needs: [metadata, build-jax]
+    if: inputs.ARCHITECTURE == 'amd64'  # T5X arm64 build is wip in PR 252
+    uses: ./.github/workflows/_build_t5x.yaml
+    with:
+      ARCHITECTURE: amd64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
+      REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
+    secrets: inherit
+
   build-rosetta-t5x:
     uses: ./.github/workflows/_build_rosetta.yaml
     needs: [metadata, build-t5x]
