@@ -54,6 +54,9 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
       - name: Setup SSH known hosts
         id: ssh-known-hosts
         run: |
@@ -83,6 +86,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo" 
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
@@ -213,6 +217,9 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
       - name: Setup SSH known hosts
         id: ssh-known-hosts
         run: |
@@ -227,6 +234,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_TE
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
@@ -383,6 +391,9 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
       - name: Setup SSH known hosts
         id: ssh-known-hosts
         run: |
@@ -415,6 +426,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
@@ -549,6 +561,9 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
       - name: Setup SSH known hosts
         id: ssh-known-hosts
         run: |
@@ -563,6 +578,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP_TE_dropout
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
@@ -717,6 +733,9 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
       - name: Setup SSH known hosts
         id: ssh-known-hosts
         run: |
@@ -749,6 +768,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo" 
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
