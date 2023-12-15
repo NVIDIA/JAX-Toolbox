@@ -122,11 +122,11 @@ jobs:
           # combine all sitreps files into a single file, where each sitrep json sits
           # in a field named by the folder that contained it
 
-          echo "{\n" >> final_sitrep.json
+          echo "{" >> final_sitrep.json
           find -name "sitrep.json" | while read -s f; do
             echo "\"$(dirname $f)\"": "$(cat $f)," >> final_sitrep.json
           done
-          echo "END: 1 \n}" >> final_sitrep.json
+          echo "END: 1 }" >> final_sitrep.json
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
