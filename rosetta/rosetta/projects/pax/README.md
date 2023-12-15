@@ -1,5 +1,5 @@
 # Pax
-[Pax](https://github.com/google/paxml/tree/main) is a framework developed by Google optimized for running machine learning experiments using JAX. Pax consists of the Paxml and [Praxis](https://github.com/google/praxis/tree/main) repositories and is maintained as a [distribution](../../../docs/DEVELOPMENT.md) within Rosetta. This means that we cherry-pick the necessary changes to optimize Pax for GPUs on top of upstream Paxml and Praxis' `main` branches. We also provide support for FP8 training via [Transformer Engine](https://github.com/NVIDIA/TransformerEngine).
+[Pax](https://github.com/google/paxml/tree/main) is a framework developed by Google optimized for running machine learning experiments using JAX. Pax consists of the Paxml and [Praxis](https://github.com/google/praxis/tree/main) repositories and is maintained as a [distribution](../../../docs/DEVELOPMENT.md) within Rosetta. This means that we cherry-pick the necessary changes to optimize Pax for GPUs on top of upstream Paxml and Praxis' `main` branches. We also provide support for FP8 training via both [Transformer Engine](https://github.com/NVIDIA/TransformerEngine) and native [XLA-FP8](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/docs/NATIVE_FP8.md).
 
 Any `paxml/*` or `praxis/*` relative directory/file can be found in [google/paxml](https://github.com/google/paxml/tree/main) or [google/praxis](https://github.com/google/praxis/tree/main), respectively, but to
 view the most up-to-date version of that directory/file with any GPU-specific patches, please see [Inspecting the Source Code](#inspecting-the-source-code).
@@ -121,6 +121,8 @@ ENABLE_FP8=1 bash paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh /opt/paxm
 
 Note that packing is currently not supported when using TE. All configs disable packing by default, but beware that if packing is manually enabled, training with TE will error.
 
+## Native FP8
+Rosetta Pax containers also provide support for native FP8 through XLA. Enabling FP8 can be done by adding the following command-line flag to `paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh`: `--fdl.USE_FP8=True`. When using native FP8, TE must be disabled. For a detailed explanation of native FP8 support in Pax, as well as a comparison between native FP8 and TE FP8, please refer to the [NATIVE_FP8](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/docs/NATIVE_FP8.md) documentation.
 
 ## XLA Flags
 We recommend setting the following XLA flags when running experiments: 
