@@ -102,12 +102,79 @@ jobs:
       REF_TE: ${{ needs.metadata.outputs.REF_TE }}
     secrets: inherit
 
-  test-jax:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_jax.yaml
+  build-t5x:
+    needs: [metadata, build-jax]
+    if: inputs.ARCHITECTURE == 'amd64'  # T5X arm64 build is wip in PR 252
+    uses: ./.github/workflows/_build_t5x.yaml
     with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+      ARCHITECTURE: amd64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      REPO_T5X: ${{ needs.metadata.outputs.REPO_T5X }}
+      REF_T5X: ${{ needs.metadata.outputs.REF_T5X }}
+    secrets: inherit
+
+  build-pax:
+    needs: [metadata, build-jax]
+    uses: ./.github/workflows/_build_pax.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      REPO_PAXML: ${{ needs.metadata.outputs.REPO_PAXML }}
+      REF_PAXML: ${{ needs.metadata.outputs.REF_PAXML }}
+      REPO_PRAXIS: ${{ needs.metadata.outputs.REPO_PRAXIS }}
+      REF_PRAXIS: ${{ needs.metadata.outputs.REF_PRAXIS }}
+    secrets: inherit
+
+  build-rosetta-t5x:
+    uses: ./.github/workflows/_build_rosetta.yaml
+    needs: [metadata, build-t5x]
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: t5x
+    secrets: inherit
+
+  build-rosetta-pax:
+    uses: ./.github/workflows/_build_rosetta.yaml
+    needs: [metadata, build-pax]
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: pax
+    secrets: inherit
+
+  test-distribution:
+    needs: metadata
+    uses: ./.github/workflows/_test_distribution.yaml
+    secrets: inherit
+
+  test-te:
+    needs: build-pax
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_te.yaml
+    with:
+      TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-rosetta-t5x:
+    needs: build-rosetta-t5x
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_t5x_rosetta.yaml
+    with:
+      T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
+      # Disable packing b/c rosetta-t5x images run with TE by default, and TE does not currently support packing
+    secrets: inherit
+
+  test-rosetta-pax:
+    needs: build-rosetta-pax
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_pax_rosetta.yaml
+    with:
+      PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
     
   finalize:
