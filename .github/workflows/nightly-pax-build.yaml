@@ -66,13 +66,23 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
+  # arm64:
+  #   needs: metadata
+  #   uses: ./.github/workflows/_build_pax.yaml
+  #   with:
+  #     ARCHITECTURE: arm64
+  #     BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #   secrets: inherit
   arm64:
     needs: metadata
-    uses: ./.github/workflows/_build_pax.yaml
-    with:
-      ARCHITECTURE: arm64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-    secrets: inherit
+    runs-on: ubuntu-22.04
+    outputs:
+      DOCKER_TAG_MEALKIT: ''
+    steps:
+      - name: Generate placeholder warning
+        shell: bash -x -e {0}
+        run: |
+          echo "WARNING: arm64 build is not yet supported"
 
   publish-mealkit:
     needs: [metadata, amd64, arm64]
