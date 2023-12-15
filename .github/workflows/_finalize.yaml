@@ -122,7 +122,7 @@ jobs:
           # combine all sitreps files into a single file, where each sitrep json sits
           # in a field named by the folder that contained it
 
-          echo"{\n" >> final_sitrep.json
+          echo "{\n" >> final_sitrep.json
           find -name "sitrep.json" | while read -s f; do
             echo "\"$(dirname $f)\"": "$(cat $f)," >> final_sitrep.json
           done
