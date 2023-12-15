@@ -150,6 +150,40 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -287,6 +321,40 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -421,6 +489,40 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -557,6 +659,40 @@ jobs:
               json.dump(dump, f)
           EOF
 
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -688,6 +824,40 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          tags="${{ steps.final-metadata.outputs.tags }}"
+          digest="${{ steps.final-build.outputs.digest }}"
+          outcome="${{ steps.final-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="PAX ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -786,16 +956,6 @@ jobs:
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
         echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-
-
-  sitrep:
-    needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te, metrics]
-    if: success() || failure()
-    uses: ./.github/workflows/_sitrep_mgmn.yaml
-    with:
-      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
-      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
-      FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
     runs-on: ubuntu-22.04
