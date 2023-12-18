@@ -211,14 +211,14 @@ jobs:
           to_json \
             summary \
             badge_label tags digest outcome \
-          > sitrep.json
+          > output/sitrep.json
 
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}
           
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
