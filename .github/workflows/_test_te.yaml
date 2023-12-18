@@ -80,6 +80,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
+    env:
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}.json
     outputs:
       INTEGRATION_TEST_ARTIFACT_NAME: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}
 
