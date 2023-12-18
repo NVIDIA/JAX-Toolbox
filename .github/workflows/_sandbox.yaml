@@ -130,7 +130,7 @@ jobs:
     
   finalize:
     # needs: [test-rosetta-pax, test-rosetta-t5x, test-te, test-upstream-pax, test-upstream-t5x, test-jax]
-    needs: [test-rosetta-pax, test-rosetta-t5x, test-te]
+    needs: [test-te]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
