@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 
-ARG BASE_IMAGE=ghcr.io/nvidia/jax:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
 ARG REPO_T5X=https://github.com/google-research/t5x.git
 ARG REF_T5X=main
 ARG SRC_PATH_T5X=/opt/t5x

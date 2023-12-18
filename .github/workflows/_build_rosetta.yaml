@@ -25,11 +25,11 @@ on:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'badge-rosetta-build'    
+        default: 'badge-rosetta-build'
     outputs:
       DOCKER_TAG_MEALKIT:
         description: 'Tags of the mealkit image build'
-        value: $ {{ jobs.build-rosetta.outputs.DOCKER_TAG_MEALKIT }}
+        value: ${{ jobs.build-rosetta.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:
         description: "Tags of the complete image built"
         value: ${{ jobs.build-rosetta.outputs.DOCKER_TAG_FINAL }}
@@ -80,7 +80,7 @@ jobs:
         with:
           driver-opts: |
             image=moby/buildkit:v0.12.1
-      
+
       - name: Set docker metadata - mealkit
         id: mealkit-metadata
         uses: docker/metadata-action@v4

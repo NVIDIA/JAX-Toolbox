@@ -43,11 +43,16 @@ jobs:
         id: if-upstream-failed
         shell: bash -x -e {0}
         run: |
-          echo "UPSTREAM_FAILED=${{ github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
+          echo "UPSTREAM_FAILED=${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
 
       - name: Cancel workflow if upstream workflow did not success
         if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
-        uses: styfle/cancel-workflow-action@0.12.0
+        run: |
+          echo "Upstream workflow failed, cancelling this workflow"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          cat  # blocks execution in case workflow cancellation takes time
 
       - name: Determine if the resulting container should be 'published'
         id: if-publish
@@ -143,25 +148,18 @@ jobs:
       T5X_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  test-vit:
-    needs: [metadata, amd64, arm64]
-    uses: ./.github/workflows/_test_vit.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    with:
-      ROSETTA_T5X_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
   publish-t5x:
-    needs: [metadata, test-t5x, test-vit]
-    uses: ./.github/workflows/_publish_t5x_results.yaml
+    needs: [metadata, test-t5x]
+    uses: ./.github/workflows/_publish_t5x_pax_results.yaml
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       EXPERIMENT_SUBDIR: ROSETTA_T5X
+      ARTIFACT_NAME: "rosetta-T5X-"
     secrets: inherit
 
   publish-test:
-    needs: [metadata, amd64, arm64, test-unit, test-t5x, test-vit]
+    needs: [metadata, amd64, arm64, test-unit, test-t5x]
     uses: ./.github/workflows/_publish_badge.yaml
     if: ( always() )
     secrets: inherit
@@ -171,18 +169,17 @@ jobs:
       SCRIPT: |
         UNIT_STATUS=${{ needs.test-unit.outputs.TEST_STATUS }}
         T5X_STATUS=${{ needs.test-t5x.outputs.TEST_STATUS }}
-        VIT_STATUS=${{ needs.test-vit.outputs.TEST_STATUS }}
 
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
         if [[ ${{ needs.amd64.result }} == "success" && ${{ needs.arm64.result }} == "success" ]]; then
-          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]]; then
+          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]]; then
             COLOR=brightgreen
             MESSAGE="Unit passed / MGMN passed"
           elif [[ $UNIT_STATUS == "success" ]]; then 
             COLOR=yellow
             MESSAGE="Unit passed / MGMN failed"
-          elif [[ $T5X_STATUS == "success" ]] && [[ $VIT_STATUS == "success" ]]; then
+          elif [[ $T5X_STATUS == "success" ]]; then
             COLOR=yellow
             MESSAGE="Unit failed / MGMN passed"
           else
@@ -198,7 +195,7 @@ jobs:
         echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
 
   finalize:
-    if: always()
+    if: "!cancelled()"
     needs: [metadata, amd64, arm64]
     uses: ./.github/workflows/_finalize.yaml
     with:

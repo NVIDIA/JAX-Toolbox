@@ -17,7 +17,7 @@ jobs:
   #       shell: bash -x -e {0}
   #       run: |
   #         cat > $GITHUB_STEP_SUMMARY << EOF
-  #         # Images created          
+  #         # Images created
 
   #         | Image        | Link                                               |
   #         | ------------ | -------------------------------------------------- |
@@ -62,7 +62,7 @@ jobs:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
           script: |
             const currentDateTime = new Date().toISOString();
-            const gistDescription = 
+            const gistDescription =
               `Badge endpoint files from Workflow: ${{ github.workflow }}, ` +
               `Run ID: ${{ github.run_id }}, ` +
               `Repository: ${{ github.repository }}, ` +
@@ -119,7 +119,7 @@ jobs:
       #     # in a field named by the folder that contained it
 
       #     find -name "sitrep.json" | while read -s f; do
-      #       echo "$(dirname $f): $(cat $f)," >> 
+      #       echo "$(dirname $f): $(cat $f)," >>
       #     done
 
   publish-badge:
@@ -128,7 +128,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       # Name/bash regex for shields.io endpoint JSON files
-      PUBLISH_BADGE_FILES: '*badge*.json'
+      PUBLISH_BADGE_FILES: '.*badge.*.json'
     steps:
       - name: copy badge to primary Gist
         uses: actions/github-script@v6
@@ -137,6 +137,7 @@ jobs:
           script: |
             const srcId = "${{ needs.upload-badge.outputs.GIST_ID }}";
             const dstId = "${{ vars.BADGE_ENDPOINT_GIST_ID }}";
+            const { PUBLISH_BADGE_FILES } = process.env;
 
             // Fetch files from source gist
             const { data: srcData } = await github.rest.gists.get({
@@ -145,7 +146,7 @@ jobs:
 
             // Prepare file upload
             let filesToUpdate = {};
-            pattern = new RegExp("${PUBLISH_BADGE_FILES}");
+            pattern = new RegExp(`${PUBLISH_BADGE_FILES}`);
             for (const [filename, fileObj] of Object.entries(srcData.files)) {
               if (filename.match(pattern)) {
                 filesToUpdate[filename] = {
@@ -160,3 +161,4 @@ jobs:
               files: filesToUpdate
             });
             console.log("Files copied successfully.");
+            console.log(Object.keys(filesToUpdate));
