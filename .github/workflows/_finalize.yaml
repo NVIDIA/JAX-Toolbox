@@ -126,7 +126,7 @@ jobs:
           find -name "sitrep.json" | while read -s f; do
             echo "\"$(dirname $f)\"": "$(cat $f)," >> final_sitrep.json
           done
-          echo "END: 1 }" >> final_sitrep.json
+          echo "\"END\": 1 }" >> final_sitrep.json
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
