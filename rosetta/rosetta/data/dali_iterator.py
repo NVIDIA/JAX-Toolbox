@@ -102,13 +102,9 @@ def get_dali_dataset(
 ):  
     assert not bool(feature_converter), 'Passing `feature_converter_cls` is not supported'
     
-    # Note: DALI iterator for multiple GPUs has to now the sharding during the initialization.
+    # Note: DALI iterator for multiple GPUs has to know the sharding during the initialization.
     # Therefore, we have to create it in prepare_dali_iterator (conntected to prepare_train_iter_fn in config).
-    
-    # TODO(awolant): Implement support for multiple hosts
-    # assert ds_shard_id == 0, 'DALI does not support multi host training'
-    # assert ds_num_shards == 1, 'DALI does not support multi host training'
-    
+
     # For multihost training we have ds_num_shards > 1 and ds_shard_id points to the shard id of the current host.
     # For single host training we have ds_num_shards == 1 and ds_shard_id == 0.
     
@@ -143,10 +139,6 @@ def prepare_dali_iterator(
     local_device_count = jax.local_device_count()
     sharding = jax.sharding.NamedSharding(global_mesh, axes)
     
-    # TODO(awolant): Implement support for multiple hosts 
-    # jax.process_index() is the index of the current host
-    
-    # TODO(awolant): Add index support
 
     iterator = peekable_data_iterator(
         vit_pipeline,
@@ -155,16 +147,14 @@ def prepare_dali_iterator(
         size=total_steps*config.batch_size,
         sharding=sharding,
         )(
-            enable_conditionals=True,
             batch_size=config.batch_size,
             num_threads=config.num_parallel_processes,
             seed=seed,
             use_gpu=use_gpu,
             wds_config=config,
-            # num_shards=ds_num_shards,
-            # shard_id=ds_shard_id,
             num_classes=num_classes,
             image_shape=image_shape,
-            is_training=is_training)
+            is_training=is_training,
+            enable_conditionals=True)
 
     return iterator
