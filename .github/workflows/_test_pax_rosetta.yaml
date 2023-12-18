@@ -104,6 +104,9 @@ jobs:
               ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
           )
+
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -118,6 +121,14 @@ jobs:
           echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -131,6 +142,7 @@ jobs:
           rsync -rtz --progress \
             output/ \
             ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-/ || true
+
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
         run: |
@@ -236,6 +248,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -253,6 +267,13 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
@@ -370,6 +391,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -387,6 +410,13 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
@@ -505,6 +535,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -522,6 +554,13 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
@@ -637,6 +676,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -654,6 +695,13 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
@@ -726,7 +774,7 @@ jobs:
   publish-test:
     needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: ( always() )
+    if: "!cancelled()"
     secrets: inherit
     with:
       ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}rosetta-pax-test-status.json'
@@ -780,7 +828,8 @@ jobs:
 
   summary:
     runs-on: ubuntu-22.04
-
+    needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te]
+    if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
         run: |
@@ -797,7 +846,7 @@ jobs:
   outcome:
     needs: publish-test
     runs-on: ubuntu-22.04
-    if: ( always() )
+    if: "!cancelled()"
     steps:
       - name: Sets workflow status based on test outputs 
         run: |

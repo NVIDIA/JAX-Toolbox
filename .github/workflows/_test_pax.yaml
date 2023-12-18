@@ -27,7 +27,7 @@ on:
         type: string
         description: 'Name of the framework being used'
         required: false
-        default: 'pax'
+        default: 'PAXML'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -63,6 +63,7 @@ jobs:
           EOF
           chmod 600 ~/.ssh/known_hosts
           echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
       - name: Labels and metadata
         id: meta
         shell: bash -x -e {0}
@@ -79,6 +80,7 @@ jobs:
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
+
       - name: Submit SLURM jobs over SSH
         id: submit
         shell: bash -O expand_aliases -x -e {0}
@@ -113,6 +115,9 @@ jobs:
               ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
           )
+
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -127,6 +132,14 @@ jobs:
           echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -140,6 +153,7 @@ jobs:
           rsync -rtz --progress \
             output/ \
             ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
+
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
         run: |
@@ -245,6 +259,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -262,6 +278,13 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
@@ -376,6 +399,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -393,6 +418,13 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
@@ -457,8 +489,9 @@ jobs:
 
   sitrep:
     needs: [single-process-multi-device, pax-multi-node, single-process-evaluation, metrics]
-    if: success() || failure()
+    if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
+    secrets: inherit
     with:
       BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
       ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
@@ -466,7 +499,8 @@ jobs:
 
   summary:
     runs-on: ubuntu-22.04
-
+    needs: [single-process-multi-device, pax-multi-node, single-process-evaluation]
+    if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
         run: |
@@ -483,7 +517,7 @@ jobs:
   outcome:
     needs: sitrep
     runs-on: ubuntu-22.04
-    if: ( always() )
+    if: "!cancelled()"
     steps:
       - name: Sets workflow status based on test outputs
         run: |

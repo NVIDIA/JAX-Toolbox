@@ -109,6 +109,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -125,6 +127,13 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
@@ -253,6 +262,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -269,6 +280,13 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
@@ -541,7 +559,7 @@ jobs:
   publish-test:
     needs: [multi-gpu-multi-node, single-process-multi-device]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: success() || failure()
+    if: "!cancelled()"
     secrets: inherit
     with:
       ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}rosetta-t5x-test-completion-status.json'
@@ -602,7 +620,8 @@ jobs:
 
   summary:
     runs-on: ubuntu-22.04
-
+    needs: [multi-gpu-multi-node, single-process-multi-device]
+    if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
         run: |
@@ -619,7 +638,7 @@ jobs:
   outcome:
     needs: publish-test
     runs-on: ubuntu-22.04
-    if: success() || failure()
+    if: "!cancelled()"
     steps:
       - name: Sets workflow status based on test outputs 
         run: |

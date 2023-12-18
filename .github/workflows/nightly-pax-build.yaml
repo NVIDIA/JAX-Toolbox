@@ -94,6 +94,7 @@ jobs:
   arm64:
     needs: metadata
     uses: ./.github/workflows/_build_pax.yaml
+    if: false  # TODO: enable arm64 build after the build is fixed
     with:
       ARCHITECTURE: arm64
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
@@ -101,26 +102,28 @@ jobs:
     secrets: inherit
 
   publish-mealkit:
-    needs: [metadata, amd64, arm64]
+    # needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
-        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
+        # ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
       TARGET_IMAGE: upstream-pax
       TARGET_TAGS: |
         type=raw,value=mealkit,priority=500
         type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   publish-final:
-    needs: [metadata, amd64, arm64]
+    # needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+        # ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: upstream-pax
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000

@@ -123,7 +123,7 @@ jobs:
           to_json schemaVersion label message color \
           > ${{ inputs.BADGE_FILENAME }}
 
-          echo "STATUS='${status}'" >> ${GITHUB_OUTPUT}
+          echo "STATUS=${status}" >> ${GITHUB_OUTPUT}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
