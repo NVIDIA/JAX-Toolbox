@@ -13,6 +13,11 @@ on:
         description: Extra command line args to pass to test-pax.sh
         default: ""
         required: false
+      ARTIFACT_NAME:
+        type: string
+        description: If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
+        default: ""
+        required: false
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -58,7 +63,7 @@ jobs:
           MAX_GPUS_PER_NODE=8
           NODES=1
           GPUS_PER_NODE=8
-          JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -99,6 +104,9 @@ jobs:
               ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
           )
+
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -113,6 +121,14 @@ jobs:
           echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -125,7 +141,8 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-/ || true
+
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
         run: |
@@ -185,7 +202,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -231,6 +248,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -249,6 +268,13 @@ jobs:
 
           set -x
 
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -261,7 +287,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -321,7 +347,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -365,6 +391,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -383,6 +411,13 @@ jobs:
 
           set -x
 
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -395,7 +430,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -453,7 +488,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -500,6 +535,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -518,6 +555,13 @@ jobs:
 
           set -x
 
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -530,7 +574,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -587,7 +631,7 @@ jobs:
           NODES=1
           GPUS_PER_NODE=8
 
-          JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -632,6 +676,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -650,6 +696,13 @@ jobs:
 
           set -x
 
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -662,7 +715,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -695,15 +748,15 @@ jobs:
         shell: bash -x {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
-          for i in ${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${GITHUB_RUN_ID}-*DP_TE_dropout; do
-            SUBDIR=$(echo $i | cut -d'-' -f2)
+          for i in ${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-*DP_TE_dropout; do
+            SUBDIR=$(echo $i | rev | cut -d'-' -f1 | rev)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
           done
 
-          echo '## PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
+          echo '## Rosetta PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
           for i in *_metrics.json; do
-            echo $i | cut -d'.' -f1
+            echo $(basename -- $i _metrics.json)
             echo '```json'
             jq . $i
             echo '```'
@@ -721,42 +774,43 @@ jobs:
   publish-test:
     needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: ( always() )
+    if: "!cancelled()"
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'pax-test-status.json'
+      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}rosetta-pax-test-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="${GITHUB_RUN_ID}-*DP*FSDP*TP*PP*/*-status.json ${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
+        EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}rosetta-pax-*DP*FSDP*TP*PP*/*-status.json ${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
 
-        echo '## PAX MGMN Test Status' >> $GITHUB_STEP_SUMMARY
+        cat <<EOF >>$GITHUB_STEP_SUMMARY
+        ## Pax MGMN+SPMD Test Status
+        | Test Case | State | Exit Code |
+        | --- | --- | --- |
+        EOF
         for i in $EXIT_STATUSES; do
-          echo $i | cut -d'.' -f1
-          echo '```json'
-          jq . $i
-          echo '```'
+          # Files are named rosetta-pax-<GHID>-<NAME>/<NAME>-status.json
+          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
         done | tee -a $GITHUB_STEP_SUMMARY
 
         echo "Test statuses:"
         jq -rc 'input_filename,.' $EXIT_STATUSES
 
-        PYTEST_LOG=metrics-test-log/report.jsonl
+        METRICS_LOG=metrics-test-log/report.jsonl
         all_outcomes() {
-          cat $PYTEST_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+          cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
         }
         cnt_type() {
-          cat $PYTEST_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+          cat $METRICS_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
         }
         PYTEST_FAILED_TESTS=$(cnt_type failed)
         PYTEST_PASSED_TESTS=$(cnt_type passed)
         PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
 
         if ([[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
-            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]) || \
-            ([[ $PASSED_TESTS -eq $TOTAL_TESTS ]] && [[ $PYTEST_PASSED_TESTS -eq $PYTEST_TOTAL_TESTS ]]); then
+            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]); then
           STATUS=success
           BADGE_COLOR=brightgreen
         elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
@@ -774,16 +828,17 @@ jobs:
 
   summary:
     runs-on: ubuntu-22.04
-
+    needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te]
+    if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
         run: |
           (
           cat << EOF
 
-          ## PAX MGMN training
+          ## Rosetta PAX MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
@@ -791,7 +846,7 @@ jobs:
   outcome:
     needs: publish-test
     runs-on: ubuntu-22.04
-    if: ( always() )
+    if: "!cancelled()"
     steps:
       - name: Sets workflow status based on test outputs 
         run: |
