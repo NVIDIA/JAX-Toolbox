@@ -1,0 +1,85 @@
+diff --git a/src/pip/_internal/resolution/resolvelib/requirements.py b/src/pip/_internal/resolution/resolvelib/requirements.py
+index 7d1e7bfdd..5b954cfb5 100644
+--- a/src/pip/_internal/resolution/resolvelib/requirements.py
++++ b/src/pip/_internal/resolution/resolvelib/requirements.py
+@@ -5,6 +5,7 @@ from pip._internal.req.constructors import install_req_drop_extras
+ from pip._internal.req.req_install import InstallRequirement
+ 
+ from .base import Candidate, CandidateLookup, Requirement, format_name
++import os
+ 
+ 
+ class ExplicitRequirement(Requirement):
+@@ -37,6 +38,22 @@ class ExplicitRequirement(Requirement):
+         return self.candidate, None
+ 
+     def is_satisfied_by(self, candidate: Candidate) -> bool:
++        # TODO: Currently only checks if the library is the same.
++        # It is more robust to check the other properties of requirement
++        # but this is sufficient for us. Future checks may include:
++        # - check git-ref/SHA from candidate.source_link.(path||show_url) and return False if conflicting SHA/git-ref: 
++        #   - ex[path]: '/google/fiddle@cd4497e4c09bdf95dcccaa1e138c2c125d32d39f' vs. '/google/fiddle'
++        #   - ex[show_url]: 'fiddle@cd4497e4c09bdf95dcccaa1e138c2c125d32d39f' vs. 'fiddle'
++        # - check VCS provider from candidate.source_link.netloc:
++        #   - ex: 'github.com'
++        # - check VCS protoocol from candidate.source_link.scheme:
++        #   - ex: 'git+https'
++        if os.environ.get('JAX_TOOLBOX_VCS_EQUIVALENCY', False) and \
++                self.candidate.name == candidate.name and \
++                self.candidate.source_link.is_vcs and \
++                candidate.source_link.is_vcs \
++                :
++            return True
+         return candidate == self.candidate
+ 
+ 
+diff --git a/src/pip/_vendor/resolvelib/resolvers.py b/src/pip/_vendor/resolvelib/resolvers.py
+index 2c3d0e306..5a8e263a5 100644
+--- a/src/pip/_vendor/resolvelib/resolvers.py
++++ b/src/pip/_vendor/resolvelib/resolvers.py
+@@ -5,6 +5,8 @@ import operator
+ from .providers import AbstractResolver
+ from .structs import DirectedGraph, IteratorMapping, build_iter_view
+ 
++import os
++
+ RequirementInformation = collections.namedtuple(
+     "RequirementInformation", ["requirement", "parent"]
+ )
+@@ -165,8 +167,35 @@ class Resolution(object):
+         else:
+             information = [RequirementInformation(requirement, parent)]
+ 
++        matches = build_iter_view(matches)
++        # Force the order of matches (first appears to be used as representative
++        # for the equivalency class). This puts vcs installs with @ at the top
++        def vcs_compare(req):
++            if hasattr(req, 'source_link') \
++                    and req.source_link \
++                    and req.source_link.is_vcs \
++                    and ('@' in req.source_link.show_url):
++                # 0 is preferred and is bubbled to the top
++                return 0
++            return 1
++
++        # Need to check:
++        # - criterion: if None then this is first instance of this identifier
++        # - requirement.candidate.source_link: only vcs requirements will have this
++        #     so if no VCS req present, can skip this logic
++        # - type(matches._sequence) == list if VCS req, otherwise it's an iterator
++        #     that we should not concretize into a list since that will force us
++        #     to search through the candidates and that may error
++        if os.environ.get('JAX_TOOLBOX_VCS_EQUIVALENCY', False) \
++                and criterion \
++                and hasattr(requirement, 'candidate') \
++                and requirement.candidate.source_link \
++                and requirement.candidate.source_link.is_vcs \
++                and isinstance(matches._sequence, list) \
++                :
++            matches = build_iter_view(sorted(list(matches), key=vcs_compare))
+         criterion = Criterion(
+-            candidates=build_iter_view(matches),
++            candidates=matches,
+             information=information,
+             incompatibilities=incompatibilities,
+         )

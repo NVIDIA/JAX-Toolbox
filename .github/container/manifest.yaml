@@ -1,0 +1,103 @@
+# Updated in: 2023-12-01
+jax:
+  url: https://github.com/google/jax.git
+  tracking_ref: main
+  latest_verified_commit: 595117b70c11055e569480b80907d8c8a9901805
+  mode: git-clone
+xla:
+  url: https://github.com/openxla/xla.git
+  tracking_ref: main
+  latest_verified_commit: 78a5297d8e4301cb3ba2514061f56f89104e3d88
+  mode: git-clone
+flax:
+  url: https://github.com/google/flax.git
+  mirror_url: https://github.com/nvjax-svc-0/flax.git
+  tracking_ref: main
+  latest_verified_commit: 230b0d77e98da22b6e574c3cbff743ca1504bfca
+  mode: git-clone
+  patches:
+    pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
+transformer-engine:
+  url: https://github.com/NVIDIA/TransformerEngine.git
+  tracking_ref: main
+  latest_verified_commit: 92c1e500dd14608e54f75df8276baa1104c61d48
+  mode: git-clone
+t5x:
+  url: https://github.com/google-research/t5x.git
+  mirror_url: https://github.com/nvjax-svc-0/t5x.git
+  tracking_ref: main
+  latest_verified_commit: 1bfd2f15e5e77b09d60301367f67fdc9bb756b46
+  mode: git-clone
+  patches:
+    mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
+    mirror/patch/dali-support: file://patches/t5x/mirror-patch-dali-support.patch # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
+    mirror/patch/t5x_te_in_contrib_noindent: file://patches/t5x/mirror-patch-t5x_te_in_contrib_noindent.patch # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
+paxml:
+  url: https://github.com/google/paxml.git
+  mirror_url: https://github.com/nvjax-svc-0/paxml.git
+  tracking_ref: main
+  latest_verified_commit: 7ae682d4d99630008e190b96c5296990297175c2
+  mode: git-clone
+  patches:
+    pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
+praxis:
+  url: https://github.com/google/praxis.git
+  mirror_url: https://github.com/nvjax-svc-0/praxis.git
+  tracking_ref: main
+  latest_verified_commit: b6f32fa0fc6721db1cec75972b0f569c82095956
+  mode: git-clone
+  patches:
+    pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
+    pull/36/head: file://patches/praxis/PR-36.patch # adds Transformer Engine support
+lingvo:
+  # Used only in ARM pax builds
+  url: https://github.com/tensorflow/lingvo.git
+  tracking_ref: master
+  latest_verified_commit: 0274fa20b4ff194c1c118b94b5f778caa5d9a84a
+  mode: git-clone
+tensorflow-text:
+  # Used only in ARM pax builds
+  url: https://github.com/tensorflow/text.git
+  tracking_ref: v2.13.0
+  latest_verified_commit: 917a681d7220ebf9b62a08b6f9ce7b7db886ddef
+  mode: git-clone
+pydantic:
+  version: X.Y.Z
+  mode: pip-constraint
+# Used by praxis
+fiddle:
+  url: https://github.com/google/fiddle.git
+  tracking_ref: main
+  latest_verified_commit: d409cf95164599a88e49d2b6a23a0972a7170b0b
+  mode: pip-vcs
+# Used by t5x
+airio:
+  url: https://github.com/google/airio.git
+  tracking_ref: main
+  latest_verified_commit: 69b3ec4ded478ad9cacdc97652a9d086a6a644c4
+  mode: pip-vcs
+clu:
+  url: https://github.com/google/CommonLoopUtils.git
+  tracking_ref: main
+  latest_verified_commit: 7ba2a9d83a3bc1a97b59482c2f02dc4b3614bc31
+  mode: pip-vcs
+dllogger:
+  url: https://github.com/NVIDIA/dllogger.git
+  tracking_ref: master
+  latest_verified_commit: 0540a43971f4a8a16693a9de9de73c1072020769
+  mode: pip-vcs
+jestimator:
+  url: https://github.com/google-research/jestimator.git
+  tracking_ref: main
+  latest_verified_commit: fa143d93e337ca8ab77c4510baf21ae52af24ab2
+  mode: pip-vcs
+optax:
+  url: https://github.com/deepmind/optax.git
+  tracking_ref: master
+  latest_verified_commit: bf987e15eacf6efeb1a1a51b8868c094c3a15f9b
+  mode: pip-vcs
+seqio:
+  url: https://github.com/google/seqio.git
+  tracking_ref: main
+  latest_verified_commit: 515d917bf58da4103a2bbf39c3716213c36aff03
+  mode: pip-vcs

@@ -1,0 +1,29 @@
+From 0678aa3e8b7d5f7365aebb191f2e0794ca95a4b6 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Mon, 17 Apr 2023 13:15:01 -0700
+Subject: [PATCH] make strict and fallback_to_scratch args configurable to add
+ support for partial checkpoint restore
+
+---
+ t5x/train.py | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/t5x/train.py b/t5x/train.py
+index 61682ed..77e0860 100644
+--- a/t5x/train.py
++++ b/t5x/train.py
+@@ -354,6 +354,11 @@ def train(
+               checkpoint_cfg.save and checkpoint_cfg.save.save_dataset
+           ),
+           state_transformation_fns=state_transforms_for_restore,
++          strict=(checkpoint_cfg.restore.strict
++                  if checkpoint_cfg.restore is not None else True
++          ),
++          fallback_to_scratch=(checkpoint_cfg.restore.fallback_to_scratch
++                               if checkpoint_cfg.restore is not None else False)
+       )
+   ]
+   # 2. From a checkpoint specified by `checkpoint_cfg.restore.path`, if set.
+-- 
+2.25.1
+
