@@ -110,8 +110,6 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_LEVANTER=${{ inputs.REPO_LEVANTER }}
-            REF_LEVANTER=${{ inputs.REF_LEVANTER }}
 
       - name: Set docker metadata - final
         id: final-metadata
@@ -140,5 +138,4 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_LEVANTER=${{ inputs.REPO_LEVANTER }}
-            REF_LEVANTER=${{ inputs.REF_LEVANTER }}
+            
