@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG REPO_LEVANTER=https://github.com/stanford-crfm/levanter.git
+ARG REF_LEVANTER=main
 ARG SRC_PATH_LEVANTER=/opt/levanter
 
 ###############################################################################
@@ -9,9 +11,16 @@ ARG SRC_PATH_LEVANTER=/opt/levanter
 
 FROM ${BASE_IMAGE} as mealkit
 
+ARG REPO_LEVANTER
+ARG REF_LEVANTER
 ARG SRC_PATH_LEVANTER
 
 RUN <<"EOF" bash -ex
+echo "levanter:
+  url: ${REPO_LEVANTER}
+  tracking_ref: ${REF_LEVANTER}}
+  latest_verified_commit: 0086f8ad33bcd7a867532c0ce8920510a95a65b1
+  mode: git-clone" >> ${MANIFEST_FILE}
 cat ${MANIFEST_FILE}
 get-source.sh -l levanter -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-levanter.in
 EOF
