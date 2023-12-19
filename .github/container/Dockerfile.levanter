@@ -20,7 +20,12 @@ echo "levanter:
   url: ${REPO_LEVANTER}
   tracking_ref: ${REF_LEVANTER}}
   latest_verified_commit: 0086f8ad33bcd7a867532c0ce8920510a95a65b1
-  mode: git-clone" >> ${MANIFEST_FILE}
+  mode: git-clone
+haliax:
+  url: https://github.com/stanford-crfm/haliax.git
+  tracking_ref: main
+  latest_verified_commit: 69b3ec4ded478ad9cacdc97652a9d086a6a644c4
+  mode: pip-vcs" >> ${MANIFEST_FILE}
 cat ${MANIFEST_FILE}
 get-source.sh -l levanter -m ${MANIFEST_FILE} 
 echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
