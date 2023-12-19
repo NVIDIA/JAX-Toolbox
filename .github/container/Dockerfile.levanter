@@ -22,7 +22,8 @@ echo "levanter:
   latest_verified_commit: 0086f8ad33bcd7a867532c0ce8920510a95a65b1
   mode: git-clone" >> ${MANIFEST_FILE}
 cat ${MANIFEST_FILE}
-get-source.sh -l levanter -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-levanter.in
+get-source.sh -l levanter -m ${MANIFEST_FILE} 
+echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
 EOF
 
 ###############################################################################
