@@ -101,3 +101,8 @@ seqio:
   tracking_ref: main
   latest_verified_commit: 515d917bf58da4103a2bbf39c3716213c36aff03
   mode: pip-vcs
+levanter:
+  url: https://github.com/stanford-crfm/levanter.git
+  tracking_ref: slurm_cluster_fix
+  latest_verified_commit: 0086f8ad33bcd7a867532c0ce8920510a95a65b1
+  mode: git-clone
