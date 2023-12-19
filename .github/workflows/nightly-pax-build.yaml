@@ -94,7 +94,6 @@ jobs:
   arm64:
     needs: metadata
     uses: ./.github/workflows/_build_pax.yaml
-    if: false  # TODO: enable arm64 build after the build is fixed
     with:
       ARCHITECTURE: arm64
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
