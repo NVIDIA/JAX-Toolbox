@@ -18,16 +18,16 @@ on:
         description: "Build date in YYYY-MM-DD format"
         required: false
         default: '2023-12-12'
-      REPO_LEVANTER:
-        type: string
-        description: URL of Levanter repository to check out
-        required: false
-        default: "https://github.com/stanford-crfm/levanter.git"
-      REF_LEVANTER:
-        type: string
-        description: Git commit, tag, or branch for Levanter
-        required: false
-        default: main
+      # REPO_LEVANTER:
+      #   type: string
+      #   description: URL of Levanter repository to check out
+      #   required: false
+      #   default: "https://github.com/stanford-crfm/levanter.git"
+      # REF_LEVANTER:
+      #   type: string
+      #   description: Git commit, tag, or branch for Levanter
+      #   required: false
+      #   default: main
     #   ARTIFACT_NAME:
     #     type: string
     #     description: 'Name of the artifact zip file'
@@ -138,4 +138,3 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            
