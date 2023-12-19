@@ -6,23 +6,38 @@ cd $SCRIPT_DIR
 set -eou pipefail
 
 # Version should work on Linux || Darwin
-#repo_tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'mytmpdir')
-repo_tmp=/tmp/t5x
-patchlist_tmp=$(mktemp /tmp/patchlist.txt.XXXXXX)
+tmp_base=$(mktemp -d 2>/dev/null || mktemp -d -t 'upstream')
+workspace_tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'workspace')
+manifest_tmp=$(mktemp /tmp/manifest.yaml.XXXXXX)
 
-UPSTREAM_URL=https://github.com/google-research/t5x.git
-MIRROR_URL=https://github.com/nvjax-svc-0/t5x.git
+LIBRARY=t5x
 # Commit was taken just before PR-1372
 DISTRIBUTION_BASE_REF=22117ce5a3606706ba9519ccdd77b532ad8ff7b2
+repo_tmp=$tmp_base/$LIBRARY
 
-git clone $UPSTREAM_URL $repo_tmp
-echo "mirror/pull/4/head" >> $patchlist_tmp
+cat <<EOF >> $manifest_tmp
+t5x:
+  url: https://github.com/google-research/t5x.git
+  mirror_url: https://github.com/nvjax-svc-0/t5x.git
+  tracking_ref: main
+  latest_verified_commit: $DISTRIBUTION_BASE_REF
+  mode: git-clone
+  patches:
+    mirror/pull/4/head: null
+EOF
 
-bash ../create-distribution.sh \
-    -r $DISTRIBUTION_BASE_REF \
-    -d $repo_tmp \
-    -m $MIRROR_URL \
-    -p $patchlist_tmp
+bash ../../.github/container/get-source.sh --base-dir $tmp_base --manifest $manifest_tmp --library $LIBRARY
+
+cp ../../.github/container/create-distribution.sh $workspace_tmp/
+base_cmd() {
+  bash $workspace_tmp/create-distribution.sh \
+    --manifest $manifest_tmp \
+    --override_dir $repo_tmp \
+    --package $LIBRARY \
+    $@
+}
+base_cmd --skip-apply
+base_cmd
 
 # TESTS
 EXPECTED_HEAD_COMMIT_MSG="*TEST - DELETE README"
@@ -42,5 +57,5 @@ elif [[ "$PENULTIMATE_COMMIT_MSG" == "$EXPECTED_PENULTIMATE_COMMIT_MSG" ]]; then
   exit 1
 fi
 
-rm -rf $repo_tmp $patchlist_tmp
+rm -rf $repo_tmp $manifest_tmp $workspace_tmp
 echo "TEST SUCCESS"

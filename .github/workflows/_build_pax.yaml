@@ -17,26 +17,6 @@ on:
         description: "Build date in YYYY-MM-DD format"
         required: false
         default: 'NOT SPECIFIED'
-      REPO_PAXML:
-        type: string
-        description: URL of Paxml repository to check out
-        required: false
-        default: "https://github.com/google/paxml.git"
-      REPO_PRAXIS:
-        type: string
-        description: URL of Praxis repository to check out
-        required: false
-        default: "https://github.com/google/praxis.git"
-      REF_PAXML:
-        type: string
-        description: Git commit, tag, or branch for Paxml
-        required: false
-        default: main
-      REF_PRAXIS:
-        type: string
-        description: Git commit, tag, or branch for Praxis
-        required: false
-        default: main
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
@@ -119,10 +99,6 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_PAXML=${{ inputs.REPO_PAXML }}
-            REPO_PRAXIS=${{ inputs.REPO_PRAXIS }}
-            REF_PAXML=${{ inputs.REF_PAXML }}
-            REF_PRAXIS=${{ inputs.REF_PRAXIS }}
 
       - name: Set docker metadata - final
         id: final-metadata
@@ -151,10 +127,6 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REPO_PAXML=${{ inputs.REPO_PAXML }}
-            REPO_PRAXIS=${{ inputs.REPO_PRAXIS }}
-            REF_PAXML=${{ inputs.REF_PAXML }}
-            REF_PRAXIS=${{ inputs.REF_PRAXIS }}
 
       - name: Generate sitrep
         if: success() || failure()
@@ -163,7 +135,7 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='PAX ${{ inputs.ARCHITECTURE }} build'
+          badge_label='Upstream PAX ${{ inputs.ARCHITECTURE }} build'
           tags="${{ steps.final-metadata.outputs.tags }}"
           digest="${{ steps.final-build.outputs.digest }}"
           outcome="${{ steps.final-build.outcome }}"
@@ -171,11 +143,11 @@ jobs:
           if [[ ${outcome} == "success" ]]; then
             badge_message="pass"
             badge_color=brightgreen
-            summary="PAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+            summary="Upstream PAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
           else
             badge_message="fail"
             badge_color=red
-            summary="PAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+            summary="Upstream PAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
           fi
 
           to_json \
