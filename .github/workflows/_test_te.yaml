@@ -66,6 +66,46 @@ jobs:
           pip install pytest-reportlog
           pytest --report-log=/log/report.jsonl ${SRC_PATH_TE}/tests/jax
 
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='TE Unit test'
+          errors=$(cat test-*.log | grep -c 'ERROR:' || true)
+          failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
+          passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
+          total_tests=$((failed_tests + passed_tests))
+          
+          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary='TE Unit test did not complete due to errors.'
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="TE Unit test: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            errors total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
       - name: Upload unit test json logs
         if: success() || failure()
         uses: actions/upload-artifact@v3
@@ -113,7 +153,7 @@ jobs:
         run: |
           PYXIS_IMAGE_NAME=${{ inputs.TE_IMAGE }}
           PYXIS_IMAGE_NAME=${PYXIS_IMAGE_NAME/ghcr.io\//ghcr.io#}
-          TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
+          TEST_CASE_NAME=TE Multi 1P${{ matrix.N_GPU }}G
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           SLURM_LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           PYTEST_LOG_FILE=/nfs/cluster/${JOB_NAME}-pytest.jsonl
@@ -193,25 +233,31 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='TE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
-          tags="${{ steps.final-metadata.outputs.tags }}"
-          digest="${{ steps.final-build.outputs.digest }}"
-          outcome="${{ steps.final-build.outcome }}"
-
-          if [[ ${outcome} == "success" ]]; then
-            badge_message="pass"
-            badge_color=brightgreen
-            summary="TE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
-          else
-            badge_message="fail"
+          badge_label='${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          errors=$(cat test-*.log | grep -c 'ERROR:' || true)
+          failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
+          passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
+          total_tests=$((failed_tests + passed_tests))
+          
+          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
             badge_color=red
-            summary="TE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary='${{ steps.meta.outputs.TEST_CASE_NAME }} did not complete due to errors.'
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
             summary \
-            badge_label tags digest outcome \
-          > output/sitrep.json
+            errors total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > sitrep.json
 
           schemaVersion=1 \
           label="${badge_label}" \
