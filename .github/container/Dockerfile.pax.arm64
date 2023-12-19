@@ -74,8 +74,7 @@ sed -i 's/dataclasses=/#dataclasses=/'  docker/dev.requirements.txt
 pip install -r docker/dev.requirements.txt
 
 # Some tests are flaky right now, so we skip running the tests.
-SKIP_TESTS=1
-PYTHON_MINOR_VERSION=$(python --version | cut -d ' ' -f 2 | cut -d '.' -f 2) pip_package/build.sh
+SKIP_TESTS=1 PYTHON_MINOR_VERSION=$(python --version | cut -d ' ' -f 2 | cut -d '.' -f 2) pip_package/build.sh
 EOF
 
 ###############################################################################
