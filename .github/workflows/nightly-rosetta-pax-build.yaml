@@ -161,7 +161,7 @@ jobs:
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-        # ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+      # ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: pax
       TARGET_TAGS: |
         ${{ needs.test-amd64.outputs.TEST_STATUS == 'success' && 'type=raw,value=latest,priority=1000' || '' }}
