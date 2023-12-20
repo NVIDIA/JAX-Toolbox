@@ -100,7 +100,7 @@ jobs:
             summary \
             errors total_tests passed_tests failed_tests \
             badge_label badge_color badge_message \
-          > sitrep.json
+          > /log/sitrep.json
 
           schemaVersion=1 \
           label="${badge_label}" \
@@ -260,7 +260,7 @@ jobs:
             summary \
             errors total_tests passed_tests failed_tests \
             badge_label badge_color badge_message \
-          > sitrep.json
+          > output/sitrep.json
 
           schemaVersion=1 \
           label="${badge_label}" \
