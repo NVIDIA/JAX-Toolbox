@@ -88,7 +88,7 @@ jobs:
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: amd64
-      BASE_IMAGE: ${{ inputs.BASE_IMAGE }}
+      BASE_IMAGE: ${{ inputs.BASE_IMAGE || 'ghcr.io/nvidia/jax-toolbox:base' }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       TRIAL_BRANCH: ${{ needs.bump-world-state.outputs.TRIAL_BRANCH }}
     secrets: inherit
@@ -98,7 +98,7 @@ jobs:
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: arm64
-      BASE_IMAGE: ${{ inputs.BASE_IMAGE }}
+      BASE_IMAGE: ${{ inputs.BASE_IMAGE || 'ghcr.io/nvidia/jax-toolbox:base' }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       TRIAL_BRANCH: ${{ needs.bump-world-state.outputs.TRIAL_BRANCH }}
     secrets: inherit
