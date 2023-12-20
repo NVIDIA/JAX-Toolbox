@@ -237,9 +237,9 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           badge_label='${{ steps.meta.outputs.TEST_CASE_NAME }}'
-          errors=$(cat *.log | grep -c 'ERROR:' || true)
-          failed_tests=$(cat *.log | grep -c 'FAILED in' || true)
-          passed_tests=$(cat -*.log | grep -c 'PASSED in' || true)
+          errors=$(cat output/*.log | grep -c 'ERROR:' || true)
+          failed_tests=$(cat output/*.log | grep -c 'FAILED in' || true)
+          passed_tests=$(cat output/*.log | grep -c 'PASSED in' || true)
           total_tests=$((failed_tests + passed_tests))
           
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
