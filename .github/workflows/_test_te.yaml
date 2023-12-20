@@ -53,7 +53,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
+          
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+        
       - name: Pull TE image
         shell: bash -x -e {0}
         run: |
@@ -74,9 +77,9 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           badge_label='TE Unit test'
-          errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-          failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-          passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
+          errors=$(cat report.jsonl | grep -c 'ERROR:' || true)
+          failed_tests=$(cat report.jsonl | grep -c 'FAILED in' || true)
+          passed_tests=$(cat report.jsonl | grep -c 'PASSED in' || true)
           total_tests=$((failed_tests + passed_tests))
           
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
@@ -104,14 +107,14 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
+          > /log/$te-unit-test.json
 
       - name: Upload unit test json logs
         if: success() || failure()
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
-          path: /log/report.jsonl
+          path: /log/*
 
   te-multi-gpu:
     strategy:
@@ -121,7 +124,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-multi-gpu.json
+      BADGE_FILENAME_FULL: te-multi-gpu-test.json
     outputs:
       INTEGRATION_TEST_ARTIFACT_NAME: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}
 
