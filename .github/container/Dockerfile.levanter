@@ -24,7 +24,7 @@ echo "levanter:
 haliax:
   url: https://github.com/stanford-crfm/haliax.git
   tracking_ref: main
-  latest_verified_commit: 7073fcfd6a33638b97c104a44c5b50385b3e3eb5
+  latest_verified_commit: 0f29c95eea05ed9e2d9d01c7ae48f4231cf1a57d
   mode: git-clone" >> ${MANIFEST_FILE}
 cat ${MANIFEST_FILE}
 get-source.sh -l levanter -m ${MANIFEST_FILE} 
