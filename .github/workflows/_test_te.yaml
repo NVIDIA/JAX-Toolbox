@@ -156,7 +156,7 @@ jobs:
         run: |
           PYXIS_IMAGE_NAME=${{ inputs.TE_IMAGE }}
           PYXIS_IMAGE_NAME=${PYXIS_IMAGE_NAME/ghcr.io\//ghcr.io#}
-          TEST_CASE_NAME=TE Multi 1P${{ matrix.N_GPU }}G
+          TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
           JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           SLURM_LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           PYTEST_LOG_FILE=/nfs/cluster/${JOB_NAME}-pytest.jsonl
