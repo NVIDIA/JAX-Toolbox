@@ -141,15 +141,6 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
 
-      - name: Extract patches
-        run: rosetta/scripts/extract-patches.sh ${{ steps.final-metadata.outputs.tags }}
-
-      - name: Archive generated patches
-        uses: actions/upload-artifact@v3
-        with:
-          name: patches-${{ inputs.BASE_LIBRARY }}-${{ inputs.BUILD_DATE }}-${{ github.run_id }}-${{ inputs.ARCHITECTURE }}
-          path: rosetta/patches
-
       - name: Generate sitrep
         if: success() || failure()
         shell: bash -x -e {0}
