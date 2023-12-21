@@ -111,6 +111,7 @@ jobs:
     needs: [metadata, amd64]
     uses: ./.github/workflows/_publish_badge.yaml
     if: always()
+    secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-pax-build-status.json'
       PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
