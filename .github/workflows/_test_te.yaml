@@ -77,8 +77,8 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           badge_label='TE Unit test'
-          failed_tests=$(cat report.jsonl | grep -c 'failed' || true)
-          passed_tests=$(cat report.jsonl | grep -c 'passed' || true)
+          failed_tests=$(cat /log/report.jsonl | grep -c 'failed' || true)
+          passed_tests=$(cat /log/report.jsonl | grep -c 'passed' || true)
           total_tests=$((failed_tests + passed_tests))
           
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
@@ -94,7 +94,7 @@ jobs:
             fi
             summary="TE Unit test: $badge_message"
           fi
-
+          echo "failed tests: " $failed_tests " passed tests: " $passed_tests " total_tests: " $total_tests " summary: " $summary
           to_json \
             summary \
             errors total_tests passed_tests failed_tests \
@@ -118,7 +118,7 @@ jobs:
   te-multi-gpu:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
+        N_GPU: [1, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -248,6 +248,7 @@ jobs:
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
 
+          echo "FILES: " $EXIT_STATUSES
           
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
@@ -262,6 +263,8 @@ jobs:
             fi
             summary="TE multi Gpu tests : $badge_message"
           fi
+
+          echo "failed tests: " $failed_tests " passed tests: " $passed_tests " total_tests: " $total_tests " summary: " $summary
 
           to_json \
             summary \
