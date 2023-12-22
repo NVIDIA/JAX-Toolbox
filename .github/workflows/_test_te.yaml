@@ -77,9 +77,8 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           badge_label='TE Unit test'
-          errors=$(cat report.jsonl | grep -c 'ERROR:' || true)
-          failed_tests=$(cat report.jsonl | grep -c 'FAILED in' || true)
-          passed_tests=$(cat report.jsonl | grep -c 'PASSED in' || true)
+          failed_tests=$(cat report.jsonl | grep -c 'failed' || true)
+          passed_tests=$(cat report.jsonl | grep -c 'passed' || true)
           total_tests=$((failed_tests + passed_tests))
           
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
@@ -244,7 +243,7 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           EXIT_STATUSES="output/${{ steps.meta.outputs.TEST_CASE_NAME }}-*/*-status.json"
-          badge_label='TE Multi Gpu ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          badge_label='TE Multi Gpu tests'
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
@@ -253,7 +252,7 @@ jobs:
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
-            summary='${{ steps.meta.outputs.TEST_CASE_NAME }} did not complete due to errors.'
+            summary='TE multi Gpu tests did not complete due to errors.'
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -261,7 +260,7 @@ jobs:
             else
               badge_color=yellow
             fi
-            summary="${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="TE multi Gpu tests : $badge_message"
           fi
 
           to_json \
