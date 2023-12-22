@@ -87,23 +87,8 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
-  build-jax:
-    needs: [metadata, build-base]
-    uses: ./.github/workflows/_build_jax.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-      REPO_JAX: ${{ needs.metadata.outputs.REPO_JAX }}
-      REF_JAX: ${{ needs.metadata.outputs.REF_JAX }}
-      REPO_XLA: ${{ needs.metadata.outputs.REPO_XLA }}
-      REF_XLA: ${{ needs.metadata.outputs.REF_XLA }}
-      REPO_TE: ${{ needs.metadata.outputs.REPO_TE }}
-      REF_TE: ${{ needs.metadata.outputs.REF_TE }}
-    secrets: inherit
-
   build-pax:
-    needs: [metadata, build-jax]
+    needs: [metadata, build-base]
     uses: ./.github/workflows/_build_pax.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
