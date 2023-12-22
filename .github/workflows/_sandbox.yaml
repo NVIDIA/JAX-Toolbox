@@ -93,7 +93,6 @@ jobs:
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       REPO_PAXML: ${{ needs.metadata.outputs.REPO_PAXML }}
       REF_PAXML: ${{ needs.metadata.outputs.REF_PAXML }}
       REPO_PRAXIS: ${{ needs.metadata.outputs.REPO_PRAXIS }}
