@@ -214,6 +214,7 @@ jobs:
       - name: Retrieve training logs
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           mkdir output/
           ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} "ls /nfs/cluster/${GITHUB_RUN_ID}*"
           rsync -rtz --progress \
@@ -240,6 +241,11 @@ jobs:
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
+          echo "$pwd"
+          ls output/
+          cd $GITHUB_WORKSPACE
+          ls output/
+          ls ./
           source .github/workflows/scripts/to_json.sh
 
           EXIT_STATUSES="output/${{ steps.meta.outputs.TEST_CASE_NAME }}-*/*-status.json"
