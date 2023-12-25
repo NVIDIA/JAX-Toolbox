@@ -288,5 +288,5 @@ jobs:
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}
+          name: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}-${{ steps.meta.outputs.TEST_CASE_NAME }}
           path: output/*
