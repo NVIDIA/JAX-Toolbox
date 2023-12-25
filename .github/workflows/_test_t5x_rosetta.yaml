@@ -143,6 +143,7 @@ jobs:
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
@@ -169,34 +170,41 @@ jobs:
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
+          cd $GITHUB_WORKSPACE
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='T5X ${{ steps.meta.outputs.TEST_CASE_NAME }}'
-          tags="${{ steps.final-metadata.outputs.tags }}"
-          digest="${{ steps.final-build.outputs.digest }}"
-          outcome="${{ steps.final-build.outcome }}"
-
-          if [[ ${outcome} == "success" ]]; then
-            badge_message="pass"
-            badge_color=brightgreen
-            summary="T5X ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
-          else
-            badge_message="fail"
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
             badge_color=red
-            summary="T5X ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
             summary \
-            badge_label tags digest outcome \
-          > sitrep.json
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
 
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}
           
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -325,7 +333,7 @@ jobs:
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
-
+          cd $GITHUB_WORKSPACE
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
@@ -352,34 +360,41 @@ jobs:
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
+          cd $GITHUB_WORKSPACE
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='T5X ${{ steps.meta.outputs.TEST_CASE_NAME }}'
-          tags="${{ steps.final-metadata.outputs.tags }}"
-          digest="${{ steps.final-build.outputs.digest }}"
-          outcome="${{ steps.final-build.outcome }}"
-
-          if [[ ${outcome} == "success" ]]; then
-            badge_message="pass"
-            badge_color=brightgreen
-            summary="T5X ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
-          else
-            badge_message="fail"
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
             badge_color=red
-            summary="T5X ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
             summary \
-            badge_label tags digest outcome \
-          > sitrep.json
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
 
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}
  
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -480,6 +495,7 @@ jobs:
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
@@ -506,34 +522,41 @@ jobs:
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
+          cd $GITHUB_WORKSPACE
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='${{ steps.meta.outputs.TEST_CASE_NAME }}'
-          tags="${{ steps.final-metadata.outputs.tags }}"
-          digest="${{ steps.final-build.outputs.digest }}"
-          outcome="${{ steps.final-build.outcome }}"
-
-          if [[ ${outcome} == "success" ]]; then
-            badge_message="pass"
-            badge_color=brightgreen
-            summary="${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
-          else
-            badge_message="fail"
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
             badge_color=red
-            summary="${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
             summary \
-            badge_label tags digest outcome \
-          > sitrep.json
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
 
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}
  
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -638,7 +661,7 @@ jobs:
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
-
+          cd $GITHUB_WORKSPACE
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
@@ -665,34 +688,41 @@ jobs:
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
+          cd $GITHUB_WORKSPACE
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='${{ steps.meta.outputs.TEST_CASE_NAME }}'
-          tags="${{ steps.final-metadata.outputs.tags }}"
-          digest="${{ steps.final-build.outputs.digest }}"
-          outcome="${{ steps.final-build.outcome }}"
-
-          if [[ ${outcome} == "success" ]]; then
-            badge_message="pass"
-            badge_color=brightgreen
-            summary="${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
-          else
-            badge_message="fail"
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
             badge_color=red
-            summary="${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
             summary \
-            badge_label tags digest outcome \
-          > sitrep.json
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
 
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}
  
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
