@@ -168,14 +168,6 @@ jobs:
       TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  test-upstream-t5x:
-    needs: build-t5x
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_t5x.yaml
-    with:
-      T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
   test-rosetta-t5x:
     needs: build-rosetta-t5x
     if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
@@ -183,14 +175,6 @@ jobs:
     with:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
       # Disable packing b/c rosetta-t5x images run with TE by default, and TE does not currently support packing
-    secrets: inherit
-
-  test-upstream-pax:
-    needs: build-pax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_pax.yaml
-    with:
-      PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-rosetta-pax:
