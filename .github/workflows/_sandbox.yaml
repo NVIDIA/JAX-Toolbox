@@ -152,14 +152,6 @@ jobs:
     uses: ./.github/workflows/_test_distribution.yaml
     secrets: inherit
 
-  test-jax:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_jax.yaml
-    with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
   test-te:
     needs: build-pax
     if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
