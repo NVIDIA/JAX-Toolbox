@@ -26,9 +26,9 @@ on:
         description: 'Name of the artifact zip file'
         required: false
         default: 'artifact-rosetta-build'
-      BADGE_FILENAME:
+      BADGE_FILENAME_PREFIX:
         type: string
-        description: 'Name of the endpoint JSON file for shields.io badge'
+        description: 'Name of the endpoint JSON file for shields.io badge (w/o .json || arch || library)'
         required: false
         default: 'badge-rosetta-build'
     outputs:
@@ -53,7 +53,7 @@ jobs:
   build-rosetta:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME}}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE}}.json
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME_PREFIX}}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE}}.json
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
       DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
