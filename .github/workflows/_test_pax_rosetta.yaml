@@ -44,7 +44,7 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+     
     steps:
       - name: Print environment variables
         run: env
@@ -77,6 +77,7 @@ jobs:
           NODES=1
           GPUS_PER_NODE=8
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          BADGE_FILENAME_FULL=pax-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -195,7 +196,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}
+          > ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -251,6 +252,7 @@ jobs:
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          BADGE_FILENAME_FULL=pax-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -378,7 +380,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}
+          > ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -432,6 +434,7 @@ jobs:
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          BADGE_FILENAME_FULL=pax-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -558,7 +561,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}
+          > ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -611,6 +614,7 @@ jobs:
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          BADGE_FILENAME_FULL=pax-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -739,7 +743,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}
+          > ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -790,6 +794,7 @@ jobs:
           GPUS_PER_NODE=8
 
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          BADGE_FILENAME_FULL=pax-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -917,7 +922,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}
+          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
