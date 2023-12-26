@@ -84,7 +84,6 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-T5X-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          BADGE_FILENAME_FULL=t5x-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -274,7 +273,6 @@ jobs:
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-T5X-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          BADGE_FILENAME_FULL=t5x-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
@@ -445,7 +443,6 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=VIT1P${{ matrix.N_GPU }}G
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-VIT-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          BADGE_FILENAME_FULL=t5x-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.VIT_BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -609,7 +606,6 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=VIT${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
-          BADGE_FILENAME_FULL=t5x-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-VIT-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
