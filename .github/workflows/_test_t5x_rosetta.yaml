@@ -54,7 +54,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: t5x-rosetta-single-process-multi-device
+      BADGE_FILENAME_FULL: rosetta-t5x-single-process-multi-device
     steps:
       - name: Print environment variables
         run: env
@@ -177,7 +177,7 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           EXIT_STATUSES="output/*-status.json"
-          badge_label='T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          badge_label='ROSETTA T5X SINGLE PROCESS MULTI DEVICE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
@@ -185,7 +185,7 @@ jobs:
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
-            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="ROSETTA T5X SINGLE PROCESS MULTI DEVICE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -193,7 +193,7 @@ jobs:
             else
               badge_color=yellow
             fi
-            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="ROSETTA T5X SINGLE PROCESS MULTI DEVICE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
@@ -243,7 +243,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: t5x-rosetta-multi-gpu-multi-node
+      BADGE_FILENAME_FULL: rosetta-t5x-multi-gpu-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -369,7 +369,7 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           EXIT_STATUSES="output/*-status.json"
-          badge_label='T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          badge_label='ROSETTA T5X MULTI GPU MULTI NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
@@ -377,7 +377,7 @@ jobs:
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
-            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="ROSETTA T5X MULTI GPU MULTI NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -385,7 +385,7 @@ jobs:
             else
               badge_color=yellow
             fi
-            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="ROSETTA T5X MULTI GPU MULTI NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
@@ -415,7 +415,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: t5x-rosetta-vit-single-process-multi-device
+      BADGE_FILENAME_FULL: rosetta-t5x-vit-single-process-multi-device
     steps:
       - name: Print environment variables
         run: env
@@ -533,7 +533,7 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           EXIT_STATUSES="output/*-status.json"
-          badge_label='T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          badge_label='ROSETTA T5X VIT SINGLE PROCESS MULTI DEVICE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
@@ -541,7 +541,7 @@ jobs:
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
-            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="ROSETTA T5X  VIT SINGLE PROCESS MULTI DEVICE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -549,7 +549,7 @@ jobs:
             else
               badge_color=yellow
             fi
-            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="ROSETTA T5X  VIT SINGLE PROCESS MULTI DEVICE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
@@ -580,7 +580,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: t5x-rosetta-vit-multi-gpu-multi-node
+      BADGE_FILENAME_FULL: rosetta-t5x-vit-multi-gpu-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -701,7 +701,7 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           EXIT_STATUSES="output/*-status.json"
-          badge_label='T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          badge_label='ROSETTA T5X VIT MULTI GPU MULTI NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
@@ -709,7 +709,7 @@ jobs:
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
-            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="ROSETTA T5X VIT MULTI GPU MULTI NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -717,7 +717,7 @@ jobs:
             else
               badge_color=yellow
             fi
-            summary="T5X ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="ROSETTA T5X VIT MULTI GPU MULTI NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
