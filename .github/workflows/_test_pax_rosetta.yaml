@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     env:
-      BADGE_FILENAME_FULL_ENV: pax-single-process-multi-device-te-test.json
+      BADGE_FILENAME_FULL: pax-rosetta-single-process-multi-device-te
 
     steps:
       - name: Print environment variables
@@ -80,7 +80,6 @@ jobs:
           NODES=1
           GPUS_PER_NODE=8
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          BADGE_FILENAME_FULL=pax-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -187,10 +186,6 @@ jobs:
             fi
             summary="PAX ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
-
-          echo "BADGE_FILENAME_FULL_ENV : ${{ env.BADGE_FILENAME_FULL_ENV }}"
-          echo "BADGE_FILENAME_FULL: ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}"
-          echo "Another file : pax-rosetta-${{ steps.meta.outputs.TEST_CASE_NAME }}.json"
           
           to_json \
             summary \
@@ -203,7 +198,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL_ENV }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -224,7 +219,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL_ENV: pax-single-process-multi-device-te-test.json
+      BADGE_FILENAME_FULL_ENV: pax-rosetta-multi-node-te
     steps:
       - name: Print environment variables
         run: env
@@ -382,17 +377,13 @@ jobs:
             total_tests passed_tests failed_tests \
             badge_label badge_color badge_message \
           > output/sitrep.json
-          
-          echo "BADGE_FILENAME_FULL_ENV : ${{ env.BADGE_FILENAME_FULL_ENV }}"
-          echo "BADGE_FILENAME_FULL: ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}"
-          echo "Another file : pax-rosetta-${{ steps.meta.outputs.TEST_CASE_NAME }}.json"
       
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL_ENV }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -411,7 +402,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL: pax-rosetta-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -567,15 +559,13 @@ jobs:
             total_tests passed_tests failed_tests \
             badge_label badge_color badge_message \
           > output/sitrep.json
-
-          echo "BADGE_FILENAME_FULL: ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}"
           
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -592,7 +582,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL: pax-rosetta-single-node-dropout-te
     steps:
       - name: Print environment variables
         run: env
@@ -759,7 +750,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}-{{ steps.meta.outputs.TEST_CASE_NAME }}.json
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -775,7 +766,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL: pax-rosetta-single-process-evaluation-te
     steps:
       - name: Print environment variables
         run: env
@@ -940,7 +932,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
