@@ -53,6 +53,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
+    env:
+      BADGE_FILENAME_FULL: t5x-rosetta-single-process-multi-device
     steps:
       - name: Print environment variables
         run: env
@@ -205,7 +207,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
           
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -240,7 +242,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL: t5x-rosetta-multi-gpu-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -396,7 +399,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
  
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -411,7 +414,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL: t5x-rosetta-vit-single-process-multi-device
     steps:
       - name: Print environment variables
         run: env
@@ -559,7 +563,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
  
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -575,7 +579,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL: t5x-rosetta-vit-multi-gpu-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -726,7 +731,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
  
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
