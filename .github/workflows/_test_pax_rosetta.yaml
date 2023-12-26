@@ -44,7 +44,10 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-     
+
+    env:
+      BADGE_FILENAME_FULL_ENV: pax-single-process-multi-device-te-test.json
+
     steps:
       - name: Print environment variables
         run: env
@@ -187,6 +190,7 @@ jobs:
 
           echo "BADGE_FILENAME_FULL_ENV : ${{ env.BADGE_FILENAME_FULL_ENV }}"
           echo "BADGE_FILENAME_FULL: ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}"
+          echo "Another file : pax-rosetta-${{ steps.meta.outputs.TEST_CASE_NAME }}.json"
           
           to_json \
             summary \
@@ -219,7 +223,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL_ENV: pax-single-process-multi-device-te-test.json
     steps:
       - name: Print environment variables
         run: env
@@ -377,8 +382,11 @@ jobs:
             total_tests passed_tests failed_tests \
             badge_label badge_color badge_message \
           > output/sitrep.json
-
+          
+          echo "BADGE_FILENAME_FULL_ENV : ${{ env.BADGE_FILENAME_FULL_ENV }}"
           echo "BADGE_FILENAME_FULL: ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}"
+          echo "Another file : pax-rosetta-${{ steps.meta.outputs.TEST_CASE_NAME }}.json"
+      
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
