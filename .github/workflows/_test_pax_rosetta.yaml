@@ -196,7 +196,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -380,7 +380,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -561,7 +561,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -743,7 +743,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
+          > output/${{ steps.meta.outputs.BADGE_FILENAME_FULL }}
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
