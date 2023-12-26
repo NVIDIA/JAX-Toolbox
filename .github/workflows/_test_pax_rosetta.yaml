@@ -375,6 +375,7 @@ jobs:
             badge_label badge_color badge_message \
           > output/sitrep.json
 
+          echo "BADGE_FILENAME_FULL: ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}"
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
@@ -556,6 +557,8 @@ jobs:
             badge_label badge_color badge_message \
           > output/sitrep.json
 
+          echo "BADGE_FILENAME_FULL: ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}"
+          
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
@@ -732,6 +735,8 @@ jobs:
             summary="PAX ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
+          echo "BADGE_FILENAME_FULL: ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}"
+      
           to_json \
             summary \
             total_tests passed_tests failed_tests \
@@ -910,6 +915,8 @@ jobs:
             fi
             summary="PAX ROSETTA ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
+
+          echo "BADGE_FILENAME_FULL: ${{ steps.meta.outputs.BADGE_FILENAME_FULL }}"
 
           to_json \
             summary \
