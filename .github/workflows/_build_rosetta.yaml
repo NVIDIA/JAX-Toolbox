@@ -53,7 +53,8 @@ jobs:
   build-rosetta:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME_PREFIX}}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE}}.json
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME_PREFIX }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}.json
+      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME}}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
       DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
@@ -99,7 +100,9 @@ jobs:
         id: mealkit-build
         uses: docker/build-push-action@v4
         with:
-          context: rosetta/
+          context: .
+          build-contexts: |
+            jax-toolbox=.
           push: true
           file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
           platforms: linux/${{ inputs.ARCHITECTURE }}
@@ -113,15 +116,22 @@ jobs:
         id: final-metadata
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.UPLD_IMAGE }}
-          flavor: latest=false
-          tags: type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}-final
-          labels: org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+          images: |
+            ${{ env.UPLD_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      - name: Build docker images - final
+      - name: Build final image
+        id: final-build
         uses: docker/build-push-action@v4
         with:
-          context: rosetta/
+          context: .
+          build-contexts: |
+            jax-toolbox=.
           push: true
           file: rosetta/Dockerfile.${{ inputs.BASE_LIBRARY }}
           platforms: linux/${{ inputs.ARCHITECTURE }}
@@ -130,6 +140,7 @@ jobs:
           target: final
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
+            
       - name: Generate sitrep
         if: success() || failure()
         shell: bash -x -e {0}

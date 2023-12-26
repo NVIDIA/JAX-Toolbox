@@ -196,6 +196,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -211,6 +213,14 @@ jobs:
           echo "SLURM Job exit code is ${SLURM_EXITCODE}"
           echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs
         shell: bash -x -e {0}
         run: |

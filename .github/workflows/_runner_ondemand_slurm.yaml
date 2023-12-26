@@ -54,7 +54,8 @@ jobs:
         id: submit
         shell: bash -x -e {0}
         run: |
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+          SLURM_JOB_ID_FILE=$(mktemp)
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} >${SLURM_JOB_ID_FILE} \
             sbatch --parsable \
           <<"EOF"
           #!/bin/bash
@@ -93,3 +94,17 @@ jobs:
             -e DOCKERD_IN_RUNNER=true \
             ghcr.io/yhtang/actions-runner-dind:ubuntu-22.04  # use personal repo for the time being to avoid auth/cost issues
           EOF
+
+          echo "SLURM_JOB_ID=$(cat ${SLURM_JOB_ID_FILE})" >> $GITHUB_OUTPUT
+
+      - name: Wait for SLURM job to complete
+        shell: bash -x -e {0}
+        run: |
+          while ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} squeue -j${{ steps.submit.outputs.SLURM_JOB_ID }} > /dev/null 2>&1; do echo "wait"; sleep 15; done
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
