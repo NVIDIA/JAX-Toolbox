@@ -255,7 +255,6 @@ jobs:
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          BADGE_FILENAME_FULL=pax-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -438,7 +437,6 @@ jobs:
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          BADGE_FILENAME_FULL=pax-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -619,7 +617,6 @@ jobs:
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          BADGE_FILENAME_FULL=pax-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -800,7 +797,6 @@ jobs:
           GPUS_PER_NODE=8
 
           JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          BADGE_FILENAME_FULL=pax-rosetta-mgmn-test-${TEST_CASE_NAME}.json
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
