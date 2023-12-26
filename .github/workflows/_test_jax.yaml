@@ -78,7 +78,7 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='${{ matrix.GPU_ARCH }} Unit'
+          badge_label='JAX ${{ matrix.GPU_ARCH }} Unit'
 
           errors=$(cat test-*.log | grep -c 'ERROR:' || true)
           failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
