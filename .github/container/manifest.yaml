@@ -2,31 +2,31 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 595117b70c11055e569480b80907d8c8a9901805
+  latest_verified_commit: f9be08b4d98778ab2518d57021663c23e727c990
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 78a5297d8e4301cb3ba2514061f56f89104e3d88
+  latest_verified_commit: 11afd8745b08fa124c003f5527192dfd2056df73
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
-  latest_verified_commit: 230b0d77e98da22b6e574c3cbff743ca1504bfca
+  latest_verified_commit: 85dfad242e56098849dbf05e7e4657b3a40820f9
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  latest_verified_commit: 92c1e500dd14608e54f75df8276baa1104c61d48
+  latest_verified_commit: 82555b3fd1ddece3a886fac3c7a4aa8d6f8c1955
   mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
   tracking_ref: main
-  latest_verified_commit: 1bfd2f15e5e77b09d60301367f67fdc9bb756b46
+  latest_verified_commit: 133d0b192e5847434bcf06af1a7d5816c3a09b55
   mode: git-clone
   patches:
     mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
@@ -36,7 +36,7 @@ paxml:
   url: https://github.com/google/paxml.git
   mirror_url: https://github.com/nvjax-svc-0/paxml.git
   tracking_ref: main
-  latest_verified_commit: 7ae682d4d99630008e190b96c5296990297175c2
+  latest_verified_commit: 8bf1e67bb0d5722a8ca52bbc7f5edc8e8d72b265
   mode: git-clone
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
@@ -44,7 +44,7 @@ praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
   tracking_ref: main
-  latest_verified_commit: b6f32fa0fc6721db1cec75972b0f569c82095956
+  latest_verified_commit: 28cb1609a419f72911eadca9a78d7d0242a490de
   mode: git-clone
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
@@ -53,7 +53,7 @@ lingvo:
   # Used only in ARM pax builds
   url: https://github.com/tensorflow/lingvo.git
   tracking_ref: master
-  latest_verified_commit: 0274fa20b4ff194c1c118b94b5f778caa5d9a84a
+  latest_verified_commit: 015fc3aca57eb0a0181a5768bca91360ca1cc0c0
   mode: git-clone
 tensorflow-text:
   # Used only in ARM pax builds
@@ -68,18 +68,18 @@ pydantic:
 fiddle:
   url: https://github.com/google/fiddle.git
   tracking_ref: main
-  latest_verified_commit: d409cf95164599a88e49d2b6a23a0972a7170b0b
+  latest_verified_commit: 86493ee620039d930f3ea941a7ced7316a0ce018
   mode: pip-vcs
 # Used by t5x
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: 69b3ec4ded478ad9cacdc97652a9d086a6a644c4
+  latest_verified_commit: 0e31f368b12d298e133b3a774e27d9bb0e85d087
   mode: pip-vcs
 clu:
   url: https://github.com/google/CommonLoopUtils.git
   tracking_ref: main
-  latest_verified_commit: 7ba2a9d83a3bc1a97b59482c2f02dc4b3614bc31
+  latest_verified_commit: 8a01f215831d57b85f1c506c97a3baf5fc3a5a6a
   mode: pip-vcs
 dllogger:
   url: https://github.com/NVIDIA/dllogger.git
@@ -94,10 +94,10 @@ jestimator:
 optax:
   url: https://github.com/deepmind/optax.git
   tracking_ref: master
-  latest_verified_commit: bf987e15eacf6efeb1a1a51b8868c094c3a15f9b
+  latest_verified_commit: 82603b8b59b248c6dd5e2c8367f4c7ff2e62fa48
   mode: pip-vcs
 seqio:
   url: https://github.com/google/seqio.git
   tracking_ref: main
-  latest_verified_commit: 515d917bf58da4103a2bbf39c3716213c36aff03
+  latest_verified_commit: dd60fe9ea0707a2626e1e6ccbc786f87aa8f5a47
   mode: pip-vcs
