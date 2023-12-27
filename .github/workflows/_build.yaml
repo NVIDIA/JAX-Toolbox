@@ -51,6 +51,7 @@ permissions:
 
 jobs:
   build:
+    name: build-${{ inputs.CONTAINER_NAME }}
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
