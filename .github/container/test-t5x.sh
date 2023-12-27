@@ -178,7 +178,7 @@ $(
 import dummy_wikipedia
 
 MIXTURE_OR_TASK_NAME = "dummy_wikipedia"
-TASK_FEATURE_LENGTHS = {"inputs": 512, "targets": 114}
+TASK_FEATURE_LENGTHS = {"inputs": 512, "targets": 128}
 DROPOUT_RATE = 0.0
 USE_CACHED_TASKS = False
 TRAIN_STEPS = %gin.REQUIRED
