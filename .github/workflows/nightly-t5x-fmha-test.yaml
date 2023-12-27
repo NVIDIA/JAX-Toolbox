@@ -1,5 +1,5 @@
-name: Nightly T5x FMHA build and test
-run-name: Nightly T5x FMHA build and test (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
+name: Nightly T5x FMHA test
+run-name: Nightly T5x FMHA test (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
   workflow_run:
