@@ -81,11 +81,15 @@ jobs:
 
   build-pax:
     needs: [metadata, build-jax]
-    uses: ./.github/workflows/_build_pax.yaml
+    uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: "artifact-pax-build"
+      BADGE_FILENAME: "badge-pax-build"
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: "upstream-pax"
+      DOCKER_FILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
   build-rosetta-t5x:
