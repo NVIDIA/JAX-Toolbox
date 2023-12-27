@@ -44,7 +44,7 @@ OUTPUT=$(mktemp -d)
 SEED=42
 STEPS_PER_EPOCH=100
 ENABLE_TE=${ENABLE_TE:-0}
-SAVE_HLO=${SAVE_HLO:-0}
+SAVE_HLO=${SAVE_HLO:-1}
 
 eval set -- "$args"
 while [ : ]; do
@@ -115,7 +115,7 @@ fi
 HLO_DIR=${OUTPUT}/hlo
 
 ## Setting the env variables for FMHA
-export XLA_FLAGS="--xla_dump_hlo_as_text --xla_dump_to=${HLO_DIR} --xla_gpu_graph_level=0 --xla_gpu_fused_attention_use_cudnn_rng=true --xla_gpu_enable_cudnn_fmha=true"
+export XLA_FLAGS="--xla_dump_hlo_as_text --xla_dump_to=${HLO_DIR} --xla_gpu_graph_level=0 --xla_gpu_fused_attention_use_cudnn_rng=true"
 
 ## Set derived variables
 
