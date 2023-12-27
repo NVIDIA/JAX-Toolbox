@@ -1,0 +1,133 @@
+name: Nightly T5x FMHA build and test
+run-name: Nightly T5x FMHA build and test (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
+
+on:
+  workflow_run:
+    workflows: [Nightly T5X build]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      BASE_IMAGE:
+        type: string
+        description: 'Upstream T5x mealkit image without $arch-mealkit suffix, e.g., (ghcr.io/nvidia/jax-toolbox-internal:6857094059-upstream-t5x). Leaving empty implies ghcr.io/nvidia/upstream-t5x:mealkit'
+        default: ''
+        required: false
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
+        required: false
+
+env:
+  BASE_LIBRARY: t5x
+  DOCKER_REGISTRY: ghcr.io/nvidia
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      BASE_LIBRARY: ${{ steps.base-metadata.outputs.BASE_LIBRARY }}
+      BASE_IMAGE_AMD64: ${{ steps.base-metadata.outputs.BASE_IMAGE_AMD64 }}
+      BASE_IMAGE_ARM64: ${{ steps.base-metadata.outputs.BASE_IMAGE_ARM64 }}
+      PUBLISH: ${{ steps.base-metadata.outputs.PUBLISH }}
+    steps:
+      - name: Check if the triggering workflow failed
+        id: if-upstream-failed
+        shell: bash -x -e {0}
+        run: |
+          echo "UPSTREAM_FAILED=${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
+
+      - name: Cancel workflow if upstream workflow did not success
+        if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
+        run: |
+          echo "Upstream workflow failed, cancelling this workflow"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          cat  # blocks execution in case workflow cancellation takes time
+
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Set base library and image
+        id: base-metadata
+        shell: bash -x -e {0}
+        run: |
+          if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
+            BASE_IMAGE_AMD64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:mealkit
+            BASE_IMAGE_ARM64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:mealkit
+          else
+            BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE }}-amd64-mealkit
+            BASE_IMAGE_ARM64=${{ inputs.BASE_IMAGE }}-arm64-mealkit
+          fi
+          echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
+          echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
+          echo "BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}" >> $GITHUB_OUTPUT
+          # A container should be published if:
+          # 1) the workflow is triggered by workflow_dispatch and the PUBLISH input is true, or
+          # 2) the workflow is triggered by workflow_run (i.e., a nightly build)
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+
+  test-t5x-fmha-amd64:
+    needs: metadata
+    uses: ./.github/workflows/_test_t5x_fmha.yaml
+    with:
+      T5X_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  publish-t5x:
+    needs: [metadata, test-t5x-fmha-amd64]
+    uses: ./.github/workflows/_publish_t5x_pax_results.yaml
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      EXPERIMENT_SUBDIR: T5X_FMHA
+      ARTIFACT_NAME: "T5X-FMHA"
+    secrets: inherit
+
+  # TODO: ARM
+  publish-test-badge:
+    needs: [metadata, test-t5x-fmha-amd64]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: always()
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 't5x-fmha-overall-test-status.json'
+      PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+      SCRIPT: |
+        T5X_FMHA_STATUS=${{ needs.test-t5x-fmha-amd64.outputs.TEST_STATUS }}
+
+        echo "LABEL='Tests'" >> $GITHUB_OUTPUT
+
+        STATUS=failure
+        if [[ $T5X_FMHA_STATUS == "success" ]]; then
+            COLOR=brightgreen
+            MESSAGE="T5X FMHA MGMN passed"
+            STATUS=success
+        else
+            COLOR=red
+            MESSAGE="Unit failed / MGMN failed"
+        fi
+
+        echo "MESSAGE='${MESSAGE}'" >> $GITHUB_OUTPUT
+        echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
+        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
+
+  finalize:
+    if: "!cancelled()"
+    needs: [metadata, test-t5x-fmha-amd64]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit
