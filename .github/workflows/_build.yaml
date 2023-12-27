@@ -12,10 +12,6 @@ on:
         description: 'Base docker image that provides JAX'
         required: false
         default: ghcr.io/nvidia/jax:mealkit
-      BUILD_ARGS:
-        type: string
-        description: 'Build arguments passed to Docker'
-        required: true
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -106,7 +102,7 @@ jobs:
           tags: ${{ steps.mealkit-metadata.outputs.tags }}
           labels: ${{ steps.mealkit-metadata.outputs.labels }}
           build-args: |
-            ${{ inputs.BUILD_ARGS }} BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
 
       - name: Set docker metadata - final
@@ -134,7 +130,7 @@ jobs:
           labels: ${{ steps.final-metadata.outputs.labels }}
           target: final
           build-args: |
-            ${{ inputs.BUILD_ARGS }} BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
 
       - name: Generate sitrep
