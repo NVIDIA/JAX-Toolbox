@@ -5,17 +5,12 @@ on:
     inputs:
       T5X_IMAGE:
         type: string
-        description: T5X image from ghcr.io/nvidia
-        default: 'ghcr.io/nvidia/upstream-t5x:latest'
+        description: T5X image from ghcr.io/nvidia/t5x
+        default: 'ghcr.io/nvidia/t5x:latest'
         required: false
-      BATCH_SIZE_PER_GPU:
-        type: number
-        description: Batch size per GPU
-        default: 32
-        required: false
-      EXTRA_GIN_ARGS:
+      ARTIFACT_NAME:
         type: string
-        description: Extra gin args to pass to test-t5x-fmha.sh
+        description:  If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
         default: ""
         required: false
     outputs:
@@ -23,16 +18,30 @@ on:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
         value: ${{ jobs.publish-test.outputs.STATUS }}
 
+env:
+  BATCH_SIZE_PER_GPU: 32
+
 jobs:
 
-  t5x-fmha-multi-gpu:
+  single-process-multi-device:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
+        include:
+          - TEST_NAME: "1P1G_te-1"
+            N_GPU: 1
+            ADDITIONAL_ARGS: ""
+            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
+          - TEST_NAME: "1P1G_te-0"
+            N_GPU: 1
+            ADDITIONAL_ARGS: "--enable-te 0"
+            EXTRA_GIN_ARGS: ""
+          - TEST_NAME: "1P8G_te-1"
+            N_GPU: 8
+            ADDITIONAL_ARGS: ""
+            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
     steps:
       - name: Print environment variables
         run: env
@@ -57,11 +66,11 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-T5X-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
+          BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
           for var in IMAGE TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
@@ -77,9 +86,10 @@ jobs:
           #!/bin/bash
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
-          #SBATCH --nodes=1
-          #SBATCH --tasks=1
+          #SBATCH --nodes=${{ matrix.N_NODE }}
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
+          #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
@@ -93,6 +103,7 @@ jobs:
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
+              --multiprocess \
               ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
@@ -114,6 +125,13 @@ jobs:
 
           set -x
 
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -126,7 +144,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-T5X-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -144,11 +162,30 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  t5x-fmha-multi-node:
+  multi-gpu-multi-node:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
-        N_NODE: [1, 2]
+        include:
+          - TEST_NAME: "1N1G-te-1"
+            N_GPU: 1
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
+          - TEST_NAME: "1N8G-te-1"
+            N_GPU: 8
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
+          - TEST_NAME: "2N8G-te-1"
+            N_GPU: 8
+            N_NODE: 2
+            ADDITIONAL_ARGS: ""
+            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
+          - TEST_NAME: "2N2G_te-0"
+            N_GPU: 2
+            N_NODE: 2
+            ADDITIONAL_ARGS: "--enable-te 0"
+            EXTRA_GIN_ARGS: ""
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -177,12 +214,12 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-T5X-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
+          BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
@@ -237,6 +274,14 @@ jobs:
 
           set -x
 
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -250,7 +295,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/{{ inputs.ARTIFACT_NAME }}rosetta-T5X-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -268,110 +313,81 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  metrics:
-    needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu]
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-
-      - name: Run pytest
-        shell: bash -x {0}
-        run: |
-          pip install pytest pytest-reportlog tensorboard
-          for i in ${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}-*; do
-            SUBDIR=$(echo $i | cut -d'-' -f3)
-            mv $i/$SUBDIR* .
-            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
-          done
-
-          echo '## T5X FMHA MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
-          for i in *_metrics.json; do
-            echo $i | cut -d'.' -f1
-            echo '```json'
-            jq . $i
-            echo '```'
-          done | tee -a $GITHUB_STEP_SUMMARY
-
-          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
-
-      - name: Upload metrics test json logs
-        uses: actions/upload-artifact@v3
-        with:
-          name: metrics-test-log
-          path: report.jsonl
-
-
   publish-test:
-    needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu, metrics]
+    needs: [multi-gpu-multi-node, single-process-multi-device]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: ( always() )
+    if: "!cancelled()"
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}t5x-fmha-test-completion-status.json'
+      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}rosetta-t5x-test-completion-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}-*/*-status.json"
-        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
-        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
+        T5X_EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}rosetta-T5X-${GITHUB_RUN_ID}-*/*-status.json"
+        T5X_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $T5X_EXIT_STATUSES | wc -l)
+        T5X_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $T5X_EXIT_STATUSES | wc -l)
+        T5X_TOTAL_TESTS=$(ls $T5X_EXIT_STATUSES | wc -l)
 
         cat <<EOF >>$GITHUB_STEP_SUMMARY
         ## T5x MGMN+SPMD Test Status
         | Test Case | State | Exit Code |
         | --- | --- | --- |
         EOF
-        for i in $EXIT_STATUSES; do
-          # Files are named T5X-FMHA-<GHID>-<NAME>/<NAME>-status.json
-          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
+        for i in $T5X_EXIT_STATUSES; do
+          # Files are named ${{ inputs.ARTIFACT_NAME }}-rosetta-t5x-<GHID>-<NAME>/<NAME>-status.json
+          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
         done | tee -a $GITHUB_STEP_SUMMARY
+
+        VIT_EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}rosetta-VIT-${GITHUB_RUN_ID}-*/*-status.json"
+        VIT_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $VIT_EXIT_STATUSES | wc -l)
+        VIT_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $VIT_EXIT_STATUSES | wc -l)
+        VIT_TOTAL_TESTS=$(ls $VIT_EXIT_STATUSES | wc -l)
+
+        cat <<EOF >>$GITHUB_STEP_SUMMARY
+        ## ViT MGMN+SPMD Test Status
+        | Test Case | State | Exit Code |
+        | --- | --- | --- |
+        EOF
+        for i in $VIT_EXIT_STATUSES; do
+          # Files are named ${{ inputs.ARTIFACT_NAME }}<GHID>-<NAME>/<NAME>-status.json
+          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
+        done | tee -a $GITHUB_STEP_SUMMARY
+
+        EXIT_STATUSES="$VIT_EXIT_STATUSES $T5X_EXIT_STATUSES"
+        PASSED_TESTS=$(( T5X_PASSED_TESTS + VIT_PASSED_TESTS ))
+        FAILED_TESTS=$(( T5X_FAILED_TESTS + VIT_FAILED_TESTS ))
+        TOTAL_TESTS=$(( T5X_TOTAL_TESTS +  VIT_TOTAL_TESTS ))
 
         echo "Test statuses:"
         jq -rc 'input_filename,.' $EXIT_STATUSES
 
-        METRICS_LOG=metrics-test-log/report.jsonl
-        all_outcomes() {
-          cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
-        }
-        cnt_type() {
-          cat $METRICS_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
-        }
-        PYTEST_FAILED_TESTS=$(cnt_type failed)
-        PYTEST_PASSED_TESTS=$(cnt_type passed)
-        PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
-
-        if ([[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
-            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]); then
-          STATUS=success
+        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
+          echo "STATUS=success" >> $GITHUB_OUTPUT
           BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
-          STATUS=failure
+        elif [[ $PASSED_TESTS -eq 0 ]]; then
+          echo "STATUS=failure" >> $GITHUB_OUTPUT
           BADGE_COLOR=red
         else
-          STATUS=failure
+          echo "STATUS=failure" >> $GITHUB_OUTPUT
           BADGE_COLOR=yellow
         fi
-        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+        
 
   summary:
     runs-on: ubuntu-22.04
-
+    needs: [multi-gpu-multi-node, single-process-multi-device]
+    if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
         run: |
           (
           cat << EOF
 
-          ## T5X FMHA MGMN training
+          ## Rosetta T5X MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}rosetta-[T5X|VIT]-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
@@ -379,7 +395,7 @@ jobs:
   outcome:
     needs: publish-test
     runs-on: ubuntu-22.04
-    if: ( always() )
+    if: "!cancelled()"
     steps:
       - name: Sets workflow status based on test outputs 
         run: |
