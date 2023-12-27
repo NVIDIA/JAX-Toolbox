@@ -67,7 +67,7 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-T5X-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -144,7 +144,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-T5X-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/T5X-FMHA-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -216,7 +216,7 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-T5X-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
@@ -295,7 +295,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/{{ inputs.ARTIFACT_NAME }}rosetta-T5X-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/{{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -322,35 +322,21 @@ jobs:
       ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}rosetta-t5x-test-completion-status.json'
       PUBLISH: false
       SCRIPT: |
-        T5X_EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}rosetta-T5X-${GITHUB_RUN_ID}-*/*-status.json"
-        T5X_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $T5X_EXIT_STATUSES | wc -l)
-        T5X_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $T5X_EXIT_STATUSES | wc -l)
-        T5X_TOTAL_TESTS=$(ls $T5X_EXIT_STATUSES | wc -l)
+        T5X_FMHA_EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}-*/*-status.json"
+        T5X_FMHA_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
+        T5X_FMHA_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
+        T5X_FMHA_TOTAL_TESTS=$(ls $T5X_FMHA_EXIT_STATUSES | wc -l)
 
         cat <<EOF >>$GITHUB_STEP_SUMMARY
-        ## T5x MGMN+SPMD Test Status
+        ## T5x fmha MGMN+SPMD Test Status
         | Test Case | State | Exit Code |
         | --- | --- | --- |
         EOF
-        for i in $T5X_EXIT_STATUSES; do
-          # Files are named ${{ inputs.ARTIFACT_NAME }}-rosetta-t5x-<GHID>-<NAME>/<NAME>-status.json
+        for i in $T5X_FMHA_EXIT_STATUSES; do
+          # Files are named ${{ inputs.ARTIFACT_NAME }}-t5x-fmha-<GHID>-<NAME>/<NAME>-status.json
           echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
         done | tee -a $GITHUB_STEP_SUMMARY
 
-        VIT_EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}rosetta-VIT-${GITHUB_RUN_ID}-*/*-status.json"
-        VIT_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $VIT_EXIT_STATUSES | wc -l)
-        VIT_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $VIT_EXIT_STATUSES | wc -l)
-        VIT_TOTAL_TESTS=$(ls $VIT_EXIT_STATUSES | wc -l)
-
-        cat <<EOF >>$GITHUB_STEP_SUMMARY
-        ## ViT MGMN+SPMD Test Status
-        | Test Case | State | Exit Code |
-        | --- | --- | --- |
-        EOF
-        for i in $VIT_EXIT_STATUSES; do
-          # Files are named ${{ inputs.ARTIFACT_NAME }}<GHID>-<NAME>/<NAME>-status.json
-          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
-        done | tee -a $GITHUB_STEP_SUMMARY
 
         EXIT_STATUSES="$VIT_EXIT_STATUSES $T5X_EXIT_STATUSES"
         PASSED_TESTS=$(( T5X_PASSED_TESTS + VIT_PASSED_TESTS ))
@@ -385,9 +371,9 @@ jobs:
           (
           cat << EOF
 
-          ## Rosetta T5X MGMN training
+          ## T5X FMHA MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}rosetta-[T5X|VIT]-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
