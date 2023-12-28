@@ -302,7 +302,7 @@ jobs:
           path: output/*
 
   publish-test:
-    needs: [t5x-multi-gpu, t5x-multi-node]
+    needs: [t5x-fmha-multi-gpu, t5x-fmha-multi-node]
     uses: ./.github/workflows/_publish_badge.yaml
     if: "!cancelled()"
     secrets: inherit
