@@ -5,43 +5,49 @@ on:
     inputs:
       T5X_IMAGE:
         type: string
-        description: T5X image from ghcr.io/nvidia/t5x
-        default: 'ghcr.io/nvidia/t5x:latest'
+        description: T5X image from ghcr.io/nvidia
+        default: 'ghcr.io/nvidia/upstream-t5x:latest'
         required: false
-      ARTIFACT_NAME:
+      BATCH_SIZE_PER_GPU:
+        type: number
+        description: Batch size per GPU
+        default: 32
+        required: false
+      EXTRA_GIN_ARGS:
         type: string
-        description:  If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
+        description: Extra gin args to pass to test-t5x.sh
         default: ""
         required: false
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-t5x-mgmn-test.json'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-t5x-mgmn-test'
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: false
+        default: 'T5X'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
-        value: ${{ jobs.publish-test.outputs.STATUS }}
-
-env:
-  BATCH_SIZE_PER_GPU: 32
+        value: ${{ jobs.sitrep.outputs.STATUS }}
 
 jobs:
 
-  single-process-multi-device:
+  t5x-fmha-multi-gpu:
     strategy:
       matrix:
-        include:
-          - TEST_NAME: "1P1G_te-1"
-            N_GPU: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "1P1G_te-0"
-            N_GPU: 1
-            ADDITIONAL_ARGS: "--enable-te 0"
-            EXTRA_GIN_ARGS: ""
-          - TEST_NAME: "1P8G_te-1"
-            N_GPU: 8
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
+        N_GPU: [1, 2, 4, 8]
       fail-fast: false
 
     runs-on: ubuntu-22.04
+
     steps:
       - name: Print environment variables
         run: env
@@ -66,11 +72,11 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
+          JOB_NAME=${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
+          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
           for var in IMAGE TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
@@ -80,16 +86,15 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          sshx "date && hostname && sinfo"          
+          sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
-          #SBATCH --nodes=${{ matrix.N_NODE }}
+          #SBATCH --nodes=1
+          #SBATCH --tasks=1
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
@@ -97,17 +102,17 @@ jobs:
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            test-t5x-fmha.sh \
+            test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              --multiprocess \
-              ${{ matrix.ADDITIONAL_ARGS }} \
-              ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}'
+              ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
+
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
@@ -125,7 +130,7 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
-
+          
       - name: Remove orphaned SLURM job if the CI job is canceled
         if: cancelled()
         shell: bash -x -e {0}
@@ -163,30 +168,11 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  multi-gpu-multi-node:
+  t5x-fmha-multi-node:
     strategy:
       matrix:
-        include:
-          - TEST_NAME: "1N1G-te-1"
-            N_GPU: 1
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "1N8G-te-1"
-            N_GPU: 8
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "2N8G-te-1"
-            N_GPU: 8
-            N_NODE: 2
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "2N2G_te-0"
-            N_GPU: 2
-            N_NODE: 2
-            ADDITIONAL_ARGS: "--enable-te 0"
-            EXTRA_GIN_ARGS: ""
+        N_GPU: [1, 2, 4, 8]
+        N_NODE: [1, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -215,12 +201,12 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
+          TEST_CASE_NAME=${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
+          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
@@ -230,7 +216,7 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          sshx "date && hostname && sinfo"          
+          sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
@@ -247,17 +233,18 @@ jobs:
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            test-t5x-fmha.sh \
+            test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
               --multiprocess \
-              ${{ matrix.ADDITIONAL_ARGS }} \
-              ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}'
+              ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
           EOF
           )
+
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
@@ -275,7 +262,6 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
-
 
       - name: Remove orphaned SLURM job if the CI job is canceled
         if: cancelled()
@@ -316,7 +302,7 @@ jobs:
           path: output/*
 
   publish-test:
-    needs: [multi-gpu-multi-node, single-process-multi-device]
+    needs: [t5x-multi-gpu, t5x-multi-node]
     uses: ./.github/workflows/_publish_badge.yaml
     if: "!cancelled()"
     secrets: inherit
@@ -365,7 +351,7 @@ jobs:
 
   summary:
     runs-on: ubuntu-22.04
-    needs: [multi-gpu-multi-node, single-process-multi-device]
+    needs: [t5x-fmha-multi-gpu, t5x-fmha-multi-node]
     if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
