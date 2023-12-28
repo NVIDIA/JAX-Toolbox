@@ -22,12 +22,12 @@ on:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'badge-t5x-mgmn-test.json'
+        default: 'badge-t5x-fmha-mgmn-test.json'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'artifact-t5x-mgmn-test'
+        default: 'artifact-t5x-fmha-mgmn-test'
       FW_NAME:
         type: string
         description: 'Name of the framework being used'
@@ -157,7 +157,7 @@ jobs:
         run: |
           python << EOF
           import json
-          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+          with open("output/${{ inputs.ARTIFACT_NAME }}-${GITHUB_RUN_ID}-${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
@@ -290,7 +290,7 @@ jobs:
         run: |
           python << EOF
           import json
-          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+          with open("output/${{ inputs.ARTIFACT_NAME }}-${GITHUB_RUN_ID}-${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
@@ -307,10 +307,10 @@ jobs:
     if: "!cancelled()"
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}rosetta-t5x-test-completion-status.json'
+      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}-t5x-fmha-test-completion-status.json'
       PUBLISH: false
       SCRIPT: |
-        T5X_FMHA_EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}-*/*-status.json"
+        T5X_FMHA_EXIT_STATUSES="output/${{ inputs.ARTIFACT_NAME }}-${GITHUB_RUN_ID}-*-status.json"
         T5X_FMHA_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
         T5X_FMHA_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
         T5X_FMHA_TOTAL_TESTS=$(ls $T5X_FMHA_EXIT_STATUSES | wc -l)
@@ -325,19 +325,13 @@ jobs:
           echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
         done | tee -a $GITHUB_STEP_SUMMARY
 
-
-        EXIT_STATUSES="$VIT_EXIT_STATUSES $T5X_EXIT_STATUSES"
-        PASSED_TESTS=$(( T5X_PASSED_TESTS + VIT_PASSED_TESTS ))
-        FAILED_TESTS=$(( T5X_FAILED_TESTS + VIT_FAILED_TESTS ))
-        TOTAL_TESTS=$(( T5X_TOTAL_TESTS +  VIT_TOTAL_TESTS ))
-
         echo "Test statuses:"
         jq -rc 'input_filename,.' $EXIT_STATUSES
 
-        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
+        if [[ $T5X_FMHA_FAILED_TESTS -eq 0 ]] && [[ $T5X_FMHA_TOTAL_TESTS -gt 0 ]] || [[ $T5X_FMHA_PASSED_TESTS -eq $T5X_FMHA_TOTAL_TESTS ]]; then
           echo "STATUS=success" >> $GITHUB_OUTPUT
           BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]]; then
+        elif [[ $T5X_FMHA_PASSED_TESTS -eq 0 ]]; then
           echo "STATUS=failure" >> $GITHUB_OUTPUT
           BADGE_COLOR=red
         else
