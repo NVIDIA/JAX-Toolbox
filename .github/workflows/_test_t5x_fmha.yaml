@@ -104,7 +104,8 @@ jobs:
               --epochs 7 \
               --steps-per-epoch 100 \
               --multiprocess \
-              ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
+              ${{ matrix.ADDITIONAL_ARGS }} \
+              ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}'
           EOF
           )
 
@@ -253,7 +254,8 @@ jobs:
               --epochs 7 \
               --steps-per-epoch 100 \
               --multiprocess \
-              ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
+              ${{ matrix.ADDITIONAL_ARGS }} \
+              ${{ matrix.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', matrix.EXTRA_GIN_ARGS) || '' }}'
           EOF
           )
 
