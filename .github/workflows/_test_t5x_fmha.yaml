@@ -317,9 +317,6 @@ jobs:
         T5X_FMHA_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
         T5X_FMHA_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
         T5X_FMHA_TOTAL_TESTS=$(ls $T5X_FMHA_EXIT_STATUSES | wc -l)
-        echo $T5X_FMHA_EXIT_STATUSES
-        ls .
-        ls output/
         
         cat <<EOF >>$GITHUB_STEP_SUMMARY
         ## T5x fmha MGMN+SPMD Test Status
