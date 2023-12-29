@@ -290,11 +290,11 @@ jobs:
         run: |
           python << EOF
           import json
-          with open("output/${{ inputs.ARTIFACT_NAME }}-${GITHUB_RUN_ID}-${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
- 
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -310,7 +310,7 @@ jobs:
       ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}-t5x-fmha-test-completion-status.json'
       PUBLISH: false
       SCRIPT: |
-        T5X_FMHA_EXIT_STATUSES="output/${{ inputs.ARTIFACT_NAME }}-${GITHUB_RUN_ID}-*-status.json"
+        T5X_FMHA_EXIT_STATUSES="output/${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}-*/*-status.json"
         T5X_FMHA_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
         T5X_FMHA_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
         T5X_FMHA_TOTAL_TESTS=$(ls $T5X_FMHA_EXIT_STATUSES | wc -l)
