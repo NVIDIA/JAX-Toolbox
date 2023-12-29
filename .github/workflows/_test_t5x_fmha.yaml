@@ -342,7 +342,7 @@ jobs:
           BADGE_COLOR=yellow
         fi
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${T5X_FMHA_PASSED_TESTS}/${T5X_FMHA_TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
         
 
