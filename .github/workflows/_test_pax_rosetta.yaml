@@ -784,7 +784,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}-{{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
