@@ -313,7 +313,7 @@ jobs:
       ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}-t5x-fmha-test-completion-status.json'
       PUBLISH: false
       SCRIPT: |
-        T5X_FMHA_EXIT_STATUSES="output/${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}-*/*-status.json"
+        T5X_FMHA_EXIT_STATUSES="${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}-*/*-status.json"
         T5X_FMHA_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
         T5X_FMHA_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
         T5X_FMHA_TOTAL_TESTS=$(ls $T5X_FMHA_EXIT_STATUSES | wc -l)
