@@ -329,7 +329,7 @@ jobs:
         done | tee -a $GITHUB_STEP_SUMMARY
 
         echo "Test statuses:"
-        jq -rc 'input_filename,.' $EXIT_STATUSES
+        jq -rc 'input_filename,.' $T5X_FMHA_EXIT_STATUSES
 
         if [[ $T5X_FMHA_FAILED_TESTS -eq 0 ]] && [[ $T5X_FMHA_TOTAL_TESTS -gt 0 ]] || [[ $T5X_FMHA_PASSED_TESTS -eq $T5X_FMHA_TOTAL_TESTS ]]; then
           echo "STATUS=success" >> $GITHUB_OUTPUT
