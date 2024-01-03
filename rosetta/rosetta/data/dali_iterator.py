@@ -93,7 +93,7 @@ def vit_pipeline(
 
         # auto-augment
         # `shape` controls the magnitude of the translation operations
-        img = auto_augment.auto_augment_image_net(img)
+        # img = auto_augment.auto_augment_image_net(img)
     else:
         img = fn.resize(img, size=image_shape[:-1])
 
