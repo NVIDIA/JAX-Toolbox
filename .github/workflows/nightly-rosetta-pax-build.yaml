@@ -110,7 +110,7 @@ jobs:
     # needs: [metadata, amd64, arm64]
     needs: [metadata, amd64]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: always()
+    if: false
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-pax-build-status.json'
@@ -135,23 +135,29 @@ jobs:
     # needs: [metadata, amd64, arm64]
     needs: [metadata, amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
-    uses: ./.github/workflows/_publish_container.yaml
-    with:
-      SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
-        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
-      TARGET_IMAGE: pax
-      TARGET_TAGS: |
-        type=raw,value=mealkit,priority=500
-        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo mealkit published
+    #uses: ./.github/workflows/_publish_container.yaml
+    #with:
+    #  SOURCE_IMAGE: |
+    #    ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+    #    ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
+    #  TARGET_IMAGE: pax
+    #  TARGET_TAGS: |
+    #    type=raw,value=mealkit,priority=500
+    #    type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   # TODO: Test ARM when runners available
   test-amd64:
     needs: amd64
-    uses: ./.github/workflows/_test_pax_rosetta.yaml
-    with:
-      PAX_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
+    runs-on: ubuntu-22.04
+    steps:
+      - run: exit 1  # force failure
+    #uses: ./.github/workflows/_test_pax_rosetta.yaml
+    #with:
+    #  PAX_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    #secrets: inherit
 
   # TODO: ARM Tests
   # The dated nightly is tagged regardless of the test results to assist troubleshooting
@@ -159,14 +165,17 @@ jobs:
     # needs: [metadata, amd64, arm64]
     needs: [metadata, amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
-    uses: ./.github/workflows/_publish_container.yaml
-    with:
-      SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-      # ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
-      TARGET_IMAGE: pax
-      TARGET_TAGS: |
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo dated published
+    #uses: ./.github/workflows/_publish_container.yaml
+    #with:
+    #  SOURCE_IMAGE: |
+    #    ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    #  # ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+    #  TARGET_IMAGE: pax
+    #  TARGET_TAGS: |
+    #    type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   # TODO: ARM Tests
   # The latest tag is reserved for images that pass all the CI tests
@@ -174,29 +183,32 @@ jobs:
     # needs: [metadata, amd64, arm64, test-amd64]
     needs: [metadata, amd64, test-amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
-    uses: ./.github/workflows/_publish_container.yaml
-    with:
-      SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-      # ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
-      TARGET_IMAGE: pax
-      TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo latest published
+    #uses: ./.github/workflows/_publish_container.yaml
+    #with:
+    #  SOURCE_IMAGE: |
+    #    ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    #  # ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+    #  TARGET_IMAGE: pax
+    #  TARGET_TAGS: |
+    #    type=raw,value=latest,priority=1000
 
-  publish-pax:
-    needs: [metadata, test-amd64]
-    uses: ./.github/workflows/_publish_t5x_pax_results.yaml
-    with:
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      EXPERIMENT_SUBDIR: ROSETTA_PAX
-      ARTIFACT_NAME: "rosetta-pax-"
-    secrets: inherit
+  #publish-pax:
+  #  needs: [metadata, test-amd64]
+  #  uses: ./.github/workflows/_publish_t5x_pax_results.yaml
+  #  with:
+  #    BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #    EXPERIMENT_SUBDIR: ROSETTA_PAX
+  #    ARTIFACT_NAME: "rosetta-pax-"
+  #  secrets: inherit
 
   # TODO: ARM
   publish-test-badge:
     needs: [metadata, amd64, test-amd64]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: always()
+    if: false
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-pax-overall-test-status.json'
@@ -225,10 +237,10 @@ jobs:
         echo "MESSAGE='${MESSAGE}'" >> $GITHUB_OUTPUT
         echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
 
-  finalize:
-    if: "!cancelled()"
-    needs: [metadata, amd64, arm64, test-amd64]
-    uses: ./.github/workflows/_finalize.yaml
-    with:
-      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
-    secrets: inherit
+  #finalize:
+  #  if: "!cancelled()"
+  #  needs: [metadata, amd64, arm64, test-amd64]
+  #  uses: ./.github/workflows/_finalize.yaml
+  #  with:
+  #    PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+  #  secrets: inherit

@@ -107,7 +107,7 @@ jobs:
   publish-build-badge:
     needs: [metadata, amd64, arm64]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: always()
+    if: false
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-t5x-build-status.json'
@@ -130,15 +130,18 @@ jobs:
   publish-mealkit:
     needs: [metadata, amd64, arm64]
     if: needs.metadata.outputs.PUBLISH == 'true'
-    uses: ./.github/workflows/_publish_container.yaml
-    with:
-      SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
-        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
-      TARGET_IMAGE: t5x
-      TARGET_TAGS: |
-        type=raw,value=mealkit,priority=500
-        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo mealkit published
+    #uses: ./.github/workflows/_publish_container.yaml
+    #with:
+    #  SOURCE_IMAGE: |
+    #    ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+    #    ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
+    #  TARGET_IMAGE: t5x
+    #  TARGET_TAGS: |
+    #    type=raw,value=mealkit,priority=500
+    #    type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   test-unit-amd64:
     needs: amd64
@@ -149,51 +152,60 @@ jobs:
 
   test-t5x-amd64:
     needs: amd64
-    uses: ./.github/workflows/_test_t5x_rosetta.yaml
-    with:
-      T5X_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
+    runs-on: ubuntu-22.04
+    steps:
+      - run: exit 1  # force error
+    #uses: ./.github/workflows/_test_t5x_rosetta.yaml
+    #with:
+    #  T5X_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    #secrets: inherit
 
   # The dated nightly is tagged regardless of the test results to assist troubleshooting
   publish-final-dated:
     needs: [metadata, amd64, arm64]
     if: needs.metadata.outputs.PUBLISH == 'true'
-    uses: ./.github/workflows/_publish_container.yaml
-    with:
-      SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
-      TARGET_IMAGE: t5x
-      TARGET_TAGS: |
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo dated published
+    #uses: ./.github/workflows/_publish_container.yaml
+    #with:
+    #  SOURCE_IMAGE: |
+    #    ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    #    ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+    #  TARGET_IMAGE: t5x
+    #  TARGET_TAGS: |
+    #    type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   # The latest tag is reserved for images that pass all the CI tests
   publish-final-latest:
     needs: [metadata, amd64, arm64, test-t5x-amd64, test-unit-amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
-    uses: ./.github/workflows/_publish_container.yaml
-    with:
-      SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
-      TARGET_IMAGE: t5x
-      TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo latest published
+    #uses: ./.github/workflows/_publish_container.yaml
+    #with:
+    #  SOURCE_IMAGE: |
+    #    ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    #    ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+    #  TARGET_IMAGE: t5x
+    #  TARGET_TAGS: |
+    #    type=raw,value=latest,priority=1000
 
-  publish-t5x:
-    needs: [metadata, test-t5x-amd64]
-    uses: ./.github/workflows/_publish_t5x_pax_results.yaml
-    with:
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      EXPERIMENT_SUBDIR: ROSETTA_T5X
-      ARTIFACT_NAME: "rosetta-T5X-"
-    secrets: inherit
+  #publish-t5x:
+  #  needs: [metadata, test-t5x-amd64]
+  #  uses: ./.github/workflows/_publish_t5x_pax_results.yaml
+  #  with:
+  #    BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #    EXPERIMENT_SUBDIR: ROSETTA_T5X
+  #    ARTIFACT_NAME: "rosetta-T5X-"
+  #  secrets: inherit
 
   # TODO: ARM
   publish-test-badge:
     needs: [metadata, amd64, test-unit-amd64, test-t5x-amd64]
     uses: ./.github/workflows/_publish_badge.yaml
-    if: always()
+    if: false
     secrets: inherit
     with:
       ENDPOINT_FILENAME: 'rosetta-t5x-overall-test-status.json'
@@ -229,10 +241,10 @@ jobs:
         echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
         echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
 
-  finalize:
-    if: "!cancelled()"
-    needs: [metadata, amd64, arm64, test-t5x-amd64, test-unit-amd64]
-    uses: ./.github/workflows/_finalize.yaml
-    with:
-      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
-    secrets: inherit
+  #finalize:
+  #  if: "!cancelled()"
+  #  needs: [metadata, amd64, arm64, test-t5x-amd64, test-unit-amd64]
+  #  uses: ./.github/workflows/_finalize.yaml
+  #  with:
+  #    PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+  #  secrets: inherit
