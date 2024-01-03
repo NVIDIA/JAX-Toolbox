@@ -85,6 +85,10 @@ ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
 RUN <<"EOF" bash -ex
+# Encourage a newer numpy so that pip's dependency resolver will allow newer
+# versions of other packages that rely on newer numpy, but also include fixes
+# for compatibility with newer JAX versions. e.g. chex.
+echo "numpy >= 1.24.1"                                  >> /opt/pip-tools.d/requirements-jax.in
 echo "-e file://${SRC_PATH_JAX}"                        >> /opt/pip-tools.d/requirements-jax.in
 echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/requirements-jax.in
 EOF
