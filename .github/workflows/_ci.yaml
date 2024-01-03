@@ -21,6 +21,9 @@ on:
       TAG_T5X:
         description: "Tags of the T5X image built"
         value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_FINAL }}
+      TAG_PALLAS:
+        description: "Tags of the Pallas image built"
+        value: ${{ jobs.build-pallas.outputs.DOCKER_TAG_FINAL }}
       TAG_PAX:
         description: "Tags of the PAX image built"
         value: ${{ jobs.build-pax.outputs.DOCKER_TAG_FINAL }}
@@ -77,6 +80,20 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: "upstream-t5x"
       DOCKERFILE: ".github/container/Dockerfile.t5x"
+    secrets: inherit
+
+  build-pallas:
+    needs: [metadata, build-jax]
+    if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: "artifact-pallas-build"
+      BADGE_FILENAME: "badge-pallas-build"
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: "pallas"
+      DOCKERFILE: .github/container/Dockerfile.pallas
     secrets: inherit
 
   build-pax:
@@ -147,6 +164,14 @@ jobs:
     uses: ./.github/workflows/_test_t5x_rosetta.yaml
     with:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-pallas:
+    needs: build-pallas
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_pallas.yaml
+    with:
+      PALLAS_IMAGE: ${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-upstream-pax:

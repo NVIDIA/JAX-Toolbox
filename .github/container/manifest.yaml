@@ -102,3 +102,14 @@ seqio:
   tracking_ref: main
   latest_verified_commit: f217c6632f48f4c26ee6e9bafcfe51f3c2c99e93
   mode: pip-vcs
+# used by Pallas
+openxla-triton:
+  url: https://github.com/openxla/triton.git
+  tracking_ref: llvm-head
+  latest_verified_commit: 5bc2308c5c258c16fece71eaa303d85de31cc4e2
+  mode: git-clone
+jax-triton:
+  url: https://github.com/jax-ml/jax-triton.git
+  tracking_ref: main
+  latest_verified_commit: 7778c47c0a27c0988c914dce640dec61e44bbe8c
+  mode: git-clone
