@@ -25,6 +25,8 @@ for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
   pushd ${src}
   sed -i "s| @ git+https://github.com/google/flax||g" requirements.in
   sed -i "s| @ git+https://github.com/google/jax||g" requirements.in
+  sed -i "s/^clu/clu @ git\+https\:\/\/github.com\/google\/CommonLoopUtils\#egg\=clu/" requirements.in
+
   if git diff --quiet; then
       echo "URL specs no longer present in select dependencies for ${src}"
       exit 1
