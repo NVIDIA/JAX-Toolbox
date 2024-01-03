@@ -183,19 +183,9 @@ jobs:
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
 
-  test-pax:
-    # needs: [metadata, amd64, arm64]
-    needs: [metadata, amd64]
-    uses: ./.github/workflows/_test_pax_rosetta.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    with:
-      PAX_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
   publish-pax:
     needs: [metadata, test-amd64]
     uses: ./.github/workflows/_publish_t5x_pax_results.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       EXPERIMENT_SUBDIR: ROSETTA_PAX
