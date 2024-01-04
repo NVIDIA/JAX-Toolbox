@@ -43,6 +43,7 @@ from t5x import trainer
 from rosetta.data import wds_utils
 
 from rosetta.data import dali
+from rosetta.data import dali_iterator
 from rosetta.projects.vit import dali_utils
 
 MIXTURE_OR_TASK_NAME = %gin.REQUIRED
@@ -79,13 +80,13 @@ train_script.train:
   random_seed = %RANDOM_SEED
   use_hardware_rng = %USE_HARDWARE_RNG
   summarize_config_fn = @gin_utils.summarize_gin_config
-  get_dataset_fn = @dali.get_dali_dataset
+  get_dataset_fn = @dali_iterator.get_dali_dataset
   train_eval_get_dataset_fn = @dali.get_dali_eval_dataset
   run_eval_before_training = True
   run_dali_eval = True
   eval_steps = None
   verify_matching_vocabs_fn = None
-  prepare_train_iter_fn = @dali.create_sharded_iterator
+  prepare_train_iter_fn = @dali_iterator.prepare_dali_iterator
   prepare_eval_iter_fn = @dali.create_sharded_iterator
 
 partitioning.PjitPartitioner:

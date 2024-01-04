@@ -20,6 +20,7 @@ import __main__ as train_script
 import jax.numpy as jnp
 from rosetta.data import wds_utils
 from rosetta.projects.vit import dali_utils
+from rosetta.data import dali_iterator
 
 MIXTURE_OR_TASK_NAME = "/opt/rosetta/datasets/imagenet/imagenet-train-{000000..000146}.tar"
 EVAL_MIXTURE_OR_TASK_NAME = "/opt/rosetta/datasets/imagenet/imagenet-val-{000000..000006}.tar"
@@ -30,6 +31,9 @@ TRAIN_STEPS = 95000
 BATCH_SIZE = 4096
 NUM_CLASSES=1000
 REP_SIZE=768
+
+dali_iterator.get_dali_dataset:
+  total_steps = %TRAIN_STEPS
 
 train/dali_utils.ViTPipeline:
   num_classes = 1000

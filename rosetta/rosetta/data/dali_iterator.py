@@ -32,8 +32,17 @@ from nvidia.dali import fn
 from nvidia.dali.auto_aug import auto_augment
 
 
-def non_image_preprocessing(raw_text):
-    return np.array([int(bytes(raw_text).decode("utf-8"))])
+# def non_image_preprocessing(raw_text):
+#     print(raw_text)
+#     bs = len(raw_text)
+#     ascii = [np.asarray(raw_text[i]) for i in range(bs)]
+
+#     labels = np.zeros((bs, ))
+#     for i, el in enumerate(ascii):
+#       idx = int(bytes(el).decode('utf-8'))
+#       labels[i] = idx
+
+#     return labels
 
 
 def vit_pipeline(
@@ -59,17 +68,18 @@ def vit_pipeline(
         index_paths=index_paths,
         ext=["jpg", "cls"],
         missing_component_behavior="error",
-        random_shuffle=False,
+        random_shuffle=is_training,
         shard_id=shard_id,
         num_shards=num_shards,
         pad_last_batch=False if is_training else True,
         name="webdataset_reader",
     )
 
-    labels = fn.python_function(clss, function=non_image_preprocessing, num_outputs=1)
-    if use_gpu:
-        labels = labels.gpu()
-    labels = fn.one_hot(labels, num_classes=num_classes)
+    # labels = fn.python_function(clss, function=non_image_preprocessing, num_outputs=1, batch_processing=True)
+    # if use_gpu:
+    #     labels = labels.gpu()
+    # labels = fn.one_hot(labels, num_classes=num_classes)
+    labels = clss
 
     device = "mixed" if use_gpu else "cpu"
     img = fn.decoders.image(img, device=device, output_type=types.RGB)
@@ -93,7 +103,7 @@ def vit_pipeline(
 
         # auto-augment
         # `shape` controls the magnitude of the translation operations
-        # img = auto_augment.auto_augment_image_net(img)
+        img = auto_augment.auto_augment_image_net(img)
     else:
         img = fn.resize(img, size=image_shape[:-1])
 
