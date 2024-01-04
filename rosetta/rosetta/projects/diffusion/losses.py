@@ -36,7 +36,7 @@ class DiffusionLossCallable(typing_extensions.Protocol):
         Returns the loss and the noises used """
     def __call__(self,
                  denoise_fn: Callable,
-                 rng: jax.random.KeyArray,
+                 rng: jax.Array,
                  samples: jnp.ndarray,
                  other_cond: Optional[Mapping[str, jnp.ndarray]]
                  ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
@@ -47,7 +47,7 @@ class EPSDiffusionLossCallable(typing_extensions.Protocol):
         Returns the loss and the noises used """
     def __call__(self,
                  eps_predictor: Callable,
-                 rng: jax.random.KeyArray,
+                 rng: jax.Array,
                  samples: jnp.ndarray,
                  other_cond: Optional[Mapping[str, jnp.ndarray]]
                  ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
@@ -70,7 +70,7 @@ class EDMLoss:
         sigma = sigma / self.dim_noise_scalar
         return (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
 
-    def _noise_sampler(self, rng: jax.random.KeyArray, count: int, dim_scalar:float=1.):
+    def _noise_sampler(self, rng: jax.Array, count: int, dim_scalar:float=1.):
         rnd_normal = jax.random.normal(rng, (count, ))
         return jnp.exp(rnd_normal * self.p_std + self.p_mean) * dim_scalar
 
@@ -78,7 +78,7 @@ class EDMLoss:
 
     def __call__(self,
                  denoise_fn: Callable,
-                 rng: jax.random.KeyArray,
+                 rng: jax.Array,
                  samples: jnp.ndarray,
                  other_cond: Optional[Mapping[str, jnp.ndarray]]=None
                  ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
@@ -116,7 +116,7 @@ class EDMLoss:
 class EDMSuperResolutionLoss(EDMLoss):
     def __call__(self,
                  denoise_fn: Callable,
-                 rng: jax.random.KeyArray,
+                 rng: jax.Array,
                  samples: jnp.ndarray,
                  other_cond: Optional[Mapping[str, jnp.ndarray]]=None
                  ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
