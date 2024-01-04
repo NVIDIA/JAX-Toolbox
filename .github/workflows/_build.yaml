@@ -29,7 +29,7 @@ on:
         type: string
         description: "Container name, e.g. upstream-t5x"
         required: true
-      DOCKER_FILE:
+      DOCKERFILE:
         type: string
         description: "Dockerfile to use, e.g. .github/container/Dockerfile.t5x"
         required: true
@@ -97,7 +97,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: ${{ inputs.DOCKER_FILE }}
+          file: ${{ inputs.DOCKERFILE }}
           platforms: linux/${{ inputs.ARCHITECTURE }}
           target: mealkit
           tags: ${{ steps.mealkit-metadata.outputs.tags }}
@@ -125,7 +125,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: ${{ inputs.DOCKER_FILE }}
+          file: ${{ inputs.DOCKERFILE }}
           platforms: linux/${{ inputs.ARCHITECTURE }}
           tags: ${{ steps.final-metadata.outputs.tags }}
           labels: ${{ steps.final-metadata.outputs.labels }}

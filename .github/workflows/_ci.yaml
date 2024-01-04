@@ -76,7 +76,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: "upstream-t5x"
-      DOCKER_FILE: ".github/container/Dockerfile.t5x"
+      DOCKERFILE: ".github/container/Dockerfile.t5x"
     secrets: inherit
 
   build-pax:
@@ -89,7 +89,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: "upstream-pax"
-      DOCKER_FILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+      DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
   build-rosetta-t5x:

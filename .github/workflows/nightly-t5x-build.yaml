@@ -92,7 +92,7 @@ jobs:
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       CONTAINER_NAME: "upstream-t5x"
-      DOCKER_FILE: ".github/container/Dockerfile.t5x"
+      DOCKERFILE: ".github/container/Dockerfile.t5x"
     secrets: inherit
 
   arm64:

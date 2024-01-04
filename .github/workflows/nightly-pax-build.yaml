@@ -92,7 +92,7 @@ jobs:
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       CONTAINER_NAME: "upstream-pax"
-      DOCKER_FILE: .github/container/Dockerfile.pax.amd64
+      DOCKERFILE: .github/container/Dockerfile.pax.amd64
     secrets: inherit
 
   arm64:
@@ -105,7 +105,7 @@ jobs:
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       CONTAINER_NAME: "upstream-pax"
-      DOCKER_FILE: .github/container/Dockerfile.pax.arm64
+      DOCKERFILE: .github/container/Dockerfile.pax.arm64
     secrets: inherit
 
   publish-mealkit:
