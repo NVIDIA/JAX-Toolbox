@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-include 'rosetta/projects/vit/configs/very_small.gin'
+include 'rosetta/projects/vit/configs/small.gin'
 include 'rosetta/projects/vit/configs/tests/pretrain_test.gin'
 
 from __gin__ import dynamic_registration
