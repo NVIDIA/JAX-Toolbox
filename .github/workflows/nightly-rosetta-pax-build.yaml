@@ -98,7 +98,6 @@ jobs:
   arm64:
     needs: metadata
     uses: ./.github/workflows/_build_rosetta.yaml
-    if: false  # TODO: Enable when arm64 build is ready
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
@@ -130,7 +129,7 @@ jobs:
         echo "MESSAGE='${MSG}'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
         echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
-  
+
   publish-mealkit:
     # needs: [metadata, amd64, arm64]
     needs: [metadata, amd64]
