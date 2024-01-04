@@ -1,0 +1,134 @@
+name: ~Generate sitrep for Multi-Node Multi-GPU tests
+
+on:
+  workflow_call:
+    inputs:
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: true
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: true
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: true
+    outputs:
+      STATUS:
+        description: 'Summary of all tests run for the workflow. Set to "success" when all metrics per job and all jobs pass, whereas a single metric failure or job error sets the status to "failure"'
+        value: ${{ jobs.sitrep.outputs.STATUS }}
+
+jobs:
+  sitrep:
+    runs-on: ubuntu-22.04
+    outputs:
+      STATUS: ${{ steps.gen-sitrep.outputs.STATUS }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Download all artifacts from the previous jobs
+        uses: actions/download-artifact@v3
+
+      - name: Write exit status summary
+        id: exit-status
+        shell: bash -x -e {0}
+        run: |
+          EXIT_STATUSES="${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*/*-status.json"
+          EXIT_STATUS_SUMMARY_FILE="exit_status_summary.json"
+          echo -e "\n\n## ${{ inputs.FW_NAME }} MGMN+SPMD Test Status" >> $EXIT_STATUS_SUMMARY_FILE
+          cat <<EOF >>$EXIT_STATUS_SUMMARY_FILE
+          | Test Case | State | Exit Code |
+          | --- | --- | --- |
+          EOF
+
+          for i in $EXIT_STATUSES; do
+            # Files are named <FW_NAME>-<GHID>-<NAME>/<NAME>-status.json
+            echo "| $(echo $i | cut -d/ -f1 | awk -F- '{print $NF}') | $(jq -r .state $i) | $(jq -r .exitcode $i)"
+          done | tee -a $EXIT_STATUS_SUMMARY_FILE
+
+          echo "Test statuses:"
+          jq -rc 'input_filename,.' $EXIT_STATUSES
+
+          echo "EXIT_STATUS_SUMMARY_FILE=$EXIT_STATUS_SUMMARY_FILE" >> ${GITHUB_OUTPUT}
+
+      - name: Write metrics summary
+        id: metrics
+        shell: bash -x -e {0}
+        run: |
+          METRICS_SUMMARY_FILE="metrics_summary.json"
+          echo -e "\n\n## ${{ inputs.FW_NAME }} MGMN Test Metrics" >> $METRICS_SUMMARY_FILE
+          for i in metrics-test-log/*_metrics.json; do
+            echo $i | cut -d'.' -f1
+            echo '```json'
+            jq . $i
+            echo '```'
+          done | tee -a $METRICS_SUMMARY_FILE
+
+          echo "METRICS_SUMMARY_FILE=$METRICS_SUMMARY_FILE" >> ${GITHUB_OUTPUT}
+
+      - name: Generate sitrep
+        id: gen-sitrep
+        shell: bash -x -e {0}
+        run: |
+          source .github/workflows/scripts/to_json.sh
+
+          EXIT_STATUSES="${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*/*-status.json"
+
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+
+          METRICS_LOG=metrics-test-log/report.jsonl
+          all_outcomes() {
+            cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+          }
+          cnt_type() {
+            cat $METRICS_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+          }
+          pytest_failed_tests=$(cnt_type failed)
+          pytest_passed_tests=$(cnt_type passed)
+          pytest_total_tests=$(all_outcomes | wc -l)
+
+          if ([[ $failed_tests -eq 0 ]] && [[ $total_tests -gt 0 ]] && \
+              [[ $pytest_failed_tests -eq 0 ]] && [[ $pytest_total_tests -gt 0 ]]); then
+            status=success
+            badge_color=brightgreen
+          elif [[ $passed_tests -eq 0 ]] || [[ $pytest_passed_tests -eq 0 ]]; then
+            status=failure
+            badge_color=red
+          else
+            status=failure
+            badge_color=yellow
+          fi
+          badge_message="${passed_tests}/${total_tests} jobs | ${pytest_passed_tests}/${pytest_total_tests} metrics"
+
+          badge_label='Upstream Tests'
+          summary="# ${{ inputs.FW_NAME }} MGMN Test: $badge_message"
+          summary+=`cat ${{ steps.exit-status.outputs.EXIT_STATUS_SUMMARY_FILE }}`
+          summary+=`cat ${{ steps.metrics.outputs.METRICS_SUMMARY_FILE }}`
+
+          to_json \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ inputs.BADGE_FILENAME }}
+
+          echo "STATUS=${status}" >> ${GITHUB_OUTPUT}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}
+          path: |
+            sitrep.json
+            ${{ inputs.BADGE_FILENAME }}

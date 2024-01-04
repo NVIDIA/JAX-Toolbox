@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=nvidia/cuda:12.2.0-devel-ubuntu22.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
@@ -38,12 +39,24 @@ RUN <<"EOF" bash -ex
 git config --global user.name "${GIT_USER_NAME}"
 git config --global user.email "${GIT_USER_EMAIL}"
 EOF
-RUN pip install --upgrade --no-cache-dir pip pip-tools && rm -rf ~/.cache/*
 RUN mkdir -p /opt/pip-tools.d
 ADD --chmod=777 \
     get-source.sh \
     pip-finalize.sh \
     /usr/local/bin/
+RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) -O /usr/local/bin/yq && \
+    chmod 777 /usr/local/bin/yq
+RUN git clone -b 23.3.1 https://github.com/pypa/pip.git /opt/pip
+# Patch is specific to 23.3.1
+# Generated via: "git diff > pip-vcs-equivalency.patch"
+ADD pip-vcs-equivalency.patch /opt/pip/
+RUN <<EOF bash -e -x
+cd /opt/pip
+git apply </opt/pip/pip-vcs-equivalency.patch
+git add -u
+git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github VCS installs for a package as equivalent. The spec of the last encountered version will be used'
+EOF
+RUN pip install --upgrade --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
 
 ###############################################################################
 ## Install cuDNN

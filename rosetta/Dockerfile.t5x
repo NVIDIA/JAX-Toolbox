@@ -2,52 +2,59 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/upstream-t5x:mealkit
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
-# These patchlist paths should be relative to this script
-ARG T5X_PATCHLIST=patchlist-t5x.txt
-ARG FLAX_PATCHLIST=patchlist-flax.txt
+# If set to "true", then will pull new local patches, the manifest.yaml and create-distribution.sh (in case it was updated).
+# This is useful for development if you run `./bump.sh -i manifest.yaml` manually and do not want to trigger a full rebuild all
+# the way up to the jax build.
+ARG UPDATE_PATCHES=false
 
-FROM scratch as rosetta-source
-COPY . /
-
-FROM scratch as t5x-mirror-source
-ADD --keep-git-dir=true https://github.com/google-research/t5x.git#main /
-
-FROM scratch as flax-mirror-source
-ADD --keep-git-dir=true https://github.com/google/flax.git#main /
+# Rosetta and optionally patches are pulled from this
+FROM scratch AS jax-toolbox
 
 ###############################################################################
 ### Download source and add auxiliary scripts
 ################################################################################
 
 FROM ${BASE_IMAGE} AS mealkit
-ENV ENABLE_TE=1
-
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
-ARG T5X_PATCHLIST
-ARG FLAX_PATCHLIST
+ARG UPDATE_PATCHES
 
-COPY --from=rosetta-source / /opt/rosetta
-WORKDIR /opt/rosetta
-RUN --mount=target=/opt/t5x-mirror,from=t5x-mirror-source,readwrite \
-    --mount=target=/opt/flax-mirror,from=flax-mirror-source,readwrite <<EOF bash -e
+ENV ENABLE_TE=1
+
+RUN --mount=target=/mnt/jax-toolbox,from=jax-toolbox <<"EOF" bash -exu
+MANIFEST_DIR=$(dirname ${MANIFEST_FILE})
+if [[ "${UPDATE_PATCHES}" != "true" && "${UPDATE_PATCHES}" != "false" ]]; then
+  echo "UPDATE_PATCHES can only be true or false"
+  exit 1
+fi
+if [[ "${UPDATE_PATCHES}" == "true" ]]; then
+  cp -r /mnt/jax-toolbox/.github/container/patches ${MANIFEST_DIR}/
+  cp /mnt/jax-toolbox/.github/container/manifest.yaml ${MANIFEST_DIR}/manifest.yaml
+  cp /mnt/jax-toolbox/.github/container/create-distribution.sh ${MANIFEST_DIR}/create-distribution.sh
+  # TODO: remove
+  cp /mnt/jax-toolbox/.github/container/pip-finalize.sh /usr/local/bin/
+fi
+cp -r /mnt/jax-toolbox/rosetta /opt/rosetta
+
+# Setting the username/email is required to author commits from patches
 git config --global user.email "${GIT_USER_EMAIL}"
 git config --global user.name "${GIT_USER_NAME}"
-bash create-distribution.sh \
-  -p ${T5X_PATCHLIST} \
-  -m https://github.com/nvjax-svc-0/t5x.git \
-  -d /opt/t5x \
-  -e /opt/t5x-mirror
-bash create-distribution.sh \
-  -p ${FLAX_PATCHLIST} \
-  -m https://github.com/nvjax-svc-0/flax.git \
-  -d /opt/flax \
-  -e /opt/flax-mirror
-echo "--extra-index-url https://developer.download.nvidia.com/compute/redist" >> /opt/pip-tools.d/manifest.t5x
-echo "-e file:///opt/rosetta" >> /opt/pip-tools.d/manifest.t5x
+
+bash ${MANIFEST_DIR}/create-distribution.sh \
+  --manifest ${MANIFEST_FILE} \
+  --package t5x
+bash ${MANIFEST_DIR}/create-distribution.sh \
+  --manifest ${MANIFEST_FILE} \
+  --package flax
+# Remove .gitconfig to avoid end-user authoring commits as the "build user"
+rm -f ~/.gitconfig
+
+echo "--extra-index-url https://developer.download.nvidia.com/compute/redist" >> /opt/pip-tools.d/requirements-t5x.in
+echo "-e file:///opt/rosetta" >> /opt/pip-tools.d/requirements-t5x.in
 EOF
-  
+
 WORKDIR /opt/rosetta
+COPY --from=jax-toolbox rosetta/tests/test-vit.sh /usr/local/bin
 
 ###############################################################################
 ### Install accumulated packages from the base image and the previous stage

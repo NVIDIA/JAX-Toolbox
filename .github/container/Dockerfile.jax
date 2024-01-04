@@ -1,16 +1,11 @@
+# syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
-ARG REPO_JAX="https://github.com/google/jax.git"
-ARG REPO_XLA="https://github.com/openxla/xla.git"
-ARG REPO_FLAX="https://github.com/google/flax.git"
-ARG REPO_TE="https://github.com/NVIDIA/TransformerEngine.git"
-ARG REF_JAX=main
-ARG REF_XLA=main
-ARG REF_FLAX=main
-ARG REF_TE=main
+ARG SRC_MANIFEST_FILE=manifest.yaml
+ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG SRC_PATH_JAX=/opt/jax
-ARG SRC_PATH_XLA=/opt/xla-source
+ARG SRC_PATH_XLA=/opt/xla
 ARG SRC_PATH_FLAX=/opt/flax
-ARG SRC_PATH_TE=/opt/transformer-engine-source
+ARG SRC_PATH_TE=/opt/transformer-engine
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 
@@ -22,22 +17,28 @@ ARG BUILD_DATE
 ###############################################################################
 
 FROM ${BASE_IMAGE} as builder
-ARG REPO_JAX
-ARG REPO_XLA
-ARG REF_JAX
-ARG REF_XLA
+ARG SRC_MANIFEST_FILE
+ARG DEST_MANIFEST_DIR
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG BAZEL_CACHE
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
 
-RUN git clone "${REPO_JAX}" "${SRC_PATH_JAX}" && cd "${SRC_PATH_JAX}" && git checkout ${REF_JAX}
+# Set the manifest env vars
+ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+
+ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
+COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+COPY patches/ ${DEST_MANIFEST_DIR}/patches/
+
+RUN get-source.sh -l jax -m ${MANIFEST_FILE}
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
-    git clone "${REPO_XLA}" "${SRC_PATH_XLA}" && cd "${SRC_PATH_XLA}" && git checkout ${REF_XLA}
+    get-source.sh -l xla -m ${MANIFEST_FILE}
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+# TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt
 RUN build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
@@ -53,9 +54,13 @@ RUN build-jax.sh \
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
+ARG SRC_MANIFEST_FILE
+ARG DEST_MANIFEST_DIR
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
+ARG SRC_PATH_TE
 ARG BUILD_DATE
+
 ENV BUILD_DATE=${BUILD_DATE}
 # The following environment variables tune performance
 ENV XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_async_all_gather=true --xla_gpu_enable_async_reduce_scatter=true --xla_gpu_enable_triton_gemm=false"
@@ -63,6 +68,16 @@ ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_IB_SL=1
 ENV NCCL_NVLS_ENABLE=0
 ENV CUDA_MODULE_LOADING=EAGER
+# Set the manifest env vars
+ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+
+ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
+COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+COPY patches/ ${DEST_MANIFEST_DIR}/patches/
+
+COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
+COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
+ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
@@ -70,29 +85,22 @@ ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
 RUN <<"EOF" bash -ex
-echo "-e file://${SRC_PATH_JAX}"                        >> /opt/pip-tools.d/manifest.jax
-echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/manifest.jax
+echo "-e file://${SRC_PATH_JAX}"                        >> /opt/pip-tools.d/requirements-jax.in
+echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax
-ARG REPO_FLAX
-ARG REF_FLAX
-ARG SRC_PATH_FLAX
-RUN get-source.sh -f ${REPO_FLAX} -r ${REF_FLAX} -d ${SRC_PATH_FLAX} -m /opt/pip-tools.d/manifest.flax
+RUN get-source.sh -l flax -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-flax.in
 
 ## Transformer engine: check out source and build wheel
-ARG REPO_TE
-ARG REF_TE
-ARG SRC_PATH_TE
 ENV NVTE_FRAMEWORK=jax
 ENV SRC_PATH_TE=${SRC_PATH_TE}
-RUN <<"EOF" bash -ex
-set -o pipefail
+RUN <<"EOF" bash -ex -o pipefail
 pip install ninja && rm -rf ~/.cache/pip
-get-source.sh -f ${REPO_TE} -r ${REF_TE} -d ${SRC_PATH_TE}
+get-source.sh -l transformer-engine -m ${MANIFEST_FILE}
 pushd ${SRC_PATH_TE}
 python setup.py bdist_wheel && rm -rf build
-echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/manifest.te
+echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in
 EOF
 
 # TODO: properly configure entrypoint
@@ -104,3 +112,4 @@ EOF
 FROM mealkit as final
 
 RUN pip-finalize.sh
+

@@ -8,11 +8,19 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      BASE_IMAGE:
+        type: string
+        description: 'Upstream Jax mealkit image without $arch-mealkit suffix, e.g., (ghcr.io/nvidia/jax-toolbox-internal:6857094059-upstream-jax). Leaving empty implies ghcr.io/nvidia/jax:mealkit'
+        default: ''
+        required: false
       PUBLISH:
         type: boolean
         description: Publish dated images and update the 'latest' tag?
         default: false
         required: false
+
+env:
+  DOCKER_REGISTRY: ghcr.io/nvidia
 
 permissions:
   contents: read  # to fetch code
@@ -25,17 +33,24 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+      BASE_IMAGE_AMD64: ${{ steps.base-image.outputs.BASE_IMAGE_AMD64 }}
+      BASE_IMAGE_ARM64: ${{ steps.base-image.outputs.BASE_IMAGE_ARM64 }}
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
     steps:
       - name: Check if the triggering workflow failed
         id: if-upstream-failed
         shell: bash -x -e {0}
         run: |
-          echo "UPSTREAM_FAILED=${{ github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
+          echo "UPSTREAM_FAILED=${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
 
       - name: Cancel workflow if upstream workflow did not success
         if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
-        uses: styfle/cancel-workflow-action@0.12.0
+        run: |
+          echo "Upstream workflow failed, cancelling this workflow"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          cat  # blocks execution in case workflow cancellation takes time
 
       - name: Determine if the resulting container should be 'published'
         id: if-publish
@@ -53,11 +68,26 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
+      - name: Set base image
+        id: base-image
+        shell: bash -x -e {0}
+        run: |
+          if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
+            BASE_IMAGE_AMD64=${{ env.DOCKER_REGISTRY }}/jax:mealkit
+            BASE_IMAGE_ARM64=${{ env.DOCKER_REGISTRY }}/jax:mealkit
+          else
+            BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE }}-amd64-mealkit
+            BASE_IMAGE_ARM64=${{ inputs.BASE_IMAGE }}-arm64-mealkit
+          fi
+          echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
+          echo "BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}" >> $GITHUB_OUTPUT
+
   amd64:
     needs: metadata
     uses: ./.github/workflows/_build_t5x.yaml
     with:
       ARCHITECTURE: amd64
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
@@ -66,6 +96,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       DOCKER_TAG_MEALKIT: ''
+      DOCKER_TAG_FINAL: ''
     steps:
       - name: Generate placeholder warning
         shell: bash -x -e {0}
@@ -99,7 +130,7 @@ jobs:
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
   finalize:
-    if: always()
+    if: "!cancelled()"
     needs: [metadata, amd64, arm64]
     uses: ./.github/workflows/_finalize.yaml
     with:

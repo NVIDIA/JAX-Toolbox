@@ -13,10 +13,25 @@ on:
         description: Extra command line args to pass to test-pax.sh
         default: ""
         required: false
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-pax-mgmn-test.json'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-pax-mgmn-test'
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: false
+        default: 'PAXML'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
-        value: ${{ jobs.publish-test.outputs.STATUS }}
+        value: ${{ jobs.sitrep.outputs.STATUS }}
 
 jobs:
 
@@ -48,6 +63,7 @@ jobs:
           EOF
           chmod 600 ~/.ssh/known_hosts
           echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
       - name: Labels and metadata
         id: meta
         shell: bash -x -e {0}
@@ -58,18 +74,19 @@ jobs:
           MAX_GPUS_PER_NODE=8
           NODES=1
           GPUS_PER_NODE=8
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
+
       - name: Submit SLURM jobs over SSH
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          sshx "date && hostname && sinfo" 
+          sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
@@ -98,6 +115,9 @@ jobs:
               ${{ inputs.EXTRA_TEST_ARGS }}
           EOF
           )
+
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -112,6 +132,14 @@ jobs:
           echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
           set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -124,7 +152,8 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
+
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
         run: |
@@ -134,7 +163,7 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
-        
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -186,7 +215,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -198,7 +227,7 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          sshx "date && hostname && sinfo" 
+          sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
@@ -230,6 +259,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -248,6 +279,13 @@ jobs:
 
           set -x
 
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -260,7 +298,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -271,7 +309,7 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
-        
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -316,7 +354,7 @@ jobs:
           NODES=1
           GPUS_PER_NODE=8
 
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -328,7 +366,7 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          sshx "date && hostname && sinfo" 
+          sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
@@ -361,6 +399,8 @@ jobs:
           EOF
           )
 
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
           set +x
           while sshx squeue -j $JOB | grep -q $JOB; do
             echo "SLURM Job $JOB is still running."
@@ -379,6 +419,13 @@ jobs:
 
           set -x
 
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
@@ -391,7 +438,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -402,7 +449,7 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
-        
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -424,19 +471,11 @@ jobs:
         shell: bash -x {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
-          for i in ${{ inputs.ARTIFACT_NAME }}pax-${GITHUB_RUN_ID}-*; do
+          for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*; do
             SUBDIR=$(echo $i | cut -d'-' -f3)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
           done
-
-          echo '## PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
-          for i in *_metrics.json; do
-            echo $i | cut -d'.' -f1
-            echo '```json'
-            jq . $i
-            echo '```'
-          done | tee -a $GITHUB_STEP_SUMMARY
 
           RESULTS_DIR=$PWD BASELINES_DIR=PAX_MGMN/upstream pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
 
@@ -444,67 +483,24 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: metrics-test-log
-          path: report.jsonl
+          path: |
+            report.jsonl
+            *_metrics.json
 
-
-  publish-test:
+  sitrep:
     needs: [single-process-multi-device, pax-multi-node, single-process-evaluation, metrics]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: ( always() )
+    if: "!cancelled()"
+    uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}pax-test-status.json'
-      PUBLISH: false
-      SCRIPT: |
-        EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}pax-${GITHUB_RUN_ID}-*DP*FSDP*TP*PP*/*-status.json"
-        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
-        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
-
-        cat <<EOF >>$GITHUB_STEP_SUMMARY
-        ## Pax MGMN+SPMD Test Status
-        | Test Case | State | Exit Code |
-        | --- | --- | --- |
-        EOF
-        for i in $EXIT_STATUSES; do
-          # Files are named pax-<GHID>-<NAME>/<NAME>-status.json
-          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f3) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
-        done | tee -a $GITHUB_STEP_SUMMARY
-
-        echo "Test statuses:"
-        jq -rc 'input_filename,.' $EXIT_STATUSES
-
-        METRICS_LOG=metrics-test-log/report.jsonl
-        all_outcomes() {
-          cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
-        }
-        cnt_type() {
-          cat $METRICS_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
-        }
-        PYTEST_FAILED_TESTS=$(cnt_type failed)
-        PYTEST_PASSED_TESTS=$(cnt_type passed)
-        PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
-
-        if ([[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
-            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]); then
-          STATUS=success
-          BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
-          STATUS=failure
-          BADGE_COLOR=red
-        else
-          STATUS=failure
-          BADGE_COLOR=yellow
-        fi
-        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
-        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-
+      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+      FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
     runs-on: ubuntu-22.04
-
+    needs: [single-process-multi-device, pax-multi-node, single-process-evaluation]
+    if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
         run: |
@@ -513,18 +509,18 @@ jobs:
 
           ## PAX MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}pax-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
-    needs: publish-test
+    needs: sitrep
     runs-on: ubuntu-22.04
-    if: ( always() )
+    if: "!cancelled()"
     steps:
-      - name: Sets workflow status based on test outputs 
+      - name: Sets workflow status based on test outputs
         run: |
-          if [[ ${{ needs.publish-test.outputs.STATUS }} != success ]]; then
+          if [[ ${{ needs.sitrep.outputs.STATUS }} != 'success' ]]; then
             exit 1
           fi
