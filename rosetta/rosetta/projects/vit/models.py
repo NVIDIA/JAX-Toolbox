@@ -48,7 +48,7 @@ class ViTModel(BaseModel):
   def loss_fn(
       self, params: PyTreeDef,
       batch: Mapping[str, jnp.ndarray],
-      dropout_rng: jax.random.KeyArray | None,
+      dropout_rng: jax.Array | None,
       flax_mutables: Optional[PyTreeDef] = None,
   ) -> tuple[jnp.ndarray, MetricsMap]:
     """Computes loss and metrics.
@@ -114,7 +114,7 @@ class ViTModel(BaseModel):
       self,
       params: PyTreeDef,
       batch: Mapping[str, jnp.ndarray],
-      rng: jax.random.KeyArray | None = None,
+      rng: jax.Array | None = None,
       flax_mutables: Optional[PyTreeDef] = None,
   ) -> tuple[jnp.ndarray, Mapping[str, jnp.ndarray]]:
     """Predict a batch from the modelwith auxiliary outputs.
@@ -190,7 +190,7 @@ class ViTModel(BaseModel):
 
   def get_initial_variables(
       self,
-      rng: jax.random.KeyArray,
+      rng: jax.Array,
       input_shapes: Mapping[str, Array],
       input_types: Mapping[str, jnp.dtype] | None = None,
       flax_mutables: Optional[PyTreeDef] = None,

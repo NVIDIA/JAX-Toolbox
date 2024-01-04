@@ -95,7 +95,7 @@ class DenoisingDiffusionModel(DiffusionBase):
     def loss_fn(self,
                 params: PyTreeDef,
                 batch: BatchType,
-                dropout_rng: Optional[jax.random.KeyArray],
+                dropout_rng: Optional[jax.Array],
                 flax_mutables: Optional[PyTreeDef] = None,
                 ) -> Tuple[jnp.ndarray, MetricsMap]:
         denoise_fn = self._denoise_fn(params, flax_mutables)
@@ -113,7 +113,7 @@ class DenoisingDiffusionModel(DiffusionBase):
     def predict_batch(self,
                       params: PyTreeDef,
                       batch: BatchType,
-                      rng: Optional[jax.random.KeyArray] = None,
+                      rng: Optional[jax.Array] = None,
                       *,
                       sampling_cfg: Optional[samplers.SamplingConfig] = None,
                       ) -> jnp.ndarray:
@@ -122,7 +122,7 @@ class DenoisingDiffusionModel(DiffusionBase):
     def predict_batch_with_aux(self,
                                params: PyTreeDef,
                                batch: BatchType,
-                               rng: Optional[jax.random.KeyArray] = None,
+                               rng: Optional[jax.Array] = None,
                                *,
                                sampling_cfg: Optional[samplers.SamplingConfig] = None,
                                ) -> Tuple[jnp.ndarray, Mapping[str, jnp.ndarray]]:
@@ -147,7 +147,7 @@ class DenoisingDiffusionModel(DiffusionBase):
 
     def get_initial_variables(
         self,
-        rng: jax.random.KeyArray,
+        rng: jax.Array,
         input_shapes: Mapping[str, Array],
         input_types: Optional[Mapping[str, jnp.dtype]] = None
     ) -> flax_scope.FrozenVariableDict:
