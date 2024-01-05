@@ -620,7 +620,7 @@ jobs:
 
   summary:
     runs-on: ubuntu-22.04
-    needs: [multi-gpu-multi-node, single-process-multi-device]
+    needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node]
     if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
