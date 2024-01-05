@@ -84,11 +84,15 @@ jobs:
 
   amd64:
     needs: metadata
-    uses: ./.github/workflows/_build_t5x.yaml
+    uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: amd64
+      ARTIFACT_NAME: "artifact-t5x-build"
+      BADGE_FILENAME: "badge-t5x-build"
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CONTAINER_NAME: "upstream-t5x"
+      DOCKERFILE: ".github/container/Dockerfile.t5x"
     secrets: inherit
 
   arm64:

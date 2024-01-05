@@ -68,20 +68,28 @@ jobs:
   build-t5x:
     needs: [metadata, build-jax]
     if: inputs.ARCHITECTURE == 'amd64'  # T5X arm64 build is wip in PR 252
-    uses: ./.github/workflows/_build_t5x.yaml
+    uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: amd64
+      ARTIFACT_NAME: "artifact-t5x-build"
+      BADGE_FILENAME: "badge-t5x-build"
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: "upstream-t5x"
+      DOCKERFILE: ".github/container/Dockerfile.t5x"
     secrets: inherit
 
   build-pax:
     needs: [metadata, build-jax]
-    uses: ./.github/workflows/_build_pax.yaml
+    uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: "artifact-pax-build"
+      BADGE_FILENAME: "badge-pax-build"
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: "upstream-pax"
+      DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
   build-rosetta-t5x:
