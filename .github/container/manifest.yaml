@@ -26,7 +26,7 @@ t5x:
   url: https://github.com/google-research/t5x.git
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
   tracking_ref: main
-  latest_verified_commit: 18f74b7891223faf96825d02ef7d7b23630a4c3c
+  latest_verified_commit: dbc4b6f426862d5a742a2104a17524f53dd442f0
   mode: git-clone
   patches:
     mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
