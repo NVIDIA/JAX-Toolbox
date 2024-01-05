@@ -1,41 +1,124 @@
 name: "~Sandbox"
 
+# name: Nightly Pallas build
+# run-name: Nightly Pallas build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
+
 on:
+  workflow_run:
+    workflows: [Nightly JAX build]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      BASE_IMAGE:
+        type: string
+        description: 'Upstream Jax mealkit image without $arch-mealkit suffix, e.g., (ghcr.io/nvidia/jax-toolbox-internal:6857094059-upstream-jax). Leaving empty implies ghcr.io/nvidia/jax:mealkit'
+        default: ''
+        required: false
+      PUBLISH:
+        type: boolean
+        description: Publish nightly images and update the 'latest' tag?
+        default: false
+        required: false
+
+env:
+  DOCKER_REGISTRY: ghcr.io/nvidia
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
 
 jobs:
-  sandbox:
+
+  metadata:
     runs-on: ubuntu-22.04
+    outputs:
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+      BASE_IMAGE_AMD64: ${{ steps.base-image.outputs.BASE_IMAGE_AMD64 }}
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print usage
+      - name: Check if the triggering workflow failed
+        id: if-upstream-failed
+        shell: bash -x -e {0}
         run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
+          echo "UPSTREAM_FAILED=${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' }}" >> $GITHUB_OUTPUT
 
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+      - name: Cancel workflow if upstream workflow did not success
+        if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
+        run: |
+          echo "Upstream workflow failed, cancelling this workflow"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          cat  # blocks execution in case workflow cancellation takes time
+
+      - name: Determine if the resulting container should be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run:
+          # A container should be published if:
+          # 1) the workflow is triggered by workflow_dispatch and the PUBLISH input is true, or
+          # 2) the workflow is triggered by workflow_run (i.e., a nightly build)
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Set base image
+        id: base-image
+        shell: bash -x -e {0}
+        run: |
+          if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
+            BASE_IMAGE_AMD64=${{ env.DOCKER_REGISTRY }}/jax:mealkit
+          else
+            BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE }}-amd64-mealkit
+          fi
+          echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
+
+  amd64:
+    needs: metadata
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: amd64
+      ARTIFACT_NAME: "artifact-pallas-build"
+      BADGE_FILENAME: "badge-pallas-build"
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CONTAINER_NAME: "pallas"
+      DOCKERFILE: .github/container/Dockerfile.pallas
+    secrets: inherit
+
+  publish-mealkit:
+    needs: [metadata, amd64]
+    if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+      TARGET_IMAGE: pallas
+      TARGET_TAGS: |
+        type=raw,value=mealkit,priority=500
+        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+
+  publish-final:
+    needs: [metadata, amd64]
+    if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+      TARGET_IMAGE: pallas
+      TARGET_TAGS: |
+        type=raw,value=latest,priority=1000
+        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+
+  finalize:
+    if: "!cancelled()"
+    needs: [metadata, amd64]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit
