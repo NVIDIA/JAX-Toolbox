@@ -39,7 +39,7 @@ echo "Please make sure ${TRAIN_GPUS} is the number of visible CUDA devices you h
 
 # Setting XLA flags
 export XLA_FLAGS="--xla_gpu_simplify_all_fp_conversions --xla_gpu_all_reduce_combine_threshold_bytes=136314880 ${XLA_FLAGS}"
-export XLA_PYTHON_CLIENT_MEM_FRACTION=0.9
+# export XLA_PYTHON_CLIENT_MEM_FRACTION=0.9
 
 # Global batch size
 BSIZE=$(( BSIZE_PER_GPU * TRAIN_GPUS * NUM_MICROBATCHES / MP ))
@@ -48,7 +48,7 @@ OUTPUT_LOG=${LOG_DIR}/pt_${SIZE}_gpu_${NUM_GPUS}_${PREC}_gbs_${BSIZE}_mp_${MP}.l
 mkdir -p $MODEL_DIR
 mkdir -p $LOG_DIR
 python3 -u -m t5x.train \
-  --gin_file="rosetta/projects/vit/configs/very_small_pretrain_imagenet.gin" \
+  --gin_file="rosetta/projects/vit/configs/small_pretrain_imagenet_updated.gin" \
   --gin.MODEL_DIR=\"${MODEL_DIR}\" \
   --gin.BATCH_SIZE=${BSIZE} \
   --gin.train.stats_period=${STAT_PERIOD} \

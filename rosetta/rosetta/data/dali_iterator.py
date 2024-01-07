@@ -32,17 +32,8 @@ from nvidia.dali import fn
 from nvidia.dali.auto_aug import auto_augment
 
 
-# def non_image_preprocessing(raw_text):
-#     print(raw_text)
-#     bs = len(raw_text)
-#     ascii = [np.asarray(raw_text[i]) for i in range(bs)]
-
-#     labels = np.zeros((bs, ))
-#     for i, el in enumerate(ascii):
-#       idx = int(bytes(el).decode('utf-8'))
-#       labels[i] = idx
-
-#     return labels
+def non_image_preprocessing(raw_text):
+    return np.array([int(bytes(raw_text).decode('utf-8'))])
 
 
 def vit_pipeline(
@@ -65,7 +56,7 @@ def vit_pipeline(
 
     img, clss = fn.readers.webdataset(
         paths=list(braceexpand(wds_config.urls)),
-        index_paths=index_paths,
+        # index_paths=index_paths,
         ext=["jpg", "cls"],
         missing_component_behavior="error",
         random_shuffle=is_training,
@@ -75,11 +66,10 @@ def vit_pipeline(
         name="webdataset_reader",
     )
 
-    # labels = fn.python_function(clss, function=non_image_preprocessing, num_outputs=1, batch_processing=True)
-    # if use_gpu:
-    #     labels = labels.gpu()
-    # labels = fn.one_hot(labels, num_classes=num_classes)
-    labels = clss
+    labels = fn.python_function(clss, function=non_image_preprocessing, num_outputs=1)
+    if use_gpu:
+        labels = labels.gpu()
+    labels = fn.one_hot(labels, num_classes=num_classes)
 
     device = "mixed" if use_gpu else "cpu"
     img = fn.decoders.image(img, device=device, output_type=types.RGB)
@@ -162,7 +152,7 @@ def prepare_dali_iterator(iterator_args, partitioner, checkpoint_cfg, data_layou
     config, ds_shard_id, ds_num_shards, total_steps, seed, is_training = iterator_args
 
     num_classes = 1000
-    image_shape = (384, 384, 3)
+    image_shape = (224,224,3)
     use_gpu = True
 
     global_mesh = partitioner.mesh
@@ -175,7 +165,7 @@ def prepare_dali_iterator(iterator_args, partitioner, checkpoint_cfg, data_layou
         vit_pipeline,
         output_map=["images", "labels"],
         auto_reset=True,
-        size=total_steps * config.batch_size,
+        reader_name="webdataset_reader",
         sharding=sharding,
     )(
         batch_size=config.batch_size,
