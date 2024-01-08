@@ -99,6 +99,11 @@ def parse_args():
         help="the size to chucnk kernel (weighs) then store, only support with --fw=pax."
         " Setting None means no chunking.")
 
+    parser.add_argument('--weight-only',
+                        action="store_true",
+                        default=False,
+                        help="indicate if the source checkpoint only includes weights.")
+
     parser.add_argument('--pax-repeat',
                         action="store_true",
                         default=False,
@@ -130,7 +135,7 @@ def get_convert_helper(args):
         convert_helper_cls = T5X_CONVERT_HELPER_DICT[(args.direction, args.t5x_fuse_qkv)]
 
     assert convert_helper_cls is not None, "Not Supported."
-    return convert_helper_cls(args.input_path, args.output_path, model_config)
+    return convert_helper_cls(args.input_path, args.output_path, model_config, args.weight_only)
 
 
 if __name__ == "__main__":

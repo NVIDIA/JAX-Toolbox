@@ -22,6 +22,8 @@ class PaxConvertHelperBase(ConvertHelper):
 
     @property
     def catagories(self):
+        if self.weight_only:
+            return ['mdl_vars.params']
         return ['mdl_vars.params', "opt_states_0_2.m.params", "opt_states_0_2.v.params"]
 
 
@@ -187,6 +189,9 @@ class PaxRepeatConvertHelperBase(ConvertHelper):
 
     @property
     def catagories(self):
+        if self.weight_only:
+            return ['mdl_vars.params']
+
         num_of_layer = self.model_config.num_of_layer
         return [
             'mdl_vars.params', f"opt_states_0.p#{num_of_layer}#i-1_2.m.params",

@@ -24,6 +24,8 @@ class T5XConvertHelperBase(ConvertHelper):
 
     @property
     def catagories(self):
+        if self.weight_only:
+            return CATAGORIES[:1]
         return CATAGORIES
 
 

@@ -21,6 +21,7 @@
                     the embeded dimension of the given source checkpoint, must give if --fw=t5x. (default: None)
 --kernel-chunk-size KERNEL_CHUNK_SIZE
                     the size to chucnk kernel (weighs) then store, only support with --fw=pax. Setting None means no chunking. (default: None)
+--weight-only         indicate if the source checkpoint only includes weights. (default: False)
 --pax-repeat          indicate if the source Pax checkpoint enables Repeat. (default: False)
 --t5x-fuse-qkv        indicate if the source T5X checkpoint enables fused_qkv_params of TE. (default: False)
 ```
