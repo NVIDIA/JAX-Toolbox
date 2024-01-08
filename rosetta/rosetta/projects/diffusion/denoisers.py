@@ -42,7 +42,7 @@ class DenoisingFunctionCallableWithParams(typing_extensions.Protocol):
                  noised_sample: jnp.ndarray,
                  sigma: jnp.ndarray,
                  other_cond: Optional[Mapping[str, jnp.ndarray]]=None,
-                 dropout_rng: Optional[jax.random.KeyArray]=None
+                 dropout_rng: Optional[jax.Array]=None
                  ) -> jnp.ndarray:
         ...
 
@@ -52,7 +52,7 @@ class DenoisingFunctionCallable(typing_extensions.Protocol):
                  noised_sample: jnp.ndarray,
                  sigma: jnp.ndarray,
                  other_cond: Optional[Mapping[str, jnp.ndarray]]=None,
-                 dropout_rng: Optional[jax.random.KeyArray]=None
+                 dropout_rng: Optional[jax.Array]=None
                  ) -> jnp.ndarray:
         ...
 
@@ -62,7 +62,7 @@ class DenoisingFunctionWithAuxCallable(typing_extensions.Protocol):
                  noised_sample: jnp.ndarray,
                  sigma: jnp.ndarray,
                  other_cond: Optional[Mapping[str, jnp.ndarray]]=None,
-                 dropout_rng: Optional[jax.random.KeyArray]=None
+                 dropout_rng: Optional[jax.Array]=None
                  ) -> Tuple[jnp.ndarray, Mapping[str, jnp.ndarray]]:
         ...
 
@@ -72,7 +72,7 @@ class NoisePredictorCallable(typing_extensions.Protocol):
                  noised_sample: jnp.ndarray,
                  sigma: jnp.ndarray,
                  other_cond: Optional[Mapping[str, jnp.ndarray]]=None,
-                 dropout_rng: Optional[jax.random.KeyArray]=None
+                 dropout_rng: Optional[jax.Array]=None
                  ) -> jnp.ndarray:
         ...
 
@@ -82,7 +82,7 @@ class NoisePredictorWithAuxCallable(typing_extensions.Protocol):
                  noised_sample: jnp.ndarray,
                  sigma: jnp.ndarray,
                  other_cond: Optional[Mapping[str, jnp.ndarray]]=None,
-                 dropout_rng: Optional[jax.random.KeyArray]=None
+                 dropout_rng: Optional[jax.Array]=None
                  ) -> Tuple[jnp.ndarray, Mapping[str, jnp.ndarray]]:
         ...
 
@@ -118,7 +118,7 @@ class Denoiser(abc.ABC):
         self,
         params: PyTreeDef,
         batch: Mapping[str, jnp.ndarray],
-        rngs: Optional[jax.random.KeyArray] = None,
+        rngs: Optional[jax.Array] = None,
         mutable: flax_scope.CollectionFilter = False,
         other_variables: Optional[PyTreeDef] = None,
     ) -> Union[jnp.ndarray, Tuple[jnp.ndarray, flax_scope.FrozenVariableDict]]:
@@ -136,7 +136,7 @@ class Denoiser(abc.ABC):
                        noised_sample: jnp.ndarray,
                        sigma: jnp.ndarray,
                        other_cond: Optional[Mapping[str, jnp.ndarray]]=None,
-                       dropout_rng: Optional[jax.random.KeyArray]=None,
+                       dropout_rng: Optional[jax.Array]=None,
                        flax_mutables: Optional[PyTreeDef]=None,
                        ) -> jnp.ndarray:
         """ Returns denoised sample given noised sample and conditioning """
@@ -177,7 +177,7 @@ class EDMUnconditionalDenoiser(Denoiser):
         self,
         params: PyTreeDef,
         batch: Mapping[str, jnp.ndarray],
-        rngs: Optional[jax.random.KeyArray] = None,
+        rngs: Optional[jax.Array] = None,
         mutable: flax_scope.CollectionFilter = False,
         other_variables: Optional[PyTreeDef] = None,
     ) -> Union[jnp.ndarray, Tuple[jnp.ndarray, flax_scope.FrozenVariableDict]]:
@@ -207,7 +207,7 @@ class EDMTextConditionedDenoiser(EDMUnconditionalDenoiser):
         self,
         params: PyTreeDef,
         batch: Mapping[str, jnp.ndarray],
-        rngs: Optional[jax.random.KeyArray] = None,
+        rngs: Optional[jax.Array] = None,
         mutable: flax_scope.CollectionFilter = False,
         other_variables: Optional[PyTreeDef] = None,
     ) -> Union[jnp.ndarray, Tuple[jnp.ndarray, flax_scope.FrozenVariableDict]]:
@@ -239,7 +239,7 @@ class EDMTextConditionedSuperResDenoiser(EDMTextConditionedDenoiser):
         self,
         params: PyTreeDef,
         batch: Mapping[str, jnp.ndarray],
-        rngs: Optional[jax.random.KeyArray] = None,
+        rngs: Optional[jax.Array] = None,
         mutable: flax_scope.CollectionFilter = False,
         other_variables: Optional[PyTreeDef] = None,
     ) -> Union[jnp.ndarray, Tuple[jnp.ndarray, flax_scope.FrozenVariableDict]]:
@@ -274,7 +274,7 @@ class EDMLatentConditionalDenoiser(EDMUnconditionalDenoiser):
         self,
         params: PyTreeDef,
         batch: Mapping[str, jnp.ndarray],
-        rngs: Optional[jax.random.KeyArray] = None,
+        rngs: Optional[jax.Array] = None,
         mutable: flax_scope.CollectionFilter = False,
         other_variables: Optional[PyTreeDef] = None,
     ) -> Union[jnp.ndarray, Tuple[jnp.ndarray, flax_scope.FrozenVariableDict]]:
@@ -318,7 +318,7 @@ class VP_EPSNoisePredictor(abc.ABC):
         self,
         params: PyTreeDef,
         batch: Mapping[str, jnp.ndarray],
-        rngs: Optional[jax.random.KeyArray] = None,
+        rngs: Optional[jax.Array] = None,
         mutable: flax_scope.CollectionFilter = False,
         other_variables: Optional[PyTreeDef] = None,
     ) -> Union[jnp.ndarray, Tuple[jnp.ndarray, flax_scope.FrozenVariableDict]]:
@@ -336,7 +336,7 @@ class VP_EPSNoisePredictor(abc.ABC):
                     noised_sample: jnp.ndarray,
                     sigma: jnp.ndarray,
                     other_cond: Optional[Mapping[str, jnp.ndarray]]=None,
-                    dropout_rng: Optional[jax.random.KeyArray]=None
+                    dropout_rng: Optional[jax.Array]=None
                     ) -> jnp.ndarray:
         """ Returns denoised sample given noised sample and conditioning """
         sigma = expand_dims_like(sigma, noised_sample)
@@ -357,7 +357,7 @@ class VP_EPSNoisePredictorTextConditional(VP_EPSNoisePredictor):
         self,
         params: PyTreeDef,
         batch: Mapping[str, jnp.ndarray],
-        rngs: Optional[jax.random.KeyArray] = None,
+        rngs: Optional[jax.Array] = None,
         mutable: flax_scope.CollectionFilter = False,
         other_variables: Optional[PyTreeDef] = None,
     ) -> Union[jnp.ndarray, Tuple[jnp.ndarray, flax_scope.FrozenVariableDict]]:
