@@ -19,7 +19,7 @@ RUN <<"EOF" bash -ex
 echo "levanter:
   url: https://github.com/stanford-crfm/levanter.git
   tracking_ref: slurm_cluster_fix
-  latest_verified_commit: b98df8e6a5e9f7e188a528ad255fc932f6b58a86
+  latest_verified_commit: 158cb12c1e75108e1681a1ab4900590968710046
   mode: git-clone
 haliax:
   url: https://github.com/stanford-crfm/haliax.git
