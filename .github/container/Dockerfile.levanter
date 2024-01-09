@@ -19,7 +19,7 @@ RUN <<"EOF" bash -ex
 echo "levanter:
   url: https://github.com/DwarKapex/levanter.git
   tracking_ref: main 
-  latest_verified_commit: 63edc0a5e29261e47ad868af5297d0d66a510276
+  latest_verified_commit: f3c5c26433c4a98ef3135c6ab20cc802e7bbaa6d
   mode: git-clone
 haliax:
   url: https://github.com/stanford-crfm/haliax.git
