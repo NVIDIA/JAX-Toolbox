@@ -17,7 +17,7 @@ ARG SRC_PATH_LEVANTER
 
 RUN <<"EOF" bash -ex
 echo "levanter:
-  url: https://github.com:DwarKapex/levanter.git
+  url: https://github.com/DwarKapex/levanter.git
   tracking_ref: main 
   latest_verified_commit: 63edc0a5e29261e47ad868af5297d0d66a510276
   mode: git-clone
