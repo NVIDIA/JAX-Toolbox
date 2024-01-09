@@ -11,6 +11,8 @@ on:
         required: false
         default: ''
         description: 'Branch that contains manifest and patches. Default is empty which uses GITHUB_SHA'
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -23,20 +25,37 @@ permissions:
 
 jobs:
 
+  # metadata:
+  #   runs-on: ubuntu-22.04
+  #   outputs:
+  #     TRIAL_BRANCH: ${{ steps.meta.outputs.TRIAL_BRANCH }}
+  #   steps:
+  #     - name: Set optional trial branch
+  #       id: meta
+  #       shell: bash -x -e {0}
+  #       run: |
+  #         if [[ -z "${{ inputs. TRIAL_BRANCH}}" ]]; then
+  #           echo "TRIAL_BRANCH=${{ github.sha }}"
+  #         else
+  #           echo "TRIAL_BRANCH=${TRIAL_BRANCH}"
+  #         fi | tee $GITHUB_OUTPUT
   metadata:
+    if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-22.04
-    outputs:
-      TRIAL_BRANCH: ${{ steps.meta.outputs.TRIAL_BRANCH }}
     steps:
-      - name: Set optional trial branch
-        id: meta
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+      - name: Update manifest and patches in-place - show diff
+        working-directory: .github/container
         shell: bash -x -e {0}
         run: |
-          if [[ -z "${{ inputs. TRIAL_BRANCH}}" ]]; then
-            echo "TRIAL_BRANCH=${{ github.sha }}"
-          else
-            echo "TRIAL_BRANCH=${TRIAL_BRANCH}"
-          fi | tee $GITHUB_OUTPUT
+          bash bump.sh --input-manifest manifest.yaml
+          git diff
+      - name: Archive the updated manifest
+        uses: actions/upload-artifact@v3
+        
+
+        
 
   amd64:
     needs: metadata
