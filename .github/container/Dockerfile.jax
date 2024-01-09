@@ -67,10 +67,6 @@ COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
-COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
-COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
-ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
-
 RUN mkdir -p /opt/pip-tools.d
 RUN <<"EOF" bash -ex
 # Encourage a newer numpy so that pip's dependency resolver will allow newer
