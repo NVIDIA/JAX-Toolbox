@@ -97,10 +97,10 @@ jobs:
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
-      TARGET_IMAGE: pallas
+      TARGET_IMAGE: jax
       TARGET_TAGS: |
-        type=raw,value=mealkit,priority=500
-        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+        type=raw,value=mealkit-pallas,priority=450
+        type=raw,value=mealkit-pallas-${{ needs.metadata.outputs.BUILD_DATE }},priority=450
 
   publish-final:
     needs: [metadata, amd64]
@@ -108,10 +108,10 @@ jobs:
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-      TARGET_IMAGE: pallas
+      TARGET_IMAGE: jax
       TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+        type=raw,value=latest-pallas,priority=950
+        type=raw,value=nightly-pallas-${{ needs.metadata.outputs.BUILD_DATE }},priority=850
 
   finalize:
     if: "!cancelled()"
