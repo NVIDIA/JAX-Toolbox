@@ -138,6 +138,8 @@ EOF
 
 set -exou pipefail
 
+export XLA_PYTHON_CLIENT_MEM_FRACTION=${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.85}
+
 DATA_PATH="/tmp/dummy_vit_data"
 python -m generate_dummy_wds --output_tar_path=${DATA_PATH}
 
