@@ -17,9 +17,9 @@ ARG SRC_PATH_LEVANTER
 
 RUN <<"EOF" bash -ex
 echo "levanter:
-  url: https://github.com/stanford-crfm/levanter.git
-  tracking_ref: slurm_cluster_fix
-  latest_verified_commit: 158cb12c1e75108e1681a1ab4900590968710046
+  url: git@github.com:DwarKapex/levanter.git
+  tracking_ref: fix_slurm_build 
+  latest_verified_commit: 2073c62cff8b43be78923e9d1a50d1ff044df9f1
   mode: git-clone
 haliax:
   url: https://github.com/stanford-crfm/haliax.git
