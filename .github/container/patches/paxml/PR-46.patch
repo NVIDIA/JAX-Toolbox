@@ -683,7 +683,7 @@ index 587181d..e7fe54a 100644
  
    train_state_partition_specs = (
 -- 
-2.43.0
+2.25.1
 
 
 From 9d6b6db6039d7e6658dd179e5838379c7dc967e3 Mon Sep 17 00:00:00 2001
@@ -717,7 +717,7 @@ index d44ca67..2b9dba4 100644
          assert self.packed_input == False
          assert len(self.moe_layers) == 0
 -- 
-2.43.0
+2.25.1
 
 
 From 1612dc7a1f77f0a515eb4801087a8b4f0756e5b9 Mon Sep 17 00:00:00 2001
@@ -744,7 +744,7 @@ index 2b9dba4..ef20305 100644
      return x_out
  
 -- 
-2.43.0
+2.25.1
 
 
 From 71507dc4b1396252e6fa746d1299854c204f0c51 Mon Sep 17 00:00:00 2001
@@ -771,7 +771,7 @@ index e7fe54a..4093c3b 100644
      vars_with_opt = tasks_lib.filter_vars_for_grad_or_opt(
          mdl_vars, excluded_for_learner
 -- 
-2.43.0
+2.25.1
 
 
 From 2a8233302c7e42b7dc7628c41abb637518d15c29 Mon Sep 17 00:00:00 2001
@@ -808,7 +808,7 @@ index ef20305..fed1601 100644
          finally:
              pass
 -- 
-2.43.0
+2.25.1
 
 
 From 2a6e5a960f438653b4c9cbeb0c016225af853279 Mon Sep 17 00:00:00 2001
@@ -975,7 +975,7 @@ index fed1601..5914e54 100644
      def update_fp8_metas_if_needed(mdl_vars, grads):
          return TransformerEngineHelper.get_helper().update_fp8_metas_if_needed(mdl_vars, grads)
 -- 
-2.43.0
+2.25.1
 
 
 From b57188225e7890dfc54d70db7d89fcb32e61e762 Mon Sep 17 00:00:00 2001
@@ -1136,7 +1136,7 @@ index 4093c3b..2e8fc35 100644
          grads, states.opt_states[0], vars_with_opt, wps_with_opt
      )
 -- 
-2.43.0
+2.25.1
 
 
 From c43766ee2e8cda686176a3895e87150b10d5de5e Mon Sep 17 00:00:00 2001
@@ -1528,7 +1528,7 @@ index fd482df..b271258 100644
      @contextmanager
      def fp8_autocast(dp_mesh_axis="replica", tp_mesh_axis="mdl", fsdp_mesh_axis="data"):
 -- 
-2.43.0
+2.25.1
 
 
 From abc0fabc3e2ffb42d1f62254ad42448a39cbd128 Mon Sep 17 00:00:00 2001
@@ -1563,5 +1563,5 @@ index b271258..cbac7cf 100644
  
  class TransformerEngineHelperBase:
 -- 
-2.43.0
+2.25.1
 
