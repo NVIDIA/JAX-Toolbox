@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
-ARG SRC_MANIFEST_FILE=manifest.yaml
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG SRC_PATH_JAX=/opt/jax
 ARG SRC_PATH_XLA=/opt/xla
@@ -17,7 +16,6 @@ ARG BUILD_DATE
 ###############################################################################
 
 FROM ${BASE_IMAGE} as builder
-ARG SRC_MANIFEST_FILE
 ARG DEST_MANIFEST_DIR
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
@@ -25,12 +23,7 @@ ARG BAZEL_CACHE
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
 
-# Set the manifest env vars
-ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-
 ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
-COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-COPY patches/ ${DEST_MANIFEST_DIR}/patches/
 
 RUN get-source.sh -l jax -m ${MANIFEST_FILE}
 RUN --mount=type=ssh \
@@ -54,7 +47,6 @@ RUN build-jax.sh \
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
-ARG SRC_MANIFEST_FILE
 ARG DEST_MANIFEST_DIR
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
@@ -68,16 +60,8 @@ ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_IB_SL=1
 ENV NCCL_NVLS_ENABLE=0
 ENV CUDA_MODULE_LOADING=EAGER
-# Set the manifest env vars
-ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 
 ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
-COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-COPY patches/ ${DEST_MANIFEST_DIR}/patches/
-
-COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
-COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
-ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
