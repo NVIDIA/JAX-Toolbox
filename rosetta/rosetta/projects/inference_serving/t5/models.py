@@ -72,7 +72,7 @@ class EncoderOnlyModel(BaseTransformerModel):
 
   def get_initial_variables(
       self,
-      rng: jax.random.KeyArray,
+      rng: jax.Array,
       input_shapes: Mapping[str, Array],
       input_types: Optional[Mapping[str, jnp.dtype]] = None
   ) -> flax_scope.FrozenVariableDict:
@@ -104,7 +104,7 @@ class EncoderOnlyModel(BaseTransformerModel):
       self,
       params: PyTreeDef,
       batch: Mapping[str, jnp.ndarray],
-      dropout_rng: Optional[jax.random.KeyArray] = None,
+      dropout_rng: Optional[jax.Array] = None,
       mutable: flax_scope.CollectionFilter = False,
       other_variables: Optional[PyTreeDef] = None,
   ) -> Union[jnp.ndarray, Tuple[jnp.ndarray, flax_scope.FrozenVariableDict]]:
@@ -171,6 +171,6 @@ class EncoderOnlyModel(BaseTransformerModel):
       self,
       params: PyTreeDef,
       batch: Mapping[str, jnp.ndarray],
-      rng: Optional[jax.random.KeyArray] = None,
+      rng: Optional[jax.Array] = None,
   ) -> Tuple[jnp.ndarray, Mapping[str, jnp.ndarray]]:
       raise NotImplementedError("Predict Batch is not implemented for encoder only. Use score_batch")

@@ -1,13 +1,13 @@
-diff --git a/xla/pjrt/transpose_kernels.h b/xla/pjrt/transpose_kernels.h
-index 26a60c122..0a4011d9b 100644
---- a/xla/pjrt/transpose_kernels.h
-+++ b/xla/pjrt/transpose_kernels.h
-@@ -33,7 +33,7 @@ limitations under the License.
- #define XLA_HAS_SSE2
+diff --git a/xla/ef57.cc b/xla/ef57.cc
+index d419f7810..9c526eeed 100644
+--- a/xla/ef57.cc
++++ b/xla/ef57.cc
+@@ -81,7 +81,7 @@ void ConvertF64ToEf57(absl::Span<const double> input,
+     output.remove_prefix(kFloatsPerSseIteration);
+   }
  #endif
- 
--#if defined(__ARM_NEON) && !defined(__ARM_BIG_ENDIAN)
-+#if defined(__ARM_NEON) && !defined(__ARM_BIG_ENDIAN) && !defined(__CUDACC__)
- #define XLA_HAS_ARM_NEON
- #endif
- 
+-#if defined(XLA_HAS_ARM_NEON) && defined(XLA_HAS_ARM64)
++#if defined(XLA_HAS_ARM_NEON) && defined(XLA_HAS_ARM64) && defined(__clang__)
+   constexpr int kDoublesPerNeonIteration = sizeof(float64x2_t) / sizeof(double);
+   constexpr int kFloatsPerNeonIteration = sizeof(float32x2x2_t) / sizeof(float);
+   while (input.size() >= kDoublesPerNeonIteration) {

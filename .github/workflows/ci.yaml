@@ -6,43 +6,11 @@ on:
       - '**.md'
   workflow_dispatch:
     inputs:
-      CUDA_IMAGE:
+      TRIAL_BRANCH:
         type: string
-        description: 'Base CUDA image, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04'
         required: false
-        default: 'latest'
-      SRC_JAX:
-        description: 'JAX source: <repo>#<branch|tag|commit>'
-        type: string
-        required: true
-        default: 'https://github.com/google/jax.git#main'
-      SRC_XLA:
-        description: 'XLA source: <repo>#<branch|tag|commit>'
-        type: string
-        required: true
-        default: 'https://github.com/openxla/xla.git#main'
-      SRC_TE:
-        description: 'TE source: <repo>#<branch|tag|commit>'
-        type: string
-        required: true
-        # TODO: This is a temporary pinning of TE as the API in TE no longer matches the TE patch
-        #   This should be reverted to main ASAP
-        default: 'https://github.com/NVIDIA/TransformerEngine.git#main'
-      SRC_T5X:
-        description: 'T5X source: <repo>#<branch|tag|commit>'
-        type: string
-        required: true
-        default: 'https://github.com/google-research/t5x.git#main'
-      SRC_PAXML:
-        description: 'Paxml source: <repo>#<branch|tag|commit>'
-        type: string
-        required: true
-        default: 'https://github.com/google/paxml.git#main'
-      SRC_PRAXIS:
-        description: 'Praxis source: <repo>#<branch|tag|commit>'
-        type: string
-        required: true
-        default: 'https://github.com/google/praxis.git#main'
+        default: ''
+        description: 'Branch that contains manifest and patches. Default is empty which uses GITHUB_SHA'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -55,30 +23,35 @@ permissions:
 
 jobs:
 
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      TRIAL_BRANCH: ${{ steps.meta.outputs.TRIAL_BRANCH }}
+    steps:
+      - name: Set optional trial branch
+        id: meta
+        shell: bash -x -e {0}
+        run: |
+          if [[ -z "${{ inputs. TRIAL_BRANCH}}" ]]; then
+            echo "TRIAL_BRANCH=${{ github.sha }}"
+          else
+            echo "TRIAL_BRANCH=${TRIAL_BRANCH}"
+          fi | tee $GITHUB_OUTPUT
+
   amd64:
+    needs: metadata
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: amd64
-      CUDA_IMAGE: ${{ inputs.CUDA_IMAGE || 'latest' }}
-      SRC_JAX: ${{ inputs.SRC_JAX || 'https://github.com/google/jax.git#main' }}
-      SRC_XLA: ${{ inputs.SRC_XLA || 'https://github.com/openxla/xla.git#main'}}
-      SRC_TE: ${{ inputs.SRC_TE || 'https://github.com/NVIDIA/TransformerEngine.git#main'}}
-      SRC_T5X: ${{ inputs.SRC_T5X || 'https://github.com/google-research/t5x.git#main'}}
-      SRC_PAXML: ${{ inputs.SRC_PAXML || 'https://github.com/google/paxml.git#main'}}
-      SRC_PRAXIS: ${{ inputs.SRC_PRAXIS || 'https://github.com/google/praxis.git#main'}}
+      TRIAL_BRANCH: ${{ needs.metadata.outputs.TRIAL_BRANCH }}
     secrets: inherit
  
   arm64:
+    needs: metadata
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: arm64
-      CUDA_IMAGE: ${{ inputs.CUDA_IMAGE || 'latest' }}
-      SRC_JAX: ${{ inputs.SRC_JAX || 'https://github.com/google/jax.git#main' }}
-      SRC_XLA: ${{ inputs.SRC_XLA || 'https://github.com/openxla/xla.git#main'}}
-      SRC_TE: ${{ inputs.SRC_TE || 'https://github.com/NVIDIA/TransformerEngine.git#main'}}
-      SRC_T5X: ${{ inputs.SRC_T5X || 'https://github.com/google-research/t5x.git#main'}}
-      SRC_PAXML: ${{ inputs.SRC_PAXML || 'https://github.com/google/paxml.git#main'}}
-      SRC_PRAXIS: ${{ inputs.SRC_PRAXIS || 'https://github.com/google/praxis.git#main'}}
+      TRIAL_BRANCH: ${{ needs.metadata.outputs.TRIAL_BRANCH }}
     secrets: inherit
 
   finalize:

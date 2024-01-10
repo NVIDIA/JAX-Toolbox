@@ -1,5 +1,5 @@
-name: Nightly T5X build
-run-name: Nightly T5X build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
+name: Nightly Pallas build
+run-name: Nightly Pallas build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
   workflow_run:
@@ -15,7 +15,7 @@ on:
         required: false
       PUBLISH:
         type: boolean
-        description: Publish dated images and update the 'latest' tag?
+        description: Publish nightly images and update the 'latest' tag?
         default: false
         required: false
 
@@ -34,7 +34,6 @@ jobs:
     outputs:
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
       BASE_IMAGE_AMD64: ${{ steps.base-image.outputs.BASE_IMAGE_AMD64 }}
-      BASE_IMAGE_ARM64: ${{ steps.base-image.outputs.BASE_IMAGE_ARM64 }}
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
     steps:
       - name: Check if the triggering workflow failed
@@ -74,68 +73,49 @@ jobs:
         run: |
           if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
             BASE_IMAGE_AMD64=${{ env.DOCKER_REGISTRY }}/jax:mealkit
-            BASE_IMAGE_ARM64=${{ env.DOCKER_REGISTRY }}/jax:mealkit
           else
             BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE }}-amd64-mealkit
-            BASE_IMAGE_ARM64=${{ inputs.BASE_IMAGE }}-arm64-mealkit
           fi
           echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
-          echo "BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}" >> $GITHUB_OUTPUT
 
   amd64:
     needs: metadata
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: amd64
-      ARTIFACT_NAME: "artifact-t5x-build"
-      BADGE_FILENAME: "badge-t5x-build"
+      ARTIFACT_NAME: "artifact-pallas-build"
+      BADGE_FILENAME: "badge-pallas-build"
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      CONTAINER_NAME: "upstream-t5x"
-      DOCKERFILE: ".github/container/Dockerfile.t5x"
+      CONTAINER_NAME: "pallas"
+      DOCKERFILE: .github/container/Dockerfile.pallas
     secrets: inherit
 
-  arm64:
-    needs: metadata
-    runs-on: ubuntu-22.04
-    outputs:
-      DOCKER_TAG_MEALKIT: ''
-      DOCKER_TAG_FINAL: ''
-    steps:
-      - name: Generate placeholder warning
-        shell: bash -x -e {0}
-        run: |
-          echo "WARNING: arm64 build is not yet supported"
-
   publish-mealkit:
-    needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
     with:
-      SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
-        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
-      TARGET_IMAGE: upstream-t5x
+      SOURCE_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+      TARGET_IMAGE: jax
       TARGET_TAGS: |
-        type=raw,value=mealkit,priority=500
-        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+        type=raw,value=mealkit-pallas,priority=450
+        type=raw,value=mealkit-pallas-${{ needs.metadata.outputs.BUILD_DATE }},priority=450
 
   publish-final:
-    needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
     with:
-      SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
-      TARGET_IMAGE: upstream-t5x
+      SOURCE_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+      TARGET_IMAGE: jax
       TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+        type=raw,value=latest-pallas,priority=950
+        type=raw,value=nightly-pallas-${{ needs.metadata.outputs.BUILD_DATE }},priority=850
 
   finalize:
     if: "!cancelled()"
-    needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
