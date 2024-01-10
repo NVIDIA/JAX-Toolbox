@@ -90,7 +90,7 @@ jobs:
 
   publish-final:
     needs: [metadata, amd64, arm64]
-    if: github.event_name == 'schedule' && needs.metadata.outputs.PUBLISH == 'true'
+    if: "!cancelled()" && github.event_name == 'schedule' && needs.metadata.outputs.PUBLISH == 'true'
     strategy:
       fail-fast: true
       matrix:
