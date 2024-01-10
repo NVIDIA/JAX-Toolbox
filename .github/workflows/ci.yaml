@@ -24,38 +24,25 @@ permissions:
   packages: write # to upload container
 
 jobs:
-
-  # metadata:
-  #   runs-on: ubuntu-22.04
-  #   outputs:
-  #     TRIAL_BRANCH: ${{ steps.meta.outputs.TRIAL_BRANCH }}
-  #   steps:
-  #     - name: Set optional trial branch
-  #       id: meta
-  #       shell: bash -x -e {0}
-  #       run: |
-  #         if [[ -z "${{ inputs. TRIAL_BRANCH}}" ]]; then
-  #           echo "TRIAL_BRANCH=${{ github.sha }}"
-  #         else
-  #           echo "TRIAL_BRANCH=${TRIAL_BRANCH}"
-  #         fi | tee $GITHUB_OUTPUT
   metadata:
-    if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
-      - name: Update manifest and patches in-place - show diff
-        working-directory: .github/container
+      - name: Set build date
+        id: date
         shell: bash -x -e {0}
         run: |
-          bash bump.sh --input-manifest manifest.yaml
-          git diff
-      - name: Archive the updated manifest
-        uses: actions/upload-artifact@v3
-        
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-        
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+
 
   amd64:
     needs: metadata
@@ -72,6 +59,39 @@ jobs:
       ARCHITECTURE: arm64
       TRIAL_BRANCH: ${{ needs.metadata.outputs.TRIAL_BRANCH }}
     secrets: inherit
+
+  publish-mealkit:
+    needs: [metadata, amd64, arm64]
+    if: ${{ github.event_name == "schedule" }} && needs.metadata.outputs.PUBLISH == 'true' 
+    strategy:
+      fail-fast: true
+      matrix:
+        - TAG: ["jax", "t5x", "pallas", "pax"]
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.TAG_[format('{0}_MEALKIT', matrix.TAG)] }}
+        ${{ needs.arm64.outputs.[format('{0}_MEALKIT', matrix.TAG_START)] }}
+      TARGET_IMAGE: ${{ matrix.TAG }}
+      TARGET_TAGS: |
+        type=raw,value=mealkit,priority=500
+        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+
+  publish-final:
+    needs: [metadata, amd64, arm64]
+    if: ${{ github.event_name == "schedule" }} && needs.metadata.outputs.PUBLISH == 'true' 
+    matrix:
+      - TAG_START: ["TAG_JAX", "TAG_T5X", "TAG_PALLAS", "TAG_PAX"]
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.[format('{0}_FINALE', TAG_START)] }}
+        ${{ needs.arm64.outputs.[format('{0}_FINAL', TAG_START)] }}
+      TARGET_IMAGE: jax
+      TARGET_TAGS: |
+        type=raw,value=latest,priority=500
+        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+
 
   finalize:
     needs: [amd64, arm64]
