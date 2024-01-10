@@ -1,4 +1,4 @@
-name: CI
+name: ~CI, single-arch
 run-name: CI-${{ inputs.ARCHITECTURE }}
 
 on:
