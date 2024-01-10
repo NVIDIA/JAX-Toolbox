@@ -16,22 +16,22 @@ on:
         description: "Tags of the base image built"
         value: ${{ jobs.build-base.outputs.DOCKER_TAG }}
       TAG_JAX_MEALKIT:
-        description: "Tags of the JAX image built"
+        description: "Tags of the JAX mealkit image built"
         value: ${{ jobs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       TAG_JAX_FINAL:
-        description: "Tags of the JAX image built"
+        description: "Tags of the JAX final image built"
         value: ${{ jobs.build-jax.outputs.DOCKER_TAG_FINAL }}
       TAG_T5X_MEALKIT:
-        description: "Tags of the T5X image built"
+        description: "Tags of the T5X mealkit image built"
         value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
       TAG_T5X_FINAL:
-        description: "Tags of the T5X image built"
+        description: "Tags of the T5X final image built"
         value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_FINAL }}
       TAG_PALLAS_MEALKIT:
-        description: "Tags of the Pallas image built"
+        description: "Tags of the Pallas mealkit image built"
         value: ${{ jobs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}
       TAG_PALLAS_FINAL:
-        description: "Tags of the Pallas image built"
+        description: "Tags of the Pallas final image built"
         value: ${{ jobs.build-pallas.outputs.DOCKER_TAG_FINAL }}
       TAG_PAX_MEALKIT:
         description: "Tags of the PAX image built"
