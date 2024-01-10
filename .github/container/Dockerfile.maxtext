@@ -20,10 +20,10 @@ echo "maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main 
   latest_verified_commit: ec07171439bdfe2ba7f87111ed89412deab97c2e
-  mode: git-clone >> ${MANIFEST_FILE}
+  mode: git-clone" >> ${MANIFEST_FILE}
 cat ${MANIFEST_FILE}
 get-source.sh -l maxtext -m ${MANIFEST_FILE} 
-echo "file://${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+echo "file://${SRC_PATH_MAXTEXT}" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
 
 ###############################################################################
