@@ -92,6 +92,15 @@ jobs:
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
+      - name: Update manifest and patches in-place - show diff
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          build_event="${{ github.event_name }}"
+          if [[ ${build_event} == 'schedule' ]]; then
+            bash bump.sh --input-manifest manifest.yaml
+          fi
+
       - name: Build docker images
         id: build
         uses: docker/build-push-action@v4
