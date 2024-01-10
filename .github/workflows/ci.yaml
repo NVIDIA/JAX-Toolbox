@@ -62,32 +62,56 @@ jobs:
 
   publish-mealkit:
     needs: [metadata, amd64, arm64]
-    if: ${{ github.event_name == "schedule" }} && needs.metadata.outputs.PUBLISH == 'true' 
+    if: github.event_name == 'schedule' && needs.metadata.outputs.PUBLISH == 'true'
     strategy:
       fail-fast: true
       matrix:
-        - TAG: ["jax", "t5x", "pallas", "pax"]
+        - TAG: JAX
+          TARGET_IMAGE: jax
+        - TAG: PALLAS
+          TARGET_IMAGE: pallas
+        - TAG: PAX
+          TARGET_IMAGE: upstream_pax
+        - TAG: T5X
+          TARGET_IMAGE: upstream_t5x
+        - TAG: ROSSETA_PAX
+          TARGET_IMAGE: pax
+        - TAG: ROSSETA_T5X
+          TARGET_IMAGE: T5x
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.TAG_[format('{0}_MEALKIT', matrix.TAG)] }}
-        ${{ needs.arm64.outputs.[format('{0}_MEALKIT', matrix.TAG_START)] }}
-      TARGET_IMAGE: ${{ matrix.TAG }}
+        ${{ needs.arm64.outputs.[format('{0}_MEALKIT', matrix.TAG)] }}
+      TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
       TARGET_TAGS: |
         type=raw,value=mealkit,priority=500
         type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
-  publish-final:
+  publish-mealkit:
     needs: [metadata, amd64, arm64]
-    if: ${{ github.event_name == "schedule" }} && needs.metadata.outputs.PUBLISH == 'true' 
-    matrix:
-      - TAG_START: ["TAG_JAX", "TAG_T5X", "TAG_PALLAS", "TAG_PAX"]
+    if: github.event_name == 'schedule' && needs.metadata.outputs.PUBLISH == 'true'
+    strategy:
+      fail-fast: true
+      matrix:
+        - TAG: JAX
+          TARGET_IMAGE: jax
+        - TAG: PALLAS
+          TARGET_IMAGE: pallas
+        - TAG: PAX
+          TARGET_IMAGE: upstream_pax
+        - TAG: T5X
+          TARGET_IMAGE: upstream_t5x
+        - TAG: ROSSETA_PAX
+          TARGET_IMAGE: pax
+        - TAG: ROSSETA_T5X
+          TARGET_IMAGE: T5x
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
-        ${{ needs.amd64.outputs.[format('{0}_FINALE', TAG_START)] }}
-        ${{ needs.arm64.outputs.[format('{0}_FINAL', TAG_START)] }}
-      TARGET_IMAGE: jax
+        ${{ needs.amd64.outputs.TAG_[format('{0}_FINAL', matrix.TAG)] }}
+        ${{ needs.arm64.outputs.[format('{0}_FINAL', matrix.TAG)] }}
+      TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
       TARGET_TAGS: |
         type=raw,value=latest,priority=500
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=500

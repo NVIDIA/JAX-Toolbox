@@ -39,6 +39,19 @@ on:
       TAG_PAX_FINAL:
         description: "Tags of the PAX image built"
         value: ${{ jobs.build-pax.outputs.DOCKER_TAG_FINAL }}
+      TAG_ROSETTA_PAX_MEALKIT:
+        description: "Tags of the Rosetta pax image mealkit built"
+        value: ${{ jobs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}
+      TAG_ROSETTA_PAX_FINAL:
+        description: "Tags of the Rosetta pax image final built"
+        value: ${{ jobs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
+      TAG_ROSETTA_T5X_MEALKIT:
+        description: "Tags of the Rosetta T5X image mealkit built"
+        value: ${{ jobs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}
+      TAG_ROSETTA_T5X_FINAL:
+        description: "Tags of the Rosetta T5X image final built"
+        value: ${{ jobs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
+
 
 permissions:
   contents: read  # to fetch code
