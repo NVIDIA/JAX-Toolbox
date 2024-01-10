@@ -1,9 +1,9 @@
-name: Weekly base container build
-run-name: Weekly base container build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
+name: Nightly base container build
+run-name: Nightly base container build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
   schedule:
-    - cron: '30 13 * * 5'  # 5:30 AM every Friday
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
   workflow_dispatch:
     inputs:
       PUBLISH:

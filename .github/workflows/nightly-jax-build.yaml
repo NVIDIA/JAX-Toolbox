@@ -2,8 +2,10 @@ name: Nightly JAX build
 run-name: Nightly JAX build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
-  schedule:
-    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  workflow_run:
+    workflows: [Nightly base container build]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       BASE_IMAGE:
@@ -41,7 +43,7 @@ jobs:
         id: if-publish
         shell: bash -x -e {0}
         run: |
-          echo "PUBLISH=${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
   bump-world-state:
     needs: metadata
