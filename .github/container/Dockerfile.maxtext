@@ -23,7 +23,7 @@ echo "maxtext:
   mode: git-clone" >> ${MANIFEST_FILE}
 cat ${MANIFEST_FILE}
 get-source.sh -l maxtext -m ${MANIFEST_FILE} 
-echo "file://${SRC_PATH_MAXTEXT}" >> /opt/pip-tools.d/requirements-maxtext.in
+cat "${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
 
 ###############################################################################
