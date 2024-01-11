@@ -56,6 +56,7 @@ jobs:
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      TRIAL_BRANCH: ${{ inputs.TRIAL_BRANCH }}
     secrets: inherit
 
   build-jax:
@@ -65,7 +66,6 @@ jobs:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-      TRIAL_BRANCH: ${{ inputs.TRIAL_BRANCH }}
     secrets: inherit
 
   build-t5x:
