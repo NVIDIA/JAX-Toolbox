@@ -46,7 +46,7 @@ jobs:
           echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
   amd64:
-    needs: [metadata, bump-world-state]
+    needs: [metadata]
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: amd64
@@ -55,7 +55,7 @@ jobs:
     secrets: inherit
 
   arm64:
-    needs: [metadata, bump-world-state]
+    needs: [metadata]
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: arm64
