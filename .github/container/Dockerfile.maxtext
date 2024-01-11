@@ -1,8 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
-ARG REPO_MAXTEXT=https://github.com/google/maxtext.git
-ARG REF_MAXTEXT=main
 ARG SRC_PATH_MAXTEXT=/opt/maxtext
 
 ###############################################################################
@@ -11,8 +9,6 @@ ARG SRC_PATH_MAXTEXT=/opt/maxtext
 
 FROM ${BASE_IMAGE} as mealkit
 
-ARG REPO_MAXTEXT
-ARG REF_MAXTEXT
 ARG SRC_PATH_MAXTEXT
 
 RUN <<"EOF" bash -ex

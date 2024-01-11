@@ -1,4 +1,4 @@
-name: ~sandbox
+name: ~Sandbox
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ on:
         type: string
         description: "Build date in YYYY-MM-DD format"
         required: false
-        default: '2024-01-09'
+        default: '2024-01-11'
       REPO_MAXTEXT:
         type: string
         description: URL of Levanter repository to check out
