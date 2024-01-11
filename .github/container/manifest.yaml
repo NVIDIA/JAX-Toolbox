@@ -2,25 +2,25 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 2356e57af47baa37286177676a5a4bcd0c7b8c40
+  latest_verified_commit: 59ea9f3fde4b825bc8c4f0b7b8e616c9276d0dda
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 17ec7b4031608d3ddaca83e0661ed3aa0393e9d9
+  latest_verified_commit: d9220fe944d83e8e5b255482d87c1037a74abc80
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
-  latest_verified_commit: 7cbc3c13ecd8a1713732113dec7939d0b75342c6
+  latest_verified_commit: ed44f5212e2eeee3fab96b56a8bb852a39ff4bb4
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  latest_verified_commit: bb759adc2a53c57cc387f531c580a16149e3d4ac
+  latest_verified_commit: e547f8e2e6319fd4fb18e3ab33cf34c83a2ea9fa
   mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git
@@ -44,7 +44,7 @@ praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
   tracking_ref: main
-  latest_verified_commit: d126ac2cf4bc4808280d2842bbd3af872c6f682b
+  latest_verified_commit: 7b4e27ec71ea31db9ab84fdb8daefcc86ca84655
   mode: git-clone
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
@@ -74,7 +74,7 @@ fiddle:
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: e472ba33fee92f412663cf2a9bef55161a87e3ce
+  latest_verified_commit: b558014a93d1ff8f66f8be553799b7c191ec2878
   mode: pip-vcs
 clu:
   url: https://github.com/google/CommonLoopUtils.git
@@ -94,12 +94,12 @@ jestimator:
 optax:
   url: https://github.com/deepmind/optax.git
   tracking_ref: master
-  latest_verified_commit: bc22961422eb2397a4639ec945da0bea73d624d6
+  latest_verified_commit: d9b78576d13bb7044e9305f878e1f563fc9d6bd5
   mode: pip-vcs
 seqio:
   url: https://github.com/google/seqio.git
   tracking_ref: main
-  latest_verified_commit: 36d3ef0d3f027d40d0600e11a7e17b0c88c20cff
+  latest_verified_commit: eb718ffd25d15bf214cc92b2be2b4b38e6161c21
   mode: pip-vcs
 # used by Pallas
 openxla-triton:

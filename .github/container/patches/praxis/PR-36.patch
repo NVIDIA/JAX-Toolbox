@@ -247,7 +247,7 @@ index ab6cff3..c79dac9 100644
        # Annotate the inputs before the pipeline to prevent unexpected
        # propagation from earlier layers.
 -- 
-2.25.1
+2.43.0
 
 
 From ff1745796009cf1ec59f463f8e776c66f1286938 Mon Sep 17 00:00:00 2001
@@ -358,5 +358,5 @@ index e3b2f7c..b31526e 100644
            trans_in_fn=_get_to_f32_converter(bf16_vars_to_convert),
            trans_out_fn=_get_to_bf16_converter(bf16_vars_to_convert),
 -- 
-2.25.1
+2.43.0
 
