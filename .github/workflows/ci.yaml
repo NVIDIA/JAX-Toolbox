@@ -61,7 +61,7 @@ jobs:
 
   publish-mealkit:
     needs: [metadata, amd64, arm64]
-    if: "!canceled()" && needs.metadata.outputs.PUBLISH == 'true'
+    if: ("!canceled()") && needs.metadata.outputs.PUBLISH
     strategy:
       fail-fast: false
       matrix:
@@ -89,7 +89,7 @@ jobs:
 
   publish-final:
     needs: [metadata, amd64, arm64]
-    if: "!cancelled()" && needs.metadata.outputs.PUBLISH == 'true'
+    if: ("!cancelled()") && needs.metadata.outputs.PUBLISH
     strategy:
       fail-fast: false
       matrix:
@@ -120,5 +120,5 @@ jobs:
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
-      PUBLISH_BADGE: ${{ metadata.outputs.PUBLISH }}
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH }}
     secrets: inherit
