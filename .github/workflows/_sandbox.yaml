@@ -1,7 +1,7 @@
 name: "~Sandbox"
 
 on:
-  workflow_dispatch:
+  push:
 
 jobs:
   set-json:
@@ -11,6 +11,7 @@ jobs:
     steps:
       - name: Set JSON object
         id: setjson
+        shell: bash -x -e {0}
         run: |         
           ALL_TAGS="{\"a\":1}"
           echo $ALL_TAGS
@@ -23,10 +24,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - CONTAINER_TAG: "1N1G-te-1"
-            CONTAINER_IMAGE: 1
-          - CONTAINER_TAG: "1N8G-te-1"
-            CONTAINER_IMAGE: 8
+          - CONTAINER_TAG: ABC
+            CONTAINER_IMAGE: ABCD
+          - CONTAINER_TAG: XX
+            CONTAINER_IMAGE: XXX
     steps:
       - name: echo values
         run: |
