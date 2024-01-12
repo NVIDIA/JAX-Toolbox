@@ -12,14 +12,9 @@ jobs:
       - name: Set JSON object
         id: setjson
         run: |         
-          ALL_TAGS=$(cat << EOF 
-          {
-          \"TAG_JAX_MEALKIT\": \"TAG_JAX_MEALKIT_VALUE\",
-          \"TAG_JAX_FINAL\": \"TAG_JAX_FINAL_VALUE\"
-          }
-          EOF
-          )
-          echo "ALL_TAGS=$ALL_TAGS" | tee -a $GITHUB_OUTPUT
+          ALL_TAGS="{\"a\":1}"
+          echo $ALL_TAGS
+          echo "ALL_TAGS=${ALL_TAGS}" >> $GITHUB_OUTPUT
   
   get-json:
     runs-on: ubuntu-22.04
