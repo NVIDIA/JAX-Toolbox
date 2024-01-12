@@ -2,31 +2,31 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 2356e57af47baa37286177676a5a4bcd0c7b8c40
+  latest_verified_commit: adbbe69cc23f04d007ea864e828277463c437ec0
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 17ec7b4031608d3ddaca83e0661ed3aa0393e9d9
+  latest_verified_commit: 6fdca86e997c341030ea44d15f6299dbcdec6bf3
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
-  latest_verified_commit: 7cbc3c13ecd8a1713732113dec7939d0b75342c6
+  latest_verified_commit: ed44f5212e2eeee3fab96b56a8bb852a39ff4bb4
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  latest_verified_commit: bb759adc2a53c57cc387f531c580a16149e3d4ac
+  latest_verified_commit: e547f8e2e6319fd4fb18e3ab33cf34c83a2ea9fa
   mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
   tracking_ref: main
-  latest_verified_commit: 18f74b7891223faf96825d02ef7d7b23630a4c3c
+  latest_verified_commit: 8e6271579c8be7ab5d1c88cee154016b38d724f7
   mode: git-clone
   patches:
     mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
@@ -44,7 +44,7 @@ praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
   tracking_ref: main
-  latest_verified_commit: d126ac2cf4bc4808280d2842bbd3af872c6f682b
+  latest_verified_commit: 545e00ab126b823265d70c715950d39333484f38
   mode: git-clone
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
@@ -74,7 +74,7 @@ fiddle:
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: e472ba33fee92f412663cf2a9bef55161a87e3ce
+  latest_verified_commit: 3f38cf53edc230b645fea2cd342a135a44ff251f
   mode: pip-vcs
 clu:
   url: https://github.com/google/CommonLoopUtils.git
@@ -94,12 +94,12 @@ jestimator:
 optax:
   url: https://github.com/deepmind/optax.git
   tracking_ref: master
-  latest_verified_commit: bc22961422eb2397a4639ec945da0bea73d624d6
+  latest_verified_commit: f071b4720a4f8523e1d353386c5f3c198ba0198b
   mode: pip-vcs
 seqio:
   url: https://github.com/google/seqio.git
   tracking_ref: main
-  latest_verified_commit: 36d3ef0d3f027d40d0600e11a7e17b0c88c20cff
+  latest_verified_commit: eb718ffd25d15bf214cc92b2be2b4b38e6161c21
   mode: pip-vcs
 # used by Pallas
 openxla-triton:
@@ -110,5 +110,5 @@ openxla-triton:
 jax-triton:
   url: https://github.com/jax-ml/jax-triton.git
   tracking_ref: main
-  latest_verified_commit: 4a5791d00809ac96f92d42a80a4f52501d1421be
+  latest_verified_commit: 3130126c5980ab90d5d65e3a5d65241a6ab52aac
   mode: git-clone
