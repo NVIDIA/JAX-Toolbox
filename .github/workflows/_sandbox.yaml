@@ -28,19 +28,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - TAG: JAX
-            VALUE: MEALKIT
-          - TAG: JAX
-            VALUE: FINAL
+          - TEST_NAME: "1N1G-te-1"
+            N_GPU: 1
+          - TEST_NAME: "1N8G-te-1"
+            N_GPU: 8
     steps:
       - name: echo values
         run: |
-          echo TAG=${{ matrix.TAG }}
-          echo VALUE=${{ matrix.VALUE }}
-          RAW_VAL=${{ needs.set-json.outputs.ALL_TAGS }}
-          echo $RAW_VAL
-          # VAL=${{ fromJson(needs.set-json.outputs.ALL_TAGS) }}
-          # echo VAL=${VAL}
+          echo Hello World
 
 
 
