@@ -20,7 +20,7 @@ jobs:
             }
           EOF
           )"
-          echo $ALL_TAGS_JSON >> $GITHUB_OUTPUT
+          echo "$ALL_TAGS_JSON" >> $GITHUB_OUTPUT
   
   get-json:
     runs-on: ubuntu-22.04
@@ -36,7 +36,7 @@ jobs:
       - name: echo values
         run: |
 
-          echo ALL_TAGS=${{ fromJson(needs.set-json.outputs.ALL_TAGS) }}
+          echo ALL_TAGS=${{ needs.set-json.outputs.ALL_TAGS }}
           
 
 
