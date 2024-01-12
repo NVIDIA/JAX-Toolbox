@@ -1,4 +1,4 @@
-name: CI
+name: ~CI, single-arch
 run-name: CI-${{ inputs.ARCHITECTURE }}
 
 on:
@@ -81,6 +81,7 @@ jobs:
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      TRIAL_BRANCH: ${{ inputs.TRIAL_BRANCH }}
     secrets: inherit
 
   build-jax:

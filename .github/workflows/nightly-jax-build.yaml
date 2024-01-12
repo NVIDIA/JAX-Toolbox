@@ -2,8 +2,10 @@ name: Nightly JAX build
 run-name: Nightly JAX build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
-  schedule:
-    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  workflow_run:
+    workflows: [Nightly base container build]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       BASE_IMAGE:
@@ -41,66 +43,24 @@ jobs:
         id: if-publish
         shell: bash -x -e {0}
         run: |
-          echo "PUBLISH=${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
-
-  bump-world-state:
-    needs: metadata
-    outputs:
-      TRIAL_BRANCH: ${{ steps.trial-meta.outputs.TRIAL_BRANCH }}
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
-      - name: Update manifest and patches in-place - show diff
-        working-directory: .github/container
-        shell: bash -x -e {0}
-        run: |
-          bash bump.sh --input-manifest manifest.yaml
-          git diff
-      - name: Push trial branch
-        id: trial-meta
-        if: needs.metadata.outputs.PUBLISH == 'true'
-        shell: bash -x -e {0}
-        run: |
-          git config user.name "JAX-Toolbox CI"
-          git config user.email "jax@nvidia.com"
-          # Prepend trial branch with "z" to make it appear at the end
-          trial_branch=znightly-${{ needs.metadata.outputs.BUILD_DATE }}-${{ github.run_id }}
-          git switch -c $trial_branch
-          git status
-          git add -u
-          git add .github/container/patches/
-          git status
-          git commit -m "generated ${{github.run_id }}"
-          git push --set-upstream origin $trial_branch
-
-          echo "$trial_branch" > ./trial-branch.txt
-          echo TRIAL_BRANCH=$trial_branch | tee $GITHUB_OUTPUT
-      - name: 'Upload trial branch artifact'
-        if: needs.metadata.outputs.PUBLISH == 'true'
-        uses: actions/upload-artifact@v3
-        with:
-          name: trial-branch
-          path: trial-branch.txt
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
 
   amd64:
-    needs: [metadata, bump-world-state]
+    needs: [metadata]
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: amd64
       BASE_IMAGE: ${{ inputs.BASE_IMAGE || 'ghcr.io/nvidia/jax-toolbox:base' }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      TRIAL_BRANCH: ${{ needs.bump-world-state.outputs.TRIAL_BRANCH }}
     secrets: inherit
 
   arm64:
-    needs: [metadata, bump-world-state]
+    needs: [metadata]
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: arm64
       BASE_IMAGE: ${{ inputs.BASE_IMAGE || 'ghcr.io/nvidia/jax-toolbox:base' }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      TRIAL_BRANCH: ${{ needs.bump-world-state.outputs.TRIAL_BRANCH }}
     secrets: inherit
 
   publish-mealkit:
