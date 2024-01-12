@@ -15,7 +15,7 @@ jobs:
           ALL_TAGS="{\"a\":1}"
           echo $ALL_TAGS
           echo "ALL_TAGS=${ALL_TAGS}" >> $GITHUB_OUTPUT
-          echo $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
   
   get-json:
     runs-on: ubuntu-22.04
@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: echo values
         run: |
-          echo $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
           echo ALL_TAGS=${{ needs.set-json.outputs.ALL_TAGS }}
           
 
