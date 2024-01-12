@@ -31,7 +31,7 @@ jobs:
     steps:
       - name: echo values
         run: |
-          echo ALL_TAGS=${{ needs.set-json.outputs.ALL_TAGS }}
+          echo ALL_TAGS=${{ fromJson(needs.set-json.outputs.ALL_TAGS) }}
           
 
 
