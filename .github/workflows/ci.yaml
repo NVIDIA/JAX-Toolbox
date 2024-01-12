@@ -81,7 +81,7 @@ jobs:
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.TAG_[format('{0}_MEALKIT', matrix.TAG)] }}
-        ${{ needs.arm64.outputs.[format('{0}_MEALKIT', matrix.TAG)] }}
+        ${{ needs.arm64.outputs.TAG_[format('{0}_MEALKIT', matrix.TAG)] }}
       TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
       TARGET_TAGS: |
         type=raw,value=mealkit,priority=500
@@ -109,7 +109,7 @@ jobs:
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.TAG_[format('{0}_FINAL', matrix.TAG)] }}
-        ${{ needs.arm64.outputs.[format('{0}_FINAL', matrix.TAG)] }}
+        ${{ needs.arm64.outputs.TAG_[format('{0}_FINAL', matrix.TAG)] }}
       TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
       TARGET_TAGS: |
         type=raw,value=latest,priority=500
