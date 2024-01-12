@@ -19,6 +19,7 @@ jobs:
           }
           EOF
           )
+          echo $ALL_TAGS_JSON
           echo $ALL_TAGS_JSON >> $GITHUB_OUTPUT
   
   get-json:
