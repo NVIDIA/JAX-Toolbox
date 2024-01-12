@@ -12,15 +12,16 @@ FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_MAXTEXT
 
 RUN <<"EOF" bash -ex
-echo "maxtext:
-  url: https://github.com/google/maxtext.git
-  tracking_ref: main 
-  latest_verified_commit: ec07171439bdfe2ba7f87111ed89412deab97c2e
-  mode: git-clone" >> ${MANIFEST_FILE}
-cat ${MANIFEST_FILE}
 get-source.sh -l maxtext -m ${MANIFEST_FILE} 
 cat "${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
+
+###############################################################################
+## Apply patch
+###############################################################################
+
+ADD maxtext-mha.patch /opt
+RUN cd "${SRC_PATH_MAXTEXT}" && patch -p1 < /opt/maxtext-mha.patch && git diff
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
