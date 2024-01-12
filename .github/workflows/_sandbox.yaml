@@ -32,6 +32,7 @@ jobs:
       - name: echo values
         run: |
           echo ALL_TAGS=${{ fromJson(needs.set-json.outputs.ALL_TAGS) }}
+          echo TAG_A=${{ fromJson(needs.set-json.outputs.ALL_TAGS).a }}
           
 
 
