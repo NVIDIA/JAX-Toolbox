@@ -124,7 +124,7 @@ Included in JAX build
 [build-badge-rosetta-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-build-status.json&logo=github-actions&logoColor=dddddd
 [build-badge-pallas]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-pallas-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 
-[workflow-base]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/weekly-base-build.yaml
+[workflow-base]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-base-build.yaml
 [workflow-jax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax-build.yaml
 [workflow-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-t5x-build-test.yaml
 [workflow-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-pax-build.yaml
