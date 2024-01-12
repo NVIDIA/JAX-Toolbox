@@ -7,7 +7,7 @@ jobs:
   set-json:
     runs-on: ubuntu-22.04
     outputs:
-      ALL_TAGS: ${{ steps.setjson.ALL_TAGS }}
+      ALL_TAGS: ${{ steps.setjson.outputs.ALL_TAGS }}
     steps:
       - name: Set JSON object
         id: setjson
