@@ -37,7 +37,7 @@ jobs:
         run: |
           echo TAG=${{ matrix.TAG }}
           echo VALUE=${{ matrix.VALUE }}
-          VAL=${{ fromJson(needs.set-json.outputs.ALL_TAGS).TAG_JAX_MEALKIT }}
+          VAL=${{ fromJson(needs.set-json.outputs.ALL_TAGS) }}
           echo VAL=${VAL}
 
 
