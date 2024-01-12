@@ -11,11 +11,14 @@ jobs:
     steps:
       - name: Set JSON object
         id: setjson
-        run: |
-          ALL_TAGS_JSON="ALL_TAGS={" \
-          \"TAG_JAX_MEALKIT\": \"TAG_JAX_MEALKIT_VALUE\"," \
+        run: |         
+          ALL_TAGS_JSON=$(cat << EOF 
+          ALL_TAGS={
+          \"TAG_JAX_MEALKIT\": \"TAG_JAX_MEALKIT_VALUE\","
           \"TAG_JAX_FINAL\": \"TAG_JAX_FINAL_VALUE\","
-          "}"
+          }
+          EOF
+          )
           echo $ALL_TAGS_JSON >> $GITHUB_OUTPUT
   
   get-json:
