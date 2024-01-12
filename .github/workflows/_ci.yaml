@@ -41,10 +41,11 @@ jobs:
         with:
           ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
           BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+        secrets: inherit
       - name: Save base container tag for publishing step
         run: |
           echo "TAG_BASE=${{ steps.container.outputs.DOCKER_TAG }}" | tee -a $GITHUB_OUTPUT
-    secrets: inherit
+    
 
   build-jax:
     needs: [metadata, build-base]
@@ -59,11 +60,12 @@ jobs:
           ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
           BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
           BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+        secrets: inherit
       - name: Save jax container tags (mealkit and final) for publishing step
         run: |
           echo "TAG_JAX_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
           echo "TAG_JAX_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT
-    secrets: inherit
+    
 
   build-t5x:
     needs: [metadata, build-jax]
@@ -83,11 +85,12 @@ jobs:
           BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
           CONTAINER_NAME: "upstream-t5x"
           DOCKERFILE: ".github/container/Dockerfile.t5x"
+        secrets: inherit
       - name: Save T5X container tags (mealkit and final) for publishing step
         run: |
           echo "TAG_T5X_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
           echo "TAG_T5X_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT
-    secrets: inherit
+    
 
   build-pallas:
     needs: [metadata, build-jax]
@@ -104,11 +107,12 @@ jobs:
           BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
           CONTAINER_NAME: "pallas"
           DOCKERFILE: .github/container/Dockerfile.pallas
+        secrets: inherit
       - name: Save Pallas container tags (mealkit and final) for publishing step
         run: |
           echo "TAG_PALLAS_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
           echo "TAG_PALLAS_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT
-    secrets: inherit
+    
 
   build-pax:
     needs: [metadata, build-jax]
@@ -127,11 +131,12 @@ jobs:
           BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
           CONTAINER_NAME: "upstream-pax"
           DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+        secrets: inherit
       - name: Save Pax container tags (mealkit and final) for publishing step
         run: |
           echo "TAG_PAX_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
           echo "TAG_PAX_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT
-    secrets: inherit
+    
 
   build-rosetta-t5x:
     needs: [metadata, build-t5x]
@@ -146,11 +151,12 @@ jobs:
           BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
           BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
           BASE_LIBRARY: t5x
+        secrets: inherit
       - name: Save Rosetta T5X container tags (mealkit and final) for publishing step
         run: |
           echo "TAG_ROSETTA_T5X_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
           echo "TAG_ROSETTA_T5X_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT    
-    secrets: inherit
+    
 
   build-rosetta-pax:
     needs: [metadata, build-pax]
@@ -164,13 +170,12 @@ jobs:
           BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
           BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
           BASE_LIBRARY: pax
+        secrets: inherit
       - name: Save Rosetta Pax container tags (mealkit and final) for publishing step
         run: |
           echo "TAG_ROSETTA_PAX_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
           echo "TAG_ROSETTA_PAX_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT    
       
-    secrets: inherit
-
   test-distribution:
     needs: metadata
     uses: ./.github/workflows/_test_distribution.yaml
