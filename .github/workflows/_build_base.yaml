@@ -37,10 +37,6 @@ on:
         description: 'User email in GIT to perform git pull/push'
         required: false
         default: 'jax@nvidia.com'
-      TRIAL_BRANCH:
-        type: string
-        description: 'Name of branch with bumped manifest and patches'
-        required: true
 
     outputs:
       DOCKER_TAG:
@@ -57,10 +53,22 @@ permissions:
 
 jobs:
 
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUMP_MANIFEST: ${{ steps.if-bump-manifest.outputs.BUMP_MANIFEST }}
+    steps:
+      - name: Determine whether need to bump manifest 
+        id: if-bump-manifest
+        shell: bash -x -e {0}
+        run: |
+          echo "BUMP_MANIFEST=${{ github.event_name == 'schedule' }}" >> $GITHUB_OUTPUT
+
   build-base:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
+    needs: metadata
     outputs:
       DOCKER_TAG: ${{ steps.meta.outputs.tags }}
     steps:
@@ -69,9 +77,6 @@ jobs:
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
-        with:
-          ref: ${{ inputs.TRIAL_BRANCH }}
-
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -100,13 +105,12 @@ jobs:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Update manifest and patches in-place - show diff
+        if: needs.metadata.outputs.BUMP_MANIFEST == 'true'
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
-          build_event="${{ github.event_name }}"
-          if [[ ${build_event} == 'schedule' ]]; then
-            bash bump.sh --input-manifest manifest.yaml
-          fi
+          bash bump.sh --input-manifest manifest.yaml
+          git diff
 
       - name: Build docker images
         id: build

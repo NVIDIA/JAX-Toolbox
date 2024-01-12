@@ -7,51 +7,6 @@ on:
       ARCHITECTURE:
         type: string
         required: true
-      TRIAL_BRANCH:
-        type: string
-        description: 'Name of (branch|tag|sha) with bumped manifest and patches'
-        required: true
-    outputs:
-      TAG_BASE:
-        description: "Tags of the base image built"
-        value: ${{ jobs.build-base.outputs.DOCKER_TAG }}
-      TAG_JAX_MEALKIT:
-        description: "Tags of the JAX mealkit image built"
-        value: ${{ jobs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      TAG_JAX_FINAL:
-        description: "Tags of the JAX final image built"
-        value: ${{ jobs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      TAG_T5X_MEALKIT:
-        description: "Tags of the T5X mealkit image built"
-        value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
-      TAG_T5X_FINAL:
-        description: "Tags of the T5X final image built"
-        value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_FINAL }}
-      TAG_PALLAS_MEALKIT:
-        description: "Tags of the Pallas mealkit image built"
-        value: ${{ jobs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}
-      TAG_PALLAS_FINAL:
-        description: "Tags of the Pallas final image built"
-        value: ${{ jobs.build-pallas.outputs.DOCKER_TAG_FINAL }}
-      TAG_PAX_MEALKIT:
-        description: "Tags of the PAX image built"
-        value: ${{ jobs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
-      TAG_PAX_FINAL:
-        description: "Tags of the PAX image built"
-        value: ${{ jobs.build-pax.outputs.DOCKER_TAG_FINAL }}
-      TAG_ROSETTA_PAX_MEALKIT:
-        description: "Tags of the Rosetta pax image mealkit built"
-        value: ${{ jobs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}
-      TAG_ROSETTA_PAX_FINAL:
-        description: "Tags of the Rosetta pax image final built"
-        value: ${{ jobs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
-      TAG_ROSETTA_T5X_MEALKIT:
-        description: "Tags of the Rosetta T5X image mealkit built"
-        value: ${{ jobs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}
-      TAG_ROSETTA_T5X_FINAL:
-        description: "Tags of the Rosetta T5X image final built"
-        value: ${{ jobs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
-
 
 permissions:
   contents: read  # to fetch code
@@ -77,81 +32,143 @@ jobs:
 
   build-base:
     needs: metadata
-    uses: ./.github/workflows/_build_base.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      TRIAL_BRANCH: ${{ inputs.TRIAL_BRANCH }}
+    outputs:
+      DOCKER_TAG: ${{ steps.container.outputs.DOCKER_TAG }}
+    steps:
+      - name: Build base container
+        id: container
+        uses: ./.github/workflows/_build_base.yaml
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      - name: Save base container tag for publishing step
+        run: |
+          echo "TAG_BASE=${{ steps.container.outputs.DOCKER_TAG }}" | tee -a $GITHUB_OUTPUT
     secrets: inherit
 
   build-jax:
     needs: [metadata, build-base]
-    uses: ./.github/workflows/_build_jax.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL: ${{ steps.container.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Build jax container
+        id: container
+        uses: ./.github/workflows/_build_jax.yaml
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+      - name: Save jax container tags (mealkit and final) for publishing step
+        run: |
+          echo "TAG_JAX_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
+          echo "TAG_JAX_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT
     secrets: inherit
 
   build-t5x:
     needs: [metadata, build-jax]
     if: inputs.ARCHITECTURE == 'amd64'  # T5X arm64 build is wip in PR 252
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: amd64
-      ARTIFACT_NAME: "artifact-t5x-build"
-      BADGE_FILENAME: "badge-t5x-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: "upstream-t5x"
-      DOCKERFILE: ".github/container/Dockerfile.t5x"
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL: ${{ steps.container.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Build T5X container
+        id: container
+        uses: ./.github/workflows/_build.yaml
+        with:
+          ARCHITECTURE: amd64
+          ARTIFACT_NAME: "artifact-t5x-build"
+          BADGE_FILENAME: "badge-t5x-build"
+          BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: "upstream-t5x"
+          DOCKERFILE: ".github/container/Dockerfile.t5x"
+      - name: Save T5X container tags (mealkit and final) for publishing step
+        run: |
+          echo "TAG_T5X_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
+          echo "TAG_T5X_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT
     secrets: inherit
 
   build-pallas:
     needs: [metadata, build-jax]
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-pallas-build"
-      BADGE_FILENAME: "badge-pallas-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: "pallas"
-      DOCKERFILE: .github/container/Dockerfile.pallas
+    steps:
+      - name: Build Pallas container
+        id: container
+        uses: ./.github/workflows/_build.yaml
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: "artifact-pallas-build"
+          BADGE_FILENAME: "badge-pallas-build"
+          BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: "pallas"
+          DOCKERFILE: .github/container/Dockerfile.pallas
+      - name: Save Pallas container tags (mealkit and final) for publishing step
+        run: |
+          echo "TAG_PALLAS_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
+          echo "TAG_PALLAS_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT
     secrets: inherit
 
   build-pax:
     needs: [metadata, build-jax]
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-pax-build"
-      BADGE_FILENAME: "badge-pax-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: "upstream-pax"
-      DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL: ${{ steps.container.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Build Pax container
+        id: container
+        uses: ./.github/workflows/_build.yaml
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: "artifact-pax-build"
+          BADGE_FILENAME: "badge-pax-build"
+          BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: "upstream-pax"
+          DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+      - name: Save Pax container tags (mealkit and final) for publishing step
+        run: |
+          echo "TAG_PAX_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
+          echo "TAG_PAX_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT
     secrets: inherit
 
   build-rosetta-t5x:
-    uses: ./.github/workflows/_build_rosetta.yaml
     needs: [metadata, build-t5x]
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
-      BASE_LIBRARY: t5x
+    outputs:
+      DOCKER_TAG_FINAL: ${{ steps.container.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Build Rosetta T5X container
+        id: container
+        uses: ./.github/workflows/_build_rosetta.yaml
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
+          BASE_LIBRARY: t5x
+      - name: Save Rosetta T5X container tags (mealkit and final) for publishing step
+        run: |
+          echo "TAG_ROSETTA_T5X_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
+          echo "TAG_ROSETTA_T5X_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT    
     secrets: inherit
 
   build-rosetta-pax:
-    uses: ./.github/workflows/_build_rosetta.yaml
     needs: [metadata, build-pax]
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
-      BASE_LIBRARY: pax
+    outputs:
+      DOCKER_TAG_FINAL: ${{ steps.container.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Build Rosetta Pax container
+        uses: ./.github/workflows/_build_rosetta.yaml    
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
+          BASE_LIBRARY: pax
+      - name: Save Rosetta Pax container tags (mealkit and final) for publishing step
+        run: |
+          echo "TAG_ROSETTA_PAX_MEALKIT=${{ steps.container.outputs.DOCKER_TAG_MEALKIT }}" | tee -a $GITHUB_OUTPUT
+          echo "TAG_ROSETTA_PAX_FINAL=${{ steps.container.outputs.DOCKER_TAG_FINAL }}" | tee -a $GITHUB_OUTPUT    
+      
     secrets: inherit
 
   test-distribution:

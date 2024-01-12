@@ -6,11 +6,12 @@ on:
       - '**.md'
   workflow_dispatch:
     inputs:
-      TRIAL_BRANCH:
-        type: string
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
         required: false
-        default: ''
-        description: 'Branch that contains manifest and patches. Default is empty which uses GITHUB_SHA'
+
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
 
@@ -49,7 +50,6 @@ jobs:
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: amd64
-      TRIAL_BRANCH: ${{ needs.metadata.outputs.TRIAL_BRANCH }}
     secrets: inherit
  
   arm64:
@@ -57,14 +57,13 @@ jobs:
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: arm64
-      TRIAL_BRANCH: ${{ needs.metadata.outputs.TRIAL_BRANCH }}
     secrets: inherit
 
   publish-mealkit:
     needs: [metadata, amd64, arm64]
-    if: "!canceled()" && github.event_name == 'schedule' && needs.metadata.outputs.PUBLISH == 'true'
+    if: "!canceled()" && needs.metadata.outputs.PUBLISH == 'true'
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         - TAG: JAX
           TARGET_IMAGE: jax
@@ -77,7 +76,7 @@ jobs:
         - TAG: ROSSETA_PAX
           TARGET_IMAGE: pax
         - TAG: ROSSETA_T5X
-          TARGET_IMAGE: T5x
+          TARGET_IMAGE: t5x
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
@@ -90,9 +89,9 @@ jobs:
 
   publish-final:
     needs: [metadata, amd64, arm64]
-    if: "!cancelled()" && github.event_name == 'schedule' && needs.metadata.outputs.PUBLISH == 'true'
+    if: "!cancelled()" && needs.metadata.outputs.PUBLISH == 'true'
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         - TAG: JAX
           TARGET_IMAGE: jax
