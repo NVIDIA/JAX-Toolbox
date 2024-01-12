@@ -141,6 +141,12 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
 
+      - name: Save container tags (mealkit and final) for publishing step
+        run: |
+          CONTAINER_TAG_NAME=$(echo ${{ inputs.BASE_LIBRARY }} | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+          echo "TAG_ROSETTA_${CONTAINER_TAG_NAME}_MEALKIT=${{ steps.mealkit-metadata.outputs.tags }}" | tee -a $GITHUB_OUTPUT
+          echo "TAG_ROSETTA_${CONTAINER_TAG_NAME}_FINAL=${{ steps.final-metadata.outputs.tags }}" | tee -a $GITHUB_OUTPUT
+
       - name: Generate sitrep
         if: success() || failure()
         shell: bash -x -e {0}

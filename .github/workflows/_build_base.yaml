@@ -37,7 +37,6 @@ on:
         description: 'User email in GIT to perform git pull/push'
         required: false
         default: 'jax@nvidia.com'
-
     outputs:
       DOCKER_TAG:
         description: "Tag of the image built"
@@ -127,7 +126,7 @@ jobs:
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
-
+        
       - name: Generate sitrep
         if: success() || failure()
         shell: bash -x -e {0}
