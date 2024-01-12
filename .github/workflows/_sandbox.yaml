@@ -35,7 +35,9 @@ jobs:
     steps:
       - name: echo values
         run: |
-          VAL=${{ fromJson(needs.set-json.outputs.ALL_TAGS).TAG_[format('{0}_{1}}', matrix.TAG, matrix.VALUE)] }}
+          echo TAG=${{ matrix.TAG }}
+          echo VALUE=${{ matrix.VALUE }}
+          VAL=${{ fromJson(needs.set-json.outputs.ALL_TAGS).TAG_[format('{0}_{1}', matrix.TAG, matrix.VALUE)] }}
           echo VAL=${VAL}
 
 
