@@ -12,15 +12,14 @@ jobs:
       - name: Set JSON object
         id: setjson
         run: |         
-          ALL_TAGS_JSON=$(cat << EOF 
-          ALL_TAGS={
-          \"TAG_JAX_MEALKIT\": \"TAG_JAX_MEALKIT_VALUE\","
-          \"TAG_JAX_FINAL\": \"TAG_JAX_FINAL_VALUE\","
+          ALL_TAGS=$(cat << EOF 
+          {
+          \"TAG_JAX_MEALKIT\": \"TAG_JAX_MEALKIT_VALUE\",
+          \"TAG_JAX_FINAL\": \"TAG_JAX_FINAL_VALUE\"
           }
           EOF
           )
-          echo $ALL_TAGS_JSON
-          echo $ALL_TAGS_JSON >> $GITHUB_OUTPUT
+          echo "ALL_TAGS=$ALL_TAGS" | tee -a $GITHUB_OUTPUT
   
   get-json:
     runs-on: ubuntu-22.04
@@ -35,7 +34,7 @@ jobs:
     steps:
       - name: echo values
         run: |
-          echo ${{ needs.set-json.outputs.ALL_TAGS }}
+          echo ALL_TAGS=${{ needs.set-json.outputs.ALL_TAGS }}
           
 
 
