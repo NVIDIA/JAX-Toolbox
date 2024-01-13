@@ -14,7 +14,8 @@ jobs:
         shell: bash -x -e {0}
         run: |   
           ALL_TAGS=$(cat << EOF
-          {"a":1}
+          "TAG_JAX_MEALKIT": "TAG_JAX_MEALKIT_VALUE", 
+          "TAG_PAX_FINAL": "TAG_PAX_FINAL_VALUE", 
           EOF
           )
           echo $ALL_TAGS
@@ -27,15 +28,16 @@ jobs:
     strategy:
       matrix:
         include:
-          - CONTAINER_TAG: ABC
-            CONTAINER_IMAGE: ABCD
-          - CONTAINER_TAG: XX
-            CONTAINER_IMAGE: XXX
+          - TAG: JAX
+            CONTAINER_IMAGE: MEALKIT
+          - TAG: PAX
+            CONTAINER_IMAGE: FINAL
     steps:
       - name: echo values
         run: |
           echo ALL_TAGS=${{ fromJson(needs.set-json.outputs.ALL_TAGS) }}
-          echo TAG_A=${{ fromJson(needs.set-json.outputs.ALL_TAGS).a }}
+          TAG_A=${{ fromJson(needs.set-json.outputs.ALL_TAGS).[format('TAG_{0}_MEALKIT', matrix.TAG)] }}
+          echo $TAG_A
           
 
 
