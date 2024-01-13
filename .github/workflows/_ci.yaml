@@ -113,32 +113,32 @@ jobs:
       BASE_LIBRARY: pax
     secrets: inherit
 
-  save-tags:
-    needs: [build-jax, build-t5x, build-pallas, build-pax, build-rosetta-t5x, build-rosetta-pax]
-    outputs:
-      ALL_TAGS: ${{ steps.save-docker-tags.outputs.ALL_TAGS }}
-    steps:
-      - name: Save docker tags in a single JSON object
-        id: save-docker-tags
-        run: |
-          ALL_TAG_JSON=$(cat << EOF
-            { \
-            "TAG_JAX_MEALKIT": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_JAX_FINAL": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_UPSTREAM_T5X_MEALKIT": "${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_UPSTREAM_T5X_FINAL": "${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_PALLAS_MEALKIT": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_PALLAS_FINAL": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_UPSTREAM_PAX_MEALKIT": "${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_UPSTREAM_PAX_FINAL": "${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_T5X_MEALKIT": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_T5X_FINAL": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_PAX_MEALKIT": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_PAX_FINAL": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}" \
-            }
-          EOF
-          )
-          echo "ALL_TAGS=${ALL_TAG_JSON}" >> $GITHUB_OUTPUT
+  # save-tags:
+  #   needs: [build-jax, build-t5x, build-pallas, build-pax, build-rosetta-t5x, build-rosetta-pax]
+  #   outputs:
+  #     ALL_TAGS: ${{ steps.save-docker-tags.outputs.ALL_TAGS }}
+  #   steps:
+  #     - name: Save docker tags in a single JSON object
+  #       id: save-docker-tags
+  #       run: |
+  #         ALL_TAG_JSON=$(cat << EOF
+  #           { \
+  #           "TAG_JAX_MEALKIT": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}", \
+  #           "TAG_JAX_FINAL": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}", \
+  #           "TAG_UPSTREAM_T5X_MEALKIT": "${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
+  #           "TAG_UPSTREAM_T5X_FINAL": "${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}", \
+  #           "TAG_PALLAS_MEALKIT": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}", \
+  #           "TAG_PALLAS_FINAL": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}", \
+  #           "TAG_UPSTREAM_PAX_MEALKIT": "${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}", \
+  #           "TAG_UPSTREAM_PAX_FINAL": "${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}", \
+  #           "TAG_T5X_MEALKIT": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
+  #           "TAG_T5X_FINAL": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}", \
+  #           "TAG_PAX_MEALKIT": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}", \
+  #           "TAG_PAX_FINAL": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}" \
+  #           }
+  #         EOF
+  #         )
+  #         echo "ALL_TAGS=${ALL_TAG_JSON}" >> $GITHUB_OUTPUT
 
   test-distribution:
     needs: metadata
