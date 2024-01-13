@@ -14,15 +14,11 @@ jobs:
         shell: bash -x -e {0}
         run: |   
           ALL_TAGS=$(cat << EOF
-            {
-                "TAG_JAX_MEALKIT": "TAG_JAX_MEALKIT_VALUE",
-                "TAG_PAX_FINAL": "TAG_PAX_FINAL_VALUE"
-            }
+          {"a":"1","b":"2"}
           EOF
           )
           echo $ALL_TAGS
           echo "ALL_TAGS=${ALL_TAGS}" >> $GITHUB_OUTPUT
-          cat $GITHUB_OUTPUT
   
   get-json:
     runs-on: ubuntu-22.04
@@ -38,7 +34,8 @@ jobs:
       - name: echo values
         run: |
           echo ALL_TAGS=${{ fromJson(needs.set-json.outputs.ALL_TAGS) }}
-          TAG_A=${{ fromJson(needs.set-json.outputs.ALL_TAGS).TAG_[format('{0}_MEALKIT', matrix.TAG)] }}
+          echo TAG_A=${{ fromJson(needs.set-json.outputs.ALL_TAGS).a }}
+          echo TAG_B=${{ fromJson(needs.set-json.outputs.ALL_TAGS).b }}
           echo $TAG_A
           
 
