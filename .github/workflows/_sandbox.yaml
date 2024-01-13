@@ -15,8 +15,10 @@ jobs:
         run: |
           A=$(cat << EOF
             { \
-            "a": "1", \
-            "b": "2" \
+            "TAG_JAX_MEALKIT": "TAG_JAX_MEALKIT_VALUE", \
+            "TAG_JAX_FINAL": "TAG_JAX_FINAL_VALUE", \
+            "TAG_UPSTREAM_T5X_MEALKIT": "TAG_UPSTREAM_T5X_MEALKIT_VALUE", \
+            "TAG_UPSTREAM_T5X_FINAL": "TAG_UPSTREAM_T5X_FINAL" \
             }
           EOF
           )
@@ -30,14 +32,14 @@ jobs:
         include:
           - TAG: JAX
             CONTAINER_IMAGE: MEALKIT
-          - TAG: PAX
+          - TAG: UPSTREAM_T5X
             CONTAINER_IMAGE: FINAL
     steps:
       - name: echo values
         run: |
           echo ALL_TAGS=${{ fromJson(needs.set-json.outputs.ALL_TAGS) }}
-          echo TAG_A=${{ fromJson(needs.set-json.outputs.ALL_TAGS).a }}
-          echo TAG_B=${{ fromJson(needs.set-json.outputs.ALL_TAGS).b }}
+          echo ${{ fromJson(needs.set-json.outputs.ALL_TAGS).TAG_[format('{0}_MEALKIT', matrix.TAG)]) }}
+          echo ${{ fromJson(needs.set-json.outputs.ALL_TAGS).TAG_[format('{0}_FINAL', matrix.TAG)]) }}
           echo $TAG_A
           
 
