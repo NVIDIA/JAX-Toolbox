@@ -14,8 +14,10 @@ jobs:
         shell: bash -x -e {0}
         run: |
           A=$(cat << EOF
-            {"a": "1", \
-            "b": "2"}
+            { \
+            "a": "1", \
+            "b": "2" \
+            }
           EOF
           )
           echo "ALL_TAGS=${A}" >> $GITHUB_OUTPUT
