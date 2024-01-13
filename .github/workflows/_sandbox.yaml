@@ -14,7 +14,10 @@ jobs:
         shell: bash -x -e {0}
         run: |   
           ALL_TAGS=$(cat << EOF
-          {"a":"1","b":"2"}
+          {
+          "a":"1",
+          "b":"2"
+          }
           EOF
           )
           echo $ALL_TAGS
