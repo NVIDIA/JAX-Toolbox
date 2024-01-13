@@ -81,8 +81,8 @@ jobs:
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
-        ${{ fromJson(needs.amd64.outputs.ALL_TAGS).TAG_[format('{0}_MEALKIT', matrix.TAG)]) }}
-        ${{ fromJson(needs.ar64.outputs.ALL_TAGS).TAG_[format('{0}_MEALKIT', matrix.TAG)]) }}
+        ${{ fromJson(needs.amd64.outputs.ALL_TAGS)[format('TAG_{0}_MEALKIT', matrix.TAG)] }}
+        ${{ fromJson(needs.arm64.outputs.ALL_TAGS)[format('TAG_{0}_MEALKIT', matrix.TAG)] }}
       TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
       TARGET_TAGS: |
         type=raw,value=mealkit,priority=500
@@ -110,8 +110,8 @@ jobs:
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
-        ${{ fromJson(needs.amd64.outputs.ALL_TAGS).TAG_[format('{0}_FINAL', matrix.TAG)]) }}
-        ${{ fromJson(needs.ar64.outputs.ALL_TAGS).TAG_[format('{0}_FINAL', matrix.TAG)]) }}
+        ${{ fromJson(needs.amd64.outputs.ALL_TAGS)[format('TAG_{0}_FINAL', matrix.TAG)] }}
+        ${{ fromJson(needs.arm64.outputs.ALL_TAGS)[format('TAG_{0}_FINAL', matrix.TAG)] }}
       TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
       TARGET_TAGS: |
         type=raw,value=latest,priority=500
