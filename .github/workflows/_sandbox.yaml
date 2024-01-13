@@ -16,7 +16,7 @@ jobs:
           A=$(cat << EOF
             {"a": "1",
             "b": "2"}
-            EOF
+          EOF
           )
           echo "ALL_TAGS=${A}" >> $GITHUB_OUTPUT
   
