@@ -13,12 +13,11 @@ jobs:
         id: setjson
         shell: bash -x -e {0}
         run: |   
-
           ALL_TAGS=$(cat << EOF
-          { 
-            "TAG_JAX_MEALKIT": "TAG_JAX_MEALKIT_VALUE",
-            "TAG_PAX_FINAL": "TAG_PAX_FINAL_VALUE",
-          }
+            {
+                "TAG_JAX_MEALKIT": "TAG_JAX_MEALKIT_VALUE",
+                "TAG_PAX_FINAL": "TAG_PAX_FINAL_VALUE"
+            }
           EOF
           )
           echo $ALL_TAGS
