@@ -1,43 +1,41 @@
 name: "~Sandbox"
 
 on:
-  push:
+  workflow_dispatch:
 
 jobs:
-  set-json:
+  sandbox:
     runs-on: ubuntu-22.04
-    outputs:
-      ALL_TAGS: ${{ steps.setjson.outputs.ALL_TAGS }}
     steps:
-      - name: Set JSON object
-        id: setjson
-        shell: bash -x -e {0}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print usage
         run: |
-          A=$(cat << EOF
-            { \
-            "TAG_JAX_MEALKIT": "TAG_JAX_MEALKIT_VALUE", \
-            "TAG_JAX_FINAL": "TAG_JAX_FINAL_VALUE", \
-            "TAG_UPSTREAM_T5X_MEALKIT": "TAG_UPSTREAM_T5X_MEALKIT_VALUE", \
-            "TAG_UPSTREAM_T5X_FINAL": "TAG_UPSTREAM_T5X_FINAL" \
-            }
-          EOF
-          )
-          echo "ALL_TAGS=${A}" >> $GITHUB_OUTPUT
-  
-  get-json:
-    runs-on: ubuntu-22.04
-    needs: set-json
-    strategy:
-      matrix:
-        include:
-          - TAG: JAX
-            CONTAINER_IMAGE: MEALKIT
-    steps:
-      - name: echo values
-        run: |
-          echo MEALKIT=${{ fromJson(needs.set-json.outputs.ALL_TAGS)[format('TAG_{0}_MEALKIT', matrix.TAG)] }}
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
+
+          Usage:
           
-
-
-
-
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
