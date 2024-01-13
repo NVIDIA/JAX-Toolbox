@@ -38,8 +38,8 @@ jobs:
       - name: echo values
         run: |
           echo ALL_TAGS=${{ fromJson(needs.set-json.outputs.ALL_TAGS) }}
-          echo ${{ fromJson(needs.set-json.outputs.ALL_TAGS).TAG_[format('{0}_MEALKIT', matrix.TAG)]) }}
-          echo ${{ fromJson(needs.set-json.outputs.ALL_TAGS).TAG_[format('{0}_FINAL', matrix.TAG)]) }}
+          echo ${{ fromJson(needs.set-json.outputs.ALL_TAGS).TAG_[format('{0}_MEALKIT', matrix.TAG)] }}
+          echo ${{ fromJson(needs.set-json.outputs.ALL_TAGS).TAG_[format('{0}_FINAL', matrix.TAG)] }}
           echo $TAG_A
           
 
