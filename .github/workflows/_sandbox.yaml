@@ -13,12 +13,13 @@ jobs:
         id: setjson
         shell: bash -x -e {0}
         run: |   
-          ALL_TAGS="{" \
-          "\"a\":\"1\"," \
-          "\"b\":\"2\"" \
-          "}"
-          echo $ALL_TAGS
-          echo "ALL_TAGS=${ALL_TAGS}" >> $GITHUB_OUTPUT
+          ALL_TAGS={ \
+          "a":"1", \
+          "b":"2" \
+          } \
+          > all_tags.json
+          cat all_tags.json
+          echo "ALL_TAGS=$(cat all_tags.json)" >> $GITHUB_OUTPUT
   
   get-json:
     runs-on: ubuntu-22.04
