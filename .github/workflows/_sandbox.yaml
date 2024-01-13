@@ -14,7 +14,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           A=$(cat << EOF
-            {"a": "1",
+            {"a": "1", \
             "b": "2"}
           EOF
           )
