@@ -32,16 +32,10 @@ jobs:
         include:
           - TAG: JAX
             CONTAINER_IMAGE: MEALKIT
-          - TAG: UPSTREAM_T5X
-            CONTAINER_IMAGE: FINAL
     steps:
       - name: echo values
         run: |
-          echo ALL_TAGS=${{ fromJson(needs.set-json.outputs.ALL_TAGS) }}
-          echo FORMAT=${{ format('TAG_{0}_MEALKIT', matrix.TAG) }}
-          echo MEALKIT=${{ fromJson(needs.set-json.outputs.ALL_TAGS).format('.TAG_{0}_MEALKIT', matrix.TAG) }}
-          echo FINAL=${{ fromJson(needs.set-json.outputs.ALL_TAGS).format('.TAG_{0}_FINAL', matrix.TAG) }}
-          echo $TAG_A
+          echo MEALKIT=${{ fromJson(needs.set-json.outputs.ALL_TAGS)[TAG_JAX_MEALKIT] }}
           
 
 
