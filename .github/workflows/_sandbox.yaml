@@ -17,7 +17,7 @@ jobs:
             {"a": "1",
             "b": "2"}
             EOF
-            )
+          )
           echo "ALL_TAGS=${A}" >> $GITHUB_OUTPUT
   
   get-json:
