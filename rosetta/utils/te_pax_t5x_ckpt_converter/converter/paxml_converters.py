@@ -15,7 +15,7 @@
 
 import jax.numpy as jnp
 
-from utils import ConvertHelper, ModelConfig
+from utils import ConvertHelper
 
 
 class PaxConvertHelperBase(ConvertHelper):
@@ -106,6 +106,7 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                         lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
                         lambda x: jnp.transpose(x, (1, 0)))
             })
+
         return ckpt_map
 
 

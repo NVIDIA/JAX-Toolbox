@@ -22,6 +22,7 @@
 --kernel-chunk-size KERNEL_CHUNK_SIZE
                     the size to chucnk kernel (weighs) then store, only support with --fw=pax. Setting None means no chunking. (default: None)
 --weight-only         indicate if the source checkpoint only includes weights. (default: False)
+--skip-ln             indicate if skip the conversion for LayerNorm. (default: False)
 --pax-repeat          indicate if the source Pax checkpoint enables Repeat. (default: False)
 --t5x-fuse-qkv        indicate if the source T5X checkpoint enables fused_qkv_params of TE. (default: False)
 ```
@@ -141,3 +142,12 @@ python  converter/main.py \
     --head-dim=64 \
     --mlp-intermediate-dim=1024
 ```
+
+### Notes
+#### Running converted CKPTs with Transformer Engine (TE) + FP8
+If you run the converted TE checkpoints ,from frameworks Pax or T5X, with FP8 enabled, you might enounter
+an error said that there is not FP8 meta found in the given checkpoint at restoring phase. That is because the
+original checkpoints to convert do not contains information about FP8 meta. To address this issue, please run
+a training process with the same model config on the target framework, plus TE and FP8, then store a checkpoint
+at step 0. Next, use the converted checkpoint to replace weights of the checkpoint from famework + TE + FP8, and
+restoring it to keep training.

@@ -104,6 +104,11 @@ def parse_args():
                         default=False,
                         help="indicate if the source checkpoint only includes weights.")
 
+    parser.add_argument('--skip-ln',
+                        action="store_true",
+                        default=False,
+                        help="indicate if skip the conversion for LayerNorm.")
+
     parser.add_argument('--pax-repeat',
                         action="store_true",
                         default=False,
@@ -135,7 +140,8 @@ def get_convert_helper(args):
         convert_helper_cls = T5X_CONVERT_HELPER_DICT[(args.direction, args.t5x_fuse_qkv)]
 
     assert convert_helper_cls is not None, "Not Supported."
-    return convert_helper_cls(args.input_path, args.output_path, model_config, args.weight_only)
+    return convert_helper_cls(args.input_path, args.output_path, model_config,
+                              args.weight_only, args.skip_ln)
 
 
 if __name__ == "__main__":

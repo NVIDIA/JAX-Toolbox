@@ -55,11 +55,13 @@ class ConvertPkg:
 
 class ConvertHelper:
 
-    def __init__(self, input_path: str, output_path: str, model_config: ModelConfig, weight_only: bool):
+    def __init__(self, input_path: str, output_path: str, model_config: ModelConfig,
+                 weight_only: bool, skip_ln: bool):
         self.input_path = input_path
         self.output_path = output_path
         self.model_config = model_config
         self.weight_only = weight_only
+        self.skip_ln = skip_ln
 
     @property
     def catagories(self):
@@ -85,6 +87,20 @@ class ConvertHelper:
 
     def generate_ckpt_map_with_full_name(self):
         ckpt_map = self._generate_ckpt_map()
+
+        def is_ln_weights(key):
+            if "layer_norm" in key:
+                return True
+            if "scale" in key:
+                return True
+            if "ln_bias" in key:
+                return True
+            return False
+
+        if self.skip_ln:
+            for key in ckpt_map:
+                if is_ln_weights(key):
+                    ckpt_map.pop(key)
 
         ckpt_map_with_full_name = {}
         for prefix in self.catagories:

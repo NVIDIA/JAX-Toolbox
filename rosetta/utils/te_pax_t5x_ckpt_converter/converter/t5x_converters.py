@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-import jax.numpy as jnp
-
-from utils import ConvertHelper, ModelConfig
+from utils import ConvertHelper
 
 CATAGORIES = ['target', "state.param_states.1.0.mu", "state.param_states.1.0.nu"]
 
@@ -35,9 +32,6 @@ class T5X2TENotFuseQKVConvertHelper(T5XConvertHelperBase):
         ckpt_map = {}
 
         embed_dim = self.model_config.embed_dim
-        num_of_head = self.model_config.num_of_head
-        head_dim = self.model_config.head_dim
-        hidden_dim = num_of_head * head_dim
         mlp_intermediate_dim = self.model_config.mlp_intermediate_dim
 
         for i in range(self.model_config.num_of_layer):
@@ -148,9 +142,6 @@ class TENotFuseQKV2T5XConvertHelper(T5XConvertHelperBase):
         ckpt_map = {}
 
         embed_dim = self.model_config.embed_dim
-        num_of_head = self.model_config.num_of_head
-        head_dim = self.model_config.head_dim
-        hidden_dim = num_of_head * head_dim
         mlp_intermediate_dim = self.model_config.mlp_intermediate_dim
 
         for i in range(self.model_config.num_of_layer):
