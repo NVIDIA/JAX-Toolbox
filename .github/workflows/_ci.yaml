@@ -161,13 +161,12 @@ jobs:
           echo "ALL_TAGS=${ALL_TAG_JSON}" >> $GITHUB_OUTPUT
 
   test-distribution:
+    runs-on: ubuntu-22.04
     needs: metadata
-    secrets: inherit
     strategy:
       matrix:
         TEST_SCRIPT: ["extra-only-distribution.sh", "mirror-only-distribution.sh", "upstream-only-distribution.sh"]
       fail-fast: false
-    runs-on: ubuntu-22.04
     steps:
       - name: Print environment variables
         run: env
