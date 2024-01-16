@@ -192,6 +192,18 @@ Here, it is assumed that you are running with the number of nodes reported in th
 --fdl.DCN_MESH_SHAPE=[1,16,1]
 ```
 
+#### Synthetic Dataset
+We also provide 126M, 5B and 175B configurations with a dummy dataset for quick benchmarking. The script `paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh` benchmarks any of the given base models using the synthetic dataset. [scripts/example_slurm_synthetic.sub](TODO: LINK TO SCRIPT) can be used to launch this script on a slurm cluster. This script can be launched using the following command:
+
+```
+BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> CONFIG=Synthetic<126M, 5B, 175B> OUTPUT_DIR=<OUTPUT_DIR> PREC=bfloat16 ENABLE_TE=<ENABLE_TE> ENABLE_FP8=<ENABLE_FP8> GPUS_PER_NODE=8 PERCORE_BATCH_SIZE=<BATCH_SIZE_PER_GPU> LOG_DIR_LOCAL=<LOG_DIR> sbatch -N <NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/example_slurm_synthetic.sub
+```
+
+For example, the following command benchmarks the 5B model on 32 nodes with TE BF16 using the synthetic dataset:
+```
+BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> CONFIG=Synthetic5B OUTPUT_DIR=output_synthetic_5b PREC=bfloat16 ENABLE_TE=1 ENABLE_FP8=0 GPUS_PER_NODE=8 PERCORE_BATCH_SIZE=8 LOG_DIR_LOCAL=log_dir_synthetic_5b sbatch -N 32 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/example_slurm_synthetic.sub
+```
+
 
 ## Known Issues
 * Pipeline parallelism is not supported with NVIDIA Transformer Engine enabled in the Paxml container.
