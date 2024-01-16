@@ -59,34 +59,34 @@ jobs:
       ARCHITECTURE: arm64
     secrets: inherit
 
-  # publish-mealkit:
-  #   needs: [metadata, amd64, arm64]
-  #   if: (!cancelled()) && needs.metadata.outputs.PUBLISH
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       include:
-  #         - TAG: JAX
-  #           TARGET_IMAGE: jax
-  #         - TAG: PALLAS
-  #           TARGET_IMAGE: pallas
-  #         - TAG: UPSTREAM_PAX
-  #           TARGET_IMAGE: upstream-pax
-  #         - TAG: UPSTREAM_T5X
-  #           TARGET_IMAGE: upstream-t5x
-  #         - TAG: PAX
-  #           TARGET_IMAGE: pax
-  #         - TAG: T5X
-  #           TARGET_IMAGE: t5x
-  #   uses: ./.github/workflows/_publish_container.yaml
-  #   with:
-  #     SOURCE_IMAGE: |
-  #       ${{ fromJson(needs.amd64.outputs.ALL_TAGS)[format('TAG_{0}_MEALKIT', matrix.TAG)] }}
-  #       ${{ fromJson(needs.arm64.outputs.ALL_TAGS)[format('TAG_{0}_MEALKIT', matrix.TAG)] }}
-  #     TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
-  #     TARGET_TAGS: |
-  #       type=raw,value=mealkit,priority=500
-  #       type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+  publish-mealkit:
+    needs: [metadata, amd64, arm64]
+    if: (!cancelled()) && needs.metadata.outputs.PUBLISH
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - TAG: JAX
+            TARGET_IMAGE: jax
+          - TAG: PALLAS
+            TARGET_IMAGE: pallas
+          - TAG: UPSTREAM_PAX
+            TARGET_IMAGE: upstream-pax
+          - TAG: UPSTREAM_T5X
+            TARGET_IMAGE: upstream-t5x
+          - TAG: PAX
+            TARGET_IMAGE: pax
+          - TAG: T5X
+            TARGET_IMAGE: t5x
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ fromJson(needs.amd64.outputs.ALL_TAGS)[format('TAG_{0}_MEALKIT', matrix.TAG)] }}
+        ${{ fromJson(needs.arm64.outputs.ALL_TAGS)[format('TAG_{0}_MEALKIT', matrix.TAG)] }}
+      TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
+      TARGET_TAGS: |
+        type=raw,value=mealkit,priority=500
+        type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   # publish-final:
   #   needs: [metadata, amd64, arm64]
