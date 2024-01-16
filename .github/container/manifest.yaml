@@ -115,5 +115,5 @@ jax-triton:
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main 
-  latest_verified_commit: b947cdd2086329bd6d6abf7bb1535a0ce0b00633
+  latest_verified_commit: 123ec5ad07b85a501ccdcdac6860c19e69f422a2
   mode: git-clone
