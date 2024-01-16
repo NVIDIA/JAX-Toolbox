@@ -2,8 +2,6 @@
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
 ARG SRC_PATH_MAXTEXT=/opt/maxtext
-ARG SRC_MANIFEST_FILE=manifest.yaml
-ARG DEST_MANIFEST_DIR=/opt/manifest.d
 
 ###############################################################################
 ## Download source and add auxiliary scripts
@@ -13,11 +11,12 @@ FROM ${BASE_IMAGE} as mealkit
 
 ARG SRC_PATH_MAXTEXT
 
-# Copy all required files for manifestation
-COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-COPY patches/ ${DEST_MANIFEST_DIR}/patches/
-
 RUN <<"EOF" bash -ex
+echo "maxtext:
+  url: https://github.com/google/maxtext.git
+  tracking_ref: main 
+  latest_verified_commit: 123ec5ad07b85a501ccdcdac6860c19e69f422a2
+  mode: git-clone" >> ${MANIFEST_FILE}
 cat ${MANIFEST_FILE}
 get-source.sh -l maxtext -m ${MANIFEST_FILE} 
 cat "${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
