@@ -34,7 +34,9 @@ jobs:
   #         # | ROSETTA(t5x) | ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAGS }} |
   #         # | ROSETTA(pax) | ${{ needs.build-rosetta-pax.outputs.DOCKER_TAGS }} |
 
-  upload-badge:
+
+
+  finalize:
     runs-on: ubuntu-22.04
     env:
       # Name/bash regex for shields.io endpoint JSON files
@@ -42,6 +44,7 @@ jobs:
     outputs:
       GIST_ID: ${{ steps.extract-id.outputs.GIST_ID }}
     steps:
+      # upload badge
       - name: Download artifacts specified by input
         uses: actions/download-artifact@v3
 
@@ -91,20 +94,13 @@ jobs:
             console.log(gist)
 
             return gist.data.id;
-
       - name: Return Gist ID
         id: extract-id
         shell: bash -x -e {0}
         run: |
           GIST_ID="${{ steps.upload.outputs.result }}"
           echo "GIST_ID=${GIST_ID//\"/}" >> $GITHUB_OUTPUT
-
-  report:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-
+      # report 
       - name: Write output to step summary
         shell: bash -x -e {0}
         run: |
@@ -122,22 +118,16 @@ jobs:
       #       echo "$(dirname $f): $(cat $f)," >>
       #     done
 
-  publish-badge:
-    needs: [upload-badge]
-    if: inputs.PUBLISH_BADGE == true
-    runs-on: ubuntu-22.04
-    env:
-      # Name/bash regex for shields.io endpoint JSON files
-      PUBLISH_BADGE_FILES: '.*badge.*.json'
-    steps:
+      # publish badge
       - name: copy badge to primary Gist
+        if: inputs.PUBLISH_BADGE == true
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
           script: |
             const srcId = "${{ needs.upload-badge.outputs.GIST_ID }}";
             const dstId = "${{ vars.BADGE_ENDPOINT_GIST_ID }}";
-            const { PUBLISH_BADGE_FILES } = process.env;
+            const { BADGE_FILES } = process.env;
 
             // Fetch files from source gist
             const { data: srcData } = await github.rest.gists.get({
@@ -146,7 +136,7 @@ jobs:
 
             // Prepare file upload
             let filesToUpdate = {};
-            pattern = new RegExp(`${PUBLISH_BADGE_FILES}`);
+            pattern = new RegExp(`${BADGE_FILES}`);
             for (const [filename, fileObj] of Object.entries(srcData.files)) {
               if (filename.match(pattern)) {
                 filesToUpdate[filename] = {
