@@ -85,7 +85,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.maxtext
+          file: .github/container/Dockerfile.maxtext.amd64
           platforms: linux/${{ inputs.ARCHITECTURE }}
           target: mealkit
           tags: ${{ steps.mealkit-metadata.outputs.tags }}
@@ -115,7 +115,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.maxtext
+          file: .github/container/Dockerfile.maxtext.amd64
           platforms: linux/${{ inputs.ARCHITECTURE }}
           tags: ${{ steps.final-metadata.outputs.tags }}
           labels: ${{ steps.final-metadata.outputs.labels }}
