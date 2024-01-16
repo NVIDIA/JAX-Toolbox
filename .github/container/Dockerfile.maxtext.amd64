@@ -12,6 +12,7 @@ FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_MAXTEXT
 
 RUN <<"EOF" bash -ex
+cat ${MANIFEST_FILE}
 get-source.sh -l maxtext -m ${MANIFEST_FILE} 
 cat "${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
