@@ -162,8 +162,26 @@ jobs:
 
   test-distribution:
     needs: metadata
-    uses: ./.github/workflows/_test_distribution.yaml
     secrets: inherit
+    strategy:
+      matrix:
+        TEST_SCRIPT: ["extra-only-distribution.sh", "mirror-only-distribution.sh", "upstream-only-distribution.sh"]
+      fail-fast: false
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Print environment variables
+        run: env
+      
+      - name: Set git login for tests
+        run: |
+          git config --global user.email "jax@nvidia.com"
+          git config --global user.name "JAX-Toolbox CI"
+          
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+      
+      - name: Run integration test ${{ matrix.TEST_SCRIPT }}
+        run: bash rosetta/tests/${{ matrix.TEST_SCRIPT }}
 
   save-tags:
     runs-on: ubuntu-22.04
