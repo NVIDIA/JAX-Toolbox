@@ -133,6 +133,7 @@ jobs:
     secrets: inherit
 
   save-tags:
+    runs-on: ubuntu-22.04
     needs: [build-jax, build-t5x, build-pallas, build-pax, build-rosetta-t5x, build-rosetta-pax]
     outputs:
       ALL_TAGS: ${{ steps.save-docker-tags.outputs.ALL_TAGS }}
