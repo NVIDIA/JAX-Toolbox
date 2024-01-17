@@ -92,7 +92,7 @@ jobs:
     needs: build-jax
 
   build-pax:
-    needs: [metadata, build-jax]
+    needs: build-jax
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -123,7 +123,6 @@ jobs:
       BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: pax
     uses: ./.github/workflows/_build_rosetta.yaml
-    needs: [metadata, build-pax]
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
@@ -161,7 +160,6 @@ jobs:
 
   test-distribution:
     runs-on: ubuntu-22.04
-    needs: metadata
     strategy:
       matrix:
         TEST_SCRIPT: ["extra-only-distribution.sh", "mirror-only-distribution.sh", "upstream-only-distribution.sh"]
