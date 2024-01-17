@@ -52,17 +52,6 @@ permissions:
 
 jobs:
 
-  metadata:
-    runs-on: ubuntu-22.04
-    outputs:
-      BUMP_MANIFEST: ${{ steps.if-bump-manifest.outputs.BUMP_MANIFEST }}
-    steps:
-      - name: Determine whether need to bump manifest 
-        id: if-bump-manifest
-        shell: bash -x -e {0}
-        run: |
-          echo "BUMP_MANIFEST=${{ github.event_name == 'schedule' }}" >> $GITHUB_OUTPUT
-
   build-base:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
