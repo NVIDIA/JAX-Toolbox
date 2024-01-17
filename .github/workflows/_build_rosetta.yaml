@@ -178,7 +178,7 @@ jobs:
       - name: Upload sitrep and badge
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
+          name: ${{ env.ARTIFACT_NAME_FULL }}
           path: |
             sitrep.json
             ${{ env.BADGE_FILENAME_FULL }}
