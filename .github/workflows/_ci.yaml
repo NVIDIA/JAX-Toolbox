@@ -98,7 +98,6 @@ jobs:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-pax-build"
       BADGE_FILENAME: "badge-pax-build"
-
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: "upstream-pax"
@@ -127,7 +126,7 @@ jobs:
     needs: [metadata, build-pax]
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: pax
     secrets: inherit
@@ -136,12 +135,12 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [build-jax, build-t5x, build-pallas, build-pax, build-rosetta-t5x, build-rosetta-pax]
     outputs:
-      ALL_TAGS: ${{ steps.save-docker-tags.outputs.ALL_TAGS }}
+      CONTAINER_TAGS: ${{ steps.save-docker-tags.outputs.CONTAINER_TAGS }}
     steps:
       - name: Save docker tags in a single JSON object
         id: save-docker-tags
         run: |
-          ALL_TAG_JSON=$(cat << EOF
+          CONTAINER_TAGS_JSON=$(cat << EOF
             { \
             "TAG_JAX_MEALKIT": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}", \
             "TAG_JAX_FINAL": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}", \
@@ -158,7 +157,7 @@ jobs:
             }
           EOF
           )
-          echo "ALL_TAGS=${ALL_TAG_JSON}" >> $GITHUB_OUTPUT
+          echo "CONTAINER_TAGS=${CONTAINER_TAGS_JSON}" >> $GITHUB_OUTPUT
 
   test-distribution:
     runs-on: ubuntu-22.04
