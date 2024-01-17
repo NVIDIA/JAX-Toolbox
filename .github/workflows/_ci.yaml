@@ -102,7 +102,7 @@ jobs:
     secrets: inherit
 
   build-rosetta-t5x:
-    needs: bußild-t5x
+    needs: build-t5x
     uses: ./.github/workflows/_build_rosetta.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
