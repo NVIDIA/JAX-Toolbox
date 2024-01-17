@@ -128,7 +128,53 @@ python -m paxml.main \
 
 Please ensure you include the first two flags, `--xla_gpu_enable_reduction_epilogue_fusion=false` and `--xla_gpu_enable_triton_gemm=false`, as they are essential for enabling the FP8 functionality. The additional flags primarily focus on performance enhancement and should also prove beneficial for non-FP8 executions.
 
-### Transformer Engine vs Native FP8 Support
+## Guide for Ninja Users
+
+### How to trigger XLA to use FP8 MatMul
+The specific graph pattern that XLA supports for FP8 matmul is illustrated below:
+
+```
+convert -> multiply -> (x) -> dot
+  bcast ->
+```
+
+XLA will pattern match the above and rewrite it to FP8 matmul when:
+1. `convert`: input has to be FP8.
+2. `bcast`: input has to be a scalar.
+3. `(x)`: an arbitrary number of allowed ops (e.g., all-gather, copy, bitcast...), the full list of which can be found [here](https://github.com/openxla/xla/blob/e4fc3298eefa91702f86068af45340cad78d0335/xla/service/gpu/gemm_rewriter.cc#L259-L265).
+
+### How to ensure FP8 params accumulated correctly
+FP8 params, also known as OWG params, may undergo fan-outs (reuse) across different iterations within the context of pipeline parallelism. Consequently, the autograd system accumulates their gradients (hacked to store new values) through addition operations. This is undesirable as addition is meaningless for FP8 params. To address this, we introduce a custom dtype wrapper `fp8_ops.fm32` that performs the max operation for gradient accumulation. This aligns with our expectations for FP8 params. The basic usage is demonstrated below:
+
+```python
+def fwd(sf_fm32, ...):
+  # Convert fm32->f32 for mathematical operations                                         
+  sf = lax.convert_element_type(sf_fm32, jnp.float32)
+  
+  # Apply mathematical operations as before over sf
+
+  # Convert f32->fm32 back                                         
+  sf_fm32 = lax.convert_element_type(sf_fm32, fp8_ops.fm32)
+  return out, sf_fm32
+
+def bwd(res, ...):
+  return res, ...
+
+func_reusing_sf.defvjp(fwd, bwd)
+
+def launcher_func(sf_f32, ...):
+  # Convert f32->fm32 within the scope of jitting function
+  sf_fm32 = jax.lax.convert_element_type(sf_f32, fp8_ops.fm32)
+  func_reusing_sf(sf_fm32, ...)
+  return ...
+
+sf = jnp.array([1.], jnp.float32)
+jax.jit(launcher_func)(sf, ...)
+```
+
+The crucial point is that `fp8_ops.fm32` must be used within the scope of the jitted function. While we maintain the signature of the jit function, accepting fp32 inputs, internally, we convert them to `fp8_ops.fm32`. Then, the custom VJP functions operate with `fp8_ops.fm32` inputs and outputs, while performing conversions back and forth to fp32 to ensure that mathematical operations remain in the fp32 domain.
+
+## Transformer Engine vs Native FP8 Support
 Native XLA-FP8 specifically targets matrix multiplication operations. In contrast, the Transformer Engine focuses on enhancing the overall performance of the entire transformer layer. This encompasses not only the FP8 matrix multiplication but also attention mechanisms, layer normalizations, and other components.
 
 In practical terms, XLA-FP8 performs pattern matching and rewrites the matrix multiplication operations in the operation graph to utilize FP8 matrix multiplication. On the other hand, with TE, the [entire Praxis transformer](https://github.com/google/praxis/blob/main/praxis/layers/transformers.py) layer will be substituted with our [Transformer Engine
