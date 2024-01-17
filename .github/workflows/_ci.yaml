@@ -73,6 +73,20 @@ jobs:
       CONTAINER_NAME: "pallas"
       DOCKERFILE: .github/container/Dockerfile.pallas
     secrets: inherit
+  
+  build-maxtext:
+    needs: [metadata, build-jax]
+    if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: "artifact-maxtext-build"
+      BADGE_FILENAME: "badge-maxtext-build"
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: "maxtext"
+      DOCKERFILE: .github/container/Dockerfile.maxtext.amd64
+    secrets: inherit
 
   build-pax:
     needs: build-jax

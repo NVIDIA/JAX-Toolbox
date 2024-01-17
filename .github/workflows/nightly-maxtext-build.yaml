@@ -1,0 +1,18 @@
+name: "Nightly MaxText Build"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sandbox:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print usage
+        run: echo "adding the maxtext nightly workflow to main!"
