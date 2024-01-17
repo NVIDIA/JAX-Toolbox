@@ -92,8 +92,8 @@ jestimator:
   latest_verified_commit: fa143d93e337ca8ab77c4510baf21ae52af24ab2
   mode: pip-vcs
 optax:
-  url: https://github.com/deepmind/optax.git
-  tracking_ref: master
+  url: https://github.com/google-deepmind/optax.git
+  tracking_ref: main
   latest_verified_commit: bc22961422eb2397a4639ec945da0bea73d624d6
   mode: pip-vcs
 seqio:
