@@ -30,7 +30,6 @@ permissions:
 jobs:
 
   build-base:
-    needs: metadata
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -39,7 +38,7 @@ jobs:
     secrets: inherit
 
   build-jax:
-    needs: [metadata, build-base]
+    needs: build-base
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -48,7 +47,7 @@ jobs:
     secrets: inherit
 
   build-t5x:
-    needs: [metadata, build-jax]
+    needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64'  # T5X arm64 build is wip in PR 252
     uses: ./.github/workflows/_build.yaml
     with:
@@ -62,7 +61,7 @@ jobs:
     secrets: inherit
 
   build-pallas:
-    needs: [metadata, build-jax]
+    needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
     uses: ./.github/workflows/_build.yaml
     with:
@@ -76,7 +75,7 @@ jobs:
     secrets: inherit
 
   build-pax:
-    needs: [metadata, build-jax]
+    needs: build-jax
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -89,8 +88,8 @@ jobs:
     secrets: inherit
 
   build-rosetta-t5x:
+    needs: bußild-t5x
     uses: ./.github/workflows/_build_rosetta.yaml
-    needs: [metadata, build-t5x]
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
@@ -99,8 +98,8 @@ jobs:
     secrets: inherit
 
   build-rosetta-pax:
+    needs: build-pax
     uses: ./.github/workflows/_build_rosetta.yaml
-    needs: [metadata, build-pax]
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
@@ -138,7 +137,6 @@ jobs:
 
   test-distribution:
     runs-on: ubuntu-22.04
-    needs: metadata
     strategy:
       matrix:
         TEST_SCRIPT: ["extra-only-distribution.sh", "mirror-only-distribution.sh", "upstream-only-distribution.sh"]
