@@ -13,9 +13,10 @@ on:
         required: false
         default: 'NOT SPECIFIED'
       BUMP_MANIFEST:
-        type: string
+        type: boolean
         description: "Flag to bump manifest file or not"
-        required: true   
+        default: false
+        required: false   
     outputs:
       CONTAINER_TAGS:
         description: Single JSON object to store all generated docker tags
