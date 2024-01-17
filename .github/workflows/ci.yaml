@@ -70,9 +70,10 @@ jobs:
       BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST}}      
     secrets: inherit
 
-  publish-mealkit:
+  publish:
+    runs-on: ubuntu-22.04
     needs: [metadata, amd64, arm64]
-    if: (!cancelled()) && needs.metadata.outputs.PUBLISH
+    if: ${{ !cancelled() }} && needs.metadata.outputs.PUBLISH
     strategy:
       fail-fast: false
       matrix:
@@ -105,7 +106,7 @@ jobs:
 
   finalize:
     needs: [amd64, arm64]
-    if: "!cancelled()"
+    if: ${{ !cancelled() }}
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: false
