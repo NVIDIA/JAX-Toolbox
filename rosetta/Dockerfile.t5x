@@ -7,7 +7,7 @@ ARG GIT_USER_NAME=NVIDIA
 # the way up to the jax build.
 ARG UPDATE_PATCHES=false
 # It is common for TE developers to test a different TE against the LLM application. This is a knob to override what's in the manifest
-# Accepts are git-ref's from NVIDIA/TransformerEngine or pull requests (pull/$number/head)
+# Accepts git-ref's from NVIDIA/TransformerEngine or pull requests (pull/$number/head)
 ARG UPDATED_TE_REF=""
 
 # Rosetta and optionally patches are pulled from this
