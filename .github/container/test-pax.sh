@@ -150,7 +150,7 @@ pushd ${PAXML_DIR}
 cat > ci_configs.py <<EOF
 import math
 from paxml import tasks_lib, experiment_registry
-from paxml.contrib.gpu.scripts_gpu.configs import GPT126M, configure_gpt3_task
+from paxml.contrib.gpu.scripts_gpu.configs import Synthetic126M, configure_gpt3_task
 from paxml.tasks.lm.params.c4 import TransformerLmSpmdPipelineAdam
 from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
 from praxis import base_layer
@@ -290,7 +290,7 @@ if pp > 1:
 
 else:
   @experiment_registry.register
-  class Synthetic126M(GPT126M, SyntheticDataset):
+  class Synthetic126MCI(Synthetic126M):
     
     ICI_MESH_SHAPE = [dp, fsdp, tp]
     DCN_MESH_SHAPE = [dcn_dp, dcn_fsdp, 1]
@@ -305,8 +305,6 @@ else:
 
       model_p = task_p.model
       stacked_p = model_p.lm_tpl.stacked_transformer_tpl
-      if stacked_p.cls == layers.PipelinedTransformer:
-        stacked_p = stacked_p.pipeline_stage
       if issubclass(stacked_p.cls, layers.StackedTransformerRepeated):
         stacked_p = stacked_p.block
 
