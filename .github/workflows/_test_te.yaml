@@ -106,7 +106,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > /log/$te-unit-test.json
+          > /log/te-unit-test.json
 
       - name: Upload unit test json logs
         if: success() || failure()
