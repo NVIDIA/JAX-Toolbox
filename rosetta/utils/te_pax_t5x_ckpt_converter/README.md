@@ -151,3 +151,10 @@ original checkpoints to convert do not contains information about FP8 meta. To a
 a training process with the same model config on the target framework, plus TE and FP8, then store a checkpoint
 at step 0. Next, use the converted checkpoint to replace weights of the checkpoint from famework + TE + FP8, and
 restoring it to keep training.
+
+#### The folder structure of CKPT by Pax and T5X
+If you would like to run the converted CKPTs with frameworks, you may expect the converted CKPTs have the same folder
+structure with CKPTs stored by frameworks. In this case, you could set `--output-path` to be the same stucture as the 
+CKPTs from frameworks, and no need to pre-generate folders, since it would be generated when needed.
+For Pax, you could set `--output-path` be like `/${your_path_to_output}/checkpoints/checkpoint_${step}/state`.
+For T5X, you could set `--output-path` be like `/${your_path_to_output}/checkpoint_${step}`.
