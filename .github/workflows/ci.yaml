@@ -73,7 +73,7 @@ jobs:
   publish:
     runs-on: ubuntu-22.04
     needs: [metadata, amd64, arm64]
-    if: ${{ !cancelled() }} && needs.metadata.outputs.PUBLISH
+    if:  !cancelled() && needs.metadata.outputs.PUBLISH
     strategy:
       fail-fast: false
       matrix:
@@ -84,15 +84,15 @@ jobs:
         id: transform
         run: |
           CONTAINER_TAG=$(echo ${{ matrix.TARGET_IMAGE }} | tr '[[:lower:]]' '[[:upper:]]' | tr '-' '_')
-          TARGET_TAG_1=${{ matrix.FLAVOR }}
-          TARGET_TAG_2=${{ matrix.FLAVOR }}
+          TARGET_TAG_FLAVOR=${{ matrix.FLAVOR }}
+          TARGET_TAG_DATED=${{ matrix.FLAVOR }}
           if [[ "${{ matrix.FLAVOR }}" == "final" ]]; then
-            TARGET_TAG_1="latest"
-            TARGET_TAG_2="nightly"
+            TARGET_TAG_FLAVOR="latest"
+            TARGET_TAG_DATED="nightly"
           fi
           echo "CONTAINER_TAG=${CONTAINER_TAG}" >> $GITHUB_OUTPUT
-          echo "TARGET_TAG_1=${TARGET_TAG_1}" >> $GITHUB_OUTPUT
-          echo "TARGET_TAG_2=${TARGET_TAG_2}" >> $GITHUB_OUTPUT
+          echo "TARGET_TAG_FLAVOR=${TARGET_TAG_FLAVOR}" >> $GITHUB_OUTPUT
+          echo "TARGET_TAG_DATED=${TARGET_TAG_DATED}" >> $GITHUB_OUTPUT
       - name: Publish container
         uses: ./.github/workflows/_publish_container.yaml
         with:
@@ -101,12 +101,12 @@ jobs:
             ${{ fromJson(needs.arm64.outputs.ALL_TAGS)[format('TAG_{0}_{1}', steps.transform.outputs.CONTAINER_TAG, matrix.FLAVOR)] }}
           TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
           TARGET_TAGS: |
-            type=raw,value=${{ steps.transform.outputs.TARGET_TAG_1 }},priority=500
-            type=raw,value=${{ steps.transform.outputs.TARGET_TAG_2 }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+            type=raw,value=${{ steps.transform.outputs.TARGET_TAG_FLAVOR }},priority=500
+            type=raw,value=${{ steps.transform.outputs.TARGET_TAG_DATED }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   finalize:
     needs: [amd64, arm64]
-    if: ${{ !cancelled() }}
+    if: !cancelled()
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: false
