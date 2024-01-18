@@ -272,7 +272,7 @@ class GPT126MPP(TransformerLmSpmdPipelineAdam):
 
 if pp > 1:
   @experiment_registry.register
-  class Synthetic126M(GPT126MPP, SyntheticDataset):
+  class Synthetic126MCI(GPT126MPP, SyntheticDataset):
     
     ICI_MESH_SHAPE = [pp, dp, fsdp, tp]
     DCN_MESH_SHAPE = [dcn_pp, dcn_dp, dcn_fsdp, 1]
@@ -330,7 +330,7 @@ export ENABLE_TE=$ENABLE_TE
 if [[ ${EVALUATE} -ne 0 ]]; then
   ## train for 0 steps to generate an initial checkpoint
   python -m paxml.main \
-    --fdl_config=ci_configs.Synthetic126M \
+    --fdl_config=ci_configs.Synthetic126MCI \
     --fdl.MAX_STEPS=0 \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
@@ -339,7 +339,7 @@ if [[ ${EVALUATE} -ne 0 ]]; then
 
   ## restore from initial checkpoint for eval
   python -m paxml.main \
-    --fdl_config=ci_configs.Synthetic126M \
+    --fdl_config=ci_configs.Synthetic126MCI \
     --job_log_dir=${OUTPUT} \
     --mode='eval' \
     --alsologtostderr \
@@ -350,7 +350,7 @@ if [[ ${EVALUATE} -ne 0 ]]; then
   rm -rf ${OUTPUT}/checkpoints
 else
   python -m paxml.main \
-    --fdl_config=ci_configs.Synthetic126M \
+    --fdl_config=ci_configs.Synthetic126MCI \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
     --enable_checkpoint_saving=False \
