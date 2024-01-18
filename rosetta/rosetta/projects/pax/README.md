@@ -203,6 +203,7 @@ For example, the following command benchmarks the 5B model on 32 nodes with TE B
 ```
 BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> CONFIG=Synthetic5B OUTPUT_DIR=output_synthetic_5b PREC=bfloat16 ENABLE_TE=1 ENABLE_FP8=0 GPUS_PER_NODE=8 PERCORE_BATCH_SIZE=8 LOG_DIR_LOCAL=log_dir_synthetic_5b sbatch -N 32 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/example_slurm_synthetic.sub
 ```
+Note that with models that are particularly dataloading-bottlenecked (e.g. smaller models, such as 126M), the throughput observed using the synthetic dataset may be higher than the throughput observed when training on a real dataset.
 
 
 ## Known Issues
