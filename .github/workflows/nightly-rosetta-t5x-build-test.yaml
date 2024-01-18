@@ -154,7 +154,21 @@ jobs:
       T5X_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  publish-final:
+  # The dated nightly is tagged regardless of the test results to assist troubleshooting
+  publish-final-dated:
+    needs: [metadata, amd64, arm64]
+    if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+      TARGET_IMAGE: t5x
+      TARGET_TAGS: |
+        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+
+  # The latest tag is reserved for images that pass all the CI tests
+  publish-final-latest:
     needs: [metadata, amd64, arm64, test-t5x-amd64, test-unit-amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
@@ -164,8 +178,7 @@ jobs:
         ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: t5x
       TARGET_TAGS: |
-        ${{ ( needs.test-t5x-amd64.outputs.TEST_STATUS == 'success' && needs.test-unit-amd64.outputs.TEST_STATUS == 'success' ) && 'type=raw,value=latest,priority=1000' || '' }}
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+        type=raw,value=latest,priority=1000
 
   publish-t5x:
     needs: [metadata, test-t5x-amd64]

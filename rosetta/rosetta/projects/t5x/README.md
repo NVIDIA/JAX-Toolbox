@@ -29,6 +29,8 @@ you to use the latest ones to get the best performance.
 We **highly** recommend using the pre-built container, but if you'd like to build your own container, you can follow the instructions here: [Building rosetta manually](../../../README.md#building-rosetta-with-a-specific-base)
 
 ## Downloading The Pile
+__IMPORTANT UPDATE__: Please be aware that as of October 2023, 'the_pile' dataset is no longer accessible. The team is actively updating our instructions and configurations to incorporate a more recent large language model (LLM) dataset.
+
 We use The Pile for our pretraining experiments. If you would like to as well, run `download_the_pile.py` to download it. The download is approximately 1TB. It will download to the directory set in the environment variable: `TFDS_DATA_DIR`. After that, set the `TFDS_DATA_DIR` to the same directory in your scripts to use. Here is how you would run it:
 
 ```bash

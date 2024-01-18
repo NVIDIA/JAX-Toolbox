@@ -81,7 +81,7 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          sshx "date && hostname && sinfo"          
+          sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
@@ -158,7 +158,7 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
- 
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -232,7 +232,7 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          sshx "date && hostname && sinfo"          
+          sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
@@ -312,7 +312,7 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
- 
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -365,7 +365,7 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          sshx "date && hostname && sinfo"          
+          sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
@@ -376,7 +376,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},XLA_PYTHON_CLIENT_MEM_FRACTION=0.9"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           time srun \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
@@ -428,7 +428,7 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
- 
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -483,7 +483,7 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          sshx "date && hostname && sinfo"          
+          sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
           #!/bin/bash
@@ -495,7 +495,7 @@ jobs:
           #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},XLA_PYTHON_CLIENT_MEM_FRACTION=0.9"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},XLA_PYTHON_CLIENT_MEM_FRACTION=0.85"
           time srun \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
@@ -549,7 +549,7 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
- 
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -557,7 +557,7 @@ jobs:
           path: output/*
 
   publish-test:
-    needs: [multi-gpu-multi-node, single-process-multi-device]
+    needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node]
     uses: ./.github/workflows/_publish_badge.yaml
     if: "!cancelled()"
     secrets: inherit
@@ -616,11 +616,11 @@ jobs:
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
         echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-        
+
 
   summary:
     runs-on: ubuntu-22.04
-    needs: [multi-gpu-multi-node, single-process-multi-device]
+    needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node]
     if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
@@ -640,7 +640,7 @@ jobs:
     runs-on: ubuntu-22.04
     if: "!cancelled()"
     steps:
-      - name: Sets workflow status based on test outputs 
+      - name: Sets workflow status based on test outputs
         run: |
           if [[ ${{ needs.publish-test.outputs.STATUS }} != success ]]; then
             exit 1

@@ -327,6 +327,7 @@ EOF
 ## Launch
 set -ex
 
+export XLA_PYTHON_CLIENT_MEM_FRACTION=${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.65}
 export ENABLE_TE=$ENABLE_TE
 if [[ ${EVALUATE} -ne 0 ]]; then
   ## train for 0 steps to generate an initial checkpoint

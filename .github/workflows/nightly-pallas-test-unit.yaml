@@ -1,0 +1,75 @@
+name: Nightly Pallas unit test
+run-name: Nightly Pallas unit test (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
+
+on:
+  workflow_run:
+    workflows: [Nightly Pallas build]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      PALLAS_IMAGE:
+        type: string
+        description: 'Pallas image built by NVIDIA/JAX-Toolbox'
+        default: 'ghcr.io/nvidia/jax:latest-pallas'
+        required: true
+      PUBLISH:
+        type: boolean
+        description: Update status badge?
+        default: false
+        required: true
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+env:
+  DEFAULT_PALLAS_IMAGE: 'ghcr.io/nvidia/jax:latest-pallas'
+
+jobs:
+
+  if-upstream-failed:
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Upstream workflow failed, aborting run' && exit 1
+
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      PALLAS_IMAGE: ${{ steps.image.outputs.PALLAS_IMAGE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+    steps:
+      - name: Determine Pallas image to use
+        id: image
+        shell: bash -x -e {0}
+        run: |
+          if [[ -z "${{ inputs.PALLAS_IMAGE }}" ]]; then
+            PALLAS_IMAGE=${{ env.DEFAULT_PALLAS_IMAGE }}
+          else
+            PALLAS_IMAGE=${{ inputs.PALLAS_IMAGE }}
+          fi
+          echo "PALLAS_IMAGE=${PALLAS_IMAGE}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+
+  run:
+    needs: metadata
+    uses: ./.github/workflows/_test_pallas.yaml
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
+    with:
+      PALLAS_IMAGE: ${{ needs.metadata.outputs.PALLAS_IMAGE }}
+    secrets: inherit
+
+  finalize:
+    if: "!cancelled()"
+    needs: [metadata, run]
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit

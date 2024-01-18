@@ -28,7 +28,7 @@ if [[ "${UPDATE_PATCHES}" != "true" && "${UPDATE_PATCHES}" != "false" ]]; then
   exit 1
 fi
 if [[ "${UPDATE_PATCHES}" == "true" ]]; then
-  cp -r /mnt/jax-toolbox/.github/container/patches ${MANIFEST_DIR}/patches
+  cp -r /mnt/jax-toolbox/.github/container/patches ${MANIFEST_DIR}/
   cp /mnt/jax-toolbox/.github/container/manifest.yaml ${MANIFEST_DIR}/manifest.yaml
   cp /mnt/jax-toolbox/.github/container/create-distribution.sh ${MANIFEST_DIR}/create-distribution.sh
   # TODO: remove
@@ -52,7 +52,7 @@ rm -f ~/.gitconfig
 echo "--extra-index-url https://developer.download.nvidia.com/compute/redist" >> /opt/pip-tools.d/requirements-t5x.in
 echo "-e file:///opt/rosetta" >> /opt/pip-tools.d/requirements-t5x.in
 EOF
-  
+
 WORKDIR /opt/rosetta
 COPY --from=jax-toolbox rosetta/tests/test-vit.sh /usr/local/bin
 
