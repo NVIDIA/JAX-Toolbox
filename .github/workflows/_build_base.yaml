@@ -61,6 +61,7 @@ jobs:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
+    needs: metadata
     outputs:
       DOCKER_TAG: ${{ steps.meta.outputs.tags }}
     steps:
