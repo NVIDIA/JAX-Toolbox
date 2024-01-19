@@ -133,7 +133,7 @@ jobs:
     steps:
       - name: Save docker tags in a single JSON object
         id: save-docker-tags
-        run: >
+        run: |
           CONTAINER_TAGS_JSON=$(cat << EOF
             { \
             "TAG_JAX_MEALKIT": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}", \

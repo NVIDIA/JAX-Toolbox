@@ -56,17 +56,17 @@ jobs:
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: amd64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE}}
-      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST}}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST }}
     secrets: inherit
- 
+
   arm64:
     needs: metadata
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: arm64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE}}
-      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST}}      
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST }}      
     secrets: inherit
 
   publish:
