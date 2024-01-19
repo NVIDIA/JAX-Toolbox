@@ -7,7 +7,7 @@ on:
         type: string
         description: 'Pallas image built by NVIDIA/JAX-Toolbox'
         required: true
-        default: 'ghcr.io/nvidia/pallas:latest'
+        default: 'ghcr.io/nvidia/jax:latest-pallas'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'

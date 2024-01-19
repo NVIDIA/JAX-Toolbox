@@ -11,7 +11,7 @@ on:
       PALLAS_IMAGE:
         type: string
         description: 'Pallas image built by NVIDIA/JAX-Toolbox'
-        default: 'ghcr.io/nvidia/pallas:latest'
+        default: 'ghcr.io/nvidia/jax:latest-pallas'
         required: true
       PUBLISH:
         type: boolean
@@ -25,7 +25,7 @@ permissions:
   packages: write # to upload container
 
 env:
-  DEFAULT_PALLAS_IMAGE: 'ghcr.io/nvidia/pallas:latest'
+  DEFAULT_PALLAS_IMAGE: 'ghcr.io/nvidia/jax:latest-pallas'
 
 jobs:
 
