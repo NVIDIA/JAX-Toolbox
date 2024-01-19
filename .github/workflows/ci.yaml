@@ -57,7 +57,7 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == "true" }}
+      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}
     secrets: inherit
 
   arm64:
@@ -66,7 +66,7 @@ jobs:
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == "true" }}      
+      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}      
     secrets: inherit
 
   publish:
