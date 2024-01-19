@@ -37,6 +37,11 @@ on:
         description: 'User email in GIT to perform git pull/push'
         required: false
         default: 'jax@nvidia.com'
+      BUMP_MANIFEST:
+        type: boolean
+        description: "Flag to bump manifest file or not"
+        default: false
+        required: false         
     outputs:
       DOCKER_TAG:
         description: "Tag of the image built"
@@ -56,7 +61,6 @@ jobs:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
-    needs: metadata
     outputs:
       DOCKER_TAG: ${{ steps.meta.outputs.tags }}
     steps:
@@ -93,7 +97,7 @@ jobs:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
       - name: Update manifest and patches in-place - show diff
-        if: needs.metadata.outputs.BUMP_MANIFEST == 'true'
+        if: inputs.BUMP_MANIFEST
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
