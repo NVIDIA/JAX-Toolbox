@@ -10,7 +10,7 @@ jobs:
       matrix: 
         NUMBER: [one, two]
     outputs:
-      TAG_${{ matrix.NUMBER }}: ${{ steps.tag.outputs.format('TAG_{0}', matrix.NUMBER }}) }}
+      TAG_${{ matrix.NUMBER }}: ${{ steps.tag.outputs.format('TAG_{0}', matrix.NUMBER ) }}
     steps:
       - id: tag
         run: |
