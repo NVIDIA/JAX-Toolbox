@@ -40,5 +40,5 @@ jobs:
         FLAVOR: [mealkit, final]
     steps:
       - run: |
-          echo CONTAINER_TAG=${{ fromJson(needs.print.output.TAGS[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
-          echo TAG_DATED=${{ fromJson(needs.print.output.TAGS[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
+          echo CONTAINER_TAG=${{ fromJson(needs.print.output.TAGS)[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
+          echo TAG_DATED=${{ fromJson(needs.print.output.TAGS)[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
