@@ -69,18 +69,40 @@ jobs:
       BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}      
     secrets: inherit
 
-  publish-preparation:
+  publish-target-tags:
     runs-on: ubuntu-22.04
-    needs: [metadata, amd64, arm64]
     if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
-    strategy:
-      fail-fast: false
-      matrix:
-        TARGET_IMAGE: [jax, pallas, upstream-pax, upstream-t5x, pax, t5x]
-        FLAVOR: [mealkit, final]
+    outputs:
+      TARGET_TAGS: ${{ steps.target-tags.outputs.TARGET_TAGS }}
+    steps:
+      - name: Save docker tags in a single JSON object
+        id: target-tags
+        run: |
+          TARGET_IMAGE="jax, pallas, upstream-pax, upstream-t5x, pax, t5x"
+          for 
+          CONTAINER_TAGS_JSON=$(cat << EOF
+            { \
+            "TAG_JAX_MEALKIT": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}", \
+            "TAG_JAX_FINAL": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}", \
+            "TAG_UPSTREAM_T5X_MEALKIT": "${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
+            "TAG_UPSTREAM_T5X_FINAL": "${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}", \
+            "TAG_PALLAS_MEALKIT": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}", \
+            "TAG_PALLAS_FINAL": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}", \
+            "TAG_UPSTREAM_PAX_MEALKIT": "${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}", \
+            "TAG_UPSTREAM_PAX_FINAL": "${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}", \
+            "TAG_T5X_MEALKIT": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
+            "TAG_T5X_FINAL": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}", \
+            "TAG_PAX_MEALKIT": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}", \
+            "TAG_PAX_FINAL": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}" \
+            }
+          EOF
+
+          )
+
+          echo "CONTAINER_TAGS=${CONTAINER_TAGS_JSON}" >> $GITHUB_OUTPUT    
 
   publish:
-    needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64, arm64, publish-target-tags]
     if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
     strategy:
       fail-fast: false
@@ -90,11 +112,11 @@ jobs:
     uses: ./.github/workflows/_publish_container.yaml
       with:
         SOURCE_IMAGE: |
-          ${{ fromJson(needs.amd64.outputs.ALL_TAGS)[format('TAG_{0}_{1}', steps.transform.outputs.CONTAINER_TAG, matrix.FLAVOR)] }}
-          ${{ fromJson(needs.arm64.outputs.ALL_TAGS)[format('TAG_{0}_{1}', steps.transform.outputs.CONTAINER_TAG, matrix.FLAVOR)] }}
+          ${{ fromJson(needs.amd64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
+          ${{ fromJson(needs.arm64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
         TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
         TARGET_TAGS: |
-          type=raw,value=${{ steps.transform.outputs.TARGET_TAG_FLAVOR }},priority=500
+          type=raw,value=${{ fromJson(needs.amd64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }},priority=500
           type=raw,value=${{ steps.transform.outputs.TARGET_TAG_DATED }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
     steps:

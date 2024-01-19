@@ -6,22 +6,39 @@ on:
 jobs:
   print:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix: 
-        NUMBER: [one, two]
     outputs:
-      TAG_${{ matrix.NUMBER }}: ${{ steps.tag.outputs.format('TAG_{0}', matrix.NUMBER ) }}
+      TAGS: ${{ steps.tags.outputs.TAGS}}
     steps:
-      - id: tag
+      - id: tags
         run: |
-          echo "TAG_${{ matrix.NUMBER }}=Hello_${{ matrix.NUMBER }}" >> $GITHUB_OUTPUT
+          declare -a TARGET_IMAGE=("jax" "pallas" "upstream-pax" "upstream-t5x" "pax" "t5x")
+          declare -a FLAVOR=("mealkit" "final")
+
+          ## now loop through the above array
+          JSON="{"
+          for target in "${TARGET_IMAGE[@]}";do
+              for flavor in "${FLAVOR[@]}"; do
+                  CONTAINER_TAG=${flavor}
+                  TAG_DATED=${flavor}
+                  if [[ ${flavor} == "final" ]]; then
+                      CONTAINER_TAG=latest
+                      TAG_DATED=nightly
+                  fi
+                  JSON=$(echo ${JSON}\"${target}-${flavor}-container-tag\":\"${CONTAINER_TAG}\",)
+                  JSON=$(echo ${JSON}\"${target}-${flavor}-tag-dated\":\"${TAG_DATED}\",)
+              done
+          done
+          JSON="${JSON::-1} }"
+          echo "TAGS=${JSON}" >> $GITHUB_OUTPUT
 
   get:
     runs-on: ubuntu-22.04
     needs: print
     strategy:
       matrix:
-        NUMBER: [one, two]
+        TARGET_IMAGE: [jax, pallas, upstream-pax, upstream-t5x, pax, t5x]
+        FLAVOR: [mealkit, final]
     steps:
       - run: |
-          echo ${{ needs.outputs.format('TAG_{0}', matrix.NUMBER) }}
+          echo CONTAINER_TAG=${{ fromJson(needs.print.output.TAGS[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
+          echo TAG_DATED=${{ fromJson(needs.print.output.TAGS[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
