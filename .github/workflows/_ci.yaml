@@ -22,10 +22,12 @@ on:
         description: Single JSON object to store all generated docker tags
         value: ${{ jobs.save-tags.output.CONTAINER_TAGS }}
 permissions:
-  contents: read
-  actions: write
-  packages: write
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
 jobs:
+
   build-base:
     uses: ./.github/workflows/_build_base.yaml
     with:
@@ -33,6 +35,7 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BUMP_MANIFEST: ${{ inputs.BUMP_MANIFEST }}
     secrets: inherit
+
   build-jax:
     needs: build-base
     uses: ./.github/workflows/_build_jax.yaml
@@ -41,9 +44,10 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
+
   build-t5x:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64' # T5X arm64 build is wip in PR 252
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: amd64
@@ -54,9 +58,10 @@ jobs:
       CONTAINER_NAME: upstream-t5x
       DOCKERFILE: .github/container/Dockerfile.t5x
     secrets: inherit
+
   build-pallas:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -67,9 +72,10 @@ jobs:
       CONTAINER_NAME: pallas
       DOCKERFILE: .github/container/Dockerfile.pallas
     secrets: inherit
+
   build-maxtext:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -80,6 +86,7 @@ jobs:
       CONTAINER_NAME: maxtext
       DOCKERFILE: .github/container/Dockerfile.maxtext.amd64
     secrets: inherit
+
   build-pax:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
@@ -92,6 +99,7 @@ jobs:
       CONTAINER_NAME: upstream-pax
       DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
     secrets: inherit
+    
   build-rosetta-t5x:
     needs: build-t5x
     uses: ./.github/workflows/_build_rosetta.yaml
@@ -101,6 +109,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: t5x
     secrets: inherit
+
   build-rosetta-pax:
     needs: build-pax
     uses: ./.github/workflows/_build_rosetta.yaml
@@ -110,6 +119,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: pax
     secrets: inherit
+
   save-tags:
     runs-on: ubuntu-22.04
     needs:
@@ -145,6 +155,7 @@ jobs:
           )
 
           echo "CONTAINER_TAGS=${CONTAINER_TAGS_JSON}" >> $GITHUB_OUTPUT
+
   test-distribution:
     runs-on: ubuntu-22.04
     strategy:
@@ -165,51 +176,58 @@ jobs:
         uses: actions/checkout@v3
       - name: Run integration test ${{ matrix.TEST_SCRIPT }}
         run: bash rosetta/tests/${{ matrix.TEST_SCRIPT }}
+
   test-jax:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_jax.yaml
     with:
       JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+
   test-te:
     needs: build-pax
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_te.yaml
     with:
       TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+
   test-upstream-t5x:
     needs: build-t5x
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_t5x.yaml
     with:
       T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+
   test-rosetta-t5x:
     needs: build-rosetta-t5x
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_t5x_rosetta.yaml
     with:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+
   test-pallas:
     needs: build-pallas
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_pallas.yaml
     with:
       PALLAS_IMAGE: ${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+
   test-upstream-pax:
     needs: build-pax
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_pax.yaml
     with:
       PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+
   test-rosetta-pax:
     needs: build-rosetta-pax
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}

@@ -11,7 +11,6 @@ on:
         description: Publish dated images and update the 'latest' tag?
         default: false
         required: false
-
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
 
@@ -80,6 +79,12 @@ jobs:
         TARGET_IMAGE: [jax, pallas, upstream-pax, upstream-t5x, pax, t5x]
         FLAVOR: [mealkit, final]
     steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
       - name: Transform matrix TARGET_IMAGE into docker container tag
         id: transform
         run: |
