@@ -31,16 +31,16 @@ class AugmentationCallable(typing_extensions.Protocol):
         Returns the augmented sample and fresh rng """
     def __call__(self,
                  to_aug: Augmentable, 
-                 rng: jax.random.KeyArray
-                 ) -> Tuple[Augmentable, jax.random.KeyArray]:
+                 rng: jax.Array
+                 ) -> Tuple[Augmentable, jax.Array]:
         ...
 
 def text_conditioning_dropout(to_aug: Augmentable,
-                              rng: jax.random.KeyArray, 
+                              rng: jax.Array,
                               dropout_rate: float = 0.1,
                               drop_key: Optional[str] = None,
                               null_value = None,
-                              ) -> Tuple[Augmentable, jax.random.KeyArray]:
+                              ) -> Tuple[Augmentable, jax.Array]:
     """ 
     Can take either a dictionary, where it will dropout on the 'text_mask' key by default,
     or drop_key if supplied. If given just an array, it will dropout assuming shape = [b, ...]

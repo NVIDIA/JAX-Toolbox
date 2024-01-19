@@ -48,7 +48,7 @@ class DiffusionSamplerCallable(typing_extensions.Protocol):
                  denoise_fn: Callable,
                  step_indices: jnp.ndarray,
                  latent: jnp.ndarray,
-                 rng: Optional[jax.random.KeyArray],
+                 rng: Optional[jax.Array],
                  other_cond: Optional[Mapping[str, jnp.ndarray]],
                  sampling_cfg: Optional[SamplingConfig]=None
                  ) -> jnp.ndarray:
@@ -60,7 +60,7 @@ class DiffusionSampler(abc.ABC):
                denoise_fn: Callable,
                step_indices: jnp.ndarray,
                latent: jnp.ndarray,
-               rng: Optional[jax.random.KeyArray],
+               rng: Optional[jax.Array],
                other_cond: Optional[Mapping[str, jnp.ndarray]], 
                sampling_cfg: Optional[SamplingConfig]=None
                ) -> jnp.ndarray:
@@ -108,12 +108,12 @@ class EDMSampler(DiffusionSampler):
         self.dim_noise_scalar = dim_noise_scalar
 
 
-    def _sample_noise(self, shape: Tuple, rng: jax.random.KeyArray):
+    def _sample_noise(self, shape: Tuple, rng: jax.Array):
         return jax.random.normal(rng, shape) * self.S_noise
 
     def _scannable_single_step(self, denoise_fn, num_steps, t_steps, other_cond, null_cond, second_order_correct=True, cf_guidance_weight=None):
         """ Wraps single_step_sample to make it usable in jax.lax.scan """
-        def wrapped_fn(x_rng_state: Tuple[jnp.ndarray, jax.random.KeyArray], idx: int):
+        def wrapped_fn(x_rng_state: Tuple[jnp.ndarray, jax.Array], idx: int):
             return self.single_step_sample(denoise_fn, num_steps, t_steps, x_rng_state[1], idx, \
                                            second_order_correct=second_order_correct, x_curr=x_rng_state[0], \
                                            other_cond=other_cond, null_cond=null_cond, cf_guidance_weight=cf_guidance_weight)
@@ -166,14 +166,14 @@ class EDMSampler(DiffusionSampler):
     def single_step_sample(self, denoise_fn: DenoisingFunctionCallable, 
                            num_steps: int,
                            t_steps: jnp.ndarray,
-                           rng: jax.random.KeyArray,
+                           rng: jax.Array,
                            t_idx:int,
                            x_curr: jnp.ndarray=None,
                            other_cond:Optional[BatchType]=None,
                            null_cond:Optional[BatchType]=None,
                            second_order_correct=True,
                            cf_guidance_weight:Optional[float]=None
-        ) ->  Tuple[Tuple[jnp.ndarray, jnp.ndarray], jax.random.KeyArray]:
+        ) ->  Tuple[Tuple[jnp.ndarray, jnp.ndarray], jax.Array]:
         """ Single step of sampling """
         rng, step_rng = jax.random.split(rng)
 
@@ -218,7 +218,7 @@ class EDMSampler(DiffusionSampler):
                denoise_fn: Callable,
                step_indices: jnp.ndarray,
                latent: jnp.ndarray,
-               rng: jax.random.KeyArray,
+               rng: jax.Array,
                other_cond: Optional[BatchType]=None,
                sampling_cfg: Optional[SamplingConfig]=None
                ) -> jnp.ndarray:
@@ -262,7 +262,7 @@ class EDMSampler(DiffusionSampler):
                     denoise_fn: Callable,
                     sampling_cfg: SamplingConfig,
                     latent: jnp.ndarray,
-                    rng: jax.random.KeyArray,
+                    rng: jax.Array,
                     other_cond: Optional[BatchType]=None,
                     )-> jnp.ndarray:
         # Classifier-free guidance will be enabled if cf_guidance_weight is not None

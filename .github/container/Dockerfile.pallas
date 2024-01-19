@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1-labs
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG SRC_PATH_TRITON=/opt/openxla-triton
+
+###############################################################################
+## Check out Triton source and build a wheel
+###############################################################################
+FROM ${BASE_IMAGE} as builder
+
+ARG SRC_PATH_TRITON
+
+# bump-openxla-triton.sh ensures that the commit of openxla-triton referenced
+# in the manifest file is consistent with the commit of xla
+RUN get-source.sh -l openxla-triton -m ${MANIFEST_FILE}
+
+ADD triton-is_hip.patch /opt
+RUN cd "${SRC_PATH_TRITON}" && patch -p1 < /opt/triton-is_hip.patch && git diff
+
+RUN <<"EOF" bash -ex
+mkdir -p "${SRC_PATH_TRITON}/dist"
+pip wheel --wheel-dir="${SRC_PATH_TRITON}/dist" "${SRC_PATH_TRITON}/python"
+EOF
+
+# clean up the wheel build directory so it doesn't end up bloating the container
+RUN rm -rf "${SRC_PATH_TRITON}/python/build"
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+FROM ${BASE_IMAGE} as mealkit
+
+ARG SRC_PATH_TRITON
+
+# Get the triton source + wheel from the build step
+COPY --from=builder ${SRC_PATH_TRITON} ${SRC_PATH_TRITON}
+RUN echo "triton @ file://$(ls ${SRC_PATH_TRITON}/dist/triton-*.whl)" >> /opt/pip-tools.d/requirements-pallas.in
+
+# Check out jax-triton
+RUN <<"EOF" bash -ex
+get-source.sh -l jax-triton -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-pallas.in
+sed -i 's|"jax @ [^"]\+"|"jax"|g;s|"triton-nightly @ [^"]\+"|"triton"|g' /opt/jax-triton/pyproject.toml
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+FROM mealkit as final
+
+RUN pip-finalize.sh

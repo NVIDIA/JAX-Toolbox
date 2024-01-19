@@ -1,11 +1,17 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=nvidia/cuda:12.2.0-devel-ubuntu22.04
+ARG BASE_IMAGE=nvidia/cuda:12.3.0-devel-ubuntu22.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
+ARG SRC_MANIFEST_FILE=manifest.yaml
+ARG DEST_MANIFEST_DIR=/opt/manifest.d
+
 
 FROM ${BASE_IMAGE}
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
+ARG SRC_MANIFEST_FILE
+ARG DEST_MANIFEST_DIR
+
 
 ###############################################################################
 ## Install Python and essential tools
@@ -98,3 +104,14 @@ RUN ln -s /opt/nvidia/nsight-compute/*/host/target-linux-x64/nsys /usr/local/cud
 ###############################################################################
 
 COPY check-shm.sh /opt/nvidia/entrypoint.d/
+
+###############################################################################
+## Copy manifest file to the container
+###############################################################################
+
+# Set the manifest env vars
+ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+# Copy all required files for manifestation
+COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+COPY patches/ ${DEST_MANIFEST_DIR}/patches/
+

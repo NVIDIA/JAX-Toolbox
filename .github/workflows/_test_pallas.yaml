@@ -1,0 +1,117 @@
+name: ~test Pallas, unit
+
+on:
+  workflow_call:
+    inputs:
+      PALLAS_IMAGE:
+        type: string
+        description: 'Pallas image built by NVIDIA/JAX-Toolbox'
+        required: true
+        default: 'ghcr.io/nvidia/jax:latest-pallas'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-pallas-unit-test'
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-pallas-unit-test'
+
+jobs:
+  runner:
+    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+    with:
+      NAME: "A100-${{ github.run_id }}"
+      LABELS: "A100:${{ github.run_id }}"
+      TIME: "01:00:00"
+    secrets: inherit
+
+  pallas-unit-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        GPU_ARCH: [V100, A100]
+    # ensures A100 job lands on dedicated runner for this particular job
+    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+    env:
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Print GPU information
+        run: nvidia-smi
+
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull Pallas image
+        shell: bash -x -e {0}
+        run: |
+          docker pull ${{ inputs.PALLAS_IMAGE }}
+
+      - name: Run Pallas tests
+        shell: bash -x -e {0}
+        continue-on-error: true
+        run: |
+          docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ inputs.PALLAS_IMAGE }} python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml | tee test-pallas.log
+
+      - name: Generate sitrep
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq
+
+          badge_label='${{ matrix.GPU_ARCH }} Pallas'
+
+          total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
+          errors=$(./yq '.testsuites."+@errors"' pallas_test.xml)
+          failed_tests=$(./yq '.testsuites."+@failures"' pallas_test.xml)
+          passed_tests=$((total_tests - errors - failed_tests))
+
+          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary='Pallas test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="Pallas unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            errors total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
+          path: |
+            test-pallas.log
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}

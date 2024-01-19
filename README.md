@@ -86,6 +86,20 @@ Included in JAX build
 [![test-badge-rosetta-pax]][workflow-rosetta-pax]
             </td>
         </tr>
+        <!-- Pallas -->
+        <tr>
+            <td>
+[![container-badge-pallas]][container-link-pallas]
+            </td>
+            <td>
+[![build-badge-pallas]][workflow-pallas]
+            </td>
+            <td>
+[![test-badge-pallas-V100]][workflow-pallas-unit]
+<br>
+[![test-badge-pallas-A100]][workflow-pallas-unit]
+            </td>
+        </tr>
     </tbody>
 </table>
 
@@ -95,22 +109,26 @@ Included in JAX build
 [container-badge-te]: https://img.shields.io/static/v1?label=&message=TE&color=gray&logo=docker
 [container-badge-rosetta-t5x]: https://img.shields.io/static/v1?label=&message=T5X&color=gray&logo=docker
 [container-badge-rosetta-pax]: https://img.shields.io/static/v1?label=&message=PAX&color=gray&logo=docker
+[container-badge-pallas]: https://img.shields.io/static/v1?label=&message=Pallas&color=gray&logo=docker
 
 [container-link-base]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-toolbox
 [container-link-jax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax
 [container-link-te]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-te
 [container-link-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x
 [container-link-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/pax
+[container-link-pallas]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax
 
-[build-badge-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/weekly-base-build.yaml?branch=main&label=weekly&logo=github-actions&logoColor=dddddd
+[build-badge-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-base-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 [build-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 [build-badge-rosetta-t5x]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-t5x-build-status.json&logo=github-actions&logoColor=dddddd
 [build-badge-rosetta-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-build-status.json&logo=github-actions&logoColor=dddddd
+[build-badge-pallas]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-pallas-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
 
-[workflow-base]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/weekly-base-build.yaml
+[workflow-base]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-base-build.yaml
 [workflow-jax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax-build.yaml
 [workflow-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-t5x-build-test.yaml
 [workflow-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-pax-build.yaml
+[workflow-pallas]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-pallas-build.yaml
 
 [test-badge-jax-V100]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-test-V100.json&logo=nvidia
 [test-badge-jax-A100]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-test-A100.json&logo=nvidia
@@ -120,15 +138,18 @@ Included in JAX build
 [integration-test-badge-te]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fte-integration-test-status.json&logo=nvidia
 [test-badge-rosetta-t5x]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-t5x-overall-test-status.json&logo=nvidia
 [test-badge-rosetta-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-overall-test-status.json&logo=nvidia
+[test-badge-pallas-V100]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pallas-unit-test-V100.json&logo=nvidia
+[test-badge-pallas-A100]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pallas-unit-test-A100.json&logo=nvidia
 
 [workflow-jax-unit]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax-test-unit.yaml
 [workflow-te-test]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-te-test.yaml
 [workflow-t5x-perf]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-t5x-test-mgmn.yaml
 [workflow-pax-perf]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-pax-test-mgmn.yaml
+[workflow-pallas-unit]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-pallas-test-unit.yaml
 
 
 ## Note
-This repo currently hosts a public CI for JAX on NVIDIA GPUs and covers some JAX libraries like: [T5x](https://github.com/google-research/t5x), [PAXML](https://github.com/google/paxml), [Transformer Engine](https://github.com/NVIDIA/TransformerEngine), and others to come soon.
+This repo currently hosts a public CI for JAX on NVIDIA GPUs and covers some JAX libraries like: [T5x](https://github.com/google-research/t5x), [PAXML](https://github.com/google/paxml), [Transformer Engine](https://github.com/NVIDIA/TransformerEngine), [Pallas](https://jax.readthedocs.io/en/latest/pallas/quickstart.html) and others to come soon.
 
 ## Supported Models
 We currently enable training and evaluation for the following models:

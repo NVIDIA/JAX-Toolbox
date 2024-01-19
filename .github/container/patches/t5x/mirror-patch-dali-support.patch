@@ -1,15 +1,15 @@
-From 29cb12a419a5897d735073ef11f5d5da12021cd6 Mon Sep 17 00:00:00 2001
+From 01c2f2e6dedce10beb4ff7175a60f1526b026ae6 Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
 Date: Tue, 16 May 2023 11:53:31 -0700
 Subject: [PATCH 1/2] add support for DALI datasets
 
 ---
- t5x/train.py   |  86 ++++++++++++++++++++++++-----
+ t5x/train.py   |  88 +++++++++++++++++++++++------
  t5x/trainer.py | 146 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 217 insertions(+), 15 deletions(-)
+ 2 files changed, 218 insertions(+), 16 deletions(-)
 
 diff --git a/t5x/train.py b/t5x/train.py
-index 06cd0a3..c0263ca 100644
+index e85d37c..e6027ce 100644
 --- a/t5x/train.py
 +++ b/t5x/train.py
 @@ -116,10 +116,13 @@ def train(
@@ -47,7 +47,7 @@ index 06cd0a3..c0263ca 100644
      train_state_initializer_cls: t5x.utils.TrainStateInitializer class for
        initializing partitioned TrainState from checkpoints or scratch.
      use_orbax: if True, uses Orbax for checkpointing. Experimental feature.
-@@ -300,12 +308,15 @@ def train(
+@@ -299,12 +307,15 @@ def train(
    train_iter = get_dataset_fn(
        train_dataset_cfg, ds_shard_id, num_ds_shards, model.FEATURE_CONVERTER_CLS
    )
@@ -69,7 +69,7 @@ index 06cd0a3..c0263ca 100644
    input_shapes = jax.tree_map(
        lambda x: (data_layout.batch_size, *x.shape[1:]),
        train_iter.element_spec,
-@@ -321,6 +332,12 @@ def train(
+@@ -320,6 +331,12 @@ def train(
          eval_steps,
          model.FEATURE_CONVERTER_CLS,
      )  # type: Mapping[str, tf.data.Dataset]
@@ -82,11 +82,13 @@ index 06cd0a3..c0263ca 100644
      if not train_eval_datasets:
        logging.warning(
            'No train_eval datasets loaded from config `train_eval_dataset_cfg`: '
-@@ -507,12 +524,19 @@ def train(
+@@ -506,9 +523,16 @@ def train(
    def _run_training_eval(first_run: bool = False):
      if first_run:
        logging.info('Compiling training eval loop.')
--      trainer.compile_eval(
+-      trainer.compile_eval({  # pytype: disable=wrong-arg-types  # jax-ndarray
+-          task: utils.get_zeros_batch_like_dataset(ds)
+-          for task, ds in train_eval_datasets.items()
 +      if run_dali_eval:
 +        trainer.compile_eval_dali({
 +            task: utils.get_zeros_batch_like_dataset(ds)
@@ -94,17 +96,13 @@ index 06cd0a3..c0263ca 100644
 +            jnp.ones((train_eval_dataset_cfg.batch_size,)).astype(jnp.bool_)
 +        )
 +      else:
-+        trainer.compile_eval(
-           {  # pytype: disable=wrong-arg-types  # jax-ndarray
-               task: utils.get_zeros_batch_like_dataset(ds)
-               for task, ds in train_eval_datasets.items()
-           }
--      )
-+        )
++        trainer.compile_eval({  # pytype: disable=wrong-arg-types  # jax-ndarray
++            task: utils.get_zeros_batch_like_dataset(ds)
++            for task, ds in train_eval_datasets.items()
+       })
      logging.info('Computing training evaluation metrics.')
      eval_batch_iters = {}
-     for task, ds in train_eval_datasets.items():
-@@ -521,13 +545,20 @@ def train(
+@@ -518,13 +542,20 @@ def train(
        else:
          eval_batch_iters[task] = ds
  
@@ -132,7 +130,7 @@ index 06cd0a3..c0263ca 100644
  
    def _run_inference_eval():
      """Run prediction based inference eval."""
-@@ -556,6 +587,19 @@ def train(
+@@ -553,6 +584,19 @@ def train(
      if train_eval_datasets:
        logging.info('Running training eval before training.')
        _run_training_eval(first_run=True)
@@ -152,7 +150,7 @@ index 06cd0a3..c0263ca 100644
      if evaluator is not None:
        logging.info('Running inference eval before training.')
        _run_inference_eval()
-@@ -792,6 +836,18 @@ def train(
+@@ -793,6 +837,18 @@ def train(
        # Maybe less if final step < period.
        first_run = step_offset // eval_period <= 1
        _run_training_eval(first_run and not run_eval_before_training)
@@ -172,10 +170,10 @@ index 06cd0a3..c0263ca 100644
      # Inference Evaluation (i.e., with decoding or scoring).
      if is_eval_epoch and evaluator is not None:
 diff --git a/t5x/trainer.py b/t5x/trainer.py
-index 752beb3..5475376 100644
+index 3d592d8..7a321cd 100644
 --- a/t5x/trainer.py
 +++ b/t5x/trainer.py
-@@ -34,6 +34,7 @@ import clu.metrics
+@@ -35,6 +35,7 @@ import clu.metrics
  import clu.values
  from flax.core import FrozenDict
  import jax
@@ -183,7 +181,7 @@ index 752beb3..5475376 100644
  import jax.lax
  import jax.numpy as jnp
  import jax.random
-@@ -596,6 +597,99 @@ class BaseTrainer(abc.ABC):
+@@ -648,6 +649,99 @@ class BaseTrainer(abc.ABC):
      # TODO(adarob): Return futures.
      return {k: v.result() for k, v in eval_summaries.items()}
  
@@ -283,9 +281,9 @@ index 752beb3..5475376 100644
    def compile_eval(self, batches: Mapping[str, BatchType]) -> None:
      """Pre-compiles eval step (if not yet compiled).
  
-@@ -633,6 +727,44 @@ class BaseTrainer(abc.ABC):
-       self.eval_metrics_managers[eval_name].write_scalar(  # pytype: disable=wrong-arg-types  # jax-ndarray
-           "timing/compilation_seconds", tock - tick, self.train_state.step)
+@@ -688,6 +782,44 @@ class BaseTrainer(abc.ABC):
+           "timing/compilation_seconds", tock - tick, self.train_state.step
+       )
  
 +  def compile_eval_dali(self,
 +                        batches: Mapping[str, BatchType],
@@ -328,7 +326,7 @@ index 752beb3..5475376 100644
    @property
    @abc.abstractmethod
    def _partitioned_train_step(self) -> PartitionedTrainCallable:
-@@ -828,6 +960,10 @@ def eval_step(model: models.BaseModel, train_state: train_state_lib.TrainState,
+@@ -916,6 +1048,10 @@ def eval_step(
      # pytype: enable=wrong-arg-types
    return metrics
  
@@ -339,9 +337,9 @@ index 752beb3..5475376 100644
  
  def train_with_lr(
      train_state: train_state_lib.TrainState,
-@@ -940,6 +1076,16 @@ class Trainer(BaseTrainer):
-                            self._partitioner.data_partition_spec),
-         out_axis_resources=None)
+@@ -1050,6 +1186,16 @@ class Trainer(BaseTrainer):
+         out_axis_resources=None,
+     )
  
 +  @cached_property
 +  def _partitioned_score_step(self) -> PartitionedEvalCallable:
@@ -360,7 +358,7 @@ index 752beb3..5475376 100644
 2.25.1
 
 
-From fbb093fa5851499289804594078b473696c52476 Mon Sep 17 00:00:00 2001
+From 79d36a39921b83271ff75748a211185884744f8b Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
 Date: Wed, 1 Nov 2023 11:17:53 -0700
 Subject: [PATCH 2/2] fix bug in rebase
@@ -370,10 +368,10 @@ Subject: [PATCH 2/2] fix bug in rebase
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/t5x/train.py b/t5x/train.py
-index c0263ca..600e3a4 100644
+index e6027ce..ec1c2fa 100644
 --- a/t5x/train.py
 +++ b/t5x/train.py
-@@ -310,7 +310,7 @@ def train(
+@@ -309,7 +309,7 @@ def train(
    )
  
    if prepare_train_iter_fn:

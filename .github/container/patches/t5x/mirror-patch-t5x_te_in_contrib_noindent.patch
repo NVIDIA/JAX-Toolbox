@@ -1,7 +1,7 @@
-From 6ac19ca55511e08e8751ab95e312df0399c19c5b Mon Sep 17 00:00:00 2001
+From b2d91d822285202f833ad507366f49559a52a5b8 Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Mon, 24 Apr 2023 10:18:29 -0700
-Subject: [PATCH 01/16] Added transformer engine support and GPU optimizations
+Subject: [PATCH 01/18] Added transformer engine support and GPU optimizations
 
 Co-authored-by: Sahil Jain <sahilj@nvidia.com>
 Co-authored-by: Terry Kong <terryk@nvidia.com>
@@ -39,9 +39,9 @@ Co-authored-by: Reese Wang <rewang@nvidia.com>
  t5x/partitioning.py                           |   3 +
  t5x/te_helper.py                              | 284 ++++++++++++++++++
  t5x/train.py                                  |  59 ++++
- t5x/train_state.py                            |   3 +-
- t5x/trainer.py                                |  45 +--
- 28 files changed, 1045 insertions(+), 323 deletions(-)
+ t5x/train_state.py                            |   2 +-
+ t5x/trainer.py                                |  46 +--
+ 28 files changed, 1044 insertions(+), 324 deletions(-)
  create mode 100644 t5x/contrib/gpu/T5X_TE_README.md
  create mode 100644 t5x/te_helper.py
 
@@ -1439,7 +1439,7 @@ index 6a4c7b2..a1f50db 100644
  INITIAL_CHECKPOINT_PATH = "gs://t5-data/pretrained_models/t5x/t5_1_1_xl/checkpoint_1000000"
  # `LOSS_NORMALIZING_FACTOR`: When fine-tuning a model that was pre-trained
 diff --git a/t5x/models.py b/t5x/models.py
-index f31d39f..fcd9fd5 100644
+index b58f579..8a45977 100644
 --- a/t5x/models.py
 +++ b/t5x/models.py
 @@ -43,6 +43,8 @@ from t5x import optimizers
@@ -1561,7 +1561,7 @@ index f31d39f..fcd9fd5 100644
    def _compute_metrics(
        self,
        logits: jnp.ndarray,
-@@ -461,15 +497,18 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -459,15 +495,18 @@ class EncoderDecoderModel(BaseTransformerModel):
        batch: Mapping[str, jnp.ndarray],
        dropout_rng: Optional[jax.Array] = None,
        mutable: flax_scope.CollectionFilter = False,
@@ -1584,7 +1584,7 @@ index f31d39f..fcd9fd5 100644
          batch['encoder_input_tokens'],
          batch['decoder_input_tokens'],
          batch['decoder_target_tokens'],
-@@ -490,17 +529,25 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -488,17 +527,25 @@ class EncoderDecoderModel(BaseTransformerModel):
        encoded_inputs: jnp.ndarray,
        raw_inputs: jnp.ndarray,
        max_decode_length: int,
@@ -1611,7 +1611,7 @@ index f31d39f..fcd9fd5 100644
          encoded_inputs,
          raw_inputs,  # only needed for encoder padding mask
          flat_ids,
-@@ -523,6 +570,7 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -521,6 +568,7 @@ class EncoderDecoderModel(BaseTransformerModel):
        encoder_input_tokens: jnp.ndarray,
        decoder_input_tokens: jnp.ndarray,
        prefill_decoder_prompt: bool = False,
@@ -1619,7 +1619,7 @@ index f31d39f..fcd9fd5 100644
    ) -> Tuple[PyTree, Optional[jnp.ndarray]]:
      """Initialize the key/value cache, with optional prompt.
  
-@@ -541,8 +589,14 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -539,8 +587,14 @@ class EncoderDecoderModel(BaseTransformerModel):
        initial_index: The index of the next position following prefill or None if
          `prefill_decoder_prompt` is False.
      """
@@ -1635,7 +1635,7 @@ index f31d39f..fcd9fd5 100644
          encoder_input_tokens=jnp.ones_like(encoder_input_tokens),
          decoder_input_tokens=jnp.ones_like(decoder_input_tokens),
          decoder_target_tokens=jnp.ones_like(decoder_input_tokens),
-@@ -583,6 +637,24 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -581,6 +635,24 @@ class EncoderDecoderModel(BaseTransformerModel):
  
      return cache, inputs_lengths
  
@@ -1660,7 +1660,7 @@ index f31d39f..fcd9fd5 100644
    def predict_batch_with_aux(
        self,
        params: PyTree,
-@@ -592,6 +664,7 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -590,6 +662,7 @@ class EncoderDecoderModel(BaseTransformerModel):
        return_all_decodes: bool = None,
        num_decodes: int = None,  # pytype:disable=annotation-type-mismatch
        prompt_with_targets: bool = False,
@@ -1668,7 +1668,7 @@ index f31d39f..fcd9fd5 100644
    ) -> Tuple[jnp.ndarray, Mapping[str, jnp.ndarray]]:
      """Predict with fast decoding beam search on a batch.
  
-@@ -648,11 +721,30 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -646,11 +719,30 @@ class EncoderDecoderModel(BaseTransformerModel):
        return_all_decodes = self._default_decoder_params.return_all_decodes
      if num_decodes is None:
        num_decodes = self._default_decoder_params.num_decodes
@@ -1699,7 +1699,7 @@ index f31d39f..fcd9fd5 100644
      # `decoder_prompt_inputs` is initialized from the batch's
      # `decoder_input_tokens`. The EOS is stripped to avoid decoding to stop
      # after the prompt by matching to `output_vocabulary.eos_id`.
-@@ -693,6 +785,7 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -691,6 +783,7 @@ class EncoderDecoderModel(BaseTransformerModel):
          encoder_input_tokens=encoder_input_tokens,
          decoder_input_tokens=decoder_prompt_inputs,
          prefill_decoder_prompt=prefill_decoder_prompt,
@@ -1707,7 +1707,7 @@ index f31d39f..fcd9fd5 100644
      )
  
      # Prepare transformer fast-decoder call for beam search: for beam search, we
-@@ -714,6 +807,7 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -712,6 +805,7 @@ class EncoderDecoderModel(BaseTransformerModel):
              encoder_input_tokens, num_decodes
          ),
          max_decode_length=decoder_input_tokens.shape[1],
@@ -1715,7 +1715,7 @@ index f31d39f..fcd9fd5 100644
      )
  
      if decoder_params is None:
-@@ -739,6 +833,7 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -737,6 +831,7 @@ class EncoderDecoderModel(BaseTransformerModel):
      # decodes: [batch, num_decodes, max_decode_len + 1]
      # scores: [batch, num_decodes]
      scanned = hasattr(self.module, 'scan_layers') and self.module.scan_layers
@@ -1723,7 +1723,7 @@ index f31d39f..fcd9fd5 100644
  
      if 'eos_id' not in decoder_params:
        decoder_params['eos_id'] = self.output_vocabulary.eos_id
-@@ -747,8 +842,8 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -745,8 +840,8 @@ class EncoderDecoderModel(BaseTransformerModel):
          cache=cache,
          tokens_to_logits=tokens_ids_to_logits,
          num_decodes=num_decodes,
@@ -1734,7 +1734,7 @@ index f31d39f..fcd9fd5 100644
      )
  
      # Beam search returns [n_batch, n_beam, n_length] with beam dimension sorted
-@@ -764,6 +859,7 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -762,6 +857,7 @@ class EncoderDecoderModel(BaseTransformerModel):
        params: PyTree,
        batch: Mapping[str, jnp.ndarray],
        return_intermediates: bool = False,
@@ -1742,7 +1742,7 @@ index f31d39f..fcd9fd5 100644
    ) -> Union[jnp.ndarray, Tuple[jnp.ndarray, Mapping[str, Any]]]:
      """Compute log likelihood score on a batch."""
      weights = batch['decoder_loss_weights']
-@@ -771,7 +867,8 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -769,7 +865,8 @@ class EncoderDecoderModel(BaseTransformerModel):
  
      if return_intermediates:
        logits, modified_variables = self._compute_logits(
@@ -1752,7 +1752,7 @@ index f31d39f..fcd9fd5 100644
        )
  
        # Inside self.module, we called nn.Module.sow to track various
-@@ -789,7 +886,7 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -787,7 +884,7 @@ class EncoderDecoderModel(BaseTransformerModel):
        # `intermediates` should be tuples tracking all instantiations of a value.
        # These values each have just one instantiation, hence singletons.
      else:
@@ -1761,7 +1761,7 @@ index f31d39f..fcd9fd5 100644
  
      # Purposefully don't use config.z_loss because that term is for training
      # stability and shouldn't affect our reported scores.
-@@ -900,16 +997,19 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -896,16 +993,19 @@ class DecoderOnlyModel(BaseTransformerModel):
        batch: Mapping[str, jnp.ndarray],
        dropout_rng: Optional[jax.Array] = None,
        mutable: flax_scope.CollectionFilter = False,
@@ -1785,7 +1785,7 @@ index f31d39f..fcd9fd5 100644
          batch['decoder_input_tokens'],
          batch['decoder_target_tokens'],
          decoder_segment_ids=batch.get('decoder_segment_ids', None),
-@@ -926,6 +1026,7 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -922,6 +1022,7 @@ class DecoderOnlyModel(BaseTransformerModel):
        decoding_state: decoding.DecodingState,
        params: PyTree,
        max_decode_length: int,
@@ -1793,7 +1793,7 @@ index f31d39f..fcd9fd5 100644
    ) -> Tuple[jnp.ndarray, Mapping[str, jnp.ndarray]]:
      """Token slice to logits from decoder model."""
      flat_ids = decoding_state.cur_token
-@@ -936,7 +1037,11 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -932,7 +1033,11 @@ class DecoderOnlyModel(BaseTransformerModel):
      # flat_cache['cache_index']: [batch]
      # flat_logits: [batch, seq_len=1, vocab]
      flat_logits, new_vars = self.module.apply(
@@ -1806,7 +1806,7 @@ index f31d39f..fcd9fd5 100644
          flat_ids,
          flat_ids,
          enable_dropout=False,
-@@ -954,6 +1059,7 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -950,6 +1055,7 @@ class DecoderOnlyModel(BaseTransformerModel):
        params: PyTree,
        batch: Mapping[str, jnp.ndarray],
        return_intermediates: bool = False,
@@ -1814,7 +1814,7 @@ index f31d39f..fcd9fd5 100644
    ) -> jnp.ndarray:
      """Compute log likelihood score on a batch."""
  
-@@ -966,6 +1072,7 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -962,6 +1068,7 @@ class DecoderOnlyModel(BaseTransformerModel):
            batch=batch,
            dropout_rng=None,
            mutable=['intermediates'],
@@ -1822,7 +1822,7 @@ index f31d39f..fcd9fd5 100644
        )
  
        # Inside self.module, we called nn.Module.sow to track various
-@@ -984,7 +1091,7 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -980,7 +1087,7 @@ class DecoderOnlyModel(BaseTransformerModel):
        # These values each have just one instantiation, hence singletons.
      else:
        logits = self._compute_logits(
@@ -1831,7 +1831,7 @@ index f31d39f..fcd9fd5 100644
        )
  
      token_scores = (
-@@ -1012,6 +1119,7 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -1008,6 +1115,7 @@ class DecoderOnlyModel(BaseTransformerModel):
        params: PyTree,
        inputs: jnp.ndarray,
        causal_attention_mask: jnp.ndarray,
@@ -1839,7 +1839,7 @@ index f31d39f..fcd9fd5 100644
    ) -> Tuple[PyTree, jnp.ndarray]:
      """Compute the key/value cache on the input prompt.
  
-@@ -1025,12 +1133,17 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -1021,12 +1129,17 @@ class DecoderOnlyModel(BaseTransformerModel):
        cache: The prefilled cache.
        initial_index: The index of the next position following prefill.
      """
@@ -1858,7 +1858,7 @@ index f31d39f..fcd9fd5 100644
          jnp.ones_like(inputs),
          jnp.ones_like(inputs),
          enable_dropout=False,
-@@ -1068,7 +1181,11 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -1064,7 +1177,11 @@ class DecoderOnlyModel(BaseTransformerModel):
      )
  
      _, variables_with_cache = self.module.apply(
@@ -1871,7 +1871,7 @@ index f31d39f..fcd9fd5 100644
          decoder_input_tokens=inputs,
          # Use the `decoder_causal_attention`, which has 1 for all input
          # positions, including the BOS token, as the targets so when the
-@@ -1095,6 +1212,7 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -1091,6 +1208,7 @@ class DecoderOnlyModel(BaseTransformerModel):
        return_all_decodes: bool = False,
        num_decodes: int = 1,
        decoder_params: Optional[MutableMapping[str, Any]] = None,
@@ -1879,7 +1879,7 @@ index f31d39f..fcd9fd5 100644
    ) -> Tuple[jnp.ndarray, Mapping[str, jnp.ndarray]]:
      """Predict with prefix.
  
-@@ -1193,7 +1311,7 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -1189,7 +1307,7 @@ class DecoderOnlyModel(BaseTransformerModel):
      inputs = batch['decoder_input_tokens'] * batch['decoder_causal_attention']
  
      prefilled_cache, initial_index = self._compute_kv_cache(
@@ -1888,7 +1888,7 @@ index f31d39f..fcd9fd5 100644
      )
  
      target_shape = batch['decoder_input_tokens'].shape
-@@ -1203,6 +1321,7 @@ class DecoderOnlyModel(BaseTransformerModel):
+@@ -1199,6 +1317,7 @@ class DecoderOnlyModel(BaseTransformerModel):
          self._compute_logits_from_slice,
          params=params,
          max_decode_length=max_decode_length,
@@ -1897,10 +1897,10 @@ index f31d39f..fcd9fd5 100644
  
      if decoder_params is None:
 diff --git a/t5x/partitioning.py b/t5x/partitioning.py
-index 910f666..2ae6e7a 100644
+index 7165ac7..4920866b 100644
 --- a/t5x/partitioning.py
 +++ b/t5x/partitioning.py
-@@ -34,6 +34,7 @@ from jax.sharding import Mesh
+@@ -35,6 +35,7 @@ from jax.sharding import Mesh
  from jax.sharding import PartitionSpec
  import numpy as np
  from t5x import train_state as train_state_lib
@@ -1908,7 +1908,7 @@ index 910f666..2ae6e7a 100644
  
  JaxDevice = jax.Device
  TpuMesh = Tuple[int, int, int, int]  # (x, y, z, num_cores).
-@@ -522,6 +523,8 @@ def standard_logical_axis_rules(
+@@ -621,6 +622,8 @@ def standard_logical_axis_rules(
    if additional_rules:
      rules.extend(additional_rules)
  
@@ -2208,10 +2208,10 @@ index 0000000..fb5f48f
 +  def get_decoder_layer(config, relative_embedding, name, original_cls):
 +    return TransformerEngineHelper.get_helper().get_decoder_layer(config, relative_embedding, name, original_cls)
 diff --git a/t5x/train.py b/t5x/train.py
-index d6bfd6a..e7ee77d 100644
+index e85d37c..972fb9c 100644
 --- a/t5x/train.py
 +++ b/t5x/train.py
-@@ -45,6 +45,8 @@ from t5x import partitioning
+@@ -46,6 +46,8 @@ from t5x import partitioning
  from t5x import train_state as train_state_lib
  from t5x import trainer as trainer_lib
  from t5x import utils
@@ -2220,7 +2220,7 @@ index d6bfd6a..e7ee77d 100644
  import tensorflow as tf
  # pylint:enable=g-import-not-at-top
  
-@@ -107,6 +109,7 @@ def train(
+@@ -108,6 +110,7 @@ def train(
      total_steps: int,
      eval_steps: int,
      eval_period: int,
@@ -2228,7 +2228,7 @@ index d6bfd6a..e7ee77d 100644
      stats_period: Optional[int] = None,
      random_seed: Optional[int],
      use_hardware_rng: bool = False,
-@@ -127,6 +130,7 @@ def train(
+@@ -128,6 +131,7 @@ def train(
          Callable[[utils.DatasetConfig, models.BaseTransformerModel], None]
      ] = utils.verify_matching_vocabs,
      gc_period: int = 0,
@@ -2236,7 +2236,7 @@ index d6bfd6a..e7ee77d 100644
  ) -> Tuple[int, train_state_lib.TrainState]:
    """Train function.
  
-@@ -188,6 +192,12 @@ def train(
+@@ -189,6 +193,12 @@ def train(
        instance. Should raise an exception on error.
      gc_period: The number of train steps between runs of the garbage collector.
        If 0, the garbage collector will run at the normal frequency.
@@ -2332,7 +2332,7 @@ index d6bfd6a..e7ee77d 100644
      evaluator = eval_lib.InferenceEvaluator(
          infer_eval_dataset_cfg=infer_eval_dataset_cfg,
          inference_evaluator_cls=inference_evaluator_cls,
-@@ -800,6 +858,7 @@ def train(
+@@ -806,6 +864,7 @@ def train(
      # the same interpreter.
      gc.enable()
  
@@ -2341,24 +2341,23 @@ index d6bfd6a..e7ee77d 100644
  
  
 diff --git a/t5x/train_state.py b/t5x/train_state.py
-index 5ac52af..95cdd99 100644
+index abcbc79..b2eff93 100644
 --- a/t5x/train_state.py
 +++ b/t5x/train_state.py
-@@ -222,7 +222,8 @@ class FlaxOptimTrainState(flax.struct.PyTreeNode):
-         _optimizer=self._optimizer.optimizer_def.derive_logical_axes(
-             self._optimizer,
-             flax_partitioning.get_axis_names(self.params_axes)),
--        flax_mutables=flax_partitioning.get_axis_names(flax_mutables_axes))
-+        flax_mutables=flax_partitioning.get_axis_names(flax_mutables_axes),
+@@ -228,7 +228,7 @@ class FlaxOptimTrainState(flax.struct.PyTreeNode):
+             self._optimizer, flax_partitioning.get_axis_names(self.params_axes)
+         ),
+         flax_mutables=flax_partitioning.get_axis_names(flax_mutables_axes),
+-    )
 +        flax_mutables_axes=self.flax_mutables_axes)
  
  
  class InferenceState(flax.struct.PyTreeNode):
 diff --git a/t5x/trainer.py b/t5x/trainer.py
-index 752beb3..4eae811 100644
+index 3d592d8..7b3bab7 100644
 --- a/t5x/trainer.py
 +++ b/t5x/trainer.py
-@@ -43,6 +43,7 @@ from t5x import models
+@@ -44,6 +44,7 @@ from t5x import models
  from t5x import partitioning
  from t5x import train_state as train_state_lib
  from t5x import utils
@@ -2366,7 +2365,7 @@ index 752beb3..4eae811 100644
  import typing_extensions
  
  
-@@ -675,7 +676,7 @@ def accumulate_grads_microbatched(
+@@ -731,7 +732,7 @@ def accumulate_grads_microbatched(
    """
    batch_size = next(iter(batch.values())).shape[0]
  
@@ -2375,7 +2374,7 @@ index 752beb3..4eae811 100644
  
    # We assume that the model loss_fn supports flax mutables if and only if
    # the train state includes non-empty flax mutables.
-@@ -683,19 +684,13 @@ def accumulate_grads_microbatched(
+@@ -739,18 +740,13 @@ def accumulate_grads_microbatched(
    # them and return flax_mutables from `get_initial_variables` and `loss_fn`.
  
    initial_flax_mutables = (
@@ -2389,58 +2388,59 @@ index 752beb3..4eae811 100644
 -      (_, metrics), grad_accum = grad_fn(train_state.params, batch, dropout_rng)
 -      flax_mutables = None
 -    else:
--      (_, (metrics,
--           flax_mutables)), grad_accum = grad_fn(train_state.params, batch,
--                                                 dropout_rng,
--                                                 initial_flax_mutables)
+-      (_, (metrics, flax_mutables)), grad_accum = grad_fn(
+-          train_state.params, batch, dropout_rng, initial_flax_mutables
+-      )
 +    (_, metrics), grad_accum = grad_fn(train_state.params, batch,
 +                                       dropout_rng, initial_flax_mutables)
 +    flax_mutables=initial_flax_mutables
    else:
-     assert batch_size % num_microbatches == 0, (
-         "Batch size isn't divided evenly by num_microbatches.")
-@@ -722,13 +717,9 @@ def accumulate_grads_microbatched(
-           lambda x: partitioning.with_sharding_constraint(  # pylint: disable=g-long-lambda
-               x, data_partition_spec),
-           mbatch)
+     assert (
+         batch_size % num_microbatches == 0
+@@ -783,14 +779,9 @@ def accumulate_grads_microbatched(
+           ),
+           mbatch,
+       )
 -      if flax_mutables is None:
--        (_, metrics), grad = grad_fn(train_state.params, mbatch,
--                                     sub_dropout_rng)
+-        (_, metrics), grad = grad_fn(
+-            train_state.params, mbatch, sub_dropout_rng
+-        )
 -      else:
--        (_, (metrics, flax_mutables)), grad = grad_fn(train_state.params,
--                                                      mbatch, sub_dropout_rng,
--                                                      flax_mutables)
+-        (_, (metrics, flax_mutables)), grad = grad_fn(
+-            train_state.params, mbatch, sub_dropout_rng, flax_mutables
+-        )
 +      (_, metrics), grad = grad_fn(train_state.params, mbatch,
 +                                   sub_dropout_rng, flax_mutables)
 +
        return metrics, grad, flax_mutables
  
      def per_microbatch_train_step(
-@@ -741,7 +732,9 @@ def accumulate_grads_microbatched(
-       metrics, grad, flax_mutables = metrics_and_grad(loop_cnt, dropout_rng,
-                                                       flax_mutables)
+@@ -812,7 +803,9 @@ def accumulate_grads_microbatched(
+           loop_cnt, dropout_rng, flax_mutables
+       )
  
 -      grad_accum = jax.tree_util.tree_map(jnp.add, grad_accum, grad)
 +      grad_accum[0] = jax.tree_map(jnp.add, grad_accum[0], grad[0])
 +      grad_accum[1] = TransformerEngineHelper.update_fp8_metas(grad[1], flax_mutables)
 +      flax_mutables = grad_accum[1]
-       metrics = jax.lax.cond(loop_cnt == 0, lambda _: metrics,
-                              lambda _: merge_metrics(prev_metrics, metrics),
-                              None)
-@@ -749,8 +742,10 @@ def accumulate_grads_microbatched(
+       metrics = jax.lax.cond(
+           loop_cnt == 0,
+           lambda _: metrics,
+@@ -823,9 +816,10 @@ def accumulate_grads_microbatched(
  
      # Initialize gradient accumulation loop state.
      accum_dtype = jnp.float32
 -    grad_accum_init = jax.tree_util.tree_map(
--        lambda x: jnp.zeros(x.shape, accum_dtype), train_state.params)
-+    grad_accum_init = [jax.tree_map(lambda x: jnp.zeros(x.shape, accum_dtype),
+-        lambda x: jnp.zeros(x.shape, accum_dtype), train_state.params
+-    )
++    grad_accum_init = [jax.tree_util.tree_map(lambda x: jnp.zeros(x.shape, accum_dtype),
 +                                   train_state.params),
-+                       jax.tree_map(lambda x: jnp.zeros(x.shape, accum_dtype),
++                       jax.tree_util.tree_map(lambda x: jnp.zeros(x.shape, accum_dtype),
 +                                   train_state.flax_mutables)]
      initial_metrics_shape, _, _ = jax.eval_shape(
          metrics_and_grad,
          loop_cnt=0,
-@@ -769,6 +764,9 @@ def accumulate_grads_microbatched(
+@@ -849,6 +843,9 @@ def accumulate_grads_microbatched(
  
      del new_dropout_rng
  
@@ -2450,7 +2450,7 @@ index 752beb3..4eae811 100644
    return grad_accum, metrics, flax_mutables
  
  
-@@ -797,9 +795,12 @@ def apply_grads(
+@@ -877,9 +874,12 @@ def apply_grads(
    """
    if other_state_variables is None:
      other_state_variables = {}
@@ -2459,19 +2459,19 @@ index 752beb3..4eae811 100644
 +
    # Update optimizer using accumulated gradient.
    new_train_state = train_state.apply_gradient(
--      grad_accum, learning_rate=learning_rate, **other_state_variables)
-+      grad_accum[0], learning_rate=learning_rate, **other_state_variables)
+-      grad_accum, learning_rate=learning_rate, **other_state_variables
++      grad_accum[0], learning_rate=learning_rate, **other_state_variables
+   )
    metrics["learning_rate"] = clu.metrics.Average.from_model_output(
-       jnp.asarray([learning_rate]))
-   metrics["learning_rate/current"] = clu.metrics.LastValue.from_model_output(
+       jnp.asarray([learning_rate])
 -- 
 2.25.1
 
 
-From 325f0e38720581c4f2535f3da23f40f425560138 Mon Sep 17 00:00:00 2001
+From 799af4ba3a3e974810b3b6f60dac59722d5fa0cc Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Tue, 11 Jul 2023 12:10:33 -0700
-Subject: [PATCH 02/16] UNINSTALL_TE in fine-tuning scripts now defaults to
+Subject: [PATCH 02/18] UNINSTALL_TE in fine-tuning scripts now defaults to
  no-action
 
 ---
@@ -2503,10 +2503,10 @@ index 388d2ec..135ecf6 100755
 2.25.1
 
 
-From f75aa370fe5c82dc8cf2f5a3ef3bdba407b60628 Mon Sep 17 00:00:00 2001
+From 1ccdc5f74017c0e6d7f3b31a6fbace9231954eed Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Wed, 12 Jul 2023 20:26:28 -0700
-Subject: [PATCH 03/16] remove use_gda from LegacyCheckpointManager in train.py
+Subject: [PATCH 03/18] remove use_gda from LegacyCheckpointManager in train.py
  for fp8
 
 ---
@@ -2514,7 +2514,7 @@ Subject: [PATCH 03/16] remove use_gda from LegacyCheckpointManager in train.py
  1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/t5x/train.py b/t5x/train.py
-index e7ee77d..7fe705c 100644
+index 972fb9c..6c9e0fa 100644
 --- a/t5x/train.py
 +++ b/t5x/train.py
 @@ -464,8 +464,7 @@ def train(
@@ -2531,10 +2531,10 @@ index e7ee77d..7fe705c 100644
 2.25.1
 
 
-From 395cf5bcca9c26f7fdaabca8541aa8368bcb8f91 Mon Sep 17 00:00:00 2001
+From 550bdc324f0e1736245e8c84dd71c95bd376d406 Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Tue, 18 Jul 2023 15:55:01 -0700
-Subject: [PATCH 04/16] Allow singlenode scripts to tee to stdout for better
+Subject: [PATCH 04/18] Allow singlenode scripts to tee to stdout for better
  indication of training status
 
 ---
@@ -2568,10 +2568,10 @@ index def1a1a..0d12f30 100755
 2.25.1
 
 
-From 7cc636157b1afd8496baea7977876124b205db9e Mon Sep 17 00:00:00 2001
+From c8622f8058a8ce2d1ba0c2547aef2115854ffa91 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Fri, 14 Jul 2023 05:00:58 -0700
-Subject: [PATCH 05/16] Explicit specify self_attn_mask_type
+Subject: [PATCH 05/18] Explicit specify self_attn_mask_type
 
 ---
  t5x/te_helper.py | 10 ++++++++--
@@ -2609,10 +2609,10 @@ index fb5f48f..f3750ca 100644
 2.25.1
 
 
-From d17222e423d83ea2faba226fad5f6a2b1bc9307f Mon Sep 17 00:00:00 2001
+From 68d04aef4068dfe9aaa19ebe5c6acc23a0f12d57 Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Thu, 3 Aug 2023 14:25:22 -0700
-Subject: [PATCH 06/16] Disables check for packing by the te_helper util since
+Subject: [PATCH 06/18] Disables check for packing by the te_helper util since
  not all dataset configs use packing (CV/Multimodal)
 
 ---
@@ -2636,10 +2636,10 @@ index f3750ca..f585752 100644
 2.25.1
 
 
-From c0448f9284bf910699dc7ecba202c2f213fa7481 Mon Sep 17 00:00:00 2001
+From 0b0f86cdf6b85980c19c9c79e3b751e401c03860 Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Sat, 26 Aug 2023 16:13:11 -0700
-Subject: [PATCH 07/16] Corrected T5x large baselines
+Subject: [PATCH 07/18] Corrected T5x large baselines
 
 Updated T5x-large MNLI and SQUAD baselines
 ---
@@ -2663,10 +2663,10 @@ index a9974e1..660df3a 100644
 2.25.1
 
 
-From 443df5e4414dcbac5482fc2672e1484a554c1bd2 Mon Sep 17 00:00:00 2001
+From 5cdb9d714d95c2339052a144f86124ce1f6b3bbb Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Fri, 8 Sep 2023 15:09:08 -0700
-Subject: [PATCH 08/16] Add t5-large FP8 logs
+Subject: [PATCH 08/18] Add t5-large FP8 logs
 
 ---
  docs/usage/gpu-usage.md | 2 +-
@@ -2689,20 +2689,20 @@ index 660df3a..c31094d 100644
 2.25.1
 
 
-From 8494e0ba9683f1776500d0a401f29633f6b6130b Mon Sep 17 00:00:00 2001
+From cafe7f4dd662f7d8e479a0330ddc64fd864f8331 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 20 Oct 2023 14:26:09 +0800
-Subject: [PATCH 09/16] Fix missing fp8_meta_collection in the eval stage.
+Subject: [PATCH 09/18] Fix missing fp8_meta_collection in the eval stage.
 
 ---
  t5x/models.py | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/t5x/models.py b/t5x/models.py
-index fcd9fd5..a4276ec 100644
+index 8a45977..e13cc05 100644
 --- a/t5x/models.py
 +++ b/t5x/models.py
-@@ -758,7 +758,7 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -756,7 +756,7 @@ class EncoderDecoderModel(BaseTransformerModel):
        decoder_prompt_inputs = jnp.zeros_like(decoder_input_tokens)
  
      encoded_inputs = self.module.apply(
@@ -2715,20 +2715,20 @@ index fcd9fd5..a4276ec 100644
 2.25.1
 
 
-From 181087dbc71a268e4d96fbd3adb429ab630f0486 Mon Sep 17 00:00:00 2001
+From f460f4aa094dfe9e74699dcfd0e9238079363740 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 20 Oct 2023 14:48:40 +0800
-Subject: [PATCH 10/16] Remove redundant code.
+Subject: [PATCH 10/18] Remove redundant code.
 
 ---
  t5x/models.py | 17 -----------------
  1 file changed, 17 deletions(-)
 
 diff --git a/t5x/models.py b/t5x/models.py
-index a4276ec..faeb6d0 100644
+index e13cc05..d4d2146 100644
 --- a/t5x/models.py
 +++ b/t5x/models.py
-@@ -728,23 +728,6 @@ class EncoderDecoderModel(BaseTransformerModel):
+@@ -726,23 +726,6 @@ class EncoderDecoderModel(BaseTransformerModel):
      encoder_input_tokens = batch['encoder_input_tokens']
      decoder_input_tokens = batch['decoder_input_tokens']
  
@@ -2756,10 +2756,10 @@ index a4276ec..faeb6d0 100644
 2.25.1
 
 
-From 4d051703078985ca95b23def87672513dbce9daa Mon Sep 17 00:00:00 2001
+From 90f3fb1974cf903f3ac6e2cda25b3e0bd061c566 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 20 Oct 2023 15:05:40 +0800
-Subject: [PATCH 11/16] Fix deprecating warning about TE.
+Subject: [PATCH 11/18] Fix deprecating warning about TE.
 
 ---
  t5x/te_helper.py | 8 ++++----
@@ -2808,10 +2808,10 @@ index f585752..568f596 100644
 2.25.1
 
 
-From 5fff9dc6557e084378d24fc9c14376331e7f3d3a Mon Sep 17 00:00:00 2001
+From 179b456131c43f8c21548fa0765c639b47299f9f Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Fri, 27 Oct 2023 09:08:10 -0700
-Subject: [PATCH 12/16] Updates TE api from te.extend_* to te.flax.extend_*
+Subject: [PATCH 12/18] Updates TE api from te.extend_* to te.flax.extend_*
  (#7)
 
 Co-authored-by: NVIDIA <jax@nvidia.com>
@@ -2836,10 +2836,10 @@ index 568f596..05c5f6b 100644
 2.25.1
 
 
-From e36be07a36c476545a5bbbb59e5c7a44419deb02 Mon Sep 17 00:00:00 2001
+From ddade2beb9db4df05161a7dca26012b94ba9c4c6 Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Tue, 31 Oct 2023 21:52:22 -0700
-Subject: [PATCH 13/16] Adds ENABLE_TE env var and renames TEConfig.enabled ->
+Subject: [PATCH 13/18] Adds ENABLE_TE env var and renames TEConfig.enabled ->
  TEConfig.enable_fp8 (#8)
 
 * Allows ENABLE_TE env var to control whether TE code path is invoked
@@ -2999,10 +2999,10 @@ index 05c5f6b..7657c52 100644
 2.25.1
 
 
-From 4b8a1ad34509a5f62dea7ce0d3efef87e2a4e9d1 Mon Sep 17 00:00:00 2001
+From 539af9ab177d2eafcb493b0800d1a3c76991accb Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 7 Nov 2023 10:57:34 +0800
-Subject: [PATCH 14/16] Adapting to TE/JAX/Custom_partitioning.
+Subject: [PATCH 14/18] Adapting to TE/JAX/Custom_partitioning.
 
 ---
  t5x/te_helper.py | 5 ++---
@@ -3035,20 +3035,20 @@ index 7657c52..b064d2b 100644
 2.25.1
 
 
-From d08a6847857b6549ed8bfe1441d3742a6a13ac08 Mon Sep 17 00:00:00 2001
+From a4cb6d657dd22520a36238706f18bee9a78ff3ca Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 22 Nov 2023 13:53:49 +0800
-Subject: [PATCH 15/16] Running Partitioner.compile within Mesh context-manager
+Subject: [PATCH 15/18] Running Partitioner.compile within Mesh context-manager
 
 ---
  t5x/partitioning.py | 9 ++++++++-
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/t5x/partitioning.py b/t5x/partitioning.py
-index 2ae6e7a..d9ba8bd 100644
+index 4920866b..b74c667 100644
 --- a/t5x/partitioning.py
 +++ b/t5x/partitioning.py
-@@ -783,6 +783,13 @@ class PjittedFnWithContext(PartitionedCallable):
+@@ -960,6 +960,13 @@ class PjittedFnWithContext(PartitionedCallable):
                    self._logical_axis_rules):
        return self._pjitted_fn.lower(*args, **kwargs)
  
@@ -3062,7 +3062,7 @@ index 2ae6e7a..d9ba8bd 100644
  
  class BasePjitPartitioner(BasePartitioner):
    """Partitioner that uses T5X version of jax.pjit."""
-@@ -816,7 +823,7 @@ class BasePjitPartitioner(BasePartitioner):
+@@ -998,7 +1005,7 @@ class BasePjitPartitioner(BasePartitioner):
  
    def compile(self, partitioned_fn: PjittedFnWithContext,
                *args) -> CompiledPartitionedCallable:
@@ -3075,10 +3075,10 @@ index 2ae6e7a..d9ba8bd 100644
 2.25.1
 
 
-From a08b8bf78e14c288d6d7a66ad17a9bea69044cd7 Mon Sep 17 00:00:00 2001
+From 7d57626b2e365de38cff67d64057391607245da6 Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Tue, 14 Nov 2023 23:42:35 -0800
-Subject: [PATCH 16/16] Updates multiprocessing scripts to use SLURM output
+Subject: [PATCH 16/18] Updates multiprocessing scripts to use SLURM output
  variables instead of input variables (#9)
 
 * Update multiprocess scripts
@@ -3548,6 +3548,58 @@ index d083540..56919a5 100755
  
 -set +x
 +echo Finished
+-- 
+2.25.1
+
+
+From 5f2eb486f184427a0cdff3052aa574a74c67f742 Mon Sep 17 00:00:00 2001
+From: ashors1 <71393111+ashors1@users.noreply.github.com>
+Date: Wed, 6 Dec 2023 14:56:45 -0800
+Subject: [PATCH 17/18] Force initial flax mutables to be a frozen dict (#11)
+
+---
+ t5x/trainer.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/t5x/trainer.py b/t5x/trainer.py
+index 7b3bab7..e297ab8 100644
+--- a/t5x/trainer.py
++++ b/t5x/trainer.py
+@@ -740,7 +740,7 @@ def accumulate_grads_microbatched(
+   # them and return flax_mutables from `get_initial_variables` and `loss_fn`.
+ 
+   initial_flax_mutables = (
+-      train_state.flax_mutables if train_state.flax_mutables else {}
++      train_state.flax_mutables if train_state.flax_mutables else FrozenDict({})
+   )
+ 
+   if num_microbatches is None or num_microbatches <= 1:
+-- 
+2.25.1
+
+
+From 79bf05301611a4b72df3535e40677bb6c722bdd1 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Thu, 28 Dec 2023 07:24:33 -0800
+Subject: [PATCH 18/18] update rng dtype in predict_batch
+
+---
+ t5x/models.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/t5x/models.py b/t5x/models.py
+index d4d2146..64565b1 100644
+--- a/t5x/models.py
++++ b/t5x/models.py
+@@ -638,7 +638,7 @@ class EncoderDecoderModel(BaseTransformerModel):
+   def predict_batch(self,
+                     params: PyTreeDef,
+                     batch: Mapping[str, jnp.ndarray],
+-                    rng: Optional[jax.random.KeyArray] = None,
++                    rng: Optional[jax.Array] = None,
+                     flax_mutables: Optional[PyTreeDef] = None) -> jnp.ndarray:
+     """Predicts a batch of outputs from the model.
+ 
 -- 
 2.25.1
 

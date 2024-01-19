@@ -98,7 +98,6 @@ jobs:
   arm64:
     needs: metadata
     uses: ./.github/workflows/_build_rosetta.yaml
-    if: false  # TODO: Enable when arm64 build is ready
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
@@ -130,7 +129,7 @@ jobs:
         echo "MESSAGE='${MSG}'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
         echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
-  
+
   publish-mealkit:
     # needs: [metadata, amd64, arm64]
     needs: [metadata, amd64]
@@ -154,7 +153,23 @@ jobs:
     secrets: inherit
 
   # TODO: ARM Tests
-  publish-final:
+  # The dated nightly is tagged regardless of the test results to assist troubleshooting
+  publish-final-dated:
+    # needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64]
+    if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+      # ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+      TARGET_IMAGE: pax
+      TARGET_TAGS: |
+        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+
+  # TODO: ARM Tests
+  # The latest tag is reserved for images that pass all the CI tests
+  publish-final-latest:
     # needs: [metadata, amd64, arm64, test-amd64]
     needs: [metadata, amd64, test-amd64]
     if: needs.metadata.outputs.PUBLISH == 'true'
@@ -165,22 +180,11 @@ jobs:
       # ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: pax
       TARGET_TAGS: |
-        ${{ needs.test-amd64.outputs.TEST_STATUS == 'success' && 'type=raw,value=latest,priority=1000' || '' }}
-        type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
-
-  test-pax:
-    # needs: [metadata, amd64, arm64]
-    needs: [metadata, amd64]
-    uses: ./.github/workflows/_test_pax_rosetta.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
-    with:
-      PAX_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
+        type=raw,value=latest,priority=1000
 
   publish-pax:
     needs: [metadata, test-amd64]
     uses: ./.github/workflows/_publish_t5x_pax_results.yaml
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch'
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       EXPERIMENT_SUBDIR: ROSETTA_PAX

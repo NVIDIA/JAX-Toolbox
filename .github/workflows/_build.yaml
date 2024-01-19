@@ -1,4 +1,4 @@
-name: ~build Pax container
+name: ~build JAX-related container
 
 on:
   workflow_call:
@@ -19,21 +19,27 @@ on:
         default: 'NOT SPECIFIED'
       ARTIFACT_NAME:
         type: string
-        description: 'Name of the artifact zip file'
-        required: false
-        default: 'artifact-pax-build'
+        description: 'Name of the artifact zip file, e.g. artifact-t5x-build'
+        required: true
       BADGE_FILENAME:
         type: string
-        description: 'Name of the endpoint JSON file for shields.io badge'
-        required: false
-        default: 'badge-pax-build'
+        description: 'Name of the endpoint JSON file for shields.io badge, e.g. badge-t5x-build'
+        required: true
+      CONTAINER_NAME:
+        type: string
+        description: "Container name, e.g. upstream-t5x"
+        required: true
+      DOCKERFILE:
+        type: string
+        description: "Dockerfile to use, e.g. .github/container/Dockerfile.t5x"
+        required: true
     outputs:
       DOCKER_TAG_MEALKIT:
         description: "Tags of the 'mealkit' image built"
-        value: ${{ jobs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
+        value: ${{ jobs.build.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:
         description: "Tags of the complete image built"
-        value: ${{ jobs.build-pax.outputs.DOCKER_TAG_FINAL }}
+        value: ${{ jobs.build.outputs.DOCKER_TAG_FINAL }}
 
 env:
   UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
@@ -44,8 +50,8 @@ permissions:
   packages: write # to upload container
 
 jobs:
-
-  build-pax:
+  build:
+    name: build-${{ inputs.CONTAINER_NAME }}
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
@@ -81,7 +87,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-upstream-pax-${{ inputs.ARCHITECTURE }}-mealkit
+            type=raw,value=${{ github.run_id }}-${{ inputs.CONTAINER_NAME }}-${{ inputs.ARCHITECTURE }}-mealkit
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
@@ -91,7 +97,7 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+          file: ${{ inputs.DOCKERFILE }}
           platforms: linux/${{ inputs.ARCHITECTURE }}
           target: mealkit
           tags: ${{ steps.mealkit-metadata.outputs.tags }}
@@ -109,7 +115,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-upstream-pax-${{ inputs.ARCHITECTURE }}
+            type=raw,value=${{ github.run_id }}-${{ inputs.CONTAINER_NAME }}-${{ inputs.ARCHITECTURE }}
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
@@ -119,11 +125,11 @@ jobs:
         with:
           context: .github/container
           push: true
-          file: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+          file: ${{ inputs.DOCKERFILE }}
           platforms: linux/${{ inputs.ARCHITECTURE }}
-          target: final
           tags: ${{ steps.final-metadata.outputs.tags }}
           labels: ${{ steps.final-metadata.outputs.labels }}
+          target: final
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
@@ -135,7 +141,7 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='Upstream PAX ${{ inputs.ARCHITECTURE }} build'
+          badge_label='${{ inputs.CONTAINER_NAME }} ${{ inputs.ARCHITECTURE }} build'
           tags="${{ steps.final-metadata.outputs.tags }}"
           digest="${{ steps.final-build.outputs.digest }}"
           outcome="${{ steps.final-build.outcome }}"
@@ -143,11 +149,11 @@ jobs:
           if [[ ${outcome} == "success" ]]; then
             badge_message="pass"
             badge_color=brightgreen
-            summary="Upstream PAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+            summary="${{ inputs.CONTAINER_NAME }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
           else
             badge_message="fail"
             badge_color=red
-            summary="Upstream PAX build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+            summary="${{ inputs.CONTAINER_NAME }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
           fi
 
           to_json \

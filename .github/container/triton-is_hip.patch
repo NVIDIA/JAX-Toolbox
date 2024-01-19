@@ -1,0 +1,18 @@
+diff --git a/python/triton/common/build.py b/python/triton/common/build.py
+index bd8395d4a..45ce7ce51 100644
+--- a/python/triton/common/build.py
++++ b/python/triton/common/build.py
+@@ -12,8 +12,11 @@ import setuptools
+
+ # TODO: is_hip shouldn't be here
+ def is_hip():
+-    import torch
+-    return torch.version.hip is not None
++    try:
++        import torch
++        return torch.version.hip is not None
++    except ImportError:
++        return False
+
+
+ @functools.lru_cache()

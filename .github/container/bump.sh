@@ -82,7 +82,10 @@ for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
     if [[ $mode == git-clone || $mode == pip-vcs ]] && [[ $SKIP_BUMP_REFS -eq 0 ]]; then
         url=$(yq e ".${pkg}.url" $MANIFEST_OUT)
         tracking_ref=$(yq e ".${pkg}.tracking_ref" $MANIFEST_OUT)
-        new_ref=$(git ls-remote $url $tracking_ref | awk '{print $1}')
+        if ! new_ref=$(git ls-remote --exit-code $url $tracking_ref | awk '{print $1}'); then
+	    echo "Could not fetch $tracking_ref from $url"
+	    exit 1
+	fi
         yq e ".${pkg}.latest_verified_commit = \"$new_ref\"" -i $MANIFEST_OUT
     fi
 
@@ -100,3 +103,9 @@ for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
         rm -rf $repo_tmp
     fi
 done
+
+# unfortunately the openxla-triton commit must be derived from the content of
+# the xla repository
+if [[ $SKIP_BUMP_REFS -eq 0 ]]; then
+    "${SCRIPT_DIR}/bump-openxla-triton.sh" --manifest "${MANIFEST_OUT}"
+fi

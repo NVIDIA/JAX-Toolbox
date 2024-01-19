@@ -84,45 +84,51 @@ jobs:
 
   amd64:
     needs: metadata
-    uses: ./.github/workflows/_build_pax.yaml
+    uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: amd64
+      ARTIFACT_NAME: "artifact-pax-build"
+      BADGE_FILENAME: "badge-pax-build"
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CONTAINER_NAME: "upstream-pax"
+      DOCKERFILE: .github/container/Dockerfile.pax.amd64
     secrets: inherit
 
   arm64:
     needs: metadata
-    uses: ./.github/workflows/_build_pax.yaml
+    uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: arm64
+      ARTIFACT_NAME: "artifact-pax-build"
+      BADGE_FILENAME: "badge-pax-build"
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CONTAINER_NAME: "upstream-pax"
+      DOCKERFILE: .github/container/Dockerfile.pax.arm64
     secrets: inherit
 
   publish-mealkit:
-    # needs: [metadata, amd64, arm64]
-    needs: [metadata, amd64]
+    needs: [metadata, amd64, arm64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
-      # ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
       TARGET_IMAGE: upstream-pax
       TARGET_TAGS: |
         type=raw,value=mealkit,priority=500
         type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   publish-final:
-    # needs: [metadata, amd64, arm64]
-    needs: [metadata, amd64]
+    needs: [metadata, amd64, arm64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-      # ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: upstream-pax
       TARGET_TAGS: |
         type=raw,value=latest,priority=1000
