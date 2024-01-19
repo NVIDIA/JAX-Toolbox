@@ -136,18 +136,18 @@ jobs:
         run: |
           CONTAINER_TAGS_JSON=$(cat << EOF
             { \
-            "TAG_JAX_MEALKIT": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_JAX_FINAL": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_UPSTREAM_T5X_MEALKIT": "${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_UPSTREAM_T5X_FINAL": "${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_PALLAS_MEALKIT": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_PALLAS_FINAL": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_UPSTREAM_PAX_MEALKIT": "${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_UPSTREAM_PAX_FINAL": "${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_T5X_MEALKIT": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_T5X_FINAL": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_PAX_MEALKIT": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_PAX_FINAL": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}" \
+            "tag-jax-mealkit": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-jax-final": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}", \
+            "tag-upstream-t5x-mealkit": "${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-upstream-t5x-final": "${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}", \
+            "tag-pallas-mealkit": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-pallas-final": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}", \
+            "tag-upstream-pax-mealkit": "${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-upstream-pax-final": "${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}", \
+            "tag-t5x-mealkit": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-t5x-final": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}", \
+            "tag-pax-mealkit": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-pax-final": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}" \
             }
           EOF
 

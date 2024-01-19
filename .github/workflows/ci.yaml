@@ -71,35 +71,31 @@ jobs:
 
   publish-target-tags:
     runs-on: ubuntu-22.04
-    if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
     outputs:
-      TARGET_TAGS: ${{ steps.target-tags.outputs.TARGET_TAGS }}
+      TARGET_TAGS: ${{ steps.tags.outputs.TARGET_TAGS}}
     steps:
-      - name: Save docker tags in a single JSON object
-        id: target-tags
+      - id: tags
         run: |
-          TARGET_IMAGE="jax, pallas, upstream-pax, upstream-t5x, pax, t5x"
-          for 
-          CONTAINER_TAGS_JSON=$(cat << EOF
-            { \
-            "TAG_JAX_MEALKIT": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_JAX_FINAL": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_UPSTREAM_T5X_MEALKIT": "${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_UPSTREAM_T5X_FINAL": "${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_PALLAS_MEALKIT": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_PALLAS_FINAL": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_UPSTREAM_PAX_MEALKIT": "${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_UPSTREAM_PAX_FINAL": "${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_T5X_MEALKIT": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_T5X_FINAL": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}", \
-            "TAG_PAX_MEALKIT": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}", \
-            "TAG_PAX_FINAL": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}" \
-            }
-          EOF
+          declare -a TARGET_IMAGE=("jax" "pallas" "upstream-pax" "upstream-t5x" "pax" "t5x")
+          declare -a FLAVOR=("mealkit" "final")
 
-          )
-
-          echo "CONTAINER_TAGS=${CONTAINER_TAGS_JSON}" >> $GITHUB_OUTPUT    
+          ## now loop through the above array
+          JSON="{"
+          for target in "${TARGET_IMAGE[@]}";do
+              for flavor in "${FLAVOR[@]}"; do
+                  CONTAINER_TAG=${flavor}
+                  TAG_DATED=${flavor}
+                  if [[ ${flavor} == "final" ]]; then
+                      CONTAINER_TAG=latest
+                      TAG_DATED=nightly
+                  fi
+                  JSON=$(echo ${JSON}\"${target}-${flavor}-container-tag\":\"${CONTAINER_TAG}\",)
+                  JSON=$(echo ${JSON}\"${target}-${flavor}-tag-dated\":\"${TAG_DATED}\",)
+              done
+          done
+          JSON="${JSON::-1} }"
+          echo "TARGET_TAGS=${JSON}" 
+          echo "TARGET_TAGS=${JSON}" >> $GITHUB_OUTPUT    
 
   publish:
     needs: [metadata, amd64, arm64, publish-target-tags]
@@ -116,25 +112,8 @@ jobs:
           ${{ fromJson(needs.arm64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
         TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
         TARGET_TAGS: |
-          type=raw,value=${{ fromJson(needs.amd64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }},priority=500
-          type=raw,value=${{ steps.transform.outputs.TARGET_TAG_DATED }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
-
-    steps:
-
-      - name: Transform matrix TARGET_IMAGE into docker container tag
-        id: transform
-        run: |
-          CONTAINER_TAG=$(echo ${{ matrix.TARGET_IMAGE }} | tr '[[:lower:]]' '[[:upper:]]' | tr '-' '_')
-          TARGET_TAG_FLAVOR=${{ matrix.FLAVOR }}
-          TARGET_TAG_DATED=${{ matrix.FLAVOR }}
-          if [[ "${{ matrix.FLAVOR }}" == "final" ]]; then
-            TARGET_TAG_FLAVOR="latest"
-            TARGET_TAG_DATED="nightly"
-          fi
-          echo "CONTAINER_TAG=${CONTAINER_TAG}" >> $GITHUB_OUTPUT
-          echo "TARGET_TAG_FLAVOR=${TARGET_TAG_FLAVOR}" >> $GITHUB_OUTPUT
-          echo "TARGET_TAG_DATED=${TARGET_TAG_DATED}" >> $GITHUB_OUTPUT
-      - name: Publish container
+          type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }},priority=500
+          type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   finalize:
     needs: [amd64, arm64]
