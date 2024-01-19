@@ -106,14 +106,14 @@ jobs:
         TARGET_IMAGE: [jax, pallas, upstream-pax, upstream-t5x, pax, t5x]
         FLAVOR: [mealkit, final]
     uses: ./.github/workflows/_publish_container.yaml
-      with:
-        SOURCE_IMAGE: |
-          ${{ fromJson(needs.amd64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
-          ${{ fromJson(needs.arm64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
-        TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
-        TARGET_TAGS: |
-          type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }},priority=500
-          type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+    with:
+      SOURCE_IMAGE: |
+        ${{ fromJson(needs.amd64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
+        ${{ fromJson(needs.arm64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
+      TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
+      TARGET_TAGS: |
+        type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }},priority=500
+        type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   finalize:
     needs: [amd64, arm64]
