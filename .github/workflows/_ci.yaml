@@ -21,10 +21,6 @@ on:
       CONTAINER_TAGS:
         description: Single JSON object to store all generated docker tags
         value: ${{ jobs.save-tags.output.CONTAINER_TAGS }}
-<<<<<<< HEAD
-=======
-
->>>>>>> 77a9b84664a957b2e27d3f7ca1232619275236ad
 
 permissions:
   contents: read  # to fetch code
