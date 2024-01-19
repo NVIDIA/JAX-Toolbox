@@ -69,7 +69,7 @@ jobs:
       BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}      
     secrets: inherit
 
-  publish:
+  publish-preparation:
     runs-on: ubuntu-22.04
     needs: [metadata, amd64, arm64]
     if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
@@ -78,12 +78,26 @@ jobs:
       matrix:
         TARGET_IMAGE: [jax, pallas, upstream-pax, upstream-t5x, pax, t5x]
         FLAVOR: [mealkit, final]
-    steps:
-      - name: Print environment variables
-        run: env
 
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+  publish:
+    needs: [metadata, amd64, arm64]
+    if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+    strategy:
+      fail-fast: false
+      matrix:
+        TARGET_IMAGE: [jax, pallas, upstream-pax, upstream-t5x, pax, t5x]
+        FLAVOR: [mealkit, final]
+    uses: ./.github/workflows/_publish_container.yaml
+      with:
+        SOURCE_IMAGE: |
+          ${{ fromJson(needs.amd64.outputs.ALL_TAGS)[format('TAG_{0}_{1}', steps.transform.outputs.CONTAINER_TAG, matrix.FLAVOR)] }}
+          ${{ fromJson(needs.arm64.outputs.ALL_TAGS)[format('TAG_{0}_{1}', steps.transform.outputs.CONTAINER_TAG, matrix.FLAVOR)] }}
+        TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
+        TARGET_TAGS: |
+          type=raw,value=${{ steps.transform.outputs.TARGET_TAG_FLAVOR }},priority=500
+          type=raw,value=${{ steps.transform.outputs.TARGET_TAG_DATED }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+
+    steps:
 
       - name: Transform matrix TARGET_IMAGE into docker container tag
         id: transform
@@ -99,15 +113,6 @@ jobs:
           echo "TARGET_TAG_FLAVOR=${TARGET_TAG_FLAVOR}" >> $GITHUB_OUTPUT
           echo "TARGET_TAG_DATED=${TARGET_TAG_DATED}" >> $GITHUB_OUTPUT
       - name: Publish container
-        uses: ./.github/workflows/_publish_container.yaml
-        with:
-          SOURCE_IMAGE: |
-            ${{ fromJson(needs.amd64.outputs.ALL_TAGS)[format('TAG_{0}_{1}', steps.transform.outputs.CONTAINER_TAG, matrix.FLAVOR)] }}
-            ${{ fromJson(needs.arm64.outputs.ALL_TAGS)[format('TAG_{0}_{1}', steps.transform.outputs.CONTAINER_TAG, matrix.FLAVOR)] }}
-          TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
-          TARGET_TAGS: |
-            type=raw,value=${{ steps.transform.outputs.TARGET_TAG_FLAVOR }},priority=500
-            type=raw,value=${{ steps.transform.outputs.TARGET_TAG_DATED }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   finalize:
     needs: [amd64, arm64]
