@@ -15,7 +15,7 @@ RUN <<"EOF" bash -ex
 cat ${MANIFEST_FILE}
 get-source.sh -l maxtext -m ${MANIFEST_FILE} 
 cat "${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
-echo "pip install transformer-engie" >> /opt/pip-tools.d/requirements-maxtext.in
+echo "transformer-engine" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
 
 ###############################################################################
