@@ -1,12 +1,13 @@
 diff --git a/MaxText/configs/base.yml b/MaxText/configs/base.yml
-index 50cf37e..a3ab61d 100644
+index c66a8d2..0bf0ea3 100644
 --- a/MaxText/configs/base.yml
 +++ b/MaxText/configs/base.yml
-@@ -64,7 +64,7 @@ logits_via_embedding: True  # NOTE: this is True just for testing.
+@@ -76,7 +76,7 @@ logits_via_embedding: True  # NOTE: this is True just for testing.
  remat_policy: 'full'
  scan_layers: True
  param_scan_axis: 1
 -attention: 'flash' # Supported attention: dot_product, flash, gpu_flash_xla, gpu_flash_triton
 +attention: 'dot_product' # Supported attention: dot_product, flash, gpu_flash_xla, gpu_flash_triton
- 
- record_internal_nn_metrics: 0
+ # Combine matmuls for QKV and MLP
+ fused_qkv: False
+ fused_mlp: False
