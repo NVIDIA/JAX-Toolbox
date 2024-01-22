@@ -39,7 +39,7 @@ paxml:
   latest_verified_commit: e666687c20ed64383485853cc7691228b4f4d302
   mode: git-clone
   patches:
-    mirror/patch/te_support_synthetic_rebase: file://patches/paxml/mirror-patch-te_support_synthetic_rebase.patch # adds Transformer Engine support
+    pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
 praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
