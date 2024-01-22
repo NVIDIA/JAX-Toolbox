@@ -17,14 +17,17 @@ docker buildx build --build-context jax-toolbox=. --tag rosetta-${ROSETTA_BASE}:
 ```
 
 ### Advanced use-cases
+
+#### Build with updated patches
 ```sh
-# If you want to build with updated patches
-cd JAX-Toolbox
-
-ROSETTA_BASE=pax
-
 bash .github/container/bump.sh -i .github/container/manifest.yaml
 docker buildx build --build-context jax-toolbox=. --tag rosetta-${ROSETTA_BASE}:latest -f rosetta/Dockerfile.${ROSETTA_BASE} --build-arg UPDATE_PATCHES=true .
+```
+
+#### Build and force update TE
+Supports any git-ref on [NVIDIA/TransformerEngine](https://github.com/NVIDIA/TransformerEngine) including pull requests (e.g., `pull/PR_NUM/head`)
+```sh
+docker buildx build --build-arg UPDATED_TE_REF=pull/609/head --build-context jax-toolbox=. --tag rosetta-${ROSETTA_BASE}:latest -f rosetta/Dockerfile.${ROSETTA_BASE} .
 ```
 
 ## Development

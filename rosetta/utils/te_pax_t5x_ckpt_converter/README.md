@@ -156,5 +156,5 @@ restoring it to keep training.
 If you would like to run the converted CKPTs with frameworks, you may expect the converted CKPTs have the same folder
 structure with CKPTs stored by frameworks. In this case, you could set `--output-path` to be the same stucture as the 
 CKPTs from frameworks, and no need to pre-generate folders, since it would be generated when needed.
-For Pax, you could set `--output-path` be like `/${your_path_to_output}/checkpoints/checkpoint_${step}/state`.
+For Pax, you could set `--output-path` be like ` /${your_path_to_output}/checkpoints/checkpoint_${step}`.
 For T5X, you could set `--output-path` be like `/${your_path_to_output}/checkpoint_${step}`.

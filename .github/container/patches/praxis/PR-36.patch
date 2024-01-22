@@ -1,7 +1,7 @@
 From 41488517eb6d95eb7943681e706c8804e6102c41 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 11:38:27 +0800
-Subject: [PATCH 1/2] Adding TE support
+Subject: [PATCH 1/3] Adding TE support
 
 ---
  praxis/contrib/gpu/scripts_gpu/te_helper.py | 176 ++++++++++++++++++++
@@ -253,7 +253,7 @@ index ab6cff3..c79dac9 100644
 From ff1745796009cf1ec59f463f8e776c66f1286938 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 17 Nov 2023 15:21:06 +0800
-Subject: [PATCH 2/2] Fix missing vars wiht PP.
+Subject: [PATCH 2/3] Fix missing vars wiht PP.
 
 ---
  praxis/contrib/gpu/scripts_gpu/te_helper.py | 34 ++++++++++++---------
@@ -357,6 +357,124 @@ index e3b2f7c..b31526e 100644
            mutable=True,
            trans_in_fn=_get_to_f32_converter(bf16_vars_to_convert),
            trans_out_fn=_get_to_bf16_converter(bf16_vars_to_convert),
+-- 
+2.25.1
+
+
+From 99e26aaf14131ca73501f08162be628b55c86a88 Mon Sep 17 00:00:00 2001
+From: Reese Wang <rewang@nvidia.com>
+Date: Wed, 17 Jan 2024 02:36:31 -0800
+Subject: [PATCH 3/3] Add checkpoint_policy checker for fused attn + dropout
+
+Signed-off-by: Reese Wang <rewang@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 45 ++++++++++++++++++++-
+ praxis/layers/transformers.py               |  4 ++
+ 2 files changed, 48 insertions(+), 1 deletion(-)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index 050d441..290b74c 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -3,6 +3,8 @@ import os
+ from praxis import base_layer
+ from praxis import pax_fiddle
+ from praxis import pytypes
++from praxis import layers
++from praxis.layers.checkpoint_policy import AutodiffCheckpointType
+ 
+ try:
+     import transformer_engine.jax as te
+@@ -43,6 +45,9 @@ class TransformerEngineHelperBase:
+     def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
+         raise NotImplementedError
+ 
++    @staticmethod
++    def check_checkpoint_policy(tpl):
++        raise NotImplementedError
+ 
+ 
+ class TENotInstalledHelper(TransformerEngineHelperBase):
+@@ -76,6 +81,11 @@ class TENotInstalledHelper(TransformerEngineHelperBase):
+     def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
+         return xformer_layer_p.tr_atten_tpl.activation_split_dims_mapping.bld
+ 
++    @staticmethod
++    def check_checkpoint_policy(_):
++        """Every checkpoint policy is valid without TE"""
++        pass
++
+ 
+ class TEInstalledHelper(TransformerEngineHelperBase):
+ 
+@@ -150,7 +160,36 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+         bld_mapping = [batch_mapping, None, hidden_tp_mapping]
+         return bld_mapping
+ 
+-
++    @staticmethod
++    def check_checkpoint_policy(tpl):
++        """Some checkpoint policies are not compatible with TE fused attention"""
++        if issubclass(tpl.cls, layers.transformers.StackedTransformer):
++            remat = tpl.remat
++            attention_dropout = tpl.atten_dropout_prob or tpl.dropout_prob
++        elif issubclass(tpl.cls, layers.transformers.StackedTransformerRepeated):
++            if not issubclass(tpl.block.cls, layers.transformers.StackedTransformer):
++                return
++            remat = True  # Current StackedTransformerRepeat always enables remat
++            attention_dropout = tpl.block.atten_dropout_prob or tpl.block.dropout_prob
++        else:
++            raise ValueError(f'Unsupported class={tpl.cls}')
++
++        supported_checkpoint_policies = [
++            AutodiffCheckpointType.SAVE_CONTEXT,
++            AutodiffCheckpointType.SAVE_CONTEXT_AND_OUT_PROJ,
++            AutodiffCheckpointType.SAVE_DOT_FOR_MLPERF_200B,
++            AutodiffCheckpointType.SAVE_QUANTIZED,
++            AutodiffCheckpointType.SAVE_DOT_EXCEPT_LOGITS_FFN1,
++            AutodiffCheckpointType.SAVE_DOT_EXCEPT_LOGITS]
++        fused_attn_enabled = int(os.getenv("NVTE_FUSED_ATTN", "0"))
++        if remat and fused_attn_enabled and attention_dropout > 0.:
++            assert tpl.checkpoint_policy in supported_checkpoint_policies, \
++            "Fused attn in TE only permits policies that save 'context' tensors when dropout is " \
++            "enabled. This restriction is due to the maintenance of the dropout offset within TE, " \
++            "which is incompatible with the JAX remat. Consequently, it's necessary to bypass " \
++            "recomputation in the attention layer when fused attention is activated. The supported " \
++            f"checkpoint_policies are {supported_checkpoint_policies} but the provided " \
++            f"checkpoint_policy is '{tpl.checkpoint_policy}'."
+ 
+ 
+ class TransformerEngineHelper(TransformerEngineHelperBase):
+@@ -180,3 +219,7 @@ class TransformerEngineHelper(TransformerEngineHelperBase):
+     def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
+         return TransformerEngineHelper.get_helper().get_bld_mapping_for_pipelined_transformer(
+                     xformer_layer_p)
++
++    @staticmethod
++    def check_checkpoint_policy(tpl):
++        return TransformerEngineHelper.get_helper().check_checkpoint_policy(tpl)
+diff --git a/praxis/layers/transformers.py b/praxis/layers/transformers.py
+index c79dac9..e076530 100644
+--- a/praxis/layers/transformers.py
++++ b/praxis/layers/transformers.py
+@@ -1657,6 +1657,8 @@ class StackedTransformer(base_layer.BaseLayer):
+       else:
+         p_i = self._clone_layer_params(self.transformer_layer_params_tpl)
+ 
++      TransformerEngineHelper.check_checkpoint_policy(self._to_fdl_config())
++
+       p_i = TransformerEngineHelper.set_layer_params_to_stack_transformer(self, p_i, i)
+ 
+       if self.moe_layers and i in self.moe_layers:
+@@ -1967,6 +1969,8 @@ class StackedTransformerRepeated(base_layer.BaseLayer):
+   def setup(self) -> None:
+     wp = self.weight_split_dims_mapping
+ 
++    TransformerEngineHelper.check_checkpoint_policy(self._to_fdl_config())
++
+     repeat_l_params = pax_fiddle.Config(
+         repeats.Repeat,
+         sub_tpl=self.block,
 -- 
 2.25.1
 
