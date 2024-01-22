@@ -5,9 +5,9 @@ jax:
   latest_verified_commit: b512b576ae18f0df11c59cd6961d327bd77e94a7
   mode: git-clone
 xla:
-  url: https://github.com/openxla/xla.git
+  url: ssh://git@git-staging.jax-toolbox.nvidia.com:20527/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: e6a0bb69ed5be4b9b95d0af2363d612368d4db0e
+  latest_verified_commit: f67a79f9e130badf6ef99687221a101d8f4fa8d0
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
