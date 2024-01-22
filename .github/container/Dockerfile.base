@@ -24,8 +24,10 @@ apt-get update
 apt-get install -y curl
 
 # Repo for newer nsight versions
-curl -o /usr/share/keyrings/nvidia.pub https://developer.download.nvidia.com/devtools/repos/ubuntu2204/$(dpkg --print-architecture)/nvidia.pub
-echo "deb [signed-by=/usr/share/keyrings/nvidia.pub] https://developer.download.nvidia.com/devtools/repos/ubuntu2204/$(dpkg --print-architecture)/ /" > /etc/apt/sources.list.d/devtools-ubuntu2204-$(dpkg --print-architecture).list
+export UBUNTU_ARCH=$(dpkg --print-architecture)
+export UBUNTU_VERSION=$(. /etc/os-release && echo ${ID}${VERSION_ID/./}) # e.g. ubuntu2204
+curl -o /usr/share/keyrings/nvidia.pub https://developer.download.nvidia.com/devtools/repos/${UBUNTU_VERSION}/${UBUNTU_ARCH}/nvidia.pub
+echo "deb [signed-by=/usr/share/keyrings/nvidia.pub] https://developer.download.nvidia.com/devtools/repos/${UBUNTU_VERSION}/${UBUNTU_ARCH}/ /" > /etc/apt/sources.list.d/devtools-${UBUNTU_VERSION}-${UBUNTU_ARCH}.list
 apt-get update
 
 apt-get install -y \
