@@ -1,19 +1,443 @@
-From 273753a5505696dd8c3b88b3addbcf3733e96d37 Mon Sep 17 00:00:00 2001
+From adbb03ba7275bad9684700e08f7460ff801fcb2a Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
-Date: Tue, 18 Jul 2023 10:27:03 -0700
-Subject: [PATCH 1/9] add TE support
+Date: Fri, 15 Dec 2023 14:43:09 -0800
+Subject: [PATCH 01/16] foce TRAINABLE_PE_MAX_SEQ_LEN to equal MAX_SEQ_LEN when
+ user uses fdl override
 
 ---
- paxml/contrib/gpu/scripts_gpu/configs.py   |  22 +-
+ paxml/contrib/gpu/scripts_gpu/configs.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
+index 71542ad..03bf266 100644
+--- a/paxml/contrib/gpu/scripts_gpu/configs.py
++++ b/paxml/contrib/gpu/scripts_gpu/configs.py
+@@ -117,8 +117,6 @@ class GPT126M(TransformerLmSpmdAdam):
+   DIMS_PER_HEAD = 64
+ 
+   TRAINABLE_POSITION_EMB = True
+-  TRAINABLE_PE_MAX_SEQ_LEN = MAX_SEQ_LEN
+-
+   USE_BIAS = True
+   LAYERNORM_EPSILON = 1e-5
+   ATTEN_LOGIT_CAP = -1.0
+@@ -145,6 +143,8 @@ class GPT126M(TransformerLmSpmdAdam):
+   LR_COS_MAX = 1.0
+ 
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    self.TRAINABLE_PE_MAX_SEQ_LEN = self.MAX_SEQ_LEN
++
+     task_p = super().task()
+     task_p = configure_gpt3_task(self, task_p)
+     task_p.train.num_train_steps = self.MAX_STEPS
+-- 
+2.25.1
+
+
+From 21c4d3d7414a58b246b918b993f52215dc4207a2 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Fri, 15 Dec 2023 14:44:10 -0800
+Subject: [PATCH 02/16] fix lambada citation
+
+---
+ paxml/contrib/gpu/scripts_gpu/tfds_lambada.py | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/tfds_lambada.py b/paxml/contrib/gpu/scripts_gpu/tfds_lambada.py
+index 63e99a1..793b73e 100644
+--- a/paxml/contrib/gpu/scripts_gpu/tfds_lambada.py
++++ b/paxml/contrib/gpu/scripts_gpu/tfds_lambada.py
+@@ -77,8 +77,6 @@ except ImportError:
+     parser = json.Parser()
+ 
+ 
+-_CITATION = """
+-"""
+ _DATASET_MODES = ["lm"]
+ 
+ _URLS = {
+-- 
+2.25.1
+
+
+From 5a405495fc5aeb29dca87cd4c13907827e563b16 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Mon, 18 Dec 2023 13:18:03 -0800
+Subject: [PATCH 03/16] add 126M config wtih synthetic dataset for benchmarking
+
+---
+ paxml/contrib/gpu/scripts_gpu/configs.py | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
+index 03bf266..6693076 100644
+--- a/paxml/contrib/gpu/scripts_gpu/configs.py
++++ b/paxml/contrib/gpu/scripts_gpu/configs.py
+@@ -22,6 +22,7 @@ from paxml import tasks_lib
+ from paxml.contrib.gpu.scripts_gpu.tasks import LambadaDataset
+ from paxml.contrib.gpu.scripts_gpu.tasks import PileUnsupervisedDataset
+ from paxml.tasks.lm.params.c4 import TransformerLmSpmdAdam
++from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
+ from praxis import base_layer
+ from praxis import layers
+ from praxis import optimizers
+@@ -172,6 +173,11 @@ class GPT126M(TransformerLmSpmdAdam):
+ 
+     return task_p
+ 
++@experiment_registry.register
++class Synthetic126M(GPT126M, SyntheticDataset):
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
+ 
+ @experiment_registry.register
+ class Pile126M(GPT126M, PileUnsupervisedDataset):
+-- 
+2.25.1
+
+
+From d52d43deaa02236dc406cbc877981ff74ceccf24 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Wed, 10 Jan 2024 16:09:11 -0800
+Subject: [PATCH 04/16] [WIP] refactor configs.py and add configs with
+ synthetic dataset for benchmarking. NOTE: we will have to rebase the TE patch
+ once this patch is applied
+
+---
+ paxml/contrib/gpu/scripts_gpu/configs.py | 87 ++++++++++++++++--------
+ 1 file changed, 57 insertions(+), 30 deletions(-)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
+index 6693076..a859d5c 100644
+--- a/paxml/contrib/gpu/scripts_gpu/configs.py
++++ b/paxml/contrib/gpu/scripts_gpu/configs.py
+@@ -95,10 +95,9 @@ def configure_gpt3_task(
+ 
+   return task_p
+ 
+-
+ ## 8 node
+ @experiment_registry.register
+-class GPT126M(TransformerLmSpmdAdam):
++class GPT126MBase(TransformerLmSpmdAdam):
+ 
+   USE_REPEATED_LAYER = False
+   ICI_MESH_SHAPE = [8, 1, 1]
+@@ -173,35 +172,9 @@ class GPT126M(TransformerLmSpmdAdam):
+ 
+     return task_p
+ 
+-@experiment_registry.register
+-class Synthetic126M(GPT126M, SyntheticDataset):
+-  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+-    task_p = super().task()
+-    return task_p
+-
+-@experiment_registry.register
+-class Pile126M(GPT126M, PileUnsupervisedDataset):
+-
+-  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+-    task_p = super().task()
+-    return task_p
+-
+-
+-@experiment_registry.register
+-class Lambada126M(GPT126M, LambadaDataset):
+-
+-  ICI_MESH_SHAPE = [8,1,1]
+-
+-  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+-    task_p = super().task()
+-    task_p.train.always_use_train_for_model_init=False
+-    task_p.model.report_strict_acc=True
+-    return task_p
+-
+-
+ ## 32 node
+ @experiment_registry.register
+-class GPT5B(Pile126M):
++class GPT5BBase(GPT126MBase):
+ 
+   USE_REPEATED_LAYER = True
+   ICI_MESH_SHAPE = [1, 8, 1]
+@@ -247,7 +220,7 @@ class GPT5B(Pile126M):
+ 
+ ## 96 node
+ @experiment_registry.register
+-class GPT175B(Pile126M):
++class GPT175BBase(GPT126MBase):
+ 
+   NUM_LAYERS = 96
+   NUM_HEADS = 96
+@@ -300,3 +273,57 @@ class GPT175B(Pile126M):
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
+     return task_p
++
++### synthetic configs
++@experiment_registry.register
++class Synthetic126M(GPT126MBase, SyntheticDataset):
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++class Synthetic5B(GPT5BBase, SyntheticDataset):
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++class Synthetic175B(GPT175BBase, SyntheticDataset):
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++### configs with the Pile dataset
++@experiment_registry.register
++class Pile126M(GPT126MBase, PileUnsupervisedDataset):
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++@experiment_registry.register
++class Pile5B(GPT5BBase, PileUnsupervisedDataset):
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++@experiment_registry.register
++class Pile175B(GPT175BBase, PileUnsupervisedDataset):
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++
++### example of a config that runs evaluation on the lambada dataset
++@experiment_registry.register
++class Lambada126M(GPT126MBase, LambadaDataset):
++
++  ICI_MESH_SHAPE = [8,1,1]
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    task_p.train.always_use_train_for_model_init=False
++    task_p.model.report_strict_acc=True
++    return task_p
++
++
++### legacy aliases
++GPT5B = Pile5B
++GPT175B = Pile175B
+\ No newline at end of file
+-- 
+2.25.1
+
+
+From 7535580f2833fa421afea2ca21d09322ec598021 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Wed, 10 Jan 2024 16:39:58 -0800
+Subject: [PATCH 05/16] add initial scipt for benchmarking using a synhetic
+ dataset
+
+---
+ .../scripts_gpu/benchmark_gpt_multinode.sh    | 47 +++++++++++++++++++
+ 1 file changed, 47 insertions(+)
+ create mode 100644 paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh b/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
+new file mode 100644
+index 0000000..31fcd3d
+--- /dev/null
++++ b/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
+@@ -0,0 +1,47 @@
++# coding=utf-8
++# Copyright 2022 The Pax Authors.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++#! /bin/bash
++# Assumes you are using a SLURM cluster. Edit flags under --multiprocess_gpu below to suit your setup
++set -u
++
++PREC=${1:-"bfloat16"}        # Precision (float32, bfloat16)
++NUM_GPUS=${2:-8}      # Number of GPUs (1, 2, 4, 8)
++PERCORE_BATCH_SIZE=${3:-4}
++LOG_DIR=${4:-"test_logdir"}
++
++export VOCAB_PATH=None
++export XLA_PYTHON_CLIENT_MEM_FRACTION=${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.85}
++BASE_XLA_FLAGS=${BASE_XLA_FLAGS:-"--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_triton_gemm=false
++                       --xla_gpu_simplify_all_fp_conversions --xla_gpu_enable_async_all_gather=true
++                       --xla_gpu_enable_async_reduce_scatter=true  --xla_gpu_enable_highest_priority_async_stream=true
++                       --xla_gpu_enable_triton_softmax_fusion=false  --xla_gpu_all_reduce_combine_threshold_bytes=51200
++                       --xla_gpu_graph_level=0 --xla_gpu_enable_async_all_reduce=true"}
++export XLA_FLAGS="$BASE_XLA_FLAGS ${XLA_FLAGS:-}"
++
++
++## NOTE: 126M trained with pure data parallel
++mkdir -p $LOG_DIR
++python3 -u -m paxml.main \
++    --job_log_dir=$LOG_DIR \
++    --fdl_config=paxml.contrib.gpu.scripts_gpu.configs.Synthetic126M \
++    --fdl.FPROP_DTYPE=\"${PREC}\" \
++    --fdl.PERCORE_BATCH_SIZE=$PERCORE_BATCH_SIZE \
++    --multiprocess_gpu \
++    --server_addr=${SLURM_LAUNCH_NODE_IPADDR}:12345 \
++    --num_hosts=$SLURM_NTASKS \
++    --host_idx=$SLURM_PROCID \
++    --alsologtostderr
++
+-- 
+2.25.1
+
+
+From d94e99649338b1e59bb32ba712eb528dced57482 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Wed, 10 Jan 2024 16:42:00 -0800
+Subject: [PATCH 06/16] make model size configurable
+
+---
+ .../gpu/scripts_gpu/benchmark_gpt_multinode.sh       | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh b/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
+index 31fcd3d..8b2e54b 100644
+--- a/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
++++ b/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
+@@ -17,10 +17,11 @@
+ # Assumes you are using a SLURM cluster. Edit flags under --multiprocess_gpu below to suit your setup
+ set -u
+ 
+-PREC=${1:-"bfloat16"}        # Precision (float32, bfloat16)
+-NUM_GPUS=${2:-8}      # Number of GPUs (1, 2, 4, 8)
+-PERCORE_BATCH_SIZE=${3:-4}
+-LOG_DIR=${4:-"test_logdir"}
++CONFIG=${1:-"Synthetic126M"}
++PREC=${2:-"bfloat16"}        # Precision (float32, bfloat16)
++NUM_GPUS=${3:-8}      # Number of GPUs (1, 2, 4, 8)
++PERCORE_BATCH_SIZE=${4:-4}
++LOG_DIR=${5:-"test_logdir"}
+ 
+ export VOCAB_PATH=None
+ export XLA_PYTHON_CLIENT_MEM_FRACTION=${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.85}
+@@ -32,11 +33,10 @@ BASE_XLA_FLAGS=${BASE_XLA_FLAGS:-"--xla_gpu_enable_latency_hiding_scheduler=true
+ export XLA_FLAGS="$BASE_XLA_FLAGS ${XLA_FLAGS:-}"
+ 
+ 
+-## NOTE: 126M trained with pure data parallel
+ mkdir -p $LOG_DIR
+ python3 -u -m paxml.main \
+     --job_log_dir=$LOG_DIR \
+-    --fdl_config=paxml.contrib.gpu.scripts_gpu.configs.Synthetic126M \
++    --fdl_config=paxml.contrib.gpu.scripts_gpu.configs.${CONFIG} \
+     --fdl.FPROP_DTYPE=\"${PREC}\" \
+     --fdl.PERCORE_BATCH_SIZE=$PERCORE_BATCH_SIZE \
+     --multiprocess_gpu \
+-- 
+2.25.1
+
+
+From 97237bf83bc34263395c18e1d5f01648705f7df9 Mon Sep 17 00:00:00 2001
+From: Anna Shors <ashors@nvidia.com>
+Date: Fri, 12 Jan 2024 13:21:11 -0800
+Subject: [PATCH 07/16] minor fixes
+
+---
+ paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh | 2 ++
+ paxml/contrib/gpu/scripts_gpu/configs.py                 | 7 +++----
+ 2 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh b/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
+index 8b2e54b..6421a04 100644
+--- a/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
++++ b/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
+@@ -43,5 +43,7 @@ python3 -u -m paxml.main \
+     --server_addr=${SLURM_LAUNCH_NODE_IPADDR}:12345 \
+     --num_hosts=$SLURM_NTASKS \
+     --host_idx=$SLURM_PROCID \
++    --enable_checkpoint_saving=False \
++    --fdl.MAX_STEPS=100 \
+     --alsologtostderr
+ 
+diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
+index a859d5c..636d30d 100644
+--- a/paxml/contrib/gpu/scripts_gpu/configs.py
++++ b/paxml/contrib/gpu/scripts_gpu/configs.py
+@@ -96,7 +96,6 @@ def configure_gpt3_task(
+   return task_p
+ 
+ ## 8 node
+-@experiment_registry.register
+ class GPT126MBase(TransformerLmSpmdAdam):
+ 
+   USE_REPEATED_LAYER = False
+@@ -173,7 +172,6 @@ class GPT126MBase(TransformerLmSpmdAdam):
+     return task_p
+ 
+ ## 32 node
+-@experiment_registry.register
+ class GPT5BBase(GPT126MBase):
+ 
+   USE_REPEATED_LAYER = True
+@@ -219,7 +217,6 @@ class GPT5BBase(GPT126MBase):
+ 
+ 
+ ## 96 node
+-@experiment_registry.register
+ class GPT175BBase(GPT126MBase):
+ 
+   NUM_LAYERS = 96
+@@ -281,11 +278,13 @@ class Synthetic126M(GPT126MBase, SyntheticDataset):
+     task_p = super().task()
+     return task_p
+ 
++@experiment_registry.register
+ class Synthetic5B(GPT5BBase, SyntheticDataset):
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
+     return task_p
+ 
++@experiment_registry.register
+ class Synthetic175B(GPT175BBase, SyntheticDataset):
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
+@@ -326,4 +325,4 @@ class Lambada126M(GPT126MBase, LambadaDataset):
+ 
+ ### legacy aliases
+ GPT5B = Pile5B
+-GPT175B = Pile175B
+\ No newline at end of file
++GPT175B = Pile175B
+-- 
+2.25.1
+
+
+From a1b2fc5303be2ff86c982f3da7ff503d362dc7eb Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Tue, 18 Jul 2023 10:27:03 -0700
+Subject: [PATCH 08/16] add TE support
+
+---
+ paxml/contrib/gpu/scripts_gpu/configs.py   |  23 +-
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 324 +++++++++++++++++++++
  paxml/main.py                              |  67 +++--
  paxml/tasks_lib.py                         |   3 +-
  paxml/trainer_lib.py                       |  36 ++-
- 5 files changed, 400 insertions(+), 52 deletions(-)
+ 5 files changed, 401 insertions(+), 52 deletions(-)
  create mode 100644 paxml/contrib/gpu/scripts_gpu/te_helper.py
 
 diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
-index a40c9a1..baed829 100644
+index 636d30d..00efe46 100644
 --- a/paxml/contrib/gpu/scripts_gpu/configs.py
 +++ b/paxml/contrib/gpu/scripts_gpu/configs.py
 @@ -21,6 +21,7 @@ from paxml import experiment_registry
@@ -24,7 +448,7 @@ index a40c9a1..baed829 100644
  from paxml.tasks.lm.params.c4 import TransformerLmSpmdAdam
  from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
  from praxis import base_layer
-@@ -107,7 +108,7 @@ class GPT126MBase(TransformerLmSpmdAdam):
+@@ -106,7 +107,7 @@ class GPT126MBase(TransformerLmSpmdAdam):
  
    MAX_SEQ_LEN = 2048
    VOCAB_SIZE = 50304
@@ -33,7 +457,7 @@ index a40c9a1..baed829 100644
    PERCORE_BATCH_SIZE = 4
  
    NUM_LAYERS = 12
-@@ -159,10 +160,21 @@ class GPT126MBase(TransformerLmSpmdAdam):
+@@ -158,10 +159,21 @@ class GPT126MBase(TransformerLmSpmdAdam):
          fdl.get_callable(stacked_p), transformers.StackedTransformerRepeated
      ):
        stacked_p = stacked_p.block
@@ -58,7 +482,15 @@ index a40c9a1..baed829 100644
  
      model_p.params_init = WeightInit.Gaussian(self.INIT_STD)
      softmax_init = WeightInit.Gaussian(self.SOFTMAX_INIT_STD)
-@@ -227,7 +239,7 @@ class GPT175BBase(GPT126MBase):
+@@ -171,6 +183,7 @@ class GPT126MBase(TransformerLmSpmdAdam):
+ 
+     return task_p
+ 
++
+ ## 32 node
+ class GPT5BBase(GPT126MBase):
+ 
+@@ -225,7 +238,7 @@ class GPT175BBase(GPT126MBase):
    # Known as MLP_DIM in t5x
    HIDDEN_DIMS = MODEL_DIMS * 4
    # Defaults to MODEL_DIMS // NUM_HEADS.
@@ -505,7 +937,7 @@ index 2b51f64..629a579 100644
          var_weight_hparams)
      train_state_pspecs = ckpt_task.create_train_state_partition_specs(
 diff --git a/paxml/trainer_lib.py b/paxml/trainer_lib.py
-index 933784a..70247a7 100644
+index 643c0f2..4600ddc 100644
 --- a/paxml/trainer_lib.py
 +++ b/paxml/trainer_lib.py
 @@ -35,6 +35,7 @@ from paxml import learners as learners_lib
@@ -644,7 +1076,7 @@ index 933784a..70247a7 100644
  
    if fprop_dtype == jnp.float32:
      pass
-@@ -1554,7 +1562,7 @@ def initialize_partitioned_model_states(
+@@ -1551,7 +1559,7 @@ def initialize_partitioned_model_states(
    model = jax_task.model
    if not var_weight_hparams:
      var_weight_hparams = model.abstract_init_with_metadata(
@@ -657,10 +1089,10 @@ index 933784a..70247a7 100644
 2.25.1
 
 
-From f80c7b08e6eda1946821e779307a9388e714d57a Mon Sep 17 00:00:00 2001
+From 1f5d78da2e392b2ef7b89c548ef1be61fc905141 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 27 Sep 2023 10:46:53 +0800
-Subject: [PATCH 2/9] Adding dropout support when enabling TE.
+Subject: [PATCH 09/16] Adding dropout support when enabling TE.
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 10 ++++++++++
@@ -691,10 +1123,10 @@ index d44ca67..2b9dba4 100644
 2.25.1
 
 
-From 4aba0e9ff9622962cf586a02ca1f399b991c62ab Mon Sep 17 00:00:00 2001
+From f5791ab5a2ee17bc8737f1641aefa395ccdb9c8a Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 24 Oct 2023 10:30:27 +0800
-Subject: [PATCH 3/9] Set deterministic=True for inference.
+Subject: [PATCH 10/16] Set deterministic=True for inference.
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 3 ++-
@@ -718,10 +1150,10 @@ index 2b9dba4..ef20305 100644
 2.25.1
 
 
-From d1db96e4cb34f8bda22bc79b4180157cb60dc849 Mon Sep 17 00:00:00 2001
+From 6d33edffc01ea7b9349dab4f00007ea265debfe5 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Thu, 2 Nov 2023 22:04:58 -0700
-Subject: [PATCH 4/9] Fix the excluded list for excluded_for_learner
+Subject: [PATCH 11/16] Fix the excluded list for excluded_for_learner
 
 Signed-off-by: Reese Wang <rewang@nvidia.com>
 ---
@@ -729,7 +1161,7 @@ Signed-off-by: Reese Wang <rewang@nvidia.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/paxml/trainer_lib.py b/paxml/trainer_lib.py
-index 70247a7..0a31c30 100644
+index 4600ddc..9a6080e 100644
 --- a/paxml/trainer_lib.py
 +++ b/paxml/trainer_lib.py
 @@ -1157,7 +1157,7 @@ def train_step_single_learner(
@@ -745,10 +1177,10 @@ index 70247a7..0a31c30 100644
 2.25.1
 
 
-From f70581b80d35979804fd4250a3dcc4ad508f618d Mon Sep 17 00:00:00 2001
+From 4ee958ba1e16cba97b2812fb89e50e3f27311321 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 7 Nov 2023 11:21:53 +0800
-Subject: [PATCH 5/9] Adapting to TE/JAX/Custom_partitioning.
+Subject: [PATCH 12/16] Adapting to TE/JAX/Custom_partitioning.
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 6 ++++--
@@ -782,10 +1214,10 @@ index ef20305..fed1601 100644
 2.25.1
 
 
-From 9f33a95fbbf26d7453016dd58da5e5b29031a6d1 Mon Sep 17 00:00:00 2001
+From 852c3f4eeb186a5c56911a2421769d7f584e92ed Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 7 Nov 2023 15:14:25 +0800
-Subject: [PATCH 6/9] Adding TE-compatiable PipelinedTransformer
+Subject: [PATCH 13/16] Adding TE-compatiable PipelinedTransformer
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 109 +++++++++++++++++++++
@@ -949,10 +1381,10 @@ index fed1601..5914e54 100644
 2.25.1
 
 
-From d7126f9906e9bba110f482e46eb81e068153e8e8 Mon Sep 17 00:00:00 2001
+From 59b260008c982ca9c725d9a888b2d641de015add Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 8 Nov 2023 10:06:49 +0800
-Subject: [PATCH 7/9] Apply OWG to TE's FP8 meta
+Subject: [PATCH 14/16] Apply OWG to TE's FP8 meta
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 59 ----------------------
@@ -1058,7 +1490,7 @@ index 5914e54..fd482df 100644
      @contextmanager
      def fp8_autocast(dp_mesh_axis="replica", tp_mesh_axis="mdl", fsdp_mesh_axis="data"):
 diff --git a/paxml/trainer_lib.py b/paxml/trainer_lib.py
-index 0a31c30..d3df86b 100644
+index 9a6080e..6b9d176 100644
 --- a/paxml/trainer_lib.py
 +++ b/paxml/trainer_lib.py
 @@ -995,16 +995,15 @@ def get_excluded_var_masks(
@@ -1110,10 +1542,10 @@ index 0a31c30..d3df86b 100644
 2.25.1
 
 
-From 9ee9830083cba5f9441af37c8af1c8f66a4d195b Mon Sep 17 00:00:00 2001
+From a8f86113ae9d9f407810174fb7bc4808e47c4555 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 14:43:17 +0800
-Subject: [PATCH 8/9] Remove Praxis related setup (Moving to Praxis TE/Patch)
+Subject: [PATCH 15/16] Remove Praxis related setup (Moving to Praxis TE/Patch)
 
 ---
  paxml/contrib/gpu/scripts_gpu/configs.py   |   9 -
@@ -1121,10 +1553,10 @@ Subject: [PATCH 8/9] Remove Praxis related setup (Moving to Praxis TE/Patch)
  2 files changed, 324 deletions(-)
 
 diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
-index baed829..872b105 100644
+index 00efe46..55be13a 100644
 --- a/paxml/contrib/gpu/scripts_gpu/configs.py
 +++ b/paxml/contrib/gpu/scripts_gpu/configs.py
-@@ -166,15 +166,6 @@ class GPT126MBase(TransformerLmSpmdAdam):
+@@ -165,15 +165,6 @@ class GPT126MBase(TransformerLmSpmdAdam):
        transformer_layer_p = stacked_p.transformer_layer_params_tpl
        transformer_layer_p.ln_tpl.reductions_in_fp32 = True
        transformer_layer_p.tr_fflayer_tpl.ln_tpl.reductions_in_fp32 = True
@@ -1502,10 +1934,10 @@ index fd482df..b271258 100644
 2.25.1
 
 
-From ed1b33f85c9f4d2fa55a97ee0777f6ba67efefda Mon Sep 17 00:00:00 2001
+From 1136a5b799f627e03383ee70d036f71a478d53c0 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 14:51:14 +0800
-Subject: [PATCH 9/9] Fix missing DEFAULT_INIT_MUTABLE_LIST
+Subject: [PATCH 16/16] Fix missing DEFAULT_INIT_MUTABLE_LIST
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 4 ++++
