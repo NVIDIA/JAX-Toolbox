@@ -11,6 +11,11 @@ on:
         description: Publish dated images and update the 'latest' tag?
         default: false
         required: false
+      BUMP_MANIFEST:
+        type: boolean
+        description: Bump manifest file?
+        default: false
+        required: false
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
 
@@ -49,7 +54,7 @@ jobs:
         id: if-bump-manifest
         shell: bash -x -e {0}
         run: |
-          echo "BUMP_MANIFEST=${{ github.event_name == 'schedule' }}" >> $GITHUB_OUTPUT
+          echo "BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}" >> $GITHUB_OUTPUT
 
   amd64:
     needs: metadata
