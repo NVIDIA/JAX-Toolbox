@@ -8,7 +8,11 @@ on:
         description: Update the landing page badges with run outcomes
         default: false
         required: false
-
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-final-report'
 jobs:
   # show-containers:
   #   runs-on: ubuntu-22.04
@@ -112,16 +116,44 @@ jobs:
             cat "$f" | jq -r '.summary' | tee -a $GITHUB_STEP_SUMMARY
           done
 
-      # - name: Concatenate all sitreps
-      #   shell: bash -x -e {0}
-      #   run: |
-      #     # combine all sitreps files into a single file, where each sitrep json sits
-      #     # in a field named by the folder that contained it
+      - name: Concatenate all sitreps
+        shell: bash -x -e {0}
+        run: |
+          # combine all sitreps files into a single file, where each sitrep json sits
+          # in a field named by the folder that contained it
+          echo "[" >> fsitrep.json
+          sitrep_files=($(find . -name "sitrep.json"))
+          total_files=${#sitrep_files[@]}
 
-      #     find -name "sitrep.json" | while read -s f; do
-      #       echo "$(dirname $f): $(cat $f)," >>
-      #     done
+          # parse all the sitrep files and consolidate them into one
+          for ((i=0; i<total_files; i++)); do
+            FILE=${sitrep_files[$i]}
+            # Extract directory name
+            key=$(dirname "$FILE")
+            # Extract the summary field from the JSON files and append the content to the output JSON file.
+            if [[ "$key" == "./artifact-t5x-mgmn-test" || "$key" == "./artifact-pax-mgmn-test" ]]; then 
+              val_tmp=$(cat "$FILE" |  jq -r '.summary' )
+              # For t5x/pax mgmn test extract the test summary of tests and ignore extended metric info in the summary.
+              delimiter="|"
+              IFS=$delimiter read -ra parts <<< "$val_tmp" 
+              value="${parts[0]}passed"
+            else
+              value=$(cat "$FILE" |  jq -r '.summary' )
+            fi
 
+            jq -n --arg key "$key" --arg value "$value" '{ ($key): $value }' >> fsitrep.json
+            if [ $i != $((total_files-1)) ]; then
+              echo -n "," >> fsitrep.json
+            fi
+          done
+          echo "]" >> fsitrep.json
+          mv fsitrep.json sitrep.json
+          
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}
+          path: ./sitrep.json
   publish-badge:
     needs: [upload-badge]
     if: inputs.PUBLISH_BADGE == true

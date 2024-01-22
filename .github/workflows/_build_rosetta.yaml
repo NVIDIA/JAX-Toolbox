@@ -140,7 +140,7 @@ jobs:
           target: final
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
-
+            
       - name: Generate sitrep
         if: success() || failure()
         shell: bash -x -e {0}
@@ -148,7 +148,7 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='${{ inputs.BASE_LIBRARY }} ${{ inputs.ARCHITECTURE }} build'
+          badge_label='Rosetta ${{ inputs.BASE_LIBRARY }} ${{ inputs.ARCHITECTURE }} build'
           tags="${{ steps.final-metadata.outputs.tags }}"
           digest="${{ steps.final-build.outputs.digest }}"
           outcome="${{ steps.final-build.outcome }}"
@@ -156,11 +156,11 @@ jobs:
           if [[ ${outcome} == "success" ]]; then
             badge_message="pass"
             badge_color=brightgreen
-            summary="${{ inputs.BASE_LIBRARY }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+            summary="Rosetta ${{ inputs.BASE_LIBRARY }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
           else
             badge_message="fail"
             badge_color=red
-            summary="${{ inputs.BASE_LIBRARY }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+            summary="Rosetta ${{ inputs.BASE_LIBRARY }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
           fi
 
           to_json \
