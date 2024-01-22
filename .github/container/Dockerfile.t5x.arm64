@@ -153,41 +153,6 @@ cd ${SRC_PATH_TFTEXT}
 EOF
 
 
-#------------------------------------------------------------------------------
-# build t5 from source
-#------------------------------------------------------------------------------
-
-FROM wheel-builder as t5-builder
-ARG SRC_PATH_TFTEXT
-RUN <<"EOF" bash -exu -o pipefail
-pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
-cd ${SRC_PATH_TFTEXT}
-./oss_scripts/run_build.sh
-EOF
-
-COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
-
-RUN pip install /opt/tensorflow_text-*.whl
-
-# Install T5 now, Pip will build the wheel from source, it needs Rust.
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /tmp/rustup.sh && \
-    echo "be3535b3033ff5e0ecc4d589a35d3656f681332f860c5fd6684859970165ddcc /tmp/rustup.sh" | sha256sum --check && \
-    bash /tmp/rustup.sh -y && \
-    export PATH=$PATH:/root/.cargo/bin && \
-    pip install t5 && \
-    rm -Rf /root/.cargo /root/.rustup && \
-    mv /root/.profile /root/.profile.save && \
-    grep -v cargo /root/.profile.save > /root/.profile && \
-    rm /root/.profile.save && \
-    mv /root/.bashrc /root/.bashrc.save && \
-    grep -v cargo /root/.bashrc.save > /root/.bashrc && \
-    rm /root/.bashrc.save && \
-        rm -Rf /root/.cache /tmp/*
-
-RUN pip wheel --no-deps -w /opt/ t5
-
-
 ###############################################################################
 ## T5X for AArch64
 ###############################################################################
@@ -205,14 +170,12 @@ RUN echo "grain @ file://$(ls /opt/grain*.whl)" >> /opt/pip-tools.d/requirements
 COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
 
-# COPY --from=t5-builder /opt/t5-*.whl /opt/
-# RUN echo "t5 @ file://$(ls /opt/t5-*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
-
 RUN <<"EOF" bash -ex
+# 1. Fetch T5X
 get-source.sh -l t5x -m ${MANIFEST_FILE}
 echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
 
-# remove head-of-tree specs from select dependencies
+# 2. Remove head-of-tree specs from select dependencies
 pushd ${SRC_PATH_T5X}
 sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
 
@@ -242,9 +205,5 @@ ADD test-t5x.sh /usr/local/bin
 ###############################################################################
 
 FROM mealkit as final
-
-RUN pip uninstall -y tensorflow-text
-
-RUN echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-t5x.in
 
 RUN pip-finalize.sh
