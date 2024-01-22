@@ -56,7 +56,8 @@ ARG BUILD_DATE
 ENV BUILD_DATE=${BUILD_DATE}
 # The following environment variables tune performance
 # TODO: --xla_gpu_enable_xla_runtime_executable=true should be removed ASAP. It is a WAR for a crash observed in the default runtime leading to this error message: "nccl_all_reduce_thunk.cc:175] Check failed: reduction_kind.has_value()"
-ENV XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_async_all_gather=true --xla_gpu_enable_async_reduce_scatter=true --xla_gpu_enable_triton_gemm=false --xla_gpu_enable_xla_runtime_executable=true"
+# TODO: --xla_gpu_enable_llvm_module_compilation_parallelism=true should be removed ASAP. It is a WAR for the following LLVM crash observed in Pax: "Invalid LLVM IR before optimizations"
+ENV XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_async_all_gather=true --xla_gpu_enable_async_reduce_scatter=true --xla_gpu_enable_triton_gemm=false --xla_gpu_enable_xla_runtime_executable=true --xla_gpu_enable_llvm_module_compilation_parallelism=true"
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_IB_SL=1
 ENV NCCL_NVLS_ENABLE=0
