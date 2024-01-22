@@ -40,6 +40,7 @@ apt-get install -y \
   gnupg \
   liblzma-dev \
   lld \
+  nsight-compute \
   nsight-systems-cli \
   python-is-python3 \
   python3-pip \
