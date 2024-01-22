@@ -11,54 +11,46 @@ ARG SRC_PATH_T5X=/opt/paxml
 ## build array_record and grain which do not have working arm64 pip wheels
 ###############################################################################
 
-ARG BASE_IMAGE
-FROM ${BASE_IMAGE} as wheel-builder
-
-# grain build needs bazel
-RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
-    chmod a+x /usr/bin/bazel
-
 #------------------------------------------------------------------------------
 # build array_record 0.5.0 from source
 #------------------------------------------------------------------------------
 # TODO: Remove this once array_record maintainers have published an arm64 wheel.
 
-# The bazel build of array_record makes some strong assumptions on where the cpp toolchain lives.
-# We therefore stick to its existing Dockerfile, which ensures everything is in the right place:
-#
-#   https://github.com/google/array_record/tree/v0.5.0/oss/build.Dockerfile.aarch64
-#
 FROM linaro/tensorflow-arm64-build:2.12-multipython as array_record-builder
 # TODO: Infer PYTHON_VERSION from our own $BASE_IMAGE?
 ARG PYTHON_VERSION="3.10"
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PYTHON_BIN_PATH=/usr/bin/python${PYTHON_VERSION}
+# The bazel build of array_record makes some strong assumptions on where the cpp toolchain lives.
+# We therefore replicate (part of) its Dockerfile, which ensures everything is in the right place:
+#   https://github.com/google/array_record/tree/v0.5.0/oss/build.Dockerfile.aarch64
+#
+# BEGIN
+    ENV DEBIAN_FRONTEND=noninteractive
+    ENV PYTHON_BIN_PATH=/usr/bin/python${PYTHON_VERSION}
 
-# Install supplementary Python interpreters
-RUN ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python && \
-    ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python3 && \
-    ln -s ${PYTHON_BIN_PATH} /usr/bin/python
+    # Install supplementary Python interpreters
+    RUN ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python && \
+        ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python3 && \
+        ln -s ${PYTHON_BIN_PATH} /usr/bin/python
 
-RUN --mount=type=cache,target=/var/cache/apt \
-    apt update && \
-    apt install -yqq \
-        apt-utils \
-        build-essential \
-        checkinstall \
-        libffi-dev
+    RUN apt update && \
+        apt install -yqq \
+            apt-utils \
+            build-essential \
+            checkinstall \
+            libffi-dev
 
-# Install pip dependencies needed for array_record
-RUN --mount=type=cache,target=/root/.cache \
-    ${PYTHON_BIN_PATH} -m pip install -U pip && \
-    ${PYTHON_BIN_PATH} -m pip install -U \
-        absl-py \
-        auditwheel \
-        etils[epath] \
-        patchelf \
-        setuptools \
-        twine \
-        wheel;
+    # Install pip dependencies needed for array_record
+    RUN ${PYTHON_BIN_PATH} -m pip install -U pip && \
+        ${PYTHON_BIN_PATH} -m pip install -U \
+            absl-py \
+            auditwheel \
+            etils[epath] \
+            patchelf \
+            setuptools \
+            twine \
+            wheel
+# END
 
 RUN <<"EOT" bash -exu
 set -o pipefail
@@ -78,38 +70,53 @@ EOT
 #------------------------------------------------------------------------------
 # TODO: Remove this once grain maintainers have published an arm64 wheel.
 
-FROM wheel-builder as grain-builder
+FROM ${BASE_IMAGE} as grain-builder
 ARG PYTHON_VERSION="3.10"
+
+# Setup bazel
+RUN  wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
+    chmod a+x /usr/bin/bazel
+
+# The following setup steps are based on
+#   https://github.com/google/grain/blob/ab557c31672cc2ac6f9b31e33aea2df00a7da5bf/grain/oss/build.Dockerfile
+#
+# BEGIN
+    # Setup python
+    RUN apt-get update && apt-get install -y \
+            python3-dev python3-pip python3-venv && \
+            rm -rf /var/lib/apt/lists/* && \
+            python${PYTHON_VERSION} -m pip install pip --upgrade && \
+            update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 0
+
+    # Install pip dependencies needed for grain
+    # NOTE: We are ignoring the fact that "array_record" will actually resolve to the wrong version
+    #   here. When we put it all together in the final image, we make sure that the right version is
+    #   already installed.
+    RUN pip install \
+            absl-py \
+            array_record \
+            build \
+            cloudpickle \
+            dm-tree \
+            etils[epath] \
+            "more-itertools>=9.1.0" \
+            numpy
+
+    # Install pip dependencies needed for grain tests
+    RUN pip install \
+            dill \
+            jax \
+            jaxlib \
+            tensorflow \
+            tensorflow-datasets
+# END
 
 RUN <<"EOT" bash -exu
 set -o pipefail
 
-# Setup python
-apt-get update && apt-get install -y \
-    python3-dev python3-pip python3-venv && \
-    rm -rf /var/lib/apt/lists/* && \
-    python${PYTHON_VERSION} -m pip install pip --upgrade && \
-    update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 0
-
-# NOTE: We are ignoring the fact that "array_record" will actually resolve to the wrong version
-#   here. When we put it all together in the final image, we make sure that the right version is
-#   already installed.
-pip install \
-    absl-py \
-    array_record \
-    build \
-    cloudpickle \
-    dm-tree \
-    etils[epath] \
-    "more-itertools>=9.1.0" \
-    numpy;
-
-pip install \
-    dill \
-    jax \
-    jaxlib \
-    tensorflow \
-    tensorflow-datasets;
+# The open-source version of grain contains various references to Google-internal dependencies,
+# and does not contain build scripts compatible with arm64. We instead build a patched version,
+# based on https://github.com/google/grain/commit/6de2270cec0407d0011721b78461b344abe07704
 
 git clone https://github.com/gspschmid/grain /opt/grain
 cd /opt/grain
