@@ -56,90 +56,32 @@ permissions:
 
 jobs:
 
-  build-levanter:
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
-    env:
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
+  metadata:
+    runs-on: ubuntu-22.04
     outputs:
-      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
-      DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
     steps:
-      - name: Print environment variables
-        run: env
-
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-        with:
-          driver-opts: |
-            image=moby/buildkit:v0.12.1
+  build-levanter:
+    needs: metadata
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: amd64
+      ARTIFACT_NAME: "artifact-levanter-build"
+      BADGE_FILENAME: "badge-levanter-build"
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ghcr.io/nvidia/jax:mealkit #${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: levanter
+      DOCKERFILE: .github/container/Dockerfile.levanter
+    secrets: inherit
 
-      - name: Set docker metadata - mealkit
-        id: mealkit-metadata
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ${{ env.UPLD_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=${{ github.run_id }}-levanter-test-${{ inputs.ARCHITECTURE }}-mealkit
-          labels:
-            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
-
-      - name: Build mealkit image
-        id: mealkit-build
-        uses: docker/build-push-action@v4
-        with:
-          context: .github/container
-          push: true
-          file: .github/container/Dockerfile.levanter
-          platforms: linux/${{ inputs.ARCHITECTURE }}
-          target: mealkit
-          tags: ${{ steps.mealkit-metadata.outputs.tags }}
-          labels: ${{ steps.mealkit-metadata.outputs.labels }}
-          build-args: |
-            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-            BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REF_LEVANTER=${{ inputs.REF_LEVANTER }}
-            REPO_LEVANTER=${{ inputs.REPO_LEVANTER }}
-
-      - name: Set docker metadata - final
-        id: final-metadata
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ${{ env.UPLD_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=${{ github.run_id }}-levanter-test-${{ inputs.ARCHITECTURE }}
-          labels:
-            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
-
-      - name: Build final image
-        id: final-build
-        uses: docker/build-push-action@v4
-        with:
-          context: .github/container
-          push: true
-          file: .github/container/Dockerfile.levanter
-          platforms: linux/${{ inputs.ARCHITECTURE }}
-          tags: ${{ steps.final-metadata.outputs.tags }}
-          labels: ${{ steps.final-metadata.outputs.labels }}
-          target: final
-          build-args: |
-            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-            BUILD_DATE=${{ inputs.BUILD_DATE }}
-            REF_LEVANTER=${{ inputs.REF_LEVANTER }}
-            REPO_LEVANTER=${{ inputs.REPO_LEVANTER }}
 

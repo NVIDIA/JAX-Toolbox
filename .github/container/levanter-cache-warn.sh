@@ -9,5 +9,5 @@ inside docker container with:
 
 $ python -m levanter.main.cache_dataset --id <dataset_id> --cache_dir cache/
 
-If you have already done this, please feel free to ignore the message above.
+If you have already done this, please feel free to disregard the message.
 ${NOCOLOR}"
