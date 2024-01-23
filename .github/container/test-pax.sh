@@ -150,7 +150,7 @@ pushd ${PAXML_DIR}
 cat > ci_configs.py <<EOF
 import math
 from paxml import tasks_lib, experiment_registry
-from paxml.contrib.gpu.scripts_gpu.configs import GPT126M, configure_gpt3_task
+from paxml.contrib.gpu.scripts_gpu.configs import Synthetic126M, configure_gpt3_task
 from paxml.tasks.lm.params.c4 import TransformerLmSpmdPipelineAdam
 from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
 from praxis import base_layer
@@ -272,7 +272,7 @@ class GPT126MPP(TransformerLmSpmdPipelineAdam):
 
 if pp > 1:
   @experiment_registry.register
-  class Synthetic126M(GPT126MPP, SyntheticDataset):
+  class Synthetic126MCI(GPT126MPP, SyntheticDataset):
     
     ICI_MESH_SHAPE = [pp, dp, fsdp, tp]
     DCN_MESH_SHAPE = [dcn_pp, dcn_dp, dcn_fsdp, 1]
@@ -290,7 +290,7 @@ if pp > 1:
 
 else:
   @experiment_registry.register
-  class Synthetic126M(GPT126M, SyntheticDataset):
+  class Synthetic126MCI(Synthetic126M):
     
     ICI_MESH_SHAPE = [dp, fsdp, tp]
     DCN_MESH_SHAPE = [dcn_dp, dcn_fsdp, 1]
@@ -305,8 +305,6 @@ else:
 
       model_p = task_p.model
       stacked_p = model_p.lm_tpl.stacked_transformer_tpl
-      if stacked_p.cls == layers.PipelinedTransformer:
-        stacked_p = stacked_p.pipeline_stage
       if issubclass(stacked_p.cls, layers.StackedTransformerRepeated):
         stacked_p = stacked_p.block
 
@@ -332,7 +330,7 @@ export ENABLE_TE=$ENABLE_TE
 if [[ ${EVALUATE} -ne 0 ]]; then
   ## train for 0 steps to generate an initial checkpoint
   python -m paxml.main \
-    --fdl_config=ci_configs.Synthetic126M \
+    --fdl_config=ci_configs.Synthetic126MCI \
     --fdl.MAX_STEPS=0 \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
@@ -341,7 +339,7 @@ if [[ ${EVALUATE} -ne 0 ]]; then
 
   ## restore from initial checkpoint for eval
   python -m paxml.main \
-    --fdl_config=ci_configs.Synthetic126M \
+    --fdl_config=ci_configs.Synthetic126MCI \
     --job_log_dir=${OUTPUT} \
     --mode='eval' \
     --alsologtostderr \
@@ -352,7 +350,7 @@ if [[ ${EVALUATE} -ne 0 ]]; then
   rm -rf ${OUTPUT}/checkpoints
 else
   python -m paxml.main \
-    --fdl_config=ci_configs.Synthetic126M \
+    --fdl_config=ci_configs.Synthetic126MCI \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
     --enable_checkpoint_saving=False \

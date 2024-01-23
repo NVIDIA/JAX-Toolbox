@@ -2,25 +2,25 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 3a0b495faa212b9b415b30f71f9283a81be24261
+  latest_verified_commit: 46f796b38d3a030c4a2e2cde3b1aeb610bba8826
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 247280ab7271d717e166151497998bb644bc3f20
+  latest_verified_commit: 59d9399856954967b8019a8311e4ed521859621d
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
-  latest_verified_commit: 93d3eb788fc130a3446681458fda0e00954fdbcd
+  latest_verified_commit: 97e9c704d978fdd2296976dafe1e324b6b8fa774
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  latest_verified_commit: bacefdbb6815159c42d5ca501a1400697b98a1e3
+  latest_verified_commit: 178f13656ad9abc5e1c6758b6e126bdd367960b7
   mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git
@@ -74,7 +74,7 @@ fiddle:
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: 823bc5be0b6620c40b4d7558281d4b2357bae480
+  latest_verified_commit: 98252982483053a61e71d819461b459d7232662e
   mode: pip-vcs
 clu:
   url: https://github.com/google/CommonLoopUtils.git
@@ -94,12 +94,12 @@ jestimator:
 optax:
   url: https://github.com/google-deepmind/optax.git
   tracking_ref: main
-  latest_verified_commit: 1decd3e4918f2b4529265cb444689a57f7be59d3
+  latest_verified_commit: 5e6bca05708c26a8f966490c53bb1bf8036c3c43
   mode: pip-vcs
 seqio:
   url: https://github.com/google/seqio.git
   tracking_ref: main
-  latest_verified_commit: 1d3e909d464002baa3df9a6de65559999870df91
+  latest_verified_commit: 713c5f153239e965962d79ce12d1041c624d24b4
   mode: pip-vcs
 # used by Pallas
 openxla-triton:
