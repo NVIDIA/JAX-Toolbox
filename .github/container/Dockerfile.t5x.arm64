@@ -37,7 +37,6 @@ COPY --from=wheel-builder /mealkit-python-version /mealkit-python-version
 #
 # BEGIN
     ENV DEBIAN_FRONTEND=noninteractive
-    ENV PYTHON_BIN_PATH=/usr/bin/python${MEALKIT_PYTHON_VERSION}
 
     # Install supplementary Python interpreters
     RUN export PYTHON_BIN_PATH=/usr/bin/python$(cat /mealkit-python-version) && \
