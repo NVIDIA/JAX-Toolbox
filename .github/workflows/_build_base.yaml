@@ -59,7 +59,6 @@ jobs:
 
   bump-world-state:
     runs-on: ubuntu-22.04
-    if: inputs.BUMP_MANIFEST
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
@@ -75,7 +74,7 @@ jobs:
       - name: Upload bumped manifest to be used in build-base
         uses: actions/upload-artifact@v3
         with:
-          name: bumped-manifest
+          name: maybe-bumped-manifest
           path: .github/container/manifest.yaml
 
 
@@ -102,7 +101,7 @@ jobs:
         if: inputs.BUMP_MANIFEST
         uses: actions/download-artifact@v3
         with:
-          name: bumped-manifest
+          name: maybe-bumped-manifest
           path: .github/container/
       
       - name: Log the changes in manifest file
