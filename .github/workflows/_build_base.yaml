@@ -110,6 +110,7 @@ jobs:
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
+          ls -lah 
           echo "Changes in manifest file"
           git diff
 
