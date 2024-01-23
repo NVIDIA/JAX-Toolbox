@@ -14,7 +14,12 @@ RUN <<"EOF" bash -ex
 echo "levanter:
   url: https://github.com/stanford-crfm/levanter.git
   tracking_ref: main 
-  latest_verified_commit: e27d39ca4519cd54872672277c2759da4aefa81a
+  latest_verified_commit: 3dda2c174b82de9c4b631e5dfdcc2d035f2b602f
+  mode: git-clone
+haliax:
+  url: https://github.com/stanford-crfm/haliax.git
+  tracking_ref: main
+  latest_verified_commit: 0f29c95eea05ed9e2d9d01c7ae48f4231cf1a57d
   mode: git-clone" >> ${MANIFEST_FILE}
 get-source.sh -l levanter -m ${MANIFEST_FILE} 
 echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
