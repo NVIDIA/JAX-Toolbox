@@ -105,7 +105,6 @@ jobs:
           path: .github/container/
       
       - name: Log the changes in manifest file
-        if: inputs.BUMP_MANIFEST
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
