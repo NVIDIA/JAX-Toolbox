@@ -103,7 +103,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: bumped-manifest
-          path: .github/container/manifest.yaml
+          path: .github/container/
       
       - name: Log the changes in manifest file
         if: inputs.BUMP_MANIFEST
