@@ -57,7 +57,30 @@ permissions:
 
 jobs:
 
+  bump-world-state:
+    runs-on: ubuntu-22.04
+    if: inputs.BUMP_MANIFEST
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Update manifest and patches in-place - show diff
+        if: inputs.BUMP_MANIFEST
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          bash bump.sh --input-manifest manifest.yaml
+          git diff
+
+      - name: Upload bumped manifest to be used in build-base
+        uses: actions/upload-artifact@v3
+        with:
+          name: bumped-manifest
+          path: .github/container/manifest.yaml
+
+
   build-base:
+    needs: bump-world-state
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
@@ -69,6 +92,21 @@ jobs:
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
+
+      - name: Replace checkouted manifest file with bumped one
+        if: inputs.BUMP_MANIFEST
+        uses: actions/download-artifact@v3
+        with:
+          name: bumped-manifest
+          path: .github/container/manifest.yaml
+      
+      - name: Log the changes in manifest file
+        if: inputs.BUMP_MANIFEST
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          echo "Changes in manifest file"
+          git diff
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -95,14 +133,6 @@ jobs:
             type=raw,value=${{ github.run_id }}-base-${{ inputs.ARCHITECTURE }}
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
-
-      - name: Update manifest and patches in-place - show diff
-        if: inputs.BUMP_MANIFEST
-        working-directory: .github/container
-        shell: bash -x -e {0}
-        run: |
-          bash bump.sh --input-manifest manifest.yaml
-          git diff
 
       - name: Build docker images
         id: build
