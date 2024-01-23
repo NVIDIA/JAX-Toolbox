@@ -1,0 +1,37 @@
+From 05ba7c1059b63a702c3ffaf1ebaa314b3a77ece8 Mon Sep 17 00:00:00 2001
+From: Jaroslav Sevcik <jsevcik@nvidia.com>
+Date: Mon, 22 Jan 2024 05:36:08 -0800
+Subject: [PATCH] Mark collective called computations in custom sharding
+ lowering
+
+When inlining a custom sharding code into the graph, cloned
+all-reduce computations must be explicitly marked as
+collective-called because the CloneWithNewOperands method
+clones the computation without marking it as collective-called.
+(There is code that marks all-reduce computations as
+collective-called in the HloAllReduceInstructionBase constructor,
+but that only marks the original reduce computation, not
+the cloned one.)
+---
+ xla/python/custom_call_sharding.cc | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/xla/python/custom_call_sharding.cc b/xla/python/custom_call_sharding.cc
+index bb900f1c7..d5e61f0ab 100644
+--- a/xla/python/custom_call_sharding.cc
++++ b/xla/python/custom_call_sharding.cc
+@@ -95,6 +95,11 @@ HloInstruction* InlineHloComputation(HloInstruction* instruction,
+       }
+       auto* new_inst = builder->AddInstruction(
+           inst->CloneWithNewOperands(inst->shape(), new_operands, &context));
++      if (HloAllReduceInstructionBase::ClassOf(new_inst)) {
++        // The cloning duplicated the computation for the new module, let us
++        // make sure the computation is marked as collective-called.
++        new_inst->to_apply()->SetCollectiveCallInstruction(new_inst);
++      }
+       HloChannelInstruction* channel_instr =
+           DynCast<HloChannelInstruction>(new_inst);
+       if (channel_instr && channel_instr->channel_id().has_value()) {
+-- 
+2.25.1
+
