@@ -11,13 +11,25 @@ ARG SRC_PATH_T5X=/opt/t5x
 ###############################################################################
 
 #------------------------------------------------------------------------------
+# Install bazel (needed by some source builds) and expose the python version
+#------------------------------------------------------------------------------
+
+FROM ${BASE_IMAGE} as wheel-builder
+
+RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
+    chmod a+x /usr/bin/bazel
+
+RUN python -c 'import sys; vi = sys.version_info; print(f"{vi.major}.{vi.minor}")'  > /mealkit-python-version
+
+
+#------------------------------------------------------------------------------
 # build array_record 0.5.0 from source
 #------------------------------------------------------------------------------
 # TODO: Remove this once array_record maintainers have published an arm64 wheel.
 
 FROM linaro/tensorflow-arm64-build:2.12-multipython as array_record-builder
-# TODO: Infer PYTHON_VERSION from our own $BASE_IMAGE?
-ARG PYTHON_VERSION="3.10"
+
+COPY --from=wheel-builder /mealkit-python-version /mealkit-python-version
 
 # The bazel build of array_record makes some strong assumptions on where the cpp toolchain lives.
 # We therefore replicate (part of) its Dockerfile, which ensures everything is in the right place:
@@ -25,10 +37,11 @@ ARG PYTHON_VERSION="3.10"
 #
 # BEGIN
     ENV DEBIAN_FRONTEND=noninteractive
-    ENV PYTHON_BIN_PATH=/usr/bin/python${PYTHON_VERSION}
+    ENV PYTHON_BIN_PATH=/usr/bin/python${MEALKIT_PYTHON_VERSION}
 
     # Install supplementary Python interpreters
-    RUN ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python && \
+    RUN export PYTHON_BIN_PATH=/usr/bin/python$(cat /mealkit-python-version) && \
+        ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python && \
         ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python3 && \
         ln -s ${PYTHON_BIN_PATH} /usr/bin/python
 
@@ -40,8 +53,8 @@ ARG PYTHON_VERSION="3.10"
             libffi-dev
 
     # Install pip dependencies needed for array_record
-    RUN ${PYTHON_BIN_PATH} -m pip install -U pip && \
-        ${PYTHON_BIN_PATH} -m pip install -U \
+    RUN /usr/bin/python -m pip install -U pip && \
+        /usr/bin/python -m pip install -U \
             absl-py \
             auditwheel \
             etils[epath] \
@@ -65,23 +78,11 @@ EOT
 
 
 #------------------------------------------------------------------------------
-# intermediate stage that adds bazel (needed by both tftext and grain)
-#------------------------------------------------------------------------------
-
-ARG BASE_IMAGE
-FROM ${BASE_IMAGE} as wheel-builder
-
-RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
-    chmod a+x /usr/bin/bazel
-
-
-#------------------------------------------------------------------------------
 # build grain from a manually-patched version
 #------------------------------------------------------------------------------
 # TODO: Remove this once grain maintainers have published an arm64 wheel.
 
 FROM wheel-builder as grain-builder
-ARG PYTHON_VERSION="3.10"
 
 # Setup bazel
 RUN  wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
@@ -92,11 +93,12 @@ RUN  wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazel
 #
 # BEGIN
     # Setup python
-    RUN apt-get update && apt-get install -y \
+    RUN export MEALKIT_PYTHON_VERSION=$(cat /mealkit-python-version) && \
+        apt-get update && apt-get install -y \
             python3-dev python3-pip python3-venv && \
             rm -rf /var/lib/apt/lists/* && \
-            python${PYTHON_VERSION} -m pip install pip --upgrade && \
-            update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 0
+            python${MEALKIT_PYTHON_VERSION} -m pip install pip --upgrade && \
+            update-alternatives --install /usr/bin/python python /usr/bin/python${MEALKIT_PYTHON_VERSION} 0
 
     # Install pip dependencies needed for grain
     # NOTE: We are ignoring the fact that "array_record" will actually resolve to the wrong version
@@ -132,6 +134,7 @@ git clone https://github.com/gspschmid/grain /opt/grain
 cd /opt/grain
 git checkout external-arm64-build-poc
 
+export PYTHON_VERSION=$(cat /mealkit-python-version)
 chmod a+x ./grain/oss/build_whl.sh
 ./grain/oss/build_whl.sh
 
