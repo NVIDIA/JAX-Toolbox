@@ -93,7 +93,12 @@ jobs:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
 
-      - name: Replace checkouted manifest file with bumped one
+      - name: Delete checked-out manifest file
+        if: inputs.BUMP_MANIFEST
+        run: |
+          rm .github/container/manifest.yaml
+
+      - name: Replace checked-out manifest file with bumped one
         if: inputs.BUMP_MANIFEST
         uses: actions/download-artifact@v3
         with:
