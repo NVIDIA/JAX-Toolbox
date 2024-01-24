@@ -119,8 +119,8 @@ maxtext:
   mode: git-clone
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
-  tracking_ref: slurm_cluster_fix 
-  latest_verified_commit: a2fc9ab29be001f728830ae1f92356510156c6cf 
+  tracking_ref: main 
+  latest_verified_commit: 8250b776c28f2d929c4c095dc571b12f128ec11d
   mode: git-clone
 haliax:
   url: https://github.com/stanford-crfm/haliax.git
