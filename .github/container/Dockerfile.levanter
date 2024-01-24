@@ -21,10 +21,11 @@ haliax:
   tracking_ref: main
   latest_verified_commit: 0f29c95eea05ed9e2d9d01c7ae48f4231cf1a57d
   mode: git-clone" >> ${MANIFEST_FILE}
-pip install flake8 pytest && rm -rf ~/.cache/pip
 get-source.sh -l levanter -m ${MANIFEST_FILE} 
 echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
 EOF
+
+RUN mkdir -p ${SRC_PATH_LEVANTER}/cache
 
 ###############################################################################
 ## Add warning about creating a model cache

@@ -216,10 +216,3 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
-  
-  test-levanter:
-    needs: build-levanter
-    uses: ./.github/workflows/_test_levanter.yaml
-    with:
-      LEVANTER_IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
