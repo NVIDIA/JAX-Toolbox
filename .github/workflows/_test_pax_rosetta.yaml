@@ -8,16 +8,6 @@ on:
         description: PAX image from ghcr.io/nvidia/pax
         default: ghcr.io/nvidia/pax:latest
         required: false
-      EXTRA_TEST_ARGS:
-        type: string
-        description: Extra command line args to pass to test-pax.sh
-        default: ""
-        required: false
-      ARTIFACT_NAME:
-        type: string
-        description: If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
-        default: "artifact-pax-rosetta-mgmn-test"
-        required: false
       BADGE_FILENAME:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
@@ -79,7 +69,7 @@ jobs:
           MAX_GPUS_PER_NODE=8
           NODES=1
           GPUS_PER_NODE=8
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -117,8 +107,7 @@ jobs:
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              --enable-te \
-              ${{ inputs.EXTRA_TEST_ARGS }}
+              --enable-te
           EOF
           )
 
@@ -159,7 +148,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-pax-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -266,7 +255,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -307,8 +296,7 @@ jobs:
               --nodes ${{ steps.meta.outputs.NODES }} \
               --enable-te \
               --additional-args --fdl.PACKED_INPUT=False \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
-              ${{ inputs.EXTRA_TEST_ARGS }}
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
           EOF
           )
 
@@ -352,7 +340,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-pax-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -457,7 +445,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -497,8 +485,7 @@ jobs:
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
-              ${{ inputs.EXTRA_TEST_ARGS }}
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
           EOF
           )
 
@@ -542,7 +529,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-pax-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -646,7 +633,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -688,8 +675,7 @@ jobs:
               --enable-dropout \
               --enable-te \
               --additional-args --fdl.PACKED_INPUT=False \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
-              ${{ inputs.EXTRA_TEST_ARGS }}
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
           EOF
           )
 
@@ -733,7 +719,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-pax-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -835,7 +821,7 @@ jobs:
           NODES=1
           GPUS_PER_NODE=8
 
-          JOB_NAME=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -876,8 +862,7 @@ jobs:
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               --enable-te \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
-              ${{ inputs.EXTRA_TEST_ARGS }}
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
           EOF
           )
 
@@ -921,7 +906,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-pax-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -995,19 +980,28 @@ jobs:
         shell: bash -x {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
-          for i in ${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* ${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-*DP_TE_dropout; do
+          for i in rosetta-pax-${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* rosetta-pax-${GITHUB_RUN_ID}-*DP_TE_dropout; do
             SUBDIR=$(echo $i | rev | cut -d'-' -f1 | rev)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
           done
 
           echo '## Rosetta PAX MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
-          for i in *_metrics.json; do
-            echo $(basename -- $i _metrics.json)
-            echo '```json'
-            jq . $i
-            echo '```'
-          done | tee -a $GITHUB_STEP_SUMMARY
+          python <<EOF | tee -a $GITHUB_STEP_SUMMARY
+          import json
+          files = "$(echo *_metrics.json)".split()
+          header = None
+          print_row = lambda lst: print('| ' + lst.join(' | ') + ' |')
+          for path in files:
+            with open(path) as f:
+              obj = json.loads(f.read())
+              if not header:
+                header = list(obj.keys())
+                print_row(["Job Name"] + header)
+                print_row(["---"] * (1+len(header)))
+              job_name = path[:-len('_metrics.json')]
+              print_row([job_name] + [obj[h] for h in header])
+          EOF
 
           RESULTS_DIR=$PWD BASELINES_DIR=PAX_MGMN/rosetta pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
 
@@ -1024,10 +1018,10 @@ jobs:
     if: "!cancelled()"
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}rosetta-pax-test-status.json'
+      ENDPOINT_FILENAME: 'rosetta-pax-test-status.json'
       PUBLISH: false
       SCRIPT: |
-        EXIT_STATUSES="${{ inputs.ARTIFACT_NAME }}rosetta-pax-*DP*FSDP*TP*PP*/*-status.json ${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
+        EXIT_STATUSES="rosetta-pax-*DP*FSDP*TP*PP*/*-status.json rosetta-pax-${GITHUB_RUN_ID}-*DP_TE_dropout/*-status.json"
         PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
         FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
         TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
@@ -1084,7 +1078,7 @@ jobs:
 
           ## Rosetta PAX MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}rosetta-pax-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=rosetta-pax-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
