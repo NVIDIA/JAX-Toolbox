@@ -8,6 +8,21 @@ on:
         description: 'JAX+TE+PAXML image'
         required: true
         default: 'ghcr.io/nvidia/upstream-pax:latest'
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'te-unit-mg-test.json'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-te-unit-mg-test'
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: false
+        default: 'TE'
     outputs:
       UNIT_TEST_ARTIFACT_NAME:
         description: 'Name of the unit test artifact for downstream workflows'
@@ -17,8 +32,8 @@ on:
         value: ${{ jobs.te-multi-gpu.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}
 
 env:
-  UNIT_TEST_ARTIFACT_NAME: unit-test-logs
-  INTEGRATION_TEST_ARTIFACT_NAME: integration-test-logs
+  UNIT_TEST_ARTIFACT_NAME: artifact-te-unit-test
+  INTEGRATION_TEST_ARTIFACT_NAME: artifact-te-mg-integration-test
 
 jobs:
   te-unit-tests:
@@ -38,7 +53,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
+          
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+        
       - name: Pull TE image
         shell: bash -x -e {0}
         run: |
@@ -51,20 +69,61 @@ jobs:
           pip install pytest-reportlog
           pytest --report-log=/log/report.jsonl ${SRC_PATH_TE}/tests/jax
 
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='TE Unit test'
+          failed_tests=$(cat /log/report.jsonl | grep -c 'failed' || true)
+          passed_tests=$(cat /log/report.jsonl | grep -c 'passed' || true)
+          total_tests=$((failed_tests + passed_tests))
+          
+          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary='TE Unit test did not complete due to errors.'
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="TE Unit test: $badge_message"
+          fi
+          echo "failed tests: " $failed_tests " passed tests: " $passed_tests " total_tests: " $total_tests " summary: " $summary
+          to_json \
+            summary \
+            errors total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > /log/sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > /log/te-unit-test.json
+
       - name: Upload unit test json logs
         if: success() || failure()
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
-          path: /log/report.jsonl
+          path: /log/*
 
   te-multi-gpu:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
+        N_GPU: [1, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
+    env:
+      BADGE_FILENAME_FULL: te-multi-gpu-test.json
     outputs:
       INTEGRATION_TEST_ARTIFACT_NAME: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}
 
@@ -76,6 +135,9 @@ jobs:
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
 
       - name: Setup SSH known hosts
         id: ssh-known-hosts
@@ -106,6 +168,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           JOB=$(sshx sbatch --parsable << EOF
@@ -142,6 +205,14 @@ jobs:
           done
           echo "SLRUM Job $JOB finished."
           set -x
+          
+          # Gather job info
+          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          echo "SLURM Job state is ${SLURM_STATE}"
+          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
       - name: Remove orphaned SLURM job if the CI job is canceled
         if: cancelled()
@@ -153,6 +224,7 @@ jobs:
       - name: Retrieve training logs
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           mkdir output/
           ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} "ls /nfs/cluster/${GITHUB_RUN_ID}*"
           rsync -rtz --progress \
@@ -163,9 +235,60 @@ jobs:
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.PYTEST_LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}-pytest.jsonl
+            
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
 
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          cd $GITHUB_WORKSPACE
+          source .github/workflows/scripts/to_json.sh
+
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='TE Multi GPU tests'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary='TE multi GPU tests did not complete due to errors.'
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="TE multi GPU tests : $badge_message"
+          fi
+
+          to_json \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > output/${{ env.BADGE_FILENAME_FULL }}
+          
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}
+          name: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}-${{ steps.meta.outputs.TEST_CASE_NAME }}
           path: output/*

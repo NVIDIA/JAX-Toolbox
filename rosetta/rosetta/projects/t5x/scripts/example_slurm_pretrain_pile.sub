@@ -68,7 +68,7 @@ export GPUS_PER_NODE=${1:-8}
 export BASE_SCRIPT=${2:-"${T5X_DIR}/t5x/contrib/gpu/scripts_gpu/multiprocess_pretrain_pile.sh"}
 export WITH_MP=1
 
-NUM_GPUS=$(( GPUS_PER_NODE * SLURM_JOB_NUM_NODES ))
+NUM_GPUS=$(( GPUS_PER_NODE * SLURM_STEP_NUM_NODES ))
 
 # << CHANGE ! >>
 # You can add binding to the command below with the following line (after nvidia-smi). Remove the '&&' on the next bash line.
@@ -82,7 +82,7 @@ EOF
 )"
 
 # create run specific output directory for ease of analysis
-FOLDER="${BASE_T5X_OUTPUTS_DIR}/multinode/PRETRAIN-${T5_SIZE}-${PREC}-N${SLURM_JOB_NUM_NODES}-n${NUM_GPUS}-Step${TRAIN_STEPS}-BS${BSIZE_PER_GPU}-MBS${NUM_MICROBATCHES}-SL${ENC_SL}_${DEC_SL}-TP${TP_SIZE}-FP8${ENABLE_FP8}"
+FOLDER="${BASE_T5X_OUTPUTS_DIR}/multinode/PRETRAIN-${T5_SIZE}-${PREC}-N${SLURM_STEP_NUM_NODES}-n${NUM_GPUS}-Step${TRAIN_STEPS}-BS${BSIZE_PER_GPU}-MBS${NUM_MICROBATCHES}-SL${ENC_SL}_${DEC_SL}-TP${TP_SIZE}-FP8${ENABLE_FP8}"
 mkdir -p ${FOLDER}
 
 # redirect both stdout and stderr in the same file for ease of analysis

@@ -17,30 +17,40 @@ ARG DEST_MANIFEST_DIR
 ## Install Python and essential tools
 ###############################################################################
 
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive \
-    TZ=America/Los_Angeles \
-    apt-get install -y \
-        build-essential \
-        checkinstall \
-        clang \
-        cmake \
-        curl \
-        git \
-        lld \
-        vim \
-        bat \
-        curl \
-        git \
-        gnupg \
-        rsync \
-        python-is-python3 \
-        python3-pip \
-        liblzma-dev \
-        wget \
-    && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN <<"EOF" bash -ex
+export DEBIAN_FRONTEND=noninteractive
+export TZ=America/Los_Angeles
+apt-get update
+apt-get install -y curl
+
+# Repo for newer nsight versions
+export UBUNTU_ARCH=$(dpkg --print-architecture)
+export UBUNTU_VERSION=$(. /etc/os-release && echo ${ID}${VERSION_ID/./}) # e.g. ubuntu2204
+curl -o /usr/share/keyrings/nvidia.pub https://developer.download.nvidia.com/devtools/repos/${UBUNTU_VERSION}/${UBUNTU_ARCH}/nvidia.pub
+echo "deb [signed-by=/usr/share/keyrings/nvidia.pub] https://developer.download.nvidia.com/devtools/repos/${UBUNTU_VERSION}/${UBUNTU_ARCH}/ /" > /etc/apt/sources.list.d/devtools-${UBUNTU_VERSION}-${UBUNTU_ARCH}.list
+apt-get update
+
+apt-get install -y \
+  bat \
+  build-essential \
+  checkinstall \
+  clang \
+  cmake \
+  git \
+  gnupg \
+  liblzma-dev \
+  lld \
+  nsight-compute \
+  nsight-systems-cli \
+  python-is-python3 \
+  python3-pip \
+  rsync \
+  vim \
+  wget
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+EOF
+
 RUN <<"EOF" bash -ex
 git config --global user.name "${GIT_USER_NAME}"
 git config --global user.email "${GIT_USER_EMAIL}"
@@ -92,12 +102,6 @@ RUN install-ofed.sh
 ADD install-efa.sh /usr/local/bin
 ENV LD_LIBRARY_PATH=/opt/amazon/efa/lib:${LD_LIBRARY_PATH}
 ENV PATH=/opt/amazon/efa/bin:${PATH}
-
-###############################################################################
-## Emergency fix: nsys not in PATH
-###############################################################################
-
-RUN ln -s /opt/nvidia/nsight-compute/*/host/target-linux-x64/nsys /usr/local/cuda/bin
 
 ###############################################################################
 ## Add the systemcheck to the entrypoint.
