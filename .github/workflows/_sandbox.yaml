@@ -1,26 +1,3 @@
-Skip to content
-NVIDIA
-/
-JAX-Toolbox
-
-Type / to search
-
-Code
-Issues
-96
-Pull requests
-23
-Actions
-Projects
-3
-Security
-Insights
-~sandbox
-~sandbox #725
-Jobs
-Run details
-Workflow file for this run
-.github/workflows/_sandbox.yaml at cfb9b53
 name: ~sandbox
 
 on:
@@ -106,10 +83,3 @@ jobs:
       CONTAINER_NAME: levanter
       DOCKERFILE: .github/container/Dockerfile.levanter
     secrets: inherit
-
-  # test-levanter:
-  #   needs: build-levanter
-  #   uses: ./.github/workflows/_test_levanter.yaml
-  #   with:
-  #     LEVANTER_IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
-  #   secrets: inherit
