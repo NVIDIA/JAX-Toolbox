@@ -11,9 +11,9 @@ if (( actual_shm_size < minimum_shm_size )); then
     NOCOLOR='\033[0m'
 
     echo -e "${YELLOW}
-    WARNING: Your shm is currenly less than 1GB. This may cause SIGBUS errors.
-    To avoid this problem, you can manually set the shm size in docker with:
+WARNING: Your shm is currenly less than 1GB. This may cause SIGBUS errors.
+To avoid this problem, you can manually set the shm size in docker with:
 
     $ docker run ... --shm-size=1g ...
-    ${NOCOLOR}"
+${NOCOLOR}"
 fi

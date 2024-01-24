@@ -123,6 +123,19 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
+  build-levanter:
+    needs: metadata
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: amd64
+      ARTIFACT_NAME: "artifact-levanter-build"
+      BADGE_FILENAME: "badge-levanter-build"
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: levanter
+      DOCKERFILE: .github/container/Dockerfile.levanter
+    secrets: inherit
+
   build-rosetta-t5x:
     uses: ./.github/workflows/_build_rosetta.yaml
     needs: [metadata, build-t5x]
@@ -202,4 +215,11 @@ jobs:
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+  
+  test-levanter:
+    needs: build-levanter
+    uses: ./.github/workflows/_test_levanter.yaml
+    with:
+      LEVANTER_IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
