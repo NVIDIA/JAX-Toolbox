@@ -2,12 +2,12 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 2356e57af47baa37286177676a5a4bcd0c7b8c40
+  latest_verified_commit: jaxlib-v0.4.23
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 17ec7b4031608d3ddaca83e0661ed3aa0393e9d9
+  latest_verified_commit: a487d8ba5da8d0dec056972270e50de6748a1035
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
@@ -20,7 +20,7 @@ flax:
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  latest_verified_commit: bb759adc2a53c57cc387f531c580a16149e3d4ac
+  latest_verified_commit: v1.2.1
   mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git
