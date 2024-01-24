@@ -1,4 +1,4 @@
-name: ~test JAX, unit
+name: ~test Levanter, unit
 
 on:
   workflow_call:
