@@ -99,8 +99,7 @@ jobs:
               done
           done
           JSON="${JSON::-1} }"
-          echo "TARGET_TAGS=${JSON}" 
-          echo "TARGET_TAGS=${JSON}" >> $GITHUB_OUTPUT    
+          echo "TARGET_TAGS=${JSON}" | tee -a $GITHUB_OUTPUT    
 
   publish:
     needs: [metadata, amd64, arm64, publish-target-tags]
