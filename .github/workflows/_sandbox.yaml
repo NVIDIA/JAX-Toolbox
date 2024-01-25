@@ -7,3 +7,4 @@ jobs:
 
   test-maxtext:
     uses: ./.github/workflows/_test_maxtext.yaml
+    secrets: inherit
