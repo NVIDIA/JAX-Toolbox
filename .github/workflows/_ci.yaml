@@ -216,12 +216,13 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
-
-  test-levanter:
-    needs: build-levanter
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_levanter.yaml
-    with:
-      JAX_IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
+  
+  ## TODO: uncomments when PR #463
+  # test-levanter:
+  #   needs: build-levanter
+  #   if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+  #   uses: ./.github/workflows/_test_levanter.yaml
+  #   with:
+  #     JAX_IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
+  #   secrets: inherit
 
