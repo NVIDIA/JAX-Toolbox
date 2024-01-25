@@ -6,6 +6,9 @@ ARG GIT_USER_NAME=NVIDIA
 # This is useful for development if you run `./bump.sh -i manifest.yaml` manually and do not want to trigger a full rebuild all
 # the way up to the jax build.
 ARG UPDATE_PATCHES=false
+# It is common for TE developers to test a different TE against the LLM application. This is a knob to override what's in the manifest
+# Accepts git-ref's from NVIDIA/TransformerEngine or pull requests (pull/$number/head)
+ARG UPDATED_TE_REF=""
 
 # Rosetta and optionally patches are pulled from this
 FROM scratch AS jax-toolbox
@@ -18,6 +21,7 @@ FROM ${BASE_IMAGE} AS mealkit
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
 ARG UPDATE_PATCHES
+ARG UPDATED_TE_REF
 
 ENV ENABLE_TE=1
 
@@ -35,6 +39,21 @@ if [[ "${UPDATE_PATCHES}" == "true" ]]; then
   cp /mnt/jax-toolbox/.github/container/pip-finalize.sh /usr/local/bin/
 fi
 cp -r /mnt/jax-toolbox/rosetta /opt/rosetta
+
+if [[ -n "${UPDATED_TE_REF}" ]]; then
+  TE_INSTALL_DIR=/opt/transformer-engine
+  yq e ".transformer-engine.latest_verified_commit = \"${UPDATED_TE_REF}\"" -i $MANIFEST_FILE
+  # Install from source instead of pre-built wheel
+  sed -i -E 's@( file:///opt/transformer-engine)/dist/[^ ]*@\1@' /opt/pip-tools.d/requirements-te.in
+  git -C $TE_INSTALL_DIR fetch -a
+  if [[ "${UPDATED_TE_REF}" =~ ^pull/ ]]; then
+    PR_ID=$(cut -d/ -f2 <<<"${UPDATED_TE_REF}")
+    git -C $TE_INSTALL_DIR fetch origin ${UPDATED_TE_REF}:PR-${PR_ID}
+    git -C $TE_INSTALL_DIR checkout PR-${PR_ID}
+  else
+    git -C $TE_INSTALL_DIR checkout ${UPDATED_TE_REF}
+  fi
+fi
 
 # Setting the username/email is required to author commits from patches
 git config --global user.email "${GIT_USER_EMAIL}"

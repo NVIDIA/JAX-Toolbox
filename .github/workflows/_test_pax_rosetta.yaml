@@ -16,8 +16,18 @@ on:
       ARTIFACT_NAME:
         type: string
         description: If provided, will prepend a prefix to the artifact name. Helpful if re-running this reusable workflow to prevent clobbering of artifacts
-        default: ""
+        default: "artifact-pax-rosetta-mgmn-test"
         required: false
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-pax-rosetta-mgmn-test.json'
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: false
+        default: 'PAXML'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -35,6 +45,9 @@ jobs:
 
     runs-on: ubuntu-22.04
 
+    env:
+      BADGE_FILENAME_FULL: rosetta-pax-single-process-multi-device-te
+
     steps:
       - name: Print environment variables
         run: env
@@ -43,6 +56,9 @@ jobs:
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
 
       - name: Setup SSH known hosts
         id: ssh-known-hosts
@@ -73,6 +89,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo" 
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
@@ -132,6 +149,7 @@ jobs:
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
@@ -152,6 +170,47 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          cd $GITHUB_WORKSPACE
+          source .github/workflows/scripts/to_json.sh
+
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='ROSETTA PAX SINGLE PROCESS MULTI DEVICE TE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary="ROSETTA PAX SINGLE PROCESS MULTI DEVICE TE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="ROSETTA PAX SINGLE PROCESS MULTI DEVICE TE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+          
+          to_json \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > output/${{ env.BADGE_FILENAME_FULL_ENV }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -171,7 +230,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL_ENV: rosetta-pax-multi-node-te
     steps:
       - name: Print environment variables
         run: env
@@ -180,6 +240,9 @@ jobs:
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
 
       - name: Setup SSH known hosts
         id: ssh-known-hosts
@@ -195,6 +258,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_TE
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
@@ -278,6 +342,7 @@ jobs:
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
@@ -298,6 +363,47 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          cd $GITHUB_WORKSPACE
+          source .github/workflows/scripts/to_json.sh
+
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='ROSETTA PAX MULTI NODE TE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary="ROSETTA PAX MULTI NODE TE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="ROSETTA PAX MULTI NODE TE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
+      
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > output/${{ env.BADGE_FILENAME_FULL_ENV }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -316,7 +422,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL: rosetta-pax-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -325,6 +432,9 @@ jobs:
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
 
       - name: Setup SSH known hosts
         id: ssh-known-hosts
@@ -358,6 +468,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
@@ -421,6 +532,7 @@ jobs:
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
@@ -442,6 +554,47 @@ jobs:
               json.dump(dump, f)
           EOF
 
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          cd $GITHUB_WORKSPACE
+          source .github/workflows/scripts/to_json.sh
+
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='ROSETTA PAX MULTI NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary="ROSETTA PAX MULTI NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="ROSETTA PAX MULTI NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
+          
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -457,7 +610,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL: rosetta-pax-single-node-dropout-te
     steps:
       - name: Print environment variables
         run: env
@@ -466,6 +620,9 @@ jobs:
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
 
       - name: Setup SSH known hosts
         id: ssh-known-hosts
@@ -481,6 +638,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP_TE_dropout
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
@@ -565,6 +723,7 @@ jobs:
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
@@ -586,6 +745,47 @@ jobs:
               json.dump(dump, f)
           EOF
 
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          cd $GITHUB_WORKSPACE
+          source .github/workflows/scripts/to_json.sh
+
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='ROSETTA PAX SINGLE NODE DROPOUT TE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary="ROSETTA PAX SINGLE NODE DROPOUT TE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="ROSETTA PAX SINGLE NODE DROPOUT TE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+      
+          to_json \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -600,7 +800,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL: rosetta-pax-single-process-evaluation-te
     steps:
       - name: Print environment variables
         run: env
@@ -609,6 +810,9 @@ jobs:
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
 
       - name: Setup SSH known hosts
         id: ssh-known-hosts
@@ -642,6 +846,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo" 
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
@@ -706,6 +911,7 @@ jobs:
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
+          cd $GITHUB_WORKSPACE
           mkdir output/
           rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
@@ -726,6 +932,47 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
+
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          cd $GITHUB_WORKSPACE
+          source .github/workflows/scripts/to_json.sh
+
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='ROSETTA PAX SINGLE PROCESS EVALUATION TE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary="ROSETTA PAX SINGLE PROCESS EVALUATION TE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="ROSETTA PAX SINGLE PROCESS EVALUATION TE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
@@ -824,7 +1071,6 @@ jobs:
         echo "LABEL='Completion'" >> $GITHUB_OUTPUT
         echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} ran ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} pass loss+perf'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-
 
   summary:
     runs-on: ubuntu-22.04
