@@ -11,16 +11,6 @@ FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_LEVANTER
 
 RUN <<"EOF" bash -ex
-echo "levanter:
-  url: https://github.com/stanford-crfm/levanter.git
-  tracking_ref: slurm_cluster_fix 
-  latest_verified_commit: a2fc9ab29be001f728830ae1f92356510156c6cf 
-  mode: git-clone
-haliax:
-  url: https://github.com/stanford-crfm/haliax.git
-  tracking_ref: main
-  latest_verified_commit: 0f29c95eea05ed9e2d9d01c7ae48f4231cf1a57d
-  mode: git-clone" >> ${MANIFEST_FILE}
 get-source.sh -l levanter -m ${MANIFEST_FILE} 
 echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
 EOF
