@@ -9,8 +9,9 @@ ARG SRC_PATH_MJX=/opt/mjx
 
 FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_MJX
-
+echo <<""
 RUN <<"EOF" bash -ex
+
 get-source.sh -l mjx -m ${MANIFEST_FILE} 
 echo "-e file://${SRC_PATH_MJX}" >> /opt/pip-tools.d/requirements-mjx.in
 EOF
