@@ -48,7 +48,7 @@ jobs:
         id: if-publish
         shell: bash -x -e {0}
         run: |
-          echo "PUBLISH=${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+          echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
       - name: Determine whether need to bump manifest 
         id: if-bump-manifest
@@ -103,7 +103,8 @@ jobs:
 
   publish:
     needs: [metadata, amd64, arm64, publish-target-tags]
-    if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+    if: false  # TODO: enable this after new image renaming proposal is approved
+    # if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
     strategy:
       fail-fast: false
       matrix:

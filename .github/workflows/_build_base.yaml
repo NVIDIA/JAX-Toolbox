@@ -57,7 +57,7 @@ permissions:
 
 jobs:
 
-  bump-world-state:
+  bump-manifest:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
@@ -84,7 +84,7 @@ jobs:
           path: .github/container/patches
 
   build-base:
-    needs: bump-world-state
+    needs: bump-manifest
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
