@@ -61,7 +61,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          docker run --gpus all ${{ inputs.LEVANTER_IMAGE }} bash -ec "python -m pip install --upgrade pip; pip install flake8 pytest test_util && pytest /opt/levanter/tests" | tee test-levanter.log
+          docker run --gpus all --shm-size=1g ${{ inputs.LEVANTER_IMAGE }} bash -ec "pip install flake8 pytest test_util && pytest /opt/levanter/tests" | tee test-levanter.log
 
       - name: Generate sitrep
         shell: bash -x -e {0}
@@ -79,7 +79,7 @@ jobs:
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
-            summary='JAX unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+            summary='Levanter unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
