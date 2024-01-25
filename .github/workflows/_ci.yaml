@@ -124,7 +124,7 @@ jobs:
     secrets: inherit
 
   build-levanter:
-    needs: metadata
+    needs: [metadata, build-jax]
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
