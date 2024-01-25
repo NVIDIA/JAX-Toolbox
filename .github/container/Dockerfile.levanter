@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG SRC_PATH_LEVANTER=/opt/levanter
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG SRC_PATH_LEVANTER
+
+RUN <<"EOF" bash -ex
+get-source.sh -l levanter -m ${MANIFEST_FILE} 
+echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
+EOF
+
+###############################################################################
+## Add warning for the shared data cache mechanism
+###############################################################################
+
+COPY levanter-cache-warn.sh /opt/nvidia/entrypoint.d/
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh

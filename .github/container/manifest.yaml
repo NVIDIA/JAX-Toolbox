@@ -117,3 +117,13 @@ maxtext:
   tracking_ref: main
   latest_verified_commit: ec9cdce1928fb36f93e498c8f74f8f130bad3dc2
   mode: git-clone
+levanter:
+  url: https://github.com/stanford-crfm/levanter.git
+  tracking_ref: main 
+  latest_verified_commit: 8250b776c28f2d929c4c095dc571b12f128ec11d
+  mode: git-clone
+haliax:
+  url: https://github.com/stanford-crfm/haliax.git
+  tracking_ref: main
+  latest_verified_commit: 0f29c95eea05ed9e2d9d01c7ae48f4231cf1a57d
+  mode: git-clone  

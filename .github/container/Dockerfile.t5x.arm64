@@ -1,0 +1,211 @@
+# syntax=docker/dockerfile:1-labs
+# Example command to build manually:
+#   docker buildx build -f Dockerfile.t5x.arm64 --tag t5x --build-arg BASE_IMAGE=ghcr.io/nvidia/jax:mealkit-2024-01-22 .
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
+ARG SRC_PATH_T5X=/opt/t5x
+
+###############################################################################
+## build several packages which do not have working arm64 pip wheels
+###############################################################################
+
+#------------------------------------------------------------------------------
+# Install bazel (needed by some source builds) and expose the python version
+#------------------------------------------------------------------------------
+
+FROM ${BASE_IMAGE} as wheel-builder
+
+RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
+    chmod a+x /usr/bin/bazel
+
+RUN python -c 'import sys; vi = sys.version_info; print(f"{vi.major}.{vi.minor}")'  > /mealkit-python-version
+
+
+#------------------------------------------------------------------------------
+# build array_record 0.5.0 from source
+#------------------------------------------------------------------------------
+# TODO: Remove this once array_record maintainers have published an arm64 wheel.
+
+FROM linaro/tensorflow-arm64-build:2.12-multipython as array_record-builder
+
+COPY --from=wheel-builder /mealkit-python-version /mealkit-python-version
+
+# The bazel build of array_record makes some strong assumptions on where the cpp toolchain lives.
+# We therefore replicate (part of) its Dockerfile, which ensures everything is in the right place:
+#   https://github.com/google/array_record/tree/v0.5.0/oss/build.Dockerfile.aarch64
+#
+# BEGIN
+    ENV DEBIAN_FRONTEND=noninteractive
+
+    # Install supplementary Python interpreters
+    RUN export PYTHON_BIN_PATH=/usr/bin/python$(cat /mealkit-python-version) && \
+        ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python && \
+        ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python3 && \
+        ln -s ${PYTHON_BIN_PATH} /usr/bin/python
+
+    RUN apt update && \
+        apt install -yqq \
+            apt-utils \
+            build-essential \
+            checkinstall \
+            libffi-dev
+
+    # Install pip dependencies needed for array_record
+    RUN /usr/bin/python -m pip install -U pip && \
+        /usr/bin/python -m pip install -U \
+            absl-py \
+            auditwheel \
+            etils[epath] \
+            patchelf \
+            setuptools \
+            twine \
+            wheel
+# END
+
+RUN <<"EOT" bash -exu
+set -o pipefail
+
+git clone https://github.com/google/array_record.git /tmp/array_record
+cd /tmp/array_record
+git checkout v0.5.0
+
+export CROSSTOOL_TOP="@ml2014_aarch64_config_aarch64//crosstool:toolchain"
+export AUDITWHEEL_PLATFORM="manylinux2014_aarch64"
+./oss/build_whl.sh
+EOT
+
+
+#------------------------------------------------------------------------------
+# build grain from a manually-patched version
+#------------------------------------------------------------------------------
+# TODO: Remove this once grain maintainers have published an arm64 wheel.
+
+FROM wheel-builder as grain-builder
+
+# Setup bazel
+RUN  wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
+    chmod a+x /usr/bin/bazel
+
+# The following setup steps are based on
+#   https://github.com/google/grain/blob/ab557c31672cc2ac6f9b31e33aea2df00a7da5bf/grain/oss/build.Dockerfile
+#
+# BEGIN
+    # Setup python
+    RUN export MEALKIT_PYTHON_VERSION=$(cat /mealkit-python-version) && \
+        apt-get update && apt-get install -y \
+            python3-dev python3-pip python3-venv && \
+            rm -rf /var/lib/apt/lists/* && \
+            python${MEALKIT_PYTHON_VERSION} -m pip install pip --upgrade && \
+            update-alternatives --install /usr/bin/python python /usr/bin/python${MEALKIT_PYTHON_VERSION} 0
+
+    # Install pip dependencies needed for grain
+    # NOTE: We are ignoring the fact that "array_record" will actually resolve to the wrong version
+    #   here. When we put it all together in the final image, we make sure that the right version is
+    #   already installed.
+    RUN pip install \
+            absl-py \
+            array_record \
+            build \
+            cloudpickle \
+            dm-tree \
+            etils[epath] \
+            "more-itertools>=9.1.0" \
+            numpy
+
+    # Install pip dependencies needed for grain tests
+    RUN pip install \
+            dill \
+            jax \
+            jaxlib \
+            tensorflow \
+            tensorflow-datasets
+# END
+
+RUN <<"EOT" bash -exu
+set -o pipefail
+
+# The open-source version of grain contains various references to Google-internal dependencies,
+# and does not contain build scripts compatible with arm64. We instead build a patched version,
+# based on https://github.com/google/grain/commit/6de2270cec0407d0011721b78461b344abe07704
+
+git clone https://github.com/gspschmid/grain /opt/grain
+cd /opt/grain
+git checkout external-arm64-build-poc
+
+export PYTHON_VERSION=$(cat /mealkit-python-version)
+chmod a+x ./grain/oss/build_whl.sh
+./grain/oss/build_whl.sh
+
+ls /tmp/grain/all_dist/*.whl
+EOT
+
+
+#------------------------------------------------------------------------------
+# build tensorflow-text 2.13.0 from source
+#------------------------------------------------------------------------------
+
+FROM wheel-builder as tftext-builder
+ARG SRC_PATH_TFTEXT
+RUN <<"EOF" bash -exu -o pipefail
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
+get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
+cd ${SRC_PATH_TFTEXT}
+./oss_scripts/run_build.sh
+EOF
+
+
+###############################################################################
+## T5X for AArch64
+###############################################################################
+
+FROM wheel-builder as mealkit
+ARG SRC_PATH_TFTEXT
+ARG SRC_PATH_T5X
+
+COPY --from=array_record-builder /tmp/array_record/all_dist/array_record*linux_aarch64.whl /opt/
+RUN echo "array_record @ file://$(ls /opt/array_record*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
+
+COPY --from=grain-builder /tmp/grain/all_dist/grain*.whl /opt/
+RUN echo "grain @ file://$(ls /opt/grain*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
+
+COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
+RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
+
+RUN <<"EOF" bash -ex
+# 1. Fetch T5X
+get-source.sh -l t5x -m ${MANIFEST_FILE}
+echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
+
+# 2. Remove head-of-tree specs from select dependencies
+pushd ${SRC_PATH_T5X}
+sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
+
+# for ARM64 build
+sed -i "s/'tensorflow/#'tensorflow/" setup.py
+sed -i "s/'t5=/#'t5=/" setup.py
+
+sed -i "s/f'jax/#f'jax/" setup.py
+sed -i "s/'tpu/#'tpu/" setup.py
+
+sed -i "s/'protobuf/#'protobuf/" setup.py
+sed -i "s/'numpy/#'numpy/" setup.py
+
+if git diff --quiet; then
+    echo "URL specs no longer present in select dependencies of t5x"
+    exit 1
+else
+    git commit -a -m "remove URL specs from select dependencies of t5x"
+fi
+popd
+EOF
+
+ADD test-t5x.sh /usr/local/bin
+
+###############################################################################
+## Install accumulated packages from the base image and the previous[] stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh

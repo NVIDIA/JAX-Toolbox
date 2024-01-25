@@ -1,33 +1,25 @@
 name: ~CI, single-arch
 run-name: CI-${{ inputs.ARCHITECTURE }}
-
 on:
   workflow_call:
     inputs:
       ARCHITECTURE:
         type: string
         required: true
-      TRIAL_BRANCH:
+      BUILD_DATE:
         type: string
-        description: 'Name of (branch|tag|sha) with bumped manifest and patches'
-        required: true
+        description: Build date in YYYY-MM-DD format
+        required: false
+        default: NOT SPECIFIED
+      BUMP_MANIFEST:
+        type: boolean
+        description: Flag to bump manifest file or not
+        default: false
+        required: false
     outputs:
-      TAG_BASE:
-        description: "Tags of the base image built"
-        value: ${{ jobs.build-base.outputs.DOCKER_TAG }}
-      TAG_JAX:
-        description: "Tags of the JAX image built"
-        value: ${{ jobs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      TAG_T5X:
-        description: "Tags of the T5X image built"
-        value: ${{ jobs.build-t5x.outputs.DOCKER_TAG_FINAL }}
-      TAG_PALLAS:
-        description: "Tags of the Pallas image built"
-        value: ${{ jobs.build-pallas.outputs.DOCKER_TAG_FINAL }}
-      TAG_PAX:
-        description: "Tags of the PAX image built"
-        value: ${{ jobs.build-pax.outputs.DOCKER_TAG_FINAL }}
-
+      CONTAINER_TAGS:
+        description: Single JSON object to store all generated docker tags
+        value: ${{ jobs.save-tags.output.CONTAINER_TAGS }}
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
@@ -35,122 +27,171 @@ permissions:
 
 jobs:
 
-  metadata:
-    runs-on: ubuntu-22.04
-    outputs:
-      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
-    steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
-
-      - name: Set build date
-        id: date
-        shell: bash -x -e {0}
-        run: |
-          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
-          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
-
   build-base:
-    needs: metadata
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      TRIAL_BRANCH: ${{ inputs.TRIAL_BRANCH }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BUMP_MANIFEST: ${{ inputs.BUMP_MANIFEST }}
     secrets: inherit
 
   build-jax:
-    needs: [metadata, build-base]
+    needs: build-base
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
   build-t5x:
-    needs: [metadata, build-jax]
-    if: inputs.ARCHITECTURE == 'amd64'  # T5X arm64 build is wip in PR 252
+    needs: build-jax
+    if: inputs.ARCHITECTURE == 'amd64' # T5X arm64 build is wip in PR 252
     uses: ./.github/workflows/_build.yaml
     with:
-      ARCHITECTURE: amd64
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-t5x-build"
       BADGE_FILENAME: "badge-t5x-build"
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: "upstream-t5x"
-      DOCKERFILE: ".github/container/Dockerfile.t5x"
+      CONTAINER_NAME: upstream-t5x
+      DOCKERFILE: .github/container/Dockerfile.t5x
     secrets: inherit
 
   build-pallas:
-    needs: [metadata, build-jax]
+    needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-pallas-build"
-      BADGE_FILENAME: "badge-pallas-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      ARTIFACT_NAME: artifact-pallas-build
+      BADGE_FILENAME: badge-pallas-build
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: "pallas"
+      CONTAINER_NAME: pallas
       DOCKERFILE: .github/container/Dockerfile.pallas
     secrets: inherit
-  
+
   build-maxtext:
-    needs: [metadata, build-jax]
+    needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-maxtext-build"
-      BADGE_FILENAME: "badge-maxtext-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      ARTIFACT_NAME: artifact-maxtext-build
+      BADGE_FILENAME: badge-maxtext-build
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: "maxtext"
+      CONTAINER_NAME: maxtext
       DOCKERFILE: .github/container/Dockerfile.maxtext.amd64
     secrets: inherit
 
   build-pax:
-    needs: [metadata, build-jax]
+    needs: build-jax
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-pax-build"
-      BADGE_FILENAME: "badge-pax-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      ARTIFACT_NAME: artifact-pax-build
+      BADGE_FILENAME: badge-pax-build
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: "upstream-pax"
+      CONTAINER_NAME: upstream-pax
       DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
-  build-rosetta-t5x:
-    uses: ./.github/workflows/_build_rosetta.yaml
-    needs: [metadata, build-t5x]
+  build-levanter:
+    needs: [build-jax]
+    uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      ARTIFACT_NAME: "artifact-levanter-build"
+      BADGE_FILENAME: "badge-levanter-build"
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: levanter
+      DOCKERFILE: .github/container/Dockerfile.levanter
+    secrets: inherit
+
+  build-rosetta-t5x:
+    needs: build-t5x
+    uses: ./.github/workflows/_build_rosetta.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: t5x
     secrets: inherit
 
   build-rosetta-pax:
+    needs: build-pax
     uses: ./.github/workflows/_build_rosetta.yaml
-    needs: [metadata, build-pax]
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: pax
     secrets: inherit
 
+  save-tags:
+    runs-on: ubuntu-22.04
+    needs:
+      - build-jax
+      - build-t5x
+      - build-pallas
+      - build-pax
+      - build-rosetta-t5x
+      - build-rosetta-pax
+    outputs:
+      CONTAINER_TAGS: ${{ steps.save-docker-tags.outputs.CONTAINER_TAGS }}
+    steps:
+      - name: Save docker tags in a single JSON object
+        id: save-docker-tags
+        run: |
+          CONTAINER_TAGS_JSON=$(cat << EOF
+            { \
+            "tag-jax-mealkit": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-jax-final": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}", \
+            "tag-upstream-t5x-mealkit": "${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-upstream-t5x-final": "${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}", \
+            "tag-pallas-mealkit": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-pallas-final": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}", \
+            "tag-upstream-pax-mealkit": "${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-upstream-pax-final": "${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}", \
+            "tag-t5x-mealkit": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-t5x-final": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}", \
+            "tag-pax-mealkit": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}", \
+            "tag-pax-final": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}" \
+            }
+          EOF
+
+          )
+
+          echo "CONTAINER_TAGS=${CONTAINER_TAGS_JSON}" >> $GITHUB_OUTPUT
+
   test-distribution:
-    needs: metadata
-    uses: ./.github/workflows/_test_distribution.yaml
-    secrets: inherit
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        TEST_SCRIPT:
+          - extra-only-distribution.sh
+          - mirror-only-distribution.sh
+          - upstream-only-distribution.sh
+      fail-fast: false
+    steps:
+      - name: Print environment variables
+        run: env
+      - name: Set git login for tests
+        run: |
+          git config --global user.email "jax@nvidia.com"
+          git config --global user.name "JAX-Toolbox CI"
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+      - name: Run integration test ${{ matrix.TEST_SCRIPT }}
+        run: bash rosetta/tests/${{ matrix.TEST_SCRIPT }}
 
   test-jax:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_jax.yaml
     with:
       JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
@@ -158,7 +199,7 @@ jobs:
 
   test-te:
     needs: build-pax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_te.yaml
     with:
       TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
@@ -166,7 +207,7 @@ jobs:
 
   test-upstream-t5x:
     needs: build-t5x
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_t5x.yaml
     with:
       T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}
@@ -174,7 +215,7 @@ jobs:
 
   test-rosetta-t5x:
     needs: build-rosetta-t5x
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_t5x_rosetta.yaml
     with:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
@@ -190,7 +231,7 @@ jobs:
 
   test-upstream-pax:
     needs: build-pax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_pax.yaml
     with:
       PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
@@ -198,8 +239,18 @@ jobs:
 
   test-rosetta-pax:
     needs: build-rosetta-pax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+  
+  ## TODO: uncomments when PR #463
+  # test-levanter:
+  #   needs: build-levanter
+  #   if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+  #   uses: ./.github/workflows/_test_levanter.yaml
+  #   with:
+  #     JAX_IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
+  #   secrets: inherit
+
