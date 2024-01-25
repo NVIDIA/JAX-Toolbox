@@ -4,24 +4,16 @@ YELLOW='\033[0;33m'
 NOCOLOR='\033[0m'
 
 echo -e "${YELLOW}
-WARNING: To speed up the model training it is recommended to cache the datasets with:
+WARNING: Levanter uses a cache folder to store preprocessed datasets. The position of
+the cache default to ~/.cache but can be changed via the `--data.cache_dir` flag:
 
-    $ python -m levanter.main.cache_dataset --id <dataset_id> --cache_dir <path/to/shared/cache>
+    $ python -m levanter.main.train_lm ... --data.cache_dir <path/to/cache>
 
-When run on distributed system, please make sure that the cache folder <path/to/shared/cache>
-is on a network/shared filesystem across nodes. 
+When running on a distributed system, please make sure that the cache folder is placed on a network-readable path,
+e.g. a path in an object store (e.g. GCS). or a path to a pre-built cache., that is accessible by all participating nodes.
 
-To supply the cache folder to Levanter, use `--data.cache_dir` flag:
-
-    $ docker run -v <path/to/shared/cache>:<path/to/in-docker/cache> <levanter-docker-image> \\
-        python -m levanter.main.train_lm <...> --data.cache_dir <path/to/in-docker/cache>
-
-This directory can be any network-readable path, a path in an object store (e.g. GCS). or a path to a pre-built cache.
-
-Alternatively, you can skip `--data.cache_dir` flag, then the cache folder is `/opt/levanter/cache`
-by default:
-
-    $ docker run -v <path/to/shared/cache>:/opt/levanter/cache <levanter-docker-image> \\
-        python -m levanter.main.train_lm <...>
+    $ docker run -v <path/to/shared/filesystem>:<path/to/cache> <levanter-docker-image> ...
+    OR
+    $ srun --container-mounts=<path/to/shared/filesystem>:<path/to/cache> --container-image=<levanter-docker-image> ...
 
 ${NOCOLOR}"
