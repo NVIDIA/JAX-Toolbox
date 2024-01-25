@@ -6,11 +6,18 @@ on:
       - '**.md'
   workflow_dispatch:
     inputs:
-      TRIAL_BRANCH:
-        type: string
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
         required: false
-        default: ''
-        description: 'Branch that contains manifest and patches. Default is empty which uses GITHUB_SHA'
+      BUMP_MANIFEST:
+        type: boolean
+        description: Bump manifest file?
+        default: false
+        required: false
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -26,33 +33,92 @@ jobs:
   metadata:
     runs-on: ubuntu-22.04
     outputs:
-      TRIAL_BRANCH: ${{ steps.meta.outputs.TRIAL_BRANCH }}
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+      BUMP_MANIFEST: ${{ steps.if-bump-manifest.outputs.BUMP_MANIFEST }}
     steps:
-      - name: Set optional trial branch
-        id: meta
+      - name: Set build date
+        id: date
         shell: bash -x -e {0}
         run: |
-          if [[ -z "${{ inputs. TRIAL_BRANCH}}" ]]; then
-            echo "TRIAL_BRANCH=${{ github.sha }}"
-          else
-            echo "TRIAL_BRANCH=${TRIAL_BRANCH}"
-          fi | tee $GITHUB_OUTPUT
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether need to bump manifest 
+        id: if-bump-manifest
+        shell: bash -x -e {0}
+        run: |
+          echo "BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}" >> $GITHUB_OUTPUT
 
   amd64:
     needs: metadata
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: amd64
-      TRIAL_BRANCH: ${{ needs.metadata.outputs.TRIAL_BRANCH }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}
     secrets: inherit
- 
+
   arm64:
     needs: metadata
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: arm64
-      TRIAL_BRANCH: ${{ needs.metadata.outputs.TRIAL_BRANCH }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}      
     secrets: inherit
+
+  publish-target-tags:
+    runs-on: ubuntu-22.04
+    outputs:
+      TARGET_TAGS: ${{ steps.tags.outputs.TARGET_TAGS}}
+    steps:
+      - id: tags
+        run: |
+          declare -a TARGET_IMAGE=("jax" "pallas" "upstream-pax" "upstream-t5x" "pax" "t5x")
+          declare -a FLAVOR=("mealkit" "final")
+
+          ## now loop through the above array
+          JSON="{"
+          for target in "${TARGET_IMAGE[@]}";do
+              for flavor in "${FLAVOR[@]}"; do
+                  CONTAINER_TAG=${flavor}
+                  TAG_DATED=${flavor}
+                  if [[ ${flavor} == "final" ]]; then
+                      CONTAINER_TAG=latest
+                      TAG_DATED=nightly
+                  fi
+                  JSON=$(echo ${JSON}\"${target}-${flavor}-container-tag\":\"${CONTAINER_TAG}\",)
+                  JSON=$(echo ${JSON}\"${target}-${flavor}-tag-dated\":\"${TAG_DATED}\",)
+              done
+          done
+          JSON="${JSON::-1} }"
+          echo "TARGET_TAGS=${JSON}" | tee -a $GITHUB_OUTPUT    
+
+  publish:
+    needs: [metadata, amd64, arm64, publish-target-tags]
+    if: false  # TODO: enable this after new image renaming proposal is approved
+    # if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+    strategy:
+      fail-fast: false
+      matrix:
+        TARGET_IMAGE: [jax, pallas, upstream-pax, upstream-t5x, pax, t5x]
+        FLAVOR: [mealkit, final]
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ fromJson(needs.amd64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
+        ${{ fromJson(needs.arm64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
+      TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
+      TARGET_TAGS: |
+        type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }},priority=500
+        type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   finalize:
     needs: [amd64, arm64]
