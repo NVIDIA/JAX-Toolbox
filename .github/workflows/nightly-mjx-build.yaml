@@ -2,8 +2,9 @@ name: Nightly MJX build
 run-name: Nightly MJX build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
+  push:
   workflow_run:
-    workflows: [Nightly CI build]
+    workflows: [Nightly base container build]
     types: [completed]
     branches: [main]
   workflow_dispatch:
