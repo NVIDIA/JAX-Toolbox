@@ -1,85 +1,41 @@
-name: ~sandbox
+name: "~Sandbox"
 
 on:
   workflow_dispatch:
-    inputs:
-      ARCHITECTURE:
-        type: string
-        description: 'CPU architecture to build the image for, e.g. amd64, arm64'
-        required: false
-        default: amd64
-      BASE_IMAGE:
-        type: string
-        description: 'Base docker image that provides JAX'
-        required: false
-        default: ghcr.io/nvidia/jax:mealkit
-      BUILD_DATE:
-        type: string
-        description: "Build date in YYYY-MM-DD format"
-        required: false
-        default: '2023-12-12'
-      REPO_LEVANTER:
-        type: string
-        description: URL of Levanter repository to check out
-        required: false
-        default: "https://github.com/stanford-crfm/levanter.git"
-      REF_LEVANTER:
-        type: string
-        description: Git commit, tag, or branch for Levanter
-        required: false
-        default: main
-    #   ARTIFACT_NAME:
-    #     type: string
-    #     description: 'Name of the artifact zip file'
-    #     required: false
-    #     default: 'artifact-levanter-build'
-    #   BADGE_FILENAME:
-    #     type: string
-    #     description: 'Name of the endpoint JSON file for shields.io badge'
-    #     required: false
-    #     default: 'badge-levanter-build'
-    # outputs:
-    #   DOCKER_TAG_MEALKIT:
-    #     description: "Tags of the 'mealkit' image built"
-    #     value: ${{ jobs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}
-    #   DOCKER_TAG_FINAL:
-    #     description: "Tags of the complete image built"
-    #     value: ${{ jobs.build-levanter.outputs.DOCKER_TAG_FINAL }}
-
-env:
-  UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
-
-permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
 
 jobs:
-
-  metadata:
+  sandbox:
     runs-on: ubuntu-22.04
-    outputs:
-      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
     steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set build date
-        id: date
-        shell: bash -x -e {0}
+      - name: Print usage
         run: |
-          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
-          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
 
-  build-levanter:
-    needs: metadata
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: amd64
-      ARTIFACT_NAME: "artifact-levanter-build"
-      BADGE_FILENAME: "badge-levanter-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BASE_IMAGE: ghcr.io/nvidia/jax:mealkit #${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: levanter
-      DOCKERFILE: .github/container/Dockerfile.levanter
-    secrets: inherit
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
