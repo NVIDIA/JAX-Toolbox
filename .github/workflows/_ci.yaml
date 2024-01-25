@@ -100,13 +100,13 @@ jobs:
     secrets: inherit
 
   build-levanter:
-    needs: [metadata, build-jax]
+    needs: [build-jax]
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-levanter-build"
       BADGE_FILENAME: "badge-levanter-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: levanter
       DOCKERFILE: .github/container/Dockerfile.levanter
