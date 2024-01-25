@@ -16,8 +16,8 @@ echo "mujoco:
   latest_verified_commit: 4f53d9a0d7bde4b9a69994d79449dfd57a04c305
   mode: git-clone" >> ${MANIFEST_FILE}
 get-source.sh -l mujoco -m ${MANIFEST_FILE} 
+pip install mujoco>=3.1.2.dev0
 echo "-e file://${SRC_PATH_MJX}" >> /opt/pip-tools.d/requirements-mjx.in
-
 ls -lah /opt/mujoco/mjx
 cat /opt/pip-tools.d/requirements-mjx.in
 
