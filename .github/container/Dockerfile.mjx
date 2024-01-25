@@ -17,10 +17,7 @@ echo "mujoco:
   mode: git-clone" >> ${MANIFEST_FILE}
 get-source.sh -l mujoco -m ${MANIFEST_FILE} 
 pip install mujoco
-echo "-e file://${SRC_PATH_MJX} -f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
-ls -lah /opt/mujoco/mjx
-cat /opt/pip-tools.d/requirements-mjx.in
-
+pip install mujoco/mjx/ -f https://py.mujoco.org/
 EOF
 
 ###############################################################################
