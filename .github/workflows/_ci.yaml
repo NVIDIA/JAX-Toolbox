@@ -73,7 +73,7 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64'  # T5X arm64 build is wip in PR 252
     uses: ./.github/workflows/_build.yaml
     with:
-      ARCHITECTURE: amd64
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-t5x-build"
       BADGE_FILENAME: "badge-t5x-build"
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
@@ -127,7 +127,7 @@ jobs:
     needs: metadata
     uses: ./.github/workflows/_build.yaml
     with:
-      ARCHITECTURE: amd64
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-levanter-build"
       BADGE_FILENAME: "badge-levanter-build"
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
