@@ -7,18 +7,18 @@ on:
   #   workflows: [Nightly JAX build]
   #   types: [completed]
   #   branches: [main]
-  workflow_dispatch:
-    inputs:
-      BASE_IMAGE:
-        type: string
-        description: 'Upstream Jax mealkit image without $arch-mealkit suffix, e.g., (ghcr.io/nvidia/jax-toolbox-internal:6857094059-upstream-jax). Leaving empty implies ghcr.io/nvidia/jax:mealkit'
-        default: ''
-        required: false
-      PUBLISH:
-        type: boolean
-        description: Publish nightly images and update the 'latest' tag?
-        default: false
-        required: false
+  # workflow_dispatch:
+  #   inputs:
+  #     BASE_IMAGE:
+  #       type: string
+  #       description: 'Upstream Jax mealkit image without $arch-mealkit suffix, e.g., (ghcr.io/nvidia/jax-toolbox-internal:6857094059-upstream-jax). Leaving empty implies ghcr.io/nvidia/jax:mealkit'
+  #       default: ''
+  #       required: false
+  #     PUBLISH:
+  #       type: boolean
+  #       description: Publish nightly images and update the 'latest' tag?
+  #       default: false
+  #       required: false
 
 env:
   DOCKER_REGISTRY: ghcr.io/nvidia
