@@ -25,8 +25,6 @@ get-source.sh -l levanter -m ${MANIFEST_FILE}
 echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
 EOF
 
-RUN mkdir -p ${SRC_PATH_LEVANTER}/cache
-
 ###############################################################################
 ## Add warning about creating a model cache
 ###############################################################################
