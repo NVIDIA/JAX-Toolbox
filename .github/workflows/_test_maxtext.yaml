@@ -70,7 +70,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.MAXTEXT_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}FSDP${{ matrix.PARALLEL_CONFIG[=2] }}TP
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}FSDP${{ matrix.PARALLEL_CONFIG[2] }}TP
           TOTAL_TASKS=8
           MAX_GPUS_PER_NODE=8
           NODES=1
