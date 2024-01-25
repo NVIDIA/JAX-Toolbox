@@ -2,9 +2,9 @@ name: CI
 run-name: Nightly CI build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
-  pull_request:
-    paths-ignore:
-      - '**.md'
+  # pull_request:
+  #   paths-ignore:
+  #     - '**.md'
   workflow_dispatch:
     inputs:
       PUBLISH:

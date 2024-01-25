@@ -83,6 +83,12 @@ jobs:
           echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
           echo "BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}" >> $GITHUB_OUTPUT
 
+      - name: Debug output
+        shell: bash -x -e {0}
+        run: |
+          ls -lah /opt/mujoco/mjx
+          cat /opt/pip-tools.d/requirements-mjx.in
+
   amd64:
     needs: metadata
     uses: ./.github/workflows/_build.yaml

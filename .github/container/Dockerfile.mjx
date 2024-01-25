@@ -16,7 +16,7 @@ echo "mjx:
   latest_verified_commit: 4f53d9a0d7bde4b9a69994d79449dfd57a04c305
   mode: git-clone" >> ${MANIFEST_FILE}
 get-source.sh -l mjx -m ${MANIFEST_FILE} 
-echo "-e file://${SRC_PATH_MJX} -f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
+echo "-e -f https://py.mujoco.org/ file://${SRC_PATH_MJX}" >> /opt/pip-tools.d/requirements-mjx.in
 EOF
 
 ###############################################################################
