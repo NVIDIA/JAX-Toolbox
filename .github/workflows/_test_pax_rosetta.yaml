@@ -991,7 +991,7 @@ jobs:
           import json
           files = "$(echo *_metrics.json)".split()
           header = None
-          print_row = lambda lst: print('| ' + lst.join(' | ') + ' |')
+          print_row = lambda lst: print('| ' + ' | '.join(lst) + ' |')
           for path in files:
             with open(path) as f:
               obj = json.loads(f.read())
