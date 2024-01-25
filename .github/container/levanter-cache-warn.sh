@@ -16,8 +16,10 @@ To supply the cache folder to Levanter, use `--data.cache_dir` flag:
     $ docker run -v <path/to/shared/cache>:<path/to/in-docker/cache> <levanter-docker-image> \\
         python -m levanter.main.train_lm <...> --data.cache_dir <path/to/in-docker/cache>
 
-Alternatevely, you can skip `--data.cache_dir` flag, then the cache folder is `/opt/levanter/cache`
-be default:
+This directory can be any network-readable path, a path in an object store (e.g. GCS). or a path to a pre-built cache.
+
+Alternatively, you can skip `--data.cache_dir` flag, then the cache folder is `/opt/levanter/cache`
+by default:
 
     $ docker run -v <path/to/shared/cache>:/opt/levanter/cache <levanter-docker-image> \\
         python -m levanter.main.train_lm <...>
