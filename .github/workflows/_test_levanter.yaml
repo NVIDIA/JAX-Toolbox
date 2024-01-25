@@ -1,0 +1,113 @@
+name: ~test Levanter, unit
+
+on:
+  workflow_call:
+    inputs:
+      LEVANTER_IMAGE:
+        type: string
+        description: 'Levanter image built by NVIDIA/JAX-Toolbox'
+        required: true
+        default: 'ghcr.io/nvidia/levanter:latest'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-levanter-unit-test'
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-levanter-unit-test'
+
+jobs:
+  runner:
+    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+    with:
+      NAME: "A100-${{ github.run_id }}"
+      LABELS: "A100:${{ github.run_id }}"
+      TIME: "01:00:00"
+    secrets: inherit
+
+  levanter-unit-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        GPU_ARCH: [V100, A100]
+    # ensures A100 job lands on dedicated runner for this particular job
+    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+    env:
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Print GPU information
+        run: nvidia-smi  
+
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull Levanter image
+        shell: bash -x -e {0}
+        run: |
+          docker pull ${{ inputs.LEVANTER_IMAGE }}
+
+      - name: Test with pytest
+        run: |
+          docker run --gpus all --shm-size=1g ${{ inputs.LEVANTER_IMAGE }} bash -ec "pip install flake8 pytest test_util && pytest /opt/levanter/tests" | tee test-levanter.log
+
+      - name: Generate sitrep
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='${{ matrix.GPU_ARCH }} Unit'
+
+          errors=$(cat test-*.log | grep -c 'ERROR:' || true)
+          failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
+          passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
+          total_tests=$((failed_tests + passed_tests))
+
+          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary='Levanter unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="Levanter unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            errors total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
+          path: |
+            test-levanter.log
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}

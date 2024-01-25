@@ -73,7 +73,7 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64'  # T5X arm64 build is wip in PR 252
     uses: ./.github/workflows/_build.yaml
     with:
-      ARCHITECTURE: amd64
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-t5x-build"
       BADGE_FILENAME: "badge-t5x-build"
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
@@ -121,6 +121,19 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: "upstream-pax"
       DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+    secrets: inherit
+
+  build-levanter:
+    needs: [metadata, build-jax]
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: "artifact-levanter-build"
+      BADGE_FILENAME: "badge-levanter-build"
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: levanter
+      DOCKERFILE: .github/container/Dockerfile.levanter
     secrets: inherit
 
   build-rosetta-t5x:
@@ -203,3 +216,13 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+  
+  ## TODO: uncomments when PR #463
+  # test-levanter:
+  #   needs: build-levanter
+  #   if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+  #   uses: ./.github/workflows/_test_levanter.yaml
+  #   with:
+  #     JAX_IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
+  #   secrets: inherit
+
