@@ -16,7 +16,7 @@ echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.
 EOF
 
 ###############################################################################
-## Add warning about creating a data cache
+## Add warning for the shared data cache mechanism
 ###############################################################################
 
 COPY levanter-cache-warn.sh /opt/nvidia/entrypoint.d/
