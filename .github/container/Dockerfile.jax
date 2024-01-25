@@ -33,12 +33,15 @@ RUN --mount=type=ssh \
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 # TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt
+# TODO: This is a WAR to NCCL errors we observe in TOT. Should be removed when no longer needed
+ADD Mark-collective-called-computations-in-custom-shardi.patch /opt
 RUN build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
     --xla-arm64-patch /opt/xla-arm64-neon.patch \ 
+    --other-xla-patches /opt/Mark-collective-called-computations-in-custom-shardi.patch \
     --clean
 
 ###############################################################################
@@ -68,8 +71,6 @@ ENV CUDA_MODULE_LOADING=EAGER
 ## Remove ASAP once the underlying issue has been removed
 # https://github.com/NVIDIA/JAX-Toolbox/pull/472, WAR for a crash observed in the default runtime leading to this error message: "nccl_all_reduce_thunk.cc:175] Check failed: reduction_kind.has_value()"
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_xla_runtime_executable=true"
-# https://github.com/NVIDIA/JAX-Toolbox/pull/487, WAR for the following LLVM crash observed in Pax: "Invalid LLVM IR before optimizations"
-ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_llvm_module_compilation_parallelism=true"
 
 ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 

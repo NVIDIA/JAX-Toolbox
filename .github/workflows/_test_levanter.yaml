@@ -1,23 +1,23 @@
-name: ~test JAX, unit
+name: ~test Levanter, unit
 
 on:
   workflow_call:
     inputs:
-      JAX_IMAGE:
+      LEVANTER_IMAGE:
         type: string
-        description: 'JAX image built by NVIDIA/JAX-Toolbox'
+        description: 'Levanter image built by NVIDIA/JAX-Toolbox'
         required: true
-        default: 'ghcr.io/nvidia/jax:latest'
+        default: 'ghcr.io/nvidia/levanter:latest'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'artifact-jax-unit-test'
+        default: 'artifact-levanter-unit-test'
       BADGE_FILENAME:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'badge-jax-unit-test'
+        default: 'badge-levanter-unit-test'
 
 jobs:
   runner:
@@ -28,7 +28,7 @@ jobs:
       TIME: "01:00:00"
     secrets: inherit
 
-  jax-unit-test:
+  levanter-unit-test:
     strategy:
       fail-fast: false
       matrix:
@@ -54,23 +54,14 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull JAX image
+      - name: Pull Levanter image
         shell: bash -x -e {0}
         run: |
-          docker pull ${{ inputs.JAX_IMAGE }}
+          docker pull ${{ inputs.LEVANTER_IMAGE }}
 
-      - name: Backend-independent tests
-        shell: bash -x -e {0}
-        # todo: distinguish between test failures and errors
-        continue-on-error: true
+      - name: Test with pytest
         run: |
-          docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
-
-      - name: GPU-specific tests
-        shell: bash -x -e {0}
-        continue-on-error: true
-        run: |
-          docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
+          docker run --gpus all --shm-size=1g ${{ inputs.LEVANTER_IMAGE }} bash -ec "pip install flake8 pytest test_util && pytest /opt/levanter/tests" | tee test-levanter.log
 
       - name: Generate sitrep
         shell: bash -x -e {0}
@@ -78,7 +69,7 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='JAX ${{ matrix.GPU_ARCH }} Unit'
+          badge_label='${{ matrix.GPU_ARCH }} Unit'
 
           errors=$(cat test-*.log | grep -c 'ERROR:' || true)
           failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
@@ -88,7 +79,7 @@ jobs:
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
-            summary='JAX unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+            summary='Levanter unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -96,7 +87,7 @@ jobs:
             else
               badge_color=yellow
             fi
-            summary="JAX unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
+            summary="Levanter unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
           fi
 
           to_json \
@@ -117,7 +108,6 @@ jobs:
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
           path: |
-            test-backend-independent.log
-            test-gpu.log
+            test-levanter.log
             sitrep.json
             ${{ env.BADGE_FILENAME_FULL }}
