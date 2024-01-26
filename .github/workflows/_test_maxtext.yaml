@@ -71,7 +71,7 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.MAXTEXT_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0]}}PP
-          TOTAL_TASKS=8
+          TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
           MAX_GPUS_PER_NODE=8
           NODES=1
           GPUS_PER_NODE=8
@@ -95,8 +95,8 @@ jobs:
           #SBATCH --exclusive
           #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
+          #SBATCH --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }}
+          #SBATCH --gpus_per_task=1
           #SBATCH --mem=0
           #SBATCH --time=00:15:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
