@@ -198,3 +198,4 @@ jobs:
           name: ${{ env.DEFAULT_ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
           path: |
             test-mjx.log
+            
