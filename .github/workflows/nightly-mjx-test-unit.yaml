@@ -2,16 +2,17 @@ name: Nightly MJX unit test
 run-name: Nightly MJX unit test (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
-  workflow_run:
-    workflows: [Nightly MJX build]
-    types: [completed]
-    branches: [main]
+  push:
+  # workflow_run:
+  #   workflows: [Nightly MJX build]
+  #   types: [completed]
+  #   branches: [main]
   workflow_dispatch:
     inputs:
       MJX_IMAGE:
         type: string
         description: 'MJX image built by NVIDIA/MJX-Toolbox'
-        default: 'ghcr.io/nvidia/upstream-mjx:latest'
+        default: ghcr.io/nvidia/jax-toolbox-internal:7662445215-upstream-mjx-amd64 #'ghcr.io/nvidia/upstream-mjx:latest'
         required: true
       PUBLISH:
         type: boolean
@@ -26,7 +27,7 @@ permissions:
   packages: write # to upload container
 
 env:
-  DEFAULT_MJX_IMAGE: ghcr.io/nvidia/upstream-mjx:latest
+  DEFAULT_MJX_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:7662445215-upstream-mjx-amd64 #ghcr.io/nvidia/upstream-mjx:latest
   ARTIFACT_NAME: artifact-mjx-unit-test
 
 jobs:
