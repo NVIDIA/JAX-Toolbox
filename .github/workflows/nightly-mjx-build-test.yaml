@@ -4,6 +4,25 @@ run-name: Nightly MJX build (${{ github.event_name == 'workflow_run' && format('
 on:
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  workflow_dispatch:
+    inputs:
+      BASE_IMAGE_AMD64:
+        type: string
+        description: 'JAX mealkit AMD64 imagebuilt by NVIDIA/JAX-Toolbox'
+        default: ''
+        required: false
+      BASE_IMAGE_ARM64:
+        type: string
+        description: 'JAX mealkit AMD64 imagebuilt by NVIDIA/JAX-Toolbox'
+        default: ''
+        required: false
+
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
+        required: false
+
 
 env:
   DOCKER_REGISTRY: ghcr.io/nvidia
@@ -179,6 +198,3 @@ jobs:
           name: ${{ env.DEFAULT_ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
           path: |
             test-mjx.log
-
-      
-
