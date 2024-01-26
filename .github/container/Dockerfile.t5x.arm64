@@ -3,6 +3,7 @@
 #   docker buildx build -f Dockerfile.t5x.arm64 --tag t5x --build-arg BASE_IMAGE=ghcr.io/nvidia/jax:mealkit-2024-01-22 .
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG SRC_PATH_GRAIN=/opt/grain
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 ARG SRC_PATH_T5X=/opt/t5x
 
@@ -82,10 +83,9 @@ EOT
 # TODO: Remove this once grain maintainers have published an arm64 wheel.
 
 FROM wheel-builder as grain-builder
+ARG SRC_PATH_GRAIN
 
-# Setup bazel
-RUN  wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
-    chmod a+x /usr/bin/bazel
+COPY --from=array_record-builder /tmp/array_record/all_dist/array_record*linux_aarch64.whl /opt/
 
 # The following setup steps are based on
 #   https://github.com/google/grain/blob/ab557c31672cc2ac6f9b31e33aea2df00a7da5bf/grain/oss/build.Dockerfile
@@ -100,16 +100,14 @@ RUN  wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazel
             update-alternatives --install /usr/bin/python python /usr/bin/python${MEALKIT_PYTHON_VERSION} 0
 
     # Install pip dependencies needed for grain
-    # NOTE: We are ignoring the fact that "array_record" will actually resolve to the wrong version
-    #   here. When we put it all together in the final image, we make sure that the right version is
-    #   already installed.
     RUN pip install \
             absl-py \
-            array_record \
+            /opt/array_record*.whl \
             build \
             cloudpickle \
             dm-tree \
             etils[epath] \
+            jaxtyping \
             "more-itertools>=9.1.0" \
             numpy
 
@@ -122,18 +120,21 @@ RUN  wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazel
             tensorflow-datasets
 # END
 
+RUN get-source.sh -l grain -m ${MANIFEST_FILE}
+
 RUN <<"EOT" bash -exu
 set -o pipefail
 
-# The open-source version of grain contains various references to Google-internal dependencies,
-# and does not contain build scripts compatible with arm64. We instead build a patched version,
-# based on https://github.com/google/grain/commit/6de2270cec0407d0011721b78461b344abe07704
+pushd ${SRC_PATH_GRAIN}
 
-git clone https://github.com/gspschmid/grain /opt/grain
-cd /opt/grain
-git checkout external-arm64-build-poc
+# Make bazel stop complaining about sharding and disable some tests with missing bazel build deps
+sed -i 's| bazel test | bazel test --test_sharding_strategy=disabled |' ./grain/oss/build_whl.sh
+#sed -i 's| bazel test.*| bazel test --test_sharding_strategy=disabled --verbose_failures --test_output=errors --action_env PYTHON_BIN_PATH="/usr/bin/$PYTHON" -- //...|' ./grain/oss/build_whl.sh
+#sed -i 's| bazel test.*| bazel test --test_sharding_strategy=disabled --verbose_failures --test_output=errors --action_env PYTHON_BIN_PATH="/usr/bin/$PYTHON" -- //... -//grain/_src/python/experimental/example_packing:packing_test -//grain/_src/python/lazy_dataset/transformations:packing_test|' ./grain/oss/build_whl.sh
 
-export PYTHON_VERSION=$(cat /mealkit-python-version)
+export MEALKIT_PYTHON_VERSION=$(cat /mealkit-python-version)
+export PYTHON_MAJOR_VERSION=${MEALKIT_PYTHON_VERSION%.*}
+export PYTHON_MINOR_VERSION=${MEALKIT_PYTHON_VERSION#*.}
 chmod a+x ./grain/oss/build_whl.sh
 ./grain/oss/build_whl.sh
 
