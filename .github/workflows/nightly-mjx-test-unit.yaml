@@ -14,6 +14,11 @@ on:
         description: 'MJX image built by NVIDIA/MJX-Toolbox'
         default: ghcr.io/nvidia/jax-toolbox-internal:7662445215-upstream-mjx-amd64 #'ghcr.io/nvidia/upstream-mjx:latest'
         required: true
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-mjx-unit-test'
       PUBLISH:
         type: boolean
         description: Update status badge?
@@ -28,7 +33,7 @@ permissions:
 
 env:
   DEFAULT_MJX_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:7662445215-upstream-mjx-amd64 #ghcr.io/nvidia/upstream-mjx:latest
-  ARTIFACT_NAME: artifact-mjx-unit-test
+  DEFAULT_ARTIFACT_NAME: artifact-mjx-unit-test
 
 jobs:
 
@@ -43,6 +48,7 @@ jobs:
     outputs:
       MJX_IMAGE: ${{ steps.image.outputs.MJX_IMAGE }}
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+      ARTIFACT_NAME: ${{ steps.artifact-name.outputs.ARTIFACT_NAME }}
     steps:
       - name: Determine mjx image to use
         id: image
@@ -54,6 +60,17 @@ jobs:
             MJX_IMAGE=${{ inputs.MJX_IMAGE }}
           fi
           echo "MJX_IMAGE=${MJX_IMAGE}" >> $GITHUB_OUTPUT
+
+      - name: Determine artifact name
+        id: artifact-name
+        shell: bash -x -e {0}
+        run: |
+          if [[ -z "${{ inputs.ARTIFACT_NAM }}" ]]; then
+            ARTIFACT_NAME=${{ env.DEFAULT_ARTIFACT_NAME }}
+          else
+            ARTIFACT_NAME=${{ inputs.ARTIFACT_NAME }}
+          fi
+          echo "ARTIFACT_NAME=${ARTIFACT_NAM}" >> $GITHUB_OUTPUT
 
       - name: Determine whether results will be 'published'
         id: if-publish
@@ -70,6 +87,7 @@ jobs:
     secrets: inherit
 
   mjx-unit-test:
+    needs: metadata
     strategy:
       fail-fast: false
       matrix:
@@ -96,19 +114,19 @@ jobs:
       - name: Pull MJX image
         shell: bash -x -e {0}
         run: |
-          docker pull ${{ inputs.MJX_IMAGE }}
+          docker pull ${{ needs.metadata.outputs.MJX_IMAGE }}
 
       - name: MJX speed test
         shell: bash -x -e {0}
         continue-on-error: true
         run: |
-          docker run --gpus=all --shm-size=1g ${{ inputs.MJX_IMAGE }} \ 
+          docker run --gpus=all --shm-size=1g ${{ needs.metadata.outputs.MJX_IMAGE }} \ 
             bash -ec "mjx-testspeed --mjcf=humanoid/humanoid.xml --batch_size=8192 --unroll=4" | tee -a test-mjx.log
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
+          name: ${{ needs.metadata.outputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
           path: |
             test-mjx.log
 
