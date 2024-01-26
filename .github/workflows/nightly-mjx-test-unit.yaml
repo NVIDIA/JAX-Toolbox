@@ -114,7 +114,7 @@ jobs:
 
   finalize:
     if: "!cancelled()"
-    needs: [metadata, run]
+    needs: [metadata, mjx-unit-test]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
