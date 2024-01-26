@@ -142,7 +142,7 @@ export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enabl
                   --xla_gpu_graph_level=0 --xla_gpu_enable_async_all_reduce=true --xla_gpu_enable_pipelined_all_gather=true 
                   --xla_gpu_enable_pipelined_reduce_scatter=true --xla_gpu_enable_pipelined_all_reduce=true --xla_gpu_enable_while_loop_double_buffering=true --xla_disable_hlo_passes=rematerialization"
 
-RUN_NAME="16B_DP$DP_FSDP$FSDP_TP$TP"
+RUN_NAME="4B_PP${PP}_DP${DP}_FSDP${FSDP}_TP${TP}"
 
 RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME}\
     steps=$STEPS per_device_batch_size=2 base_emb_dim=8192 base_mlp_dim=32768 remat_policy=minimal\
