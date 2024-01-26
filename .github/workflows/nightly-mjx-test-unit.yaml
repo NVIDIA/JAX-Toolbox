@@ -120,8 +120,7 @@ jobs:
         shell: bash -x -e {0}
         continue-on-error: true
         run: |
-          docker run --gpus=all --shm-size=1g ${{ needs.metadata.outputs.MJX_IMAGE }} \ 
-            bash -ec "mjx-testspeed --mjcf=humanoid/humanoid.xml --batch_size=8192 --unroll=4" | tee -a test-mjx.log
+          docker run --gpus=all --shm-size=1g ${{ needs.metadata.outputs.MJX_IMAGE }} bash -ec "mjx-testspeed --mjcf=humanoid/humanoid.xml --batch_size=8192 --unroll=4" | tee -a test-mjx.log
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
