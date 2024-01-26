@@ -96,6 +96,7 @@ jobs:
           #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
+          #SBATCH --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --mem=0
           #SBATCH --time=00:15:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
