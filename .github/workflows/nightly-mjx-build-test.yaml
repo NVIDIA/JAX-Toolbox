@@ -76,7 +76,7 @@ jobs:
       BADGE_FILENAME: badge-mjx-build
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      CONTAINER_NAME: jax
+      CONTAINER_NAME: mjx
       DOCKERFILE: .github/container/Dockerfile.mjx
     secrets: inherit
 
@@ -85,11 +85,11 @@ jobs:
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: arm64
-      ARTIFACT_NAME: "artifact-mjx-build"
-      BADGE_FILENAME: "badge-mjx-build"
+      ARTIFACT_NAME: artifact-mjx-build
+      BADGE_FILENAME: badge-mjx-build
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      CONTAINER_NAME: jax
+      CONTAINER_NAME: mjx
       DOCKERFILE: .github/container/Dockerfile.mjx
     secrets: inherit
 
