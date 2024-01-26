@@ -17,7 +17,6 @@ on:
         description: 'JAX mealkit AMD64 imagebuilt by NVIDIA/JAX-Toolbox'
         default: ''
         required: false
-
       PUBLISH:
         type: boolean
         description: Publish dated images and update the 'latest' tag?
