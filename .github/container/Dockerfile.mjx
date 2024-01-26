@@ -16,8 +16,11 @@ echo "mujoco:
   latest_verified_commit: 4f53d9a0d7bde4b9a69994d79449dfd57a04c305
   mode: git-clone" >> ${MANIFEST_FILE}
 get-source.sh -l mujoco -m ${MANIFEST_FILE} 
-pip install /opt/mujoco/mjx/ -f https://py.mujoco.org/
+echo "-e file://${SRC_PATH_MJX} -f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
+cat "${SRC_PATH_MJX}/requirements.txt" >> /opt/pip-tools.d/requirements-mjx.in
 EOF
+
+# pip install ${SRC_PATH_MJX} -f https://py.mujoco.org/
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
