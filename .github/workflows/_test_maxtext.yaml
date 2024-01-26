@@ -96,10 +96,8 @@ jobs:
           #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --mem=0
-          #SBATCH --time=00:15:00
+          #SBATCH --time=00:20:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --overcommit
           #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           time srun \
             --container-image=${{ steps.meta.outputs.IMAGE }} \

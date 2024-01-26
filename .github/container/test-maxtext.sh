@@ -146,7 +146,7 @@ RUN_NAME="16B_DP$DP_FSDP$FSDP_TP$TP"
 
 RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME}\
     steps=$STEPS per_device_batch_size=2 base_emb_dim=8192 base_mlp_dim=32768 remat_policy=minimal\
-    base_num_query_heads=64 base_num_kv_heads=64 base_num_decoder_layers=20 head_dim=128 enable_checkpointing=false\
+    base_num_query_heads=32 base_num_kv_heads=32 base_num_decoder_layers=10 head_dim=128 enable_checkpointing=false\
     base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic\
     dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP\
     ici_data_parallelism=1 dcn_data_parallelism=$DP\
