@@ -18,7 +18,6 @@ echo "mujoco:
 get-source.sh -l mujoco -m ${MANIFEST_FILE}
 echo "-f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MJX}" >> /opt/pip-tools.d/requirements-mjx.in
-
 EOF
 
 
