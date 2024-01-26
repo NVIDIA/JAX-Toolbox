@@ -3,7 +3,7 @@ run-name: Nightly MJX build (${{ github.event_name == 'workflow_run' && format('
 
 on:
   workflow_run:
-    workflows: [Nightly JAX build]
+    workflows: [Nightly CI build]
     types: [completed]
     branches: [main]
   workflow_dispatch:
