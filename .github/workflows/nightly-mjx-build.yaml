@@ -2,23 +2,22 @@ name: Nightly MJX build
 run-name: Nightly MJX build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
-  push:
-  # workflow_run:
-  #   workflows: [Nightly JAX build]
-  #   types: [completed]
-  #   branches: [main]
-  # workflow_dispatch:
-  #   inputs:
-  #     BASE_IMAGE:
-  #       type: string
-  #       description: 'Upstream Jax mealkit image without $arch-mealkit suffix, e.g., (ghcr.io/nvidia/jax-toolbox-internal:6857094059-upstream-jax). Leaving empty implies ghcr.io/nvidia/jax:mealkit'
-  #       default: ''
-  #       required: false
-  #     PUBLISH:
-  #       type: boolean
-  #       description: Publish nightly images and update the 'latest' tag?
-  #       default: false
-  #       required: false
+  workflow_run:
+    workflows: [Nightly JAX build]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      BASE_IMAGE:
+        type: string
+        description: 'Upstream Jax mealkit image without $arch-mealkit suffix, e.g., (ghcr.io/nvidia/jax-toolbox-internal:6857094059-upstream-jax). Leaving empty implies ghcr.io/nvidia/jax:mealkit'
+        default: ''
+        required: false
+      PUBLISH:
+        type: boolean
+        description: Publish nightly images and update the 'latest' tag?
+        default: false
+        required: false
 
 env:
   DOCKER_REGISTRY: ghcr.io/nvidia
@@ -92,7 +91,7 @@ jobs:
       BADGE_FILENAME: "badge-mjx-build"
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      CONTAINER_NAME: "upstream-mjx"
+      CONTAINER_NAME: upstream-mjx
       DOCKERFILE: .github/container/Dockerfile.mjx
     secrets: inherit
 
@@ -105,7 +104,7 @@ jobs:
       BADGE_FILENAME: "badge-mjx-build"
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      CONTAINER_NAME: "upstream-mjx"
+      CONTAINER_NAME: upstream-mjx
       DOCKERFILE: .github/container/Dockerfile.mjx
     secrets: inherit
 
