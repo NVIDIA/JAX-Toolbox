@@ -2,7 +2,6 @@ name: Nightly MJX build
 run-name: Nightly MJX build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
-  push:
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
 
@@ -165,6 +164,14 @@ jobs:
         continue-on-error: true
         run: |
           docker run --gpus=all --shm-size=1g ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }} bash -ec "mjx-testspeed --mjcf=humanoid/humanoid.xml --batch_size=8192 --unroll=4 --output=tsv" | tee -a test-mjx.log
+      
+      - name: Save perf to summary
+        shell: bash -x -e {0}
+        continue-on-error: true
+        run: |
+          SUMMARY_PATTERN="^mjx-testspeed"
+          SUMMARY=$(cat test-mjx.log | grep "$SUMMARY_PATTERN")
+          echo "${SUMMARY}" | tee -a $GITHUB_STEP_SUMMARY
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
@@ -172,4 +179,6 @@ jobs:
           name: ${{ env.DEFAULT_ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
           path: |
             test-mjx.log
+
+      
 
