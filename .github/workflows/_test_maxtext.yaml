@@ -39,9 +39,9 @@ jobs:
     strategy:
       matrix:
         PARALLEL_CONFIG:
-        - [1, 8, 1]
-        # - [1, 1, 8]
-        # - [1, 2, 4]
+        - [1, 1, 8, 1]
+        # - [1, 1, 1, 8] # PP, DP, FSDP, TP
+        # - [1, 1, 2, 4]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -70,7 +70,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.MAXTEXT_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[0] }}DP${{ matrix.PARALLEL_CONFIG[1] }}FSDP${{ matrix.PARALLEL_CONFIG[2] }}TP
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0]}}PP
           TOTAL_TASKS=8
           MAX_GPUS_PER_NODE=8
           NODES=1
@@ -110,9 +110,10 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 2 \
               --steps 20 \
-              --data-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
-              --fsdp ${{ matrix.PARALLEL_CONFIG[1] }} \
-              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
+              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
+              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               ${{ inputs.EXTRA_TEST_ARGS }}
           EOF

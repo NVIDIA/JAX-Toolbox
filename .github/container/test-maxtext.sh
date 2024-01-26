@@ -22,12 +22,13 @@ usage() {
     echo "  --data-parallel            Data parallelism to use. Defaults to 1."
     echo "  --fsdp                     Fully-sharded data parallelism to use. Defaults to 1."
     echo "  --tensor-parallel          Tensor parallelism to use. Defaults to 1."
+    echo "  --pipeline-parallel        Pipeline parallelism to use. Defaults to 1 for no pipelining."
     echo "  -n, --nodes                Number of nodes."
     echo "  -h, --help                 Print usage."
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-fused-attn,steps:,help,output:,data-parallel:,fsdp:,tensor-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-fused-attn,steps:,help,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -41,6 +42,7 @@ STEPS=20
 DP=1
 FSDP=1
 TP=1
+PP=1
 NODES=1
 ENABLE_TE=0
 ENABLE_FUSED_ATTN=0
@@ -85,6 +87,10 @@ while [ : ]; do
             TP="$2"
             shift 2
             ;;
+        --pipeline-parallel)
+            PP="$2"
+            shift 2
+            ;;
         -n | --nodes)
             NODES="$2"
             shift 2
@@ -117,6 +123,7 @@ print_var ENABLE_FUSED_ATTN
 print_var DP
 print_var FSDP
 print_var TP
+print_var PP
 
 MAXTEXT_DIR="/opt/maxtext"
 pushd ${MAXTEXT_DIR}
