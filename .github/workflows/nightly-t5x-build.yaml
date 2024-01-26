@@ -92,20 +92,21 @@ jobs:
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       CONTAINER_NAME: "upstream-t5x"
-      DOCKERFILE: ".github/container/Dockerfile.t5x"
+      DOCKERFILE: ".github/container/Dockerfile.t5x.amd64"
     secrets: inherit
 
   arm64:
     needs: metadata
-    runs-on: ubuntu-22.04
-    outputs:
-      DOCKER_TAG_MEALKIT: ''
-      DOCKER_TAG_FINAL: ''
-    steps:
-      - name: Generate placeholder warning
-        shell: bash -x -e {0}
-        run: |
-          echo "WARNING: arm64 build is not yet supported"
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: arm64
+      ARTIFACT_NAME: "artifact-t5x-build"
+      BADGE_FILENAME: "badge-t5x-build"
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CONTAINER_NAME: "upstream-t5x"
+      DOCKERFILE: ".github/container/Dockerfile.t5x.arm64"
+    secrets: inherit
 
   publish-mealkit:
     needs: [metadata, amd64, arm64]

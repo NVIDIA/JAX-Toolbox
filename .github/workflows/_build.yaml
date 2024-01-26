@@ -31,7 +31,7 @@ on:
         required: true
       DOCKERFILE:
         type: string
-        description: "Dockerfile to use, e.g. .github/container/Dockerfile.t5x"
+        description: "Dockerfile to use, e.g. .github/container/Dockerfile.t5x.amd64"
         required: true
     outputs:
       DOCKER_TAG_MEALKIT:
