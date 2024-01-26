@@ -9,7 +9,11 @@ ARG SRC_PATH_MUJOCO=/opt/mujoco
 
 FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_MUJOCO
-
+echo "mujoco:
+  url: https://github.com/google-deepmind/mujoco.git
+  tracking_ref: main
+  latest_verified_commit: 4f53d9a0d7bde4b9a69994d79449dfd57a04c305
+  mode: git-clone" >> ${MANIFEST_FILE}
 RUN <<"EOF" bash -ex
 get-source.sh -l mujoco -m ${MANIFEST_FILE} -b $(dirname ${SRC_PATH_MUJOCO})
 echo "-f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
