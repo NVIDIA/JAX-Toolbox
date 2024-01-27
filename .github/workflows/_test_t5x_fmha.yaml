@@ -39,12 +39,10 @@ on:
         value: ${{ jobs.sitrep.outputs.STATUS }}
 
 jobs:
-
   t5x-fmha-multi-gpu:
     strategy:
       matrix:
-        #N_GPU: [1, 2, 4, 8]
-        N_GPU: [1]
+        N_GPU: [1, 2, 4, 8]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -103,7 +101,7 @@ jobs:
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            test-t5x.sh \
+            test-t5x-fmha.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
@@ -131,7 +129,7 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           set -x
-          
+
       - name: Remove orphaned SLURM job if the CI job is canceled
         if: cancelled()
         shell: bash -x -e {0}
@@ -151,18 +149,18 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/T5X-FMHA-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
         run: |
           python << EOF
           import json
-          with open("output/${{ inputs.ARTIFACT_NAME }}-${GITHUB_RUN_ID}-${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
- 
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -172,10 +170,8 @@ jobs:
   t5x-fmha-multi-node:
     strategy:
       matrix:
-        N_GPU: [2]
-        N_NODE: [2]
-        #N_GPU: [1, 2, 4, 8]
-        #N_NODE: [1, 2]
+        N_GPU: [1, 2, 4, 8]
+        N_NODE: [1, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -236,7 +232,7 @@ jobs:
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            test-t5x.sh \
+            test-t5x-fmha.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
@@ -286,7 +282,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/{{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -304,51 +300,51 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  publish-test:
-    needs: [t5x-fmha-multi-gpu, t5x-fmha-multi-node]
-    uses: ./.github/workflows/_publish_badge.yaml
+  metrics:
+    needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Run pytest
+        shell: bash -x {0}
+        run: |
+          pip install pytest pytest-reportlog tensorboard
+          for i in ${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}-*; do
+            SUBDIR=$(echo $i | cut -d'-' -f3)
+            mv $i/$SUBDIR* .
+            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
+          done
+
+          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
+
+      - name: Upload metrics test json logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: metrics-test-log
+          path: |
+            report.jsonl
+            *_metrics.json
+
+
+  sitrep:
+    needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu, metrics]
     if: "!cancelled()"
+    uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: '${{ inputs.ARTIFACT_NAME }}-t5x-fmha-test-completion-status.json'
-      PUBLISH: false
-      SCRIPT: |
-        T5X_FMHA_EXIT_STATUSES="${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}-*/*-status.json"
-        T5X_FMHA_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
-        T5X_FMHA_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $T5X_FMHA_EXIT_STATUSES | wc -l)
-        T5X_FMHA_TOTAL_TESTS=$(ls $T5X_FMHA_EXIT_STATUSES | wc -l)
-        
-        cat <<EOF >>$GITHUB_STEP_SUMMARY
-        ## T5x fmha MGMN+SPMD Test Status
-        | Test Case | State | Exit Code |
-        | --- | --- | --- |
-        EOF
-        for i in $T5X_FMHA_EXIT_STATUSES; do
-          # Files are named ${{ inputs.ARTIFACT_NAME }}-t5x-fmha-<GHID>-<NAME>/<NAME>-status.json
-          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
-        done | tee -a $GITHUB_STEP_SUMMARY
-
-        echo "Test statuses:"
-        jq -rc 'input_filename,.' $T5X_FMHA_EXIT_STATUSES
-
-        if [[ $T5X_FMHA_FAILED_TESTS -eq 0 ]] && [[ $T5X_FMHA_TOTAL_TESTS -gt 0 ]] || [[ $T5X_FMHA_PASSED_TESTS -eq $T5X_FMHA_TOTAL_TESTS ]]; then
-          echo "STATUS=success" >> $GITHUB_OUTPUT
-          BADGE_COLOR=brightgreen
-        elif [[ $T5X_FMHA_PASSED_TESTS -eq 0 ]]; then
-          echo "STATUS=failure" >> $GITHUB_OUTPUT
-          BADGE_COLOR=red
-        else
-          echo "STATUS=failure" >> $GITHUB_OUTPUT
-          BADGE_COLOR=yellow
-        fi
-        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${T5X_FMHA_PASSED_TESTS}/${T5X_FMHA_TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-        
+      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+      FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
     runs-on: ubuntu-22.04
-    needs: [t5x-fmha-multi-gpu, t5x-fmha-multi-node]
+    needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu]
     if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
@@ -356,20 +352,20 @@ jobs:
           (
           cat << EOF
 
-          ## T5X FMHA MGMN training
+          ## T5X MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.ARTIFACT_NAME }}T5X-FMHA-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
-    needs: publish-test
+    needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"
     steps:
-      - name: Sets workflow status based on test outputs 
+      - name: Sets workflow status based on test outputs
         run: |
-          if [[ ${{ needs.publish-test.outputs.STATUS }} != success ]]; then
+          if [[ ${{ needs.sitrep.outputs.STATUS }} != 'success' ]]; then
             exit 1
           fi
