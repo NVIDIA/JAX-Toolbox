@@ -8,25 +8,31 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      BASE_IMAGE:
+      T5X_IMAGE:
         type: string
-        description: 'Upstream T5x mealkit image without $arch-mealkit suffix, e.g., (ghcr.io/nvidia/jax-toolbox-internal:6857094059-upstream-t5x). Leaving empty implies ghcr.io/nvidia/upstream-t5x:mealkit'
-        default: ''
-        required: false
+        description: T5X container
+        default: 'ghcr.io/nvidia/upstream-t5x:latest'
+        required: true
       PUBLISH:
         type: boolean
-        description: Publish dated images and update the 'latest' tag?
+        description: Publish dated results to tensorboard server?
         default: false
         required: false
-
-env:
-  BASE_LIBRARY: t5x
-  DOCKER_REGISTRY: ghcr.io/nvidia
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: false
+        default: 'T5X'
 
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
   packages: write # to upload container
+  issues: write   # to create issues
+
+env:
+  DEFAULT_T5X_IMAGE: 'ghcr.io/nvidia/upstream-t5x:latest'
+  DEFAULT_FW_NAME: 'T5X'
 
 jobs:
 
@@ -34,10 +40,9 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
-      BASE_LIBRARY: ${{ steps.base-metadata.outputs.BASE_LIBRARY }}
-      BASE_IMAGE_AMD64: ${{ steps.base-metadata.outputs.BASE_IMAGE_AMD64 }}
-      BASE_IMAGE_ARM64: ${{ steps.base-metadata.outputs.BASE_IMAGE_ARM64 }}
-      PUBLISH: ${{ steps.base-metadata.outputs.PUBLISH }}
+      T5X_IMAGE: ${{ steps.image.outputs.T5X_IMAGE }}
+      PUBLISH: ${{ steps.publish.outputs.PUBLISH }}
+      FW_NAME: ${{ steps.fw-name.outputs.FW_NAME }}
     steps:
       - name: Check if the triggering workflow failed
         id: if-upstream-failed
@@ -61,73 +66,74 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-      - name: Set base library and image
-        id: base-metadata
+      - name: Set docker image
+        id: image
         shell: bash -x -e {0}
         run: |
-          if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
-            BASE_IMAGE_AMD64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:mealkit
-            BASE_IMAGE_ARM64=${{ env.DOCKER_REGISTRY }}/upstream-${{ env.BASE_LIBRARY }}:mealkit
-          else
-            BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE }}-amd64-mealkit
-            BASE_IMAGE_ARM64=${{ inputs.BASE_IMAGE }}-arm64-mealkit
-          fi
-          echo "BASE_LIBRARY=${{ env.BASE_LIBRARY }}" >> $GITHUB_OUTPUT
-          echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
-          echo "BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}" >> $GITHUB_OUTPUT
-          # A container should be published if:
-          # 1) the workflow is triggered by workflow_dispatch and the PUBLISH input is true, or
-          # 2) the workflow is triggered by workflow_run (i.e., a nightly build)
-          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+          T5X_IMAGE=${{ inputs.T5X_IMAGE }}
+          T5X_IMAGE=${T5X_IMAGE:-${{ env.DEFAULT_T5X_IMAGE }}}
+          echo "T5X_IMAGE=${T5X_IMAGE}" >> $GITHUB_OUTPUT
 
-  test-t5x-fmha-amd64:
+      - name: Set framework name
+        id: fw-name
+        shell: bash -x -e {0}
+        run: |
+          FW_NAME=${{ inputs.FW_NAME }}
+          FW_NAME=${FW_NAME:-${{ env.DEFAULT_FW_NAME }}}
+          echo "FW_NAME=${FW_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Set result publishing flags
+        id: publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || inputs.PUBLISH == true }}" >> $GITHUB_OUTPUT
+          
+  run-jobs:
     needs: metadata
     uses: ./.github/workflows/_test_t5x_fmha.yaml
     with:
-      T5X_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+      T5X_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
+      FW_NAME: ${{ needs.metadata.outputs.FW_NAME }}
     secrets: inherit
 
-  publish-t5x:
-    needs: [metadata, test-t5x-fmha-amd64]
+  tensorboard-upload:
+    needs: [metadata, run-jobs]
     uses: ./.github/workflows/_publish_t5x_pax_results.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      EXPERIMENT_SUBDIR: T5X_FMHA
-      ARTIFACT_NAME: "T5X-FMHA"
+      EXPERIMENT_SUBDIR: T5X
+      # This is derived from https://github.com/NVIDIA/JAX-Toolbox/blob/fe2b42267b0dc569631a789bdc584ef9cdb0b4e6/.github/workflows/_test_t5x.yaml#L144.
+      # The format is name of the framework followed by a dash.
+      ARTIFACT_NAME: "${{ needs.metadata.outputs.FW_NAME }}-FMHA-"
     secrets: inherit
 
-  # TODO: ARM
-  publish-test-badge:
-    needs: [metadata, test-t5x-fmha-amd64]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: always()
+  publish-verified-image:
+    needs: [metadata, run-jobs]
+    if: needs.metadata.outputs.PUBLISH == 'true' && needs.run-jobs.outputs.TEST_STATUS == 'success'
+    uses: ./.github/workflows/_publish_container.yaml
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 't5x-fmha-overall-test-status.json'
-      PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        T5X_FMHA_STATUS=${{ needs.test-t5x-fmha-amd64.outputs.TEST_STATUS }}
+      SOURCE_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
+      TARGET_IMAGE: upstream-t5x
+      TARGET_TAGS: |
+        type=raw,value=latest-verified,priority=1000
 
-        echo "LABEL='Tests'" >> $GITHUB_OUTPUT
-
-        STATUS=failure
-        if [[ $T5X_FMHA_STATUS == "success" ]]; then
-            COLOR=brightgreen
-            MESSAGE="T5X FMHA MGMN passed"
-            STATUS=success
-        else
-            COLOR=red
-            MESSAGE="Unit failed / MGMN failed"
-        fi
-
-        echo "MESSAGE='${MESSAGE}'" >> $GITHUB_OUTPUT
-        echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
-        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
+  failure-triage:
+    needs: [metadata, run-jobs]
+    if: needs.run-jobs.outputs.TEST_STATUS != 'success'
+    uses: ./.github/workflows/_triage.yaml
+    secrets: inherit
+    with:
+      BROKEN_IMAGE: ${{ needs.metadata.outputs.T5X_IMAGE }}
+      BASE_IMAGE: ghcr.io/nvidia/upstream-t5x:latest-verified
+      REPO_DIRS: "/opt/t5x /opt/flax"
+      FILE_ISSUE: true
 
   finalize:
-    if: "!cancelled()"
-    needs: [metadata, test-t5x-fmha-amd64]
+    if: ${{ !cancelled() }}
+    needs: [metadata, run-jobs]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit
+
