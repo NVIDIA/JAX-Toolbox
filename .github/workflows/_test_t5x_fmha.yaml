@@ -22,12 +22,12 @@ on:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'badge-t5x-fmha-mgmn-test.json'
+        default: 'badge-fmha-t5x-mgmn-test.json'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'artifact-t5x-fmha-mgmn-test'
+        default: 'artifact-fmha-t5x-mgmn-test'
       FW_NAME:
         type: string
         description: 'Name of the framework being used'
@@ -39,7 +39,7 @@ on:
         value: ${{ jobs.sitrep.outputs.STATUS }}
 
 jobs:
-  t5x-fmha-multi-gpu:
+  fmha-t5x-multi-gpu:
     strategy:
       matrix:
         N_GPU: [1, 2, 4, 8]
@@ -47,7 +47,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: t5x-fmha-multi-gpu
+      BADGE_FILENAME_FULL: fmha-t5x-multi-gpu
     steps:
       - name: Print environment variables
         run: env
@@ -76,7 +76,7 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
-          JOB_NAME=${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=FMHA-${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -153,7 +153,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/FMHA-${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -181,7 +181,7 @@ jobs:
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
-            summary="T5x FMHA Multi GPU ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="FMHA T5x Multi GPU ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -189,7 +189,7 @@ jobs:
             else
               badge_color=yellow
             fi
-            summary="T5x FMHA Multi GPU ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="FMHA T5x Multi GPU ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
@@ -211,7 +211,7 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  t5x-fmha-multi-node:
+  fmha-t5x-multi-node:
     strategy:
       matrix:
         N_GPU: [1, 2, 4, 8]
@@ -220,7 +220,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL:  t5x-fmha-multi-node
+      BADGE_FILENAME_FULL:  fmha-t5x-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -250,7 +250,7 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=FMHA-${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
@@ -330,7 +330,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/FMHA-${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -358,7 +358,7 @@ jobs:
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
-            summary="T5x FMHA Multi NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="FMHA T5x Multi NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -366,7 +366,7 @@ jobs:
             else
               badge_color=yellow
             fi
-            summary="T5x FMHA Multi NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+            summary="FMHA T5x Multi NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
           fi
 
           to_json \
@@ -389,7 +389,7 @@ jobs:
           path: output/*
 
   metrics:
-    needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu]
+    needs: [fmha-t5x-multi-node, fmha-t5x-multi-gpu]
     runs-on: ubuntu-22.04
 
     steps:
@@ -422,7 +422,7 @@ jobs:
 
   summary:
     runs-on: ubuntu-22.04
-    needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu]
+    needs: [fmha-t5x-multi-node, fmha-t5x-multi-gpu]
     if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
@@ -432,18 +432,18 @@ jobs:
 
           ## T5X MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.FW_NAME }}-FMHA-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=FMHA-${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
-    needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu]
+    needs: [fmha-t5x-multi-node, fmha-t5x-multi-gpu]
     runs-on: ubuntu-22.04
     if: "!cancelled()"
     steps:
       - name: Sets workflow status based on test outputs
         run: |
-          if [[ ${{ needs.sitrep.outputs.STATUS }} != 'success' ]]; then
+          if [[ ${{ needs.metrics.outputs.STATUS }} != 'success' ]]; then
             exit 1
           fi
