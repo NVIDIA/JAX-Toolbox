@@ -46,7 +46,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL: t5x-fmha-multi-gpu
     steps:
       - name: Print environment variables
         run: env
@@ -160,7 +161,47 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
+          
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
 
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='T5x FMHA Multi GPU ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary="T5x FMHA Multi GPU ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="T5x FMHA Multi GPU ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -175,7 +216,8 @@ jobs:
       fail-fast: false
 
     runs-on: ubuntu-22.04
-
+    env:
+      BADGE_FILENAME_FULL:  t5x-fmha-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -293,7 +335,47 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
+          
+      - name: Generate sitrep
+        if: success() || failure()
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
 
+          EXIT_STATUSES="output/*-status.json"
+          badge_label='T5x FMHA Multi GPU ${{ steps.meta.outputs.TEST_CASE_NAME }}'
+          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
+          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
+          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          
+          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary="T5x FMHA Multi NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="T5x FMHA Multi NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > output/sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -332,16 +414,6 @@ jobs:
             *_metrics.json
 
 
-  sitrep:
-    needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu, metrics]
-    if: "!cancelled()"
-    uses: ./.github/workflows/_sitrep_mgmn.yaml
-    secrets: inherit
-    with:
-      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
-      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
-      FW_NAME: ${{ inputs.FW_NAME }}
-
   summary:
     runs-on: ubuntu-22.04
     needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu]
@@ -360,7 +432,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
-    needs: sitrep
+    needs: [t5x-fmha-multi-node, t5x-fmha-multi-gpu]
     runs-on: ubuntu-22.04
     if: "!cancelled()"
     steps:
