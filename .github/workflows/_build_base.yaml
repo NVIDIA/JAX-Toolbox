@@ -97,7 +97,7 @@ jobs:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
 
-      - name: Delete checked-out manifest  and patches
+      - name: Delete checked-out manifest and patches
         if: inputs.BUMP_MANIFEST
         run: |
           rm .github/container/manifest.yaml
@@ -115,12 +115,14 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: maybe-bumped-patches
-          path: .github/container/
+          path: .github/container/patches
 
       - name: Log the changes in manifest file and patch folder
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
+          ls -lah
+          ls -lah patches
           echo "Changes in manifest file and patch folder"
           git diff
 
