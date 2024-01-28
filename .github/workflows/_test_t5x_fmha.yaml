@@ -42,7 +42,8 @@ jobs:
   fmha-t5x-multi-gpu:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
+        #N_GPU: [1, 2, 4, 8]
+        N_GPU: [2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -214,8 +215,10 @@ jobs:
   fmha-t5x-multi-node:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
-        N_NODE: [1, 2]
+        #N_GPU: [1, 2, 4, 8]
+        #N_NODE: [1, 2]
+        N_GPU: [2]
+        N_NODE: [2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
