@@ -2,7 +2,8 @@ name: Language to Reward 2023 build
 run-name: L2R build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
-  push:
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
   workflow_run:
     workflows: [Nightly MJX build]
     types: [completed]
