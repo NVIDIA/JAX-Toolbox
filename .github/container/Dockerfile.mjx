@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG SRC_PATH_MUJOCO=/opt/mujoco
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG SRC_PATH_MUJOCO
+RUN <<"EOF" bash -ex
+get-source.sh -l mujoco -m ${MANIFEST_FILE} -b $(dirname ${SRC_PATH_MUJOCO})
+echo "-f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
+echo "-e file://${SRC_PATH_MUJOCO}/mjx" >> /opt/pip-tools.d/requirements-mjx.in
+EOF
+
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh

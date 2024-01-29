@@ -1,0 +1,200 @@
+name: MJX build
+run-name: MJX build - (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
+
+on:
+  push:
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  workflow_dispatch:
+    inputs:
+      BASE_IMAGE_AMD64:
+        type: string
+        description: 'JAX mealkit AMD64 imagebuilt by NVIDIA/JAX-Toolbox'
+        default: ''
+        required: false
+      BASE_IMAGE_ARM64:
+        type: string
+        description: 'JAX mealkit AMD64 imagebuilt by NVIDIA/JAX-Toolbox'
+        default: ''
+        required: false
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
+        required: false
+
+
+env:
+  DOCKER_REGISTRY: ghcr.io/nvidia
+  DEFAULT_BASE_IMAGE: ghcr.io/nvidia/jax:mealkit-2024-01-26
+
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+      BASE_IMAGE_AMD64: ${{ steps.base-image.outputs.BASE_IMAGE_AMD64 }}
+      BASE_IMAGE_ARM64: ${{ steps.base-image.outputs.BASE_IMAGE_ARM64 }}
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      
+    steps:
+
+      - name: Cancel workflow if upstream workflow did not success
+        if: ${{ steps.if-upstream-failed.outputs.UPSTREAM_FAILED == 'true' }}
+        run: |
+          echo "Upstream workflow failed, cancelling this workflow"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          cat  # blocks execution in case workflow cancellation takes time
+
+      - name: Determine if the resulting container should be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run:
+          # A container should be published if:
+          # 1) the workflow is triggered by workflow_dispatch and the PUBLISH input is true, or
+          # 2) the workflow is triggered by workflow_run (i.e., a nightly build)
+          echo "PUBLISH=${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.PUBLISH) }}" >> $GITHUB_OUTPUT
+
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Set base image
+        id: base-image
+        shell: bash -x -e {0}
+        run: |
+          if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
+            BASE_IMAGE_AMD64=${{ env.DEFAULT_BASE_IMAGE }}
+            BASE_IMAGE_ARM64=${{ env.DEFAULT_BASE_IMAGE }}
+          else
+            BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE_AMD64 }}
+            BASE_IMAGE_ARM64=${{ inputs.BASE_IMAGE_ARM64 }}
+          fi
+          echo "BASE_IMAGE_AMD64=${BASE_IMAGE_AMD64}" >> $GITHUB_OUTPUT
+          echo "BASE_IMAGE_ARM64=${BASE_IMAGE_ARM64}" >> $GITHUB_OUTPUT
+      
+  amd64:
+    needs: metadata
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: amd64
+      ARTIFACT_NAME: artifact-mjx-build
+      BADGE_FILENAME: badge-mjx-build
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CONTAINER_NAME: mjx
+      DOCKERFILE: .github/container/Dockerfile.mjx
+    secrets: inherit
+
+  arm64:
+    needs: metadata
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: arm64
+      ARTIFACT_NAME: artifact-mjx-build
+      BADGE_FILENAME: badge-mjx-build
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CONTAINER_NAME: mjx
+      DOCKERFILE: .github/container/Dockerfile.mjx
+    secrets: inherit
+
+  publish-mealkit:
+    needs: [metadata, amd64, arm64]
+    if: false
+    #if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
+      TARGET_IMAGE: jax
+      TARGET_TAGS: |
+        type=raw,value=mjx-mealkit,priority=500
+        type=raw,value=mjx-mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+
+  publish-final:
+    needs: [metadata, amd64, arm64]
+    if: false
+    #if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+      TARGET_IMAGE: jax
+      TARGET_TAGS: |
+        type=raw,value=mjx-latest,priority=1000
+        type=raw,value=mjx-nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
+
+  # small perf tests
+  runner:
+    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+    with:
+      NAME: "A100-${{ github.run_id }}"
+      LABELS: "A100:${{ github.run_id }}"
+      TIME: "01:00:00"
+    secrets: inherit
+
+  mjx-unit-test:
+    needs: amd64
+    strategy:
+      fail-fast: false
+      matrix:
+        GPU_ARCH: [A100]
+    # ensures A100 job lands on dedicated runner for this particular job
+    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Print GPU information
+        run: nvidia-smi  
+
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull MJX image
+        shell: bash -x -e {0}
+        run: |
+          docker pull ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+
+      - name: MJX speed test
+        shell: bash -x -e {0}
+        continue-on-error: true
+        run: |
+          docker run --gpus=all --shm-size=1g ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }} bash -ec "mjx-testspeed --mjcf=humanoid/humanoid.xml --batch_size=8192 --unroll=4 --output=tsv" | tee -a test-mjx.log
+      
+      - name: Save perf to summary
+        shell: bash -x -e {0}
+        continue-on-error: true
+        run: |
+          SUMMARY_PATTERN="^mjx-testspeed"
+          SUMMARY=$(cat test-mjx.log | grep "$SUMMARY_PATTERN")
+          echo "${SUMMARY}" | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.DEFAULT_ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
+          path: |
+            test-mjx.log
