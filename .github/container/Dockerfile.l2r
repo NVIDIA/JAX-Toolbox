@@ -41,6 +41,7 @@ get-source.sh -l mujoco-mpc -m ${MANIFEST_FILE}
 get-source.sh -l language_to_reward_2023 -m ${MANIFEST_FILE}
 echo "-e file://${SRC_PATH_MUJOCO_MPC}/python" >> /opt/pip-tools.d/requirements-l2r.in
 echo "-e file://${SRC_PATH_L2R}" >> /opt/pip-tools.d/requirements-l2r.in
+ls -lah ${SRC_PATH_MUJOCO_MPC}/python
 EOF
 
 ###############################################################################
