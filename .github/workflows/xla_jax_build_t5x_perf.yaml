@@ -1,5 +1,6 @@
 name: Temp XLA JAX T5x Perf test workflow
-on
+
+on:
   workflow_dispatch:
     inputs:
       ARCHITECTURE:
@@ -142,7 +143,7 @@ jobs:
     steps:
       - id: tags
         run: |
-          declare -a TARGET_IMAGE=("jax" "upstream-t5x")
+          declare -a TARGET_IMAGE=("jax", "test-upstream-t5x")
           declare -a FLAVOR=("mealkit" "final")
 
           ## now loop through the above array
@@ -169,7 +170,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        TARGET_IMAGE: ["jax" "upstream-t5x"]
+        TARGET_IMAGE: [jax, test-upstream-t5x]
         FLAVOR: [mealkit, final]
     uses: ./.github/workflows/_publish_container.yaml
     with:
