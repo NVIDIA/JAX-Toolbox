@@ -1,0 +1,52 @@
+# syntax=docker/dockerfile:1-labs
+
+###############################################################################
+## This container is for Language to Reward model from DeepMind (2023)
+## https://github.com/google-deepmind/language_to_reward_2023
+###############################################################################
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:mjx-mealkit
+ARG SRC_PATH_MUJOCO_MPC=/opt/mujoco_mpc
+ARG SRC_PATH_L2R=/opt/language_to_reward_2023
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG SRC_PATH_MUJOCO_MPC
+ARG SRC_PATH_L2R
+
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-dev \
+    libxinerama-dev \
+    libxcursor-dev \
+    libxrandr-dev \
+    libxi-dev \
+    ninja-build
+
+RUN <<"EOF" bash -ex
+echo "mujoco-mpc:
+  url:  https://github.com/google-deepmind/mujoco_mpc.git
+  tracking_ref: main
+  latest_verified_commit: a8bdcc1d968addf0d334243ce9bd6dbb07e1d781
+  mode: git-clone
+l2r:
+  url:  https://github.com/google-deepmind/language_to_reward_2023.git
+  tracking_ref: main
+  latest_verified_commit: abb8e5125e4ecd0da378490b73448c05a694def5
+  mode: git-clone
+">> ${MANIFEST_FILE}
+get-source.sh -l mujoco-mpc -m ${MANIFEST_FILE} -b $(dirname {SRC_PATH_MUJOCO_MPC})
+get-source.sh -l l2r -m ${MANIFEST_FILE} -b $(dirname ${SRC_PATH_L2R})
+echo "-e file://${SRC_PATH_MUJOCO_MPC}/python" >> /opt/pip-tools.d/requirements-l2r.in
+echo "-e file://${SRC_PATH_L2R}" >> /opt/pip-tools.d/requirements-l2r.in
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh

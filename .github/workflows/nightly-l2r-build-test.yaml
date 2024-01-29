@@ -1,19 +1,21 @@
-name: Nightly MJX build
-run-name: Nightly MJX build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
+name: Language to Reward 2023 build
+run-name: L2R build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
-  schedule:
-    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  workflow_run:
+    workflows: [Nightly MJX build]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       BASE_IMAGE_AMD64:
         type: string
-        description: 'JAX mealkit AMD64 image built by NVIDIA/JAX-Toolbox'
+        description: 'MJX mealkit AMD64 image built by NVIDIA/JAX-Toolbox'
         default: ''
         required: false
       BASE_IMAGE_ARM64:
         type: string
-        description: 'JAX mealkit AMD64 image built by NVIDIA/JAX-Toolbox'
+        description: 'MJX mealkit AMD64 image built by NVIDIA/JAX-Toolbox'
         default: ''
         required: false
       PUBLISH:
@@ -25,7 +27,7 @@ on:
 
 env:
   DOCKER_REGISTRY: ghcr.io/nvidia
-  DEFAULT_BASE_IMAGE: ghcr.io/nvidia/jax:mealkit-2024-01-26
+  DEFAULT_BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:7664258949-upstream-mjx
 
 
 permissions:
@@ -75,8 +77,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           if [[ -z "${{ inputs.BASE_IMAGE }}" ]]; then
-            BASE_IMAGE_AMD64=${{ env.DEFAULT_BASE_IMAGE }}
-            BASE_IMAGE_ARM64=${{ env.DEFAULT_BASE_IMAGE }}
+            BASE_IMAGE_AMD64=${{ env.DEFAULT_BASE_IMAGE }}-amd64-mealkit
+            BASE_IMAGE_ARM64=${{ env.DEFAULT_BASE_IMAGE }}-arm64-mealkit
           else
             BASE_IMAGE_AMD64=${{ inputs.BASE_IMAGE_AMD64 }}
             BASE_IMAGE_ARM64=${{ inputs.BASE_IMAGE_ARM64 }}
@@ -89,12 +91,12 @@ jobs:
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: amd64
-      ARTIFACT_NAME: artifact-mjx-build
-      BADGE_FILENAME: badge-mjx-build
+      ARTIFACT_NAME: artifact-l2r-build
+      BADGE_FILENAME: badge-l2r-build
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      CONTAINER_NAME: mjx
-      DOCKERFILE: .github/container/Dockerfile.mjx
+      CONTAINER_NAME: l2r
+      DOCKERFILE: .github/container/Dockerfile.l2r
     secrets: inherit
 
   arm64:
@@ -102,12 +104,12 @@ jobs:
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: arm64
-      ARTIFACT_NAME: artifact-mjx-build
-      BADGE_FILENAME: badge-mjx-build
+      ARTIFACT_NAME: artifact-l2r-build
+      BADGE_FILENAME: badge-l2r-build
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      CONTAINER_NAME: mjx
-      DOCKERFILE: .github/container/Dockerfile.mjx
+      CONTAINER_NAME: l2r
+      DOCKERFILE: .github/container/Dockerfile.l2r
     secrets: inherit
 
   publish-mealkit:
@@ -121,8 +123,8 @@ jobs:
         ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
       TARGET_IMAGE: jax
       TARGET_TAGS: |
-        type=raw,value=mjx-mealkit,priority=500
-        type=raw,value=mjx-mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+        type=raw,value=l2r-mealkit,priority=500
+        type=raw,value=l2r-mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   publish-final:
     needs: [metadata, amd64, arm64]
@@ -135,65 +137,5 @@ jobs:
         ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: jax
       TARGET_TAGS: |
-        type=raw,value=mjx-latest,priority=1000
-        type=raw,value=mjx-nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
-
-  # small perf tests
-  runner:
-    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
-    with:
-      NAME: "A100-${{ github.run_id }}"
-      LABELS: "A100:${{ github.run_id }}"
-      TIME: "01:00:00"
-    secrets: inherit
-
-  mjx-unit-test:
-    needs: amd64
-    strategy:
-      fail-fast: false
-      matrix:
-        GPU_ARCH: [A100]
-    # ensures A100 job lands on dedicated runner for this particular job
-    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
-    steps:
-      - name: Print environment variables
-        run: env
-
-      - name: Print GPU information
-        run: nvidia-smi  
-
-      - name: Check out repository
-        uses: actions/checkout@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pull MJX image
-        shell: bash -x -e {0}
-        run: |
-          docker pull ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-
-      - name: MJX speed test
-        shell: bash -x -e {0}
-        continue-on-error: true
-        run: |
-          docker run --gpus=all --shm-size=1g ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }} bash -ec "mjx-testspeed --mjcf=humanoid/humanoid.xml --batch_size=8192 --unroll=4 --output=tsv" | tee -a test-mjx.log
-      
-      - name: Save perf to summary
-        shell: bash -x -e {0}
-        continue-on-error: true
-        run: |
-          SUMMARY_PATTERN="^mjx-testspeed"
-          SUMMARY=$(cat test-mjx.log | grep "$SUMMARY_PATTERN")
-          echo "${SUMMARY}" | tee -a $GITHUB_STEP_SUMMARY
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ env.DEFAULT_ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
-          path: |
-            test-mjx.log
+        type=raw,value=l2r-latest,priority=1000
+        type=raw,value=l2r-nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
