@@ -6,8 +6,8 @@
 ###############################################################################
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mjx-mealkit
-ARG SRC_PATH_MUJOCO_MPC=/opt/mujoco_mpc
-ARG SRC_PATH_L2R=/opt/language_to_reward_2023
+ARG SRC_PATH_MUJOCO_MPC=/opt/mujoco-mpc
+ARG SRC_PATH_L2R=/opt/language-to-reward-2023
 
 ###############################################################################
 ## Download source and add auxiliary scripts
