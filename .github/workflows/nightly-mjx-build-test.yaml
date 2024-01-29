@@ -1,5 +1,5 @@
-name: Nightly MJX build
-run-name: Nightly MJX build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
+name: MJX build
+run-name: MJX build - (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
   push:
@@ -198,4 +198,3 @@ jobs:
           name: ${{ env.DEFAULT_ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
           path: |
             test-mjx.log
-            
