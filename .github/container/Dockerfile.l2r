@@ -6,8 +6,8 @@
 ###############################################################################
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mjx-mealkit
-ARG SRC_PATH_MUJOCO_MPC=/opt/mujoco_mpc
-ARG SRC_PATH_L2R=/opt/language_to_reward_2023
+ARG SRC_PATH_MUJOCO_MPC=/opt/mujoco-mpc
+ARG SRC_PATH_L2R=/opt/language-to-reward-2023
 
 ###############################################################################
 ## Download source and add auxiliary scripts
@@ -31,7 +31,7 @@ echo "mujoco-mpc:
   tracking_ref: main
   latest_verified_commit: a8bdcc1d968addf0d334243ce9bd6dbb07e1d781
   mode: git-clone
-language_to_reward_2023:
+language-to-reward-2023:
   url:  https://github.com/google-deepmind/language_to_reward_2023.git
   tracking_ref: main
   latest_verified_commit: abb8e5125e4ecd0da378490b73448c05a694def5
