@@ -12,6 +12,16 @@ on:
         description: 'Base CUDA image, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04'
         required: false
         default: latest
+      SRC_JAX:
+        description: 'JAX source: <repo>#<branch|tag|commit>'
+        type: string
+        required: false
+        default: ''
+      SRC_XLA:
+        description: 'XLA source: <repo>#<branch|tag|commit>'
+        type: string
+        required: false
+        default: ''
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -62,6 +72,17 @@ jobs:
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
+
+      - name: Update manifest with xla and jax src
+        if: inputs.SRC_XLA || inputs.SRC_JAX
+        working-directory: .github/container
+        run: |
+          if [[ -n {{ inputs.SRC_JAX }} ]]; then
+            yq e '.jax.url = {{ inputs.SRC_JAX }}' -i manifest.yaml
+          else
+          if [[ -n {{ inputs.SRC_XLA }} ]]; then
+            yq e '.xla.url = {{ inputs.SRC_XLA }}' -i manifest.yaml
+          fi
 
       - name: Update manifest and patches in-place - show diff
         if: inputs.BUMP_MANIFEST
