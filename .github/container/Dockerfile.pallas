@@ -13,9 +13,6 @@ ARG SRC_PATH_TRITON
 # in the manifest file is consistent with the commit of xla
 RUN get-source.sh -l openxla-triton -m ${MANIFEST_FILE}
 
-ADD triton-is_hip.patch /opt
-RUN cd "${SRC_PATH_TRITON}" && patch -p1 < /opt/triton-is_hip.patch && git diff
-
 RUN <<"EOF" bash -ex
 mkdir -p "${SRC_PATH_TRITON}/dist"
 pip wheel --wheel-dir="${SRC_PATH_TRITON}/dist" "${SRC_PATH_TRITON}/python"
