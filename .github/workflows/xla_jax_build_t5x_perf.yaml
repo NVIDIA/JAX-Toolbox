@@ -24,22 +24,19 @@ on:
       SRC_JAX:
         description: 'JAX source: <repo>#<branch|tag|commit>'
         type: string
-        required: true
-        default: 'https://github.com/google/jax.git#main'
+        required: false
+        default: ''
       SRC_XLA:
         description: 'XLA source: <repo>#<branch|tag|commit>'
         type: string
-        required: true
-        default: 'https://github.com/openxla/xla.git#main'
+        required: false
+        default: ''
       SRC_T5X:
         description: 'T5X source: <repo>#<branch|tag|commit>'
         type: string
         required: true
         default: 'https://github.com/google-research/t5x.git#main'
-    outputs:
-      CONTAINER_TAGS:
-        description: Single JSON object to store all generated docker tags
-        value: ${{ jobs.save-tags.output.CONTAINER_TAGS }}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
