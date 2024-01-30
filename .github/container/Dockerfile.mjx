@@ -26,16 +26,6 @@ RUN apt-get update && apt-get install -y \
 
 
 RUN <<"EOF" bash -ex
-echo "mujoco-mpc:
-  url:  https://github.com/google-deepmind/mujoco_mpc.git
-  tracking_ref: main
-  latest_verified_commit: a8bdcc1d968addf0d334243ce9bd6dbb07e1d781
-  mode: git-clone
-language-to-reward-2023:
-  url:  https://github.com/google-deepmind/language_to_reward_2023.git
-  tracking_ref: main
-  latest_verified_commit: abb8e5125e4ecd0da378490b73448c05a694def5
-  mode: git-clone" >> ${MANIFEST_FILE}
 get-source.sh -l mujoco -m ${MANIFEST_FILE} -b $(dirname ${SRC_PATH_MUJOCO})
 get-source.sh -l mujoco-mpc -m ${MANIFEST_FILE}
 get-source.sh -l language-to-reward-2023 -m ${MANIFEST_FILE}
