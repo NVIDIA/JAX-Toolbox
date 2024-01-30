@@ -38,7 +38,7 @@ OUTPUT=$(mktemp -d)
 
 BATCH_PER_GPU=2
 DTYPE="bfloat16"
-STEPS=20
+STEPS=10
 DP=1
 FSDP=1
 TP=1
@@ -131,7 +131,7 @@ pushd ${MAXTEXT_DIR}
 ## Launch
 set -ex
 
-export XLA_PYTHON_CLIENT_MEM_FRACTION=0.90
+export XLA_PYTHON_CLIENT_MEM_FRACTION=0.65
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_triton_gemm=false 
@@ -142,11 +142,11 @@ export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enabl
                   --xla_gpu_graph_level=0 --xla_gpu_enable_async_all_reduce=true --xla_gpu_enable_pipelined_all_gather=true 
                   --xla_gpu_enable_pipelined_reduce_scatter=true --xla_gpu_enable_pipelined_all_reduce=true --xla_gpu_enable_while_loop_double_buffering=true --xla_disable_hlo_passes=rematerialization"
 
-RUN_NAME="4B_PP${PP}_DP${DP}_FSDP${FSDP}_TP${TP}"
+RUN_NAME="500M_PP${PP}_DP${DP}_FSDP${FSDP}_TP${TP}"
 
 RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME}\
-    steps=$STEPS per_device_batch_size=2 base_emb_dim=8192 base_mlp_dim=32768 remat_policy=minimal\
-    base_num_query_heads=32 base_num_kv_heads=32 base_num_decoder_layers=10 head_dim=128 enable_checkpointing=false\
+    steps=$STEPS per_device_batch_size=2 base_emb_dim=2560 base_mlp_dim=8192 remat_policy=minimal\
+    base_num_query_heads=8 base_num_kv_heads=8 base_num_decoder_layers=8 head_dim=128 enable_checkpointing=false\
     base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic\
     dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP\
     ici_data_parallelism=1 dcn_data_parallelism=$DP\

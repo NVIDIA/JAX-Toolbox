@@ -1,4 +1,4 @@
-name: ~test MaxText, multi-node
+name: ~test MaxText functionality
 
 on:
   workflow_call:
@@ -35,11 +35,13 @@ on:
 
 jobs:
 
-  single-node-multi-device:
+  single-process-multi-device:
     strategy:
       matrix:
         PARALLEL_CONFIG:
         - [1, 1, 8, 1]
+        - [1, 1, 2, 4]
+        - [1, 2, 2, 2]
         # - [1, 1, 1, 8] # PP, DP, FSDP, TP
         # - [1, 1, 2, 4]
       fail-fast: false
@@ -96,7 +98,7 @@ jobs:
           #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --time=00:20:00
+          #SBATCH --time=00:10:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           time srun \
@@ -107,7 +109,7 @@ jobs:
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-per-gpu 2 \
-              --steps 20 \
+              --steps 10 \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
               --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
@@ -172,7 +174,7 @@ jobs:
           path: output/*
 
   metrics:
-    needs: [single-node-multi-device]
+    needs: [single-process-multi-device]
     runs-on: ubuntu-22.04
 
     steps:
@@ -203,7 +205,7 @@ jobs:
             *_metrics.json
 
   sitrep:
-    needs: [single-node-multi-device]
+    needs: [single-process-multi-device]
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
@@ -214,7 +216,7 @@ jobs:
 
   summary:
     runs-on: ubuntu-22.04
-    needs: [single-node-multi-device]
+    needs: [single-process-multi-device]
     if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL

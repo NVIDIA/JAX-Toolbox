@@ -12,9 +12,18 @@ index 57f8932..f922e88 100644
  fused_qkv: False
  fused_mlp: False
 diff --git a/MaxText/train.py b/MaxText/train.py
-index 37a992d..e6bdfc8 100644
+index 37a992d..b1b1057 100644
 --- a/MaxText/train.py
 +++ b/MaxText/train.py
+@@ -36,7 +36,7 @@ import checkpointing
+ import max_utils
+ import maxtext_utils
+ import max_logging
+-from maxtext import optimizers
++import optimizers
+ import pyconfig
+ 
+ from input_pipeline.input_pipeline_interface import create_data_iterator_with_tokenizer
 @@ -356,6 +356,17 @@ def main(argv: Sequence[str]) -> None:
    jax.config.update('jax_default_prng_impl', 'unsafe_rbg')
    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "0"
