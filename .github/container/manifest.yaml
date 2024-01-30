@@ -7,7 +7,7 @@ jax:
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 812f0c452e74c41ed01d4f8ac3fb297d04b7f1b6
+  latest_verified_commit: 0dc5563a97d6fa4584b85cb29b4bfcf289604f0b
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
@@ -105,7 +105,7 @@ seqio:
 openxla-triton:
   url: https://github.com/openxla/triton.git
   tracking_ref: llvm-head
-  latest_verified_commit: 9f816a7b984ce20ec684866f9c8bb5ffd49e2500
+  latest_verified_commit: cl601105910
   mode: git-clone
 jax-triton:
   url: https://github.com/jax-ml/jax-triton.git
