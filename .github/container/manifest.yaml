@@ -18,9 +18,9 @@ flax:
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
-  url: https://github.com/NVIDIA/TransformerEngine.git
+  url: https://github.com/zlsh80826/TransformerEngine.git
   tracking_ref: main
-  latest_verified_commit: bacefdbb6815159c42d5ca501a1400697b98a1e3
+  latest_verified_commit: 3f7d68d8c4aeece2630302cf27e081f44fc6d58a
   mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git
