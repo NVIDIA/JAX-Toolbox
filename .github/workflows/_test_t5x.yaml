@@ -13,11 +13,6 @@ on:
         description: Batch size per GPU
         default: 32
         required: false
-      EXTRA_GIN_ARGS:
-        type: string
-        description: Extra gin args to pass to test-t5x.sh
-        default: ""
-        required: false
       BADGE_FILENAME:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
@@ -107,8 +102,7 @@ jobs:
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
-              --steps-per-epoch 100 \
-              ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
+              --steps-per-epoch 100
           EOF
           )
 
@@ -239,8 +233,7 @@ jobs:
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              --multiprocess \
-              ${{ inputs.EXTRA_GIN_ARGS != '' && format('--additional-args "{0}"', inputs.EXTRA_GIN_ARGS) || '' }}
+              --multiprocess
           EOF
           )
 

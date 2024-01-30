@@ -52,6 +52,7 @@ jobs:
           echo "Test statuses:"
           jq -rc 'input_filename,.' $EXIT_STATUSES
 
+          cat $EXIT_STATUS_SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
           echo "EXIT_STATUS_SUMMARY_FILE=$EXIT_STATUS_SUMMARY_FILE" >> ${GITHUB_OUTPUT}
 
       - name: Write metrics summary
@@ -67,6 +68,7 @@ jobs:
             echo '```'
           done | tee -a $METRICS_SUMMARY_FILE
 
+          cat $METRICS_SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
           echo "METRICS_SUMMARY_FILE=$METRICS_SUMMARY_FILE" >> ${GITHUB_OUTPUT}
 
       - name: Generate sitrep
@@ -107,11 +109,14 @@ jobs:
 
           badge_label='Upstream ${{ inputs.FW_NAME }} Tests'
           summary="# ${{ inputs.FW_NAME }} MGMN Test: $badge_message"
+          full_result_markdown=$(cat ${{ steps.exit-status.outputs.EXIT_STATUS_SUMMARY_FILE }})
+          full_result_markdown+=$(cat ${{ steps.metrics.outputs.METRICS_SUMMARY_FILE }})
 
           to_json \
             summary \
             total_tests passed_tests failed_tests \
             badge_label badge_color badge_message \
+            full_result_markdown \
           > sitrep.json
 
           schemaVersion=1 \
