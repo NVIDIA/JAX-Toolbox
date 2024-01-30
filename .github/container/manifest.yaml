@@ -56,7 +56,7 @@ lingvo:
   latest_verified_commit: c33b460ae9208323b664c5bd565899dcd9c2e42c
   mode: git-clone
 tensorflow-text:
-  # Used only in ARM pax builds
+  # Used only in ARM pax and t5x builds
   url: https://github.com/tensorflow/text.git
   tracking_ref: v2.13.0
   latest_verified_commit: 917a681d7220ebf9b62a08b6f9ce7b7db886ddef
@@ -131,6 +131,12 @@ mujoco:
   url: https://github.com/google-deepmind/mujoco.git
   tracking_ref: main
   latest_verified_commit: 4f53d9a0d7bde4b9a69994d79449dfd57a04c305
+  mode: git-clone  
+grain:
+  # Used only in ARM t5x builds
+  url: https://github.com/google/grain.git
+  tracking_ref: main
+  latest_verified_commit: b02754da440d7271c3ea687f2d3fe20c672ea91b
   mode: git-clone
 mujoco-mpc:
   url:  https://github.com/google-deepmind/mujoco_mpc.git

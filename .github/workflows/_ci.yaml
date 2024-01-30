@@ -46,7 +46,6 @@ jobs:
 
   build-t5x:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # T5X arm64 build is wip in PR 252
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -55,7 +54,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
-      DOCKERFILE: .github/container/Dockerfile.t5x
+      DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
   build-pallas:
