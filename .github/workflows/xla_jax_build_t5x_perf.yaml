@@ -90,6 +90,8 @@ jobs:
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      SRC_XLA: ${{ inputs.SRC_XLA }}
+      SRC_JAX: ${{ inputs.SRC_JAX }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
