@@ -149,7 +149,7 @@ RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME}\
     base_num_query_heads=8 base_num_kv_heads=8 base_num_decoder_layers=8 head_dim=128 enable_checkpointing=false\
     base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic\
     dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP\
-    ici_data_parallelism=1 dcn_data_parallelism=$DP\
+    ici_data_parallelism=$DP dcn_data_parallelism=1\
     ici_tensor_parallelism=$TP dcn_tensor_parallelism=1"
 
 
