@@ -78,7 +78,7 @@ EOT
 
 
 #------------------------------------------------------------------------------
-# build grain from a manually-patched version
+# build grain from source
 #------------------------------------------------------------------------------
 # TODO: Remove this once grain maintainers have published an arm64 wheel.
 
@@ -129,8 +129,6 @@ pushd ${SRC_PATH_GRAIN}
 
 # Make bazel stop complaining about sharding and disable some tests with missing bazel build deps
 sed -i 's| bazel test | bazel test --test_sharding_strategy=disabled |' ./grain/oss/build_whl.sh
-#sed -i 's| bazel test.*| bazel test --test_sharding_strategy=disabled --verbose_failures --test_output=errors --action_env PYTHON_BIN_PATH="/usr/bin/$PYTHON" -- //...|' ./grain/oss/build_whl.sh
-#sed -i 's| bazel test.*| bazel test --test_sharding_strategy=disabled --verbose_failures --test_output=errors --action_env PYTHON_BIN_PATH="/usr/bin/$PYTHON" -- //... -//grain/_src/python/experimental/example_packing:packing_test -//grain/_src/python/lazy_dataset/transformations:packing_test|' ./grain/oss/build_whl.sh
 
 export MEALKIT_PYTHON_VERSION=$(cat /mealkit-python-version)
 export PYTHON_MAJOR_VERSION=${MEALKIT_PYTHON_VERSION%.*}
@@ -184,7 +182,6 @@ sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
 
 # for ARM64 build
 sed -i "s/'tensorflow/#'tensorflow/" setup.py
-sed -i "s/'t5=/#'t5=/" setup.py
 
 sed -i "s/f'jax/#f'jax/" setup.py
 sed -i "s/'tpu/#'tpu/" setup.py

@@ -56,7 +56,7 @@ lingvo:
   latest_verified_commit: c33b460ae9208323b664c5bd565899dcd9c2e42c
   mode: git-clone
 tensorflow-text:
-  # Used only in ARM pax builds
+  # Used only in ARM pax and t5x builds
   url: https://github.com/tensorflow/text.git
   tracking_ref: v2.13.0
   latest_verified_commit: 917a681d7220ebf9b62a08b6f9ce7b7db886ddef
