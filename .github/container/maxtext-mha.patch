@@ -1,8 +1,8 @@
 diff --git a/MaxText/configs/base.yml b/MaxText/configs/base.yml
-index 5e91281..d773db6 100644
+index 57f8932..f922e88 100644
 --- a/MaxText/configs/base.yml
 +++ b/MaxText/configs/base.yml
-@@ -75,7 +75,7 @@ logits_via_embedding: True  # NOTE: this is True just for testing.
+@@ -78,7 +78,7 @@ logits_dot_in_fp32: True  # whether to use fp32 in logits_dense or shared_embedd
  remat_policy: 'full'
  scan_layers: True
  param_scan_axis: 1
@@ -12,16 +12,17 @@ index 5e91281..d773db6 100644
  fused_qkv: False
  fused_mlp: False
 diff --git a/MaxText/train.py b/MaxText/train.py
-index d5be087..8d0fe74 100644
+index 37a992d..e6bdfc8 100644
 --- a/MaxText/train.py
 +++ b/MaxText/train.py
-@@ -356,6 +356,16 @@ def main(argv: Sequence[str]) -> None:
+@@ -356,6 +356,17 @@ def main(argv: Sequence[str]) -> None:
    jax.config.update('jax_default_prng_impl', 'unsafe_rbg')
    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "0"
    os.environ["LIBTPU_INIT_ARGS"] = os.environ.get("LIBTPU_INIT_ARGS","") + " --xla_tpu_spmd_rng_bit_generator_unsafe=true"
-+  
++
 +  n_processes = int(os.environ['SLURM_NTASKS'])
-+  
++  print(f'total number of processes: {n_processes}')
++
 +  if n_processes > 1:
 +    jax.distributed.initialize(
 +      coordinator_address=os.environ['SLURM_LAUNCH_NODE_IPADDR']+':12345',
