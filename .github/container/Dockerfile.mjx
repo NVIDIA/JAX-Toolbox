@@ -2,6 +2,9 @@
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
 ARG SRC_PATH_MUJOCO=/opt/mujoco
+ARG SRC_PATH_MUJOCO_MPC=/opt/mujoco-mpc
+ARG SRC_PATH_L2R=/opt/language-to-reward-2023
+
 
 ###############################################################################
 ## Download source and add auxiliary scripts
@@ -9,10 +12,32 @@ ARG SRC_PATH_MUJOCO=/opt/mujoco
 
 FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_MUJOCO
+ARG SRC_PATH_MUJOCO_MPC
+ARG SRC_PATH_L2R
+
+# Install system dependencies for Mujuco/MPC
+RUN <<"EOF" bash -ex
+apt-get update
+apt-get install -y \
+    libgl1-mesa-dev \
+    libxinerama-dev \
+    libxcursor-dev \
+    libxrandr-dev \
+    libxi-dev \
+    ninja-build
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+EOF
+
+# Specify installation targets
 RUN <<"EOF" bash -ex
 get-source.sh -l mujoco -m ${MANIFEST_FILE} -b $(dirname ${SRC_PATH_MUJOCO})
+get-source.sh -l mujoco-mpc -m ${MANIFEST_FILE}
+get-source.sh -l language-to-reward-2023 -m ${MANIFEST_FILE}
 echo "-f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MUJOCO}/mjx" >> /opt/pip-tools.d/requirements-mjx.in
+echo "-e file://${SRC_PATH_MUJOCO_MPC}/python" >> /opt/pip-tools.d/requirements-l2r.in
+echo "-e file://${SRC_PATH_L2R}" >> /opt/pip-tools.d/requirements-l2r.in
 EOF
 
 
