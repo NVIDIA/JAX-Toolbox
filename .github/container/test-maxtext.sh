@@ -119,6 +119,17 @@ done
 GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
 NGPUS=$(( GPUS_PER_NODE * NODES ))
 
+# Heuristic to figure out ici and dcn of DP
+# We only use DP across different nodes
+if [ $NGPUS -gt 8 ]
+then 
+    dcn_DP=$((NGPUS/8))
+    ici_DP=$((DP/dcn_DP))
+else
+    dcn_DP=1
+    ici_DP=$DP
+fi
+
 print_var BATCH_PER_GPU
 print_var DTYPE
 print_var STEPS
@@ -128,6 +139,8 @@ print_var OUTPUT
 print_var ENABLE_TE
 print_var ENABLE_FUSED_ATTN
 print_var DP
+print_var ici_DP
+print_var dcn_DP
 print_var FSDP
 print_var TP
 print_var PP
@@ -150,14 +163,14 @@ export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enabl
                   --xla_gpu_graph_level=0 --xla_gpu_enable_async_all_reduce=true --xla_gpu_enable_pipelined_all_gather=true 
                   --xla_gpu_enable_pipelined_reduce_scatter=true --xla_gpu_enable_pipelined_all_reduce=true --xla_gpu_enable_while_loop_double_buffering=true --xla_disable_hlo_passes=rematerialization"
 
-RUN_NAME="500M_PP${PP}_DP${DP}_FSDP${FSDP}_TP${TP}"
+RUN_NAME="logdir" ## the RUN_NAME cannot be changed
 
 RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME}\
     steps=$STEPS per_device_batch_size=2 base_emb_dim=2560 base_mlp_dim=8192 remat_policy=minimal\
     base_num_query_heads=8 base_num_kv_heads=8 base_num_decoder_layers=8 head_dim=128 enable_checkpointing=false\
     base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic multiprocess_gpu=${MULTIPROCESS}\
     dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP\
-    ici_data_parallelism=$DP dcn_data_parallelism=1\
+    ici_data_parallelism=$ici_DP dcn_data_parallelism=$dcn_DP\
     ici_tensor_parallelism=$TP dcn_tensor_parallelism=1"
 
 
