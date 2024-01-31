@@ -39,9 +39,9 @@ jobs:
     strategy:
       matrix:
         PARALLEL_CONFIG:
-        # - [1, 1, 8, 1]
+        - [1, 1, 8, 1]
         # - [1, 1, 2, 4]
-        - [1, 2, 2, 2]
+        # - [1, 2, 2, 2]
         # - [1, 1, 1, 8] # PP, DP, FSDP, TP
       fail-fast: false
 
@@ -71,7 +71,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.MAXTEXT_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0]}}PP
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0]}}PP_single_process
           TOTAL_TASKS=1
           MAX_GPUS_PER_NODE=8
           NODES=1
@@ -113,8 +113,7 @@ jobs:
               --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
-              --nodes ${{ steps.meta.outputs.NODES }} \
-              ${{ inputs.EXTRA_TEST_ARGS }}
+              --nodes ${{ steps.meta.outputs.NODES }}
           EOF
           )
 
@@ -172,8 +171,153 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
+  maxtext-multinode:
+    strategy:
+      matrix:
+        PARALLEL_CONFIG:
+        # - [1, 1, 1, 1]
+        # - [1, 8, 1, 1]
+        - [1, 1, 8, 1]
+        # - [4, 2, 1, 1]
+        # - [1, 4, 1, 2]
+        # - [1, 16, 1, 1]
+        # - [4, 2, 1, 2]
+      fail-fast: false
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Labels and metadata
+        id: meta
+        shell: bash -x -e {0}
+        run: |
+          IMAGE="$(echo ${{inputs.MAXTEXT_IMAGE}} | sed 's/\//#/')"
+          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP
+          TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
+          MAX_GPUS_PER_NODE=8
+          NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
+          GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
+
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          LOG_FILE=/nfs/cluster/${JOB_NAME}.log
+          MODEL_PATH=/nfs/cluster/${JOB_NAME}
+          for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
+            echo "$var=${!var}" >> $GITHUB_OUTPUT
+          done
+
+      - name: Submit SLURM jobs over SSH
+        id: submit
+        shell: bash -O expand_aliases -x -e {0}
+        run: |
+          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          sshx "date && hostname && sinfo"
+          sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
+          JOB=$(sshx sbatch --parsable << EOF
+          #!/bin/bash
+          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+          #SBATCH --exclusive
+          #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
+          #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
+          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
+          #SBATCH --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
+          #SBATCH --time=00:10:00
+          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          time srun \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
+            --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
+            --container-entrypoint \
+            test-maxtext.sh \
+              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
+              --dtype bfloat16 \
+              --batch-per-gpu 2 \
+              --steps 10 \
+              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
+              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
+              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
+              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
+              --nodes ${{ steps.meta.outputs.NODES }} \
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
+          EOF
+          )
+
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
+          set +x
+          while sshx squeue -j $JOB | grep -q $JOB; do
+            echo "SLURM Job $JOB is still running."
+            sleep 15
+          done
+
+          echo "SLURM Job $JOB finished."
+
+          # Gather job info
+          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          echo "SLURM Job state is ${SLURM_STATE}"
+          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
+          set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
+      - name: Retrieve training logs and upload to TensorBoard server
+        shell: bash -x -e {0}
+        run: |
+          mkdir output/
+          rsync -rtz --progress \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
+            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
+          rsync -rtz --progress \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
+            output/ || true
+          rsync -rtz --progress \
+            output/ \
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
+
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
+
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.meta.outputs.JOB_NAME }}
+          path: output/*
+
   metrics:
-    needs: [single-process-multi-device]
+    needs: [single-process-multi-device, maxtext-multinode]
     runs-on: ubuntu-22.04
 
     steps:
@@ -204,7 +348,7 @@ jobs:
             *_metrics.json
 
   sitrep:
-    needs: [single-process-multi-device]
+    needs: [single-process-multi-device, maxtext-multinode]
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
@@ -215,7 +359,7 @@ jobs:
 
   summary:
     runs-on: ubuntu-22.04
-    needs: [single-process-multi-device]
+    needs: [single-process-multi-device, maxtext-multinode]
     if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
