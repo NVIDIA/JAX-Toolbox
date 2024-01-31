@@ -4,7 +4,7 @@ import json
 import glob
 import sys
 from statistics import mean
-from test_utils import read_tb_tag, read_e2e_time
+from test_utils import read_tb_tag, read_maxtext_tb_tag, read_e2e_time
 
 
 def _create_summary(loss, train_time, e2e_time):
