@@ -2,14 +2,9 @@ import os
 import sys
 import numpy as np
 import json
+import argparse
 
-def main():
-    if len(sys.argv) < 3:
-        sys.exit(1)
-
-    config = sys.argv[1]
-    run_dirs = sys.argv[2:]
-
+def main(config, run_dirs, output_dir):
     # Store metrics data as list of dicts
     json_fnames = [f"{r}/{config}_metrics.json" for r in run_dirs]
     src_data = []
@@ -39,9 +34,15 @@ def main():
     avg_data["e2e_time_seconds"] = np.mean(e2e_time_data)
 
     # save to file
-    fname = config + ".json"
-    with open(fname, "w") as f:
+    os.makedirs(output_dir, exist_ok=True)
+    output_baseline_path = os.path.join(output_dir, config + '.json')
+    with open(output_baseline_path, "w") as f:
         json.dump(avg_data, f)
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, required=True, help='Config name like 1N1G. This would correspond to $workflow_id/$artifact_name/$config')
+    parser.add_argument('--run_dirs', type=str, required=True, nargs='+', help='One or more workflow run dirs of the form $workflow_id/$artifact_name')
+    parser.add_argument('--output_dir', type=str, required=True, help='Where to place the averaged baseline. E.g., for upstream-pax it would be PAX_MGMN/upstream (relative to this dir)')
+    args = parser.parse_args()
+    main(args.config, args.run_dirs, args.output_dir)
