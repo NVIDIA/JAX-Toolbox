@@ -11,6 +11,14 @@ def read_tb_tag(tb_file: str, summary_name: str) -> dict:
         for event in ea.Tensors(summary_name)
     }
 
+def read_maxtext_tb_tag(tb_file: str, summary_name: str) -> dict:
+    ea = event_accumulator.EventAccumulator(tb_file)
+    ea.Reload()
+
+    return {
+        event.step: np.asarray(event.value).item()
+        for event in ea.Scalars(summary_name)
+    }
 
 def read_e2e_time(log_file: str) -> float:
     with open(log_file, "r") as log:

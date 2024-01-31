@@ -14,7 +14,7 @@ if [[ "$TYPE" == "pax" ]]; then
 elif [[ "$TYPE" == "t5x" ]]; then
     CONFIGS=("1G1N" "1G2N" "1P1G" "1P2G" "1P4G" "1P8G" "2G1N" "2G2N" "4G1N" "4G2N" "8G1N" "8G2N")
 elif [[ "$TYPE" == "maxtext" ]]; then
-    CONFIGS=("1DP1FSDP1TP1PP" "1DP8FSDP1TP1PP" "1DP8FSDP1TP1PP_single_process")
+    CONFIGS=("1DP1FSDP1TP1PP" "1DP1FSDP8TP1PP" "1DP2FSDP4TP1PP_single_process" "1DP4FSDP2TP1PP" "1DP8FSDP1TP1PP" "2DP2FSDP2TP1PP" "4DP2FSDP2TP1PP")
 else
     usage
 fi
@@ -33,7 +33,7 @@ for WORKFLOW_RUN in ${ALL_WF_RUNS[@]}; do
     elif [[ $TYPE == "t5x" ]]; then
         python3 ${UTIL_DIR}/summarize_metrics.py ${CFG} --perf_summary_name "timing/steps_per_second"
     elif [[ $TYPE == "maxtext" ]]; then
-        python3 ${UTIL_DIR}/summarize_metrics.py ${CFG}
+        python3 ${UTIL_DIR}/summarize_metrics.py ${CFG} --loss_summary_name "learning/loss" --perf_summary_name "perf/step_time_seconds"
     fi
   done
   popd

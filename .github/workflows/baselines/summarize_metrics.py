@@ -38,14 +38,22 @@ def main():
         searchpath = os.path.join(args.test_config, "train")
         if not os.path.exists(searchpath):
             searchpath = os.path.join(args.test_config, "summaries/train")
-        assert os.path.exists(searchpath), f"Neither {args.test_config}/train nor {args.test_config}/summaries/train dirs exist"
+        if not os.path.exists(searchpath):
+            searchpath = os.path.join(args.test_config, "logdir/tensorboard")
+        assert os.path.exists(searchpath), f"Neither {args.test_config}/train nor {args.test_config}/summaries/train nor {args.test_config}/logdir/tensorboard dirs exist"
         event_files = glob.glob(os.path.join(searchpath, "events*"))
         assert len(event_files) > 0, f"{searchpath} did not contain a tensorboard events file"
 
         event_file = event_files[0]
         print(f'EVENT FILE: {event_file}')
-        loss = read_tb_tag(event_file, args.loss_summary_name)
-        train_time = read_tb_tag(event_file, args.perf_summary_name)
+
+        if 'logdir' in searchpath: # indicating maxtext
+            loss = read_maxtext_tb_tag(event_file, args.loss_summary_name)
+            train_time = read_maxtext_tb_tag(event_file, args.perf_summary_name)
+        else:
+            loss = read_tb_tag(event_file, args.loss_summary_name)
+            train_time = read_tb_tag(event_file, args.perf_summary_name)
+        
         e2e_time = read_e2e_time(args.test_config + ".log")
 
         baseline = _create_summary(loss, train_time, e2e_time)
