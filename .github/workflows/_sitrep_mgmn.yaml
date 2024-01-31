@@ -60,13 +60,23 @@ jobs:
         shell: bash -x -e {0}
         run: |
           METRICS_SUMMARY_FILE="metrics_summary.json"
-          echo -e "\n\n## ${{ inputs.FW_NAME }} MGMN Test Metrics" >> $METRICS_SUMMARY_FILE
-          for i in metrics-test-log/*_metrics.json; do
-            echo $i | cut -d'.' -f1
-            echo '```json'
-            jq . $i
-            echo '```'
-          done | tee -a $METRICS_SUMMARY_FILE
+
+          echo '## Upstream ${{ inputs.FW_NAME }} MGMN Test Metrics' | tee -a $METRICS_SUMMARY_FILE
+          python <<EOF | tee -a $METRICS_SUMMARY_FILE
+          import json
+          files = "$(echo upstream-${{ inputs.FW_NAME }}-metrics-test-log/*_metrics.json)".split()
+          header = None
+          print_row = lambda lst: print('| ' + ' | '.join(str(el) for el in lst) + ' |')
+          for path in files:
+            with open(path) as f:
+              obj = json.loads(f.read())
+              if not header:
+                header = list(obj.keys())
+                print_row(["Job Name"] + header)
+                print_row(["---"] * (1+len(header)))
+              job_name = path[:-len('_metrics.json')]
+              print_row([job_name] + [obj[h] for h in header])
+          EOF
 
           cat $METRICS_SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
           echo "METRICS_SUMMARY_FILE=$METRICS_SUMMARY_FILE" >> ${GITHUB_OUTPUT}
@@ -83,7 +93,7 @@ jobs:
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
 
-          METRICS_LOG=metrics-test-log/report.jsonl
+          METRICS_LOG=upstream-${{ inputs.FW_NAME }}-metrics-test-log/report.jsonl
           all_outcomes() {
             cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
           }
