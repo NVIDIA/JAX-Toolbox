@@ -10,17 +10,67 @@ usage() {
 
 TYPE=$1
 if [[ "$TYPE" == "upstream-pax" ]]; then
-    CONFIGS=("1DP1TP1PP" "8DP1TP1PP" "2DP1TP4PP" "16DP1TP1PP")
+    CONFIGS=(
+        "16DP1FSDP1TP1PP"
+        "1DP1FSDP1TP1PP"
+        "1DP2FSDP4TP1PP_single_process"
+        "1DP8FSDP1TP1PP"
+        "2DP1FSDP1TP4PP"
+        "2DP1FSDP2TP4PP"
+        "4DP1FSDP2TP1PP"
+        "8DP1FSDP1TP1PP"
+        "8DP1FSDP1TP1PP_eval"
+        "8DP1FSDP1TP1PP_single_process"
+    )
     # OUTPUT_DIR should be relative to this script
     OUTPUT_DIR=PAX_MGMN/upstream
 elif [[ "$TYPE" == "pax" ]]; then
-    CONFIGS=("1DP1TP1PP" "8DP1TP1PP" "2DP1TP4PP" "16DP1TP1PP")
+    CONFIGS=(
+        "16DP1FSDP1TP1PP_TE"
+        "1DP1FSDP1TP1PP_TE"
+        "1DP2FSDP4TP1PP_single_process_TE"
+        "1DP8FSDP1TP1PP_TE"
+        "2DP1FSDP1TP4PP"
+        "2DP1FSDP2TP4PP"
+        "4DP1FSDP2TP1PP"
+        "4DP1FSDP2TP1PP_TE"
+        "8DP1FSDP1TP1PP"
+        "8DP1FSDP1TP1PP_TE"
+        "8DP1FSDP1TP1PP_eval_TE"
+        "8DP1FSDP1TP1PP_single_process_TE"
+    )
     OUTPUT_DIR=PAX_MGMN/rosetta
 elif [[ "$TYPE" == "upstream-t5x" ]]; then
-    CONFIGS=("1G1N" "1G2N" "1P1G" "1P2G" "1P4G" "1P8G" "2G1N" "2G2N" "4G1N" "4G2N" "8G1N" "8G2N")
+    CONFIGS=(
+        "1G1N"
+        "1G2N"
+        "1P1G"
+        "1P2G"
+        "1P4G"
+        "1P8G"
+        "2G1N"
+        "2G2N"
+        "4G1N"
+        "4G2N"
+        "8G1N"
+        "8G2N"
+    )
     OUTPUT_DIR=T5X_MGMN/upstream
 elif [[ "$TYPE" == "t5x" ]]; then
-    CONFIGS=("1N1G-te-1" "1N8G-te-1" "1P1G_te-0" "1P1G_te-1" "1P8G_te-1" "2N2G_te-0" "2N8G-te-1" "VIT1G1N" "VIT1G2N" "VIT1P8G" "VIT8G1N" "VIT8G2N")
+    CONFIGS=(
+        "1N1G-te-1"
+        "1N8G-te-1"
+        "1P1G_te-0"
+        "1P1G_te-1"
+        "1P8G_te-1"
+        "2N2G_te-0"
+        "2N8G-te-1"
+        "VIT1G1N"
+        "VIT1G2N"
+        "VIT1P8G"
+        "VIT8G1N"
+        "VIT8G2N"
+    )
     OUTPUT_DIR=T5X_MGMN/rosetta
 elif [[ "$TYPE" == "maxtext" ]]; then
     CONFIGS=("1DP1FSDP1TP1PP" "1DP1FSDP8TP1PP" "1DP2FSDP4TP1PP_single_process" "1DP4FSDP2TP1PP" "1DP8FSDP1TP1PP" "2DP2FSDP2TP1PP" "4DP2FSDP2TP1PP")
