@@ -21,32 +21,32 @@ on:
         description: Bump manifest file?
         default: false
         required: false
-      SRC_JAX:
+      JAX_SRC:
         description: 'JAX source url'
         type: string
         required: false
         default: ''
-      REF_JAX:
+      JAX_REF:
         description: 'JAX branch/commit SHA'
         type: string
         required: false
         default: ''
-      SRC_XLA:
+      XLA_SRC:
         description: 'XLA source url'
         type: string
         required: false
         default: ''
-      REF_XLA:
+      XLA_REF:
         description: 'XLA branch/commit SHA'
         type: string
         required: false
         default: ''
-      SRC_T5X:
+      T5X_SRC:
         description: 'T5X source url'
         type: string
         required: false
         default: ''
-      REF_T5X:
+      T5X_REF:
         description: 'T5X branch/commit SHA'
         type: string
         required: false
