@@ -13,10 +13,10 @@ flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
-  latest_verified_commit: 97e9c704d978fdd2296976dafe1e324b6b8fa774
+  latest_verified_commit: 8995420543bbe9415df5eb7b6a40ed7d87f6db6f
   mode: git-clone
   patches:
-    pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
+    mirror/patch/t5x-layers-rebase-0131: file://patches/flax/mirror-patch-t5x-layers-rebase-0131.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
@@ -119,7 +119,7 @@ maxtext:
   mode: git-clone
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
-  tracking_ref: main 
+  tracking_ref: main
   latest_verified_commit: 8250b776c28f2d929c4c095dc571b12f128ec11d
   mode: git-clone
 haliax:
@@ -131,7 +131,7 @@ mujoco:
   url: https://github.com/google-deepmind/mujoco.git
   tracking_ref: main
   latest_verified_commit: 4f53d9a0d7bde4b9a69994d79449dfd57a04c305
-  mode: git-clone  
+  mode: git-clone
 grain:
   # Used only in ARM t5x builds
   url: https://github.com/google/grain.git
