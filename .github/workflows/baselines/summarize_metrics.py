@@ -50,7 +50,7 @@ def main():
         if 'logdir' in searchpath: # indicating maxtext
             loss = read_maxtext_tb_tag(event_file, args.loss_summary_name) 
             del loss[0] # removing the very first step
-            train_time = read_maxtext_tb_tag(event_file, args.perf_summary_name).pop(0) 
+            train_time = read_maxtext_tb_tag(event_file, args.perf_summary_name) 
             del train_time[0] # removing the very first step
         else:
             loss = read_tb_tag(event_file, args.loss_summary_name)
