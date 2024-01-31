@@ -338,7 +338,7 @@ export NVTE_FUSED_ATTN=$NVTE_FUSED_ATTN
 
 CONFIG=ci_configs.Synthetic126MCI
 if [[ ${NVTE_FUSED_ATTN} -ne 0 ]]; then
-  CONFIG=paxml.contrib.gpu.scripts_gpu.Synthetic5B
+  CONFIG=paxml.contrib.gpu.scripts_gpu.configs.Synthetic5B
 fi
 
 if [[ ${EVALUATE} -ne 0 ]]; then
