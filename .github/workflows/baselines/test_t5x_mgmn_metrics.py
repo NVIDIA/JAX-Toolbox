@@ -49,7 +49,7 @@ E2E_TIME_MULT = {
     "8G2N": 0.95,
 }
 test_dir = os.path.dirname(os.path.abspath(__file__))
-baselines_dir = os.path.join(test_dir, "T5X_MGMN")
+baselines_dir = os.path.join(test_dir, os.environ.get("BASELINES_DIR"))
 results_dir = os.environ.get("RESULTS_DIR")
 loss_summary_name = "loss"
 step_time_summary_name = "timing/steps_per_second"
