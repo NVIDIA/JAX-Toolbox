@@ -22,21 +22,35 @@ on:
         default: false
         required: false
       SRC_JAX:
-        description: 'JAX source: <repo>#<branch|tag|commit>'
+        description: 'JAX source url'
+        type: string
+        required: false
+        default: ''
+      REF_JAX:
+        description: 'JAX branch/commit SHA'
         type: string
         required: false
         default: ''
       SRC_XLA:
-        description: 'XLA source: <repo>#<branch|tag|commit>'
+        description: 'XLA source url'
+        type: string
+        required: false
+        default: ''
+      REF_XLA:
+        description: 'XLA branch/commit SHA'
         type: string
         required: false
         default: ''
       SRC_T5X:
-        description: 'T5X source: <repo>#<branch|tag|commit>'
+        description: 'T5X source url'
         type: string
-        required: true
-        default: 'https://github.com/google-research/t5x.git#main'
-
+        required: false
+        default: ''
+      REF_T5X:
+        description: 'T5X branch/commit SHA'
+        type: string
+        required: false
+        default: ''
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
