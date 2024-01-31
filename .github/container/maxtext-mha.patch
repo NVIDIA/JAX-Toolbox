@@ -1,5 +1,5 @@
 diff --git a/MaxText/configs/base.yml b/MaxText/configs/base.yml
-index 57f8932..901fcac 100644
+index 57f8932..9976006 100644
 --- a/MaxText/configs/base.yml
 +++ b/MaxText/configs/base.yml
 @@ -78,7 +78,7 @@ logits_dot_in_fp32: True  # whether to use fp32 in logits_dense or shared_embedd
@@ -19,39 +19,17 @@ index 57f8932..901fcac 100644
 +# enabling slurm for multiprocess in gpus
 +# It must be turned on while using SLURM
 +multiprocess_gpu: False
-diff --git a/MaxText/train.py b/MaxText/train.py
-index 37a992d..f401702 100644
---- a/MaxText/train.py
-+++ b/MaxText/train.py
-@@ -36,7 +36,7 @@ import checkpointing
- import max_utils
- import maxtext_utils
- import max_logging
--from maxtext import optimizers
-+import optimizers
- import pyconfig
+\ No newline at end of file
+diff --git a/MaxText/pyconfig.py b/MaxText/pyconfig.py
+index 1d822ad..b89ea3c 100644
+--- a/MaxText/pyconfig.py
++++ b/MaxText/pyconfig.py
+@@ -169,7 +169,7 @@ class _HyperParameters():
+     '''Transformations between the config data and configs used at runtime'''
  
- from input_pipeline.input_pipeline_interface import create_data_iterator_with_tokenizer
-@@ -356,9 +356,22 @@ def main(argv: Sequence[str]) -> None:
-   jax.config.update('jax_default_prng_impl', 'unsafe_rbg')
-   os.environ["TF_CPP_MIN_LOG_LEVEL"] = "0"
-   os.environ["LIBTPU_INIT_ARGS"] = os.environ.get("LIBTPU_INIT_ARGS","") + " --xla_tpu_spmd_rng_bit_generator_unsafe=true"
-+
-   pyconfig.initialize(argv)
-   config = pyconfig.config
-   validate_train_config(config)
-+
-+  if config.multiprocess_gpu:
-+
-+    n_processes = int(os.environ['SLURM_NTASKS'])
-+    print(f'total number of processes: {n_processes}')
-+
-+    jax.distributed.initialize(
-+      coordinator_address=os.environ['SLURM_LAUNCH_NODE_IPADDR']+':12345',
-+      num_processes=n_processes,
-+      process_id=int(os.environ['SLURM_PROCID']),
-+      )
-+  
-   if jax.__version__ <= '0.4.23':
-     cc.initialize_cache(os.path.expanduser(config.jax_cache_dir))
-   else:
+     # We initialize the jax distributed system here because it must be done before device backend is initialized.
+-    if raw_keys["enable_checkpointing"] and raw_keys["async_checkpointing"] and raw_keys["compile_topology_num_slices"]==-1:
++    if (raw_keys["enable_checkpointing"] and raw_keys["async_checkpointing"] and raw_keys["compile_topology_num_slices"]==-1) or raw_keys["multiprocess_gpu"]:
+       max_utils.initialize_jax_distributed_system()
+ 
+     raw_keys["dtype"] = jax.numpy.dtype(raw_keys["dtype"])
