@@ -15,16 +15,21 @@ ARG SRC_PATH_MUJOCO
 ARG SRC_PATH_MUJOCO_MPC
 ARG SRC_PATH_L2R
 
-# libraries for mjc
-RUN apt-get update && apt-get install -y \
+# Install system dependencies for Mujuco/MPC
+RUN <<"EOF" bash -ex
+apt-get update
+apt-get install -y \
     libgl1-mesa-dev \
     libxinerama-dev \
     libxcursor-dev \
     libxrandr-dev \
     libxi-dev \
     ninja-build
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+EOF
 
-
+# Specify installation targets
 RUN <<"EOF" bash -ex
 get-source.sh -l mujoco -m ${MANIFEST_FILE} -b $(dirname ${SRC_PATH_MUJOCO})
 get-source.sh -l mujoco-mpc -m ${MANIFEST_FILE}
