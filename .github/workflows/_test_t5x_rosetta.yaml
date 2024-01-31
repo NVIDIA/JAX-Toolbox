@@ -78,7 +78,7 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
-          JOB_NAME=rosetta-T5X-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=rosetta-t5x-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -159,7 +159,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-T5X-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-t5x-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -276,7 +276,7 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=rosetta-T5X-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=rosetta-t5x-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
@@ -359,7 +359,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-T5X-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-t5x-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -455,7 +455,7 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=VIT1P${{ matrix.N_GPU }}G
-          JOB_NAME=rosetta-VIT-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=rosetta-vit-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.VIT_BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -522,7 +522,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-VIT-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-vit-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -620,7 +620,7 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=VIT${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=rosetta-VIT-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=rosetta-vit-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.VIT_BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
@@ -689,7 +689,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-VIT-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-vit-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -748,16 +748,65 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  publish-test:
+  metrics:
     needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v3
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Run pytest
+        shell: bash -x {0}
+        run: |
+          pip install pytest pytest-reportlog tensorboard
+          for i in rosetta-t5x-${GITHUB_RUN_ID}-* rosetta-vit-${GITHUB_RUN_ID}-*; do
+            SUBDIR=$(echo $i | rev | cut -d'-' -f1 | rev)
+            mv $i/$SUBDIR* .
+            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
+          done
+
+          echo '## Rosetta T5X MGMN Test Metrics' >> $GITHUB_STEP_SUMMARY
+          python <<EOF | tee -a $GITHUB_STEP_SUMMARY
+          import json
+          files = "$(echo *_metrics.json)".split()
+          header = None
+          print_row = lambda lst: print('| ' + ' | '.join(str(el) for el in lst) + ' |')
+          for path in files:
+            with open(path) as f:
+              obj = json.loads(f.read())
+              if not header:
+                header = list(obj.keys())
+                print_row(["Job Name"] + header)
+                print_row(["---"] * (1+len(header)))
+              job_name = path[:-len('_metrics.json')]
+              print_row([job_name] + [obj[h] for h in header])
+          EOF
+
+          RESULTS_DIR=$PWD BASELINES_DIR=T5X_MGMN/rosetta pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
+
+      - name: Upload metrics test json logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: rosetta-t5x-metrics-test-log
+          path: report.jsonl
+  
+  publish-test:
+    needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node, metrics]
     uses: ./.github/workflows/_publish_badge.yaml
     if: "!cancelled()"
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'rosetta-t5x-test-completion-status.json'
+      ENDPOINT_FILENAME: 'rosetta-t5x-mgmn-test-status.json'
       PUBLISH: false
       SCRIPT: |
-        T5X_EXIT_STATUSES="rosetta-T5X-${GITHUB_RUN_ID}-*/*-status.json"
+        ######################
+        # T5X+ViT completion #
+        ######################
+        T5X_EXIT_STATUSES="rosetta-t5x-${GITHUB_RUN_ID}-*/*-status.json"
         T5X_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $T5X_EXIT_STATUSES | wc -l)
         T5X_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $T5X_EXIT_STATUSES | wc -l)
         T5X_TOTAL_TESTS=$(ls $T5X_EXIT_STATUSES | wc -l)
@@ -772,7 +821,7 @@ jobs:
           echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
         done | tee -a $GITHUB_STEP_SUMMARY
 
-        VIT_EXIT_STATUSES="rosetta-VIT-${GITHUB_RUN_ID}-*/*-status.json"
+        VIT_EXIT_STATUSES="rosetta-vit-${GITHUB_RUN_ID}-*/*-status.json"
         VIT_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $VIT_EXIT_STATUSES | wc -l)
         VIT_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $VIT_EXIT_STATUSES | wc -l)
         VIT_TOTAL_TESTS=$(ls $VIT_EXIT_STATUSES | wc -l)
@@ -795,18 +844,34 @@ jobs:
         echo "Test statuses:"
         jq -rc 'input_filename,.' $EXIT_STATUSES
 
-        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-          echo "STATUS=success" >> $GITHUB_OUTPUT
+        ###########
+        # Metrics #
+        ###########
+        METRICS_LOG=rosetta-t5x-metrics-test-log/report.jsonl
+        all_outcomes() {
+          cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+        }
+        cnt_type() {
+          cat $METRICS_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+        }
+        PYTEST_FAILED_TESTS=$(cnt_type failed)
+        PYTEST_PASSED_TESTS=$(cnt_type passed)
+        PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
+
+        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
+          [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]; then
+          STATUS=success
           BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]]; then
-          echo "STATUS=failure" >> $GITHUB_OUTPUT
+        elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
+          STATUS=failure
           BADGE_COLOR=red
         else
-          echo "STATUS=failure" >> $GITHUB_OUTPUT
+          STATUS=failure
           BADGE_COLOR=yellow
         fi
-        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
+        echo "STATUS='${STATUS}'" >> $GITHUB_OUTPUT
+        echo "LABEL='T5X Tests'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} jobs ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} metrics'" >> $GITHUB_OUTPUT
         echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
 
 
