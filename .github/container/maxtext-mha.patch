@@ -33,16 +33,3 @@ index 1d822ad..b89ea3c 100644
        max_utils.initialize_jax_distributed_system()
  
      raw_keys["dtype"] = jax.numpy.dtype(raw_keys["dtype"])
-diff --git a/MaxText/train.py b/MaxText/train.py
-index 37a992d..a8c7a1a 100644
---- a/MaxText/train.py
-+++ b/MaxText/train.py
-@@ -36,7 +36,7 @@ import checkpointing
- import max_utils
- import maxtext_utils
- import max_logging
--from maxtext import optimizers
-+import optimizers
- import pyconfig
- 
- from input_pipeline.input_pipeline_interface import create_data_iterator_with_tokenizer
