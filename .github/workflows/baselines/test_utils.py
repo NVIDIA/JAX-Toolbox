@@ -1,6 +1,6 @@
 from tensorboard.backend.event_processing import event_accumulator
 from tensorboard.util import tensor_util
-
+import numpy as np
 
 def read_tb_tag(tb_file: str, summary_name: str) -> dict:
     ea = event_accumulator.EventAccumulator(tb_file)
