@@ -176,8 +176,8 @@ jobs:
       matrix:
         PARALLEL_CONFIG:
         - [1, 1, 1, 1]
+        - [1, 1, 8, 1]
         - [1, 4, 2, 2]
-        - [1, 4, 2, 4]
       fail-fast: false
 
     runs-on: ubuntu-22.04
