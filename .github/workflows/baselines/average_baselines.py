@@ -37,7 +37,7 @@ def main(config, run_dirs, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     output_baseline_path = os.path.join(output_dir, config + '.json')
     with open(output_baseline_path, "w") as f:
-        json.dump(avg_data, f)
+        json.dump(avg_data, f, indent=2)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

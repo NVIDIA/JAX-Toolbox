@@ -118,5 +118,5 @@ for CFG in ${CONFIGS[@]}; do
   python3 ${UTIL_DIR}/average_baselines.py --config ${CFG} --run_dirs $run_dir_paths --output_dir $OUTPUT_DIR
   
   # Append date and workflow sources
-  cat <<< $(jq -rc '. += {"run_urls":['$(IFS=, ; echo "${URLS[*]}")'], "date":"'$(date +%Y-%m-%d)'"}' "${CFG}.json") > $OUTPUT_DIR/${CFG}.json
+  cat <<< "$(jq -r '. += {"run_urls":['$(IFS=, ; echo "${URLS[*]}")'], "date":"'$(date +%Y-%m-%d)'"}' "$OUTPUT_DIR/${CFG}.json")" > $OUTPUT_DIR/${CFG}.json
 done

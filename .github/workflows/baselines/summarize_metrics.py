@@ -62,7 +62,7 @@ def main():
         json_fname = args.test_config + "_metrics.json"
         print(f'JSON FILENAME: {json_fname}')
         with open(json_fname, "w") as f:
-            json.dump(baseline, f)
+            json.dump(baseline, f, indent=2)
 
     except KeyError as e:
         print(e)
