@@ -102,8 +102,8 @@ jobs:
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      SRC_XLA: ${{ inputs.SRC_XLA }}
-      SRC_JAX: ${{ inputs.SRC_JAX }}
+      SRC_XLA: ${{ inputs.XLA_SRC }}
+      SRC_JAX: ${{ inputs.JAX_SRC }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
