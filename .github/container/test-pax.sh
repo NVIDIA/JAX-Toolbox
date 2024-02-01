@@ -345,7 +345,7 @@ export NVTE_FUSED_ATTN=$NVTE_FUSED_ATTN
 CONFIG=ci_configs.Synthetic126MCI
 if [[ ${RUN_5B} -ne 0 ]]; then
   CONFIG=paxml.contrib.gpu.scripts_gpu.configs.Synthetic5B
-  ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS}"
+  ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU}"
 fi
 
 if [[ ${EVALUATE} -ne 0 ]]; then
