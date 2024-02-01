@@ -174,11 +174,11 @@ jobs:
       matrix:
         PARALLEL_CONFIG:
         - [1, 1, 1, 1]
-        # - [1, 1, 8, 1]
-        # - [1, 1, 1, 8]
-        # - [1, 1, 4, 2]
-        # - [1, 2, 2, 2]
-        # - [1, 4, 2, 2]
+        - [1, 1, 8, 1]
+        - [1, 1, 1, 8]
+        - [1, 1, 4, 2]
+        - [1, 2, 2, 2]
+        - [1, 4, 2, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -331,7 +331,7 @@ jobs:
           for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*; do
             SUBDIR=$(echo $i | cut -d'-' -f3)
             mv $i/$SUBDIR* .
-            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
+            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --loss_summary_name "learning/loss" --perf_summary_name "perf/step_time_seconds" # create result json in baseline format
           done
 
           RESULTS_DIR=$PWD BASELINES_DIR=MAXTEXT/upstream pytest --report-log=report.jsonl .github/workflows/baselines/test_maxtext_metrics.py || true
