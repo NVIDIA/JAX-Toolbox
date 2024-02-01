@@ -28,7 +28,8 @@ ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 RUN get-source.sh -l jax -m ${MANIFEST_FILE}
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
-    get-source.sh -l xla -m ${MANIFEST_FILE}
+    get-source.sh -l xla -m ${MANIFEST_FILE} && \
+    ${DEST_MANIFEST_DIR}/create-distribution.sh -p xla -m ${MANIFEST_FILE}
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 # TODO: move this patch into the manifest

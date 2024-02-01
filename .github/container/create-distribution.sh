@@ -362,7 +362,7 @@ done
 ###########
 # Cleanup #
 ###########
-for remote in ${MIRROR_REMOTE_NAME} ${EXTRA_REMOTE_NAME:-}; do
+for remote in ${MIRROR_REMOTE_NAME:-} ${EXTRA_REMOTE_NAME:-}; do
   if git remote show ${remote} &>/dev/null; then
     git remote remove ${remote}
   fi

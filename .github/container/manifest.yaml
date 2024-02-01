@@ -2,12 +2,12 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: f2613387bd7421bd1fedbed15257b9841717b34a
+  latest_verified_commit: 313caba4cbd5121e22b6cd89e4203e7a7666558b
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 5ea80986813c3eef73c4d53ee881c203839f2c16
+  latest_verified_commit: c6dfb11f419bf8ad5a95f6ad2364a36f4356f2ca
   mode: git-clone
   patches:
     pull/8771/head: file://patches/xla/PR-8771.patch
@@ -96,7 +96,7 @@ jestimator:
 optax:
   url: https://github.com/google-deepmind/optax.git
   tracking_ref: main
-  latest_verified_commit: c86b9a99eea69c5f2bb81bd526a579b3f6b5f4d0
+  latest_verified_commit: 74cfe45e12d8148bbb6cd599af98f0687467bd0f
   mode: pip-vcs
 seqio:
   url: https://github.com/google/seqio.git
@@ -112,7 +112,7 @@ openxla-triton:
 jax-triton:
   url: https://github.com/jax-ml/jax-triton.git
   tracking_ref: main
-  latest_verified_commit: 28ad4766271a181587e6e17e17de7f729c1a03b5
+  latest_verified_commit: 6effbb5a30d2a0d350553ff9e29b6baefafb115d
   mode: git-clone
 maxtext:
   url: https://github.com/google/maxtext.git
@@ -132,7 +132,7 @@ haliax:
 mujoco:
   url: https://github.com/google-deepmind/mujoco.git
   tracking_ref: main
-  latest_verified_commit: ced37ffbb237584512311b041bce3124e3b2cc2a
+  latest_verified_commit: 55cbbd00afa37b64d99afb1582428779bdaa834d
   mode: git-clone
 grain:
   # Used only in ARM t5x builds
@@ -143,7 +143,7 @@ grain:
 mujoco-mpc:
   url: https://github.com/google-deepmind/mujoco_mpc.git
   tracking_ref: main
-  latest_verified_commit: 73633d7da1900c428a7315d2ffe1120c5393a7d8
+  latest_verified_commit: dba4bd8d51b2233e637e00e1625593890bf4abaf
   mode: git-clone
 language-to-reward-2023:
   url: https://github.com/google-deepmind/language_to_reward_2023.git

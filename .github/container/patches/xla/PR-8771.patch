@@ -1,15 +1,15 @@
-From d8193b0f98670b80179c5ed4c67cc6bdeaa40d5a Mon Sep 17 00:00:00 2001
+From 0179c51659c626c1ed191b925485cbfea987fbcb Mon Sep 17 00:00:00 2001
 From: Olli Lupton <olupton@nvidia.com>
 Date: Wed, 18 Oct 2023 16:49:10 +0200
-Subject: [PATCH 1/3] More custom NVTX payloads.
+Subject: [PATCH 1/5] More custom NVTX payloads.
 
 ---
  third_party/tsl/tsl/profiler/lib/BUILD        |   2 +-
  third_party/tsl/tsl/profiler/lib/nvtx_utils.h |  12 +-
- xla/service/gpu/gpu_executable.cc             |  21 +-
+ xla/service/gpu/gpu_executable.cc             |  23 +-
  xla/service/gpu/runtime/BUILD                 |   1 +
- xla/service/gpu/runtime/annotation.cc         | 356 ++++++++++++++++--
- xla/service/gpu/runtime/annotation.h          |  12 +-
+ xla/service/gpu/runtime/annotation.cc         | 355 ++++++++++++++++--
+ xla/service/gpu/runtime/annotation.h          |  14 +-
  xla/service/gpu/runtime/graph_launch.cc       |   4 +-
  xla/service/gpu/runtime/tracing.cc            |   4 +
  xla/service/gpu/runtime/tracing.h             |   1 +
@@ -18,7 +18,7 @@ Subject: [PATCH 1/3] More custom NVTX payloads.
  xla/service/gpu/runtime3/sequential_thunk.cc  |  18 +-
  xla/service/gpu/thunk.cc                      |   7 +-
  xla/service/gpu/thunk.h                       |   2 +-
- 14 files changed, 424 insertions(+), 42 deletions(-)
+ 14 files changed, 425 insertions(+), 44 deletions(-)
 
 diff --git a/third_party/tsl/tsl/profiler/lib/BUILD b/third_party/tsl/tsl/profiler/lib/BUILD
 index 740350429..57ba2f27f 100644
@@ -81,24 +81,25 @@ index e3eaaa08a..804a5b3ff 100644
  }
  
 diff --git a/xla/service/gpu/gpu_executable.cc b/xla/service/gpu/gpu_executable.cc
-index 026af31dd..4d031acf3 100644
+index 70052ceee..a6f055d24 100644
 --- a/xla/service/gpu/gpu_executable.cc
 +++ b/xla/service/gpu/gpu_executable.cc
-@@ -305,7 +305,8 @@ absl::Status ExecuteThunks(const std::string& module_name,
-                            const BufferAllocations& buffer_allocations,
-                            bool block_host_until_done,
-                            bool use_highest_priority_for_async_stream,
--                           std::atomic<int64_t>* thunks_initialized) {
-+                           std::atomic<int64_t>* thunks_initialized,
-+                           const std::optional<ModuleAnnotations>& module_annotation) {
+@@ -330,7 +330,8 @@ absl::Status ExecuteThunks(
+     const BufferAllocations& buffer_allocations, bool block_host_until_done,
+     bool use_highest_priority_for_async_stream,
+     RendezvousSingleFlag& thunks_initialized,
+-    absl::flat_hash_set<ExecutionStreamId> additional_compute_stream_ids) {
++    absl::flat_hash_set<ExecutionStreamId> additional_compute_stream_ids,
++    const std::optional<ModuleAnnotations>& module_annotation) {
    se::Stream* main_stream = run_options->stream();
    se::StreamExecutor* executor = main_stream->parent();
    stream_executor::StreamPriority stream_priority =
-@@ -401,7 +402,21 @@ absl::Status ExecuteThunks(const std::string& module_name,
+@@ -442,8 +443,21 @@ absl::Status ExecuteThunks(
      // Annotate execution of this op if tracing was enabled when we started
      // running this module.  If tracing is enabled *while* we're running the
      // module, we won't get any data, but that's probably an OK trade-off.
--    ScopedAnnotation annotation([&] { return thunk->profile_annotation(); });
+-    tsl::profiler::ScopedAnnotation annotation(
+-        [&] { return thunk->profile_annotation(); });
 +    auto annotation = [&] {
 +      if (module_annotation) {
 +        // We have a set of pre-prepared thunk/kernel annotations to use
@@ -106,10 +107,10 @@ index 026af31dd..4d031acf3 100644
 +            module_annotation->kernels.find(thunk->profile_annotation());
 +        if (iter != module_annotation->kernels.end()) {
 +          // Have a pre-prepared annotation, use it
-+          return ScopedAnnotation{[&] { return iter->second; }};
++          return tsl::profiler::ScopedAnnotation{[&] { return iter->second; }};
 +        }
 +      }
-+      return ScopedAnnotation{[&] {
++      return tsl::profiler::ScopedAnnotation{[&] {
 +        return absl::StrFormat("Thunk:#hlo_op=%s#",
 +                               thunk->profile_annotation());
 +      }};
@@ -117,20 +118,21 @@ index 026af31dd..4d031acf3 100644
      VLOG(3) << "Executing the thunk for " << thunk->profile_annotation();
      if (NeedsAsyncCommsStream(*thunk)) {
        for (se::Stream* async_stream : async_comms_streams) {
-@@ -1002,7 +1017,7 @@ absl::Status GpuExecutable::ExecuteThunksOrXlaRuntime(
+@@ -1010,7 +1024,8 @@ absl::Status GpuExecutable::ExecuteThunksOrXlaRuntime(
                             .debug_options()
                             .xla_gpu_enable_highest_priority_async_stream()
                       : false,
--        &thunks_initialized_);
-+        &thunks_initialized_, annotation_info_);
+-        thunks_initialized_flag_, additional_compute_stream_ids);
++        thunks_initialized_flag_, additional_compute_stream_ids,
++	annotation_info_);
    }
  
    // Match IrEmitter's temp buffer allocation for kernel launches. See
 diff --git a/xla/service/gpu/runtime/BUILD b/xla/service/gpu/runtime/BUILD
-index f15a20439..3d8246a4f 100644
+index cbadbe8dc..1e867dd0b 100644
 --- a/xla/service/gpu/runtime/BUILD
 +++ b/xla/service/gpu/runtime/BUILD
-@@ -726,6 +726,7 @@ cc_library(
+@@ -730,6 +730,7 @@ cc_library(
          "@com_google_absl//absl/status:statusor",
          "@com_google_absl//absl/strings",
          "@com_google_absl//absl/strings:str_format",
@@ -139,7 +141,7 @@ index f15a20439..3d8246a4f 100644
          "@tsl//tsl/profiler/lib:scoped_annotation_stack",
      ],
 diff --git a/xla/service/gpu/runtime/annotation.cc b/xla/service/gpu/runtime/annotation.cc
-index c95d19f15..9242917e1 100644
+index 5413dd856..53484db6b 100644
 --- a/xla/service/gpu/runtime/annotation.cc
 +++ b/xla/service/gpu/runtime/annotation.cc
 @@ -47,6 +47,183 @@ nvtxStringHandle_t RegisterString(const char* str) {
@@ -326,7 +328,7 @@ index c95d19f15..9242917e1 100644
  template <typename Visitor>
  absl::Status VisitInstAndCalledButNotOperands(Visitor& visitor,
                                                const HloInstruction& inst) {
-@@ -132,6 +309,59 @@ std::string MakeTitle(const HloModule& mod, std::string_view longest_prefix) {
+@@ -132,16 +309,79 @@ std::string MakeTitle(const HloModule& mod, std::string_view longest_prefix) {
    return absl::StrFormat("XlaModule:#prefix=%s,hlo_module=%s,program_id=%d#",
                           longest_prefix, mod.name(), mod.unique_id());
  }
@@ -385,15 +387,11 @@ index c95d19f15..9242917e1 100644
 +}
  }  // namespace
  
- ModuleAnnotation::ModuleAnnotation(std::string module_name_, int module_id_)
-@@ -141,12 +371,23 @@ ModuleAnnotation::ModuleAnnotation(std::string module_name_, int module_id_)
-               ? absl::StrFormat("XlaModule:#hlo_module=%s,program_id=%d",
-                                 module_name_, module_id_)
-               : absl::StrFormat("XlaModule:#hlo_module=%s", module_name_)},
+ ModuleAnnotation::ModuleAnnotation(const std::string& module_name)
+     : title_str{absl::StrFormat("XlaModule:#hlo_module=%s", module_name)},
 -      title{RegisterString(title_str.c_str())} {}
 +      title{RegisterString(title_str.c_str())},
-+      module_name{RegisterString(module_name_.c_str())},
-+      module_id{module_id_} {}
++      module_name{RegisterString(module_name_.c_str())} {}
  
  ModuleAnnotation::ModuleAnnotation(const HloModule& mod)
      : longest_prefix{GetLongestOpNamePrefix(mod)},
@@ -412,7 +410,7 @@ index c95d19f15..9242917e1 100644
  
  std::string_view ModuleAnnotation::longest_op_name_prefix() const {
    return longest_prefix;
-@@ -158,6 +399,46 @@ nvtxStringHandle_t ModuleAnnotation::NvtxRegisteredTitle() const {
+@@ -153,6 +393,46 @@ nvtxStringHandle_t ModuleAnnotation::NvtxRegisteredTitle() const {
    return title;
  }
  
@@ -459,7 +457,7 @@ index c95d19f15..9242917e1 100644
  namespace {
  std::string MakeKernelName(std::string_view prefix,
                             const HloInstruction& inst) {
-@@ -188,7 +469,13 @@ KernelAnnotation::KernelAnnotation(const ModuleAnnotation& module_annotation,
+@@ -183,7 +463,13 @@ KernelAnnotation::KernelAnnotation(const ModuleAnnotation& module_annotation,
                                     const HloInstruction& inst)
      : title_str{MakeKernelName(module_annotation.longest_op_name_prefix(),
                                 inst)},
@@ -474,11 +472,11 @@ index c95d19f15..9242917e1 100644
  
  std::string_view KernelAnnotation::Title() const { return title_str; }
  
-@@ -196,31 +483,50 @@ nvtxStringHandle_t KernelAnnotation::NvtxRegisteredTitle() const {
-   return title;
- }
+@@ -194,31 +480,50 @@ nvtxStringHandle_t KernelAnnotation::NvtxRegisteredTitle() const {
+ ModuleAnnotations::ModuleAnnotations(const std::string& module_name)
+     : top_level{module_name} {}
  
-+uint64_t KernelAnnotation::NvtxSchemaId() {
++    uint64_t KernelAnnotation::NvtxSchemaId() {
 +  static std::uint64_t schemaId = []() -> std::uint64_t {
 +    auto domain_opt = tsl::profiler::nvtx::GetNVTXDomain();
 +    if (!domain_opt.has_value()) {
@@ -548,7 +546,7 @@ index c95d19f15..9242917e1 100644
    }
  }
 diff --git a/xla/service/gpu/runtime/annotation.h b/xla/service/gpu/runtime/annotation.h
-index 9721ad80f..1aeff0483 100644
+index 2dd880c6c..5891252b4 100644
 --- a/xla/service/gpu/runtime/annotation.h
 +++ b/xla/service/gpu/runtime/annotation.h
 @@ -17,8 +17,8 @@ limitations under the License.
@@ -562,8 +560,8 @@ index 9721ad80f..1aeff0483 100644
  namespace xla::gpu {
  // Prepared information for the top level NVTX/profiler range covering an
 @@ -27,13 +27,19 @@ struct ModuleAnnotation {
-   ModuleAnnotation(std::string module_name, int module_id);
-   ModuleAnnotation(const HloModule& mod);
+   explicit ModuleAnnotation(const std::string& module_name);
+   explicit ModuleAnnotation(const HloModule& mod);
    std::string_view longest_op_name_prefix() const;
 +  int32_t common_stack_frames() const;
    nvtxStringHandle_t NvtxRegisteredTitle() const;
@@ -573,11 +571,11 @@ index 9721ad80f..1aeff0483 100644
   private:
    std::string longest_prefix;
    std::string title_str;
-   nvtxStringHandle_t title{};
-+  nvtxStringHandle_t module_name{};
-+  nvtxStringHandle_t common_src_locations{};
-+  int32_t module_id{};
-+  int32_t common_stack_frames_{};
+   nvtxStringHandle_t title;
++  nvtxStringHandle_t module_name;
++  nvtxStringHandle_t common_src_locations;
++  int32_t module_id;
++  int32_t common_stack_frames_;
  };
  
  // Prepared information for a kernel/thunk/fusion/... within an HloModule
@@ -590,26 +588,27 @@ index 9721ad80f..1aeff0483 100644
  
   private:
    std::string title_str;
-   nvtxStringHandle_t title{};
-+  nvtxStringHandle_t hlo_dump{};
-+  nvtxStringHandle_t src_locations{};
-+  nvtxStringHandle_t called_hlo_dump{};
+-  nvtxStringHandle_t title{};
++  nvtxStringHandle_t title;
++  nvtxStringHandle_t hlo_dump;
++  nvtxStringHandle_t src_locations;
++  nvtxStringHandle_t called_hlo_dump;
  };
  // Parsed/prepared information for an HloModule that gets propagated to NVTX
  // ranges/profilers/... at execution time.
 diff --git a/xla/service/gpu/runtime/graph_launch.cc b/xla/service/gpu/runtime/graph_launch.cc
-index 2a23d9dfe..f8a323df8 100644
+index 3f533f19a..2bbd89f79 100644
 --- a/xla/service/gpu/runtime/graph_launch.cc
 +++ b/xla/service/gpu/runtime/graph_launch.cc
-@@ -43,6 +43,7 @@ limitations under the License.
- #include "xla/service/gpu/runtime/support.h"
+@@ -44,6 +44,7 @@ limitations under the License.
+ #include "xla/service/gpu/runtime/tracing.h"
  #include "xla/service/service_executable_run_options.h"
  #include "xla/statusor.h"
 +#include "tsl/profiler/lib/nvtx_utils.h"
  #include "tsl/profiler/lib/profiler_lock.h"
  #include "tsl/profiler/lib/traceme.h"
  #include "tsl/profiler/lib/traceme_encode.h"
-@@ -612,7 +613,8 @@ static absl::Status LaunchGraph(
+@@ -613,7 +614,8 @@ static absl::Status LaunchGraph(
  
    // TODO(b/290773547): Profiler + CUDA graphs lead to memory corruption. As a
    // work around disable graph execution and run everything in op-by-op mode.
@@ -620,10 +619,10 @@ index 2a23d9dfe..f8a323df8 100644
    if (count < num_runs_to_instantiate || is_profiling) {
      VLOG(3) << "Run gpu graph in op-by-op mode: ordinal = " << capture.ordinal;
 diff --git a/xla/service/gpu/runtime/tracing.cc b/xla/service/gpu/runtime/tracing.cc
-index f2f32552d..b58acc3b5 100644
+index a6f9354d4..e9e3719b4 100644
 --- a/xla/service/gpu/runtime/tracing.cc
 +++ b/xla/service/gpu/runtime/tracing.cc
-@@ -85,6 +85,10 @@ void RegisterTracingCustomCalls(runtime::DirectCustomCallRegistry& registry) {
+@@ -94,6 +94,10 @@ void RegisterTracingCustomCalls(runtime::DirectCustomCallRegistry& registry) {
    registry.Register("xla.trace.activity_end", End);
  }
  
@@ -635,10 +634,10 @@ index f2f32552d..b58acc3b5 100644
      const ModuleAnnotations* annotations) {
    return std::exchange(current_annotations, annotations);
 diff --git a/xla/service/gpu/runtime/tracing.h b/xla/service/gpu/runtime/tracing.h
-index c59db877e..38b44d80e 100644
+index bbcce1aae..90629e1ce 100644
 --- a/xla/service/gpu/runtime/tracing.h
 +++ b/xla/service/gpu/runtime/tracing.h
-@@ -29,6 +29,7 @@ void RegisterTracingTypeIdNames(runtime::TypeIDNameRegistry& registry);
+@@ -30,6 +30,7 @@ void RegisterTracingTypeIdNames(runtime::TypeIDNameRegistry& registry);
  
  void RegisterTracingCustomCalls(runtime::DirectCustomCallRegistry& registry);
  
@@ -647,10 +646,10 @@ index c59db877e..38b44d80e 100644
      const ModuleAnnotations* annotations);
  
 diff --git a/xla/service/gpu/runtime3/BUILD b/xla/service/gpu/runtime3/BUILD
-index 5c9d4ec3d..c1748b607 100644
+index f77b737f4..942d365e4 100644
 --- a/xla/service/gpu/runtime3/BUILD
 +++ b/xla/service/gpu/runtime3/BUILD
-@@ -168,6 +168,7 @@ cc_library(
+@@ -175,6 +175,7 @@ cc_library(
      name = "command_buffer_thunk",
      srcs = ["command_buffer_thunk.cc"],
      hdrs = ["command_buffer_thunk.h"],
@@ -658,7 +657,7 @@ index 5c9d4ec3d..c1748b607 100644
      deps = [
          ":command_buffer_allocations",
          ":command_buffer_cmd",
-@@ -176,6 +177,7 @@ cc_library(
+@@ -183,6 +184,7 @@ cc_library(
          "//xla/service:buffer_assignment",  # build_cleaner: keep
          "//xla/service/gpu:buffer_allocations",  # build_cleaner: keep
          "//xla/service/gpu:thunk",
@@ -666,7 +665,7 @@ index 5c9d4ec3d..c1748b607 100644
          "//xla/stream_executor",
          "@com_google_absl//absl/base:core_headers",
          "@com_google_absl//absl/container:flat_hash_map",
-@@ -494,6 +496,7 @@ cc_library(
+@@ -571,6 +573,7 @@ cc_library(
          "//xla/hlo/ir:hlo",
          "//xla/service/gpu:buffer_allocations",
          "//xla/service/gpu:thunk",
@@ -675,7 +674,7 @@ index 5c9d4ec3d..c1748b607 100644
          "@com_google_absl//absl/strings",
          "@tsl//tsl/platform:errors",
 diff --git a/xla/service/gpu/runtime3/command_buffer_thunk.cc b/xla/service/gpu/runtime3/command_buffer_thunk.cc
-index f5be72ee2..23ff3d5a7 100644
+index 3bc95f7f1..7f3aa9456 100644
 --- a/xla/service/gpu/runtime3/command_buffer_thunk.cc
 +++ b/xla/service/gpu/runtime3/command_buffer_thunk.cc
 @@ -29,6 +29,7 @@ limitations under the License.
@@ -694,7 +693,7 @@ index f5be72ee2..23ff3d5a7 100644
  #include "tsl/profiler/lib/profiler_lock.h"
  #include "tsl/profiler/lib/scoped_annotation.h"
  #include "tsl/profiler/lib/traceme.h"
-@@ -191,11 +193,28 @@ absl::Status CommandBufferThunk::ExecuteOnStream(const ExecuteParams& params) {
+@@ -192,11 +194,28 @@ absl::Status CommandBufferThunk::ExecuteOnStream(const ExecuteParams& params) {
    // TODO(b/290773547): Profiler (CUPTI) + CUDA graphs lead to memory
    // corruption. As a work around disable command buffers (CUDA graphs) and run
    // everything in op-by-op mode.
@@ -763,10 +762,10 @@ index d2f4e8616..dcb10f8b3 100644
    }
    return absl::OkStatus();
 diff --git a/xla/service/gpu/thunk.cc b/xla/service/gpu/thunk.cc
-index 73295ef49..cdf0ade90 100644
+index 14c0d4377..be366f401 100644
 --- a/xla/service/gpu/thunk.cc
 +++ b/xla/service/gpu/thunk.cc
-@@ -268,16 +268,15 @@ bool IsReductionCollective(Thunk::Kind kind) {
+@@ -302,16 +302,15 @@ bool IsReductionCollective(Thunk::Kind kind) {
  
  Thunk::ThunkInfo Thunk::ThunkInfo::WithProfileAnnotation(mlir::Operation* op) {
    ThunkInfo thunk_info(op);
@@ -783,14 +782,14 @@ index 73295ef49..cdf0ade90 100644
 -  thunk_info.profile_annotation =
 -      absl::StrFormat("Thunk:#hlo_op=%s#", instr->name());
 +  thunk_info.profile_annotation = instr->name();
-   return thunk_info;
- }
- 
+   auto gpu_backend_config = instr->backend_config<GpuBackendConfig>();
+   if (gpu_backend_config.ok()) {
+     thunk_info.execution_stream_id =
 diff --git a/xla/service/gpu/thunk.h b/xla/service/gpu/thunk.h
-index b3b1be635..04abb933d 100644
+index efc3e1e79..dc911a351 100644
 --- a/xla/service/gpu/thunk.h
 +++ b/xla/service/gpu/thunk.h
-@@ -331,7 +331,7 @@ class Thunk {
+@@ -353,7 +353,7 @@ class Thunk {
  
    virtual std::string ToStringExtra(int indent) const { return ""; }
    Kind kind() const { return kind_; }
@@ -800,13 +799,13 @@ index b3b1be635..04abb933d 100644
    // Only valid during compilation, i.e., lowering thunks to kernel-launch
    // related XLA runtime custom calls). nullptr at runtime. MLIR codegen will
 -- 
-2.34.1
+2.25.1
 
 
-From b0bf1b53631c0072631ea61049e124fb52c05f1b Mon Sep 17 00:00:00 2001
+From fb0e96d4a32e425c0af752390dd362d9bf4a58b8 Mon Sep 17 00:00:00 2001
 From: Olli Lupton <olupton@nvidia.com>
 Date: Thu, 25 Jan 2024 17:27:51 +0100
-Subject: [PATCH 2/3] Address code review comments
+Subject: [PATCH 2/5] Address code review comments
 
 ---
  xla/service/gpu/runtime3/command_buffer_thunk.cc | 2 +-
@@ -815,10 +814,10 @@ Subject: [PATCH 2/3] Address code review comments
  3 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/xla/service/gpu/runtime3/command_buffer_thunk.cc b/xla/service/gpu/runtime3/command_buffer_thunk.cc
-index 23ff3d5a7..2706eabe7 100644
+index 7f3aa9456..d741b1396 100644
 --- a/xla/service/gpu/runtime3/command_buffer_thunk.cc
 +++ b/xla/service/gpu/runtime3/command_buffer_thunk.cc
-@@ -198,7 +198,7 @@ absl::Status CommandBufferThunk::ExecuteOnStream(const ExecuteParams& params) {
+@@ -199,7 +199,7 @@ absl::Status CommandBufferThunk::ExecuteOnStream(const ExecuteParams& params) {
        thunks_.has_value()) {
      VLOG(1) << "Execute command buffer thunk as a regular thunk sequence "
                 "because we detected active profiling session";
@@ -841,10 +840,10 @@ index dcb10f8b3..515cd41c6 100644
      auto annotation = [&] {
        if (annotations) {
 diff --git a/xla/service/gpu/thunk.h b/xla/service/gpu/thunk.h
-index 04abb933d..2117d411c 100644
+index dc911a351..47003703b 100644
 --- a/xla/service/gpu/thunk.h
 +++ b/xla/service/gpu/thunk.h
-@@ -331,7 +331,7 @@ class Thunk {
+@@ -353,7 +353,7 @@ class Thunk {
  
    virtual std::string ToStringExtra(int indent) const { return ""; }
    Kind kind() const { return kind_; }
@@ -854,23 +853,23 @@ index 04abb933d..2117d411c 100644
    // Only valid during compilation, i.e., lowering thunks to kernel-launch
    // related XLA runtime custom calls). nullptr at runtime. MLIR codegen will
 -- 
-2.34.1
+2.25.1
 
 
-From 430faf37b1a6cdd8726b1463bc1c6a64638cebb2 Mon Sep 17 00:00:00 2001
+From b95956cbfd80f98505a28ae50fb7cef3368afbae Mon Sep 17 00:00:00 2001
 From: Olli Lupton <olupton@nvidia.com>
 Date: Mon, 29 Jan 2024 09:47:41 +0100
-Subject: [PATCH 3/3] Fix non-GPU builds
+Subject: [PATCH 3/5] Fix non-GPU builds
 
 ---
  xla/service/gpu/runtime/annotation.cc | 10 ++++++++++
  1 file changed, 10 insertions(+)
 
 diff --git a/xla/service/gpu/runtime/annotation.cc b/xla/service/gpu/runtime/annotation.cc
-index 9242917e1..3bbdcbf97 100644
+index 53484db6b..154d51d6f 100644
 --- a/xla/service/gpu/runtime/annotation.cc
 +++ b/xla/service/gpu/runtime/annotation.cc
-@@ -399,6 +399,7 @@ nvtxStringHandle_t ModuleAnnotation::NvtxRegisteredTitle() const {
+@@ -393,6 +393,7 @@ nvtxStringHandle_t ModuleAnnotation::NvtxRegisteredTitle() const {
    return title;
  }
  
@@ -878,7 +877,7 @@ index 9242917e1..3bbdcbf97 100644
  namespace {
  auto schema_entry(uint64_t type, const char* name, uint64_t offset) {
    nvtxPayloadSchemaEntry_t r{};
-@@ -408,9 +409,11 @@ auto schema_entry(uint64_t type, const char* name, uint64_t offset) {
+@@ -402,9 +403,11 @@ auto schema_entry(uint64_t type, const char* name, uint64_t offset) {
    return r;
  }
  }  // namespace
@@ -890,7 +889,7 @@ index 9242917e1..3bbdcbf97 100644
      auto domain_opt = tsl::profiler::nvtx::GetNVTXDomain();
      if (!domain_opt.has_value()) {
        return 0;
-@@ -435,6 +438,9 @@ uint64_t ModuleAnnotation::NvtxSchemaId() {
+@@ -429,6 +432,9 @@ uint64_t ModuleAnnotation::NvtxSchemaId() {
          /* .numEntries = */ sizeof(schema) / sizeof(schema[0]),
          /* .payloadStaticSize = */ sizeof(ModuleAnnotation)};
      return nvtxPayloadSchemaRegister(*domain_opt, &schemaAttr);
@@ -900,15 +899,15 @@ index 9242917e1..3bbdcbf97 100644
    }();
    return schemaId;
  }
-@@ -485,6 +491,7 @@ nvtxStringHandle_t KernelAnnotation::NvtxRegisteredTitle() const {
+@@ -482,6 +488,7 @@ ModuleAnnotations::ModuleAnnotations(const std::string& module_name)
  
- uint64_t KernelAnnotation::NvtxSchemaId() {
+     uint64_t KernelAnnotation::NvtxSchemaId() {
    static std::uint64_t schemaId = []() -> std::uint64_t {
 +#if GOOGLE_CUDA
      auto domain_opt = tsl::profiler::nvtx::GetNVTXDomain();
      if (!domain_opt.has_value()) {
        return 0;
-@@ -510,6 +517,9 @@ uint64_t KernelAnnotation::NvtxSchemaId() {
+@@ -507,6 +514,9 @@ ModuleAnnotations::ModuleAnnotations(const std::string& module_name)
          /* .numEntries = */ sizeof(schema) / sizeof(schema[0]),
          /* .payloadStaticSize = */ sizeof(KernelAnnotation)};
      return nvtxPayloadSchemaRegister(*domain_opt, &schemaAttr);
@@ -919,5 +918,160 @@ index 9242917e1..3bbdcbf97 100644
    return schemaId;
  }
 -- 
-2.34.1
+2.25.1
+
+
+From 001eb945b2c807e665c47826c16c66ec4bb2e164 Mon Sep 17 00:00:00 2001
+From: Olli Lupton <olupton@nvidia.com>
+Date: Mon, 5 Feb 2024 12:52:39 +0100
+Subject: [PATCH 4/5] Tweaks after rebase
+
+---
+ xla/service/gpu/gpu_executable.cc     | 17 +++++++----------
+ xla/service/gpu/runtime/annotation.cc |  6 +++---
+ xla/service/gpu/runtime/annotation.h  |  6 +++---
+ xla/service/gpu/runtime/tracing.cc    |  2 +-
+ 4 files changed, 14 insertions(+), 17 deletions(-)
+
+diff --git a/xla/service/gpu/gpu_executable.cc b/xla/service/gpu/gpu_executable.cc
+index a6f055d24..7a0f39723 100644
+--- a/xla/service/gpu/gpu_executable.cc
++++ b/xla/service/gpu/gpu_executable.cc
+@@ -331,7 +331,7 @@ absl::Status ExecuteThunks(
+     bool use_highest_priority_for_async_stream,
+     RendezvousSingleFlag& thunks_initialized,
+     absl::flat_hash_set<ExecutionStreamId> additional_compute_stream_ids,
+-    const std::optional<ModuleAnnotations>& module_annotation) {
++    const ModuleAnnotations& module_annotations) {
+   se::Stream* main_stream = run_options->stream();
+   se::StreamExecutor* executor = main_stream->parent();
+   stream_executor::StreamPriority stream_priority =
+@@ -444,14 +444,11 @@ absl::Status ExecuteThunks(
+     // running this module.  If tracing is enabled *while* we're running the
+     // module, we won't get any data, but that's probably an OK trade-off.
+     auto annotation = [&] {
+-      if (module_annotation) {
+-        // We have a set of pre-prepared thunk/kernel annotations to use
+-        const auto iter =
+-            module_annotation->kernels.find(thunk->profile_annotation());
+-        if (iter != module_annotation->kernels.end()) {
+-          // Have a pre-prepared annotation, use it
+-          return tsl::profiler::ScopedAnnotation{[&] { return iter->second; }};
+-        }
++      const auto iter =
++          module_annotations.kernels.find(thunk->profile_annotation());
++      if (iter != module_annotations.kernels.end()) {
++        // Have a pre-prepared annotation, use it
++        return tsl::profiler::ScopedAnnotation{[&] { return iter->second; }};
+       }
+       return tsl::profiler::ScopedAnnotation{[&] {
+         return absl::StrFormat("Thunk:#hlo_op=%s#",
+@@ -1025,7 +1022,7 @@ absl::Status GpuExecutable::ExecuteThunksOrXlaRuntime(
+                            .xla_gpu_enable_highest_priority_async_stream()
+                      : false,
+         thunks_initialized_flag_, additional_compute_stream_ids,
+-	annotation_info_);
++        module_annotations_);
+   }
+ 
+   // Match IrEmitter's temp buffer allocation for kernel launches. See
+diff --git a/xla/service/gpu/runtime/annotation.cc b/xla/service/gpu/runtime/annotation.cc
+index 154d51d6f..7c837d8e5 100644
+--- a/xla/service/gpu/runtime/annotation.cc
++++ b/xla/service/gpu/runtime/annotation.cc
+@@ -364,8 +364,8 @@ std::pair<nvtxStringHandle_t, int32_t> GetLongestSourceLocationPrefix(
+ }
+ }  // namespace
+ 
+-ModuleAnnotation::ModuleAnnotation(const std::string& module_name)
+-    : title_str{absl::StrFormat("XlaModule:#hlo_module=%s", module_name)},
++ModuleAnnotation::ModuleAnnotation(const std::string& module_name_)
++    : title_str{absl::StrFormat("XlaModule:#hlo_module=%s", module_name_)},
+       title{RegisterString(title_str.c_str())},
+       module_name{RegisterString(module_name_.c_str())} {}
+ 
+@@ -486,7 +486,7 @@ nvtxStringHandle_t KernelAnnotation::NvtxRegisteredTitle() const {
+ ModuleAnnotations::ModuleAnnotations(const std::string& module_name)
+     : top_level{module_name} {}
+ 
+-    uint64_t KernelAnnotation::NvtxSchemaId() {
++uint64_t KernelAnnotation::NvtxSchemaId() {
+   static std::uint64_t schemaId = []() -> std::uint64_t {
+ #if GOOGLE_CUDA
+     auto domain_opt = tsl::profiler::nvtx::GetNVTXDomain();
+diff --git a/xla/service/gpu/runtime/annotation.h b/xla/service/gpu/runtime/annotation.h
+index 5891252b4..b0b7f26c7 100644
+--- a/xla/service/gpu/runtime/annotation.h
++++ b/xla/service/gpu/runtime/annotation.h
+@@ -37,9 +37,9 @@ struct ModuleAnnotation {
+   std::string title_str;
+   nvtxStringHandle_t title;
+   nvtxStringHandle_t module_name;
+-  nvtxStringHandle_t common_src_locations;
+-  int32_t module_id;
+-  int32_t common_stack_frames_;
++  nvtxStringHandle_t common_src_locations{};
++  int32_t module_id{-1};
++  int32_t common_stack_frames_{};
+ };
+ 
+ // Prepared information for a kernel/thunk/fusion/... within an HloModule
+diff --git a/xla/service/gpu/runtime/tracing.cc b/xla/service/gpu/runtime/tracing.cc
+index e9e3719b4..018344a46 100644
+--- a/xla/service/gpu/runtime/tracing.cc
++++ b/xla/service/gpu/runtime/tracing.cc
+@@ -55,7 +55,7 @@ void RegisterTracingTypeIdNames(runtime::TypeIDNameRegistry& registry) {
+ namespace {
+ thread_local const ModuleAnnotations* current_annotations{};
+ thread_local std::string_view current_tracing_scope = {};
+-}
++}  // namespace
+ 
+ static absl::StatusOr<int64_t> ActivityStart(runtime::HloTrace annotation) {
+   current_tracing_scope = annotation.hlo_op;
+-- 
+2.25.1
+
+
+From fbea1a5961f57b72a86de715cdc00802c03045e1 Mon Sep 17 00:00:00 2001
+From: Olli Lupton <olupton@nvidia.com>
+Date: Mon, 5 Feb 2024 15:22:23 +0100
+Subject: [PATCH 5/5] Do not extend b/290773547 workaround to nsys.
+
+---
+ xla/service/gpu/runtime/graph_launch.cc          | 3 +--
+ xla/service/gpu/runtime3/command_buffer_thunk.cc | 4 +---
+ 2 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/xla/service/gpu/runtime/graph_launch.cc b/xla/service/gpu/runtime/graph_launch.cc
+index 2bbd89f79..bb432f73d 100644
+--- a/xla/service/gpu/runtime/graph_launch.cc
++++ b/xla/service/gpu/runtime/graph_launch.cc
+@@ -614,8 +614,7 @@ static absl::Status LaunchGraph(
+ 
+   // TODO(b/290773547): Profiler + CUDA graphs lead to memory corruption. As a
+   // work around disable graph execution and run everything in op-by-op mode.
+-  bool is_profiling = tsl::profiler::ProfilerLock::HasActiveSession() ||
+-                      tsl::profiler::nvtx::GetNVTXDomain().has_value();
++  bool is_profiling = tsl::profiler::ProfilerLock::HasActiveSession();
+ 
+   if (count < num_runs_to_instantiate || is_profiling) {
+     VLOG(3) << "Run gpu graph in op-by-op mode: ordinal = " << capture.ordinal;
+diff --git a/xla/service/gpu/runtime3/command_buffer_thunk.cc b/xla/service/gpu/runtime3/command_buffer_thunk.cc
+index d741b1396..01245636c 100644
+--- a/xla/service/gpu/runtime3/command_buffer_thunk.cc
++++ b/xla/service/gpu/runtime3/command_buffer_thunk.cc
+@@ -194,9 +194,7 @@ absl::Status CommandBufferThunk::ExecuteOnStream(const ExecuteParams& params) {
+   // TODO(b/290773547): Profiler (CUPTI) + CUDA graphs lead to memory
+   // corruption. As a work around disable command buffers (CUDA graphs) and run
+   // everything in op-by-op mode.
+-  if ((tsl::profiler::ProfilerLock::HasActiveSession() ||
+-       tsl::profiler::nvtx::GetNVTXDomain().has_value()) &&
+-      thunks_.has_value()) {
++  if (tsl::profiler::ProfilerLock::HasActiveSession() && thunks_.has_value()) {
+     VLOG(1) << "Execute command buffer thunk as a regular thunk sequence "
+                "because we detected active profiling session";
+     const ModuleAnnotations* annotations = GetCurrentModuleAnnotations();
+-- 
+2.25.1
 
