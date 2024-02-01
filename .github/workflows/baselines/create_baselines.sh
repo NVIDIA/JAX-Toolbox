@@ -120,3 +120,13 @@ for CFG in ${CONFIGS[@]}; do
   # Append date and workflow sources
   cat <<< "$(jq -r '. += {"run_urls":['$(IFS=, ; echo "${URLS[*]}")'], "date":"'$(date +%Y-%m-%d)'"}' "$OUTPUT_DIR/${CFG}.json")" > $OUTPUT_DIR/${CFG}.json
 done
+
+cat <<EOF
+========
+Finished
+========
+
+Make sure that $OUTPUT_DIR reflects all the baselines you wish to evaluate against (and remove the ones that are no longer in use).
+
+Afterwards, check $OUTPUT_DIR into version control.
+EOF
