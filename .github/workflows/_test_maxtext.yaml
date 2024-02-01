@@ -345,7 +345,7 @@ jobs:
             *_metrics.json
 
   sitrep:
-    needs: [single-process-multi-device, maxtext-multinode]
+    needs: [single-process-multi-device, maxtext-multinode, metrics]
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
