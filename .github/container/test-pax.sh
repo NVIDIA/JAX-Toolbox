@@ -17,7 +17,8 @@ usage() {
     echo "  --dtype                    Batch size, defaults to bfloat16."
     echo "  --enable-te                If set, will run with env var ENABLE_TE=1." 
     echo "  --enable-dropout           If set, will set DROPOUT_PROB to 0.1."
-    echo "  --enable-fused-attn   Whether to test fused attention through TE."
+    echo "  --enable-fused-attn        Whether to test fused attention through TE."
+    echo "  --run-5b                   Whether run GPT5B rather than the default 126M."
     echo "  --evaluate                 Whether to test evaluation rather than training."
     echo "  -s, --steps                Number of steps to run, defaults to 500."
     echo "  --multiprocess             Enable the multiprocess GPU mode."
@@ -31,7 +32,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,enable-fused-attn,evaluate,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,enable-fused-attn,run-5b,evaluate,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -52,6 +53,7 @@ ENABLE_TE=0
 NVTE_FUSED_ATTN=0
 DROPOUT=0
 EVALUATE=0
+RUN_5B=0
 ADDITIONAL_ARGS=""
 
 eval set -- "$args"
@@ -79,6 +81,10 @@ while [ : ]; do
             ;;
         --enable-fused-attn)
             NVTE_FUSED_ATTN=1
+            shift 1
+            ;;
+        --run-5b)
+            RUN_5B=1
             shift 1
             ;;
         --evaluate)
@@ -337,8 +343,9 @@ export ENABLE_TE=$ENABLE_TE
 export NVTE_FUSED_ATTN=$NVTE_FUSED_ATTN
 
 CONFIG=ci_configs.Synthetic126MCI
-if [[ ${NVTE_FUSED_ATTN} -ne 0 ]]; then
+if [[ ${RUN_5B} -ne 0 ]]; then
   CONFIG=paxml.contrib.gpu.scripts_gpu.configs.Synthetic5B
+  ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS}"
 fi
 
 if [[ ${EVALUATE} -ne 0 ]]; then

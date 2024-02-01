@@ -1052,6 +1052,7 @@ jobs:
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               --enable-te \
+              --run-5b \
               $([[ ${{ matrix.ENABLE_FUSED_ATTN }} > 0 ]] && echo --enable-fused-attn) \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
           EOF
