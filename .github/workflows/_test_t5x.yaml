@@ -320,7 +320,7 @@ jobs:
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v3
         with:
-          name: metrics-test-log
+          name: upstream-${{ inputs.FW_NAME }}-metrics-test-log
           path: |
             report.jsonl
             *_metrics.json
