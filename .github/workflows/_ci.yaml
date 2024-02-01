@@ -44,6 +44,19 @@ jobs:
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
+  build-trt:
+    needs: [build-jax]
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: "artifact-trt-build"
+      BADGE_FILENAME: "badge-trt-build"
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: trt
+      DOCKERFILE: .github/container/Dockerfile.trt
+    secrets: inherit
+
   build-t5x:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
