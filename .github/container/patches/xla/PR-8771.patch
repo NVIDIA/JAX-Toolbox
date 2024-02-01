@@ -1,0 +1,923 @@
+From d8193b0f98670b80179c5ed4c67cc6bdeaa40d5a Mon Sep 17 00:00:00 2001
+From: Olli Lupton <olupton@nvidia.com>
+Date: Wed, 18 Oct 2023 16:49:10 +0200
+Subject: [PATCH 1/3] More custom NVTX payloads.
+
+---
+ third_party/tsl/tsl/profiler/lib/BUILD        |   2 +-
+ third_party/tsl/tsl/profiler/lib/nvtx_utils.h |  12 +-
+ xla/service/gpu/gpu_executable.cc             |  21 +-
+ xla/service/gpu/runtime/BUILD                 |   1 +
+ xla/service/gpu/runtime/annotation.cc         | 356 ++++++++++++++++--
+ xla/service/gpu/runtime/annotation.h          |  12 +-
+ xla/service/gpu/runtime/graph_launch.cc       |   4 +-
+ xla/service/gpu/runtime/tracing.cc            |   4 +
+ xla/service/gpu/runtime/tracing.h             |   1 +
+ xla/service/gpu/runtime3/BUILD                |   3 +
+ .../gpu/runtime3/command_buffer_thunk.cc      |  23 +-
+ xla/service/gpu/runtime3/sequential_thunk.cc  |  18 +-
+ xla/service/gpu/thunk.cc                      |   7 +-
+ xla/service/gpu/thunk.h                       |   2 +-
+ 14 files changed, 424 insertions(+), 42 deletions(-)
+
+diff --git a/third_party/tsl/tsl/profiler/lib/BUILD b/third_party/tsl/tsl/profiler/lib/BUILD
+index 740350429..57ba2f27f 100644
+--- a/third_party/tsl/tsl/profiler/lib/BUILD
++++ b/third_party/tsl/tsl/profiler/lib/BUILD
+@@ -274,7 +274,7 @@ cc_library(
+         "//tsl/platform:types",
+         "@com_google_absl//absl/strings",
+     ] + if_cuda_is_configured([
+-        "@local_config_cuda//cuda:cuda_headers",  # NVTX headers
++        "@nvtx_archive//:headers",
+     ]),
+ )
+ 
+diff --git a/third_party/tsl/tsl/profiler/lib/nvtx_utils.h b/third_party/tsl/tsl/profiler/lib/nvtx_utils.h
+index e3eaaa08a..804a5b3ff 100644
+--- a/third_party/tsl/tsl/profiler/lib/nvtx_utils.h
++++ b/third_party/tsl/tsl/profiler/lib/nvtx_utils.h
+@@ -24,6 +24,7 @@ limitations under the License.
+ 
+ #if GOOGLE_CUDA
+ #include "nvtx3/nvToolsExt.h"
++#include "nvtx3/nvToolsExtPayload.h"
+ #else
+ // Some typedef to help build without NVTX.
+ typedef void* nvtxEventAttributes_t;
+@@ -66,14 +67,16 @@ inline bool RangesEnabled() {
+ 
+ // Two types of NVTX range annotation are supported, the older/simpler option
+ // is to use std::string and have the NVTX implementation copy a C-style
+-// string every time. The other option is to pass a struct implementing two
++// string every time. The other option is to pass a struct implementing three
+ // methods:
+ //
+ //   std::string_view Title() const;
+ //   nvtxStringHandle_t NvtxRegisteredTitle() const;
++//   static uint64_t NvtxSchemaId();
+ //
+ // in which case NvtxRegisteredTitle() will be used when starting NVTX ranges,
+-// avoiding this string copy.
++// avoiding this string copy, and NvtxSchemaId() will be used to allow an
++// arbitrary number of other struct members to be saved in the profile.
+ // The Title() method is needed because AnnotationStack::PushAnnotation(...) is
+ // the backend for some annotations when NVTX is not enabled, and it does not
+ // recognise registered strings. has_annotation_api_v<AnnotationType>
+@@ -91,11 +94,14 @@ void RangePush(nvtxDomainHandle_t domain, const AnnotationType& annotation) {
+   if constexpr (has_annotation_api_v<std::decay_t<AnnotationType>>) {
+     attrs.messageType = NVTX_MESSAGE_TYPE_REGISTERED;
+     attrs.message.registered = annotation.NvtxRegisteredTitle();
++    NVTX_PAYLOAD_EVTATTR_SET(attrs, annotation.NvtxSchemaId(), &annotation,
++                             sizeof(AnnotationType));
++    ::nvtxDomainRangePushEx(domain, &attrs);
+   } else {
+     attrs.messageType = NVTX_MESSAGE_TYPE_ASCII;
+     attrs.message.ascii = annotation.c_str();
++    ::nvtxDomainRangePushEx(domain, &attrs);
+   }
+-  ::nvtxDomainRangePushEx(domain, &attrs);
+ #endif
+ }
+ 
+diff --git a/xla/service/gpu/gpu_executable.cc b/xla/service/gpu/gpu_executable.cc
+index 026af31dd..4d031acf3 100644
+--- a/xla/service/gpu/gpu_executable.cc
++++ b/xla/service/gpu/gpu_executable.cc
+@@ -305,7 +305,8 @@ absl::Status ExecuteThunks(const std::string& module_name,
+                            const BufferAllocations& buffer_allocations,
+                            bool block_host_until_done,
+                            bool use_highest_priority_for_async_stream,
+-                           std::atomic<int64_t>* thunks_initialized) {
++                           std::atomic<int64_t>* thunks_initialized,
++                           const std::optional<ModuleAnnotations>& module_annotation) {
+   se::Stream* main_stream = run_options->stream();
+   se::StreamExecutor* executor = main_stream->parent();
+   stream_executor::StreamPriority stream_priority =
+@@ -401,7 +402,21 @@ absl::Status ExecuteThunks(const std::string& module_name,
+     // Annotate execution of this op if tracing was enabled when we started
+     // running this module.  If tracing is enabled *while* we're running the
+     // module, we won't get any data, but that's probably an OK trade-off.
+-    ScopedAnnotation annotation([&] { return thunk->profile_annotation(); });
++    auto annotation = [&] {
++      if (module_annotation) {
++        // We have a set of pre-prepared thunk/kernel annotations to use
++        const auto iter =
++            module_annotation->kernels.find(thunk->profile_annotation());
++        if (iter != module_annotation->kernels.end()) {
++          // Have a pre-prepared annotation, use it
++          return ScopedAnnotation{[&] { return iter->second; }};
++        }
++      }
++      return ScopedAnnotation{[&] {
++        return absl::StrFormat("Thunk:#hlo_op=%s#",
++                               thunk->profile_annotation());
++      }};
++    }();
+     VLOG(3) << "Executing the thunk for " << thunk->profile_annotation();
+     if (NeedsAsyncCommsStream(*thunk)) {
+       for (se::Stream* async_stream : async_comms_streams) {
+@@ -1002,7 +1017,7 @@ absl::Status GpuExecutable::ExecuteThunksOrXlaRuntime(
+                            .debug_options()
+                            .xla_gpu_enable_highest_priority_async_stream()
+                      : false,
+-        &thunks_initialized_);
++        &thunks_initialized_, annotation_info_);
+   }
+ 
+   // Match IrEmitter's temp buffer allocation for kernel launches. See
+diff --git a/xla/service/gpu/runtime/BUILD b/xla/service/gpu/runtime/BUILD
+index f15a20439..3d8246a4f 100644
+--- a/xla/service/gpu/runtime/BUILD
++++ b/xla/service/gpu/runtime/BUILD
+@@ -726,6 +726,7 @@ cc_library(
+         "@com_google_absl//absl/status:statusor",
+         "@com_google_absl//absl/strings",
+         "@com_google_absl//absl/strings:str_format",
++        "@nvtx_archive//:headers",
+         "@tsl//tsl/profiler/lib:nvtx_utils",
+         "@tsl//tsl/profiler/lib:scoped_annotation_stack",
+     ],
+diff --git a/xla/service/gpu/runtime/annotation.cc b/xla/service/gpu/runtime/annotation.cc
+index c95d19f15..9242917e1 100644
+--- a/xla/service/gpu/runtime/annotation.cc
++++ b/xla/service/gpu/runtime/annotation.cc
+@@ -47,6 +47,183 @@ nvtxStringHandle_t RegisterString(const char* str) {
+ #endif
+ }
+ 
++// Nsight Systems supports some basic HTML markup in annotation strings. This
++// escaping stops things like <module> from disappearing.
++std::ostream& PrintEscaped(std::ostream& os, std::string_view str) {
++  for (char c : str) {
++    switch (c) {
++      case '<':
++        os << "&lt;";
++        break;
++      case '>':
++        os << "&gt;";
++        break;
++      default:
++        os << c;
++    }
++  }
++  return os;
++}
++
++// Print options for profiler annotations.
++HloPrintOptions PrintOptions() {
++  auto opts = HloPrintOptions::ShortParsable();
++  opts.set_print_large_constants(false);
++  opts.set_print_control_dependencies(true);
++  opts.set_print_operand_index_annotation_interval(5);
++  opts.set_print_backend_config(true);
++  opts.set_print_metadata(true);
++  opts.set_print_name_after_closing_brace(true);
++  return opts;
++}
++
++// Sortable struct representing a frame in the Python stacktrace attached to a
++// given instruction.
++struct StackFrame {
++  std::string_view file_name, function_name, op_name;
++  int line, column;
++
++ private:
++  auto tied() const {
++    return std::tie(file_name, line, column, function_name, op_name);
++  }
++  friend bool operator==(StackFrame const& lhs, StackFrame const& rhs) {
++    return lhs.tied() == rhs.tied();
++  }
++  friend bool operator<(StackFrame const& lhs, StackFrame const& rhs) {
++    return lhs.tied() < rhs.tied();
++  }
++};
++
++// Walk through the HLO graph from an instruction and collect the source
++// file/line information we see along the way. This allows us to generate an
++// annotation for each kernel that shows the (merged) Python stacktraces of the
++// operations that were traced and compiled int this kernel. For example:
++//
++// - /opt/jax/examples/mnist_vae.py:143[<module>]
++// -- /opt/jax/examples/mnist_vae.py:127[run_epoch]
++// --- /opt/jax/examples/mnist_vae.py:125[body_fun]
++// ---- /opt/jax/examples/mnist_vae.py:124[<lambda>]
++// ----- /opt/jax/examples/mnist_vae.py:122[body_fun] transpose[permutation=(1, 0)]
++// --- /opt/jax/examples/mnist_vae.py:126[body_fun] add
++// --- /opt/jax/examples/mnist_vae.py:126[body_fun] mul
++// --- /opt/jax/examples/mnist_vae.py:126[body_fun] sub
++//
++// shows four merged stacktraces (3 of depth 3, 1 of depth 5).
++class SourceLocationVisitor : public ConstDfsHloVisitorWithDefault {
++ public:
++  SourceLocationVisitor(std::string_view op_name_prefix_to_remove_ = {})
++      : op_name_prefix_to_remove{op_name_prefix_to_remove_} {}
++
++  std::string AsString(int32_t common_prefix) const {
++    // Format the call stacks we've collected; if call stack collection was not
++    // enabled then each "stack" just has depth 1 and no column/function name
++    // information. Skip the first `common_prefix` elements of each stack trace
++    if (common_prefix < 0) {
++      return "[invalid common_prefix]";
++    }
++    std::ostringstream oss{};
++    oss << '\n';
++    std::vector<StackFrame> current_state{};
++    for (auto const& call_stack : location_set) {
++      for (auto depth = 0; depth < call_stack.size() - common_prefix; ++depth) {
++        auto const& frame = call_stack[common_prefix + depth];
++        if (depth < current_state.size() && current_state[depth] == frame) {
++          continue;
++        }
++        current_state.resize(depth + 1);
++        current_state[depth] = frame;
++        FormatFrame(oss, frame, depth);
++      }
++    }
++    return std::move(oss).str();
++  }
++
++  Status DefaultAction(HloInstruction const* inst) final {
++    OpMetadata const& meta = inst->metadata();
++    // The full op_name is split across three places: the module-level
++    // annotation shows the prefix that is common to the whole module, the
++    // kernel-level annotation removes that prefix and shows whatever middle
++    // sections of the name are common to all operations in the kernel, and the
++    // individual call stack frames in the kernel-level annotation show the
++    // final parts of the op_name that have not already been shown.
++    std::string_view op_name = meta.op_name();
++    if (!op_name.empty()) {
++      op_name = op_name.substr(op_name_prefix_to_remove.size());
++    }
++    if (!op_name.empty() && op_name.front() == '/') {
++      op_name = op_name.substr(1);
++    }
++    if (int frame_id = meta.stack_frame_id(); frame_id != 0) {
++      std::vector<StackFrame> call_stack{};
++      HloModule const* const hlo_module = inst->parent()->parent();
++      while (frame_id != 0) {
++        HloModule::StackFrame frame = hlo_module->get_stack_frame(frame_id);
++        if (frame.empty()) {
++          break;
++        }
++        frame_id = frame.parent_frame_id;
++        call_stack.emplace_back(StackFrame{frame.file_name, frame.function_name,
++                                           op_name, frame.line, frame.column});
++        // only attach the op_name to the most-nested frame
++        op_name = {};
++      }
++      // re-order to be [caller, callee, ...]
++      std::reverse(call_stack.begin(), call_stack.end());
++      location_set.emplace(call_stack);
++    } else if (!meta.source_file().empty() && meta.source_line() != 0) {
++      location_set.emplace(1, StackFrame{meta.source_file(),
++                                         {/* function_name */},
++                                         op_name,
++                                         meta.source_line()});
++    }
++    return OkStatus();
++  }
++
++  std::pair<nvtxStringHandle_t, int32_t> LongestSourceLocationPrefix() const {
++    // Find the longest common prefix along the members of location_set and
++    // return a formatted version of that prefix, along with its length. As
++    // location_set is sorted, that just means looking for the longest common
++    // prefix of the first and last elements.
++    if (location_set.size() < 2) {
++      // Only extract a prefix if there are enough stack traces.
++      return {};
++    }
++    const auto& first_loc = *location_set.begin();
++    const auto common_end = std::mismatch(first_loc.begin(), first_loc.end(),
++                                          location_set.rbegin()->begin(),
++                                          location_set.rbegin()->end())
++                                .first;
++    std::ostringstream oss{};
++    oss << '\n';
++    std::for_each(first_loc.begin(), common_end,
++                  [&oss](const StackFrame& frame) { FormatFrame(oss, frame); });
++    const int32_t prefix_frames = std::distance(first_loc.begin(), common_end);
++    return {RegisterString(std::move(oss).str().c_str()), prefix_frames};
++  }
++
++ private:
++  static void FormatFrame(std::ostringstream& oss, const StackFrame& frame,
++                          int depth = -1) {
++    if (depth >= 0) {
++      oss << std::string(depth + 1, '-') << ' ';
++    }
++    PrintEscaped(oss, frame.file_name) << ':' << frame.line;
++    if (frame.column) {
++      oss << ':' << frame.column;
++    }
++    if (!frame.function_name.empty()) {
++      PrintEscaped(oss << '[', frame.function_name) << ']';
++    }
++    if (!frame.op_name.empty()) {
++      PrintEscaped(oss << ' ', frame.op_name);
++    }
++    oss << '\n';
++  }
++  std::string_view op_name_prefix_to_remove{};
++  std::set<std::vector<StackFrame>> location_set{};
++};
++
+ template <typename Visitor>
+ absl::Status VisitInstAndCalledButNotOperands(Visitor& visitor,
+                                               const HloInstruction& inst) {
+@@ -132,6 +309,59 @@ std::string MakeTitle(const HloModule& mod, std::string_view longest_prefix) {
+   return absl::StrFormat("XlaModule:#prefix=%s,hlo_module=%s,program_id=%d#",
+                          longest_prefix, mod.name(), mod.unique_id());
+ }
++
++std::string FormatSourceLocations(HloInstruction const& inst,
++                                  int32_t common_frames) {
++  // Inside the source location/backtrace report the op_name too, but remove the
++  // kernel-wide prefix for brevity
++  SourceLocationVisitor visitor{GetLongestOpNamePrefix(inst)};
++  // Visit the given instruction, and the things it calls, but not its operands
++  // -- we don't want to collect the source code locations that produced the
++  // inputs to this kernel, just those corresponding to the kernel itself.
++  if (!VisitInstAndCalledButNotOperands(visitor, inst).ok()) {
++    return "[error]";
++  }
++  return visitor.AsString(common_frames);
++}
++
++// Get the string representation of this instruction as an std::string.
++std::string InstructionAsString(HloInstruction const& inst) {
++  StringPrinter printer;
++  inst.Print(&printer, PrintOptions());
++  return std::move(printer).ToString();
++}
++
++// Get the string representation of the HLO code called by this instruction,
++// but not the instruction itself. The typical example is a fusion instruction,
++// where InstructionAsString(fusion_inst) would be something like
++//   fusion.N = ... fusion(...), calls=fused_computation.N ...
++// and CalledInstructionsAsString(fusion_inst) would be something like
++//   fused_computation.N { ... }
++std::string CalledInstructionsAsString(HloInstruction const& inst) {
++  StringPrinter printer;
++  auto const opts = PrintOptions();
++  for (HloComputation const* called : inst.called_computations()) {
++    called->Print(&printer, opts);
++  }
++  return std::move(printer).ToString();
++}
++
++// Get a string representing the longest common prefix of source locations in
++// this module, and the number of frames that that represents.
++std::pair<nvtxStringHandle_t, int32_t> GetLongestSourceLocationPrefix(
++    const HloModule& mod) {
++  // In the presence of (at least) debug callbacks, calling Accept on the root
++  // instruction of the module may not reach all instructions in the module.
++  SourceLocationVisitor visitor{};
++  for (const HloComputation* computation : mod.computations()) {
++    for (const HloInstruction* inst : computation->instructions()) {
++      if (!visitor.DefaultAction(inst).ok()) {
++        return {};
++      }
++    }
++  }
++  return visitor.LongestSourceLocationPrefix();
++}
+ }  // namespace
+ 
+ ModuleAnnotation::ModuleAnnotation(std::string module_name_, int module_id_)
+@@ -141,12 +371,23 @@ ModuleAnnotation::ModuleAnnotation(std::string module_name_, int module_id_)
+               ? absl::StrFormat("XlaModule:#hlo_module=%s,program_id=%d",
+                                 module_name_, module_id_)
+               : absl::StrFormat("XlaModule:#hlo_module=%s", module_name_)},
+-      title{RegisterString(title_str.c_str())} {}
++      title{RegisterString(title_str.c_str())},
++      module_name{RegisterString(module_name_.c_str())},
++      module_id{module_id_} {}
+ 
+ ModuleAnnotation::ModuleAnnotation(const HloModule& mod)
+     : longest_prefix{GetLongestOpNamePrefix(mod)},
+       title_str{MakeTitle(mod, longest_prefix)},
+-      title{RegisterString(title_str.c_str())} {}
++      title{RegisterString(title_str.c_str())},
++      module_name{RegisterString(mod.name().c_str())},
++      module_id{mod.unique_id()} {
++  std::tie(common_src_locations, common_stack_frames_) =
++      GetLongestSourceLocationPrefix(mod);
++}
++
++int32_t ModuleAnnotation::common_stack_frames() const {
++  return common_stack_frames_;
++}
+ 
+ std::string_view ModuleAnnotation::longest_op_name_prefix() const {
+   return longest_prefix;
+@@ -158,6 +399,46 @@ nvtxStringHandle_t ModuleAnnotation::NvtxRegisteredTitle() const {
+   return title;
+ }
+ 
++namespace {
++auto schema_entry(uint64_t type, const char* name, uint64_t offset) {
++  nvtxPayloadSchemaEntry_t r{};
++  r.type = type;
++  r.name = name;
++  r.offset = offset;
++  return r;
++}
++}  // namespace
++
++uint64_t ModuleAnnotation::NvtxSchemaId() {
++  static std::uint64_t schemaId = []() -> std::uint64_t {
++    auto domain_opt = tsl::profiler::nvtx::GetNVTXDomain();
++    if (!domain_opt.has_value()) {
++      return 0;
++    }
++    const nvtxPayloadSchemaEntry_t schema[] = {
++        schema_entry(NVTX_PAYLOAD_ENTRY_TYPE_NVTX_REGISTERED_STRING_HANDLE,
++                     "Name", offsetof(ModuleAnnotation, module_name)),
++        schema_entry(NVTX_PAYLOAD_ENTRY_TYPE_INT32, "Unique ID",
++                     offsetof(ModuleAnnotation, module_id)),
++        schema_entry(NVTX_PAYLOAD_ENTRY_TYPE_NVTX_REGISTERED_STRING_HANDLE,
++                     "Common source locations",
++                     offsetof(ModuleAnnotation, common_src_locations))};
++    const nvtxPayloadSchemaAttr_t schemaAttr = {
++        /* .fieldMask = */ NVTX_PAYLOAD_SCHEMA_ATTR_NAME |
++            NVTX_PAYLOAD_SCHEMA_ATTR_TYPE | NVTX_PAYLOAD_SCHEMA_ATTR_ENTRIES |
++            NVTX_PAYLOAD_SCHEMA_ATTR_NUM_ENTRIES |
++            NVTX_PAYLOAD_SCHEMA_ATTR_STATIC_SIZE,
++        /* .name = */ "XlaModule",
++        /* .type = */ NVTX_PAYLOAD_SCHEMA_TYPE_STATIC,
++        /* .flags = */ NVTX_PAYLOAD_SCHEMA_FLAG_NONE,
++        /* .entries = */ schema,
++        /* .numEntries = */ sizeof(schema) / sizeof(schema[0]),
++        /* .payloadStaticSize = */ sizeof(ModuleAnnotation)};
++    return nvtxPayloadSchemaRegister(*domain_opt, &schemaAttr);
++  }();
++  return schemaId;
++}
++
+ namespace {
+ std::string MakeKernelName(std::string_view prefix,
+                            const HloInstruction& inst) {
+@@ -188,7 +469,13 @@ KernelAnnotation::KernelAnnotation(const ModuleAnnotation& module_annotation,
+                                    const HloInstruction& inst)
+     : title_str{MakeKernelName(module_annotation.longest_op_name_prefix(),
+                                inst)},
+-      title{RegisterString(title_str.c_str())} {}
++      title{RegisterString(title_str.c_str())},
++      hlo_dump{RegisterString(InstructionAsString(inst).c_str())},
++      src_locations{RegisterString(
++          FormatSourceLocations(inst, module_annotation.common_stack_frames())
++              .c_str())},
++      called_hlo_dump{
++          RegisterString(("\n" + CalledInstructionsAsString(inst)).c_str())} {}
+ 
+ std::string_view KernelAnnotation::Title() const { return title_str; }
+ 
+@@ -196,31 +483,50 @@ nvtxStringHandle_t KernelAnnotation::NvtxRegisteredTitle() const {
+   return title;
+ }
+ 
++uint64_t KernelAnnotation::NvtxSchemaId() {
++  static std::uint64_t schemaId = []() -> std::uint64_t {
++    auto domain_opt = tsl::profiler::nvtx::GetNVTXDomain();
++    if (!domain_opt.has_value()) {
++      return 0;
++    }
++    const nvtxPayloadSchemaEntry_t schema[] = {
++        schema_entry(NVTX_PAYLOAD_ENTRY_TYPE_NVTX_REGISTERED_STRING_HANDLE,
++                     "Source locations",
++                     offsetof(KernelAnnotation, src_locations)),
++        schema_entry(NVTX_PAYLOAD_ENTRY_TYPE_NVTX_REGISTERED_STRING_HANDLE,
++                     "HLO", offsetof(KernelAnnotation, hlo_dump)),
++        schema_entry(NVTX_PAYLOAD_ENTRY_TYPE_NVTX_REGISTERED_STRING_HANDLE,
++                     "Called HLO",
++                     offsetof(KernelAnnotation, called_hlo_dump))};
++    const nvtxPayloadSchemaAttr_t schemaAttr = {
++        /* .fieldMask = */ NVTX_PAYLOAD_SCHEMA_ATTR_NAME |
++            NVTX_PAYLOAD_SCHEMA_ATTR_TYPE | NVTX_PAYLOAD_SCHEMA_ATTR_ENTRIES |
++            NVTX_PAYLOAD_SCHEMA_ATTR_NUM_ENTRIES |
++            NVTX_PAYLOAD_SCHEMA_ATTR_STATIC_SIZE,
++        /* .name = */ "XlaKernel",
++        /* .type = */ NVTX_PAYLOAD_SCHEMA_TYPE_STATIC,
++        /* .flags = */ NVTX_PAYLOAD_SCHEMA_FLAG_NONE,
++        /* .entries = */ schema,
++        /* .numEntries = */ sizeof(schema) / sizeof(schema[0]),
++        /* .payloadStaticSize = */ sizeof(KernelAnnotation)};
++    return nvtxPayloadSchemaRegister(*domain_opt, &schemaAttr);
++  }();
++  return schemaId;
++}
++
+ ModuleAnnotations::ModuleAnnotations(const HloModule& mod) : top_level{mod} {
+   // loop through `mod` and populate `kernels` (string -> KernelAnnotation map)
+   // with the information we want to attach to individual kernels.
+-  for (const HloComputation* computation :
+-       mod.computations()) {  // top-level blocks in the module
+-    for (const HloInstruction* inst :
+-         computation->instructions()) {  // statements within block
+-      // working assumption: only custom calls and fusions end up with NVTX
+-      // ranges named after them. bad assumption [at least partially]: cuda
+-      // graph launches are not handled correctly
+-      switch (inst->opcode()) {
+-        case HloOpcode::kCustomCall:
+-        case HloOpcode::kFusion: {
+-          // e.g. inst.name is "fusion.6", inst.opcode is "kFusion" and called
+-          // is ["fused_computation.5"], in which case the content of
+-          // "fused_computation.5" ends up under an NVTX range called
+-          // "fusion.6". We want to construct a useful annotation for that NVTX
+-          // range based on the content of `inst`, including `called` etc.
+-          // FIXME: using try_emplace here was sensitive to
+-          // https://github.com/abseil/abseil-cpp/issues/388.
+-          kernels.insert({inst->name(), {top_level, *inst}});
+-        } break;
+-        default:
+-          break;
+-      }
++  for (const HloComputation* computation : mod.computations()) {
++    for (const HloInstruction* inst : computation->instructions()) {
++      // e.g. inst.name is "fusion.6", inst.opcode is "kFusion" and called
++      // is ["fused_computation.5"], in which case the content of
++      // "fused_computation.5" ends up under an NVTX range called
++      // "fusion.6". We want to construct a useful annotation for that NVTX
++      // range based on the content of `inst`, including `called` etc.
++      // FIXME: using try_emplace here was sensitive to
++      // https://github.com/abseil/abseil-cpp/issues/388.
++      kernels.insert({inst->name(), {top_level, *inst}});
+     }
+   }
+ }
+diff --git a/xla/service/gpu/runtime/annotation.h b/xla/service/gpu/runtime/annotation.h
+index 9721ad80f..1aeff0483 100644
+--- a/xla/service/gpu/runtime/annotation.h
++++ b/xla/service/gpu/runtime/annotation.h
+@@ -17,8 +17,8 @@ limitations under the License.
+ #define XLA_SERVICE_GPU_RUNTIME_ANNOTATION_H_
+ 
+ #include "absl/container/flat_hash_map.h"
+-#include "xla/hlo/ir/hlo_module.h"
+ #include "tsl/profiler/lib/nvtx_utils.h"
++#include "xla/hlo/ir/hlo_module.h"
+ 
+ namespace xla::gpu {
+ // Prepared information for the top level NVTX/profiler range covering an
+@@ -27,13 +27,19 @@ struct ModuleAnnotation {
+   ModuleAnnotation(std::string module_name, int module_id);
+   ModuleAnnotation(const HloModule& mod);
+   std::string_view longest_op_name_prefix() const;
++  int32_t common_stack_frames() const;
+   nvtxStringHandle_t NvtxRegisteredTitle() const;
++  static uint64_t NvtxSchemaId();
+   std::string_view Title() const;
+ 
+  private:
+   std::string longest_prefix;
+   std::string title_str;
+   nvtxStringHandle_t title{};
++  nvtxStringHandle_t module_name{};
++  nvtxStringHandle_t common_src_locations{};
++  int32_t module_id{};
++  int32_t common_stack_frames_{};
+ };
+ 
+ // Prepared information for a kernel/thunk/fusion/... within an HloModule
+@@ -41,11 +47,15 @@ struct KernelAnnotation {
+   KernelAnnotation(const ModuleAnnotation& module_annotaion,
+                    const HloInstruction& inst);
+   nvtxStringHandle_t NvtxRegisteredTitle() const;
++  static uint64_t NvtxSchemaId();
+   std::string_view Title() const;
+ 
+  private:
+   std::string title_str;
+   nvtxStringHandle_t title{};
++  nvtxStringHandle_t hlo_dump{};
++  nvtxStringHandle_t src_locations{};
++  nvtxStringHandle_t called_hlo_dump{};
+ };
+ // Parsed/prepared information for an HloModule that gets propagated to NVTX
+ // ranges/profilers/... at execution time.
+diff --git a/xla/service/gpu/runtime/graph_launch.cc b/xla/service/gpu/runtime/graph_launch.cc
+index 2a23d9dfe..f8a323df8 100644
+--- a/xla/service/gpu/runtime/graph_launch.cc
++++ b/xla/service/gpu/runtime/graph_launch.cc
+@@ -43,6 +43,7 @@ limitations under the License.
+ #include "xla/service/gpu/runtime/support.h"
+ #include "xla/service/service_executable_run_options.h"
+ #include "xla/statusor.h"
++#include "tsl/profiler/lib/nvtx_utils.h"
+ #include "tsl/profiler/lib/profiler_lock.h"
+ #include "tsl/profiler/lib/traceme.h"
+ #include "tsl/profiler/lib/traceme_encode.h"
+@@ -612,7 +613,8 @@ static absl::Status LaunchGraph(
+ 
+   // TODO(b/290773547): Profiler + CUDA graphs lead to memory corruption. As a
+   // work around disable graph execution and run everything in op-by-op mode.
+-  bool is_profiling = tsl::profiler::ProfilerLock::HasActiveSession();
++  bool is_profiling = tsl::profiler::ProfilerLock::HasActiveSession() ||
++                      tsl::profiler::nvtx::GetNVTXDomain().has_value();
+ 
+   if (count < num_runs_to_instantiate || is_profiling) {
+     VLOG(3) << "Run gpu graph in op-by-op mode: ordinal = " << capture.ordinal;
+diff --git a/xla/service/gpu/runtime/tracing.cc b/xla/service/gpu/runtime/tracing.cc
+index f2f32552d..b58acc3b5 100644
+--- a/xla/service/gpu/runtime/tracing.cc
++++ b/xla/service/gpu/runtime/tracing.cc
+@@ -85,6 +85,10 @@ void RegisterTracingCustomCalls(runtime::DirectCustomCallRegistry& registry) {
+   registry.Register("xla.trace.activity_end", End);
+ }
+ 
++const ModuleAnnotations* GetCurrentModuleAnnotations() {
++  return current_annotations;
++}
++
+ const ModuleAnnotations* SetCurrentModuleAnnotations(
+     const ModuleAnnotations* annotations) {
+   return std::exchange(current_annotations, annotations);
+diff --git a/xla/service/gpu/runtime/tracing.h b/xla/service/gpu/runtime/tracing.h
+index c59db877e..38b44d80e 100644
+--- a/xla/service/gpu/runtime/tracing.h
++++ b/xla/service/gpu/runtime/tracing.h
+@@ -29,6 +29,7 @@ void RegisterTracingTypeIdNames(runtime::TypeIDNameRegistry& registry);
+ 
+ void RegisterTracingCustomCalls(runtime::DirectCustomCallRegistry& registry);
+ 
++const ModuleAnnotations* GetCurrentModuleAnnotations();
+ const ModuleAnnotations* SetCurrentModuleAnnotations(
+     const ModuleAnnotations* annotations);
+ 
+diff --git a/xla/service/gpu/runtime3/BUILD b/xla/service/gpu/runtime3/BUILD
+index 5c9d4ec3d..c1748b607 100644
+--- a/xla/service/gpu/runtime3/BUILD
++++ b/xla/service/gpu/runtime3/BUILD
+@@ -168,6 +168,7 @@ cc_library(
+     name = "command_buffer_thunk",
+     srcs = ["command_buffer_thunk.cc"],
+     hdrs = ["command_buffer_thunk.h"],
++    local_defines = if_cuda_is_configured(["GOOGLE_CUDA=1"]),
+     deps = [
+         ":command_buffer_allocations",
+         ":command_buffer_cmd",
+@@ -176,6 +177,7 @@ cc_library(
+         "//xla/service:buffer_assignment",  # build_cleaner: keep
+         "//xla/service/gpu:buffer_allocations",  # build_cleaner: keep
+         "//xla/service/gpu:thunk",
++        "//xla/service/gpu/runtime:tracing",
+         "//xla/stream_executor",
+         "@com_google_absl//absl/base:core_headers",
+         "@com_google_absl//absl/container:flat_hash_map",
+@@ -494,6 +496,7 @@ cc_library(
+         "//xla/hlo/ir:hlo",
+         "//xla/service/gpu:buffer_allocations",
+         "//xla/service/gpu:thunk",
++	"//xla/service/gpu/runtime:tracing",
+         "@com_google_absl//absl/status",
+         "@com_google_absl//absl/strings",
+         "@tsl//tsl/platform:errors",
+diff --git a/xla/service/gpu/runtime3/command_buffer_thunk.cc b/xla/service/gpu/runtime3/command_buffer_thunk.cc
+index f5be72ee2..23ff3d5a7 100644
+--- a/xla/service/gpu/runtime3/command_buffer_thunk.cc
++++ b/xla/service/gpu/runtime3/command_buffer_thunk.cc
+@@ -29,6 +29,7 @@ limitations under the License.
+ #include "xla/service/gpu/buffer_allocations.h"
+ #include "xla/service/gpu/runtime3/command_buffer_cmd.h"
+ #include "xla/service/gpu/thunk.h"
++#include "xla/service/gpu/runtime/tracing.h"
+ #include "xla/stream_executor/command_buffer.h"
+ #include "xla/stream_executor/device_memory.h"
+ #include "xla/stream_executor/stream_executor.h"
+@@ -36,6 +37,7 @@ limitations under the License.
+ #include "tsl/platform/errors.h"
+ #include "tsl/platform/logging.h"
+ #include "tsl/platform/statusor.h"
++#include "tsl/profiler/lib/nvtx_utils.h"
+ #include "tsl/profiler/lib/profiler_lock.h"
+ #include "tsl/profiler/lib/scoped_annotation.h"
+ #include "tsl/profiler/lib/traceme.h"
+@@ -191,11 +193,28 @@ absl::Status CommandBufferThunk::ExecuteOnStream(const ExecuteParams& params) {
+   // TODO(b/290773547): Profiler (CUPTI) + CUDA graphs lead to memory
+   // corruption. As a work around disable command buffers (CUDA graphs) and run
+   // everything in op-by-op mode.
+-  if (tsl::profiler::ProfilerLock::HasActiveSession() && thunks_.has_value()) {
++  if ((tsl::profiler::ProfilerLock::HasActiveSession() ||
++       tsl::profiler::nvtx::GetNVTXDomain().has_value()) &&
++      thunks_.has_value()) {
+     VLOG(1) << "Execute command buffer thunk as a regular thunk sequence "
+                "because we detected active profiling session";
++    const ModuleAnnotations* annotations{GetCurrentModuleAnnotations()};
+     for (auto& thunk : *thunks_) {
+-      ScopedAnnotation annotation([&] { return thunk->profile_annotation(); });
++      auto annotation = [&] {
++        if (annotations) {
++          // We have a set of pre-prepared thunk/kernel annotations to use
++          const auto iter =
++              annotations->kernels.find(thunk->profile_annotation());
++          if (iter != annotations->kernels.end()) {
++            // Have a pre-prepared annotation, use it
++            return ScopedAnnotation{[&] { return iter->second; }};
++          }
++        }
++        return ScopedAnnotation{[&] {
++          return absl::StrFormat("Thunk:#hlo_op=%s#",
++                                 thunk->profile_annotation());
++        }};
++      }();
+       TF_RETURN_IF_ERROR(thunk->ExecuteOnStream(params));
+     }
+     return absl::OkStatus();
+diff --git a/xla/service/gpu/runtime3/sequential_thunk.cc b/xla/service/gpu/runtime3/sequential_thunk.cc
+index d2f4e8616..dcb10f8b3 100644
+--- a/xla/service/gpu/runtime3/sequential_thunk.cc
++++ b/xla/service/gpu/runtime3/sequential_thunk.cc
+@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
+ limitations under the License.
+ ==============================================================================*/
+ 
++#include "xla/service/gpu/runtime/tracing.h"
+ #include "xla/service/gpu/runtime3/sequential_thunk.h"
+ 
+ #include <string>
+@@ -54,8 +55,23 @@ absl::Status SequentialThunk::Initialize(const InitializeParams& params) {
+ }
+ 
+ absl::Status SequentialThunk::ExecuteOnStream(const ExecuteParams& params) {
++  const ModuleAnnotations* annotations{GetCurrentModuleAnnotations()};
+   for (const auto& thunk : thunks_) {
+-    ScopedAnnotation annotation([&] { return thunk->profile_annotation(); });
++    auto annotation = [&] {
++      if (annotations) {
++        // We have a set of pre-prepared thunk/kernel annotations to use
++        const auto iter =
++            annotations->kernels.find(thunk->profile_annotation());
++        if (iter != annotations->kernels.end()) {
++          // Have a pre-prepared annotation, use it
++          return ScopedAnnotation{[&] { return iter->second; }};
++        }
++      }
++      return ScopedAnnotation{[&] {
++        return absl::StrFormat("Thunk:#hlo_op=%s#",
++                               thunk->profile_annotation());
++      }};
++    }();
+     TF_RETURN_IF_ERROR(thunk->ExecuteOnStream(params));
+   }
+   return absl::OkStatus();
+diff --git a/xla/service/gpu/thunk.cc b/xla/service/gpu/thunk.cc
+index 73295ef49..cdf0ade90 100644
+--- a/xla/service/gpu/thunk.cc
++++ b/xla/service/gpu/thunk.cc
+@@ -268,16 +268,15 @@ bool IsReductionCollective(Thunk::Kind kind) {
+ 
+ Thunk::ThunkInfo Thunk::ThunkInfo::WithProfileAnnotation(mlir::Operation* op) {
+   ThunkInfo thunk_info(op);
+-  thunk_info.profile_annotation = absl::StrFormat(
+-      "Thunk:#hlo_op=%s#", mlir::mhlo::GetDebugNameFromLocation(op->getLoc()));
++  thunk_info.profile_annotation =
++      mlir::mhlo::GetDebugNameFromLocation(op->getLoc());
+   return thunk_info;
+ }
+ 
+ Thunk::ThunkInfo Thunk::ThunkInfo::WithProfileAnnotation(
+     const HloInstruction* instr) {
+   ThunkInfo thunk_info(nullptr);
+-  thunk_info.profile_annotation =
+-      absl::StrFormat("Thunk:#hlo_op=%s#", instr->name());
++  thunk_info.profile_annotation = instr->name();
+   return thunk_info;
+ }
+ 
+diff --git a/xla/service/gpu/thunk.h b/xla/service/gpu/thunk.h
+index b3b1be635..04abb933d 100644
+--- a/xla/service/gpu/thunk.h
++++ b/xla/service/gpu/thunk.h
+@@ -331,7 +331,7 @@ class Thunk {
+ 
+   virtual std::string ToStringExtra(int indent) const { return ""; }
+   Kind kind() const { return kind_; }
+-  std::string profile_annotation() const { return profile_annotation_; }
++  const std::string& profile_annotation() const { return profile_annotation_; }
+ 
+   // Only valid during compilation, i.e., lowering thunks to kernel-launch
+   // related XLA runtime custom calls). nullptr at runtime. MLIR codegen will
+-- 
+2.34.1
+
+
+From b0bf1b53631c0072631ea61049e124fb52c05f1b Mon Sep 17 00:00:00 2001
+From: Olli Lupton <olupton@nvidia.com>
+Date: Thu, 25 Jan 2024 17:27:51 +0100
+Subject: [PATCH 2/3] Address code review comments
+
+---
+ xla/service/gpu/runtime3/command_buffer_thunk.cc | 2 +-
+ xla/service/gpu/runtime3/sequential_thunk.cc     | 2 +-
+ xla/service/gpu/thunk.h                          | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xla/service/gpu/runtime3/command_buffer_thunk.cc b/xla/service/gpu/runtime3/command_buffer_thunk.cc
+index 23ff3d5a7..2706eabe7 100644
+--- a/xla/service/gpu/runtime3/command_buffer_thunk.cc
++++ b/xla/service/gpu/runtime3/command_buffer_thunk.cc
+@@ -198,7 +198,7 @@ absl::Status CommandBufferThunk::ExecuteOnStream(const ExecuteParams& params) {
+       thunks_.has_value()) {
+     VLOG(1) << "Execute command buffer thunk as a regular thunk sequence "
+                "because we detected active profiling session";
+-    const ModuleAnnotations* annotations{GetCurrentModuleAnnotations()};
++    const ModuleAnnotations* annotations = GetCurrentModuleAnnotations();
+     for (auto& thunk : *thunks_) {
+       auto annotation = [&] {
+         if (annotations) {
+diff --git a/xla/service/gpu/runtime3/sequential_thunk.cc b/xla/service/gpu/runtime3/sequential_thunk.cc
+index dcb10f8b3..515cd41c6 100644
+--- a/xla/service/gpu/runtime3/sequential_thunk.cc
++++ b/xla/service/gpu/runtime3/sequential_thunk.cc
+@@ -55,7 +55,7 @@ absl::Status SequentialThunk::Initialize(const InitializeParams& params) {
+ }
+ 
+ absl::Status SequentialThunk::ExecuteOnStream(const ExecuteParams& params) {
+-  const ModuleAnnotations* annotations{GetCurrentModuleAnnotations()};
++  const ModuleAnnotations* annotations = GetCurrentModuleAnnotations();
+   for (const auto& thunk : thunks_) {
+     auto annotation = [&] {
+       if (annotations) {
+diff --git a/xla/service/gpu/thunk.h b/xla/service/gpu/thunk.h
+index 04abb933d..2117d411c 100644
+--- a/xla/service/gpu/thunk.h
++++ b/xla/service/gpu/thunk.h
+@@ -331,7 +331,7 @@ class Thunk {
+ 
+   virtual std::string ToStringExtra(int indent) const { return ""; }
+   Kind kind() const { return kind_; }
+-  const std::string& profile_annotation() const { return profile_annotation_; }
++  std::string_view profile_annotation() const { return profile_annotation_; }
+ 
+   // Only valid during compilation, i.e., lowering thunks to kernel-launch
+   // related XLA runtime custom calls). nullptr at runtime. MLIR codegen will
+-- 
+2.34.1
+
+
+From 430faf37b1a6cdd8726b1463bc1c6a64638cebb2 Mon Sep 17 00:00:00 2001
+From: Olli Lupton <olupton@nvidia.com>
+Date: Mon, 29 Jan 2024 09:47:41 +0100
+Subject: [PATCH 3/3] Fix non-GPU builds
+
+---
+ xla/service/gpu/runtime/annotation.cc | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/xla/service/gpu/runtime/annotation.cc b/xla/service/gpu/runtime/annotation.cc
+index 9242917e1..3bbdcbf97 100644
+--- a/xla/service/gpu/runtime/annotation.cc
++++ b/xla/service/gpu/runtime/annotation.cc
+@@ -399,6 +399,7 @@ nvtxStringHandle_t ModuleAnnotation::NvtxRegisteredTitle() const {
+   return title;
+ }
+ 
++#if GOOGLE_CUDA
+ namespace {
+ auto schema_entry(uint64_t type, const char* name, uint64_t offset) {
+   nvtxPayloadSchemaEntry_t r{};
+@@ -408,9 +409,11 @@ auto schema_entry(uint64_t type, const char* name, uint64_t offset) {
+   return r;
+ }
+ }  // namespace
++#endif
+ 
+ uint64_t ModuleAnnotation::NvtxSchemaId() {
+   static std::uint64_t schemaId = []() -> std::uint64_t {
++#if GOOGLE_CUDA
+     auto domain_opt = tsl::profiler::nvtx::GetNVTXDomain();
+     if (!domain_opt.has_value()) {
+       return 0;
+@@ -435,6 +438,9 @@ uint64_t ModuleAnnotation::NvtxSchemaId() {
+         /* .numEntries = */ sizeof(schema) / sizeof(schema[0]),
+         /* .payloadStaticSize = */ sizeof(ModuleAnnotation)};
+     return nvtxPayloadSchemaRegister(*domain_opt, &schemaAttr);
++#else
++    return 0;
++#endif
+   }();
+   return schemaId;
+ }
+@@ -485,6 +491,7 @@ nvtxStringHandle_t KernelAnnotation::NvtxRegisteredTitle() const {
+ 
+ uint64_t KernelAnnotation::NvtxSchemaId() {
+   static std::uint64_t schemaId = []() -> std::uint64_t {
++#if GOOGLE_CUDA
+     auto domain_opt = tsl::profiler::nvtx::GetNVTXDomain();
+     if (!domain_opt.has_value()) {
+       return 0;
+@@ -510,6 +517,9 @@ uint64_t KernelAnnotation::NvtxSchemaId() {
+         /* .numEntries = */ sizeof(schema) / sizeof(schema[0]),
+         /* .payloadStaticSize = */ sizeof(KernelAnnotation)};
+     return nvtxPayloadSchemaRegister(*domain_opt, &schemaAttr);
++#else
++    return 0;
++#endif
+   }();
+   return schemaId;
+ }
+-- 
+2.34.1
+

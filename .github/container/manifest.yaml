@@ -9,6 +9,8 @@ xla:
   tracking_ref: main
   latest_verified_commit: 5ea80986813c3eef73c4d53ee881c203839f2c16
   mode: git-clone
+  patches:
+    pull/8771/head: file://patches/xla/PR-8771.patch
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
