@@ -6,7 +6,7 @@ on:
       MAXTEXT_IMAGE:
         type: string
         description: MaxText image from ghcr.io/nvidia
-        default: ghcr.io/nvidia/upstream-maxtext:nightly-2024-01-31
+        default: ghcr.io/nvidia/upstream-maxtext:latest
         required: false
       EXTRA_TEST_ARGS:
         type: string
