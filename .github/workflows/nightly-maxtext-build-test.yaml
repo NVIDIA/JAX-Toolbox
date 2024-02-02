@@ -199,7 +199,7 @@ jobs:
         echo "LABEL='Tests'" >> $GITHUB_OUTPUT
 
         STATUS=failure
-        if [[ ${{ needs.amd64.result }} == "success" && ${MAXTEST_STATUS} == "success" ]]; then
+        if [[ ${{ needs.amd64.result }} == "success" && ${MAXTEXT_STATUS} == "success" ]]; then
           COLOR=brightgreen
           MESSAGE="Unit passed / MGMN passed"
           STATUS=success
