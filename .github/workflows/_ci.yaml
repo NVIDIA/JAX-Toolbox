@@ -140,7 +140,6 @@ jobs:
       - build-pax
       - build-rosetta-t5x
       - build-rosetta-pax
-      - build-maxtext
     outputs:
       CONTAINER_TAGS: ${{ steps.save-docker-tags.outputs.CONTAINER_TAGS }}
     steps:
@@ -160,9 +159,7 @@ jobs:
             "tag-t5x-mealkit": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}", \
             "tag-t5x-final": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}", \
             "tag-pax-mealkit": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}", \
-            "tag-pax-final": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}", \
-            "tag-upstream-maxtext-mealkit": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}", \
-            "tag-upstream-maxtext-final": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}" \
+            "tag-pax-final": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}" \
             }
           EOF
 
@@ -246,15 +243,7 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
-
-  test-upstream-maxtext:
-    needs: build-maxtext
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_maxtext.yaml
-    with:
-      MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
+  
   ## TODO: uncomments when PR #463
   # test-levanter:
   #   needs: build-levanter

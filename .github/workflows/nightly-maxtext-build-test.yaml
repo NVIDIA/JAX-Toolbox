@@ -1,5 +1,5 @@
-name: Nightly MaxText build
-run-name: Nightly MaxText build (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
+name: Nightly MaxText build and test
+run-name: Nightly MaxText build and test (${{ github.event_name == 'workflow_run' && format('nightly {0}', github.event.workflow_run.created_at) || github.event_name }})
 
 on:
   workflow_run:
@@ -107,6 +107,29 @@ jobs:
         run: |
           echo "WARNING: arm64 build is not yet supported"
 
+  publish-build-badge:
+    needs: [metadata, amd64, arm64]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: always()
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 'upstream-maxtext-build-status.json'
+      PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+      SCRIPT: |
+        if [[ ${{ needs.amd64.result }} == "success" && ${{ needs.arm64.result }} == "success" ]]; then
+          BADGE_COLOR=brightgreen
+          MSG=passing
+          STATUS=success
+        else
+          BADGE_COLOR=red
+          MSG=failing
+          STATUS=failure
+        fi
+        echo "LABEL='nightly'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${MSG}'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
+
   publish-mealkit:
     needs: [metadata, amd64, arm64]
     if: needs.metadata.outputs.PUBLISH == 'true'
@@ -120,7 +143,15 @@ jobs:
         type=raw,value=mealkit,priority=500
         type=raw,value=mealkit-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
-  publish-final:
+  test-maxtext-amd64:
+    needs: amd64
+    uses: ./.github/workflows/_test_maxtext.yaml
+    with:
+      MAXTEXT_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  # The dated nightly is tagged regardless of the test results to assist troubleshooting
+  publish-final-dated:
     needs: [metadata, amd64, arm64]
     if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
@@ -130,12 +161,60 @@ jobs:
         ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
       TARGET_IMAGE: upstream-maxtext
       TARGET_TAGS: |
-        type=raw,value=latest,priority=1000
         type=raw,value=nightly-${{ needs.metadata.outputs.BUILD_DATE }},priority=900
 
+  # The latest tag is reserved for images that pass all the CI tests
+  publish-final-latest:
+    needs: [metadata, amd64, arm64, test-maxtext-amd64]
+    if: needs.metadata.outputs.PUBLISH == 'true'
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: |
+        ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+        ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}
+      TARGET_IMAGE: upstream-maxtext
+      TARGET_TAGS: |
+        type=raw,value=latest,priority=1000
+
+  publish-maxtext:
+    needs: [metadata, test-maxtext-amd64]
+    uses: ./.github/workflows/_publish_t5x_pax_results.yaml
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      EXPERIMENT_SUBDIR: UPSTREAM_MAXTEXT
+      ARTIFACT_NAME: "upstream-maxtext-"
+    secrets: inherit
+
+  publish-test-badge:
+    needs: [metadata, amd64, test-maxtext-amd64]
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: always()
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 'upstream-maxtext-overall-test-status.json'
+      PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+      SCRIPT: |
+        MAXTEXT_STATUS=${{ needs.test-maxtext-amd64.outputs.TEST_STATUS }}
+
+        echo "LABEL='Tests'" >> $GITHUB_OUTPUT
+
+        STATUS=failure
+        if [[ ${{ needs.amd64.result }} == "success" && ${MAXTEST_STATUS} == "success" ]]; then
+          COLOR=brightgreen
+          MESSAGE="Unit passed / MGMN passed"
+          STATUS=success
+        else
+          COLOR="red"
+          MESSAGE="n/a"
+        fi
+
+        echo "MESSAGE='${MESSAGE}'" >> $GITHUB_OUTPUT
+        echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
+        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
+  
   finalize:
     if: "!cancelled()"
-    needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64, arm64, test-maxtext-amd64]
     uses: ./.github/workflows/_finalize.yaml
     with:
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
