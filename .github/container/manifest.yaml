@@ -16,7 +16,7 @@ flax:
   latest_verified_commit: 8995420543bbe9415df5eb7b6a40ed7d87f6db6f
   mode: git-clone
   patches:
-    mirror/patch/t5x-layers-rebase-0131: file://patches/flax/mirror-patch-t5x-layers-rebase-0131.patch # Add Sharding Annotations to Flax Modules
+    pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
