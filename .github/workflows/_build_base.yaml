@@ -94,7 +94,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Update manifest with xla and jax src
-        if: inputs.SRC_XLA || inputs.SRC_JAX
+        if: inputs.XLA_SRC || inputs.JAX_SRC
         working-directory: .github/container
         run: |
           echo "JAX_SRC: ${{ inputs.JAX_SRC }}";
