@@ -12,13 +12,33 @@ on:
         description: 'Base CUDA image, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04'
         required: false
         default: latest
-      SRC_JAX:
-        description: 'JAX source: <repo>#<branch|tag|commit>'
+      JAX_SRC:
+        description: 'JAX source url'
         type: string
         required: false
         default: ''
-      SRC_XLA:
-        description: 'XLA source: <repo>#<branch|tag|commit>'
+      JAX_REF:
+        description: 'JAX branch/commit SHA'
+        type: string
+        required: false
+        default: ''
+      XLA_SRC:
+        description: 'XLA source url'
+        type: string
+        required: false
+        default: ''
+      XLA_REF:
+        description: 'XLA branch/commit SHA'
+        type: string
+        required: false
+        default: ''
+      T5X_SRC:
+        description: 'T5X source url'
+        type: string
+        required: false
+        default: ''
+      T5X_REF:
+        description: 'T5X branch/commit SHA'
         type: string
         required: false
         default: ''
@@ -77,12 +97,12 @@ jobs:
         if: inputs.SRC_XLA || inputs.SRC_JAX
         working-directory: .github/container
         run: |
-          if [[ -n {{ inputs.SRC_JAX }} ]]; then
-            yq e '.jax.url = {{ inputs.SRC_JAX }}' -i manifest.yaml
-          else
-          if [[ -n {{ inputs.SRC_XLA }} ]]; then
-            yq e '.xla.url = {{ inputs.SRC_XLA }}' -i manifest.yaml
-          fi
+          echo "JAX_SRC: ${{ inputs.JAX_SRC }}";
+          echo "JAX_REF: ${{ inputs.JAX_REF }}";
+          echo "XLA_SRC: ${{ inputs.XLA_SRC }}";
+          echo "XLA_REF: ${{ inputs.XLA_REF }}";
+          echo "T5X_SRC: ${{ inputs.T5X_SRC }}";
+          echo "T5X_REF: ${{ inputs.T5X_REF }}";
 
       - name: Update manifest and patches in-place - show diff
         if: inputs.BUMP_MANIFEST
