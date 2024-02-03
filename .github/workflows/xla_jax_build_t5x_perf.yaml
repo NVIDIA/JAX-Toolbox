@@ -81,6 +81,12 @@ jobs:
         shell: bash -x -e {0}
         run: |
           echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
+          echo "JAX_SRC: ${{ inputs.JAX_SRC }}";
+          echo "JAX_REF: ${{ inputs.JAX_REF }}";
+          echo "XLA_SRC: ${{ inputs.XLA_SRC }}";
+          echo "XLA_REF: ${{ inputs.XLA_REF }}";
+          echo "T5X_SRC: ${{ inputs.T5X_SRC }}";
+          echo "T5X_REF: ${{ inputs.T5X_REF }}";
 
       - name: Determine whether need to bump manifest 
         id: if-bump-manifest
