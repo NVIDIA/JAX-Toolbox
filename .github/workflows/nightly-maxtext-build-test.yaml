@@ -181,8 +181,8 @@ jobs:
     uses: ./.github/workflows/_publish_t5x_pax_results.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      EXPERIMENT_SUBDIR: UPSTREAM_MAXTEXT
-      ARTIFACT_NAME: "upstream-maxtext-"
+      EXPERIMENT_SUBDIR: MAXTEXT
+      ARTIFACT_NAME: "MaxText-"
     secrets: inherit
 
   publish-test-badge:
