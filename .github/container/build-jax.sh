@@ -133,10 +133,6 @@ while [ : ]; do
             XLA_ARM64_PATCH_LIST=$2
             shift 2
             ;;
-        --other-xla-patches)
-            OTHER_XLA_PATCHES=$2
-            shift 2
-            ;;
         --)
             shift;
             break 
@@ -260,13 +256,6 @@ if [[ "${CPU_ARCH}" == "arm64" ]]; then
         patch -p1 < $p
     done
 fi
-
-# TODO: This is a WAR to NCCL errors we observe in TOT. Should be removed when no longer needed
-for p in $(echo $OTHER_XLA_PATCHES | tr "," "\n"); do
-    echo Apply patch $p
-    patch -p1 < $p
-done
-
 
 popd
 
