@@ -175,7 +175,6 @@ tp = ${TP}
 pp = ${PP}
 num_gpus = ${NGPUS}
 percore_batch_size = ${BATCH_PER_GPU}
-steps = ${STEPS}
 dtype = "${DTYPE}"
 dropout = float(${DROPOUT})
 
@@ -293,7 +292,6 @@ if pp > 1:
     NUM_STAGES = pp
     PERCORE_BATCH_SIZE = percore_batch_size
     FRPOP_DTYPE = dtype
-    MAX_STEPS = steps
     
     def task(self):
       task_p = super().task()
@@ -309,7 +307,6 @@ else:
     DCN_MESH_SHAPE = [dcn_dp, dcn_fsdp, 1]
     PERCORE_BATCH_SIZE = percore_batch_size
     FRPOP_DTYPE = dtype
-    MAX_STEPS = steps
 
     DROPOUT_PROB = dropout
     
@@ -374,6 +371,7 @@ else
     --fdl_config=${CONFIG} \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
+    --fdl.MAX_STEPS=${STEPS} \
     --enable_checkpoint_saving=False \
     $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
