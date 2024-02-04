@@ -105,14 +105,14 @@ jobs:
           echo "T5X_REF: ${{ inputs.T5X_REF }}";
           
           if [[ -n ${{ inputs.JAX_SRC }} ]]; then
-            yq e '.jax.url = ${{ inputs.SRC_JAX }}' -i manifest.yaml
+            yq e '.jax.url = ${{ inputs.JAX_SRC }}' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.JAX_REF }} ]]; then
             export JAX_SHA=$(git ls-remote --heads --refs ${{ inputs.JAX_SRC }} "refs/heads/${{ inputs.JAX_REF }}" 2>/dev/null | awk '{print $1}')
             yq e '.jax.latest_verified_commit = strenv(JAX_SHA)' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.XLA_SRC }} ]]; then
-            yq e '.xla.url = ${{ inputs.SRC_XLA }}' -i manifest.yaml
+            yq e '.xla.url = ${{ inputs.XLA_SRC }}' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.XLA_REF }} ]]; then
             export XLA_SHA=$(git ls-remote --heads --refs ${{ inputs.XLA_SRC }} "refs/heads/${{ inputs.XLA_REF }}" 2>/dev/null | awk '{print $1}')
