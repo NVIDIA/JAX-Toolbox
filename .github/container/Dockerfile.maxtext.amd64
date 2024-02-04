@@ -25,6 +25,12 @@ ADD maxtext-mha.patch /opt
 RUN cd "${SRC_PATH_MAXTEXT}" && patch -p1 < /opt/maxtext-mha.patch && git diff
 
 ###############################################################################
+## Apply patch
+###############################################################################
+
+ADD test-maxtext.sh /usr/local/bin
+
+###############################################################################
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 

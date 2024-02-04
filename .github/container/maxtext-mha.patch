@@ -1,8 +1,8 @@
 diff --git a/MaxText/configs/base.yml b/MaxText/configs/base.yml
-index c66a8d2..0bf0ea3 100644
+index 57f8932..9976006 100644
 --- a/MaxText/configs/base.yml
 +++ b/MaxText/configs/base.yml
-@@ -76,7 +76,7 @@ logits_via_embedding: True  # NOTE: this is True just for testing.
+@@ -78,7 +78,7 @@ logits_dot_in_fp32: True  # whether to use fp32 in logits_dense or shared_embedd
  remat_policy: 'full'
  scan_layers: True
  param_scan_axis: 1
@@ -11,3 +11,37 @@ index c66a8d2..0bf0ea3 100644
  # Combine matmuls for QKV and MLP
  fused_qkv: False
  fused_mlp: False
+@@ -211,3 +211,7 @@ trainable_position_size: -1  # enable gpt3 position embedding with a positive tr
+ compiled_trainstep_file: "" # Name of saved serialized compiled train_step, e.g. compiled_train_v5e-256.pickle
+ compile_topology: '' # Target hardware version, e.g. 'v5e-256'
+ compile_topology_num_slices: -1 # Number of target slices, set to a positive integer.
++
++# enabling slurm for multiprocess in gpus
++# It must be turned on while using SLURM
++multiprocess_gpu: False
+\ No newline at end of file
+diff --git a/MaxText/pyconfig.py b/MaxText/pyconfig.py
+index 1d822ad..b89ea3c 100644
+--- a/MaxText/pyconfig.py
++++ b/MaxText/pyconfig.py
+@@ -169,7 +169,7 @@ class _HyperParameters():
+     '''Transformations between the config data and configs used at runtime'''
+ 
+     # We initialize the jax distributed system here because it must be done before device backend is initialized.
+-    if raw_keys["enable_checkpointing"] and raw_keys["async_checkpointing"] and raw_keys["compile_topology_num_slices"]==-1:
++    if (raw_keys["enable_checkpointing"] and raw_keys["async_checkpointing"] and raw_keys["compile_topology_num_slices"]==-1) or raw_keys["multiprocess_gpu"]:
+       max_utils.initialize_jax_distributed_system()
+ 
+     raw_keys["dtype"] = jax.numpy.dtype(raw_keys["dtype"])
+diff --git a/MaxText/train.py b/MaxText/train.py
+index f3c2fb1..423d57e 100644
+--- a/MaxText/train.py
++++ b/MaxText/train.py
+@@ -369,6 +369,7 @@ def train_loop(config, state=None):
+     if step == last_profiling_step:
+       max_utils.deactivate_profiler(config)
+ 
++  write_metrics(writer, local_metrics_file, running_gcs_metrics, metrics, config.steps - 1, config)
+   max_utils.close_summary_writer(writer)
+   return state
+ 
