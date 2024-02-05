@@ -92,31 +92,27 @@ jobs:
         if: inputs.XLA_SRC_REF || inputs.JAX_SRC_REF || inputs.T5X_SRC_REF
         working-directory: .github/container
         run: |
-          echo "JAX_SRC_REF: ${{ inputs.JAX_SRC_REF }}";
-          echo "XLA_SRC_REF: ${{ inputs.XLA_SRC_REF }}";
-          echo "T5X_SRC_REF: ${{ inputs.T5X_SRC_REF }}";
-          echo "PAXML_SRC_REF: ${{ inputs.PAXML_SRC_REF }}";
-          echo "PRAXIS_SRC_REF: ${{ inputs.PRAXIS_SRC_REF }}";
+        
           IFS="#";
           read -ra arr <<"${{ inputs.JAX_SRC_REF }}";
-          $JAX_SRC="${arr[0]}";
-          $JAX_REF="${arr[1]}";
+          JAX_SRC="${arr[0]}";
+          JAX_REF="${arr[1]}";
 
           read -ra arr <<"${{ inputs.XLA_SRC_REF }}";
-          $XLA_SRC="${arr[0]}";
-          $XLA_REF="${arr[1]}";
+          XLA_SRC="${arr[0]}";
+          XLA_REF="${arr[1]}";
 
           read -ra arr <<"${{ inputs.T5X_SRC_REF }}";
-          $T5X_SRC="${arr[0]}";
-          $T5X_REF="${arr[1]}";
+          T5X_SRC="${arr[0]}";
+          T5X_REF="${arr[1]}";
 
           read -ra arr <<"${{ inputs.PAXML_SRC_REF }}";
-          $PAXML_SRC="${arr[0]}";
-          $PAXML_REF="${arr[1]}";
+          PAXML_SRC="${arr[0]}";
+          PAXML_REF="${arr[1]}";
 
           read -ra arr <<"${{ inputs.PRAXIS_SRC_REF }}";
-          $PRAXIS_SRC="${arr[0]}";
-          $PRAXIS_REF="${arr[1]}";
+          PRAXIS_SRC="${arr[0]}";
+          PRAXIS_REF="${arr[1]}";
 
 
           echo "JAX_SRC: ${JAX_SRC}";
@@ -129,6 +125,12 @@ jobs:
           echo "PAXML_REF: ${PAXML_REF}";
           echo "PRAXIS_SRC: ${PRAXIS_SRC}";
           echo "PRAXIS_REF: ${PRAXIS_REF}";
+
+          echo "JAX_SRC_REF: ${{ inputs.JAX_SRC_REF }}";
+          echo "XLA_SRC_REF: ${{ inputs.XLA_SRC_REF }}";
+          echo "T5X_SRC_REF: ${{ inputs.T5X_SRC_REF }}";
+          echo "PAXML_SRC_REF: ${{ inputs.PAXML_SRC_REF }}";
+          echo "PRAXIS_SRC_REF: ${{ inputs.PRAXIS_SRC_REF }}";
           
           if [[ -n ${JAX_SRC} ]]; then
             echo "UPDATING JAX_SRC: ${JAX_SRC}";
