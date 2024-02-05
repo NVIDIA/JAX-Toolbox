@@ -74,7 +74,8 @@ jobs:
       BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}      
     secrets: inherit
 
-  nightly-publish-config:
+
+  make-publish-configs:
     runs-on: ubuntu-22.04
     if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
     needs:
@@ -82,7 +83,7 @@ jobs:
       - amd64
       - arm64
     outputs:
-      CONFIGS: ${{ steps.generate-configs.outputs.CONFIGS }}
+      PUBLISH_CONFIGS: ${{ steps.generate-configs.outputs.PUBLISH_CONFIGS }}
     steps:
       - id: generate-configs
         shell: bash -exu -o pipefail {0}
@@ -102,81 +103,73 @@ jobs:
             final
           )
 
-          # create a JSON list, where each item is for a target/flavor pair in the form of {"source_image": [...], "target_tags": [...]}
-          # dependency job `amd64` and `arm64` should have outputs.TAGS set as a dict of stage-flavor-priority to tag
-          TAGS_MULTIARCH=$(echo ${{ needs.amd64.outputs.TAGS }} ${{ needs.arm64.outputs.TAGS }} | jq -s 'add')
+          ## create JSON specs for a 1D matrix of container publication jobs
 
-          CONFIGS="[]"
-          for flavor in "${FLAVORS[@]}";do
-            for stage in "${STAGES[@]}"; do
+          ALL_TAGS=$(echo '${{ needs.amd64.outputs.TAGS }}' '${{ needs.arm64.outputs.TAGS }}' | jq -s 'add')
+          PUBLISH_CONFIGS='[]'
 
-              priority=$(
-                echo "$TAGS_MULTIARCH" |\
-                jq -r ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .priority" |\
-                jq -s 'max'
+          for stage in "${STAGES[@]}"; do
+            for flavor in "${FLAVORS[@]}";do
+
+              # collect images for different platforms, e.g. amd64 and arm64
+              matching_tags=$(
+                echo "$ALL_TAGS" |\
+                jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\")]" |\
+                jq -s 'add'
               )
 
-              source_image=$(
-                echo "$TAGS_MULTIARCH" |\
-                jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .tag]"
-              )
+              # tag priority is the highest priority of all platform-specific tags
+              priority=$(echo "${matching_tags}" | jq -r ".[] | .priority" | jq -s 'max')
 
+              # source_image is a list of all platform-specific tags
+              source_image=$(echo "${matching_tags}" | jq -c "[.[] | .tag]")
+              # if the build job failed without producing any images, skip this flavor
+              if [[ $(echo "$source_image" | jq -c 'length') -eq 0 ]]; then
+                continue
+              fi
+
+              # put all final images in the `ghcr.io/nvidia/jax` namespace
+              # and mealkit images in `ghcr.io/nvidia/jax-toolbox-mealkit` namespace
               case ${stage} in
                 mealkit)
-                  target_image=jax-mealkit
+                  target_image=jax-toolbox-mealkit
                   ;;
                 final)
                   target_image=jax
                   ;;
               esac
 
-              target_tags=$(
-                cat <<EOF | jq -c
-                [\
-                  "type=raw,value=${flavor},priority=${priority}",\
-                  "type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}",\
-                ]
-                EOF
+              # a list of aliases to created for the multi-arch image
+              target_tags=$(echo "[
+                  \"type=raw,value=${flavor},priority=${priority}\",
+                  \"type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}\"
+                ]" | jq -c
               )
 
-              CONFIGS=$(
-                echo ${CONFIGS} | jq ". + [{
-                  \"source_image\": [\"${{ needs.amd64.outputs.DOCKER_TAGS }}\"],
-                  \"target_tags\": [\"${{ needs.arm64.outputs.DOCKER_TAGS }}\"]
+              PUBLISH_CONFIGS=$(
+                echo ${PUBLISH_CONFIGS} | jq -c ". + [{
+                  \"source_image\": ${source_image},
+                  \"target_image\": \"${target_image}\",
+                  \"target_tags\": ${target_tags}
                 }]"
               )
-
-              
-                  # CONTAINER_TAG=${flavor}
-                  # TAG_DATED=${flavor}
-                  # if [[ ${flavor} == "final" ]]; then
-                  #     CONTAINER_TAG=latest
-                  #     TAG_DATED=nightly
-                  # fi
-                  # JSON=$(echo ${JSON}\"${target}-${flavor}-container-tag\":\"${CONTAINER_TAG}\",)
-                  # JSON=$(echo ${JSON}\"${target}-${flavor}-tag-dated\":\"${TAG_DATED}\",)
             done
           done
 
-          CONFIGS=$(echo "$CONFIGS" | jq '{"config": .}')
-          echo "CONFIGS='${CONFIGS}'" | tee -a $GITHUB_OUTPUT
+          PUBLISH_CONFIGS=$(echo "$PUBLISH_CONFIGS" | jq -c '{"config": .}')
+          echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" | tee -a $GITHUB_OUTPUT
 
-        # ${{ fromJson(needs.amd64.outputs.DOCKER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
-        # ${{ fromJson(needs.arm64.outputs.DOCKER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
-        # type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }},priority=500
-        # type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
-
-  nightly-publish:
-    needs: [nightly-publish-config]
-    if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+  publish:
+    needs: [make-publish-configs]
+    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS != '' }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.nightly-publish-config.outputs.CONFIG) }}      
+      matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
     uses: ./.github/workflows/_publish_container.yaml
     with:
-      SOURCE_IMAGE: ${{ matrix.config.source_image }}
       TARGET_IMAGE: ${{ matrix.config.target_image }}
-      TARGET_TAGS:  ${{ matrix.config.target_tags }}
+      TARGET_TAGS:  ${{ join(matrix.config.target_tags,  '\n') }}
+      SOURCE_IMAGE: ${{ join(matrix.config.source_image, '\n') }}
 
   finalize:
     needs: [amd64, arm64]
