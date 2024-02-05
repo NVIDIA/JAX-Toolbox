@@ -54,7 +54,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           manifests=""
-          for src_img in $(echo "${{ inputs.SOURCE_IMAGE }}" | tr '\n' ' '); do
+          for src_img in $(echo -e "${{ inputs.SOURCE_IMAGE }}" | tr '\n' ' '); do
             repo=$(echo $src_img | cut -d: -f1)
             media_type=$(docker manifest inspect $src_img | jq -r '.mediaType')
             case "$media_type" in
@@ -88,7 +88,7 @@ jobs:
         id: multi-arch
         shell: bash -x -e {0}
         run: |
-          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+          for tag in $(echo -e "${{ steps.meta.outputs.tags }}"); do
             echo docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
           done
 
