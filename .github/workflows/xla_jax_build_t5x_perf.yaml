@@ -87,16 +87,11 @@ jobs:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BUMP_MANIFEST: false
-      JAX_SRC: ${{ inputs.JAX_SRC }}
-      JAX_REF: ${{ inputs.JAX_REF }}
-      XLA_SRC: ${{ inputs.XLA_SRC }}
-      XLA_REF: ${{ inputs.XLA_REF }}
-      T5X_SRC: ${{ inputs.T5X_SRC }}
-      T5X_REF: ${{ inputs.T5X_REF }}
-      PAXML_SRC: ${{ inputs.PAXML_SRC }}
-      PAXML_REF: ${{ inputs.PAXML_REF }}
-      PRAXIS_SRC: ${{ inputs.PRAXIS_SRC }}
-      PRAXIS_REF: ${{ inputs.PRAXIS_REF }}
+      JAX_SRC_REF: ${{ inputs.JAX_SRC_REF }}
+      XLA_SRC_REF: ${{ inputs.XLA_SRC_REF }}
+      T5X_SRC_REF: ${{ inputs.T5X_SRC_REF }}
+      PAXML_SRC_REF: ${{ inputs.PAXML_SRC_REF }}
+      PRAXIS_SRC_REF: ${{ inputs.PRAXIS_SRC_REF }}
     secrets: inherit
 
   build-jax:
