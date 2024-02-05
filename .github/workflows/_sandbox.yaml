@@ -63,7 +63,7 @@ jobs:
 
           echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
 
-  nightly-publish-config:
+  make-publish-configs:
     runs-on: ubuntu-22.04
     if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
     needs:
@@ -71,7 +71,7 @@ jobs:
       - amd64
       - arm64
     outputs:
-      CONFIGS: ${{ steps.generate-configs.outputs.CONFIGS }}
+      PUBLISH_CONFIGS: ${{ steps.generate-configs.outputs.PUBLISH_CONFIGS }}
     steps:
       - id: generate-configs
         shell: bash -exu -o pipefail {0}
@@ -95,22 +95,19 @@ jobs:
           # dependency job `amd64` and `arm64` should have outputs.TAGS set as a dict of stage-flavor-priority to tag
           ALL_TAGS=$(echo '${{ needs.amd64.outputs.TAGS }}' '${{ needs.arm64.outputs.TAGS }}' | jq -s 'add')
 
-          CONFIGS='[]'
-          for flavor in "${FLAVORS[@]}";do
-            for stage in "${STAGES[@]}"; do
+          PUBLISH_CONFIGS='[]'
+          for stage in "${STAGES[@]}"; do
+            for flavor in "${FLAVORS[@]}";do
 
-              related_tags=$(echo "$ALL_TAGS" | jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\")]")
-
-              priority=$(
+              matching_tags=$(
                 echo "$ALL_TAGS" |\
-                jq -r ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .priority" |\
-                jq -s 'max'
+                jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\")]" |\
+                jq -s 'add'
               )
 
-              source_image=$(
-                echo "$ALL_TAGS" |\
-                jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .tag]"
-              )
+              priority=$(echo "${matching_tags}" | jq -r ".[] | .priority" | jq -s 'max')
+
+              source_image=$(echo "${matching_tags}" | jq -c "[.[] | .tag]")
 
               if [[ $(echo "$source_image" | jq -c 'length') -eq 0 ]]; then
                 continue
@@ -118,39 +115,40 @@ jobs:
 
               case ${stage} in
                 mealkit)
-                  target_image=jax-mealkit
+                  target_image=jax-toolbox-mealkit
                   ;;
                 final)
                   target_image=jax
                   ;;
               esac
 
-              target_tags=$(
-                echo "[
+              target_tags=$(echo "[
                   \"type=raw,value=${flavor},priority=${priority}\",
                   \"type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}\"
                 ]" | jq -c
               )
 
-              CONFIGS=$(
-                echo ${CONFIGS} | jq ". + [{
+              PUBLISH_CONFIGS=$(
+                echo ${PUBLISH_CONFIGS} | jq -c ". + [{
                   \"source_image\": ${source_image},
                   \"target_image\": \"${target_image}\",
                   \"target_tags\": ${target_tags}
                 }]"
               )
-
-              
-              # CONTAINER_TAG=${flavor}
-              # TAG_DATED=${flavor}
-              # if [[ ${flavor} == "final" ]]; then
-              #     CONTAINER_TAG=latest
-              #     TAG_DATED=nightly
-              # fi
-              # JSON=$(echo ${JSON}\"${target}-${flavor}-container-tag\":\"${CONTAINER_TAG}\",)
-              # JSON=$(echo ${JSON}\"${target}-${flavor}-tag-dated\":\"${TAG_DATED}\",)
             done
           done
 
-          CONFIGS=$(echo "$CONFIGS" | jq -c '{"config": .}')
-          echo "CONFIGS=${CONFIGS}" | tee -a $GITHUB_OUTPUT
+          PUBLISH_CONFIGS=$(echo "$PUBLISH_CONFIGS" | jq -c '{"config": .}')
+          echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" | tee -a $GITHUB_OUTPUT
+
+  publish:
+    needs: [make-publish-configs]
+    # if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.make-publish-config.outputs.PUBLISH_CONFIGS) }}
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: ${{ matrix.config.source_image }}
+      TARGET_IMAGE: ${{ matrix.config.target_image }}
+      TARGET_TAGS:  ${{ matrix.config.target_tags }}
