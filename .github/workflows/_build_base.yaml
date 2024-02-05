@@ -89,7 +89,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Update manifest with xla and jax src
-        if: inputs.XLA_SRC || inputs.JAX_SRC || inputs.T5X_SRC
+        if: inputs.XLA_SRC_REF || inputs.JAX_SRC_REF || inputs.T5X_SRC_REF
         working-directory: .github/container
         run: |
           echo "JAX_SRC_REF: ${{ inputs.JAX_SRC_REF }}";
