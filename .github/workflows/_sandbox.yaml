@@ -104,14 +104,13 @@ jobs:
                 jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\")]" |\
                 jq -s 'add'
               )
+              if [[ $(echo "$matching_tags" | jq -c 'length') -eq 0 ]]; then
+                continue
+              fi
 
               priority=$(echo "${matching_tags}" | jq -r ".[] | .priority" | jq -s 'max')
 
               source_image=$(echo "${matching_tags}" | jq -c "[.[] | .tag]" | jq -r 'join("\n")')
-
-              if [[ $(echo "$source_image" | jq -c 'length') -eq 0 ]]; then
-                continue
-              fi
 
               case ${stage} in
                 mealkit)
