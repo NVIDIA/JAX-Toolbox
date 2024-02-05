@@ -85,6 +85,7 @@ jobs:
       CONFIGS: ${{ steps.generate-configs.outputs.CONFIGS }}
     steps:
       - id: generate-configs
+        shell: bash -exu -o pipefail {0}
         run: |
           declare -a FLAVORS=(
             jax
