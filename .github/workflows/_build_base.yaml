@@ -179,8 +179,8 @@ jobs:
           fi
           echo "UPDATED MANIFEST IS: ";
           cat manifest.yaml;
+          
       - name: Update manifest and patches in-place - show diff
-        if: inputs.BUMP_MANIFEST
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
@@ -220,7 +220,6 @@ jobs:
           rm -rf .github/container/patches
 
       - name: Replace checked-out manifest file with bumped one
-        if: inputs.BUMP_MANIFEST
         uses: actions/download-artifact@v3
         with:
           name: maybe-bumped-manifest
