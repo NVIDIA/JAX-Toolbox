@@ -134,7 +134,7 @@ jobs:
           
           if [[ -n ${JAX_SRC} ]]; then
             echo "UPDATING JAX_SRC: ${JAX_SRC}";
-            yq e '.jax.url = \"$JAX_SRC\"' -i manifest.yaml
+            yq e ".jax.url = \"$JAX_SRC\"" -i manifest.yaml
           fi
           if [[ -n ${JAX_REF} ]]; then
             echo "UPDATING JAX_REF: ${JAX_REF}";
@@ -143,7 +143,7 @@ jobs:
           fi
           if [[ -n ${XLA_SRC} ]]; then
             echo "UPDATING XLA_SRC: "${XLA_SRC}"";
-            yq e '.xla.url = \"$XLA_SRC\"' -i manifest.yaml
+            yq e ".xla.url = \"$XLA_SRC\"" -i manifest.yaml
           fi
           if [[ -n ${XLA_REF} ]]; then
             echo "UPDATING XLA_REF ${XLA_REF}";
@@ -152,7 +152,7 @@ jobs:
           fi
           if [[ -n ${T5X_SRC} ]]; then
             echo "UPDATING T5X_SRC ${T5X_SRC}";
-            yq e '.t5x.url = \"$T5X_SRC\"' -i manifest.yaml
+            yq e ".t5x.url = \"$T5X_SRC\"" -i manifest.yaml
           fi
           if [[ -n ${T5X_REF} ]]; then
             echo "UPDATING T5X_REF ${T5X_REF}";
@@ -161,7 +161,7 @@ jobs:
           fi
           if [[ -n ${PAXML_SRC} ]]; then
             echo "UPDATING PAXML_SRC ${PAXML_SRC}";
-            yq e '.paxml.url = \"$PAXML_SRC\"' -i manifest.yaml
+            yq e ".paxml.url = \"$PAXML_SRC\"" -i manifest.yaml
           fi
           if [[ -n ${PAXML_REF} ]]; then
             echo "UPDATING PAXML_REF ${PAXML_REF}";
@@ -170,7 +170,7 @@ jobs:
           fi
           if [[ -n ${PRAXIS_SRC} ]]; then
             echo "UPDATING PRAXIS_SRC ${PRAXIS_SRC}";
-            yq e '.praxis.url = \"$PRAXIS_SRC\"' -i manifest.yaml
+            yq e ".praxis.url = \"$PRAXIS_SRC\"" -i manifest.yaml
           fi
           if [[ -n ${PRAXIS_REF} ]]; then
             echo "UPDATING PRAXIS_REF ${PRAXIS_REF}";
