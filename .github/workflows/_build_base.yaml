@@ -132,7 +132,7 @@ jobs:
             yq e '.xla.latest_verified_commit = strenv(T5X_SHA)' -i manifest.yaml
           fi
           echo "UPDATED MANIFEST IS: ";
-          cat manigest.yaml;
+          cat manifest.yaml;
       - name: Update manifest and patches in-place - show diff
         if: inputs.BUMP_MANIFEST
         working-directory: .github/container
