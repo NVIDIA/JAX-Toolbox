@@ -139,7 +139,7 @@ jobs:
           if [[ -n ${JAX_REF} ]]; then
             echo "UPDATING JAX_REF: ${JAX_REF}";
             export JAX_SHA=$(git ls-remote --heads --refs ${JAX_SRC} "refs/heads/${JAX_REF}" 2>/dev/null | awk '{print $1}')
-            JAX_SHA_STR=strenv(JAX_SHA)
+            JAX_SHA_STR=strenv(JAX_SHA);
             echo "UPDATING JAX_REF: ${JAX_SHA_STR}";
             yq e '.jax.latest_verified_commit = strenv(JAX_SHA)' -i manifest.yaml
           fi
@@ -150,7 +150,7 @@ jobs:
           if [[ -n ${XLA_REF} ]]; then
             echo "UPDATING XLA_REF";
             export XLA_SHA=$(git ls-remote --heads --refs ${XLA_SRC} "refs/heads/${XLA_REF}" 2>/dev/null | awk '{print $1}')
-            XLA_SHA_STR=strenv(XLA_SHA)
+            XLA_SHA_STR=strenv(XLA_SHA);
             echo "UPDATING XLA_REF: ${XLA_SHA_STR}";
             yq e '.xla.latest_verified_commit = strenv(XLA_SHA)' -i manifest.yaml
           fi
