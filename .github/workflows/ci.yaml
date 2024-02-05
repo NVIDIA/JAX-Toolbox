@@ -175,8 +175,8 @@ jobs:
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: ${{ matrix.config.source_image }}
-      TARGET_IMAGE: jax
-      TARGET_TAGS: ${{ matrix.config.target_tags }}
+      TARGET_IMAGE: ${{ matrix.config.target_image }}
+      TARGET_TAGS:  ${{ matrix.config.target_tags }}
 
   finalize:
     needs: [amd64, arm64]

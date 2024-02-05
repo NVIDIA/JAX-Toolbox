@@ -135,6 +135,7 @@ jobs:
               CONFIGS=$(
                 echo ${CONFIGS} | jq ". + [{
                   \"source_image\": ${source_image},
+                  \"target_image\": ${target_image},
                   \"target_tags\": ${target_tags}
                 }]"
               )
@@ -151,5 +152,5 @@ jobs:
             done
           done
 
-          CONFIGS=$(echo "$CONFIGS" | jq '{"config": .}')
+          CONFIGS=$(echo "$CONFIGS" | jq -c '{"config": .}')
           echo "CONFIGS=${CONFIGS}" | tee -a $GITHUB_OUTPUT
