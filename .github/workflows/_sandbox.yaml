@@ -109,8 +109,8 @@ jobs:
               )
               target_tags=$(
                 echo "[
-                  "type=raw,value=${flavor}-${stage}-edge,priority=${priority}",
-                  "type=raw,value=${flavor}-${stage}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}"
+                  \"type=raw,value=${flavor}-${stage}-edge,priority=${priority}\",
+                  \"type=raw,value=${flavor}-${stage}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}\"
                 ]" | jq -c
               )
 
