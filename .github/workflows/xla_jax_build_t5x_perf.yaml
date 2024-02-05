@@ -6,6 +6,16 @@ on:
       ARCHITECTURE:
         type: string
         required: true
+      TEST_T5X:
+        type: boolean
+        description: Execute T5x build and perf tests?
+        default: true
+        required: false
+      TEST_PAXML:
+        type: boolean
+        description: Execute paxml build and perf tests?
+        default: true
+        required: false
       BUILD_DATE:
         type: string
         description: Build date in YYYY-MM-DD format
@@ -51,6 +61,26 @@ on:
         type: string
         required: false
         default: ''
+      PAXML_SRC:
+        description: 'PAXML source url'
+        type: string
+        required: false
+        default: ''
+      PAXML_REF:
+        description: 'PAXML branch/commit SHA'
+        type: string
+        required: false
+        default: ''
+      PRAXIS_SRC:
+        description: 'PRAXIS source url'
+        type: string
+        required: false
+        default: ''
+      PRAXIS_REF:
+        description: 'PRAXIS branch/commit SHA'
+        type: string
+        required: false
+        default: ''
         
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -87,6 +117,10 @@ jobs:
           echo "XLA_REF: ${{ inputs.XLA_REF }}";
           echo "T5X_SRC: ${{ inputs.T5X_SRC }}";
           echo "T5X_REF: ${{ inputs.T5X_REF }}";
+          echo "PAXML_SRC: ${{ inputs.PAXML_SRC }}";
+          echo "PAXML_REF: ${{ inputs.PAXML_REF }}";
+          echo "PRAXIS_SRC: ${{ inputs.PRAXIS_SRC }}";
+          echo "PRAXIS_REF: ${{ inputs.PRAXIS_REF }}";
 
       - name: Determine whether need to bump manifest 
         id: if-bump-manifest
@@ -105,7 +139,11 @@ jobs:
       XLA_SRC: ${{ inputs.XLA_SRC }}
       XLA_REF: ${{ inputs.XLA_REF }}
       T5X_SRC: ${{ inputs.T5X_SRC }}
-      T5X_REF: ${{ inputs.T5X_REF }}      
+      T5X_REF: ${{ inputs.T5X_REF }}
+      PAXML_SRC: ${{ inputs.PAXML_SRC }}
+      PAXML_REF: ${{ inputs.PAXML_REF }}
+      PRAXIS_SRC: ${{ inputs.PRAXIS_SRC }}
+      PRAXIS_REF: ${{ inputs.PRAXIS_REF }}
     secrets: inherit
 
   build-jax:
@@ -119,7 +157,7 @@ jobs:
 
   build-t5x:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # T5X arm64 build is wip in PR 252
+    if: inputs.ARCHITECTURE == 'amd64' && inputs.TEST_T5X == true # T5X arm64 build is wip in PR 252
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -129,6 +167,20 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
       DOCKERFILE: .github/container/Dockerfile.t5x
+    secrets: inherit
+
+  build-pax:
+    needs: build-jax
+    if: inputs.TEST_PAXML == true
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-pax-build
+      BADGE_FILENAME: badge-pax-build
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: upstream-pax
+      DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
   test-distribution:
@@ -154,10 +206,18 @@ jobs:
 
   test-upstream-t5x:
     needs: build-t5x
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    if: inputs.ARCHITECTURE == 'amd64' && inputs.TEST_T5X == true # arm64 runners n/a
     uses: ./.github/workflows/_test_t5x.yaml
     with:
       T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-upstream-pax:
+    needs: build-pax
+    if: inputs.ARCHITECTURE == 'amd64' && inputs.TEST_PAXML == true # no images for arm64
+    uses: ./.github/workflows/_test_pax.yaml
+    with:
+      PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   publish-target-tags:
@@ -188,7 +248,7 @@ jobs:
           echo "TARGET_TAGS=${JSON}" | tee -a $GITHUB_OUTPUT    
 
   publish:
-    needs: [metadata, test-upstream-t5x, publish-target-tags]
+    needs: [metadata, test-upstream-t5x, test-upstream-pax, publish-target-tags]
     if: false  # TODO: enable this after new image renaming proposal is approved
     # if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
     strategy:
@@ -207,7 +267,7 @@ jobs:
         type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
 
   finalize:
-    needs: [metadata, test-upstream-t5x, publish-target-tags]
+    needs: [metadata, test-upstream-t5x, test-upstream-pax, publish-target-tags]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
