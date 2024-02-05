@@ -6,15 +6,10 @@ on:
       ARCHITECTURE:
         type: string
         required: true
-      TEST_T5X:
-        type: boolean
-        description: Execute T5x build and perf tests?
-        default: true
-        required: false
-      TEST_PAXML:
-        type: boolean
-        description: Execute paxml build and perf tests?
-        default: true
+      TEST_T5X_PAXML:
+        type: string
+        description: Execute T5x and paxml build and perf tests, 0=none, 1=T5x only, 2=paxml only, 3=both?
+        default: '3'
         required: false
       BUILD_DATE:
         type: string
@@ -31,53 +26,28 @@ on:
         description: Bump manifest file?
         default: false
         required: false
-      JAX_SRC:
-        description: 'JAX source url'
+      JAX_SRC_REF:
+        description: 'JAX source url#branch/commit SHA'
         type: string
         required: false
         default: ''
-      JAX_REF:
-        description: 'JAX branch/commit SHA'
+      XLA_SRC_REF:
+        description: 'XLA source url#branch/commit SHA'
         type: string
         required: false
         default: ''
-      XLA_SRC:
-        description: 'XLA source url'
+      T5X_SRC_REF:
+        description: 'T5X source url#branch/commit SHA'
         type: string
         required: false
         default: ''
-      XLA_REF:
-        description: 'XLA branch/commit SHA'
+      PAXML_SRC_REF:
+        description: 'PAXML source url#branch/commit SHA'
         type: string
         required: false
         default: ''
-      T5X_SRC:
-        description: 'T5X source url'
-        type: string
-        required: false
-        default: ''
-      T5X_REF:
-        description: 'T5X branch/commit SHA'
-        type: string
-        required: false
-        default: ''
-      PAXML_SRC:
-        description: 'PAXML source url'
-        type: string
-        required: false
-        default: ''
-      PAXML_REF:
-        description: 'PAXML branch/commit SHA'
-        type: string
-        required: false
-        default: ''
-      PRAXIS_SRC:
-        description: 'PRAXIS source url'
-        type: string
-        required: false
-        default: ''
-      PRAXIS_REF:
-        description: 'PRAXIS branch/commit SHA'
+      PRAXIS_SRC_REF:
+        description: 'PRAXIS source url#branch/commit SHA'
         type: string
         required: false
         default: ''
@@ -111,16 +81,11 @@ jobs:
         shell: bash -x -e {0}
         run: |
           echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
-          echo "JAX_SRC: ${{ inputs.JAX_SRC }}";
-          echo "JAX_REF: ${{ inputs.JAX_REF }}";
-          echo "XLA_SRC: ${{ inputs.XLA_SRC }}";
-          echo "XLA_REF: ${{ inputs.XLA_REF }}";
-          echo "T5X_SRC: ${{ inputs.T5X_SRC }}";
-          echo "T5X_REF: ${{ inputs.T5X_REF }}";
-          echo "PAXML_SRC: ${{ inputs.PAXML_SRC }}";
-          echo "PAXML_REF: ${{ inputs.PAXML_REF }}";
-          echo "PRAXIS_SRC: ${{ inputs.PRAXIS_SRC }}";
-          echo "PRAXIS_REF: ${{ inputs.PRAXIS_REF }}";
+          echo "JAX_SRC_REF: ${{ inputs.JAX_SRC_REF }}";
+          echo "XLA_SRC_REF: ${{ inputs.XLA_SRC_REF }}";
+          echo "T5X_SRC_REF: ${{ inputs.T5X_SRC_REF }}";
+          echo "PAXML_SRC_REF: ${{ inputs.PAXML_SRC_REF }}";
+          echo "PRAXIS_SRC_REF: ${{ inputs.PRAXIS_SRC_REF }}";
 
       - name: Determine whether need to bump manifest 
         id: if-bump-manifest
@@ -157,7 +122,7 @@ jobs:
 
   build-t5x:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' && inputs.TEST_T5X == true # T5X arm64 build is wip in PR 252
+    if: inputs.ARCHITECTURE == 'amd64' && (inputs.TEST_T5X_PAXML == '1' || inputs.TEST_T5X_PAXML == '3') # T5X arm64 build is wip in PR 252
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -171,7 +136,7 @@ jobs:
 
   build-pax:
     needs: build-jax
-    if: inputs.TEST_PAXML == true
+    if: inputs.TEST_T5X_PAXML == '2' || inputs.TEST_T5X_PAXML == '3'
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -206,7 +171,7 @@ jobs:
 
   test-upstream-t5x:
     needs: build-t5x
-    if: inputs.ARCHITECTURE == 'amd64' && inputs.TEST_T5X == true # arm64 runners n/a
+    if: inputs.ARCHITECTURE == 'amd64' && (inputs.TEST_T5X_PAXML == '1' || inputs.TEST_T5X_PAXML == '3') # arm64 runners n/a
     uses: ./.github/workflows/_test_t5x.yaml
     with:
       T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}
@@ -214,7 +179,7 @@ jobs:
 
   test-upstream-pax:
     needs: build-pax
-    if: inputs.ARCHITECTURE == 'amd64' && inputs.TEST_PAXML == true # no images for arm64
+    if: inputs.ARCHITECTURE == 'amd64' && (inputs.TEST_T5X_PAXML == '2' || inputs.TEST_T5X_PAXML == '3') # no images for arm64
     uses: ./.github/workflows/_test_pax.yaml
     with:
       PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
