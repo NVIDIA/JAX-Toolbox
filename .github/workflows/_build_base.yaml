@@ -106,7 +106,7 @@ jobs:
           
           if [[ -n ${{ inputs.JAX_SRC }} ]]; then
             echo "UPDATING JAX_SRC: strenv(${{ inputs.JAX_SRC }}), strenv({{ inputs.JAX_SRC }})";
-            yq e '.jax.url = strenv(${{ inputs.JAX_SRC }})' -i manifest.yaml
+            yq e '.jax.url = "${{ inputs.JAX_SRC }}"' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.JAX_REF }} ]]; then
             echo "UPDATING JAX_REF: ";
@@ -115,8 +115,8 @@ jobs:
             yq e '.jax.latest_verified_commit = strenv(JAX_SHA)' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.XLA_SRC }} ]]; then
-            echo "UPDATING XLA_SRC: strenv(${{ inputs.XLA_SRC }})";
-            yq e '.xla.url = strenv(${{ inputs.XLA_SRC }})' -i manifest.yaml
+            echo "UPDATING XLA_SRC: "${{ inputs.XLA_SRC }}"";
+            yq e '.xla.url = "${{ inputs.XLA_SRC }}"' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.XLA_REF }} ]]; then
             echo "UPDATING XLA_REF";
@@ -125,7 +125,7 @@ jobs:
           fi
           if [[ -n ${{ inputs.T5X_SRC }} ]]; then
             echo "UPDATING T5X_SRC";
-            yq e '.t5x.url = strenv(${{ inputs.T5X_SRC }})' -i manifest.yaml
+            yq e '.t5x.url = "${{ inputs.T5X_SRC }}"' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.T5X_REF }} ]]; then
             echo "UPDATING T5X_REF";
