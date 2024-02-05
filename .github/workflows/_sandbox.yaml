@@ -146,7 +146,7 @@ jobs:
     # if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.make-publish-config.outputs.PUBLISH_CONFIGS) }}
+      matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
     uses: ./.github/workflows/_publish_container.yaml
     with:
       SOURCE_IMAGE: ${{ matrix.config.source_image }}
