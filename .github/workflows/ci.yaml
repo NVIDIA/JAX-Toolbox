@@ -158,8 +158,8 @@ jobs:
             done
           done
 
-          CONFIGS=$(echo "$JSON" | jq '{"config": .}')
-          echo "CONFIGS=${CONFIGS}" | tee -a $GITHUB_OUTPUT
+          CONFIGS=$(echo "$CONFIGS" | jq '{"config": .}')
+          echo "CONFIGS='${CONFIGS}'" | tee -a $GITHUB_OUTPUT
 
         # ${{ fromJson(needs.amd64.outputs.DOCKER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
         # ${{ fromJson(needs.arm64.outputs.DOCKER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
