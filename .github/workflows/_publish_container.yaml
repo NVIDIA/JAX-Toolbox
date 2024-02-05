@@ -3,10 +3,6 @@ name: ~publish images from internal to public repo
 on:
   workflow_call:
     inputs:
-      SOURCE_IMAGE:
-        type: string
-        description: 'Source docker image:'
-        required: true
       TARGET_IMAGE:
         type: string
         description: 'Target docker image (jax/t5x/etc.):'
@@ -14,6 +10,10 @@ on:
       TARGET_TAGS:
         type: string
         description: 'Target docker tags in docker/metadata-action format:'
+        required: true
+      SOURCE_IMAGE:
+        type: string
+        description: 'Source docker image:'
         required: true
       # EXPOSE_SINGLE_ARCH_IMAGES:
       #   type: boolean

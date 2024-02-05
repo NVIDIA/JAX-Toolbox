@@ -149,6 +149,6 @@ jobs:
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
     uses: ./.github/workflows/_publish_container.yaml
     with:
-      SOURCE_IMAGE: ${{ matrix.config.source_image }}
       TARGET_IMAGE: ${{ matrix.config.target_image }}
-      TARGET_TAGS:  ${{ matrix.config.target_tags }}
+      TARGET_TAGS:  ${{ join(matrix.config.target_tags,  '\n') }}
+      SOURCE_IMAGE: ${{ join(matrix.config.source_image, '\n') }}
