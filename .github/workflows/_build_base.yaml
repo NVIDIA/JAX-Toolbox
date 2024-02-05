@@ -181,6 +181,7 @@ jobs:
           cat manifest.yaml;
           
       - name: Update manifest and patches in-place - show diff
+        if: inputs.BUMP_MANIFEST
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
@@ -194,6 +195,7 @@ jobs:
           path: .github/container/manifest.yaml
       
       - name: Upload patch folder to be used in build-base
+        if: inputs.BUMP_MANIFEST
         uses: actions/upload-artifact@v3
         with:
           name: maybe-bumped-patches
