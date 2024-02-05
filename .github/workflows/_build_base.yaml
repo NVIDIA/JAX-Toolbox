@@ -146,34 +146,34 @@ jobs:
             yq e '.xla.url = "$XLA_SRC"' -i manifest.yaml
           fi
           if [[ -n ${XLA_REF} ]]; then
-            echo "UPDATING XLA_REF";
+            echo "UPDATING XLA_REF ${XLA_REF}";
             export XLA_SHA=$(git ls-remote --heads --refs ${XLA_SRC} "refs/heads/${XLA_REF}" 2>/dev/null | awk '{print $1}')
             yq e '.xla.latest_verified_commit = strenv(XLA_SHA)' -i manifest.yaml
           fi
           if [[ -n ${T5X_SRC} ]]; then
-            echo "UPDATING T5X_SRC";
+            echo "UPDATING T5X_SRC ${T5X_SRC}";
             yq e '.t5x.url = "$T5X_SRC"' -i manifest.yaml
           fi
           if [[ -n ${T5X_REF} ]]; then
-            echo "UPDATING T5X_REF";
+            echo "UPDATING T5X_REF ${T5X_REF}";
             export T5X_SHA=$(git ls-remote --heads --refs ${T5X_SRC} "refs/heads/${T5X_REF}" 2>/dev/null | awk '{print $1}')
             yq e '.xla.latest_verified_commit = strenv(T5X_SHA)' -i manifest.yaml
           fi
           if [[ -n ${PAXML_SRC} ]]; then
-            echo "UPDATING PAXML_SRC";
+            echo "UPDATING PAXML_SRC ${PAXML_SRC}";
             yq e '.paxml.url = "$PAXML_SRC"' -i manifest.yaml
           fi
           if [[ -n ${PAXML_REF} ]]; then
-            echo "UPDATING T5X_REF";
+            echo "UPDATING PAXML_REF ${PAXML_REF}";
             export PAXML_SHA=$(git ls-remote --heads --refs ${PAXML_SRC} "refs/heads/${PAXML_REF}" 2>/dev/null | awk '{print $1}')
             yq e '.xla.latest_verified_commit = strenv(PAXML_SHA)' -i manifest.yaml
           fi
           if [[ -n ${PRAXIS_SRC} ]]; then
-            echo "UPDATING PRAXIS_SRC";
-            yq e '.praxis.url = $"PRAXIS_SRC"' -i manifest.yaml
+            echo "UPDATING PRAXIS_SRC ${PRAXIS_SRC}";
+            yq e '.praxis.url = "$PRAXIS_SRC"' -i manifest.yaml
           fi
           if [[ -n ${PRAXIS_REF} ]]; then
-            echo "UPDATING PRAXIS_REF";
+            echo "UPDATING PRAXIS_REF ${PRAXIS_REF}";
             export PRAXIS_SHA=$(git ls-remote --heads --refs ${PRAXIS_SRC} "refs/heads/${PRAXIS_REF}" 2>/dev/null | awk '{print $1}')
             yq e '.xla.latest_verified_commit = strenv(PRAXIS_SHA)' -i manifest.yaml
           fi
