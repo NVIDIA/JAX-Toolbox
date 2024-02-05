@@ -108,12 +108,10 @@ jobs:
                 jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .tag]"
               )
               target_tags=$(
-                cat <<EOF | jq -c
-                [\
-                  "type=raw,value=${flavor}-${stage}-edge,priority=${priority}",\
-                  "type=raw,value=${flavor}-${stage}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}"\
-                ]
-                EOF
+                echo "[
+                  "type=raw,value=${flavor}-${stage}-edge,priority=${priority}",
+                  "type=raw,value=${flavor}-${stage}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}"
+                ]" | jq -c
               )
 
               CONFIGS=$(
