@@ -4,38 +4,136 @@ on:
   workflow_dispatch:
 
 jobs:
-  sandbox:
+  metadata:
     runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print usage
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
         run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=true" >> $GITHUB_OUTPUT
+
+  amd64:
+    runs-on: ubuntu-22.04
+    outputs:
+      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
+    steps:
+      - name: Save docker tags as a JSON object
+        id: collect-tags
+        run: |
+          TAGS=$(cat <<EOF | jq -c
+          [\
+            {"stage": "mealkit", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-amd64-mealkit"},\
+            {"stage": "mealkit", "flavor": "t5x", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-upstream-t5x-amd64-mealkit"},\
+            {"stage": "final", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-amd64"},\
+            {"stage": "final", "flavor": "t5x", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-upstream-t5x-amd64"},\
+            {}\
+          ]
           EOF
+          )
+
+          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
+
+  arm64:
+    runs-on: ubuntu-22.04
+    outputs:
+      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
+    steps:
+      - name: Save docker tags as a JSON object
+        id: collect-tags
+        run: |
+          TAGS=$(cat <<EOF | jq -c
+          [\
+            {"stage": "mealkit", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-arm64-mealkit"},\
+            {"stage": "final", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-arm64"},\
+            {}\
+          ]
+          EOF
+          )
+
+          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
+
+  nightly-publish-config:
+    runs-on: ubuntu-22.04
+    if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+    needs:
+      - metadata
+      - amd64
+      - arm64
+    outputs:
+      CONFIGS: ${{ steps.generate-configs.outputs.CONFIGS }}
+    steps:
+      - id: generate-configs
+        run: |
+          declare -a FLAVORS=(
+            jax
+            pallas
+            maxtext
+            levanter
+            t5x
+            pax
+            rosetta-t5x
+            rosetta-pax
+          )
+          declare -a STAGES=(
+            mealkit
+            final
+          )
+
+          # create a JSON list, where each item is for a target/flavor pair in the form of {"source_image": [...], "target_tags": [...]}
+          # dependency job `amd64` and `arm64` should have outputs.TAGS set as a dict of stage-flavor-priority to tag
+          TAGS_MULTIARCH=$(echo ${{ needs.amd64.outputs.TAGS }} ${{ needs.arm64.outputs.TAGS }} | jq -s 'add')
+
+          CONFIGS="[]"
+          for flavor in "${FLAVORS[@]}";do
+            for stage in "${STAGES[@]}"; do
+              # get the priority of all related tag and compute max of them
+              priority=$(
+                echo "$TAGS_MULTIARCH" |\
+                jq -r ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .priority" |\
+                jq -s 'max'
+              )
+              source_image=$(
+                echo "$TAGS_MULTIARCH" |\
+                jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .tag]"
+              )
+              target_tags=$(
+                cat <<EOF | jq -c
+                [\
+                  "type=raw,value=${flavor}-${stage}-edge,priority=${priority}",\
+                  "type=raw,value=${flavor}-${stage}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}"\
+                ]
+                EOF
+              )
+
+              CONFIGS=$(
+                echo ${CONFIGS} | jq ". + [{
+                  \"source_image\": ${source_image},
+                  \"target_tags\": ${targe_tags}
+                }]"
+              )
+              
+              # CONTAINER_TAG=${flavor}
+              # TAG_DATED=${flavor}
+              # if [[ ${flavor} == "final" ]]; then
+              #     CONTAINER_TAG=latest
+              #     TAG_DATED=nightly
+              # fi
+              # JSON=$(echo ${JSON}\"${target}-${flavor}-container-tag\":\"${CONTAINER_TAG}\",)
+              # JSON=$(echo ${JSON}\"${target}-${flavor}-tag-dated\":\"${TAG_DATED}\",)
+            done
+          done
+
+          CONFIGS=$(echo $JSON | jq '{"config": .}')
+
+          echo "CONFIGS=${CONFIGS}" | tee -a $GITHUB_OUTPUT

@@ -104,14 +104,3 @@ jobs:
       #         skopeo copy --format v2s2 docker://$manifest docker://$tag-${os}-${arch}
       #       done
       #     done
-
-      # - name: Generate outputs and artifacts
-      #   shell: bash -x -e {0}
-      #   run: |
-      #     echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ inputs.TARGET_IMAGE }}.txt
-
-      # - name: Upload image tags as artifacts
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: image-tags-${{ inputs.TARGET_IMAGE }}
-      #     path: image-tags-${{ inputs.TARGET_IMAGE }}.txt

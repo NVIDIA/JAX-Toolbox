@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
   pull_request:
     paths-ignore:
       - '**.md'
@@ -13,11 +15,9 @@ on:
         required: false
       BUMP_MANIFEST:
         type: boolean
-        description: Bump manifest file?
+        description: Bump git repos in manifest.yaml to head of tree?
         default: false
         required: false
-  schedule:
-    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -74,51 +74,96 @@ jobs:
       BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}      
     secrets: inherit
 
-  publish-target-tags:
+  nightly-publish-config:
     runs-on: ubuntu-22.04
+    if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+    needs:
+      - metadata
+      - amd64
+      - arm64
     outputs:
-      TARGET_TAGS: ${{ steps.tags.outputs.TARGET_TAGS}}
+      CONFIGS: ${{ steps.generate-configs.outputs.CONFIGS }}
     steps:
-      - id: tags
+      - id: generate-configs
         run: |
-          declare -a TARGET_IMAGE=("jax" "pallas" "upstream-pax" "upstream-t5x" "pax" "t5x")
-          declare -a FLAVOR=("mealkit" "final")
+          declare -a FLAVORS=(
+            jax
+            pallas
+            maxtext
+            levanter
+            t5x
+            pax
+            rosetta-t5x
+            rosetta-pax
+          )
+          declare -a STAGES=(
+            mealkit
+            final
+          )
 
-          ## now loop through the above array
-          JSON="{"
-          for target in "${TARGET_IMAGE[@]}";do
-              for flavor in "${FLAVOR[@]}"; do
-                  CONTAINER_TAG=${flavor}
-                  TAG_DATED=${flavor}
-                  if [[ ${flavor} == "final" ]]; then
-                      CONTAINER_TAG=latest
-                      TAG_DATED=nightly
-                  fi
-                  JSON=$(echo ${JSON}\"${target}-${flavor}-container-tag\":\"${CONTAINER_TAG}\",)
-                  JSON=$(echo ${JSON}\"${target}-${flavor}-tag-dated\":\"${TAG_DATED}\",)
-              done
+          # create a JSON list, where each item is for a target/flavor pair in the form of {"source_image": [...], "target_tags": [...]}
+          # dependency job `amd64` and `arm64` should have outputs.TAGS set as a dict of stage-flavor-priority to tag
+          TAGS_MULTIARCH=$(echo ${{ needs.amd64.outputs.TAGS }} ${{ needs.arm64.outputs.TAGS }} | jq -s 'add')
+
+          CONFIGS="[]"
+          for flavor in "${FLAVORS[@]}";do
+            for stage in "${STAGES[@]}"; do
+              # get the priority of all related tag and compute max of them
+              priority=$(
+                echo "$TAGS_MULTIARCH" |\
+                jq -r ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .priority" |\
+                jq -s 'max'
+              )
+              source_image=$(
+                echo "$TAGS_MULTIARCH" |\
+                jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .tag]"
+              )
+              target_tags=$(
+                cat <<EOF | jq -c
+                [\
+                  "type=raw,value=${flavor}-${stage}-edge,priority=${priority}",\
+                  "type=raw,value=${flavor}-${stage}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}",\
+                ]
+                EOF
+              )
+
+              CONFIGS=$(
+                echo ${CONFIGS} | jq ". + [{
+                  \"source_image\": [\"${{ needs.amd64.outputs.DOCKER_TAGS }}\"],
+                  \"target_tags\": [\"${{ needs.arm64.outputs.DOCKER_TAGS }}\"]
+                }]"
+              )
+
+              
+                  # CONTAINER_TAG=${flavor}
+                  # TAG_DATED=${flavor}
+                  # if [[ ${flavor} == "final" ]]; then
+                  #     CONTAINER_TAG=latest
+                  #     TAG_DATED=nightly
+                  # fi
+                  # JSON=$(echo ${JSON}\"${target}-${flavor}-container-tag\":\"${CONTAINER_TAG}\",)
+                  # JSON=$(echo ${JSON}\"${target}-${flavor}-tag-dated\":\"${TAG_DATED}\",)
+            done
           done
-          JSON="${JSON::-1} }"
-          echo "TARGET_TAGS=${JSON}" | tee -a $GITHUB_OUTPUT    
+          CONFIGS=$(echo $JSON | jq '{"config": .}')
+          echo "CONFIGS=${CONFIGS}" | tee -a $GITHUB_OUTPUT
 
-  publish:
-    needs: [metadata, amd64, arm64, publish-target-tags]
-    if: false  # TODO: enable this after new image renaming proposal is approved
-    # if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+        # ${{ fromJson(needs.amd64.outputs.DOCKER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
+        # ${{ fromJson(needs.arm64.outputs.DOCKER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
+        # type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }},priority=500
+        # type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+
+  nightly-publish:
+    needs: [nightly-publish-config]
+    if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
     strategy:
       fail-fast: false
-      matrix:
-        TARGET_IMAGE: [jax, pallas, upstream-pax, upstream-t5x, pax, t5x]
-        FLAVOR: [mealkit, final]
+      matrix: ${{ fromJson(needs.nightly-publish-config.outputs.CONFIG) }}      
     uses: ./.github/workflows/_publish_container.yaml
     with:
-      SOURCE_IMAGE: |
-        ${{ fromJson(needs.amd64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
-        ${{ fromJson(needs.arm64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
-      TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
-      TARGET_TAGS: |
-        type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }},priority=500
-        type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+      SOURCE_IMAGE: ${{ matrix.config.source_image }}
+      TARGET_IMAGE: jax
+      TARGET_TAGS: ${{ matrix.config.target_tags }}
 
   finalize:
     needs: [amd64, arm64]
