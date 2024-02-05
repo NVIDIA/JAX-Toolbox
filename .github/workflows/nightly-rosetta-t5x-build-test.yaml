@@ -89,19 +89,16 @@ jobs:
       BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
       BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_AMD64 }}
     secrets: inherit
-      
-  # TODO: Can't build ARM until https://github.com/NVIDIA/JAX-Toolbox/pull/252 is available
+
   arm64:
     needs: metadata
-    runs-on: ubuntu-22.04
-    outputs:
-      DOCKER_TAG_FINAL: ''
-      DOCKER_TAG_MEALKIT: ''
-    steps:
-      - name: Generate placeholder warning
-        shell: bash -x -e {0}
-        run: |
-          echo "WARNING: arm64 build is not yet supported"
+    uses: ./.github/workflows/_build_rosetta.yaml
+    with:
+      ARCHITECTURE: arm64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BASE_LIBRARY: ${{ needs.metadata.outputs.BASE_LIBRARY }}
+      BASE_IMAGE: ${{ needs.metadata.outputs.BASE_IMAGE_ARM64 }}
+    secrets: inherit
 
   # TODO: ARM
   publish-build-badge:
