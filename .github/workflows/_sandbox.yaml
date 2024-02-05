@@ -146,4 +146,4 @@ jobs:
           done
 
           CONFIGS=$(echo "$CONFIGS" | jq '{"config": .}')
-          echo "CONFIGS='${CONFIGS}'" | tee -a $GITHUB_OUTPUT
+          echo "CONFIGS=${CONFIGS}" | tee -a $GITHUB_OUTPUT
