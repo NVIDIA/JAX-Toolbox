@@ -120,12 +120,10 @@ jobs:
               esac
 
               target_tags=$(
-                cat <<EOF | jq -c
-                [\
-                  "type=raw,value=${flavor},priority=${priority}",\
-                  "type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}",\
-                ]
-                EOF
+                echo "[
+                  \"type=raw,value=${flavor},priority=${priority}\",
+                  \"type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}\"
+                ]" | jq -c
               )
 
               CONFIGS=$(
