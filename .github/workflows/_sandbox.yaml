@@ -76,18 +76,18 @@ jobs:
       - id: generate-configs
         run: |
           declare -a FLAVORS=(
-            jax
-            pallas
-            maxtext
-            levanter
-            t5x
-            pax
-            rosetta-t5x
-            rosetta-pax
+            "jax"
+            "pallas"
+            "maxtext"
+            "levanter"
+            "t5x"
+            "pax"
+            "rosetta-t5x"
+            "rosetta-pax"
           )
           declare -a STAGES=(
-            mealkit
-            final
+            "mealkit"
+            "final"
           )
 
           # create a JSON list, where each item is for a target/flavor pair in the form of {"source_image": [...], "target_tags": [...]}
