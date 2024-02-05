@@ -222,6 +222,7 @@ jobs:
           rm -rf .github/container/patches
 
       - name: Replace checked-out manifest file with bumped one
+        if: inputs.BUMP_MANIFEST
         uses: actions/download-artifact@v3
         with:
           name: maybe-bumped-manifest
