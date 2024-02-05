@@ -132,10 +132,12 @@ jobs:
               # and mealkit images in `ghcr.io/nvidia/jax-toolbox-mealkit` namespace
               case ${stage} in
                 mealkit)
-                  target_image=jax-toolbox-mealkit
+                  # target_image=jax-toolbox-mealkit
+                  target_image=jax-test-2
                   ;;
                 final)
-                  target_image=jax
+                  # target_image=jax
+                  target_image=jax-test-1
                   ;;
               esac
 
