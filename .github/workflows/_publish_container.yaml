@@ -89,7 +89,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           for tag in $(echo -e "${{ steps.meta.outputs.tags }}"); do
-            echo docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
+            docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
           done
 
       # - name: Create single-arch images
