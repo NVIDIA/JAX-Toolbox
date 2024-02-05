@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+
+FROM ${BASE_IMAGE} as mealkit
+
+# Install system dependencies
+RUN <<"EOF" bash -ex
+apt-get update
+apt-get install -y \
+    openmpi-bin \
+    libopenmpi-dev
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+EOF
+
+# Specify installation targets
+RUN <<"EOF" bash -ex
+echo "--extra-index-url https://pypi.nvidia.com" >> /opt/pip-tools.d/requirements-trt.in
+echo "--pre" >> /opt/pip-tools.d/requirements-trt.in
+echo "tensorrt_llm" >> /opt/pip-tools.d/requirements-trt.in
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh
