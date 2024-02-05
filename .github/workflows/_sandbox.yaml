@@ -33,10 +33,10 @@ jobs:
         run: |
           TAGS=$(cat <<EOF | jq -c
           [\
-            {"stage": "mealkit", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-amd64-mealkit"},\
-            {"stage": "mealkit", "flavor": "t5x", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-upstream-t5x-amd64-mealkit"},\
-            {"stage": "final", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-amd64"},\
-            {"stage": "final", "flavor": "t5x", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-upstream-t5x-amd64"},\
+            {"priority": 900, "stage": "mealkit", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-amd64-mealkit"},\
+            {"priority": 900, "stage": "mealkit", "flavor": "t5x", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-upstream-t5x-amd64-mealkit"},\
+            {"priority": 900, "stage": "final", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-amd64"},\
+            {"priority": 900, "stage": "final", "flavor": "t5x", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-upstream-t5x-amd64"},\
             {}\
           ]
           EOF
@@ -54,8 +54,8 @@ jobs:
         run: |
           TAGS=$(cat <<EOF | jq -c
           [\
-            {"stage": "mealkit", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-arm64-mealkit"},\
-            {"stage": "final", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-arm64"},\
+            {"priority": 900, "stage": "mealkit", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-arm64-mealkit"},\
+            {"priority": 900, "stage": "final", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-arm64"},\
             {}\
           ]
           EOF
@@ -93,22 +93,28 @@ jobs:
 
           # create a JSON list, where each item is for a target/flavor pair in the form of {"source_image": [...], "target_tags": [...]}
           # dependency job `amd64` and `arm64` should have outputs.TAGS set as a dict of stage-flavor-priority to tag
-          TAGS_MULTIARCH=$(echo '${{ needs.amd64.outputs.TAGS }}' '${{ needs.arm64.outputs.TAGS }}' | jq -s 'add')
+          ALL_TAGS=$(echo '${{ needs.amd64.outputs.TAGS }}' '${{ needs.arm64.outputs.TAGS }}' | jq -s 'add')
 
           CONFIGS='[]'
           for flavor in "${FLAVORS[@]}";do
             for stage in "${STAGES[@]}"; do
 
+              related_tags=$(echo "$ALL_TAGS" | jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\")]")
+
               priority=$(
-                echo "$TAGS_MULTIARCH" |\
+                echo "$ALL_TAGS" |\
                 jq -r ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .priority" |\
                 jq -s 'max'
               )
 
               source_image=$(
-                echo "$TAGS_MULTIARCH" |\
+                echo "$ALL_TAGS" |\
                 jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .tag]"
               )
+
+              if [[ $(echo "$source_image" | jq -c 'length') -eq 0 ]]; then
+                continue
+              fi
 
               case ${stage} in
                 mealkit)
