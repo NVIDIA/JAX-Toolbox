@@ -108,21 +108,32 @@ jobs:
           CONFIGS="[]"
           for flavor in "${FLAVORS[@]}";do
             for stage in "${STAGES[@]}"; do
-              # get the priority of all related tag and compute max of them
+
               priority=$(
                 echo "$TAGS_MULTIARCH" |\
                 jq -r ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .priority" |\
                 jq -s 'max'
               )
+
               source_image=$(
                 echo "$TAGS_MULTIARCH" |\
                 jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\") | .tag]"
               )
+
+              case ${stage} in
+                mealkit)
+                  target_image=jax-mealkit
+                  ;;
+                final)
+                  target_image=jax
+                  ;;
+              esac
+
               target_tags=$(
                 cat <<EOF | jq -c
                 [\
-                  "type=raw,value=${flavor}-${stage}-edge,priority=${priority}",\
-                  "type=raw,value=${flavor}-${stage}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}",\
+                  "type=raw,value=${flavor},priority=${priority}",\
+                  "type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}",\
                 ]
                 EOF
               )
@@ -145,7 +156,8 @@ jobs:
                   # JSON=$(echo ${JSON}\"${target}-${flavor}-tag-dated\":\"${TAG_DATED}\",)
             done
           done
-          CONFIGS=$(echo $JSON | jq '{"config": .}')
+
+          CONFIGS=$(echo "$JSON" | jq '{"config": .}')
           echo "CONFIGS=${CONFIGS}" | tee -a $GITHUB_OUTPUT
 
         # ${{ fromJson(needs.amd64.outputs.DOCKER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
