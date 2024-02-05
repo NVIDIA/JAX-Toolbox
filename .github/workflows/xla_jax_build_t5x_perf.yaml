@@ -80,6 +80,7 @@ jobs:
           echo "T5X_SRC_REF: ${{ inputs.T5X_SRC_REF }}";
           echo "PAXML_SRC_REF: ${{ inputs.PAXML_SRC_REF }}";
           echo "PRAXIS_SRC_REF: ${{ inputs.PRAXIS_SRC_REF }}";
+          echo "TEST_T5X_PAXML: $${{ inputs.TEST_T5X_PAXML }}"
 
   build-base:
     uses: ./.github/workflows/_build_base.yaml
