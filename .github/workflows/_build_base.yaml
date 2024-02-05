@@ -94,23 +94,23 @@ jobs:
         run: |
         
           IFS="#";
-          read -ra arr <<"${{ inputs.JAX_SRC_REF }}";
+          read -ra arr <<< "${{ inputs.JAX_SRC_REF }}";
           JAX_SRC="${arr[0]}";
           JAX_REF="${arr[1]}";
 
-          read -ra arr <<"${{ inputs.XLA_SRC_REF }}";
+          read -ra arr <<< "${{ inputs.XLA_SRC_REF }}";
           XLA_SRC="${arr[0]}";
           XLA_REF="${arr[1]}";
 
-          read -ra arr <<"${{ inputs.T5X_SRC_REF }}";
+          read -ra arr <<< "${{ inputs.T5X_SRC_REF }}";
           T5X_SRC="${arr[0]}";
           T5X_REF="${arr[1]}";
 
-          read -ra arr <<"${{ inputs.PAXML_SRC_REF }}";
+          read -ra arr <<< "${{ inputs.PAXML_SRC_REF }}";
           PAXML_SRC="${arr[0]}";
           PAXML_REF="${arr[1]}";
 
-          read -ra arr <<"${{ inputs.PRAXIS_SRC_REF }}";
+          read -ra arr <<< "${{ inputs.PRAXIS_SRC_REF }}";
           PRAXIS_SRC="${arr[0]}";
           PRAXIS_REF="${arr[1]}";
 
