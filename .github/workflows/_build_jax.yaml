@@ -83,7 +83,13 @@ jobs:
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v3
-
+        
+      - name: show updated manifest file
+        working-directory: .github/container
+        run: |
+          echo "UPDATED Manifest file is: ";
+          cat manifest.yaml;
+          
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
