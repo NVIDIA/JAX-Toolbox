@@ -21,11 +21,6 @@ on:
         description: Publish dated images and update the 'latest' tag?
         default: false
         required: false
-      BUMP_MANIFEST:
-        type: boolean
-        description: Bump manifest file?
-        default: false
-        required: false
       JAX_SRC_REF:
         description: 'JAX source url#branch/commit SHA'
         type: string
@@ -67,7 +62,6 @@ jobs:
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
-      BUMP_MANIFEST: ${{ steps.if-bump-manifest.outputs.BUMP_MANIFEST }}
     steps:
       - name: Set build date
         id: date
@@ -87,18 +81,12 @@ jobs:
           echo "PAXML_SRC_REF: ${{ inputs.PAXML_SRC_REF }}";
           echo "PRAXIS_SRC_REF: ${{ inputs.PRAXIS_SRC_REF }}";
 
-      - name: Determine whether need to bump manifest 
-        id: if-bump-manifest
-        shell: bash -x -e {0}
-        run: |
-          echo "BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}" >> $GITHUB_OUTPUT
-
   build-base:
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BUMP_MANIFEST: ${{ inputs.BUMP_MANIFEST }}
+      BUMP_MANIFEST: false
       JAX_SRC: ${{ inputs.JAX_SRC }}
       JAX_REF: ${{ inputs.JAX_REF }}
       XLA_SRC: ${{ inputs.XLA_SRC }}
