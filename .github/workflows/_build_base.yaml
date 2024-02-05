@@ -105,26 +105,34 @@ jobs:
           echo "T5X_REF: ${{ inputs.T5X_REF }}";
           
           if [[ -n ${{ inputs.JAX_SRC }} ]]; then
+            echo "UPDATING JAX_SRC";
             yq e '.jax.url = strenv(${{ inputs.JAX_SRC }})' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.JAX_REF }} ]]; then
+            echo "UPDATING JAX_REF";
             export JAX_SHA=$(git ls-remote --heads --refs ${{ inputs.JAX_SRC }} "refs/heads/${{ inputs.JAX_REF }}" 2>/dev/null | awk '{print $1}')
             yq e '.jax.latest_verified_commit = strenv(JAX_SHA)' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.XLA_SRC }} ]]; then
+            echo "UPDATING XLA_SRC";
             yq e '.xla.url = strenv(${{ inputs.XLA_SRC }})' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.XLA_REF }} ]]; then
+            echo "UPDATING XLA_REF";
             export XLA_SHA=$(git ls-remote --heads --refs ${{ inputs.XLA_SRC }} "refs/heads/${{ inputs.XLA_REF }}" 2>/dev/null | awk '{print $1}')
             yq e '.xla.latest_verified_commit = strenv(XLA_SHA)' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.T5X_SRC }} ]]; then
+            echo "UPDATING T5X_SRC";
             yq e '.t5x.url = strenv(${{ inputs.T5X_SRC }})' -i manifest.yaml
           fi
           if [[ -n ${{ inputs.T5X_REF }} ]]; then
+            echo "UPDATING T5X_REF";
             export T5X_SHA=$(git ls-remote --heads --refs ${{ inputs.T5X_SRC }} "refs/heads/${{ inputs.T5X_REF }}" 2>/dev/null | awk '{print $1}')
             yq e '.xla.latest_verified_commit = strenv(T5X_SHA)' -i manifest.yaml
           fi
+          echo "UPDATED MANIFEST IS: ";
+          cat manigest.yaml;
       - name: Update manifest and patches in-place - show diff
         if: inputs.BUMP_MANIFEST
         working-directory: .github/container
