@@ -4,150 +4,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  metadata:
+  sandbox:
     runs-on: ubuntu-22.04
-    outputs:
-      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
-      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
-      - name: Set build date
-        id: date
-        shell: bash -x -e {0}
-        run: |
-          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
-          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine whether results will be 'published'
-        id: if-publish
-        shell: bash -x -e {0}
+      - name: Print usage
         run: |
-          echo "PUBLISH=true" >> $GITHUB_OUTPUT
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
 
-  amd64:
-    runs-on: ubuntu-22.04
-    outputs:
-      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
-    steps:
-      - name: Save docker tags as a JSON object
-        id: collect-tags
-        run: |
-          TAGS=$(cat <<EOF | jq -c
-          [\
-            {"priority": 900, "stage": "mealkit", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-amd64-mealkit"},\
-            {"priority": 900, "stage": "mealkit", "flavor": "t5x", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-upstream-t5x-amd64-mealkit"},\
-            {"priority": 900, "stage": "final", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-amd64"},\
-            {"priority": 900, "stage": "final", "flavor": "t5x", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-upstream-t5x-amd64"},\
-            {}\
-          ]
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
           EOF
-          )
-
-          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
-
-  arm64:
-    runs-on: ubuntu-22.04
-    outputs:
-      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
-    steps:
-      - name: Save docker tags as a JSON object
-        id: collect-tags
-        run: |
-          TAGS=$(cat <<EOF | jq -c
-          [\
-            {"priority": 900, "stage": "mealkit", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-arm64-mealkit"},\
-            {"priority": 900, "stage": "final", "flavor": "jax", "tag": "ghcr.io/nvidia/jax-toolbox-internal:7723912691-jax-arm64"},\
-            {}\
-          ]
-          EOF
-          )
-
-          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
-
-  make-publish-configs:
-    runs-on: ubuntu-22.04
-    if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
-    needs:
-      - metadata
-      - amd64
-      - arm64
-    outputs:
-      PUBLISH_CONFIGS: ${{ steps.generate-configs.outputs.PUBLISH_CONFIGS }}
-    steps:
-      - id: generate-configs
-        shell: bash -exu -o pipefail {0}
-        run: |
-          declare -a FLAVORS=(
-            jax
-            pallas
-            maxtext
-            levanter
-            t5x
-            pax
-            rosetta-t5x
-            rosetta-pax
-          )
-          declare -a STAGES=(
-            mealkit
-            final
-          )
-
-          # create a JSON list, where each item is for a target/flavor pair in the form of {"source_image": [...], "target_tags": [...]}
-          # dependency job `amd64` and `arm64` should have outputs.TAGS set as a dict of stage-flavor-priority to tag
-          ALL_TAGS=$(echo '${{ needs.amd64.outputs.TAGS }}' '${{ needs.arm64.outputs.TAGS }}' | jq -s 'add')
-
-          PUBLISH_CONFIGS='[]'
-          for stage in "${STAGES[@]}"; do
-            for flavor in "${FLAVORS[@]}";do
-
-              matching_tags=$(
-                echo "$ALL_TAGS" |\
-                jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\")]" |\
-                jq -s 'add'
-              )
-              if [[ $(echo "$matching_tags" | jq -c 'length') -eq 0 ]]; then
-                continue
-              fi
-
-              priority=$(echo "${matching_tags}" | jq -r ".[] | .priority" | jq -s 'max')
-
-              source_image=$(echo "${matching_tags}" | jq -c "[.[] | .tag]")
-
-              case ${stage} in
-                mealkit)
-                  target_image=jax-toolbox-mealkit
-                  ;;
-                final)
-                  target_image=jax
-                  ;;
-              esac
-
-              target_tags=$(echo "[
-                  \"type=raw,value=${flavor},priority=${priority}\",
-                  \"type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}\"
-                ]" | jq -c
-              )
-
-              PUBLISH_CONFIGS=$(
-                echo ${PUBLISH_CONFIGS} | jq -c ". + [{
-                  \"source_image\": ${source_image},
-                  \"target_image\": \"${target_image}\",
-                  \"target_tags\": ${target_tags}
-                }]"
-              )
-            done
-          done
-
-          PUBLISH_CONFIGS=$(echo "$PUBLISH_CONFIGS" | jq -c '{"config": .}')
-          echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" | tee -a $GITHUB_OUTPUT
-
-  publish:
-    needs: [make-publish-configs]
-    # if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
-    uses: ./.github/workflows/_publish_container.yaml
-    with:
-      TARGET_IMAGE: ${{ matrix.config.target_image }}
-      TARGET_TAGS:  ${{ join(matrix.config.target_tags,  '\n') }}
-      SOURCE_IMAGE: ${{ join(matrix.config.source_image, '\n') }}
