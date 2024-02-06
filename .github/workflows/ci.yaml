@@ -124,7 +124,10 @@ jobs:
               # source_image is a list of all platform-specific tags
               source_image=$(echo "${matching_tags}" | jq -c "[.tag]" | jq -s 'add')
               # if the build job failed without producing any images, skip this flavor
-              if [[ $(echo "$source_image" | jq 'length') -eq 0 ]]; then
+              if [[ $(echo "$source_image" | jq 'length') -gt 0 ]]; then
+                echo "PUBLISH image $flavor $stage containers"
+                continue
+              else
                 echo "SKIPPED image $flavor without any $stage containers"
                 continue
               fi
@@ -163,7 +166,8 @@ jobs:
           done
 
           PUBLISH_CONFIGS=$(echo "$PUBLISH_CONFIGS" | jq -c '{"config": .}')
-          echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" | tee -a $GITHUB_OUTPUT
+          echo ${PUBLISH_CONFIGS} | jq
+          echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" >> $GITHUB_OUTPUT
 
   publish:
     needs: [make-publish-configs]
