@@ -105,7 +105,7 @@ jobs:
 
           ## create JSON specs for a 1D matrix of container publication jobs
 
-          ALL_TAGS=$(echo '${{ needs.amd64.outputs.TAGS }}' '${{ needs.arm64.outputs.TAGS }}' | jq -s 'add')
+          ALL_TAGS=$(echo '${{ needs.amd64.outputs.DOCKER_TAGS }}' '${{ needs.arm64.outputs.DOCKER_TAGS }}' | jq -s 'add')
           PUBLISH_CONFIGS='[]'
 
           for stage in "${STAGES[@]}"; do
@@ -174,9 +174,9 @@ jobs:
       SOURCE_IMAGE: ${{ join(matrix.config.source_image, '\n') }}
 
   finalize:
-    needs: [amd64, arm64]
+    needs: [metadata, amd64, arm64]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
-      PUBLISH_BADGE: false
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit
