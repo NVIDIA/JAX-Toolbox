@@ -87,7 +87,7 @@ jobs:
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BUMP_MANIFEST: true
+      BUMP_MANIFEST: false
       JAX_SRC_REF: ${{ inputs.JAX_SRC_REF }}
       XLA_SRC_REF: ${{ inputs.XLA_SRC_REF }}
       T5X_SRC_REF: ${{ inputs.T5X_SRC_REF }}
