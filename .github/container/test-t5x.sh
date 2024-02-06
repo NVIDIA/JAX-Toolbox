@@ -20,6 +20,7 @@ usage() {
     echo "  -e, --epochs              Number of epochs to run, defaults to 7."
     echo "  --multiprocess            Enable the multiprocess GPU mode."
     echo "  -o, --output NAME         Name for the output folder, a temporary folder will be created if none specified."
+    echo "  --save-hlo {0, 1}         1 to save the dumped hlo, 0 to remove the hlo dumped folder"
     echo "  --seed INT                Random seed for deterministim. Defaults to 42."
     echo "  -s, --steps-per-epoch INT Steps per epoch. Detauls to 100"
     echo "  --enable-fmha {0, 1}      1 to enable fmha testing, 0 to run test without fmha; default is 0"
@@ -44,7 +45,8 @@ OUTPUT=$(mktemp -d)
 SEED=42
 STEPS_PER_EPOCH=100
 ENABLE_TE=${ENABLE_TE:-0}
-ENABLE_FMHA=0
+ENABLE_FMHA=${ENABLE_FMHA:-0}
+SAVE_HLO=${SAVE_HLO:-1}
 
 eval set -- "$args"
 while [ : ]; do
@@ -86,6 +88,10 @@ while [ : ]; do
             ;;
         -o | --output)
             OUTPUT="$2"
+            shift 2
+            ;;
+        --save-hlo)
+            SAVE_HLO="$2"
             shift 2
             ;;
         --seed)
@@ -137,6 +143,7 @@ print_var OUTPUT
 print_var MULTIPROCESS
 print_var STEPS_PER_EPOCH
 print_var TRAIN_STEPS
+print_var SAVE_HLO
 
 ## Enter T5X source folder
 T5X_DIR=$(dirname `python -c 'import t5x; print(*t5x.__path__)'`)
