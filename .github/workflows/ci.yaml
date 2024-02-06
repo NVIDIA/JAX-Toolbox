@@ -86,7 +86,7 @@ jobs:
       PUBLISH_CONFIGS: ${{ steps.generate-configs.outputs.PUBLISH_CONFIGS }}
     steps:
       - id: generate-configs
-        shell: bash -exu -o pipefail {0}
+        shell: bash -eu -o pipefail {0}
         run: |
           declare -a FLAVORS=(
             jax
@@ -105,7 +105,11 @@ jobs:
 
           ## create JSON specs for a 1D matrix of container publication jobs
 
-          ALL_TAGS=$(echo '${{ needs.amd64.outputs.DOCKER_TAGS }}' '${{ needs.arm64.outputs.DOCKER_TAGS }}' | jq -s 'add')
+          ALL_TAGS=$(
+            echo '${{ needs.amd64.outputs.DOCKER_TAGS }}' \
+                 '${{ needs.arm64.outputs.DOCKER_TAGS }}' |\
+            jq -s 'add'
+          )
           PUBLISH_CONFIGS='[]'
 
           for stage in "${STAGES[@]}"; do
@@ -114,19 +118,19 @@ jobs:
               # collect images for different platforms, e.g. amd64 and arm64
               matching_tags=$(
                 echo "$ALL_TAGS" |\
-                jq -c "[.[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\")]" |\
-                jq -s 'add'
+                jq -c ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\" and .tag != \"\")"
               )
 
-              # tag priority is the highest priority of all platform-specific tags
-              priority=$(echo "${matching_tags}" | jq -r ".[] | .priority" | jq -s 'max')
-
               # source_image is a list of all platform-specific tags
-              source_image=$(echo "${matching_tags}" | jq -c "[.[] | .tag]")
+              source_image=$(echo "${matching_tags}" | jq -c "[.tag]" | jq -s 'add')
               # if the build job failed without producing any images, skip this flavor
-              if [[ $(echo "$source_image" | jq -c 'length') -eq 0 ]]; then
+              if [[ $(echo "$source_image" | jq 'length') -eq 0 ]]; then
+                echo "SKIPPED image $flavor without any $stage containers"
                 continue
               fi
+
+              # tag priority is the highest priority of all platform-specific tags
+              priority=$(echo "${matching_tags}" | jq -r ".priority" | jq -s 'max')
 
               # put all final images in the `ghcr.io/nvidia/jax` namespace
               # and mealkit images in `ghcr.io/nvidia/jax-toolbox-mealkit` namespace
