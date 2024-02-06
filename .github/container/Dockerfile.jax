@@ -67,10 +67,6 @@ ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_IB_SL=1
 ENV NCCL_NVLS_ENABLE=0
 ENV CUDA_MODULE_LOADING=EAGER
-## The following environment variables are WARs for known issues
-## Remove ASAP once the underlying issue has been removed
-# https://github.com/NVIDIA/JAX-Toolbox/pull/472, WAR for a crash observed in the default runtime leading to this error message: "nccl_all_reduce_thunk.cc:175] Check failed: reduction_kind.has_value()"
-ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_xla_runtime_executable=true"
 
 ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 
