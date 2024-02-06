@@ -22,6 +22,7 @@ usage() {
     echo "  -o, --output NAME         Name for the output folder, a temporary folder will be created if none specified."
     echo "  --seed INT                Random seed for deterministim. Defaults to 42."
     echo "  -s, --steps-per-epoch INT Steps per epoch. Detauls to 100"
+    echo "  --enable-fmha {0, 1}      1 to enable fmha testing, 0 to run test without fmha; default is 0"
     echo "  -h, --help                Print usage."
     exit $1
 }
@@ -43,6 +44,7 @@ OUTPUT=$(mktemp -d)
 SEED=42
 STEPS_PER_EPOCH=100
 ENABLE_TE=${ENABLE_TE:-0}
+ENABLE_FMHA=0
 
 eval set -- "$args"
 while [ : ]; do
@@ -65,6 +67,10 @@ while [ : ]; do
             ;;
         --enable-te)
             ENABLE_TE="$2"
+            shift 2
+            ;;
+        --enable-fmha)
+            ENABLE_FMHA="$2"
             shift 2
             ;;
         -e | --epochs)
@@ -105,6 +111,17 @@ if [[ $BATCH_SIZE == 0 ]]; then
     usage 1
 fi
 
+# Set hlo dump folder after output folder is set.
+HLO_DIR=${OUTPUT}/hlo
+export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_dump_hlo_as_text --xla_dump_to=${HLO_DIR}}"
+echo "HLO will be dumped in ${HLO_DIR} dir."
+
+## Setting the env variables for FMHA
+if [[ "$ENABLE_FMHA" -eq 1 ]]; then  
+    export XLA_FLAGS="${BASE_XLA_FLAGS} ${XLA_FLAGS:---xla_gpu_graph_level=0 --xla_gpu_fused_attention_use_cudnn_rng=true}" 
+fi
+
+echo "XLA FLAGS: $XLA_FLAGS"
 ## Set derived variables
 
 TRAIN_STEPS=$(($EPOCHS * $STEPS_PER_EPOCH))
@@ -114,6 +131,7 @@ print_var BATCH_SIZE
 print_var USE_CONTRIB_CONFIGS
 print_var DTYPE
 print_var ENABLE_TE
+print_var ENABLE_FMHA
 print_var EPOCHS
 print_var OUTPUT
 print_var MULTIPROCESS
@@ -206,3 +224,28 @@ ENABLE_TE=$ENABLE_TE python -m t5x.train \
     $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 echo "Output at ${OUTPUT}"
+
+if [[ "$ENABLE_FMHA" -eq 1 ]]; then 
+    ## Check if fmha instructions are present in the HLO dumped file or not.
+    fmha_regex="fmha[-bmm]?[-scale]?[-bias]?[-mask]?[-softmax]?[-dropout]?[-bmm]?[-backward]?*"
+    result=$(grep -irlnE "$fmha_regex" "${HLO_DIR}/"*.txt)
+
+    if [[ $SAVE_HLO -eq 0 ]]; then
+	    rm -rf $HLO_DIR
+ 	    echo "Removed dumped HLO directory!"
+    fi
+
+    if [ -z "$result" ]; then
+        echo "E: No FMHA instructions were found in the hlo files!"
+	    exit 1
+    else
+	    echo -e "Found FMHA instructions in the following HLO files: \n $result" | while read -r line; do
+		echo "$line"
+	done
+    exit 0
+else
+    if [[ $SAVE_HLO -eq 0 ]]; then
+	    rm -rf $HLO_DIR
+ 	    echo "Removed dumped HLO directory!"
+    fi
+fi
