@@ -117,5 +117,5 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 # Copy all required files for manifestation
 COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-COPY patches/ ${DEST_MANIFEST_DIR}/patches/
+#COPY patches/ ${DEST_MANIFEST_DIR}/patches/
 
