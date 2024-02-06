@@ -33,15 +33,12 @@ RUN --mount=type=ssh \
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 # TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt
-# TODO: This is a WAR to NCCL errors we observe in TOT. Should be removed when no longer needed
-ADD Mark-collective-called-computations-in-custom-shardi.patch /opt
 RUN build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
     --xla-arm64-patch /opt/xla-arm64-neon.patch \ 
-    --other-xla-patches /opt/Mark-collective-called-computations-in-custom-shardi.patch \
     --clean
 
 ###############################################################################
