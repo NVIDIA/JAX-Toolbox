@@ -92,6 +92,7 @@ jobs:
         shell: bash -eu -o pipefail {0}
         run: |
           declare -a FLAVORS=(
+            base
             jax
             pallas
             maxtext
@@ -170,7 +171,7 @@ jobs:
 
   publish:
     needs: [make-publish-configs]
-    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '[]' }}
+    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
