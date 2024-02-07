@@ -78,6 +78,9 @@ jobs:
   make-publish-configs:
     runs-on: ubuntu-22.04
     if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+    env:
+      MEALKIT_IMAGE_REPO: jax-toolbox-mealkit
+      FINAL_IMAGE_REPO: jax
     needs:
       - metadata
       - amd64
@@ -134,12 +137,10 @@ jobs:
                 # and mealkit images in `ghcr.io/nvidia/jax-toolbox-mealkit` namespace
                 case ${stage} in
                   mealkit)
-                    # target_image=jax-toolbox-mealkit
-                    target_image=jax-test-2
+                    target_image=${MEALKIT_IMAGE_REPO}
                     ;;
                   final)
-                    # target_image=jax
-                    target_image=jax-test-1
+                    target_image=${FINAL_IMAGE_REPO}
                     ;;
                 esac
 
