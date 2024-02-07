@@ -74,13 +74,13 @@ jobs:
       - name: Upload bumped manifest to be used in build-base
         uses: actions/upload-artifact@v4
         with:
-          name: maybe-bumped-manifest
+          name: maybe-bumped-manifest-${{ inputs.ARCHITECTURE }}
           path: .github/container/manifest.yaml
       
       - name: Upload patch folder to be used in build-base
         uses: actions/upload-artifact@v4
         with:
-          name: maybe-bumped-patches
+          name: maybe-bumped-patches-${{ inputs.ARCHITECTURE }}
           path: .github/container/patches
 
   build-base:
@@ -107,14 +107,14 @@ jobs:
         if: inputs.BUMP_MANIFEST
         uses: actions/download-artifact@v3
         with:
-          name: maybe-bumped-manifest
+          name: maybe-bumped-manifest-${{ inputs.ARCHITECTURE }}
           path: .github/container/
       
       - name: Replace checked-out patch folder with bumped one
         if: inputs.BUMP_MANIFEST
         uses: actions/download-artifact@v3
         with:
-          name: maybe-bumped-patches
+          name: maybe-bumped-patches-${{ inputs.ARCHITECTURE }}
           path: .github/container/patches
 
       - name: Log the changes in manifest file and patch folder
