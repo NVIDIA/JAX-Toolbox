@@ -88,41 +88,51 @@ jobs:
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
-          JOB=$(sshx sbatch --parsable << EOF
-          #!/bin/bash
-          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
-          #SBATCH --exclusive
-          #SBATCH --nodes=1
-          #SBATCH --tasks=1
-          #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-          #SBATCH --time=00:30:00
-          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
-          if [[ ${{ inputs.ENABLE_FMHA == true}} ]]; then
+          if [[ ${{ inputs.ENABLE_FMHA == true }} ]]; then
+            JOB=$(sshx sbatch --parsable << EOF
+            #!/bin/bash
+            #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+            #SBATCH --exclusive
+            #SBATCH --nodes=1
+            #SBATCH --tasks=1
+            #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+            #SBATCH --time=00:30:00
+            #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+            #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
             time srun \
               --container-image=${{ steps.meta.outputs.IMAGE }} \
               --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
               --container-entrypoint \
-              test-t5x.sh \
-                --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-                --dtype bfloat16 \
-                --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-                --epochs 7 \
-                --enable-fmha 1 \
-                --steps-per-epoch 100
+            test-t5x.sh \
+              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
+              --dtype bfloat16 \
+              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
+              --epochs 7 \
+              --enable-fmha 1 \
+              --steps-per-epoch 100
             EOF
             )            
           else
+            JOB=$(sshx sbatch --parsable << EOF
+            #!/bin/bash
+            #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+            #SBATCH --exclusive
+            #SBATCH --nodes=1
+            #SBATCH --tasks=1
+            #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+            #SBATCH --time=00:30:00
+            #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+            #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
             time srun \
               --container-image=${{ steps.meta.outputs.IMAGE }} \
               --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
               --container-entrypoint \
-              test-t5x.sh \
-                --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-                --dtype bfloat16 \
-                --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-                --epochs 7 \
-                --steps-per-epoch 100
+            test-t5x.sh \
+              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
+              --dtype bfloat16 \
+              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
+              --epochs 7 \
+              --steps-per-epoch 100
             EOF
             )
           fi
@@ -233,42 +243,51 @@ jobs:
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
-          JOB=$(sshx sbatch --parsable << EOF
-          #!/bin/bash
-          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
-          #SBATCH --exclusive
-          #SBATCH --nodes=${{ matrix.N_NODE }}
-          #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
-          #SBATCH --time=00:30:00
-          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
-          if [[ ${{ inputs.ENABLE_FMHA == true}} ]]; then
+          if [[ ${{ inputs.ENABLE_FMHA == true }} ]]; then
+            JOB=$(sshx sbatch --parsable << EOF
+            #!/bin/bash
+            #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+            #SBATCH --exclusive
+            #SBATCH --nodes=1
+            #SBATCH --tasks=1
+            #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+            #SBATCH --time=00:30:00
+            #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+            #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
             time srun \
               --container-image=${{ steps.meta.outputs.IMAGE }} \
               --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
               --container-entrypoint \
-              test-t5x.sh \
-                --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-                --dtype bfloat16 \
-                --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-                --epochs 7 \
-                --enable-fmha 1 \
-                --steps-per-epoch 100
+            test-t5x.sh \
+              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
+              --dtype bfloat16 \
+              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
+              --epochs 7 \
+              --enable-fmha 1 \
+              --steps-per-epoch 100
             EOF
             )            
           else
+            JOB=$(sshx sbatch --parsable << EOF
+            #!/bin/bash
+            #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+            #SBATCH --exclusive
+            #SBATCH --nodes=1
+            #SBATCH --tasks=1
+            #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+            #SBATCH --time=00:30:00
+            #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+            #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
             time srun \
               --container-image=${{ steps.meta.outputs.IMAGE }} \
               --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
               --container-entrypoint \
-              test-t5x.sh \
-                --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-                --dtype bfloat16 \
-                --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-                --epochs 7 \
-                --steps-per-epoch 100
+            test-t5x.sh \
+              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
+              --dtype bfloat16 \
+              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
+              --epochs 7 \
+              --steps-per-epoch 100
             EOF
             )
           fi
