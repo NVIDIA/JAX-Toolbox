@@ -85,10 +85,6 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-      - name: Submit SLURM jobs over SSH
-        id: submit
-        shell: bash -O expand_aliases -x -e {0}
-        run: |
           if [[ ${{ inputs.ENABLE_FMHA == true }} ]]; then
             alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
             sshx "date && hostname && sinfo"
