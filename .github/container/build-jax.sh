@@ -70,7 +70,7 @@ SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 XLA_ARM64_PATCH_LIST=""
 
-args=$(getopt -o h --long bazel-cache:,build-param:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch:,other-xla-patches: -- "$@")
+args=$(getopt -o h --long bazel-cache:,build-param:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -131,10 +131,6 @@ while [ : ]; do
             ;;
         --xla-arm64-patch)
             XLA_ARM64_PATCH_LIST=$2
-            shift 2
-            ;;
-        --other-xla-patches)
-            OTHER_XLA_PATCHES=$2
             shift 2
             ;;
         --)
@@ -261,13 +257,6 @@ if [[ "${CPU_ARCH}" == "arm64" ]]; then
     done
 fi
 
-# TODO: This is a WAR to NCCL errors we observe in TOT. Should be removed when no longer needed
-for p in $(echo $OTHER_XLA_PATCHES | tr "," "\n"); do
-    echo Apply patch $p
-    patch -p1 < $p
-done
-
-
 popd
 
 ## Build jaxlib
@@ -277,7 +266,8 @@ pushd $SRC_PATH_JAX
 # Delete old wheel if one already exist.
 rm -rf dist/j*.whl
 
-time CC=clang CXX=clang++ python build/build.py \
+time python build/build.py \
+    --use_clang \
     --enable_cuda \
     --cuda_path=$TF_CUDA_PATHS \
     --cudnn_path=$TF_CUDNN_PATHS \

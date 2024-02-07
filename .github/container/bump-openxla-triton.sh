@@ -62,12 +62,4 @@ git clone --branch "${xla_tracking_ref}" --single-branch "${xla_url}" "${xla_rep
 # patches in this .bzl file, but skip that for now.
 openxla_triton_tag=$(sed -n -e 's#\s\+TRITON_COMMIT = "\(cl[0-9]\+\)"#\1#p' "${xla_repo}/third_party/triton/workspace.bzl")
 rm -rf "${xla_repo}"
-openxla_triton_url=$(yq e ".openxla-triton.url" $MANIFEST)
-openxla_triton_repo=$(mktemp -d /tmp/openxla-triton.XXXXXX)
-git clone --branch "${openxla_triton_tag}" --single-branch --depth 3 "${openxla_triton_url}" "${openxla_triton_repo}"
-# Undo two changes that Google always apply to the openxla/triton@llvm-head
-# branch that these tags are based off, because they remove the Python
-# bindings that we need.
-openxla_triton_commit=$(cd "${openxla_triton_repo}" && git rev-parse --verify HEAD~2)
-rm -rf "${openxla_triton_repo}"
-yq e ".openxla-triton.latest_verified_commit = \"${openxla_triton_commit}\"" -i $MANIFEST
+yq e ".openxla-triton.latest_verified_commit = \"${openxla_triton_tag}\"" -i $MANIFEST
