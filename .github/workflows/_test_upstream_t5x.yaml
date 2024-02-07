@@ -88,55 +88,30 @@ jobs:
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
-          if [[ ${{ inputs.ENABLE_FMHA == true }} ]]; then
-            JOB=$(sshx sbatch --parsable << EOF
-            #!/bin/bash
-            #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
-            #SBATCH --exclusive
-            #SBATCH --nodes=1
-            #SBATCH --tasks=1
-            #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-            #SBATCH --time=00:30:00
-            #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-            #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
-            time srun \
-              --container-image=${{ steps.meta.outputs.IMAGE }} \
-              --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
-              --container-entrypoint \
+          JOB=$(sshx sbatch --parsable << EOF
+          #!/bin/bash
+          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+          #SBATCH --exclusive
+          #SBATCH --nodes=1
+          #SBATCH --tasks=1
+          #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+          #SBATCH --time=00:30:00
+          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          time srun \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
+            --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
+            --container-entrypoint \
             test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
-              --enable-fmha 1 \
-              --steps-per-epoch 100
-            EOF
-            )            
-          else
-            JOB=$(sshx sbatch --parsable << EOF
-            #!/bin/bash
-            #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
-            #SBATCH --exclusive
-            #SBATCH --nodes=1
-            #SBATCH --tasks=1
-            #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-            #SBATCH --time=00:30:00
-            #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-            #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
-            time srun \
-              --container-image=${{ steps.meta.outputs.IMAGE }} \
-              --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
-              --container-entrypoint \
-            test-t5x.sh \
-              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-              --dtype bfloat16 \
-              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-              --epochs 7 \
-              --steps-per-epoch 100
-            EOF
-            )
-          fi
-          
+              --steps-per-epoch 100 \
+              ${{ if inputs.ENABLE_FMHA == 'true' }}--enable-fmha 1{{endif}}
+          EOF
+          )
+
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
           set +x
@@ -243,54 +218,29 @@ jobs:
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
-          if [[ ${{ inputs.ENABLE_FMHA == true }} ]]; then
-            JOB=$(sshx sbatch --parsable << EOF
-            #!/bin/bash
-            #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
-            #SBATCH --exclusive
-            #SBATCH --nodes=1
-            #SBATCH --tasks=1
-            #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-            #SBATCH --time=00:30:00
-            #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-            #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
-            time srun \
-              --container-image=${{ steps.meta.outputs.IMAGE }} \
-              --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
-              --container-entrypoint \
+          JOB=$(sshx sbatch --parsable << EOF
+          #!/bin/bash
+          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+          #SBATCH --exclusive
+          #SBATCH --nodes=1
+          #SBATCH --tasks=1
+          #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+          #SBATCH --time=00:30:00
+          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          time srun \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
+            --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
+            --container-entrypoint \
             test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
-              --enable-fmha 1 \
-              --steps-per-epoch 100
-            EOF
-            )            
-          else
-            JOB=$(sshx sbatch --parsable << EOF
-            #!/bin/bash
-            #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
-            #SBATCH --exclusive
-            #SBATCH --nodes=1
-            #SBATCH --tasks=1
-            #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-            #SBATCH --time=00:30:00
-            #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-            #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
-            time srun \
-              --container-image=${{ steps.meta.outputs.IMAGE }} \
-              --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
-              --container-entrypoint \
-            test-t5x.sh \
-              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-              --dtype bfloat16 \
-              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-              --epochs 7 \
-              --steps-per-epoch 100
-            EOF
-            )
-          fi
+              --steps-per-epoch 100 \
+              ${{ if inputs.ENABLE_FMHA == 'true' }}--enable-fmha 1{{endif}}
+          EOF
+          )
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
