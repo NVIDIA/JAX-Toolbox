@@ -218,6 +218,7 @@ jobs:
       #     path: image-name.txt
 
       - name: Upload sitrep and badge
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
