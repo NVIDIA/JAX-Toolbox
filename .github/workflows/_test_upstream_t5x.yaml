@@ -29,10 +29,10 @@ on:
         required: false
         default: 'upstream-t5x'
       ENABLE_FMHA:
-        type: boolean
+        type: number
         description: 'Execute the T5x test with FMHA feature enabled in XLA.'
         required: false
-        default: false
+        default: 0
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -107,7 +107,7 @@ jobs:
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
-              --enable-fmha 1 \
+              --enable-fmha ${{ inputs.ENABLE_FMHA }} \
               --steps-per-epoch 100
           EOF
           )            
