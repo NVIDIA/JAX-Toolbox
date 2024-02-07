@@ -103,22 +103,16 @@ jobs:
               --container-image=${{ steps.meta.outputs.IMAGE }} \
               --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
               --container-entrypoint \
-              test-t5x.sh \
+            test-t5x.sh \
                 --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
                 --dtype bfloat16 \
                 --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
                 --epochs 7 \
                 --enable-fmha 1 \
                 --steps-per-epoch 100
-            test-t5x.sh \
-              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-              --dtype bfloat16 \
-              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-              --epochs 7 \
-              --enable-fmha 1 \
-              --steps-per-epoch 100
             EOF
             )            
+            
           else
             alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
             sshx "date && hostname && sinfo"
@@ -137,12 +131,6 @@ jobs:
               --container-image=${{ steps.meta.outputs.IMAGE }} \
               --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
               --container-entrypoint \
-              test-t5x.sh \
-                --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-                --dtype bfloat16 \
-                --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-                --epochs 7 \
-                --steps-per-epoch 100
             test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
@@ -151,6 +139,7 @@ jobs:
               --steps-per-epoch 100
             EOF
             )
+            
           fi
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
@@ -274,13 +263,6 @@ jobs:
               --container-image=${{ steps.meta.outputs.IMAGE }} \
               --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
               --container-entrypoint \
-              test-t5x.sh \
-                --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-                --dtype bfloat16 \
-                --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-                --epochs 7 \
-                --enable-fmha 1 \
-                --steps-per-epoch 100
             test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
@@ -290,6 +272,7 @@ jobs:
               --steps-per-epoch 100
             EOF
             )            
+            
           else
             alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
             sshx "date && hostname && sinfo"
@@ -308,12 +291,6 @@ jobs:
               --container-image=${{ steps.meta.outputs.IMAGE }} \
               --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
               --container-entrypoint \
-              test-t5x.sh \
-                --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-                --dtype bfloat16 \
-                --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-                --epochs 7 \
-                --steps-per-epoch 100
             test-t5x.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
@@ -322,6 +299,7 @@ jobs:
               --steps-per-epoch 100
             EOF
             )
+            
           fi
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
