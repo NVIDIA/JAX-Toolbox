@@ -150,7 +150,7 @@ jobs:
           mv fsitrep.json sitrep.json
           
       - name: Upload training logs as artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.ARTIFACT_NAME }}
           path: ./sitrep.json

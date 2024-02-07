@@ -63,24 +63,24 @@ jobs:
         run: env
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
       - name: Set docker metadata - mealkit
         id: mealkit-metadata
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: |
             ${{ env.UPLD_IMAGE }}
@@ -93,7 +93,7 @@ jobs:
 
       - name: Build mealkit image
         id: mealkit-build
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .github/container
           push: true
@@ -108,7 +108,7 @@ jobs:
 
       - name: Set docker metadata - final
         id: final-metadata
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: |
             ${{ env.UPLD_IMAGE }}
@@ -121,7 +121,7 @@ jobs:
 
       - name: Build final image
         id: final-build
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .github/container
           push: true
@@ -169,7 +169,7 @@ jobs:
           > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload sitrep and badge
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
           path: |

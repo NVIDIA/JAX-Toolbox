@@ -164,7 +164,7 @@ jobs:
           EOF
 
       - name: Upload training logs as artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
@@ -308,7 +308,7 @@ jobs:
           EOF
 
       - name: Upload training logs as artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
@@ -319,7 +319,7 @@ jobs:
 
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download artifacts
         uses: actions/download-artifact@v3
@@ -337,7 +337,7 @@ jobs:
           RESULTS_DIR=$PWD BASELINES_DIR=MAXTEXT/upstream pytest --report-log=report.jsonl .github/workflows/baselines/test_maxtext_metrics.py || true
 
       - name: Upload metrics test json logs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: upstream-${{ inputs.FW_NAME }}-metrics-test-log
           path: |

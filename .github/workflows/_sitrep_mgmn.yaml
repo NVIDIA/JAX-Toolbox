@@ -27,7 +27,7 @@ jobs:
       STATUS: ${{ steps.gen-sitrep.outputs.STATUS }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download all artifacts from the previous jobs
         uses: actions/download-artifact@v3
@@ -139,7 +139,7 @@ jobs:
           echo "STATUS=${status}" >> ${GITHUB_OUTPUT}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.ARTIFACT_NAME }}
           path: |
