@@ -136,6 +136,7 @@ jobs:
     runs-on: ubuntu-22.04
     if: "!cancelled()"
     needs:
+      - build-base
       - build-jax
       - build-pallas
       - build-maxtext
@@ -152,6 +153,7 @@ jobs:
         run: |
           TAGS=$(cat <<EOF | jq -c
           [\
+            {"flavor": "base",        "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
             {"flavor": "jax",         "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "pallas",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "maxtext",     "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\

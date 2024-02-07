@@ -77,10 +77,10 @@ jobs:
 
   make-publish-configs:
     runs-on: ubuntu-22.04
-    if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+    if:  ${{ !cancelled() }}
     env:
-      MEALKIT_IMAGE_REPO: jax-toolbox-mealkit
-      FINAL_IMAGE_REPO: jax
+      MEALKIT_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax-mealkit' || 'mock-jax-mealkit' }}
+      FINAL_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax' || 'mock-jax' }}
     needs:
       - metadata
       - amd64
@@ -170,7 +170,7 @@ jobs:
 
   publish:
     needs: [make-publish-configs]
-    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS != '' }}
+    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '[]' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
