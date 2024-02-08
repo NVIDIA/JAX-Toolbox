@@ -56,8 +56,8 @@ jobs:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME_PREFIX }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}.json
       ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME}}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
     outputs:
-      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
-      DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
+      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-build.outcome == 'success' && steps.mealkit-metadata.outputs.tags || '' }}
+      DOCKER_TAG_FINAL: ${{ steps.final-build.outcome == 'success' && steps.final-metadata.outputs.tags || '' }}
     steps:
       - name: Print environment variables
         run: env

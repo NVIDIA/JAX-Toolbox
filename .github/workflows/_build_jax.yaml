@@ -60,8 +60,8 @@ jobs:
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
-      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
-      DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
+      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-build.outcome == 'success' && steps.mealkit-metadata.outputs.tags || '' }}
+      DOCKER_TAG_FINAL: ${{ steps.final-build.outcome == 'success' && steps.final-metadata.outputs.tags || '' }}
     steps:
       - name: Print environment variables
         run: env
