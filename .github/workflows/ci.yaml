@@ -37,6 +37,16 @@ jobs:
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
       BUMP_MANIFEST: ${{ steps.if-bump-manifest.outputs.BUMP_MANIFEST }}
     steps:
+      - name: Cancel workflow run if triggered by a draft PR
+        id: check-pr
+        if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+        run: |
+          echo "PR is a draft, cancelling this workflow"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          cat  # blocks execution in case workflow cancellation takes time
+
       - name: Set build date
         id: date
         shell: bash -x -e {0}
