@@ -223,7 +223,7 @@ jobs:
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 4
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: 1DP4FSDP2TP1PP_TE
+          - TEST_NAME: 4DP1FSDP2TP1PP_TE
             PARALLEL_CONFIG: [1, 4, 1, 2]
             BATCH_SIZE: 4
             ADDITIONAL_ARGS: ""
