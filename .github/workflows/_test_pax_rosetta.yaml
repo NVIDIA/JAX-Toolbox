@@ -213,24 +213,31 @@ jobs:
         include:
           - TEST_NAME: 1DP1FSDP1TP1PP_TE
             PARALLEL_CONFIG: [1, 1, 1, 1]
+            BATCH_SIZE: 4
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 8DP1FSDP1TP1PP_TE
             PARALLEL_CONFIG: [1, 8, 1, 1]
             ADDITIONAL_ARGS: ""
+            BATCH_SIZE: 4
           - TEST_NAME: 1DP8FSDP1TP1PP_TE
             PARALLEL_CONFIG: [1, 1, 8, 1]
+            BATCH_SIZE: 4
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 1DP4FSDP2TP1PP_TE
             PARALLEL_CONFIG: [1, 4, 1, 2]
+            BATCH_SIZE: 4
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 16DP1FSDP1TP1PP_TE
             PARALLEL_CONFIG: [1, 16, 1, 1]
+            BATCH_SIZE: 4
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 5B_fused_attn_1
             PARALLEL_CONFIG: [1, 1, 8, 1]
+            BATCH_SIZE: 2
             ADDITIONAL_ARGS: "--run-5b --enable-fused-attn"
           - TEST_NAME: 5B_fused_attn_0
             PARALLEL_CONFIG: [1, 1, 8, 1]
+            BATCH_SIZE: 2
             ADDITIONAL_ARGS: "--run-5b"
       fail-fast: false
 
@@ -303,7 +310,7 @@ jobs:
             test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
-              --batch-per-gpu 4 \
+              --batch-per-gpu ${{ matrix.BATCH_SIZE }} \
               --steps 300 \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
               --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
