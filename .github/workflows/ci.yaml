@@ -41,6 +41,10 @@ jobs:
         id: check-pr
         if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
         run: |
+          echo ${{ github.event_name }}
+          echo ${{ github.event.pull_request.draft }}
+          echo ${{ github.event.pull_request.draft == true }}
+          echo ${{ github.event.pull_request.draft == 'true' }}
           echo "PR is a draft, cancelling this workflow"
           curl -X POST -H "Authorization: token ${{ github.token }}" \
                -H "Accept: application/vnd.github.v3+json" \
