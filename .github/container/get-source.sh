@@ -94,6 +94,7 @@ set -ex -o pipefail
 
 git clone ${GIT_REPO} ${INSTALL_DIR}
 pushd ${INSTALL_DIR}
+git branch -a
 git checkout ${GIT_REF}
 git submodule update --init --recursive
 popd
