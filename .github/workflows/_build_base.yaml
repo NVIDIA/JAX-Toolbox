@@ -105,14 +105,14 @@ jobs:
 
       - name: Replace checked-out manifest file with bumped one
         if: inputs.BUMP_MANIFEST
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: maybe-bumped-manifest-${{ inputs.ARCHITECTURE }}
           path: .github/container/
       
       - name: Replace checked-out patch folder with bumped one
         if: inputs.BUMP_MANIFEST
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: maybe-bumped-patches-${{ inputs.ARCHITECTURE }}
           path: .github/container/patches
