@@ -39,17 +39,22 @@ jobs:
     steps:
       - name: Cancel workflow run if triggered by a draft PR
         id: check-pr
-        if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+        if: github.event_name == 'pull_request'
         run: |
-          echo ${{ github.event_name }}
-          echo ${{ github.event.pull_request.draft }}
-          echo ${{ github.event.pull_request.draft == true }}
-          echo ${{ github.event.pull_request.draft == 'true' }}
-          echo "PR is a draft, cancelling this workflow"
-          curl -X POST -H "Authorization: token ${{ github.token }}" \
-               -H "Accept: application/vnd.github.v3+json" \
-               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
-          cat  # blocks execution in case workflow cancellation takes time
+          is_draft=$(
+            curl -s \
+              -H "Authorization: token ${{ github.token }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }} |\
+            jq '.draft'  
+          )
+          if [[ $is_draft == "true" ]]; then
+            echo "PR is a draft, cancelling this workflow"
+            curl -X POST -H "Authorization: token ${{ github.token }}" \
+                 -H "Accept: application/vnd.github.v3+json" \
+                 "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+            cat  # blocks execution in case workflow cancellation takes time
+          fi
 
       - name: Set build date
         id: date
