@@ -48,14 +48,14 @@ jobs:
         run: nvidia-smi
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         
       - name: Pull TE image
         shell: bash -x -e {0}
@@ -110,7 +110,7 @@ jobs:
 
       - name: Upload unit test json logs
         if: success() || failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
           path: /log/*
@@ -132,12 +132,12 @@ jobs:
         run: env
 
       - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.8.0
+        uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup SSH known hosts
         id: ssh-known-hosts
@@ -288,7 +288,7 @@ jobs:
           > output/${{ env.BADGE_FILENAME_FULL }}
           
       - name: Upload training logs as artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}-${{ steps.meta.outputs.TEST_CASE_NAME }}
           path: output/*

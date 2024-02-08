@@ -35,7 +35,7 @@ jobs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -43,7 +43,7 @@ jobs:
 
       - name: Set docker metadata
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.DOCKER_REGISTRY }}/${{ inputs.TARGET_IMAGE }}
           flavor: latest=false

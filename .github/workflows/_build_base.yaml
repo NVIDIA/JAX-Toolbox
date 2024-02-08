@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Update manifest and patches in-place - show diff
         if: inputs.BUMP_MANIFEST
@@ -72,15 +72,15 @@ jobs:
           git diff
 
       - name: Upload bumped manifest to be used in build-base
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: maybe-bumped-manifest
+          name: maybe-bumped-manifest-${{ inputs.ARCHITECTURE }}
           path: .github/container/manifest.yaml
       
       - name: Upload patch folder to be used in build-base
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: maybe-bumped-patches
+          name: maybe-bumped-patches-${{ inputs.ARCHITECTURE }}
           path: .github/container/patches
 
   build-base:
@@ -95,7 +95,7 @@ jobs:
         run: env
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Delete checked-out manifest and patches
         if: inputs.BUMP_MANIFEST
@@ -105,16 +105,16 @@ jobs:
 
       - name: Replace checked-out manifest file with bumped one
         if: inputs.BUMP_MANIFEST
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: maybe-bumped-manifest
+          name: maybe-bumped-manifest-${{ inputs.ARCHITECTURE }}
           path: .github/container/
       
       - name: Replace checked-out patch folder with bumped one
         if: inputs.BUMP_MANIFEST
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: maybe-bumped-patches
+          name: maybe-bumped-patches-${{ inputs.ARCHITECTURE }}
           path: .github/container/patches
 
       - name: Log the changes in manifest file and patch folder
@@ -127,21 +127,21 @@ jobs:
           git diff
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
       - name: Set docker metadata
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: |
             ${{ env.UPLD_IMAGE }}
@@ -154,7 +154,7 @@ jobs:
 
       - name: Build docker images
         id: build
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .github/container
           push: true
@@ -203,7 +203,7 @@ jobs:
           > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload sitrep and badge
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
           path: |

@@ -47,7 +47,7 @@ jobs:
       GIST_ID: ${{ steps.extract-id.outputs.GIST_ID }}
     steps:
       - name: Download artifacts specified by input
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Collect all badge files to temporary folder
         id: collect
@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Write output to step summary
         shell: bash -x -e {0}
@@ -150,7 +150,7 @@ jobs:
           mv fsitrep.json sitrep.json
           
       - name: Upload training logs as artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.ARTIFACT_NAME }}
           path: ./sitrep.json
