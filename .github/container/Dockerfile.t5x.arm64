@@ -120,12 +120,13 @@ COPY --from=array_record-builder /tmp/array_record/all_dist/array_record*linux_a
             tensorflow-datasets
 # END
 
-RUN get-source.sh -l grain -m ${MANIFEST_FILE}
-
 RUN <<"EOT" bash -exu
 set -o pipefail
 
+# Check out source of grain-nightly 0.0.4
+git clone https://github.com/google/grain ${SRC_PATH_GRAIN}
 pushd ${SRC_PATH_GRAIN}
+git checkout fa79b9dea81ffb00555a6c2ae2898be4bdd5e564
 
 # Make bazel stop complaining about sharding and disable some tests with missing bazel build deps
 sed -i 's| bazel test | bazel test --test_sharding_strategy=disabled |' ./grain/oss/build_whl.sh
