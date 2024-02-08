@@ -3,10 +3,6 @@ name: ~publish images from internal to public repo
 on:
   workflow_call:
     inputs:
-      SOURCE_IMAGE:
-        type: string
-        description: 'Source docker image:'
-        required: true
       TARGET_IMAGE:
         type: string
         description: 'Target docker image (jax/t5x/etc.):'
@@ -14,6 +10,10 @@ on:
       TARGET_TAGS:
         type: string
         description: 'Target docker tags in docker/metadata-action format:'
+        required: true
+      SOURCE_IMAGE:
+        type: string
+        description: 'Source docker image:'
         required: true
       # EXPOSE_SINGLE_ARCH_IMAGES:
       #   type: boolean
@@ -54,7 +54,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           manifests=""
-          for src_img in $(echo "${{ inputs.SOURCE_IMAGE }}" | tr '\n' ' '); do
+          for src_img in $(echo -e "${{ inputs.SOURCE_IMAGE }}" | tr '\n' ' '); do
             repo=$(echo $src_img | cut -d: -f1)
             media_type=$(docker manifest inspect $src_img | jq -r '.mediaType')
             case "$media_type" in
@@ -88,7 +88,7 @@ jobs:
         id: multi-arch
         shell: bash -x -e {0}
         run: |
-          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
+          for tag in $(echo -e "${{ steps.meta.outputs.tags }}"); do
             docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
           done
 
@@ -104,14 +104,3 @@ jobs:
       #         skopeo copy --format v2s2 docker://$manifest docker://$tag-${os}-${arch}
       #       done
       #     done
-
-      # - name: Generate outputs and artifacts
-      #   shell: bash -x -e {0}
-      #   run: |
-      #     echo "${{ steps.meta.outputs.tags }}" > image-tags-${{ inputs.TARGET_IMAGE }}.txt
-
-      # - name: Upload image tags as artifacts
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: image-tags-${{ inputs.TARGET_IMAGE }}
-      #     path: image-tags-${{ inputs.TARGET_IMAGE }}.txt
