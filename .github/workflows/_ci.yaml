@@ -201,9 +201,12 @@ jobs:
   test-jax:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-    uses: ./.github/workflows/_test_jax.yaml
+    uses: ./.github/workflows/_test_unit.yaml
     with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+      IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+      TEST_NAME: jax
+      ARTIFACT_NAME: artifact-jax-unit-test
+      BADGE_FILENAME: badge-jax-unit-test
     secrets: inherit
 
   test-te:
@@ -230,14 +233,16 @@ jobs:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  # TODO: re-activate after 20-workflow limit resolved
-  # test-pallas:
-  #   needs: build-pallas
-  #   if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-  #   uses: ./.github/workflows/_test_pallas.yaml
-  #   with:
-  #     PALLAS_IMAGE: ${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}
-  #   secrets: inherit
+  test-pallas:
+    needs: build-pallas
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      IMAGE: ${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}
+      TEST_NAME: pallas
+      ARTIFACT_NAME: artifact-pallas-unit-test
+      BADGE_FILENAME: badge-pallas-unit-test
+    secrets: inherit
 
   test-upstream-pax:
     needs: build-pax
