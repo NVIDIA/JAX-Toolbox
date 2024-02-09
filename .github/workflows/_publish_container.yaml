@@ -55,8 +55,7 @@ jobs:
         with:
           images: ${{ env.DOCKER_REGISTRY }}/${{ inputs.TARGET_IMAGE }}
           flavor: latest=false
-          tags: |
-            $target_tags
+          tags: ${{ join(inputs.TARGET_TAGS, ' ') }}
 
       - name: Extract manifests from the source manifest list
         id: get-manifests
