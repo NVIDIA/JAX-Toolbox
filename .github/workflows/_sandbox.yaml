@@ -14,7 +14,7 @@ jobs:
         id: make-publish-configs
         shell: bash -x -e {0}
         run: |
-          cat<<EOF | jq -c | tee -a $GITHUB_OUTPUT
+          PUBLISH_CONFIGS=$(cat<<EOF | jq -c
           {
             "config": [
               {
@@ -203,6 +203,9 @@ jobs:
             ]
           }
           EOF
+          )
+
+          echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" | tee -a $GITHUB_OUTPUT
 
   publish:
     needs: [make-publish-configs]
