@@ -217,3 +217,24 @@ jobs:
       TARGET_IMAGE: ${{ matrix.config.target_image }}
       TARGET_TAGS:  ${{ join(matrix.config.target_tags,  '%0A') }}
       SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
+
+  publish2:
+    needs: [make-publish-configs]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      TARGET_IMAGE: ${{ matrix.config.target_image }}
+      TARGET_TAGS: |
+        ${{ join(matrix.config.target_tags,  '%0A') }}
+      SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
+
+  publish3:
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      TARGET_IMAGE: X
+      TARGET_TAGS: |
+        A
+        B
+      SOURCE_IMAGE: C
