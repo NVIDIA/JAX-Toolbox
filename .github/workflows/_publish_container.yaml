@@ -55,14 +55,15 @@ jobs:
         with:
           images: ${{ env.DOCKER_REGISTRY }}/${{ steps.parse.outputs.target_image }}
           flavor: latest=false
-          tags: ${{ steps.parse.outputs.target_tags }}
+          tags: |
+            ${{ steps.parse.outputs.target_tags }}
 
       - name: Extract manifests from the source manifest list
         id: get-manifests
         shell: bash -x -e {0}
         run: |
           manifests=""
-          for src_img in $(echo "${{ steps.parse.outputs.source_image }}" | tr '\n' ' '); do
+          for src_img in $(echo -e "${{ steps.parse.outputs.source_image }}" | tr '\n' ' '); do
             repo=$(echo $src_img | cut -d: -f1)
             media_type=$(docker manifest inspect $src_img | jq -r '.mediaType')
             case "$media_type" in
