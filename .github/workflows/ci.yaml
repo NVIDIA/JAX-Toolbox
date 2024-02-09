@@ -1,5 +1,5 @@
 name: CI
-run-name: CI - ${{ github.event_name == 'schedule' && format('nightly {0}', github.event.workflow_run.created_at) || format('{0} @ {1}', github.event_name, github.ref_name) }}
+run-name: CI${{ github.event_name == 'workflow_dispatch' && format(' PUBLISH={0} BUMP_MANIFEST={1}', inputs.PUBLISH, inputs.BUMP_MANIFEST) || '' }}
 
 on:
   schedule:
