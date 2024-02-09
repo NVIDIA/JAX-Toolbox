@@ -41,28 +41,20 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Convert escape characters in input string
-        id: parse
-        shell: bash -x -e {0}
-        run: |
-          echo "target_tags<<EOF" | tee -a $GITHUB_ENV
-          echo -e "${{ join(inputs.TARGET_TAGS, '\n') }}" | tee -a $GITHUB_ENV
-          echo "EOF" | tee -a $GITHUB_ENV
-
       - name: Set docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.DOCKER_REGISTRY }}/${{ inputs.TARGET_IMAGE }}
           flavor: latest=false
-          tags: ${{ join(inputs.TARGET_TAGS, ' ') }}
+          tags: ${{ inputs.TARGET_TAGS }}
 
       - name: Extract manifests from the source manifest list
         id: get-manifests
         shell: bash -x -e {0}
         run: |
           manifests=""
-          for src_img in $(echo -e "${{ inputs.SOURCE_IMAGE }}" | tr '\n' ' '); do
+          for src_img in $(echo "${{ inputs.SOURCE_IMAGE }}" | tr '\n' ' '); do
             repo=$(echo $src_img | cut -d: -f1)
             media_type=$(docker manifest inspect $src_img | jq -r '.mediaType')
             case "$media_type" in
