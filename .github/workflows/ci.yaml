@@ -1,5 +1,4 @@
 name: CI
-run-name: CI${{ github.event_name == 'workflow_dispatch' && format(' PUBLISH={0} BUMP_MANIFEST={1}', inputs.PUBLISH, inputs.BUMP_MANIFEST) || '' }}
 
 on:
   schedule:
