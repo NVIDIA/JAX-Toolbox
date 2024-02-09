@@ -1,41 +1,211 @@
 name: "~Sandbox"
 
 on:
-  workflow_dispatch:
+  push:
 
 jobs:
-  sandbox:
+
+  metadata:
     runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+      BUMP_MANIFEST: ${{ steps.if-bump-manifest.outputs.BUMP_MANIFEST }}
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print usage
+      - name: Cancel workflow run if the trigger is a draft PR
+        id: cancel-if-draft
+        if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
         run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
+          echo "Cancelling workflow for draft PR"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          while true; do sleep 1; done  # blocks execution in case workflow cancellation takes time
 
-          Usage:
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'push' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether need to bump manifest 
+        id: if-bump-manifest
+        shell: bash -x -e {0}
+        run: |
+          echo "BUMP_MANIFEST=${{ github.event_name == 'push' || inputs.BUMP_MANIFEST }}" >> $GITHUB_OUTPUT
           
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
+  amd64:
+    runs-on: ubuntu-22.04
+    outputs:
+      DOCKER_TAGS: ${{ steps.collect-container-tags.outputs.TAGS }}
+    steps:
+      - name: Collect container tags
+        id: collect-container-tags
+        run: |
+          TAGS=$(cat <<EOF | jq -c
+          [\
+            {"flavor": "base",        "stage": "final",   "priority": 800,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-base-amd64"},\
+            {"flavor": "jax",         "stage": "final",   "priority": 1000, "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-jax-amd64"},\
+            {"flavor": "pallas",      "stage": "final",   "priority": 900,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-pallas-amd64"},\
+            {"flavor": "maxtext",     "stage": "final",   "priority": 900,  "tag": ""},\
+            {"flavor": "levanter",    "stage": "final",   "priority": 900,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-levanter-amd64"},\
+            {"flavor": "t5x",         "stage": "final",   "priority": 900,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-upstream-t5x-amd64"},\
+            {"flavor": "pax",         "stage": "final",   "priority": 900,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-upstream-pax-amd64"},\
+            {"flavor": "rosetta-t5x", "stage": "final",   "priority": 900,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-t5x-amd64"},\
+            {"flavor": "rosetta-pax", "stage": "final",   "priority": 900,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-pax-amd64"},\
+            {"flavor": "jax",         "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-jax-amd64-mealkit"},\
+            {"flavor": "pallas",      "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-pallas-amd64-mealkit"},\
+            {"flavor": "maxtext",     "stage": "mealkit", "priority": 500,  "tag": ""},\
+            {"flavor": "levanter",    "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-levanter-amd64-mealkit"},\
+            {"flavor": "t5x",         "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-upstream-t5x-amd64-mealkit"},\
+            {"flavor": "pax",         "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-upstream-pax-amd64-mealkit"},\
+            {"flavor": "rosetta-t5x", "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-t5x-amd64-mealkit"},\
+            {"flavor": "rosetta-pax", "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-pax-amd64-mealkit"},\
+            {}\
+          ]
           EOF
+          )
+          
+          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
+
+  arm64:
+    runs-on: ubuntu-22.04
+    outputs:
+      DOCKER_TAGS: ${{ steps.collect-container-tags.outputs.TAGS }}
+    steps:
+      - name: Collect container tags
+        id: collect-container-tags
+        run: |
+          TAGS=$(cat <<EOF | jq -c
+          [\
+            {"flavor": "base",        "stage": "final",   "priority": 800,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-base-arm64"},\
+            {"flavor": "jax",         "stage": "final",   "priority": 1000, "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-jax-arm64"},\
+            {"flavor": "pallas",      "stage": "final",   "priority": 900,  "tag": ""},\
+            {"flavor": "maxtext",     "stage": "final",   "priority": 900,  "tag": ""},\
+            {"flavor": "levanter",    "stage": "final",   "priority": 900,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-levanter-arm64"},\
+            {"flavor": "t5x",         "stage": "final",   "priority": 900,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-upstream-t5x-arm64"},\
+            {"flavor": "pax",         "stage": "final",   "priority": 900,  "tag": ""},\
+            {"flavor": "rosetta-t5x", "stage": "final",   "priority": 900,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-t5x-arm64"},\
+            {"flavor": "rosetta-pax", "stage": "final",   "priority": 900,  "tag": ""},\
+            {"flavor": "jax",         "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-jax-arm64-mealkit"},\
+            {"flavor": "pallas",      "stage": "mealkit", "priority": 500,  "tag": ""},\
+            {"flavor": "maxtext",     "stage": "mealkit", "priority": 500,  "tag": ""},\
+            {"flavor": "levanter",    "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-levanter-arm64-mealkit"},\
+            {"flavor": "t5x",         "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-upstream-t5x-arm64-mealkit"},\
+            {"flavor": "pax",         "stage": "mealkit", "priority": 500,  "tag": ""},\
+            {"flavor": "rosetta-t5x", "stage": "mealkit", "priority": 500,  "tag": "ghcr.io/nvidia/jax-toolbox-internal:7842056166-t5x-arm64-mealkit"},\
+            {"flavor": "rosetta-pax", "stage": "mealkit", "priority": 500,  "tag": ""},\
+            {}\
+          ]
+          EOF
+          )
+          
+          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
+
+  make-publish-configs:
+    runs-on: ubuntu-22.04
+    if:  ${{ !cancelled() }}
+    env:
+      MEALKIT_IMAGE_REPO: 'mock-jax-mealkit'
+      FINAL_IMAGE_REPO: 'mock-jax'
+    needs:
+      - amd64
+      - arm64
+    outputs:
+      PUBLISH_CONFIGS: ${{ steps.generate-configs.outputs.PUBLISH_CONFIGS }}
+    steps:
+      - id: generate-configs
+        shell: bash -eu -o pipefail {0}
+        run: |
+          declare -a FLAVORS=(
+            base
+            jax
+            pallas
+            maxtext
+            levanter
+            t5x
+            pax
+            rosetta-t5x
+            rosetta-pax
+          )
+          declare -a STAGES=(
+            mealkit
+            final
+          )
+
+          ## create JSON specs for a 1D matrix of container publication jobs
+
+          ALL_TAGS=$(
+            echo '${{ needs.amd64.outputs.DOCKER_TAGS }}' \
+                 '${{ needs.arm64.outputs.DOCKER_TAGS }}' |\
+            jq -s 'add'
+          )
+          PUBLISH_CONFIGS='[]'
+
+          for stage in "${STAGES[@]}"; do
+            for flavor in "${FLAVORS[@]}";do
+
+              # collect images for different platforms, e.g. amd64 and arm64
+              matching_tags=$(
+                echo "$ALL_TAGS" |\
+                jq -c ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\" and .tag != \"\")"
+              )
+
+              # source_image is a list of all platform-specific tags
+              source_image=$(echo "${matching_tags}" | jq -c "[.tag]" | jq -s 'add')
+              # if the build job failed without producing any images, skip this flavor
+              if [[ $(echo "$source_image" | jq 'length') -gt 0 ]]; then
+                echo "PUBLISH image $flavor $stage containers"
+
+                # tag priority is the highest priority of all platform-specific tags
+                priority=$(echo "${matching_tags}" | jq -r ".priority" | jq -s 'max')
+
+                # put all final images in the `ghcr.io/nvidia/jax` namespace
+                # and mealkit images in `ghcr.io/nvidia/jax-toolbox-mealkit` namespace
+                case ${stage} in
+                  mealkit)
+                    target_image=${MEALKIT_IMAGE_REPO}
+                    ;;
+                  final)
+                    target_image=${FINAL_IMAGE_REPO}
+                    ;;
+                esac
+
+                PUBLISH_CONFIGS=$(
+                  echo ${PUBLISH_CONFIGS} | jq -c ". + [{
+                    \"flavor\": \"${flavor}\",
+                    \"target_image\": \"${target_image}\",
+                    \"priority\": \"${priority}\",
+                    \"source_image\": ${source_image}
+                  }]"
+                )
+              else
+                echo "SKIPPED image $flavor without any $stage containers"
+              fi
+            done
+          done
+
+          PUBLISH_CONFIGS=$(echo "$PUBLISH_CONFIGS" | jq -c '{"config": .}')
+          echo ${PUBLISH_CONFIGS} | jq
+          echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" >> $GITHUB_OUTPUT
+
+  publish-containers:
+    needs: [make-publish-configs]
+    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
+      TARGET_IMAGE: ${{ matrix.config.target_image }}
+      TARGET_TAGS: |
+        type=raw,value=${{ matrix.config.flavor }},priority=${{ matrix.config.priority }}
+        type=raw,value=${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}

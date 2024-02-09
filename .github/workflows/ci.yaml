@@ -160,26 +160,13 @@ jobs:
                     ;;
                 esac
 
-                # a list of aliases to created for the multi-arch image
-                # target_tags=$(echo "[
-                #     \"type=raw,value=${flavor},priority=${priority}\",
-                #     \"type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}\"
-                #   ]" | jq -c
-                # )
-
                 PUBLISH_CONFIGS=$(
-                  echo ${PUBLISH_CONFIGS} | jq -c ". + [
-                  {
-                    \"source_image\": ${source_image},
+                  echo ${PUBLISH_CONFIGS} | jq -c ". + [{
+                    \"flavor\": \"${flavor}\",
                     \"target_image\": \"${target_image}\",
-                    \"target_tags\": \"type=raw,value=${flavor},priority=${priority}\"
-                  },
-                  {
-                    \"source_image\": ${source_image},
-                    \"target_image\": \"${target_image}\",
-                    \"target_tags\": \"type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}\"
-                  }
-                  ]"
+                    \"priority\": \"${priority}\",
+                    \"source_image\": ${source_image}
+                  }]"
                 )
               else
                 echo "SKIPPED image $flavor without any $stage containers"
@@ -191,17 +178,22 @@ jobs:
           echo ${PUBLISH_CONFIGS} | jq
           echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" >> $GITHUB_OUTPUT
 
-  publish:
-    needs: [make-publish-configs]
+  publish-containers:
+    needs:
+      - metadata
+      - make-publish-configs
     if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
     uses: ./.github/workflows/_publish_container.yaml
     with:
-      TARGET_IMAGE: ${{ matrix.config.target_image }}
-      TARGET_TAGS:  ${{ matrix.config.target_tags }}
       SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
+      TARGET_IMAGE: ${{ matrix.config.target_image }}
+      TARGET_TAGS: |
+        type=raw,value=${{ matrix.config.flavor }},priority=${{ matrix.config.priority }}
+        type=raw,value=${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
+
 
   finalize:
     needs: [metadata, amd64, arm64]
