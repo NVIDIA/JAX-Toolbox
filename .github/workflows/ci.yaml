@@ -161,18 +161,25 @@ jobs:
                 esac
 
                 # a list of aliases to created for the multi-arch image
-                target_tags=$(echo "[
-                    \"type=raw,value=${flavor},priority=${priority}\",
-                    \"type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}\"
-                  ]" | jq -c
-                )
+                # target_tags=$(echo "[
+                #     \"type=raw,value=${flavor},priority=${priority}\",
+                #     \"type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}\"
+                #   ]" | jq -c
+                # )
 
                 PUBLISH_CONFIGS=$(
-                  echo ${PUBLISH_CONFIGS} | jq -c ". + [{
+                  echo ${PUBLISH_CONFIGS} | jq -c ". + [
+                  {
                     \"source_image\": ${source_image},
                     \"target_image\": \"${target_image}\",
-                    \"target_tags\": ${target_tags}
-                  }]"
+                    \"target_tags\": \"type=raw,value=${flavor},priority=${priority}\"
+                  },
+                  {
+                    \"source_image\": ${source_image},
+                    \"target_image\": \"${target_image}\",
+                    \"target_tags\": \"type=raw,value=${flavor}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${priority}\"
+                  }
+                  ]"
                 )
               else
                 echo "SKIPPED image $flavor without any $stage containers"
@@ -193,7 +200,7 @@ jobs:
     uses: ./.github/workflows/_publish_container.yaml
     with:
       TARGET_IMAGE: ${{ matrix.config.target_image }}
-      TARGET_TAGS:  ${{ join(matrix.config.target_tags, ' ') }}
+      TARGET_TAGS:  ${{ matrix.config.target_tags }}
       SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
 
   finalize:
