@@ -46,8 +46,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           echo "target_image=${{ inputs.TARGET_IMAGE }}" | tee -a $GITHUB_OUTPUT
-          echo -e "target_tags=${{ inputs.TARGET_TAGS }}" | tee -a $GITHUB_OUTPUT
-          echo -e "source_image=${{ inputs.SOURCE_IMAGE }}" | tee -a $GITHUB_OUTPUT
+          echo -e "target_tags=${{ inputs.TARGET_TAGS }}" | sed "s/$/%0A/g" | tee -a $GITHUB_OUTPUT
+          echo -e "source_image=${{ inputs.SOURCE_IMAGE }}" | sed "s/$/%0A/g" | tee -a $GITHUB_OUTPUT
 
       - name: Set docker metadata
         id: meta
