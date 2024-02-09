@@ -45,8 +45,8 @@ jobs:
         id: parse
         run: |
           echo "targe_image=${{ inputs.TARGET_IMAGE }}" | tee -a $GITHUB_OUTPUT
-          echo "target_tags=\"$(echo -e '${{ inputs.TARGET_TAGS }}')\"" | tee -a $GITHUB_OUTPUT
-          echo "source_image=\"$(echo -e '${{ inputs.SOURCE_IMAGE }}')\"" | tee -a $GITHUB_OUTPUT
+          echo "target_tags=$(echo -e '${{ inputs.TARGET_TAGS }}')" | tee -a $GITHUB_OUTPUT
+          echo "source_image=$(echo -e '${{ inputs.SOURCE_IMAGE }}')" | tee -a $GITHUB_OUTPUT
 
       - name: Set docker metadata
         id: meta
