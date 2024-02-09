@@ -41,20 +41,27 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Convert escape characters in input string
+        id: parse
+        run: |
+          echo "targe_image=${{ inputs.TARGET_IMAGE }}" | tee -a $GITHUB_OUTPUT
+          echo "target_tags=\"$(echo -e '${{ inputs.TARGET_TAGS }}')\"" | tee -a $GITHUB_OUTPUT
+          echo "source_image=\"$(echo -e '${{ inputs.SOURCE_IMAGE }}')\"" | tee -a $GITHUB_OUTPUT
+
       - name: Set docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_REGISTRY }}/${{ inputs.TARGET_IMAGE }}
+          images: ${{ env.DOCKER_REGISTRY }}/${{ steps.parse.outputs.target_image }}
           flavor: latest=false
-          tags: ${{ inputs.TARGET_TAGS }}
+          tags: ${{ steps.parse.outputs.target_tags }}
 
       - name: Extract manifests from the source manifest list
         id: get-manifests
         shell: bash -x -e {0}
         run: |
           manifests=""
-          for src_img in $(echo -e "${{ inputs.SOURCE_IMAGE }}" | tr '\n' ' '); do
+          for src_img in $(echo "${{ steps.parse.outputs.source_image }}" | tr '\n' ' '); do
             repo=$(echo $src_img | cut -d: -f1)
             media_type=$(docker manifest inspect $src_img | jq -r '.mediaType')
             case "$media_type" in
@@ -88,7 +95,7 @@ jobs:
         id: multi-arch
         shell: bash -x -e {0}
         run: |
-          for tag in $(echo -e "${{ steps.meta.outputs.tags }}"); do
+          for tag in $(echo "${{ steps.meta.outputs.tags }}"); do
             docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
           done
 

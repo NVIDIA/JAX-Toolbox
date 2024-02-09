@@ -1,41 +1,216 @@
 name: "~Sandbox"
 
 on:
-  workflow_dispatch:
+  push:
 
 jobs:
-  sandbox:
+
+  make-publish-configs:
     runs-on: ubuntu-22.04
+    outputs:
+      PUBLISH_CONFIGS: ${{ steps.make-publish-configs.outputs.PUBLISH_CONFIGS }}
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print usage
+      - name: Set publish configs
+        id: make-publish-configs
+        shell: bash -x -e {0}
         run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
-
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
+          cat<<EOF | jq -c | tee -a $GITHUB_OUTPUT
+          {
+            "config": [
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-jax-amd64-mealkit",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-jax-arm64-mealkit"
+                ],
+                "target_image": "jax-mealkit",
+                "target_tags": [
+                  "type=raw,value=jax,priority=500",
+                  "type=raw,value=jax-2024-02-08,priority=500"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-pallas-amd64-mealkit"
+                ],
+                "target_image": "jax-mealkit",
+                "target_tags": [
+                  "type=raw,value=pallas,priority=500",
+                  "type=raw,value=pallas-2024-02-08,priority=500"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-maxtext-amd64-mealkit"
+                ],
+                "target_image": "jax-mealkit",
+                "target_tags": [
+                  "type=raw,value=maxtext,priority=500",
+                  "type=raw,value=maxtext-2024-02-08,priority=500"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-levanter-amd64-mealkit",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-levanter-arm64-mealkit"
+                ],
+                "target_image": "jax-mealkit",
+                "target_tags": [
+                  "type=raw,value=levanter,priority=500",
+                  "type=raw,value=levanter-2024-02-08,priority=500"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-upstream-t5x-amd64-mealkit",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-upstream-t5x-arm64-mealkit"
+                ],
+                "target_image": "jax-mealkit",
+                "target_tags": [
+                  "type=raw,value=t5x,priority=500",
+                  "type=raw,value=t5x-2024-02-08,priority=500"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-upstream-pax-amd64-mealkit",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-upstream-pax-arm64-mealkit"
+                ],
+                "target_image": "jax-mealkit",
+                "target_tags": [
+                  "type=raw,value=pax,priority=500",
+                  "type=raw,value=pax-2024-02-08,priority=500"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-t5x-amd64-mealkit",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-t5x-arm64-mealkit"
+                ],
+                "target_image": "jax-mealkit",
+                "target_tags": [
+                  "type=raw,value=rosetta-t5x,priority=500",
+                  "type=raw,value=rosetta-t5x-2024-02-08,priority=500"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-pax-amd64-mealkit",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-pax-arm64-mealkit"
+                ],
+                "target_image": "jax-mealkit",
+                "target_tags": [
+                  "type=raw,value=rosetta-pax,priority=500",
+                  "type=raw,value=rosetta-pax-2024-02-08,priority=500"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-base-amd64",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-base-arm64"
+                ],
+                "target_image": "jax",
+                "target_tags": [
+                  "type=raw,value=base,priority=800",
+                  "type=raw,value=base-2024-02-08,priority=800"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-jax-amd64",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-jax-arm64"
+                ],
+                "target_image": "jax",
+                "target_tags": [
+                  "type=raw,value=jax,priority=1000",
+                  "type=raw,value=jax-2024-02-08,priority=1000"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-pallas-amd64"
+                ],
+                "target_image": "jax",
+                "target_tags": [
+                  "type=raw,value=pallas,priority=900",
+                  "type=raw,value=pallas-2024-02-08,priority=900"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-maxtext-amd64"
+                ],
+                "target_image": "jax",
+                "target_tags": [
+                  "type=raw,value=maxtext,priority=900",
+                  "type=raw,value=maxtext-2024-02-08,priority=900"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-levanter-amd64",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-levanter-arm64"
+                ],
+                "target_image": "jax",
+                "target_tags": [
+                  "type=raw,value=levanter,priority=900",
+                  "type=raw,value=levanter-2024-02-08,priority=900"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-upstream-t5x-amd64",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-upstream-t5x-arm64"
+                ],
+                "target_image": "jax",
+                "target_tags": [
+                  "type=raw,value=t5x,priority=900",
+                  "type=raw,value=t5x-2024-02-08,priority=900"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-upstream-pax-amd64",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-upstream-pax-arm64"
+                ],
+                "target_image": "jax",
+                "target_tags": [
+                  "type=raw,value=pax,priority=900",
+                  "type=raw,value=pax-2024-02-08,priority=900"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-t5x-amd64",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-t5x-arm64"
+                ],
+                "target_image": "jax",
+                "target_tags": [
+                  "type=raw,value=rosetta-t5x,priority=900",
+                  "type=raw,value=rosetta-t5x-2024-02-08,priority=900"
+                ]
+              },
+              {
+                "source_image": [
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-pax-amd64",
+                  "ghcr.io/nvidia/jax-toolbox-internal:7827499030-pax-arm64"
+                ],
+                "target_image": "jax",
+                "target_tags": [
+                  "type=raw,value=rosetta-pax,priority=900",
+                  "type=raw,value=rosetta-pax-2024-02-08,priority=900"
+                ]
+              }
+            ]
+          }
           EOF
+
+  publish:
+    needs: [make-publish-configs]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      TARGET_IMAGE: ${{ matrix.config.target_image }}
+      TARGET_TAGS:  ${{ join(matrix.config.target_tags,  '\n') }}
+      SOURCE_IMAGE: ${{ join(matrix.config.source_image, '\n') }}
