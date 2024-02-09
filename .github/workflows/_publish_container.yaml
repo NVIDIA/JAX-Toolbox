@@ -43,8 +43,9 @@ jobs:
 
       - name: Convert escape characters in input string
         id: parse
+        shell: bash -x -e {0}
         run: |
-          echo "targe_image=${{ inputs.TARGET_IMAGE }}" | tee -a $GITHUB_OUTPUT
+          echo "target_image=${{ inputs.TARGET_IMAGE }}" | tee -a $GITHUB_OUTPUT
           echo "target_tags=$(echo ${{ inputs.TARGET_TAGS }} | sed 's/\\n/%0A/g')" | tee -a $GITHUB_OUTPUT
           echo "source_image=$(echo ${{ inputs.SOURCE_IMAGE }} | sed 's/\\n/%0A/g')" | tee -a $GITHUB_OUTPUT
 
