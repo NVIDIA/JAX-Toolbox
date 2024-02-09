@@ -161,8 +161,9 @@ jobs:
               # source_image is a list of all platform-specific tags
               source_image=$(echo "${matching_tags}" | jq -c "[.tag]" | jq -s 'add')
               # if the build job failed without producing any images, skip this flavor
-              if [[ $(echo "$source_image" | jq 'length') -gt 0 ]]; then
-                echo "PUBLISH image $flavor $stage containers"
+              n_source_images=$(echo "$source_image" | jq 'length')
+              if [[ $n_source_images -gt 0 ]]; then
+                echo "PUBLISH image $flavor with $n_source_images $stage containers"
 
                 # tag priority is the highest priority of all platform-specific tags
                 priority=$(echo "${matching_tags}" | jq -r ".priority" | jq -s 'max')
@@ -187,7 +188,7 @@ jobs:
                   }]"
                 )
               else
-                echo "SKIPPED image $flavor without any $stage containers"
+                echo "SKIPPED image $flavor with 0 $stage containers"
               fi
             done
           done
@@ -197,7 +198,9 @@ jobs:
           echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" >> $GITHUB_OUTPUT
 
   publish-containers:
-    needs: [make-publish-configs]
+    needs:
+      - metadata
+      - make-publish-configs
     if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
     strategy:
       fail-fast: false
