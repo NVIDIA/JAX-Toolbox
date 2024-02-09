@@ -215,5 +215,5 @@ jobs:
     uses: ./.github/workflows/_publish_container.yaml
     with:
       TARGET_IMAGE: ${{ matrix.config.target_image }}
-      TARGET_TAGS:  ${{ join(matrix.config.target_tags,  '\n') }}
-      SOURCE_IMAGE: ${{ join(matrix.config.source_image, '\n') }}
+      TARGET_TAGS:  ${{ join(matrix.config.target_tags,  ' ') }}
+      SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
