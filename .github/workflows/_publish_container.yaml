@@ -9,11 +9,11 @@ on:
         required: true
       TARGET_TAGS:
         type: string
-        description: 'Target docker tags in docker/metadata-action format:'
+        description: 'Target docker tags in docker/metadata-action format as JSON list'
         required: true
       SOURCE_IMAGE:
         type: string
-        description: 'Source docker image:'
+        description: 'Source docker images as JSON list'
         required: true
       # EXPOSE_SINGLE_ARCH_IMAGES:
       #   type: boolean
@@ -46,8 +46,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           echo "target_image=${{ inputs.TARGET_IMAGE }}" | tee -a $GITHUB_OUTPUT
-          echo -e "target_tags=${{ inputs.TARGET_TAGS }}" | sed "s/$/%0A/g" | tee -a $GITHUB_OUTPUT
-          echo -e "source_image=${{ inputs.SOURCE_IMAGE }}" | sed "s/$/%0A/g" | tee -a $GITHUB_OUTPUT
+          echo "target_tags=${{ join(inputs.TARGET_TAGS, '%0A') }}" | tee -a $GITHUB_OUTPUT
+          echo "source_image=${{ join(inputs.SOURCE_IMAGE, '%0A') }}" | tee -a $GITHUB_OUTPUT
 
       - name: Set docker metadata
         id: meta
