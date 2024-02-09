@@ -1,115 +1,24 @@
 # JAX Toolbox
 
-<table>
-    <thead>
-        <tr>
-            <th>Image</th>
-            <th>Build</th>
-            <th>Tests</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-
-[![container-badge-base]][container-link-base]
-            </td>
-            <td>
-[![build-badge-base]][workflow-base]
-            </td>
-            <td> n/a </td>
-        </tr>
-        <tr style="border-bottom-style:hidden">
-            <td colspan=3> Frameworks </td>
-        </tr>
-        <!-- JAX -->
-        <tr>
-            <td>
-[![container-badge-jax]][container-link-jax]
-            </td>
-            <td>
-[![build-badge-jax]][workflow-jax]
-            </td>
-            <td>
-[![test-badge-jax-V100]][workflow-jax-unit]
-<br>
-[![test-badge-jax-A100]][workflow-jax-unit]
-            </td>
-        </tr>
-        <!-- te -->
-        <tr>
-            <td>
-[![container-badge-te]][container-link-te]
-            </td>
-            <td>
-Included in JAX build
-            </td>
-            <td>
-[![unit-test-badge-te]][workflow-te-test] <br> [![integration-test-badge-te]][workflow-te-test]
-            </td>
-        </tr>
-        <!-- rosetta-t5x -->
-        <tr>
-            <td rowspan=3>
-[![container-badge-rosetta-t5x]][container-link-rosetta-t5x]
-            </td>
-            <td rowspan=3>
-[![build-badge-rosetta-t5x]][workflow-rosetta-t5x]
-            </td>
-        </tr>
-        <tr>
-            <td>
-[![test-badge-t5x]][workflow-t5x-perf]
-            </td>
-        </tr>
-        <tr>
-            <td>
-[![test-badge-rosetta-t5x]][workflow-rosetta-t5x]
-            </td>
-        </tr>
-        <!-- rosetta pax -->
-        <tr>
-            <td rowspan=3>
-[![container-badge-rosetta-pax]][container-link-rosetta-pax]
-            </td>
-            <td rowspan=3>
-[![build-badge-rosetta-pax]][workflow-rosetta-pax]
-            </td>
-        </tr>
-        <tr>
-            <td>
-[![test-badge-pax]][workflow-pax-perf]
-            </td>
-        </tr>
-        <tr>
-            <td>
-[![test-badge-rosetta-pax]][workflow-rosetta-pax]
-            </td>
-        </tr>
-        <!-- Pallas -->
-        <tr>
-            <td>
-[![container-badge-pallas]][container-link-pallas]
-            </td>
-            <td>
-[![build-badge-pallas]][workflow-pallas]
-            </td>
-            <td>
-[![test-badge-pallas-V100]][workflow-pallas-unit]
-<br>
-[![test-badge-pallas-A100]][workflow-pallas-unit]
-            </td>
-        </tr>
-    </tbody>
-</table>
+|                                 Components                                 |                               Build                              |                                                          Test                                                          |
+|:---------------------------------------------------------------------------|:-----------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------|
+|   [![container-badge-base]][container-link-base]                           |  [![build-badge-base]][workflow-base]                            |  n/a                                                                                                                   |
+|  [![container-badge-jax]][container-link-jax]                              |  [![build-badge-jax]][workflow-jax]                              |  [![test-badge-jax-V100]][workflow-jax-unit] <br> [![test-badge-jax-A100]][workflow-jax-unit] <br> [![unit-test-badge-te]][workflow-te-test] <br> [![integration-test-badge-te]][workflow-te-test]                         |
+|  [![container-badge-pallas]][container-link-pallas]                        |  [![build-badge-pallas]][workflow-pallas]                        |  [![test-badge-pallas-V100]][workflow-pallas-unit] <br> [![test-badge-pallas-A100]][workflow-pallas-unit]              |
+|  [![container-badge-rosetta-t5x]][container-link-rosetta-t5x]              |  [![build-badge-rosetta-t5x]][workflow-rosetta-t5x]              |                                                                                                                        |
+|                                                                            |                                                                  |  [![test-badge-t5x]][workflow-t5x-perf]                                                                                |
+|                                                                            |                                                                  |  [![test-badge-rosetta-t5x]][workflow-rosetta-t5x]                                                                     |
+|  [![container-badge-rosetta-pax]][container-link-rosetta-pax]              |  [![build-badge-rosetta-pax]][workflow-rosetta-pax]              |                                                                                                                        |
+|                                                                            |                                                                  |  [![test-badge-pax]][workflow-pax-perf]                                                                                |
+|                                                                            |                                                                  |  [![test-badge-rosetta-pax]][workflow-rosetta-pax]                                                                     |
+|                                                                            |                                                                  |  [![test-badge-rosetta-pax]]
 
 
-[container-badge-base]: https://img.shields.io/static/v1?label=&message=.base&color=gray&logo=docker
-[container-badge-jax]: https://img.shields.io/static/v1?label=&message=JAX&color=gray&logo=docker
-[container-badge-te]: https://img.shields.io/static/v1?label=&message=TE&color=gray&logo=docker
-[container-badge-rosetta-t5x]: https://img.shields.io/static/v1?label=&message=T5X&color=gray&logo=docker
-[container-badge-rosetta-pax]: https://img.shields.io/static/v1?label=&message=PAX&color=gray&logo=docker
-[container-badge-pallas]: https://img.shields.io/static/v1?label=&message=Pallas&color=gray&logo=docker
+[container-badge-base]: https://img.shields.io/static/v1?label=&message=base%3D%7BCUDA%2CcuDNN%2CNCCL%2COFED%2CEFA%7D&color=gray&logo=docker
+[container-badge-jax]: https://img.shields.io/static/v1?label=&message=core%3D%7Bcore%2CJAX%2CFlax%2CTE%7D&color=gray&logo=docker
+[container-badge-pallas]: https://img.shields.io/static/v1?label=&message=Pallas%3D%7Bcore%2CTriton%2CPallas%7D&color=gray&logo=docker
+[container-badge-rosetta-t5x]: https://img.shields.io/static/v1?label=&message=T5X%3D%7Bcore%2CT5X%7D&color=gray&logo=docker
+[container-badge-rosetta-pax]: https://img.shields.io/static/v1?label=&message=PAX%3D%7Bcore%2Cpaxml%2Cpraxis%7D&color=gray&logo=docker
 
 [container-link-base]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-toolbox
 [container-link-jax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax
