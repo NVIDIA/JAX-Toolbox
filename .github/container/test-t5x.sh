@@ -28,7 +28,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:cd:e:ho:s: --long additional-args:,batch-size:,use-contrib-configs,dtype:,enable-te:,epochs:,help,multiprocess,output:,seed:,steps-per-epoch: -- "$@")
+args=$(getopt -o a:b:cd:e:ho:s: --long additional-args:,batch-size:,use-contrib-configs,dtype:,enable-te:,enable-fmha:,epochs:,help,multiprocess,output:,seed:,save-hlo:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
