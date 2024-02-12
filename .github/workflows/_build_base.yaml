@@ -162,9 +162,9 @@ jobs:
           fi
           if [[ -n ${XLA_REF} ]]; then
             echo "UPDATING XLA_REF ${XLA_REF}";
-            yq e ".xla.latest_verified_commit =\"$XLA_REF\"" -i manifest.yaml
+            export XLA_SHA=$(git ls-remote --heads --refs ${XLA_SRC} "refs/heads/${XLA_REF}" 2>/dev/null | awk '{print $1}')
+            yq e '.xla.latest_verified_commit = strenv(XLA_SHA)' -i manifest.yaml
             echo "Updated XLA REF";
-            cat manifest.yaml;
           fi
           if [[ -n ${T5X_SRC} ]]; then
             echo "UPDATING T5X_SRC ${T5X_SRC}";
@@ -173,7 +173,7 @@ jobs:
           if [[ -n ${T5X_REF} ]]; then
             echo "UPDATING T5X_REF ${T5X_REF}";
             export T5X_SHA=$(git ls-remote --heads --refs ${T5X_SRC} "refs/heads/${T5X_REF}" 2>/dev/null | awk '{print $1}')
-            yq e '.xla.latest_verified_commit = strenv(T5X_SHA)' -i manifest.yaml
+            yq e '.t5x.latest_verified_commit = strenv(T5X_SHA)' -i manifest.yaml
           fi
           if [[ -n ${PAXML_SRC} ]]; then
             echo "UPDATING PAXML_SRC ${PAXML_SRC}";
@@ -182,7 +182,7 @@ jobs:
           if [[ -n ${PAXML_REF} ]]; then
             echo "UPDATING PAXML_REF ${PAXML_REF}";
             export PAXML_SHA=$(git ls-remote --heads --refs ${PAXML_SRC} "refs/heads/${PAXML_REF}" 2>/dev/null | awk '{print $1}')
-            yq e '.xla.latest_verified_commit = strenv(PAXML_SHA)' -i manifest.yaml
+            yq e '.paxml.latest_verified_commit = strenv(PAXML_SHA)' -i manifest.yaml
           fi
           if [[ -n ${PRAXIS_SRC} ]]; then
             echo "UPDATING PRAXIS_SRC ${PRAXIS_SRC}";
@@ -191,7 +191,7 @@ jobs:
           if [[ -n ${PRAXIS_REF} ]]; then
             echo "UPDATING PRAXIS_REF ${PRAXIS_REF}";
             export PRAXIS_SHA=$(git ls-remote --heads --refs ${PRAXIS_SRC} "refs/heads/${PRAXIS_REF}" 2>/dev/null | awk '{print $1}')
-            yq e '.xla.latest_verified_commit = strenv(PRAXIS_SHA)' -i manifest.yaml
+            yq e '.praxis.latest_verified_commit = strenv(PRAXIS_SHA)' -i manifest.yaml
           fi
           echo "UPDATED MANIFEST IS: ";
           cat manifest.yaml;
