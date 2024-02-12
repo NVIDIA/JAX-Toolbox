@@ -249,7 +249,8 @@ if [[ "$ENABLE_FMHA" -eq 1 ]]; then
 	    echo -e "Found FMHA instructions in the following HLO files: \n $result" | while read -r line; do
 		echo "$line"
 	done
-    exit 0
+    	exit 0
+    fi
 else
     if [[ $SAVE_HLO -eq 0 ]]; then
 	    rm -rf $HLO_DIR
