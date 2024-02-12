@@ -52,13 +52,6 @@ rm -rf /var/lib/apt/lists/*
 EOF
 
 # install custom version of pip for VCS versioning tweaks
-RUN mkdir -p /opt/pip-tools.d
-ADD --chmod=777 \
-    get-source.sh \
-    pip-finalize.sh \
-    /usr/local/bin/
-RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) -O /usr/local/bin/yq && \
-    chmod 777 /usr/local/bin/yq
 RUN git clone -b 23.3.1 https://github.com/pypa/pip.git /opt/pip
 # Patch is specific to 23.3.1
 # Generated via: "git diff > pip-vcs-equivalency.patch"
@@ -115,12 +108,17 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 
 ###############################################################################
-## Copy manifest file to the container
+## Set up manifest system
 ###############################################################################
 
-# Set the manifest env vars
 ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-# Copy all required files for manifestation
 COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 COPY patches/ ${DEST_MANIFEST_DIR}/patches/
 
+RUN mkdir -p /opt/pip-tools.d
+ADD --chmod=777 \
+    get-source.sh \
+    pip-finalize.sh \
+    /usr/local/bin/
+RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) -O /usr/local/bin/yq && \
+    chmod 777 /usr/local/bin/yq

@@ -44,7 +44,7 @@ while [ : ]; do
         shift 2
         ;;
     -u | --urlref)
-        UELREF="$2"
+        URLREF="$2"
         shift 2
         ;;
     -h | --help)
