@@ -31,7 +31,7 @@ ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
 DEFAULT_GIT_URLREF_TFTEXT=$(yq '.tensorflow-text | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_TFTEXT} -r ${GIT_URLREF_TFTEXT:-$DEFAULT_GIT_URLREF_TFTEXT}
+get-source.sh -c ${SRC_PATH_TFTEXT} -u ${GIT_URLREF_TFTEXT:-$DEFAULT_GIT_URLREF_TFTEXT}
 cd ${SRC_PATH_TFTEXT}
 ./oss_scripts/run_build.sh
 EOF
@@ -50,7 +50,7 @@ COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 # get lingvo source
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_LINGVO=$(yq '.lingvo | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_LINGVO} -r ${GIT_URLREF_LINGVO:-$DEFAULT_GIT_URLREF_LINGVO}
+get-source.sh -c ${SRC_PATH_LINGVO} -u ${GIT_URLREF_LINGVO:-$DEFAULT_GIT_URLREF_LINGVO}
 EOF
 
 # build lingvo
@@ -109,8 +109,8 @@ RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_PAXML=$(yq '.paxml | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
 DEFAULT_GIT_URLREF_PRAXIS=$(yq '.praxis | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_PAXML} -r ${GIT_URLREF_PAXML:-$DEFAULT_GIT_URLREF_PAXML} -p /opt/pip-tools.d/requirements-paxml.in
-get-source.sh -c ${SRC_PATH_PRAXIS} -r ${GIT_URLREF_PRAXIS:-$DEFAULT_GIT_URLREF_PRAXIS} -p /opt/pip-tools.d/requirements-paxml.in
+get-source.sh -c ${SRC_PATH_PAXML} -u ${GIT_URLREF_PAXML:-$DEFAULT_GIT_URLREF_PAXML} -p /opt/pip-tools.d/requirements-paxml.in
+get-source.sh -c ${SRC_PATH_PRAXIS} -u ${GIT_URLREF_PRAXIS:-$DEFAULT_GIT_URLREF_PRAXIS} -p /opt/pip-tools.d/requirements-paxml.in
 sed -i "s|${SRC_PATH_PAXML}|${SRC_PATH_PAXML}[gpu]|g" /opt/pip-tools.d/requirements-paxml.in
 EOF
 

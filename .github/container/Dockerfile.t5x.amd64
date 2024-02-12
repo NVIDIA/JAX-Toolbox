@@ -15,7 +15,7 @@ ARG SRC_PATH_T5X
 # obtain t5x source
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_T5X=$(yq '.t5x | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_T5X} -r ${GIT_URLREF_T5X:-$DEFAULT_GIT_URLREF_T5X} -p /opt/pip-tools.d/requirements-t5x.in
+get-source.sh -c ${SRC_PATH_T5X} -u ${GIT_URLREF_T5X:-$DEFAULT_GIT_URLREF_T5X} -p /opt/pip-tools.d/requirements-t5x.in
 sed -i "s|${SRC_PATH_T5X}|${SRC_PATH_T5X}[gpu]|g" /opt/pip-tools.d/requirements-t5x.in
 EOF
 

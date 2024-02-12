@@ -26,14 +26,14 @@ ARG BAZEL_CACHE
 
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_JAX=$(yq '.jax | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_JAX} -r ${GIT_URLREF_JAX:-$DEFAULT_GIT_URLREF_JAX}
+get-source.sh -c ${SRC_PATH_JAX} -u ${GIT_URLREF_JAX:-$DEFAULT_GIT_URLREF_JAX}
 EOF
 
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     <<EOF bash -exu -o pipefail
 DEFAULT_GIT_URLREF_XLA=$(yq '.xla | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_XLA} -r ${GIT_URLREF_XLA:-$DEFAULT_GIT_URLREF_XLA}
+get-source.sh -c ${SRC_PATH_XLA} -u ${GIT_URLREF_XLA:-$DEFAULT_GIT_URLREF_XLA}
 EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
@@ -90,7 +90,7 @@ EOF
 ## Flax
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_FLAX=$(yq '.flax | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_FLAX} -r ${GIT_URLREF_FLAX:-$DEFAULT_GIT_URLREF_FLAX} -p /opt/pip-tools.d/requirements-flax.in
+get-source.sh -c ${SRC_PATH_FLAX} -u ${GIT_URLREF_FLAX:-$DEFAULT_GIT_URLREF_FLAX} -p /opt/pip-tools.d/requirements-flax.in
 EOF
 
 ## Transformer engine: check out source and build wheel
@@ -98,7 +98,7 @@ ENV NVTE_FRAMEWORK=jax
 ENV SRC_PATH_TE=${SRC_PATH_TE}
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_TE=$(yq '.transformer-engine | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_TE} -r ${GIT_URLREF_TE:-$DEFAULT_GIT_URLREF_TE}
+get-source.sh -c ${SRC_PATH_TE} -u ${GIT_URLREF_TE:-$DEFAULT_GIT_URLREF_TE}
 pushd ${SRC_PATH_TE}
 pip install ninja && python setup.py bdist_wheel && rm -rf build
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in

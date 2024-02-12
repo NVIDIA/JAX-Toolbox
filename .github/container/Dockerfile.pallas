@@ -14,7 +14,7 @@ ARG SRC_PATH_OPENXLA_TRITON
 
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_OPENXLA_TRITON=$(yq '.openxla-triton | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_OPENXLA_TRITON} -r ${GIT_URLREF_OPENXLA_TRITON:-$DEFAULT_GIT_URLREF_OPENXLA_TRITON}
+get-source.sh -c ${SRC_PATH_OPENXLA_TRITON} -u ${GIT_URLREF_OPENXLA_TRITON:-$DEFAULT_GIT_URLREF_OPENXLA_TRITON}
 EOF
 
 RUN <<"EOF" bash -exu -o pipefail
@@ -41,7 +41,7 @@ RUN echo "triton @ file://$(ls ${SRC_PATH_OPENXLA_TRITON}/dist/triton-*.whl)" >>
 # Check out jax-triton
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_JAX_TRITON=$(yq '.jax-triton | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_JAX_TRITON} -r ${GIT_URLREF_JAX_TRITON:-$DEFAULT_GIT_URLREF_JAX_TRITON} -p /opt/pip-tools.d/requirements-pallas.in
+get-source.sh -c ${SRC_PATH_JAX_TRITON} -u ${GIT_URLREF_JAX_TRITON:-$DEFAULT_GIT_URLREF_JAX_TRITON} -p /opt/pip-tools.d/requirements-pallas.in
 sed -i 's|"jax @ [^"]\+"|"jax"|g;s|"triton-nightly @ [^"]\+"|"triton"|g' /opt/jax-triton/pyproject.toml
 EOF
 

@@ -13,7 +13,7 @@ ARG SRC_PATH_LEVANTER
 
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_LEVANTER=$(yq '.levanter | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_LEVANTER} -r ${GIT_URLREF_LEVANTER:-$DEFAULT_GIT_URLREF_LEVANTER} -p /opt/pip-tools.d/requirements-levanter.in
+get-source.sh -c ${SRC_PATH_LEVANTER} -u ${GIT_URLREF_LEVANTER:-$DEFAULT_GIT_URLREF_LEVANTER} -p /opt/pip-tools.d/requirements-levanter.in
 EOF
 
 ###############################################################################

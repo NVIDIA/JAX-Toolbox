@@ -14,7 +14,7 @@ ARG SRC_PATH_MAXTEXT
 
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_MAXTEXT=$(yq '.maxtext | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_MAXTEXT} -r ${GIT_URLREF_MAXTEXT:-$DEFAULT_GIT_URLREF_MAXTEXT} -p /opt/pip-tools.d/requirements-maxtext.in
+get-source.sh -c ${SRC_PATH_MAXTEXT} -u ${GIT_URLREF_MAXTEXT:-$DEFAULT_GIT_URLREF_MAXTEXT} -p /opt/pip-tools.d/requirements-maxtext.in
 EOF
 
 ###############################################################################

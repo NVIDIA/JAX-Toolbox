@@ -7,13 +7,13 @@ usage() {
   Clones a git repo and write the pip-compile directive to stdout
 
   Usage: $0 [OPTION]...
-    -d, --dir CHECKOUT_DIR              Directory to check out the package.
-    -p, --pip-directive-file   Write the pip directive for installing the source package to file
-    -r, --urlref               URL and ref to clone, in the form "URL#REF"
-    -h, --help                 Print usage.
+    -c, --checkout-dir            Directory to check out the package.
+    -p, --pip-directive-file      Write the pip directive for installing the source package to file
+    -u, --urlref                  URL and ref to clone, in the form "URL#REF"
+    -h, --help                    Print usage.
 
   Example:
-    get-source.sh -b /opt -r https://github.com/google/jax.git
+    get-source.sh -b /opt -r https://github.com/google/jax.git#v0.4.24
   Output:
     -e /opt/jax
 EOF

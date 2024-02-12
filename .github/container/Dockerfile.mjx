@@ -38,14 +38,14 @@ EOF
 RUN <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_MUJOCO=$(yq '.mujoco | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
 DEFAULT_GIT_URLREF_MUJOCO_MPC=$(yq '.mujoco-mpc | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_MUJOCO} -r ${GIT_URLREF_MUJOCO:-$DEFAULT_GIT_URLREF_MUJOCO}
-get-source.sh -c ${SRC_PATH_MUJOCO_MPC} -r ${GIT_URLREF_MUJOCO_MPC:-$DEFAULT_GIT_URLREF_MUJOCO_MPC}
+get-source.sh -c ${SRC_PATH_MUJOCO} -u ${GIT_URLREF_MUJOCO:-$DEFAULT_GIT_URLREF_MUJOCO}
+get-source.sh -c ${SRC_PATH_MUJOCO_MPC} -u ${GIT_URLREF_MUJOCO_MPC:-$DEFAULT_GIT_URLREF_MUJOCO_MPC}
 echo "-f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MUJOCO}/mjx" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MUJOCO_MPC}/python" >> /opt/pip-tools.d/requirements-l2r.in
 
 DEFAULT_GIT_URLREF_L2R=$(yq '.language-to-reward-2023 | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
-get-source.sh -c ${SRC_PATH_L2R} -r ${GIT_URLREF_L2R:-$DEFAULT_GIT_URLREF_L2R} -p /opt/pip-tools.d/requirements-l2r.in
+get-source.sh -c ${SRC_PATH_L2R} -u ${GIT_URLREF_L2R:-$DEFAULT_GIT_URLREF_L2R} -p /opt/pip-tools.d/requirements-l2r.in
 EOF
 
 ###############################################################################
