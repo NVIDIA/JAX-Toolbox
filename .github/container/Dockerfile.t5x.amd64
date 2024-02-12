@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG GIT_URLREF_T5X  # if not set, will use defaults from the manifest file
 ARG SRC_PATH_T5X=/opt/t5x
 
 ###############################################################################
@@ -8,14 +9,18 @@ ARG SRC_PATH_T5X=/opt/t5x
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
-
+ARG GIT_URLREF_T5X
 ARG SRC_PATH_T5X
 
-RUN <<"EOF" bash -ex
-get-source.sh -l t5x -m ${MANIFEST_FILE}
-echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
+# obtain t5x source
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_T5X=$(yq '.t5x | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_T5X} -r ${GIT_URLREF_T5X:-$DEFAULT_GIT_URLREF_T5X} -p /opt/pip-tools.d/requirements-t5x.in
+sed -i "s|${SRC_PATH_T5X}|${SRC_PATH_T5X}[gpu]|g" /opt/pip-tools.d/requirements-t5x.in
+EOF
 
 # remove head-of-tree specs from select dependencies
+RUN <<"EOF" bash -exu -o pipefail
 pushd ${SRC_PATH_T5X}
 sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
 if git diff --quiet; then

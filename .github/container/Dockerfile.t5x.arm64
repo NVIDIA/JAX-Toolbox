@@ -3,6 +3,8 @@
 #   docker buildx build -f Dockerfile.t5x.arm64 --tag t5x --build-arg BASE_IMAGE=ghcr.io/nvidia/jax:mealkit-2024-01-22 .
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG GIT_URLREF_T5X  # if not set, will use defaults from the manifest file
+ARG GIT_URLREF_TFTEXT
 ARG SRC_PATH_GRAIN=/opt/grain
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 ARG SRC_PATH_T5X=/opt/t5x
@@ -64,9 +66,7 @@ COPY --from=wheel-builder /mealkit-python-version /mealkit-python-version
             wheel
 # END
 
-RUN <<"EOT" bash -exu
-set -o pipefail
-
+RUN <<"EOT" bash -exu -o pipefail
 git clone https://github.com/google/array_record.git /tmp/array_record
 cd /tmp/array_record
 git checkout v0.5.0
@@ -120,8 +120,7 @@ COPY --from=array_record-builder /tmp/array_record/all_dist/array_record*linux_a
             tensorflow-datasets
 # END
 
-RUN <<"EOT" bash -exu
-set -o pipefail
+RUN <<"EOT" bash -exu -o pipefail
 
 # Check out source of grain-nightly 0.0.4
 git clone https://github.com/google/grain ${SRC_PATH_GRAIN}
@@ -140,20 +139,20 @@ chmod a+x ./grain/oss/build_whl.sh
 ls /tmp/grain/all_dist/*.whl
 EOT
 
-
 #------------------------------------------------------------------------------
 # build tensorflow-text 2.13.0 from source
 #------------------------------------------------------------------------------
 
 FROM wheel-builder as tftext-builder
+ARG GIT_URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
+DEFAULT_GIT_URLREF_TFTEXT=$(yq '.tensorflow-text | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_TFTEXT} -r ${GIT_URLREF_TFTEXT:-$DEFAULT_GIT_URLREF_TFTEXT}
 cd ${SRC_PATH_TFTEXT}
 ./oss_scripts/run_build.sh
 EOF
-
 
 ###############################################################################
 ## T5X for AArch64
@@ -172,16 +171,21 @@ RUN echo "grain @ file://$(ls /opt/grain*.whl)" >> /opt/pip-tools.d/requirements
 COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
 
-RUN <<"EOF" bash -ex
-# 1. Fetch T5X
-get-source.sh -l t5x -m ${MANIFEST_FILE}
-echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
+# obtain t5x source
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_T5X=$(yq '.t5x | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_T5X} -r ${GIT_URLREF_T5X:-$DEFAULT_GIT_URLREF_T5X} -p /opt/pip-tools.d/requirements-t5x.in
+sed -i "s|${SRC_PATH_T5X}|${SRC_PATH_T5X}[gpu]|g" /opt/pip-tools.d/requirements-t5x.in
+EOF
 
-# 2. Remove head-of-tree specs from select dependencies
+# Remove head-of-tree specs from packages already shipped in the container
+RUN <<"EOF" bash -exu -o pipefail
 pushd ${SRC_PATH_T5X}
 sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
+EOF
 
-# for ARM64 build
+# Fix ARM64 deps
+RUN <<"EOF" bash -exu -o pipefail
 sed -i "s/'tensorflow/#'tensorflow/" setup.py
 
 sed -i "s/f'jax/#f'jax/" setup.py
