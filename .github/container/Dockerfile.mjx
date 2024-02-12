@@ -31,6 +31,8 @@ EOF
 
 # Specify installation targets
 RUN <<"EOF" bash -ex
+export CC=/usr/bin/clang
+export CXX=/usr/bin/clang++
 get-source.sh -l mujoco -m ${MANIFEST_FILE} -b $(dirname ${SRC_PATH_MUJOCO})
 get-source.sh -l mujoco-mpc -m ${MANIFEST_FILE}
 get-source.sh -l language-to-reward-2023 -m ${MANIFEST_FILE}
