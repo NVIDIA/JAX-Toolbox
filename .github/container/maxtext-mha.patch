@@ -1,5 +1,5 @@
 diff --git a/MaxText/configs/base.yml b/MaxText/configs/base.yml
-index 085bbe0..a0257fe 100644
+index 94870f8..5a8498d 100644
 --- a/MaxText/configs/base.yml
 +++ b/MaxText/configs/base.yml
 @@ -81,7 +81,7 @@ logits_dot_in_fp32: True  # whether to use fp32 in logits_dense or shared_embedd
@@ -11,28 +11,37 @@ index 085bbe0..a0257fe 100644
  # Combine matmuls for QKV and MLP
  fused_qkv: False
  fused_mlp: False
-@@ -221,4 +221,8 @@ compile_topology_num_slices: -1 # Number of target slices, set to a positive int
- decode_sampling_strategy: "greedy" # decode_sampling_strategy should be one of greedy, weighted, nucleus, or topk
+@@ -225,3 +225,7 @@ decode_sampling_strategy: "greedy" # decode_sampling_strategy should be one of g
  decode_sampling_nucleus_p: -1 # set if you're doing nucleus / top-p
  decode_sampling_top_k: 0 # set if you're doing top-k
--decode_sampling_temperature: 1.
-\ No newline at end of file
-+decode_sampling_temperature: 1.
+ decode_sampling_temperature: 1.
 +
 +# enabling slurm for multiprocess in gpus
 +# It must be turned on while using SLURM
 +multiprocess_gpu: False
-\ No newline at end of file
-diff --git a/MaxText/pyconfig.py b/MaxText/pyconfig.py
-index 63ff88b..3710910 100644
---- a/MaxText/pyconfig.py
-+++ b/MaxText/pyconfig.py
-@@ -169,7 +169,7 @@ class _HyperParameters():
-     '''Transformations between the config data and configs used at runtime'''
- 
-     # We initialize the jax distributed system here because it must be done before device backend is initialized.
--    if raw_keys["enable_checkpointing"] and raw_keys["async_checkpointing"] and raw_keys["compile_topology_num_slices"]==-1:
-+    if (raw_keys["enable_checkpointing"] and raw_keys["async_checkpointing"] and raw_keys["compile_topology_num_slices"]==-1) or raw_keys["multiprocess_gpu"]:
-       max_utils.initialize_jax_distributed_system()
- 
-     if raw_keys["run_name"] == "":
+diff --git a/MaxText/max_utils.py b/MaxText/max_utils.py
+index 6ca2f75..02c1ea9 100644
+--- a/MaxText/max_utils.py
++++ b/MaxText/max_utils.py
+@@ -177,7 +177,7 @@ def maybe_initialize_jax_distributed_system(raw_keys):
+       For CPUs, we call jax.distributed.initialize() explicitly, with the specified arguments.
+   """
+   if (raw_keys["enable_checkpointing"] and raw_keys["async_checkpointing"]
+-                and raw_keys["compile_topology_num_slices"]==-1):
++                and raw_keys["compile_topology_num_slices"]==-1) or raw_keys["multiprocess_gpu"]:
+     max_logging.log("Attempting to initialize the jax distributed system...")
+     jax.distributed.initialize()
+     max_logging.log("Jax distributed system initialized!")
+diff --git a/requirements.txt b/requirements.txt
+index 6f51a13..e29cd22 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -3,7 +3,7 @@ jaxlib>=0.4.23
+ orbax-checkpoint>=0.5.2
+ absl-py
+ array-record
+-aqtp
++aqtp>=0.5.0
+ cloud-tpu-diagnostics
+ google-cloud-storage
+ grain-nightly
