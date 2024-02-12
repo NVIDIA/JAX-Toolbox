@@ -31,7 +31,7 @@ EOF
 
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
-    <<EOF bash -exu -o pipefail
+    <<"EOF" bash -exu -o pipefail
 DEFAULT_GIT_URLREF_XLA=$(yq '.xla | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
 get-source.sh -c ${SRC_PATH_XLA} -u ${GIT_URLREF_XLA:-$DEFAULT_GIT_URLREF_XLA}
 EOF
