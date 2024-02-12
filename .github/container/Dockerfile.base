@@ -5,7 +5,6 @@ ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG SRC_MANIFEST_FILE=manifest.yaml
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
 
-
 FROM ${BASE_IMAGE}
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
@@ -51,10 +50,7 @@ apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
 
-RUN <<"EOF" bash -ex
-git config --global user.name "${GIT_USER_NAME}"
-git config --global user.email "${GIT_USER_EMAIL}"
-EOF
+# install custom version of pip for VCS versioning tweaks
 RUN mkdir -p /opt/pip-tools.d
 ADD --chmod=777 \
     get-source.sh \
@@ -70,6 +66,8 @@ RUN <<EOF bash -e -x
 cd /opt/pip
 git apply </opt/pip/pip-vcs-equivalency.patch
 git add -u
+git config user.name "${GIT_USER_NAME}"
+git config user.email "${GIT_USER_EMAIL}"
 git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github VCS installs for a package as equivalent. The spec of the last encountered version will be used'
 EOF
 RUN pip install --upgrade --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
@@ -108,6 +106,12 @@ ENV PATH=/opt/amazon/efa/bin:${PATH}
 ###############################################################################
 
 COPY check-shm.sh /opt/nvidia/entrypoint.d/
+
+###############################################################################
+## Copy utility scripts to the container
+###############################################################################
+
+ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 
 ###############################################################################
 ## Copy manifest file to the container
