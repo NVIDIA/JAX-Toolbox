@@ -16,7 +16,7 @@ usage() {
     get-source.sh -b /opt -r https://github.com/google/jax.git
   Output:
     -e /opt/jax
-  EOF
+EOF
 
   exit $1
 }

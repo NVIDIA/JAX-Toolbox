@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG GIT_URLREF_PAXML  # if not set, will use defaults from the manifest file
+ARG GIT_URLREF_PRAXIS
 ARG SRC_PATH_PAXML=/opt/paxml
 ARG SRC_PATH_PRAXIS=/opt/praxis
 
@@ -9,18 +11,25 @@ ARG SRC_PATH_PRAXIS=/opt/praxis
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
+ARG GIT_URLREF_PAXML
+ARG GIT_URLREF_PRAXIS
 ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 
 # update TE manifest file to install the [test] extras
 RUN sed -i "s/transformer-engine @/transformer-engine[test] @/g" /opt/pip-tools.d/requirements-te.in
 
-RUN <<"EOF" bash -ex
-get-source.sh -l paxml -m ${MANIFEST_FILE}
-get-source.sh -l praxis -m ${MANIFEST_FILE}
-echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/requirements-paxml.in
-echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/requirements-paxml.in
+# obtain paxml and praxis source
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_PAXML=$(yq '.paxml | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+DEFAULT_GIT_URLREF_PRAXIS=$(yq '.praxis | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_PAXML} -r ${GIT_URLREF_PAXML:-$DEFAULT_GIT_URLREF_PAXML} -p /opt/pip-tools.d/requirements-paxml.in
+get-source.sh -c ${SRC_PATH_PRAXIS} -r ${GIT_URLREF_PRAXIS:-$DEFAULT_GIT_URLREF_PRAXIS} -p /opt/pip-tools.d/requirements-paxml.in
+sed -i "s|${SRC_PATH_PAXML}|${SRC_PATH_PAXML}[gpu]|g" /opt/pip-tools.d/requirements-paxml.in
+EOF
 
+# remove head-of-tree references to packages already shipped in the container
+RUN <<"EOF" bash -exu -o pipefail
 for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
   pushd ${src}
   sed -i "s| @ git+https://github.com/google/flax||g" requirements.in

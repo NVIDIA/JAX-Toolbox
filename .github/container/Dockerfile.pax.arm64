@@ -1,6 +1,10 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG GIT_URLREF_PAXML  # if not set, will use defaults from the manifest file
+ARG GIT_URLREF_PRAXIS
+ARG GIT_URLREF_TFTEXT
+ARG GIT_URLREF_LINGVO
 ARG SRC_PATH_PAXML=/opt/paxml
 ARG SRC_PATH_PRAXIS=/opt/praxis
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
@@ -22,10 +26,12 @@ RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazeli
 #------------------------------------------------------------------------------
 
 FROM wheel-builder as tftext-builder
+ARG GIT_URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
+DEFAULT_GIT_URLREF_TFTEXT=$(yq '.tensorflow-text | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_TFTEXT} -r ${GIT_URLREF_TFTEXT:-$DEFAULT_GIT_URLREF_TFTEXT}
 cd ${SRC_PATH_TFTEXT}
 ./oss_scripts/run_build.sh
 EOF
@@ -35,16 +41,20 @@ EOF
 #------------------------------------------------------------------------------
 
 FROM wheel-builder as lingvo-builder
+ARG GIT_URLREF_LINGVO
 ARG SRC_PATH_TFTEXT
 ARG SRC_PATH_LINGVO
 
 COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 
-RUN get-source.sh -l lingvo -m ${MANIFEST_FILE}
+# get lingvo source
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_LINGVO=$(yq '.lingvo | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_LINGVO} -r ${GIT_URLREF_LINGVO:-$DEFAULT_GIT_URLREF_LINGVO}
+EOF
 
 # build lingvo
 RUN <<"EOF" bash -exu -o pipefail
-
 pushd ${SRC_PATH_LINGVO}
 
 # Use aarch distribution of protobufs
@@ -83,6 +93,8 @@ EOF
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
+ARG GIT_URLREF_PAXML
+ARG GIT_URLREF_PRAXIS
 ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 ARG SRC_PATH_TFTEXT
@@ -93,17 +105,22 @@ RUN echo "lingvo @ file://$(ls /opt/lingvo*.whl)" >> /opt/pip-tools.d/requiremen
 COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-paxml.in
 
-# paxml + praxis
+# obtain paxml and praxis source
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_PAXML=$(yq '.paxml | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+DEFAULT_GIT_URLREF_PRAXIS=$(yq '.praxis | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_PAXML} -r ${GIT_URLREF_PAXML:-$DEFAULT_GIT_URLREF_PAXML} -p /opt/pip-tools.d/requirements-paxml.in
+get-source.sh -c ${SRC_PATH_PRAXIS} -r ${GIT_URLREF_PRAXIS:-$DEFAULT_GIT_URLREF_PRAXIS} -p /opt/pip-tools.d/requirements-paxml.in
+sed -i "s|${SRC_PATH_PAXML}|${SRC_PATH_PAXML}[gpu]|g" /opt/pip-tools.d/requirements-paxml.in
+EOF
+
+# remove dep references to packages already shipped in the container
+# modify dependencies due to arm64 wheel availability
 RUN <<"EOF" bash -ex
 echo "tensorflow==2.13.0" >> /opt/pip-tools.d/requirements-paxml.in
 echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-paxml.in
 echo "chex==0.1.7" >> /opt/pip-tools.d/requirements-paxml.in
 echo "auditwheel" >> /opt/pip-tools.d/requirements-paxml.in
-
-get-source.sh -l paxml  -m ${MANIFEST_FILE}
-get-source.sh -l praxis -m ${MANIFEST_FILE}
-echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/requirements-paxml.in
-echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/requirements-paxml.in
 
 for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
   pushd ${src}
