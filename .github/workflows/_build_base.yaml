@@ -163,6 +163,8 @@ jobs:
           if [[ -n ${XLA_REF} ]]; then
             echo "UPDATING XLA_REF ${XLA_REF}";
             yq e ".xla.latest_verified_commit =\"$XLA_REF\"" -i manifest.yaml
+            echo "Updated XLA REF";
+            cat manifest.yaml;
           fi
           if [[ -n ${T5X_SRC} ]]; then
             echo "UPDATING T5X_SRC ${T5X_SRC}";
