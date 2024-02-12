@@ -93,7 +93,7 @@ jobs:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-t5x-build"
       BADGE_FILENAME: "badge-t5x-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
       DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
