@@ -73,7 +73,11 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
-          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          if [[  ${{ inputs.ENABLE_FMHA == 1 }} ]]; then
+            JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}-FMHA;
+          else
+            JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME};
+          fi
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -203,7 +207,11 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          if [[  ${{ inputs.ENABLE_FMHA == 1 }} ]]; then
+            JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}-FMHA;
+          else
+            JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME};
+          fi
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
