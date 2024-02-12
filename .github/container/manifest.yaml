@@ -115,7 +115,7 @@ jax-triton:
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
-  latest_verified_commit: 2fdf8a2dfa553b928d52052711219ca9cbcf4ec7
+  latest_verified_commit: 1c91b3606976765d1edbf121bf54b1e0307d4013
   mode: git-clone
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
