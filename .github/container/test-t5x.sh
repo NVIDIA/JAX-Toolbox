@@ -123,7 +123,7 @@ export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_dump_hlo_as_text --xla_dump_to=${
 echo "HLO will be dumped in ${HLO_DIR} dir."
 
 ## Setting the env variables for FMHA
-if [[ "$ENABLE_FMHA" -eq 1 ]]; then  
+if [[ "$ENABLE_FMHA" -eq "1" ]]; then  
     export XLA_FLAGS="${BASE_XLA_FLAGS} ${XLA_FLAGS:---xla_gpu_fused_attention_use_cudnn_rng=true --xla_gpu_enable_cudnn_fmha=true}" 
 fi
 
@@ -232,7 +232,7 @@ ENABLE_TE=$ENABLE_TE python -m t5x.train \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 echo "Output at ${OUTPUT}"
 
-if [[ "$ENABLE_FMHA" -eq 1 ]]; then 
+if [[ "$ENABLE_FMHA" -eq "1" ]]; then 
     ## Check if fmha instructions are present in the HLO dumped file or not.
     fmha_regex="fmha[-bmm]?[-scale]?[-bias]?[-mask]?[-softmax]?[-dropout]?[-bmm]?[-backward]?*"
     result=$(grep -irlnE "$fmha_regex" "${HLO_DIR}/"*.txt)
