@@ -135,7 +135,7 @@ mujoco:
 mujoco-mpc:
   url: https://github.com/google-deepmind/mujoco_mpc.git
   tracking_ref: main
-  latest_verified_commit: 73633d7da1900c428a7315d2ffe1120c5393a7d8
+  latest_verified_commit: c5c7ead065b7f4034ab265a13023231900dbfaa7
   mode: git-clone
 language-to-reward-2023:
   url: https://github.com/google-deepmind/language_to_reward_2023.git
