@@ -56,7 +56,7 @@ RUN git clone -b 23.3.1 https://github.com/pypa/pip.git /opt/pip
 # Patch is specific to 23.3.1
 # Generated via: "git diff > pip-vcs-equivalency.patch"
 ADD pip-vcs-equivalency.patch /opt/pip/
-RUN <<EOF bash -e -x
+RUN <<"EOF" bash -exu -o pipefail
 cd /opt/pip
 git apply </opt/pip/pip-vcs-equivalency.patch
 git add -u
