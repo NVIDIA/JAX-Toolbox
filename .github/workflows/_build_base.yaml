@@ -162,8 +162,6 @@ jobs:
           fi
           if [[ -n ${XLA_REF} ]]; then
             echo "UPDATING XLA_REF ${XLA_REF}";
-            #export XLA_SHA=$(git ls-remote --heads --refs ${XLA_SRC} "refs/heads/${XLA_REF}" 2>/dev/null | awk '{print $1}')
-            #yq e '.xla.latest_verified_commit = strenv(XLA_SHA)' -i manifest.yaml
             yq e ".xla.latest_verified_commit =\"$XLA_REF\"" -i manifest.yaml
           fi
           if [[ -n ${T5X_SRC} ]]; then
