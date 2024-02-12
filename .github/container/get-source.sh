@@ -3,57 +3,52 @@
 ## Parse command-line arguments
 
 usage() {
-cat <<EOF
-Clones a git repo from the manifest and write the pip-compile input to stdout
+  cat <<EOF
+  Clones a git repo and write the pip-compile directive to stdout
 
-Usage: $0 [OPTION]...
-  -b, --base-dir DIR     Directory to install package under. Default /opt
-  -h, --help             Print usage.
-  -l, --library LIB      The library to clone, e.g., jax, flax, t5x
-  -m, --manifest FILE    The JAX-Toolbox manifest yaml file
-  -o, --out-requirements Create a pip manifest file if specified
+  Usage: $0 [OPTION]...
+    -d, --dir CHECKOUT_DIR              Directory to check out the package.
+    -p, --pip-directive-file   Write the pip directive for installing the source package to file
+    -r, --urlref               URL and ref to clone, in the form "URL#REF"
+    -h, --help                 Print usage.
 
-Example:
-  get-source.sh -m manifest.yaml -l flax
-Output:
-  -e /opt/flax
+  Example:
+    get-source.sh -b /opt -r https://github.com/google/jax.git
+  Output:
+    -e /opt/jax
+  EOF
 
-EOF
-    exit $1
+  exit $1
 }
 
-args=$(getopt -o b:hl:m:o: --long base-dir:,help,library:,manifest:,out-requirements: -- "$@")
+args=$(getopt -o c:p:u:h --long checkout-dir:,pip-directive-file:,urlref:,help -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
 ## Set default arguments
 
-BASE_INSTALL_DIR="/opt"
-MANIFEST=""
-OUT_REQUIREMENTS_FILE=""
+CHECKOUT_DIR=""
+URLREF=""
+PIP_DIRECTIVE_FILE=""
 
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
-    -b | --base-dir)
-        BASE_INSTALL_DIR=$(readlink -f "$2")
+    -c | --checkout-dir)
+        CHECKOUT_DIR=$(readlink -f "$2")
+        shift 2
+        ;;
+    -p | --pip-directive-file)
+        PIP_DIRECTIVE_FILE="$2"
+        shift 2
+        ;;
+    -u | --urlref)
+        UELREF="$2"
         shift 2
         ;;
     -h | --help)
         usage
-        ;;
-    -l | --library)
-        LIBRARY="$2"
-        shift 2
-        ;;
-    -m | --manifest)
-        MANIFEST="$2"
-        shift 2
-        ;;
-    -o | --out-requirements)
-        OUT_REQUIREMENTS_FILE="$2"
-        shift 2
         ;;
     --)
         shift;
@@ -67,36 +62,28 @@ if [[ $# -ge 1 ]]; then
     usage 1
 fi
 
-if [[ -z "${LIBRARY}" ]]; then
-    echo "Library not specified."
+if [[ -z "${CHECKOUT_DIR}" ]]; then
+    echo "Check out path not specified."
     usage 1
 fi
 
-if [[ -z "${MANIFEST}" ]]; then
-    echo "Manifest not specified."
+if [[ -z "${URLREF}" ]]; then
+    echo "Git URL/ref not specified."
     usage 1
 fi
 
-## check out the source
-PACKAGE_MODE=$(yq e ".${LIBRARY}.mode" $MANIFEST)
-if [[ "${PACKAGE_MODE}" != "git-clone" ]]; then
-  echo "--library=${LIBRARY} mode is ${PACKAGE_MODE} which is not meant to be cloned. Update mode to \"git-clone\" if this repo should be cloned"
-  exit 1
-fi
+GIT_REPO=$(echo $URLREF | cut -d# -f1)
+GIT_REF=$(echo $URLREF | cut -d# -f2)
 
-GIT_REPO=$(yq e ".${LIBRARY}.url" $MANIFEST)
-GIT_REF=$(yq e ".${LIBRARY}.latest_verified_commit" $MANIFEST)
-INSTALL_DIR=${BASE_INSTALL_DIR}/$LIBRARY
+echo "Fetching $GIT_REPO at $GIT_REF to $CHECKOUT_DIR"
 
-echo "Fetching $GIT_REPO#$GIT_REF to $INSTALL_DIR"
+set -exu -o pipefail
 
-set -ex -o pipefail
-
-git clone ${GIT_REPO} ${INSTALL_DIR}
-pushd ${INSTALL_DIR}
+git clone ${GIT_REPO} ${CHECKOUT_DIR}
+pushd ${CHECKOUT_DIR}
 git checkout ${GIT_REF}
 git submodule update --init --recursive
 popd
 
-echo "Writing to ${OUT_REQUIREMENTS_FILE}:"
-echo "-e file://${INSTALL_DIR}" | tee -a ${OUT_REQUIREMENTS_FILE}
+echo "Appending to ${PIP_DIRECTIVE_FILE}:"
+echo "-e file://${CHECKOUT_DIR}" | tee -a ${PIP_DIRECTIVE_FILE}

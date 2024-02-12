@@ -1,5 +1,10 @@
 # syntax=docker/dockerfile:1-labs
+
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
+ARG GIT_URLREF_JAX  # if not set, will use defaults from the manifest file
+ARG GIT_URLREF_XLA
+ARG GIT_URLREF_FLAX
+ARG GIT_URLREF_TE
 ARG SRC_PATH_JAX=/opt/jax
 ARG SRC_PATH_XLA=/opt/xla
 ARG SRC_PATH_FLAX=/opt/flax
@@ -13,14 +18,23 @@ ARG BUILD_DATE
 ###############################################################################
 
 FROM ${BASE_IMAGE} as builder
+ARG GIT_URLREF_JAX
+ARG GIT_URLREF_XLA
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG BAZEL_CACHE
 
-RUN get-source.sh -l jax -m ${MANIFEST_FILE}
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_JAX=$(yq '.jax | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_JAX} -r ${GIT_URLREF_JAX:-$DEFAULT_GIT_URLREF_JAX}
+EOF
+
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
-    get-source.sh -l xla -m ${MANIFEST_FILE}
+    <<EOF bash -exu -o pipefail
+DEFAULT_GIT_URLREF_XLA=$(yq '.xla | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_XLA} -r ${GIT_URLREF_XLA:-$DEFAULT_GIT_URLREF_XLA}
+EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 # TODO: move this patch into the manifest
@@ -39,8 +53,11 @@ RUN build-jax.sh \
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
+ARG GIT_URLREF_FLAX
+ARG GIT_URLREF_TE
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
+ARG SRC_PATH_FLAX
 ARG SRC_PATH_TE
 ARG BUILD_DATE
 
@@ -61,7 +78,7 @@ COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
-RUN <<"EOF" bash -ex
+RUN <<"EOF" bash -exu -o pipefail
 # Encourage a newer numpy so that pip's dependency resolver will allow newer
 # versions of other packages that rely on newer numpy, but also include fixes
 # for compatibility with newer JAX versions. e.g. chex.
@@ -71,17 +88,21 @@ echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/requ
 EOF
 
 ## Flax
-RUN get-source.sh -l flax -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-flax.in
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_FLAX=$(yq '.flax | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_FLAX} -r ${GIT_URLREF_FLAX:-$DEFAULT_GIT_URLREF_FLAX} -p /opt/pip-tools.d/requirements-flax.in
+EOF
 
 ## Transformer engine: check out source and build wheel
 ENV NVTE_FRAMEWORK=jax
 ENV SRC_PATH_TE=${SRC_PATH_TE}
-RUN <<"EOF" bash -ex -o pipefail
-pip install ninja && rm -rf ~/.cache/pip
-get-source.sh -l transformer-engine -m ${MANIFEST_FILE}
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_TE=$(yq '.transformer-engine | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_TE} -r ${GIT_URLREF_TE:-$DEFAULT_GIT_URLREF_TE}
 pushd ${SRC_PATH_TE}
-python setup.py bdist_wheel && rm -rf build
+pip install ninja && python setup.py bdist_wheel && rm -rf build
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in
+rm -rf ~/.cache/pip
 EOF
 
 # TODO: properly configure entrypoint
@@ -93,4 +114,3 @@ EOF
 FROM mealkit as final
 
 RUN pip-finalize.sh
-

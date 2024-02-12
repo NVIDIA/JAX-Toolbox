@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG GIT_URLREF_MAXTEXT  # if not set, will use defaults from the manifest file
 ARG SRC_PATH_MAXTEXT=/opt/maxtext
 
 ###############################################################################
@@ -8,13 +9,12 @@ ARG SRC_PATH_MAXTEXT=/opt/maxtext
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
-
+ARG GIT_URLREF_MAXTEXT
 ARG SRC_PATH_MAXTEXT
 
-RUN <<"EOF" bash -ex
-cat ${MANIFEST_FILE}
-get-source.sh -l maxtext -m ${MANIFEST_FILE} 
-cat "${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_MAXTEXT=$(yq '.maxtext | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_MAXTEXT} -r ${GIT_URLREF_MAXTEXT:-$DEFAULT_GIT_URLREF_MAXTEXT} -p /opt/pip-tools.d/requirements-maxtext.in
 EOF
 
 ###############################################################################
@@ -25,7 +25,7 @@ ADD maxtext-mha.patch /opt
 RUN cd "${SRC_PATH_MAXTEXT}" && patch -p1 < /opt/maxtext-mha.patch && git diff
 
 ###############################################################################
-## Apply patch
+## Add test script
 ###############################################################################
 
 ADD test-maxtext.sh /usr/local/bin
@@ -37,5 +37,3 @@ ADD test-maxtext.sh /usr/local/bin
 FROM mealkit as final
 
 RUN pip-finalize.sh
-
-WORKDIR ${SRC_PATH_MAXTEXT}

@@ -1,22 +1,27 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG GIT_URLREF_MUJOCO  # if not set, will use defaults from the manifest file
+ARG GIT_URLREF_MUJOCO_MPC
+ARG GIT_URLREF_L2R
 ARG SRC_PATH_MUJOCO=/opt/mujoco
 ARG SRC_PATH_MUJOCO_MPC=/opt/mujoco-mpc
 ARG SRC_PATH_L2R=/opt/language-to-reward-2023
-
 
 ###############################################################################
 ## Download source and add auxiliary scripts
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
+ARG GIT_URLREF_MUJOCO
+ARG GIT_URLREF_MUJOCO_MPC
+ARG GIT_URLREF_L2R
 ARG SRC_PATH_MUJOCO
 ARG SRC_PATH_MUJOCO_MPC
 ARG SRC_PATH_L2R
 
 # Install system dependencies for Mujuco/MPC
-RUN <<"EOF" bash -ex
+RUN <<"EOF" bash -exu -o pipefail
 apt-get update
 apt-get install -y \
     libgl1-mesa-dev \
@@ -30,16 +35,18 @@ rm -rf /var/lib/apt/lists/*
 EOF
 
 # Specify installation targets
-RUN <<"EOF" bash -ex
-get-source.sh -l mujoco -m ${MANIFEST_FILE} -b $(dirname ${SRC_PATH_MUJOCO})
-get-source.sh -l mujoco-mpc -m ${MANIFEST_FILE}
-get-source.sh -l language-to-reward-2023 -m ${MANIFEST_FILE}
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_MUJOCO=$(yq '.mujoco | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+DEFAULT_GIT_URLREF_MUJOCO_MPC=$(yq '.mujoco-mpc | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_MUJOCO} -r ${GIT_URLREF_MUJOCO:-$DEFAULT_GIT_URLREF_MUJOCO}
+get-source.sh -c ${SRC_PATH_MUJOCO_MPC} -r ${GIT_URLREF_MUJOCO_MPC:-$DEFAULT_GIT_URLREF_MUJOCO_MPC}
 echo "-f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MUJOCO}/mjx" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MUJOCO_MPC}/python" >> /opt/pip-tools.d/requirements-l2r.in
-echo "-e file://${SRC_PATH_L2R}" >> /opt/pip-tools.d/requirements-l2r.in
-EOF
 
+DEFAULT_GIT_URLREF_L2R=$(yq '.language-to-reward-2023 | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_L2R} -r ${GIT_URLREF_L2R:-$DEFAULT_GIT_URLREF_L2R} -p /opt/pip-tools.d/requirements-l2r.in
+EOF
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage

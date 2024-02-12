@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG GIT_URLREF_LEVANTER  # if not set, will use defaults from the manifest file
 ARG SRC_PATH_LEVANTER=/opt/levanter
 
 ###############################################################################
@@ -10,9 +11,9 @@ ARG SRC_PATH_LEVANTER=/opt/levanter
 FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_LEVANTER
 
-RUN <<"EOF" bash -ex
-get-source.sh -l levanter -m ${MANIFEST_FILE} 
-echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
+RUN <<"EOF" bash -exu -o pipefail
+DEFAULT_GIT_URLREF_LEVANTER=$(yq '.levanter | [(.url, .latest_verified_commit)] | join("#")' ${MANIFEST_FILE})
+get-source.sh -c ${SRC_PATH_LEVANTER} -r ${GIT_URLREF_LEVANTER:-$DEFAULT_GIT_URLREF_LEVANTER} -p /opt/pip-tools.d/requirements-levanter.in
 EOF
 
 ###############################################################################
