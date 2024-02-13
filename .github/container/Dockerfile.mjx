@@ -51,7 +51,7 @@ EOF
 FROM mealkit as final
 
 # compile MuJoCo-MPC with Clang separately 
-RUN CC=${CC_COMPILER} CXX=${CXX_COMPILER} pip-finalize.sh /opt/pip-tools.d/requirements-mpc.in
+RUN CC=${CC_COMPILER} CXX=${CXX_COMPILER} pip-finalize.sh requirements-mpc.in
 
 # compiler the rest dependencies
-RUN pip-finalize.sh /opt/pip-tools.d/requirements-mjx.in /opt/pip-tools.d/requirements-l2r.in
+RUN pip-finalize.sh requirements-mjx.in requirements-l2r.in

@@ -4,7 +4,10 @@ set -eoux pipefail
 
 pushd /opt/pip-tools.d
 
+echo "Run with the following argumnets: ${@}"
+
 REQUIREMENTS_LIST=${@:-$(ls requirements-*.in)}
+echo REQUIREMENTS_LIST=${REQUIREMENTS_LIST}
 
 # First pip-compile gathers all reqs, but we are care only about VCS installs
 # It's possible there are 2nd degree transitive dependencies that are VCS, so
