@@ -12,7 +12,7 @@ index 299ebe1..ccd16cb 100644
  fused_qkv: False
  fused_mlp: False
 diff --git a/MaxText/max_utils.py b/MaxText/max_utils.py
-index 6ca2f75..fead9bd 100644
+index 6ca2f75..e4b939c 100644
 --- a/MaxText/max_utils.py
 +++ b/MaxText/max_utils.py
 @@ -177,7 +177,7 @@ def maybe_initialize_jax_distributed_system(raw_keys):
@@ -20,7 +20,7 @@ index 6ca2f75..fead9bd 100644
    """
    if (raw_keys["enable_checkpointing"] and raw_keys["async_checkpointing"]
 -                and raw_keys["compile_topology_num_slices"]==-1):
-+                and raw_keys["compile_topology_num_slices"]==-1) or raw_keys["hardware"]=='gpu':
++                and raw_keys["compile_topology_num_slices"]==-1) or raw_keys["hardware"]=='gpu_multiprocess':
      max_logging.log("Attempting to initialize the jax distributed system...")
      jax.distributed.initialize()
      max_logging.log("Jax distributed system initialized!")

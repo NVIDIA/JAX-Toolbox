@@ -35,7 +35,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Default arguments
-HARDWARE='tpu'
+HARDWARE='gpu'
 OUTPUT=$(mktemp -d)
 
 BATCH_PER_GPU=2
@@ -74,7 +74,7 @@ while [ : ]; do
             shift 2
             ;;
         --multiprocess)
-            HARDWARE='gpu'
+            HARDWARE='gpu_multiprocess'
             shift 1
             ;;
         -o | --output)
