@@ -33,6 +33,7 @@ RUN rm -rf "${SRC_PATH_OPENXLA_TRITON}/python/build"
 FROM ${BASE_IMAGE} as mealkit
 ARG GIT_URLREF_JAX_TRITON
 ARG SRC_PATH_OPENXLA_TRITON
+ARG SRC_PATH_JAX_TRITON
 
 # Get the triton source + wheel from the build step
 COPY --from=builder ${SRC_PATH_OPENXLA_TRITON} ${SRC_PATH_OPENXLA_TRITON}
