@@ -27,16 +27,6 @@ on:
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
         default: 'badge-base-build'
-      GIT_USER_NAME:
-        type: string
-        description: 'Username in GIT to perform git pull/push'
-        required: false
-        default: 'JAX Toolbox'
-      GIT_USER_EMAIL:
-        type: string
-        description: 'User email in GIT to perform git pull/push'
-        required: false
-        default: 'jax@nvidia.com'
       BUMP_MANIFEST:
         type: boolean
         description: "Flag to bump manifest file or not"
@@ -163,8 +153,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            GIT_USER_NAME=${{ inputs.GIT_USER_NAME }}
-            GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
         

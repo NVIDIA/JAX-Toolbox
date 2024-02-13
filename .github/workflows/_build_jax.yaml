@@ -17,6 +17,11 @@ on:
         description: "Build date in YYYY-MM-DD format"
         required: false
         default: 'NOT SPECIFIED'
+      GIT_URLREF_XLA:
+        type: string
+        description: Git URL and ref for XLA in URL#REF format
+        default: ''
+        required: false
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
@@ -27,16 +32,6 @@ on:
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
         default: 'badge-jax-build'
-      GIT_USER_NAME:
-        type: string
-        description: 'Username in GIT to perform git pull/push'
-        required: false
-        default: 'JAX Toolbox'
-      GIT_USER_EMAIL:
-        type: string
-        description: 'User email in GIT to perform git pull/push'
-        required: false
-        default: 'jax@nvidia.com'
     outputs:
       DOCKER_TAG_MEALKIT:
         description: "Tags of the 'mealkit' image built"
@@ -128,8 +123,7 @@ jobs:
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            GIT_USER_NAME=${{ inputs.GIT_USER_NAME }}
-            GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
+            GIT_URLREF_XLA=${{ inputs.GIT_URLREF_XLA }}
 
       - name: Set docker metadata - final
         id: final-metadata
@@ -161,6 +155,7 @@ jobs:
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
+            GIT_URLREF_XLA=${{ inputs.GIT_URLREF_XLA }}
 
       - name: Generate sitrep
         if: success() || failure()
