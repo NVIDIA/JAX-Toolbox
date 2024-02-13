@@ -35,7 +35,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Default arguments
-MULTIPROCESS=false
+HARDWARE='tpu'
 OUTPUT=$(mktemp -d)
 
 BATCH_PER_GPU=2
@@ -74,7 +74,7 @@ while [ : ]; do
             shift 2
             ;;
         --multiprocess)
-            MULTIPROCESS=true
+            HARDWARE='gpu'
             shift 1
             ;;
         -o | --output)
@@ -134,7 +134,7 @@ print_var BATCH_PER_GPU
 print_var DTYPE
 print_var STEPS
 print_var NGPUS
-print_var MULTIPROCESS
+print_var HARDWARE
 print_var OUTPUT
 print_var ENABLE_TE
 print_var ENABLE_FUSED_ATTN
@@ -168,7 +168,7 @@ RUN_NAME="logdir" ## the RUN_NAME cannot be changed
 RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME}\
     steps=$STEPS per_device_batch_size=2 base_emb_dim=2560 base_mlp_dim=8192 remat_policy=minimal\
     base_num_query_heads=8 base_num_kv_heads=8 base_num_decoder_layers=8 head_dim=128 enable_checkpointing=false\
-    base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic multiprocess_gpu=${MULTIPROCESS}\
+    base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE\
     dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP\
     ici_data_parallelism=$ici_DP dcn_data_parallelism=$dcn_DP\
     ici_tensor_parallelism=$TP dcn_tensor_parallelism=1"
