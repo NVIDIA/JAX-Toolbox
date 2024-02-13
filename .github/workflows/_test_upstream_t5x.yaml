@@ -74,7 +74,7 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
           if [[  ${{ inputs.ENABLE_FMHA }} == 1 ]]; then
-            JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}-FMHA;
+            JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}_FMHA;
           else
             JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME};
           fi
@@ -208,7 +208,7 @@ jobs:
           TEST_CASE_NAME=${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
           if [[  ${{ inputs.ENABLE_FMHA }} == 1 ]]; then
-            JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}-FMHA;
+            JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}_FMHA;
           else
             JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME};
           fi
@@ -245,7 +245,7 @@ jobs:
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
-              --enable-fmha 1 \
+              --enable-fmha ${{ inputs.ENABLE_FMHA }} \
               --steps-per-epoch 100 \
               --multiprocess 
           EOF
