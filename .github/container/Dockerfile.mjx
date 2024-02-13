@@ -4,8 +4,8 @@ ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
 ARG SRC_PATH_MUJOCO=/opt/mujoco
 ARG SRC_PATH_MUJOCO_MPC=/opt/mujoco-mpc
 ARG SRC_PATH_L2R=/opt/language-to-reward-2023
-ARG CC=/usr/bin/clang
-ARG CXX=/usr/bin/clang++
+ARG CC_COMPILER=/usr/bin/clang
+ARG CXX_COMPILER=/usr/bin/clang++
 
 ###############################################################################
 ## Download source and add auxiliary scripts
@@ -15,11 +15,8 @@ FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_MUJOCO
 ARG SRC_PATH_MUJOCO_MPC
 ARG SRC_PATH_L2R
-ARG CC
-ARG CXX
-
-ENV CC=${CC}
-ENV CXX=${CXX}
+ARG CC_COMPILER
+ARG CXX_COMPILER
 
 # Install system dependencies for Mujuco/MPC
 RUN <<"EOF" bash -ex
@@ -42,7 +39,7 @@ get-source.sh -l mujoco-mpc -m ${MANIFEST_FILE}
 get-source.sh -l language-to-reward-2023 -m ${MANIFEST_FILE}
 echo "-f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MUJOCO}/mjx" >> /opt/pip-tools.d/requirements-mjx.in
-echo "-e file://${SRC_PATH_MUJOCO_MPC}/python" >> /opt/pip-tools.d/requirements-l2r.in
+echo "-e file://${SRC_PATH_MUJOCO_MPC}/python" >> /opt/pip-tools.d/requirements-mpc.in
 echo "-e file://${SRC_PATH_L2R}" >> /opt/pip-tools.d/requirements-l2r.in
 EOF
 
@@ -53,4 +50,8 @@ EOF
 
 FROM mealkit as final
 
-RUN pip-finalize.sh
+# compile MuJoCo-MPC with Clang separately 
+RUN CC=${CC_COMPILER} CXX=${CXX_COMPILER} pip-finalize.sh /opt/pip-tools.d/requirements-mpc.in
+
+# compiler the rest dependencies
+RUN pip-finalize.sh /opt/pip-tools.d/requirements-mjx.in /opt/pip-tools.d/requirements-l2r.in
