@@ -120,7 +120,7 @@ fi
 # Set hlo dump folder after output folder is set.
 HLO_DIR=${OUTPUT}/hlo
 export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_dump_hlo_as_text --xla_dump_to=${HLO_DIR}}"
-export XLA_FLAGS="${BASE_XLA_FLAGS}"
+export XLA_FLAGS="${XLA_FLAGS} ${BASE_XLA_FLAGS}"
 echo "HLO will be dumped in ${HLO_DIR} dir."
 
 ## Setting the env variables for FMHA
