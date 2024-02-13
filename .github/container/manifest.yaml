@@ -132,6 +132,12 @@ mujoco:
   tracking_ref: main
   latest_verified_commit: ced37ffbb237584512311b041bce3124e3b2cc2a
   mode: git-clone
+grain:
+  # Used only in ARM t5x builds
+  url: https://github.com/google/grain.git
+  tracking_ref: main
+  latest_verified_commit: 41f80fb540547ec3aefe7cec57fe43228560b1cf
+  mode: git-clone
 mujoco-mpc:
   url: https://github.com/google-deepmind/mujoco_mpc.git
   tracking_ref: main
