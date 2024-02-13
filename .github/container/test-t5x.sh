@@ -120,13 +120,14 @@ fi
 # Set hlo dump folder after output folder is set.
 HLO_DIR=${OUTPUT}/hlo
 export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_dump_hlo_as_text --xla_dump_to=${HLO_DIR}}"
-export XLA_FLAGS="${XLA_FLAGS} ${BASE_XLA_FLAGS}"
+export XLA_FLAGS="${BASE_XLA_FLAGS} ${XLA_FLAGS:-}"
 echo "HLO will be dumped in ${HLO_DIR} dir."
 
 ## Setting the env variables for FMHA
 if [[ "$ENABLE_FMHA" -eq "1" ]]; then  
     echo "Setting XLA FMHA Flags";
-    export XLA_FLAGS=" ${XLA_FLAGS:---xla_gpu_fused_attention_use_cudnn_rng=true --xla_gpu_enable_cudnn_fmha=true}" 
+    export BASE_XLA_FLAGS_FMHA="${BASE_XLA_FLAGS_FMHA:---xla_gpu_fused_attention_use_cudnn_rng=true --xla_gpu_enable_cudnn_fmha=true}"
+    export XLA_FLAGS="${BASE_XLA_FLAGS_FMHA} ${XLA_FLAGS:-}"
 fi
 
 echo "XLA FLAGS: $XLA_FLAGS"
