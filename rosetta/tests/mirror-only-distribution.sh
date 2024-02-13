@@ -27,7 +27,7 @@ t5x:
 EOF
 
 bash ../../.github/container/get-source.sh \
-  --checkout-dir $tmp_base/t5x
+  --checkout-dir $tmp_base/t5x \
   --urlref $(yq '.t5x | [(.url, .latest_verified_commit)] | join("#")' $manifest_tmp)
 
 cp ../../.github/container/create-distribution.sh $workspace_tmp/
