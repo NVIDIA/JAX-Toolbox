@@ -125,6 +125,7 @@ echo "HLO will be dumped in ${HLO_DIR} dir."
 
 ## Setting the env variables for FMHA
 if [[ "$ENABLE_FMHA" -eq "1" ]]; then  
+    echo "Setting XLA FMHA Flags";
     export XLA_FLAGS=" ${XLA_FLAGS:---xla_gpu_fused_attention_use_cudnn_rng=true --xla_gpu_enable_cudnn_fmha=true}" 
 fi
 
