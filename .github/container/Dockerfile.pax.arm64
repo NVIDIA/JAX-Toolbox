@@ -142,7 +142,10 @@ for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
       echo "broken dependencies no longer present in ${src}"
       exit 1
   else
+      git config --global user.name "JAX Toolbox"
+      git config --global user.email "jax@nvidia.com"
       git commit -a -m "remove broken dependencies from ${src}"
+      rm ~/.gitconfig
   fi
   popd
 done

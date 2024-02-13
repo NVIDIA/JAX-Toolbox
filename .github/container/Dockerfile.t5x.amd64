@@ -27,7 +27,10 @@ if git diff --quiet; then
     echo "URL specs no longer present in select dependencies of t5x"
     exit 1
 else
+    git config --global user.name "JAX Toolbox"
+    git config --global user.email "jax@nvidia.com"
     git commit -a -m "remove URL specs from select dependencies of t5x"
+    rm ~/.gitconfig
 fi
 popd
 EOF
