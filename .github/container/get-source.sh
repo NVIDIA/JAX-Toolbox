@@ -85,5 +85,7 @@ git checkout ${GIT_REF}
 git submodule update --init --recursive
 popd
 
-echo "Appending to ${PIP_DIRECTIVE_FILE}:"
-echo "-e file://${CHECKOUT_DIR}" | tee -a ${PIP_DIRECTIVE_FILE}
+if [[ -n "${PIP_DIRECTIVE_FILE}" ]]; then
+  echo "Appending to ${PIP_DIRECTIVE_FILE}:"
+  echo "-e file://${CHECKOUT_DIR}" | tee -a ${PIP_DIRECTIVE_FILE}
+fi
