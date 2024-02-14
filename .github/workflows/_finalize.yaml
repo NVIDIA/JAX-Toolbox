@@ -165,6 +165,7 @@ jobs:
         with:
           name: ${{ inputs.ARTIFACT_NAME }}
           path: ./sitrep.json
+
   publish-badge:
     needs: [upload-badge]
     if: inputs.PUBLISH_BADGE == true
@@ -187,9 +188,21 @@ jobs:
               gist_id: srcId
             });
 
-            // Prepare file upload
+            // Fetch existing files from destination gist
+            const { data: dstData } = await github.rest.gists.get({
+              gist_id: dstId
+            });
+
+            // Mark existing files in destination gist for deletion
             let filesToUpdate = {};
-            pattern = new RegExp(`${PUBLISH_BADGE_FILES}`);
+            for (const filename of Object.keys(dstData.files)) {
+              filesToUpdate[filename] = {
+                content: null
+              };
+            }
+
+            // Add or update files based on the pattern
+            const pattern = new RegExp(`${PUBLISH_BADGE_FILES}`);
             for (const [filename, fileObj] of Object.entries(srcData.files)) {
               if (filename.match(pattern)) {
                 filesToUpdate[filename] = {
@@ -205,4 +218,3 @@ jobs:
             });
             console.log("Files copied successfully.");
             console.log(Object.keys(filesToUpdate));
-            
