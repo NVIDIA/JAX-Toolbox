@@ -86,7 +86,7 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.levanter
     secrets: inherit
 
-  build-t5x:
+  build-upstream-t5x:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
     with:
@@ -99,7 +99,7 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
-  build-pax:
+  build-upstream-pax:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
     with:
@@ -113,22 +113,22 @@ jobs:
     secrets: inherit
 
   build-rosetta-t5x:
-    needs: build-t5x
+    needs: build-upstream-t5x
     uses: ./.github/workflows/_build_rosetta.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: t5x
     secrets: inherit
 
   build-rosetta-pax:
-    needs: build-pax
+    needs: build-upstream-pax
     uses: ./.github/workflows/_build_rosetta.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: pax
     secrets: inherit
 
@@ -141,8 +141,8 @@ jobs:
       - build-pallas
       - build-maxtext
       - build-levanter
-      - build-t5x
-      - build-pax
+      - build-upstream-t5x
+      - build-upstream-pax
       - build-rosetta-t5x
       - build-rosetta-pax
     outputs:
@@ -153,23 +153,23 @@ jobs:
         run: |
           TAGS=$(cat <<EOF | jq -c
           [\
-            {"flavor": "base",        "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
-            {"flavor": "jax",         "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "pallas",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "maxtext",     "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "levanter",    "stage": "final",   "priority": 900,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "t5x",         "stage": "final",   "priority": 900,  "tag": "${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "pax",         "stage": "final",   "priority": 900,  "tag": "${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "rosetta-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "rosetta-pax", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "jax",         "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "pallas",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "maxtext",     "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "levanter",    "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "t5x",         "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "pax",         "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-pax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "rosetta-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "rosetta-pax", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
+            {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "pallas",       "stage": "final",   "priority": 900,  "tag": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "levanter",     "stage": "final",   "priority": 900,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "upstream-pax", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "t5x",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "pax",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "pallas",       "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "levanter",     "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "upstream-pax", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-pax.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "t5x",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "pax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {}\
           ]
           EOF
@@ -210,19 +210,19 @@ jobs:
     secrets: inherit
 
   test-te:
-    needs: build-pax
+    needs: build-upstream-pax
     if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_te.yaml
     with:
-      TE_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
+      TE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-upstream-t5x:
-    needs: build-t5x
+    needs: build-upstream-t5x
     if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-    uses: ./.github/workflows/_test_t5x.yaml
+    uses: ./.github/workflows/_test_upstream_t5x.yaml
     with:
-      T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}
+      T5X_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-rosetta-t5x:
@@ -245,11 +245,11 @@ jobs:
     secrets: inherit
 
   test-upstream-pax:
-    needs: build-pax
+    needs: build-upstream-pax
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_pax.yaml
+    uses: ./.github/workflows/_test_upstream_pax.yaml
     with:
-      PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
+      PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-rosetta-pax:

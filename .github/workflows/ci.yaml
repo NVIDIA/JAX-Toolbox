@@ -111,10 +111,10 @@ jobs:
             pallas
             maxtext
             levanter
+            upstream-t5x
+            upstream-pax
             t5x
             pax
-            rosetta-t5x
-            rosetta-pax
           )
           declare -a STAGES=(
             mealkit
