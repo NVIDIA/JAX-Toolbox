@@ -26,6 +26,9 @@ jobs:
       ARTIFACT_NAME: 'artifact-workflow-metadata'
       BADGE_FILENAME: 'badge-workflow-metadata.json'
     steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
       - name: Generate badge
         shell: bash -x -e {0}
         run: |
@@ -51,6 +54,7 @@ jobs:
 
   upload-badge:
     runs-on: ubuntu-22.04
+    needs: [workflow-badge]
     env:
       # Name/bash regex for shields.io endpoint JSON files
       BADGE_FILES: '*badge*.json'
