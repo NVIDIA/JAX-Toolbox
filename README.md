@@ -4,11 +4,12 @@
   <thead>
     <tr>
       <th colspan=4 style="text-align:center;">
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/ci.yaml?query=event%3Aschedule+branch%3Amain">
         <img
           style="height: 1.5em;"
           src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-workflow-metadata.json&logo=github-actions&logoColor=white"
-          href="https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/ci.yaml"
         />
+        </a>
       </th>
     </tr>
     <tr>
@@ -27,9 +28,7 @@
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-base-build-amd64.json&logo=docker&label=amd64">
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-base-build-arm64.json&logo=docker&label=arm64">
       </td>
-      <td>
-        n/a
-      </td>
+      <td></td>
     </tr>
     <tr>
       <td>
@@ -43,6 +42,9 @@
       <td>
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-test-V100.json&logo=nvidia&label=V100">
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-test-A100.json&logo=nvidia&label=A100">
+        <br>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fte-unit-test-status.json&logo=nvidia&label=TE%20Unit">
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fte-multi-gpu-test-status.json&logo=nvidia&label=TE%20Multi%20GPU">
       </td>
     </tr>
     <tr>
@@ -77,7 +79,7 @@
       <td rowspan=2>
         <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=T5X%3D%7Bcore%2CT5X%7D">
       </td>
-      <td style="font-size:0.7em;">upstream</td>
+      <td>upstream</td>
       <td>
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-t5x-build-amd64.json&logo=docker&label=amd64">
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-t5x-build-arm64.json&logo=docker&label=arm64">
@@ -87,7 +89,7 @@
       </td>
     </tr>
     <tr>
-      <td style="font-size:0.7em;">rosetta</td>
+      <td>rosetta</td>
       <td>
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-build-t5x-amd64.json&logo=docker&label=amd64">
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-build-t5x-arm64.json&logo=docker&label=arm64">
@@ -100,7 +102,7 @@
       <td rowspan=2>
         <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=PAX%3D%7Bcore%2Cpaxml%2Cpraxis%7D">
       </td>
-      <td style="font-size:0.7em;">upstream</td>
+      <td>upstream</td>
       <td>
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pax-build-amd64.json&logo=docker&label=amd64">
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pax-build-arm64.json&logo=docker&label=arm64">
@@ -110,7 +112,7 @@
       </td>
     </tr>
     <tr>
-      <td style="font-size:0.7em;">rosetta</td>
+      <td>rosetta</td>
       <td>
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-build-pax-amd64.json&logo=docker&label=amd64">
         <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-build-pax-arm64.json&logo=docker&label=arm64">
