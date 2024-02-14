@@ -3,6 +3,11 @@ name: ~finalize workflow run with job report and badge updates
 on:
   workflow_call:
     inputs:
+      BUILD_DATE:
+        type: string
+        description: 'Date of the build'
+        default: ''
+        required: false
       PUBLISH_BADGE:
         type: boolean
         description: Update the landing page badges with run outcomes
@@ -14,29 +19,35 @@ on:
         required: false
         default: 'artifact-final-report'
 jobs:
-  # show-containers:
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - name: Generate job summary for container build
-  #       shell: bash -x -e {0}
-  #       run: |
-  #         cat > $GITHUB_STEP_SUMMARY << EOF
-  #         # Images created
+  # create shields.io badge endpoint JSON for workflow metadata
+  workflow-badge:
+    runs-on: ubuntu-22.04
+    env:
+      ARTIFACT_NAME: 'artifact-workflow-metadata'
+      BADGE_FILENAME: 'badge-workflow-metadata.json'
+    steps:
+      - name: Generate badge
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
 
-  #         | Image        | Link                                               |
-  #         | ------------ | -------------------------------------------------- |
-  #         | Base         | ${{ needs.amd64.outputs.TAG_BASE }}                |
-  #         |              | ${{ needs.arm64.outputs.TAG_BASE }}                |
-  #         | JAX          | ${{ needs.amd64.outputs.TAG_JAX }}                 |
-  #         |              | ${{ needs.arm64.outputs.TAG_JAX }}                 |
-  #         | T5X          | ${{ needs.amd64.outputs.TAG_T5X }}                 |
-  #         |              | ${{ needs.arm64.outputs.TAG_T5X }}                 |
-  #         | PAX          | ${{ needs.amd64.outputs.TAG_PAX }}                 |
-  #         |              | ${{ needs.arm64.outputs.TAG_PAX }}                 |
-  #         EOF
+          badge_label='workflow metadata'
+          badge_message="Run ${{ github.run_id }}, ${{ inputs.BUILD_DATE || github.event.created_at }}"
 
-  #         # | ROSETTA(t5x) | ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAGS }} |
-  #         # | ROSETTA(pax) | ${{ needs.build-rosetta-pax.outputs.DOCKER_TAGS }} |
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="bisque" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME }}
+
+      - name: Upload sitrep and badge
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            ${{ env.BADGE_FILENAME }}
 
   upload-badge:
     runs-on: ubuntu-22.04
