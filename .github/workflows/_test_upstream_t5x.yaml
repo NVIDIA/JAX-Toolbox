@@ -230,9 +230,10 @@ jobs:
           #!/bin/bash
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
-          #SBATCH --nodes=1
-          #SBATCH --tasks=1
+          #SBATCH --nodes=${{ matrix.N_NODE }}
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
+          #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
