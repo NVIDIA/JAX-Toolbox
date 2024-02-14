@@ -114,8 +114,8 @@ jobs:
               --enable-fmha ${{ inputs.ENABLE_FMHA }} \
               --steps-per-epoch 100
           EOF
-          )            
-            
+          )
+          
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
           set +x
