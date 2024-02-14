@@ -18,7 +18,7 @@ echo "logging:
   latest_verified_commit: 38709131757a786d7f66150243b49eb0365324d7
   mode: git-clone" >> ${MANIFEST_FILE}
 cat ${MANIFEST_FILE}
-bump.sh --input-manifest -m ${MANIFEST_FILE}
+bump.sh --input-manifest ${MANIFEST_FILE}
 cat ${MANIFEST_FILE}
 get-source.sh -l maxtext -m ${MANIFEST_FILE} 
 cat "${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
