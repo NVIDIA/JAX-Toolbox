@@ -355,7 +355,7 @@ index 3d592d8..7a321cd 100644
  def _warn_action_not_run(action, task, metric):
    logging.warning(
 -- 
-2.43.0
+2.25.1
 
 
 From 79d36a39921b83271ff75748a211185884744f8b Mon Sep 17 00:00:00 2001
@@ -381,5 +381,5 @@ index e6027ce..ec1c2fa 100644
          checkpoint_cfg=checkpoint_cfg,
          partitioner=partitioner,
 -- 
-2.43.0
+2.25.1
 
