@@ -155,11 +155,7 @@ jobs:
           head: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
           base: automatic-all-green-bump
           body: |
-            ## CI
             https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}
-            ## Meta
-            workflow_event ${{ github.event_name }}
-            actor ${{ github.actor }}
           title: Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }})
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
