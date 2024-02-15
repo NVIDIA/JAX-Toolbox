@@ -21,7 +21,7 @@ on:
       BUMP_MANIFEST:
         type: boolean
         description: Bump git repos in manifest.yaml to head of tree?
-        default: false
+        default: true
         required: false
 
 concurrency:
@@ -71,16 +71,16 @@ jobs:
         id: manifest-branch
         shell: bash -x -e {0}
         run: |
+          BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}
           # Prepend nightly manifest branch with "z" to make it appear at the end
-          if [[ "${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}" ]]; then
+          if [[ "$BUMP_MANIFEST" == "true" ]]; then
             # This branch is for scheduled nightlies or manually run nightlies
             echo "MANIFEST_BRANCH=znightly-${{ steps.date.outputs.BUILD_DATE }}-${{ github.run_id }}"
-            echo "BUMP_MANIFEST=true"
           else
             # This branch is for presubmits (no bumping needed)
             echo "MANIFEST_BRANCH=${{ github.sha }}"
-            echo "BUMP_MANIFEST=false"
           fi | tee -a $GITHUB_OUTPUT
+          echo "BUMP_MANIFEST=$BUMP_MANIFEST" | tee -a $GITHUB_OUTPUT
 
   maybe-bump-manifest:
     name: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' && 'bump-manifest' || 'no-bump-manifest' }}
@@ -149,8 +149,8 @@ jobs:
             ## CI
             https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}
             ## Meta
-            - workflow_event: ${{ github.event_name }}
-            - actor: ${{ github.actor }}
+            workflow_event: ${{ github.event_name }}
+            actor: ${{ github.actor }}
           title: Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }})
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
