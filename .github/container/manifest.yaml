@@ -40,6 +40,7 @@ paxml:
   mode: git-clone
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
+    pull/68/head: file://patches/paxml/PR-68.patch # adds LLaMA configs
 praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
@@ -49,6 +50,7 @@ praxis:
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
     pull/36/head: file://patches/praxis/PR-36.patch # adds Transformer Engine support
+    pull/50/head: file://patches/praxis/PR-50.patch # adds BoolQ eval support
 lingvo:
   # Used only in ARM pax builds
   url: https://github.com/tensorflow/lingvo.git
@@ -139,12 +141,12 @@ grain:
   latest_verified_commit: fa79b9dea81ffb00555a6c2ae2898be4bdd5e564
   mode: git-clone
 mujoco-mpc:
-  url:  https://github.com/google-deepmind/mujoco_mpc.git
+  url: https://github.com/google-deepmind/mujoco_mpc.git
   tracking_ref: main
   latest_verified_commit: a8bdcc1d968addf0d334243ce9bd6dbb07e1d781
   mode: git-clone
 language-to-reward-2023:
-  url:  https://github.com/google-deepmind/language_to_reward_2023.git
+  url: https://github.com/google-deepmind/language_to_reward_2023.git
   tracking_ref: main
   latest_verified_commit: abb8e5125e4ecd0da378490b73448c05a694def5
   mode: git-clone
