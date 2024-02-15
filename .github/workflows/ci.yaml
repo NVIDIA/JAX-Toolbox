@@ -184,6 +184,7 @@ jobs:
         with:
           route: PUT /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}/merge
           owner_and_repo: ${{ github.repository }}
+          merge_method: squash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
