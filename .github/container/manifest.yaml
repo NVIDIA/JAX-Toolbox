@@ -2,31 +2,31 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: f2613387bd7421bd1fedbed15257b9841717b34a
+  latest_verified_commit: ccb88631d02d5f5b8f47904ecfca91b23a5fbfe7
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 5ea80986813c3eef73c4d53ee881c203839f2c16
+  latest_verified_commit: d0c40991e0a87c99a14b67cf025aa90cadddd569
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
-  latest_verified_commit: d9585e0a6ba6c4a4ebc93d0707add573420703df
+  latest_verified_commit: efbe70501b596964b695726844b928c0ee1f706a
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  latest_verified_commit: d68028c872186cd3df604e2ee2f60e09784d955c
+  latest_verified_commit: 8d62d5c2ab0ab69e300ff9cf2503545720c23262
   mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
   tracking_ref: main
-  latest_verified_commit: cd94b76f53244914660e83a8f813d8e809ba05e4
+  latest_verified_commit: d07191d842209460f54c715f36d6b12813922ad1
   mode: git-clone
   patches:
     mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
@@ -36,7 +36,7 @@ paxml:
   url: https://github.com/google/paxml.git
   mirror_url: https://github.com/nvjax-svc-0/paxml.git
   tracking_ref: main
-  latest_verified_commit: e6cbcb9990a14d6a166166d822dc8e929b6bab0d
+  latest_verified_commit: 30043ed0edcb13a22a76277055af089343a8171d
   mode: git-clone
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
@@ -44,7 +44,7 @@ praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
   tracking_ref: main
-  latest_verified_commit: d2d3bb89770de2b3af666981295c23defb38bd2f
+  latest_verified_commit: 5605af8d8967626b0c3d43ce9dea376e4f5a99fa
   mode: git-clone
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
@@ -53,7 +53,7 @@ lingvo:
   # Used only in ARM pax builds
   url: https://github.com/tensorflow/lingvo.git
   tracking_ref: master
-  latest_verified_commit: 8bb7652184c6c895def36e9fb242a9751705fa0e
+  latest_verified_commit: 2d46faf872a214e74ab5535cd69cb3d5d6cf459d
   mode: git-clone
 tensorflow-text:
   # Used only in ARM pax and t5x builds
@@ -68,13 +68,13 @@ pydantic:
 fiddle:
   url: https://github.com/google/fiddle.git
   tracking_ref: main
-  latest_verified_commit: 7a12009bf9d07652759e8554fa93135b2d63fd41
+  latest_verified_commit: 2a17618c56eb99aa58aa898ae12cbac7cf5c3b30
   mode: pip-vcs
 # Used by t5x
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: bb9be6d0510aada879d5d6b978e02f2ed4fd1a7a
+  latest_verified_commit: 241e43b86f811dc6ee4c487a95162528b5cad307
   mode: pip-vcs
 clu:
   url: https://github.com/google/CommonLoopUtils.git
@@ -94,54 +94,54 @@ jestimator:
 optax:
   url: https://github.com/google-deepmind/optax.git
   tracking_ref: main
-  latest_verified_commit: c86b9a99eea69c5f2bb81bd526a579b3f6b5f4d0
+  latest_verified_commit: 967b2e6e6096466d87008a6d02416944a565bd1b
   mode: pip-vcs
 seqio:
   url: https://github.com/google/seqio.git
   tracking_ref: main
-  latest_verified_commit: 763998620c2071b3b05b3bbf94cf02305746ab9f
+  latest_verified_commit: ec01ba8ac9d30f389e764bee53e0c755714f19ea
   mode: pip-vcs
 # used by Pallas
 openxla-triton:
   url: https://github.com/openxla/triton.git
   tracking_ref: llvm-head
-  latest_verified_commit: cl601105910
+  latest_verified_commit: cl604551115
   mode: git-clone
 jax-triton:
   url: https://github.com/jax-ml/jax-triton.git
   tracking_ref: main
-  latest_verified_commit: 28ad4766271a181587e6e17e17de7f729c1a03b5
+  latest_verified_commit: 8f07074c8af95551bd3283638f6890893b4be0d3
   mode: git-clone
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
-  latest_verified_commit: 1c91b3606976765d1edbf121bf54b1e0307d4013
+  latest_verified_commit: 6197ff94c484c034705e5fea85d5b397e0f2d083
   mode: git-clone
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
   tracking_ref: main
-  latest_verified_commit: c1e7b24aa47e073af0aa48606581f817b59e1b45
+  latest_verified_commit: 936cf82953080c54abc2c0529f97f353022ce790
   mode: git-clone
 haliax:
   url: https://github.com/stanford-crfm/haliax.git
   tracking_ref: main
-  latest_verified_commit: ae5f4ce74a429a9ae45e350099f2ecc0cd95004c
+  latest_verified_commit: 690623131e107972ec2ec67d6183c77649d4b7e0
   mode: git-clone
 mujoco:
   url: https://github.com/google-deepmind/mujoco.git
   tracking_ref: main
-  latest_verified_commit: ced37ffbb237584512311b041bce3124e3b2cc2a
+  latest_verified_commit: 414a67640aff1182986213528eca14e814f81cce
   mode: git-clone
 grain:
   # Used only in ARM t5x builds
   url: https://github.com/google/grain.git
   tracking_ref: main
-  latest_verified_commit: 41f80fb540547ec3aefe7cec57fe43228560b1cf
+  latest_verified_commit: c6abff16f1509cfb677f842f024ffdd88c948816
   mode: git-clone
 mujoco-mpc:
   url: https://github.com/google-deepmind/mujoco_mpc.git
   tracking_ref: main
-  latest_verified_commit: 73633d7da1900c428a7315d2ffe1120c5393a7d8
+  latest_verified_commit: bd6eda6c561d27d03081fbbe727d8c49e0da684c
   mode: git-clone
 language-to-reward-2023:
   url: https://github.com/google-deepmind/language_to_reward_2023.git
