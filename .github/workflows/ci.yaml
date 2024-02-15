@@ -95,13 +95,5 @@ jobs:
       - amd64
       - arm64
     steps:
-      - name: test
-        run: echo ${{ needs.amd64 }}
-
-  finalize:
-    needs: [metadata, amd64, arm64]
-    if: "!cancelled()"
-    uses: ./.github/workflows/_finalize.yaml
-    with:
-      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
-    secrets: inherit
+      - name: AMD=${{ needs.amd64.result }} ARM=${{ needs.amd64.result }} 
+        run: echo ${{ needs.amd64.result }} ${{ needs.amd64.result }} 
