@@ -161,22 +161,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Merging PR
-        #run: echo ${{ fromJson(steps.create_pr.outputs.data) }}
-        run: echo ${{ steps.create_pr.outputs.data }}
-      #- name: Merging PR
-      #  uses: octokit/request-action@v2.x
-      #  with:
-      #    route: POST /repos/{owner_and_repo}/pulls
-      #    owner_and_repo: ${{ github.repository }}
-      #    head: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
-      #    base: automatic-all-green-bump
-      #    body: |
-      #      ## CI
-      #      https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}
-      #      ## Meta
-      #      * workflow_event: ${{ github.event_name }}
-      #      * actor: ${{ github.actor }}
-      #    title: Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }})
-      #  env:
-      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}/merge
+          owner_and_repo: ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
