@@ -16,14 +16,6 @@ RUN <<"EOF" bash -ex
 export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 apt-get update
-apt-get install -y curl
-
-# Repo for newer nsight versions
-export UBUNTU_ARCH=$(dpkg --print-architecture)
-export UBUNTU_VERSION=$(. /etc/os-release && echo ${ID}${VERSION_ID/./}) # e.g. ubuntu2204
-curl -o /usr/share/keyrings/nvidia.pub https://developer.download.nvidia.com/devtools/repos/${UBUNTU_VERSION}/${UBUNTU_ARCH}/nvidia.pub
-echo "deb [signed-by=/usr/share/keyrings/nvidia.pub] https://developer.download.nvidia.com/devtools/repos/${UBUNTU_VERSION}/${UBUNTU_ARCH}/ /" > /etc/apt/sources.list.d/devtools-${UBUNTU_VERSION}-${UBUNTU_ARCH}.list
-apt-get update
 
 apt-get install -y \
   bat \
@@ -31,12 +23,11 @@ apt-get install -y \
   checkinstall \
   clang \
   cmake \
+  curl \
   git \
   gnupg \
   liblzma-dev \
   lld \
-  nsight-compute \
-  nsight-systems-cli \
   python-is-python3 \
   python3-pip \
   rsync \
@@ -61,6 +52,12 @@ git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github
 rm ~/.gitconfig
 EOF
 RUN pip install --upgrade --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
+
+###############################################################################
+## Install the latest versions of Nsight Systems and Nsight Compute
+###############################################################################
+ADD install-nsight.sh /usr/local/bin
+RUN install-nsight.sh
 
 ###############################################################################
 ## Install cuDNN

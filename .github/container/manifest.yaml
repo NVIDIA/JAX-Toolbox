@@ -115,7 +115,7 @@ jax-triton:
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
-  latest_verified_commit: 1c91b3606976765d1edbf121bf54b1e0307d4013
+  latest_verified_commit: c94564a66a6b13b4da6248847f3799b463283454
   mode: git-clone
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
@@ -132,6 +132,12 @@ mujoco:
   tracking_ref: main
   latest_verified_commit: ced37ffbb237584512311b041bce3124e3b2cc2a
   mode: git-clone
+grain:
+  # Used only in ARM t5x builds
+  url: https://github.com/google/grain.git
+  tracking_ref: main
+  latest_verified_commit: 41f80fb540547ec3aefe7cec57fe43228560b1cf
+  mode: git-clone
 mujoco-mpc:
   url: https://github.com/google-deepmind/mujoco_mpc.git
   tracking_ref: main
@@ -142,3 +148,8 @@ language-to-reward-2023:
   tracking_ref: main
   latest_verified_commit: abb8e5125e4ecd0da378490b73448c05a694def5
   mode: git-clone
+mlperf-logging:
+  url: https://github.com/mlcommons/logging.git
+  tracking_ref: main 
+  latest_verified_commit: 38709131757a786d7f66150243b49eb0365324d7
+  mode: pip-vcs

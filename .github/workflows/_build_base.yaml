@@ -157,7 +157,7 @@ jobs:
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
         
       - name: Generate sitrep
-        if: success() || failure()
+        if: "!cancelled()"
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
@@ -191,6 +191,7 @@ jobs:
           > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload sitrep and badge
+        if: "!cancelled()"
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
