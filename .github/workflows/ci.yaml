@@ -160,6 +160,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Need to sleep since PR may not be accessible via the API yet and may 404 if merging too quickly
+      - name: Sleeping to ensure API is aware of PR num
+        run: sleep 15
+
       - name: Merging PR
         uses: octokit/request-action@v2.x
         with:
