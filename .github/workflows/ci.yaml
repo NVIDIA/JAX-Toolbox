@@ -138,14 +138,39 @@ jobs:
       - arm64
     steps:
       - name: Creating PR for MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+        id: create_pr
         uses: octokit/request-action@v2.x
         with:
           route: POST /repos/{owner_and_repo}/pulls
           owner_and_repo: ${{ github.repository }}
           head: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
-          base: main
+          base: automatic-all-green-bump
           body: |
+            ## CI
             https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}
+            ## Meta
+            * workflow_event: ${{ github.event_name }}
+            * actor: ${{ github.actor }}
           title: Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }})
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merging PR
+        run: echo ${{ steps.create_pr.outputs.data }}
+      #- name: Merging PR
+      #  uses: octokit/request-action@v2.x
+      #  with:
+      #    route: POST /repos/{owner_and_repo}/pulls
+      #    owner_and_repo: ${{ github.repository }}
+      #    head: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+      #    base: automatic-all-green-bump
+      #    body: |
+      #      ## CI
+      #      https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}
+      #      ## Meta
+      #      * workflow_event: ${{ github.event_name }}
+      #      * actor: ${{ github.actor }}
+      #    title: Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }})
+      #  env:
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
