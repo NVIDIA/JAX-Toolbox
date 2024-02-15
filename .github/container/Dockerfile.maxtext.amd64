@@ -11,8 +11,6 @@ FROM ${BASE_IMAGE} as mealkit
 
 ARG SRC_PATH_MAXTEXT
 
-COPY manifest.yaml ${MANIFEST_FILE}
-
 RUN <<"EOF" bash -ex
 cat ${MANIFEST_FILE}
 get-source.sh -l maxtext -m ${MANIFEST_FILE} 
