@@ -21,7 +21,12 @@ on:
       BUMP_MANIFEST:
         type: boolean
         description: Bump git repos in manifest.yaml to head of tree?
-        default: true
+        default: true  ## TODO change
+        required: false
+      MERGE_BUMPED_MANIFEST:
+        type: boolean
+        description: "(used if BUMP_MANIFEST=true && Always true for nightlies) If true: attempt to PR/merge manifest branch. If false: delete manifest branch."
+        default: true ## TODO change
         required: false
 
 concurrency:
@@ -43,6 +48,7 @@ jobs:
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
       BUMP_MANIFEST: ${{ steps.manifest-branch.outputs.BUMP_MANIFEST }}
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
+      MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
         id: cancel-if-draft
@@ -72,6 +78,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}
+          MERGE_BUMPED_MANIFEST=${{ github.event_name == 'schedule' || inputs.MERGE_BUMPED_MANIFEST }}
           # Prepend nightly manifest branch with "z" to make it appear at the end
           if [[ "$BUMP_MANIFEST" == "true" ]]; then
             # This branch is for scheduled nightlies or manually run nightlies
@@ -81,6 +88,7 @@ jobs:
             echo "MANIFEST_BRANCH=${{ github.sha }}"
           fi | tee -a $GITHUB_OUTPUT
           echo "BUMP_MANIFEST=$BUMP_MANIFEST" | tee -a $GITHUB_OUTPUT
+          echo "MERGE_BUMBED_MANIFEST=$MERGE_BUMPED_MANIFEST" | tee -a $GITHUB_OUTPUT
 
   maybe-bump-manifest:
     name: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' && 'bump-manifest' || 'no-bump-manifest' }}
@@ -132,6 +140,7 @@ jobs:
   # Only bump if everything succeeds
   commit-new-manifest:
     runs-on: ubuntu-22.04
+    if: ${{ needs.metadata.outputs.MERGE_BUMPED_MANIFEST }}
     needs:
       - metadata
       - amd64
@@ -149,8 +158,8 @@ jobs:
             ## CI
             https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}
             ## Meta
-            workflow_event: ${{ github.event_name }}
-            actor: ${{ github.actor }}
+            workflow_event ${{ github.event_name }}
+            actor ${{ github.actor }}
           title: Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }})
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
