@@ -164,6 +164,21 @@ jobs:
       - name: Sleeping to ensure API is aware of PR num
         run: sleep 15
 
+      - name: Get PR
+        id: get_pr
+        uses: octokit/request-action@v2.x
+        with:
+          route: GET /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}
+          owner_and_repo: ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print PR data
+        run: |
+          cat <<"EOF"
+          ${{ steps.get_pr.outputs.data }}
+          EOF
+
       - name: Merging PR
         uses: octokit/request-action@v2.x
         with:
