@@ -150,6 +150,6 @@ language-to-reward-2023:
   mode: git-clone
 mlperf-logging:
   url: https://github.com/mlcommons/logging.git
-  tracking_ref: main 
+  tracking_ref: master
   latest_verified_commit: 38709131757a786d7f66150243b49eb0365324d7
   mode: pip-vcs
