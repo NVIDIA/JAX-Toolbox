@@ -1,0 +1,40 @@
+name: ~CI, single-arch
+run-name: CI-${{ inputs.ARCHITECTURE }}
+on:
+  workflow_call:
+    inputs:
+      ARCHITECTURE:
+        type: string
+        required: true
+      BUILD_DATE:
+        type: string
+        description: Build date in YYYY-MM-DD format
+        required: false
+        default: NOT SPECIFIED
+      BUMP_MANIFEST:
+        type: boolean
+        description: Flag to bump manifest file or not
+        default: false
+        required: false
+    outputs:
+      DOCKER_TAGS:
+        description: JSON object containing tags of all docker images built
+        value: ${{ jobs.collect-docker-tags.outputs.TAGS }}
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+
+  pass:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Pass
+        run: echo pass
+  #pass2:
+  #  runs-on: ubuntu-22.04
+  #  steps:
+  #    - name: Pass
+  #      run: echo pass

@@ -16,6 +16,10 @@ on:
         description: Flag to bump manifest file or not
         default: false
         required: false
+      MANIFEST_BRANCH:
+        type: string
+        description: Branch that contains manifest and patches
+        required: true
     outputs:
       DOCKER_TAGS:
         description: JSON object containing tags of all docker images built
@@ -33,7 +37,7 @@ jobs:
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BUMP_MANIFEST: ${{ inputs.BUMP_MANIFEST }}
+      MANIFEST_BRANCH: ${{ inputs.MANIFEST_BRANCH }}
     secrets: inherit
 
   build-jax:
