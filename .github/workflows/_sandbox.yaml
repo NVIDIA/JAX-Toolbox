@@ -1,54 +1,41 @@
 name: "~Sandbox"
 
 on:
-  push:
+  workflow_dispatch:
 
 jobs:
-  publish-badge:
+  sandbox:
     runs-on: ubuntu-22.04
-    env:
-      # Name/bash regex for shields.io endpoint JSON files
-      PUBLISH_BADGE_FILES: '.*badge.*.json'
     steps:
-      - name: copy badge to primary Gist
-        uses: actions/github-script@v6
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
-          script: |
-            const srcId = "140345f00efa243faea262999c459d31";
-            const dstId = "${{ false && vars.BADGE_ENDPOINT_GIST_ID || vars.MOCK_BADGE_ENDPOINT_GIST_ID }}";
-            const { PUBLISH_BADGE_FILES } = process.env;
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            // Fetch existing files from destination gist
-            const { data: dstData } = await github.rest.gists.get({
-              gist_id: dstId
-            });
+      - name: Print usage
+        run: |
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
 
-            // Mark existing files in destination gist for deletion
-            let filesToUpdate = {};
-            for (const filename of Object.keys(dstData.files)) {
-              filesToUpdate[filename] = null;
-            }
-
-            // Fetch files from source gist
-            const { data: srcData } = await github.rest.gists.get({
-              gist_id: srcId
-            });
-
-            // Add or update files based on the pattern
-            const pattern = new RegExp(`${PUBLISH_BADGE_FILES}`);
-            for (const [filename, fileObj] of Object.entries(srcData.files)) {
-              if (filename.match(pattern)) {
-                filesToUpdate[filename] = {
-                  content: fileObj.content
-                };
-              }
-            }
-
-            // Update files in destination gist
-            await github.rest.gists.update({
-              gist_id: dstId,
-              files: filesToUpdate
-            });
-            console.log("Files copied successfully.");
-            console.log(Object.keys(filesToUpdate));
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
