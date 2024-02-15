@@ -21,7 +21,12 @@ on:
       BUMP_MANIFEST:
         type: boolean
         description: Bump git repos in manifest.yaml to head of tree?
-        default: false
+        default: true  ## TODO change
+        required: false
+      MERGE_BUMPED_MANIFEST:
+        type: boolean
+        description: "(used if BUMP_MANIFEST=true && Always true for nightlies) If true: attempt to PR/merge manifest branch. If false: delete manifest branch."
+        default: true ## TODO change
         required: false
 
 concurrency:
@@ -29,9 +34,13 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
+  contents: write       # to fetch code and push branch
+  actions:  write       # to cancel previous workflows
+  packages: write       # to upload container
+  pull-requests: write  # to make pull request for manifest bump
+
+env:
+  DEFAULT_MANIFEST_ARTIFACT_NAME: maybe-bumped-manifest
 
 jobs:
 
@@ -40,7 +49,10 @@ jobs:
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
-      BUMP_MANIFEST: ${{ steps.if-bump-manifest.outputs.BUMP_MANIFEST }}
+      BUMP_MANIFEST: ${{ steps.manifest-branch.outputs.BUMP_MANIFEST }}
+      MANIFEST_ARTIFACT_NAME: ${{ steps.manifest-branch.outputs.MANIFEST_ARTIFACT_NAME }}
+      MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
+      MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
         id: cancel-if-draft
@@ -65,139 +77,154 @@ jobs:
         run: |
           echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-      - name: Determine whether need to bump manifest 
-        id: if-bump-manifest
+      - name: Set manifest branch name
+        id: manifest-branch
         shell: bash -x -e {0}
         run: |
-          echo "BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}" >> $GITHUB_OUTPUT
+          BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}
+          MERGE_BUMPED_MANIFEST=${{ github.event_name == 'schedule' || inputs.MERGE_BUMPED_MANIFEST }}
+          # Prepend nightly manifest branch with "z" to make it appear at the end
+          if [[ "$BUMP_MANIFEST" == "true" ]]; then
+            # This branch is for scheduled nightlies or manually run nightlies
+            MANIFEST_BRANCH=znightly-${{ steps.date.outputs.BUILD_DATE }}-${{ github.run_id }}
+            MANIFEST_ARTIFACT_NAME=${{ env.DEFAULT_MANIFEST_ARTIFACT_NAME }}
+          else
+            # This branch is for presubmits (no bumping needed)
+            MANIFEST_BRANCH=${{ github.sha }}
+            # Empty artifact name means to use the one in version control
+            MANIFEST_ARTIFACT_NAME=""
+          fi
+          echo "MANIFEST_BRANCH=$MANIFEST_BRANCH" | tee -a $GITHUB_OUTPUT
+          echo "MANIFEST_ARTIFACT_NAME=$MANIFEST_ARTIFACT_NAME" | tee -a $GITHUB_OUTPUT
+          echo "BUMP_MANIFEST=$BUMP_MANIFEST" | tee -a $GITHUB_OUTPUT
+          echo "MERGE_BUMBED_MANIFEST=$MERGE_BUMPED_MANIFEST" | tee -a $GITHUB_OUTPUT
+          if [[ "$BUMP_MANIFEST" == "false" && "$MERGE_BUMPED_MANIFEST" == "true" ]]; then
+            echo "Error: If BUMP_MANIFEST=false, MERGE_BUMPED_MANIFEST cannot be true" >&2
+            exit 1
+          fi
+
+  maybe-bump-manifest:
+    needs: metadata
+    runs-on: ubuntu-22.04
+    if: needs.metadata.outputs.BUMP_MANIFEST == 'true'
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Update manifest and patches in-place - show diff
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          bash bump.sh --input-manifest manifest.yaml
+          git diff
+      
+      - name: Upload bumped manifest/patches to be used in build-base
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+          path: |
+            .github/container/manifest.yaml
+            .github/container/patches
 
   amd64:
-    needs: metadata
-    uses: ./.github/workflows/_ci.yaml
+    needs: [metadata, maybe-bump-manifest]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_ci_tmp.yaml
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}
+      MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
   arm64:
-    needs: metadata
-    uses: ./.github/workflows/_ci.yaml
+    needs: [metadata, maybe-bump-manifest]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_ci_tmp.yaml
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}      
+      MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
-  make-publish-configs:
+  # Only merge if everything succeeds
+  merge-new-manifest:
     runs-on: ubuntu-22.04
-    if:  ${{ !cancelled() }}
-    env:
-      MEALKIT_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax-mealkit' || 'mock-jax-mealkit' }}
-      FINAL_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax' || 'mock-jax' }}
+    if: ${{ !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
     needs:
       - metadata
       - amd64
       - arm64
-    outputs:
-      PUBLISH_CONFIGS: ${{ steps.generate-configs.outputs.PUBLISH_CONFIGS }}
     steps:
-      - id: generate-configs
-        shell: bash -eu -o pipefail {0}
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+      
+      - name: Delete checked-out manifest and patches
         run: |
-          declare -a FLAVORS=(
-            base
-            jax
-            pallas
-            maxtext
-            levanter
-            upstream-t5x
-            upstream-pax
-            t5x
-            pax
-          )
-          declare -a STAGES=(
-            mealkit
-            final
-          )
+          rm .github/container/manifest.yaml
+          rm -rf .github/container/patches
 
-          ## create JSON specs for a 1D matrix of container publication jobs
+      - name: Replace checked-out manifest file/patches with bumped one
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+          path: .github/container/
 
-          ALL_TAGS=$(
-            echo '${{ needs.amd64.outputs.DOCKER_TAGS }}' \
-                 '${{ needs.arm64.outputs.DOCKER_TAGS }}' |\
-            jq -s 'add'
-          )
-          PUBLISH_CONFIGS='[]'
+      # In the unusual situation where the manifest is the same even after bumping,
+      # we will produce an empty commit with --allow-empty, which allows a PR to be
+      # made and merged even with no changeset.
+      - name: Push manifest branch
+        shell: bash -x -e {0}
+        run: |
+          git config user.name "JAX-Toolbox CI"
+          git config user.email "jax@nvidia.com"
+          manifest_branch=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+          git switch -c $manifest_branch
+          git status
+          git add .github/container/patches/
+          git status
+          git commit --allow-empty -a -m "Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }}) for run_id=${{ github.run_id }}: https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}"
+          git push --set-upstream origin $manifest_branch
 
-          for stage in "${STAGES[@]}"; do
-            for flavor in "${FLAVORS[@]}";do
+      - name: Creating PR for MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+        id: create_pr
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/{owner_and_repo}/pulls
+          owner_and_repo: ${{ github.repository }}
+          head: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+          # Always try to merge back into the branch that triggered this workflow
+          base: ${{ github.ref }}
+          body: |
+            https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}
+          title: Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }})
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-              # collect images for different platforms, e.g. amd64 and arm64
-              matching_tags=$(
-                echo "$ALL_TAGS" |\
-                jq -c ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\" and .tag != \"\")"
-              )
+      - name: "Merging PR #${{ fromJson(steps.create_pr.outputs.data).number }}"
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+        uses: octokit/request-action@v2.x
+        with:
+          route: PUT /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}/merge
+          owner_and_repo: ${{ github.repository }}
+          merge_method: squash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # Guard delete in simple check to protect other branches
+      - name: Check that the branch matches znightly- prefix
+        run: |
+          if [[ "${{ needs.metadata.outputs.MANIFEST_BRANCH }}" != znightly-* ]]; then
+            echo Tried to delete MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}, but did not start with "znightly-"
+            exit 1
+          fi
 
-              # source_image is a list of all platform-specific tags
-              source_image=$(echo "${matching_tags}" | jq -c "[.tag]" | jq -s 'add')
-              # if the build job failed without producing any images, skip this flavor
-              n_source_images=$(echo "$source_image" | jq 'length')
-              if [[ $n_source_images -gt 0 ]]; then
-                echo "PUBLISH image $flavor with $n_source_images $stage containers"
-
-                # tag priority is the highest priority of all platform-specific tags
-                priority=$(echo "${matching_tags}" | jq -r ".priority" | jq -s 'max')
-
-                # put all final images in the `ghcr.io/nvidia/jax` namespace
-                # and mealkit images in `ghcr.io/nvidia/jax-toolbox-mealkit` namespace
-                case ${stage} in
-                  mealkit)
-                    target_image=${MEALKIT_IMAGE_REPO}
-                    ;;
-                  final)
-                    target_image=${FINAL_IMAGE_REPO}
-                    ;;
-                esac
-
-                PUBLISH_CONFIGS=$(
-                  echo ${PUBLISH_CONFIGS} | jq -c ". + [{
-                    \"flavor\": \"${flavor}\",
-                    \"target_image\": \"${target_image}\",
-                    \"priority\": \"${priority}\",
-                    \"source_image\": ${source_image}
-                  }]"
-                )
-              else
-                echo "SKIPPED image $flavor with 0 $stage containers"
-              fi
-            done
-          done
-
-          PUBLISH_CONFIGS=$(echo "$PUBLISH_CONFIGS" | jq -c '{"config": .}')
-          echo ${PUBLISH_CONFIGS} | jq
-          echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" >> $GITHUB_OUTPUT
-
-  publish-containers:
-    needs:
-      - metadata
-      - make-publish-configs
-    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
-    uses: ./.github/workflows/_publish_container.yaml
-    with:
-      SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
-      TARGET_IMAGE: ${{ matrix.config.target_image }}
-      TARGET_TAGS: |
-        type=raw,value=${{ matrix.config.flavor }},priority=${{ matrix.config.priority }}
-        type=raw,value=${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
-
-  finalize:
-    needs: [metadata, amd64, arm64]
-    if: "!cancelled()"
-    uses: ./.github/workflows/_finalize.yaml
-    with:
-      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
-    secrets: inherit
+      # If merging fails b/c upstream conflict, branch is deleted to avoid clutter since changeset is preserved in PR
+      - name: Deleting MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+        # Delete can fail if branch was already deleted or not created, e.g., if the PR successfully merges, then branch is also already deleted.
+        continue-on-error: true
+        uses: octokit/request-action@v2.x
+        with:
+          route: DELETE /repos/{owner_and_repo}/git/refs/heads/${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+          owner_and_repo: ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
