@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 
-ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG SRC_PATH_MUJOCO=/opt/mujoco
 ARG SRC_PATH_MUJOCO_MPC=/opt/mujoco-mpc
 ARG SRC_PATH_L2R=/opt/language-to-reward-2023
