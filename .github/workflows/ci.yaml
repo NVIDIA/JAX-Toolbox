@@ -184,8 +184,8 @@ jobs:
         with:
           route: POST /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}/merge
           owner_and_repo: ${{ github.repository }}
-          #commit_title: "test title"
-          #commit_message: test commit message
+          commit_title: "test title"
+          commit_message: test commit message
           merge_method: "squash"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
