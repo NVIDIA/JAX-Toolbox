@@ -244,6 +244,17 @@ jobs:
       BADGE_FILENAME: badge-pallas-unit-test
     secrets: inherit
 
+  test-levanter:
+    needs: build-levanter
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
+      TEST_NAME: levanter
+      ARTIFACT_NAME: artifact-levanter-unit-test
+      BADGE_FILENAME: badge-levanter-unit-test
+    secrets: inherit
+
   test-upstream-pax:
     needs: build-pax
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
@@ -259,12 +270,3 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
-
-  # TODO: re-activate after 20-workflow limit resolved
-  # test-levanter:
-  #   needs: build-levanter
-  #   if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-  #   uses: ./.github/workflows/_test_levanter.yaml
-  #   with:
-  #     JAX_IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
-  #   secrets: inherit
