@@ -63,12 +63,18 @@ jobs:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
 
-      - name: Update manifest and patches in-place - show diff
+      - name: Test if manifest bump is functional, and save result to a new file
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          bash bump.sh --input-manifest manifest.yaml --output-manifest manifest.yaml.new
+
+      - name: Replace current manifest with the new one and show diff
         if: inputs.BUMP_MANIFEST
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
-          bash bump.sh --input-manifest manifest.yaml
+          mv manifest.yaml.new manifest.yaml
           git diff
 
       - name: Upload bumped manifest to be used in build-base
