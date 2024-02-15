@@ -37,11 +37,10 @@ on:
         description: 'User email in GIT to perform git pull/push'
         required: false
         default: 'jax@nvidia.com'
-      BUMP_MANIFEST:
-        type: boolean
-        description: "Flag to bump manifest file or not"
-        default: false
-        required: false         
+      MANIFEST_BRANCH:
+        type: string
+        description: 'Branch that contains manifest and patches'
+        required: true
     outputs:
       DOCKER_TAG:
         description: "Tag of the image built"
@@ -57,34 +56,7 @@ permissions:
 
 jobs:
 
-  bump-manifest:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
-
-      - name: Update manifest and patches in-place - show diff
-        if: inputs.BUMP_MANIFEST
-        working-directory: .github/container
-        shell: bash -x -e {0}
-        run: |
-          bash bump.sh --input-manifest manifest.yaml
-          git diff
-
-      - name: Upload bumped manifest to be used in build-base
-        uses: actions/upload-artifact@v4
-        with:
-          name: maybe-bumped-manifest-${{ inputs.ARCHITECTURE }}
-          path: .github/container/manifest.yaml
-      
-      - name: Upload patch folder to be used in build-base
-        uses: actions/upload-artifact@v4
-        with:
-          name: maybe-bumped-patches-${{ inputs.ARCHITECTURE }}
-          path: .github/container/patches
-
   build-base:
-    needs: bump-manifest
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
@@ -96,35 +68,8 @@ jobs:
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
-
-      - name: Delete checked-out manifest and patches
-        if: inputs.BUMP_MANIFEST
-        run: |
-          rm .github/container/manifest.yaml
-          rm -rf .github/container/patches
-
-      - name: Replace checked-out manifest file with bumped one
-        if: inputs.BUMP_MANIFEST
-        uses: actions/download-artifact@v4
         with:
-          name: maybe-bumped-manifest-${{ inputs.ARCHITECTURE }}
-          path: .github/container/
-      
-      - name: Replace checked-out patch folder with bumped one
-        if: inputs.BUMP_MANIFEST
-        uses: actions/download-artifact@v4
-        with:
-          name: maybe-bumped-patches-${{ inputs.ARCHITECTURE }}
-          path: .github/container/patches
-
-      - name: Log the changes in manifest file and patch folder
-        working-directory: .github/container
-        shell: bash -x -e {0}
-        run: |
-          ls -lah
-          ls -lah patches
-          echo "Changes in manifest file and patch folder"
-          git diff
+          ref: ${{ inputs.MANIFEST_BRANCH }}
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3

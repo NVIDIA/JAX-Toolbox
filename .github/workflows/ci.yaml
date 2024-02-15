@@ -40,7 +40,8 @@ jobs:
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
-      BUMP_MANIFEST: ${{ steps.if-bump-manifest.outputs.BUMP_MANIFEST }}
+      BUMP_MANIFEST: ${{ steps.manifest-branch.outputs.BUMP_MANIFEST }}
+      MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
         id: cancel-if-draft
@@ -65,11 +66,49 @@ jobs:
         run: |
           echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-      - name: Determine whether need to bump manifest 
-        id: if-bump-manifest
+      - name: Set manifest branch name
+        id: manifest-branch
         shell: bash -x -e {0}
         run: |
-          echo "BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}" >> $GITHUB_OUTPUT
+          # Prepend nightly manifest branch with "z" to make it appear at the end
+          if [[ "${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}" ]]; then
+            # This branch is for scheduled nightlies or manually run nightlies
+            echo "MANIFEST_BRANCH=znightly-${{ steps.date.outputs.BUILD_DATE }}-${{ github.run_id }}"
+            echo "BUMP_MANIFEST=true"
+          else
+            # This branch is for presubmits (no bumping needed)
+            echo "MANIFEST_BRANCH=${{ github.sha }}"
+            echo "BUMP_MANIFEST=false"
+          fi | tee -a $GITHUB_OUTPUT
+
+  maybe-bump-manifest:
+    name: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' && 'bump-manifest' || 'no-bump-manifest' }}
+    needs: metadata
+    runs-on: ubuntu-22.04
+    if: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Update manifest and patches in-place - show diff
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          bash bump.sh --input-manifest manifest.yaml
+          git diff
+
+      - name: Push manifest branch
+        shell: bash -x -e {0}
+        run: |
+          git config user.name "JAX-Toolbox CI"
+          git config user.email "jax@nvidia.com"
+          manifest_branch=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+          git switch -c $manifest_branch
+          git status
+          git add .github/container/patches/
+          git status
+          git commit -a -m "Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }}) for run_id=${{ github.run_id }}: https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}"
+          git push --set-upstream origin $manifest_branch
 
   amd64:
     needs: metadata
@@ -89,11 +128,23 @@ jobs:
       BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}      
     secrets: inherit
 
-  commit-bump:
+  # Only bump if everything succeeds
+  commit-new-manifest:
     runs-on: ubuntu-22.04
     needs:
+      - metadata
       - amd64
       - arm64
     steps:
-      - name: AMD=${{ needs.amd64.result }} ARM=${{ needs.amd64.result }} 
-        run: echo ${{ needs.amd64.result }} ${{ needs.amd64.result }} 
+      - name: Creating PR for MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+        uses: octokit/request-action@v2.x
+        with:
+          route: POST /repos/{owner_and_repo}/pulls
+          owner_and_repo: ${{ github.repository }}
+          head: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+          base: main
+          body: |
+            https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}
+          title: Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }})
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
