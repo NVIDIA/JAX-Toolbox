@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
-  contents: read  # to fetch code
+  contents: write # to fetch code and push branch
   actions:  write # to cancel previous workflows
   packages: write # to upload container
 
@@ -111,7 +111,7 @@ jobs:
           git push --set-upstream origin $manifest_branch
 
   amd64:
-    needs: metadata
+    needs: [metadata, maybe-bump-manifest]
     uses: ./.github/workflows/_ci_tmp.yaml
     with:
       ARCHITECTURE: amd64
@@ -120,7 +120,7 @@ jobs:
     secrets: inherit
 
   arm64:
-    needs: metadata
+    needs: [metadata, maybe-bump-manifest]
     uses: ./.github/workflows/_ci_tmp.yaml
     with:
       ARCHITECTURE: arm64
