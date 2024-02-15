@@ -29,9 +29,10 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
-  contents: write # to fetch code and push branch
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
+  contents: write       # to fetch code and push branch
+  actions:  write       # to cancel previous workflows
+  packages: write       # to upload container
+  pull_requests: write  # to make pull request for manifest bump
 
 jobs:
 
