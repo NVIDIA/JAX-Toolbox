@@ -106,6 +106,9 @@ jobs:
           bash bump.sh --input-manifest manifest.yaml
           git diff
 
+      # In the unusual situation where the manifest is the same even after bumping,
+      # we will produce an empty commit with --allow-empty, which allows a PR to be
+      # made and merged even with no changeset.
       - name: Push manifest branch
         shell: bash -x -e {0}
         run: |
@@ -116,7 +119,7 @@ jobs:
           git status
           git add .github/container/patches/
           git status
-          git commit -a -m "Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }}) for run_id=${{ github.run_id }}: https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}"
+          git commit --allow-empty -a -m "Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }}) for run_id=${{ github.run_id }}: https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}"
           git push --set-upstream origin $manifest_branch
 
   amd64:
