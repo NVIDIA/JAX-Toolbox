@@ -11,11 +11,6 @@ on:
         description: Build date in YYYY-MM-DD format
         required: false
         default: NOT SPECIFIED
-      BUMP_MANIFEST:
-        type: boolean
-        description: Flag to bump manifest file or not
-        default: false
-        required: false
       MANIFEST_BRANCH:
         type: string
         description: Branch that contains manifest and patches

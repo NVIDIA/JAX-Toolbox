@@ -95,10 +95,9 @@ jobs:
           fi
 
   maybe-bump-manifest:
-    name: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' && 'bump-manifest' || 'no-bump-manifest' }}
     needs: metadata
     runs-on: ubuntu-22.04
-    if: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}
+    if: needs.metadata.outputs.BUMP_MANIFEST == 'true'
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
@@ -128,20 +127,22 @@ jobs:
 
   amd64:
     needs: [metadata, maybe-bump-manifest]
+    if: "!cancelled()"
     uses: ./.github/workflows/_ci_tmp.yaml
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}
+      MANIFEST_BRANCH: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
     secrets: inherit
 
   arm64:
     needs: [metadata, maybe-bump-manifest]
+    if: "!cancelled()"
     uses: ./.github/workflows/_ci_tmp.yaml
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}      
+      MANIFEST_BRANCH: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}      
     secrets: inherit
 
   # Only bump if everything succeeds
