@@ -90,7 +90,7 @@ jobs:
 
   run-jobs:
     needs: metadata
-    uses: ./.github/workflows/_test_pax.yaml
+    uses: ./.github/workflows/_test_upstream_pax.yaml
     with:
       PAX_IMAGE: ${{ needs.metadata.outputs.PAX_IMAGE }}
       FW_NAME: ${{ needs.metadata.outputs.FW_NAME }}

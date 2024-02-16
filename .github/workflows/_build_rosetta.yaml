@@ -56,8 +56,8 @@ jobs:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME_PREFIX }}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}.json
       ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME}}-${{ inputs.BASE_LIBRARY }}-${{ inputs.ARCHITECTURE }}
     outputs:
-      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
-      DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
+      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-build.outcome == 'success' && steps.mealkit-metadata.outputs.tags || '' }}
+      DOCKER_TAG_FINAL: ${{ steps.final-build.outcome == 'success' && steps.final-metadata.outputs.tags || '' }}
     steps:
       - name: Print environment variables
         run: env
@@ -72,24 +72,24 @@ jobs:
           fi
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
       - name: Set docker metadata - mealkit
         id: mealkit-metadata
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.UPLD_IMAGE }}
           flavor: latest=false
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build docker images - mealkit
         id: mealkit-build
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           build-contexts: |
@@ -114,7 +114,7 @@ jobs:
 
       - name: Set docker metadata - final
         id: final-metadata
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: |
             ${{ env.UPLD_IMAGE }}
@@ -127,7 +127,7 @@ jobs:
 
       - name: Build final image
         id: final-build
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           build-contexts: |
@@ -142,7 +142,7 @@ jobs:
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
             
       - name: Generate sitrep
-        if: success() || failure()
+        if: "!cancelled()"
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
@@ -176,7 +176,8 @@ jobs:
           > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload sitrep and badge
-        uses: actions/upload-artifact@v3
+        if: "!cancelled()"
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME_FULL }}
           path: |

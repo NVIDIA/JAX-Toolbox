@@ -1,0 +1,365 @@
+name: ~test T5X, multi-node
+
+on:
+  workflow_call:
+    inputs:
+      T5X_IMAGE:
+        type: string
+        description: T5X image from ghcr.io/nvidia
+        default: 'ghcr.io/nvidia/upstream-t5x:latest'
+        required: false
+      BATCH_SIZE_PER_GPU:
+        type: number
+        description: Batch size per GPU
+        default: 32
+        required: false
+      BADGE_FILENAME:
+        type: string
+        description: 'Name of the endpoint JSON file for shields.io badge'
+        required: false
+        default: 'badge-t5x-mgmn-test.json'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-t5x-mgmn-test'
+      FW_NAME:
+        type: string
+        description: 'Name of the framework being used'
+        required: false
+        default: 'T5X'
+    outputs:
+      TEST_STATUS:
+        description: 'Summary pass/fail value indicating if results from tests are acceptable'
+        value: ${{ jobs.sitrep.outputs.STATUS }}
+
+jobs:
+
+  t5x-multi-gpu:
+    strategy:
+      matrix:
+        N_GPU: [1, 2, 4, 8]
+      fail-fast: false
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Labels and metadata
+        id: meta
+        shell: bash -x -e {0}
+        run: |
+          IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
+          TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          LOG_FILE=/nfs/cluster/${JOB_NAME}.log
+          MODEL_PATH=/nfs/cluster/${JOB_NAME}
+          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
+          for var in IMAGE TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
+            echo "$var=${!var}" >> $GITHUB_OUTPUT
+          done
+
+      - name: Submit SLURM jobs over SSH
+        id: submit
+        shell: bash -O expand_aliases -x -e {0}
+        run: |
+          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          sshx "date && hostname && sinfo"
+          sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
+          JOB=$(sshx sbatch --parsable << EOF
+          #!/bin/bash
+          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+          #SBATCH --exclusive
+          #SBATCH --nodes=1
+          #SBATCH --tasks=1
+          #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+          #SBATCH --time=00:30:00
+          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          time srun \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
+            --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
+            --container-entrypoint \
+            test-t5x.sh \
+              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
+              --dtype bfloat16 \
+              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
+              --epochs 7 \
+              --steps-per-epoch 100
+          EOF
+          )
+
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
+          set +x
+          while sshx squeue -j $JOB | grep -q $JOB; do
+            echo "SLURM Job $JOB is still running."
+            sleep 15
+          done
+          echo "SLRUM Job $JOB finished."
+
+          # Gather job info
+          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          echo "SLURM Job state is ${SLURM_STATE}"
+          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
+          set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
+      - name: Retrieve training logs and upload to TensorBoard server
+        shell: bash -x -e {0}
+        run: |
+          mkdir output/
+          rsync -rtz --progress \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
+            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
+          rsync -rtz --progress \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
+            output/ || true
+          rsync -rtz --progress \
+            output/ \
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
+
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
+
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.JOB_NAME }}
+          path: output/*
+
+  t5x-multi-node:
+    strategy:
+      matrix:
+        N_GPU: [1, 2, 4, 8]
+        N_NODE: [1, 2]
+      fail-fast: false
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Labels and metadata
+        id: meta
+        shell: bash -x -e {0}
+        run: |
+          IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
+          TEST_CASE_NAME=${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
+          TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          LOG_FILE=/nfs/cluster/${JOB_NAME}.log
+          MODEL_PATH=/nfs/cluster/${JOB_NAME}
+          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
+          for var in IMAGE TEST_CASE_NAME TOTAL_TASKS JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
+            echo "$var=${!var}" >> $GITHUB_OUTPUT
+          done
+
+      - name: Submit SLURM jobs over SSH
+        id: submit
+        shell: bash -O expand_aliases -x -e {0}
+        run: |
+          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          sshx "date && hostname && sinfo"
+          sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
+          JOB=$(sshx sbatch --parsable << EOF
+          #!/bin/bash
+          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+          #SBATCH --exclusive
+          #SBATCH --nodes=${{ matrix.N_NODE }}
+          #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
+          #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
+          #SBATCH --time=00:30:00
+          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          time srun \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
+            --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
+            --container-entrypoint \
+            test-t5x.sh \
+              --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
+              --dtype bfloat16 \
+              --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
+              --epochs 7 \
+              --steps-per-epoch 100 \
+              --multiprocess
+          EOF
+          )
+
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
+          set +x
+          while sshx squeue -j $JOB | grep -q $JOB; do
+            echo "SLURM Job $JOB is still running."
+            sleep 15
+          done
+          echo "SLRUM Job $JOB finished."
+
+          # Gather job info
+          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+          echo "SLURM Job state is ${SLURM_STATE}"
+          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
+          set -x
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
+      - name: Retrieve training logs and upload to TensorBoard server
+        shell: bash -x -e {0}
+        run: |
+
+          mkdir output/
+          rsync -rtz --progress \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
+            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
+          rsync -rtz --progress \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
+            output/ || true
+          rsync -rtz --progress \
+            output/ \
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
+
+      - name: Write SLURM job status to file
+        shell: bash -x -e {0}
+        run: |
+          python << EOF
+          import json
+          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
+              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
+              json.dump(dump, f)
+          EOF
+
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.JOB_NAME }}
+          path: output/*
+
+  metrics:
+    needs: [t5x-multi-node, t5x-multi-gpu]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Run pytest
+        shell: bash -x {0}
+        run: |
+          pip install pytest pytest-reportlog tensorboard
+          for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*; do
+            SUBDIR=$(echo $i | cut -d'-' -f3)
+            mv $i/$SUBDIR* .
+            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
+          done
+
+          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
+
+      - name: Upload metrics test json logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-${{ inputs.FW_NAME }}-metrics-test-log
+          path: |
+            report.jsonl
+            *_metrics.json
+
+
+  sitrep:
+    needs: [t5x-multi-node, t5x-multi-gpu, metrics]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_sitrep_mgmn.yaml
+    secrets: inherit
+    with:
+      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+      FW_NAME: ${{ inputs.FW_NAME }}
+
+  summary:
+    runs-on: ubuntu-22.04
+    needs: [t5x-multi-node, t5x-multi-gpu]
+    if: "!cancelled()"
+    steps:
+      - name: Generate TensorBoard query URL
+        run: |
+          (
+          cat << EOF
+
+          ## T5X MGMN training
+
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+
+          EOF
+          ) | tee $GITHUB_STEP_SUMMARY
+
+  outcome:
+    needs: sitrep
+    runs-on: ubuntu-22.04
+    if: "!cancelled()"
+    steps:
+      - name: Sets workflow status based on test outputs
+        run: |
+          if [[ ${{ needs.sitrep.outputs.STATUS }} != 'success' ]]; then
+            exit 1
+          fi

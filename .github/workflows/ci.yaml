@@ -1,7 +1,14 @@
 name: CI
 
 on:
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
   pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
     paths-ignore:
       - '**.md'
   workflow_dispatch:
@@ -13,11 +20,9 @@ on:
         required: false
       BUMP_MANIFEST:
         type: boolean
-        description: Bump manifest file?
+        description: Bump git repos in manifest.yaml to head of tree?
         default: false
         required: false
-  schedule:
-    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -37,6 +42,16 @@ jobs:
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
       BUMP_MANIFEST: ${{ steps.if-bump-manifest.outputs.BUMP_MANIFEST }}
     steps:
+      - name: Cancel workflow run if the trigger is a draft PR
+        id: cancel-if-draft
+        if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+        run: |
+          echo "Cancelling workflow for draft PR"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          while true; do sleep 1; done  # blocks execution in case workflow cancellation takes time
+
       - name: Set build date
         id: date
         shell: bash -x -e {0}
@@ -74,56 +89,115 @@ jobs:
       BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}      
     secrets: inherit
 
-  publish-target-tags:
+  make-publish-configs:
     runs-on: ubuntu-22.04
+    if:  ${{ !cancelled() }}
+    env:
+      MEALKIT_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax-mealkit' || 'mock-jax-mealkit' }}
+      FINAL_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax' || 'mock-jax' }}
+    needs:
+      - metadata
+      - amd64
+      - arm64
     outputs:
-      TARGET_TAGS: ${{ steps.tags.outputs.TARGET_TAGS}}
+      PUBLISH_CONFIGS: ${{ steps.generate-configs.outputs.PUBLISH_CONFIGS }}
     steps:
-      - id: tags
+      - id: generate-configs
+        shell: bash -eu -o pipefail {0}
         run: |
-          declare -a TARGET_IMAGE=("jax" "pallas" "upstream-pax" "upstream-t5x" "pax" "t5x")
-          declare -a FLAVOR=("mealkit" "final")
+          declare -a FLAVORS=(
+            base
+            jax
+            pallas
+            maxtext
+            levanter
+            upstream-t5x
+            upstream-pax
+            t5x
+            pax
+          )
+          declare -a STAGES=(
+            mealkit
+            final
+          )
 
-          ## now loop through the above array
-          JSON="{"
-          for target in "${TARGET_IMAGE[@]}";do
-              for flavor in "${FLAVOR[@]}"; do
-                  CONTAINER_TAG=${flavor}
-                  TAG_DATED=${flavor}
-                  if [[ ${flavor} == "final" ]]; then
-                      CONTAINER_TAG=latest
-                      TAG_DATED=nightly
-                  fi
-                  JSON=$(echo ${JSON}\"${target}-${flavor}-container-tag\":\"${CONTAINER_TAG}\",)
-                  JSON=$(echo ${JSON}\"${target}-${flavor}-tag-dated\":\"${TAG_DATED}\",)
-              done
+          ## create JSON specs for a 1D matrix of container publication jobs
+
+          ALL_TAGS=$(
+            echo '${{ needs.amd64.outputs.DOCKER_TAGS }}' \
+                 '${{ needs.arm64.outputs.DOCKER_TAGS }}' |\
+            jq -s 'add'
+          )
+          PUBLISH_CONFIGS='[]'
+
+          for stage in "${STAGES[@]}"; do
+            for flavor in "${FLAVORS[@]}";do
+
+              # collect images for different platforms, e.g. amd64 and arm64
+              matching_tags=$(
+                echo "$ALL_TAGS" |\
+                jq -c ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\" and .tag != \"\")"
+              )
+
+              # source_image is a list of all platform-specific tags
+              source_image=$(echo "${matching_tags}" | jq -c "[.tag]" | jq -s 'add')
+              # if the build job failed without producing any images, skip this flavor
+              n_source_images=$(echo "$source_image" | jq 'length')
+              if [[ $n_source_images -gt 0 ]]; then
+                echo "PUBLISH image $flavor with $n_source_images $stage containers"
+
+                # tag priority is the highest priority of all platform-specific tags
+                priority=$(echo "${matching_tags}" | jq -r ".priority" | jq -s 'max')
+
+                # put all final images in the `ghcr.io/nvidia/jax` namespace
+                # and mealkit images in `ghcr.io/nvidia/jax-toolbox-mealkit` namespace
+                case ${stage} in
+                  mealkit)
+                    target_image=${MEALKIT_IMAGE_REPO}
+                    ;;
+                  final)
+                    target_image=${FINAL_IMAGE_REPO}
+                    ;;
+                esac
+
+                PUBLISH_CONFIGS=$(
+                  echo ${PUBLISH_CONFIGS} | jq -c ". + [{
+                    \"flavor\": \"${flavor}\",
+                    \"target_image\": \"${target_image}\",
+                    \"priority\": \"${priority}\",
+                    \"source_image\": ${source_image}
+                  }]"
+                )
+              else
+                echo "SKIPPED image $flavor with 0 $stage containers"
+              fi
+            done
           done
-          JSON="${JSON::-1} }"
-          echo "TARGET_TAGS=${JSON}" | tee -a $GITHUB_OUTPUT    
 
-  publish:
-    needs: [metadata, amd64, arm64, publish-target-tags]
-    if: false  # TODO: enable this after new image renaming proposal is approved
-    # if:  ${{ !cancelled() && needs.metadata.outputs.PUBLISH }}
+          PUBLISH_CONFIGS=$(echo "$PUBLISH_CONFIGS" | jq -c '{"config": .}')
+          echo ${PUBLISH_CONFIGS} | jq
+          echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" >> $GITHUB_OUTPUT
+
+  publish-containers:
+    needs:
+      - metadata
+      - make-publish-configs
+    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
     strategy:
       fail-fast: false
-      matrix:
-        TARGET_IMAGE: [jax, pallas, upstream-pax, upstream-t5x, pax, t5x]
-        FLAVOR: [mealkit, final]
+      matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
     uses: ./.github/workflows/_publish_container.yaml
     with:
-      SOURCE_IMAGE: |
-        ${{ fromJson(needs.amd64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
-        ${{ fromJson(needs.arm64.outputs.CONTAINER_TAGS)[format('tag-{0}-{1}', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}
-      TARGET_IMAGE: ${{ matrix.TARGET_IMAGE }}
+      SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
+      TARGET_IMAGE: ${{ matrix.config.target_image }}
       TARGET_TAGS: |
-        type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-container-tag', matrix.TARGET_IMAGE, matrix.FLAVOR)] }},priority=500
-        type=raw,value=${{ fromJson(needs.publish-target-tags.outputs.TARGET_TAGS)[format('{0}-{1}-tag-dated', matrix.TARGET_IMAGE, matrix.FLAVOR)] }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=500
+        type=raw,value=${{ matrix.config.flavor }},priority=${{ matrix.config.priority }}
+        type=raw,value=${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
 
   finalize:
-    needs: [amd64, arm64]
+    needs: [metadata, amd64, arm64]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
-      PUBLISH_BADGE: false
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit

@@ -60,14 +60,14 @@ jobs:
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
-      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-metadata.outputs.tags }}
-      DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags }}
+      DOCKER_TAG_MEALKIT: ${{ steps.mealkit-build.outcome == 'success' && steps.mealkit-metadata.outputs.tags || '' }}
+      DOCKER_TAG_FINAL: ${{ steps.final-build.outcome == 'success' && steps.final-metadata.outputs.tags || '' }}
     steps:
       - name: Print environment variables
         run: env
 
       - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.8.0
+        uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
@@ -82,24 +82,24 @@ jobs:
           echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
       - name: Set docker metadata - mealkit
         id: mealkit-metadata
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: |
             ${{ env.UPLD_IMAGE }}
@@ -112,7 +112,7 @@ jobs:
 
       - name: Build mealkit image
         id: mealkit-build
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .github/container
           push: true
@@ -133,7 +133,7 @@ jobs:
 
       - name: Set docker metadata - final
         id: final-metadata
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: |
             ${{ env.UPLD_IMAGE }}
@@ -146,7 +146,7 @@ jobs:
 
       - name: Build final image
         id: final-build
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .github/container
           push: true
@@ -163,7 +163,7 @@ jobs:
             BUILD_DATE=${{ inputs.BUILD_DATE }}
 
       - name: Generate sitrep
-        if: success() || failure()
+        if: "!cancelled()"
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
@@ -206,13 +206,14 @@ jobs:
       #     echo "${{ steps.final-metadata.outputs.tags }}" >> image-name.txt
 
       # - name: Upload image name file as artifact
-      #   uses: actions/upload-artifact@v3
+      #   uses: actions/upload-artifact@v4
       #   with:
       #     name: image-name-jax-${{ inputs.ARCHITECTURE }}
       #     path: image-name.txt
 
       - name: Upload sitrep and badge
-        uses: actions/upload-artifact@v3
+        if: "!cancelled()"
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
           path: |

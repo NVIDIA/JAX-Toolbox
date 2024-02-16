@@ -26,7 +26,7 @@ jobs:
         run: env
 
       - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.8.0
+        uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
@@ -44,7 +44,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          JOB_NAME=${{ inputs.NAME }}
+          JOB_NAME=${{ inputs.NAME }}-$(printf "%04x%04x" $RANDOM $RANDOM)
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           for var in JOB_NAME LOG_FILE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT

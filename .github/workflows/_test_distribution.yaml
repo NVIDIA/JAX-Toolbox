@@ -21,7 +21,7 @@ jobs:
           git config --global user.name "JAX-Toolbox CI"
           
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Run integration test ${{ matrix.TEST_SCRIPT }}
         run: bash rosetta/tests/${{ matrix.TEST_SCRIPT }}
