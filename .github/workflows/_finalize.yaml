@@ -172,7 +172,6 @@ jobs:
 
   publish-badge:
     needs: [upload-badge]
-    if: inputs.PUBLISH_BADGE == true
     runs-on: ubuntu-22.04
     env:
       # Name/bash regex for shields.io endpoint JSON files
@@ -184,13 +183,8 @@ jobs:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
           script: |
             const srcId = "${{ needs.upload-badge.outputs.GIST_ID }}";
-            const dstId = "${{ vars.BADGE_ENDPOINT_GIST_ID }}";
+            const dstId = "${{ inputs.PUBLISH_BADGE && vars.BADGE_ENDPOINT_GIST_ID || vars.MOCK_BADGE_ENDPOINT_GIST_ID }}";
             const { PUBLISH_BADGE_FILES } = process.env;
-
-            // Fetch files from source gist
-            const { data: srcData } = await github.rest.gists.get({
-              gist_id: srcId
-            });
 
             // Fetch existing files from destination gist
             const { data: dstData } = await github.rest.gists.get({
@@ -200,10 +194,13 @@ jobs:
             // Mark existing files in destination gist for deletion
             let filesToUpdate = {};
             for (const filename of Object.keys(dstData.files)) {
-              filesToUpdate[filename] = {
-                content: null
-              };
+              filesToUpdate[filename] = null;
             }
+
+            // Fetch files from source gist
+            const { data: srcData } = await github.rest.gists.get({
+              gist_id: srcId
+            });
 
             // Add or update files based on the pattern
             const pattern = new RegExp(`${PUBLISH_BADGE_FILES}`);
