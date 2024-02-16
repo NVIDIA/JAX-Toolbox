@@ -32,8 +32,8 @@ jobs:
     steps:
       - name: Pass
         run: echo pass
-  #pass2:
-  #  runs-on: ubuntu-22.04
-  #  steps:
-  #    - name: Pass
-  #      run: echo pass
+  fail:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Pass
+        run: exit 1
