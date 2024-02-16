@@ -10,11 +10,11 @@ jobs:
       IMAGE: ubuntu
       TEST_NAME: jax
       TEST_CMD:
-        ls -lah;
+        ls -lah && 
         echo "Hello world" >> hello.txt
       TEST_STATISTICS_SCRIPT: > 
-        echo "Statistics script" >> stat.txt;
-        TOTAL_TESTS=10;
+        echo "Statistics script" >> stat.txt &&
+        echo "TOTAL_TESTS=10" >> $GITHUB_OUTPUT &&
         ERRORS=1;
         FAILED_TESTS=5;
         PASSED_TESTS=42;
