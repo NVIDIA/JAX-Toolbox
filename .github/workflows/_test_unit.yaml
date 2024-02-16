@@ -7,7 +7,7 @@ on:
         type: string
         description: 'Test image built by NVIDIA/JAX-Toolbox'
         required: true
-      BASE_LIBRARY:
+      TEST_NAME:
         type: string
         description: 'Library to run unit tests on SLURM for'
         required: true
@@ -94,7 +94,7 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='${{ inputs.BASE_LIBRARY }} ${{ matrix.GPU_ARCH }} Unit'
+          badge_label='${{ inputs.TEST_NAME }} ${{ matrix.GPU_ARCH }} Unit'
 
           total_tests=${{ steps.test-stats.outputs.TOTAL_TESTS }}
           errors=${{ steps.test-stats.outputs.ERRORS }}
@@ -104,7 +104,7 @@ jobs:
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
-            summary='${{ inputs.BASE_LIBRARY }} unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+            summary='${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -112,7 +112,7 @@ jobs:
             else
               badge_color=yellow
             fi
-            summary="${{ inputs.BASE_LIBRARY }} unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
+            summary="${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
           fi
 
           to_json \
