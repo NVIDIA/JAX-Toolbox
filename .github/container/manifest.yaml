@@ -2,12 +2,12 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 14474acf761660153e0e45d7f4ea4b014cd254bf
+  latest_verified_commit: 83a041ef520bb85239c8063859c485d853bd98ee
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: e7912df7f7b65faa227ea786a0b78fd51a2f063a
+  latest_verified_commit: d0ca61b6bdd3d8e2020436b1c3073226429e72f0
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
@@ -110,7 +110,7 @@ openxla-triton:
 jax-triton:
   url: https://github.com/jax-ml/jax-triton.git
   tracking_ref: main
-  latest_verified_commit: 8f07074c8af95551bd3283638f6890893b4be0d3
+  latest_verified_commit: 708d3e8afe13b52e4191ad3b677c6f1238677c9e
   mode: git-clone
 maxtext:
   url: https://github.com/google/maxtext.git
