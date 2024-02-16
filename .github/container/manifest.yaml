@@ -7,7 +7,7 @@ jax:
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: d0ca61b6bdd3d8e2020436b1c3073226429e72f0
+  latest_verified_commit: 9faa2cde5d6da840b2c5a2c4c66fe2e9ca5b970e
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
@@ -44,7 +44,7 @@ praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
   tracking_ref: main
-  latest_verified_commit: ca8ad2ba8be5b77092a8e5f0a0774a39cc3ad766
+  latest_verified_commit: c95b9224577bb3cc86021196c0b9adef0738582c
   mode: git-clone
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
@@ -105,7 +105,7 @@ seqio:
 openxla-triton:
   url: https://github.com/openxla/triton.git
   tracking_ref: llvm-head
-  latest_verified_commit: cl604551115
+  latest_verified_commit: cl606191901
   mode: git-clone
 jax-triton:
   url: https://github.com/jax-ml/jax-triton.git
@@ -115,7 +115,7 @@ jax-triton:
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
-  latest_verified_commit: 942c8334c26e079d7aa738e238108db56855c514
+  latest_verified_commit: e4312313e02b118d8f91bef914b9320cb1cc328b
   mode: git-clone
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
