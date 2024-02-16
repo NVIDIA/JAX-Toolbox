@@ -140,7 +140,7 @@ jobs:
   # Only bump if everything succeeds
   commit-new-manifest:
     runs-on: ubuntu-22.04
-    if: ${{ needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' }}
+    if: needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true'
     needs:
       - metadata
       - amd64
@@ -172,7 +172,7 @@ jobs:
   # Optionally clean up manifest branch
   cleanup-manifest-branch:
     runs-on: ubuntu-22.04
-    if: always() && ${{ needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'false' }}
+    if: always() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'false'
     needs:
       - metadata
       - amd64
