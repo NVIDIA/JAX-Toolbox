@@ -148,7 +148,7 @@ jobs:
   # Only bump if everything succeeds
   merge-new-manifest:
     runs-on: ubuntu-22.04
-    if: !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha
+    if: ${{ !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
     needs:
       - metadata
       - amd64
