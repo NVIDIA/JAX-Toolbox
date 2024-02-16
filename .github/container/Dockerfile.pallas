@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG SRC_PATH_TRITON=/opt/openxla-triton
 
 ###############################################################################
