@@ -132,4 +132,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
-          path: ${{ inputs.PATH_TO_ARTIFACTS }}
+          path: |
+            ${{ inputs.PATH_TO_ARTIFACTS }}
