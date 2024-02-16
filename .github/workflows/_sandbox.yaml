@@ -9,3 +9,11 @@ jobs:
     with:
       TE_IMAGE: ghcr.io/nvidia/jax:pax
     secrets: inherit
+
+  finalize:
+    needs: [test-te]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      PUBLISH_BADGE: false
+    secrets: inherit
