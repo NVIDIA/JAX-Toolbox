@@ -8,38 +8,23 @@ on:
         description: 'JAX+TE+PAXML image'
         required: true
         default: 'ghcr.io/nvidia/upstream-pax:latest'
-      BADGE_FILENAME:
-        type: string
-        description: 'Name of the endpoint JSON file for shields.io badge'
-        required: false
-        default: 'te-unit-mg-test.json'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'artifact-te-unit-mg-test'
-      FW_NAME:
+        default: 'artifact-te'
+      BADGE_FILENAME:
         type: string
-        description: 'Name of the framework being used'
+        description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'TE'
-    outputs:
-      UNIT_TEST_ARTIFACT_NAME:
-        description: 'Name of the unit test artifact for downstream workflows'
-        value: ${{ jobs.te-unit-tests.outputs.UNIT_TEST_ARTIFACT_NAME }}
-      INTEGRATION_TEST_ARTIFACT_NAME:
-        description: 'Name of the integration test artifact for downstream workflows'
-        value: ${{ jobs.te-multi-gpu.outputs.INTEGRATION_TEST_ARTIFACT_NAME }}
-
-env:
-  UNIT_TEST_ARTIFACT_NAME: artifact-te-unit-test
-  INTEGRATION_TEST_ARTIFACT_NAME: artifact-te-mg-integration-test
+        default: 'badge-te'
 
 jobs:
   te-unit-tests:
     runs-on: [self-hosted, V100]
-    outputs:
-      UNIT_TEST_ARTIFACT_NAME: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
+    env:
+      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME }}-unit-test
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-unit-test.json
     steps:
       - name: Print environment variables
         run: env
@@ -99,34 +84,34 @@ jobs:
             summary \
             errors total_tests passed_tests failed_tests \
             badge_label badge_color badge_message \
-          > /log/sitrep.json
+          > sitrep.json
 
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > /log/te-unit-test.json
+          > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload unit test json logs
         if: success() || failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.UNIT_TEST_ARTIFACT_NAME }}
-          path: /log/*
+          name: ${{ env.ARTIFACT_NAME_FULL }}
+          path: |
+            /log/report.jsonl
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}
 
   te-multi-gpu:
     strategy:
       matrix:
         N_GPU: [1, 2]
       fail-fast: false
-
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: te-multi-gpu-test.json
-    outputs:
-      INTEGRATION_TEST_ARTIFACT_NAME: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}
-
+      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.N_GPU }}g-test
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.N_GPU }}g-test.json
     steps:
       - name: Print environment variables
         run: env
@@ -278,17 +263,20 @@ jobs:
             summary \
             total_tests passed_tests failed_tests \
             badge_label badge_color badge_message \
-          > output/sitrep.json
+          > sitrep.json
 
           schemaVersion=1 \
           label="${badge_label}" \
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}
+          > ${{ env.BADGE_FILENAME_FULL }}
           
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.INTEGRATION_TEST_ARTIFACT_NAME }}-${{ steps.meta.outputs.TEST_CASE_NAME }}
-          path: output/*
+          name: ${{ env.ARTIFACT_NAME_FULL }}
+          path: |
+            output/
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}
