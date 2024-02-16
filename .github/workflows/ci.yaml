@@ -23,6 +23,11 @@ on:
         description: Bump git repos in manifest.yaml to head of tree?
         default: false
         required: false
+      GIT_URLREF_XLA:
+        type: string
+        description: Git URL and ref for XLA in URL#REF format
+        default: ''
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
