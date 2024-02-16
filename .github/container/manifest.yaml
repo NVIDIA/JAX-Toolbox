@@ -36,7 +36,7 @@ paxml:
   url: https://github.com/google/paxml.git
   mirror_url: https://github.com/nvjax-svc-0/paxml.git
   tracking_ref: main
-  latest_verified_commit: 30043ed0edcb13a22a76277055af089343a8171d
+  latest_verified_commit: 315c27ef93d59b4733d6ae67cc8bab8c9786544b
   mode: git-clone
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
