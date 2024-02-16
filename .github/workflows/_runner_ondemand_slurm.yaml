@@ -99,23 +99,17 @@ jobs:
           echo "SLURM_JOB_ID=$(cat ${SLURM_JOB_ID_FILE})" >> $GITHUB_OUTPUT
 
       - name: Wait for SLURM job to complete
-        id: job-completion
         shell: bash -x -e {0}
         run: |
           while ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} squeue -j${{ steps.submit.outputs.SLURM_JOB_ID }} > /dev/null 2>&1; do echo "wait"; sleep 15; done
           SLURM_JOB_COMPLETION_STATUS_FILE=$(mktemp)
           ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} >${SLURM_JOB_COMPLETION_STATUS_FILE} \
-            sacct -XP -j ${{ steps.submit.outputs.SLURM_JOB_ID }}
+            sacct -XP -j ${{ steps.submit.outputs.SLURM_JOB_ID }} -o JobID,JobName,Partition,Account,AllocCPUS,State,ExitCode
 
           echo "JOB COMPLETION STATUS"
           cat ${SLURM_JOB_COMPLETION_STATUS_FILE}
 
-          SLURM_JOB_COMPLETION_STATE_FILE=$(mktemp)
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} >${SLURM_JOB_COMPLETION_STATE_FILE} \
-            sacct -XP -j ${{ steps.submit.outputs.SLURM_JOB_ID }} -o State
-
-          SLURM_JOB_COMPLETION_STATE=$(cat ${SLURM_JOB_COMPLETION_STATE_FILE} | tail -1)
-
+          SLURM_JOB_COMPLETION_STATE=$( cat ${SLURM_JOB_COMPLETION_STATE_FILE} | tail -1 | cut -d "|" -f 6 - )
           if [[ ${SLURM_JOB_COMPLETION_STATE} != "COMPLETED" ]]; then
             exit 1
           fi
