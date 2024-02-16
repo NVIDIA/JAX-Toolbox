@@ -141,9 +141,9 @@ jobs:
     secrets: inherit
 
   # Only bump if everything succeeds
-  commit-new-manifest:
+  merge-new-manifest:
     runs-on: ubuntu-22.04
-    if: needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true'
+    if: needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha
     needs:
       - metadata
       - amd64
@@ -156,7 +156,8 @@ jobs:
           route: POST /repos/{owner_and_repo}/pulls
           owner_and_repo: ${{ github.repository }}
           head: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
-          base: automatic-all-green-bump
+          # Always try to merge back into the branch that triggered this workflow
+          base: ${{ github.ref }}
           body: |
             https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}
           title: Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }})
@@ -164,6 +165,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Merging PR #${{ fromJson(steps.create_pr.outputs.data).number }}"
+        id: merge_pr
         uses: octokit/request-action@v2.x
         with:
           route: PUT /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}/merge
@@ -172,14 +174,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
-  # Optionally clean up manifest branch
+  # Always clean up manifest branch since PRs hold the changeset
   cleanup-manifest-branch:
     runs-on: ubuntu-22.04
-    if: always() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'false'
+    if: always() && needs.metadata.outputs.MANIFEST_BRANCH != github.sha
     needs:
       - metadata
       - amd64
       - arm64
+      - merge-new-manifest
     steps:
       - name: Check that the branch matches znightly- prefix
         run: |
@@ -188,6 +191,8 @@ jobs:
             exit 1
           fi
       - name: Deleting MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+        # Delete can fail if branch was already deleted or not created, e.g., if the PR successfully merges, then branch is also already deleted.
+        continue-on-error: true
         uses: octokit/request-action@v2.x
         with:
           route: DELETE /repos/{owner_and_repo}/git/refs/heads/${{ needs.metadata.outputs.MANIFEST_BRANCH }}
