@@ -19,7 +19,7 @@ on:
         type: string
         description: 'Script to compile the test statistics to report in badge file'
         required: false
-      PATH_TO_TEST_ARTIFACTS:
+      PATH_TO_ARTIFACTS:
         type: string
         description: 'Test artifacts to collect'
         required: false
@@ -132,4 +132,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
-          path: ${{ inputs.PATH_TO_TEST_ARTIFACTS }}
+          path: ${{ inputs.PATH_TO_ARTIFACTS }}

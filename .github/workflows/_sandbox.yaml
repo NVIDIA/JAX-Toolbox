@@ -9,7 +9,6 @@ jobs:
     with:
       IMAGE: ubuntu-22.04
       TEST_NAME: jax
-      BASE_LIBRARY: test
       TEST_CMD:
         ls -lah;
         echo "Hello world" >> hello.txt
@@ -19,7 +18,7 @@ jobs:
         ERRORS=1;
         FAILED_TESTS=5;
         PASSED_TESTS=42;
-      PATH_TO_TEST_ARTIFACTS: hello.txt stat.txt
+      PATH_TO_ARTIFACTS: hello.txt stat.txt
       ARTIFACT_NAME: test
       BADGE_FILENAME: badge-test
     secrets: inherit
