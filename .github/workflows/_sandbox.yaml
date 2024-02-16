@@ -10,14 +10,15 @@ jobs:
       IMAGE: ubuntu
       TEST_NAME: jax
       TEST_CMD:
-        ls -lah && 
-        echo "Hello world" >> hello.txt
+        echo "Hello world" >> hello.txt &&
+        ls -lah 
       TEST_STATISTICS_SCRIPT: > 
         echo "Statistics script" >> stat.txt &&
         echo "TOTAL_TESTS=10" >> $GITHUB_OUTPUT &&
         ERRORS=1;
         FAILED_TESTS=5;
         PASSED_TESTS=42;
+        ls -lah
       PATH_TO_ARTIFACTS: hello.txt stat.txt
       ARTIFACT_NAME: test
       BADGE_FILENAME: badge-test
