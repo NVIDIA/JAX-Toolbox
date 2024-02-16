@@ -89,6 +89,10 @@ jobs:
           fi | tee -a $GITHUB_OUTPUT
           echo "BUMP_MANIFEST=$BUMP_MANIFEST" | tee -a $GITHUB_OUTPUT
           echo "MERGE_BUMBED_MANIFEST=$MERGE_BUMPED_MANIFEST" | tee -a $GITHUB_OUTPUT
+          if [[ "$BUMP_MANIFEST" == "false" && "$MERGE_BUMPED_MANIFEST" == "true" ]]; then
+            echo "Error: If BUMP_MANIFEST=false, MERGE_BUMPED_MANIFEST cannot be true" >&2
+            exit 1
+          fi
 
   maybe-bump-manifest:
     name: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' && 'bump-manifest' || 'no-bump-manifest' }}
