@@ -44,7 +44,7 @@ jobs:
         id: meta
         shell: bash -x -e {0}
         run: |
-          JOB_NAME=${{ inputs.NAME }}-$(printf "%8x" $((RANDOM<<16+RANDOM)))
+          JOB_NAME=${{ inputs.NAME }}-$(printf "%012x" $(((RANDOM<<32)+(RANDOM<<16)+RANDOM)))
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           for var in JOB_NAME LOG_FILE; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
