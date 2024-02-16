@@ -140,7 +140,7 @@ jobs:
   # Only bump if everything succeeds
   commit-new-manifest:
     runs-on: ubuntu-22.04
-    if: ${{ needs.metadata.outputs.MERGE_BUMPED_MANIFEST }}
+    if: ${{ needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' }}
     needs:
       - metadata
       - amd64
@@ -160,26 +160,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      ## Need to sleep since PR may not be accessible via the API yet and may 404 if merging too quickly
-      #- name: Sleeping to ensure API is aware of PR num
-      #  run: sleep 15
-
-      #- name: Get PR
-      #  id: get_pr
-      #  uses: octokit/request-action@v2.x
-      #  with:
-      #    route: GET /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}
-      #    owner_and_repo: ${{ github.repository }}
-      #  env:
-      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      #- name: Print PR data
-      #  run: |
-      #    cat <<"EOF"
-      #    ${{ steps.get_pr.outputs.data }}
-      #    EOF
-
-      - name: Merging PR
+      - name: "Merging PR #${{ fromJson(steps.create_pr.outputs.data).number }}"
         uses: octokit/request-action@v2.x
         with:
           route: PUT /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}/merge
@@ -188,3 +169,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
+  # Optionally clean up manifest branch
+  cleanup-manifest-branch:
+    runs-on: ubuntu-22.04
+    if: always() && ${{ needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'false' }}
+    needs:
+      - metadata
+      - amd64
+      - arm64
+    steps:
+      - name: Check that the branch matches znightly- prefix
+        run: |
+          if [[ "${{ needs.metadata.outputs.MANIFEST_BRANCH }}" != znightly-* ]]; then
+            echo Tried to delete MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}, but did not start with "znightly-"
+            exit 1
+          fi
+      - name: Deleting MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+        uses: octokit/request-action@v2.x
+        with:
+          route: DELETE /repos/{owner_and_repo}/git/refs/heads/${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+          owner_and_repo: ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
