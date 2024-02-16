@@ -148,7 +148,7 @@ jobs:
   # Only bump if everything succeeds
   merge-new-manifest:
     runs-on: ubuntu-22.04
-    if: needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha
+    if: !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha
     needs:
       - metadata
       - amd64
@@ -170,7 +170,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Merging PR #${{ fromJson(steps.create_pr.outputs.data).number }}"
-        id: merge_pr
+        if: |
+          !contains(needs.*.result, 'failure') &&
+          !contains(needs.*.result, 'cancelled')
         uses: octokit/request-action@v2.x
         with:
           route: PUT /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}/merge
