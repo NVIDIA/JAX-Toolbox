@@ -7,7 +7,7 @@ jobs:
   sandbox:
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      IMAGE: ubuntu-22.04
+      IMAGE: ubuntu
       TEST_NAME: jax
       TEST_CMD:
         ls -lah;
