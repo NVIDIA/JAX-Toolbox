@@ -170,7 +170,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Merging PR #${{ fromJson(steps.create_pr.outputs.data).number }}"
-        #if: !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+        if: !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
         uses: octokit/request-action@v2.x
         with:
           route: PUT /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}/merge
