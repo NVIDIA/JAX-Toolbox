@@ -53,10 +53,16 @@ Because the execution of JAX programs is often quite repetitive, and there is no
 be that it is only worth recording a few iterations, and that these are very fast compared to the JIT overhead.
 In this case, only enabling profile collection for the iterations of interest is more efficient.
 
-To illustrate this, consider the following JAX example:
-https://github.com/google/jax/blob/bfd29f610218504fbb61966c507e8e4c7d9f978e/examples/mnist_vae.py#L131-L136
-where by default we have
-https://github.com/google/jax/blob/bfd29f610218504fbb61966c507e8e4c7d9f978e/examples/mnist_vae.py#L86
+To illustrate this, consider the following JAX example ([mnist_vae.py](https://github.com/google/jax/blob/bfd29f610218504fbb61966c507e8e4c7d9f978e/examples/mnist_vae.py#L131-L136)):
+```python
+  opt_state = opt_init(init_params)
+  for epoch in range(num_epochs):
+    tic = time.time()
+    opt_state = run_epoch(random.PRNGKey(epoch), opt_state, train_images)
+    test_elbo, sampled_images = evaluate(opt_state, test_images)
+    print(f"{epoch: 3d} {test_elbo} ({time.time() - tic:.3f} sec)")
+```
+where by default we have `num_epochs = 100` ([link](https://github.com/google/jax/blob/bfd29f610218504fbb61966c507e8e4c7d9f978e/examples/mnist_vae.py#L86)).
 
 Running this example prints something like
 ```
