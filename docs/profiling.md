@@ -108,7 +108,13 @@ JAX's (XLA's) usage of CUDA graphs is not currently fully supported by the Nsigh
 missing detail in the annotations for CUDA graph nodes.
 This is shown by the magenta region in the figure above, and will be fixed in a future version of Nsight Systems.
 
-More complete annotations can be obtained by adding `--xla_gpu_enable_command_buffer=` to the `XLA_FLAGS` environment
-variable when collecting the profile, which will disable the use of CUDA graphs.
+More complete annotations can be obtained by adding `--xla_gpu_graph_level=0` to the `XLA_FLAGS` environment variable
+when collecting the profile, which will disable the use of CUDA graphs.
 Depending on the JAX program, you will probably see a small slowdown when graphs are disabled; it's worth keeping in
 mind the scale of this effect for your program.
+
+Without CUDA graphs, metadata should be available for all kernels in the GPU timeline:
+![Nsight Systems GUI showing graph-free execution and a tool-tip](./img/no-graphs-tooltip.png)
+
+The tooltip contains information about the lines of your JAX program's Python source code that led to this kernel being
+emitted, as well as the relevant HLO code.
