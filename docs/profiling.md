@@ -1,0 +1,114 @@
+# Profiling JAX programs on GPU
+This page aims to complement the [Profiling JAX programs](https://jax.readthedocs.io/en/latest/profiling.html) page in
+the main JAX documentation with advice specific to profiling JAX programs running on NVIDIA GPUs.
+
+[As mentioned on that page](https://jax.readthedocs.io/en/latest/profiling.html#nsight), the
+[NVIDIA Nsight tools](https://developer.nvidia.com/tools-overview) can be used to profile JAX programs on GPU.
+
+The two tools that are most likely to be relevant are [Nsight Systems](https://developer.nvidia.com/nsight-systems) and
+[Nsight Compute](https://developer.nvidia.com/nsight-compute).
+
+Nsight Systems provides a high level overview of activity on the CPU and GPU, and is likely to be the best place to
+start investigating the performance of your program.
+It has small overheads and should not significantly affect the execution time of your program.
+
+Nsight Compute, on the other hand, enables detailed performance analysis of individual GPU kernels.
+It is very invasive and repeatedly re-runs the kernel(s) in question to collect different metrics.
+This is a powerful tool to use if you have identified specific GPU kernels that are executing surprisingly slowly.
+This document does not currently describe its use in any detail; more information is available in
+[the documentation](https://docs.nvidia.com/nsight-compute/index.html).
+
+## Nsight Systems
+The JAX-Toolbox containers already contain the most recent version of Nsight Systems.
+To collect a profile, simply launch your program inside `nsys`, for example:
+```bash
+$ nsys profile --cuda-graph-trace=node python my_script.py
+```
+
+This will produce an `.nsys-rep` file, by default `report1.nsys-rep`.
+
+### Opening report files
+A good starting point is to open the report file in the Nsight Systems GUI.
+This can be done in a few different ways.
+
+#### Running the GUI on a local system
+A common workflow is to collect profiles on a remote system that has attached GPUs, and then download the report files
+to your local machine to view them.
+The Nsight Systems GUI supports Linux, macOS and Windows.
+This is a good option if your network connection to the remote system is slow or high latency, or if you can only
+allocate GPU resources for a short time.
+
+#### Running everything on a local system
+If you want to run your JAX program **and** the GUI on the same system, it is possible to launch it directly from
+inside the Nsight Systems GUI, on a GPU attached to the same machine [as documented here](https://docs.nvidia.com/nsight-systems/UserGuide/index.html#profiling-linux-targets-from-the-gui).
+
+#### Other configurations
+Some other permutations are available of using VNC or WebRTC to stream the GUI from a remote machine.
+This avoids having to download the report files by hand.
+Documentation is available [here](https://docs.nvidia.com/nsight-systems/UserGuide/index.html#container-support-on-linux-servers).
+
+### Collecting targeted profiles
+While it is possible to record profiles of the entire application (as above), this is often not the best choice.
+Because the execution of JAX programs is often quite repetitive, and there is non-trivial JIT compilation time, it may
+be that it is only worth recording a few iterations, and that these are very fast compared to the JIT overhead.
+In this case, only enabling profile collection for the iterations of interest is more efficient.
+
+To illustrate this, consider the following JAX example:
+https://github.com/google/jax/blob/bfd29f610218504fbb61966c507e8e4c7d9f978e/examples/mnist_vae.py#L131-L136
+where by default we have
+https://github.com/google/jax/blob/bfd29f610218504fbb61966c507e8e4c7d9f978e/examples/mnist_vae.py#L86
+
+Running this example prints something like
+```
+  0 -124.1731185913086 (1.472 sec)
+  1 -116.52528381347656 (0.382 sec)
+  2 -113.37870025634766 (0.382 sec)
+  3 -110.11742401123047 (0.381 sec)
+  4 -110.05367279052734 (0.382 sec)
+...
+```
+so as a minimum we should skip the first iteration, which contains the JIT overhead, to get representative performance
+numbers.
+
+One way of doing this is to use the CUDA profiler API:
+```python
+from ctypes import cdll
+libcudart = cdll.LoadLibrary('libcudart.so')
+for epoch in range(num_epochs):
+  if epoch == 2: libcudart.cudaProfilerStart()
+  tic = time.time()
+  ...
+libcudart.cudaProfilerStop()
+```
+and reduce the number of epochs profiled, for example `num_epochs = 5`.
+
+If we then tell `nsys` to listen to the CUDA profiler API, with a command like:
+```bash
+$ PYTHONPATH=/opt/jax nsys profile --capture-range=cudaProfilerApi --cuda-graph-trace=node --capture-range-end=stop python /opt/jax/examples/mnist_vae.py
+```
+then the resulting profile will only contain 3 iterations of the loop (5 total - 2 skipped).
+ 
+### Understanding the Nsight Systems timeline
+The example in the previous section yields a profile like:
+![Nsight Systems GUI showing 3 iterations of the mnist_vae.py JAX example](./img/overview.png)
+
+The lower part of the screen (under "Threads (9)") shows the CPU timeline, while the upper part (under "CUDA HW") shows
+the GPU timeline.
+The "TSL" (CPU) and "NVTX (TSL)" (GPU) rows show annotations generated by JAX via XLA.
+Each "XlaModule" range corresponds to a call of a JITed JAX function, with the nestest "Thunk" ranges providing more
+granular detail.
+
+Zooming in on the profile, we can clearly see the latency between kernel launches and their execution.
+These correlations are shown by the light blue highlighted regions:
+![Nsight Systems GUI showing the launch latency of a particular kernel](./img/launch-latency.png)
+
+We can also see that JAX is using CUDA graphs, both from the `cuGraph*` calls in the CUDA API row, and from the
+coloured outlines of kernels in the CUDA HW rows.
+JAX's (XLA's) usage of CUDA graphs is not currently fully supported by the Nsight Systems UI, which leads to some
+missing detail in the annotations for CUDA graph nodes.
+This is shown by the magenta region in the figure above, and will be fixed in a future version of Nsight Systems.
+
+More complete annotations can be obtained by adding `--xla_gpu_enable_command_buffer=` to the `XLA_FLAGS` environment
+variable when collecting the profile, which will disable the use of CUDA graphs.
+Depending on the JAX program, you will probably see a small slowdown when graphs are disabled; it's worth keeping in
+mind the scale of this effect for your program.
