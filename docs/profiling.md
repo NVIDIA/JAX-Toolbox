@@ -20,12 +20,20 @@ This document does not currently describe its use in any detail; more informatio
 
 ## Nsight Systems
 The JAX-Toolbox containers already contain the most recent version of Nsight Systems.
+You can also install it yourself from [here](https://developer.nvidia.com/nsight-systems/get-started), or use the
+package repositories [here](https://developer.download.nvidia.com/devtools/repos).
 To collect a profile, simply launch your program inside `nsys`, for example:
 ```bash
 $ nsys profile --cuda-graph-trace=node python my_script.py
 ```
 
 This will produce an `.nsys-rep` file, by default `report1.nsys-rep`.
+
+When collecting profiles from a multi-process program, the simplest approach is to collect one report per process and
+start by analysing only one them.
+Simple JAX programs follow an SPMD model, meaning that the reports should contain similar data.
+Nsight Systems also supports [multi-report analysis](https://docs.nvidia.com/nsight-systems/UserGuide/index.html#multi-report-analysis),
+if you need to drill into differences in performance between ranks.
 
 ### Opening report files
 A good starting point is to open the report file in the Nsight Systems GUI.
@@ -49,8 +57,9 @@ Documentation is available [here](https://docs.nvidia.com/nsight-systems/UserGui
 
 ### Collecting targeted profiles
 While it is possible to record profiles of the entire application (as above), this is often not the best choice.
-Because the execution of JAX programs is often quite repetitive, and there is non-trivial JIT compilation time, it may
-be that it is only worth recording a few iterations, and that these are very fast compared to the JIT overhead.
+Because the execution of JAX programs is often quite repetitive, and there is non-trivial JIT compilation time and
+one-off initialisation cost, it may be that it is only worth recording a few iterations, and that these are very fast
+compared to the JIT overhead.
 In this case, only enabling profile collection for the iterations of interest is more efficient.
 
 To illustrate this, consider the following JAX example ([mnist_vae.py](https://github.com/google/jax/blob/bfd29f610218504fbb61966c507e8e4c7d9f978e/examples/mnist_vae.py#L131-L136)):
@@ -105,7 +114,7 @@ Each "XlaModule" range corresponds to a call of a JITed JAX function, with the n
 granular detail.
 
 Zooming in on the profile, we can clearly see the latency between kernel launches and their execution.
-These correlations are shown by the light blue highlighted regions:
+These correlations are shown by the light blue highlighted regions when you select a kernel or NVTX marker:
 ![Nsight Systems GUI showing the launch latency of a particular kernel](./img/launch-latency.png)
 
 We can also see that JAX is using CUDA graphs, both from the `cuGraph*` calls in the CUDA API row, and from the
