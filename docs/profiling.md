@@ -133,3 +133,7 @@ Without CUDA graphs, metadata should be available for all kernels in the GPU tim
 
 The tooltip contains information about the lines of your JAX program's Python source code that led to this kernel being
 emitted, as well as the relevant HLO code.
+[This page](https://openxla.org/xla/operation_semantics) may help to understand the HLO code.
+Note that there are two different HLO fields in the tooltip: "HLO" and "Called HLO", where in this example the latter
+is empty.
+In the case of fused kernels, the "Called HLO" field shows the body of the fused computation.
