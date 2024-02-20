@@ -260,35 +260,35 @@ jobs:
             mealkit
             final
           )
-  
+
           ## create JSON specs for a 1D matrix of container publication jobs
-  
+
           ALL_TAGS=$(
             echo '${{ needs.amd64.outputs.DOCKER_TAGS }}' \
                  '${{ needs.arm64.outputs.DOCKER_TAGS }}' |\
             jq -s 'add'
           )
           PUBLISH_CONFIGS='[]'
-  
+
           for stage in "${STAGES[@]}"; do
             for flavor in "${FLAVORS[@]}";do
-  
+
               # collect images for different platforms, e.g. amd64 and arm64
               matching_tags=$(
                 echo "$ALL_TAGS" |\
                 jq -c ".[] | select(.stage == \"${stage}\" and .flavor == \"${flavor}\" and .tag != \"\")"
               )
-  
+
               # source_image is a list of all platform-specific tags
               source_image=$(echo "${matching_tags}" | jq -c "[.tag]" | jq -s 'add')
               # if the build job failed without producing any images, skip this flavor
               n_source_images=$(echo "$source_image" | jq 'length')
               if [[ $n_source_images -gt 0 ]]; then
                 echo "PUBLISH image $flavor with $n_source_images $stage containers"
-  
+
                 # tag priority is the highest priority of all platform-specific tags
                 priority=$(echo "${matching_tags}" | jq -r ".priority" | jq -s 'max')
-  
+
                 # put all final images in the `ghcr.io/nvidia/jax` namespace
                 # and mealkit images in `ghcr.io/nvidia/jax-toolbox-mealkit` namespace
                 case ${stage} in
@@ -299,7 +299,7 @@ jobs:
                     target_image=${FINAL_IMAGE_REPO}
                     ;;
                 esac
-  
+
                 PUBLISH_CONFIGS=$(
                   echo ${PUBLISH_CONFIGS} | jq -c ". + [{
                     \"flavor\": \"${flavor}\",
@@ -313,11 +313,11 @@ jobs:
               fi
             done
           done
-  
+
           PUBLISH_CONFIGS=$(echo "$PUBLISH_CONFIGS" | jq -c '{"config": .}')
           echo ${PUBLISH_CONFIGS} | jq
           echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" >> $GITHUB_OUTPUT
-  
+
   publish-containers:
     needs:
       - metadata
@@ -333,7 +333,7 @@ jobs:
       TARGET_TAGS: |
         type=raw,value=${{ matrix.config.flavor }},priority=${{ matrix.config.priority }}
         type=raw,value=${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
-  
+
   finalize:
     needs: [metadata, amd64, arm64]
     if: "!cancelled()"
