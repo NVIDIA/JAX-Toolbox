@@ -275,7 +275,7 @@ jobs:
         shell: bash -x -e -o pipefail {0}
         continue-on-error: true
         run: |
-          docker run --gpus all --shm-size=1g ${{ inputs.IMAGE }} bash -o pipefail -exc "pip install flake8 pytest test_util && pytest /opt/levanter/tests" | tee test-levanter.log
+          docker run --gpus all --shm-size=1g ${{ inputs.IMAGE }} bash -o pipefail -exc "pip install flake8 pytest test-utils && pytest /opt/levanter/tests" | tee test-levanter.log
 
       - name: Generate sitrep
         shell: bash -x -e {0}

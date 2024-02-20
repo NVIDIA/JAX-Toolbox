@@ -61,7 +61,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          docker run --gpus all --shm-size=1g ${{ inputs.LEVANTER_IMAGE }} bash -ec "pip install flake8 pytest test_util && pytest /opt/levanter/tests" | tee test-levanter.log
+          docker run --gpus all --shm-size=1g ${{ inputs.LEVANTER_IMAGE }} bash -ec "pip install flake8 pytest test-utils && pytest /opt/levanter/tests" | tee test-levanter.log
 
       - name: Generate sitrep
         shell: bash -x -e {0}
