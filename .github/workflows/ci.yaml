@@ -40,7 +40,7 @@ permissions:
   pull-requests: write  # to make pull request for manifest bump
 
 env:
-  MANIFEST_ARTIFACT_NAME: maybe-bumped-manifest
+  DEFAULT_MANIFEST_ARTIFACT_NAME: maybe-bumped-manifest
 
 jobs:
 
@@ -50,6 +50,7 @@ jobs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
       BUMP_MANIFEST: ${{ steps.manifest-branch.outputs.BUMP_MANIFEST }}
+      MANIFEST_ARTIFACT_NAME: ${{ steps.manifest-branch.outputs.MANIFEST_ARTIFACT_NAME }}
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
     steps:
@@ -85,11 +86,16 @@ jobs:
           # Prepend nightly manifest branch with "z" to make it appear at the end
           if [[ "$BUMP_MANIFEST" == "true" ]]; then
             # This branch is for scheduled nightlies or manually run nightlies
-            echo "MANIFEST_BRANCH=znightly-${{ steps.date.outputs.BUILD_DATE }}-${{ github.run_id }}"
+            MANIFEST_BRANCH=znightly-${{ steps.date.outputs.BUILD_DATE }}-${{ github.run_id }}
+            MANIFEST_ARTIFACT_NAME=${{ env.DEFAULT_MANIFEST_ARTIFACT_NAME }}
           else
             # This branch is for presubmits (no bumping needed)
-            echo "MANIFEST_BRANCH=${{ github.sha }}"
-          fi | tee -a $GITHUB_OUTPUT
+            MANIFEST_BRANCH=${{ github.sha }}
+            # Empty artifact name means to use the one in version control
+            MANIFEST_ARTIFACT_NAME=""
+          fi
+          echo "MANIFEST_BRANCH=$MANIFEST_BRANCH" | tee -a $GITHUB_OUTPUT
+          echo "MANIFEST_ARTIFACT_NAME=$MANIFEST_ARTIFACT_NAME" | tee -a $GITHUB_OUTPUT
           echo "BUMP_MANIFEST=$BUMP_MANIFEST" | tee -a $GITHUB_OUTPUT
           echo "MERGE_BUMBED_MANIFEST=$MERGE_BUMPED_MANIFEST" | tee -a $GITHUB_OUTPUT
           if [[ "$BUMP_MANIFEST" == "false" && "$MERGE_BUMPED_MANIFEST" == "true" ]]; then
@@ -115,7 +121,7 @@ jobs:
       - name: Upload bumped manifest/patches to be used in build-base
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.MANIFEST_ARTIFACT_NAME }}
+          name: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
           path: |
             .github/container/manifest.yaml
             .github/container/patches
@@ -127,7 +133,7 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      MANIFEST_ARTIFACT_NAME: ${{ env.MANIFEST_ARTIFACT_NAME }}
+      MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
   arm64:
@@ -137,7 +143,7 @@ jobs:
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      MANIFEST_ARTIFACT_NAME: ${{ env.MANIFEST_ARTIFACT_NAME }}
+      MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
   # Only bump if everything succeeds
@@ -160,7 +166,7 @@ jobs:
       - name: Replace checked-out manifest file/patches with bumped one
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.MANIFEST_ARTIFACT_NAME }}
+          name: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
           path: .github/container/
 
       # In the unusual situation where the manifest is the same even after bumping,
