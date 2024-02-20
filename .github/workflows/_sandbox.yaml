@@ -4,33 +4,29 @@ on:
   push:
 
 jobs:
-  # runner:
-  #   uses: ./.github/workflows/_runner_ondemand_slurm.yaml
-  #   with:
-  #     NAME: "TEST"
-  #     LABELS: "A100,${{ github.run_id }}"
-  #     TIME: "01:00:00"
-  #   secrets: inherit
+  test-jax:
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      IMAGE: ghcr.io/nvidia/jax:jax
+      TEST_NAME: jax
+      ARTIFACT_NAME: artifact-jax-unit-test
+      BADGE_FILENAME: badge-jax-unit-test
+    secrets: inherit
 
-  jax-unit-test:
-    strategy:
-      fail-fast: false
-      matrix:
-        GPU_ARCH: [V100, A100]
-        include:
-          - EXTRA_LABEL: "self-hosted"
-          - GPU_ARCH: A100
-            EXTRA_LABEL: "${{ github.run_id }}"
-    # ensures A100 job lands on dedicated runner for this particular job
-    runs-on:
-      - self-hosted
-      - "${{ matrix.GPU_ARCH }}"
-      - "${{ matrix.EXTRA_LABEL }}"
-    env:
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
-    steps:
-      - name: Print environment variables
-        run: env
+  test-pallas:
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      IMAGE: ghcr.io/nvidia/jax:pallas
+      TEST_NAME: pallas
+      ARTIFACT_NAME: artifact-pallas-unit-test
+      BADGE_FILENAME: badge-pallas-unit-test
+    secrets: inherit
 
-      - name: Print GPU information
-        run: nvidia-smi  
+  test-levanter:
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      IMAGE: ghcr.io/nvidia/jax:levanter
+      TEST_NAME: levanter
+      ARTIFACT_NAME: artifact-levanter-unit-test
+      BADGE_FILENAME: badge-levanter-unit-test
+    secrets: inherit
