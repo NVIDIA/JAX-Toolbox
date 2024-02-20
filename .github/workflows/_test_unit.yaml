@@ -56,8 +56,8 @@ jobs:
       - name: Print environment variables
         run: env
 
-      - name: Print GPU information
-        run: nvidia-smi  
+      # - name: Print GPU information
+      #   run: nvidia-smi  
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -69,10 +69,10 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull test image
-        shell: bash -x -e {0}
-        run: |
-          docker pull ${{ inputs.IMAGE }}
+      # - name: Pull test image
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     docker pull ${{ inputs.IMAGE }}
 
       - name: Run tests
         shell: bash -x -e {0}
