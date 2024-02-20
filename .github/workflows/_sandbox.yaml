@@ -19,5 +19,5 @@ jobs:
           echo "TEST: ${{ github.event.inputs.TEST }}"
           echo "${{ fromJson(github.event.inputs.TEST).a }}"
           echo "${{ fromJson(github.event.inputs.TEST).b }}"
-          echo "${{ github.event.inputs.TEST.a }}"
-          echo "${{ github.event.inputs.TEST.b }}"
+          # echo "${{ github.event.inputs.TEST.a }}"
+          # echo "${{ github.event.inputs.TEST.b }}"
