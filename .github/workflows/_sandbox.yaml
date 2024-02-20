@@ -4,24 +4,27 @@ on:
   push:
 
 jobs:
-  runner:
-    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
-    with:
-      NAME: "TEST"
-      LABELS: "A100,${{ github.run_id }}"
-      TIME: "01:00:00"
-    secrets: inherit
+  # runner:
+  #   uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+  #   with:
+  #     NAME: "TEST"
+  #     LABELS: "A100,${{ github.run_id }}"
+  #     TIME: "01:00:00"
+  #   secrets: inherit
 
   jax-unit-test:
     strategy:
       fail-fast: false
       matrix:
         GPU_ARCH: [V100, A100]
+        include:
+          - EXTRA_LABEL: "self-hosted"
+          - GPU_ARCH: A100
+            EXTRA_LABEL: "${{ github.run_id }}"
     # ensures A100 job lands on dedicated runner for this particular job
     runs-on:
-      - self-hosted
       - "${{ matrix.GPU_ARCH }}"
-      - "${{ matrix.GPU_ARCH == 'A100' && github.run_id || '' }}"
+      - "${{ matrix.EXTRA_LABEL }}"
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
     steps:
