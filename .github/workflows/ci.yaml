@@ -40,7 +40,7 @@ permissions:
   pull-requests: write  # to make pull request for manifest bump
 
 env:
-  DEFAULT_MANIFEST_ARTIFACT_NAME: maybe-bumped-manifest
+  DEFAULT_MANIFEST_ARTIFACT_NAME: bumped-manifest
 
 jobs:
 
@@ -103,21 +103,29 @@ jobs:
             exit 1
           fi
 
-  maybe-bump-manifest:
+  bump-manifest:
     needs: metadata
     runs-on: ubuntu-22.04
-    if: needs.metadata.outputs.BUMP_MANIFEST == 'true'
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
 
-      - name: Update manifest and patches in-place - show diff
+      - name: Test if manifest bump is functional, and save result to a new file
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
-          bash bump.sh --input-manifest manifest.yaml
-          git diff
+          bash bump.sh --input-manifest manifest.yaml --output-manifest manifest.yaml.new --base-patch-dir ./patches-new
       
+      - name: Replace current manifest/patches with the new one and show diff
+        if: needs.metadata.outputs.BUMP_MANIFEST == 'true'
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          mv manifest.yaml.new manifest.yaml
+          rm -rf patches
+          mv patches-new patches
+          git diff
+
       - name: Upload bumped manifest/patches to be used in build-base
         uses: actions/upload-artifact@v4
         with:
@@ -127,8 +135,7 @@ jobs:
             .github/container/patches
 
   amd64:
-    needs: [metadata, maybe-bump-manifest]
-    if: "!cancelled()"
+    needs: [metadata, bump-manifest]
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: amd64
@@ -137,8 +144,7 @@ jobs:
     secrets: inherit
 
   arm64:
-    needs: [metadata, maybe-bump-manifest]
-    if: "!cancelled()"
+    needs: [metadata, bump-manifest]
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: arm64
