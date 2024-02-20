@@ -39,6 +39,9 @@ permissions:
   packages: write       # to upload container
   pull-requests: write  # to make pull request for manifest bump
 
+env:
+  MANIFEST_ARTIFACT_NAME: maybe-bumped-manifest
+
 jobs:
 
   metadata:
@@ -108,6 +111,57 @@ jobs:
         run: |
           bash bump.sh --input-manifest manifest.yaml
           git diff
+      
+      - name: Upload bumped manifest/patches to be used in build-base
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MANIFEST_ARTIFACT_NAME }}
+          path: |
+            .github/container/manifest.yaml
+            .github/container/patches
+
+  amd64:
+    needs: [metadata, maybe-bump-manifest]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_ci_tmp.yaml
+    with:
+      ARCHITECTURE: amd64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      MANIFEST_ARTIFACT_NAME: ${{ env.MANIFEST_ARTIFACT_NAME }}
+    secrets: inherit
+
+  arm64:
+    needs: [metadata, maybe-bump-manifest]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_ci_tmp.yaml
+    with:
+      ARCHITECTURE: arm64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      MANIFEST_ARTIFACT_NAME: ${{ env.MANIFEST_ARTIFACT_NAME }}
+    secrets: inherit
+
+  # Only bump if everything succeeds
+  merge-new-manifest:
+    runs-on: ubuntu-22.04
+    if: ${{ !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
+    needs:
+      - metadata
+      - amd64
+      - arm64
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+      
+      - name: Delete checked-out manifest and patches
+        run: |
+          rm .github/container/manifest.yaml
+          rm -rf .github/container/patches
+
+      - name: Replace checked-out manifest file/patches with bumped one
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.MANIFEST_ARTIFACT_NAME }}
+          path: .github/container/
 
       # In the unusual situation where the manifest is the same even after bumping,
       # we will produce an empty commit with --allow-empty, which allows a PR to be
@@ -125,35 +179,6 @@ jobs:
           git commit --allow-empty -a -m "Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }}) for run_id=${{ github.run_id }}: https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}"
           git push --set-upstream origin $manifest_branch
 
-  amd64:
-    needs: [metadata, maybe-bump-manifest]
-    if: "!cancelled()"
-    uses: ./.github/workflows/_ci_tmp.yaml
-    with:
-      ARCHITECTURE: amd64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      MANIFEST_BRANCH: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
-    secrets: inherit
-
-  arm64:
-    needs: [metadata, maybe-bump-manifest]
-    if: "!cancelled()"
-    uses: ./.github/workflows/_ci_tmp.yaml
-    with:
-      ARCHITECTURE: arm64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      MANIFEST_BRANCH: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}      
-    secrets: inherit
-
-  # Only bump if everything succeeds
-  merge-new-manifest:
-    runs-on: ubuntu-22.04
-    if: ${{ !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
-    needs:
-      - metadata
-      - amd64
-      - arm64
-    steps:
       - name: Creating PR for MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
         id: create_pr
         uses: octokit/request-action@v2.x
@@ -178,23 +203,16 @@ jobs:
           merge_method: squash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-  # Always clean up manifest branch since PRs hold the changeset
-  cleanup-manifest-branch:
-    runs-on: ubuntu-22.04
-    if: always() && needs.metadata.outputs.MANIFEST_BRANCH != github.sha
-    needs:
-      - metadata
-      - amd64
-      - arm64
-      - merge-new-manifest
-    steps:
+      
+      # Guard delete in simple check to protect other branches
       - name: Check that the branch matches znightly- prefix
         run: |
           if [[ "${{ needs.metadata.outputs.MANIFEST_BRANCH }}" != znightly-* ]]; then
             echo Tried to delete MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}, but did not start with "znightly-"
             exit 1
           fi
+
+      # If merging fails b/c upstream conflict, branch is deleted to avoid clutter since changeset is preserved in PR
       - name: Deleting MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
         # Delete can fail if branch was already deleted or not created, e.g., if the PR successfully merges, then branch is also already deleted.
         continue-on-error: true
