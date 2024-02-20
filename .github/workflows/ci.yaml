@@ -21,12 +21,12 @@ on:
       BUMP_MANIFEST:
         type: boolean
         description: Bump git repos in manifest.yaml to head of tree?
-        default: true  ## TODO change
+        default: false
         required: false
       MERGE_BUMPED_MANIFEST:
         type: boolean
         description: "(used if BUMP_MANIFEST=true && Always true for nightlies) If true: attempt to PR/merge manifest branch. If false: delete manifest branch."
-        default: true ## TODO change
+        default: false
         required: false
 
 concurrency:
