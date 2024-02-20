@@ -18,11 +18,11 @@ jobs:
       matrix:
         GPU_ARCH: [V100, A100]
         include:
-          - EXTRA_LABEL: "self-hosted"
           - GPU_ARCH: A100
             EXTRA_LABEL: "${{ github.run_id }}"
     # ensures A100 job lands on dedicated runner for this particular job
     runs-on:
+      - self-hosted
       - "${{ matrix.GPU_ARCH }}"
       - "${{ matrix.EXTRA_LABEL }}"
     env:
