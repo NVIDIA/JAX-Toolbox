@@ -69,7 +69,7 @@ jobs:
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
-      
+
       - name: Delete checked-out manifest and patches
         if: inputs.MANIFEST_ARTIFACT_NAME != ''
         run: |
