@@ -64,12 +64,9 @@ workspace_file="${xla_repo}/third_party/triton/workspace.bzl"
 openxla_triton_tag=$(sed -n -e 's#\s\+TRITON_COMMIT = "\(cl[0-9]\+\)"#\1#p' "${workspace_file}")
 # Extract Triton patch files applied by XLA
 patch_files=$(python3 -c 'import ast, sys; tree = ast.parse(sys.stdin.read()); print(" ".join(elem.value.removeprefix("//third_party/triton:").removesuffix(".patch") for node in ast.walk(tree) if isinstance(node, ast.keyword) and node.arg == "patch_file" for elem in node.value.elts))' < "${workspace_file}")
-# Clear old patches from the manifest file
-yq e 'del(.openxla-triton.patches)' -i "${MANIFEST}"
 i=0
 for patch_file in ${patch_files}; do
   cp -v "${xla_repo}/third_party/triton/${patch_file}.patch" "${SCRIPT_DIR}/patches/openxla-triton/${i}_${patch_file}.patch"
-  yq e ".openxla-triton.patches.${patch_file} = \"file://patches/openxla-triton/${i}_${patch_file}.patch\"" -i "${MANIFEST}"
   i=$((i+1))
 done
 rm -rf "${xla_repo}"
