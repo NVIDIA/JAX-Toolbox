@@ -129,7 +129,7 @@ jobs:
   amd64:
     needs: [metadata, maybe-bump-manifest]
     if: "!cancelled()"
-    uses: ./.github/workflows/_ci_tmp.yaml
+    uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
@@ -139,7 +139,7 @@ jobs:
   arm64:
     needs: [metadata, maybe-bump-manifest]
     if: "!cancelled()"
-    uses: ./.github/workflows/_ci_tmp.yaml
+    uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
