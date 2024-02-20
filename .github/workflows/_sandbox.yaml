@@ -17,7 +17,7 @@ jobs:
         run: |
           echo "Hello, world!"
           echo "TEST: ${{ inputs.TEST }}"
-          echo "{{ fromJson(inputs.TEST).a }}"
+          echo "${{ fromJson(inputs.TEST).a }}"
           echo "{{ fromJson(inputs.TEST).b }}"
           echo "{{ inputs.TEST.a }}"
           echo "{{ inputs.TEST.b }}"
