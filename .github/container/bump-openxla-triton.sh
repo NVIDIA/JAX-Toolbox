@@ -65,6 +65,8 @@ openxla_triton_tag=$(sed -n -e 's#\s\+TRITON_COMMIT = "\(cl[0-9]\+\)"#\1#p' "${w
 # Extract Triton patch files applied by XLA
 patch_files=$(python3 -c 'import ast, sys; tree = ast.parse(sys.stdin.read()); print(" ".join(elem.value.removeprefix("//third_party/triton:").removesuffix(".patch") for node in ast.walk(tree) if isinstance(node, ast.keyword) and node.arg == "patch_file" for elem in node.value.elts))' < "${workspace_file}")
 i=0
+# Remove old patch files
+rm -vf ${SCRIPT_DIR}/patches/openxla-triton/*.patch
 for patch_file in ${patch_files}; do
   cp -v "${xla_repo}/third_party/triton/${patch_file}.patch" "${SCRIPT_DIR}/patches/openxla-triton/${i}_${patch_file}.patch"
   i=$((i+1))
