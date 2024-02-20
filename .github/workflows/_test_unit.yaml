@@ -11,15 +11,15 @@ on:
         type: string
         description: 'Library to run unit tests on SLURM for'
         required: true
-      TEST_CMD:
+      EXECUTE:
         type: string
         description: 'Test command to run'
         required: false
-      TEST_STATISTICS_SCRIPT:
+      STATISTICS_SCRIPT:
         type: string
         description: 'Script to compile the test statistics to report in badge file'
         required: false
-      PATH_TO_ARTIFACTS:
+      ARTIFACTS:
         type: string
         description: 'Test artifacts to collect'
         required: false
@@ -35,39 +35,39 @@ on:
         default: 'badge-unit-test'
 
 jobs:
-  # runner:
-  #   uses: ./.github/workflows/_runner_ondemand_slurm.yaml
-  #   with:
-  #     NAME: "A100-${{ github.run_id }}"
-  #     LABELS: "A100:${{ github.run_id }}"
-  #     TIME: "01:00:00"
-  #   secrets: inherit
+  runner:
+    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+    with:
+      NAME: "A100-${{ github.run_id }}"
+      LABELS: "A100:${{ github.run_id }}"
+      TIME: "01:00:00"
+    secrets: inherit
 
   run-unit-test:
-    # strategy:
-    #   fail-fast: false
-    #   matrix:
-    #     GPU_ARCH: [V100, A100]
-    ## ensures A100 job lands on dedicated runner for this particular job
-    runs-on: ubuntu-22.04 #[self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+    strategy:
+      fail-fast: false
+      matrix:
+        GPU_ARCH: [V100, A100]
+    # ensures A100 job lands on dedicated runner for this particular job
+    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
     steps:
       - name: Print environment variables
         run: env
 
-      # - name: Print GPU information
-      #   run: nvidia-smi  
+      - name: Print GPU information
+        run: nvidia-smi  
 
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # - name: Login to GitHub Container Registry
-      #   uses: docker/login-action@v3
-      #   with:
-      #     registry: ghcr.io
-      #     username: ${{ github.repository_owner }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull test image
         shell: bash -x -e {0}
@@ -79,14 +79,14 @@ jobs:
         # todo: distinguish between test failures and errors
         continue-on-error: true
         run: |
-          ${{ inputs.TEST_CMD }}
+          ${{ inputs.EXECUTE }}
 
       - name: Calculate test statistics
         id: test-stats
         shell: bash -x -e {0}
         continue-on-error: true
         run: |
-          ${{ inputs.TEST_STATISTICS_SCRIPT }}
+          ${{ inputs.STATISTICS_SCRIPT }}
 
       - name: Generate sitrep
         shell: bash -x -e {0}
@@ -133,4 +133,7 @@ jobs:
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
           path: |
-            ${{ inputs.PATH_TO_ARTIFACTS }}
+            ${{ inputs.ARTIFACTS }}
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}
+            
