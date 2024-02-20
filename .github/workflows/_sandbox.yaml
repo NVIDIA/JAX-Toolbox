@@ -7,7 +7,7 @@ on:
         type: string
         description: 'Name of the runner'
         required: false
-        default: '["a": 1, "b": 2]'
+        default: '{"a": 1, "b": 2}'
 
 jobs:
   sandbox:
@@ -18,6 +18,6 @@ jobs:
           echo "Hello, world!"
           echo "TEST: ${{ inputs.TEST }}"
           echo ${{ fromJson(inputs.TEST) }}
-          # echo "{{ fromJson(inputs.TEST).b }}"
-          # echo "{{ inputs.TEST.a }}"
-          # echo "{{ inputs.TEST.b }}"
+          echo "{{ fromJson(inputs.TEST).b }}"
+          echo "{{ inputs.TEST.a }}"
+          echo "{{ inputs.TEST.b }}"
