@@ -26,8 +26,8 @@ jobs:
   runner:
     uses: ./.github/workflows/_runner_ondemand_slurm.yaml
     with:
-      NAME: "A100-${{ github.run_id }}"
-      LABELS: "A100:${{ github.run_id }}"
+      NAME: "A100"
+      LABELS: "A100,${{ github.run_id }}"
       TIME: "01:00:00"
     secrets: inherit
 
@@ -37,8 +37,15 @@ jobs:
       fail-fast: false
       matrix:
         GPU_ARCH: [V100, A100]
-    # ensures A100 job lands on dedicated runner for this particular job
-    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+        include:
+          - EXTRA_LABEL: "self-hosted"
+          # ensures A100 job lands on dedicated runner for this particular job
+          - GPU_ARCH: A100
+            EXTRA_LABEL: "${{ github.run_id }}"
+    runs-on:
+      - self-hosted
+      - "${{ matrix.GPU_ARCH }}"
+      - "${{ matrix.EXTRA_LABEL }}"
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
     steps:
@@ -64,20 +71,20 @@ jobs:
           docker pull ${{ inputs.IMAGE }}
 
       - name: Backend-independent tests
-        shell: bash -x -e {0}
-        # todo: distinguish between test failures and errors
+        shell: bash -x -e -o pipefail {0}
         continue-on-error: true
         run: |
           docker run --gpus all ${{ inputs.IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
 
       - name: GPU-specific tests
-        shell: bash -x -e {0}
+        shell: bash -x -e -o pipefail {0}
         continue-on-error: true
         run: |
           docker run --gpus all ${{ inputs.IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
 
       - name: Generate sitrep
         shell: bash -x -e {0}
+        continue-on-error: ${{ github.event_name == 'schedule' }}
         run: |
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
@@ -93,6 +100,7 @@ jobs:
             badge_message='error'
             badge_color=red
             summary='JAX unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+            exit 1
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -132,8 +140,15 @@ jobs:
       fail-fast: false
       matrix:
         GPU_ARCH: [V100, A100]
-    # ensures A100 job lands on dedicated runner for this particular job
-    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+        include:
+          - EXTRA_LABEL: "self-hosted"
+          # ensures A100 job lands on dedicated runner for this particular job
+          - GPU_ARCH: A100
+            EXTRA_LABEL: "${{ github.run_id }}"
+    runs-on:
+      - self-hosted
+      - "${{ matrix.GPU_ARCH }}"
+      - "${{ matrix.EXTRA_LABEL }}"
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
     steps:
@@ -159,13 +174,14 @@ jobs:
           docker pull ${{ inputs.IMAGE }}
 
       - name: Run Pallas tests
-        shell: bash -x -e {0}
+        shell: bash -x -e -o pipefail {0}
         continue-on-error: true
         run: |
           docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ inputs.IMAGE }} python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml | tee test-pallas.log
 
       - name: Generate sitrep
         shell: bash -x -e {0}
+        continue-on-error: ${{ github.event_name == 'schedule' }}
         run: |
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
@@ -183,6 +199,7 @@ jobs:
             badge_message='error'
             badge_color=red
             summary='Pallas test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+            exit 1
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
@@ -221,8 +238,15 @@ jobs:
       fail-fast: false
       matrix:
         GPU_ARCH: [V100, A100]
-    # ensures A100 job lands on dedicated runner for this particular job
-    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+        include:
+          - EXTRA_LABEL: "self-hosted"
+          # ensures A100 job lands on dedicated runner for this particular job
+          - GPU_ARCH: A100
+            EXTRA_LABEL: "${{ github.run_id }}"
+    runs-on:
+      - self-hosted
+      - "${{ matrix.GPU_ARCH }}"
+      - "${{ matrix.EXTRA_LABEL }}"
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
     steps:
@@ -248,11 +272,14 @@ jobs:
           docker pull ${{ inputs.IMAGE }}
 
       - name: Test with pytest
+        shell: bash -x -e -o pipefail {0}
+        continue-on-error: true
         run: |
-          docker run --gpus all --shm-size=1g ${{ inputs.IMAGE }} bash -ec "pip install flake8 pytest test_util && pytest /opt/levanter/tests" | tee test-levanter.log
+          docker run --gpus all --shm-size=1g ${{ inputs.IMAGE }} bash -o pipefail -exc "pip install flake8 pytest test-utils && pytest /opt/levanter/tests" | tee test-levanter.log
 
       - name: Generate sitrep
         shell: bash -x -e {0}
+        continue-on-error: ${{ github.event_name == 'schedule' }}
         run: |
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
@@ -268,6 +295,7 @@ jobs:
             badge_message='error'
             badge_color=red
             summary='Levanter unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+            exit 1
           else
             badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
