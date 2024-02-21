@@ -76,10 +76,10 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull test image
-        shell: bash -x -e {0}
-        run: |
-          docker pull ${{ inputs.IMAGE }}
+      # - name: Pull test image
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     docker pull ${{ inputs.IMAGE }}
 
       - name: Run tests
         shell: bash -x -e {0}

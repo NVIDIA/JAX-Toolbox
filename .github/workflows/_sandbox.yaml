@@ -11,7 +11,6 @@ jobs:
       TEST_NAME: test
       EXECUTE: |
         echo IMAGE_IN_USE=${{ inputs.IMAGE }};
-        docker run ${{ inputs.IMAGE }} bash -ec "echo Success";
         echo "Hello world" >> hello.txt;
         ls -lah;
       STATISTICS_SCRIPT: | 
