@@ -206,8 +206,8 @@ jobs:
       IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: jax
       EXECUTE: |
-        docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log;
-        docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
+        docker run --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} test-jax.sh -b backend-independent | tee test-backend-independent.log;
+        docker run --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} test-jax.sh -b gpu | tee test-gpu.log
       STATISTICS_SCRIPT: |
         errors=$(cat test-*.log | grep -c 'ERROR:' || true);
         failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true);
@@ -256,8 +256,7 @@ jobs:
       IMAGE: ${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: pallas
       EXECUTE: |
-        docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log;
-        docker run --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
+        docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }} python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml | tee test-pallas.log
       STATISTICS_SCRIPT: |
         curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
         total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
@@ -280,9 +279,9 @@ jobs:
     uses: ./.github/workflows/_test_unit.yaml
     with:
       IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
-      TEST_NAME: pallas
+      TEST_NAME: levanter
       EXECUTE: |
-        docker run --gpus all --shm-size=1g ${{ inputs.LEVANTER_IMAGE }} bash -ec "pip install flake8 pytest test_util && pytest /opt/levanter/tests" | tee test-levanter.log
+        docker run --gpus all --shm-size=1g ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} bash -ec "pip install flake8 pytest test-util && pytest /opt/levanter/tests" | tee test-levanter.log
       STATISTICS_SCRIPT: |
         errors=$(cat test-*.log | grep -c 'ERROR:' || true)
         failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
