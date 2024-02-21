@@ -1,0 +1,240 @@
+From a8144e67c2f81f3970f73d0d8f3d0d501de6fc29 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Thu, 16 Nov 2023 11:07:27 -0800
+Subject: [PATCH 1/2] Add boolq support
+
+---
+ praxis/layers/models.py | 121 ++++++++++++++++++++++++++++++++++------
+ 1 file changed, 103 insertions(+), 18 deletions(-)
+
+diff --git a/praxis/layers/models.py b/praxis/layers/models.py
+index 4631ea6..28863e3 100644
+--- a/praxis/layers/models.py
++++ b/praxis/layers/models.py
+@@ -85,7 +85,6 @@ def compute_xent_loss_helper(
+     input_batch: NestedMap,
+     return_predictions: bool,
+     apply_eval_sample_weights: bool = False,
+-    report_strict_acc: bool = False,
+ ) -> tuple[WeightedScalars, dict[str, Any]]:
+   """Helper for computing the xent loss for Language model and Sequence model.
+ 
+@@ -102,11 +101,9 @@ def compute_xent_loss_helper(
+       example weights from the input `eval_sample_weights` or not. When enabled,
+       these per-example weights will be merged with the per token
+       `input_batch.weights`.
+-    report_strict_acc: Whether to report strict accuracy. In general, this
+-      requires the entire portion of the sequence with nonzero weight be
+       predicted correctly. Frequently used for eval on the Lambada dataset, in
+-      which case this metric is equivalent to full-word matching.
+-
++      which case this metric is equivalent to full-word matching. This is
++      equivalent to setting eval_task=='lambada'.
+   Returns:
+     - A dict or NestedMap containing str keys and (value, weight) pairs as
+       values, where one of the entries is expected to correspond to the loss.
+@@ -149,7 +146,70 @@ def compute_xent_loss_helper(
+       fraction_of_correct_next_step_preds=(mean_acc, metric_weight),
+       num_predictions=(num_preds, jnp.array(1.0, num_preds.dtype)),
+   )
++
++  # The score for the sequence is the negative of the sum of per token cross
++  # entropy, which is the (weighted) sum of log probs on the tokens.
++  per_example_output = NestedMap(
++      labels=labels, scores=-predictions.per_sequence_xent
++  )
++  if apply_eval_sample_weights and hasattr(input_batch, 'eval_sample_weights'):
++    per_example_output.eval_sample_weights = input_batch.eval_sample_weights
++  if return_predictions:
++    per_example_output = predictions
++  return metrics, per_example_output
++
++def compute_eval_metrics_helper(
++    metrics: WeightedScalars,
++    predictions: NestedMap,
++    input_batch: NestedMap,
++    apply_eval_sample_weights: bool = False,
++    eval_task: str = None,
++    boolq_yn_tokens: JTensor = None,
++    report_strict_acc: bool = False, ## legacy
++) -> WeightedScalars:
++  """Helper for computing the xent loss for Language model and Sequence model.
++
++  Args:
++    predictions: A `.NestedMap` containing the keys `per_example_argmax`,
++      `total_loss`, `avg_xent`, `aux_loss`, `total_weight` which corresponds to
++      the output of the Softmax layer.
++    input_batch: A `.NestedMap` object containing input tensors which contains
++      the keys `labels` and `weights` which corresponds to the labels and the
++      `weights` for each token in the sequence.
++    eval_task: Optional. Supported eval tasks are 'lambada' and 'boolq'.
++    report_strict_acc: Legacy. Whether to report strict accuracy. In general, this
++      requires the entire portion of the sequence with nonzero weight be
++      predicted correctly. Frequently used for eval on the Lambada dataset, in
++      which case this metric is equivalent to full-word matching. This is
++      equivalent to setting eval_task=='lambada'.
++    boolq_yn_tokens: Required when 'eval_task' == 'boolq'. Integers corresponding
++      to the tokenizer's "yes" and "no" tokens.
++  Returns:
++    - Metrics dict with eval metrics appended.
++  """
++
++  labels = input_batch.labels
++  weights = input_batch.weights
++  if apply_eval_sample_weights:
++    if not hasattr(input_batch, 'eval_sample_weights'):
++      logging.warning(
++          '`apply_eval_sample_weights` enabled, but the input batch does not '
++          'provide the necessary `eval_sample_weights` field.'
++      )
++    weights = _merge_per_token_and_per_example_weights(
++        weights, input_batch.eval_sample_weights
++    )
++
++  predicted_labels = predictions.per_example_argmax.astype(labels.dtype)
++
+   if report_strict_acc:
++    logging.warning(
++        '"report_strict_acc" is present for legacy purposes only. '
++        'Please use "eval_task=\'lambada\'" instead.'
++    )
++
++
++  if eval_task == 'lambada' or report_strict_acc:
+     num_acc = jnp.sum(weights, axis=-1, dtype=jnp.float32)
+     ## mask out padding examples
+     num_acc = jax.lax.select(
+@@ -165,17 +225,28 @@ def compute_xent_loss_helper(
+     strict_weight = jnp.array(num_nonpadding, predictions.avg_xent.dtype)
+ 
+     metrics.acc_strict = (mean_acc_strict, strict_weight)
++    
++  elif eval_task == 'boolq':
++
++    assert boolq_yn_tokens is not None, "'boolq_yn_tokens' must be set when eval_task=='bool_q'"
++
++    sum_of_labels = jnp.sum(boolq_yn_tokens)
++
++    logits = predictions.logits
++    reshaped_logits = jnp.reshape(logits, (-1, logits.shape[-1]))
++    reshaped_labels = jnp.reshape(labels, (-1,))
++    ll_correct = reshaped_logits[jnp.arange(reshaped_labels.shape[0]),
++                                 reshaped_labels].reshape(labels.shape) ## extract the ll of the label for each token
++    ll_incorrect = reshaped_logits[jnp.arange(reshaped_labels.shape[0]),
++                                   sum_of_labels - reshaped_labels].reshape(labels.shape) ## this will pull out the ll of the "wrong" choice
++    num_examples = jnp.sum(input_batch.eval_sample_weights).astype(jnp.float32)
++
++    avg_correct = jnp.sum(((ll_correct - ll_incorrect) > 0) * weights.astype(jnp.float32)) / num_examples ## pull out the ll of the target tokens and average
++    avg_correct_weight = jnp.array(num_examples, predictions.avg_xent.dtype)
++    metrics.boolq_acc = (avg_correct, avg_correct_weight)
++
++  return metrics
+ 
+-  # The score for the sequence is the negative of the sum of per token cross
+-  # entropy, which is the (weighted) sum of log probs on the tokens.
+-  per_example_output = NestedMap(
+-      labels=labels, scores=-predictions.per_sequence_xent
+-  )
+-  if apply_eval_sample_weights and hasattr(input_batch, 'eval_sample_weights'):
+-    per_example_output.eval_sample_weights = input_batch.eval_sample_weights
+-  if return_predictions:
+-    per_example_output = predictions
+-  return metrics, per_example_output
+ 
+ 
+ def add_hist(
+@@ -204,8 +275,11 @@ class LanguageModel(base_model.BaseModel):
+     count_tokens: Whether to track total tokens trained on in the checkpoint.
+     apply_eval_sample_weights: Boolean indicating whether to apply the per
+       example weights from the input `eval_sample_weights` or not.
+-    report_strict_acc: Whether to report strict accuracy. Used for eval on
+-      Lambada dataset.
++    eval_task: Optional. Supported eval tasks are 'lambada' and 'boolq'
++    boolq_yn_tokens: Required when 'eval_task' == 'boolq'. Integers corresponding
++      to the tokenizer's "yes" and "no" tokens.
++    report_strict_acc: Legacy. Whether to report strict accuracy. Used for eval on
++      Lambada dataset. Equivalent to 'eval_task=lambada'
+   """
+ 
+   lm_tpl: LayerTpl = template_field(transformer_models.TransformerLm)
+@@ -214,6 +288,8 @@ class LanguageModel(base_model.BaseModel):
+   model_type: LanguageModelType = LanguageModelType.CAUSAL
+   count_tokens: bool = False
+   apply_eval_sample_weights: bool = False
++  eval_task: str = None
++  boolq_yn_tokens: JTensor = None
+   report_strict_acc: bool = False
+ 
+   def setup(self) -> None:
+@@ -300,13 +376,22 @@ class LanguageModel(base_model.BaseModel):
+         training example, where the first dimension of each tensor is the batch
+         index.
+     """
+-    return compute_xent_loss_helper(
++    metrics, per_example_output = compute_xent_loss_helper(
+         predictions,
+         input_batch,
+         self.return_predictions,
+         self.apply_eval_sample_weights,
++    )
++    metrics = compute_eval_metrics_helper(
++        metrics,
++        predictions,
++        input_batch,
++        self.apply_eval_sample_weights,
++        self.eval_task,
++        self.boolq_yn_tokens,
+         self.report_strict_acc,
+     )
++    return metrics, per_example_output
+ 
+   def _prepare_guidance_decode_data(self, decode_data: NestedMap) -> NestedMap:
+     raise NotImplementedError('LanguageModel does not support guidance.')
+-- 
+2.25.1
+
+
+From e94bd6901766707aba59236c710f9b6d7951e007 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Tue, 13 Feb 2024 12:12:50 -0800
+Subject: [PATCH 2/2] fix some documentation
+
+---
+ praxis/layers/models.py | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/praxis/layers/models.py b/praxis/layers/models.py
+index 28863e3..6e6762d 100644
+--- a/praxis/layers/models.py
++++ b/praxis/layers/models.py
+@@ -101,9 +101,6 @@ def compute_xent_loss_helper(
+       example weights from the input `eval_sample_weights` or not. When enabled,
+       these per-example weights will be merged with the per token
+       `input_batch.weights`.
+-      predicted correctly. Frequently used for eval on the Lambada dataset, in
+-      which case this metric is equivalent to full-word matching. This is
+-      equivalent to setting eval_task=='lambada'.
+   Returns:
+     - A dict or NestedMap containing str keys and (value, weight) pairs as
+       values, where one of the entries is expected to correspond to the loss.
+@@ -167,7 +164,7 @@ def compute_eval_metrics_helper(
+     boolq_yn_tokens: JTensor = None,
+     report_strict_acc: bool = False, ## legacy
+ ) -> WeightedScalars:
+-  """Helper for computing the xent loss for Language model and Sequence model.
++  """Helper for computing the eval metrics for Language model and Sequence model.
+ 
+   Args:
+     predictions: A `.NestedMap` containing the keys `per_example_argmax`,
+@@ -185,7 +182,7 @@ def compute_eval_metrics_helper(
+     boolq_yn_tokens: Required when 'eval_task' == 'boolq'. Integers corresponding
+       to the tokenizer's "yes" and "no" tokens.
+   Returns:
+-    - Metrics dict with eval metrics appended.
++    Metrics dict with eval metrics appended.
+   """
+ 
+   labels = input_batch.labels
+-- 
+2.25.1
+
