@@ -2,7 +2,7 @@
 # Example command to build manually:
 #   docker buildx build -f Dockerfile.t5x.arm64 --tag t5x --build-arg BASE_IMAGE=ghcr.io/nvidia/jax:mealkit-2024-01-22 .
 
-ARG BASE_IMAGE=ghcr.io/nvidia/jax:mealkit
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG SRC_PATH_GRAIN=/opt/grain
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 ARG SRC_PATH_T5X=/opt/t5x

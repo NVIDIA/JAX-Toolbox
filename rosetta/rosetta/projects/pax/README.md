@@ -154,7 +154,8 @@ BASE_XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_
 ```
 
 ## Configs
-We provide three "base" model configurations in `paxml/contrib/gpu/scripts_gpu/configs.py`. The first is a 126 million parameter GPT model. Convergence using The Pile dataset has been verified with this model. The remaining configs are 5 billion and 175 billion parameter models. Both 5B and 175B are provided primarily for benchmarking purposes and been less thoroughly tested for convergence.
+### GPT
+We provide three "base" GPT model configurations in `paxml/contrib/gpu/scripts_gpu/configs.py`. The first is a 126 million parameter GPT model. Convergence using The Pile dataset has been verified with this model. The remaining configs are 5 billion and 175 billion parameter models. Both 5B and 175B are provided primarily for benchmarking purposes and been less thoroughly tested for convergence.
 
 The tables below describe current performance of the given configs. Experiments were run using NVIDIA DGX A100 80G and H100 80G nodes. Note that Lambada accuracy reported corresponds to the best accuracy seen across the run. Estimated walltime denotes the aproximate time to train each model to completion (i.e. number of days to reach `MAX_STEPS` number of steps as described in `configs.py`).
 
@@ -183,6 +184,30 @@ The tables below describe current performance of the given configs. Experiments 
 *Note*: Estimated walltime is computed assuming full throughput continuously. In practice, true walltime may be greater due to compilation overheads, interleaved evaluation, and checkpointing. A number of the linked convergence runs were completed using older software; thus, throughput reported in the linked logs may not match current results. The most up-to-date throughput numbers are reported in the table. 
 
 5B FP8 was trained for 75,000 steps at a global batch size of 2048 and a sequence length of 2048, amounting to around 300 billion consumed tokens. 175B FP8 was trained for a total of around 1,000 steps at a global batch size of 1536 and a sequence length of 2048, amounting to around 3.14 billion consumed tokens. 175B was trained using the [C4 dataset](https://github.com/mlcommons/training/tree/master/large_language_model/paxml#2-dataset) and restores from an [initial MLPerf checkpoint](https://github.com/mlcommons/training/tree/master/large_language_model/paxml#initial-checkpoint). 126M and 5B were both trained using the Pile.
+
+### LLaMA
+We also provide LLaMA-2 7B, 13B and 70B configs. These configs are variants of the [LLaMA configs](https://github.com/google/saxml/blob/main/saxml/server/pax/lm/params/lm_cloud.py) provided by Saxml and have been validated on the [BoolQ](https://github.com/google-research-datasets/boolean-questions) dataset. The table below reports BoolQ accuracy for each model.
+
+| Size | Precision | #GPUs | DP | FSDP | TP | BS / GPU | BoolQ Accuracy |
+| ---- |---------- | ----- | -- | ---- | -- | -------- | -------------- |
+| 7B   | BF16      | 8     | 1  | 8    | 1  | 16       | 77.52%         |
+| 13B  | BF16      | 8     | 1  | 8    | 1  | 8        | 82.99%         |
+| 70B  | BF16      | 16    | 1  | 16   | 1  | 4        | 85.08%         |
+
+Saxml provides a [script](https://github.com/google/saxml/blob/f3efdafed400d03be22efdb39a006f1420460d9f/saxml/tools/convert_llama_ckpt.py) to convert Meta's LLaMA checkpoints to Paxml format. This script can be run inside of any JAX-Toolbox pax container. First, apply for access and download the Meta checkpoints and LLaMA tokenizer using [this link](https://llama.meta.com/llama-downloads/). Then, mount the Meta checkpoints to the container and run the following commands to convert the checkpoint:
+```
+pip install pytorch ## loading meta checkpoints requires pytorch
+wget https://raw.githubusercontent.com/google/saxml/f3efdafed400d03be22efdb39a006f1420460d9f/saxml/tools/convert_llama_ckpt.py
+python3 -m convert_llama_ckpt --base-model-path <meta checkpoint path> --pax-model-path <path to save checkpoint to> --model-size <7b, 13b, or 70b>
+```
+
+The script [download_boolq.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_boolq.py) downloads the BoolQ dataset to the `TFDS_DATA_DIR` (see [Downloading the Pile and Lambada Datasets]((#Downloading-the-pile-and-lambada-datasets) for more). Once BoolQ has been downloaded, the script [example_slurm_llama.sub](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/scripts/example_slurm_llama.sub) can be used to reproduce the results reported in the table. Launch the script using the following command:
+```
+CONTAINER=<CONTAINER> BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_BOOLQ> BASE_VOCAB_PATH=<PATH_TO_LLAMA_TOKENIZER> BASE_CHECKPOINT_DIR=<PATH_TO_CONVERTED_CHECKPOINT> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=bfloat16 GPUS_PER_NODE=8 PERCORE_BATCH_SIZE=<BSIZE_PER_GPU> CONFIG=<LLaMA_CONFIG> sbatch -N <NUM_NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/example_slurm_llama.sub
+```
+`CONFIG` should be one of `LLaMA7B`, `LLaMA13B`, or `LLaMA70B` and `PERCORE_BATCH_SIZE` and `NUM_NODES` should match with the table above.
+
+_Note_: The given LLaMA configs currently do not have support for Transformer Engine. We are actively working on this and will update the configs as TE support becomes available.
 
 ### Running an Experiment with Base Configs
 To run an experiment with any base model configuration with the default parallel strategy reported in the table, copy [run_pile_multinode.sh](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh) to your workspace and make the following modifications: replace `--fdl_config=paxml.contrib.gpu.scripts_gpu.configs.Pile126M` with the experiment you are interested in running (e.g. `paxml.contrib.gpu.scripts_gpu.configs.GPT5B` or `paxml.contrib.gpu.scripts_gpu.configs.GPT175B`) and remove `--fdl.ICI_MESH_SHAPE="[${NUM_GPUS}, 1, 1]"` and `--fdl.DCN_MESH_SHAPE="[${SLURM_JOB_NUM_NODES}, 1, 1]"`. The resulting bash script (call it `run_my_model_multinode.sh`) can be passed into `example_slurm_pile.sub` using the following command. This command presumes that `run_my_model_multinode.sh` lives in `BASE_WORKSPACE_DIR`.

@@ -3,6 +3,11 @@ name: ~finalize workflow run with job report and badge updates
 on:
   workflow_call:
     inputs:
+      BUILD_DATE:
+        type: string
+        description: 'Date of the build'
+        default: ''
+        required: false
       PUBLISH_BADGE:
         type: boolean
         description: Update the landing page badges with run outcomes
@@ -14,32 +19,42 @@ on:
         required: false
         default: 'artifact-final-report'
 jobs:
-  # show-containers:
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - name: Generate job summary for container build
-  #       shell: bash -x -e {0}
-  #       run: |
-  #         cat > $GITHUB_STEP_SUMMARY << EOF
-  #         # Images created
+  # create shields.io badge endpoint JSON for workflow metadata
+  workflow-badge:
+    runs-on: ubuntu-22.04
+    env:
+      ARTIFACT_NAME: 'artifact-workflow-metadata'
+      BADGE_FILENAME: 'badge-workflow-metadata.json'
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
 
-  #         | Image        | Link                                               |
-  #         | ------------ | -------------------------------------------------- |
-  #         | Base         | ${{ needs.amd64.outputs.TAG_BASE }}                |
-  #         |              | ${{ needs.arm64.outputs.TAG_BASE }}                |
-  #         | JAX          | ${{ needs.amd64.outputs.TAG_JAX }}                 |
-  #         |              | ${{ needs.arm64.outputs.TAG_JAX }}                 |
-  #         | T5X          | ${{ needs.amd64.outputs.TAG_T5X }}                 |
-  #         |              | ${{ needs.arm64.outputs.TAG_T5X }}                 |
-  #         | PAX          | ${{ needs.amd64.outputs.TAG_PAX }}                 |
-  #         |              | ${{ needs.arm64.outputs.TAG_PAX }}                 |
-  #         EOF
+      - name: Generate badge
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
 
-  #         # | ROSETTA(t5x) | ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAGS }} |
-  #         # | ROSETTA(pax) | ${{ needs.build-rosetta-pax.outputs.DOCKER_TAGS }} |
+          badge_label='workflow metadata'
+          badge_message="Run ${{ github.run_id }}, ${{ inputs.BUILD_DATE || github.event.created_at }}"
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="bisque" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME }}
+
+      - name: Upload sitrep and badge
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            ${{ env.BADGE_FILENAME }}
 
   upload-badge:
     runs-on: ubuntu-22.04
+    needs: [workflow-badge]
     env:
       # Name/bash regex for shields.io endpoint JSON files
       BADGE_FILES: '*badge*.json'
@@ -154,9 +169,9 @@ jobs:
         with:
           name: ${{ inputs.ARTIFACT_NAME }}
           path: ./sitrep.json
+
   publish-badge:
     needs: [upload-badge]
-    if: inputs.PUBLISH_BADGE == true
     runs-on: ubuntu-22.04
     env:
       # Name/bash regex for shields.io endpoint JSON files
@@ -168,17 +183,27 @@ jobs:
           github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
           script: |
             const srcId = "${{ needs.upload-badge.outputs.GIST_ID }}";
-            const dstId = "${{ vars.BADGE_ENDPOINT_GIST_ID }}";
+            const dstId = "${{ inputs.PUBLISH_BADGE && vars.BADGE_ENDPOINT_GIST_ID || vars.MOCK_BADGE_ENDPOINT_GIST_ID }}";
             const { PUBLISH_BADGE_FILES } = process.env;
+
+            // Fetch existing files from destination gist
+            const { data: dstData } = await github.rest.gists.get({
+              gist_id: dstId
+            });
+
+            // Mark existing files in destination gist for deletion
+            let filesToUpdate = {};
+            for (const filename of Object.keys(dstData.files)) {
+              filesToUpdate[filename] = null;
+            }
 
             // Fetch files from source gist
             const { data: srcData } = await github.rest.gists.get({
               gist_id: srcId
             });
 
-            // Prepare file upload
-            let filesToUpdate = {};
-            pattern = new RegExp(`${PUBLISH_BADGE_FILES}`);
+            // Add or update files based on the pattern
+            const pattern = new RegExp(`${PUBLISH_BADGE_FILES}`);
             for (const [filename, fileObj] of Object.entries(srcData.files)) {
               if (filename.match(pattern)) {
                 filesToUpdate[filename] = {
@@ -194,4 +219,3 @@ jobs:
             });
             console.log("Files copied successfully.");
             console.log(Object.keys(filesToUpdate));
-            

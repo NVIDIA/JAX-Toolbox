@@ -38,8 +38,8 @@ jobs:
   runner:
     uses: ./.github/workflows/_runner_ondemand_slurm.yaml
     with:
-      NAME: "A100-${{ github.run_id }}"
-      LABELS: "A100:${{ github.run_id }}"
+      NAME: "A100"
+      LABELS: "A100,${{ github.run_id }}"
       TIME: "01:00:00"
     secrets: inherit
 
@@ -48,8 +48,15 @@ jobs:
       fail-fast: false
       matrix:
         GPU_ARCH: [V100, A100]
-    # ensures A100 job lands on dedicated runner for this particular job
-    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
+        include:
+          - EXTRA_LABEL: "self-hosted"
+          # ensures A100 job lands on dedicated runner for this particular job
+          - GPU_ARCH: A100
+            EXTRA_LABEL: "${{ github.run_id }}"
+    runs-on:
+      - self-hosted
+      - "${{ matrix.GPU_ARCH }}"
+      - "${{ matrix.EXTRA_LABEL }}"
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
     steps:
@@ -134,5 +141,3 @@ jobs:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
           path: |
             ${{ inputs.ARTIFACTS }}
-            sitrep.json
-            ${{ env.BADGE_FILENAME_FULL }}

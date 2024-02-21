@@ -135,7 +135,7 @@ jobs:
             BUILD_DATE=${{ inputs.BUILD_DATE }}
 
       - name: Generate sitrep
-        if: success() || failure()
+        if: "!cancelled()"
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
@@ -169,6 +169,7 @@ jobs:
           > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload sitrep and badge
+        if: "!cancelled()"
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
