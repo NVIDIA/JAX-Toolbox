@@ -283,10 +283,11 @@ jobs:
       EXECUTE: |
         docker run --gpus all --shm-size=1g ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} bash -ec "pip install flake8 pytest test-util && pytest /opt/levanter/tests" | tee test-levanter.log
       STATISTICS_SCRIPT: |
-        errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-        failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-        passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
-        total_tests=$((failed_tests + passed_tests))
+        summary_line=$(tail test-levanter.log);
+        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}');
+        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}');
+        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}');
+        total_tests=$((failed_tests + passed_tests));
         echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT;
         echo "ERRORS=${errors}" >> $GITHUB_OUTPUT;
         echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT;
