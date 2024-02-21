@@ -10,7 +10,7 @@ jobs:
       IMAGE: ubuntu-22.04
       TEST_NAME: test
       EXECUTE: |
-        echo IMAGE_IN_USE=${{ inputs.IMAGE }};
+        echo IMAGE_IN_USE=${{ IMAGE }};
         echo "Hello world" >> hello.txt;
         ls -lah;
       STATISTICS_SCRIPT: | 
