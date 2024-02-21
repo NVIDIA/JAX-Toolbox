@@ -35,13 +35,13 @@ on:
         default: 'badge-unit-test'
 
 jobs:
-  # runner:
-  #   uses: ./.github/workflows/_runner_ondemand_slurm.yaml
-  #   with:
-  #     NAME: "A100"
-  #     LABELS: "A100,${{ github.run_id }}"
-  #     TIME: "01:00:00"
-  #   secrets: inherit
+  runner:
+    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+    with:
+      NAME: "A100"
+      LABELS: "A100,${{ github.run_id }}"
+      TIME: "01:00:00"
+    secrets: inherit
 
   run-unit-test:
     strategy:
@@ -53,18 +53,18 @@ jobs:
           # ensures A100 job lands on dedicated runner for this particular job
           - GPU_ARCH: A100
             EXTRA_LABEL: "${{ github.run_id }}"
-    runs-on: ubuntu-22.04
-      # - self-hosted
-      # - "${{ matrix.GPU_ARCH }}"
-      # - "${{ matrix.EXTRA_LABEL }}"
+    runs-on: 
+      - self-hosted
+      - "${{ matrix.GPU_ARCH }}"
+      - "${{ matrix.EXTRA_LABEL }}"
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
     steps:
       - name: Print environment variables
         run: env
 
-      # - name: Print GPU information
-      #   run: nvidia-smi  
+      - name: Print GPU information
+        run: nvidia-smi  
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -76,10 +76,10 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Pull test image
-      #   shell: bash -x -e {0}
-      #   run: |
-      #     docker pull ${{ inputs.IMAGE }}
+      - name: Pull test image
+        shell: bash -x -e {0}
+        run: |
+          docker pull ${{ inputs.IMAGE }}
 
       - name: Run tests
         shell: bash -x -e {0}
