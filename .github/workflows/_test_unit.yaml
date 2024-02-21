@@ -97,6 +97,7 @@ jobs:
 
       - name: Generate sitrep
         shell: bash -x -e {0}
+        continue-on-error: ${{ github.event_name == 'schedule' }}
         run: |
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
