@@ -36,6 +36,8 @@ def test_step_time(baseline_filename):
     with open(baseline_filepath, "r") as baseline_file:
         step_time_avg_expected = json.load(baseline_file)["step_time_avg"]
         step_time_values = test_utils.read_tb_tag(event_file, step_time_summary_name).values()
+        ## exclude the first steps/sec value from the average 
+        ## because it includes compilation time
         step_time_avg_actual = mean(step_time_values[1:])
         assert step_time_avg_actual > step_time_avg_expected * \
             STEP_TIME_MULT, f"Step time values: {step_time_values} (Avg: {step_time_avg_actual}), Expected avg: {step_time_avg_expected}"
