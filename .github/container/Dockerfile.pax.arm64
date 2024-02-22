@@ -97,7 +97,6 @@ RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-
 RUN <<"EOF" bash -ex
 echo "tensorflow==2.13.0" >> /opt/pip-tools.d/requirements-paxml.in
 echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-paxml.in
-echo "chex==0.1.7" >> /opt/pip-tools.d/requirements-paxml.in
 echo "auditwheel" >> /opt/pip-tools.d/requirements-paxml.in
 
 get-source.sh -l paxml  -m ${MANIFEST_FILE}
