@@ -175,10 +175,8 @@ jobs:
           name: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
           path: .github/container/
 
-      # In the unusual situation where the manifest is the same even after bumping,
-      # we will produce an empty commit with --allow-empty, which allows a PR to be
-      # made and merged even with no changeset.
-      - name: Push manifest branch
+      - name: Try to merge manifest branch
+        id: merge_local
         shell: bash -x -e {0}
         run: |
           git config user.name "JAX-Toolbox CI"
@@ -188,11 +186,25 @@ jobs:
           git status
           git add .github/container/patches/
           git status
+          # In the unusual situation where the manifest is the same even after bumping,
+          # we will produce an empty commit with --allow-empty, which allows a PR to be
+          # made and merged even with no changeset.
           git commit --allow-empty -a -m "Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }}) for run_id=${{ github.run_id }}: https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}"
-          git push --set-upstream origin $manifest_branch
+          git switch ${{ github.ref }}
+          # Pull this ref in case it was updated
+          git pull --rebase
+          if git merge --ff-only $manifest_branch; then
+            # Push the new change
+            git push origin ${{ github.ref }}
+            echo "MERGE_SUCCEEDED=true" | tee -a $GITHUB_OUTPUT
+          else
+            # Since the merge failed, create a remote and follow up with a PR
+            git push --set-upstream origin $manifest_branch
+            echo "MERGE_SUCCEEDED=false" | tee -a $GITHUB_OUTPUT
+          fi
 
-      - name: Creating PR for MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
-        id: create_pr
+      - name: Creating Draft PR for MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+        if: steps.merge_local.outputs.MERGE_SUCCEEDED == 'false'
         uses: octokit/request-action@v2.x
         with:
           route: POST /repos/{owner_and_repo}/pulls
@@ -203,16 +215,7 @@ jobs:
           body: |
             https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}
           title: Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }})
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Merging PR #${{ fromJson(steps.create_pr.outputs.data).number }}"
-        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
-        uses: octokit/request-action@v2.x
-        with:
-          route: PUT /repos/{owner_and_repo}/pulls/${{ fromJson(steps.create_pr.outputs.data).number }}/merge
-          owner_and_repo: ${{ github.repository }}
-          merge_method: squash
+          draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
