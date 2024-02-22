@@ -36,7 +36,11 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           badge_label='workflow metadata'
-          badge_message="Run ${{ github.run_id }}, ${{ inputs.BUILD_DATE || github.event.created_at }}"
+          if [[ -n "${{ inputs.BUILD_DATE }}" ]]; then
+            badge_message="${{ inputs.BUILD_DATE }}: run #${{ github.run_id }}"
+          else
+            badge_message="run #${{ github.run_id }}"
+          fi
 
           schemaVersion=1 \
           label="${badge_label}" \
