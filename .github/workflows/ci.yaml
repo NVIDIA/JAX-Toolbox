@@ -163,6 +163,11 @@ jobs:
       - amd64
       - arm64
     steps:
+      - name: "Tests Succeeded: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}"
+        id: test_result
+        run:
+          echo "SUCCEEDED=${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}" | tee -a $GITHUB_OUTPUT
+
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
       
@@ -177,8 +182,8 @@ jobs:
           name: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
           path: .github/container/
 
-      - name: Try to merge manifest branch
-        id: merge_local
+      - name: "Create local manifest branch: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}"
+        id: local_branch
         shell: bash -x -e {0}
         run: |
           git config user.name "JAX-Toolbox CI"
@@ -192,21 +197,36 @@ jobs:
           # we will produce an empty commit with --allow-empty, which allows a PR to be
           # made and merged even with no changeset.
           git commit --allow-empty -a -m "Nightly Manifest Bump (${{ needs.metadata.outputs.BUILD_DATE }}) for run_id=${{ github.run_id }}: https://github.com/NVIDIA/JAX-Toolbox/actions/runs/${{ github.run_id }}"
+
+      - name: Try to merge manifest branch
+        id: merge_local
+        if: steps.test_result.outputs.SUCCEEDED == 'true'
+        # Merge can fail
+        continue-on-error: true
+        shell: bash -x -e {0}
+        run: |
           git switch ${{ github.ref }}
           # Pull this ref in case it was updated
           git pull --rebase
-          if git merge --ff-only $manifest_branch; then
-            # Push the new change
-            git push origin ${{ github.ref }}
-            echo "MERGE_SUCCEEDED=true" | tee -a $GITHUB_OUTPUT
-          else
-            # Since the merge failed, create a remote and follow up with a PR
-            git push --set-upstream origin $manifest_branch
-            echo "MERGE_SUCCEEDED=false" | tee -a $GITHUB_OUTPUT
-          fi
+          git merge --ff-only $manifest_branch
+          # Push the new change
+          git push origin ${{ github.ref }}
+      
+      # We will create a Draft PR & remote branch if:
+      #  1. The tests failed
+      #  2. The merge failed
+      - name: Create remote manifest branch
+        id: create_remote_branch
+        if: steps.test_result.outputs.SUCCEEDED == 'false' || steps.merge_local.outcome != 'success'
+        shell: bash -x -e {0}
+        run: |
+          # Always abort in case in-progress merge
+          git merge --abort || true
+          # Since the merge failed, create a remote and follow up with a PR
+          git push --set-upstream origin $manifest_branch
 
       - name: Creating Draft PR for MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
-        if: steps.merge_local.outputs.MERGE_SUCCEEDED == 'false'
+        if: steps.test_result.outputs.SUCCEEDED == 'false' || steps.merge_local.outcome != 'success'
         uses: octokit/request-action@v2.x
         with:
           route: POST /repos/{owner_and_repo}/pulls
