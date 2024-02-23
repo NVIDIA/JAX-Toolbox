@@ -11,6 +11,11 @@ FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_GEMMA
 
 RUN <<"EOF" bash -ex
+echo "gemma:
+  url: https://github.com/google-deepmind/gemma.git
+  tracking_ref: main
+  latest_verified_commit: 036083ab16843e09369a0138630687dba96d4d23
+  mode: git-clone" >> ${MANIFEST_FILE}
 get-source.sh -l gemma -m ${MANIFEST_FILE} 
 echo "-e file://${SRC_PATH_GEMMA}" >> /opt/pip-tools.d/requirements-gemma.in
 EOF
