@@ -116,17 +116,21 @@ jobs:
         run: |
           bash bump.sh --input-manifest manifest.yaml --output-manifest manifest.yaml.new --base-patch-dir ./patches-new
       
-      - name: Replace current manifest/patches with the new one and show diff
-        if: needs.metadata.outputs.BUMP_MANIFEST == 'true'
+      - name: Maybe replace current manifest/patches with the new one and show diff
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
-          mv manifest.yaml.new manifest.yaml
-          rm -rf patches
-          mv patches-new patches
+          if [[ ${{ needs.metadata.outputs.BUMP_MANIFEST }} == "true" ]]; then
+            mv manifest.yaml.new manifest.yaml
+            rm -rf patches
+            mv patches-new patches
+          else
+            rm -rf patches-new manifest.yaml.new
+          fi
           git diff
 
       - name: Upload bumped manifest/patches to be used in build-base
+        if: needs.metadata.outputs.MANIFEST_ARTIFACT_NAME != ''
         uses: actions/upload-artifact@v4
         with:
           name: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
