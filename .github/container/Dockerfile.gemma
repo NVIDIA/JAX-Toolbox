@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
-ARG SRC_PATH_GEMMA=/opt/levanter
+ARG SRC_PATH_GEMMA=/opt/gemma
 
 ###############################################################################
 ## Download source and add auxiliary scripts
