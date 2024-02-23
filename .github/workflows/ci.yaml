@@ -378,5 +378,6 @@ jobs:
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit
