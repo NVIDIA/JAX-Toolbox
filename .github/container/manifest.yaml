@@ -76,7 +76,7 @@ fiddle:
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: bb9be6d0510aada879d5d6b978e02f2ed4fd1a7a
+  latest_verified_commit: 899e6ec7cb1aa4239cb96ece7409d3cf19f6e6e4
   mode: pip-vcs
 clu:
   url: https://github.com/google/CommonLoopUtils.git
