@@ -86,6 +86,19 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.levanter
     secrets: inherit
 
+  build-gemma:
+    needs: [build-jax]
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: "artifact-gemma-build"
+      BADGE_FILENAME: "badge-gemma-build"
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: gemma
+      DOCKERFILE: .github/container/Dockerfile.gemma
+    secrets: inherit
+
   build-upstream-t5x:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
