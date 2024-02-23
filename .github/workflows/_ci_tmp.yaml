@@ -60,3 +60,8 @@ jobs:
   #  steps:
   #    - name: Pass
   #      run: exit 1
+  sleep:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Pass
+        run: sleep 600
