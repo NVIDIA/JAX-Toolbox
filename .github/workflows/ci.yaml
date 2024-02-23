@@ -226,6 +226,7 @@ jobs:
           git push --set-upstream origin ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
 
       - name: Creating Draft PR for MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+        id: create_pr
         if: steps.test_result.outputs.SUCCEEDED == 'false' || steps.merge_local.outcome != 'success'
         uses: octokit/request-action@v2.x
         with:
@@ -241,6 +242,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: "Log created PR: #${{ fromJson(steps.create_pr.outputs.data).number }}"
+        if: steps.create_pr.outcome == 'success'
+        run: |
+          echo "https://github.com/NVIDIA/JAX-Toolbox/pull/${{ fromJson(steps.create_pr.outputs.data).number }}" | tee -a $GITHUB_STEP_SUMMARY
+      
       # Guard delete in simple check to protect other branches
       - name: Check that the branch matches znightly- prefix
         run: |
@@ -250,7 +256,7 @@ jobs:
           fi
 
       # If merging fails b/c upstream conflict, branch is deleted to avoid clutter since changeset is preserved in PR
-      - name: Deleting MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
+      - name: Deleting remote MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
         # Delete can fail if branch was already deleted or not created, e.g., if the PR successfully merges, then branch is also already deleted.
         continue-on-error: true
         uses: octokit/request-action@v2.x
