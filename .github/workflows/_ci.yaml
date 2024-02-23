@@ -283,7 +283,7 @@ jobs:
       EXECUTE: |
         docker run --gpus all --shm-size=1g ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} bash -ec "pip install pytest && pytest /opt/levanter/tests" | tee test-levanter.log
       STATISTICS_SCRIPT: |
-        summary_line=$(tail test-levanter.log)
+        summary_line=$(tail -n1 test-levanter.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
         failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
         passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
