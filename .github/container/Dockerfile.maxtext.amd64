@@ -21,8 +21,8 @@ EOF
 ## Apply patch
 ###############################################################################
 
-ADD maxtext-mha.patch /opt
-RUN cd "${SRC_PATH_MAXTEXT}" && patch -p1 < /opt/maxtext-mha.patch && git diff
+# ADD maxtext-mha.patch /opt
+# RUN cd "${SRC_PATH_MAXTEXT}" && patch -p1 < /opt/maxtext-mha.patch && git diff
 
 ###############################################################################
 ## Apply patch
