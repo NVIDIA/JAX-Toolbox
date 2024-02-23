@@ -188,8 +188,7 @@ jobs:
         run: |
           git config user.name "JAX-Toolbox CI"
           git config user.email "jax@nvidia.com"
-          manifest_branch=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
-          git switch -c $manifest_branch
+          git switch -c ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
           git status
           git add .github/container/patches/
           git status
@@ -208,7 +207,7 @@ jobs:
           git switch ${{ github.ref_name }}
           # Pull this ref in case it was updated
           git pull --rebase
-          git merge --ff-only $manifest_branch
+          git merge --ff-only ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
           # Push the new change
           git push origin ${{ github.ref_name }}
       
@@ -222,8 +221,9 @@ jobs:
         run: |
           # Always abort in case in-progress merge
           git merge --abort || true
+          git switch ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
           # Since the merge failed, create a remote and follow up with a PR
-          git push --set-upstream origin $manifest_branch
+          git push --set-upstream origin ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
 
       - name: Creating Draft PR for MANIFEST_BRANCH=${{ needs.metadata.outputs.MANIFEST_BRANCH }}
         if: steps.test_result.outputs.SUCCEEDED == 'false' || steps.merge_local.outcome != 'success'
