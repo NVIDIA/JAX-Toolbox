@@ -101,7 +101,7 @@ optax:
 seqio:
   url: https://github.com/google/seqio.git
   tracking_ref: main
-  latest_verified_commit: 763998620c2071b3b05b3bbf94cf02305746ab9f
+  latest_verified_commit: e31af8c1a11f749edeac512f34d148b9933f863f
   mode: pip-vcs
 # used by Pallas
 openxla-triton:
