@@ -1,0 +1,24 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG SRC_PATH_GEMMA=/opt/levanter
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG SRC_PATH_GEMMA
+
+RUN <<"EOF" bash -ex
+get-source.sh -l gemma -m ${MANIFEST_FILE} 
+echo "-e file://${SRC_PATH_GEMMA}" >> /opt/pip-tools.d/requirements-gemma.in
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh
