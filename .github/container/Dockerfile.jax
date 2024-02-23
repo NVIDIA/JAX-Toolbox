@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=ghcr.io/nvidia/jax-toolbox:base
+ARG BASE_IMAGE=ghcr.io/nvidia/jax:base
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG SRC_PATH_JAX=/opt/jax
 ARG SRC_PATH_XLA=/opt/xla

@@ -206,7 +206,7 @@ jobs:
       max-parallel: 1
       matrix:
         base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
-    uses: ./.github/workflows/_test_t5x.yaml
+    uses: ./.github/workflows/_test_upstream_t5x.yaml
     with:
       T5X_IMAGE: "${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-t5x-to-${{ needs.metadata.outputs.BROKEN_DATE }}"
     secrets: inherit
@@ -363,7 +363,7 @@ jobs:
       max-parallel: 1
       matrix:
         base_tag: ${{fromJson(needs.metadata.outputs.TAGS_BETWEEN)}}
-    uses: ./.github/workflows/_test_pax.yaml
+    uses: ./.github/workflows/_test_upstream_pax.yaml
     with:
       PAX_IMAGE: "${{ needs.metadata.outputs.UPLD_IMAGE }}:${{ github.run_id }}-${{ matrix.base_tag }}-ff-pax-to-${{ needs.metadata.outputs.BROKEN_DATE }}"
     secrets: inherit

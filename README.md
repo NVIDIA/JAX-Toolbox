@@ -1,152 +1,140 @@
 # JAX Toolbox
 
 <table>
-    <thead>
-        <tr>
-            <th>Image</th>
-            <th>Build</th>
-            <th>Tests</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-
-[![container-badge-base]][container-link-base]
-            </td>
-            <td>
-[![build-badge-base]][workflow-base]
-            </td>
-            <td> n/a </td>
-        </tr>
-        <tr style="border-bottom-style:hidden">
-            <td colspan=3> Frameworks </td>
-        </tr>
-        <!-- JAX -->
-        <tr>
-            <td>
-[![container-badge-jax]][container-link-jax]
-            </td>
-            <td>
-[![build-badge-jax]][workflow-jax]
-            </td>
-            <td>
-[![test-badge-jax-V100]][workflow-jax-unit]
-<br>
-[![test-badge-jax-A100]][workflow-jax-unit]
-            </td>
-        </tr>
-        <!-- te -->
-        <tr>
-            <td>
-[![container-badge-te]][container-link-te]
-            </td>
-            <td>
-Included in JAX build
-            </td>
-            <td>
-[![unit-test-badge-te]][workflow-te-test] <br> [![integration-test-badge-te]][workflow-te-test]
-            </td>
-        </tr>
-        <!-- rosetta-t5x -->
-        <tr>
-            <td rowspan=3>
-[![container-badge-rosetta-t5x]][container-link-rosetta-t5x]
-            </td>
-            <td rowspan=3>
-[![build-badge-rosetta-t5x]][workflow-rosetta-t5x]
-            </td>
-        </tr>
-        <tr>
-            <td>
-[![test-badge-t5x]][workflow-t5x-perf]
-            </td>
-        </tr>
-        <tr>
-            <td>
-[![test-badge-rosetta-t5x]][workflow-rosetta-t5x]
-            </td>
-        </tr>
-        <!-- rosetta pax -->
-        <tr>
-            <td rowspan=3>
-[![container-badge-rosetta-pax]][container-link-rosetta-pax]
-            </td>
-            <td rowspan=3>
-[![build-badge-rosetta-pax]][workflow-rosetta-pax]
-            </td>
-        </tr>
-        <tr>
-            <td>
-[![test-badge-pax]][workflow-pax-perf]
-            </td>
-        </tr>
-        <tr>
-            <td>
-[![test-badge-rosetta-pax]][workflow-rosetta-pax]
-            </td>
-        </tr>
-        <!-- Pallas -->
-        <tr>
-            <td>
-[![container-badge-pallas]][container-link-pallas]
-            </td>
-            <td>
-[![build-badge-pallas]][workflow-pallas]
-            </td>
-            <td>
-[![test-badge-pallas-V100]][workflow-pallas-unit]
-<br>
-[![test-badge-pallas-A100]][workflow-pallas-unit]
-            </td>
-        </tr>
-    </tbody>
+  <thead>
+    <tr>
+      <th colspan=4 style="text-align:center;">
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/ci.yaml?query=event%3Aschedule+branch%3Amain">
+        <img
+          style="height: 1.5em;"
+          src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-workflow-metadata.json&logo=github-actions&logoColor=white"
+        />
+        </a>
+      </th>
+    </tr>
+    <tr>
+      <th colspan=2>Components</th>
+      <th>Build</th>
+      <th>Test</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=base%3D%7BCUDA%2CcuDNN%2CNCCL%2COFED%2CEFA%7D">
+      </td>
+      <td></td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-base-build-amd64.json&logo=docker&label=amd64">
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-base-build-arm64.json&logo=docker&label=arm64">
+      </td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=core%3D%7Bbase%2CJAX%2CFlax%2CTE%7D">
+      </td>
+      <td></td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-build-amd64.json&logo=docker&label=amd64">
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-build-arm64.json&logo=docker&label=arm64">
+      </td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-test-V100.json&logo=nvidia&label=V100">
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-test-A100.json&logo=nvidia&label=A100">
+        <br>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-te-unit-test.json&logo=nvidia&label=TE%20Unit">
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-te-2g-test.json&logo=nvidia&label=TE%20Multi%20GPU">
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Levanter%3D%7Bcore%2CLevanter%7D">
+      </td>
+      <td></td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-levanter-build-amd64.json&logo=docker&label=amd64">
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-levanter-build-arm64.json&logo=docker&label=arm64">
+      </td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-levanter-unit-test-V100.json&logo=nvidia&label=V100">
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-levanter-unit-test-A100.json&logo=nvidia&label=A100">
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Pallas%3D%7Bcore%2CTriton%2CPallas%7D">
+      </td>
+      <td></td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pallas-build-amd64.json&logo=docker&label=amd64">
+        <!-- <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pallas-build-arm64.json&logo=docker&label=arm64"> -->
+      </td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pallas-unit-test-V100.json&logo=nvidia&label=A100">
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pallas-unit-test-A100.json&logo=nvidia&label=V100">
+      </td>
+    </tr>
+    <tr>
+      <td rowspan=2>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=T5X%3D%7Bcore%2CT5X%7D">
+      </td>
+      <td>upstream</td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-t5x-build-amd64.json&logo=docker&label=amd64">
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-t5x-build-arm64.json&logo=docker&label=arm64">
+      </td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-t5x-mgmn-test.json&logo=nvidia&label=A100%20distributed">
+      </td>
+    </tr>
+    <tr>
+      <td>rosetta</td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-build-t5x-amd64.json&logo=docker&label=amd64">
+        <!-- <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-build-t5x-arm64.json&logo=docker&label=arm64"> -->
+      </td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-t5x-overall-test-status.json&logo=nvidia">
+      </td>
+    </tr>
+    <tr>
+      <td rowspan=2>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=PAX%3D%7Bcore%2Cpaxml%2Cpraxis%7D">
+      </td>
+      <td>upstream</td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pax-build-amd64.json&logo=docker&label=amd64">
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pax-build-arm64.json&logo=docker&label=arm64">
+      </td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pax-mgmn-test.json&logo=nvidia&label=A100%20distributed">
+      </td>
+    </tr>
+    <tr>
+      <td>rosetta</td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-build-pax-amd64.json&logo=docker&label=amd64">
+        <!-- <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-build-pax-arm64.json&logo=docker&label=arm64"> -->
+      </td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-overall-test-status.json&logo=nvidia">
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=MaxText%3D%7Bcore%2CMaxText%7D">
+      </td>
+      <td></td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-maxtext-build-amd64.json&logo=docker&label=amd64">
+        <!-- <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-maxtext-build-arm64.json&logo=docker&label=arm64"> -->
+      </td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-maxtext-test.json&logo=nvidia&label=A100%20distributed">
+      </td>
+  </tbody>
 </table>
-
-
-[container-badge-base]: https://img.shields.io/static/v1?label=&message=.base&color=gray&logo=docker
-[container-badge-jax]: https://img.shields.io/static/v1?label=&message=JAX&color=gray&logo=docker
-[container-badge-te]: https://img.shields.io/static/v1?label=&message=TE&color=gray&logo=docker
-[container-badge-rosetta-t5x]: https://img.shields.io/static/v1?label=&message=T5X&color=gray&logo=docker
-[container-badge-rosetta-pax]: https://img.shields.io/static/v1?label=&message=PAX&color=gray&logo=docker
-[container-badge-pallas]: https://img.shields.io/static/v1?label=&message=Pallas&color=gray&logo=docker
-
-[container-link-base]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-toolbox
-[container-link-jax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax
-[container-link-te]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax-te
-[container-link-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/t5x
-[container-link-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/pax
-[container-link-pallas]: https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax
-
-[build-badge-base]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-base-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
-[build-badge-jax]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-jax-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
-[build-badge-rosetta-t5x]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-t5x-build-status.json&logo=github-actions&logoColor=dddddd
-[build-badge-rosetta-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-build-status.json&logo=github-actions&logoColor=dddddd
-[build-badge-pallas]: https://img.shields.io/github/actions/workflow/status/NVIDIA/JAX-Toolbox/nightly-pallas-build.yaml?branch=main&label=nightly&logo=github-actions&logoColor=dddddd
-
-[workflow-base]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-base-build.yaml
-[workflow-jax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax-build.yaml
-[workflow-rosetta-t5x]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-t5x-build-test.yaml
-[workflow-rosetta-pax]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-rosetta-pax-build.yaml
-[workflow-pallas]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-pallas-build.yaml
-
-[test-badge-jax-V100]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-test-V100.json&logo=nvidia
-[test-badge-jax-A100]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-test-A100.json&logo=nvidia
-[test-badge-t5x]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-t5x-mgmn-test.json&logo=nvidia
-[test-badge-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pax-mgmn-test.json&logo=nvidia
-[unit-test-badge-te]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fte-unit-test-status.json&logo=nvidia
-[integration-test-badge-te]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fte-integration-test-status.json&logo=nvidia
-[test-badge-rosetta-t5x]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-t5x-overall-test-status.json&logo=nvidia
-[test-badge-rosetta-pax]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Frosetta-pax-overall-test-status.json&logo=nvidia
-[test-badge-pallas-V100]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pallas-unit-test-V100.json&logo=nvidia
-[test-badge-pallas-A100]: https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pallas-unit-test-A100.json&logo=nvidia
-
-[workflow-jax-unit]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-jax-test-unit.yaml
-[workflow-te-test]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-te-test.yaml
-[workflow-t5x-perf]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-t5x-test-mgmn.yaml
-[workflow-pax-perf]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-pax-test-mgmn.yaml
-[workflow-pallas-unit]: https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/nightly-pallas-test-unit.yaml
-
 
 ## Note
 This repo currently hosts a public CI for JAX on NVIDIA GPUs and covers some JAX libraries like: [T5x](https://github.com/google-research/t5x), [PAXML](https://github.com/google/paxml), [Transformer Engine](https://github.com/NVIDIA/TransformerEngine), [Pallas](https://jax.readthedocs.io/en/latest/pallas/quickstart.html) and others to come soon.
