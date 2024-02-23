@@ -55,8 +55,8 @@ jobs:
           ls -lah patches
           echo "Changes in manifest file and patch folder"
           git diff
-  fail:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Pass
-        run: exit 1
+  #fail:
+  #  runs-on: ubuntu-22.04
+  #  steps:
+  #    - name: Pass
+  #      run: exit 1
