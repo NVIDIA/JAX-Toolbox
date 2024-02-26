@@ -16,7 +16,8 @@ echo "gemma:
   tracking_ref: main
   latest_verified_commit: 036083ab16843e09369a0138630687dba96d4d23
   mode: git-clone" >> ${MANIFEST_FILE}
-get-source.sh -l gemma -m ${MANIFEST_FILE} 
+get-source.sh -l gemma -m ${MANIFEST_FILE}
+sed -i 's/flax = "^0.7.5"/flax = "*"/' ${SRC_PATH_GEMMA}/pyproject.toml
 echo "-e file://${SRC_PATH_GEMMA}" >> /opt/pip-tools.d/requirements-gemma.in
 EOF
 
