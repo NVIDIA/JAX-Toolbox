@@ -144,6 +144,7 @@ We currently enable training and evaluation for the following models:
 | Model Name | Pretraining | Fine-tuning | Evaluation |
 | :--- | :---: | :---: | :---: |
 | [GPT-3(paxml)](./rosetta/rosetta/projects/pax) | ✔️ |   | ✔️ |
+| [LLaMA2(paxml)](./rosetta/rosetta/projects/pax#llama) |  |   | ✔️ |
 | [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
 | [ViT](./rosetta/rosetta/projects/vit) | ✔️ | ✔️ | ✔️ |
 | [Imagen](./rosetta/rosetta/projects/imagen) | ✔️ |   | ✔️ |
