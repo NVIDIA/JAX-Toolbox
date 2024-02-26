@@ -76,7 +76,7 @@ fiddle:
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: bb9be6d0510aada879d5d6b978e02f2ed4fd1a7a
+  latest_verified_commit: 899e6ec7cb1aa4239cb96ece7409d3cf19f6e6e4
   mode: pip-vcs
 clu:
   url: https://github.com/google/CommonLoopUtils.git
@@ -138,7 +138,7 @@ grain:
   # Used only in ARM t5x builds
   url: https://github.com/google/grain.git
   tracking_ref: main
-  latest_verified_commit: 41f80fb540547ec3aefe7cec57fe43228560b1cf
+  latest_verified_commit: f58031724ff06bcc84943c9a8ec501c8941dd660
   mode: git-clone
 mujoco-mpc:
   url: https://github.com/google-deepmind/mujoco_mpc.git

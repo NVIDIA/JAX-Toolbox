@@ -113,6 +113,7 @@ COPY --from=array_record-builder /tmp/array_record/all_dist/array_record*linux_a
 
     # Install pip dependencies needed for grain tests
     RUN pip install \
+            auditwheel \
             dill \
             jax \
             jaxlib \
@@ -129,12 +130,20 @@ pushd ${SRC_PATH_GRAIN}
 
 # Make bazel stop complaining about sharding and disable some tests with missing bazel build deps
 sed -i 's| bazel test | bazel test --test_sharding_strategy=disabled |' ./grain/oss/build_whl.sh
+sed -i 's| setup.py bdist_wheel .*| -m build|' ./grain/oss/build_whl.sh
+sed -i 's|auditwheel|#auditwheel|' ./grain/oss/build_whl.sh
 
 export MEALKIT_PYTHON_VERSION=$(cat /mealkit-python-version)
 export PYTHON_MAJOR_VERSION=${MEALKIT_PYTHON_VERSION%.*}
 export PYTHON_MINOR_VERSION=${MEALKIT_PYTHON_VERSION#*.}
+
+# Grain has a very specific location that it expects python binary
+CP_VERSION=cp${PYTHON_MAJOR_VERSION}${PYTHON_MINOR_VERSION}
+mkdir -p /opt/python/${CP_VERSION}-${CP_VERSION}/bin
+ln -sf /usr/bin/python$(cat /mealkit-python-version) /opt/python/${CP_VERSION}-${CP_VERSION}/bin/python
+
 chmod a+x ./grain/oss/build_whl.sh
-./grain/oss/build_whl.sh
+PYTHON_VERSION=$MEALKIT_PYTHON_VERSION ./grain/oss/build_whl.sh
 
 ls /tmp/grain/all_dist/*.whl
 EOT
@@ -166,7 +175,7 @@ COPY --from=array_record-builder /tmp/array_record/all_dist/array_record*linux_a
 RUN echo "array_record @ file://$(ls /opt/array_record*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
 
 COPY --from=grain-builder /tmp/grain/all_dist/grain*.whl /opt/
-RUN echo "grain @ file://$(ls /opt/grain*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
+RUN echo "grain-nightly @ file://$(ls /opt/grain*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
 
 COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
