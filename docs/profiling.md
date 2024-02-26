@@ -123,8 +123,8 @@ JAX's (XLA's) usage of CUDA graphs is not currently fully supported by the Nsigh
 missing detail in the annotations for CUDA graph nodes.
 This is shown by the magenta region in the figure above, and will be fixed in a future version of Nsight Systems.
 
-More complete annotations can be obtained by adding `--xla_gpu_graph_level=0` to the `XLA_FLAGS` environment variable
-when collecting the profile, which will disable the use of CUDA graphs.
+More complete annotations can be obtained by adding `--xla_gpu_enable_command_buffer=` to the `XLA_FLAGS` environment
+variable when collecting the profile, which will disable the use of CUDA graphs.
 Depending on the JAX program, you will probably see a small slowdown when graphs are disabled; it's worth keeping in
 mind the scale of this effect for your program.
 
@@ -137,3 +137,31 @@ emitted, as well as the relevant HLO code.
 Note that there are two different HLO fields in the tooltip: "HLO" and "Called HLO", where in this example the latter
 is empty.
 In the case of fused kernels, the "Called HLO" field shows the body of the fused computation.
+
+If you double-click on an NVTX region in the timeline it will open in the Events View in the lower part of the screen,
+with the tooltip content shown in the bottom right:
+![Nsight Systems GUI showing a tooltip, events view, and description](./img/events-view.png)
+
+If you have previously opened a different row from the timeline in the Events View then double-clicking on a new row
+may show a message "A selected event does not exist in the current Events View..."; follow the instructions in the
+message to get the view shown in the screenshot.
+
+### Custom NVTX annotations
+The annotations described above are NVTX ranges (in the "TSL" domain) emitted by JAX via XLA.
+You can also add your own custom NVTX ranges using the `nvtx` Python bindings.
+If these are not already installed, `pip install nvtx` will install them.
+A simple way of using these bindings is as a Python context manager:
+```python
+for _ in range(3):
+  with nvtx.annotate("MyRange"):
+    call_some_jax_code()
+```
+which will produce three ranges called MyRange under the default NVTX domain in the NSight Systems GUI.
+Complete documentation [can be found here](https://github.com/NVIDIA/NVTX/blob/release-v3/python/docs/index.rst).
+
+Using `nvtx` functions inside JITed JAX code is not supported and will not yield the expected results, so this only
+makes sense for high-level annotations outside JIT regions.
+Inside JIT regions you can use [`jax.named_scope`](https://jax.readthedocs.io/en/latest/_autosummary/jax.named_scope.html)
+and [`jax.named_call`](https://jax.readthedocs.io/en/latest/_autosummary/jax.named_call.html).
+These will not generate NVTX ranges, but they do allow you to add custom levels to the name stack show in the metadata
+emitted by XLA, i.e. the names like `while/body/transpose[permutation=(1, 0)]` shown in the screenshot above.
