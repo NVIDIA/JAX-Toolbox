@@ -81,8 +81,8 @@ jobs:
         id: manifest-branch
         shell: bash -x -e {0}
         run: |
-          BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}
-          MERGE_BUMPED_MANIFEST=${{ github.event_name == 'schedule' || inputs.MERGE_BUMPED_MANIFEST }}
+          BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST || 'false' }}
+          MERGE_BUMPED_MANIFEST=${{ github.event_name == 'schedule' || inputs.MERGE_BUMPED_MANIFEST || 'false' }}
           # Prepend nightly manifest branch with "z" to make it appear at the end
           if [[ "$BUMP_MANIFEST" == "true" ]]; then
             # This branch is for scheduled nightlies or manually run nightlies
@@ -120,7 +120,7 @@ jobs:
         working-directory: .github/container
         shell: bash -x -e {0}
         run: |
-          if [[ ${{ needs.metadata.outputs.BUMP_MANIFEST }} == "true" ]]; then
+          if [[ "${{ needs.metadata.outputs.BUMP_MANIFEST }}" == "true" ]]; then
             mv manifest.yaml.new manifest.yaml
             rm -rf patches
             mv patches-new patches
