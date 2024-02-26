@@ -36,7 +36,8 @@ jobs:
         id: exit-status
         shell: bash -x -e {0}
         run: |
-          EXIT_STATUSES="${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*/*-status.json"
+          # Glob after inputs.FW_NAME to capture things like rosetta-t5x-vit
+          EXIT_STATUSES="${{ inputs.FW_NAME }}*-${GITHUB_RUN_ID}-*/*-status.json"
           EXIT_STATUS_SUMMARY_FILE="exit_status_summary.json"
           echo -e "\n\n## ${{ inputs.FW_NAME }} MGMN+SPMD Test Status" >> $EXIT_STATUS_SUMMARY_FILE
           cat <<EOF >>$EXIT_STATUS_SUMMARY_FILE
@@ -46,7 +47,7 @@ jobs:
 
           for i in $EXIT_STATUSES; do
             # Files are named <FW_NAME>-<GHID>-<NAME>/<NAME>-status.json
-            echo "| $(echo $i | cut -d/ -f1 | awk -F- '{print $NF}') | $(jq -r .state $i) | $(jq -r .exitcode $i)"
+            echo "| $(basename $i -status.json) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
           done | tee -a $EXIT_STATUS_SUMMARY_FILE
 
           echo "Test statuses:"
@@ -61,10 +62,10 @@ jobs:
         run: |
           METRICS_SUMMARY_FILE="metrics_summary.json"
 
-          echo '## Upstream ${{ inputs.FW_NAME }} MGMN Test Metrics' | tee -a $METRICS_SUMMARY_FILE
+          echo '## ${{ inputs.FW_NAME }} MGMN Test Metrics' | tee -a $METRICS_SUMMARY_FILE
           python <<EOF | tee -a $METRICS_SUMMARY_FILE
           import json
-          files = "$(echo upstream-${{ inputs.FW_NAME }}-metrics-test-log/*_metrics.json)".split()
+          files = "$(echo ${{ inputs.FW_NAME }}-metrics-test-log/*_metrics.json)".split()
           header = None
           print_row = lambda lst: print('| ' + ' | '.join(str(el) for el in lst) + ' |')
           for path in files:
@@ -87,13 +88,14 @@ jobs:
         run: |
           source .github/workflows/scripts/to_json.sh
 
-          EXIT_STATUSES="${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*/*-status.json"
+          # Glob after inputs.FW_NAME to capture things like rosetta-t5x-vit
+          EXIT_STATUSES="${{ inputs.FW_NAME }}*-${GITHUB_RUN_ID}-*/*-status.json"
 
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
 
-          METRICS_LOG=upstream-${{ inputs.FW_NAME }}-metrics-test-log/report.jsonl
+          METRICS_LOG=${{ inputs.FW_NAME }}-metrics-test-log/report.jsonl
           all_outcomes() {
             cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
           }
@@ -117,7 +119,7 @@ jobs:
           fi
           badge_message="${passed_tests}/${total_tests} jobs | ${pytest_passed_tests}/${pytest_total_tests} metrics"
 
-          badge_label='Upstream ${{ inputs.FW_NAME }} Tests'
+          badge_label='${{ inputs.FW_NAME }} Tests'
           summary="# ${{ inputs.FW_NAME }} MGMN Test: $badge_message"
           full_result_markdown=$(cat ${{ steps.exit-status.outputs.EXIT_STATUS_SUMMARY_FILE }})
           full_result_markdown+=$(cat ${{ steps.metrics.outputs.METRICS_SUMMARY_FILE }})

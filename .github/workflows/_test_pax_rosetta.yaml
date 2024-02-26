@@ -12,16 +12,21 @@ on:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'badge-pax-rosetta-mgmn-test.json'
+        default: 'badge-rosetta-pax-mgmn-test.json'
+      ARTIFACT_NAME:
+          type: string
+          description: 'Name of the artifact zip file'
+          required: false
+          default: 'artifact-rosetta-pax-mgmn-test'
       FW_NAME:
         type: string
         description: 'Name of the framework being used'
         required: false
-        default: 'PAXML'
+        default: 'rosetta-pax'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
-        value: ${{ jobs.publish-test.outputs.STATUS }}
+        value: ${{ jobs.sitrep.outputs.STATUS }}
 
 jobs:
 
@@ -36,7 +41,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     env:
-      BADGE_FILENAME_FULL: rosetta-pax-single-process-multi-device-te
+      BADGE_FILENAME_PREFIX: rosetta-pax-single-process-multi-device-te
 
     steps:
       - name: Print environment variables
@@ -199,7 +204,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL_ENV }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
@@ -243,7 +248,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL_ENV: rosetta-pax-multi-node-te
+      BADGE_FILENAME_PREFIX: badge-rosetta-pax-multi-node-te
     steps:
       - name: Print environment variables
         run: env
@@ -415,7 +420,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL_ENV }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
@@ -435,7 +440,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: rosetta-pax-multi-node
+      BADGE_FILENAME_PREFIX: badge-rosetta-pax-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -604,7 +609,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
@@ -622,7 +627,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: rosetta-pax-single-node-dropout-te
+      BADGE_FILENAME_PREFIX: badge-rosetta-pax-single-node-dropout-te
     steps:
       - name: Print environment variables
         run: env
@@ -794,7 +799,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
@@ -811,7 +816,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: rosetta-pax-single-process-evaluation-te
+      BADGE_FILENAME_PREFIX: badge-rosetta-pax-single-process-evaluation-te
     steps:
       - name: Print environment variables
         run: env
@@ -981,7 +986,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
         
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
@@ -1035,60 +1040,15 @@ jobs:
           name: rosetta-pax-metrics-test-log
           path: report.jsonl
 
-
-  publish-test:
-    needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te, metrics]
-    uses: ./.github/workflows/_publish_badge.yaml
+  sitrep:
+    needs: metrics
     if: "!cancelled()"
+    uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'rosetta-pax-mgmn-test-status.json'
-      PUBLISH: false
-      SCRIPT: |
-        EXIT_STATUSES="rosetta-pax-*/*-status.json"
-        PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-        FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
-        TOTAL_TESTS=$(ls $EXIT_STATUSES | wc -l)
-
-        cat <<EOF >>$GITHUB_STEP_SUMMARY
-        ## Pax MGMN+SPMD Test Status
-        | Test Case | State | Exit Code |
-        | --- | --- | --- |
-        EOF
-        for i in $EXIT_STATUSES; do
-          # Files are named rosetta-pax-<GHID>-<NAME>/<NAME>-status.json
-          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
-        done | tee -a $GITHUB_STEP_SUMMARY
-
-        echo "Test statuses:"
-        jq -rc 'input_filename,.' $EXIT_STATUSES
-
-        METRICS_LOG=rosetta-pax-metrics-test-log/report.jsonl
-        all_outcomes() {
-          cat $METRICS_LOG | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
-        }
-        cnt_type() {
-          cat $METRICS_LOG | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
-        }
-        PYTEST_FAILED_TESTS=$(cnt_type failed)
-        PYTEST_PASSED_TESTS=$(cnt_type passed)
-        PYTEST_TOTAL_TESTS=$(all_outcomes | wc -l)
-
-        if ([[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] && \
-            [[ $PYTEST_FAILED_TESTS -eq 0 ]] && [[ $PYTEST_TOTAL_TESTS -gt 0 ]]); then
-          STATUS=success
-          BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]] || [[ $PYTEST_PASSED_TESTS -eq 0 ]]; then
-          STATUS=failure
-          BADGE_COLOR=red
-        else
-          STATUS=failure
-          BADGE_COLOR=yellow
-        fi
-        echo "STATUS='${STATUS}'" >> $GITHUB_OUTPUT
-        echo "LABEL='PAXML Tests'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} jobs ${PYTEST_PASSED_TESTS}/${PYTEST_TOTAL_TESTS} metrics'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
+      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+      FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
     runs-on: ubuntu-22.04
@@ -1108,12 +1068,12 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
-    needs: publish-test
+    needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"
     steps:
       - name: Sets workflow status based on test outputs 
         run: |
-          if [[ ${{ needs.publish-test.outputs.STATUS }} != success ]]; then
+          if [[ ${{ needs.sitrep.outputs.STATUS }} != success ]]; then
             exit 1
           fi
