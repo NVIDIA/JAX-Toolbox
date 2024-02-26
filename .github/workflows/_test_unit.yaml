@@ -1,4 +1,4 @@
-name: ~test JAX, unit
+name: ~test, unit
 
 on:
   workflow_call:
@@ -43,7 +43,7 @@ jobs:
       TIME: "01:00:00"
     secrets: inherit
 
-  run-unit-test:
+  run-${{ inputs.TEST_NAME }}-test:
     strategy:
       fail-fast: false
       matrix:
