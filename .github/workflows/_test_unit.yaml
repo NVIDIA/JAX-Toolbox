@@ -43,7 +43,7 @@ jobs:
       TIME: "01:00:00"
     secrets: inherit
 
-  run-${{ inputs.TEST_NAME }}-test:
+  run-unit-test:
     strategy:
       fail-fast: false
       matrix:
