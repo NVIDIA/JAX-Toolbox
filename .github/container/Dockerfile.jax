@@ -61,7 +61,6 @@ ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_async_all_gather=true"
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_async_reduce_scatter=true"
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_triton_gemm=false"
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
-ENV NCCL_IB_SL=1
 ENV NCCL_NVLS_ENABLE=0
 ENV CUDA_MODULE_LOADING=EAGER
 
