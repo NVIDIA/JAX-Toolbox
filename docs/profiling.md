@@ -8,12 +8,13 @@ the main JAX documentation with advice specific to profiling JAX programs runnin
 The two tools that are most likely to be relevant are [Nsight Systems](https://developer.nvidia.com/nsight-systems) and
 [Nsight Compute](https://developer.nvidia.com/nsight-compute).
 
-Nsight Systems provides a high level overview of activity on the CPU and GPU, and is likely to be the best place to
-start investigating the performance of your program.
+Nsight Systems provides a high level overview of activity on the CPU and GPU, and is the best place to start
+investigating the performance of your program.
 It has small overheads and should not significantly affect the execution time of your program.
 
 Nsight Compute, on the other hand, enables detailed performance analysis of individual GPU kernels.
-It is very invasive and repeatedly re-runs the kernel(s) in question to collect different metrics.
+It repeatedly re-runs the kernel(s) in question to collect different metrics, resulting in an overall program execution
+time that is much slower.
 This is a powerful tool to use if you have identified specific GPU kernels that are executing surprisingly slowly.
 This document does not currently describe its use in any detail; more information is available in
 [the documentation](https://docs.nvidia.com/nsight-compute/index.html).
