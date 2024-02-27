@@ -283,3 +283,10 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+  
+  # TODO: this should be merged after https://github.com/NVIDIA/JAX-Toolbox/pull/575
+  test-gemma:
+    needs: build-gemma
+    uses: ./.github/workflows/_test_unit.yaml
+    
+
