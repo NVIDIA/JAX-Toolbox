@@ -4,11 +4,16 @@ set -eoux pipefail
 
 pushd /opt/pip-tools.d
 
+echo "Run with the following argumnets: ${@}"
+
+REQUIREMENTS_LIST=${@:-$(ls requirements-*.in)}
+echo REQUIREMENTS_LIST=${REQUIREMENTS_LIST}
+
 # First pip-compile gathers all reqs, but we are care only about VCS installs
 # It's possible there are 2nd degree transitive dependencies that are VCS, so
 # this is more robust to gather VCS requirements at the cost of pip-compiling
 # twice
-pip-compile -o requirements.pre $(ls requirements-*.in)
+pip-compile -o requirements.pre ${REQUIREMENTS_LIST}
 
 IFS=$'\n'
 for line in $(cat requirements.pre | egrep '^[^#].+ @ git\+' || true); do
@@ -28,7 +33,7 @@ unset IFS
 #
 # JAX_TOOLBOX_VCS_EQUIVALENCY is an environment variable enabling custom logic in pip
 # that treats the above as equivalent and prefers the URI wit the SHA
-JAX_TOOLBOX_VCS_EQUIVALENCY=true pip-compile -o requirements.txt requirements.vcs $(ls requirements-*.in)
+JAX_TOOLBOX_VCS_EQUIVALENCY=true pip-compile -o requirements.txt requirements.vcs ${REQUIREMENTS_LIST}
 
 # If there are unpinned VCS dependencies, error since these should be included in the manifest
 unpinned_vcs_dependencies=$(cat requirements.txt | egrep '^[^#].+ @ git\+' | egrep -v '^[^#].+ @ git\+.+@' || true)

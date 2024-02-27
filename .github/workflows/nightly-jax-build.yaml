@@ -8,7 +8,12 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      BASE_IMAGE:
+      BASE_IMAGE_AMD64:
+        type: string
+        description: 'CUDA base image built by NVIDIA/JAX-Toolbox'
+        default: 'ghcr.io/nvidia/jax-toolbox:base'
+        required: false
+      BASE_IMAGE_ARM64:
         type: string
         description: 'CUDA base image built by NVIDIA/JAX-Toolbox'
         default: 'ghcr.io/nvidia/jax-toolbox:base'
@@ -50,7 +55,7 @@ jobs:
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: amd64
-      BASE_IMAGE: ${{ inputs.BASE_IMAGE || 'ghcr.io/nvidia/jax-toolbox:base' }}
+      BASE_IMAGE: ${{ inputs.BASE_IMAGE_AMD64 || 'ghcr.io/nvidia/jax-toolbox:base' }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 
@@ -59,7 +64,7 @@ jobs:
     uses: ./.github/workflows/_build_jax.yaml
     with:
       ARCHITECTURE: arm64
-      BASE_IMAGE: ${{ inputs.BASE_IMAGE || 'ghcr.io/nvidia/jax-toolbox:base' }}
+      BASE_IMAGE: ${{ inputs.BASE_IMAGE_ARM64 || 'ghcr.io/nvidia/jax-toolbox:base' }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
     secrets: inherit
 

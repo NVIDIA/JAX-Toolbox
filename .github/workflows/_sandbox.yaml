@@ -2,40 +2,73 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
+    inputs:
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
+        required: false
+      BUMP_MANIFEST:
+        type: boolean
+        description: Whether or not to bump software versions in manifest.yaml
+        default: false
+        required: false
 
 jobs:
-  sandbox:
+  metadata:
     runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+      BUMP_MANIFEST: ${{ steps.if-bump-manifest.outputs.BUMP_MANIFEST }}
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print usage
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
         run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+      
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+      - name: Determine whether results will be 'published'
+        id: if-bump-manifest
+        shell: bash -x -e {0}
+        run: |
+          echo "BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST }}" >> $GITHUB_OUTPUT
+
+  amd64-base:
+    needs: [metadata]
+    uses: ./.github/workflows/_build_base.yaml
+    with:
+      ARCHITECTURE: amd64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUMP_MANIFEST: ${{ needs.metadata.outputs.BUMP_MANIFEST == 'true' }}
+    secrets: inherit
+
+  amd64-jax:
+    needs: [ amd64-base ]
+    uses: ./.github/workflows/_build_jax.yaml
+    with:
+      ARCHITECTURE: amd64
+      BASE_IMAGE: ${{ needs.amd64-base.outputs.DOCKER_TAG }}
+      BUILD_DATE: "2024-02-13"
+    secrets: inherit
+  
+  amd64-mjx:
+    needs: [ amd64-jax ]
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: amd64
+      ARTIFACT_NAME: artifact-mjx-build
+      BADGE_FILENAME: badge-mjx-build
+      BASE_IMAGE: ${{ needs.amd64-jax.outputs.DOCKER_TAG_MEALKIT }}
+      BUILD_DATE: "2024-02-13"
+      CONTAINER_NAME: mjx
+      DOCKERFILE: .github/container/Dockerfile.mjx
+    secrets: inherit
+
