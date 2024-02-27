@@ -11,10 +11,10 @@ on:
         description: Build date in YYYY-MM-DD format
         required: false
         default: NOT SPECIFIED
-      BUMP_MANIFEST:
-        type: boolean
-        description: Flag to bump manifest file or not
-        default: false
+      MANIFEST_ARTIFACT_NAME:
+        type: string
+        description: Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch
+        default: ''
         required: false
     outputs:
       DOCKER_TAGS:
@@ -33,7 +33,7 @@ jobs:
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BUMP_MANIFEST: ${{ inputs.BUMP_MANIFEST }}
+      MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
   build-jax:
@@ -93,7 +93,7 @@ jobs:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-t5x-build"
       BADGE_FILENAME: "badge-t5x-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
       DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}

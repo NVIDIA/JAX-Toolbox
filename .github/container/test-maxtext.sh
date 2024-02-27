@@ -155,18 +155,30 @@ export NVTE_FUSED_ATTN=${ENABLE_FUSED_ATTN}
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.65
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_triton_gemm=false 
-                  --xla_gpu_simplify_all_fp_conversions --xla_gpu_enable_async_all_gather=true
-                  --xla_gpu_enable_async_reduce_scatter=true  --xla_gpu_enable_highest_priority_async_stream=true
-                  --xla_gpu_enable_triton_softmax_fusion=false  --xla_gpu_all_reduce_combine_threshold_bytes=51200 
-                  --xla_gpu_all_gather_combine_threshold_bytes=8589934592 --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592
-                  --xla_gpu_graph_level=0 --xla_gpu_enable_async_all_reduce=true --xla_gpu_enable_pipelined_all_gather=true 
-                  --xla_gpu_enable_pipelined_reduce_scatter=true --xla_gpu_enable_pipelined_all_reduce=true --xla_gpu_enable_while_loop_double_buffering=true --xla_disable_hlo_passes=rematerialization"
+export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true 
+                --xla_gpu_enable_async_all_gather=true 
+                --xla_gpu_enable_async_reduce_scatter=true 
+                --xla_gpu_enable_triton_gemm=false
+                --xla_gpu_simplify_all_fp_conversions 
+                --xla_gpu_graph_level=0 
+                --xla_gpu_enable_async_all_reduce=true 
+                --xla_gpu_enable_highest_priority_async_stream=true
+                --xla_gpu_all_reduce_combine_threshold_bytes=1073741824 
+                --xla_gpu_all_gather_combine_threshold_bytes=1073741824 
+                --xla_gpu_reduce_scatter_combine_threshold_bytes=1073741824
+                --xla_gpu_enable_pipelined_all_gather=true 
+                --xla_gpu_enable_pipelined_reduce_scatter=true 
+                --xla_gpu_enable_pipelined_all_reduce=true 
+                --xla_gpu_enable_while_loop_double_buffering=true
+                --xla_gpu_enable_triton_softmax_fusion=false 
+                --xla_gpu_enable_all_gather_combine_by_dim=false 
+                --xla_gpu_enable_reduce_scatter_combine_by_dim=false 
+                --xla_disable_hlo_passes=rematerialization"
 
 RUN_NAME="logdir" ## the RUN_NAME cannot be changed
 
-RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME}\
-    steps=$STEPS per_device_batch_size=2 base_emb_dim=2560 base_mlp_dim=8192 remat_policy=minimal\
+RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME} logits_via_embedding=true decoder_block=default \
+    steps=$STEPS per_device_batch_size=2 base_emb_dim=2560 base_mlp_dim=8192 remat_policy=minimal attention=dot_product\
     base_num_query_heads=8 base_num_kv_heads=8 base_num_decoder_layers=8 head_dim=128 enable_checkpointing=false\
     base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE\
     dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP\
