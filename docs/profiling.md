@@ -56,6 +56,19 @@ Some other permutations are available of using VNC or WebRTC to stream the GUI f
 This avoids having to download the report files by hand.
 Documentation is available [here](https://docs.nvidia.com/nsight-systems/UserGuide/index.html#container-support-on-linux-servers).
 
+### Tuning JAX configuration for profiling
+If your JAX Python program is structured in a way that leads to deep Python call stacks, for example because you have a
+lot of wrapper layers and indirection, or because you use a framework that adds similar layers, the default number of
+call stack frames recorded in the metadata by JAX may be too small.
+You can remove this limit by setting:
+```python
+import jax
+# Make sure NVTX annotations include full Python stack traces
+jax.config.update("jax_traceback_in_locations_limit", -1)
+```
+at the time of writing, the default limit is 10 frames.
+If the limit is reached, the text formatting of merged stack traces will not work as expected.
+
 ### Collecting targeted profiles
 While it is possible to record profiles of the entire application (as above), this is often not the best choice.
 Because the execution of JAX programs is often quite repetitive, and there is non-trivial JIT compilation time and
