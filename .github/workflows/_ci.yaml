@@ -270,3 +270,11 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+  
+  test-maxtext:
+    needs: build-maxtext
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_maxtext.yaml
+    with:
+      MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
