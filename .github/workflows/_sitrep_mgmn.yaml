@@ -79,9 +79,8 @@ jobs:
           EOF
 
           cat $METRICS_SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
-	  NOTE="NOTE: Average step time includes compilation time and thus may be an underestimate of true performance"
 	  echo "METRICS_SUMMARY_FILE=$METRICS_SUMMARY_FILE" >> ${GITHUB_OUTPUT}
-	  echo $NOTE | tee -a $GITHUB_STEP_SUMMARY
+	  echo "NOTE: Average step time includes compilation time and thus may be an underestimate of true performance" | tee -a $GITHUB_STEP_SUMMARY
 
       - name: Generate sitrep
         id: gen-sitrep
