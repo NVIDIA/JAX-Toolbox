@@ -220,8 +220,6 @@ jobs:
       ARTIFACTS: |
         test-backend-independent.log
         test-gpu.log
-      ARTIFACT_NAME: artifact-jax-unit-test
-      BADGE_FILENAME: badge-jax-unit-test
     secrets: inherit
 
   test-te:
@@ -269,8 +267,6 @@ jobs:
         echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
       ARTIFACTS: |
         test-pallas.log
-      ARTIFACT_NAME: artifact-pallas-unit-test
-      BADGE_FILENAME: badge-pallas-unit-test
     secrets: inherit
 
   test-levanter:
@@ -296,8 +292,6 @@ jobs:
         echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
       ARTIFACTS: |
         test-levanter.log
-      ARTIFACT_NAME: artifact-levanter-unit-test
-      BADGE_FILENAME: badge-levanter-unit-test
     secrets: inherit
 
   test-upstream-pax:
