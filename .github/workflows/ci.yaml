@@ -127,6 +127,7 @@ jobs:
           else
             rm -rf patches-new manifest.yaml.new
           fi
+          sed -i 's|file://patches-new/|file://patches/|g' manifest.yaml
           git diff
 
       - name: Upload bumped manifest/patches to be used in build-base
