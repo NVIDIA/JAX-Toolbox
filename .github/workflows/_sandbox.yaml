@@ -4,7 +4,8 @@ on:
   push:
 
 jobs:
-  sandbox-${{ github.event_name }}:
+  sandbox:
+    name: ${{ github.event_name }}-sandbox
     runs-on: ubuntu-22.04
     steps:
       - name: Login to GitHub Container Registry
