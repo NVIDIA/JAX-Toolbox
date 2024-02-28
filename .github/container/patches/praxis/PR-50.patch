@@ -191,7 +191,7 @@ index 4631ea6..28863e3 100644
    def _prepare_guidance_decode_data(self, decode_data: NestedMap) -> NestedMap:
      raise NotImplementedError('LanguageModel does not support guidance.')
 -- 
-2.25.1
+2.43.2
 
 
 From e94bd6901766707aba59236c710f9b6d7951e007 Mon Sep 17 00:00:00 2001
@@ -236,5 +236,5 @@ index 28863e3..6e6762d 100644
  
    labels = input_batch.labels
 -- 
-2.25.1
+2.43.2
 
