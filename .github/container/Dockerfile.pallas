@@ -13,7 +13,14 @@ ARG SRC_PATH_TRITON
 # in the manifest file is consistent with the commit of xla, and that any extra
 # patches are available under patches/openxla-triton
 RUN get-source.sh -l openxla-triton -m ${MANIFEST_FILE}
-RUN cd /opt/openxla-triton && for patch in /opt/manifest.d/patches/openxla-triton/*.patch; do patch -p1 < "${patch}"; done && git diff
+RUN <<"EOF" bash -ex
+shopt -s nullglob
+cd /opt/openxla-triton
+for patch in /opt/manifest.d/patches/openxla-triton/*.patch; do
+  patch -p1 < "${patch}"
+done
+git diff
+EOF
 
 RUN <<"EOF" bash -ex
 mkdir -p "${SRC_PATH_TRITON}/dist"

@@ -1,4 +1,3 @@
-# Updated in: 2023-12-01
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
