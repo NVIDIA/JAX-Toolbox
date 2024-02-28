@@ -144,6 +144,7 @@ We currently enable training and evaluation for the following models:
 | Model Name | Pretraining | Fine-tuning | Evaluation |
 | :--- | :---: | :---: | :---: |
 | [GPT-3(paxml)](./rosetta/rosetta/projects/pax) | ✔️ |   | ✔️ |
+| [LLaMA2(paxml)](./rosetta/rosetta/projects/pax#llama) |  |   | ✔️ |
 | [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
 | [ViT](./rosetta/rosetta/projects/vit) | ✔️ | ✔️ | ✔️ |
 | [Imagen](./rosetta/rosetta/projects/imagen) | ✔️ |   | ✔️ |
@@ -167,6 +168,9 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 | `NCCL_IB_SL` | `1` | defines the InfiniBand Service Level ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-sl)) |
 | `NCCL_NVLS_ENABLE` | `0` | Disables NVLink SHARP ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature. |
 | `CUDA_MODULE_LOADING` | `EAGER` | Disables lazy-loading ([1](https://docs.nvidia.com/cuda/cuda-c-programming-guide/#cuda-environment-variables)) which uses slightly more GPU memory. |
+
+## Profiling JAX programs on GPU
+See [this page](./docs/profiling.md) for more information about how to profile JAX programs on GPU.
 
 ## FAQ (Frequently Asked Questions)
 

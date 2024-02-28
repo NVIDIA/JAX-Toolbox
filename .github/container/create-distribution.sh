@@ -10,6 +10,7 @@ or fixes from the patches. This script does not build or install the library, bu
 that includes all of the patches.
 
 Usage: $0 [OPTION]...
+  -b, --base-patch-dir      Where generated patch files are written. Default is $SCRIPT_DIR/patches
   -c, --clean               If set, will clean the patch dir. Default is not to clean
   -h, --help                Print usage.
   -m, --manifest=PATH       Path to the manifest. Updates it in-place
@@ -55,7 +56,7 @@ EOF
 exit $1
 }
 
-args=$(getopt -o chm:p:s --long clean,help,manifest:,override_dir:,package:,skip-apply -- "$@")
+args=$(getopt -o b:chm:p:s --long base-patch-dir:,clean,help,manifest:,override_dir:,package:,skip-apply -- "$@")
 if [[ $? -ne 0 ]]; then
   echo
   usage 1
@@ -64,6 +65,10 @@ fi
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
+    -b | --base-patch-dir)
+        BASE_PATCH_DIR=$(readlink -f "$2")
+        shift 2
+        ;;
     -c | --clean)
         CLEAN_PATCHES=1
         shift 1
@@ -109,6 +114,7 @@ if [[ -z "$MANIFEST" || -z "$PACKAGE" ]]; then
   usage 1
 fi
 
+BASE_PATCH_DIR=${BASE_PATCH_DIR:-$SCRIPT_DIR/patches}
 CLEAN_PATCHES=${CLEAN_PATCHES:-0}
 UPSTREAM_URL=$(yq e ".${PACKAGE}.url" $MANIFEST)
 # The tracking_ref is interpreted as the default "main" branch and all patches are 
@@ -119,7 +125,7 @@ MIRROR_GIT_URL=$(yq e ".${PACKAGE}.mirror_url // \"\"" $MANIFEST)
 EXTRA_DIR=$(yq e ".${PACKAGE}.extra_dir // \"\"" $MANIFEST)
 
 SKIP_APPLY=${SKIP_APPLY:-0}
-GEN_PATCH_DIR=$SCRIPT_DIR/patches/$PACKAGE
+GEN_PATCH_DIR=$BASE_PATCH_DIR/$PACKAGE
 # Associative arrays aren't available before bash <4.0, so maintaining separate key/value arrays
 PATCH_KEYS=()
 PATCH_VALUES=()
