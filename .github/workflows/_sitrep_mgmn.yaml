@@ -76,6 +76,8 @@ jobs:
                 print_row(["---"] * (1+len(header)))
               job_name = path[:-len('_metrics.json')]
               print_row([job_name] + [obj[h] for h in header])
+          print('NOTE: Average step time includes compilation time and thus may be an underestimate of true performance')
+
           EOF
 
           cat $METRICS_SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
