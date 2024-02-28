@@ -78,9 +78,10 @@ jobs:
               print_row([job_name] + [obj[h] for h in header])
           EOF
 
+	  echo 'NOTE: Average step time includes compilation time and thus may be an underestimate of true performance' | tee -a $METRICS_SUMMARY_FILE
+
           cat $METRICS_SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
 	  echo "METRICS_SUMMARY_FILE=$METRICS_SUMMARY_FILE" >> ${GITHUB_OUTPUT}
-	  echo "NOTE: Average step time includes compilation time and thus may be an underestimate of true performance" | tee -a $GITHUB_STEP_SUMMARY
 
       - name: Generate sitrep
         id: gen-sitrep
