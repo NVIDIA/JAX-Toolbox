@@ -1,10 +1,10 @@
 name: "~Sandbox"
 
 on:
-  workflow_dispatch:
+  push:
 
 jobs:
-  sandbox:
+  sandbox-${{ github.event_name }}:
     runs-on: ubuntu-22.04
     steps:
       - name: Login to GitHub Container Registry
