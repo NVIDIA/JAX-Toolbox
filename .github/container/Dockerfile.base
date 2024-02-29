@@ -41,6 +41,8 @@ apt-get install -y \
 
 # Install LLVM/Clang 17
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
+apt-get remove -y software-properties-common lsb-release
+apt-get autoremove -y  # removes python3-blinker which conflict with pip-compile in JAX
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
