@@ -186,46 +186,6 @@ jobs:
       ARTIFACT_NAME: "rosetta-T5X-"
     secrets: inherit
 
-  # TODO: ARM
-  publish-test-badge:
-    needs: [metadata, amd64, test-unit-amd64, test-t5x-amd64]
-    uses: ./.github/workflows/_publish_badge.yaml
-    if: always()
-    secrets: inherit
-    with:
-      ENDPOINT_FILENAME: 'rosetta-t5x-overall-test-status.json'
-      PUBLISH: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
-      SCRIPT: |
-        UNIT_STATUS=${{ needs.test-unit-amd64.outputs.TEST_STATUS }}
-        T5X_STATUS=${{ needs.test-t5x-amd64.outputs.TEST_STATUS }}
-
-        echo "LABEL='Tests'" >> $GITHUB_OUTPUT
-
-        STATUS=failure
-        if [[ ${{ needs.amd64.result }} == "success" ]]; then
-          if [[ $UNIT_STATUS == "success" ]] && [[ $T5X_STATUS == "success" ]]; then
-            COLOR=brightgreen
-            MESSAGE="Unit passed / MGMN passed"
-            STATUS=success
-          elif [[ $UNIT_STATUS == "success" ]]; then 
-            COLOR=yellow
-            MESSAGE="Unit passed / MGMN failed"
-          elif [[ $T5X_STATUS == "success" ]]; then
-            COLOR=yellow
-            MESSAGE="Unit failed / MGMN passed"
-          else
-            COLOR=red
-            MESSAGE="Unit failed / MGMN failed"
-          fi
-        else
-          COLOR="red"
-          MESSAGE="n/a"
-        fi
-
-        echo "MESSAGE='${MESSAGE}'" >> $GITHUB_OUTPUT
-        echo "COLOR='${COLOR}'" >> $GITHUB_OUTPUT
-        echo "STATUS='${STATUS}'" >> ${GITHUB_OUTPUT}
-
   finalize:
     if: "!cancelled()"
     needs: [metadata, amd64, arm64, test-t5x-amd64, test-unit-amd64]

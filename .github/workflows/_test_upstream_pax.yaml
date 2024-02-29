@@ -12,17 +12,17 @@ on:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'badge-pax-mgmn-test.json'
+        default: 'badge-upstream-pax-mgmn-test.json'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'artifact-pax-mgmn-test'
+        default: 'artifact-upstream-pax-mgmn-test'
       FW_NAME:
         type: string
         description: 'Name of the framework being used'
         required: false
-        default: 'PAXML'
+        default: 'upstream-pax'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -474,13 +474,13 @@ jobs:
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v4
         with:
-          name: upstream-${{ inputs.FW_NAME }}-metrics-test-log
+          name: ${{ inputs.FW_NAME }}-metrics-test-log
           path: |
             report.jsonl
             *_metrics.json
 
   sitrep:
-    needs: [single-process-multi-device, pax-multi-node, single-process-evaluation, metrics]
+    needs: metrics
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
