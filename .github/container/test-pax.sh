@@ -247,6 +247,9 @@ class GPT126MPP(TransformerLmSpmdPipelineAdam):
   ## dropout
   DROPOUT_PROB = dropout
 
+  ## disable eval to avoid including eval
+  ## in steps/sec calculation
+  EVAL_INTERVAL_STEPS = 100000
   
   def task(self):
     task_p = super().task()
@@ -309,6 +312,9 @@ else:
     FRPOP_DTYPE = dtype
 
     DROPOUT_PROB = dropout
+
+    ## disable eval
+    EVAL_INTERVAL_STEPS = 100000
     
     def task(self):
       task_p = super().task()

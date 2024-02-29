@@ -5,7 +5,7 @@ NOCOLOR='\033[0m'
 
 echo -e "${YELLOW}
 WARNING: Levanter uses a cache folder to store preprocessed datasets. The position of
-the cache default to ~/.cache but can be changed via the `--data.cache_dir` flag:
+the cache default to ~/.cache but can be changed via the --data.cache_dir flag:
 
     $ python -m levanter.main.train_lm ... --data.cache_dir <path/to/cache>
 
