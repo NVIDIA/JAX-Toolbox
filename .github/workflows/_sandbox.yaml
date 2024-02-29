@@ -10,11 +10,47 @@ permissions:
 
 jobs:
 
+  bump-manifest:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Test if manifest bump is functional, and save result to a new file
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          bash bump.sh --input-manifest manifest.yaml --output-manifest manifest.yaml.new --base-patch-dir ./patches-new
+      
+      - name: Maybe replace current manifest/patches with the new one and show diff
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          if true; then
+            mv manifest.yaml.new manifest.yaml
+            rm -rf patches
+            mv patches-new patches
+          else
+            rm -rf patches-new manifest.yaml.new
+          fi
+          sed -i 's|file://patches-new/|file://patches/|g' manifest.yaml
+          git diff
+
+      - name: Upload bumped manifest/patches to be used in build-base
+        uses: actions/upload-artifact@v4
+        with:
+          name: bumped-manifest
+          path: |
+            .github/container/manifest.yaml
+            .github/container/patches
+            
   build-base:
     uses: ./.github/workflows/_build_base.yaml
+    needs: bump-manifest
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: 2024-02-29
+      MANIFEST_ARTIFACT_NAME: bumped-manifest
     secrets: inherit
 
   build-jax:
