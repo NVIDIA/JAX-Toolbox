@@ -126,6 +126,9 @@ Note that packing is currently not supported when using TE. All configs disable 
 ### Native FP8
 Rosetta Pax containers also provide support for native FP8 through XLA. Enabling FP8 can be done by adding the following command-line flag to `paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh`: `--fdl.USE_FP8=True`. When using native FP8, TE must be disabled. For a detailed explanation of native FP8 support in Pax, as well as a comparison between native FP8 and TE FP8, please refer to the [NATIVE_FP8](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/docs/NATIVE_FP8.md) documentation.
 
+### Flash Attention
+CuDNN flash attention is now enabled by default via XLA. Divergence has been observed with the GPT 126M model with flash attention enabled. If you observe divergence when running GPT 126M, you can disable flash attention using the following XLA flag: `--set_xla_gpu_enable_cudnn_fmha=False`.
+
 ## XLA Flags
 We recommend setting the following XLA flags when running experiments: 
 
