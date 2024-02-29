@@ -3,53 +3,16 @@ import os
 import json
 import glob
 import test_utils
+from collections import defaultdict
 from statistics import mean
 from numpy.testing import assert_allclose
 
-LOSS_RTOL = {
-    '1G1N': 0.10,  # orig = 0.02
-    '1G2N': 0.10,  # orig = 0.03
-    '1P1G': 0.10,  # orig = 0.03
-    '1P2G': 0.10,  # orig = 0.03
-    '1P4G': 0.10,  # orig = 0.035
-    '1P8G': 0.10,  # orig = 0.035
-    '2G1N': 0.10,  # orig = 0.025
-    '2G2N': 0.10,  # orig = 0.015
-    '4G1N': 0.10,  # orig = 0.03
-    '4G2N': 0.10,  # orig = 0.03
-    '8G1N': 0.10,  # orig = 0.03
-    '8G2N': 0.10,  # orig = 0.05
-}
-STEP_TIME_MULT = {
-    "1G1N": 0.95,
-    "1G2N": 0.95,
-    "1P1G": 0.95,
-    "1P2G": 0.95,
-    "1P4G": 0.95,
-    "1P8G": 0.95,
-    "2G1N": 0.95,
-    "2G2N": 0.95,
-    "4G1N": 0.95,
-    "4G2N": 0.95,
-    "8G1N": 0.95,
-    "8G2N": 0.95,
-}
-E2E_TIME_MULT = {
-    "1G1N": 0.95,
-    "1G2N": 0.95,
-    "1P1G": 0.95,
-    "1P2G": 0.95,
-    "1P4G": 0.95,
-    "1P8G": 0.95,
-    "2G1N": 0.95,
-    "2G2N": 0.95,
-    "4G1N": 0.95,
-    "4G2N": 0.95,
-    "8G1N": 0.95,
-    "8G2N": 0.95,
-}
+LOSS_RTOL = defaultdict(lambda: 0.10)
+STEP_TIME_MULT = defaultdict(lambda: 0.95)
+E2E_TIME_MULT = defaultdict(lambda: 0.95)
+
 test_dir = os.path.dirname(os.path.abspath(__file__))
-baselines_dir = os.path.join(test_dir, "T5X_MGMN")
+baselines_dir = os.path.join(test_dir, os.environ.get("BASELINES_DIR"))
 results_dir = os.environ.get("RESULTS_DIR")
 loss_summary_name = "loss"
 step_time_summary_name = "timing/steps_per_second"

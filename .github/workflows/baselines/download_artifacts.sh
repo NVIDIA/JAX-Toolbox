@@ -43,7 +43,7 @@ for WORKFLOW_RUN in $*; do
       --output "${N}.zip" \
       "${U}"
 
-    unzip ${N}.zip
+    unzip ${N}.zip -d ${N}
     rm ${N}.zip
   done
 
