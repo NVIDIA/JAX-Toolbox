@@ -796,8 +796,10 @@ jobs:
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v3
         with:
-          name: rosetta-t5x-metrics-test-log
-          path: report.jsonl
+          name: ${{ inputs.FW_NAME }}-metrics-test-log
+          path: |
+            report.jsonl
+            *_metrics.json
   
   sitrep:
     needs: metrics
@@ -821,7 +823,7 @@ jobs:
 
           ## Rosetta T5X MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=rosetta-[T5X|VIT]-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.FW_NAME }}.*-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY

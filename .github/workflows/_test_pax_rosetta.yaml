@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     env:
-      BADGE_FILENAME_PREFIX: rosetta-pax-single-process-multi-device-te
+      BADGE_FILENAME_PREFIX: badge-rosetta-pax-single-process-multi-device-te
 
     steps:
       - name: Print environment variables
@@ -74,7 +74,7 @@ jobs:
           MAX_GPUS_PER_NODE=8
           NODES=1
           GPUS_PER_NODE=8
-          JOB_NAME=rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -153,7 +153,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -283,7 +283,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -369,7 +369,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -474,7 +474,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -558,7 +558,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -662,7 +662,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -748,7 +748,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -850,7 +850,7 @@ jobs:
           NODES=1
           GPUS_PER_NODE=8
 
-          JOB_NAME=rosetta-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
@@ -935,7 +935,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-pax-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -1009,7 +1009,7 @@ jobs:
         shell: bash -x {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
-          for i in rosetta-pax-${GITHUB_RUN_ID}-*DP*FSDP*TP*PP* rosetta-pax-${GITHUB_RUN_ID}-*DP_TE_dropout; do
+          for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*; do
             SUBDIR=$(echo $i | rev | cut -d'-' -f1 | rev)
             mv $i/$SUBDIR* .
             python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
@@ -1037,8 +1037,10 @@ jobs:
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v4
         with:
-          name: rosetta-pax-metrics-test-log
-          path: report.jsonl
+          name: ${{ inputs.FW_NAME }}-metrics-test-log
+          path: |
+            report.jsonl
+            *_metrics.json
 
   sitrep:
     needs: metrics
@@ -1062,7 +1064,7 @@ jobs:
 
           ## Rosetta PAX MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=rosetta-pax-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
