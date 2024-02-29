@@ -13,17 +13,16 @@ jobs:
   build-base:
     uses: ./.github/workflows/_build_base.yaml
     with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
+      ARCHITECTURE: amd64
+      BUILD_DATE: 2024-02-29
     secrets: inherit
 
   build-jax:
     needs: build-base
     uses: ./.github/workflows/_build_jax.yaml
     with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      ARCHITECTURE: amd64
+      BUILD_DATE: 2024-02-29
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
@@ -31,10 +30,10 @@ jobs:
     needs: [build-jax]
     uses: ./.github/workflows/_build.yaml
     with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARCHITECTURE: amd64
       ARTIFACT_NAME: "artifact-levanter-build"
       BADGE_FILENAME: "badge-levanter-build"
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BUILD_DATE: 2024-02-29
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: levanter
       DOCKERFILE: .github/container/Dockerfile.levanter
