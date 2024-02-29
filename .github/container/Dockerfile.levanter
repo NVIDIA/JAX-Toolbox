@@ -13,7 +13,7 @@ ARG SRC_PATH_LEVANTER
 RUN <<"EOF" bash -ex
 get-source.sh -l levanter -m ${MANIFEST_FILE} 
 echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
-EOFg
+EOF
 
 ###############################################################################
 ## Add warning for the shared data cache mechanism
