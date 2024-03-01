@@ -366,6 +366,7 @@ if [[ ${EVALUATE} -ne 0 ]]; then
     --fdl_config=${CONFIG} \
     --job_log_dir=${OUTPUT} \
     --mode='eval' \
+    --fdl.MAX_STEPS=0 \
     --alsologtostderr \
     --enable_checkpoint_saving=False \
     $ADDITIONAL_ARGS \
