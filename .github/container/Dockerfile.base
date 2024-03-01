@@ -39,7 +39,7 @@ apt-get install -y \
   wget \
   lsb-release software-properties-common  # for llvm.sh
 
-# Install LLVM/Clang 17
+# Install LLVM/Clang
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
 apt-get remove -y software-properties-common lsb-release
 apt-get autoremove -y  # removes python3-blinker which conflicts with pip-compile in JAX
