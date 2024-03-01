@@ -166,8 +166,8 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 | `CUDA_DEVICE_MAX_CONNECTIONS` | `1` | use a single queue for GPU work to lower latency of stream operations; OK since XLA already orders launches |
 | `NCCL_NVLS_ENABLE` | `0` | Disables NVLink SHARP ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature. |
 | `CUDA_MODULE_LOADING` | `EAGER` | Disables lazy-loading ([1](https://docs.nvidia.com/cuda/cuda-c-programming-guide/#cuda-environment-variables)) which uses slightly more GPU memory. |
-| `JAX_SHARED_BINARY_BETWEEN_HOSTS` | `1` | Force the coordinator process to share the optimized XLA module with other processes. Helps prevent hangs resulting from different processes having different optimized modules. |
-| `JAX_SHARE_AUTOTUNE_CONFIG_BETWEEN_HOSTS` | `1` | Force the coordinator process to share the autotune config with other participants. Helps prevent hangs, but can increase compilation time by ~1.5x. |
+| `JAX_SHARE_BINARY_BETWEEN_HOSTS` | `True` | Force the coordinator process to share the optimized XLA module with other processes. Helps prevent hangs resulting from different processes having different optimized modules. |
+| `JAX_SHARE_AUTOTUNE_CONFIG_BETWEEN_HOSTS` | `True` | Force the coordinator process to share the autotune config with other participants. Helps prevent hangs, but can increase compilation time by ~1.5x. |
 
 ## Profiling JAX programs on GPU
 See [this page](./docs/profiling.md) for more information about how to profile JAX programs on GPU.
