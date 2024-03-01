@@ -4,14 +4,14 @@ ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG SRC_MANIFEST_FILE=manifest.yaml
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
-
+ARG CLANG_VERSION=17
 
 FROM ${BASE_IMAGE}
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
 ARG SRC_MANIFEST_FILE
 ARG DEST_MANIFEST_DIR
-
+ARG CLANG_VERSION
 
 ###############################################################################
 ## Install Python and essential tools
@@ -26,7 +26,6 @@ apt-get install -y \
   bat \
   build-essential \
   checkinstall \
-  clang \
   cmake \
   curl \
   git \
@@ -37,7 +36,14 @@ apt-get install -y \
   python3-pip \
   rsync \
   vim \
-  wget
+  wget \
+  lsb-release software-properties-common  # for llvm.sh
+
+# Install LLVM/Clang
+bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
+apt-get remove -y software-properties-common lsb-release
+apt-get autoremove -y  # removes python3-blinker which conflicts with pip-compile in JAX
+
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
