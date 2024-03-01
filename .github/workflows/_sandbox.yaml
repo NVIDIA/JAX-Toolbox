@@ -4,9 +4,28 @@ on:
   workflow_dispatch:
 
 jobs:
-  sandbox:
-    runs-on: ubuntu-22.04
+  runner:
+    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+    with:
+      NAME: "A100-${{ github.run_id }}"
+      LABELS: "A100:${{ github.run_id }}"
+      TIME: "01:00:00"
+    secrets: inherit
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        GPU_ARCH: [A100]
+    # ensures A100 job lands on dedicated runner for this particular job
+    runs-on: [self-hosted, "${{ matrix.GPU_ARCH == 'A100' && format('{0}:{1}', matrix.GPU_ARCH, github.run_id) || matrix.GPU_ARCH }}"]
     steps:
+      - name: Print GPU information
+        run: nvidia-smi  
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -14,28 +33,8 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Print usage
+      - name: Run tests
+        shell: bash -x -e {0}
+        continue-on-error: true
         run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
-
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+          docker run "ubuntu:22.04" bash -ec "sleep 1; exit 0"
