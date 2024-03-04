@@ -247,14 +247,14 @@ jobs:
     secrets: inherit
 
   test-pallas:
-    needs: build-pallas
+    needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      IMAGE: ${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}
+      IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: pallas
       EXECUTE: |
-        docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }} python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml | tee test-pallas.log
+        docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml | tee test-pallas.log
       STATISTICS_SCRIPT: |
         curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
         total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
