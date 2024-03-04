@@ -84,6 +84,6 @@ export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
 --xla_disable_hlo_passes=rematerialization
 --xla_gpu_pgle_profile_file_or_directory_path=path\to\generated\pbtxt"
 ```
-### About Combine thresholds**
+### About Combine thresholds
 
 One last thing to add is regarding the **"combine thresholds"**. Ideally, a higher combining threshold for all-gather, reduce-scatter kernels will ensure the best use of the bandwidth. However, they might also incur some dependencies as XLA would try to combine several async collectives and we might see degradation in overall overlap. On the other hand, using very small combining thresholds would create more number of individual collective ops. This makes overlap easier but might under-utilize the bandwidth. For the best performance, these values may need to be tuned based on the individual model and number of devices used for training.
