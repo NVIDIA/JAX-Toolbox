@@ -9,7 +9,6 @@ permissions:
   packages: write # to upload container
 
 jobs:
-
   bump-manifest:
     runs-on: ubuntu-22.04
     steps:
