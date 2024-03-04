@@ -160,14 +160,13 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 | `--xla_gpu_enable_latency_hiding_scheduler` | `true`  | allows XLA to move communication collectives to increase overlap with compute kernels |
 | `--xla_gpu_enable_async_all_gather` | `true` | allows XLA to run NCCL [AllGather](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/operations.html#allgather) kernels on a separate CUDA stream to allow overlap with compute kernels |
 | `--xla_gpu_enable_async_reduce_scatter` | `true` | allows XLA to run NCCL [ReduceScatter](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/operations.html#reducescatter) kernels on a separate CUDA stream to allow overlap with compute kernels |
+| `--xla_gpu_enable_triton_gemm` | `false` | use cuBLAS instead of Trition GeMM kernels |
 
 | Environment Variable | Value | Explanation |
 | -------------------- | ----- | ----------- |
 | `CUDA_DEVICE_MAX_CONNECTIONS` | `1` | use a single queue for GPU work to lower latency of stream operations; OK since XLA already orders launches |
 | `NCCL_NVLS_ENABLE` | `0` | Disables NVLink SHARP ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature. |
 | `CUDA_MODULE_LOADING` | `EAGER` | Disables lazy-loading ([1](https://docs.nvidia.com/cuda/cuda-c-programming-guide/#cuda-environment-variables)) which uses slightly more GPU memory. |
-| `JAX_SHARE_BINARY_BETWEEN_HOSTS` | `True` | Forces the coordinator process to share the optimized XLA module with other processes. Helps prevent hangs resulting from different processes having different optimized modules. |
-| `JAX_SHARE_AUTOTUNE_CONFIG_BETWEEN_HOSTS` | `True` | Forces the coordinator process to share the autotune config with other participants. Helps prevent hangs, but can increase compilation time by ~1.5x. |
 
 ## Profiling JAX programs on GPU
 See [this page](./docs/profiling.md) for more information about how to profile JAX programs on GPU.
