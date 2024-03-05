@@ -119,7 +119,7 @@ jobs:
 
           . .github/workflows/scripts/wait_for_slurm_job.sh
 
-          wait_for_slurm_job ${JOB}
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -256,7 +256,7 @@ jobs:
 
           . .github/workflows/scripts/wait_for_slurm_job.sh
 
-          wait_for_slurm_job ${JOB}
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)

@@ -2,11 +2,12 @@
 
 # waits for a Slurm job to complete, fail, or be cancelled.
 function wait_for_slurm_job() {
-    job_id=$1
-    check_every=${2:-15}
+    host=$1
+    job_id=$2
+    check_every=${3:-15}
 
     while true; do
-        status=$(sacct --job $job_id --noheader --format=State --parsable2)
+        status=$(ssh $host sacct --job $job_id --noheader --format=State --parsable2)
 
         if [ -z "$status" ]; then
             break
