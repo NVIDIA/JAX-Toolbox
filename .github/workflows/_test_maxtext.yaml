@@ -250,6 +250,7 @@ jobs:
             --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             true
+
           # run job with tasks on each node sharing one container
           time srun \
             --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }}

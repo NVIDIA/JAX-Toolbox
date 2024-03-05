@@ -65,14 +65,13 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_single_process
-          TOTAL_TASKS=1
           MAX_GPUS_PER_NODE=8
           NODES=1
           GPUS_PER_NODE=8
           JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
+          for var in IMAGE TEST_CASE_NAME NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
@@ -89,12 +88,22 @@ jobs:
           #SBATCH --exclusive
           #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+          
+          # run job with tasks on each node sharing one container
+          time srun \
+            --ntasks=1 \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-pax.sh \
@@ -227,13 +236,22 @@ jobs:
           #SBATCH --exclusive
           #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+
+          # run job with tasks on each node sharing one container
+          time srun \
+            --tasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
+            --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }} \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-pax.sh \
@@ -361,13 +379,22 @@ jobs:
           #SBATCH --exclusive
           #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --tasks-per-node=1
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+          
+          # run job with tasks on each node sharing one container
+          time srun \
+            --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-pax.sh \
