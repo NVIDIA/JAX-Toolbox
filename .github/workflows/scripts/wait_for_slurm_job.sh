@@ -7,9 +7,8 @@ function wait_for_slurm_job() {
     check_every=${3:-15}
 
     while true; do
-        status=$(ssh $host sacct --job $job_id --noheader --format=State --parsable2)
+        status=$(ssh $host squeue --job $job_id --noheader --format=%T)
 
-        ssh $host squeue -j $job_id
         echo "status = '$status'"
 
         if [ -z "$status" ]; then
