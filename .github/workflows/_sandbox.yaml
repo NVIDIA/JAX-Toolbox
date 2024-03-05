@@ -23,14 +23,47 @@ permissions:
 
 jobs:
 
+  patch-jax:
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Patch manifest.yaml in JAX container``
+        run: |
+          pushd .github/container
+          cat >> manifest.yaml <<EOF
+          equinox:
+            url: https://github.com/patrick-kidger/equinox.git
+            tracking_ref: main
+            latest_verified_commit: 1e601672d38d2c4d483535070a3572d8e8508a20
+            mode: git-clone
+          EOF
+          cat > Dockerfile <<"EOF"
+          FROM ghcr.io/nvidia/jax-mealkit:jax
+
+          COPY manifest.yaml /opt/manifest.d/manifest.yaml
+          EOF
+      
+      - name: Build mealkit image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .github/container
+          push: true
+          file: .github/container/Dockerfile
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          tags: ghcr.io/nvidia/jax-toolbox-internal:${{ github.run_id }}-jax-mealkit
+            
   build-equinox:
     uses: ./.github/workflows/_build.yaml
+    needs: patch-jax
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: artifact-equinox-build
       BADGE_FILENAME: badge-equinox-build
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ghcr.io/nvidia/jax-mealkit:jax
+      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:${{ github.run_id }}-jax-mealkit
       CONTAINER_NAME: equinox
       DOCKERFILE: .github/container/Dockerfile.equinox
     secrets: inherit
