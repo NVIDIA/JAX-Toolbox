@@ -9,6 +9,9 @@ function wait_for_slurm_job() {
     while true; do
         status=$(ssh $host sacct --job $job_id --noheader --format=State --parsable2)
 
+        ssh $host squeue -j $job_id
+        echo "status = '$status'"
+
         if [ -z "$status" ]; then
             break
         else
