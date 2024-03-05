@@ -73,6 +73,8 @@ jobs:
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_single_process_TE
           MAX_GPUS_PER_NODE=8
           GPUS_PER_NODE=8
+          NODES=1
+          TOTAL_TASKS=1
           JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
@@ -92,7 +94,7 @@ jobs:
           #!/bin/bash
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
-          #SBATCH --nodes=1
+          #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
@@ -107,7 +109,7 @@ jobs:
 
           # run job with tasks on each node sharing one container
           time srun \
-            --ntasks=1 \
+            --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
             --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
