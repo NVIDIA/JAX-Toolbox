@@ -15,7 +15,6 @@ jobs:
         run: echo "sitrep"
 
       - name: step3
-        if: "!cancelled()"
         run: echo "anyone there?"
 
   continue-on-error:
