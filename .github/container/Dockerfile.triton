@@ -24,6 +24,9 @@ EOF
 
 RUN <<"EOF" bash -ex
 mkdir -p "${SRC_PATH_TRITON}/dist"
+# This sidesteps the RTTI-related error in https://github.com/openai/triton/pull/3213 that otherwise breaks container
+# builds with openxla/triton tag cl608559313
+sed -i 's|^add_subdirectory(unittest)|# unit tests disabled|' "${SRC_PATH_TRITON}/CMakeLists.txt"
 sed -i 's|backends = _copy_backends(\["nvidia", "amd"\])|backends = _copy_backends(["nvidia"])|g' "${SRC_PATH_TRITON}/python/setup.py"
 sed -i '1s|^|include_directories(${CMAKE_SOURCE_DIR}/third_party/nvidia/backend/include)\n|' "${SRC_PATH_TRITON}/lib/Conversion/TritonGPUToLLVM/CMakeLists.txt"
 pip wheel --wheel-dir="${SRC_PATH_TRITON}/dist" "${SRC_PATH_TRITON}/python"
