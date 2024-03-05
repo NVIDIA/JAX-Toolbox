@@ -185,7 +185,7 @@ jobs:
 
           . .github/workflows/scripts/wait_for_slurm_job.sh
 
-          wait_for_slurm_job ${{ steps.submit.outputs.SLURM_JOB_ID }}
+          wait_for_slurm_job ${JOB}
 
           # Gather job info
           SLURM_STATE   =$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
