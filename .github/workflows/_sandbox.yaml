@@ -2,50 +2,11 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
-    inputs:
-      ARCHITECTURE:
-        type: choice
-        description: 'Architecture to build for'
-        required: true
-        options:
-          - amd64
-          - arm64
-      BUILD_DATE:
-        type: string
-        description: 'Date of the build'
-        required: true
-        default: '2024-03-04'
-
-permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
 
 jobs:
-
-  patch-jax:
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+  sandbox:
+    runs-on: ubuntu-22.04
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Patch manifest.yaml in JAX container``
-        run: |
-          pushd .github/container
-          cat >> manifest.yaml <<EOF
-          
-          equinox:
-            url: https://github.com/patrick-kidger/equinox.git
-            tracking_ref: main
-            latest_verified_commit: 1e601672d38d2c4d483535070a3572d8e8508a20
-            mode: git-clone
-          EOF
-          cat > Dockerfile <<"EOF"
-          FROM ghcr.io/nvidia/jax-mealkit:jax
-
-          COPY manifest.yaml /opt/manifest.d/
-          EOF
-      
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -53,55 +14,28 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: |
-            image=moby/buildkit:v0.12.1
+      - name: Print usage
+        run: |
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
 
-      - name: Build mealkit image
-        id: build
-        uses: docker/build-push-action@v5
-        with:
-          context: .github/container
-          push: true
-          file: .github/container/Dockerfile
-          platforms: linux/${{ inputs.ARCHITECTURE }}
-          tags: ghcr.io/nvidia/jax-toolbox-internal:${{ github.run_id }}-jax-mealkit
-            
-  build-equinox:
-    uses: ./.github/workflows/_build.yaml
-    needs: patch-jax
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-equinox-build
-      BADGE_FILENAME: badge-equinox-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:${{ github.run_id }}-jax-mealkit
-      CONTAINER_NAME: equinox
-      DOCKERFILE: .github/container/Dockerfile.equinox
-    secrets: inherit
-
-  test-equinox:
-    needs: build-equinox
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      IMAGE: ${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}
-      TEST_NAME: equinox
-      EXECUTE: |
-        docker run --shm-size=1g --gpus all ${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }} \
-        bash -exc -o pipefail \
-        'pushd /opt/equinox/tests && pip install -r requirements.txt && pytest .' | tee test-equinox.log
-      STATISTICS_SCRIPT: |
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-equinox.log
-    secrets: inherit
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
