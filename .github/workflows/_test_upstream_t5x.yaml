@@ -108,12 +108,9 @@ jobs:
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLRUM Job $JOB finished."
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -239,12 +236,9 @@ jobs:
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLRUM Job $JOB finished."
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
