@@ -42,7 +42,7 @@ jobs:
           cat > Dockerfile <<"EOF"
           FROM ghcr.io/nvidia/jax-mealkit:jax
 
-          COPY manifest.yaml /opt/manifest.d/manifest.yaml
+          COPY manifest.yaml /opt/manifest.d/
           EOF
       
       - name: Login to GitHub Container Registry
