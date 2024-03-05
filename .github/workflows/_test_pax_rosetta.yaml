@@ -920,8 +920,7 @@ jobs:
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              --enable-te \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
+              --enable-te
           EOF
           )
 
