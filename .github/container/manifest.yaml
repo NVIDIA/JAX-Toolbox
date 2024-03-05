@@ -154,3 +154,8 @@ mlperf-logging:
   tracking_ref: master
   latest_verified_commit: c7b23b3d7aa1055c60e6513edebd138e1a597c97
   mode: pip-vcs
+equinox:
+  url: https://github.com/patrick-kidger/equinox.git
+  tracking_ref: main
+  latest_verified_commit: 1e601672d38d2c4d483535070a3572d8e8508a20
+  mode: git-clone

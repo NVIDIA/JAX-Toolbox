@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+
+# Specify installation targets
+RUN <<"EOF" bash -ex
+get-source.sh -l equinox -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-equinox.in
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh
