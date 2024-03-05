@@ -62,10 +62,15 @@ jobs:
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
           #SBATCH --nodes=1
-          #SBATCH --tasks=1
+          #SBATCH --ntasks=1
           #SBATCH --gpus-per-node=8
           #SBATCH --time="${{ inputs.TIME }}"
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+
+          date
+          echo "${SLURM_CPUS_ON_NODE} CPUs available"
+          echo "GPUs:"
+          nvidia-smi -L
 
           # obtain runner registration token
           RUNNER_TOKEN=$(
