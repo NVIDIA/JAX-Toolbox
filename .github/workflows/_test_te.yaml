@@ -116,6 +116,9 @@ jobs:
       - name: Print environment variables
         run: env
 
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
