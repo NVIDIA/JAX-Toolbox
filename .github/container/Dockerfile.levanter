@@ -2,7 +2,6 @@
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG SRC_PATH_LEVANTER=/opt/levanter
-ARG SRC_PATH_HALIAX=/opt/haliax
 
 ###############################################################################
 ## Download source and add auxiliary scripts
@@ -10,7 +9,6 @@ ARG SRC_PATH_HALIAX=/opt/haliax
 
 FROM ${BASE_IMAGE} as mealkit
 ARG SRC_PATH_LEVANTER
-ARG SRC_PATH_HALIAX
 
 RUN <<"EOF" bash -ex
 get-source.sh -l levanter -m ${MANIFEST_FILE} 
