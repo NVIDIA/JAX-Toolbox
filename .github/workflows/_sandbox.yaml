@@ -14,6 +14,10 @@ jobs:
         if: "!cancelled()"
         run: echo "sitrep"
 
+      - name: step3
+        if: "!cancelled()"
+        run: echo "anyone there?"
+
   continue-on-error:
     runs-on: ubuntu-22.04
     steps:
@@ -23,3 +27,6 @@ jobs:
 
       - name: step2
         run: echo "sitrep"
+
+      - name: step3
+        run: echo "anyone there?"
