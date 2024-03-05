@@ -59,11 +59,10 @@ ENV XLA_FLAGS=""
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_latency_hiding_scheduler=true"
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_async_all_gather=true"
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_async_reduce_scatter=true"
+ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_triton_gemm=false"
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_NVLS_ENABLE=0
 ENV CUDA_MODULE_LOADING=EAGER
-ENV JAX_SHARE_BINARY_BETWEEN_HOSTS=True
-ENV JAX_SHARE_AUTOTUNE_CONFIG_BETWEEN_HOSTS=True
 
 ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 
