@@ -13,6 +13,7 @@ ARG SRC_PATH_LEVANTER
 RUN <<"EOF" bash -ex
 get-source.sh -l levanter -m ${MANIFEST_FILE} 
 get-source.sh -l haliax -m ${MANIFEST_FILE} 
+sed -i 's/haliax.*dev/haliax/' ${SRC_PATH_LEVANTER}/pyproject.toml
 echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
 EOF
 
