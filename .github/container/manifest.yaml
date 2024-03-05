@@ -127,7 +127,7 @@ haliax:
   url: https://github.com/stanford-crfm/haliax.git
   tracking_ref: dev
   latest_verified_commit: bc53d372b62111fb23d8d657421a7bab3c21d1f0
-  mode: pip-vcs
+  mode: git-clone
 mujoco:
   url: https://github.com/google-deepmind/mujoco.git
   tracking_ref: main
