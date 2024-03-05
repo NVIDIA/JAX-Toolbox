@@ -235,7 +235,6 @@ BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> CONFIG=Synthetic5B OUTPUT_DIR=output_synt
 ```
 Note that with models that are particularly dataloading-bottlenecked (e.g. smaller models, such as 126M), the throughput observed using the synthetic dataset may be higher than the throughput observed when training on a real dataset.
 
-
 ## Known Issues
 * Pipeline parallelism is not supported with NVIDIA Transformer Engine enabled in the Paxml container.
 * The Paxml nightlies disable `NCCL_NVLS_ENABLE=0` ([doc](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature.
