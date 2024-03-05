@@ -45,18 +45,18 @@ jobs:
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
-  build-pallas:
+  build-triton:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-pallas-build
-      BADGE_FILENAME: badge-pallas-build
+      ARTIFACT_NAME: artifact-triton-build
+      BADGE_FILENAME: badge-triton-build
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: pallas
-      DOCKERFILE: .github/container/Dockerfile.pallas
+      CONTAINER_NAME: triton
+      DOCKERFILE: .github/container/Dockerfile.triton
     secrets: inherit
 
   build-maxtext:
@@ -138,7 +138,7 @@ jobs:
     needs:
       - build-base
       - build-jax
-      - build-pallas
+      - build-triton
       - build-maxtext
       - build-levanter
       - build-upstream-t5x
@@ -155,7 +155,7 @@ jobs:
           [\
             {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
             {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "pallas",       "stage": "final",   "priority": 900,  "tag": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "triton",       "stage": "final",   "priority": 900,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "levanter",     "stage": "final",   "priority": 900,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}"},\
@@ -163,7 +163,7 @@ jobs:
             {"flavor": "t5x",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "pax",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "pallas",       "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "triton",       "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "levanter",     "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\

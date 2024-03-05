@@ -41,11 +41,11 @@ ARG SRC_PATH_TRITON
 
 # Get the triton source + wheel from the build step
 COPY --from=builder ${SRC_PATH_TRITON} ${SRC_PATH_TRITON}
-RUN echo "triton @ file://$(ls ${SRC_PATH_TRITON}/dist/triton-*.whl)" >> /opt/pip-tools.d/requirements-pallas.in
+RUN echo "triton @ file://$(ls ${SRC_PATH_TRITON}/dist/triton-*.whl)" >> /opt/pip-tools.d/requirements-triton.in
 
 # Check out jax-triton
 RUN <<"EOF" bash -ex
-get-source.sh -l jax-triton -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-pallas.in
+get-source.sh -l jax-triton -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-triton.in
 sed -i 's|"jax @ [^"]\+"|"jax"|g;s|"triton-nightly @ [^"]\+"|"triton"|g' /opt/jax-triton/pyproject.toml
 EOF
 
