@@ -106,7 +106,7 @@ seqio:
 openxla-triton:
   url: https://github.com/openxla/triton.git
   tracking_ref: llvm-head
-  latest_verified_commit: 3764c21d906d497256507bc25fa4135bb472cc13
+  latest_verified_commit: cl608559313
   mode: git-clone
 jax-triton:
   url: https://github.com/jax-ml/jax-triton.git
