@@ -27,7 +27,7 @@ on:
         type: string
         description: 'Name of the framework being used'
         required: false
-        default: 'MaxText'
+        default: 'upstream-maxtext'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -325,13 +325,13 @@ jobs:
         uses: actions/download-artifact@v4
 
       - name: Run pytest
-        shell: bash -x {0}
+        shell: bash -eux {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
           for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*; do
-            SUBDIR=$(echo $i | cut -d'-' -f3)
-            mv $i/$SUBDIR* .
-            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --loss_summary_name "learning/loss" --perf_summary_name "perf/step_time_seconds" # create result json in baseline format
+            JOB_NAME=$(echo $i | awk -F "${GITHUB_RUN_ID}-" '{print $2}')
+            METRIC_PATH=${JOB_NAME}_metrics.json
+            python3 .github/workflows/baselines/summarize_metrics.py $i/$JOB_NAME --loss_summary_name "learning/loss" --perf_summary_name "perf/step_time_seconds" --output_json_path $METRIC_PATH
           done
 
           RESULTS_DIR=$PWD BASELINES_DIR=MAXTEXT/upstream pytest --report-log=report.jsonl .github/workflows/baselines/test_maxtext_metrics.py || true
@@ -339,7 +339,7 @@ jobs:
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v4
         with:
-          name: upstream-${{ inputs.FW_NAME }}-metrics-test-log
+          name: ${{ inputs.FW_NAME }}-metrics-test-log
           path: |
             report.jsonl
             *_metrics.json
