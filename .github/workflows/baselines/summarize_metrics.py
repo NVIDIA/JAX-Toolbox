@@ -61,6 +61,8 @@ def main():
 
         baseline = _create_summary(loss, train_time, e2e_time)
         print(f'JSON FILENAME: {args.output_json_path}')
+        if os.path.exists(args.output_json_path):
+            raise FileExistsError(f"Did not expect --output_json_path={args.output_json_path} to exist. Delete it before proceeding.")
         with open(args.output_json_path, "w") as f:
             json.dump(baseline, f, indent=2)
 
