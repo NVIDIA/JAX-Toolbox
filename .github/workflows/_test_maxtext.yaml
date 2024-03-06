@@ -259,8 +259,8 @@ jobs:
 
           # run job with tasks on each node sharing one container
           time srun \
-            --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-            --ntasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
+            --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
+            --ntasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }} \
             --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
