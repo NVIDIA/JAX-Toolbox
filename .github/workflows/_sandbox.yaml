@@ -10,60 +10,60 @@ permissions:
 
 jobs:
 
-  test-jax:
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      IMAGE: ghcr.io/nvidia/jax:jax
-      TEST_NAME: jax
-      EXECUTE: |
-        docker run --shm-size=1g --gpus all ghcr.io/nvidia/jax:jax test-jax.sh -b backend-independent | tee test-backend-independent.log
-        docker run --shm-size=1g --gpus all ghcr.io/nvidia/jax:jax test-jax.sh -b gpu | tee test-gpu.log
-      STATISTICS_SCRIPT: |
-        errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-        failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-        passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-backend-independent.log
-        test-gpu.log
-    secrets: inherit
+  # test-jax:
+  #   uses: ./.github/workflows/_test_unit.yaml
+  #   with:
+  #     IMAGE: ghcr.io/nvidia/jax:jax
+  #     TEST_NAME: jax
+  #     EXECUTE: |
+  #       docker run --shm-size=1g --gpus all ghcr.io/nvidia/jax:jax test-jax.sh -b backend-independent | tee test-backend-independent.log
+  #       docker run --shm-size=1g --gpus all ghcr.io/nvidia/jax:jax test-jax.sh -b gpu | tee test-gpu.log
+  #     STATISTICS_SCRIPT: |
+  #       errors=$(cat test-*.log | grep -c 'ERROR:' || true)
+  #       failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
+  #       passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
+  #       total_tests=$((failed_tests + passed_tests))
+  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+  #       echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+  #     ARTIFACTS: |
+  #       test-backend-independent.log
+  #       test-gpu.log
+  #   secrets: inherit
     
-  test-te:
-    uses: ./.github/workflows/_test_te.yaml
-    with:
-      TE_IMAGE: ghcr.io/nvidia/jax:upstream-pax
-    secrets: inherit
+  # test-te:
+  #   uses: ./.github/workflows/_test_te.yaml
+  #   with:
+  #     TE_IMAGE: ghcr.io/nvidia/jax:upstream-pax
+  #   secrets: inherit
 
-  test-upstream-t5x:
-    uses: ./.github/workflows/_test_upstream_t5x.yaml
-    with:
-      T5X_IMAGE: ghcr.io/nvidia/jax:upstream-t5x
-    secrets: inherit
+  # test-upstream-t5x:
+  #   uses: ./.github/workflows/_test_upstream_t5x.yaml
+  #   with:
+  #     T5X_IMAGE: ghcr.io/nvidia/jax:upstream-t5x
+  #   secrets: inherit
 
   test-rosetta-t5x:
     uses: ./.github/workflows/_test_t5x_rosetta.yaml
     with:
-      T5X_IMAGE: ghcr.io/nvidia/jax:rosetta-t5x
+      T5X_IMAGE: ghcr.io/nvidia/jax:t5x
     secrets: inherit
 
-  test-upstream-pax:
-    uses: ./.github/workflows/_test_upstream_pax.yaml
-    with:
-      PAX_IMAGE: ghcr.io/nvidia/jax:upstream-pax
-    secrets: inherit
+  # test-upstream-pax:
+  #   uses: ./.github/workflows/_test_upstream_pax.yaml
+  #   with:
+  #     PAX_IMAGE: ghcr.io/nvidia/jax:upstream-pax
+  #   secrets: inherit
 
   test-rosetta-pax:
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
-      PAX_IMAGE: ghcr.io/nvidia/jax:rosetta-pax
+      PAX_IMAGE: ghcr.io/nvidia/jax:pax
     secrets: inherit
   
-  test-maxtext:
-    uses: ./.github/workflows/_test_maxtext.yaml
-    with:
-      MAXTEXT_IMAGE: ghcr.io/nvidia/jax:maxtext
-    secrets: inherit
+  # test-maxtext:
+  #   uses: ./.github/workflows/_test_maxtext.yaml
+  #   with:
+  #     MAXTEXT_IMAGE: ghcr.io/nvidia/jax:maxtext
+  #   secrets: inherit
