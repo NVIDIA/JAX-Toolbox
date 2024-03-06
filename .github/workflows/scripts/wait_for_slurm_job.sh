@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# waits for a Slurm job to complete, fail, or be cancelled.
+# waits for a SLURM job to complete, fail, or be cancelled.
 function wait_for_slurm_job() {
 
     opts=$(set +o)
