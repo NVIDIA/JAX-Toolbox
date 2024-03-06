@@ -2465,7 +2465,7 @@ index 965bd09..cebb815 100644
    metrics["learning_rate"] = clu.metrics.Average.from_model_output(
        jnp.asarray([learning_rate])
 -- 
-2.25.1
+2.43.2
 
 
 From 5b760642c8f41579baef87c0d03c47f283a3c17a Mon Sep 17 00:00:00 2001
@@ -2500,7 +2500,7 @@ index 388d2ec..135ecf6 100755
  # Global batch size
  BSIZE=$(( GPUS_PER_NODE * BSIZE_PER_GPU * SLURM_JOB_NUM_NODES / TP_SIZE))
 -- 
-2.25.1
+2.43.2
 
 
 From 511e69e39448f36a1bfaf6aeeb39a86432458346 Mon Sep 17 00:00:00 2001
@@ -2528,7 +2528,7 @@ index 8dfb094..b104128 100644
    # Start warming up the input pipeline in the background. This must happen
    # after input pipeline checkpoints were restored.
 -- 
-2.25.1
+2.43.2
 
 
 From 1af79c4f0aa399132f2785a0a7b637914e3b3b6a Mon Sep 17 00:00:00 2001
@@ -2565,7 +2565,7 @@ index def1a1a..0d12f30 100755
 +  2>&1 | tee \
    ${LOG_DIR}/${T5_SIZE}_gpu_${NUM_GPUS}_${PREC}_gbs_${BSIZE}_fp8_${ENABLE_FP8}_fuseqkv_${FUSE_QKV}_transbs_${TRANSPOSE_BS}.log
 -- 
-2.25.1
+2.43.2
 
 
 From 9be7aca9e50f0030348319e18bf6e3217765c9de Mon Sep 17 00:00:00 2001
@@ -2606,7 +2606,7 @@ index fb5f48f..f3750ca 100644
  
  class TransformerEngineHelper(TransformerEngineHelperBase):
 -- 
-2.25.1
+2.43.2
 
 
 From b150ec1b3b425eb20b196c5121aaf0d5d8fc1735 Mon Sep 17 00:00:00 2001
@@ -2633,7 +2633,7 @@ index f3750ca..f585752 100644
          "Transformer Engine does not support dataset.packing, please turn it off."
  
 -- 
-2.25.1
+2.43.2
 
 
 From 28b7cad906c14096ff350c3732c09b89da8d2b2d Mon Sep 17 00:00:00 2001
@@ -2660,7 +2660,7 @@ index a9974e1..660df3a 100644
  | [T5-v1.1-xl](../t5/t5_1_1/xl.gin)       | A100 80G SXM     | bf16      | 256   | 1     | 8        | ~4322         | 16.9        | 5.5 days      | 1,408   | 91.15%             | 89.36 / 95.29      | [log](https://tensorboard.dev/experiment/vuRoEYgkRgWiEtbvgxlOqw/#scalars&_smoothingWeight=0) |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
  | [T5-v1.1-xxl](../t5/t5_1_1/xxl.gin)     | A100 80G SXM     | bf16      | 512   | 8     | 36       | ~1887         | 3.69        | 12.6 days     | 6,431  |N/A(partial run)   | N/A(partial run)   |                  |[pile](../t5/t5_1_1/examples/xxl_pile_pretrain.gin)
 -- 
-2.25.1
+2.43.2
 
 
 From 9a94ef9d79a7c376cc433dd14be4d27a86c109ae Mon Sep 17 00:00:00 2001
@@ -2686,7 +2686,7 @@ index 660df3a..c31094d 100644
  | [T5-v1.1-xl](../t5/t5_1_1/xl.gin)       | **H100 80G SXM** | TE-fp8    | 256   | 1     | 8        | ~9688         | **37.8**    | **2.4 days**  | **614** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
  
 -- 
-2.25.1
+2.43.2
 
 
 From 6812d6dce1c417999b3d3167fb58572f49f08780 Mon Sep 17 00:00:00 2001
@@ -2712,7 +2712,7 @@ index 5891c08..e13b810 100644
          enable_dropout=False,
          method=self.module.encode,
 -- 
-2.25.1
+2.43.2
 
 
 From bb53dabb9aeff2f9a68b420f071ba24f403edeff Mon Sep 17 00:00:00 2001
@@ -2753,7 +2753,7 @@ index e13b810..cc3348f 100644
      # `decoder_input_tokens`. The EOS is stripped to avoid decoding to stop
      # after the prompt by matching to `output_vocabulary.eos_id`.
 -- 
-2.25.1
+2.43.2
 
 
 From f3d56a1db5ade8a6fae94bbdeb40c54564828fa3 Mon Sep 17 00:00:00 2001
@@ -2805,7 +2805,7 @@ index f585752..568f596 100644
          name=name)
  
 -- 
-2.25.1
+2.43.2
 
 
 From 6e48146736b418e12279c11c34c68dad69bb46b7 Mon Sep 17 00:00:00 2001
@@ -2833,7 +2833,7 @@ index 568f596..05c5f6b 100644
    @staticmethod
    def update_fp8_metas(grad_accum, flax_mutables):
 -- 
-2.25.1
+2.43.2
 
 
 From afec601e706f3b4f9d5c7521a950f144327533a8 Mon Sep 17 00:00:00 2001
@@ -2996,7 +2996,7 @@ index 05c5f6b..7657c52 100644
      return TENotInstalledHelper
  
 -- 
-2.25.1
+2.43.2
 
 
 From 681aa5a2e2cc1607901fe584dd57b1e36f5484db Mon Sep 17 00:00:00 2001
@@ -3032,7 +3032,7 @@ index 7657c52..b064d2b 100644
  
    @staticmethod
 -- 
-2.25.1
+2.43.2
 
 
 From 24efb64b639695a1fb34fb6fe31d68ad6842e685 Mon Sep 17 00:00:00 2001
@@ -3072,7 +3072,7 @@ index 847dc24..63873cf 100644
  
  class PjitPartitioner(BasePjitPartitioner):
 -- 
-2.25.1
+2.43.2
 
 
 From dfc8e08ff38e4013e10a43718f5216d7db20a1bc Mon Sep 17 00:00:00 2001
@@ -3549,7 +3549,7 @@ index d083540..56919a5 100755
 -set +x
 +echo Finished
 -- 
-2.25.1
+2.43.2
 
 
 From 872719719603a77fe30186fbc58805aa41ea127f Mon Sep 17 00:00:00 2001
@@ -3575,7 +3575,7 @@ index cebb815..8910ce8 100644
  
    if num_microbatches is None or num_microbatches <= 1:
 -- 
-2.25.1
+2.43.2
 
 
 From 3ca8e3453ec706b8ea0f237ad34cb8da0afa78f3 Mon Sep 17 00:00:00 2001
@@ -3601,5 +3601,5 @@ index cc3348f..eb7bd37 100644
      """Predicts a batch of outputs from the model.
  
 -- 
-2.25.1
+2.43.2
 
