@@ -35,7 +35,7 @@ paxml:
   url: https://github.com/google/paxml.git
   mirror_url: https://github.com/nvjax-svc-0/paxml.git
   tracking_ref: main
-  latest_verified_commit: e4fad96057a62c605f8cd36263080dc40a851988
+  latest_verified_commit: 686d574d87bd59a365e0ce8e5f2175afb4aacea1
   mode: git-clone
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
@@ -43,7 +43,7 @@ praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
   tracking_ref: main
-  latest_verified_commit: 2b59deaad0525c934f64384a033a576f53614232
+  latest_verified_commit: c4271181833d540ea22b1e3875e2bd54951763e9
   mode: git-clone
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
