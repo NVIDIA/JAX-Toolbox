@@ -25,6 +25,9 @@ jobs:
       - name: Print environment variables
         run: env
 
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -62,10 +65,15 @@ jobs:
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
           #SBATCH --nodes=1
-          #SBATCH --tasks=1
+          #SBATCH --ntasks=1
           #SBATCH --gpus-per-node=8
           #SBATCH --time="${{ inputs.TIME }}"
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+
+          date
+          echo "${SLURM_CPUS_ON_NODE} CPUs available"
+          echo "GPUs:"
+          nvidia-smi -L
 
           # obtain runner registration token
           RUNNER_TOKEN=$(
@@ -100,7 +108,10 @@ jobs:
       - name: Wait for SLURM job to complete
         shell: bash -x -e {0}
         run: |
-          while ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} squeue -j${{ steps.submit.outputs.SLURM_JOB_ID }} > /dev/null 2>&1; do echo "wait"; sleep 15; done
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+          wait_for_slurm_job \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Remove orphaned SLURM job if the CI job is canceled
         if: cancelled()
