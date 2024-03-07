@@ -193,43 +193,43 @@ jobs:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1N1G"
+          - TEST_NAME: "1G1N"
             N_GPU: 1
             N_NODE: 1
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: "1N2G"
+          - TEST_NAME: "2G1N"
             N_GPU: 2
             N_NODE: 1
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: "1N4G"
+          - TEST_NAME: "4G1N"
             N_GPU: 4
             N_NODE: 1
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: "1N8G"
+          - TEST_NAME: "8G1N"
             N_GPU: 8
             N_NODE: 1
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2N1G"
+          - TEST_NAME: "1G2N"
             N_GPU: 1
             N_NODE: 2
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2N2G"
+          - TEST_NAME: "2G2N"
             N_GPU: 2
             N_NODE: 2
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2N4G"
+          - TEST_NAME: "4G2N"
             N_GPU: 4
             N_NODE: 2
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2N8G"
+          - TEST_NAME: "8G2N"
             N_GPU: 8
             N_NODE: 2
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2N2G_fmha"
+          - TEST_NAME: "2G2N_fmha"
             N_GPU: 2
             N_NODE: 2
             ADDITIONAL_ARGS: "--enable-fmha 1"
-          - TEST_NAME: "2N8G_fmha"
+          - TEST_NAME: "8G2N_fmha"
             N_GPU: 8
             N_NODE: 2
             ADDITIONAL_ARGS: "--enable-fmha 1"
