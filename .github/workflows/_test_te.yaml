@@ -116,6 +116,9 @@ jobs:
       - name: Print environment variables
         run: env
 
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -149,7 +152,7 @@ jobs:
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
-      - name: Submit SLURM jobs over SSH
+      - name: Run SLURM jobs over SSH
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
@@ -161,12 +164,12 @@ jobs:
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
           #SBATCH --nodes=1
-          #SBATCH --tasks=1
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:15:00
           #SBATCH --output=${{ steps.meta.outputs.SLURM_LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
           time srun \
+            --ntasks=1 \
             --container-image=${{ steps.meta.outputs.PYXIS_IMAGE_NAME }} \
             --container-mounts=$(dirname ${{ steps.meta.outputs.PYTEST_LOG_FILE }}):/output \
             --container-entrypoint \
@@ -183,14 +186,10 @@ jobs:
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLRUM Job $JOB finished."
-          set -x
-          
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
+
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
           SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
@@ -198,7 +197,7 @@ jobs:
           echo "SLURM Job exit code is ${SLURM_EXITCODE}"
           echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
-
+          
       - name: Remove orphaned SLURM job if the CI job is canceled
         if: cancelled()
         shell: bash -x -e {0}
