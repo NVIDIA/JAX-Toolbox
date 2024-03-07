@@ -784,10 +784,10 @@ jobs:
 
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Run pytest
         shell: bash -eux {0}
@@ -804,7 +804,7 @@ jobs:
           RESULTS_DIR=$PWD BASELINES_DIR=T5X_MGMN/rosetta pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
 
       - name: Upload metrics test json logs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.FW_NAME }}-metrics-test-log
           path: |
