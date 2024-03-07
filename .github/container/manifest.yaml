@@ -39,7 +39,6 @@ paxml:
   mode: git-clone
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
-    pull/68/head: file://patches/paxml/PR-68.patch # adds LLaMA configs
 praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
