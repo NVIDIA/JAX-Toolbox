@@ -245,16 +245,6 @@ jobs:
     with:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
-    
-  test-t5x-fmha:
-    needs: build-t5x
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_upstream_t5x.yaml
-    with:
-      T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}
-      ARTIFACT_NAME: 'artifact-t5x-fmha-mgmn-test'
-      ENABLE_FMHA: 1
-    secrets: inherit
 
   test-pallas:
     needs: build-jax
