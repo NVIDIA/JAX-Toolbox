@@ -241,19 +241,19 @@ if [[ "$ENABLE_FMHA" -eq "1" ]]; then
     result=$(grep -irlnE "$fmha_regex" "${HLO_DIR}/"*.txt)
 
     if [[ $SAVE_HLO -eq 0 ]]; then
-	    rm -rf $HLO_DIR
- 	    echo "Removed dumped HLO directory!"
+        rm -rf $HLO_DIR
+        echo "Removed dumped HLO directory!"
     fi
 
     if [ -z "$result" ]; then
         echo "E: No FMHA instructions were found in the hlo files!"
-	    exit 1
+	exit 1
     else
-	    echo -e "Found FMHA instructions in the following HLO files: \n $result"
+        echo -e "Found FMHA instructions in the following HLO files: \n $result"
     fi
 else
     if [[ $SAVE_HLO -eq 0 ]]; then
-	    rm -rf $HLO_DIR
- 	    echo "Removed dumped HLO directory!"
+        rm -rf $HLO_DIR
+ 	echo "Removed dumped HLO directory!"
     fi
 fi
