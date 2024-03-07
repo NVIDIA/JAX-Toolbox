@@ -18,7 +18,7 @@ usage() {
     echo "  --enable-te                If set, will run with env var ENABLE_TE=1." 
     echo "  --enable-dropout           If set, will set DROPOUT_PROB to 0.1."
     echo "  --enable-fused-attn        Whether to test fused attention through TE."
-    echo "  --run-5b                   Whether run GPT5B rather than the default 126M."
+    echo "  --model-type               One of 126M, 5B, LLaMA70B, defaults to 126M"
     echo "  --evaluate                 Whether to test evaluation rather than training."
     echo "  -s, --steps                Number of steps to run, defaults to 500."
     echo "  --multiprocess             Enable the multiprocess GPU mode."
@@ -32,7 +32,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,enable-fused-attn,run-5b,evaluate,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,enable-fused-attn,model-type:,evaluate,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -50,10 +50,10 @@ TP=1
 PP=1
 NODES=1
 ENABLE_TE=0
+MODEL_TYPE=GPT126M
 NVTE_FUSED_ATTN=0
 DROPOUT=0
 EVALUATE=0
-RUN_5B=0
 ADDITIONAL_ARGS=""
 
 eval set -- "$args"
@@ -83,9 +83,9 @@ while [ : ]; do
             NVTE_FUSED_ATTN=1
             shift 1
             ;;
-        --run-5b)
-            RUN_5B=1
-            shift 1
+        --model-type)
+            MODEL_TYPE=$2
+            shift 2
             ;;
         --evaluate)
             EVALUATE=1
@@ -141,6 +141,7 @@ done
 GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
 NGPUS=$(( GPUS_PER_NODE * NODES ))
 
+print_var MODEL_TYPE
 print_var BATCH_PER_GPU
 print_var DTYPE
 print_var STEPS
@@ -345,10 +346,19 @@ export XLA_PYTHON_CLIENT_MEM_FRACTION=${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.65}
 export ENABLE_TE=$ENABLE_TE
 export NVTE_FUSED_ATTN=$NVTE_FUSED_ATTN
 
-CONFIG=ci_configs.Synthetic126MCI
-if [[ ${RUN_5B} -ne 0 ]]; then
+if [[ ${MODEL_TYPE} == "126M" ]]; then
+  CONFIG=ci_configs.Synthetic126MCI
+elif [[ ${MODEL_TYPE} == "5B" ]]; then
   CONFIG=paxml.contrib.gpu.scripts_gpu.configs.Synthetic5B
   ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU}"
+elif [[ ${MODEL_TYPE} == "LLaMA70B" ]]; then
+  CONFIG=paxml.contrib.gpu.scripts_gpu.configs.LLaMA70B
+  export TFDS_DATA_DIR=boolq
+  python3 -m paxml.contrib.gpu.scripts_gpu.download_boolq.py
+  ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU} --tfds_data_dir ${TFDS_DATA_DIR}"
+else
+  echo "Unsupported model ${MODEL_TYPE}"
+  exit 1
 fi
 
 if [[ ${EVALUATE} -ne 0 ]]; then

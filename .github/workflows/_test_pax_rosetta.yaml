@@ -248,11 +248,11 @@ jobs:
           - TEST_NAME: 5B_fused_attn_1
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 2
-            ADDITIONAL_ARGS: "--run-5b --enable-fused-attn"
+            ADDITIONAL_ARGS: "--model-type 5B --enable-fused-attn"
           - TEST_NAME: 5B_fused_attn_0
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 2
-            ADDITIONAL_ARGS: "--run-5b"
+            ADDITIONAL_ARGS: "--model-type 5B"
       fail-fast: false
 
     runs-on: ubuntu-22.04
