@@ -921,7 +921,7 @@ jobs:
               --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
-              --nodes ${{ steps.meta.outputs.NODES }} \
+              --nodes 1 \
               --enable-te
           EOF
           )
