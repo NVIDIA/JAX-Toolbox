@@ -249,10 +249,7 @@ if [[ "$ENABLE_FMHA" -eq "1" ]]; then
         echo "E: No FMHA instructions were found in the hlo files!"
 	    exit 1
     else
-	    echo -e "Found FMHA instructions in the following HLO files: \n $result" | while read -r line; do
-		echo "$line"
-	done
-    	exit 0
+	    echo -e "Found FMHA instructions in the following HLO files: \n $result"
     fi
 else
     if [[ $SAVE_HLO -eq 0 ]]; then
