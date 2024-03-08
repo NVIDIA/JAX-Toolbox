@@ -116,8 +116,7 @@ jobs:
         run: |
           alias SSH='ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}'
           SSH mkdir -p "${{ steps.meta.outputs.ARTIFACT_PATH }}"
-          SSH "date && hostname && sinfo"
-          SLURM_JOB_ID=$(SSH sbatch --parsable << EOF
+          SLURM_JOB_ID=$(SSH sbatch --parsable <<"EOF"
           #!/bin/bash
           #SBATCH --job-name=${{ github.run_id }}-${{ inputs.NAME }}
           #SBATCH --exclusive
@@ -141,7 +140,9 @@ jobs:
             --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.ARTIFACT_PATH }}:/output \
             --container-entrypoint \
+            bash <<"EOFINNER"
             ${{ inputs.SBATCH_SCRIPT }}
+            EOFINNER
           EOF
           )
 
