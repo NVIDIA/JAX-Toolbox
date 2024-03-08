@@ -18,10 +18,11 @@ jobs:
             TP: 1
       fail-fast: false
     uses: ./.github/workflows/_test_slurm_pyxis.yaml
+    secrets: inherit
     with:
       NAME: upstream-pax-${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-      SLURM_LOGIN_USER: opc
+      SLURM_LOGIN_USER: ${{ secrets.SLURM_LOGIN_USER }}
       SLURM_SCRATCH_PATH: /nfs/cluster/${{ github.run_id }}/
       NODES: ${{ matrix.NODES }}
       GPUS_PER_NODE: ${{ matrix.GPUS_PER_NODE }}
@@ -42,3 +43,4 @@ jobs:
           --tensor-parallel ${{ matrix.TP }} \
           --nodes ${{ matrix.NODES }} \
           ${{ matrix.NTASKS > 1 && '--multiprocess' || '' }}
+    
