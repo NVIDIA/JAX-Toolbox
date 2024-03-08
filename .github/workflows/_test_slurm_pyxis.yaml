@@ -56,10 +56,10 @@ on:
         description: ID of the SLURM job
         value: ${{ jobs.run-test.outputs.SLURM_JOB_ID }}
       SLURM_STATE:
-        type: string
+        description: State of the SLURM job
         value: ${{ jobs.run-test.outputs.SLURM_STATE }}
       SLURM_EXITCODE:
-        type: string
+        description: Exit code of the SLURM job
         value: ${{ jobs.run-test.outputs.SLURM_EXITCODE }}
 
 jobs:
