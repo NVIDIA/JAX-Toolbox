@@ -16,14 +16,12 @@ jobs:
             DP: 8
             FSDP: 1
             TP: 1
-
       fail-fast: false
     uses: ./.github/workflows/_test_slurm_pyxis.yaml
     with:
       NAME: ${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP
-      IMAGE: ghcr.io/nvidia/jax:upstream-pax
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
+      SLURM_LOGIN_USER: opc
       SLURM_SCRATCH_PATH: /nfs/cluster/${{ github.run_id }}/
       NODES: ${{ matrix.NODES }}
       GPUS_PER_NODE: ${{ matrix.GPUS_PER_NODE }}
@@ -31,6 +29,7 @@ jobs:
       NTASKS_PER_NODE: ${{ matrix.NTASKS_PER_NODE }}
       TIME_LIMIT: '00:15:00'
       EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
+      IMAGE: ghcr.io/nvidia/jax:upstream-pax
       SBATCH_SCRIPT: |
         test-pax.sh \
           --output /output \

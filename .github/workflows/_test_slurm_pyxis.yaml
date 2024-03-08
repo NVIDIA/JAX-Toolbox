@@ -7,10 +7,6 @@ on:
         type: string
         description: Name of the test case
         required: true
-      IMAGE:
-        type: string
-        description: Image from ghcr.io/nvidia
-        required: true
       SLURM_LOGIN_HOSTNAME:
         type: string
         description: Hostname of the SLURM login node
@@ -47,6 +43,10 @@ on:
         type: string
         description: Comma-separated list of extra environment variables to export to the SLURM job
         required: false
+      IMAGE:
+        type: string
+        description: Image from ghcr.io/nvidia
+        required: true
       SBATCH_SCRIPT:
         type: string
         description: Content of the script to be submitted via the sbatch command
