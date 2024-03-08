@@ -1,41 +1,45 @@
 name: "~Sandbox"
 
 on:
-  workflow_dispatch:
+  push:
 
 jobs:
-  sandbox:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  pax-multi-node:
+    strategy:
+      matrix:
+        include:
+          - NODES: 1
+            GPUS_PER_NODE: 8
+            NTASKS: 8
+            NTASKS_PER_NODE: 8
+            PP: 1
+            DP: 8
+            FSDP: 1
+            TP: 1
 
-      - name: Print usage
-        run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
-
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+      fail-fast: false
+    uses: ./.github/workflows/_test_slurm_pyxis.yaml
+    with:
+      NAME: ${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP
+      IMAGE: ghcr.io/nvidia/jax:upstream-pax
+      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
+      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
+      SLURM_SCRATCH_PATH: /nfs/cluster/${{ github.run_id }}/
+      NODES: ${{ matrix.NODES }}
+      GPUS_PER_NODE: ${{ matrix.GPUS_PER_NODE }}
+      NTASKS: ${{ matrix.NTASKS }}
+      NTASKS_PER_NODE: ${{ matrix.NTASKS_PER_NODE }}
+      TIME_LIMIT: '00:15:00'
+      EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
+      SBATCH_SCRIPT: |
+        test-pax.sh \
+          --output /output \
+          --dtype bfloat16 \
+          --batch-per-gpu 4 \
+          --steps 500 \
+          --pipeline-parallel ${{ matrix.PP }} \
+          --data-parallel ${{ matrix.DP }} \
+          --fsdp ${{ matrix.FSDP }} \
+          --tensor-parallel ${{ matrix.TP }} \
+          --nodes ${{ matrix.NODES }} \
+          ${{ matrix.NTASKS > 1 && '--multiprocess' || '' }}

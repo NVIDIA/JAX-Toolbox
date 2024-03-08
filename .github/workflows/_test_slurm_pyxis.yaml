@@ -1,0 +1,200 @@
+name: ~test multi-node jobs via SLURM+Pyxis
+
+on:
+  workflow_call:
+    inputs:
+      NAME:
+        type: string
+        description: Name of the test case
+        required: true
+      IMAGE:
+        type: string
+        description: Image from ghcr.io/nvidia
+        required: true
+      SLURM_LOGIN_HOSTNAME:
+        type: string
+        description: Hostname of the SLURM login node
+        required: true
+      SLURM_LOGIN_USER:
+        type: string
+        description: Username for the SLURM login node
+        required: true
+      SLURM_SCRATCH_PATH:
+        type: string
+        description: Path to the scratch directory on the SLURM cluster
+        required: true
+      NODES:
+        type: number
+        description: Number of nodes to request
+        required: true
+      GPUS_PER_NODE:
+        type: number
+        description: Number of GPUs per node to request
+        required: true
+      NTASKS:
+        type: number
+        description: Number of tasks to run
+        required: true
+      NTASKS_PER_NODE:
+        type: number
+        description: Number of tasks per node to run
+        required: true
+      TIME_LIMIT:
+        type: string
+        description: Time limit for the job
+        required: true
+      EXTRA_EXPORTS:
+        type: string
+        description: Comma-separated list of extra environment variables to export to the SLURM job
+        required: false
+      SBATCH_SCRIPT:
+        type: string
+        description: Content of the script to be submitted via the sbatch command
+        required: true
+    outputs:
+      SLURM_JOB_ID:
+        type: string
+        description: ID of the SLURM job
+      SLURM_STATE:
+        type: string
+        description: State of the SLURM job
+      SLURM_EXITCODE:
+        type: string
+        description: Exit code of the SLURM job
+
+jobs:
+
+  run-test:
+    name: ${{ inputs.NAME }}
+    runs-on: ubuntu-22.04
+    outputs:
+      SLURM_JOB_ID: ${{ steps.submit.outputs.SLURM_JOB_ID }}
+      SLURM_STATE: ${{ steps.exit-info.outputs.SLURM_STATE }}
+      SLURM_EXITCODE: ${{ steps.exit-info.outputs.SLURM_EXITCODE }}
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Labels and metadata
+        id: meta
+        shell: bash -x -e {0}
+        run: |
+          IMAGE="$(echo ${{inputs.IMAGE}} | sed 's/\//#/')"
+          LOG_FILE=${{ inputs.SLURM_SCRATCH_PATH }}/${{ inputs.NAME }}.log
+          ARTIFACT_PATH=${{ inputs.SLURM_SCRATCH_PATH }}/${{ inputs.NAME }}
+          for var in IMAGE LOG_FILE ARTIFACT_PATH; do
+            echo "$var=${!var}" >> $GITHUB_OUTPUT
+          done
+          
+      - name: Submit SLURM jobs over SSH
+        id: submit
+        shell: bash -O expand_aliases -x -e {0}
+        run: |
+          alias SSH='ssh ${{ inputs.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}'
+          SSH mkdir -p "${{ steps.meta.outputs.ARTIFACT_PATH }}"
+          SSH "date && hostname && sinfo"
+          SLURM_JOB_ID=$(SSH sbatch --parsable << EOF
+          #!/bin/bash
+          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+          #SBATCH --exclusive
+          #SBATCH --nodes=${{ inputs.NODES }}
+          #SBATCH --gpus-per-node=${{ inputs.GPUS_PER_NODE }}
+          #SBATCH --time=${{ inputs.TIME_LIMIT }}
+          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="${{ inputs.EXTRA_EXPORTS }},ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
+          time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+
+          # run job with tasks on each node sharing one container
+          time srun \
+            --tasks=${{ inputs.NTASKS }} \
+            --tasks-per-node=${{ inputs.NTASKS_PER_NODE }} \
+            --container-name=runtime \
+            --container-mounts=${{ steps.meta.outputs.ARTIFACT_PATH }}:/output \
+            --container-entrypoint \
+            ${{ inputs.SBATCH_SCRIPT }}
+          EOF
+          )
+
+          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+
+      - name: Wait for SLURM job to complete
+        id: wait
+        shell: bash -exu -o pipefail {0}
+        run: |
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${{ inputs.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
+      - name: Gather job exit info
+        id: exit-info
+        shell: bash -exu -o pipefail {0}
+        run: |
+          JOB_INFO=$(
+            ssh ${{ inputs.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
+            sacct -j ${{ steps.submit.outputs.SLURM_JOB_ID }} --format=JobID,JobName,State,Exitcode --parsable2 --noheader |\
+            grep -E '^[0-9]+\|'
+          )
+
+          SLURM_STATE=$(echo "$JOB_INFO" | cut -f 3 -d"|")
+          SLURM_EXITCODE=$(echo "$JOB_INFO" | cut -f 4 -d"|")
+
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
+      - name: Gather artifacts
+        shell: bash -x -e {0}
+        run: |
+          function rsync-down() {
+            rsync -rtz --progress ${{ inputs.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}:$1 $2
+          }
+          mkdir output/
+          rsync-down ${{ steps.meta.outputs.LOG_FILE }} output/
+          rsync-down ${{ steps.meta.outputs.ARTIFACT_PATH }}/* output/
+
+      - name: Write sitrep status
+        shell: bash -x -e {0}
+        run: |
+          . .github/workflows/scripts/to_json.sh
+
+          slurm_job_id=${{ steps.submit.outputs.SLURM_JOB_ID }} \
+          slurm_state=${{ steps.exit-info.outputs.SLURM_STATE }} \
+          slurm_exitcode=${{ steps.exit-info.outputs.SLURM_EXITCODE }} \
+          to_json slurm_job_id slurm_state slurm_exitcode \
+          > output/sitrep.json
+
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.NAME }}
+          path: output/*
