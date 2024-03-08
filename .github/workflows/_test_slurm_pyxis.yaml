@@ -191,19 +191,22 @@ jobs:
           echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
+          set -x
+          echo "***************************************************************"
+          echo "***************************************************************"
+          echo "******************** TAIL OF SLURM LOG BEG ********************"
+          echo "***************************************************************"
+          echo "***************************************************************"
+          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} tail -n 200 ${{ steps.meta.outputs.LOG_FILE }}
+          echo "***************************************************************"
+          echo "***************************************************************"
+          echo "******************** TAIL OF SLURM LOG END ********************"
+          echo "***************************************************************"
+          echo "***************************************************************"
+
           if [ "$SLURM_STATE" != "COMPLETED" ]; then
-            echo "********** LAST 200 LINES OF SLURM LOG BEG **********"
-            ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} tail -n 200 ${{ steps.meta.outputs.LOG_FILE }}
-            echo "********** LAST 200 LINES OF SLURM LOG END **********"          
             exit 1
           fi
-
-      - name: Remove orphaned SLURM job if the CI job is canceled
-        if: cancelled()
-        shell: bash -x -e {0}
-        run: |
-          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
-            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Gather artifacts
         if: "!cancelled()"
@@ -215,7 +218,7 @@ jobs:
           mkdir output/
           rsync-down ${{ steps.meta.outputs.LOG_FILE }} output/
           mkdir output/artifacts
-          rsync-down ${{ steps.meta.outputs.ARTIFACT_PATH }} output/artifacts
+          rsync-down ${{ steps.meta.outputs.ARTIFACT_PATH }}/* output/artifacts/
 
       - name: Write sitrep status
         if: "!cancelled()"
@@ -236,3 +239,10 @@ jobs:
         with:
           name: ${{ inputs.ARTIFACT_NAME || format('artifact-{0}', inputs.NAME) }}
           path: output/*
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}

@@ -144,6 +144,9 @@ jobs:
     needs: te-multi-gpu
     if: success() || failure()
     runs-on: ubuntu-latest
+    env:
+      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME }}-multigpu-test
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-multigpu-test.json
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
@@ -151,55 +154,55 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts/
           pattern: ${{ inputs.ARTIFACT_NAME }}-*
           merge-multiple: true
 
       - name: Generate sitrep
         shell: bash -x -e {0}
         run: |
-          ls -lR artifacts/
-      #     # bring in utility functions
-      #     source .github/workflows/scripts/to_json.sh
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
 
-      #     EXIT_STATUSES="output/*-status.json"
-      #     badge_label='TE Multi GPU tests'
-      #     passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-      #     failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
-      #     total_tests=$(ls $EXIT_STATUSES | wc -l)
+          test_outcome_files=$(find -name pytest.jsonl)
+
+          badge_label='TE Multi GPU tests'
+          passed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)
+          failed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "failed") | .outcome' | wc -l)
+          total_tests=$((failed_tests + passed_tests))
           
-      #     if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
-      #       badge_message='error'
-      #       badge_color=red
-      #       summary='TE multi GPU tests did not complete due to errors.'
-      #     else
-      #       badge_message="${passed_tests}/${total_tests} passed"
-      #       if [[ ${failed_tests} == 0 ]]; then
-      #         badge_color=brightgreen
-      #       else
-      #         badge_color=yellow
-      #       fi
-      #       summary="TE multi GPU tests : $badge_message"
-      #     fi
+          if [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary='TE multi GPU tests did not complete due to errors.'
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="TE multi GPU tests : $badge_message"
+          fi
 
-      #     to_json \
-      #       summary \
-      #       total_tests passed_tests failed_tests \
-      #       badge_label badge_color badge_message \
-      #     > sitrep.json
+          run_id=${{ github.run_id }} \
+          to_json \
+            run_id \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > sitrep.json
 
-      #     schemaVersion=1 \
-      #     label="${badge_label}" \
-      #     message="${badge_message}" \
-      #     color="${badge_color}" \
-      #     to_json schemaVersion label message color \
-      #     > ${{ env.BADGE_FILENAME_FULL }}
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
           
-      # - name: Upload training logs as artifacts
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: ${{ env.ARTIFACT_NAME_FULL }}
-      #     path: |
-      #       output/
-      #       sitrep.json
-      #       ${{ env.BADGE_FILENAME_FULL }}
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME_FULL }}
+          path: |
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}
