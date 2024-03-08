@@ -1,9 +1,15 @@
 name: "~Sandbox"
 
 on:
-  push:
+  workflow_dispatch:
 
 jobs:
+
+  dummy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print environment variables
+        run: env
 
   # sitrep:
   #   if: success() || failure()
