@@ -18,6 +18,7 @@ jobs:
             TP: 1
       fail-fast: false
     uses: ./.github/workflows/_test_slurm_pyxis.yaml
+    name: ${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP
     with:
       NAME: ${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
