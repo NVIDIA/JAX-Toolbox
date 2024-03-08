@@ -9,8 +9,8 @@ jobs:
     if: success() || failure()
     runs-on: ubuntu-latest
     env:
-      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME }}-multigpu-test
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-multigpu-test.json
+      ARTIFACT_NAME_FULL: artifact-te-multigpu-summary
+      BADGE_FILENAME_FULL: badge-te-multigpu-summary.json
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: ${{ inputs.ARTIFACT_NAME }}-*
+          pattern: artifact-te-*
           merge-multiple: true
           run-id: 8207040876
           github-token: ${{ secrets.GITHUB_TOKEN }}
