@@ -142,7 +142,9 @@ jobs:
           time srun \
             --ntasks-per-node=1 \
             --container-name=runtime \
+            bash <<"EOFINNER"
             ${{ inputs.SRUN_PREAMBLE }}
+          EOFINNER
 
           # run job with tasks on each node sharing one container
           time srun \
@@ -154,6 +156,7 @@ jobs:
             bash <<"EOFINNER"
             ${{ inputs.SRUN_SCRIPT }}
           EOFINNER
+
           EOF
           )
 
