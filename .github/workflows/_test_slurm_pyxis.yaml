@@ -119,7 +119,7 @@ jobs:
           SSH "date && hostname && sinfo"
           SLURM_JOB_ID=$(SSH sbatch --parsable << EOF
           #!/bin/bash
-          #SBATCH --job-name=${{ inputs.NAME }}
+          #SBATCH --job-name=${{ github.run_id }}-${{ inputs.NAME }}
           #SBATCH --exclusive
           #SBATCH --nodes=${{ inputs.NODES }}
           #SBATCH --gpus-per-node=${{ inputs.GPUS_PER_NODE }}
