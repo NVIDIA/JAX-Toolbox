@@ -129,7 +129,7 @@ jobs:
         pip install pytest pytest-reportlog cuda-python \${SRC_PATH_TE}/examples/jax/encoder/requirements.txt
       SRUN_SCRIPT: |
         set -ex
-        cd \${SRC_PATH_TE}/examples/jax/encoder
+        cd ${SRC_PATH_TE}/examples/jax/encoder
         pytest --report-log=/output/pytest.jsonl \
           test_single_gpu_encoder.py \
           test_multigpu_encoder.py \

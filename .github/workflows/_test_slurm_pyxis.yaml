@@ -136,6 +136,12 @@ jobs:
             --ntasks-per-node=1 \
             --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+            
+          # run single-task preambles for, e.g., dependencies installation
+          time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             ${{ inputs.SRUN_PREAMBLE }}
 
           # run job with tasks on each node sharing one container
