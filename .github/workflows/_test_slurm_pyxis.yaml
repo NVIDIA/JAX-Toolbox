@@ -145,11 +145,11 @@ jobs:
           EOF
           )
 
-          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+          echo "SLURM_JOB_ID=${SLURM_JOB_ID}" >> $GITHUB_OUTPUT
 
       - name: Wait for SLURM job to complete
         id: wait
-        shell: bash -exu -o pipefail {0}
+        shell: bash -exu {0}
         run: |
           . .github/workflows/scripts/wait_for_slurm_job.sh
 
