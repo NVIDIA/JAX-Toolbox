@@ -104,8 +104,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.IMAGE}} | sed 's/\//#/')"
-          LOG_FILE=${{ inputs.SLURM_SCRATCH_PATH }}/${{ inputs.NAME }}.log
-          ARTIFACT_PATH=${{ inputs.SLURM_SCRATCH_PATH }}/${{ inputs.NAME }}
+          ARTIFACT_PATH=${{ inputs.SLURM_SCRATCH_PATH }}/${{ github.run_id }}/${{ inputs.NAME }}
+          LOG_FILE=${ARTIFACT_PATH}/${{ github.run_id }}-${{ inputs.NAME }}.log
           for var in IMAGE LOG_FILE ARTIFACT_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
@@ -186,21 +186,23 @@ jobs:
           }
           mkdir output/
           rsync-down ${{ steps.meta.outputs.LOG_FILE }} output/
-          rsync-down ${{ steps.meta.outputs.ARTIFACT_PATH }}/* output/
+          mkdir output/artifacts
+          rsync-down ${{ steps.meta.outputs.ARTIFACT_PATH }}/* output/artifacts
 
       - name: Write sitrep status
         shell: bash -x -e {0}
         run: |
           . .github/workflows/scripts/to_json.sh
 
+          run_id=${{ github.run_id }} \
           slurm_job_id=${{ steps.submit.outputs.SLURM_JOB_ID }} \
           slurm_state=${{ steps.exit-info.outputs.SLURM_STATE }} \
           slurm_exitcode=${{ steps.exit-info.outputs.SLURM_EXITCODE }} \
-          to_json slurm_job_id slurm_state slurm_exitcode \
+          to_json run_id slurm_job_id slurm_state slurm_exitcode \
           > output/sitrep.json
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.NAME }}
+          name: ${{ github.run_id }}-${{ inputs.NAME }}
           path: output/*

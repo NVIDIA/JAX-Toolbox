@@ -34,7 +34,7 @@ jobs:
     with:
       NAME: upstream-pax-${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-      SLURM_SCRATCH_PATH: /nfs/cluster/${{ github.run_id }}
+      SLURM_SCRATCH_PATH: /nfs/cluster
       NODES: ${{ matrix.NODES }}
       GPUS_PER_NODE: ${{ matrix.GPUS_PER_NODE }}
       NTASKS: ${{ matrix.NTASKS }}
