@@ -119,7 +119,7 @@ jobs:
           SSH "date && hostname && sinfo"
           SLURM_JOB_ID=$(SSH sbatch --parsable << EOF
           #!/bin/bash
-          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+          #SBATCH --job-name=${{ inputs.NAME }}
           #SBATCH --exclusive
           #SBATCH --nodes=${{ inputs.NODES }}
           #SBATCH --gpus-per-node=${{ inputs.GPUS_PER_NODE }}
@@ -149,7 +149,7 @@ jobs:
 
       - name: Wait for SLURM job to complete
         id: wait
-        shell: bash -exu {0}
+        shell: bash -eu {0}
         run: |
           . .github/workflows/scripts/wait_for_slurm_job.sh
 
