@@ -104,11 +104,11 @@ jobs:
             ${{ env.BADGE_FILENAME_FULL }}
 
   te-multi-gpu:
+    uses: ./.github/workflows/_test_slurm_pyxis.yaml
     strategy:
       matrix:
         N_GPU: [2, 4, 8]
       fail-fast: false
-    uses: ./.github/workflows/_test_slurm_pyxis.yaml
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
