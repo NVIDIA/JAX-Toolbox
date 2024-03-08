@@ -173,6 +173,9 @@ jobs:
           echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
 
           if [ "$SLURM_STATE" != "COMPLETED" ]; then
+            echo "********** LAST 200 LINES OF SLURM LOG BEG **********"
+            ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} tail -n 200 ${{ steps.meta.outputs.LOG_FILE }}
+            echo "********** LAST 200 LINES OF SLURM LOG END **********"          
             exit 1
           fi
 
@@ -194,10 +197,6 @@ jobs:
           rsync-down ${{ steps.meta.outputs.LOG_FILE }} output/
           mkdir output/artifacts
           rsync-down ${{ steps.meta.outputs.ARTIFACT_PATH }}/* output/artifacts
-
-          echo "********** LAST 200 LINES OF SLURM LOG BEG **********"
-          tail -n 200 output/*.log
-          echo "********** LAST 200 LINES OF SLURM LOG END **********"          
 
       - name: Write sitrep status
         if: "!cancelled()"
