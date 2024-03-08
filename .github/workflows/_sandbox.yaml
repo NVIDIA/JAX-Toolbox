@@ -17,6 +17,14 @@ jobs:
             DP: 8
             FSDP: 1
             TP: 1
+          - NODES: 1
+            GPUS_PER_NODE: 8
+            NTASKS: 8
+            NTASKS_PER_NODE: 8
+            PP: 2
+            DP: 2
+            FSDP: 2
+            TP: 2
       fail-fast: false
     uses: ./.github/workflows/_test_slurm_pyxis.yaml
     secrets:
