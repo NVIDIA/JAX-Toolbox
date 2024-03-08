@@ -196,7 +196,7 @@ jobs:
           mkdir output/
           rsync-down ${{ steps.meta.outputs.LOG_FILE }} output/
           mkdir output/artifacts
-          rsync-down ${{ steps.meta.outputs.ARTIFACT_PATH }}/* output/artifacts
+          rsync-down ${{ steps.meta.outputs.ARTIFACT_PATH }} output/artifacts
 
       - name: Write sitrep status
         if: "!cancelled()"
