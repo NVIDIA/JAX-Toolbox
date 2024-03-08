@@ -142,7 +142,7 @@ jobs:
             --container-entrypoint \
             bash <<"EOFINNER"
             ${{ inputs.SBATCH_SCRIPT }}
-            EOFINNER
+          EOFINNER
           EOF
           )
 
@@ -195,9 +195,9 @@ jobs:
           mkdir output/artifacts
           rsync-down ${{ steps.meta.outputs.ARTIFACT_PATH }}/* output/artifacts
 
-          echo "********** SLURM LOG BEG **********"
-          cat output/*.log
-          echo "********** SLURM LOG END **********"
+          echo "********** LAST 200 LINES OF SLURM LOG BEG **********"
+          tail -n 200 output/*.log
+          echo "********** LAST 200 LINES OF SLURM LOG END **********"          
 
       - name: Write sitrep status
         if: "!cancelled()"
