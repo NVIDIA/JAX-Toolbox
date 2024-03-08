@@ -126,7 +126,11 @@ jobs:
       IMAGE: ghcr.io/nvidia/jax:upstream-pax
       SRUN_PREAMBLE: |
         nvidia-smi
-        pip install pytest pytest-reportlog cuda-python ${SRC_PATH_TE}/examples/jax/encoder/requirements.txt
+        pip install \
+          pytest \
+          pytest-reportlog \
+          cuda-python \
+          -r ${SRC_PATH_TE}/examples/jax/encoder/requirements.txt
       SRUN_SCRIPT: |
         set -ex
         cd ${SRC_PATH_TE}/examples/jax/encoder
