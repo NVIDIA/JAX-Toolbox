@@ -53,9 +53,14 @@ on:
         type: string
         description: Image from ghcr.io/nvidia
         required: true
-      SBATCH_SCRIPT:
+      SRUN_PREAMBLE:
         type: string
-        description: Content of the script to be submitted via the sbatch command
+        description: Content of the script to be run on the compute nodes in the enroot container using a single task before the main script
+        required: false
+        default: 'true'
+      SRUN_SCRIPT:
+        type: string
+        description: Content of the script to be run on the compute nodes in the enroot container
         required: true
     outputs:
       SLURM_JOB_ID:
@@ -131,7 +136,7 @@ jobs:
             --ntasks-per-node=1 \
             --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
-            true
+            ${{ inputs.SRUN_PREAMBLE }}
 
           # run job with tasks on each node sharing one container
           time srun \
@@ -141,7 +146,7 @@ jobs:
             --container-mounts=${{ steps.meta.outputs.ARTIFACT_PATH }}:/output \
             --container-entrypoint \
             bash <<"EOFINNER"
-            ${{ inputs.SBATCH_SCRIPT }}
+            ${{ inputs.SRUN_SCRIPT }}
           EOFINNER
           EOF
           )

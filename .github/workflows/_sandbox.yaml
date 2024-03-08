@@ -5,53 +5,59 @@ on:
 
 jobs:
 
-  pax-multi-node:
-    strategy:
-      matrix:
-        include:
-          - NODES: 1
-            GPUS_PER_NODE: 8
-            NTASKS: 8
-            NTASKS_PER_NODE: 8
-            PP: 1
-            DP: 8
-            FSDP: 1
-            TP: 1
-          - NODES: 1
-            GPUS_PER_NODE: 8
-            NTASKS: 8
-            NTASKS_PER_NODE: 8
-            PP: 2
-            DP: 2
-            FSDP: 2
-            TP: 2
-      fail-fast: false
-    uses: ./.github/workflows/_test_slurm_pyxis.yaml
-    secrets:
-      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
-      CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
+  test-te:
+    uses: ./.github/workflows/_test_te.yaml
     with:
-      NAME: upstream-pax-${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP
-      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-      SLURM_SCRATCH_PATH: /nfs/cluster
-      NODES: ${{ matrix.NODES }}
-      GPUS_PER_NODE: ${{ matrix.GPUS_PER_NODE }}
-      NTASKS: ${{ matrix.NTASKS }}
-      NTASKS_PER_NODE: ${{ matrix.NTASKS_PER_NODE }}
-      TIME_LIMIT: '00:15:00'
-      EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
-      IMAGE: ghcr.io/nvidia/jax:upstream-pax
-      SBATCH_SCRIPT: |
-        test-pax.sh \
-          --output /output \
-          --dtype bfloat16 \
-          --batch-per-gpu 4 \
-          --steps 500 \
-          --pipeline-parallel ${{ matrix.PP }} \
-          --data-parallel ${{ matrix.DP }} \
-          --fsdp ${{ matrix.FSDP }} \
-          --tensor-parallel ${{ matrix.TP }} \
-          --nodes ${{ matrix.NODES }} \
-          ${{ matrix.NTASKS > 1 && '--multiprocess' || '' }}
+      TE_IMAGE: ghcr.io/nvidia/jax:upstream-pax
+    secrets: inherit
+      
+  # pax-multi-node:
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         - NODES: 1
+  #           GPUS_PER_NODE: 8
+  #           NTASKS: 8
+  #           NTASKS_PER_NODE: 8
+  #           PP: 1
+  #           DP: 8
+  #           FSDP: 1
+  #           TP: 1
+  #         - NODES: 1
+  #           GPUS_PER_NODE: 8
+  #           NTASKS: 8
+  #           NTASKS_PER_NODE: 8
+  #           PP: 2
+  #           DP: 2
+  #           FSDP: 2
+  #           TP: 2
+  #     fail-fast: false
+  #   uses: ./.github/workflows/_test_slurm_pyxis.yaml
+  #   secrets:
+  #     SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  #     SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
+  #     CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
+  #   with:
+  #     NAME: upstream-pax-${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP
+  #     SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
+  #     SLURM_SCRATCH_PATH: /nfs/cluster
+  #     NODES: ${{ matrix.NODES }}
+  #     GPUS_PER_NODE: ${{ matrix.GPUS_PER_NODE }}
+  #     NTASKS: ${{ matrix.NTASKS }}
+  #     NTASKS_PER_NODE: ${{ matrix.NTASKS_PER_NODE }}
+  #     TIME_LIMIT: '00:15:00'
+  #     EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
+  #     IMAGE: ghcr.io/nvidia/jax:upstream-pax
+  #     SRUN_SCRIPT: |
+  #       test-pax.sh \
+  #         --output /output \
+  #         --dtype bfloat16 \
+  #         --batch-per-gpu 4 \
+  #         --steps 500 \
+  #         --pipeline-parallel ${{ matrix.PP }} \
+  #         --data-parallel ${{ matrix.DP }} \
+  #         --fsdp ${{ matrix.FSDP }} \
+  #         --tensor-parallel ${{ matrix.TP }} \
+  #         --nodes ${{ matrix.NODES }} \
+  #         ${{ matrix.NTASKS > 1 && '--multiprocess' || '' }}
     
