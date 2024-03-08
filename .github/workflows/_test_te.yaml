@@ -114,7 +114,7 @@ jobs:
       SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
       CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
     with:
-      NAME: te-${{ N_GPU }}GPU
+      NAME: te-${{ matrix.N_GPU }}GPU
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
       SLURM_SCRATCH_PATH: /nfs/cluster
       NODES: 1
