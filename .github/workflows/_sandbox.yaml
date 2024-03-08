@@ -20,8 +20,8 @@ jobs:
         with:
           pattern: ${{ inputs.ARTIFACT_NAME }}-*
           merge-multiple: true
-          run_id: 8207040876
-          token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 8207040876
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate sitrep
         shell: bash -x -e {0}
