@@ -38,7 +38,24 @@ jobs:
   t5x-multi-gpu:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
+        include:
+          - TEST_NAME: "1P1G"
+            N_GPU: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "1P2G"
+            N_GPU: 2
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "1P4G"
+            N_GPU: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "1P8G"
+            N_GPU: 8
+          - TEST_NAME: "1P1G_fmha"
+            N_GPU: 1
+            ADDITIONAL_ARGS: "--enable-fmha 1"
+          - TEST_NAME: "1P2G_fmha"
+            N_GPU: 2
+            ADDITIONAL_ARGS: "--enable-fmha 1"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -70,7 +87,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
@@ -114,10 +131,11 @@ jobs:
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
-              --steps-per-epoch 100
+              --steps-per-epoch 100 \
+              ${{ matrix.ADDITIONAL_ARGS }} 
           EOF
           )
-
+          
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
           . .github/workflows/scripts/wait_for_slurm_job.sh
@@ -174,8 +192,47 @@ jobs:
   t5x-multi-node:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
-        N_NODE: [1, 2]
+        include:
+          - TEST_NAME: "1G1N"
+            N_GPU: 1
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "2G1N"
+            N_GPU: 2
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "4G1N"
+            N_GPU: 4
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "8G1N"
+            N_GPU: 8
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "1G2N"
+            N_GPU: 1
+            N_NODE: 2
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "2G2N"
+            N_GPU: 2
+            N_NODE: 2
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "4G2N"
+            N_GPU: 4
+            N_NODE: 2
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "8G2N"
+            N_GPU: 8
+            N_NODE: 2
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "2G2N_fmha"
+            N_GPU: 2
+            N_NODE: 2
+            ADDITIONAL_ARGS: "--enable-fmha 1"
+          - TEST_NAME: "8G2N_fmha"
+            N_GPU: 8
+            N_NODE: 2
+            ADDITIONAL_ARGS: "--enable-fmha 1"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -207,9 +264,9 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME};
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
@@ -254,7 +311,8 @@ jobs:
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              --multiprocess
+              --multiprocess \
+              ${{ matrix.ADDITIONAL_ARGS }}
           EOF
           )
 
