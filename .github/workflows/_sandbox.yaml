@@ -21,7 +21,7 @@ jobs:
     uses: ./.github/workflows/_test_slurm_pyxis.yaml
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      SLURM_LOGIN_USER: ${{ secrets.SLURM_LOGIN_USER }}
+      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
       CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
     with:
       NAME: upstream-pax-${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP
