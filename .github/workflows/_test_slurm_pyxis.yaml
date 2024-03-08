@@ -2,6 +2,16 @@ name: ~test multi-node jobs via SLURM+Pyxis
 
 on:
   workflow_call:
+    secrets:
+      SSH_PRIVATE_KEY:
+        required: true
+        description: SSH private key for accessing the SLURM login node
+      SLURM_LOGIN_USER:
+        required: true
+        description: Username for the SLURM login node
+      CONTAINER_REGISTRY_TOKEN:
+        required: true
+        description: Token for accessing the container registry
     inputs:
       NAME:
         type: string
@@ -10,10 +20,6 @@ on:
       SLURM_LOGIN_HOSTNAME:
         type: string
         description: Hostname of the SLURM login node
-        required: true
-      SLURM_LOGIN_USER:
-        type: string
-        description: Username for the SLURM login node
         required: true
       SLURM_SCRATCH_PATH:
         type: string
@@ -108,7 +114,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias SSH='ssh ${{ inputs.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}'
+          alias SSH='ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}'
           SSH mkdir -p "${{ steps.meta.outputs.ARTIFACT_PATH }}"
           SSH "date && hostname && sinfo"
           SLURM_JOB_ID=$(SSH sbatch --parsable << EOF
@@ -119,7 +125,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ inputs.GPUS_PER_NODE }}
           #SBATCH --time=${{ inputs.TIME_LIMIT }}
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="${{ inputs.EXTRA_EXPORTS }},ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="${{ inputs.EXTRA_EXPORTS }},ENROOT_PASSWORD=${{ secrets.CONTAINER_REGISTRY_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -147,14 +153,14 @@ jobs:
         run: |
           . .github/workflows/scripts/wait_for_slurm_job.sh
 
-          wait_for_slurm_job ${{ inputs.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} ${{ steps.submit.outputs.SLURM_JOB_ID }}
+          wait_for_slurm_job ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Gather job exit info
         id: exit-info
         shell: bash -exu -o pipefail {0}
         run: |
           JOB_INFO=$(
-            ssh ${{ inputs.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
+            ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
             sacct -j ${{ steps.submit.outputs.SLURM_JOB_ID }} --format=JobID,JobName,State,Exitcode --parsable2 --noheader |\
             grep -E '^[0-9]+\|'
           )
@@ -169,14 +175,14 @@ jobs:
         if: cancelled()
         shell: bash -x -e {0}
         run: |
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
             scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Gather artifacts
         shell: bash -x -e {0}
         run: |
           function rsync-down() {
-            rsync -rtz --progress ${{ inputs.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}:$1 $2
+            rsync -rtz --progress ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}:$1 $2
           }
           mkdir output/
           rsync-down ${{ steps.meta.outputs.LOG_FILE }} output/
