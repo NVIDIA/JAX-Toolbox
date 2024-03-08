@@ -47,6 +47,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
       CONTAINER_NAME: jax
       DOCKERFILE: .github/container/Dockerfile.jax
+      RUNNER_SIZE: large
     secrets: inherit
 
   build-triton:

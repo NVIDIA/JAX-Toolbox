@@ -36,7 +36,7 @@ on:
       RUNNER_SIZE:
         type: string
         description: "Size of the runner to use"
-        required: true
+        required: false
         default: small
     outputs:
       DOCKER_TAG_MEALKIT:
