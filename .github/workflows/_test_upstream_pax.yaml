@@ -181,26 +181,32 @@ jobs:
           - TEST_NAME: 1DP1FSDP1TP1PP
             PARALLEL_CONFIG: [1, 1, 1, 1]
             BATCH_SIZE: 4
+            EVALUATE: false
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 8DP1FSDP1TP1PP
             PARALLEL_CONFIG: [1, 8, 1, 1]
             ADDITIONAL_ARGS: ""
             BATCH_SIZE: 4
+            EVALUATE: false
           - TEST_NAME: 1DP8FSDP1TP1PP
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 4
+            EVALUATE: false
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 2DP1FSDP1TP4PP
             PARALLEL_CONFIG: [4, 2, 1, 1]
             BATCH_SIZE: 4
+            EVALUATE: false
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 4DP1FSDP2TP1PP
             PARALLEL_CONFIG: [1, 4, 1, 2]
             BATCH_SIZE: 4
+            EVALUATE: false
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 16DP1FSDP1TP1PP
             PARALLEL_CONFIG: [1, 16, 1, 1]
             BATCH_SIZE: 4
+            EVALUATE: false
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 2DP1FSDP2TP4PP
             PARALLEL_CONFIG: [4, 2, 1, 2]
@@ -211,8 +217,9 @@ jobs:
           - TEST_NAME: LLaMA70B_eval
             PARALLEL_CONFIG: [1, 1, 16, 1]
             BATCH_SIZE: 2
+            EVALUATE: true
             ## note that setting 70B checkpoint here will cause other files to be written there, but I think this is okay. The checkpoint itself is unchanged
-            ADDITIONAL_ARGS: "--model-type LLaMA70B --output <TODO: PATH TO 70B CHECKPOINT>"
+            ADDITIONAL_ARGS: "--model-type LLaMA70B"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -298,7 +305,8 @@ jobs:
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
+              $([[ ${{ matrix.EVALUATE }} = true ]] && echo --evaluate)
           EOF
           )
 

@@ -164,7 +164,11 @@ pushd ${PAXML_DIR}
 cat > ci_configs.py <<EOF
 import math
 from paxml import tasks_lib, experiment_registry
-from paxml.contrib.gpu.scripts_gpu.configs import Synthetic126M, configure_gpt3_task
+from paxml.contrib.gpu.scripts_gpu.configs import (
+    BaseLLaMA,
+    Synthetic126M,
+    configure_gpt3_task
+)
 from paxml.tasks.lm.params.c4 import TransformerLmSpmdPipelineAdam
 from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
 from praxis import base_layer
@@ -286,6 +290,28 @@ class GPT126MPP(TransformerLmSpmdPipelineAdam):
     return task_p
 
 
+class LLaMA70BSynthetic(BaseLLaMA, SyntheticDataset):
+    NUM_LAYERS = 80
+    VOCAB_SIZE = 32000
+    DIMS_PER_HEAD = 128
+    NUM_HEADS = 64
+    MODEL_DIMS = 8192
+    HIDDEN_DIMS = 28672
+    USE_MQA = True
+    NUM_KV_HEADS = 8
+
+    PERCORE_BATCH_SIZE = 1
+
+    ICI_MESH_SHAPE = [1, 8, 1]
+    DCN_MESH_SHAPE = [1, 2, 1]
+
+    def task(self):
+      task_p = super().task()
+      task_p.train.always_use_train_for_model_init=False
+      task_p.model.report_strict_acc=True
+      return task_p
+
+
 if pp > 1:
   @experiment_registry.register
   class Synthetic126MCI(GPT126MPP, SyntheticDataset):
@@ -352,7 +378,7 @@ elif [[ ${MODEL_TYPE} == "5B" ]]; then
   CONFIG=paxml.contrib.gpu.scripts_gpu.configs.Synthetic5B
   ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU}"
 elif [[ ${MODEL_TYPE} == "LLaMA70B" ]]; then
-  CONFIG=paxml.contrib.gpu.scripts_gpu.configs.LLaMA70B
+  CONFIG=ci_configs.LLaMA70BSynthetic
   export TFDS_DATA_DIR=boolq
   python3 -m paxml.contrib.gpu.scripts_gpu.download_boolq.py
   ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU} --tfds_data_dir ${TFDS_DATA_DIR}"
