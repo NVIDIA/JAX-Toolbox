@@ -288,7 +288,7 @@ jobs:
           declare -a FLAVORS=(
             base
             jax
-            pallas
+            triton
             maxtext
             levanter
             upstream-t5x
