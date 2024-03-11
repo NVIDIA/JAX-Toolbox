@@ -1,4 +1,4 @@
-name: "~Sandbox"
+name: JAX release test workflow
 
 on:
   workflow_dispatch:
@@ -7,12 +7,12 @@ on:
         type: string
         description: "JAX image to run tests on"
         required: true
-        default: " ${{ inputs.JAX_IMAGE }}"
+        default: "ghcr.io/nvidia/jax:jax"
       PAX_IMAGE:
         type: string
         description: "Rosetta Pax image to run tests on"
         required: true
-        default: " ghcr.io/nvidia/jax:pax"
+        default: "ghcr.io/nvidia/jax:pax"
 
 permissions:
   contents: read  # to fetch code
