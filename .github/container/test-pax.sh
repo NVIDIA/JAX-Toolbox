@@ -290,8 +290,9 @@ class GPT126MPP(TransformerLmSpmdPipelineAdam):
     return task_p
 
 
-class LLaMA70BSynthetic(BaseLLaMA, SyntheticDataset):
-    NUM_LAYERS = 80
+### 1/20 of 70B model
+class LLaMA70BSyntheticSmall(BaseLLaMA, SyntheticDataset):
+    NUM_LAYERS = 4
     VOCAB_SIZE = 32000
     DIMS_PER_HEAD = 128
     NUM_HEADS = 64
@@ -300,10 +301,10 @@ class LLaMA70BSynthetic(BaseLLaMA, SyntheticDataset):
     USE_MQA = True
     NUM_KV_HEADS = 8
 
-    PERCORE_BATCH_SIZE = 1
+    PERCORE_BATCH_SIZE = 4
 
     ICI_MESH_SHAPE = [1, 8, 1]
-    DCN_MESH_SHAPE = [1, 2, 1]
+    DCN_MESH_SHAPE = [1, 1, 1]
 
     def task(self):
       task_p = super().task()
