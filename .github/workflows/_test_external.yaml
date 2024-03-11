@@ -1,6 +1,7 @@
-name: JAX release test workflow
+name: ~JAX release test workflow
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       JAX_IMAGE: 
