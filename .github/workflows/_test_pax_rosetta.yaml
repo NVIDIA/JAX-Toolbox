@@ -1041,7 +1041,7 @@ jobs:
             METRIC_PATH=${JOB_NAME}_metrics.json
             python3 .github/workflows/baselines/summarize_metrics.py $i/$JOB_NAME --output_json_path $METRIC_PATH
             # Test script expects the job dir and the log to be in the CWD
-            mv $i/$JOB_NAME $i/${JOB_NAME}.log .
+            mv $i/$JOB_NAME $i/${JOB_NAME}.log $i/${JOB_NAME}/*-status.json .
           done
 
           RESULTS_DIR=$PWD BASELINES_DIR=PAX_MGMN/rosetta pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
