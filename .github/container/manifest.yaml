@@ -35,21 +35,19 @@ paxml:
   url: https://github.com/google/paxml.git
   mirror_url: https://github.com/nvjax-svc-0/paxml.git
   tracking_ref: main
-  latest_verified_commit: e5bebb78635d042b1212703d3a31d81ca61ca2fa
+  latest_verified_commit: 686d574d87bd59a365e0ce8e5f2175afb4aacea1
   mode: git-clone
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
-    pull/68/head: file://patches/paxml/PR-68.patch # adds LLaMA configs
 praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
   tracking_ref: main
-  latest_verified_commit: 1358698fad63deb8306ef007331f1811776ad08f
+  latest_verified_commit: c4271181833d540ea22b1e3875e2bd54951763e9
   mode: git-clone
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
     pull/36/head: file://patches/praxis/PR-36.patch # adds Transformer Engine support
-    pull/50/head: file://patches/praxis/PR-50.patch # adds BoolQ eval support
 lingvo:
   # Used only in ARM pax builds
   url: https://github.com/tensorflow/lingvo.git
@@ -106,7 +104,7 @@ seqio:
 openxla-triton:
   url: https://github.com/openxla/triton.git
   tracking_ref: llvm-head
-  latest_verified_commit: 3764c21d906d497256507bc25fa4135bb472cc13
+  latest_verified_commit: cl608559313
   mode: git-clone
 jax-triton:
   url: https://github.com/jax-ml/jax-triton.git
