@@ -3,10 +3,6 @@ name: ~test, unit
 on:
   workflow_call:
     inputs:
-      IMAGE:
-        type: string
-        description: 'Test image built by NVIDIA/JAX-Toolbox'
-        required: true
       TEST_NAME:
         type: string
         description: 'Library to run unit tests on SLURM for'
