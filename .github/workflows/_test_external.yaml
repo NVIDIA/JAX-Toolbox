@@ -15,6 +15,10 @@ on:
         required: true
         default: "ghcr.io/nvidia/jax:pax"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
