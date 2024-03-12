@@ -50,16 +50,16 @@ jobs:
       CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
     with:
       NAME: upstream-pax-${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP_single_process
-      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.N_GPU }}GPU
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-      SLURM_SCRATCH_PATH: /nfs/cluster
+      OUTPUT_BASEDIR: /nfs/cluster
+      OUTPUT_MOUNTPOINT: /output
       NODES: 1
       GPUS_PER_NODE: 8
       NTASKS: 1
       NTASKS_PER_NODE: 1
       TIME_LIMIT: '00:10:00'
       EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
-      IMAGE: ghcr.io/nvidia/jax:upstream-pax
+      IMAGE: ${{ inputs.PAX_IMAGE }}
       SRUN_PREAMBLE: |
         nvidia-smi
       SRUN_SCRIPT: |
