@@ -1,137 +1,41 @@
 name: "~Sandbox"
 
 on:
-  push:
+  workflow_dispatch:
 
 jobs:
+  sandbox:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  # dummy:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Print environment variables
-  #       run: env
+      - name: Print usage
+        run: |
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
 
-  # sitrep:
-  #   if: success() || failure()
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     ARTIFACT_NAME_FULL: artifact-te-multigpu-summary
-  #     BADGE_FILENAME_FULL: badge-te-multigpu-summary.json
-  #   steps:
-  #     - name: Check out the repository under ${GITHUB_WORKSPACE}
-  #       uses: actions/checkout@v4
-
-  #     - name: Download artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         pattern: artifact-te-*
-  #         merge-multiple: true
-  #         run-id: 8207040876
-  #         github-token: ${{ secrets.GITHUB_TOKEN }}
-
-  #     - name: Generate sitrep
-  #       shell: bash -x -e {0}
-  #       run: |
-  #         # bring in utility functions
-  #         source .github/workflows/scripts/to_json.sh
-
-  #         test_outcome_files=$(find -name pytest.jsonl)
-
-  #         badge_label='TE Multi GPU tests'
-  #         passed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)
-  #         failed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "failed") | .outcome' | wc -l)
-  #         total_tests=$((failed_tests + passed_tests))
+          Usage:
           
-  #         if [[ ${total_tests} == 0 ]]; then
-  #           badge_message='error'
-  #           badge_color=red
-  #           summary='TE multi GPU tests did not complete due to errors.'
-  #         else
-  #           badge_message="${passed_tests}/${total_tests} passed"
-  #           if [[ ${failed_tests} == 0 ]]; then
-  #             badge_color=brightgreen
-  #           else
-  #             badge_color=yellow
-  #           fi
-  #           summary="TE multi GPU tests : $badge_message"
-  #         fi
-
-  #         run_id=${{ github.run_id }} \
-  #         to_json \
-  #           run_id \
-  #           summary \
-  #           total_tests passed_tests failed_tests \
-  #           badge_label badge_color badge_message \
-  #         > sitrep.json
-
-  #         schemaVersion=1 \
-  #         label="${badge_label}" \
-  #         message="${badge_message}" \
-  #         color="${badge_color}" \
-  #         to_json schemaVersion label message color \
-  #         > ${{ env.BADGE_FILENAME_FULL }}
-          
-  #     - name: Upload training logs as artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: ${{ env.ARTIFACT_NAME_FULL }}
-  #         path: |
-  #           sitrep.json
-  #           ${{ env.BADGE_FILENAME_FULL }}
-
-  test-te:
-    uses: ./.github/workflows/_test_te.yaml
-    with:
-      TE_IMAGE: ghcr.io/nvidia/jax:upstream-pax
-    secrets: inherit
-      
-  # pax-multi-node:
-  #   strategy:
-  #     matrix:
-  #       include:
-  #         - NODES: 1
-  #           GPUS_PER_NODE: 8
-  #           NTASKS: 8
-  #           NTASKS_PER_NODE: 8
-  #           PP: 1
-  #           DP: 8
-  #           FSDP: 1
-  #           TP: 1
-  #         - NODES: 1
-  #           GPUS_PER_NODE: 8
-  #           NTASKS: 8
-  #           NTASKS_PER_NODE: 8
-  #           PP: 2
-  #           DP: 2
-  #           FSDP: 2
-  #           TP: 2
-  #     fail-fast: false
-  #   uses: ./.github/workflows/_test_slurm_pyxis.yaml
-  #   secrets:
-  #     SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-  #     SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
-  #     CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
-  #   with:
-  #     NAME: upstream-pax-${{ matrix.DP }}DP${{ matrix.FSDP }}FSDP${{ matrix.TP }}TP${{ matrix.PP }}PP
-  #     SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-  #     SLURM_SCRATCH_PATH: /nfs/cluster
-  #     NODES: ${{ matrix.NODES }}
-  #     GPUS_PER_NODE: ${{ matrix.GPUS_PER_NODE }}
-  #     NTASKS: ${{ matrix.NTASKS }}
-  #     NTASKS_PER_NODE: ${{ matrix.NTASKS_PER_NODE }}
-  #     TIME_LIMIT: '00:15:00'
-  #     EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
-  #     IMAGE: ghcr.io/nvidia/jax:upstream-pax
-  #     SRUN_SCRIPT: |
-  #       test-pax.sh \
-  #         --output /output \
-  #         --dtype bfloat16 \
-  #         --batch-per-gpu 4 \
-  #         --steps 500 \
-  #         --pipeline-parallel ${{ matrix.PP }} \
-  #         --data-parallel ${{ matrix.DP }} \
-  #         --fsdp ${{ matrix.FSDP }} \
-  #         --tensor-parallel ${{ matrix.TP }} \
-  #         --nodes ${{ matrix.NODES }} \
-  #         ${{ matrix.NTASKS > 1 && '--multiprocess' || '' }}
-    
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
