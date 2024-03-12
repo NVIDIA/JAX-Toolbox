@@ -8,23 +8,18 @@ on:
         description: 'JAX+TE+PAXML image'
         required: true
         default: 'ghcr.io/nvidia/upstream-pax:latest'
-      ARTIFACT_NAME:
+      ARTIFACT_PREFIX:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'artifact-te'
-      BADGE_FILENAME:
-        type: string
-        description: 'Name of the endpoint JSON file for shields.io badge'
-        required: false
-        default: 'badge-te'
+        default: 'te'
 
 jobs:
   te-unit-tests:
     runs-on: [self-hosted, V100]
     env:
-      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME }}-unit-test
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-unit-test.json
+      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_PREFIX }}-unit-test
+      BADGE_FILENAME_FULL: badge-${{ inputs.ARTIFACT_PREFIX }}-unit-test.json
     steps:
       - name: Print environment variables
         run: env
@@ -52,7 +47,7 @@ jobs:
         shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log te:local bash -x /cmd.sh
         run: |
           pip install pytest-reportlog
-          pytest --report-log=/log/report.jsonl ${SRC_PATH_TE}/tests/jax
+          pytest --report-log=/log/pytest-report.jsonl ${SRC_PATH_TE}/tests/jax
 
       - name: Generate sitrep
         if: success() || failure()
@@ -62,8 +57,8 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           badge_label='TE Unit test'
-          failed_tests=$(cat /log/report.jsonl | grep -c 'failed' || true)
-          passed_tests=$(cat /log/report.jsonl | grep -c 'passed' || true)
+          failed_tests=$(cat /log/pytest-report.jsonl | grep -c 'failed' || true)
+          passed_tests=$(cat /log/pytest-report.jsonl | grep -c 'passed' || true)
           total_tests=$((failed_tests + passed_tests))
           
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
@@ -99,7 +94,7 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME_FULL }}
           path: |
-            /log/report.jsonl
+            /log/pytest-report.jsonl
             sitrep.json
             ${{ env.BADGE_FILENAME_FULL }}
 
@@ -114,10 +109,10 @@ jobs:
       SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
       CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
     with:
-      NAME: te-${{ matrix.N_GPU }}GPU
-      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.N_GPU }}GPU
+      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-      SLURM_SCRATCH_PATH: /nfs/cluster
+      OUTPUT_BASEDIR: /nfs/cluster
+      OUTPUT_MOUNTPOINT: /output
       NODES: 1
       GPUS_PER_NODE: ${{ matrix.N_GPU }}
       NTASKS: 1
@@ -135,7 +130,7 @@ jobs:
       SRUN_SCRIPT: |
         set -ex
         cd ${SRC_PATH_TE}/examples/jax/encoder
-        pytest --report-log=/output/pytest.jsonl \
+        pytest --report-log=/output/pytest-report.jsonl \
           test_single_gpu_encoder.py \
           test_multigpu_encoder.py \
           test_model_parallel_encoder.py
@@ -145,8 +140,8 @@ jobs:
     if: success() || failure()
     runs-on: ubuntu-latest
     env:
-      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME }}-multigpu-test
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-multigpu-test.json
+      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_PREFIX }}-multigpu-test
+      BADGE_FILENAME_FULL: badge-${{ inputs.ARTIFACT_PREFIX }}-multigpu-test.json
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
@@ -154,7 +149,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: ${{ inputs.ARTIFACT_NAME }}-*
+          pattern: ${{ inputs.ARTIFACT_PREFIX }}-*
           merge-multiple: true
 
       - name: Generate sitrep
@@ -163,7 +158,7 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          test_outcome_files=$(find -name pytest.jsonl)
+          test_outcome_files=$(find -name pytest-report.jsonl)
 
           badge_label='TE Multi GPU tests'
           passed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)

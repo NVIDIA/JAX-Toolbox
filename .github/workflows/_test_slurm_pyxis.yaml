@@ -15,20 +15,19 @@ on:
     inputs:
       NAME:
         type: string
-        description: Name of the test case
+        description: Name of the test case and output artifact tarball
         required: true
-      ARTIFACT_NAME:
-        type: string
-        description: Name of the artifact zip file
-        required: false
-        default: ''
       SLURM_LOGIN_HOSTNAME:
         type: string
         description: Hostname of the SLURM login node
         required: true
-      SLURM_SCRATCH_PATH:
+      OUTPUT_BASEDIR:
         type: string
-        description: Path to the scratch directory on the SLURM cluster
+        description: Base directory for the SLURM scratch space
+        required: true
+      OUTPUT_MOUNTPOINT:
+        type: string
+        description: Mountpoint for the SLURM scratch space in the enroot container
         required: true
       NODES:
         type: number
@@ -114,9 +113,9 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.IMAGE}} | sed 's/\//#/')"
-          ARTIFACT_PATH=${{ inputs.SLURM_SCRATCH_PATH }}/${{ github.run_id }}/${{ inputs.NAME }}
-          LOG_FILE=${{ inputs.SLURM_SCRATCH_PATH }}/${{ github.run_id }}/${{ inputs.NAME }}.log
-          for var in IMAGE LOG_FILE ARTIFACT_PATH; do
+          OUTPUT_PATH=${{ inputs.OUTPUT_BASEDIR }}/${{ github.run_id }}/${{ inputs.NAME }}
+          LOG_FILE=${{ inputs.OUTPUT_BASEDIR }}/${{ github.run_id }}/${{ inputs.NAME }}.log
+          for var in IMAGE LOG_FILE OUTPUT_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
           
@@ -125,7 +124,7 @@ jobs:
         shell: bash -O expand_aliases -x -e {0}
         run: |
           alias SSH='ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}'
-          SSH mkdir -p "${{ steps.meta.outputs.ARTIFACT_PATH }}"
+          SSH mkdir -p ${{ steps.meta.outputs.OUTPUT_PATH }}
           SLURM_JOB_ID=$(SSH sbatch --parsable <<"EOF"
           #!/bin/bash
           #SBATCH --job-name=${{ github.run_id }}-${{ inputs.NAME }}
@@ -156,7 +155,7 @@ jobs:
             --tasks=${{ inputs.NTASKS }} \
             --tasks-per-node=${{ inputs.NTASKS_PER_NODE }} \
             --container-name=runtime \
-            --container-mounts=${{ steps.meta.outputs.ARTIFACT_PATH }}:/output \
+            --container-mounts=${{ steps.meta.outputs.OUTPUT_PATH }}:${{ inputs.OUTPUT_MOUNTPOINT }} \
             --container-entrypoint \
             bash <<"EOFINNER"
             ${{ inputs.SRUN_SCRIPT }}
@@ -215,10 +214,10 @@ jobs:
           function rsync-down() {
             rsync -rtz --progress ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}:$1 $2
           }
-          mkdir output/
-          rsync-down ${{ steps.meta.outputs.LOG_FILE }} output/
-          mkdir output/artifacts
-          rsync-down ${{ steps.meta.outputs.ARTIFACT_PATH }}/* output/artifacts/
+          mkdir -p artifacts/
+          rsync-down ${{ steps.meta.outputs.LOG_FILE }} artifacts/
+          mkdir -p artifacts/output
+          rsync-down ${{ steps.meta.outputs.OUTPUT_PATH }}/* artifacts/output/
 
       - name: Write sitrep status
         if: "!cancelled()"
@@ -237,11 +236,11 @@ jobs:
         if: "!cancelled()"
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.ARTIFACT_NAME || format('artifact-{0}', inputs.NAME) }}
-          path: output/*
+          name: ${{ inputs.NAME }}
+          path: artifacts/*
 
-      - name: Remove orphaned SLURM job if the CI job is canceled
-        if: cancelled()
+      - name: Remove orphaned SLURM job if the CI job is cancelled or finished
+        if: always() && steps.exit-info.outputs.SLURM_EXITCODE != 0
         shell: bash -x -e {0}
         run: |
           ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
