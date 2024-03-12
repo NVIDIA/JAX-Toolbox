@@ -121,12 +121,12 @@ maxtext:
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
   tracking_ref: main
-  latest_verified_commit: 94a432e7999ae016645bc72e9dda55e724d0f834
+  latest_verified_commit: cde114d1629c7224167d2cfc300d94406f12cefd
   mode: git-clone
 haliax:
   url: https://github.com/stanford-crfm/haliax.git
   tracking_ref: dev
-  latest_verified_commit: bc53d372b62111fb23d8d657421a7bab3c21d1f0
+  latest_verified_commit: 74e024eb4efed73fa41df7b1cf6f555ed11ad0f6
   mode: git-clone
 mujoco:
   url: https://github.com/google-deepmind/mujoco.git
