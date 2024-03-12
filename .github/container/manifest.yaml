@@ -125,8 +125,8 @@ levanter:
   mode: git-clone
 haliax:
   url: https://github.com/stanford-crfm/haliax.git
-  tracking_ref: main
-  latest_verified_commit: 690623131e107972ec2ec67d6183c77649d4b7e0
+  tracking_ref: dev
+  latest_verified_commit: bc53d372b62111fb23d8d657421a7bab3c21d1f0
   mode: git-clone
 mujoco:
   url: https://github.com/google-deepmind/mujoco.git
