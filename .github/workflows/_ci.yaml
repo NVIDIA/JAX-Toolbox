@@ -45,18 +45,18 @@ jobs:
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
-  build-pallas:
+  build-triton:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-pallas-build
-      BADGE_FILENAME: badge-pallas-build
+      ARTIFACT_NAME: artifact-triton-build
+      BADGE_FILENAME: badge-triton-build
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: pallas
-      DOCKERFILE: .github/container/Dockerfile.pallas
+      CONTAINER_NAME: triton
+      DOCKERFILE: .github/container/Dockerfile.triton
     secrets: inherit
 
   build-equinox:
@@ -151,7 +151,7 @@ jobs:
     needs:
       - build-base
       - build-jax
-      - build-pallas
+      - build-triton
       - build-maxtext
       - build-levanter
       - build-upstream-t5x
@@ -168,7 +168,7 @@ jobs:
           [\
             {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
             {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "pallas",       "stage": "final",   "priority": 900,  "tag": "${{ needs.build-pallas.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "triton",       "stage": "final",   "priority": 900,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "levanter",     "stage": "final",   "priority": 900,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}"},\
@@ -176,7 +176,7 @@ jobs:
             {"flavor": "t5x",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "pax",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "pallas",       "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-pallas.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "triton",       "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "levanter",     "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
@@ -285,13 +285,13 @@ jobs:
 
   test-pallas:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    if: inputs.ARCHITECTURE == 'amd64' # triton doesn't support arm64(?)
     uses: ./.github/workflows/_test_unit.yaml
     with:
       IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: pallas
       EXECUTE: |
-        docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml | tee test-pallas.log
+        docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml |& tee test-pallas.log
       STATISTICS_SCRIPT: |
         curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
         total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
@@ -304,6 +304,29 @@ jobs:
         echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
       ARTIFACTS: |
         test-pallas.log
+    secrets: inherit
+
+  test-triton:
+    needs: build-triton
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      IMAGE: ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }}
+      TEST_NAME: triton
+      EXECUTE: |
+        docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml |& tee test-triton.log
+      STATISTICS_SCRIPT: |
+        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
+        total_tests=$(./yq '.testsuites."+@tests"' triton_test.xml)
+        errors=$(./yq '.testsuites."+@errors"' triton_test.xml)
+        failed_tests=$(./yq '.testsuites."+@failures"' triton_test.xml)
+        passed_tests=$((total_tests - errors - failed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-triton.log
     secrets: inherit
 
   test-levanter:
@@ -346,7 +369,7 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
-  
+
   test-maxtext:
     needs: build-maxtext
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
