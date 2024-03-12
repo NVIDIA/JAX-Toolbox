@@ -203,11 +203,10 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: jax
       EXECUTE: |
-        docker run --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} test-jax.sh -b backend-independent | tee test-backend-independent.log
-        docker run --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} test-jax.sh -b gpu | tee test-gpu.log
+        docker run --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} test-jax.sh -b backend-independent |& tee test-backend-independent.log
+        docker run --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} test-jax.sh -b gpu |& tee test-gpu.log
       STATISTICS_SCRIPT: |
         errors=$(cat test-*.log | grep -c 'ERROR:' || true)
         failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
@@ -222,7 +221,7 @@ jobs:
         test-gpu.log
     secrets: inherit
 
-  test-te:
+  test-te-multigpu:
     needs: build-upstream-pax
     if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_te.yaml
@@ -251,7 +250,6 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64' # triton doesn't support arm64(?)
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: pallas
       EXECUTE: |
         docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml |& tee test-pallas.log
@@ -274,7 +272,6 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      IMAGE: ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: triton
       EXECUTE: |
         docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml |& tee test-triton.log
@@ -297,12 +294,11 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      IMAGE: ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: levanter
       EXECUTE: |
         docker run --gpus all --shm-size=1g ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
         bash -ec \
-        "pip install pytest && PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests" | tee test-levanter.log
+        "pip install pytest && PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests" |& tee test-levanter.log
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-levanter.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
@@ -315,6 +311,31 @@ jobs:
         echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
       ARTIFACTS: |
         test-levanter.log
+    secrets: inherit
+
+  test-te:
+    needs: build-upstream-pax
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: te
+      EXECUTE: |
+        docker run --gpus all --shm-size=1g ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} -v $PWD:/log \
+        bash -ec \
+        "pip install pytest-reportlog && pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TE}/tests/jax" |& tee test-te.log
+      STATISTICS_SCRIPT: |
+        summary_line=$(tail -n1 test-te.log)
+        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)
+        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "failed") | .outcome' | wc -l)          
+        total_tests=$((failed_tests + passed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-te.log
+        pytest-report.jsonl
     secrets: inherit
 
   test-upstream-pax:

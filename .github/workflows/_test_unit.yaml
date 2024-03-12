@@ -13,7 +13,7 @@ on:
         required: true
       EXECUTE:
         type: string
-        description: 'Test command to run'
+        description: 'Test command to run in the container'
         required: false
       STATISTICS_SCRIPT:
         type: string
@@ -68,14 +68,8 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull test image
-        shell: bash -x -e {0}
-        run: |
-          docker pull ${{ inputs.IMAGE }}
-
       - name: Run tests
         shell: bash -x -e {0}
-        # todo: distinguish between test failures and errors
         continue-on-error: true
         run: |
           ${{ inputs.EXECUTE }}
@@ -87,34 +81,47 @@ jobs:
         run: |
           ${{ inputs.STATISTICS_SCRIPT }}
 
-      - name: Generate sitrep
+      - name: Summarize test statistics
+        id: summary
         shell: bash -x -e {0}
-        continue-on-error: ${{ github.event_name == 'schedule' }}
         run: |
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
-
-          badge_label='${{ inputs.TEST_NAME }} ${{ matrix.GPU_ARCH }} Unit'
 
           total_tests=${{ steps.test-stats.outputs.TOTAL_TESTS }}
           errors=${{ steps.test-stats.outputs.ERRORS }}
           failed_tests=${{ steps.test-stats.outputs.FAILED_TESTS }}
           passed_tests=${{ steps.test-stats.outputs.PASSED_TESTS }}
-          
+
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
-            badge_message='error'
-            badge_color=red
-            summary='${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
+            echo "badge_color='red'" >> $GITHUB_OUTPUT
+            echo "badge_message='error'" >> $GITHUB_OUTPUT
+            echo "summary='${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'" >> $GITHUB_OUTPUT
+            exit 1
           else
-            badge_message="${passed_tests}/${total_tests} passed"
             if [[ ${failed_tests} == 0 ]]; then
-              badge_color=brightgreen
+              echo "badge_color='brightgreen'" >> $GITHUB_OUTPUT
             else
-              badge_color=yellow
+              echo "badge_color='yellow'" >> $GITHUB_OUTPUT
             fi
-            summary="${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
+            echo "badge_message='${passed_tests}/${total_tests} passed'" >> $GITHUB_OUTPUT
+            echo "summary='${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: ${total_tests} total tests, ${error} errors, ${passed_tests} passed, ${failed_tests} failed.'" >> $GITHUB_OUTPUT
           fi
 
+      - name: Generate sitrep
+        id: sitrep
+        if: "!cancelled()"
+        shell: bash -x -e {0}
+        run: |
+          badge_label='${{ inputs.TEST_NAME }} ${{ matrix.GPU_ARCH }} Unit'
+
+          total_tests=${{ steps.test-stats.outputs.TOTAL_TESTS }} \
+          errors=${{ steps.test-stats.outputs.ERRORS }} \
+          failed_tests=${{ steps.test-stats.outputs.FAILED_TESTS }} \
+          passed_tests=${{ steps.test-stats.outputs.PASSED_TESTS }} \
+          summary="${{ steps.summary.outputs.summary }}" \
+          badge_message="${{ steps.summary.outputs.badge_message }}" \
+          badge_color="${{ steps.summary.outputs.badge_color }}" \
           to_json \
             summary \
             errors total_tests passed_tests failed_tests \
@@ -123,12 +130,13 @@ jobs:
 
           schemaVersion=1 \
           label="${badge_label}" \
-          message="${badge_message}" \
-          color="${badge_color}" \
+          message="${{ steps.summary.outputs.badge_message }}" \
+          color="${{ steps.summary.outputs.badge_color }}" \
           to_json schemaVersion label message color \
           > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload artifacts
+        if: "!cancelled()"
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME_FULL }}
