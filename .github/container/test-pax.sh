@@ -380,7 +380,7 @@ elif [[ ${MODEL_TYPE} == "5B" ]]; then
   ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU}"
 elif [[ ${MODEL_TYPE} == "LLaMA70B" ]]; then
   CONFIG=ci_configs.LLaMA70BSyntheticSmall
-  ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU} --tfds_data_dir ${TFDS_DATA_DIR}"
+  ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU}"
 else
   echo "Unsupported model ${MODEL_TYPE}"
   exit 1

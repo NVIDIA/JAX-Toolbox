@@ -211,7 +211,6 @@ jobs:
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 4
             EVALUATE: true
-            ## note that setting 70B checkpoint here will cause other files to be written there, but I think this is okay. The checkpoint itself is unchanged
             ADDITIONAL_ARGS: "--model-type LLaMA70B --evaluate"
       fail-fast: false
 
