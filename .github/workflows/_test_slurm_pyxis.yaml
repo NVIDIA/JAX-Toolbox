@@ -230,7 +230,7 @@ jobs:
           slurm_state=${{ steps.exit-info.outputs.SLURM_STATE }} \
           slurm_exitcode=${{ steps.exit-info.outputs.SLURM_EXITCODE }} \
           to_json run_id slurm_job_id slurm_state slurm_exitcode \
-          > output/sitrep.json
+          > artifacts/sitrep.json
 
       - name: Upload training logs as artifacts
         if: "!cancelled()"
