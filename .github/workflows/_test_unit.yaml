@@ -81,9 +81,6 @@ jobs:
         id: summary
         shell: bash -x -e {0}
         run: |
-          # bring in utility functions
-          source .github/workflows/scripts/to_json.sh
-
           total_tests=${{ steps.test-stats.outputs.TOTAL_TESTS }}
           errors=${{ steps.test-stats.outputs.ERRORS }}
           failed_tests=${{ steps.test-stats.outputs.FAILED_TESTS }}
@@ -109,6 +106,9 @@ jobs:
         if: "!cancelled()"
         shell: bash -x -e {0}
         run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
           badge_label='${{ inputs.TEST_NAME }} ${{ matrix.GPU_ARCH }} Unit'
 
           total_tests=${{ steps.test-stats.outputs.TOTAL_TESTS }} \
