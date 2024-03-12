@@ -402,6 +402,7 @@ jobs:
           path: |
             report.jsonl
             *_metrics.json
+            *-status.json
 
 
   sitrep:

@@ -363,6 +363,7 @@ jobs:
           path: |
             report.jsonl
             *_metrics.json
+            *-status.json
 
   sitrep:
     needs: [single-process-multi-device, maxtext-multinode, metrics]
