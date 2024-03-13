@@ -205,8 +205,16 @@ jobs:
     with:
       TEST_NAME: jax
       EXECUTE: |
-        docker run --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} test-jax.sh -b backend-independent |& tee test-backend-independent.log
-        docker run --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} test-jax.sh -b gpu |& tee test-gpu.log
+        docker run -i --shm-size=1g --gpus all \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-backend-independent.log
+          test-jax.sh -b backend-independent 
+        EOF
+        docker run -i --shm-size=1g --gpus all \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee tee test-gpu.log
+          test-jax.sh -b gpu
+        EOF
       STATISTICS_SCRIPT: |
         errors=$(cat test-*.log | grep -c 'ERROR:' || true)
         failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
@@ -252,7 +260,11 @@ jobs:
     with:
       TEST_NAME: pallas
       EXECUTE: |
-        docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml |& tee test-pallas.log
+        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-pallas.log
+          python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml
+        EOF
       STATISTICS_SCRIPT: |
         curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
         total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
@@ -274,7 +286,11 @@ jobs:
     with:
       TEST_NAME: triton
       EXECUTE: |
-        docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml |& tee test-triton.log
+        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
+        ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-triton.log
+          python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
+        EOF
       STATISTICS_SCRIPT: |
         curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
         total_tests=$(./yq '.testsuites."+@tests"' triton_test.xml)
@@ -296,9 +312,12 @@ jobs:
     with:
       TEST_NAME: levanter
       EXECUTE: |
-        docker run --gpus all --shm-size=1g ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
-        bash -ec \
-        "pip install pytest && PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests" |& tee test-levanter.log
+        docker run -i --gpus all --shm-size=1g \
+        ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-levanter.log
+          pip install pytest
+          PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests
+        EOF
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-levanter.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
@@ -320,9 +339,12 @@ jobs:
     with:
       TEST_NAME: te
       EXECUTE: |
-        docker run --gpus all --shm-size=1g ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} -v $PWD:/log \
-        bash -ec \
-        "pip install pytest-reportlog && pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TE}/tests/jax" |& tee test-te.log
+        docker run -i --gpus all --shm-size=1g -v $PWD:/log \
+        ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-te.log
+          pip install pytest-reportlog
+          pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TE}/tests/jax
+        EOF
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-te.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
