@@ -98,7 +98,7 @@ jobs:
               echo "badge_color='yellow'" >> $GITHUB_OUTPUT
             fi
             echo "badge_message='${passed_tests}/${total_tests} passed'" >> $GITHUB_OUTPUT
-            echo "summary='${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: ${total_tests} total tests, ${error} errors, ${passed_tests} passed, ${failed_tests} failed.'" >> $GITHUB_OUTPUT
+            echo "summary='${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: ${total_tests} total tests, ${errors} errors, ${passed_tests} passed, ${failed_tests} failed.'" >> $GITHUB_OUTPUT
           fi
 
       - name: Generate sitrep
