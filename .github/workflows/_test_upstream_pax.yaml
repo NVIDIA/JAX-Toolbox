@@ -205,8 +205,6 @@ jobs:
           - TEST_NAME: 2DP1FSDP2TP4PP
             PARALLEL_CONFIG: [4, 2, 1, 2]
             BATCH_SIZE: 4
-          ## TODO: make sure this fits on 40G once we
-          ## fix existing OOM issue
           - TEST_NAME: LLaMA70B_eval
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 4
