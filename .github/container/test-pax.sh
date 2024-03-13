@@ -18,7 +18,7 @@ usage() {
     echo "  --enable-te                If set, will run with env var ENABLE_TE=1." 
     echo "  --enable-dropout           If set, will set DROPOUT_PROB to 0.1."
     echo "  --enable-fused-attn        Whether to test fused attention through TE."
-    echo "  --model-type               One of 126M, 5B, LLaMA70B, defaults to 126M"
+    echo "  --model-type               One of 126M, 5B, LLaMA70BProxy. Defaults to 126M"
     echo "  --evaluate                 Whether to test evaluation rather than training."
     echo "  -s, --steps                Number of steps to run, defaults to 500."
     echo "  --multiprocess             Enable the multiprocess GPU mode."
@@ -378,7 +378,7 @@ if [[ ${MODEL_TYPE} == "126M" ]]; then
 elif [[ ${MODEL_TYPE} == "5B" ]]; then
   CONFIG=paxml.contrib.gpu.scripts_gpu.configs.Synthetic5B
   ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU}"
-elif [[ ${MODEL_TYPE} == "LLaMA70B" ]]; then
+elif [[ ${MODEL_TYPE} == "LLaMA70BProxy" ]]; then
   CONFIG=ci_configs.LLaMA70BSyntheticSmall
   ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU}"
 else

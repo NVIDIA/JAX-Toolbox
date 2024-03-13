@@ -253,11 +253,11 @@ jobs:
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 2
             ADDITIONAL_ARGS: "--model-type 5B"
-          - TEST_NAME: LLaMA70B_eval_TE
+          - TEST_NAME: LLaMA_eval_TE
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 4
             EVALUATE: true
-            ADDITIONAL_ARGS: "--model-type LLaMA70B --evaluate"
+            ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
       fail-fast: false
 
     runs-on: ubuntu-22.04
