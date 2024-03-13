@@ -1,0 +1,247 @@
+name: ~test multi-node jobs via SLURM+Pyxis
+
+on:
+  workflow_call:
+    secrets:
+      SSH_PRIVATE_KEY:
+        required: true
+        description: SSH private key for accessing the SLURM login node
+      SLURM_LOGIN_USER:
+        required: true
+        description: Username for the SLURM login node
+      CONTAINER_REGISTRY_TOKEN:
+        required: true
+        description: Token for accessing the container registry
+    inputs:
+      NAME:
+        type: string
+        description: Name of the test case and output artifact tarball
+        required: true
+      SLURM_LOGIN_HOSTNAME:
+        type: string
+        description: Hostname of the SLURM login node
+        required: true
+      OUTPUT_BASEDIR:
+        type: string
+        description: Base directory for the SLURM scratch space
+        required: true
+      OUTPUT_MOUNTPOINT:
+        type: string
+        description: Mountpoint for the SLURM scratch space in the enroot container
+        required: true
+      NODES:
+        type: number
+        description: Number of nodes to request
+        required: true
+      GPUS_PER_NODE:
+        type: number
+        description: Number of GPUs per node to request
+        required: true
+      NTASKS:
+        type: number
+        description: Number of tasks to run
+        required: true
+      NTASKS_PER_NODE:
+        type: number
+        description: Number of tasks per node to run
+        required: true
+      TIME_LIMIT:
+        type: string
+        description: Time limit for the job
+        required: true
+      EXTRA_EXPORTS:
+        type: string
+        description: Comma-separated list of extra environment variables to export to the SLURM job
+        required: false
+      IMAGE:
+        type: string
+        description: Image from ghcr.io/nvidia
+        required: true
+      SRUN_PREAMBLE:
+        type: string
+        description: Content of the script to be run on the compute nodes in the enroot container using a single task before the main script
+        required: false
+        default: 'true'
+      SRUN_SCRIPT:
+        type: string
+        description: Content of the script to be run on the compute nodes in the enroot container
+        required: true
+    outputs:
+      SLURM_JOB_ID:
+        description: ID of the SLURM job
+        value: ${{ jobs.run-test.outputs.SLURM_JOB_ID }}
+      SLURM_STATE:
+        description: State of the SLURM job
+        value: ${{ jobs.run-test.outputs.SLURM_STATE }}
+      SLURM_EXITCODE:
+        description: Exit code of the SLURM job
+        value: ${{ jobs.run-test.outputs.SLURM_EXITCODE }}
+
+jobs:
+
+  run-test:
+    name: ${{ inputs.NAME }}
+    runs-on: ubuntu-22.04
+    outputs:
+      SLURM_JOB_ID: ${{ steps.submit.outputs.SLURM_JOB_ID }}
+      SLURM_STATE: ${{ steps.exit-info.outputs.SLURM_STATE }}
+      SLURM_EXITCODE: ${{ steps.exit-info.outputs.SLURM_EXITCODE }}
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Labels and metadata
+        id: meta
+        shell: bash -x -e {0}
+        run: |
+          IMAGE="$(echo ${{inputs.IMAGE}} | sed 's/\//#/')"
+          OUTPUT_PATH=${{ inputs.OUTPUT_BASEDIR }}/${{ github.run_id }}/${{ inputs.NAME }}
+          LOG_FILE=${{ inputs.OUTPUT_BASEDIR }}/${{ github.run_id }}/${{ inputs.NAME }}.log
+          for var in IMAGE LOG_FILE OUTPUT_PATH; do
+            echo "$var=${!var}" >> $GITHUB_OUTPUT
+          done
+          
+      - name: Submit SLURM jobs over SSH
+        id: submit
+        shell: bash -O expand_aliases -x -e {0}
+        run: |
+          alias SSH='ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}'
+          SSH mkdir -p ${{ steps.meta.outputs.OUTPUT_PATH }}
+          SLURM_JOB_ID=$(SSH sbatch --parsable <<"EOF"
+          #!/bin/bash
+          #SBATCH --job-name=${{ github.run_id }}-${{ inputs.NAME }}
+          #SBATCH --exclusive
+          #SBATCH --nodes=${{ inputs.NODES }}
+          #SBATCH --gpus-per-node=${{ inputs.GPUS_PER_NODE }}
+          #SBATCH --time=${{ inputs.TIME_LIMIT }}
+          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="${{ inputs.EXTRA_EXPORTS }},ENROOT_PASSWORD=${{ secrets.CONTAINER_REGISTRY_TOKEN }}"
+
+          # preload enroot container using one task per node
+          time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
+            --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+            
+          # run single-task preambles for, e.g., dependencies installation
+          time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
+            bash <<"EOFINNER"
+            ${{ inputs.SRUN_PREAMBLE }}
+          EOFINNER
+
+          # run job with tasks on each node sharing one container
+          time srun \
+            --tasks=${{ inputs.NTASKS }} \
+            --tasks-per-node=${{ inputs.NTASKS_PER_NODE }} \
+            --container-name=runtime \
+            --container-mounts=${{ steps.meta.outputs.OUTPUT_PATH }}:${{ inputs.OUTPUT_MOUNTPOINT }} \
+            --container-entrypoint \
+            bash <<"EOFINNER"
+            ${{ inputs.SRUN_SCRIPT }}
+          EOFINNER
+
+          EOF
+          )
+
+          echo "SLURM_JOB_ID=${SLURM_JOB_ID}" >> $GITHUB_OUTPUT
+
+      - name: Wait for SLURM job to complete
+        id: wait
+        shell: bash -eu {0}
+        run: |
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
+      - name: Query for job exit info
+        id: exit-info
+        shell: bash -exu -o pipefail {0}
+        run: |
+          JOB_INFO=$(
+            ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
+            sacct -j ${{ steps.submit.outputs.SLURM_JOB_ID }} --format=JobID,JobName,State,Exitcode --parsable2 --noheader |\
+            grep -E '^[0-9]+\|'
+          )
+
+          SLURM_STATE=$(echo "$JOB_INFO" | cut -f 3 -d"|")
+          SLURM_EXITCODE=$(echo "$JOB_INFO" | cut -f 4 -d"|")
+
+          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+
+          set -x
+          echo "***************************************************************"
+          echo "***************************************************************"
+          echo "******************** TAIL OF SLURM LOG BEG ********************"
+          echo "***************************************************************"
+          echo "***************************************************************"
+          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} tail -n 200 ${{ steps.meta.outputs.LOG_FILE }}
+          echo "***************************************************************"
+          echo "***************************************************************"
+          echo "******************** TAIL OF SLURM LOG END ********************"
+          echo "***************************************************************"
+          echo "***************************************************************"
+
+          if [ "$SLURM_STATE" != "COMPLETED" ]; then
+            exit 1
+          fi
+
+      - name: Gather artifacts
+        if: "!cancelled()"
+        shell: bash -x -e {0}
+        run: |
+          function rsync-down() {
+            rsync -rtz --progress ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}:$1 $2
+          }
+          mkdir -p artifacts/
+          rsync-down ${{ steps.meta.outputs.LOG_FILE }} artifacts/
+          mkdir -p artifacts/output
+          rsync-down ${{ steps.meta.outputs.OUTPUT_PATH }}/* artifacts/output/
+
+      - name: Write sitrep status
+        if: "!cancelled()"
+        shell: bash -x -e {0}
+        run: |
+          . .github/workflows/scripts/to_json.sh
+
+          run_id=${{ github.run_id }} \
+          slurm_job_id=${{ steps.submit.outputs.SLURM_JOB_ID }} \
+          slurm_state=${{ steps.exit-info.outputs.SLURM_STATE }} \
+          slurm_exitcode=${{ steps.exit-info.outputs.SLURM_EXITCODE }} \
+          to_json run_id slurm_job_id slurm_state slurm_exitcode \
+          > artifacts/sitrep.json
+
+      - name: Upload training logs as artifacts
+        if: "!cancelled()"
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.NAME }}
+          path: artifacts/*
+
+      - name: Remove orphaned SLURM job if the CI job is cancelled or finished
+        if: always() && steps.exit-info.outputs.SLURM_EXITCODE != 0
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
