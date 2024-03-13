@@ -38,11 +38,16 @@ jobs:
 
   build-jax:
     needs: build-base
-    uses: ./.github/workflows/_build_jax.yaml
+    uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-jax-build
+      BADGE_FILENAME: badge-jax-build
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+      CONTAINER_NAME: jax
+      DOCKERFILE: .github/container/Dockerfile.jax
+      RUNNER_SIZE: large
     secrets: inherit
 
   build-triton:
@@ -57,6 +62,19 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: triton
       DOCKERFILE: .github/container/Dockerfile.triton
+    secrets: inherit
+
+  build-equinox:
+    needs: build-jax
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-equinox-build
+      BADGE_FILENAME: badge-equinox-build
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: equinox
+      DOCKERFILE: .github/container/Dockerfile.equinox
     secrets: inherit
 
   build-maxtext:
@@ -228,6 +246,30 @@ jobs:
         test-backend-independent.log
         test-gpu.log
     secrets: inherit
+
+  # test-equinox:
+  #   needs: build-equinox
+  #   if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+  #   uses: ./.github/workflows/_test_unit.yaml
+  #   with:
+  #     IMAGE: ${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}
+  #     TEST_NAME: equinox
+  #     EXECUTE: |
+  #       docker run --shm-size=1g --gpus all ${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }} \
+  #       bash -exc -o pipefail \
+  #       'pushd /opt/equinox/tests && pip install -r requirements.txt && pytest .' | tee test-equinox.log
+  #     STATISTICS_SCRIPT: |
+  #       errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+  #       failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
+  #       passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
+  #       total_tests=$((failed_tests + passed_tests))
+  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+  #       echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+  #     ARTIFACTS: |
+  #       test-equinox.log
+  #   secrets: inherit
 
   test-te-multigpu:
     needs: build-upstream-pax
