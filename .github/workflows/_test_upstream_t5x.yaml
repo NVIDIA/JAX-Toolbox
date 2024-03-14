@@ -41,8 +41,8 @@ jobs:
       matrix:
         N_NODE: [1, 2]
         N_GPU: [1, 8]
-        EXTRA_ARGS: [[]]
-        EXTRA_NAME: [[]]
+        # EXTRA_ARGS: [[]]
+        # EXTRA_NAME: [[]]
         include:
           # multiprocess is the default behavior
           - EXTRA_ARGS: 
