@@ -41,14 +41,17 @@ jobs:
       matrix:
         N_NODE: [1, 2]
         N_GPU: [1, 8]
-        # EXTRA_ARGS: [[]]
+        EXTRA_ARGS: ['--multiprocess']
         # EXTRA_NAME: [[]]
         include:
-          # multiprocess is the default behavior
-          - EXTRA_ARGS: 
-              - --multiprocess
           # extra single-process multi-device tests on 1 nodes
           - N_NODE: 1
+            N_GPU: 1
+            EXTRA_ARGS: []
+            EXTRA_NAME:
+              - single-process
+          - N_NODE: 1
+            N_GPU: 8
             EXTRA_ARGS: []
             EXTRA_NAME:
               - single-process
