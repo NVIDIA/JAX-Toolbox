@@ -44,6 +44,8 @@ jobs:
         EXTRA_ARGS: ['', '--multiprocess', '--multiprocess --enable-fmha 1']
         # EXTRA_NAME: [[]]
         exclude:
+          - N_NODE: 2
+            N_GPU: 1
           # extra single-process multi-device tests on 1 nodes
           - N_NODE: 2
             EXTRA_ARGS: ''
