@@ -87,7 +87,6 @@ jobs:
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BUMP_MANIFEST: false
       JAX_SRC_REF: ${{ inputs.JAX_SRC_REF }}
       XLA_SRC_REF: ${{ inputs.XLA_SRC_REF }}
       T5X_SRC_REF: ${{ inputs.T5X_SRC_REF }}
@@ -97,14 +96,19 @@ jobs:
 
   build-jax:
     needs: build-base
-    uses: ./.github/workflows/_build_jax.yaml
+    uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-jax-build
+      BADGE_FILENAME: badge-jax-build
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+      CONTAINER_NAME: jax
+      DOCKERFILE: .github/container/Dockerfile.jax
+      RUNNER_SIZE: large
     secrets: inherit
 
-  build-t5x:
+  build-upstream-t5x:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' && (inputs.TEST_T5X_PAXML == '1' || inputs.TEST_T5X_PAXML == '3') # T5X arm64 build is wip in PR 252
     uses: ./.github/workflows/_build.yaml
@@ -112,13 +116,13 @@ jobs:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-t5x-build"
       BADGE_FILENAME: "badge-t5x-build"
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
-      DOCKERFILE: .github/container/Dockerfile.t5x
+      DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
-  build-pax:
+  build-upstream-pax:
     needs: build-jax
     if: inputs.TEST_T5X_PAXML == '2' || inputs.TEST_T5X_PAXML == '3'
     uses: ./.github/workflows/_build.yaml
@@ -154,19 +158,19 @@ jobs:
         run: bash rosetta/tests/${{ matrix.TEST_SCRIPT }}
 
   test-upstream-t5x:
-    needs: build-t5x
+    needs: build-upstream-t5x
     if: inputs.ARCHITECTURE == 'amd64' && (inputs.TEST_T5X_PAXML == '1' || inputs.TEST_T5X_PAXML == '3') # arm64 runners n/a
     uses: ./.github/workflows/_test_t5x.yaml
     with:
-      T5X_IMAGE: ${{ needs.build-t5x.outputs.DOCKER_TAG_FINAL }}
+      T5X_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-upstream-pax:
-    needs: build-pax
+    needs: build-upstream-pax
     if: inputs.ARCHITECTURE == 'amd64' && (inputs.TEST_T5X_PAXML == '2' || inputs.TEST_T5X_PAXML == '3') # no images for arm64
     uses: ./.github/workflows/_test_pax.yaml
     with:
-      PAX_IMAGE: ${{ needs.build-pax.outputs.DOCKER_TAG_FINAL }}
+      PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   publish-target-tags:
