@@ -41,18 +41,12 @@ jobs:
       matrix:
         N_NODE: [1, 2]
         N_GPU: [1, 8]
-        EXTRA_ARGS: ['--multiprocess']
+        EXTRA_ARGS: ['', '--multiprocess', '--multiprocess --enable-fmha 1']
         # EXTRA_NAME: [[]]
-        include:
+        exclude:
           # extra single-process multi-device tests on 1 nodes
-          - N_NODE: 1
-            N_GPU: 1
-            EXTRA_ARGS: []
-            EXTRA_NAME:
-              - single-process
-          - N_NODE: 1
-            N_GPU: 8
-            EXTRA_ARGS: []
+          - N_NODE: 2
+            EXTRA_ARGS: ''
             EXTRA_NAME:
               - single-process
           # # extra fused multi-head attention tests
