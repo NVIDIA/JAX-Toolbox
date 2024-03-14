@@ -2,29 +2,42 @@
 
 ### Arguments
 ```bash
--h, --help            show this help message and exit
+-h, --help
+                    show this help message and exit
 --input-path INPUT_PATH
-                        the path to load a source checkponint for this conversion. (Required)
+                    the path to load a source checkponint for this conversion. (Required)
 --output-path OUTPUT_PATH
                     the path to store the converted checkponint. (Required)
---fw {pax,t5x}        the framework that stored the given source checkpoint. (Required)
+--fw {pax,t5x}
+                    the framework that stored the given source checkpoint. (Required)
 --direction {fw2te,te2fw}
                     the direction of this conversion. (Required)
 --num-of-layer NUM_OF_LAYER
                     the number of Transformer layer of the given source checkpoint. (Required)
 --num-of-head NUM_OF_HEAD
                     the number of head of multi-head attention of the given source checkpoint. (Required)
---head-dim HEAD_DIM   the head dimension of multi-head attention of the given source checkpoint. (Required)
+--head-dim HEAD_DIM
+                    the head dimension of multi-head attention of the given source checkpoint. (Required)
 --mlp-intermediate-dim MLP_INTERMEDIATE_DIM
                     the intermediate dimension of MLP block (FFN) of the given source checkpoint. (Required)
 --embed-dim EMBED_DIM
                     the embeded dimension of the given source checkpoint, must give if --fw=t5x. (default: None)
 --kernel-chunk-size KERNEL_CHUNK_SIZE
                     the size to chucnk kernel (weighs) then store, only support with --fw=pax. Setting None means no chunking. (default: None)
---weight-only         indicate if the source checkpoint only includes weights. (default: False)
---skip-ln             indicate if skip the conversion for LayerNorm. (default: False)
---pax-repeat          indicate if the source Pax checkpoint enables Repeat. (default: False)
---t5x-fuse-qkv        indicate if the source T5X checkpoint enables fused_qkv_params of TE. (default: False)
+--weight-only
+                    indicate if the source checkpoint only includes weights. (default: False)
+--skip-ln
+                    indicate if skip the conversion for LayerNorm. (default: False)
+--use-gated-activations
+                    indicate if the checkpointed model uses a gated activation function. (default: False)
+--pax-repeat
+                    indicate if the source Pax checkpoint enables Repeat. (default: False)
+--pax-split-qkv
+                    indicate if the source Pax checkpoint has split QKV parameters. Only supported with --fw=pax and --direction=fw2te. (default: False)
+--t5x-fuse-qkv
+                    indicate if the source T5X checkpoint enables fused_qkv_params of TE. (default: False)
+--te-qkv-layout {qkv_packed,kv_packed}
+                    indicate the QKV layout of the converted TE checkpoint. Only supported with --fw=pax and --direction=fw2te. (default: 'qkv_packed')
 ```
 
 ### Usage Examples
@@ -154,7 +167,7 @@ restoring it to keep training.
 
 #### The folder structure of CKPT by Pax and T5X
 If you would like to run the converted CKPTs with frameworks, you may expect the converted CKPTs have the same folder
-structure with CKPTs stored by frameworks. In this case, you could set `--output-path` to be the same stucture as the 
+structure with CKPTs stored by frameworks. In this case, you could set `--output-path` to be the same stucture as the
 CKPTs from frameworks, and no need to pre-generate folders, since it would be generated when needed.
 For Pax, you could set `--output-path` be like ` /${your_path_to_output}/checkpoints/checkpoint_${step}`.
 For T5X, you could set `--output-path` be like `/${your_path_to_output}/checkpoint_${step}`.
