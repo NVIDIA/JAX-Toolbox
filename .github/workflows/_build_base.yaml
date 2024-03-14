@@ -12,6 +12,31 @@ on:
         description: 'Base CUDA image, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04'
         required: false
         default: latest
+      JAX_SRC_REF:
+        description: 'JAX source url#branch/commit SHA'
+        type: string
+        required: false
+        default: ''
+      XLA_SRC_REF:
+        description: 'XLA source url#branch/commit SHA'
+        type: string
+        required: false
+        default: ''
+      T5X_SRC_REF:
+        description: 'T5X source url#branch/commit SHA'
+        type: string
+        required: false
+        default: ''
+      PAXML_SRC_REF:
+        description: 'PAXML source url#branch/commit SHA'
+        type: string
+        required: false
+        default: ''
+      PRAXIS_SRC_REF:
+        description: 'PRAXIS source url#branch/commit SHA'
+        type: string
+        required: false
+        default: ''
       BUILD_DATE:
         type: string
         description: "Build date in YYYY-MM-DD format"
@@ -91,6 +116,108 @@ jobs:
           ls -lah patches
           echo "Changes in manifest file and patch folder"
           git diff
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Update manifest with xla and jax src
+        if: inputs.XLA_SRC_REF || inputs.JAX_SRC_REF || inputs.T5X_SRC_REF
+        working-directory: .github/container
+        run: |
+        
+          IFS="#";
+          read -ra arr <<< "${{ inputs.JAX_SRC_REF }}";
+          JAX_SRC="${arr[0]}";
+          JAX_REF="${arr[1]}";
+
+          read -ra arr <<< "${{ inputs.XLA_SRC_REF }}";
+          XLA_SRC="${arr[0]}";
+          XLA_REF="${arr[1]}";
+
+          read -ra arr <<< "${{ inputs.T5X_SRC_REF }}";
+          T5X_SRC="${arr[0]}";
+          T5X_REF="${arr[1]}";
+
+          read -ra arr <<< "${{ inputs.PAXML_SRC_REF }}";
+          PAXML_SRC="${arr[0]}";
+          PAXML_REF="${arr[1]}";
+
+          read -ra arr <<< "${{ inputs.PRAXIS_SRC_REF }}";
+          PRAXIS_SRC="${arr[0]}";
+          PRAXIS_REF="${arr[1]}";
+
+
+          echo "JAX_SRC: ${JAX_SRC}";
+          echo "JAX_REF: ${JAX_REF}";
+          echo "XLA_SRC: ${XLA_SRC}";
+          echo "XLA_REF: ${XLA_REF}";
+          echo "T5X_SRC: ${T5X_SRC}";
+          echo "T5X_REF: ${T5X_REF}";
+          echo "PAXML_SRC: ${PAXML_SRC}";
+          echo "PAXML_REF: ${PAXML_REF}";
+          echo "PRAXIS_SRC: ${PRAXIS_SRC}";
+          echo "PRAXIS_REF: ${PRAXIS_REF}";
+          
+          if [[ -n ${JAX_SRC} ]]; then
+            echo "UPDATING JAX_SRC: ${JAX_SRC}";
+            yq e ".jax.url = \"$JAX_SRC\"" -i manifest.yaml
+          fi
+          if [[ -n ${JAX_REF} ]]; then
+            echo "UPDATING JAX_REF: ${JAX_REF}";
+            export JAX_SHA=$(git ls-remote --heads --refs ${JAX_SRC} "refs/heads/${JAX_REF}" 2>/dev/null | awk '{print $1}')
+            yq e '.jax.latest_verified_commit = strenv(JAX_SHA)' -i manifest.yaml
+          fi
+          if [[ -n ${XLA_SRC} ]]; then
+            echo "UPDATING XLA_SRC: "${XLA_SRC}"";
+            yq e ".xla.url = \"$XLA_SRC\"" -i manifest.yaml
+          fi
+          if [[ -n ${XLA_REF} ]]; then
+            echo "UPDATING XLA_REF ${XLA_REF}";
+            export XLA_SHA=$(git ls-remote --heads --refs ${XLA_SRC} "refs/heads/${XLA_REF}" 2>/dev/null | awk '{print $1}')
+            yq e '.xla.latest_verified_commit = strenv(XLA_SHA)' -i manifest.yaml
+            echo "Updated XLA REF";
+          fi
+          if [[ -n ${T5X_SRC} ]]; then
+            echo "UPDATING T5X_SRC ${T5X_SRC}";
+            yq e ".t5x.url = \"$T5X_SRC\"" -i manifest.yaml
+          fi
+          if [[ -n ${T5X_REF} ]]; then
+            echo "UPDATING T5X_REF ${T5X_REF}";
+            export T5X_SHA=$(git ls-remote --heads --refs ${T5X_SRC} "refs/heads/${T5X_REF}" 2>/dev/null | awk '{print $1}')
+            yq e '.t5x.latest_verified_commit = strenv(T5X_SHA)' -i manifest.yaml
+          fi
+          if [[ -n ${PAXML_SRC} ]]; then
+            echo "UPDATING PAXML_SRC ${PAXML_SRC}";
+            yq e ".paxml.url = \"$PAXML_SRC\"" -i manifest.yaml
+          fi
+          if [[ -n ${PAXML_REF} ]]; then
+            echo "UPDATING PAXML_REF ${PAXML_REF}";
+            export PAXML_SHA=$(git ls-remote --heads --refs ${PAXML_SRC} "refs/heads/${PAXML_REF}" 2>/dev/null | awk '{print $1}')
+            yq e '.paxml.latest_verified_commit = strenv(PAXML_SHA)' -i manifest.yaml
+          fi
+          if [[ -n ${PRAXIS_SRC} ]]; then
+            echo "UPDATING PRAXIS_SRC ${PRAXIS_SRC}";
+            yq e ".praxis.url = \"$PRAXIS_SRC\"" -i manifest.yaml
+          fi
+          if [[ -n ${PRAXIS_REF} ]]; then
+            echo "UPDATING PRAXIS_REF ${PRAXIS_REF}";
+            export PRAXIS_SHA=$(git ls-remote --heads --refs ${PRAXIS_SRC} "refs/heads/${PRAXIS_REF}" 2>/dev/null | awk '{print $1}')
+            yq e '.praxis.latest_verified_commit = strenv(PRAXIS_SHA)' -i manifest.yaml
+          fi
+          echo "UPDATED MANIFEST IS: ";
+          cat manifest.yaml;
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
