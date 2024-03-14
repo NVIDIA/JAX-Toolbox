@@ -247,7 +247,7 @@ index ab6cff3..c79dac9 100644
        # Annotate the inputs before the pipeline to prevent unexpected
        # propagation from earlier layers.
 -- 
-2.25.1
+2.43.2
 
 
 From ff1745796009cf1ec59f463f8e776c66f1286938 Mon Sep 17 00:00:00 2001
@@ -358,7 +358,7 @@ index e3b2f7c..b31526e 100644
            trans_in_fn=_get_to_f32_converter(bf16_vars_to_convert),
            trans_out_fn=_get_to_bf16_converter(bf16_vars_to_convert),
 -- 
-2.25.1
+2.43.2
 
 
 From 99e26aaf14131ca73501f08162be628b55c86a88 Mon Sep 17 00:00:00 2001
@@ -476,7 +476,438 @@ index c79dac9..e076530 100644
          repeats.Repeat,
          sub_tpl=self.block,
 -- 
-2.25.1
+2.43.2
+
+
+From ab12f857404d84ed423e095d59e0bd336b94f151 Mon Sep 17 00:00:00 2001
+From: Reese Wang <rewang@nvidia.com>
+Date: Mon, 15 Jan 2024 08:25:59 -0800
+Subject: [PATCH 04/10] Support more TE configurations
+
+Signed-off-by: Reese Wang <rewang@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 84 +++++++++++++++++++--
+ 1 file changed, 76 insertions(+), 8 deletions(-)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index 290b74c..9defcbd 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -5,6 +5,9 @@ from praxis import pax_fiddle
+ from praxis import pytypes
+ from praxis import layers
+ from praxis.layers.checkpoint_policy import AutodiffCheckpointType
++from praxis.layers import activations
++from praxis.layers import attentions, grouped_query_attention, multi_query_attention
++from praxis.layers import normalizations
+ 
+ try:
+     import transformer_engine.jax as te
+@@ -112,19 +115,85 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+ 
+     @staticmethod
+     def set_layer_params_to_stack_transformer(stacked_transformer_obj, _, layer_id):
++        enable_sp = bool(int(os.environ.get('ENABLE_TE_SP', 0)))
+         te_transformer_tpl = pax_fiddle.Config(te_praxis.TransformerLayer,
+             name=f'layer_{layer_id}',
+-            layernorm_type='layernorm',
+-            zero_centered_gamma = True,
+-            mlp_activations=('gelu',),
+-            use_bias=True,
+-            self_attn_mask_type='causal',
+             enable_relative_embedding=False,
+-            scaled_query_init=False,
+-            scale_attn_logits=True,
++            enable_sequence_parallel=enable_sp,
+             transpose_batch_sequence=False
+         )
+ 
++        def update_ln_te_tpl(te_tpl, transformer_layer_tpl):
++            # TE requires all normalization are the same
++            assert transformer_layer_tpl.ln_tpl == transformer_layer_tpl.tr_fflayer_tpl.ln_tpl
++            ln_tpl = transformer_layer_tpl.ln_tpl
++            if issubclass(ln_tpl.cls, normalizations.LayerNorm):
++                te_tpl.layernorm_type = 'layernorm'
++                assert ln_tpl.use_scale
++                assert ln_tpl.use_bias
++            elif issubclass(ln_tpl.cls, normalizations.RmsNorm):
++                te_tpl.layernorm_type = 'rmsnorm'
++            else:
++                raise ValueError(f'Unsupported {ln_tpl.cls=}, LayerNorm, RmsNorm are supported.')
++            te_tpl.zero_centered_gamma = not ln_tpl.direct_scale
++            te_tpl.layernorm_epsilon = ln_tpl.epsilon
++            return te_tpl
++
++        def update_ff_te_tpl(te_tpl, ff_layer_tpl):
++            if issubclass(ff_layer_tpl.activation_tpl.cls, activations.Identity):
++                mlp_activations = ('linear',)
++            else:
++                mlp_activations = (ff_layer_tpl.activation_tpl.cls.__name__.lower(),)
++            if ff_layer_tpl.use_gated_activation:
++                mlp_activations += ('linear',)
++            te_tpl.mlp_activations = mlp_activations
++            return te_tpl
++
++        def update_attn_te_tpl(te_tpl, attn_tpl):
++            # TODO(rewang): rope
++            if issubclass(attn_tpl.cls, attentions.DotProductAttention):
++                # Check the DotProductAttention parameters are aligned to TE's attention
++                assert attn_tpl.internal_enable_query_scale or attn_tpl.scale_logits_by_head_dims
++                assert not (attn_tpl.internal_enable_query_scale and attn_tpl.scale_logits_by_head_dims)
++                assert not attn_tpl.internal_enable_per_dim_scale
++                assert not attn_tpl.scale_query_by_dim_per_head
++                assert not attn_tpl.dconv_qkv
++                assert not attn_tpl.internal_gshard_gaussian_init
++                assert not attn_tpl.use_rotary_position_emb
++                assert attn_tpl.relative_bias_tpl is None
++                assert attn_tpl.attention_extra_logit is None
++                assert attn_tpl.ngrammer_tpl is None
++                te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
++            elif issubclass(attn_tpl.cls, grouped_query_attention.GroupedQueryAttention):
++                te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
++                if attn_tpl.rope_min_max_timescales is not None:
++                    te_tpl.enable_rotary_pos_emb = True
++                    te_tpl.rotary_pos_emb_windows = attn_tpl.rope_min_max_timescales
++                assert attn_tpl.atten_temp == 1.
++            elif issubclass(attn_tpl.cls, multi_query_attention.MultiQueryDotProductAttention):
++                te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
++                te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
++            else:
++                raise ValueError(f'Unsupported {attn_tpl.cls=}')
++            assert attn_tpl.atten_logit_cap <= 0., 'atten_logit_cap > 0. is not supported in TE'
++            te_tpl.scaled_query_init = False
++            te_tpl.scale_attn_logits = True
++            return te_tpl
++
++        transformer_layer_tpl = stacked_transformer_obj.transformer_layer_params_tpl
++        # Update TE normalization layer configs
++        te_transformer_tpl = update_ln_te_tpl(te_transformer_tpl, transformer_layer_tpl)
++        # Update TE feed forward layer configs
++        te_transformer_tpl = update_ff_te_tpl(te_transformer_tpl, transformer_layer_tpl.tr_fflayer_tpl)
++        # Update TE attention layer configs
++        te_transformer_tpl = update_attn_te_tpl(te_transformer_tpl, transformer_layer_tpl.tr_atten_tpl)
++        # TE currently only allow the bias config to be same between feed forward, qkv proj, out proj
++        assert (transformer_layer_tpl.tr_fflayer_tpl.has_bias ==
++            transformer_layer_tpl.tr_atten_tpl.use_bias), "TE only allows same bias settings."
++        te_transformer_tpl.use_bias = transformer_layer_tpl.tr_fflayer_tpl.has_bias
++        te_transformer_tpl.self_attn_mask_type = 'causal' \
++            if stacked_transformer_obj.mask_self_attention else 'padding'
++
+         te_transformer_tpl.logical_axes_rules = te_flax.extend_logical_axis_rules(tuple())
+         te_transformer_tpl.params_init = stacked_transformer_obj.params_init
+         te_transformer_tpl.dtype = stacked_transformer_obj.fprop_dtype
+@@ -133,7 +202,6 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+         te_transformer_tpl.num_attention_heads = stacked_transformer_obj.num_heads
+         te_transformer_tpl.hidden_size = stacked_transformer_obj.model_dims
+         te_transformer_tpl.mlp_hidden_size = stacked_transformer_obj.hidden_dims
+-        te_transformer_tpl.layernorm_epsilon = stacked_transformer_obj.transformer_layer_params_tpl.ln_tpl.epsilon
+         te_transformer_tpl.dropout_rng_name = base_layer.RANDOM
+         te_transformer_tpl.attention_dropout = stacked_transformer_obj.atten_dropout_prob or stacked_transformer_obj.dropout_prob
+         te_transformer_tpl.hidden_dropout = stacked_transformer_obj.residual_dropout_prob or stacked_transformer_obj.dropout_prob
+-- 
+2.43.2
+
+
+From dc632f0b2bf8da8724e4959360da034b3a7b4075 Mon Sep 17 00:00:00 2001
+From: Reese Wang <rewang@nvidia.com>
+Date: Sun, 18 Feb 2024 01:14:41 -0800
+Subject: [PATCH 05/10] Change the gated activations orders
+
+Signed-off-by: Reese Wang <rewang@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index 9defcbd..1f8f6d6 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -140,12 +140,15 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+             return te_tpl
+ 
+         def update_ff_te_tpl(te_tpl, ff_layer_tpl):
+-            if issubclass(ff_layer_tpl.activation_tpl.cls, activations.Identity):
+-                mlp_activations = ('linear',)
+-            else:
+-                mlp_activations = (ff_layer_tpl.activation_tpl.cls.__name__.lower(),)
++            mlp_activations = ()
+             if ff_layer_tpl.use_gated_activation:
++               mlp_activations += ('linear',)
++
++            if issubclass(ff_layer_tpl.activation_tpl.cls, activations.Identity):
+                 mlp_activations += ('linear',)
++            else:
++                mlp_activations += (ff_layer_tpl.activation_tpl.cls.__name__.lower(),)
++
+             te_tpl.mlp_activations = mlp_activations
+             return te_tpl
+ 
+-- 
+2.43.2
+
+
+From f2e8560e6861a6dea981209b402b27dc6bc92022 Mon Sep 17 00:00:00 2001
+From: Reese Wang <rewang@nvidia.com>
+Date: Wed, 28 Feb 2024 22:37:46 -0800
+Subject: [PATCH 06/10] Remove RoPE restriction from DPA module
+
+Signed-off-by: Reese Wang <rewang@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index 1f8f6d6..7d83c08 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -153,7 +153,6 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+             return te_tpl
+ 
+         def update_attn_te_tpl(te_tpl, attn_tpl):
+-            # TODO(rewang): rope
+             if issubclass(attn_tpl.cls, attentions.DotProductAttention):
+                 # Check the DotProductAttention parameters are aligned to TE's attention
+                 assert attn_tpl.internal_enable_query_scale or attn_tpl.scale_logits_by_head_dims
+@@ -162,7 +161,6 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+                 assert not attn_tpl.scale_query_by_dim_per_head
+                 assert not attn_tpl.dconv_qkv
+                 assert not attn_tpl.internal_gshard_gaussian_init
+-                assert not attn_tpl.use_rotary_position_emb
+                 assert attn_tpl.relative_bias_tpl is None
+                 assert attn_tpl.attention_extra_logit is None
+                 assert attn_tpl.ngrammer_tpl is None
+-- 
+2.43.2
+
+
+From 3d6b5c34a64939dadcc751cf2e989cec1affc648 Mon Sep 17 00:00:00 2001
+From: Reese Wang <rewang@nvidia.com>
+Date: Wed, 28 Feb 2024 22:56:44 -0800
+Subject: [PATCH 07/10] Add rotary_pos_emb_group dispatch
+
+Signed-off-by: Reese Wang <rewang@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index 7d83c08..d187ba1 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -7,6 +7,7 @@ from praxis import layers
+ from praxis.layers.checkpoint_policy import AutodiffCheckpointType
+ from praxis.layers import activations
+ from praxis.layers import attentions, grouped_query_attention, multi_query_attention
++from praxis.layers import embedding_softmax
+ from praxis.layers import normalizations
+ 
+ try:
+@@ -165,6 +166,8 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+                 assert attn_tpl.attention_extra_logit is None
+                 assert attn_tpl.ngrammer_tpl is None
+                 te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
++                if issubclass(attn_tpl.rotary_position_emb_tpl, embedding_softmax.RotaryPositionalEmbedding):
++                    te_tpl.rotary_pos_emb_group_method = 'alternate'
+             elif issubclass(attn_tpl.cls, grouped_query_attention.GroupedQueryAttention):
+                 te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
+                 if attn_tpl.rope_min_max_timescales is not None:
+@@ -174,6 +177,8 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+             elif issubclass(attn_tpl.cls, multi_query_attention.MultiQueryDotProductAttention):
+                 te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
+                 te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
++                if issubclass(attn_tpl.rotary_position_emb_tpl, embedding_softmax.RotaryPositionalEmbedding):
++                    te_tpl.rotary_pos_emb_group_method = 'alternate'
+             else:
+                 raise ValueError(f'Unsupported {attn_tpl.cls=}')
+             assert attn_tpl.atten_logit_cap <= 0., 'atten_logit_cap > 0. is not supported in TE'
+-- 
+2.43.2
+
+
+From 454f760a095562d995e7e9102f97c05158415312 Mon Sep 17 00:00:00 2001
+From: Reese Wang <rewang@nvidia.com>
+Date: Sun, 3 Mar 2024 01:16:46 -0800
+Subject: [PATCH 08/10] Fix the missing .cls
+
+Signed-off-by: Reese Wang <rewang@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index d187ba1..733e9bf 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -166,7 +166,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+                 assert attn_tpl.attention_extra_logit is None
+                 assert attn_tpl.ngrammer_tpl is None
+                 te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
+-                if issubclass(attn_tpl.rotary_position_emb_tpl, embedding_softmax.RotaryPositionalEmbedding):
++                if issubclass(attn_tpl.rotary_position_emb_tpl.cls, embedding_softmax.RotaryPositionalEmbedding):
+                     te_tpl.rotary_pos_emb_group_method = 'alternate'
+             elif issubclass(attn_tpl.cls, grouped_query_attention.GroupedQueryAttention):
+                 te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
+@@ -177,7 +177,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+             elif issubclass(attn_tpl.cls, multi_query_attention.MultiQueryDotProductAttention):
+                 te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
+                 te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
+-                if issubclass(attn_tpl.rotary_position_emb_tpl, embedding_softmax.RotaryPositionalEmbedding):
++                if issubclass(attn_tpl.rotary_position_emb_tpl.cls, embedding_softmax.RotaryPositionalEmbedding):
+                     te_tpl.rotary_pos_emb_group_method = 'alternate'
+             else:
+                 raise ValueError(f'Unsupported {attn_tpl.cls=}')
+-- 
+2.43.2
+
+
+From 0bd4a531a3d8e4ddafb5ed680092fd5636aa9f8e Mon Sep 17 00:00:00 2001
+From: Ming-Xu Huang <mingh@nvidia.com>
+Date: Fri, 2 Feb 2024 10:58:40 +0800
+Subject: [PATCH 09/10] Fixed the unexpected input sharding pattern when TE
+ enabled.
+
+Signed-off-by: Ming-Xu Huang <mingh@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 25 +++++++++++++++++++--
+ praxis/layers/transformer_models.py         |  3 +++
+ 2 files changed, 26 insertions(+), 2 deletions(-)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index 733e9bf..ee0fc84 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -26,10 +26,13 @@ try:
+ 
+     TE_PIPELINE_EXTRA_SCAN_VAR_BROADCAST = [te.fp8.FP8Helper.FP8_COLLECTION_NAME]
+ 
++    ENABLE_TE_SP = bool(int(os.environ.get('ENABLE_TE_SP', 0)))
++
+ except ModuleNotFoundError as e:
+     _IS_TRANSFORMER_ENGINE_INSTALLED = False
+     TE_PIPELINE_EXTRA_VMAP_VAR_AXES = {}
+     TE_PIPELINE_EXTRA_SCAN_VAR_BROADCAST = []
++    ENABLE_TE_SP = False
+ 
+ LayerTpl = pax_fiddle.Config[base_layer.BaseLayer]
+ JTensor = pytypes.JTensor
+@@ -45,6 +48,10 @@ class TransformerEngineHelperBase:
+     def set_layer_params_to_stack_transformer(stacked_transformer_obj, layer_p, layer_id):
+         raise NotImplementedError
+ 
++    @staticmethod
++    def get_input_bld(original_bld, batch_axes, mdl_axis):
++        raise NotImplementedError
++
+     @staticmethod
+     def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
+         raise NotImplementedError
+@@ -81,6 +88,10 @@ class TENotInstalledHelper(TransformerEngineHelperBase):
+             )
+         return layer_p
+ 
++    @staticmethod
++    def get_input_bld(original_bld, _, _):
++        return original_bld
++
+     @staticmethod
+     def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
+         return xformer_layer_p.tr_atten_tpl.activation_split_dims_mapping.bld
+@@ -116,11 +127,10 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+ 
+     @staticmethod
+     def set_layer_params_to_stack_transformer(stacked_transformer_obj, _, layer_id):
+-        enable_sp = bool(int(os.environ.get('ENABLE_TE_SP', 0)))
+         te_transformer_tpl = pax_fiddle.Config(te_praxis.TransformerLayer,
+             name=f'layer_{layer_id}',
+             enable_relative_embedding=False,
+-            enable_sequence_parallel=enable_sp,
++            enable_sequence_parallel=ENABLE_TE_SP,
+             transpose_batch_sequence=False
+         )
+ 
+@@ -224,6 +234,12 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+ 
+         return te_transformer_tpl
+ 
++    @staticmethod
++    def get_input_bld(_, batch_axes, mdl_axis):
++        if ENABLE_TE_SP:
++            return [batch_axes, mdl_axis, None]
++        return [batch_axes, None, None]
++
+     @staticmethod
+     def get_bld_mapping_for_pipelined_transformer(_):
+         rules = te_flax.extend_logical_axis_rules(tuple())
+@@ -289,6 +305,11 @@ class TransformerEngineHelper(TransformerEngineHelperBase):
+         return TransformerEngineHelper.get_helper().set_layer_params_to_stack_transformer(
+                     stacked_transformer_obj, layer_p, layer_id)
+ 
++    @staticmethod
++    def get_input_bld(original_bld, batch_axes, mdl_axis):
++        return TransformerEngineHelper.get_helper().get_input_bld(
++                    original_bld, batch_axes, mdl_axis)
++
+     @staticmethod
+     def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
+         return TransformerEngineHelper.get_helper().get_bld_mapping_for_pipelined_transformer(
+diff --git a/praxis/layers/transformer_models.py b/praxis/layers/transformer_models.py
+index d8720ae..235d63e 100644
+--- a/praxis/layers/transformer_models.py
++++ b/praxis/layers/transformer_models.py
+@@ -33,6 +33,7 @@ from praxis.layers import embedding_softmax
+ from praxis.layers import multi_query_attention
+ from praxis.layers import normalizations
+ from praxis.layers import transformers
++from praxis.contrib.gpu.scripts_gpu.te_helper import TransformerEngineHelper
+ 
+ NestedMap = py_utils.NestedMap
+ JTensor = pytypes.JTensor
+@@ -323,6 +324,8 @@ class TransformerLm(base_layer.BaseLayer):
+         if training_optimized
+         else [batch_axes, None, None]
+     )
++    bld = TransformerEngineHelper.get_input_bld(bld, batch_axes, mdl_axis)
++
+     egcm = (
+         [data_axis, None, None, mdl_axis]
+         if training_optimized
+-- 
+2.43.2
+
+
+From e3e785cfedb4f350cfcb2c43b093f94288dbc846 Mon Sep 17 00:00:00 2001
+From: Ming-Xu Huang <mingh@nvidia.com>
+Date: Wed, 7 Feb 2024 12:34:01 +0800
+Subject: [PATCH 10/10] Addind a comment to get_input_bld
+
+Signed-off-by: Ming-Xu Huang <mingh@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index ee0fc84..d0afc1a 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -50,6 +50,7 @@ class TransformerEngineHelperBase:
+ 
+     @staticmethod
+     def get_input_bld(original_bld, batch_axes, mdl_axis):
++        # This is used to specify the sharding pattern of inputs to TransformerLayers.
+         raise NotImplementedError
+ 
+     @staticmethod
+@@ -89,7 +90,7 @@ class TENotInstalledHelper(TransformerEngineHelperBase):
+         return layer_p
+ 
+     @staticmethod
+-    def get_input_bld(original_bld, _, _):
++    def get_input_bld(original_bld, *_):
+         return original_bld
+ 
+     @staticmethod
+-- 
+2.43.2
 
 
 From ab12f857404d84ed423e095d59e0bd336b94f151 Mon Sep 17 00:00:00 2001
