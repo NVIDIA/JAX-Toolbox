@@ -49,7 +49,7 @@ jobs:
             N_GPU: 1
           # no single-process tests beyond 1 node
           - N_NODE: 2
-            EXTRA_ARGS: ''
+            MULTIPROCESS: false
           # 1-node-1-gpu multiprocess test is same as 1-node-1-gpu single process test
           - N_NODE: 1
             N_GPU: 1
