@@ -36,6 +36,7 @@ on:
 jobs:
 
   t5x-multi-gpu:
+    uses: ./.github/workflows/_test_slurm_pyxis.yaml
     strategy:
       fail-fast: false
       matrix:
