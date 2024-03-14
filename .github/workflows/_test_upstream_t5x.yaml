@@ -75,6 +75,7 @@ jobs:
             EXTRA_NAME:
               - fmha
     runs-on: ubuntu-22.04
+    name: ${{ matrix.N_NODE }}-${{ matrix.N_GPU }}-${{ join(matrix.EXTRA_NAME, '-') }}:${{ join(matrix.EXTRA_ARGS, ' ') }}
     steps:
       - name: print
         run: |
