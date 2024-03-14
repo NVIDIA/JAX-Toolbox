@@ -36,53 +36,59 @@ on:
 jobs:
 
   t5x-multi-gpu:
-    uses: ./.github/workflows/_test_slurm_pyxis.yaml
+    # uses: ./.github/workflows/_test_slurm_pyxis.yaml
     strategy:
       fail-fast: false
       matrix:
         N_NODE: [1, 2]
-        N_GPU: [1, 8]
+        TASK_PER_NODE: [1, 8]
         MULTIPROCESS: [false, true]
         FMHA: [false, true]
         exclude:
           # multi-node tests must use all GPUs
           - N_NODE: 2
-            N_GPU: 1
+            TASK_PER_NODE: 1
+            MULTIPROCESS: false
           # no single-process tests beyond 1 node
           - N_NODE: 2
             MULTIPROCESS: false
           # 1-node-1-gpu multiprocess test is same as 1-node-1-gpu single process test
           - N_NODE: 1
-            N_GPU: 1
+            TASK_PER_NODE: 1
             MULTIPROCESS: true
-    name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.N_GPU }}G${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
-    secrets:
-      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
-      CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
-    with:
-      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.N_GPU }}G${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
-      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-      OUTPUT_BASEDIR: /nfs/cluster
-      OUTPUT_MOUNTPOINT: /output
-      NODES: ${{ matrix.N_NODE }}
-      GPUS_PER_NODE: ${{ matrix.N_GPU }}
-      NTASKS: ${{ matrix.MULTIPROCESS && (matrix.N_NODE * matrix.N_GPU) || matrix.N_NODE }}
-      NTASKS_PER_NODE: ${{ matrix.MULTIPROCESS && matrix.N_GPU || 1 }}
-      TIME_LIMIT: '00:10:00'
-      IMAGE: ${{ inputs.T5X_IMAGE }}
-      SRUN_PREAMBLE: |
-        nvidia-smi
-      SRUN_SCRIPT: |
-        set -ex
-        test-t5x.sh \
-          --output /output \
-          --dtype bfloat16 \
-          --batch-size $((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_NODE }} * ${{ matrix.N_GPU }})) \
-          --epochs 7 \
-          --steps-per-epoch 100 \
-          ${{ matrix.MULTIPROCESS && '--multiprocess' || '' }} \
-          ${{ matrix.FMHA && '--enable-fmha 1' || '' }}
+    runs-on: ubuntu-22.04
+    name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.TASK_PER_NODE }}T${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
+    steps:
+      - name: Print environment variables
+        run: env
+    # name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.N_GPU }}G${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
+    # secrets:
+    #   SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+    #   SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
+    #   CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
+    # with:
+    #   NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.N_GPU }}G${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
+    #   SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
+    #   OUTPUT_BASEDIR: /nfs/cluster
+    #   OUTPUT_MOUNTPOINT: /output
+    #   NODES: ${{ matrix.N_NODE }}
+    #   GPUS_PER_NODE: ${{ matrix.N_GPU }}
+    #   NTASKS: ${{ matrix.MULTIPROCESS && (matrix.N_NODE * matrix.N_GPU) || matrix.N_NODE }}
+    #   NTASKS_PER_NODE: ${{ matrix.MULTIPROCESS && matrix.N_GPU || 1 }}
+    #   TIME_LIMIT: '00:10:00'
+    #   IMAGE: ${{ inputs.T5X_IMAGE }}
+    #   SRUN_PREAMBLE: |
+    #     nvidia-smi
+    #   SRUN_SCRIPT: |
+    #     set -ex
+    #     test-t5x.sh \
+    #       --output /output \
+    #       --dtype bfloat16 \
+    #       --batch-size $((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_NODE }} * ${{ matrix.N_GPU }})) \
+    #       --epochs 7 \
+    #       --steps-per-epoch 100 \
+    #       ${{ matrix.MULTIPROCESS && '--multiprocess' || '' }} \
+    #       ${{ matrix.FMHA && '--enable-fmha 1' || '' }}
 
   #   runs-on: ubuntu-22.04
 
