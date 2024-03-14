@@ -41,15 +41,19 @@ jobs:
       matrix:
         N_NODE: [1, 2]
         N_GPU: [1, 8]
-        EXTRA_ARGS: ['', '--multiprocess', '--multiprocess --enable-fmha 1']
-        # EXTRA_NAME: [[]]
+        MULTIPROCESS: [false, true]
+        FMHA: [false, true]
         exclude:
+          # multi-node tests must use all GPUs
           - N_NODE: 2
             N_GPU: 1
-          # extra single-process multi-device tests on 1 nodes
+          # no single-process tests beyond 1 node
           - N_NODE: 2
             EXTRA_ARGS: ''
-          # # extra fused multi-head attention tests
+          # 1-node-1-gpu multiprocess test is same as 1-node-1-gpu single process test
+          - N_NODE: 1
+            N_GPU: 1
+            MULTIPROCESS: true
           # - N_NODE: 1
           #   N_GPU: 1
           #   EXTRA_ARGS:
@@ -72,7 +76,7 @@ jobs:
           #   EXTRA_NAME:
           #     - fmha
     runs-on: ubuntu-22.04
-    name: ${{ matrix.N_NODE }}-${{ matrix.N_GPU }}-${{ join(matrix.EXTRA_NAME, '-') }}:${{ join(matrix.EXTRA_ARGS, ' ') }}
+    name: ${{ matrix.N_NODE }}-${{ matrix.N_GPU }}-${{ matrix.MULTIPROCESS }}-${{ matrix.FMHA }}
     steps:
       - name: print
         run: |
