@@ -177,14 +177,39 @@ jobs:
   pax-multi-node:
     strategy:
       matrix:
-        PARALLEL_CONFIG:
-        - [1, 1, 1, 1]
-        - [1, 8, 1, 1]
-        - [1, 1, 8, 1]
-        - [4, 2, 1, 1]
-        - [1, 4, 1, 2]
-        - [1, 16, 1, 1]
-        - [4, 2, 1, 2]
+        include:
+          - TEST_NAME: 1DP1FSDP1TP1PP
+            PARALLEL_CONFIG: [1, 1, 1, 1]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 8DP1FSDP1TP1PP
+            PARALLEL_CONFIG: [1, 8, 1, 1]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 1DP8FSDP1TP1PP
+            PARALLEL_CONFIG: [1, 1, 8, 1]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 2DP1FSDP1TP4PP
+            PARALLEL_CONFIG: [4, 2, 1, 1]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 4DP1FSDP2TP1PP
+            PARALLEL_CONFIG: [1, 4, 1, 2]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 16DP1FSDP1TP1PP
+            PARALLEL_CONFIG: [1, 16, 1, 1]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 2DP1FSDP2TP4PP
+            PARALLEL_CONFIG: [4, 2, 1, 2]
+            BATCH_SIZE: 4
+          - TEST_NAME: LLaMA_eval
+            PARALLEL_CONFIG: [1, 1, 8, 1]
+            BATCH_SIZE: 4
+            EVALUATE: true
+            ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -216,7 +241,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
           MAX_GPUS_PER_NODE=8
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
@@ -270,7 +295,8 @@ jobs:
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
+              ${{ matrix.ADDITIONAL_ARGS }}
           EOF
           )
 
