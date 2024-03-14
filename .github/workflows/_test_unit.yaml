@@ -87,18 +87,18 @@ jobs:
           passed_tests=${{ steps.test-stats.outputs.PASSED_TESTS }}
 
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
-            echo "badge_color='red'" >> $GITHUB_OUTPUT
-            echo "badge_message='error'" >> $GITHUB_OUTPUT
-            echo "summary='${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'" >> $GITHUB_OUTPUT
+            echo "badge_color=red" >> $GITHUB_OUTPUT
+            echo "badge_message=error" >> $GITHUB_OUTPUT
+            echo "summary=${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors." >> $GITHUB_OUTPUT
             exit 1
           else
             if [[ ${failed_tests} == 0 ]]; then
-              echo "badge_color='brightgreen'" >> $GITHUB_OUTPUT
+              echo "badge_color=brightgreen" >> $GITHUB_OUTPUT
             else
-              echo "badge_color='yellow'" >> $GITHUB_OUTPUT
+              echo "badge_color=yellow" >> $GITHUB_OUTPUT
             fi
-            echo "badge_message='${passed_tests}/${total_tests} passed'" >> $GITHUB_OUTPUT
-            echo "summary='${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: ${total_tests} total tests, ${errors} errors, ${passed_tests} passed, ${failed_tests} failed.'" >> $GITHUB_OUTPUT
+            echo "badge_message=${passed_tests}/${total_tests} passed" >> $GITHUB_OUTPUT
+            echo "summary=${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: ${total_tests} total tests, ${errors} errors, ${passed_tests} passed, ${failed_tests} failed." >> $GITHUB_OUTPUT
           fi
 
       - name: Generate sitrep
