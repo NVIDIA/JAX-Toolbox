@@ -18,11 +18,11 @@ on:
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
         default: 'badge-upstream-t5x-mgmn-test.json'
-      ARTIFACT_NAME:
+      ARTIFACT_PREFIX:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'artifact-upstream-t5x-mgmn-test'
+        default: 'upstream-t5x'
       FW_NAME:
         type: string
         description: 'Name of the framework being used'
@@ -54,34 +54,34 @@ jobs:
           - N_NODE: 1
             N_GPU: 1
             MULTIPROCESS: true
-          # - N_NODE: 1
-          #   N_GPU: 1
-          #   EXTRA_ARGS:
-          #     - --enable-fmha 1
-          #   EXTRA_NAME:
-          #     - fmha
-          #     - single-process
-          # - N_NODE: 1
-          #   N_GPU: 8
-          #   EXTRA_ARGS:
-          #     - --enable-fmha 1
-          #   EXTRA_NAME:
-          #     - fmha
-          #     - single-process
-          # - N_NODE: 2
-          #   N_GPU: 8
-          #   EXTRA_ARGS:
-          #     - --enable-fmha 1
-          #     - --multiprocess
-          #   EXTRA_NAME:
-          #     - fmha
-    runs-on: ubuntu-22.04
-    name: ${{ matrix.N_NODE }}-${{ matrix.N_GPU }}${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
-    steps:
-      - name: print
-        run: |
-          echo "${{ matrix.N_NODE }}-${{ matrix.N_GPU }}-${{ join(matrix.EXTRA_NAME, '-') }}"
-          echo "${{ join(matrix.EXTRA_ARGS, ' ') }}"
+    name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.N_GPU }}G${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
+      CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
+    with:
+      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.N_GPU }}G${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
+      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
+      OUTPUT_BASEDIR: /nfs/cluster
+      OUTPUT_MOUNTPOINT: /output
+      NODES: ${{ matrix.N_NODE }}
+      GPUS_PER_NODE: ${{ matrix.N_GPU }}
+      NTASKS: ${{ matrix.MULTIPROCESS && (matrix.N_NODE * matrix.N_GPU) || matrix.N_NODE }}
+      NTASKS_PER_NODE: ${{ matrix.MULTIPROCESS && matrix.N_GPU || 1 }}
+      TIME_LIMIT: '00:10:00'
+      IMAGE: ${{ inputs.T5X_IMAGE }}
+      SRUN_PREAMBLE: |
+        nvidia-smi
+      SRUN_SCRIPT: |
+        set -ex
+        test-t5x.sh \
+          --output /output \
+          --dtype bfloat16 \
+          --batch-size ${{ inputs.BATCH_SIZE_PER_GPU * matrix.N_NODE * matrix.N_GPU }} \
+          --epochs 7 \
+          --steps-per-epoch 100 \
+          ${{ matrix.MULTIPROCESS && '--multiprocess' || '' }} \
+          ${{ matrix.FMHA && '--enable-fmha 1' || '' }}
 
   #   runs-on: ubuntu-22.04
 
@@ -151,13 +151,6 @@ jobs:
   #           --container-name=runtime \
   #           --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
   #           --container-entrypoint \
-  #           test-t5x.sh \
-  #             --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
-  #             --dtype bfloat16 \
-  #             --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
-  #             --epochs 7 \
-  #             --steps-per-epoch 100 \
-  #             ${{ matrix.ADDITIONAL_ARGS }} 
   #         EOF
   #         )
           
