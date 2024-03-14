@@ -52,3 +52,9 @@ jobs:
     with:
       PAX_IMAGE: ${{ inputs.PAX_IMAGE }}
     secrets: inherit
+
+  finalize:
+    needs: [ test-jax, test-rosetta-pax ]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_finalize.yaml
+    secrets: inherit
