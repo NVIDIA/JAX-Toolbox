@@ -76,7 +76,7 @@ jobs:
           #   EXTRA_NAME:
           #     - fmha
     runs-on: ubuntu-22.04
-    name: ${{ matrix.N_NODE }}-${{ matrix.N_GPU }}-${{ matrix.MULTIPROCESS }}-${{ matrix.FMHA }}
+    name: ${{ matrix.N_NODE }}-${{ matrix.N_GPU }}${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
     steps:
       - name: print
         run: |
