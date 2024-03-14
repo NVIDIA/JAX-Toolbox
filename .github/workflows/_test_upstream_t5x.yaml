@@ -47,8 +47,6 @@ jobs:
           # extra single-process multi-device tests on 1 nodes
           - N_NODE: 2
             EXTRA_ARGS: ''
-            EXTRA_NAME:
-              - single-process
           # # extra fused multi-head attention tests
           # - N_NODE: 1
           #   N_GPU: 1
