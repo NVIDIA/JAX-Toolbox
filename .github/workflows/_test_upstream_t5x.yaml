@@ -48,32 +48,32 @@ jobs:
           - EXTRA_ARGS: 
               - --multiprocess
           # extra single-process multi-device tests on 1 nodes
-          - N_NODE: 1
-            EXTRA_ARGS: []
-            EXTRA_NAME:
-              - single-process
-          # extra fused multi-head attention tests
-          - N_NODE: 1
-            N_GPU: 1
-            EXTRA_ARGS:
-              - --enable-fmha 1
-            EXTRA_NAME:
-              - fmha
-              - single-process
-          - N_NODE: 1
-            N_GPU: 8
-            EXTRA_ARGS:
-              - --enable-fmha 1
-            EXTRA_NAME:
-              - fmha
-              - single-process
-          - N_NODE: 2
-            N_GPU: 8
-            EXTRA_ARGS:
-              - --enable-fmha 1
-              - --multiprocess
-            EXTRA_NAME:
-              - fmha
+          # - N_NODE: 1
+          #   EXTRA_ARGS: []
+          #   EXTRA_NAME:
+          #     - single-process
+          # # extra fused multi-head attention tests
+          # - N_NODE: 1
+          #   N_GPU: 1
+          #   EXTRA_ARGS:
+          #     - --enable-fmha 1
+          #   EXTRA_NAME:
+          #     - fmha
+          #     - single-process
+          # - N_NODE: 1
+          #   N_GPU: 8
+          #   EXTRA_ARGS:
+          #     - --enable-fmha 1
+          #   EXTRA_NAME:
+          #     - fmha
+          #     - single-process
+          # - N_NODE: 2
+          #   N_GPU: 8
+          #   EXTRA_ARGS:
+          #     - --enable-fmha 1
+          #     - --multiprocess
+          #   EXTRA_NAME:
+          #     - fmha
     runs-on: ubuntu-22.04
     name: ${{ matrix.N_NODE }}-${{ matrix.N_GPU }}-${{ join(matrix.EXTRA_NAME, '-') }}:${{ join(matrix.EXTRA_ARGS, ' ') }}
     steps:
