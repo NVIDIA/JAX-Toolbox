@@ -117,10 +117,10 @@ $ PYTHONPATH=/opt/jax nsys profile --capture-range=cudaProfilerApi --cuda-graph-
 ```
 then the resulting profile will only contain 3 iterations of the loop (5 total - 2 skipped).
 
-With `--capture-range-end=stop`, `nsys` will stop collecting profile data at `cudaProfilerStop()`, but it will not kill the application.
-The default value, `stop-shutdown`, will also kill the application.
+With `--capture-range-end=stop`, `nsys` will stop collecting profile data at `cudaProfilerStop()` and ignore later calls to `cudaProfilerStart()`, but it will not kill the application.
+The default value, `stop-shutdown`, will kill the application after `cudaProfilerStop()`; in this case, buffered output is sometimes not flushed to the console.
+If you need to start and stop profiling multiple times in your application, you can pass `repeat`; in this case, a different report file will be written for each start-stop pair.
 Documentation can be found [here](https://docs.nvidia.com/nsight-systems/UserGuide/index.html#cli-profile-command-switch-options).
-If you need to start and stop profiling multiple times in your application, you can pass `repeat`.
  
 ### Understanding the Nsight Systems timeline
 The example in the previous section yields a profile like:
