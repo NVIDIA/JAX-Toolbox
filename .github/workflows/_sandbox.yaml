@@ -19,7 +19,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: ${{ inputs.ARTIFACT_PREFIX }}-*
+          pattern: upstream-t5x-*
           path: artifacts
           run-id: 8300364393
           github-token: ${{ secrets.github_token }}
