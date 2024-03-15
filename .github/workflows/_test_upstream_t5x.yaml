@@ -57,7 +57,7 @@ jobs:
                           configurations.append({
                               "N_NODE": N_NODE,
                               "TASK_PER_NODE": TASK_PER_NODE,
-                              "GPU_PER_NODE: GPU_PER_TASK * TASK_PER_NODE,
+                              "GPU_PER_NODE": GPU_PER_TASK * TASK_PER_NODE,
                               "MULTIPROCESS": false,
                               "FMHA": FMHA,
                               "N_TASKS": N_NODE * TASK_PER_NODE,
@@ -72,7 +72,7 @@ jobs:
                           configurations.append({
                               "N_NODE": N_NODE,
                               "TASK_PER_NODE": TASK_PER_NODE,
-                              "GPU_PER_NODE: GPU_PER_TASK * TASK_PER_NODE,
+                              "GPU_PER_NODE": GPU_PER_TASK * TASK_PER_NODE,
                               "MULTIPROCESS": true,
                               "FMHA": FMHA,
                               "N_TASKS": N_NODE * TASK_PER_NODE,
