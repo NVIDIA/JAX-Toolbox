@@ -35,27 +35,52 @@ on:
 
 jobs:
 
+  make-matrix:
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.make-matrix.outputs.matrix }}
+    steps:
+      - name: Make matrix
+        id: make-matrix
+        shell: python
+        run: |
+          import json
+          import os
+
+          matrix = []
+
+          # single process per node
+          for N_NODE, TASK_PER_NODE in [(1, 1), (1, 8)]:
+                  for MULTIPROCESS in [False]:
+                      for FMHA in [False, True]:
+                          matrix.append({
+                              "N_NODE": N_NODE,
+                              "TASK_PER_NODE": TASK_PER_NODE,
+                              "MULTIPROCESS": MULTIPROCESS,
+                              "FMHA": FMHA
+                          })
+          
+          # multiprocess (one process per GPU)
+          for N_NODE, TASK_PER_NODE in [(1, 8), (2, 8)]:
+              for MULTIPROCESS in [True]:
+                  for FMHA in [False, True]:
+                      matrix.append({
+                          "N_NODE": N_NODE,
+                          "TASK_PER_NODE": TASK_PER_NODE,
+                          "MULTIPROCESS": MULTIPROCESS,
+                          "FMHA": FMHA
+                      })
+
+          open(os.getenv('GITHUB_OUTPUT'), 'a').write(
+            'MATRIX={j}'.format(j=json.dumps(matrix)), 
+          )
+
   t5x-multi-gpu:
+    needs: make-matrix
     # uses: ./.github/workflows/_test_slurm_pyxis.yaml
     strategy:
       fail-fast: false
-      matrix:
-        N_NODE: [1, 2]
-        TASK_PER_NODE: [1, 8]
-        MULTIPROCESS: [false, true]
-        FMHA: [false, true]
-        exclude:
-          # multi-node tests must use all GPUs
-          - N_NODE: 2
-            TASK_PER_NODE: 1
-            MULTIPROCESS: false
-          # no single-process tests beyond 1 node
-          - N_NODE: 2
-            MULTIPROCESS: false
-          # 1-node-1-gpu multiprocess test is same as 1-node-1-gpu single process test
-          - N_NODE: 1
-            TASK_PER_NODE: 1
-            MULTIPROCESS: true
+      matrix: ${{ fromJson(needs.make-matrix.outputs.matrix) }}
     runs-on: ubuntu-22.04
     name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.TASK_PER_NODE }}T${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
     steps:
