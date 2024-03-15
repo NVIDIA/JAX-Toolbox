@@ -74,7 +74,11 @@ jobs:
                       })
 
           open(os.getenv('GITHUB_OUTPUT'), 'a').write(
-            'MATRIX={j}'.format(j=json.dumps({'configurations': configurations})), 
+            'MATRIX={j}'.format(j=json.dumps({'configurations': configurations}))
+          )
+          
+          print(
+            'MATRIX={j}'.format(j=json.dumps({'configurations': configurations}))
           )
 
   t5x-multi-gpu:
