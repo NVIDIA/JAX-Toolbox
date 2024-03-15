@@ -50,33 +50,33 @@ jobs:
           configurations = []
 
           # single process per node
-          for GPU_PER_TASK in [1, 8]:
-              for N_NODE, TASK_PER_NODE in [(1, 1)]:
+          for GPUS_PER_TASK in [1, 8]:
+              for NODES, NTASKS_PER_NODE in [(1, 1)]:
                   for MULTIPROCESS in [False]:
                       for FMHA in [False, True]:
                           configurations.append({
-                              "N_NODE": N_NODE,
-                              "TASK_PER_NODE": TASK_PER_NODE,
-                              "GPU_PER_NODE": GPU_PER_TASK * TASK_PER_NODE,
+                              "NODES": NODES,
+                              "NTASKS_PER_NODE": NTASKS_PER_NODE,
+                              "GPUS_PER_NODE": GPUS_PER_TASK * NTASKS_PER_NODE,
                               "MULTIPROCESS": MULTIPROCESS,
                               "FMHA": FMHA,
-                              "N_TASKS": N_NODE * TASK_PER_NODE,
-                              "N_GPUS": N_NODE * TASK_PER_NODE * GPU_PER_TASK
+                              "NTASKS": NODES * NTASKS_PER_NODE,
+                              "NGPUS": NODES * NTASKS_PER_NODE * GPUS_PER_TASK
                           })
           
           # multiprocess (one process per GPU)
-          for GPU_PER_TASK in [1]:
-              for N_NODE, TASK_PER_NODE in [(1, 8), (2, 8)]:
+          for GPUS_PER_TASK in [1]:
+              for NODES, NTASKS_PER_NODE in [(1, 8), (2, 8)]:
                   for MULTIPROCESS in [True]:
                       for FMHA in [False, True]:
                           configurations.append({
-                              "N_NODE": N_NODE,
-                              "TASK_PER_NODE": TASK_PER_NODE,
-                              "GPU_PER_NODE": GPU_PER_TASK * TASK_PER_NODE,
+                              "NODES": NODES,
+                              "NTASKS_PER_NODE": NTASKS_PER_NODE,
+                              "GPUS_PER_NODE": GPUS_PER_TASK * NTASKS_PER_NODE,
                               "MULTIPROCESS": MULTIPROCESS,
                               "FMHA": FMHA,
-                              "N_TASKS": N_NODE * TASK_PER_NODE,
-                              "N_GPUS": N_NODE * TASK_PER_NODE * GPU_PER_TASK
+                              "NTASKS": NODES * NTASKS_PER_NODE,
+                              "NGPUS": NODES * NTASKS_PER_NODE * GPUS_PER_TASK
                           })
 
           open(os.getenv('GITHUB_OUTPUT'), 'a').write(
@@ -85,43 +85,42 @@ jobs:
 
   t5x-multi-gpu:
     needs: make-matrix
-    # uses: ./.github/workflows/_test_slurm_pyxis.yaml
+    uses: ./.github/workflows/_test_slurm_pyxis.yaml
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.make-matrix.outputs.MATRIX) }}
-    runs-on: ubuntu-22.04
-    name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.config.N_GPUS }}GPU${{ matrix.config.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.config.FMHA && '-fhma' || '' }}
-    steps:
-      - name: Print environment variables
-        run: env
-    # name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.N_GPU }}G${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
-    # secrets:
-    #   SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-    #   SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
-    #   CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
-    # with:
-    #   NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.N_GPU }}G${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
-    #   SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-    #   OUTPUT_BASEDIR: /nfs/cluster
-    #   OUTPUT_MOUNTPOINT: /output
-    #   NODES: ${{ matrix.N_NODE }}
-    #   GPUS_PER_NODE: ${{ matrix.N_GPU }}
-    #   NTASKS: ${{ matrix.MULTIPROCESS && (matrix.N_NODE * matrix.N_GPU) || matrix.N_NODE }}
-    #   NTASKS_PER_NODE: ${{ matrix.MULTIPROCESS && matrix.N_GPU || 1 }}
-    #   TIME_LIMIT: '00:10:00'
-    #   IMAGE: ${{ inputs.T5X_IMAGE }}
-    #   SRUN_PREAMBLE: |
-    #     nvidia-smi
-    #   SRUN_SCRIPT: |
-    #     set -ex
-    #     test-t5x.sh \
-    #       --output /output \
-    #       --dtype bfloat16 \
-    #       --batch-size $((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_NODE }} * ${{ matrix.N_GPU }})) \
-    #       --epochs 7 \
-    #       --steps-per-epoch 100 \
-    #       ${{ matrix.MULTIPROCESS && '--multiprocess' || '' }} \
-    #       ${{ matrix.FMHA && '--enable-fmha 1' || '' }}
+    # runs-on: ubuntu-22.04
+    name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.config.NGPUS }}GPU${{ matrix.config.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.config.FMHA && '-fhma' || '' }}
+    # steps:
+    #   - name: Print environment variables
+    #     run: env
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
+      CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
+    with:
+      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.config.NGPUS }}GPU${{ matrix.config.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.config.FMHA && '-fhma' || '' }}
+      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
+      OUTPUT_BASEDIR: /nfs/cluster
+      OUTPUT_MOUNTPOINT: /output
+      NODES: ${{ matrix.config.NODES }}
+      GPUS_PER_NODE: ${{ matrix.config.GPUS_PER_NODE }}
+      NTASKS: ${{ matrix.config.NTASKS }}
+      NTASKS_PER_NODE: ${{ matrix.config.NTASKS_PER_NODE }}
+      TIME_LIMIT: '00:10:00'
+      IMAGE: ${{ inputs.T5X_IMAGE }}
+      SRUN_PREAMBLE: |
+        nvidia-smi
+      SRUN_SCRIPT: |
+        set -ex
+        test-t5x.sh \
+          --output /output \
+          --dtype bfloat16 \
+          --batch-size $((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.config.NGPUS }})) \
+          --epochs 7 \
+          --steps-per-epoch 100 \
+          ${{ matrix.config.MULTIPROCESS && '--multiprocess' || '' }} \
+          ${{ matrix.config.FMHA && '--enable-fmha 1' || '' }}
 
   #   runs-on: ubuntu-22.04
 
@@ -284,11 +283,11 @@ jobs:
   #       run: |
   #         IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
   #         TEST_CASE_NAME=${{ matrix.TEST_NAME }}
-  #         TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
+  #         TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.NODES }}))
   #         JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME};
   #         LOG_FILE=/nfs/cluster/${JOB_NAME}.log
   #         MODEL_PATH=/nfs/cluster/${JOB_NAME}
-  #         BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
+  #         BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.NODES }}))
   #         for var in IMAGE TEST_CASE_NAME TOTAL_TASKS JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
   #           echo "$var=${!var}" >> $GITHUB_OUTPUT
   #         done
@@ -304,7 +303,7 @@ jobs:
   #         #!/bin/bash
   #         #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
   #         #SBATCH --exclusive
-  #         #SBATCH --nodes=${{ matrix.N_NODE }}
+  #         #SBATCH --nodes=${{ matrix.NODES }}
   #         #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
   #         #SBATCH --time=00:30:00
   #         #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
