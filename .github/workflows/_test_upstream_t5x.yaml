@@ -38,7 +38,7 @@ jobs:
   make-matrix:
     runs-on: ubuntu-22.04
     outputs:
-      matrix: ${{ steps.make-matrix.outputs.matrix }}
+      MATRIX: ${{ steps.make-matrix.outputs.MATRIX }}
     steps:
       - name: Make matrix
         id: make-matrix
@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJson(needs.make-matrix.outputs.matrix.configurations) }}
+        config: ${{ fromJson(needs.make-matrix.outputs.MATRIX.configurations) }}
     runs-on: ubuntu-22.04
     name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.config.N_NODE }}N${{ matrix.config.TASK_PER_NODE }}T${{ matrix.config.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.config.FMHA && '-fhma' || '' }}
     steps:
