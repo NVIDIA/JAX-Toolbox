@@ -82,7 +82,7 @@ jobs:
     # uses: ./.github/workflows/_test_slurm_pyxis.yaml
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.make-matrix.outputs.MATRIX }}
+      matrix: ${{ fromJson(needs.make-matrix.outputs.MATRIX) }}
     runs-on: ubuntu-22.04
     name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.config.N_NODE }}N${{ matrix.config.TASK_PER_NODE }}T${{ matrix.config.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.config.FMHA && '-fhma' || '' }}
     steps:
