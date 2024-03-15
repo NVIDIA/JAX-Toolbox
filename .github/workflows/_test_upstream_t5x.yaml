@@ -74,11 +74,7 @@ jobs:
                       })
 
           open(os.getenv('GITHUB_OUTPUT'), 'a').write(
-            'MATRIX={j}'.format(j=json.dumps({'configurations': configurations}))
-          )
-          
-          print(
-            'MATRIX={j}'.format(j=json.dumps({'configurations': configurations}))
+            'MATRIX={j}'.format(j=json.dumps({'config': configurations}))
           )
 
   t5x-multi-gpu:
@@ -86,8 +82,7 @@ jobs:
     # uses: ./.github/workflows/_test_slurm_pyxis.yaml
     strategy:
       fail-fast: false
-      matrix:
-        config: ${{ fromJson(needs.make-matrix.outputs.MATRIX.configurations) }}
+      matrix: ${{ fromJson(needs.make-matrix.outputs.MATRIX }}
     runs-on: ubuntu-22.04
     name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.config.N_NODE }}N${{ matrix.config.TASK_PER_NODE }}T${{ matrix.config.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.config.FMHA && '-fhma' || '' }}
     steps:
