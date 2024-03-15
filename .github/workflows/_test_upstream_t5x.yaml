@@ -58,7 +58,7 @@ jobs:
                               "N_NODE": N_NODE,
                               "TASK_PER_NODE": TASK_PER_NODE,
                               "GPU_PER_NODE": GPU_PER_TASK * TASK_PER_NODE,
-                              "MULTIPROCESS": false,
+                              "MULTIPROCESS": MULTIPROCESS,
                               "FMHA": FMHA,
                               "N_TASKS": N_NODE * TASK_PER_NODE,
                               "N_GPUS": N_NODE * TASK_PER_NODE * GPU_PER_TASK
@@ -73,7 +73,7 @@ jobs:
                               "N_NODE": N_NODE,
                               "TASK_PER_NODE": TASK_PER_NODE,
                               "GPU_PER_NODE": GPU_PER_TASK * TASK_PER_NODE,
-                              "MULTIPROCESS": true,
+                              "MULTIPROCESS": MULTIPROCESS,
                               "FMHA": FMHA,
                               "N_TASKS": N_NODE * TASK_PER_NODE,
                               "N_GPUS": N_NODE * TASK_PER_NODE * GPU_PER_TASK
