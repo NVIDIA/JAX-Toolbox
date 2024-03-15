@@ -4,8 +4,51 @@ on:
   push:
 
 jobs:
-  test-upstream-t5x:
-    uses: ./.github/workflows/_test_upstream_t5x.yaml
-    with:
-      T5X_IMAGE: ghcr.io/nvidia/jax:upstream-t5x
-    secrets: inherit
+  # test-upstream-t5x:
+  #   uses: ./.github/workflows/_test_upstream_t5x.yaml
+  #   with:
+  #     T5X_IMAGE: ghcr.io/nvidia/jax:upstream-t5x
+  #   secrets: inherit
+
+  metrics:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ inputs.ARTIFACT_PREFIX }}-*
+          path: artifacts
+          run-id: 8300364393
+          github-token: ${{ secrets.github_token }}
+
+      # - name: Run pytest
+      #   shell: bash -eux {0}
+      #   run: |
+      #     pip install pytest pytest-reportlog tensorboard
+      #     for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*; do
+      #       JOB_NAME=$(echo $i | awk -F "${GITHUB_RUN_ID}-" '{print $2}')
+      #       METRIC_PATH=${JOB_NAME}_metrics.json
+      #       python3 .github/workflows/baselines/summarize_metrics.py $i/$JOB_NAME --perf_summary_name "timing/steps_per_second" --output_json_path $METRIC_PATH
+      #       # Test script expects the job dir and the log to be in the CWD
+      #       mv $i/$JOB_NAME $i/${JOB_NAME}.log .
+      #     done
+
+      #     RESULTS_DIR=$PWD BASELINES_DIR=T5X_MGMN/upstream pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
+
+      # - name: Upload metrics test json logs
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ${{ inputs.FW_NAME }}-metrics-test-log
+      #     path: |
+      #       report.jsonl
+      #       *_metrics.json
+
+      - name: Upload test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-test
+          path: |
+            artifacts
