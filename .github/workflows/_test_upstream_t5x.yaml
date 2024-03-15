@@ -47,32 +47,34 @@ jobs:
           import json
           import os
 
-          matrix = []
+          configurations = []
 
           # single process per node
           for N_NODE, TASK_PER_NODE in [(1, 1), (1, 8)]:
                   for MULTIPROCESS in [False]:
                       for FMHA in [False, True]:
-                          matrix.append({
+                          configurations.append({
                               "N_NODE": N_NODE,
                               "TASK_PER_NODE": TASK_PER_NODE,
                               "MULTIPROCESS": MULTIPROCESS,
-                              "FMHA": FMHA
+                              "FMHA": FMHA,
+                              "N_TASKS": N_NODE * TASK_PER_NODE
                           })
           
           # multiprocess (one process per GPU)
           for N_NODE, TASK_PER_NODE in [(1, 8), (2, 8)]:
               for MULTIPROCESS in [True]:
                   for FMHA in [False, True]:
-                      matrix.append({
+                      configurations.append({
                           "N_NODE": N_NODE,
                           "TASK_PER_NODE": TASK_PER_NODE,
                           "MULTIPROCESS": MULTIPROCESS,
-                          "FMHA": FMHA
+                          "FMHA": FMHA,
+                          "N_TASKS": N_NODE * TASK_PER_NODE
                       })
 
           open(os.getenv('GITHUB_OUTPUT'), 'a').write(
-            'MATRIX={j}'.format(j=json.dumps(matrix)), 
+            'MATRIX={j}'.format(j=json.dumps({'configurations': configurations})), 
           )
 
   t5x-multi-gpu:
@@ -80,9 +82,10 @@ jobs:
     # uses: ./.github/workflows/_test_slurm_pyxis.yaml
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.make-matrix.outputs.matrix) }}
+      matrix:
+        config: ${{ fromJson(needs.make-matrix.outputs.matrix.configurations) }}
     runs-on: ubuntu-22.04
-    name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_NODE }}N${{ matrix.TASK_PER_NODE }}T${{ matrix.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.FMHA && '-fhma' || '' }}
+    name: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.config.N_NODE }}N${{ matrix.config.TASK_PER_NODE }}T${{ matrix.config.MULTIPROCESS && '-multiprocess' || '' }}${{ matrix.config.FMHA && '-fhma' || '' }}
     steps:
       - name: Print environment variables
         run: env
