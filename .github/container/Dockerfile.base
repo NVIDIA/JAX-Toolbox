@@ -17,6 +17,9 @@ ARG CLANG_VERSION
 ## Install Python and essential tools
 ###############################################################################
 
+# Temporary WAR to run container on arm64 with CUDA-12.3
+ENV NVIDIA_REQUIRE_CUDA="cuda>=12.3 brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 brand=titan,driver>=470,driver<471 brand=titanrtx,driver>=470,driver<471 brand=tesla,driver>=525,driver<526 brand=unknown,driver>=525,driver<526 brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526 brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 brand=quadro,driver>=525,driver<526 brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526 brand=tesla,driver>=535,driver<536 brand=unknown,driver>=535,driver<536 brand=nvidia,driver>=535,driver<536 brand=nvidiartx,driver>=535,driver<536 brand=geforce,driver>=535,driver<536 brand=geforcertx,driver>=535,driver<536 brand=quadro,driver>=535,driver<536 brand=quadrortx,driver>=535,driver<536 brand=titan,driver>=535,driver<536 brand=titanrtx,driver>=535,driver<536"
+
 RUN <<"EOF" bash -ex
 export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
@@ -37,6 +40,7 @@ apt-get install -y \
   rsync \
   vim \
   wget \
+  cuda-compat-12-3 \ # WAR to run ARM64 builds with CUDA-12.3
   lsb-release software-properties-common  # for llvm.sh
 
 # Install LLVM/Clang
@@ -121,4 +125,3 @@ ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 # Copy all required files for manifestation
 COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 COPY patches/ ${DEST_MANIFEST_DIR}/patches/
-
