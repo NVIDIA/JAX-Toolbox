@@ -1,4 +1,4 @@
-From 273753a5505696dd8c3b88b3addbcf3733e96d37 Mon Sep 17 00:00:00 2001
+From 37461f7b414c3c40c8730b5c2c9318329b8bc2d6 Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
 Date: Tue, 18 Jul 2023 10:27:03 -0700
 Subject: [PATCH 1/9] add TE support
@@ -13,18 +13,18 @@ Subject: [PATCH 1/9] add TE support
  create mode 100644 paxml/contrib/gpu/scripts_gpu/te_helper.py
 
 diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
-index a40c9a1..baed829 100644
+index 2aceb30..934530e 100644
 --- a/paxml/contrib/gpu/scripts_gpu/configs.py
 +++ b/paxml/contrib/gpu/scripts_gpu/configs.py
-@@ -21,6 +21,7 @@ from paxml import experiment_registry
- from paxml import tasks_lib
+@@ -23,6 +23,7 @@ from paxml.contrib.gpu.scripts_gpu.llama_utils import BaseLLaMA
+ from paxml.contrib.gpu.scripts_gpu.tasks import BoolQDataset
  from paxml.contrib.gpu.scripts_gpu.tasks import LambadaDataset
  from paxml.contrib.gpu.scripts_gpu.tasks import PileUnsupervisedDataset
 +from paxml.contrib.gpu.scripts_gpu.te_helper import TransformerEngineHelper
  from paxml.tasks.lm.params.c4 import TransformerLmSpmdAdam
  from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
  from praxis import base_layer
-@@ -107,7 +108,7 @@ class GPT126MBase(TransformerLmSpmdAdam):
+@@ -111,7 +112,7 @@ class GPT126MBase(TransformerLmSpmdAdam):
  
    MAX_SEQ_LEN = 2048
    VOCAB_SIZE = 50304
@@ -33,7 +33,7 @@ index a40c9a1..baed829 100644
    PERCORE_BATCH_SIZE = 4
  
    NUM_LAYERS = 12
-@@ -159,10 +160,21 @@ class GPT126MBase(TransformerLmSpmdAdam):
+@@ -166,10 +167,21 @@ class GPT126MBase(TransformerLmSpmdAdam):
          fdl.get_callable(stacked_p), transformers.StackedTransformerRepeated
      ):
        stacked_p = stacked_p.block
@@ -58,7 +58,7 @@ index a40c9a1..baed829 100644
  
      model_p.params_init = WeightInit.Gaussian(self.INIT_STD)
      softmax_init = WeightInit.Gaussian(self.SOFTMAX_INIT_STD)
-@@ -227,7 +239,7 @@ class GPT175BBase(GPT126MBase):
+@@ -234,7 +246,7 @@ class GPT175BBase(GPT126MBase):
    # Known as MLP_DIM in t5x
    HIDDEN_DIMS = MODEL_DIMS * 4
    # Defaults to MODEL_DIMS // NUM_HEADS.
@@ -398,7 +398,7 @@ index 0000000..d44ca67
 +        finally:
 +            pass
 diff --git a/paxml/main.py b/paxml/main.py
-index 41b1a9c..c2e866a 100644
+index d04332a..fd5228e 100644
 --- a/paxml/main.py
 +++ b/paxml/main.py
 @@ -50,6 +50,7 @@ from paxml import tf_data_service_lib
@@ -409,7 +409,7 @@ index 41b1a9c..c2e866a 100644
  from praxis import pax_fiddle
  from praxis import py_utils
  
-@@ -489,39 +490,41 @@ def _main(argv: Sequence[str]) -> None:
+@@ -510,39 +511,41 @@ def _main(argv: Sequence[str]) -> None:
                                                        FLAGS.host_idx)
                       )
  
@@ -484,7 +484,7 @@ index 41b1a9c..c2e866a 100644
  
  _TASK_HANDLE_RE = re.compile(r'(?:logs\.)?(\d+)\.(.*)\.([^.]+)\.\d+')
 diff --git a/paxml/tasks_lib.py b/paxml/tasks_lib.py
-index 2b51f64..629a579 100644
+index cfdc402..e475099 100644
 --- a/paxml/tasks_lib.py
 +++ b/paxml/tasks_lib.py
 @@ -43,6 +43,7 @@ from paxml import checkpoint_types
@@ -495,8 +495,8 @@ index 2b51f64..629a579 100644
  from praxis import asserts
  from praxis import base_hyperparams
  from praxis import base_input
-@@ -1779,7 +1780,7 @@ class SingleTask(base_task.BaseTask):
-                                         inputs_shape_dtype)
+@@ -1786,7 +1787,7 @@ class SingleTask(base_task.BaseTask):
+       )
      # Initialize with a dummy seed
      var_weight_hparams = ckpt_task.model.abstract_init_with_metadata(
 -        inputs_shape_dtype)
@@ -505,7 +505,7 @@ index 2b51f64..629a579 100644
          var_weight_hparams)
      train_state_pspecs = ckpt_task.create_train_state_partition_specs(
 diff --git a/paxml/trainer_lib.py b/paxml/trainer_lib.py
-index 933784a..70247a7 100644
+index 6ec25e8..0342328 100644
 --- a/paxml/trainer_lib.py
 +++ b/paxml/trainer_lib.py
 @@ -35,6 +35,7 @@ from paxml import learners as learners_lib
@@ -547,14 +547,14 @@ index 933784a..70247a7 100644
    logging.info('init_var prng_seed: %s', init_key)
    logging.info('var_weight_hparams: %s', var_weight_hparams)
 @@ -396,7 +398,7 @@ def initialize_model_state(
-       inputs = jax.tree_map(jnp.zeros_like, inputs_shape_dtype)
+       inputs = jax.tree.map(jnp.zeros_like, inputs_shape_dtype)
        if model.hparams.fprop_dtype == jnp.bfloat16:
-         inputs = jax.tree_map(_maybe_to_bfloat16, inputs)
+         inputs = jax.tree.map(_maybe_to_bfloat16, inputs)
 -      return model.init(init_key, inputs)
 +      return model.init(init_key, inputs, mutable=DEFAULT_INIT_MUTABLE_LIST)
  
    initial_vars = init_fn(init_key)
-   logging.info('initial_vars: %s', jax.tree_map(jnp.shape, initial_vars))
+   logging.info('initial_vars: %s', jax.tree.map(jnp.shape, initial_vars))
 @@ -809,7 +811,6 @@ class LossFnProtocol(Protocol):
    ) -> tuple[JTensor, sgf.GradAuxInfo]:
      """Produces losses and grad info by passing the inputs through a model."""
@@ -610,7 +610,7 @@ index 933784a..70247a7 100644
 @@ -1154,7 +1157,7 @@ def train_step_single_learner(
        # Make updated non-trainable vars visible to EMA.
        mdl_vars[NON_TRAINABLE] = fwd_updated_vars[NON_TRAINABLE]
-     excluded_for_learner = jax.tree_map(
+     excluded_for_learner = jax.tree.map(
 -        lambda eo, eg: eo and eg, excluded_for_opt, excluded_for_grad
 +        lambda eo, eg: eo and eg, excluded_for_opt, excluded_for_grad_but_fp8_meta
      )
@@ -654,10 +654,10 @@ index 933784a..70247a7 100644
  
    train_state_partition_specs = (
 -- 
-2.25.1
+2.43.2
 
 
-From f80c7b08e6eda1946821e779307a9388e714d57a Mon Sep 17 00:00:00 2001
+From 371b48043de072908aca80ba8b16f34008bd875c Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 27 Sep 2023 10:46:53 +0800
 Subject: [PATCH 2/9] Adding dropout support when enabling TE.
@@ -688,10 +688,10 @@ index d44ca67..2b9dba4 100644
          assert self.packed_input == False
          assert len(self.moe_layers) == 0
 -- 
-2.25.1
+2.43.2
 
 
-From 4aba0e9ff9622962cf586a02ca1f399b991c62ab Mon Sep 17 00:00:00 2001
+From 272e6352128962a9b2da10133737f3e1343bd36c Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 24 Oct 2023 10:30:27 +0800
 Subject: [PATCH 3/9] Set deterministic=True for inference.
@@ -715,10 +715,10 @@ index 2b9dba4..ef20305 100644
      return x_out
  
 -- 
-2.25.1
+2.43.2
 
 
-From d1db96e4cb34f8bda22bc79b4180157cb60dc849 Mon Sep 17 00:00:00 2001
+From dfbf3a90cc0d93aa7d8e9c55c95ccf98c67f70bb Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Thu, 2 Nov 2023 22:04:58 -0700
 Subject: [PATCH 4/9] Fix the excluded list for excluded_for_learner
@@ -729,23 +729,23 @@ Signed-off-by: Reese Wang <rewang@nvidia.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/paxml/trainer_lib.py b/paxml/trainer_lib.py
-index 70247a7..0a31c30 100644
+index 0342328..2e9bfd6 100644
 --- a/paxml/trainer_lib.py
 +++ b/paxml/trainer_lib.py
 @@ -1157,7 +1157,7 @@ def train_step_single_learner(
        # Make updated non-trainable vars visible to EMA.
        mdl_vars[NON_TRAINABLE] = fwd_updated_vars[NON_TRAINABLE]
-     excluded_for_learner = jax.tree_map(
+     excluded_for_learner = jax.tree.map(
 -        lambda eo, eg: eo and eg, excluded_for_opt, excluded_for_grad_but_fp8_meta
 +        lambda eo, eg: eo and eg, excluded_for_opt, excluded_for_grad
      )
      vars_with_opt = tasks_lib.filter_vars_for_grad_or_opt(
          mdl_vars, excluded_for_learner
 -- 
-2.25.1
+2.43.2
 
 
-From f70581b80d35979804fd4250a3dcc4ad508f618d Mon Sep 17 00:00:00 2001
+From 041456a8d4eb39350349101e263cb09f80b2b88c Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 7 Nov 2023 11:21:53 +0800
 Subject: [PATCH 5/9] Adapting to TE/JAX/Custom_partitioning.
@@ -779,10 +779,10 @@ index ef20305..fed1601 100644
          finally:
              pass
 -- 
-2.25.1
+2.43.2
 
 
-From 9f33a95fbbf26d7453016dd58da5e5b29031a6d1 Mon Sep 17 00:00:00 2001
+From 7d976d6510d8d5f751fd566ed2703bfa2d0a89d0 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 7 Nov 2023 15:14:25 +0800
 Subject: [PATCH 6/9] Adding TE-compatiable PipelinedTransformer
@@ -946,10 +946,10 @@ index fed1601..5914e54 100644
      def update_fp8_metas_if_needed(mdl_vars, grads):
          return TransformerEngineHelper.get_helper().update_fp8_metas_if_needed(mdl_vars, grads)
 -- 
-2.25.1
+2.43.2
 
 
-From d7126f9906e9bba110f482e46eb81e068153e8e8 Mon Sep 17 00:00:00 2001
+From a1bb3c7d24817e1a77219f1cdfdb70b34157fda2 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 8 Nov 2023 10:06:49 +0800
 Subject: [PATCH 7/9] Apply OWG to TE's FP8 meta
@@ -1058,7 +1058,7 @@ index 5914e54..fd482df 100644
      @contextmanager
      def fp8_autocast(dp_mesh_axis="replica", tp_mesh_axis="mdl", fsdp_mesh_axis="data"):
 diff --git a/paxml/trainer_lib.py b/paxml/trainer_lib.py
-index 0a31c30..d3df86b 100644
+index 2e9bfd6..270fb3d 100644
 --- a/paxml/trainer_lib.py
 +++ b/paxml/trainer_lib.py
 @@ -995,16 +995,15 @@ def get_excluded_var_masks(
@@ -1107,10 +1107,10 @@ index 0a31c30..d3df86b 100644
          grads, states.opt_states[0], vars_with_opt, wps_with_opt
      )
 -- 
-2.25.1
+2.43.2
 
 
-From 9ee9830083cba5f9441af37c8af1c8f66a4d195b Mon Sep 17 00:00:00 2001
+From 0d07668f96ea4e106388fbfdc47ae228918ec135 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 14:43:17 +0800
 Subject: [PATCH 8/9] Remove Praxis related setup (Moving to Praxis TE/Patch)
@@ -1121,10 +1121,10 @@ Subject: [PATCH 8/9] Remove Praxis related setup (Moving to Praxis TE/Patch)
  2 files changed, 324 deletions(-)
 
 diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
-index baed829..872b105 100644
+index 934530e..fd01c74 100644
 --- a/paxml/contrib/gpu/scripts_gpu/configs.py
 +++ b/paxml/contrib/gpu/scripts_gpu/configs.py
-@@ -166,15 +166,6 @@ class GPT126MBase(TransformerLmSpmdAdam):
+@@ -173,15 +173,6 @@ class GPT126MBase(TransformerLmSpmdAdam):
        transformer_layer_p = stacked_p.transformer_layer_params_tpl
        transformer_layer_p.ln_tpl.reductions_in_fp32 = True
        transformer_layer_p.tr_fflayer_tpl.ln_tpl.reductions_in_fp32 = True
@@ -1499,10 +1499,10 @@ index fd482df..b271258 100644
      @contextmanager
      def fp8_autocast(dp_mesh_axis="replica", tp_mesh_axis="mdl", fsdp_mesh_axis="data"):
 -- 
-2.25.1
+2.43.2
 
 
-From ed1b33f85c9f4d2fa55a97ee0777f6ba67efefda Mon Sep 17 00:00:00 2001
+From f94e783f56454d758b8cbab81f5ce756835fd065 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 14:51:14 +0800
 Subject: [PATCH 9/9] Fix missing DEFAULT_INIT_MUTABLE_LIST
@@ -1534,5 +1534,5 @@ index b271258..cbac7cf 100644
  
  class TransformerEngineHelperBase:
 -- 
-2.25.1
+2.43.2
 
