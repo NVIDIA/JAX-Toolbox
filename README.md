@@ -13,7 +13,7 @@
       </th>
     </tr>
     <tr>
-      <th colspan=2>Components</th>
+      <th>Components</th>
       <th>Container</th>
       <th>Build</th>
       <th>Test</th>
@@ -24,7 +24,6 @@
       <td>
         <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=base%3D%7BCUDA%2CcuDNN%2CNCCL%2COFED%2CEFA%7D">
       </td>
-      <td></td>
       <td>
         <code>ghcr.io/nvidia/jax:base</code>
       </td>
@@ -38,7 +37,6 @@
       <td>
         <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=core%3D%7Bbase%2CJAX%2CFlax%2CTE%7D">
       </td>
-      <td></td>
       <td>
         <code>ghcr.io/nvidia/jax:jax</code>
       </td>
@@ -62,7 +60,6 @@
       <td>
         <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Levanter%3D%7Bcore%2CLevanter%7D">
       </td>
-      <td></td>
       <td>
         <code>ghcr.io/nvidia/jax:levanter</code>
       </td>
@@ -79,7 +76,6 @@
       <td>
         <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Equinox%3D%7Bcore%2CEquinox%7D">
       </td>
-      <td></td>
       <td>
         <code>ghcr.io/nvidia/jax:equinox</code>
       </td>
@@ -96,7 +92,6 @@
       <td>
         <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Triton%3D%7Bcore%2CJAX-Triton%2CTriton%7D">
       </td>
-      <td></td>
       <td>
         <code>ghcr.io/nvidia/jax:triton</code>
       </td>
@@ -110,10 +105,9 @@
       </td>
     </tr>
     <tr>
-      <td rowspan=2>
-        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=T5X%3D%7Bcore%2CT5X%7D">
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Upstream%20T5X%3D%7Bcore%2CT5X%7D">
       </td>
-      <td>upstream</td>
       <td>
         <code>ghcr.io/nvidia/jax:upstream-t5x</code>
       </td>
@@ -126,7 +120,9 @@
       </td>
     </tr>
     <tr>
-      <td>rosetta</td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Rosetta%20T5X%3D%7Bcore%2CT5X%7D">
+      </td>
       <td>
         <code>ghcr.io/nvidia/jax:t5x</code>
       </td>
@@ -139,10 +135,9 @@
       </td>
     </tr>
     <tr>
-      <td rowspan=2>
-        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=PAX%3D%7Bcore%2Cpaxml%2Cpraxis%7D">
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Upstream%20PAX%3D%7Bcore%2Cpaxml%2Cpraxis%7D">
       </td>
-      <td>upstream</td>
       <td>
         <code>ghcr.io/nvidia/jax:upstream-pax</code>
       </td>
@@ -155,7 +150,9 @@
       </td>
     </tr>
     <tr>
-      <td>rosetta</td>
+      <td>
+        <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Rosetta%20PAX%3D%7Bcore%2Cpaxml%2Cpraxis%7D">
+      </td>
       <td>
         <code>ghcr.io/nvidia/jax:pax</code>
       </td>
@@ -171,7 +168,6 @@
       <td>
         <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=MaxText%3D%7Bcore%2CMaxText%7D">
       </td>
-      <td></td>
       <td>
         <code>ghcr.io/nvidia/jax:maxtext</code>
       </td>
