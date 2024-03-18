@@ -40,7 +40,7 @@ apt-get install -y \
   rsync \
   vim \
   wget \
-  cuda-compat-12-3 \ # WAR to run ARM64 builds with CUDA-12.3
+  cuda-compat-12-3 \
   lsb-release software-properties-common  # for llvm.sh
 
 # Install LLVM/Clang
