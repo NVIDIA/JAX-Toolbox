@@ -1,72 +1,41 @@
 name: "~Sandbox"
 
 on:
-  push:
-
-permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
+  workflow_dispatch:
 
 jobs:
-
-  build-base:
-    uses: ./.github/workflows/_build_base.yaml
-    with:
-      ARCHITECTURE: amd64
-      BUILD_DATE: 2024-03-18
-    secrets: inherit
-
-  build-jax:
-    needs: build-base
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: amd64
-      ARTIFACT_NAME: artifact-jax-build
-      BADGE_FILENAME: badge-jax-build
-      BUILD_DATE: 2024-03-18
-      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-      CONTAINER_NAME: jax
-      DOCKERFILE: .github/container/Dockerfile.jax
-      RUNNER_SIZE: large
-    secrets: inherit
-
-  build-grok:
-    needs: [build-jax]
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: amd64
-      ARTIFACT_NAME: "artifact-grok-build"
-      BADGE_FILENAME: "badge-grok-build"
-      BUILD_DATE: 2024-03-18
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: grok
-      DOCKERFILE: .github/container/Dockerfile.grok
-    secrets: inherit
-
-  collect-docker-tags:
+  sandbox:
     runs-on: ubuntu-22.04
-    if: "!cancelled()"
-    needs:
-      - build-base
-      - build-jax
-      - build-grok
-    outputs:
-      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
     steps:
-      - name: Save docker tags as a JSON object
-        id: collect-tags
-        run: |
-          TAGS=$(cat <<EOF | jq -c
-          [\
-            {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
-            {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "grok",         "stage": "final",   "priority": 900,  "tag": "${{ needs.build-grok.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "grok",         "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-grok.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {}\
-          ]
-          EOF
-          )
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
+      - name: Print usage
+        run: |
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
+
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
