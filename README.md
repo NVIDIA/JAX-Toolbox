@@ -3,7 +3,7 @@
 <table>
   <thead>
     <tr>
-      <th colspan=5 style="text-align:center;">
+      <th colspan=4 style="text-align:center;">
         <a href="https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/ci.yaml?query=event%3Aschedule+branch%3Amain">
         <img
           style="height: 1.5em;"
