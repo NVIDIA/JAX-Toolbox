@@ -15,7 +15,6 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: 2024-03-18
-      MANIFEST_ARTIFACT_NAME: bumped-manifest
     secrets: inherit
 
   build-jax:
