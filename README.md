@@ -180,6 +180,7 @@
       </td>
   </tbody>
 </table>
+
 In all of the above cases, `ghcr.io/nvidia/jax:XXX` points to the most recent
 nightly build of the container for `XXX`. These containers are also tagged as
 `ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`, if a stable reference is required.
