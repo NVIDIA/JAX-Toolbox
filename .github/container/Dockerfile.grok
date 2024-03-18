@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG SRC_PATH_GROK=/opt/grok-1
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG SRC_PATH_GROK
+
+ARG SRC_MANIFEST_FILE=manifest.yaml
+ARG DEST_MANIFEST_DIR=/opt/manifest.d
+COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+
+RUN <<"EOF" bash -ex
+get-source.sh -l grok-1 -m ${MANIFEST_FILE} 
+sed -i 's/\(^jax\)/# \1/g' ${SRC_PATH_GROK}/pyproject.toml
+echo "-e file://${SRC_PATH_GROK}" >> /opt/pip-tools.d/requirements-grok.in
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh
