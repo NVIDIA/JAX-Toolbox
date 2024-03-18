@@ -289,12 +289,14 @@ jobs:
             base
             jax
             triton
+            equinox
             maxtext
             levanter
             upstream-t5x
             upstream-pax
             t5x
             pax
+            grok
           )
           declare -a STAGES=(
             mealkit
