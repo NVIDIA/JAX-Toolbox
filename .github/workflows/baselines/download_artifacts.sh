@@ -15,18 +15,20 @@ fi
 
 [ "$#" -ge "1" ] || usage
 
+EXPECTED_NUM_PAGES=2
 
 for WORKFLOW_RUN in $*; do
   mkdir -p $WORKFLOW_RUN
   pushd $WORKFLOW_RUN
   # cURL the list of artifacts
-  ARTIFACTS=$(curl -L \
+  ARTIFACTS=$(for i in $(seq 1 $EXPECTED_NUM_PAGES); do curl -L \
     -H "Accept: application/vnd.github+json" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
-    "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${WORKFLOW_RUN}/artifacts")
+    "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${WORKFLOW_RUN}/artifacts?per_page=100&page=$i"; done)
 
-  COUNT=$(echo $ARTIFACTS | jq -r '.total_count')
+  COUNT=$(echo $ARTIFACTS | jq -r '.total_count' | head -n 1)
   NAMES=$(echo $ARTIFACTS | jq -r '.artifacts[].name')
+
   URLS=$(echo $ARTIFACTS | jq -r '.artifacts[].archive_download_url')
   NAMES=($NAMES)
   URLS=($URLS)

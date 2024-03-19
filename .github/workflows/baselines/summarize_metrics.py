@@ -46,7 +46,6 @@ def main():
         assert len(event_files) > 0, f"{searchpath} did not contain a tensorboard events file"
 
         event_file = event_files[0]
-        print(f'EVENT FILE: {event_file}')
 
         if 'logdir' in searchpath: # indicating maxtext
             loss = read_maxtext_tb_tag(event_file, args.loss_summary_name) 
@@ -60,7 +59,6 @@ def main():
         e2e_time = read_e2e_time(args.test_config + ".log")
 
         baseline = _create_summary(loss, train_time, e2e_time)
-        print(f'JSON FILENAME: {args.output_json_path}')
         if os.path.exists(args.output_json_path):
             raise FileExistsError(f"Did not expect --output_json_path={args.output_json_path} to exist. Delete it before proceeding.")
         with open(args.output_json_path, "w") as f:
