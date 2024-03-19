@@ -292,6 +292,7 @@ jobs:
             equinox
             maxtext
             levanter
+            equinox
             upstream-t5x
             upstream-pax
             t5x
