@@ -86,10 +86,16 @@ ALL_WF_RUNS=(${@:2})
 
 # call download artifacts from this  script's dir
 UTIL_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-#bash ${UTIL_DIR}/download_artifacts.sh ${ALL_WF_RUNS[@]}
+bash ${UTIL_DIR}/download_artifacts.sh ${ALL_WF_RUNS[@]}
 
 URLS=()
 for WORKFLOW_RUN in ${ALL_WF_RUNS[@]}; do
+  for CFG in ${CONFIGS[@]}; do
+    if [[ $(find . -mindepth 1 -maxdepth 2 -type d -name $CFG | wc -l) -ne 1 ]]; then
+      echo "Expected one artifact to have a '$CFG' dir under '$PWD', but found $(find . -mindepth 1 -maxdepth 2 -type d -name $CFG)"
+      exit 1
+    fi
+  done
   URLS+=("\"https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${WORKFLOW_RUN}/artifacts\"")
 done
 
