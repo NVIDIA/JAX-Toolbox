@@ -32,7 +32,7 @@ def read_maxtext_tb_tag(tb_file: str, summary_name: str) -> dict:
 
 def read_e2e_time(log_file: str) -> float:
     with open(log_file, "r") as log:
-        for line in log:
+        for line in reversed(list(log)):
             if line.startswith("real"):
                 minutes = line.split()[1].split('m')[0]
                 seconds = line.split('m')[1].split('s')[0]
