@@ -37,6 +37,7 @@ class ModelConfig:
     num_of_layer: int
     embed_dim: int
     num_of_head: int
+    num_gqa_groups: int
     head_dim: int
     mlp_intermediate_dim: int
     kernel_chunk_size: int = None

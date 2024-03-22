@@ -33,6 +33,7 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
         ckpt_map = {}
 
         num_of_head = self.model_config.num_of_head
+        num_gqa_groups = self.model_config.num_gqa_groups
         head_dim = self.model_config.head_dim
         hidden_dim = num_of_head * head_dim
         mlp_intermediate_dim = self.model_config.mlp_intermediate_dim
@@ -105,8 +106,6 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                 })
 
             elif self.te_qkv_layout == 'kv_packed':
-                assert self.pax_split_qkv, \
-                    "Cannot convert a QKV-packed Pax checkpoint to a KV-packed TE checkpoint."
                 ckpt_map.update({
                     f"lm.transformer.x_layers_{i}.self_attention.query.w":
                         self._get_convert_pkg(
@@ -116,7 +115,7 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                     f"lm.transformer.x_layers_{i}.self_attention.key.w":
                         self._get_convert_pkg(
                             f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.kv.kernel",
-                            (hidden_dim, num_of_head, head_dim), 0,
+                            (hidden_dim, num_gqa_groups, head_dim), 0,
                             lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.value.w"],
                             stack_dim = -2),
@@ -187,8 +186,6 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                     })
 
                 elif self.te_qkv_layout == 'kv_packed':
-                    assert self.pax_split_qkv, \
-                        "Cannot convert a QKV-packed Pax checkpoint to a KV-packed TE checkpoint."
                     ckpt_map.update({
                         f"lm.transformer.x_layers_{i}.self_attention.query.b":
                             self._get_convert_pkg(
@@ -198,7 +195,7 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                         f"lm.transformer.x_layers_{i}.self_attention.key.b":
                                 self._get_convert_pkg(
                                     f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.kv.bias",
-                                    (num_of_head, head_dim), None,
+                                    (num_gqa_groups, head_dim), None,
                                     lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
                                     extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.value.b"],
                                     stack_dim = -2),
