@@ -85,7 +85,7 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                                 lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
                                 extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.key.w",
                                                     f"lm.transformer.x_layers_{i}.self_attention.value.w"],
-                                stack_dim = -2)
+                                stack_dim = -3)
                     })
                 else:
                     ckpt_map.update({
@@ -118,7 +118,7 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                             (hidden_dim, num_gqa_groups, head_dim), 0,
                             lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.value.w"],
-                            stack_dim = -2),
+                            stack_dim = -3),
                     f"lm.transformer.x_layers_{i}.layer_norm.scale":
                         self._get_convert_pkg(
                             f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.query.scale",
@@ -165,7 +165,7 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                                     lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
                                     extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.key.b",
                                                        f"lm.transformer.x_layers_{i}.self_attention.value.b"],
-                                    stack_dim = -2)
+                                    stack_dim = -3)
                         })
                     else:
                         ckpt_map.update({
@@ -198,7 +198,7 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                                     (num_gqa_groups, head_dim), None,
                                     lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
                                     extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.value.b"],
-                                    stack_dim = -2),
+                                    stack_dim = -3),
                         f"lm.transformer.x_layers_{i}.layer_norm.bias":
                             self._get_convert_pkg(
                                 f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.query.ln_bias",
