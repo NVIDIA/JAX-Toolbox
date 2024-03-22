@@ -129,7 +129,7 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
             else:
                 raise RuntimeError("Unrecognized TE QKV layout in --te-qkv-layout.")
 
-            if not self.weight_only:
+            if not self.skip_bias:
                 ckpt_map.update({
                     f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1.bias.b":
                         self._get_convert_pkg(

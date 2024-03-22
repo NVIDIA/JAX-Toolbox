@@ -112,6 +112,7 @@ python  converter/main.py \
     --head-dim=128 \
     --mlp-intermediate-dim=28672 \
     --kernel-chunk-size=512 \
+    --skip-bias \
     --weight-only \
     --use-gated-activations \
     --pax-split-qkv \

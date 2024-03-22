@@ -57,12 +57,13 @@ class ConvertPkg:
 class ConvertHelper:
 
     def __init__(self, input_path: str, output_path: str, model_config: ModelConfig,
-                 weight_only: bool, skip_ln: bool, use_gated_act: bool,
+                 weight_only: bool, skip_bias: bool, skip_ln: bool, use_gated_act: bool,
                  pax_split_qkv: bool, te_qkv_layout: str):
         self.input_path = input_path
         self.output_path = output_path
         self.model_config = model_config
         self.weight_only = weight_only
+        self.skip_bias = skip_bias
         self.skip_ln = skip_ln
         self.use_gated_act = use_gated_act
         self.pax_split_qkv = pax_split_qkv

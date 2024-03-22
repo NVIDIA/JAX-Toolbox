@@ -113,6 +113,11 @@ def parse_args():
                         default=False,
                         help="indicate if the source checkpoint only includes weights.")
 
+    parser.add_argument('--skip-bias',
+                        action="store_true",
+                        default=False,
+                        help="indicate whether the source checkpoint has biases.")
+
     parser.add_argument('--skip-ln',
                         action="store_true",
                         default=False,
@@ -177,8 +182,9 @@ def get_convert_helper(args):
 
     assert convert_helper_cls is not None, "Not Supported."
     return convert_helper_cls(args.input_path, args.output_path, model_config,
-                              args.weight_only, args.skip_ln, args.use_gated_activations,
-                              args.pax_split_qkv, args.te_qkv_layout)
+                              args.weight_only, args.skip_bias, args.skip_ln,
+                              args.use_gated_activations, args.pax_split_qkv,
+                              args.te_qkv_layout)
 
 
 if __name__ == "__main__":
