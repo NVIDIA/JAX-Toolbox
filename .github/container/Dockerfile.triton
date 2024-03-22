@@ -2,10 +2,17 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG SRC_PATH_TRITON=/opt/openxla-triton
 
+FROM ${BASE_IMAGE} as base
+# Tell Triton to use CUDA binaries from the host container. These should be set
+# both during the build stage and in the final container.
+ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
+ENV TRITON_CUOBJDUMP_PATH=/usr/local/cuda/bin/cuobjdump
+ENV TRITON_NVDISASM_PATH=/usr/local/cuda/bin/nvdisasm
+
 ###############################################################################
 ## Check out Triton source and build a wheel
 ###############################################################################
-FROM ${BASE_IMAGE} as builder
+FROM base as builder
 
 ARG SRC_PATH_TRITON
 
@@ -38,7 +45,7 @@ RUN rm -rf "${SRC_PATH_TRITON}/python/build"
 ###############################################################################
 ## Download source and add auxiliary scripts
 ###############################################################################
-FROM ${BASE_IMAGE} as mealkit
+FROM base as mealkit
 
 ARG SRC_PATH_TRITON
 
