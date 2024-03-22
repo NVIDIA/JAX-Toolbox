@@ -5,6 +5,7 @@ ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG SRC_MANIFEST_FILE=manifest.yaml
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG CLANG_VERSION=17
+ARG NCCL_VERSION=""
 
 FROM ${BASE_IMAGE}
 ARG GIT_USER_EMAIL
@@ -12,6 +13,7 @@ ARG GIT_USER_NAME
 ARG SRC_MANIFEST_FILE
 ARG DEST_MANIFEST_DIR
 ARG CLANG_VERSION
+ARG NCCL_VERSION
 
 ###############################################################################
 ## Install Python and essential tools
@@ -89,7 +91,7 @@ RUN install-cudnn.sh
 ###############################################################################
 
 ADD install-nccl.sh /usr/local/bin
-RUN install-nccl.sh
+RUN install-nccl.sh ${NCCL_VERSION}
 
 ###############################################################################
 ## RoCE and InfiniteBand support
