@@ -3,7 +3,10 @@ ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG SRC_PATH_TRITON=/opt/openxla-triton
 
 FROM ${BASE_IMAGE} as base
-# Tell Triton to use CUDA binaries from the host container. These should be set
+# Triton setup.py downloads and installs CUDA binaries at specific versions
+# hardcoded in the script itself:
+# https://github.com/openxla/triton/blob/84f9d9de158fb866fac67970f0f5d323999d9db1/python/setup.py#L373-L393
+# Tell Triton to use CUDA binaries from the host container instead. These should be set
 # both during the build stage and in the final container.
 ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
 ENV TRITON_CUOBJDUMP_PATH=/usr/local/cuda/bin/cuobjdump
