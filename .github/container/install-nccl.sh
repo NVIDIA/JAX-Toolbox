@@ -30,6 +30,7 @@ if [[ -z "${NCCL_VERSION}" ]]; then
         exit 1
     fi
 else
+    apt-get update
     libnccl2_version=${NCCL_VERSION}
     libnccl_dev_version=${NCCL_VERSION}
 fi
