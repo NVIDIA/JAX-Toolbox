@@ -16,6 +16,8 @@
                     the number of Transformer layer of the given source checkpoint. (Required)
 --num-of-head NUM_OF_HEAD
                     the number of head of multi-head attention of the given source checkpoint. (Required)
+--num-gqa-groups NUM_GQA_GROUPS
+                    the number of GQA groups (key-value heads) of the given source checkpoint. Required for --te-qkv-layout=kv_packed.
 --head-dim HEAD_DIM
                     the head dimension of multi-head attention of the given source checkpoint. (Required)
 --mlp-intermediate-dim MLP_INTERMEDIATE_DIM
@@ -33,11 +35,11 @@
 --pax-repeat
                     indicate if the source Pax checkpoint enables Repeat. (default: False)
 --pax-split-qkv
-                    indicate if the source Pax checkpoint has split QKV parameters. Only supported with --fw=pax and --direction=fw2te. (default: False)
+                    indicate if the source Pax checkpoint has split QKV parameters. Required for --te-qkv-layout=kv_packed. (default: False)
 --t5x-fuse-qkv
                     indicate if the source T5X checkpoint enables fused_qkv_params of TE. (default: False)
 --te-qkv-layout {qkv_packed,kv_packed}
-                    indicate the QKV layout of the converted TE checkpoint. Only supported with --fw=pax and --direction=fw2te. (default: 'qkv_packed')
+                    indicate the QKV layout of the converted TE checkpoint. Only supported with --pax-split-qkv and requires --num-gqa-heads <N> to be set. (default: 'qkv_packed')
 ```
 
 ### Usage Examples
@@ -84,7 +86,7 @@ python  converter/main.py \
     --mlp-intermediate-dim=1024
 ```
 
-2. Pax -> TE (Not Repeat):
+4. Pax -> TE (Not Repeat):
 ```bash
 python  converter/main.py \
     --input-path=/your_path_to_src_ckpt \
@@ -95,6 +97,25 @@ python  converter/main.py \
     --num-of-head=6 \
     --head-dim=64 \
     --mlp-intermediate-dim=1024
+```
+
+5. Pax -> TE (LLaMa2-70b):
+```bash
+python  converter/main.py \
+    --input-path=/your_path_to_src_ckpt \
+    --output-path=/your_path_to_output_ckpt \
+    --fw=pax \
+    --direction=fw2te \
+    --num-of-layer=80 \
+    --num-of-head=64 \
+    --num-gqa-groups=8 \
+    --head-dim=128 \
+    --mlp-intermediate-dim=28672 \
+    --kernel-chunk-size=512 \
+    --weight-only \
+    --use-gated-activations \
+    --pax-split-qkv \
+    --te-qkv-layout=kv_packed
 ```
 
 #### T5X
