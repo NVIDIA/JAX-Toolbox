@@ -7,14 +7,14 @@ NCCL_VERSION=$1
 export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 
+apt-get update
+
 if [[ -z "${NCCL_VERSION}" ]]; then
     # If NCCL is already installed, don't reinstall it. Print a message and exit
     if dpkg -s libnccl2 libnccl-dev &> /dev/null; then
         echo "NCCL is already installed. Skipping installation."
         exit 0
     fi
-
-    apt-get update
 
     # Extract CUDA version from `nvcc --version` output line
     # Input: "Cuda compilation tools, release X.Y, VX.Y.Z"
@@ -30,12 +30,11 @@ if [[ -z "${NCCL_VERSION}" ]]; then
         exit 1
     fi
 else
-    apt-get update
     libnccl2_version=${NCCL_VERSION}
     libnccl_dev_version=${NCCL_VERSION}
 fi
 
-apt-get install -y \
+apt-get install -y --allow-change-held-packages \
     libnccl2=${libnccl2_version} \
     libnccl-dev=${libnccl_dev_version}
 
