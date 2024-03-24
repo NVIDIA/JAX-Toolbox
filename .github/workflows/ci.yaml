@@ -31,6 +31,7 @@ on:
       JAX_NCCL_VERSION:
         type: string
         description: NCCL version to be installed (for example, 2.20.3-1)
+        default: ''
         required: false
 
 

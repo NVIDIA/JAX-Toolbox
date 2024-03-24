@@ -44,7 +44,7 @@ on:
         required: false
       JAX_NCCL_VERSION:
         type: string
-        description: NCCL driver version to be installed
+        description: NCCL version to be installed
         default: ''
         required: false
     outputs:
@@ -110,6 +110,15 @@ jobs:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
+      - name: Get NCCL version
+        id: nccl-version
+        shell: bash -x -e {0}
+        run: |
+          if [[ -z $JAX_NCCL_VERSION ]]; then
+            JAX_NCCL_VERSION=$(docker run ${{ inputs.BASE_IMAGE }} bash -c "echo \$NCCL_VERSION" | tail -1)
+          fi
+          echo "JAX_NCCL_VERSION=$JAX_NCCL_VERSION" >> $GITHUB_OUTPUT
+
       - name: Set docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -138,7 +147,7 @@ jobs:
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
-            JAX_NCCL_VERSION=${{ inputs.JAX_NCCL_VERSION }}
+            JAX_NCCL_VERSION=${{ steps.nccl-version.outputs.JAX_NCCL_VERSION }}
         
       - name: Generate sitrep
         if: "!cancelled()"

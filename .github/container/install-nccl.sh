@@ -30,9 +30,5 @@ apt-get install -y --allow-change-held-packages \
 
 dpkg -s libnccl2 libnccl-dev
 
-export NCCL_VERSION=${JAX_NCCL_VERSION}
-export NV_LIBNCCL_DEV_PACKAGE_VERSION=${JAX_NCCL_VERSION}
-
-
 apt-get clean
 rm -rf /var/lib/apt/lists/*

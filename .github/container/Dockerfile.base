@@ -5,7 +5,6 @@ ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG SRC_MANIFEST_FILE=manifest.yaml
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG CLANG_VERSION=17
-ARG JAX_NCCL_VERSION=${NCCL_VERSION}
 
 FROM ${BASE_IMAGE}
 ARG GIT_USER_EMAIL
@@ -14,6 +13,14 @@ ARG SRC_MANIFEST_FILE
 ARG DEST_MANIFEST_DIR
 ARG CLANG_VERSION
 ARG JAX_NCCL_VERSION
+
+###############################################################################
+## Update NCCL version
+###############################################################################
+
+ENV NCCL_VERSION=${JAX_NCCL_VERSION}
+ENV NV_LIBNCCL_DEV_PACKAGE_VERSION=${JAX_NCCL_VERSION}
+
 
 ###############################################################################
 ## Install Python and essential tools
