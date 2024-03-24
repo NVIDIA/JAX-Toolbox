@@ -25,5 +25,7 @@ apt-get install -y --allow-change-held-packages \
     libnccl2=${libnccl2_version} \
     libnccl-dev=${libnccl_dev_version}
 
+dpkg -s libnccl2 libnccl-dev
+
 apt-get clean
 rm -rf /var/lib/apt/lists/*
