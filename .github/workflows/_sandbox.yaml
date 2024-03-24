@@ -1,6 +1,7 @@
 name: "~Sandbox"
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
@@ -15,7 +16,7 @@ jobs:
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: amd64
-      NCCL_VERSION: "2.20.5-1"
+      JAX_NCCL_VERSION: "2.20.5-1"
     secrets: inherit
 
 
