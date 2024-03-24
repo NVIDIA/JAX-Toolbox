@@ -45,7 +45,6 @@ on:
       JAX_NCCL_VERSION:
         type: string
         description: NCCL driver version to be installed
-        default: ''
         required: false
     outputs:
       DOCKER_TAG:
