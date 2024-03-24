@@ -117,7 +117,7 @@ jobs:
           JAX_NCCL_VERSION=${{ inputs.JAX_NCCL_VERSION }}
           if [[ -z $JAX_NCCL_VERSION ]]; then
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-            if [[ $BASE_IMAGE == ${{ inputs.BASE_IMAGE.default }} ]]; then
+            if [[ $BASE_IMAGE == latest ]]; then
               BASE_IMAGE=$(cat ./github/container/Dockerfile.base | sed -n "s/^ARG BASE_IMAGE=\(.*\)$/\1/p")
             fi
             JAX_NCCL_VERSION=$(docker run $BASE_IMAGE bash -c "echo \$NCCL_VERSION" | tail -1)
