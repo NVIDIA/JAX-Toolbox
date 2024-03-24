@@ -42,7 +42,7 @@ on:
         description: Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch
         default: ''
         required: false
-      NCCL_VERSION:
+      JAX_NCCL_VERSION:
         type: string
         description: NCCL driver version to be installed
         default: ''
@@ -138,7 +138,7 @@ jobs:
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
-            NCCL_VERSION=${{ inputs.NCCL_VERSION }}
+            JAX_NCCL_VERSION=${{ inputs.JAX_NCCL_VERSION }}
         
       - name: Generate sitrep
         if: "!cancelled()"

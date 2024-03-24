@@ -28,10 +28,9 @@ on:
         description: "(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch"
         default: false
         required: false
-      NCCL_VERSION:
+      JAX_NCCL_VERSION:
         type: string
-        description: NCCL driver version to be installed in the format <version>+cuda<version> (for example, 2.20.5+cuda12.3)
-        default: ""
+        description: NCCL version to be installed (for example, 2.20.3-1)
         required: false
 
 
@@ -152,7 +151,7 @@ jobs:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
-      NCCL_VERSION: ${{ inputs.NCCL_VERSION }}
+      JAX_NCCL_VERSION: ${{ inputs.JAX_NCCL_VERSION }}
     secrets: inherit
 
   arm64:
@@ -162,7 +161,7 @@ jobs:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
-      NCCL_VERSION: ${{ inputs.NCCL_VERSION }}
+      JAX_NCCL_VERSION: ${{ inputs.JAX_NCCL_VERSION }}
     secrets: inherit
 
   # Only merge if everything succeeds

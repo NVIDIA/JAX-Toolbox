@@ -16,10 +16,9 @@ on:
         description: Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch
         default: ''
         required: false
-      NCCL_VERSION:
+      JAX_NCCL_VERSION:
         type: string
-        description: NCCL driver version to be installed
-        default: ''
+        description: NCCL version to be installed
         required: false
     outputs:
       DOCKER_TAGS:
@@ -39,7 +38,7 @@ jobs:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
-      NCCL_VERSION: ${{ inputs.NCCL_VERSION }}
+      JAX_NCCL_VERSION: ${{ inputs.JAX_NCCL_VERSION }}
     secrets: inherit
 
   build-jax:
