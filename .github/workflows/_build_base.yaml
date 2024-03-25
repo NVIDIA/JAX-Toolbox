@@ -127,7 +127,6 @@ jobs:
             else echo $NCCL_VERSION; fi' | tail -1)
           fi
           echo "JAX_NCCL_VERSION=$JAX_NCCL_VERSION" >> $GITHUB_OUTPUT
-          exit 1
 
       - name: Set docker metadata
         id: meta

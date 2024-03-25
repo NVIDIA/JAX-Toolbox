@@ -24,4 +24,5 @@ jobs:
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: amd64
+      BASE_IMAGE: ubuntu
     secrets: inherit
