@@ -5,11 +5,20 @@ set -ex -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 
+
+# Skip NCCL installation if both JAX_NCCL_VERSION (user defined) and
+# NCCL_VERSION (defined in nvidia/cuda containers) are unset.
+# This case means that the base container is built from a custom image with
+# a custom network communicator or unset NCCL_VERSION env variable.
+if [[ -z $JAX_NCCL_VERSION && -z $NCCL_VERSION ]]; then
+    echo "Skip NCCL installation"
+    exit 0
+fi
+
+JAX_NCCL_VERSION=${JAX_NCCL_VERSION:-$NCCL_VERSION}
+
 apt-get update
 
-if [[ -z $JAX_NCCL_VERSION ]]; then
-    JAX_NCCL_VERSION=$NCCL_VERSION
-fi
 # Extract CUDA version from `nvcc --version` output line
 # Input: "Cuda compilation tools, release X.Y, VX.Y.Z"
 # Output: X.Y
