@@ -11,7 +11,7 @@ FROM ${BASE_IMAGE} as base
 ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
 ENV TRITON_CUOBJDUMP_PATH=/usr/local/cuda/bin/cuobjdump
 ENV TRITON_NVDISASM_PATH=/usr/local/cuda/bin/nvdisasm
-RUN [ -f "${TRITON_PTXAS_PATH}" ] && [ -f "${TRITON_CUOBJDUMP_PATH}" ] && [ -f "${TRITON_NVDISASM_PATH}" ]
+RUN [ -x "${TRITON_PTXAS_PATH}" ] && [ -x "${TRITON_CUOBJDUMP_PATH}" ] && [ -x "${TRITON_NVDISASM_PATH}" ]
 
 ###############################################################################
 ## Check out Triton source and build a wheel
