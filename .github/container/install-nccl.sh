@@ -5,6 +5,15 @@ set -ex -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 
+# Extract CUDA version from `nvcc --version` output line
+# Input: "Cuda compilation tools, release X.Y, VX.Y.Z"
+# Output: X.Y
+cuda_version=$(nvcc --version | sed -n 's/^.*release \([0-9]*\.[0-9]*\).*$/\1/p')
+
+# Try to get NCCL_VERSION of installed libnccl-dev
+if [[ -z $NCCL_VERSION ]]; then
+    NCCL_VERSION=$(dpkg -s libnccl-dev | sed -n "s/^Version: \(.*+cuda${cuda_version}\)$/\1/p" | head -n 1 | tr "+" "\n" | head -1)
+fi
 
 # Skip NCCL installation if both JAX_NCCL_VERSION (user defined) and
 # NCCL_VERSION (defined in nvidia/cuda containers) are unset.
@@ -18,11 +27,6 @@ fi
 JAX_NCCL_VERSION=${JAX_NCCL_VERSION:-$NCCL_VERSION}
 
 apt-get update
-
-# Extract CUDA version from `nvcc --version` output line
-# Input: "Cuda compilation tools, release X.Y, VX.Y.Z"
-# Output: X.Y
-cuda_version=$(nvcc --version | sed -n 's/^.*release \([0-9]*\.[0-9]*\).*$/\1/p')
 
 # Find latest NCCL version compatible with existing CUDA by matching
 # ${cuda_version} in the package version string
