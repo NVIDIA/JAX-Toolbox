@@ -71,9 +71,10 @@ jobs:
         run: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           if [[ $BASE_IMAGE == latest ]]; then
-            BASE_IMAGE=$(cat .github/container/Dockerfile.base | sed -n "s/^ARG BASE_IMAGE=\(.*\)$/\1/p")
+            BASE_IMAGE=$(sed -n "s/^ARG BASE_IMAGE=\(.*\)$/\1/p" .github/container/Dockerfile.base)
           fi
-          NVIDIA_REQUIRE_CUDA=$(docker run $BASE_IMAGE bash -ec "echo \$NVIDIA_REQUIRE_CUDA" | tail -1)
+          apt-get install skopeo
+          NVIDIA_REQUIRE_CUDA=$(skopeo inspect "docker://docker.io/${BASE_IMAGE}" | jq -r '.Env[] | select(startswith("NVIDIA_REQUIRE_CUDA=")) | ltrimstr("NVIDIA_REQUIRE_CUDA=")')
           echo "NVIDIA_REQUIRE_CUDA=${NVIDIA_REQUIRE_CUDA}" >> $GITHUB_OUTPUT
 
   build-base:
