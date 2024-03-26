@@ -73,7 +73,7 @@ jobs:
           if [[ $BASE_IMAGE == latest ]]; then
             BASE_IMAGE=$(cat .github/container/Dockerfile.base | sed -n "s/^ARG BASE_IMAGE=\(.*\)$/\1/p")
           fi
-          NVIDIA_REQUIRE_CUDA=$(docker run -it $BASE_IMAGE bash -ec "echo \$NVIDIA_REQUIRE_CUDA" | tail -1)
+          NVIDIA_REQUIRE_CUDA=$(docker run $BASE_IMAGE bash -ec "echo \$NVIDIA_REQUIRE_CUDA" | tail -1)
           echo "NVIDIA_REQUIRE_CUDA=${NVIDIA_REQUIRE_CUDA}" >> $GITHUB_OUTPUT
 
   build-base:
