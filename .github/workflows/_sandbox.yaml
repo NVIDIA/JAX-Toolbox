@@ -9,7 +9,7 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      MANIFEST_ARTIFACT_NAME: test
+      MANIFEST_ARTIFACT_NAME: ''
     secrets: inherit
 
   arm64:
@@ -17,5 +17,5 @@ jobs:
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      MANIFEST_ARTIFACT_NAME: test
+      MANIFEST_ARTIFACT_NAME: ''
     secrets: inherit
