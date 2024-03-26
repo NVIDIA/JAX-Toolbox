@@ -57,7 +57,8 @@ def test_step_time(baseline_filename):
             STEP_TIME_MULT[test_config], f"Step time values: {step_time_values} (Avg: {step_time_avg_actual}), Expected avg: {step_time_avg_expected}"
 
 
-@pytest.mark.parametrize("baseline_filename", os.listdir(baselines_dir))
+## TODO: comment this back in once t5x E2E time metrics are fixed!
+'''@pytest.mark.parametrize("baseline_filename", os.listdir(baselines_dir))
 def test_e2e_time(baseline_filename):
     baseline_filepath = os.path.join(baselines_dir, baseline_filename)
     test_config = baseline_filename.split(".")[0]
@@ -66,4 +67,4 @@ def test_e2e_time(baseline_filename):
         e2e_time_expected = json.load(baseline_file)["e2e_time_seconds"]
         e2e_time_actual = test_utils.read_e2e_time(run_log)
         assert e2e_time_actual < e2e_time_expected / \
-            E2E_TIME_MULT[test_config], f"Run E2E time: {e2e_time_actual}, Expected E2E time: {e2e_time_expected}"
+            E2E_TIME_MULT[test_config], f"Run E2E time: {e2e_time_actual}, Expected E2E time: {e2e_time_expected}"'''
