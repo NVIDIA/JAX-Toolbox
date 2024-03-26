@@ -62,6 +62,9 @@ jobs:
     outputs:
       NVIDIA_REQUIRE_CUDA: ${{ steps.metadata.outputs.NVIDIA_REQUIRE_CUDA }}
     steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
       - name: Get NVIDIA_REQUIRE_CUDA env variable from AMD64 CUDA image
         id: metadata
         shell: bash -x -e {0}
