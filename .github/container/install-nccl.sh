@@ -30,8 +30,8 @@ apt-get update
 
 # Find latest NCCL version compatible with existing CUDA by matching
 # ${cuda_version} in the package version string
-libnccl2_version=$(apt-cache show libnccl-dev | sed -n "s/^Version: \(${JAX_NCCL_VERSION}.*+cuda\)$/\1/p" | head -n 1)
-libnccl_dev_version=$(apt-cache show libnccl-dev | sed -n "s/^Version: \(${JAX_NCCL_VERSION}.*+cuda\)$/\1/p" | head -n 1)
+libnccl2_version=$(apt-cache show libnccl-dev | sed -n "s/^Version: \(${JAX_NCCL_VERSION}.*+cuda.*\)$/\1/p" | head -n 1)
+libnccl_dev_version=$(apt-cache show libnccl-dev | sed -n "s/^Version: \(${JAX_NCCL_VERSION}.*+cuda.*\)$/\1/p" | head -n 1)
 if [[ -z "${libnccl2_version}" || -z "${libnccl_dev_version}" ]]; then
     echo "Could not find compatible NCCL version for CUDA ${cuda_version}"
     exit 1
