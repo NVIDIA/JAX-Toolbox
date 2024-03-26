@@ -20,7 +20,7 @@ ARG NVIDIA_REQUIRE_CUDA
 ###############################################################################
 
 # Temporary WAR to run container on arm64 with CUDA-12.3
-ENV NVIDIA_REQUIRE_CUDA=${JAX_REQUIRE_CUDA}
+ENV NVIDIA_REQUIRE_CUDA=${NVIDIA_REQUIRE_CUDA}
 
 RUN <<"EOF" bash -ex
 export DEBIAN_FRONTEND=noninteractive
