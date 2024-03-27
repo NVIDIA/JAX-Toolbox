@@ -136,39 +136,50 @@ jobs:
             cat "$f" | jq -r '.summary' | tee -a $GITHUB_STEP_SUMMARY
           done
 
-      - name: Concatenate all sitreps
+      - name: Concatenate all json data
         shell: bash -x -e {0}
         run: |
-          # combine all sitreps files into a single file, where each sitrep json sits
-          # in a field named by the folder that contained it
-          echo "[" >> fsitrep.json
-          sitrep_files=($(find . -name "sitrep.json"))
-          total_files=${#sitrep_files[@]}
+          # Combine all json files into a final summary json
+          output="combined.json"
+          combinedJson="{}"
 
-          # parse all the sitrep files and consolidate them into one
-          for ((i=0; i<total_files; i++)); do
-            FILE=${sitrep_files[$i]}
-            # Extract directory name
-            key=$(dirname "$FILE")
-            # Extract the summary field from the JSON files and append the content to the output JSON file.
-            if [[ "$key" == "./artifact-t5x-mgmn-test" || "$key" == "./artifact-pax-mgmn-test" ]]; then 
-              val_tmp=$(cat "$FILE" |  jq -r '.summary' )
-              # For t5x/pax mgmn test extract the test summary of tests and ignore extended metric info in the summary.
-              delimiter="|"
-              IFS=$delimiter read -ra parts <<< "$val_tmp" 
-              value="${parts[0]}passed"
-            else
-              value=$(cat "$FILE" |  jq -r '.summary' )
+          # Loop over subdirectories in the current directory
+          for dir in */; do
+            dirName="${dir%/}" && [ -d "$dir" ] || continue
+
+            # Initialize default empty JSON objects
+            sitrep="{}"
+            metricSummary="{}"
+            status="{}"
+
+            # Check if the sitrep.json file exists and read it, else use default
+            if [ -f "$dir/sitrep.json" ]; then
+                sitrep=$(<"$dir/sitrep.json")
             fi
 
-            jq -n --arg key "$key" --arg value "$value" '{ ($key): $value }' >> fsitrep.json
-            if [ $i != $((total_files-1)) ]; then
-              echo -n "," >> fsitrep.json
+            # Check if the metric_summary.json file exists and read it, else use default
+            if [ -f "$dir/metric_summary.json" ]; then
+                metricSummary=$(<"$dir/metric_summary.json")
             fi
+
+            # Use Bash globbing to find the *-status.json file and read it, else use default
+            statusFiles=($dir*-status.json)
+            if [ -f "${statusFiles[0]}" ]; then
+                status=$(<"${statusFiles[0]}")
+            fi
+
+            # Use jq to merge the JSON data
+            combinedJson=$(jq --arg dirName "$dirName" \
+                              --argjson sitrep "$sitrep" \
+                              --argjson status "$status" \
+                              --argjson metricSummary "$metricSummary" \
+                              '.[$dirName] = {"sitrep": $sitrep, "status": $status, "metric_summary": $metricSummary}' <<<"$combinedJson")
           done
-          echo "]" >> fsitrep.json
-          mv fsitrep.json sitrep.json
-          
+
+          # Output the combined JSON to the file, nicely formatted
+          echo "$combinedJson" | jq '.' > "$output"
+          mv combined.json sitrep.json
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
         with:
