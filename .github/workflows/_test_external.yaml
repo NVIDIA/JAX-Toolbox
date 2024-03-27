@@ -17,12 +17,12 @@ on:
         type: string
         description: "MaxText image to run tests on"
         required: true
-        default: "ghcr.io/nvidia/jax:maxtext"
+        default: ''
       LEVANTER_IMAGE:
         type: string
         description: "Levanter image to run tests on"
         required: true
-        default: "ghcr.io/nvidia/jax:levanter"
+        default: ''
 
 
 
@@ -38,6 +38,7 @@ permissions:
 jobs:
 
   test-jax:
+    if: inputs.JAX_IMAGE != ''
     uses: ./.github/workflows/_test_unit.yaml
     with:
       IMAGE: ${{ inputs.JAX_IMAGE }}
@@ -60,19 +61,21 @@ jobs:
     secrets: inherit
 
   test-rosetta-pax:
+    if: inputs.PAX_IMAGE != ''
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
       PAX_IMAGE: ${{ inputs.PAX_IMAGE }}
     secrets: inherit
 
   test-maxtext:
+    if: inputs.MAXTEXT_IMAGE != ''
     uses: ./.github/workflows/_test_maxtext.yaml
     with:
       MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
     secrets: inherit
 
   test-levanter:
-    needs: build-levanter
+    if: inputs.MLEVANTER_IMAGE  != ''
     uses: ./.github/workflows/_test_unit.yaml
     with:
       IMAGE: ${{ inputs.LEVANTER_IMAGE }}
@@ -96,7 +99,7 @@ jobs:
     secrets: inherit
 
   finalize:
-    needs: [ test-jax, test-rosetta-pax ]
+    needs: [ test-jax, test-rosetta-pax, test-maxtext, test-levanter]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
