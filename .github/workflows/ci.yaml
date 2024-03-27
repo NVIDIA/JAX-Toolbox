@@ -300,7 +300,6 @@ jobs:
             equinox
             maxtext
             levanter
-            equinox
             upstream-t5x
             upstream-pax
             t5x
@@ -356,7 +355,8 @@ jobs:
                     \"flavor\": \"${flavor}\",
                     \"target_image\": \"${target_image}\",
                     \"priority\": \"${priority}\",
-                    \"source_image\": ${source_image}
+                    \"source_image\": ${source_image},
+                    \"stage\": \"${stage}\"
                   }]"
                 )
               else
@@ -379,6 +379,8 @@ jobs:
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
     uses: ./.github/workflows/_publish_container.yaml
     with:
+      ARTIFACT_NAME: ${{ matrix.config.stage }}-${{ matrix.config.flavor }}
+      ARTIFACT_TAG: ${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }}
       SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
       TARGET_IMAGE: ${{ matrix.config.target_image }}
       TARGET_TAGS: |
@@ -386,7 +388,7 @@ jobs:
         type=raw,value=${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
 
   finalize:
-    needs: [metadata, amd64, arm64]
+    needs: [metadata, amd64, arm64, publish-containers]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
