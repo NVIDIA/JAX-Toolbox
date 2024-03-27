@@ -42,6 +42,11 @@ on:
         description: Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch
         default: ''
         required: false
+      JAX_NCCL_VERSION:
+        type: string
+        description: NCCL version to be installed
+        default: ''
+        required: false
     outputs:
       DOCKER_TAG:
         description: "Tag of the image built"
@@ -105,6 +110,24 @@ jobs:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
+      - name: Get NCCL version
+        id: nccl-version
+        shell: bash -x -e {0}
+        run: |
+          JAX_NCCL_VERSION=${{ inputs.JAX_NCCL_VERSION }}
+          if [[ -z $JAX_NCCL_VERSION ]]; then
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            if [[ $BASE_IMAGE == latest ]]; then
+              BASE_IMAGE=$(cat .github/container/Dockerfile.base | sed -n "s/^ARG BASE_IMAGE=\(.*\)$/\1/p")
+            fi
+            JAX_NCCL_VERSION=$(docker run ${BASE_IMAGE:-ubuntu} bash -ec \
+            'if [[ -z $NCCL_VERSION ]]; then \
+            cuda_version=$(nvcc --version | sed -n "s/^.*release \([0-9]*\.[0-9]*\).*$/\1/p"); \
+            dpkg -s libnccl-dev | sed -n "s/^Version: \(.*+cuda${cuda_version}\)$/\1/p" | head -n 1 | tr "+" "\n" | head -1; \
+            else echo $NCCL_VERSION; fi' | tail -1)
+          fi
+          echo "JAX_NCCL_VERSION=$JAX_NCCL_VERSION" >> $GITHUB_OUTPUT
+
       - name: Set docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -133,6 +156,7 @@ jobs:
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
+            JAX_NCCL_VERSION=${{ steps.nccl-version.outputs.JAX_NCCL_VERSION }}
         
       - name: Generate sitrep
         if: "!cancelled()"
