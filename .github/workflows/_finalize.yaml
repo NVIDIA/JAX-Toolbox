@@ -145,7 +145,8 @@ jobs:
 
           # Loop over subdirectories in the current directory
           for dir in */; do
-            dirName="${dir%/}" && [ -d "$dir" ] || continue
+            echo $dir
+            dirName=$(basename $dir) && [ -d "$dir" ] || continue
 
             # Initialize default empty JSON objects
             sitrep="{}"
@@ -163,9 +164,11 @@ jobs:
             fi
 
             # Use Bash globbing to find the *-status.json file and read it, else use default
-            statusFiles=($dir*-status.json)
-            if [ -f "${statusFiles[0]}" ]; then
-                status=$(<"${statusFiles[0]}")
+            statusFiles=("$dir"/*-status.json)
+            statusFile=${statusFiles[0]}
+            if [ -f $statusFile ]; then
+                echo "Found status file: $statusFile"
+                status=$(<"${statusFile}")
             fi
 
             # Use jq to merge the JSON data
