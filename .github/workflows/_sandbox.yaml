@@ -45,8 +45,8 @@ jobs:
     steps:
       - name: Download
         run: |
-          UTIL_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-          bash ${UTIL_DIR}/download_artifacts.sh 8449523553
+          pwd; ls;
+          bash workflows/scripts/download_artifacts.sh 8449523553
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v4
