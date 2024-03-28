@@ -46,7 +46,7 @@ jobs:
       - name: Download
         run: |
           pwd; ls;
-          bash workflows/scripts/download_artifacts.sh 8449523553
+          bash .github/workflows/baselines/download_artifacts.sh 8449523553
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v4
