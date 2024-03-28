@@ -62,6 +62,7 @@ jobs:
             8449523553/*
 
   finalize:
+    needs: [download-artifacts]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
