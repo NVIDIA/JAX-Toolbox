@@ -149,3 +149,4 @@ jobs:
           path: |
             sitrep.json
             ${{ inputs.BADGE_FILENAME }}
+            metrics_summary.json
