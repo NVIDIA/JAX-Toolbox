@@ -46,7 +46,7 @@ jobs:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
 
-        - name: Download
+      - name: Download
         run: |
           pwd; ls;
           bash .github/workflows/baselines/download_artifacts.sh 8449523553
