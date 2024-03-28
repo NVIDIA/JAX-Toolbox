@@ -50,6 +50,8 @@ jobs:
         run: |
           pwd; ls;
           bash .github/workflows/baselines/download_artifacts.sh 8449523553
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v4
