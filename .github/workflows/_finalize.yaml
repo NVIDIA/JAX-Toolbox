@@ -144,7 +144,7 @@ jobs:
           combinedJson="{}"
 
           # Loop over subdirectories in the current directory
-          for dir in */; do
+          for dir in all-artifacts/*; do
             echo $dir
             dirName=$(basename $dir) && [ -d "$dir" ] || continue
 
