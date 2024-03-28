@@ -49,7 +49,8 @@ jobs:
       - name: Download
         run: |
           pwd; ls;
-          bash .github/workflows/baselines/download_artifacts.sh 8449523553
+          bash .github/workflows/baselines/download_artifacts.sh 8449523553;
+          ls -l
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -58,7 +59,7 @@ jobs:
         with:
           name: all-artifacts
           path: |
-            *
+            8449523553/*
 
   finalize:
     if: "!cancelled()"
