@@ -43,7 +43,10 @@ jobs:
   download-artifacts:
     runs-on: ubuntu-22.04
     steps:
-      - name: Download
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+        - name: Download
         run: |
           pwd; ls;
           bash .github/workflows/baselines/download_artifacts.sh 8449523553
