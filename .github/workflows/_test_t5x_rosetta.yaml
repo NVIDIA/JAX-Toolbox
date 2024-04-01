@@ -107,7 +107,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},NVCR_TOKEN=${{ secrets.NVCR_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -312,7 +312,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},NVCR_TOKEN=${{ secrets.NVCR_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -497,7 +497,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},NVCR_TOKEN=${{ secrets.NVCR_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -668,7 +668,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},XLA_PYTHON_CLIENT_MEM_FRACTION=0.85"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},XLA_PYTHON_CLIENT_MEM_FRACTION=0.85,NVCR_TOKEN=${{ secrets.NVCR_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \

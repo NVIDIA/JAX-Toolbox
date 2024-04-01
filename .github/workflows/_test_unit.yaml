@@ -63,6 +63,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Login to NVCR Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: nvcr.io
+          username: '$oauthtoken'
+          password: ${{ secrets.NVCR_TOKEN }}
 
       - name: Run tests
         shell: bash -x -e {0}
