@@ -113,6 +113,12 @@ ENV PATH=/opt/amazon/efa/bin:${PATH}
 COPY check-shm.sh /opt/nvidia/entrypoint.d/
 
 ###############################################################################
+## Add the GCP - TCPX check to the entrypoint.
+###############################################################################
+
+COPY gcp-tcpx-check.sh /opt/nvidia/entrypoint.d/
+
+###############################################################################
 ## Copy manifest file to the container
 ###############################################################################
 
