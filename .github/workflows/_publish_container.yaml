@@ -3,6 +3,14 @@ name: ~publish images from internal to public repo
 on:
   workflow_call:
     inputs:
+      ARTIFACT_NAME:
+        type: string
+        description: 'Artifact name; the markdown filename is derived from this'
+        required: true
+      ARTIFACT_TAG:
+        type: string
+        description: 'Container tag used to find the GitHub package ID and embedded in links'
+        required: true
       SOURCE_IMAGE:
         type: string
         description: 'Source docker image:'
@@ -19,6 +27,9 @@ on:
       DOCKER_TAGS:
         description: "Tags of the image published"
         value: ${{ jobs.publish.outputs.DOCKER_TAGS }}
+      PACKAGE_URL:
+        description: "Direct link to the GitHub package page for this image"
+        value: ${{ jobs.publish.outputs.PACKAGE_URL }}
 
 env:
   DOCKER_REGISTRY: 'ghcr.io/nvidia'
@@ -28,6 +39,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       DOCKER_TAGS: ${{ steps.meta.outputs.tags }}
+      PACKAGE_URL: ${{ steps.github-meta.package_url }}
     steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -86,6 +98,32 @@ jobs:
           for tag in $(echo -e "${{ steps.meta.outputs.tags }}"); do
             docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
           done
+
+      - name: Get GitHub package URL
+        id: github-meta
+        shell: bash -x -e {0}
+        run: |
+          # Note that /users/ seems to work for both user and organization
+          # owners, while /orgs/ only works for owners that are organizations.
+          # TODO: do we need a delay or re-try loop in order for the package
+          # to be available?
+          package_url=$(curl \
+              -H "Authorization: token ${{ github.token }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${{ inputs.TARGET_IMAGE }}/versions" \
+            | jq -r ".[] | select(.metadata.container.tags[] == \"${{ inputs.ARTIFACT_TAG }}\").html_url")
+          # Got ~ https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/12
+          package_url="${package_url}?tag=${{ inputs.ARTIFACT_TAG }}"
+          echo "package_url=${package_url}" >> $GITHUB_OUTPUT
+          echo "[${{ env.DOCKER_REGISTRY }}/${{ inputs.TARGET_IMAGE }}:${{ inputs.ARTIFACT_TAG }}](${package_url})" > "${{ inputs.ARTIFACT_NAME }}.md"
+
+      - name: Upload link file
+        if: "!cancelled()"
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}
+          path: ${{ inputs.ARTIFACT_NAME }}.md
 
       # - name: Create single-arch images
       #   if: ${{ inputs.EXPOSE_SINGLE_ARCH_IMAGES }}
