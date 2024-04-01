@@ -13,16 +13,16 @@ on:
         description: "Rosetta Pax image to run tests on"
         required: false
         default: ''
-      # MAXTEXT_IMAGE:
-      #   type: string
-      #   description: "MaxText image to run tests on"
-      #   required: false
-      #   default: ''
-      # LEVANTER_IMAGE:
-      #   type: string
-      #   description: "Levanter image to run tests on"
-      #   required: false
-      #   default: ''
+      MAXTEXT_IMAGE:
+        type: string
+        description: "MaxText image to run tests on"
+        required: false
+        default: ''
+      LEVANTER_IMAGE:
+        type: string
+        description: "Levanter image to run tests on"
+        required: false
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
