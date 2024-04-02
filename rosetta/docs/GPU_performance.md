@@ -16,7 +16,7 @@ This page documents the various flags in XLA and JAX to improve performance for 
 
 ### CUDA Flags
 
-The following flag restrict cuda queues to 1 and is useful when a strict ordering of operations is required to achieve best performance. This is recommended to achieve good performance with latency hiding optimizations with tasynchronous collectives.
+The following flag restricts cuda queues to 1 and is useful when a strict ordering of operations is required to achieve best performance. This is recommended to achieve good performance with latency hiding optimizations with asynchronous collectives.
 - CUDA_DEVICE_MAX_CONNECTIONS=1
   
 ### NCCL flags 
