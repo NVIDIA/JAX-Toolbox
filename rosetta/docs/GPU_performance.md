@@ -95,7 +95,7 @@ The following flag enables use of PGLE with JAX/XLA. Please see [PGLE notes](htt
 ### Enable CUDA graphs
 
 The below enables CUDA Graph suppport for JAX/XLA workloads
-- --xla_gpu_enable_command_buffer (?? by default)
+- --xla_gpu_enable_command_buffer (1 by default, available options are 0, 1, 2, and 3)
 
 ### Dynamic-Update Slice Fusion
 
@@ -123,6 +123,8 @@ Fine-grain control to improve performance by initializing a NCCL communicators t
 ### Miscellaneous flags 
 - --xla_gpu_enable_triton_softmax_fusion=false (disable triton softmax if using a custom kernel for MHA for example)
 - --xla_gpu_cudnn_gemm_fusion=true (enables GEMM/bias fusion via cuDNN)
+- --xla_gpu_enable_cudnn_fmha=false (enables XLA pattern matcher to detect multi-headed attention pattern in JAX)
+- --xla_disable_hlo_passes=<> (turns off specific HLO passes; can be used for debugging)
 
 
 
