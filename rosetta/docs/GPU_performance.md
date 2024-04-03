@@ -114,7 +114,7 @@ Flags to improves memory consumed by NCCL.
 - --xla_gpu_enable_nccl_comm_splitting=false  
 - --xla_gpu_enable_nccl_per_stream_comms=false [https://github.com/openxla/xla/pull/9845](https://github.com/openxla/xla/pull/9845)
 
-Fine-grain control to improve performance by initializing a NCCL communicators to use only max_nchannels (SMs). Default value of 0 gets the default values from NCCL for SMs used per collective.
+Fine-grain control to improve performance by initializing a NCCL communicator to use only max_nchannels (SMs). Default value of 0 gets the default values from NCCL for SMs used per collective.
 - --xla_gpu_nccl_collective_max_nchannels
 - --xla_gpu_nccl_p2p_max_nchannels
 
@@ -123,7 +123,7 @@ Fine-grain control to improve performance by initializing a NCCL communicators t
 - --xla_dump_latency_hiding_schedule=true
 
 ### Miscellaneous flags 
-- --xla_gpu_enable_triton_softmax_fusion=false (disable triton softmax if using a custom kernel for MHA for example)
+- --xla_gpu_enable_triton_softmax_fusion=false (disable triton softmax if using a custom kernel for MHA; leave to default/true otherwise)
 - --xla_gpu_cudnn_gemm_fusion=true (enables GEMM/bias fusion via cuDNN)
 - --xla_gpu_enable_cudnn_fmha=false (enables XLA pattern matcher to detect multi-headed attention pattern in JAX)
 - --xla_disable_hlo_passes=<> (turns off specific HLO passes; can be used for debugging)
