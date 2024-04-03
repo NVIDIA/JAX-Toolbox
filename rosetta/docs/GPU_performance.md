@@ -2,12 +2,12 @@
 
 This page documents the various flags in XLA and JAX to improve performance for LLMs on GPUs. The XLA flags are defined with their default values in [xla/debug_options_flags.cc](https://github.com/openxla/xla/blob/main/xla/debug_options_flags.cc)
 
-The flags can be set via the environment variable "XLA_FLAGS = --xla-my-favorite-flag=true" on command line or your script.
+The flags can be set via the environment variable `XLA_FLAGS="--xla-flag1=true --xla-flag2=false"` on command line or your script.
 
 
 ## Flags to manage memory used in JAX/XLA
 
-- XLA_PYTHON_CLIENT_MEM_FRACTION is a XLA flag that allocates a fraction of GPU memory for JAX/XLA.
+- XLA_PYTHON_CLIENT_MEM_FRACTION is a XLA environment variable that allocates a fraction of GPU memory for JAX/XLA.
 --  Ideally, should be 1, but in practice less because some memory is used by NVIDIA Libraries, and the JAX framework.
 --  We typically set it to 0.9 or 0.8. At 0.9, XLA gets 90% of GPU memory.
 
@@ -24,9 +24,9 @@ The following environment variable restricts CUDA queues to 1 and is useful when
 ### NCCL flags 
 
 See [Environment Variables] (https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html) for more details.
-- NCCL_LL128_BUFFSIZE: -2
-- NCCL_LL_BUFFSIZE: -2
 - NCCL_PROTO: SIMPLE,LL,LL128
+- NCCL_LL128_BUFFSIZE: -2 (Use default buffer sizes for low-latency comms via [computeBuffSizes at init.cc#552](https://github.com/NVIDIA/nccl/blob/master/src/init.cc#L552))
+- NCCL_LL_BUFFSIZE: -2
 
 
 ## XLA flags to enable Latency Hiding Scheduler, and asynchronous collective communication
