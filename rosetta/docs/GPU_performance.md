@@ -50,7 +50,7 @@ For more fine-grained control over which collectives should be asynchronous or n
 - --xla_gpu_enable_async_collective_permute=<>
 
 
-### Enable Optimizations for FSDP communication 
+### Flags to enable optimizations for FSDP communication 
 
 With FSDP in JAX/XLA, there are additional optimizations of 
 
@@ -75,14 +75,14 @@ With FSDP in JAX/XLA, there are additional optimizations of
     - --xla_gpu_all_reduce_combine_threshold_bytes=8589934592
 
 
-### Flags for Collective permute 
+### Flags to enable async collective permute 
 
 The following flags enable overlap of pipeline parallel communication of send/recv with computation. 
 - --xla_gpu_enable_pipelined_p2p=true  (false by default)
 - --xla_gpu_collective_permute_decomposer_threshold=1024
 - --xla_gpu_lhs_enable_gpu_async_tracker=true
 
-### Flags to enable Collective Matmul
+### Flags to enable collective matmul
 
 The following flags enable overlap of tensor parallel communication with GEMMs/matmul by splicing GEMMs into smaller chunks and triggering each chunks' collective right after the chunk's GEMM is done. The threshold determines the size of output buffer of GEMM when this optimization becomes active (0 enables collective matmul for all GEMM-collective patterns)
 - --xla_gpu_multi_streamed_windowed_einsum=true
