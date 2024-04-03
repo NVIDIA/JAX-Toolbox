@@ -18,6 +18,13 @@ cat "${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxt
 EOF
 
 ###############################################################################
+## Apply patch
+###############################################################################
+
+ADD maxtext-mha.patch /opt
+RUN cd "${SRC_PATH_MAXTEXT}" && patch -p1 < /opt/maxtext-mha.patch && git diff
+
+###############################################################################
 ## Add test script to the path
 ###############################################################################
 
