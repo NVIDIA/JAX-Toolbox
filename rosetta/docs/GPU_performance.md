@@ -79,7 +79,8 @@ With FSDP in JAX/XLA, there are additional optimizations of
 
 The following flags enable overlap of pipeline parallel communication of send/recv with computation. 
 - --xla_gpu_enable_pipelined_p2p=true  (false by default)
-- --xla_gpu_collective_permute_decomposer_threshold=33521664
+- --xla_gpu_collective_permute_decomposer_threshold=1024
+- --xla_gpu_lhs_enable_gpu_async_tracker=true
 
 ### Flags to enable Collective Matmul
 
