@@ -121,7 +121,6 @@ Fine-grain control to improve performance by initializing a NCCL communicators t
 ### Debug flags 
 - --xla_dump_to=some/path
 - --xla_dump_latency_hiding_schedule=true
-- --xla_gpu_lhs_enable_gpu_async_tracker=false
 
 ### Miscellaneous flags 
 - --xla_gpu_enable_triton_softmax_fusion=false (disable triton softmax if using a custom kernel for MHA for example)
