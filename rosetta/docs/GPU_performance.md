@@ -123,7 +123,7 @@ Fine-grain control to improve performance by initializing a NCCL communicator to
 - --xla_dump_latency_hiding_schedule=true
 
 ### Miscellaneous flags 
-- --xla_gpu_enable_triton_softmax_fusion=false (disable triton softmax if using a custom kernel for MHA; leave to default/true otherwise)
+- --xla_gpu_enable_triton_softmax_fusion=false (disable if using a custom kernel for MHA; leave to default/true otherwise)
 - --xla_gpu_cudnn_gemm_fusion=true (enables GEMM/bias fusion via cuDNN)
 - --xla_gpu_enable_cudnn_fmha=false (enables XLA pattern matcher to detect multi-headed attention pattern in JAX)
 - --xla_disable_hlo_passes=<> (turns off specific HLO passes; can be used for debugging)
