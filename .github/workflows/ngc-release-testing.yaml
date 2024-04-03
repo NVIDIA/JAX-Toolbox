@@ -35,7 +35,6 @@ permissions:
   packages: read # to upload container
 
 jobs:
-
   test-jax:
     if: inputs.JAX_IMAGE != ''
     uses: ./.github/workflows/_test_unit.yaml
