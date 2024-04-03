@@ -2,21 +2,23 @@
 
 This page documents the various flags in XLA and JAX to improve performance for LLMs on GPUs. The XLA flags are defined with their default values in [xla/debug_options_flags.cc](https://github.com/openxla/xla/blob/main/xla/debug_options_flags.cc)
 
+The flags can be set via the environment variable "XLA_FLAGS = --xla-my-favorite-flag=true" on command line or your script.
+
 
 ## Flags to manage memory used in JAX/XLA
 
-- XLA_PYTHON_CLIENT_MEM_FRACTION is a JAX flag that allocates a fraction of GPU memory for JAX/XLA.
+- XLA_PYTHON_CLIENT_MEM_FRACTION is a XLA flag that allocates a fraction of GPU memory for JAX/XLA.
 --  Ideally, should be 1, but in practice less because some memory is used by NVIDIA Libraries, and the JAX framework.
 --  We typically set it to 0.9 or 0.8. At 0.9, XLA gets 90% of GPU memory.
 
-- xla_gpu_memory_limit_slop_factor controls the memory used by XLA for determining its default heuristics for scheduling, and rematerialization. Default is recommended.
+- The `xla_gpu_memory_limit_slop_factor` flag controls the memory used by XLA for determining its default heuristics for scheduling, and rematerialization. Default is recommended.
 
 
 ## General CUDA/NCCL flags 
 
-### CUDA Flags
+### CUDA configuration
 
-The following flag restricts cuda queues to 1 and is useful when a strict ordering of operations is required to achieve best performance. This is recommended to achieve good performance with latency hiding optimizations with asynchronous collectives.
+The following environment variable restricts CUDA queues to 1 and is useful when a strict ordering of operations is required to achieve best performance. This is recommended to achieve good performance with latency hiding optimizations with asynchronous collectives.
 - CUDA_DEVICE_MAX_CONNECTIONS=1
   
 ### NCCL flags 
@@ -59,17 +61,17 @@ With FSDP in JAX/XLA, there are additional optimizations of
     - --xla_gpu_enable_pipelined_all_gather=true
     - --xla_gpu_enable_pipelined_reduce_scatter=true
     - --xla_gpu_enable_pipelined_all_reduce=true 
-    - --xla_gpu_enable_pipelined_collectives=false // overrides the above
+    - --xla_gpu_enable_pipelined_collectives=false // if true overrides the above
       
 - combining tensors that are sharded along different dimensions. Within a transformer layer, tensors can be sharded row-wise or column-wise and by default XLA will generate multiple collective calls for tensors sharded along different dimensions. The following optimization flags combine all tensors shardings, and map them to a group NCCL call that has a large commulative size and achieves high communication efficiency. 
     - --xla_gpu_enable_all_gather_combine_by_dim=false
     - --xla_gpu_enable_reduce_scatter_combine_by_dim=false
       
-- Combine threshold values in XLA that determine when an all-gather (AG) or reduce-scatter (RS) is triggered. We want to set these values to be atleast as large as the size of weights (AG) or gradients (RS) in a single transformer layer. For example, LLAMA2-7B with BF16 weights and gradients, we have 32 transformer layers => each layer has ~218M weights => one would want to set these thresholds to atleast 436MB. 
+- Combine threshold values in XLA that determine when an all-gather (AG) or reduce-scatter (RS) is triggered. We want to set these values to be at least as large as the size of weights (AG) or gradients (RS) in a single transformer layer since large communication buffers achieve higher link bandwidth utilization. For example, LLAMA2-7B with BF16 weights and gradients, we have 32 transformer layers => each layer has ~218M weights => one would want to set these thresholds to at least 436MB.
     - --xla_gpu_all_gather_combine_threshold_bytes=8589934592
     - --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592
       
-- Combine threshold values in XLA that determine when an all-reduce (AR) is triggered. Typically, used to overlap AR of gradients with back-prop of compute. We want to set this to be atleast as large as possible to achieve high efficiency, but as small as possible to achieve maximum overlap. Depending on the interconnect of your system, one might want to try several threshold values in steps of 2 from say 16MB to total gradient size.
+- Combine threshold values in XLA that determine when an all-reduce (AR) is triggered. Typically, used to overlap AR of gradients with back-prop of compute. We want to set this to be at least as large as possible to achieve high efficiency, but as small as possible to achieve maximum overlap. Depending on the interconnect of your system, one might want to try several threshold values in steps of 2 from say 16MB to total gradient size.
     - --xla_gpu_all_reduce_combine_threshold_bytes=8589934592
 
 
@@ -108,10 +110,10 @@ Enable user-buffers in NCCL for zero-copy collectives and send/recv. Needs NCCL_
 - --xla_gpu_enable_nccl_user_buffers=true
 
 Flags to improves memory consumed by NCCL.
-- --xla_gpu_enable_nccl_resource_sharing=true  
+- --xla_gpu_enable_nccl_comm_splitting=false  
 - --xla_gpu_enable_nccl_per_stream_comms=false [https://github.com/openxla/xla/pull/9845](https://github.com/openxla/xla/pull/9845)
 
-Fine-grain control to improve performance by initializing a NCCL communicators to use only max_nchannels (SMs) 
+Fine-grain control to improve performance by initializing a NCCL communicators to use only max_nchannels (SMs). Default value of 0 gets the default values from NCCL for SMs used per collective.
 - --xla_gpu_nccl_collective_max_nchannels
 - --xla_gpu_nccl_p2p_max_nchannels
 
