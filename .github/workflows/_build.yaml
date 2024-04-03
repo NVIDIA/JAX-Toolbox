@@ -1,4 +1,4 @@
-name: ~build JAX-related container
+name: ~build container
 
 on:
   workflow_call:
@@ -33,6 +33,11 @@ on:
         type: string
         description: "Dockerfile to use, e.g. .github/container/Dockerfile.t5x.amd64"
         required: true
+      RUNNER_SIZE:
+        type: string
+        description: "Size of the runner to use"
+        required: false
+        default: small
     outputs:
       DOCKER_TAG_MEALKIT:
         description: "Tags of the 'mealkit' image built"
@@ -52,7 +57,7 @@ permissions:
 jobs:
   build:
     name: build-${{ inputs.CONTAINER_NAME }}
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "${{ inputs.RUNNER_SIZE }}"]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
@@ -61,6 +66,21 @@ jobs:
     steps:
       - name: Print environment variables
         run: env
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
@@ -102,8 +122,12 @@ jobs:
           target: mealkit
           tags: ${{ steps.mealkit-metadata.outputs.tags }}
           labels: ${{ steps.mealkit-metadata.outputs.labels }}
+          ssh: default
+          secret-files: |
+            "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
 
       - name: Set docker metadata - final
@@ -130,8 +154,13 @@ jobs:
           tags: ${{ steps.final-metadata.outputs.tags }}
           labels: ${{ steps.final-metadata.outputs.labels }}
           target: final
+          ssh: default
+          secret-files: |
+            "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
+
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
 
       - name: Generate sitrep

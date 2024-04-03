@@ -204,7 +204,7 @@ wget https://raw.githubusercontent.com/google/saxml/f3efdafed400d03be22efdb39a00
 python3 -m convert_llama_ckpt --base-model-path <meta checkpoint path> --pax-model-path <path to save checkpoint to> --model-size <7b, 13b, or 70b>
 ```
 
-The script [download_boolq.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_boolq.py) downloads the BoolQ dataset to the `TFDS_DATA_DIR` (see [Downloading the Pile and Lambada Datasets]((#Downloading-the-pile-and-lambada-datasets) for more). Once BoolQ has been downloaded, the script [example_slurm_llama.sub](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/scripts/example_slurm_llama.sub) can be used to reproduce the results reported in the table. Launch the script using the following command:
+The script [download_boolq.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_boolq.py) downloads the BoolQ dataset to the `TFDS_DATA_DIR` (see [Downloading the Pile and Lambada Datasets](#Downloading-the-pile-and-lambada-datasets) for more). Once BoolQ has been downloaded, the script [example_slurm_llama.sub](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/scripts/example_slurm_llama.sub) can be used to reproduce the results reported in the table. Launch the script using the following command:
 ```
 CONTAINER=<CONTAINER> BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_BOOLQ> BASE_VOCAB_PATH=<PATH_TO_LLAMA_TOKENIZER> BASE_CHECKPOINT_DIR=<PATH_TO_CONVERTED_CHECKPOINT> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=bfloat16 GPUS_PER_NODE=8 PERCORE_BATCH_SIZE=<BSIZE_PER_GPU> CONFIG=<LLaMA_CONFIG> sbatch -N <NUM_NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/example_slurm_llama.sub
 ```
@@ -234,7 +234,6 @@ For example, the following command benchmarks the 5B model on 32 nodes with TE B
 BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> CONFIG=Synthetic5B OUTPUT_DIR=output_synthetic_5b PREC=bfloat16 ENABLE_TE=1 ENABLE_FP8=0 GPUS_PER_NODE=8 PERCORE_BATCH_SIZE=8 LOG_DIR_LOCAL=log_dir_synthetic_5b sbatch -N 32 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/example_slurm_synthetic.sub
 ```
 Note that with models that are particularly dataloading-bottlenecked (e.g. smaller models, such as 126M), the throughput observed using the synthetic dataset may be higher than the throughput observed when training on a real dataset.
-
 
 ## Known Issues
 * Pipeline parallelism is not supported with NVIDIA Transformer Engine enabled in the Paxml container.

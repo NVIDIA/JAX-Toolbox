@@ -32,6 +32,7 @@ def main():
                               help='Key in the tensorboard event file containing loss data')
     parser.add_argument('-p', '--perf_summary_name', default='Steps/sec',
                         help='Key in the tensorboard event file containing perf data')
+    parser.add_argument('-o', '--output_json_path', type=str)
     args = parser.parse_args()
 
     try:
@@ -45,7 +46,6 @@ def main():
         assert len(event_files) > 0, f"{searchpath} did not contain a tensorboard events file"
 
         event_file = event_files[0]
-        print(f'EVENT FILE: {event_file}')
 
         if 'logdir' in searchpath: # indicating maxtext
             loss = read_maxtext_tb_tag(event_file, args.loss_summary_name) 
@@ -59,9 +59,9 @@ def main():
         e2e_time = read_e2e_time(args.test_config + ".log")
 
         baseline = _create_summary(loss, train_time, e2e_time)
-        json_fname = args.test_config + "_metrics.json"
-        print(f'JSON FILENAME: {json_fname}')
-        with open(json_fname, "w") as f:
+        if os.path.exists(args.output_json_path):
+            raise FileExistsError(f"Did not expect --output_json_path={args.output_json_path} to exist. Delete it before proceeding.")
+        with open(args.output_json_path, "w") as f:
             json.dump(baseline, f, indent=2)
 
     except KeyError as e:

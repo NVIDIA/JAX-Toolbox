@@ -24,7 +24,7 @@ if [[ "$TYPE" == "upstream-pax" ]]; then
     )
     # OUTPUT_DIR should be relative to this script
     OUTPUT_DIR=PAX_MGMN/upstream
-elif [[ "$TYPE" == "pax" ]]; then
+elif [[ "$TYPE" == "rosetta-pax" ]]; then
     CONFIGS=(
         "16DP1FSDP1TP1PP_TE"
         "1DP1FSDP1TP1PP_TE"
@@ -54,9 +54,13 @@ elif [[ "$TYPE" == "upstream-t5x" ]]; then
         "4G2N"
         "8G1N"
         "8G2N"
+        "1P1G_fmha"
+        "1P2G_fmha"
+        "2G2N_fmha"
+        "8G2N_fmha"
     )
     OUTPUT_DIR=T5X_MGMN/upstream
-elif [[ "$TYPE" == "t5x" ]]; then
+elif [[ "$TYPE" == "rosetta-t5x" ]]; then
     CONFIGS=(
         "1N1G-te-1"
         "1N8G-te-1"
@@ -72,7 +76,7 @@ elif [[ "$TYPE" == "t5x" ]]; then
         "VIT8G2N"
     )
     OUTPUT_DIR=T5X_MGMN/rosetta
-elif [[ "$TYPE" == "maxtext" ]]; then
+elif [[ "$TYPE" == "upstream-maxtext" ]]; then
     CONFIGS=("1DP1FSDP1TP1PP" "1DP1FSDP8TP1PP" "1DP2FSDP4TP1PP_single_process" "1DP4FSDP2TP1PP" "1DP8FSDP1TP1PP" "2DP2FSDP2TP1PP" "4DP2FSDP2TP1PP")
     OUTPUT_DIR=MAXTEXT/upstream
 else
@@ -86,24 +90,12 @@ bash ${UTIL_DIR}/download_artifacts.sh ${ALL_WF_RUNS[@]}
 
 URLS=()
 for WORKFLOW_RUN in ${ALL_WF_RUNS[@]}; do
-  pushd ${WORKFLOW_RUN}
   for CFG in ${CONFIGS[@]}; do
     if [[ $(find . -mindepth 1 -maxdepth 2 -type d -name $CFG | wc -l) -ne 1 ]]; then
       echo "Expected one artifact to have a '$CFG' dir under '$PWD', but found $(find . -mindepth 1 -maxdepth 2 -type d -name $CFG)"
       exit 1
     fi
-    # There should only be one directory with this config so this glob should match
-    pushd $(dirname */$CFG)
-    if [[ $TYPE == "upstream-pax" || $TYPE == "pax" ]]; then
-        python3 ${UTIL_DIR}/summarize_metrics.py ${CFG}
-    elif [[ $TYPE == "upstream-t5x" || $TYPE == "t5x" ]]; then
-        python3 ${UTIL_DIR}/summarize_metrics.py ${CFG} --perf_summary_name "timing/steps_per_second"
-    elif [[ $TYPE == "maxtext" ]]; then
-        python3 ${UTIL_DIR}/summarize_metrics.py ${CFG} --loss_summary_name "learning/loss" --perf_summary_name "perf/step_time_seconds"
-    fi
-    popd
   done
-  popd
   URLS+=("\"https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/${WORKFLOW_RUN}/artifacts\"")
 done
 
@@ -111,8 +103,7 @@ for CFG in ${CONFIGS[@]}; do
   # Average metrics data for this config
   run_dir_paths=""
   for run_id in ${ALL_WF_RUNS[@]}; do
-    # Even though it's a glob, there should be only one b/c of the check above
-    run_dir_paths+=" $(dirname $run_id/*/$CFG)"
+    run_dir_paths+=" $run_id/${TYPE}-metrics-test-log"
   done
 
   python3 ${UTIL_DIR}/average_baselines.py --config ${CFG} --run_dirs $run_dir_paths --output_dir $OUTPUT_DIR
