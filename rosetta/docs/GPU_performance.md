@@ -23,10 +23,11 @@ The following environment variable restricts CUDA queues to 1 and is useful when
   
 ### NCCL configuration 
 
-See [Environment Variables] (https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html) for more details.
+See [NCCL Environment Variables](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html) for more details.
 - NCCL_PROTO: SIMPLE,LL,LL128
-- NCCL_LL128_BUFFSIZE: -2 (Use default buffer sizes for low-latency comms via [computeBuffSizes at init.cc#552](https://github.com/NVIDIA/nccl/blob/master/src/init.cc#L552))
-- NCCL_LL_BUFFSIZE: -2
+
+The following variable accelerates all-reduce collective on NVLink4/H100. It requires additional GPU memory and may need one to reduce `XLA_PYTHON_CLIENT_MEM_FRACTION` to avoid OOMs.
+- NCCL_NVLS_ENABLE:1 
 
 
 ## XLA flags to enable Latency Hiding Scheduler, and asynchronous collective communication
