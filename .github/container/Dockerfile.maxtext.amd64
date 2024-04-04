@@ -37,5 +37,6 @@ ADD test-maxtext.sh /usr/local/bin
 FROM mealkit as final
 
 RUN pip-finalize.sh
+RUN pip install typing-extensions==4.10.0
 
 WORKDIR ${SRC_PATH_MAXTEXT}
