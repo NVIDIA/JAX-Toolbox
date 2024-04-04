@@ -1,25 +1,25 @@
 jax:
   url: https://github.com/google/jax.git
-  tracking_ref: main
-  latest_verified_commit: 8f4658ecdbe40cde0c43a9ab127359347943c076
+  tracking_ref: jax-v0.4.26
+  latest_verified_commit: fed7efd73003988282744b2f649df493b808c781
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 6de79c2c931374dfa7e403c0626d8dd1ec0ed398
+  latest_verified_commit: 4e8e23f16bc925b6f27817de098a8e1e81296bb5
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
-  tracking_ref: main
-  latest_verified_commit: 718aa8ccb12c3fdefcf3d196874e4fc667b3ade5
+  tracking_ref: v0.8.2
+  latest_verified_commit: 83d118ad369a470527e8ec6cd3b988fba5d4fd3e
   mode: git-clone
   patches:
-    pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
+    # pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
-  tracking_ref: main
-  latest_verified_commit: 1ec33ae1191ae6644365155f8e8f618145c44cd7
+  tracking_ref: release_v1.5
+  latest_verified_commit: 35a8754cb284f15e3f3768f7164564bd20b597c1
   mode: git-clone
 paxml:
   url: https://github.com/google/paxml.git
@@ -90,8 +90,8 @@ seqio:
   tracking_ref: main
   latest_verified_commit: 11706e4a1e01a81ea6b3e02c5ad147028d5b94bb
   mode: pip-vcs
+# Used in ARM t5x/pax builds
 grain:
-  # Used only in ARM t5x builds
   url: https://github.com/google/grain.git
   tracking_ref: main
   latest_verified_commit: 10600a3f5510bcb696a90e72c6e6cb1ac2bb016f
