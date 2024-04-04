@@ -26,7 +26,7 @@ The following environment variable restricts CUDA queues to 1 and is useful when
 See [NCCL Environment Variables](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html) for more details.
 - NCCL_PROTO: SIMPLE,LL,LL128
 
-The following variable accelerates all-reduce collective on NVLink4/H100. It requires additional GPU memory and may need one to reduce `XLA_PYTHON_CLIENT_MEM_FRACTION` to avoid OOMs.
+The following variable accelerates all-reduce collective on NVLink4/H100. It requires additional GPU memory and may need one to reduce `XLA_PYTHON_CLIENT_MEM_FRACTION` to avoid OOMs if enabled.
 - NCCL_NVLS_ENABLE:1 
 
 
