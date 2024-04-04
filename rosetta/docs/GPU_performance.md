@@ -98,8 +98,10 @@ The following flag enables use of PGLE with JAX/XLA. Please see [PGLE notes](htt
 
 ### Enable CUDA graphs
 
-The below enables CUDA Graph suppport for JAX/XLA workloads
-- --xla_gpu_enable_command_buffer (1 by default, available options are 0, 1, 2, and 3)
+The below enables CUDA Graph suppport for JAX/XLA workloads, and is enabled by default.
+- --xla_gpu_enable_command_buffer
+
+Valid options for operations that are supported by command buffer are FUSION, CUBLAS, COLLECTIVES, CONDITIONALS, CUSTOM_CALL. For example, `--xla_gpu_enable_command_buffer=FUSION,CUBLAS,COLLECTIVES` enables cuda graph for the respective operations.
 
 ### Dynamic-Update Slice Fusion
 
@@ -111,7 +113,7 @@ The following flag removes extra copies introduced by DUS (dynamic update slice)
 Enable user-buffers in NCCL for zero-copy collectives and send/recv. Needs NCCL_NVLS_ENABLE=1 for AG, AR, RS.
 - --xla_gpu_enable_nccl_user_buffers=true
 
-Flags to improves memory consumed by NCCL.
+Flags to reduce memory consumed by NCCL.
 - --xla_gpu_enable_nccl_comm_splitting=false  
 - --xla_gpu_enable_nccl_per_stream_comms=false [https://github.com/openxla/xla/pull/9845](https://github.com/openxla/xla/pull/9845)
 
@@ -124,7 +126,6 @@ Fine-grain control to improve performance by initializing a NCCL communicator to
 - --xla_dump_latency_hiding_schedule=true
 
 ### Miscellaneous flags 
-- --xla_gpu_enable_triton_softmax_fusion=false (disable if using a custom kernel for MHA; leave to default/true otherwise)
 - --xla_gpu_cudnn_gemm_fusion=true (enables GEMM/bias fusion via cuDNN)
 - --xla_gpu_enable_cudnn_fmha=false (enables XLA pattern matcher to detect multi-headed attention pattern in JAX)
 - --xla_disable_hlo_passes=<> (turns off specific HLO passes; can be used for debugging)
