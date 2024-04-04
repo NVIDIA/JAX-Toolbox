@@ -271,7 +271,7 @@ We will update this table as new models become available, so stay tuned.
 
 ## Environment Variables
 
-The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is embedded with the following flags and environment variables for performance tuning:
+The [JAX images](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) are embedded with the following flags and environment variables for performance tuning:
 
 | XLA Flags | Value | Explanation |
 | --------- | ----- | ----------- |
@@ -279,6 +279,8 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 | `--xla_gpu_enable_async_all_gather` | `true` | allows XLA to run NCCL [AllGather](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/operations.html#allgather) kernels on a separate CUDA stream to allow overlap with compute kernels |
 | `--xla_gpu_enable_async_reduce_scatter` | `true` | allows XLA to run NCCL [ReduceScatter](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/operations.html#reducescatter) kernels on a separate CUDA stream to allow overlap with compute kernels |
 | `--xla_gpu_enable_triton_gemm` | `false` | use cuBLAS instead of Trition GeMM kernels |
+
+See [GPU performance](./rosetta/docs/GPU_performance.md) for details about these, and other XLA flags, that enable high-performance for LLMs on NVIDIA GPUs.
 
 | Environment Variable | Value | Explanation |
 | -------------------- | ----- | ----------- |
