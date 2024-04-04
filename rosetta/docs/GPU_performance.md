@@ -21,7 +21,7 @@ The flags can be set via the environment variable `XLA_FLAGS="--xla-flag1=true -
 The following environment variable restricts CUDA queues to 1 and is useful when a strict ordering of operations is required to achieve best performance. This is recommended to achieve good performance with latency hiding optimizations with asynchronous collectives.
 - CUDA_DEVICE_MAX_CONNECTIONS=1
   
-### NCCL flags 
+### NCCL configuration 
 
 See [Environment Variables] (https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html) for more details.
 - NCCL_PROTO: SIMPLE,LL,LL128
