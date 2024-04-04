@@ -74,7 +74,6 @@ jobs:
     if: inputs.LEVANTER_IMAGE  != ''
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      IMAGE: ${{ inputs.LEVANTER_IMAGE }}
       TEST_NAME: levanter
       EXECUTE: |
         docker run --gpus all --shm-size=1g ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
