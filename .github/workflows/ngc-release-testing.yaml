@@ -38,7 +38,6 @@ jobs:
     if: inputs.JAX_IMAGE != ''
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      IMAGE: ${{ inputs.JAX_IMAGE }}
       TEST_NAME: jax
       EXECUTE: |
         docker run --shm-size=1g --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
