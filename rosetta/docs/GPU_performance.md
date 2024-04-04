@@ -96,12 +96,12 @@ The following flag enables use of PGLE with JAX/XLA. Please see [PGLE notes](htt
 
 ## Other XLA Flags 
 
-### Enable CUDA graphs
+### CUDA graphs
 
 The below enables CUDA Graph suppport for JAX/XLA workloads, and is enabled by default.
-- --xla_gpu_enable_command_buffer
+- --xla_gpu_enable_command_buffer (Set to "" to disable)
 
-Valid options for operations that are supported by command buffer are FUSION, CUBLAS, COLLECTIVES, CONDITIONALS, CUSTOM_CALL. For example, `--xla_gpu_enable_command_buffer=FUSION,CUBLAS,COLLECTIVES` enables cuda graph for the respective operations.
+
 
 ### Dynamic-Update Slice Fusion
 
