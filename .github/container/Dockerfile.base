@@ -122,5 +122,7 @@ ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 ADD ${SRC_MANIFEST_FILE} \
     patches \
     bump.sh \
+    bump-openxla-triton.sh \
+    create-distribution.sh \
     ${DEST_MANIFEST_DIR}/
 
