@@ -120,9 +120,8 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 # Copy all required files for manifestation
 ADD ${SRC_MANIFEST_FILE} \
-    patches \
     bump.sh \
     bump-openxla-triton.sh \
     create-distribution.sh \
     ${DEST_MANIFEST_DIR}/
-
+COPY patches/ ${DEST_MANIFEST_DIR}/patches/
