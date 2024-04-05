@@ -41,12 +41,12 @@ jobs:
       TEST_NAME: jax
       EXECUTE: |
         docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        ${{ inputs.JAX_IMAGE }} \
         bash <<"EOF" |& tee test-backend-independent.log
           test-jax.sh -b backend-independent 
         EOF
         docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        ${{ inputs.JAX_IMAGE }} \
         bash <<"EOF" |& tee tee test-gpu.log
           test-jax.sh -b gpu
         EOF
@@ -84,7 +84,7 @@ jobs:
     with:
       TEST_NAME: levanter
       EXECUTE: |
-        docker run --gpus all --shm-size=1g ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
+        docker run --gpus all --shm-size=1g ${{ inputs.LEVANTER_IMAGE }} \
         bash -ec \
         "pip install pytest && PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests" | tee test-levanter.log
       STATISTICS_SCRIPT: |
