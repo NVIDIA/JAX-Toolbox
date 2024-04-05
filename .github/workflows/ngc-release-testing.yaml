@@ -40,8 +40,16 @@ jobs:
     with:
       TEST_NAME: jax
       EXECUTE: |
-        docker run --shm-size=1g --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
-        docker run --shm-size=1g --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
+        docker run -i --shm-size=1g --gpus all \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-backend-independent.log
+          test-jax.sh -b backend-independent 
+        EOF
+        docker run -i --shm-size=1g --gpus all \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee tee test-gpu.log
+          test-jax.sh -b gpu
+        EOF
       STATISTICS_SCRIPT: |
         errors=$(cat test-*.log | grep -c 'ERROR:' || true)
         failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
