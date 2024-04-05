@@ -1,6 +1,7 @@
 name: "~Sandbox"
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
@@ -14,6 +15,5 @@ build-base:
   build-base-default-arm64:	
     uses: ./.github/workflows/_build_base.yaml
     with:
-      ARCHITECTURE: arm64
-      NCCL_VERSION: ""	
+      ARCHITECTURE: arm64	
     secrets: inherit
