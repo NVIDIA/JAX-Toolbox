@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# This tests creating a distribution using local patch files and
+# validates that the commits were applied correctly.
+#
+# This tests patches of the form:
+#
+#    patches:
+#      file://a.patch: file://a.patch
+
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd $SCRIPT_DIR
 
