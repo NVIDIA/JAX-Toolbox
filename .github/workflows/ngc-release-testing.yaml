@@ -9,12 +9,12 @@ on:
         type: string
         description: "JAX image to run tests on"
         required: false
-        default: 'nvcr.io/nvidian/trigger-jax-toolbox-actions:14090586-jax-py3'
+        default: ''
       PAX_IMAGE:
         type: string
         description: "Rosetta Pax image to run tests on"
         required: false
-        default: 'nvcr.io/nvidian/trigger-jax-toolbox-actions:14090586-pax-py3'
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
