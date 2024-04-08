@@ -137,7 +137,7 @@ jobs:
           combinedJson="{}"
 
           # Loop over subdirectories in the current directory
-          for dir in all-artifacts/*; do
+          while IFS= read -r dir; do
             echo $dir
             dirName=$(basename $dir) && [ -d "$dir" ] || continue
 
@@ -160,7 +160,6 @@ jobs:
             statusFiles=("$dir"/*-status.json)
             statusFile=${statusFiles[0]}
             if [ -f $statusFile ]; then
-                echo "Found status file: $statusFile"
                 status=$(<"${statusFile}")
             fi
 
@@ -170,7 +169,7 @@ jobs:
                               --argjson status "$status" \
                               --argjson metricSummary "$metricSummary" \
                               '.[$dirName] = {"sitrep": $sitrep, "status": $status, "metric_summary": $metricSummary}' <<<"$combinedJson")
-          done
+          done < <(find . -maxdepth 1 -type d)
 
           # Output the combined JSON to the file, nicely formatted
           echo "$combinedJson" | jq '.' > "$output"
