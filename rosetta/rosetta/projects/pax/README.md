@@ -132,7 +132,6 @@ As of 2/6/2024, CuDNN flash attention was enabled by default via XLA. Divergence
 ## XLA Flags
 The [GPU Performance document](https://github.com/NVIDIA/JAX-Toolbox/blob/44d9438822b9eff0649b3630907e6bb6c9c7cbdc/rosetta/docs/GPU_performance.md) provides a detailed description of the XLA flags that can be set to optimize performance. Additionally, the scripts in `paxml/contrib/gpu/scripts_gpu` automatically set the suggested flags for each model. Please refer to these scripts to find the XLA flags used to reproduce the results documented below.
 
-```
 For the the 126M model, we recommend setting `--xla_gpu_all_reduce_combine_threshold_bytes=33554432`, which is different from the default value in `paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh`. To overwrite the default XLA flags set in the script, set the `BASE_XLA_FLAGS` environment variable prior to running `run_pile_multinode` as follows:
 
 ```
