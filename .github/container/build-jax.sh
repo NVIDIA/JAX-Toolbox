@@ -238,9 +238,7 @@ apt-get update
 apt-get install -y \
     build-essential \
     checkinstall \
-    clang \
     git \
-    lld \
     wget \
     curl
 

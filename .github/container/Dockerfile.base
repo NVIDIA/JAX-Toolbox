@@ -31,7 +31,6 @@ apt-get install -y \
   git \
   gnupg \
   liblzma-dev \
-  lld \
   python-is-python3 \
   python3-pip \
   rsync \
@@ -43,6 +42,19 @@ apt-get install -y \
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
 apt-get remove -y software-properties-common lsb-release
 apt-get autoremove -y  # removes python3-blinker which conflicts with pip-compile in JAX
+
+# Make sure that clang and clang++ point to the new version. This list is based
+# on the symlinks installed by the `clang` (as opposed to `clang-14`) and `lld`
+# (as opposed to `lld-14`) packages available in Ubuntu 22.04. 100 is an
+# arbitrary priority.
+update-alternatives --verbose \
+  --install /usr/bin/clang          clang          /usr/lib/llvm-${CLANG_VERSION}/bin/clang 100 \
+  --slave   /usr/bin/asan_symbolize asan_symbolize /usr/bin/asan_symbolize-${CLANG_VERSION} \
+  --slave   /usr/bin/clang++        clang++        /usr/lib/llvm-${CLANG_VERSION}/bin/clang++ \
+  --slave   /usr/bin/ld.lld         ld.lld         /usr/lib/llvm-${CLANG_VERSION}/bin/lld \
+  --slave   /usr/bin/lld            lld            /usr/lib/llvm-${CLANG_VERSION}/bin/lld \
+  --slave   /usr/bin/lld-link       lld-link       /usr/lib/llvm-${CLANG_VERSION}/bin/lld \
+  --slave   /usr/bin/wasm-ld        wasm-ld        /usr/lib/llvm-${CLANG_VERSION}/bin/lld
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
