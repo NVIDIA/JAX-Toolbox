@@ -56,6 +56,20 @@ update-alternatives --verbose \
   --slave   /usr/bin/lld-link       lld-link       /usr/lib/llvm-${CLANG_VERSION}/bin/lld \
   --slave   /usr/bin/wasm-ld        wasm-ld        /usr/lib/llvm-${CLANG_VERSION}/bin/lld
 
+# Make sure that any later attempt to install `clang` or `lld` will fail.
+cat >/etc/apt/preferences.d/no-unversioned-clang-lld <<EOL
+# LLVM is installed from apt.llvm.org using versioned packages, whereas the
+# unversioned clang and lld packages come from Ubuntu and refer to older
+# versions of LLVM. Please use versioned packages in this container.
+Package: clang
+Pin: release *
+Pin-Priority: -1
+
+Package: lld
+Pin: release *
+Pin-Priority: -1
+EOL
+
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
