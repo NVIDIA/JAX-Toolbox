@@ -29,51 +29,53 @@ class PaxConvertHelperBase(ConvertHelper):
 
 class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
     
+    ## TODO: need different source and target prefixes
     @property
     def catagories(self):
         if self.weight_only:
             return ['mdl_vars.params']
-        return ['mdl_vars.params', "opt_states_0_2.m.params", "opt_states_0_2.v.params"]
+        return ['mdl_vars.params', "opt_states_0.p#12#i-1_2.m.params", "opt_states_0.p#12#i-1_2.v.params"]
 
     def _generate_ckpt_map(self):
         num_of_head = self.model_config.num_of_head
         head_dim = self.model_config.head_dim
         hidden_dim = num_of_head * head_dim
         mlp_intermediate_dim = self.model_config.mlp_intermediate_dim
-        
-        ckpt_map = {f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer1.linear.w":
+        num_layers = self.model_config.num_of_layer
+
+        ckpt_map = {f"lm.transformer.x_layers_0.ff_layer.ffn_layer1.linear.w":
                       self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.ff_layer.ffn_layer1.linear.w",
+                            f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer1.linear.w",
                             (hidden_dim, mlp_intermediate_dim), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1.linear.w" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer2.linear.w":
+                    f"lm.transformer.x_layers_0.ff_layer.ffn_layer2.linear.w":
                       self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.ff_layer.ffn_layer2.linear.w",
+                            f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer2.linear.w",
                             (mlp_intermediate_dim, hidden_dim), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer2.linear.w" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.repeat.sub.x_layers_0.ff_layer.layer_norm.scale":
+                    f"lm.transformer.x_layers_0.ff_layer.layer_norm.scale":
                       self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.ff_layer.layer_norm.scale",
+                            f"lm.transformer.repeat.sub.x_layers_0.ff_layer.layer_norm.scale",
                             (hidden_dim,), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.layer_norm.scale" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.repeat.sub.x_layers_0.layer_norm.scale":
+                    f"lm.transformer.x_layers_0.layer_norm.scale":
                       self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.layer_norm.scale",
+                            f"lm.transformer.repeat.sub.x_layers_0.layer_norm.scale",
                             (hidden_dim,), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.layer_norm.scale" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.repeat.sub.x_layers_0.self_attention.combined_qkv.w":
+                    f"lm.transformer.x_layers_0.self_attention.combined_qkv.w":
                       self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.self_attention.combined_qkv.w",
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.combined_qkv.w",
                             (3, hidden_dim, num_of_head, head_dim), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.combined_qkv.w" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.repeat.sub.x_layers_0.self_attention.post.w":
+                    f"lm.transformer.x_layers_0.self_attention.post.w":
                       self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.self_attention.post.w",
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.post.w",
                             (hidden_dim, num_of_head, head_dim), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.post.w" for i in range(1, num_layers)],
                             stack_dim = 0),
@@ -81,42 +83,128 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
         
         if not self.skip_bias:
                 ckpt_map.update({
-                    f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer1.bias.b":
+                    f"lm.transformer.x_layers_0.ff_layer.ffn_layer1.bias.b":
                         self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.ff_layer.ffn_layer1.bias.b",
+                            f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer1.bias.b",
                             (mlp_intermediate_dim,), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1.bias.b" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer2.bias.b":
+                    f"lm.transformer.x_layers_0.ff_layer.ffn_layer2.bias.b":
                         self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.ff_layer.ffn_layer2.bias.b",
+                            f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer2.bias.b",
                             (hidden_dim,), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer2.bias.b" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.repeat.sub.x_layers_0.ff_layer.layer_norm.bias":
+                    f"lm.transformer.x_layers_0.ff_layer.layer_norm.bias":
                         self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.ff_layer.layer_norm.bias",
+                            f"lm.transformer.repeat.sub.x_layers_0.ff_layer.layer_norm.bias",
                             (mlp_intermediate_dim,), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.layer_norm.bias" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.repeat.sub.x_layers_0.layer_norm.bias":
+                    f"lm.transformer.x_layers_0.layer_norm.bias":
                         self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.layer_norm.bias",
+                            f"lm.transformer.repeat.sub.x_layers_0.layer_norm.bias",
                             (hidden_dim,), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.layer_norm.bias" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.repeat.sub.x_layers_0.self_attention.combined_qkv.b":
+                    f"lm.transformer.x_layers_0.self_attention.combined_qkv.b":
                         self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.self_attention.combined_qkv.b",
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.combined_qkv.b",
                             (3, num_of_head, head_dim), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.combined_qkv.b" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.repeat.sub.x_layers_0.self_attention.post.b":
+                    f"lm.transformer.x_layers_0.self_attention.post.b":
                         self._get_convert_pkg(
-                            f"lm.transformer.x_layers_0.self_attention.post.b",
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.post.b",
                             (hidden_dim,), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.post.b" for i in range(1, num_layers)],
                             stack_dim = 0),
                 })
                 
+        return ckpt_map
+
+
+    def no_prefix_conversions(self):
+        ckpt_map = {f"opt_states_0_0.count":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_0.count",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_1.count":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_1.count",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.count":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.count",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_3.count":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_3.count",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_0.count":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_0.count",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_1.count":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_1.count",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.count":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.count",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_3.count":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_3.count",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.m.params.lm.final_ln.bias":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.m.params.lm.final_ln.bias",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.m.params.lm.final_ln.scale":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.m.params.lm.final_ln.scale",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.m.params.lm.position_emb.emb_var":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.m.params.lm.position_emb.emb_var",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.m.params.lm.softmax.logits_ffn.linear.w":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.m.params.lm.softmax.logits_ffn.linear.w",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.v.params.lm.final_ln.bias":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.v.params.lm.final_ln.bias",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.v.params.lm.final_ln.scale":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.v.params.lm.final_ln.scale",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.v.params.lm.softmax.logits_ffn.linear.w":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.v.params.lm.softmax.logits_ffn.linear.w",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.v.params.lm.position_emb.emb_var":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.v.params.lm.position_emb.emb_var",
+                            None, None,
+                            just_copy = True),
+            }
+
         return ckpt_map

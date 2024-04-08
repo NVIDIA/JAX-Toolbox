@@ -35,7 +35,6 @@ SHARDING = jax.sharding.NamedSharding(MESH, jax.sharding.PartitionSpec())
 @dataclass
 class ModelConfig:
     num_of_layer: int
-    embed_dim: int
     num_of_head: int
     head_dim: int
     mlp_intermediate_dim: int
@@ -97,11 +96,6 @@ class ConvertHelper:
                 return True
             return False
 
-        if self.skip_ln:
-            for key in ckpt_map:
-                if is_ln_weights(key):
-                    ckpt_map.pop(key)
-
         ckpt_map_with_full_name = {}
         for prefix in self.catagories:
             for src_path in ckpt_map:
@@ -129,6 +123,14 @@ class ConvertHelper:
                                               just_copy=just_copy))
 
                 ckpt_map_with_full_name[full_src_name] = ckpt_pkgs_with_full_name
+
+        no_prefix_map = self.no_prefix_conversions()
+        for src_path in no_prefix_map:
+            ckpt_pkgs = no_prefix_map[src_path]
+            if not isinstance(ckpt_pkgs, list):
+                ckpt_pkgs = [ckpt_pkgs]
+
+            ckpt_map_with_full_name[src_path] = ckpt_pkgs
 
         return ckpt_map_with_full_name
 

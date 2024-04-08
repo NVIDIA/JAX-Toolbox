@@ -66,12 +66,9 @@ def parse_args():
 
 def get_convert_helper(args):
 
-    model_config = ModelConfig(args.num_of_layer, args.embed_dim, args.num_of_head, args.head_dim,
+    model_config = ModelConfig(args.num_of_layer, args.num_of_head, args.head_dim,
                                args.mlp_intermediate_dim)
 
-    convert_helper_cls = None
-
-    assert convert_helper_cls is not None, "Not Supported."
     return NonRepeat2RepeatConvertHelper(args.input_path, args.output_path, model_config,
                               args.weight_only, args.skip_bias)
 
