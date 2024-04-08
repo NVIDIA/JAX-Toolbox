@@ -27,6 +27,14 @@ RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     get-source.sh -l xla -m ${MANIFEST_FILE}
 
+## apply release-specific patches
+RUN <<"EOF" bash -ex
+pushd ${SRC_PATH_JAX}
+# https://github.com/google/jax/pull/20588
+git cherry-pick -m 1 033992867fc8a9f76f4294bb770da936b0d068b2
+EOF
+## end of apply release-specific patches
+
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 # TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt
@@ -85,6 +93,10 @@ RUN <<"EOF" bash -ex -o pipefail
 pip install ninja && rm -rf ~/.cache/pip
 get-source.sh -l transformer-engine -m ${MANIFEST_FILE}
 pushd ${SRC_PATH_TE}
+## apply release-specific patches: cherry-pick changes after the last release tag
+git cherry-pick 8e672ff0758033c348e263dbcd6a4b3578c01161
+git cherry-pick bfe21c3d68b0a9951e5716fb520045db53419c5e
+## end of apply release-specific patches
 python setup.py bdist_wheel && rm -rf build
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in
 EOF
