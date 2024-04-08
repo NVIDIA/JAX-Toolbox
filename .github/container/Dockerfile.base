@@ -13,14 +13,17 @@ ARG SRC_MANIFEST_FILE
 ARG DEST_MANIFEST_DIR
 ARG CLANG_VERSION
 ARG JAX_NCCL_VERSION
+ARG JAX_LIBNCCL_PACKAGE
 
 ###############################################################################
-## Update NCCL version
+## Update NCCL version env variables
 ###############################################################################
 
-ENV NCCL_VERSION=${JAX_NCCL_VERSION}
+ENV NV_LIBNCCL_DEV_PACKAGE=${NV_LIBNCCL_DEV_PACKAGE_NAME}=${JAX_LIBNCCL_PACKAGE}
 ENV NV_LIBNCCL_DEV_PACKAGE_VERSION=${JAX_NCCL_VERSION}
-
+ENV NCCL_VERSION=${JAX_NCCL_VERSION}
+ENV NV_LIBNCCL_PACKAGE=${NV_LIBNCCL_PACKAGE_NAME}=${JAX_LIBNCCL_PACKAGE}
+ENV NV_LIBNCCL_PACKAGE_VERSION=${JAX_NCCL_VERSION}
 
 ###############################################################################
 ## Install Python and essential tools

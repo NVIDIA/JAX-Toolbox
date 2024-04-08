@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 jobs:
-build-base:	
+  build-base:	
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: amd64
@@ -16,4 +16,10 @@ build-base:
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: arm64	
+    secrets: inherit
+
+  build-base-default-amd64:	
+    uses: ./.github/workflows/_build_base.yaml
+    with:
+      ARCHITECTURE: amd64	
     secrets: inherit
