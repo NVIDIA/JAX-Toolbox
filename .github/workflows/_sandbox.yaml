@@ -7,8 +7,5 @@ on:
 jobs:
   ngc-release:
     uses: ./.github/workflows/ngc-release-testing.yaml
-    with:
-      JAX_IMAGE: nvcr.io/nvidian/trigger-jax-toolbox-actions:14090586-jax-py3
-      PAX_IMAGE: nvcr.io/nvidian/trigger-jax-toolbox-actions:14090586-pax-py3
     secrets: inherit
 
