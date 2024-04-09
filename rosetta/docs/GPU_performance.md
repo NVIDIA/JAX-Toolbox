@@ -105,7 +105,7 @@ The below enables CUDA Graph suppport for JAX/XLA workloads, and is enabled by d
 
 ### Dynamic-Update Slice Fusion
 
-The following flag removes extra copies introduced by DUS (dynamic update slice) when used in conjunction with custom NVIDIA kernels (like cuBLAS for GEMMs)
+The following flag removes extra copies introduced by DUS (dynamic update slice) when used in conjunction with custom NVIDIA kernels (like cuBLAS for GEMMs). This happens in particular when used with scan operations.
 - --xla_gpu_enable_custom_fusions=true
 - --xla_gpu_enable_address_computation_fusion=true
 
