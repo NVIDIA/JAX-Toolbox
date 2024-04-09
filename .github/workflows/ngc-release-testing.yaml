@@ -13,20 +13,9 @@ on:
         description: "Rosetta Pax image to run tests on"
         required: false
         default: ''
-      MAXTEXT_IMAGE:
-        type: string
-        description: "MaxText image to run tests on"
-        required: false
-        default: ''
-      LEVANTER_IMAGE:
-        type: string
-        description: "Levanter image to run tests on"
-        required: false
-        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read  # to fetch code
@@ -34,16 +23,22 @@ permissions:
   packages: read # to upload container
 
 jobs:
-
   test-jax:
     if: inputs.JAX_IMAGE != ''
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      IMAGE: ${{ inputs.JAX_IMAGE }}
       TEST_NAME: jax
       EXECUTE: |
-        docker run --shm-size=1g --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
-        docker run --shm-size=1g --gpus all ${{ inputs.JAX_IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
+        docker run -i --shm-size=1g --gpus all \
+        ${{ inputs.JAX_IMAGE }} \
+        bash <<"EOF" |& tee test-backend-independent.log
+          test-jax.sh -b backend-independent 
+        EOF
+        docker run -i --shm-size=1g --gpus all \
+        ${{ inputs.JAX_IMAGE }} \
+        bash <<"EOF" |& tee tee test-gpu.log
+          test-jax.sh -b gpu
+        EOF
       STATISTICS_SCRIPT: |
         errors=$(cat test-*.log | grep -c 'ERROR:' || true)
         failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
@@ -65,39 +60,8 @@ jobs:
       PAX_IMAGE: ${{ inputs.PAX_IMAGE }}
     secrets: inherit
 
-  test-maxtext:
-    if: inputs.MAXTEXT_IMAGE != ''
-    uses: ./.github/workflows/_test_maxtext.yaml
-    with:
-      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
-    secrets: inherit
-
-  test-levanter:
-    if: inputs.LEVANTER_IMAGE  != ''
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      IMAGE: ${{ inputs.LEVANTER_IMAGE }}
-      TEST_NAME: levanter
-      EXECUTE: |
-        docker run --gpus all --shm-size=1g ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
-        bash -ec \
-        "pip install pytest && PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests" | tee test-levanter.log
-      STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-levanter.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-levanter.log
-    secrets: inherit
-
   finalize:
-    needs: [ test-jax, test-rosetta-pax, test-maxtext, test-levanter ]
+    needs: [ test-jax, test-rosetta-pax ]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
