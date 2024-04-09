@@ -105,7 +105,7 @@ jobs:
             GIT_USER_NAME=${{ inputs.GIT_USER_NAME }}
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
+            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) || '' }}
         
       - name: Generate sitrep
         if: "!cancelled()"
