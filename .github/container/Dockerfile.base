@@ -12,15 +12,10 @@ ARG GIT_USER_NAME
 ARG SRC_MANIFEST_FILE
 ARG DEST_MANIFEST_DIR
 ARG CLANG_VERSION
-ARG NVIDIA_REQUIRE_CUDA
 
 ###############################################################################
 ## Install Python and essential tools
 ###############################################################################
-
-# Temporary WAR to run container on arm64 with CUDA-12.3
-RUN test -n "${NVIDIA_REQUIRE_CUDA}"
-ENV NVIDIA_REQUIRE_CUDA=${NVIDIA_REQUIRE_CUDA}
 
 RUN <<"EOF" bash -ex
 export DEBIAN_FRONTEND=noninteractive
@@ -41,7 +36,6 @@ apt-get install -y \
   rsync \
   vim \
   wget \
-  cuda-compat-12-3 \
   lsb-release software-properties-common  # for llvm.sh
 
 # Install LLVM/Clang
