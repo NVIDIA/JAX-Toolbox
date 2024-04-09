@@ -16,8 +16,9 @@ COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 
 RUN <<"EOF" bash -ex
 get-source.sh -l grok-1 -m ${MANIFEST_FILE} 
-sed -i 's/\(^jax\)/# \1/g' ${SRC_PATH_GROK}/pyproject.toml
+sed -i 's/\(^jax\)/# \1/g' ${SRC_PATH_GROK}/requirements.txt
 echo "-e file://${SRC_PATH_GROK}" >> /opt/pip-tools.d/requirements-grok.in
+echo "-r ${SRC_PATH_GROK}/requirements.txt" >> /opt/pip-tools.d/requirements-grok.in
 EOF
 
 ###############################################################################
