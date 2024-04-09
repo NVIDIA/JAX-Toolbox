@@ -1,8 +1,6 @@
 name: ~NGC release testing
 
 on:
-  push:
-  workflow_call:
   workflow_dispatch:
     inputs:
       JAX_IMAGE: 
