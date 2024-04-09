@@ -57,27 +57,7 @@ permissions:
 
 jobs:
 
-  nvidia-require-cuda:
-    runs-on: ubuntu-22.04
-    outputs:
-      NVIDIA_REQUIRE_CUDA: ${{ steps.metadata.outputs.NVIDIA_REQUIRE_CUDA }}
-    steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
-
-      - name: Get NVIDIA_REQUIRE_CUDA env variable from AMD64 CUDA image
-        id: metadata
-        shell: bash -x -e {0}
-        run: |
-          BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          if [[ $BASE_IMAGE == latest ]]; then
-            BASE_IMAGE=$(sed -n "s/^ARG BASE_IMAGE=\(.*\)$/\1/p" .github/container/Dockerfile.base)
-          fi
-          NVIDIA_REQUIRE_CUDA=$(skopeo inspect "docker://docker.io/${BASE_IMAGE}" | jq -r '.Env[] | select(startswith("NVIDIA_REQUIRE_CUDA=")) | ltrimstr("NVIDIA_REQUIRE_CUDA=")')
-          echo "NVIDIA_REQUIRE_CUDA=${NVIDIA_REQUIRE_CUDA}" >> $GITHUB_OUTPUT
-
   build-base:
-    needs: nvidia-require-cuda
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
@@ -153,7 +133,7 @@ jobs:
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) || '' }}
-            NVIDIA_REQUIRE_CUDA=${{ needs.nvidia-require-cuda.outputs.NVIDIA_REQUIRE_CUDA }}
+        
       - name: Generate sitrep
         if: "!cancelled()"
         shell: bash -x -e {0}
