@@ -68,7 +68,7 @@ jobs:
         id: base-build
         uses: docker/build-push-action@v5
         with:
-          context: .github/container
+          context: ${GITHUB_WORKSPACE}/.github/container
           push: false
           file: Dockerfile.base
           platforms: linux/amd64
