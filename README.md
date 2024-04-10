@@ -285,6 +285,10 @@ the flags currently set, you can inspect the container's environment variables:
 IMAGE=ghcr.io/nvidia/jax:jax
 
 docker run --rm quay.io/skopeo/stable inspect docker://$IMAGE | jq -r '.Env[]' | grep '^XLA_FLAGS='
+
+# which returns
+
+XLA_FLAGS= --xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_async_all_gather=true --xla_gpu_enable_async_reduce_scatter=true --xla_gpu_enable_triton_gemm=false
 ```
 
 See [GPU performance](./rosetta/docs/GPU_performance.md) for details about these, and other XLA flags, that enable high-performance for LLMs on NVIDIA GPUs.
