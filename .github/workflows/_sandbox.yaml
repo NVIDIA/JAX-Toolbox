@@ -59,6 +59,11 @@ jobs:
           labels:
             org.opencontainers.image.created=2024-04-10
 
+      - name: print PWD
+        run: |
+          pwd
+          ls -lR
+
       - name: Build base image
         id: base-build
         uses: docker/build-push-action@v5
@@ -88,11 +93,6 @@ jobs:
             type=raw,value=${{ github.run_id }}-tis-amd64-jax
           labels:
             org.opencontainers.image.created=2024-04-10
-
-      - name: print PWD
-        run: |
-          pwd
-          ls -lR
 
       - name: Build JAX+TIS image
         id: jax-build
