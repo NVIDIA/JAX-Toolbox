@@ -6,9 +6,9 @@ on:
 jobs:
   build-tis:
     name: build-tis
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", large]
+    runs-on: [self-hosted, "amd64", large]
     env:
-      BADGE_FILENAME_FULL: badge-tis-build-${{ inputs.ARCHITECTURE }}.json
+      BADGE_FILENAME_FULL: badge-tis-build-amd64.json
     outputs:
       DOCKER_TAG: ${{ steps.jax-metadata.outputs.tags }}
     steps:
@@ -55,9 +55,9 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-tis-${{ inputs.ARCHITECTURE }}-base
+            type=raw,value=${{ github.run_id }}-tis-amd64-base
           labels:
-            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+            org.opencontainers.image.created=2024-04-10
 
       - name: Build base image
         id: base-build
@@ -66,7 +66,7 @@ jobs:
           context: .github/container
           push: true
           file: Dockerfile.base
-          platforms: linux/${{ inputs.ARCHITECTURE }}
+          platforms: linux/amd64
           tags: ${{ steps.mealkit-metadata.outputs.tags }}
           labels: ${{ steps.mealkit-metadata.outputs.labels }}
           ssh: default
@@ -74,7 +74,7 @@ jobs:
             "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
           build-args: |
             BASE_IMAGE=nvcr.io/nvidia/tritonserver:24.03-tf2-python-py3
-            BUILD_DATE=${{ inputs.BUILD_DATE }}
+            BUILD_DATE=2024-04-10
 
       - name: Set docker metadata - jax image
         id: jax-metadata
@@ -85,9 +85,9 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.run_id }}-tis-${{ inputs.ARCHITECTURE }}-jax
+            type=raw,value=${{ github.run_id }}-tis-amd64-jax
           labels:
-            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+            org.opencontainers.image.created=2024-04-10
 
       - name: Build JAX+TIS image
         id: jax-build
@@ -96,7 +96,7 @@ jobs:
           context: .github/container
           push: true
           file: Dockerfile.jax
-          platforms: linux/${{ inputs.ARCHITECTURE }}
+          platforms: linux/amd64
           tags: ${{ steps.final-metadata.outputs.tags }}
           labels: ${{ steps.final-metadata.outputs.labels }}
           target: final
@@ -107,7 +107,7 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ steps.base-metadata.outputs.tags }}
             BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
-            BUILD_DATE=${{ inputs.BUILD_DATE }}
+            BUILD_DATE=2024-04-10
 
       - name: Generate sitrep
         if: "!cancelled()"
@@ -116,7 +116,7 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='tis ${{ inputs.ARCHITECTURE }} build'
+          badge_label='tis amd64 build'
           tags="${{ steps.jax-metadata.outputs.tags }}"
           digest="${{ steps.jax-build.outputs.digest }}"
           outcome="${{ steps.jax-build.outcome }}"
@@ -124,11 +124,11 @@ jobs:
           if [[ ${outcome} == "success" ]]; then
             badge_message="pass"
             badge_color=brightgreen
-            summary="tis build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+            summary="tis build on amd64: $badge_message"
           else
             badge_message="fail"
             badge_color=red
-            summary="tis build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+            summary="tis build on amd64: $badge_message"
           fi
 
           to_json \
@@ -147,7 +147,7 @@ jobs:
         if: "!cancelled()"
         uses: actions/upload-artifact@v4
         with:
-          name: artifact-tis-build-${{ inputs.ARCHITECTURE }}
+          name: artifact-tis-build-amd64
           path: |
             sitrep.json
             ${{ env.BADGE_FILENAME_FULL }}
