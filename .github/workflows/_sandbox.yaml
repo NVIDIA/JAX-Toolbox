@@ -67,8 +67,8 @@ jobs:
           push: true
           file: Dockerfile.base
           platforms: linux/amd64
-          tags: ${{ steps.mealkit-metadata.outputs.tags }}
-          labels: ${{ steps.mealkit-metadata.outputs.labels }}
+          tags: ${{ steps.base-metadata.outputs.tags }}
+          labels: ${{ steps.base-metadata.outputs.labels }}
           ssh: default
           secret-files: |
             "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
@@ -97,8 +97,8 @@ jobs:
           push: true
           file: Dockerfile.jax
           platforms: linux/amd64
-          tags: ${{ steps.final-metadata.outputs.tags }}
-          labels: ${{ steps.final-metadata.outputs.labels }}
+          tags: ${{ steps.jax-metadata.outputs.tags }}
+          labels: ${{ steps.jax-metadata.outputs.labels }}
           target: final
           ssh: default
           secret-files: |
