@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:base
-ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG SRC_PATH_JAX=/opt/jax
 ARG SRC_PATH_XLA=/opt/xla
 ARG SRC_PATH_FLAX=/opt/flax
@@ -16,14 +15,12 @@ ARG BUILD_DATE
 ###############################################################################
 
 FROM ${BASE_IMAGE} as builder
-ARG DEST_MANIFEST_DIR
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG BAZEL_CACHE
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
 
-ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 
 RUN get-source.sh -l jax -m ${MANIFEST_FILE}
 RUN --mount=type=ssh \
@@ -47,7 +44,6 @@ RUN build-jax.sh \
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
-ARG DEST_MANIFEST_DIR
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG SRC_PATH_TE
@@ -64,7 +60,6 @@ ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_NVLS_ENABLE=0
 ENV CUDA_MODULE_LOADING=EAGER
 
-ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
