@@ -62,7 +62,7 @@ jobs:
       - name: print PWD
         run: |
           pwd
-          ls -lR
+          ls -laR
 
       - name: Build base image
         id: base-build
