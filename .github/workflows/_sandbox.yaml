@@ -1,12 +1,38 @@
 name: "~Sandbox"
 
 on:
-  workflow_dispatch:
+  push:
 
 jobs:
-  sandbox:
-    runs-on: ubuntu-22.04
+  build-tis:
+    name: build-tis
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", large]
+    env:
+      BADGE_FILENAME_FULL: badge-tis-build-${{ inputs.ARCHITECTURE }}.json
+    outputs:
+      DOCKER_TAG: ${{ steps.jax-metadata.outputs.tags }}
     steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -14,28 +40,114 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Print usage
-        run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:v0.12.1
 
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+      - name: Set docker metadata - base image
+        id: base-metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            jax-toolbox-internal
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-tis-${{ inputs.ARCHITECTURE }}-base
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+
+      - name: Build base image
+        id: base-build
+        uses: docker/build-push-action@v5
+        with:
+          context: .github/container
+          push: true
+          file: Dockerfile.base
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          tags: ${{ steps.mealkit-metadata.outputs.tags }}
+          labels: ${{ steps.mealkit-metadata.outputs.labels }}
+          ssh: default
+          secret-files: |
+            "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
+          build-args: |
+            BASE_IMAGE=nvcr.io/nvidia/tritonserver:24.03-tf2-python-py3
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
+
+      - name: Set docker metadata - jax image
+        id: jax-metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            jax-toolbox-internal
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.run_id }}-tis-${{ inputs.ARCHITECTURE }}-jax
+          labels:
+            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+
+      - name: Build JAX+TIS image
+        id: jax-build
+        uses: docker/build-push-action@v5
+        with:
+          context: .github/container
+          push: true
+          file: Dockerfile.jax
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          tags: ${{ steps.final-metadata.outputs.tags }}
+          labels: ${{ steps.final-metadata.outputs.labels }}
+          target: final
+          ssh: default
+          secret-files: |
+            "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
+
+          build-args: |
+            BASE_IMAGE=${{ steps.base-metadata.outputs.tags }}
+            BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
+
+      - name: Generate sitrep
+        if: "!cancelled()"
+        shell: bash -x -e {0}
+        run: |
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
+
+          badge_label='tis ${{ inputs.ARCHITECTURE }} build'
+          tags="${{ steps.jax-metadata.outputs.tags }}"
+          digest="${{ steps.jax-build.outputs.digest }}"
+          outcome="${{ steps.jax-build.outcome }}"
+
+          if [[ ${outcome} == "success" ]]; then
+            badge_message="pass"
+            badge_color=brightgreen
+            summary="tis build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          else
+            badge_message="fail"
+            badge_color=red
+            summary="tis build on ${{ inputs.ARCHITECTURE }}: $badge_message"
+          fi
+
+          to_json \
+            summary \
+            badge_label tags digest outcome \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
+      - name: Upload sitrep and badge
+        if: "!cancelled()"
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-tis-build-${{ inputs.ARCHITECTURE }}
+          path: |
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}
