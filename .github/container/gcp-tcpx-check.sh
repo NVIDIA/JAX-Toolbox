@@ -1,36 +1,33 @@
 #!/bin/bash
 
 if [ -z "${DISABLE_TCPX_CHECK}" ]; then
+
 # Colors
-YELLOW='\033[0;33m'
+GREEN='\033[0;32m'
 NOCOLOR='\033[0m'
 
-# Paths
-FILE="libnccl.so"
-DIR1="/var/lib/tcpx/lib64"
-DIR2="/usr/local/tcpx/lib64"
 
 # Attempt to retrieve the instance ID from the GCP metadata server
 INSTANCE_ID=$(curl  -m 1 -s -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/id" || true)
 
 if [ -n "$INSTANCE_ID" ]; then
-    if [ -f "$DIR1/$FILE" ]; then
-        :
-    elif [ -f "$DIR2/$FILE" ]; then
-        :
-    else
-            echo -e "${YELLOW}
-WARNING: It looks like you are running on GCP, but we did not find libnccl.so
-at either /var/lib/tcpx/lib64 or /usr/local/tcpx/lib64. You main end up defaulting
-to a significantly worse network runtime if you are using multiple nodes.
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/tcpx/lib64"
+    export NCCL_NET=GPUDirectTCPX_v7
 
-To fix this, please follow the instructions at https://cloud.google.com/compute/docs/gpus/gpudirect
+    echo -e "${GREEN}
 
-To disable this message, set DISABLE_TCPX_CHECK=1
-${NOCOLOR}
+    It looks like you're running on GCP. In order to maximize your multi-GPU performance,
+    you'll need to use Google's TCPx NCCL plugin. This should already be installed for you 
+    and is located at /usr/local/tcpx in this container. 
+    
+    However, there are additional steps you will need to take. Mainly, you'll need to run a 
+    separate receive-datapath-manager daemon on each of your nodes, and correctly configure your 
+    networks and NICs.
 
-"
-    fi
+    For more information, please see the guide at: 
+    https://cloud.google.com/compute/docs/gpus/gpudirect#provide-access
+
+    (To disable this message, set DISABLE_TCPX_CHECK=1)
+    ${NOCOLOR}"
 fi
-
 fi

@@ -6,6 +6,17 @@ ARG SRC_MANIFEST_FILE=manifest.yaml
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG CLANG_VERSION=17
 
+###############################################################################
+## Install TCPx for running on GCP
+###############################################################################
+
+FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx as tcpx_installer
+RUN install --install-nccl
+
+###############################################################################
+## Build base image
+###############################################################################
+
 FROM ${BASE_IMAGE}
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
@@ -70,6 +81,11 @@ git add -u
 git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github VCS installs for a package as equivalent. The spec of the last encountered version will be used'
 EOF
 RUN pip install --upgrade --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
+
+###############################################################################
+## Install TCPx
+###############################################################################
+COPY --from=tcpx_installer /var/lib/tcpx/lib64 /usr/local/tcpx/lib64
 
 ###############################################################################
 ## Install the latest versions of Nsight Systems and Nsight Compute
