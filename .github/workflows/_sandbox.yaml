@@ -64,7 +64,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .github/container
-          push: true
+          push: false
           file: Dockerfile.base
           platforms: linux/amd64
           tags: ${{ steps.base-metadata.outputs.tags }}
@@ -88,6 +88,11 @@ jobs:
             type=raw,value=${{ github.run_id }}-tis-amd64-jax
           labels:
             org.opencontainers.image.created=2024-04-10
+
+      - name: print PWD
+        run: |
+          pwd
+          ls -lR
 
       - name: Build JAX+TIS image
         id: jax-build
