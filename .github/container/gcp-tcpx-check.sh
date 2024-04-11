@@ -1,6 +1,8 @@
 #!/bin/bash
 
-if [ -z "${DISABLE_TCPX_CHECK}" ]; then
+if [ "${DISABLE_GCP_TCPX_SETUP}" == 1 ]; then 
+  exit 0
+fi
 
 # Colors
 GREEN='\033[0;32m'
@@ -8,15 +10,15 @@ NOCOLOR='\033[0m'
 
 
 # Attempt to retrieve the instance ID from the GCP metadata server
-INSTANCE_ID=$(curl  -m 1 -s -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/id" || true)
 
-if [ -n "$INSTANCE_ID" ]; then
+if host "google.internal" > /dev/null; then
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/tcpx/lib64"
     export NCCL_NET=GPUDirectTCPX_v7
 
     echo -e "${GREEN}
+    ========================== JAX-ToolBox on GCP ==========================
 
-    It looks like you're running on GCP. In order to maximize your multi-GPU performance,
+    It looks like you're running on GCP. In order to maximize your multi-node performance,
     you'll need to use Google's TCPx NCCL plugin. This should already be installed for you 
     and is located at /usr/local/tcpx in this container. 
     
@@ -27,7 +29,7 @@ if [ -n "$INSTANCE_ID" ]; then
     For more information, please see the guide at: 
     https://cloud.google.com/compute/docs/gpus/gpudirect#provide-access
 
-    (To disable this message, set DISABLE_TCPX_CHECK=1)
+    If you believe this setup is interfering with your work, you can disable it
+    by setting DISABLE_GCP_TCPX_SETUP=1
     ${NOCOLOR}"
-fi
 fi
