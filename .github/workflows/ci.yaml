@@ -27,13 +27,13 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-  amd64:
-    needs: [metadata]
-    uses: ./.github/workflows/_ci.yaml
-    with:
-      ARCHITECTURE: amd64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-    secrets: inherit
+  #amd64:
+  #  needs: [metadata]
+  #  uses: ./.github/workflows/_ci.yaml
+  #  with:
+  #    ARCHITECTURE: amd64
+  #    BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #  secrets: inherit
 
   arm64:
     needs: [metadata]
@@ -44,7 +44,8 @@ jobs:
     secrets: inherit
 
   finalize:
-    needs: [metadata, amd64, arm64]
+    #needs: [metadata, amd64, arm64]
+    needs: [metadata, arm64]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
