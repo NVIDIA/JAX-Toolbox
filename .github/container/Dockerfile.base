@@ -7,7 +7,7 @@ ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG CLANG_VERSION=17
 
 ###############################################################################
-## Install TCPx for running on GCP
+## Obtain GCP's NCCL TCPx plugin
 ###############################################################################
 
 FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx as tcpx_installer
@@ -111,11 +111,14 @@ RUN pip install --upgrade --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cach
 ###############################################################################
 ## Install TCPx
 ###############################################################################
-COPY --from=tcpx_installer /var/lib/tcpx/lib64 /usr/local/tcpx/lib64
+
+ENV TCPX_LIBRARY_PATH=/usr/local/tcpx/lib64
+COPY --from=tcpx_installer /var/lib/tcpx/lib64 ${TCPX_LIBRARY_PATH}
 
 ###############################################################################
 ## Install the latest versions of Nsight Systems and Nsight Compute
 ###############################################################################
+
 ADD install-nsight.sh /usr/local/bin
 RUN install-nsight.sh
 
