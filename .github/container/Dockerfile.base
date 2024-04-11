@@ -22,21 +22,28 @@ export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 apt-get update
 
-apt-get install -y \
-  bat \
-  build-essential \
-  checkinstall \
-  cmake \
-  curl \
-  git \
-  gnupg \
-  liblzma-dev \
-  python-is-python3 \
-  python3-pip \
-  rsync \
-  vim \
-  wget \
-  lsb-release software-properties-common  # for llvm.sh
+apt_packages=(
+  bat
+  build-essential
+  checkinstall
+  cmake
+  curl
+  git
+  gnupg
+  liblzma-dev
+  python-is-python3
+  python3-pip
+  rsync
+  vim
+  wget
+  # llvm.sh
+  lsb-release software-properties-common
+  # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
+  #       These installs ensure that 3.11.0, or any future version missing ARM, can be built.
+  #       Related: https://github.com/h5py/h5py/issues/2408
+  pkg-config libhdf5-dev
+)
+apt-get install -y "${apt_packages[@]}"
 
 # Install LLVM/Clang
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
