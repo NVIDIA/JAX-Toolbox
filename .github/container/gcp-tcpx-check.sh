@@ -9,8 +9,7 @@ GREEN='\033[0;32m'
 NOCOLOR='\033[0m'
 
 
-# Attempt to retrieve the instance ID from the GCP metadata server
-
+# If google.internal exists, we are most likely running on GCP.
 if host "google.internal" > /dev/null; then
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/tcpx/lib64"
     export NCCL_NET=GPUDirectTCPX_v7
