@@ -8,19 +8,18 @@ fi
 GREEN='\033[0;32m'
 NOCOLOR='\033[0m'
 
-
 # If google.internal exists, we are most likely running on GCP.
 if host "google.internal" > /dev/null; then
-    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/tcpx/lib64"
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TCPX_LIBRARY_PATH}"
     export NCCL_NET=GPUDirectTCPX_v7
 
     echo -e "${GREEN}
     ========================== JAX-ToolBox on GCP ==========================
 
     It looks like you're running on GCP. In order to maximize your multi-node performance,
-    you'll need to use Google's TCPx NCCL plugin. This should already be installed for you 
-    and is located at /usr/local/tcpx in this container. 
-    
+    you'll need to use Google's TCPx NCCL plugin. This container ships the plugin at
+    ${TCPX_LIBRARY_PATH}, which is already added to LD_LIBRARY_PATH by this script $1.
+
     However, there are additional steps you will need to take. Mainly, you'll need to run a 
     separate receive-datapath-manager daemon on each of your nodes, and correctly configure your 
     networks and NICs.
