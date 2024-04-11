@@ -1,12 +1,12 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 8f4658ecdbe40cde0c43a9ab127359347943c076
+  latest_verified_commit: 4d4151db8e76beedba9df268293653b35ea68e28
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 6de79c2c931374dfa7e403c0626d8dd1ec0ed398
+  latest_verified_commit: 9945521ba60cbf8681f632bc286e67e91c15d2f0
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
