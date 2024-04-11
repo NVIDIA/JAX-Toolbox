@@ -24,7 +24,9 @@ RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazeli
 FROM wheel-builder as tftext-builder
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
-pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
+# Excluding h5py 3.11.0 since it was released without ARM wheels and that causes pip to build with binaries
+# not included in our base container: https://github.com/h5py/h5py/issues/2408
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 h5py!=3.11.0
 get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
 cd ${SRC_PATH_TFTEXT}
 
@@ -78,11 +80,11 @@ index ce65822d2..d9c0277aa 100644
  def icu():
 EOFINNER
 
-pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 /opt/tensorflow_text*.whl
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 /opt/tensorflow_text*.whl h5py!=3.11.0
 sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
 sed -i 's/tensorflow-text=/#tensorflow-text=/'  docker/dev.requirements.txt
 sed -i 's/dataclasses=/#dataclasses=/'  docker/dev.requirements.txt
-pip install -r docker/dev.requirements.txt
+pip install -r docker/dev.requirements.txt h5py!=3.11.0
 
 # Some tests are flaky right now, so we skip running the tests.
 SKIP_TESTS=1 PYTHON_MINOR_VERSION=$(python --version | cut -d ' ' -f 2 | cut -d '.' -f 2) pip_package/build.sh
@@ -109,8 +111,6 @@ RUN <<"EOF" bash -ex
 echo "tensorflow==2.13.0" >> /opt/pip-tools.d/requirements-paxml.in
 echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-paxml.in
 echo "auditwheel" >> /opt/pip-tools.d/requirements-paxml.in
-# Excluding h5py 3.11.0 since it was released without ARM wheels and that causes pip to build with binaries
-# not included in our base container: https://github.com/h5py/h5py/issues/2408
 echo "h5py!=3.11.0" >> /opt/pip-tools.d/requirements-paxml.in
 
 get-source.sh -l paxml  -m ${MANIFEST_FILE}
