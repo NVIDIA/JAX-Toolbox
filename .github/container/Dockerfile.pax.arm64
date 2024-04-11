@@ -24,9 +24,7 @@ RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazeli
 FROM wheel-builder as tftext-builder
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
-# Excluding h5py 3.11.0 since it was released without ARM wheels and that causes pip to build with binaries
-# not included in our base container: https://github.com/h5py/h5py/issues/2408
-pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 h5py!=3.11.0
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
 get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
 cd ${SRC_PATH_TFTEXT}
 
@@ -80,7 +78,7 @@ index ce65822d2..d9c0277aa 100644
  def icu():
 EOFINNER
 
-pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 /opt/tensorflow_text*.whl h5py!=3.11.0
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 /opt/tensorflow_text*.whl
 sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
 sed -i 's/tensorflow-text=/#tensorflow-text=/'  docker/dev.requirements.txt
 sed -i 's/dataclasses=/#dataclasses=/'  docker/dev.requirements.txt
