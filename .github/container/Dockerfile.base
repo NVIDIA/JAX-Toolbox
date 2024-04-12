@@ -38,12 +38,14 @@ apt_packages=(
   wget
   # llvm.sh
   lsb-release software-properties-common
+)
+if [[ $(dpkg --print-architecture) == arm64 ]]; then
   # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
   #       These installs ensure that 3.11.0, or any future version missing ARM, can be built.
   #       Related: https://github.com/h5py/h5py/issues/2408
-  pkg-config libhdf5-dev
-)
-apt-get install -y "${apt_packages[@]}"
+  apt_packages+=(pkg-config libhdf5-dev)
+fi
+apt-get install -y ${apt_packages[@]}
 
 # Install LLVM/Clang
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
