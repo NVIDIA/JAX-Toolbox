@@ -10,10 +10,19 @@ ARG CLANG_VERSION=17
 ## Obtain GCP's NCCL TCPx plugin
 ###############################################################################
 
-FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.10 as tcpx_installer
-RUN <<"EOF" bash -ex
-/scripts/container_entry.sh install
+FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.10 as tcpx-installer-amd64
+
+# make a stub arm64 container because GCP does not provide an arm64 version of the plugin
+FROM ubuntu as tcpx-installer-arm64
+RUN <<"OUTEREOF" bash -ex
+cat > /scripts/container_entry.sh <<"EOF"
+#!/bin/bash
+mkdir -p /var/lib/tcpx/lib64
 EOF
+OUTEREOF
+
+FROM tcpx-installer-${TARGETARCH} as tcpx-installer
+RUN /scripts/container_entry.sh install
 
 ###############################################################################
 ## Build base image
@@ -115,7 +124,7 @@ RUN pip install --upgrade --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cach
 ###############################################################################
 
 ENV TCPX_LIBRARY_PATH=/usr/local/tcpx/lib64
-COPY --from=tcpx_installer /var/lib/tcpx/lib64 ${TCPX_LIBRARY_PATH}
+COPY --from=tcpx-installer /var/lib/tcpx/lib64 ${TCPX_LIBRARY_PATH}
 
 ###############################################################################
 ## Install the latest versions of Nsight Systems and Nsight Compute
