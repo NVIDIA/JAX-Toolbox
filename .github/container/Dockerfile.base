@@ -44,6 +44,7 @@ export TZ=America/Los_Angeles
 apt-get update
 
 apt_packages=(
+  # generic
   bat
   build-essential
   checkinstall
@@ -57,8 +58,11 @@ apt_packages=(
   rsync
   vim
   wget
+  jq
   # llvm.sh
   lsb-release software-properties-common
+  # GCP autoconfig
+  pciutils hwloc
 )
 if [[ $(dpkg --print-architecture) == arm64 ]]; then
   # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
@@ -180,7 +184,7 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ## Add the GCP - TCPX check to the entrypoint.
 ###############################################################################
 
-COPY gcp-tcpx-check.sh /opt/nvidia/entrypoint.d/
+COPY gcp-autoconfig.sh /opt/nvidia/entrypoint.d/
 
 ###############################################################################
 ## Copy manifest file to the container
