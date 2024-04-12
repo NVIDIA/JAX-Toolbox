@@ -105,6 +105,7 @@ jobs:
           - extra-only-distribution.sh
           - mirror-only-distribution.sh
           - upstream-only-distribution.sh
+          - local-patch-distribution.sh
       fail-fast: false
     steps:
       - name: Print environment variables

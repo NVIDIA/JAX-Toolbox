@@ -18,7 +18,7 @@ RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazeli
     chmod a+x /usr/bin/bazel
 
 #------------------------------------------------------------------------------
-# build tensorflow-text 2.13.0 from source
+# build tensorflow-text from source
 #------------------------------------------------------------------------------
 
 FROM wheel-builder as tftext-builder
@@ -27,6 +27,17 @@ RUN <<"EOF" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
 get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
 cd ${SRC_PATH_TFTEXT}
+
+# The tftext build script queries GitHub, but these requests are sometimes
+# throttled by GH, resulting in a corrupted uri for tensorflow in WORKSPACE.
+# A workaround (needs to be updated when the tensorflow version changes):
+sed -i "s/# Update TF dependency to installed tensorflow/commit_sha=1cb1a030a62b169d90d34c747ab9b09f332bf905/" oss_scripts/prepare_tf_dep.sh
+
+# Newer versions of LLVM make lld's --undefined-version check of lld is strict
+# by default (https://reviews.llvm.org/D135402), but the tftext build seems to
+# rely on this behavior.
+echo "write_to_bazelrc \"build --linkopt='-Wl,--undefined-version'\"" >> oss_scripts/configure.sh
+
 ./oss_scripts/run_build.sh
 EOF
 

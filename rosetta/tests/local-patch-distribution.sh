@@ -1,12 +1,13 @@
 #!/bin/bash
 
-# This tests creating a distribution using branches from a local git mirror and
+# This tests creating a distribution using local patch files and
 # validates that the commits were applied correctly.
 #
 # This tests patches of the form:
 #
 #    patches:
-#      some/branch/name/not/matching/upstream/or/mirror: file://a.patch
+#      file://a.patch: file://a.patch
+
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd $SCRIPT_DIR
@@ -14,39 +15,26 @@ cd $SCRIPT_DIR
 set -eou pipefail
 
 # Version should work on Linux || Darwin
-repo_tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'upstream')
-extra_tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'extra')
+tmp_base=$(mktemp -d 2>/dev/null || mktemp -d -t 'upstream')
 workspace_tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'workspace')
 manifest_tmp=$(mktemp /tmp/manifest.yaml.XXXXXX)
 
 LIBRARY=t5x
-UPSTREAM_URL=https://github.com/google-research/t5x.git
 # Commit was taken just before PR-1372
 DISTRIBUTION_BASE_REF=22117ce5a3606706ba9519ccdd77b532ad8ff7b2
-EXTRA_PATCH_BRANCH=patch/delete-readme
-
-git clone $UPSTREAM_URL $repo_tmp
-git clone $UPSTREAM_URL $extra_tmp
-git -C $repo_tmp checkout $DISTRIBUTION_BASE_REF
-git -C $extra_tmp checkout $DISTRIBUTION_BASE_REF
-
-cd $extra_tmp
-git switch -c $EXTRA_PATCH_BRANCH
-git rm README.md
-git commit -m 'TEST DELETE README'
-cd -
+repo_tmp=$tmp_base/$LIBRARY
 
 cat <<EOF >> $manifest_tmp
 t5x:
   url: https://github.com/google-research/t5x.git
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
-  extra_dir: $extra_tmp
   tracking_ref: main
   latest_verified_commit: $DISTRIBUTION_BASE_REF
   mode: git-clone
   patches:
-    $EXTRA_PATCH_BRANCH: null
+    pull/1372/head: null
 EOF
+bash ../../.github/container/get-source.sh --base-dir $tmp_base --manifest $manifest_tmp --library $LIBRARY
 
 cp ../../.github/container/create-distribution.sh $workspace_tmp/
 base_cmd() {
@@ -57,10 +45,13 @@ base_cmd() {
     $@
 }
 base_cmd --skip-apply
+patch_uri=$(yq e ".t5x.patches.pull/1372/head" $manifest_tmp)
+yq -i "del(.t5x.patches.pull/1372/head)" $manifest_tmp  
+yq e ".t5x.patches.\"$patch_uri\" = \"$patch_uri\"" -i $manifest_tmp
 base_cmd
 
 # TESTS
-EXPECTED_HEAD_COMMIT_MSG="*TEST DELETE README"
+EXPECTED_HEAD_COMMIT_MSG=*"Support batched indices in PositionEmbed. This is useful to support prefilling caches for prompted decoding with batches containing prompts of different lengths."
 EXPECTED_PENULTIMATE_COMMIT_MSG="$DISTRIBUTION_BASE_REF*Update calls to clu metrics to pass jnp.ndarrays instead of ints."
 
 HEAD_COMMIT_MSG=$(git -C $repo_tmp show --quiet --pretty=oneline HEAD)
@@ -77,5 +68,5 @@ elif [[ "$PENULTIMATE_COMMIT_MSG" == "$EXPECTED_PENULTIMATE_COMMIT_MSG" ]]; then
   exit 1
 fi
 
-rm -rf $repo_tmp $manifest_tmp $workspace_tmp $extra_tmp
+rm -rf $repo_tmp $manifest_tmp $workspace_tmp
 echo "TEST SUCCESS"
