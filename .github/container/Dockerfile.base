@@ -11,7 +11,9 @@ ARG CLANG_VERSION=17
 ###############################################################################
 
 FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.10 as tcpx_installer
-RUN /scripts/container_entry.sh install
+RUN <<"EOF" bash -ex
+/scripts/container_entry.sh install
+EOF
 
 ###############################################################################
 ## Build base image
