@@ -82,7 +82,7 @@ pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0 /opt/tensor
 sed -i 's/tensorflow=/#tensorflow=/'  docker/dev.requirements.txt
 sed -i 's/tensorflow-text=/#tensorflow-text=/'  docker/dev.requirements.txt
 sed -i 's/dataclasses=/#dataclasses=/'  docker/dev.requirements.txt
-pip install -r docker/dev.requirements.txt h5py!=3.11.0
+pip install -r docker/dev.requirements.txt
 
 # Some tests are flaky right now, so we skip running the tests.
 SKIP_TESTS=1 PYTHON_MINOR_VERSION=$(python --version | cut -d ' ' -f 2 | cut -d '.' -f 2) pip_package/build.sh
@@ -109,7 +109,6 @@ RUN <<"EOF" bash -ex
 echo "tensorflow==2.13.0" >> /opt/pip-tools.d/requirements-paxml.in
 echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-paxml.in
 echo "auditwheel" >> /opt/pip-tools.d/requirements-paxml.in
-echo "h5py!=3.11.0" >> /opt/pip-tools.d/requirements-paxml.in
 
 get-source.sh -l paxml  -m ${MANIFEST_FILE}
 get-source.sh -l praxis -m ${MANIFEST_FILE}
