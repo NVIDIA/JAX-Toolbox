@@ -142,6 +142,15 @@ jobs:
 
           echo "STATUS=${status}" >> ${GITHUB_OUTPUT}
 
+      - name: Check and display metrics summary
+        run: |
+          if [[ -f metrics_summary.json ]]; then
+            echo "metrics_summary.json exists:"
+            cat metrics_summary.json
+          else
+            echo "metrics_summary.json does not exist."
+          fi
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
