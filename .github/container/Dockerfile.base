@@ -10,8 +10,8 @@ ARG CLANG_VERSION=17
 ## Obtain GCP's NCCL TCPx plugin
 ###############################################################################
 
-FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.8 as tcpx_installer
-RUN install
+FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.10 as tcpx_installer
+RUN /scripts/container_entry.sh install
 
 ###############################################################################
 ## Build base image
