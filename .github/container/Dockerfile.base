@@ -15,10 +15,12 @@ FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.
 # make a stub arm64 container because GCP does not provide an arm64 version of the plugin
 FROM ubuntu as tcpx-installer-arm64
 RUN <<"OUTEREOF" bash -ex
+mkdir -p /scripts
 cat > /scripts/container_entry.sh <<"EOF"
 #!/bin/bash
 mkdir -p /var/lib/tcpx/lib64
 EOF
+chmod +x /scripts/container_entry.sh
 OUTEREOF
 
 FROM tcpx-installer-${TARGETARCH} as tcpx-installer
