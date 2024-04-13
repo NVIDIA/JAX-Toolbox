@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ "${DISABLE_GCP_TCPX_SETUP}" == 1 ]; then 
-  exit 0
+  return
 fi
 
 # Colors
