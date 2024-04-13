@@ -62,7 +62,7 @@ apt_packages=(
   # llvm.sh
   lsb-release software-properties-common
   # GCP autoconfig
-  pciutils hwloc
+  pciutils hwloc bind9-host
 )
 if [[ $(dpkg --print-architecture) == arm64 ]]; then
   # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.

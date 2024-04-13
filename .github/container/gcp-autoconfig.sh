@@ -9,7 +9,7 @@ GREEN='\033[0;32m'
 NOCOLOR='\033[0m'
 
 # If google.internal exists, we are most likely running on GCP.
-if host "google.internal" > /dev/null; then
+if host metadata.google.internal &> /dev/null; then
     echo -e "${GREEN}
     ========================== JAX-ToolBox on GCP ==========================
 
