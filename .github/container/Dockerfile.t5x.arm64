@@ -45,12 +45,16 @@ COPY --from=wheel-builder /mealkit-python-version /mealkit-python-version
         ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python3 && \
         ln -s ${PYTHON_BIN_PATH} /usr/bin/python
 
+  # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
+  #       pkg-config & libhdf5-dev ensure that 3.11.0, or any future version missing ARM, can be built.
+  #       Related: https://github.com/h5py/h5py/issues/2408
     RUN apt update && \
         apt install -yqq \
             apt-utils \
             build-essential \
             checkinstall \
-            libffi-dev
+            libffi-dev \
+            pkg-config libhdf5-dev
 
     # Install pip dependencies needed for array_record
     RUN /usr/bin/python -m pip install -U pip && \
