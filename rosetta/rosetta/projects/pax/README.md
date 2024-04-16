@@ -130,7 +130,7 @@ Rosetta Pax containers also provide support for native FP8 through XLA. Enabling
 As of 2/6/2024, CuDNN flash attention was enabled by default via XLA. Divergence has been observed with the GPT 126M model with flash attention enabled. If you observe divergence when running GPT 126M, you can disable flash attention using the following XLA flag: `--set_xla_gpu_enable_cudnn_fmha=False`.
 
 ## XLA Flags
-The [GPU Performance document](../../../../docs/GPU_performance.md) provides a detailed description of the XLA flags that can be set to optimize performance. Additionally, the scripts in `paxml/contrib/gpu/scripts_gpu` automatically set the suggested flags for each model. Please refer to these scripts to find the XLA flags used to reproduce the results documented below.
+The [GPU Performance document](../../../docs/GPU_performance.md) provides a detailed description of the XLA flags that can be set to optimize performance. Additionally, the scripts in `paxml/contrib/gpu/scripts_gpu` automatically set the suggested flags for each model. Please refer to these scripts to find the XLA flags used to reproduce the results documented below.
 
 For the the 126M model, we recommend setting `--xla_gpu_all_reduce_combine_threshold_bytes=33554432`, which is different from the value recommended in `paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh`. To overwrite the default XLA flags set in the script, set the `BASE_XLA_FLAGS` environment variable prior to running `run_pile_multinode` as follows:
 
