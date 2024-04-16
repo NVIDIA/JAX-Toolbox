@@ -43,7 +43,7 @@ jobs:
     secrets: inherit
 
   finalize:
-    needs: [metadata, amd64, arm64]
+    needs: [metadata, _ci]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
