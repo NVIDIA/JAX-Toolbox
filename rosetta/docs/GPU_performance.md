@@ -4,6 +4,8 @@ This page documents the various flags in XLA and JAX to improve performance for 
 
 The flags can be set via the environment variable `XLA_FLAGS="--xla-flag1=true --xla-flag2=false"` on command line or your script.
 
+Please note that some of these flags are experimental. All combinations of flags have not been tested, yet. If you see any unexpected behaviors, please let us know.
+
 
 ## Flags to manage memory used in JAX/XLA
 
@@ -115,7 +117,7 @@ Enable user-buffers in NCCL for zero-copy collectives and send/recv. Needs NCCL_
 - --xla_gpu_enable_nccl_user_buffers=true
 
 Flags to reduce memory consumed by NCCL.
-- --xla_gpu_enable_nccl_comm_splitting=false  
+- --xla_gpu_enable_nccl_comm_splitting=true  
 - --xla_gpu_enable_nccl_per_stream_comms=false [https://github.com/openxla/xla/pull/9845](https://github.com/openxla/xla/pull/9845)
 
 Fine-grain control to improve performance by initializing a NCCL communicator to use only max_nchannels (SMs). Default value of 0 gets the default values from NCCL for SMs used per collective.
