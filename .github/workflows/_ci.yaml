@@ -32,6 +32,7 @@ jobs:
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-base-build-cuda${{ inputs.CUDA_VERSION }}
       BASE_IMAGE: nvidia/cuda:${{ inputs.CUDA_VERSION }}-devel-ubuntu22.04
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
     secrets: inherit
@@ -41,7 +42,7 @@ jobs:
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-jax-build
+      ARTIFACT_NAME: artifact-jax-build-cuda${{ inputs.CUDA_VERSION }}
       BADGE_FILENAME: badge-jax-build
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
@@ -55,7 +56,7 @@ jobs:
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-pax-build
+      ARTIFACT_NAME: artifact-pax-build-cuda${{ inputs.CUDA_VERSION }}
       BADGE_FILENAME: badge-pax-build
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
@@ -68,6 +69,7 @@ jobs:
     uses: ./.github/workflows/_build_rosetta.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-rosetta-pax-build-cuda${{ inputs.CUDA_VERSION }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: pax
@@ -130,7 +132,7 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      TEST_NAME: jax
+      TEST_NAME: jax-cuda${{ inputs.CUDA_VERSION }}
       EXECUTE: |
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
@@ -161,6 +163,7 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_te.yaml
     with:
+      ARTIFACT_PREFIX: te-${{ inputs.CUDA_VERSION }}
       TE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
@@ -169,7 +172,7 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64' # triton doesn't support arm64(?)
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      TEST_NAME: pallas
+      TEST_NAME: pallas-cuda${{ inputs.CUDA_VERSION }}
       EXECUTE: |
         docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
@@ -195,7 +198,7 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      TEST_NAME: te
+      TEST_NAME: te-cuda${{ inputs.CUDA_VERSION }}
       EXECUTE: |
         docker run -i --gpus all --shm-size=1g -v $PWD:/log \
         ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} \
@@ -223,6 +226,7 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_upstream_pax.yaml
     with:
+      ARTIFACT_NAME: artifact-upstream-pax-mgmn-test-cuda${{ inputs.CUDA_VERSION }}
       PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
@@ -231,5 +235,6 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
+      ARTIFACT_NAME: artifact-rosetta-pax-mgmn-test-cuda${{ inputs.CUDA_VERSION }}
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
