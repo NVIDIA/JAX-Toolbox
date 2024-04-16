@@ -27,20 +27,19 @@ jobs:
           BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-  amd64:
+  _ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        CUDA_VERSION: [12.3.0, 12.4.0]
+        ARCHITECTURE: [amd64, arm64]
+    name: ${{ matrix.ARCHITECTURE }}-${{ matrix.CUDA_VERSION }}
     needs: [metadata]
     uses: ./.github/workflows/_ci.yaml
     with:
-      ARCHITECTURE: amd64
+      ARCHITECTURE: ${{ matrix.ARCHITECTURE }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-    secrets: inherit
-
-  arm64:
-    needs: [metadata]
-    uses: ./.github/workflows/_ci.yaml
-    with:
-      ARCHITECTURE: arm64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CUDA_VERSION: ${{ matrix.CUDA_VERSION }}
     secrets: inherit
 
   finalize:

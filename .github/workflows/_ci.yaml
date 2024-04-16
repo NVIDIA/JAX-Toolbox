@@ -11,6 +11,11 @@ on:
         description: Build date in YYYY-MM-DD format
         required: false
         default: NOT SPECIFIED
+      CUDA_VERSION:
+        type: string
+        description: 'CUDA version to build the image for, e.g. 12.3.0, 12.4.0'
+        required: false
+        default: 12.4.0
     outputs:
       DOCKER_TAGS:
         description: JSON object containing tags of all docker images built
@@ -27,6 +32,7 @@ jobs:
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BASE_IMAGE: nvidia/cuda:${{ inputs.CUDA_VERSION }}-devel-ubuntu22.04
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
     secrets: inherit
 
