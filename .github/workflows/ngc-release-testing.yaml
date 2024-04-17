@@ -65,13 +65,16 @@ jobs:
     with:
       PAX_IMAGE: ${{ inputs.PAX_IMAGE }}
     secrets: inherit
-
+    
   test-maxtext:
     if: inputs.MAXTEXT_IMAGE != ''
-    
+    uses: ./.github/workflows/_test_maxtext.yaml
+    with:
+      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+    secrets: inherit
 
   finalize:
-    needs: [ test-jax, test-rosetta-pax ]
+    needs: [ test-jax, test-rosetta-pax, test-maxtext ]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
