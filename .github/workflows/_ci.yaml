@@ -14,7 +14,7 @@ on:
       MANIFEST_ARTIFACT_NAME:
         type: string
         description: Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch
-        default: ''
+        default: ""
         required: false
     outputs:
       DOCKER_TAGS:
@@ -22,12 +22,11 @@ on:
         value: ${{ jobs.collect-docker-tags.outputs.TAGS }}
 
 permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
+  contents: read # to fetch code
+  actions: write # to cancel previous workflows
   packages: write # to upload container
 
 jobs:
-
   build-base:
     uses: ./.github/workflows/_build_base.yaml
     with:
@@ -77,7 +76,7 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.equinox
     secrets: inherit
 
-  build-maxtext:
+  build-upstream-maxtext:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
     uses: ./.github/workflows/_build.yaml
@@ -162,7 +161,7 @@ jobs:
       CONTAINER_NAME: grok
       DOCKERFILE: .github/container/Dockerfile.grok
     secrets: inherit
-    
+
   collect-docker-tags:
     runs-on: ubuntu-22.04
     if: "!cancelled()"
@@ -171,7 +170,7 @@ jobs:
       - build-jax
       - build-triton
       - build-equinox
-      - build-maxtext
+      - build-upstream-maxtext
       - build-levanter
       - build-upstream-t5x
       - build-upstream-pax
@@ -190,7 +189,7 @@ jobs:
             {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "triton",       "stage": "final",   "priority": 900,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "levanter",     "stage": "final",   "priority": 900,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "upstream-pax", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}"},\
@@ -200,7 +199,7 @@ jobs:
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "triton",       "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "levanter",     "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "upstream-pax", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-pax.outputs.DOCKER_TAG_MEALKIT }}"},\
@@ -369,7 +368,7 @@ jobs:
 
   test-levanter:
     needs: build-levanter
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: levanter
@@ -396,7 +395,7 @@ jobs:
 
   test-te:
     needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: te
@@ -439,9 +438,9 @@ jobs:
     secrets: inherit
 
   test-maxtext:
-    needs: build-maxtext
+    needs: build-upstream-maxtext
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
     uses: ./.github/workflows/_test_maxtext.yaml
     with:
-      MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
+      MAXTEXT_IMAGE: ${{ needs.build-upstream-maxtext.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
