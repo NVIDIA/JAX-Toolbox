@@ -32,6 +32,10 @@ RUN <<"EOF" bash -ex
 pushd ${SRC_PATH_JAX}
 # https://github.com/google/jax/pull/20588
 git cherry-pick -m 1 033992867fc8a9f76f4294bb770da936b0d068b2
+popd
+pushd ${SRC_PATH_XLA}
+git cherry-pick -m 1 2a58f55be01f3f035c062db7a3057fa8cdbd6364
+popd
 EOF
 ## end of apply release-specific patches
 
