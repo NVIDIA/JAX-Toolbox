@@ -124,7 +124,6 @@ for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
     "s|^tensorflow|#tensorflow|" \
     "s|^lingvo|#lingvo|" \
     "s|^scikit-learn|#scikit-learn|" \
-    "s|^t5|#t5|" \
     "s|^protobuf|#protobuf|" \
     "s|^numpy|#numpy|" \
   ; do
