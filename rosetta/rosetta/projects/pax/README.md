@@ -130,23 +130,9 @@ Rosetta Pax containers also provide support for native FP8 through XLA. Enabling
 As of 2/6/2024, CuDNN flash attention was enabled by default via XLA. Divergence has been observed with the GPT 126M model with flash attention enabled. If you observe divergence when running GPT 126M, you can disable flash attention using the following XLA flag: `--set_xla_gpu_enable_cudnn_fmha=False`.
 
 ## XLA Flags
-We recommend setting the following XLA flags when running experiments: 
+The [GPU Performance document](../../../docs/GPU_performance.md) provides a detailed description of the XLA flags that can be set to optimize performance. Additionally, the scripts in `paxml/contrib/gpu/scripts_gpu` automatically set the suggested flags for each model. Please refer to these scripts to find the XLA flags used to reproduce the results documented below.
 
-1. `--xla_gpu_simplify_all_fp_conversions`: Allows all floating-point `f32 -> bf16 -> f32` conversion pairs to be simplified.
-2. `--xla_gpu_enable_latency_hiding_scheduler=true`: Allows XLA:GPU to move communication collectives to increase overlap with compute kernels
-3. `--xla_gpu_enable_async_all_gather=true`: Allows XLA:GPU to run All Gather NCCL kernels on a separate CUDA stream to allow overlap with compute kernels
-4. `--xla_gpu_enable_async_reduce_scatter=true`: Allows XLA:GPU to run Reduce Scatter NCCL kernels on a separate CUDA stream to allow overlap with compute kernels
-5. `--xla_gpu_enable_async_all_reduce=true`: Allows XLA:GPU to run All Reduce NCCL kernels on a separate CUDA stream to allow overlap with compute kernels.
-6. `--xla_gpu_enable_highest_priority_async_stream=true`: Allows XLA to prioritize the launch of NCCL kernels before GeMMs to ensure enough SMs are available for async communication kernels.
-7. `--xla_gpu_all_reduce_combine_threshold_bytes=<BYTES>`: Combines NCCL All Reduce kernels until threshold size is reached. For 126M, we recommend setting this value to 33554432. For 5B and 175B, we recommend 51200.
-8. `--xla_gpu_enable_triton_gemm=false`: Disallows Triton GeMM kernels; uses CUBLAS GeMM kernels instead. CUBLAS kernels are currently better tuned for GPUs and thus provide better performance
-9. `--xla_gpu_cuda_graph_level=0`: Disallows XLA from using CUDA graphs.
-
-These flags are enabled by default in `paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh`. The `XLA_FLAGS` environment variable controls these flags; to configure XLA flags explicitly, you can use the following command.
-```
-export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_async_all_gather=true --xla_gpu_enable_async_reduce_scatter=true --xla_gpu_enable_triton_gemm=false"
-```
-For the the 126M model, we recommend setting `--xla_gpu_all_reduce_combine_threshold_bytes=33554432`, which is different from the default value in `paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh`. To overwrite the default XLA flags set in the script, set the `BASE_XLA_FLAGS` environment variable prior to calling `run_pile_multinode` as follows:
+For the the 126M model, we recommend setting `--xla_gpu_all_reduce_combine_threshold_bytes=33554432`, which is different from the value recommended in `paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh`. To overwrite the default XLA flags set in the script, set the `BASE_XLA_FLAGS` environment variable prior to running `run_pile_multinode` as follows:
 
 ```
 BASE_XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_triton_gemm=false
