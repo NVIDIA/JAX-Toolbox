@@ -32,6 +32,14 @@ RUN <<"EOF" bash -ex
 pushd ${SRC_PATH_JAX}
 # https://github.com/google/jax/pull/20588
 git cherry-pick -m 1 033992867fc8a9f76f4294bb770da936b0d068b2
+popd
+
+# revert https://github.com/openxla/xla/pull/9778 which is causing a flash attention issue for paxml
+pushd ${SRC_PATH_XLA}
+git remote add fork https://github.com/nvjax-svc-0/xla.git
+git fetch fork
+git cherry-pick -m 1 2ce31bb7a56b7af77d40ba8bafe99e901a4fc5fb
+popd
 EOF
 ## end of apply release-specific patches
 
