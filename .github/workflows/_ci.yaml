@@ -223,18 +223,16 @@ jobs:
 
   test-upstream-pax:
     needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    if: inputs.ARCHITECTURE == 'amd64' && inputs.CUDA_VERSION == '12.4.0'
     uses: ./.github/workflows/_test_upstream_pax.yaml
     with:
-      ARTIFACT_NAME: artifact-upstream-pax-mgmn-test-cuda${{ inputs.CUDA_VERSION }}
       PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-rosetta-pax:
     needs: build-rosetta-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    if: inputs.ARCHITECTURE == 'amd64' && inputs.CUDA_VERSION == '12.4.0'
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
-      ARTIFACT_NAME: artifact-rosetta-pax-mgmn-test-cuda${{ inputs.CUDA_VERSION }}
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
