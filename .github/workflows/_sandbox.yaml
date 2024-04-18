@@ -6,14 +6,24 @@ on:
 
 jobs:
 
+  build-base:
+    uses: ./.github/workflows/_build_base.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-base-build-cuda${{ inputs.CUDA_VERSION }}
+      BASE_IMAGE: nvidia/cuda:${{ inputs.CUDA_VERSION }}-devel-ubuntu22.04
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+    secrets: inherit
+
   build-jax:
+    needs: build-base
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: amd64
       ARTIFACT_NAME: artifact-jax-build
       BADGE_FILENAME: badge-jax-build
       BUILD_DATE: 2024-04-18
-      BASE_IMAGE: ghcr.io/nvidia/jax:base
+      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
       CONTAINER_NAME: jax
       DOCKERFILE: .github/container/Dockerfile.jax
       RUNNER_SIZE: large
