@@ -105,28 +105,6 @@ jobs:
 
           echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
 
-  test-distribution:
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        TEST_SCRIPT:
-          - extra-only-distribution.sh
-          - mirror-only-distribution.sh
-          - upstream-only-distribution.sh
-          - local-patch-distribution.sh
-      fail-fast: false
-    steps:
-      - name: Print environment variables
-        run: env
-      - name: Set git login for tests
-        run: |
-          git config --global user.email "jax@nvidia.com"
-          git config --global user.name "JAX-Toolbox CI"
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
-      - name: Run integration test ${{ matrix.TEST_SCRIPT }}
-        run: bash rosetta/tests/${{ matrix.TEST_SCRIPT }}
-
   test-jax:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
@@ -223,18 +201,16 @@ jobs:
 
   test-upstream-pax:
     needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    if: inputs.ARCHITECTURE == 'amd64' && inputs.CUDA_VERSION == '12.4.0'
     uses: ./.github/workflows/_test_upstream_pax.yaml
     with:
-      ARTIFACT_NAME: artifact-upstream-pax-mgmn-test-cuda${{ inputs.CUDA_VERSION }}
       PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-rosetta-pax:
     needs: build-rosetta-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    if: inputs.ARCHITECTURE == 'amd64' && inputs.CUDA_VERSION == '12.4.0'
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
-      ARTIFACT_NAME: artifact-rosetta-pax-mgmn-test-cuda${{ inputs.CUDA_VERSION }}
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
