@@ -101,3 +101,8 @@ mlperf-logging:
   tracking_ref: master
   latest_verified_commit: 99ba37ac267c870d7c6c17e1837aa9180a37cdc1
   mode: pip-vcs
+maxtext:
+  url: https://github.com/google/maxtext.git
+  tracking_ref: main
+  latest_verified_commit: ebd39aa64d670fa13a313b6f776e01ad9e450321
+  mode: git-clone
