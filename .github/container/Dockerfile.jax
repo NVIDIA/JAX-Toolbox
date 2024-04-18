@@ -38,8 +38,8 @@ EOF
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 # TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt
+ENV JAX_RELEASE=1
 RUN build-jax.sh \
-    --build-param --bazel_options=--action_env=JAX_RELEASE=1 \
     --bazel-cache ${BAZEL_CACHE} \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
