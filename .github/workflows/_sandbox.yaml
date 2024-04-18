@@ -9,10 +9,10 @@ jobs:
   build-base:
     uses: ./.github/workflows/_build_base.yaml
     with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-base-build-cuda${{ inputs.CUDA_VERSION }}
-      BASE_IMAGE: nvidia/cuda:${{ inputs.CUDA_VERSION }}-devel-ubuntu22.04
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      ARCHITECTURE: amd64
+      ARTIFACT_NAME: artifact-base-build
+      BASE_IMAGE: nvidia/cuda:12.4.0-devel-ubuntu22.04
+      BUILD_DATE: 2024-04-18
     secrets: inherit
 
   build-jax:
