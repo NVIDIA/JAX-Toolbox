@@ -2,6 +2,7 @@ name: "~Sandbox"
 
 on:
   push:
+  workflow_dispatch:
 
 jobs:
 
