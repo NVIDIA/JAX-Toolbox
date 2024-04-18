@@ -34,6 +34,8 @@ ARG SRC_MANIFEST_FILE
 ARG DEST_MANIFEST_DIR
 ARG CLANG_VERSION
 
+ENV JAX_RELEASE=1
+
 ###############################################################################
 ## Install Python and essential tools
 ###############################################################################
