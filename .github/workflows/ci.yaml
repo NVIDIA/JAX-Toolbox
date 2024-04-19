@@ -3,6 +3,7 @@ name: CI
 on:
   workflow_dispatch:
   pull_request:
+  push:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -31,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        CUDA_VERSION: [12.3.0, 12.4.0]
+        CUDA_VERSION: [12.4.0]
         ARCHITECTURE: [amd64, arm64]
     name: ${{ matrix.ARCHITECTURE }}-${{ matrix.CUDA_VERSION }}
     needs: [metadata]
