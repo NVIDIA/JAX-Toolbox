@@ -1,4 +1,4 @@
-From b00e562c85ae7af714ee318ea5147b1ddc5a6b78 Mon Sep 17 00:00:00 2001
+From 06b247a4a27998df6a5bc69d4ab0a3811f2bafda Mon Sep 17 00:00:00 2001
 From: Hemil Desai <hemild@nvidia.com>
 Date: Mon, 12 Feb 2024 21:50:33 -0800
 Subject: [PATCH] Add LLaMA SFT and LoRA support for paxml
@@ -7,12 +7,12 @@ Subject: [PATCH] Add LLaMA SFT and LoRA support for paxml
  .../gpu/scripts_gpu/checkpoint_utils.py       |  40 ++++++
  paxml/contrib/gpu/scripts_gpu/configs.py      |   8 +-
  paxml/contrib/gpu/scripts_gpu/llama_utils.py  |  12 +-
- paxml/contrib/gpu/scripts_gpu/lora_utils.py   |  91 +++++++++++++
- .../gpu/scripts_gpu/run_llama_boolq.sh        | 122 ++++++++++++++++++
- .../run_llama_boolq_multiprocess.sh           |  54 --------
+ paxml/contrib/gpu/scripts_gpu/lora_utils.py   |  91 ++++++++++++
+ .../gpu/scripts_gpu/run_llama_boolq.sh        | 133 ++++++++++++++++++
+ .../run_llama_boolq_multiprocess.sh           |  54 -------
  paxml/contrib/gpu/scripts_gpu/tasks.py        |  19 +--
  paxml/tasks/lm/params/c4.py                   |   4 +
- 8 files changed, 285 insertions(+), 65 deletions(-)
+ 8 files changed, 296 insertions(+), 65 deletions(-)
  create mode 100644 paxml/contrib/gpu/scripts_gpu/checkpoint_utils.py
  create mode 100644 paxml/contrib/gpu/scripts_gpu/lora_utils.py
  create mode 100644 paxml/contrib/gpu/scripts_gpu/run_llama_boolq.sh
@@ -228,10 +228,10 @@ index 0000000..2a5d9a6
 +        return task_p
 diff --git a/paxml/contrib/gpu/scripts_gpu/run_llama_boolq.sh b/paxml/contrib/gpu/scripts_gpu/run_llama_boolq.sh
 new file mode 100644
-index 0000000..1d2f57c
+index 0000000..85faf2e
 --- /dev/null
 +++ b/paxml/contrib/gpu/scripts_gpu/run_llama_boolq.sh
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,133 @@
 +# coding=utf-8
 +# Copyright 2022 The Pax Authors.
 +#
@@ -308,6 +308,17 @@ index 0000000..1d2f57c
 +export NVTE_FUSED_ATTN=${NVTE_FUSED_ATTN:-1}
 +export ENABLE_TE=${ENABLE_TE:-1}
 +
++BASE_XLA_FLAGS=${BASE_XLA_FLAGS:-"\
++	--xla_gpu_enable_latency_hiding_scheduler=true \
++	--xla_gpu_enable_triton_gemm=false \
++	--xla_gpu_enable_async_all_gather=true \
++	--xla_gpu_enable_async_reduce_scatter=true \
++	--xla_gpu_enable_highest_priority_async_stream=true \
++	--xla_gpu_enable_triton_softmax_fusion=false \
++	--xla_gpu_all_reduce_combine_threshold_bytes=51200 \
++	--xla_gpu_graph_level=0 \
++	--xla_gpu_enable_async_all_reduce=true"}
++export XLA_FLAGS="$BASE_XLA_FLAGS ${XLA_FLAGS:-}"
 +
 +ENABLE_FP8=0
 +JOB_DIR=$LOG_DIR/llama-${CONFIG:-LLaMA7B}-mbs-${PERCORE_BATCH_SIZE:-2}-te-${ENABLE_TE}-lora-${USE_LORA}
