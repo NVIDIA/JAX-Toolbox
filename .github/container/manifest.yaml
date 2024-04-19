@@ -15,7 +15,7 @@ flax:
   latest_verified_commit: 83d118ad369a470527e8ec6cd3b988fba5d4fd3e
   mode: git-clone
   patches:
-    # pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
+  # pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: release_v1.5
@@ -29,6 +29,8 @@ paxml:
   mode: git-clone
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
+    mirror/patch/lora-and-sft-support: file://patches/paxml/mirror-patch-lora-and-sft-support.patch ## adds LLaMA SFT support
+    mirror/patch/moe-support: file://patches/paxml/mirror-patch-moe-support.patch ## adds GLaM support
 praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
@@ -37,7 +39,8 @@ praxis:
   mode: git-clone
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
-    pull/36/head: file://patches/praxis/PR-36.patch # adds Transformer Engine support
+    mirror/patch/te-and-lora-support: file://patches/praxis/mirror-patch-te-and-lora-support.patch # adds Transformer Engine support, includes LoRA support
+    mirror/patch/glam_without_repeat_layer: file://patches/praxis/mirror-patch-glam_without_repeat_layer.patch # adds support for running GLaM models with repeat layer disabled
 lingvo:
   # Used only in ARM pax builds
   url: https://github.com/tensorflow/lingvo.git
