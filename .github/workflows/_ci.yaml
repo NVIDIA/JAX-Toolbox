@@ -90,6 +90,16 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.maxtext.amd64
     secrets: inherit
 
+  build-rosetta-maxtext:
+    needs: build-upstream-maxtext
+    uses: ./.github/workflows/_build_rosetta.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-upstream-maxtext.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: maxtext
+    secrets: inherit
+
   build-levanter:
     needs: [build-jax]
     uses: ./.github/workflows/_build.yaml
