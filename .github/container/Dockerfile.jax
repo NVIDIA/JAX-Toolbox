@@ -104,6 +104,7 @@ pushd ${SRC_PATH_TE}
 ## apply release-specific patches: cherry-pick changes after the last release tag
 git cherry-pick 8e672ff0758033c348e263dbcd6a4b3578c01161
 git cherry-pick bfe21c3d68b0a9951e5716fb520045db53419c5e
+git cherry-pick 7c1828f80edc1405d4ef1a7780c9e0046beab5c7  # https://github.com/NVIDIA/TransformerEngine/pull/745
 ## end of apply release-specific patches
 python setup.py bdist_wheel && rm -rf build
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in
