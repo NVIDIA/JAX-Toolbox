@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:upstream-pax
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:upstream-maxtext
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG GIT_USER_NAME=NVIDIA
 # If set to "true", then will pull new local patches, the manifest.yaml and create-distribution.sh (in case it was updated).
@@ -35,8 +35,6 @@ if [[ "${UPDATE_PATCHES}" == "true" ]]; then
   cp -r /mnt/jax-toolbox/.github/container/patches ${MANIFEST_DIR}/
   cp /mnt/jax-toolbox/.github/container/manifest.yaml ${MANIFEST_DIR}/manifest.yaml
   cp /mnt/jax-toolbox/.github/container/create-distribution.sh ${MANIFEST_DIR}/create-distribution.sh
-  # TODO: remove
-  cp /mnt/jax-toolbox/.github/container/pip-finalize.sh /usr/local/bin/
 fi
 cp -r /mnt/jax-toolbox/rosetta /opt/rosetta
 

@@ -86,7 +86,7 @@ jobs:
       BADGE_FILENAME: badge-maxtext-build
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: maxtext
+      CONTAINER_NAME: upstream-maxtext
       DOCKERFILE: .github/container/Dockerfile.maxtext.amd64
     secrets: inherit
 
@@ -184,8 +184,10 @@ jobs:
       - build-levanter
       - build-upstream-t5x
       - build-upstream-pax
+      - build-upstream-maxtext
       - build-rosetta-t5x
       - build-rosetta-pax
+      - build-rosetta-maxtext
       - build-grok
     outputs:
       TAGS: ${{ steps.collect-tags.outputs.TAGS }}
