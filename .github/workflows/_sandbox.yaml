@@ -3,6 +3,10 @@ name: "~Sandbox"
 on:
   push:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   debug:
     strategy:
@@ -11,6 +15,7 @@ jobs:
         CUDA_VERSION: [12.3.0, 12.4.0]
         PR730: [true, false]
         PR728: [true, false]
+    name: cuda${{ inputs.CUDA_VERSION }}-PR730${{ inputs.PR730 }}-PR728${{ inputs.PR728 }}
     uses: ./.github/workflows/_debug.yaml
     with:
       CUDA_VERSION: ${{ matrix.CUDA_VERSION }}
