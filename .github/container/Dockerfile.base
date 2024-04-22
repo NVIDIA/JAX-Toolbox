@@ -131,6 +131,12 @@ git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github
 EOF
 RUN pip install --upgrade --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
 
+
+###############################################################################
+## Install Ray
+###############################################################################
+RUN pip install ray
+
 ###############################################################################
 ## Install TCPx
 ###############################################################################
