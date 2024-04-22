@@ -2,7 +2,7 @@ name: CI
 
 on:
   schedule:
-    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+    - cron: "30 9 * * *" # Pacific Time 01:30 AM in UTC
   pull_request:
     types:
       - opened
@@ -10,7 +10,7 @@ on:
       - ready_for_review
       - synchronize
     paths-ignore:
-      - '**.md'
+      - "**.md"
   workflow_dispatch:
     inputs:
       PUBLISH:
@@ -34,16 +34,15 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
-  contents: write       # to fetch code and push branch
-  actions:  write       # to cancel previous workflows
-  packages: write       # to upload container
-  pull-requests: write  # to make pull request for manifest bump
+  contents: write # to fetch code and push branch
+  actions: write # to cancel previous workflows
+  packages: write # to upload container
+  pull-requests: write # to make pull request for manifest bump
 
 env:
   DEFAULT_MANIFEST_ARTIFACT_NAME: bumped-manifest
 
 jobs:
-
   metadata:
     runs-on: ubuntu-22.04
     outputs:
@@ -115,7 +114,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           bash bump.sh --input-manifest manifest.yaml --output-manifest manifest.yaml.new --base-patch-dir ./patches-new
-      
+
       - name: Maybe replace current manifest/patches with the new one and show diff
         working-directory: .github/container
         shell: bash -x -e {0}
@@ -168,12 +167,11 @@ jobs:
     steps:
       - name: "Tests Succeeded: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}"
         id: test_result
-        run:
-          echo "SUCCEEDED=${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}" | tee -a $GITHUB_OUTPUT
+        run: echo "SUCCEEDED=${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}" | tee -a $GITHUB_OUTPUT
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
-      
+
       - name: Delete checked-out manifest and patches
         run: |
           rm .github/container/manifest.yaml
@@ -213,7 +211,7 @@ jobs:
           git merge --ff-only ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
           # Push the new change
           git push origin ${{ github.ref_name }}
-      
+
       # We will create a Draft PR & remote branch if:
       #  1. The tests failed
       #  2. The merge failed
@@ -244,12 +242,12 @@ jobs:
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: "Log created PR: #${{ fromJson(steps.create_pr.outputs.data).number }}"
         if: steps.create_pr.outcome == 'success'
         run: |
           echo "https://github.com/NVIDIA/JAX-Toolbox/pull/${{ fromJson(steps.create_pr.outputs.data).number }}" | tee -a $GITHUB_STEP_SUMMARY
-      
+
       # Guard delete in simple check to protect other branches
       - name: Check that the branch matches znightly- prefix
         run: |
@@ -271,7 +269,7 @@ jobs:
 
   make-publish-configs:
     runs-on: ubuntu-22.04
-    if:  ${{ !cancelled() }}
+    if: ${{ !cancelled() }}
     env:
       MEALKIT_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax-mealkit' || 'mock-jax-mealkit' }}
       FINAL_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax' || 'mock-jax' }}
@@ -294,6 +292,7 @@ jobs:
             levanter
             upstream-t5x
             upstream-pax
+            upstream-maxtext
             t5x
             pax
             grok
@@ -365,7 +364,7 @@ jobs:
     needs:
       - metadata
       - make-publish-configs
-    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
+    if: ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
