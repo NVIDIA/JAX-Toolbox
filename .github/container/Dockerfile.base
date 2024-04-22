@@ -181,6 +181,12 @@ ENV PATH=/opt/amazon/efa/bin:${PATH}
 COPY check-shm.sh /opt/nvidia/entrypoint.d/
 
 ###############################################################################
+## Add the GPU compute capability check to the entrypoint.
+###############################################################################
+
+COPY check-cc.sh /opt/nvidia/entrypoint.d/
+
+###############################################################################
 ## Add the GCP - TCPX check to the entrypoint.
 ###############################################################################
 
