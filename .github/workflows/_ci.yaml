@@ -117,6 +117,16 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
+  build-rosetta-t5x:
+    needs: build-upstream-t5x
+    uses: ./.github/workflows/_build_rosetta.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: t5x
+    secrets: inherit
+  
   build-upstream-pax:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
@@ -128,16 +138,6 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-pax
       DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
-    secrets: inherit
-
-  build-rosetta-t5x:
-    needs: build-upstream-t5x
-    uses: ./.github/workflows/_build_rosetta.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}
-      BASE_LIBRARY: t5x
     secrets: inherit
 
   build-rosetta-pax:
