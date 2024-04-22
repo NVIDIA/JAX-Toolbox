@@ -104,13 +104,26 @@ jobs:
             .github/container/patches
 
   build-base:
-    uses: ./.github/workflows/_build_base.yaml
+    runs-on: [self-hosted, "amd64", small]
     needs: [metadata, bump-manifest]
-    with:
-      ARCHITECTURE: amd64
-      BUILD_DATE: 20240418
-      MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
-    secrets: inherit
+    env:
+      UPLD_IMAGE: ghcr.io/nvidia/jax-toolbox-internal
+      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
+    outputs:
+      DOCKER_TAG: ${{ steps.main.outputs.DOCKER_TAG }}
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Main
+        id: main
+        uses: ./.github/actions/build_base
+        with:
+          ARCHITECTURE: amd64
+          BUILD_DATE: 20240418
+          MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-jax:
     needs: build-base
