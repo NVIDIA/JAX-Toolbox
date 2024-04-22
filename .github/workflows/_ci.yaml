@@ -37,7 +37,7 @@ jobs:
 
   build-jax:
     needs: build-base
-    uses: ./.github/workflows/_build.yaml
+    uses: ./.github/workflows/_build_upstream.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: artifact-jax-build
@@ -52,7 +52,7 @@ jobs:
   build-triton:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
-    uses: ./.github/workflows/_build.yaml
+    uses: ./.github/workflows/_build_upstream.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: artifact-triton-build
@@ -65,7 +65,7 @@ jobs:
 
   build-equinox:
     needs: build-jax
-    uses: ./.github/workflows/_build.yaml
+    uses: ./.github/workflows/_build_upstream.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: artifact-equinox-build
@@ -79,7 +79,7 @@ jobs:
   build-upstream-maxtext:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
-    uses: ./.github/workflows/_build.yaml
+    uses: ./.github/workflows/_build_upstream.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: artifact-maxtext-build
@@ -102,7 +102,7 @@ jobs:
 
   build-levanter:
     needs: [build-jax]
-    uses: ./.github/workflows/_build.yaml
+    uses: ./.github/workflows/_build_upstream.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-levanter-build"
@@ -115,7 +115,7 @@ jobs:
 
   build-upstream-t5x:
     needs: build-jax
-    uses: ./.github/workflows/_build.yaml
+    uses: ./.github/workflows/_build_upstream.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-t5x-build"
@@ -128,7 +128,7 @@ jobs:
 
   build-upstream-pax:
     needs: build-jax
-    uses: ./.github/workflows/_build.yaml
+    uses: ./.github/workflows/_build_upstream.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: artifact-pax-build
@@ -161,7 +161,7 @@ jobs:
 
   build-grok:
     needs: [build-jax]
-    uses: ./.github/workflows/_build.yaml
+    uses: ./.github/workflows/_build_upstream.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-grok-build"

@@ -114,7 +114,7 @@ jobs:
 
   build-jax:
     needs: build-base
-    uses: ./.github/workflows/_build.yaml
+    uses: ./.github/workflows/_build_upstream.yaml
     with:
       ARCHITECTURE: amd64
       ARTIFACT_NAME: artifact-jax-build
@@ -128,7 +128,7 @@ jobs:
 
   build-upstream-maxtext:
     needs: build-jax
-    uses: ./.github/workflows/_build.yaml
+    uses: ./.github/workflows/_build_upstream.yaml
     with:
       ARCHITECTURE: amd64
       ARTIFACT_NAME: artifact-maxtext-build
