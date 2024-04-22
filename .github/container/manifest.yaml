@@ -113,9 +113,12 @@ jax-triton:
   mode: git-clone
 maxtext:
   url: https://github.com/google/maxtext.git
+  mirror_url: https://github.com/nvjax-svc-0/maxtext.git
   tracking_ref: main
   latest_verified_commit: 78daad198544def8274dbd656d122fbe6a0e1129
   mode: git-clone
+  patches:
+    mirror/patch/test_rosetta_maxtext: file://patches/maxtext/mirror-patch-rosetta-maxtext.patch
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
   tracking_ref: main
