@@ -6,26 +6,26 @@ on:
       T5X_IMAGE:
         type: string
         description: T5X image from ghcr.io/nvidia/t5x
-        default: "ghcr.io/nvidia/t5x:latest"
+        default: 'ghcr.io/nvidia/t5x:latest'
         required: false
       BADGE_FILENAME:
         type: string
-        description: "Name of the endpoint JSON file for shields.io badge"
+        description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: "badge-rosetta-t5x-mgmn-test.json"
+        default: 'badge-rosetta-t5x-mgmn-test.json'
       ARTIFACT_NAME:
         type: string
-        description: "Name of the artifact zip file"
+        description: 'Name of the artifact zip file'
         required: false
-        default: "artifact-rosetta-t5x-mgmn-test"
+        default: 'artifact-rosetta-t5x-mgmn-test'
       FW_NAME:
         type: string
-        description: "Name of the framework being used"
+        description: 'Name of the framework being used'
         required: false
-        default: "rosetta-t5x"
+        default: 'rosetta-t5x'
     outputs:
       TEST_STATUS:
-        description: "Summary pass/fail value indicating if results from tests are acceptable"
+        description: 'Summary pass/fail value indicating if results from tests are acceptable'
         value: ${{ jobs.sitrep.outputs.STATUS }}
 
 env:
@@ -37,18 +37,18 @@ jobs:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1P1G_te-1"
+          - TEST_NAME: '1P1G_te-1'
             N_GPU: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "1P1G_te-0"
+            ADDITIONAL_ARGS: ''
+            EXTRA_GIN_ARGS: '--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False'
+          - TEST_NAME: '1P1G_te-0'
             N_GPU: 1
-            ADDITIONAL_ARGS: "--enable-te 0"
-            EXTRA_GIN_ARGS: ""
-          - TEST_NAME: "1P8G_te-1"
+            ADDITIONAL_ARGS: '--enable-te 0'
+            EXTRA_GIN_ARGS: ''
+          - TEST_NAME: '1P8G_te-1'
             N_GPU: 8
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
+            ADDITIONAL_ARGS: ''
+            EXTRA_GIN_ARGS: '--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False'
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -233,26 +233,26 @@ jobs:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1N1G-te-1"
+          - TEST_NAME: '1N1G-te-1'
             N_GPU: 1
             N_NODE: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "1N8G-te-1"
+            ADDITIONAL_ARGS: ''
+            EXTRA_GIN_ARGS: '--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False'
+          - TEST_NAME: '1N8G-te-1'
             N_GPU: 8
             N_NODE: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "2N8G-te-1"
+            ADDITIONAL_ARGS: ''
+            EXTRA_GIN_ARGS: '--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False'
+          - TEST_NAME: '2N8G-te-1'
             N_GPU: 8
             N_NODE: 2
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "2N2G_te-0"
+            ADDITIONAL_ARGS: ''
+            EXTRA_GIN_ARGS: '--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False'
+          - TEST_NAME: '2N2G_te-0'
             N_GPU: 2
             N_NODE: 2
-            ADDITIONAL_ARGS: "--enable-te 0"
-            EXTRA_GIN_ARGS: ""
+            ADDITIONAL_ARGS: '--enable-te 0'
+            EXTRA_GIN_ARGS: ''
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -818,7 +818,7 @@ jobs:
 
   sitrep:
     needs: metrics
-    if: "!cancelled()"
+    if: '!cancelled()'
     uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
     with:
@@ -835,7 +835,7 @@ jobs:
         vit-single-process-multi-device,
         vit-multi-gpu-multi-node,
       ]
-    if: "!cancelled()"
+    if: '!cancelled()'
     steps:
       - name: Generate TensorBoard query URL
         run: |
@@ -852,7 +852,7 @@ jobs:
   outcome:
     needs: sitrep
     runs-on: ubuntu-22.04
-    if: "!cancelled()"
+    if: '!cancelled()'
     steps:
       - name: Sets workflow status based on test outputs
         run: |
@@ -905,7 +905,7 @@ jobs:
     if: ( always() )
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: "rosetta-unit-test-status.json"
+      ENDPOINT_FILENAME: 'rosetta-unit-test-status.json'
       PUBLISH: false
       SCRIPT: |
         ARTIFACTS="${{ needs.rosetta-unit-tests.outputs.TEST_ARTIFACT_NAME }}/*.jsonl"
