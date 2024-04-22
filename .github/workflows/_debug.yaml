@@ -1,5 +1,5 @@
 name: ~debug
-run-name: cuda${{ inputs.CUDA_VERSION }}-PR730${{ inputs.PR730 }}-PR728${{ inputs.PR728 }}
+
 on:
   workflow_call:
     inputs:

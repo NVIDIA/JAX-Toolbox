@@ -15,7 +15,7 @@ jobs:
         CUDA_VERSION: [12.3.0, 12.4.0]
         PR730: [true, false]
         PR728: [true, false]
-    name: cuda${{ inputs.CUDA_VERSION }}-PR730${{ inputs.PR730 }}-PR728${{ inputs.PR728 }}
+    name: cuda${{ matrix.CUDA_VERSION }}-PR730${{ matrix.PR730 }}-PR728${{ matrix.PR728 }}
     uses: ./.github/workflows/_debug.yaml
     with:
       CUDA_VERSION: ${{ matrix.CUDA_VERSION }}
