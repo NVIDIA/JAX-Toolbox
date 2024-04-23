@@ -30,8 +30,8 @@ jobs:
       ARTIFACT_NAME: artifact-jax-build-cuda12.4internal
       BADGE_FILENAME: badge-jax-build
       BUILD_DATE: 2024-04-22
-      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:dl-dgx-cuda12.4-devel-ubuntu22.04--24.04
-      CONTAINER_NAME: jax-cuda12.4internal
+      BASE_IMAGE: nvidia/cuda:12.4.0-devel-ubuntu22.04
+      CONTAINER_NAME: jax
       DOCKERFILE: .github/container/Dockerfile.internal
       RUNNER_SIZE: large
       EXTRA_BUILD_ARGS: |
@@ -48,7 +48,7 @@ jobs:
       BADGE_FILENAME: badge-pax-build
       BUILD_DATE: 2024-04-22
       BASE_IMAGE: ${{ needs.build-jax-internal.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: upstream-pax--cuda12.4internal
+      CONTAINER_NAME: upstream-pax
       DOCKERFILE: .github/container/Dockerfile.pax.amd64
     secrets: inherit
 
