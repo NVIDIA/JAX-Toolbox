@@ -257,15 +257,17 @@ nightly build of the container for `XXX`. These containers are also tagged as
 ## Note
 This repo currently hosts a public CI for JAX on NVIDIA GPUs and covers some JAX libraries like: [T5x](https://github.com/google-research/t5x), [PAXML](https://github.com/google/paxml), [Transformer Engine](https://github.com/NVIDIA/TransformerEngine), [Pallas](https://jax.readthedocs.io/en/latest/pallas/quickstart.html) and others to come soon.
 
-## Supported Models
-We currently enable training and evaluation for the following models:
-| Model Name | Pretraining | Fine-tuning | Evaluation |
+## Frameworks and Supported Models
+We currently support the following frameworks and models. More details about each model and the available containers can be found in their respective READMEs.
+
+| Framework | Supported Models | Use-cases | container |
 | :--- | :---: | :---: | :---: |
-| [GPT-3(paxml)](./rosetta/rosetta/projects/pax) | ✔️ |   | ✔️ |
-| [LLaMA2(paxml)](./rosetta/rosetta/projects/pax#llama) |  |   | ✔️ |
-| [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
-| [ViT](./rosetta/rosetta/projects/vit) | ✔️ | ✔️ | ✔️ |
-| [Imagen](./rosetta/rosetta/projects/imagen) | ✔️ |   | ✔️ |
+| [Paxml](rosetta/rosetta/projects/pax) | GPT, LLaMA, MoE | pretraining, fine-tuning, LoRA | `nvcr.io/nvidia/jax:24.04-paxml-py3` |
+| [T5X](rosetta/rosetta/projects/t5x) | T5 | pre-training, fine-tuning | `nvcr.io/nvidia/jax:23.10-paxml-py3` |
+| [T5X]((rosetta/rosetta/projects/vit) | ViT | pre-training, fine-tuning | `ghcr.io/nvidia/t5x:vit-2023-07-21` |
+| [T5X](rosetta/rosetta/projects/imagen) | Imagen | pre-training | `ghcr.io/nvidia/t5x:imagen-2023-10-02` |
+| levanter | GPT, LLaMA, MPT, Backpacks | pretraining, fine-tuning | `ghcr.io/nvidia/jax:levanter-2024-04-16` |
+| maxtext| LLaMA, Gemma | pretraining | `nvcr.io/nvidia/jax:24.04-maxtext-py3` |
 
 We will update this table as new models become available, so stay tuned.
 
