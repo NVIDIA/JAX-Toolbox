@@ -21,7 +21,7 @@ apt-get install -y \
 WORKDIR=$(mktemp -d)
 pushd ${WORKDIR}
 
-MLNX_OFED_LINK="https://content.mellanox.com/ofed/MLNX_OFED-23.04-1.1.3.0/MLNX_OFED_LINUX-23.04-1.1.3.0-ubuntu22.04-$(uname -i).tgz"
+MLNX_OFED_LINK="https://content.mellanox.com/ofed/MLNX_OFED-24.01-0.3.3.1/MLNX_OFED_LINUX-24.01-0.3.3.1-ubuntu22.04-$(uname -i).tgz"
 curl -s -L "${MLNX_OFED_LINK}" -o - | tar xz --no-anchored --wildcards 'DEBS/*' --strip-components=3
 
 dpkg -i libibverbs1_*.deb \
