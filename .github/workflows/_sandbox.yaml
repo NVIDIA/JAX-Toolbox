@@ -5,23 +5,23 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  scan:
-    strategy:
-      fail-fast: true
-      matrix:
-        CUDA_VERSION: [12.3.0, 12.4.0]
-        PR730: [true, false]
-        PR728: [true, false]
-    name: scan-cuda${{ matrix.CUDA_VERSION }}-PR730${{ matrix.PR730 }}-PR728${{ matrix.PR728 }}
-    uses: ./.github/workflows/_debug.yaml
-    with:
-      CUDA_VERSION: ${{ matrix.CUDA_VERSION }}
-      PR730: ${{ matrix.PR730 }}
-      PR728: ${{ matrix.PR728 }}
-    secrets: inherit
+  # scan:
+  #   strategy:
+  #     fail-fast: true
+  #     matrix:
+  #       CUDA_VERSION: [12.3.0, 12.4.0]
+  #       PR730: [true, false]
+  #       PR728: [true, false]
+  #   name: scan-cuda${{ matrix.CUDA_VERSION }}-PR730${{ matrix.PR730 }}-PR728${{ matrix.PR728 }}
+  #   uses: ./.github/workflows/_debug.yaml
+  #   with:
+  #     CUDA_VERSION: ${{ matrix.CUDA_VERSION }}
+  #     PR730: ${{ matrix.PR730 }}
+  #     PR728: ${{ matrix.PR728 }}
+  #   secrets: inherit
 
   build-jax-internal:
     uses: ./.github/workflows/_build.yaml
@@ -32,7 +32,7 @@ jobs:
       BUILD_DATE: 2024-04-22
       BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:dl-dgx-cuda12.4-devel-ubuntu22.04--24.04
       CONTAINER_NAME: jax-cuda12.4internal
-      DOCKERFILE: .github/container/Dockerfile.debug
+      DOCKERFILE: .github/container/Dockerfile.internal
       RUNNER_SIZE: large
     secrets: inherit
 
