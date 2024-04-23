@@ -34,6 +34,9 @@ jobs:
       CONTAINER_NAME: jax-cuda${{ inputs.CUDA_VERSION }}-PR730${{ inputs.PR730 }}-PR728${{ inputs.PR728 }}
       DOCKERFILE: .github/container/Dockerfile.debug
       RUNNER_SIZE: large
+      EXTRA_BUILD_ARGS: |
+        PR730: ${{ inputs.PR730 }}
+        PR728: ${{ inputs.PR728 }}
     secrets: inherit
 
   build-upstream-pax:

@@ -38,6 +38,11 @@ on:
         description: "Size of the runner to use"
         required: false
         default: small
+      EXTRA_BUILD_ARGS:
+        type: string
+        description: "Extra build arguments to pass to the Docker build"
+        required: false
+        default: ""
     outputs:
       DOCKER_TAG_MEALKIT:
         description: "Tags of the 'mealkit' image built"
@@ -129,6 +134,7 @@ jobs:
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
+            ${{ inputs.EXTRA_BUILD_ARGS }}
 
       - name: Set docker metadata - final
         id: final-metadata
@@ -162,6 +168,7 @@ jobs:
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
+            ${{ inputs.EXTRA_BUILD_ARGS }}
 
       - name: Generate sitrep
         if: "!cancelled()"
