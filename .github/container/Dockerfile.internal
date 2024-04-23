@@ -57,8 +57,6 @@ if [[ $(dpkg --print-architecture) == arm64 ]]; then
 fi
 apt-get install -y ${apt_packages[@]}
 
-apt-get upgrade -y --allow-change-held-packages libnccl2 libnccl-dev
-
 # Install LLVM/Clang
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
 apt-get remove -y software-properties-common lsb-release

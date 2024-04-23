@@ -27,12 +27,12 @@ jobs:
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: amd64
-      ARTIFACT_NAME: artifact-jax-build-cuda12.4internal
+      ARTIFACT_NAME: artifact-jax-build-cuda12.4ncclbump
       BADGE_FILENAME: badge-jax-build
       BUILD_DATE: 2024-04-22
       BASE_IMAGE: nvidia/cuda:12.4.0-devel-ubuntu22.04
       CONTAINER_NAME: jax
-      DOCKERFILE: .github/container/Dockerfile.internal
+      DOCKERFILE: .github/container/Dockerfile.debug
       RUNNER_SIZE: large
       EXTRA_BUILD_ARGS: |
         PR730: true
@@ -44,7 +44,7 @@ jobs:
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: amd64
-      ARTIFACT_NAME: artifact-pax-build-cuda12.4internal
+      ARTIFACT_NAME: artifact-pax-build-cuda12.4ncclbump
       BADGE_FILENAME: badge-pax-build
       BUILD_DATE: 2024-04-22
       BASE_IMAGE: ${{ needs.build-jax-internal.outputs.DOCKER_TAG_MEALKIT }}
@@ -99,7 +99,7 @@ jobs:
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
 
-          JOB_NAME=upstream-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}-cuda12.4internal
+          JOB_NAME=upstream-pax-${GITHUB_RUN_ID}-${TEST_CASE_NAME}-cuda12.4ncclbump
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
