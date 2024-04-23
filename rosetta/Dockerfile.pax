@@ -24,6 +24,7 @@ ARG UPDATE_PATCHES
 ARG UPDATED_TE_REF
 
 ENV ENABLE_TE=1
+ENV NVTE_FUSED_ATTN=1
 
 RUN --mount=target=/mnt/jax-toolbox,from=jax-toolbox <<"EOF" bash -exu
 MANIFEST_DIR=$(dirname ${MANIFEST_FILE})

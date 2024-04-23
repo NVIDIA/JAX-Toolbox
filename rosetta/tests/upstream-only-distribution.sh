@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# This tests creating a distribution using pull requests from an upstream repo and
+# validates that the commits were applied correctly.
+#
+# This tests patches of the form:
+#
+#    patches:
+#      pull/<PR_NUM>/head: file://a.patch
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd $SCRIPT_DIR
 

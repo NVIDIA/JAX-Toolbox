@@ -1,0 +1,266 @@
+From 9a414e63157fe1e60b25d0685afecf43cb762223 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Thu, 11 Apr 2024 08:13:16 -0700
+Subject: [PATCH] add GLaM support
+
+---
+ paxml/contrib/gpu/scripts_gpu/configs.py      | 147 +++++++++++++++++-
+ ...tinode.sh => run_base_config_multinode.sh} |  35 +++--
+ 2 files changed, 166 insertions(+), 16 deletions(-)
+ rename paxml/contrib/gpu/scripts_gpu/{benchmark_gpt_multinode.sh => run_base_config_multinode.sh} (59%)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
+index 2aceb30..8da5163 100644
+--- a/paxml/contrib/gpu/scripts_gpu/configs.py
++++ b/paxml/contrib/gpu/scripts_gpu/configs.py
+@@ -17,6 +17,7 @@
+ 
+ import fiddle as fdl
+ import jax.numpy as jnp
++import numpy as np
+ from paxml import experiment_registry
+ from paxml import tasks_lib
+ from paxml.contrib.gpu.scripts_gpu.llama_utils import BaseLLaMA
+@@ -31,7 +32,9 @@ from praxis import optimizers
+ from praxis import pax_fiddle
+ from praxis import schedules
+ from praxis.contrib.gpu.scripts_gpu.models import CustomMetricsLM
+-from praxis.layers import transformers
++from paxml.tasks.lm.model_params import maybe_setup_moe_params
++from praxis.layers import glam, transformers
++from typing import Type, cast
+ 
+ WeightInit = base_layer.WeightInit
+ 
+@@ -285,6 +288,8 @@ class GPT175BBase(GPT126MBase):
+ @experiment_registry.register
+ class Synthetic126M(GPT126MBase, SyntheticDataset):
+ 
++  MAX_STEPS = 100
++
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
+     return task_p
+@@ -293,6 +298,8 @@ class Synthetic126M(GPT126MBase, SyntheticDataset):
+ @experiment_registry.register
+ class Synthetic5B(GPT5BBase, SyntheticDataset):
+ 
++  MAX_STEPS = 100
++
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
+     return task_p
+@@ -301,6 +308,8 @@ class Synthetic5B(GPT5BBase, SyntheticDataset):
+ @experiment_registry.register
+ class Synthetic175B(GPT175BBase, SyntheticDataset):
+ 
++  MAX_STEPS = 100
++
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
+     return task_p
+@@ -423,3 +432,139 @@ class LLaMA70B(LLaMA7B):
+ 
+   ICI_MESH_SHAPE = [1, 8, 1]
+   DCN_MESH_SHAPE = [1, 2, 1]
++
++class GLaM126M64EBase(GPT126MBase):
++
++  NUM_GPUS=64
++  NUM_EXPERTS=64
++
++  ICI_MESH_SHAPE=[1,NUM_GPUS,1]
++  DCN_MESH_SHAPE=[1,1,1]
++  USE_REPEATED_LAYER=False
++
++  PERCORE_BATCH_SIZE=4
++
++  LOAD_BALANCING_WEIGHT = 0.01
++  Z_LOSS_WEIGHT = 0
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    task_p.model.lm_tpl = glam.GlamUniTransformerLmHParams(
++        name='glam_lm',
++        vocab_size=self.VOCAB_SIZE,
++        num_transformer_layers=self.NUM_LAYERS,
++        moe=True,
++        model_dim=self.MODEL_DIMS,
++        ff_dim=self.HIDDEN_DIMS,
++        moe_hidden_dim=self.HIDDEN_DIMS,
++        attention_num_heads=self.NUM_HEADS,
++        attention_key_value_dim=self.MODEL_DIMS // self.NUM_HEADS,
++        attention_extra_logit=0.0,
++        use_tgt_labels_size_as_loss_denominator=True,
++        moe_load_balance_loss_weight=self.LOAD_BALANCING_WEIGHT/(self.NUM_LAYERS / 2),
++        z_loss_weight=self.Z_LOSS_WEIGHT,
++        moe_gating_func='top2',
++        moe_gating_embedding_level='token',
++        c_dim=None, ## determined automatically when capacity_factor is set
++        capacity_factor=2.0,
++        e_dim=self.NUM_EXPERTS,
++        num_groups=np.prod(self.ICI_MESH_SHAPE[:-1])*np.prod(self.DCN_MESH_SHAPE[:-1]), ## product of all data-related axes
++        use_gated_activation=True,
++        repeat=self.USE_REPEATED_LAYER,
++    )
++
++    ## set sharding
++    lm_cls = cast(
++        Type[layers.TransformerLm], pax_fiddle.get_callable(task_p.model.lm_tpl)
++    )
++
++    replica_axis='replica'
++    data_axis='data'
++    data_expert_axis='data_expert'
++    mdl_axis='mdl'
++
++    task_p.model.lm_tpl = lm_cls.set_sharding_params_v1(
++        task_p.model.lm_tpl,
++        replica_axis='replica',
++        data_axis='data',
++        mdl_axis='mdl',
++        ici_mesh_shape=task_p.model.ici_mesh_shape,
++        dcn_mesh_shape=task_p.model.dcn_mesh_shape,
++        mesh_axis_names=['replica', 'data', 'mdl'],
++        training_optimized=self.TRAINING_OPTIMIZED_SHARDING,
++    )
++
++    task_p.train.always_use_train_for_model_init=False
++    task_p.model.report_strict_acc=True
++
++    return task_p
++
++class GLaM64B64EBase(GLaM126M64EBase):
++
++  MAX_SEQ_LEN = 1024
++
++  NUM_GPUS = 512
++  DCN_MESH_SHAPE = [1, int(NUM_GPUS/8), 1]
++  ICI_MESH_SHAPE = [1, 1, 8]
++
++  NUM_LAYERS = 64
++  NUM_HEADS = 64
++  DIMS_PER_HEAD = 128
++  MODEL_DIMS = 8192
++  HIDDEN_DIMS = 32768
++
++  NUM_EXPERTS = 64
++
++  USE_REPEATED_LAYER = True
++
++  ADAM_BETA1 = 0
++  ADAM_BETA2 = 0.99
++  CLIP_GRADIENT_NORM_TO_VALUE=1.0
++
++  PERCORE_BATCH_SIZE = 4
++
++  # In units of steps for BS 1k
++  LEARNING_RATE = 2e-5
++  LR_SCHEDULE = 'linear_rampup_cosine_decay'
++  LR_COS_WARMUP = 398
++  LR_COS_DECAY_START = LR_COS_WARMUP + 1
++  LR_COS_DECAY_END = 162900
++  LR_COS_MAX = 1.0
++  LR_COS_MIN_RATIO = 0.1
++
++  # Checkpoint
++  EVAL_INTERVAL_STEPS = 100
++  SUMMARY_INTERVAL_STEPS = 10
++  CHECKPOINT_EVERY_N_STEPS = 100
++  CHECKPOINT_MAX_TO_KEEP = 2
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++
++    task_p = super().task()
++
++    return task_p
++
++class PileGLaM126M64E(GLaM126M64EBase, PileUnsupervisedDataset):
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++class PileGLaM64B64E(GLaM64B64EBase, PileUnsupervisedDataset):
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++class LambadaGLaM126M64E(GLaM126M64EBase, LambadaDataset):
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++class LambadaGLaM64B64E(GLaM64B64EBase, LambadaDataset):
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
+diff --git a/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh b/paxml/contrib/gpu/scripts_gpu/run_base_config_multinode.sh
+similarity index 59%
+rename from paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
+rename to paxml/contrib/gpu/scripts_gpu/run_base_config_multinode.sh
+index 0ab9015..eb0175a 100644
+--- a/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh
++++ b/paxml/contrib/gpu/scripts_gpu/run_base_config_multinode.sh
+@@ -17,21 +17,27 @@
+ # Assumes you are using a SLURM cluster. Edit flags under --multiprocess_gpu below to suit your setup
+ set -u
+ 
+-CONFIG=${1:-"Synthetic126M"}
++CONFIG=$1
+ PREC=${2:-"bfloat16"}        # Precision (float32, bfloat16)
+ NUM_GPUS=${3:-8}      # Number of GPUs (1, 2, 4, 8)
+-PERCORE_BATCH_SIZE=${4:-4}
+-LOG_DIR=${5:-"test_logdir"}
++LOG_DIR=${4:-"test_logdir"}
++TFDS_DATA_DIR=${5:-'None'}
++VOCAB_PATH=${6:-'gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'}
++ADDITIONAL_ARGS=${7:-""}
+ 
+-### vocab path is unused. Just set to avoid assertion error
+-export VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model
++export VOCAB_PATH=$VOCAB_PATH
+ 
+-export XLA_PYTHON_CLIENT_MEM_FRACTION=${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.85}
+-BASE_XLA_FLAGS=${BASE_XLA_FLAGS:-"--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_triton_gemm=false
+-                       --xla_gpu_enable_async_all_gather=true
+-                       --xla_gpu_enable_async_reduce_scatter=true  --xla_gpu_enable_highest_priority_async_stream=true
+-                       --xla_gpu_enable_triton_softmax_fusion=false  --xla_gpu_all_reduce_combine_threshold_bytes=51200
+-                       --xla_gpu_graph_level=0 --xla_gpu_enable_async_all_reduce=true"}
++export XLA_PYTHON_CLIENT_MEM_FRACTION=${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.9}
++BASE_XLA_FLAGS=${BASE_XLA_FLAGS:-"\
++	--xla_gpu_enable_latency_hiding_scheduler=true \
++	--xla_gpu_enable_triton_gemm=false \
++	--xla_gpu_enable_async_all_gather=true \
++	--xla_gpu_enable_async_reduce_scatter=true \
++	--xla_gpu_enable_highest_priority_async_stream=true \
++	--xla_gpu_enable_triton_softmax_fusion=false \
++	--xla_gpu_all_reduce_combine_threshold_bytes=51200 \
++	--xla_gpu_graph_level=0 \
++	--xla_gpu_enable_async_all_reduce=true"}
+ export XLA_FLAGS="$BASE_XLA_FLAGS ${XLA_FLAGS:-}"
+ 
+ 
+@@ -40,12 +46,11 @@ python3 -u -m paxml.main \
+     --job_log_dir=$LOG_DIR \
+     --fdl_config=paxml.contrib.gpu.scripts_gpu.configs.${CONFIG} \
+     --fdl.FPROP_DTYPE=\"${PREC}\" \
+-    --fdl.PERCORE_BATCH_SIZE=$PERCORE_BATCH_SIZE \
+     --multiprocess_gpu \
+     --server_addr=${SLURM_LAUNCH_NODE_IPADDR}:12345 \
+     --num_hosts=$SLURM_NTASKS \
+     --host_idx=$SLURM_PROCID \
+-    --enable_checkpoint_saving=False \
+-    --fdl.MAX_STEPS=100 \
+-    --alsologtostderr
++    --alsologtostderr \
++    $([[ $TFDS_DATA_DIR != "None" ]] && echo --tfds_data_dir=$TFDS_DATA_DIR) \
++    ${ADDITIONAL_ARGS}
+ 
+-- 
+2.34.1
+

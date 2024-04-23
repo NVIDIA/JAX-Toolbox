@@ -75,28 +75,6 @@ jobs:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
 
-      - name: Delete checked-out manifest and patches
-        if: inputs.MANIFEST_ARTIFACT_NAME != ''
-        run: |
-          rm .github/container/manifest.yaml
-          rm -rf .github/container/patches
-
-      - name: Replace checked-out manifest file/patches with bumped one
-        if: inputs.MANIFEST_ARTIFACT_NAME != ''
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
-          path: .github/container/
-
-      - name: Log the changes in manifest file and patch folder
-        working-directory: .github/container
-        shell: bash -x -e {0}
-        run: |
-          ls -lah
-          ls -lah patches
-          echo "Changes in manifest file and patch folder"
-          git diff
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -158,7 +136,7 @@ jobs:
             GIT_USER_NAME=${{ inputs.GIT_USER_NAME }}
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
+            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) || '' }}
             JAX_NCCL_VERSION=${{ steps.nccl-version.outputs.JAX_NCCL_VERSION }}
             JAX_LIBNCCL_PACKAGE=${{ steps.nccl-version.outputs.JAX_LIBNCCL_PACKAGE }}
         

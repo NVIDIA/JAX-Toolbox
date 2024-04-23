@@ -1,0 +1,15 @@
+diff --git a/requirements.txt b/requirements.txt
+index ebe9a2e..d59efba 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -18,8 +18,8 @@ pylint
+ pytest
+ pytype
+ sentencepiece==0.1.97
+-tensorflow-text>=2.13.0
+-tensorflow>=2.13.0
++tensorflow-text==2.13.0
++tensorflow==2.13.0
+ tensorflow-datasets
+ tensorboardx
+ tensorboard-plugin-profile

@@ -6,6 +6,27 @@ ARG SRC_MANIFEST_FILE=manifest.yaml
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG CLANG_VERSION=17
 
+###############################################################################
+## Obtain GCP's NCCL TCPx plugin
+###############################################################################
+
+FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.10 as tcpx-installer-amd64
+
+# make a stub arm64 container because GCP does not provide an arm64 version of the plugin
+FROM ubuntu as tcpx-installer-arm64
+RUN <<"OUTEREOF" bash -ex
+mkdir -p /scripts /var/lib/tcpx/lib64
+echo '#!/bin/bash' > /scripts/container_entry.sh
+chmod +x /scripts/container_entry.sh
+OUTEREOF
+
+FROM tcpx-installer-${TARGETARCH} as tcpx-installer
+RUN /scripts/container_entry.sh install
+
+###############################################################################
+## Build base image
+###############################################################################
+
 FROM ${BASE_IMAGE}
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
@@ -25,6 +46,8 @@ ENV NCCL_VERSION=${JAX_NCCL_VERSION}
 ENV NV_LIBNCCL_PACKAGE=${NV_LIBNCCL_PACKAGE_NAME}=${JAX_LIBNCCL_PACKAGE}
 ENV NV_LIBNCCL_PACKAGE_VERSION=${JAX_NCCL_VERSION}
 
+ENV JAX_RELEASE=1
+
 ###############################################################################
 ## Install Python and essential tools
 ###############################################################################
@@ -34,27 +57,66 @@ export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 apt-get update
 
-apt-get install -y \
-  bat \
-  build-essential \
-  checkinstall \
-  cmake \
-  curl \
-  git \
-  gnupg \
-  liblzma-dev \
-  lld \
-  python-is-python3 \
-  python3-pip \
-  rsync \
-  vim \
-  wget \
-  lsb-release software-properties-common  # for llvm.sh
+apt_packages=(
+  # generic
+  bat
+  build-essential
+  checkinstall
+  cmake
+  curl
+  git
+  gnupg
+  liblzma-dev
+  python-is-python3
+  python3-pip
+  rsync
+  vim
+  wget
+  jq
+  # llvm.sh
+  lsb-release software-properties-common
+  # GCP autoconfig
+  pciutils hwloc bind9-host
+)
+if [[ $(dpkg --print-architecture) == arm64 ]]; then
+  # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
+  #       These installs ensure that 3.11.0, or any future version missing ARM, can be built.
+  #       Related: https://github.com/h5py/h5py/issues/2408
+  apt_packages+=(pkg-config libhdf5-dev)
+fi
+apt-get install -y ${apt_packages[@]}
 
 # Install LLVM/Clang
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
 apt-get remove -y software-properties-common lsb-release
 apt-get autoremove -y  # removes python3-blinker which conflicts with pip-compile in JAX
+
+# Make sure that clang and clang++ point to the new version. This list is based
+# on the symlinks installed by the `clang` (as opposed to `clang-14`) and `lld`
+# (as opposed to `lld-14`) packages available in Ubuntu 22.04. 100 is an
+# arbitrary priority.
+update-alternatives --verbose \
+  --install /usr/bin/clang          clang          /usr/lib/llvm-${CLANG_VERSION}/bin/clang 100 \
+  --slave   /usr/bin/asan_symbolize asan_symbolize /usr/bin/asan_symbolize-${CLANG_VERSION} \
+  --slave   /usr/bin/clang++        clang++        /usr/lib/llvm-${CLANG_VERSION}/bin/clang++ \
+  --slave   /usr/bin/ld.lld         ld.lld         /usr/lib/llvm-${CLANG_VERSION}/bin/lld \
+  --slave   /usr/bin/lld            lld            /usr/lib/llvm-${CLANG_VERSION}/bin/lld \
+  --slave   /usr/bin/lld-link       lld-link       /usr/lib/llvm-${CLANG_VERSION}/bin/lld \
+  --slave   /usr/bin/wasm-ld        wasm-ld        /usr/lib/llvm-${CLANG_VERSION}/bin/lld
+
+# Make sure that any later attempt to install `clang` or `lld` will fail.
+cat >/etc/apt/preferences.d/no-unversioned-clang-lld <<EOL
+# LLVM is installed from apt.llvm.org using versioned packages, whereas the
+# unversioned clang and lld packages come from Ubuntu and refer to older
+# versions of LLVM. Please use versioned packages in this container.
+Package: clang
+Pin: release *
+Pin-Priority: -1
+
+Package: lld
+Pin: release *
+Pin-Priority: -1
+EOL
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
@@ -84,8 +146,16 @@ EOF
 RUN pip install --upgrade --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
 
 ###############################################################################
+## Install TCPx
+###############################################################################
+
+ENV TCPX_LIBRARY_PATH=/usr/local/tcpx/lib64
+COPY --from=tcpx-installer /var/lib/tcpx/lib64 ${TCPX_LIBRARY_PATH}
+
+###############################################################################
 ## Install the latest versions of Nsight Systems and Nsight Compute
 ###############################################################################
+
 ADD install-nsight.sh /usr/local/bin
 RUN install-nsight.sh
 
@@ -125,12 +195,21 @@ ENV PATH=/opt/amazon/efa/bin:${PATH}
 COPY check-shm.sh /opt/nvidia/entrypoint.d/
 
 ###############################################################################
+## Add the GCP - TCPX check to the entrypoint.
+###############################################################################
+
+COPY gcp-autoconfig.sh /opt/nvidia/entrypoint.d/
+
+###############################################################################
 ## Copy manifest file to the container
 ###############################################################################
 
 # Set the manifest env vars
 ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 # Copy all required files for manifestation
-COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+ADD ${SRC_MANIFEST_FILE} \
+    bump.sh \
+    bump-openxla-triton.sh \
+    create-distribution.sh \
+    ${DEST_MANIFEST_DIR}/
 COPY patches/ ${DEST_MANIFEST_DIR}/patches/
-

@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# This tests creating a distribution using branches from a nvjax-svc-0 mirror and
+# validates that the commits were applied correctly.
+#
+# This tests patches of the form:
+#
+#    patches:
+#      mirror/<some/branch/name>: file://a.patch
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd $SCRIPT_DIR
 
