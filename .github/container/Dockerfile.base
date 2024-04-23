@@ -59,6 +59,16 @@ apt_packages=(
   wget
   # llvm.sh
   lsb-release software-properties-common
+  # OFED for RoCE and InfiniteBand support
+  rdma-core
+  libibverbs1
+  libibverbs-dev
+  librdmacm1
+  librdmacm-dev
+  libibumad3
+  libibumad-dev
+  ibverbs-utils
+  ibverbs-providers
 )
 if [[ $(dpkg --print-architecture) == arm64 ]]; then
   # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
@@ -154,13 +164,6 @@ RUN install-cudnn.sh
 
 ADD install-nccl.sh /usr/local/bin
 RUN install-nccl.sh
-
-###############################################################################
-## RoCE and InfiniteBand support
-###############################################################################
-
-ADD install-ofed.sh /usr/local/bin
-RUN install-ofed.sh
 
 ##############################################################################
 ## Amazon EFA support (need to run it inside container separately)
