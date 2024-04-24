@@ -260,7 +260,7 @@ This repo currently hosts a public CI for JAX on NVIDIA GPUs and covers some JAX
 ## Frameworks and Supported Models
 We currently support the following frameworks and models. More details about each model and the available containers can be found in their respective READMEs.
 
-| Framework | Supported Models | Use-cases | container |
+| Framework | Supported Models | Use-cases | Container |
 | :--- | :---: | :---: | :---: |
 | [Paxml](rosetta/rosetta/projects/pax) | GPT, LLaMA, MoE | pretraining, fine-tuning, LoRA | `nvcr.io/nvidia/jax:24.04-paxml-py3` |
 | [T5X](rosetta/rosetta/projects/t5x) | T5 | pre-training, fine-tuning | `nvcr.io/nvidia/jax:23.10-paxml-py3` |
