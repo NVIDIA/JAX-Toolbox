@@ -376,7 +376,7 @@ jobs:
       - build-jax
       - build-triton
       - build-equinox
-      - build-maxtext
+      # - build-maxtext
       - build-levanter
       - build-upstream-t5x
       - build-upstream-pax
