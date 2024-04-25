@@ -27,85 +27,13 @@ permissions:
   packages: write # to upload container
 
 jobs:
-  # _base.yaml
-  build-base:
-    uses: ./.github/workflows/_build_base.yaml
+  # _jax.yaml
+  jax:
+    uses: ./.github/workflows/_jax.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
-    secrets: inherit
-
-  # _core.yaml
-  build-jax:
-    needs: build-base
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-jax-build
-      BADGE_FILENAME: badge-jax-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-      CONTAINER_NAME: jax
-      DOCKERFILE: .github/container/Dockerfile.jax
-      RUNNER_SIZE: large
-    secrets: inherit
-
-  test-jax:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: jax
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-backend-independent.log
-          test-jax.sh -b backend-independent 
-        EOF
-        docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee tee test-gpu.log
-          test-jax.sh -b gpu
-        EOF
-      STATISTICS_SCRIPT: |
-        errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-        failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-        passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-backend-independent.log
-        test-gpu.log
-    secrets: inherit
-
-  test-pallas:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # triton doesn't support arm64(?)
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: pallas
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-pallas.log
-          python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml
-        EOF
-      STATISTICS_SCRIPT: |
-        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
-        total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
-        errors=$(./yq '.testsuites."+@errors"' pallas_test.xml)
-        failed_tests=$(./yq '.testsuites."+@failures"' pallas_test.xml)
-        passed_tests=$((total_tests - errors - failed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-pallas.log
     secrets: inherit
 
   # _triton.yaml
