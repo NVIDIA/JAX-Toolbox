@@ -33,69 +33,36 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
         ckpt_map = {}
 
         num_of_head = self.model_config.num_of_head
+        num_gqa_groups = self.model_config.num_gqa_groups
         head_dim = self.model_config.head_dim
         hidden_dim = num_of_head * head_dim
         mlp_intermediate_dim = self.model_config.mlp_intermediate_dim
 
         for i in range(self.model_config.num_of_layer):
             ckpt_map.update({
-                f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1.bias.b":
-                    self._get_convert_pkg(
-                        f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.wi_bias",
-                        (mlp_intermediate_dim,), None, lambda x: jnp.reshape(x, (1, *x.shape))),
                 f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1.linear.w":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.wi_kernel",
                         (hidden_dim, mlp_intermediate_dim), 0,
-                        lambda x: jnp.reshape(x, (*x.shape[:-1], 1, x.shape[-1]))),
-                f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer2.bias.b":
+                        extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1_gate.linear.w"],
+                        stack_dim = -2) if self.use_gated_act else \
                     self._get_convert_pkg(
-                        f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.wo_bias",
-                        None,
-                        None,
-                        just_copy=True),
+                        f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.wi_kernel",
+                        (hidden_dim, mlp_intermediate_dim), 0,
+                        lambda x: jnp.reshape(x, (*x.shape[:-1], 1, x.shape[-1]))),
                 f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer2.linear.w":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.wo_kernel",
                         (mlp_intermediate_dim, hidden_dim), 1),
-                f"lm.transformer.x_layers_{i}.ff_layer.layer_norm.bias":
-                    self._get_convert_pkg(
-                        f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.ln_bias",
-                        None,
-                        None,
-                        just_copy=True),
                 f"lm.transformer.x_layers_{i}.ff_layer.layer_norm.scale":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.scale",
                         None,
                         None,
                         just_copy=True),
-                f"lm.transformer.x_layers_{i}.layer_norm.bias":
-                    self._get_convert_pkg(
-                        f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.ln_bias",
-                        None,
-                        None,
-                        just_copy=True),
                 f"lm.transformer.x_layers_{i}.layer_norm.scale":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.scale",
-                        None,
-                        None,
-                        just_copy=True),
-                f"lm.transformer.x_layers_{i}.self_attention.combined_qkv.b":
-                    self._get_convert_pkg(
-                        f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.bias",
-                        (3, num_of_head, head_dim), None,
-                        lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1]))),
-                f"lm.transformer.x_layers_{i}.self_attention.combined_qkv.w":
-                    self._get_convert_pkg(
-                        f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.kernel",
-                        (3, hidden_dim, num_of_head, head_dim), 0,
-                        lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
-                        lambda x: jnp.transpose(x, (1, 0, 2))),
-                f"lm.transformer.x_layers_{i}.self_attention.post.b":
-                    self._get_convert_pkg(
-                        f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.out.bias",
                         None,
                         None,
                         just_copy=True),
@@ -106,6 +73,141 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                         lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
                         lambda x: jnp.transpose(x, (1, 0)))
             })
+
+            # Conversion map for QKV
+            if self.te_qkv_layout == 'qkv_packed':
+                if self.pax_split_qkv:
+                    ckpt_map.update({
+                        f"lm.transformer.x_layers_{i}.self_attention.query.w":
+                            self._get_convert_pkg(
+                                f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.kernel",
+                                (hidden_dim, num_of_head, head_dim), 0,
+                                lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
+                                extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.key.w",
+                                                    f"lm.transformer.x_layers_{i}.self_attention.value.w"],
+                                stack_dim = -3)
+                    })
+                else:
+                    ckpt_map.update({
+                        f"lm.transformer.x_layers_{i}.self_attention.combined_qkv.w":
+                            self._get_convert_pkg(
+                                f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.kernel",
+                                (3, hidden_dim, num_of_head, head_dim), 0,
+                                lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
+                                lambda x: jnp.transpose(x, (1, 0, 2)))
+                    })
+                ckpt_map.update({
+                    f"lm.transformer.x_layers_{i}.layer_norm.scale":
+                        self._get_convert_pkg(
+                            f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.scale",
+                            None,
+                            None,
+                            just_copy=True),
+                })
+
+            elif self.te_qkv_layout == 'kv_packed':
+                ckpt_map.update({
+                    f"lm.transformer.x_layers_{i}.self_attention.query.w":
+                        self._get_convert_pkg(
+                            f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.query.kernel",
+                            (hidden_dim, num_of_head, head_dim), 0,
+                            lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1]))),
+                    f"lm.transformer.x_layers_{i}.self_attention.key.w":
+                        self._get_convert_pkg(
+                            f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.kv.kernel",
+                            (hidden_dim, num_gqa_groups, head_dim), 0,
+                            lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
+                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.value.w"],
+                            stack_dim = -3),
+                    f"lm.transformer.x_layers_{i}.layer_norm.scale":
+                        self._get_convert_pkg(
+                            f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.query.scale",
+                            None,
+                            None,
+                            just_copy=True),
+                })
+            else:
+                raise RuntimeError("Unrecognized TE QKV layout in --te-qkv-layout.")
+
+            if not self.skip_bias:
+                ckpt_map.update({
+                    f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1.bias.b":
+                        self._get_convert_pkg(
+                            f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.wi_bias",
+                            (mlp_intermediate_dim,), None, lambda x: jnp.reshape(x, (1, *x.shape))),
+                    f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer2.bias.b":
+                        self._get_convert_pkg(
+                            f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.wo_bias",
+                            None,
+                            None,
+                            just_copy=True),
+                    f"lm.transformer.x_layers_{i}.ff_layer.layer_norm.bias":
+                        self._get_convert_pkg(
+                            f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.ln_bias",
+                            None,
+                            None,
+                            just_copy=True),
+                    f"lm.transformer.x_layers_{i}.self_attention.post.b":
+                        self._get_convert_pkg(
+                            f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.out.bias",
+                            None,
+                            None,
+                            just_copy=True),
+                })
+                # QKV biases depend on PaxML and TE QKV layouts
+                if self.te_qkv_layout == 'qkv_packed':
+                    if self.pax_split_qkv:
+                        ckpt_map.update({
+                            f"lm.transformer.x_layers_{i}.self_attention.q.b":
+                                self._get_convert_pkg(
+                                    f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.bias",
+                                    (num_of_head, head_dim), None,
+                                    lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
+                                    extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.key.b",
+                                                       f"lm.transformer.x_layers_{i}.self_attention.value.b"],
+                                    stack_dim = -3)
+                        })
+                    else:
+                        ckpt_map.update({
+                            f"lm.transformer.x_layers_{i}.self_attention.combined_qkv.b":
+                                self._get_convert_pkg(
+                                    f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.bias",
+                                    (3, num_of_head, head_dim), None,
+                                    lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])))
+                        })
+
+                    ckpt_map.update({
+                        f"lm.transformer.x_layers_{i}.layer_norm.bias":
+                            self._get_convert_pkg(
+                                f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.ln_bias",
+                                None,
+                                None,
+                                just_copy=True)
+                    })
+
+                elif self.te_qkv_layout == 'kv_packed':
+                    ckpt_map.update({
+                        f"lm.transformer.x_layers_{i}.self_attention.query.b":
+                            self._get_convert_pkg(
+                                    f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.query.bias",
+                                    (num_of_head, head_dim), None,
+                                    lambda x: jnp.reshape(x, (x.shape[-2] * x.shape[-1], ))),
+                        f"lm.transformer.x_layers_{i}.self_attention.key.b":
+                                self._get_convert_pkg(
+                                    f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.kv.bias",
+                                    (num_gqa_groups, head_dim), None,
+                                    lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
+                                    extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.value.b"],
+                                    stack_dim = -3),
+                        f"lm.transformer.x_layers_{i}.layer_norm.bias":
+                            self._get_convert_pkg(
+                                f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.query.ln_bias",
+                                None,
+                                None,
+                                just_copy=True)
+                    })
+                else:
+                    raise RuntimeError("Unrecognized TE QKV layout in --te-qkv-layout.")
 
         return ckpt_map
 
