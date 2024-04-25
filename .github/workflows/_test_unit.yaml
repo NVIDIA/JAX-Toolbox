@@ -21,13 +21,13 @@ on:
         required: false
 
 jobs:
-  runner:
-    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
-    with:
-      NAME: "A100"
-      LABELS: "A100,${{ github.run_id }}"
-      TIME: "01:00:00"
-    secrets: inherit
+  # runner:
+  #   uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+  #   with:
+  #     NAME: "A100"
+  #     LABELS: "A100,${{ github.run_id }}"
+  #     TIME: "01:00:00"
+  #   secrets: inherit
 
   run-unit-test:
     strategy:
@@ -35,15 +35,15 @@ jobs:
       matrix:
         GPU_ARCH: [V100, A100]
         include:
-          - EXTRA_LABEL: "self-hosted"
+          - EXTRA_LABEL: 'self-hosted'
           # ensures A100 job lands on dedicated runner for this particular job
           - GPU_ARCH: A100
-            EXTRA_LABEL: "${{ github.run_id }}"
+            EXTRA_LABEL: '${{ github.run_id }}'
     name: ${{ inputs.TEST_NAME }}-${{ matrix.GPU_ARCH }}-unit-test
-    runs-on: 
+    runs-on:
       - self-hosted
-      - "${{ matrix.GPU_ARCH }}"
-      - "${{ matrix.EXTRA_LABEL }}"
+      - '${{ matrix.GPU_ARCH }}'
+      - '${{ matrix.EXTRA_LABEL }}'
     env:
       ARTIFACT_NAME_FULL: ${{ inputs.TEST_NAME }}-unit-test-${{ matrix.GPU_ARCH }}
       BADGE_FILENAME_FULL: badge-${{ inputs.TEST_NAME }}-unit-test-${{ matrix.GPU_ARCH }}.json
@@ -52,7 +52,7 @@ jobs:
         run: env
 
       - name: Print GPU information
-        run: nvidia-smi  
+        run: nvidia-smi
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -103,7 +103,7 @@ jobs:
 
       - name: Generate sitrep
         id: sitrep
-        if: "!cancelled()"
+        if: '!cancelled()'
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
@@ -132,7 +132,7 @@ jobs:
           > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload artifacts
-        if: "!cancelled()"
+        if: '!cancelled()'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME_FULL }}
