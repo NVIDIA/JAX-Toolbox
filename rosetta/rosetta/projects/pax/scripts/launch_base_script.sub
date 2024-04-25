@@ -28,10 +28,8 @@ set -eux
 
 # File system and volume glue code
 #-------------------------------------------------------------------------------
-# << CHANGE ! >>
-CONTAINER="${CONTAINER:-nvcr.io/nvidia/jax:23.10-paxml-py3}"
+CONTAINER="${CONTAINER:-nvcr.io/nvidia/jax:24.04-paxml-py3}"
 
-# << CHANGE ! >>
 BASE_WORKSPACE_DIR=${BASE_WORKSPACE_DIR} ## location to write logs and checkpoints to
 PAXML_DIR=${PAXML_DIR:-/opt/paxml}
 ENABLE_TE=${ENABLE_TE:-1}
@@ -42,6 +40,14 @@ WORKSPACE_DIR=/opt/paxml/workspace
 
 # Add the pax/JAX specific mounts
 MOUNTS="--container-mounts=$BASE_WORKSPACE_DIR:$WORKSPACE_DIR"
+if [[ -n "${BASE_VOCAB_PATH:-}" ]]; then
+  VOCAB_PATH=/opt/paxml/vocab
+  MOUNTS=${MOUNTS}",$BASE_VOCAB_PATH:$VOCAB_PATH"
+fi
+if [[ -n "${BASE_TFDS_DATA_DIR:-}" ]]; then
+  TFDS_DATA_DIR=/mnt/datasets
+  MOUNTS=${MOUNTS}",$BASE_TFDS_DATA_DIR:$TFDS_DATA_DIR"
+fi
 
 # Make directories that may not exist
 mkdir -p $BASE_WORKSPACE_DIR
@@ -51,13 +57,12 @@ EXPORTS="--export=ALL"
 
 CONFIG=${CONFIG:-"Synthetic126M"}
 OUTPUT_DIR=${OUTPUT_DIR:-"output"}
-PREC=${PREC}
-GPUS_PER_NODE=${GPUS_PER_NODE}
-PERCORE_BATCH_SIZE=${PERCORE_BATCH_SIZE}
+PREC=${PREC:-bfloat16}
+GPUS_PER_NODE=${GPUS_PER_NODE:-8}
 LOG_DIR_LOCAL=${LOG_DIR_LOCAL}
 
 if [[ -z "${BASE_SCRIPT:-}" ]]; then
-  export BASE_SCRIPT="${PAXML_DIR}/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh"
+  export BASE_SCRIPT="${PAXML_DIR}/paxml/contrib/gpu/scripts_gpu/run_base_config_multinode.sh"
   echo "Using default BASE_SCRIPT=$BASE_SCRIPT"
 else
   export BASE_SCRIPT="${WORKSPACE_DIR}/${BASE_SCRIPT}"
@@ -68,7 +73,7 @@ cmd="$(cat <<EOF
 echo "*******STARTING********"
 cd ${PAXML_DIR}
 nvidia-smi
-ENABLE_TE=$ENABLE_TE ENABLE_FP8=$ENABLE_FP8 bash $BASE_SCRIPT $CONFIG $PREC $GPUS_PER_NODE $PERCORE_BATCH_SIZE ${WORKSPACE_DIR}/${LOG_DIR_LOCAL}
+ENABLE_TE=$ENABLE_TE ENABLE_FP8=$ENABLE_FP8 bash $BASE_SCRIPT $CONFIG $PREC $GPUS_PER_NODE ${WORKSPACE_DIR}/${LOG_DIR_LOCAL} ${TFDS_DATA_DIR:-None} ${VOCAB_PATH:-gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model}
 EOF
 )"
 
