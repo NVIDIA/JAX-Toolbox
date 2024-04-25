@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_PAXML=https://github.com/google/paxml.git#main
+ARG URLREF_PRAXIS=https://github.com/google/praxis.git#main
 ARG SRC_PATH_PAXML=/opt/paxml
 ARG SRC_PATH_PRAXIS=/opt/praxis
 
@@ -9,6 +11,8 @@ ARG SRC_PATH_PRAXIS=/opt/praxis
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_PAXML
+ARG URLREF_PRAXIS
 ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 
@@ -16,8 +20,8 @@ ARG SRC_PATH_PRAXIS
 RUN sed -i "s/transformer-engine @/transformer-engine[test] @/g" /opt/pip-tools.d/requirements-te.in
 
 RUN <<"EOF" bash -ex
-get-source.sh -l paxml -m ${MANIFEST_FILE}
-get-source.sh -l praxis -m ${MANIFEST_FILE}
+git-cloneref.sh ${URLREF_PAXML} ${SRC_PATH_PAXML}
+git-cloneref.sh ${URLREF_PRAXIS} ${SRC_PATH_PRAXIS}
 echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/requirements-paxml.in
 echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/requirements-paxml.in
 

@@ -1,6 +1,10 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_PAXML=https://github.com/google/paxml.git#main
+ARG URLREF_PRAXIS=https://github.com/google/praxis.git#main
+ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#v2.13.0
+ARG URLREF_LINGVO=https://github.com/tensorflow/lingvo.git#master
 ARG SRC_PATH_PAXML=/opt/paxml
 ARG SRC_PATH_PRAXIS=/opt/praxis
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
@@ -25,7 +29,7 @@ FROM wheel-builder as tftext-builder
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-get-source.sh -l tensorflow-text -m ${MANIFEST_FILE}
+git-cloneref.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
 cd ${SRC_PATH_TFTEXT}
 
 # The tftext build script queries GitHub, but these requests are sometimes
@@ -51,11 +55,12 @@ ARG SRC_PATH_LINGVO
 
 COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 
-RUN get-source.sh -l lingvo -m ${MANIFEST_FILE}
+RUN <<"EOF" bash -exu -o pipefail
+git-cloneref.sh ${URLREF_LINGVO} ${SRC_PATH_LINGVO}
+EOF
 
 # build lingvo
 RUN <<"EOF" bash -exu -o pipefail
-
 pushd ${SRC_PATH_LINGVO}
 
 # Use aarch distribution of protobufs
@@ -110,8 +115,8 @@ echo "tensorflow==2.13.0" >> /opt/pip-tools.d/requirements-paxml.in
 echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-paxml.in
 echo "auditwheel" >> /opt/pip-tools.d/requirements-paxml.in
 
-get-source.sh -l paxml  -m ${MANIFEST_FILE}
-get-source.sh -l praxis -m ${MANIFEST_FILE}
+git-cloneref.sh ${URLREF_PAXML} ${SRC_PATH_PAXML}
+git-cloneref.sh ${URLREF_PRAXIS} ${SRC_PATH_PRAXIS}
 echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/requirements-paxml.in
 echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/requirements-paxml.in
 

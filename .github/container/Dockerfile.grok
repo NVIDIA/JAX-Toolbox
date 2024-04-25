@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_GROK=https://github.com/xai-org/grok-1.git#main
 ARG SRC_PATH_GROK=/opt/grok-1
 
 ###############################################################################
@@ -8,14 +9,11 @@ ARG SRC_PATH_GROK=/opt/grok-1
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_GROK
 ARG SRC_PATH_GROK
 
-ARG SRC_MANIFEST_FILE=manifest.yaml
-ARG DEST_MANIFEST_DIR=/opt/manifest.d
-COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-
 RUN <<"EOF" bash -ex
-get-source.sh -l grok-1 -m ${MANIFEST_FILE} 
+git-cloneref.sh ${URLREF_GROK} ${SRC_PATH_GROK}
 sed -i 's/\(^jax\)/# \1/g' ${SRC_PATH_GROK}/requirements.txt
 echo "-e file://${SRC_PATH_GROK}" >> /opt/pip-tools.d/requirements-grok.in
 echo "-r ${SRC_PATH_GROK}/requirements.txt" >> /opt/pip-tools.d/requirements-grok.in

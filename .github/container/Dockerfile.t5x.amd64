@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_T5X=https://github.com/google-research/t5x.git#main
 ARG SRC_PATH_T5X=/opt/t5x
 
 ###############################################################################
@@ -8,11 +9,11 @@ ARG SRC_PATH_T5X=/opt/t5x
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
-
+ARG URLREF_T5X
 ARG SRC_PATH_T5X
 
 RUN <<"EOF" bash -ex
-get-source.sh -l t5x -m ${MANIFEST_FILE}
+git-cloneref.sh ${URLREF_T5X} ${SRC_PATH_T5X}
 echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
 
 # remove head-of-tree specs from select dependencies

@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
-ARG SRC_PATH_TRITON=/opt/openxla-triton
+ARG URLREF_OXLA_TRITON=https://github.com/openxla/triton.git#llvm-head
+ARG URLREF_JAX_TRITON=https://github.com/jax-ml/jax-triton.git#main
+ARG SRC_PATH_OXLA_TRITON=/opt/openxla-triton
+ARG SRC_PATH_JAX_TRITON=/opt/jax-triton
 
 FROM ${BASE_IMAGE} as base
 # Triton setup.py downloads and installs CUDA binaries at specific versions
@@ -18,12 +21,12 @@ RUN [ -x "${TRITON_PTXAS_PATH}" ] && [ -x "${TRITON_CUOBJDUMP_PATH}" ] && [ -x "
 ###############################################################################
 FROM base as builder
 
-ARG SRC_PATH_TRITON
+ARG SRC_PATH_OXLA_TRITON
 
 # bump-openxla-triton.sh ensures that the commit of openxla-triton referenced
 # in the manifest file is consistent with the commit of xla, and that any extra
 # patches are available under patches/openxla-triton
-RUN get-source.sh -l openxla-triton -m ${MANIFEST_FILE}
+RUN git-cloneref.sh ${URLREF_OXLA_TRITON} ${SRC_PATH_OXLA_TRITON}
 RUN <<"EOF" bash -ex
 shopt -s nullglob
 cd /opt/openxla-triton
@@ -34,33 +37,34 @@ git diff
 EOF
 
 RUN <<"EOF" bash -ex
-mkdir -p "${SRC_PATH_TRITON}/dist"
+mkdir -p "${SRC_PATH_OXLA_TRITON}/dist"
 # This sidesteps the RTTI-related error in https://github.com/openai/triton/pull/3213 that otherwise breaks container
 # builds with openxla/triton tag cl608559313
-sed -i 's|^add_subdirectory(unittest)|# unit tests disabled|' "${SRC_PATH_TRITON}/CMakeLists.txt"
-sed -i 's|backends = _copy_backends(\["nvidia", "amd"\])|backends = _copy_backends(["nvidia"])|g' "${SRC_PATH_TRITON}/python/setup.py"
-sed -i '1s|^|include_directories(${CMAKE_SOURCE_DIR}/third_party/nvidia/backend/include)\n|' "${SRC_PATH_TRITON}/lib/Conversion/TritonGPUToLLVM/CMakeLists.txt"
-pip wheel --wheel-dir="${SRC_PATH_TRITON}/dist" "${SRC_PATH_TRITON}/python"
+sed -i 's|^add_subdirectory(unittest)|# unit tests disabled|' "${SRC_PATH_OXLA_TRITON}/CMakeLists.txt"
+sed -i 's|backends = _copy_backends(\["nvidia", "amd"\])|backends = _copy_backends(["nvidia"])|g' "${SRC_PATH_OXLA_TRITON}/python/setup.py"
+sed -i '1s|^|include_directories(${CMAKE_SOURCE_DIR}/third_party/nvidia/backend/include)\n|' "${SRC_PATH_OXLA_TRITON}/lib/Conversion/TritonGPUToLLVM/CMakeLists.txt"
+pip wheel --wheel-dir="${SRC_PATH_OXLA_TRITON}/dist" "${SRC_PATH_OXLA_TRITON}/python"
 EOF
 
 # clean up the wheel build directory so it doesn't end up bloating the container
-RUN rm -rf "${SRC_PATH_TRITON}/python/build"
+RUN rm -rf "${SRC_PATH_OXLA_TRITON}/python/build"
 
 ###############################################################################
 ## Download source and add auxiliary scripts
 ###############################################################################
 FROM base as mealkit
-
-ARG SRC_PATH_TRITON
+ARG URLREF_JAX_TRITON
+ARG SRC_PATH_OXLA_TRITON
 
 # Get the triton source + wheel from the build step
-COPY --from=builder ${SRC_PATH_TRITON} ${SRC_PATH_TRITON}
-RUN echo "triton @ file://$(ls ${SRC_PATH_TRITON}/dist/triton-*.whl)" >> /opt/pip-tools.d/requirements-triton.in
+COPY --from=builder ${SRC_PATH_OXLA_TRITON} ${SRC_PATH_OXLA_TRITON}
+RUN echo "triton @ file://$(ls ${SRC_PATH_OXLA_TRITON}/dist/triton-*.whl)" >> /opt/pip-tools.d/requirements-triton.in
 
 # Check out jax-triton
 RUN <<"EOF" bash -ex
-get-source.sh -l jax-triton -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-triton.in
-sed -i 's|"jax @ [^"]\+"|"jax"|g;s|"triton-nightly @ [^"]\+"|"triton"|g' /opt/jax-triton/pyproject.toml
+git-cloneref.sh ${URLREF_JAX_TRITON} ${SRC_PATH_JAX_TRITON}
+echo "-e file://${SRC_PATH_JAX_TRITON}" >> /opt/pip-tools.d/requirements-triton.in
+sed -i 's|"jax @ [^"]\+"|"jax"|g;s|"triton-nightly @ [^"]\+"|"triton"|g' ${SRC_PATH_JAX_TRITON}/pyproject.toml
 EOF
 
 ###############################################################################
