@@ -145,14 +145,14 @@ jobs:
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
-  arm64:
-    needs: [metadata, bump-manifest]
-    uses: ./.github/workflows/_ci.yaml
-    with:
-      ARCHITECTURE: arm64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
-    secrets: inherit
+  # arm64:
+  #   needs: [metadata, bump-manifest]
+  #   uses: ./.github/workflows/_ci.yaml
+  #   with:
+  #     ARCHITECTURE: arm64
+  #     BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+  #     MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+  #   secrets: inherit
 
   # Only merge if everything succeeds
   merge-new-manifest:
