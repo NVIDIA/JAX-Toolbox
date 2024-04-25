@@ -27,6 +27,9 @@ T5X = 't5x'
 FW2TE = 'fw2te'
 TE2FW = 'te2fw'
 
+QKV_PACKED='qkv_packed'
+KV_PACKED='kv_packed'
+
 # Key = (Direction, isRepeat)
 PAX_CONVERT_HELPER_DICT = {
     (FW2TE, False): Pax2TEConvertHelper,
@@ -77,6 +80,12 @@ def parse_args():
         required=True,
         help="the number of head of multi-head attention of the given source checkpoint.")
     parser.add_argument(
+        '--num-gqa-groups',
+        type=int,
+        default=None,
+        help="the number of GQA groups (key-value heads) of the given source checkpoint. " +
+             "This must be set for --te-qkv-layout=kv_packed.")
+    parser.add_argument(
         '--head-dim',
         type=int,
         required=True,
@@ -104,32 +113,64 @@ def parse_args():
                         default=False,
                         help="indicate if the source checkpoint only includes weights.")
 
+    parser.add_argument('--skip-bias',
+                        action="store_true",
+                        default=False,
+                        help="indicate whether the source checkpoint has biases.")
+
     parser.add_argument('--skip-ln',
                         action="store_true",
                         default=False,
                         help="indicate if skip the conversion for LayerNorm.")
 
+    parser.add_argument(
+        '--use-gated-activations',
+        action="store_true",
+        default=False,
+        help="indicate if the model uses a gated activation function.")
+
     parser.add_argument('--pax-repeat',
                         action="store_true",
                         default=False,
                         help="indicate if the source Pax checkpoint enables Repeat.")
+
+    parser.add_argument(
+        '--pax-split-qkv',
+        action="store_true",
+        default=False,
+        help="indicate if the source Pax checkpoint has split QKV parameters.")
+
     parser.add_argument(
         '--t5x-fuse-qkv',
         action="store_true",
         default=False,
         help="indicate if the source T5X checkpoint enables fused_qkv_params of TE.")
 
+    parser.add_argument(
+        '--te-qkv-layout',
+        type=str,
+        choices=(QKV_PACKED, KV_PACKED),
+        default=QKV_PACKED,
+        help="indicate the QKV layout of the target TE checkpoint. " +
+             "--te-qkv-packed=kv_packed is supported only with --pax-split-qkv, and " +
+             "requires --num-gqa-groups <N> to be set.")
+
     args = parser.parse_args()
 
     if args.fw == T5X:
         assert args.embed_dim is not None
+    elif args.te_qkv_layout == KV_PACKED:
+        assert args.pax_split_qkv
+        assert args.num_gqa_groups is not None
+
     return args
 
 
 def get_convert_helper(args):
 
-    model_config = ModelConfig(args.num_of_layer, args.embed_dim, args.num_of_head, args.head_dim,
-                               args.mlp_intermediate_dim, args.kernel_chunk_size)
+    model_config = ModelConfig(args.num_of_layer, args.embed_dim, args.num_of_head,
+                               args.num_gqa_groups, args.head_dim, args.mlp_intermediate_dim,
+                               args.kernel_chunk_size)
 
     convert_helper_cls = None
 
@@ -141,7 +182,9 @@ def get_convert_helper(args):
 
     assert convert_helper_cls is not None, "Not Supported."
     return convert_helper_cls(args.input_path, args.output_path, model_config,
-                              args.weight_only, args.skip_ln)
+                              args.weight_only, args.skip_bias, args.skip_ln,
+                              args.use_gated_activations, args.pax_split_qkv,
+                              args.te_qkv_layout)
 
 
 if __name__ == "__main__":
