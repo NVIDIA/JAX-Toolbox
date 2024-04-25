@@ -27,15 +27,6 @@ permissions:
   packages: write # to upload container
 
 jobs:
-  # _base.yaml
-  build-base:
-    uses: ./.github/workflows/_build_base.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
-    secrets: inherit
-
   # _core.yaml
   build-jax:
     needs: build-base
