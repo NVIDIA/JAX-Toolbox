@@ -16,6 +16,8 @@ on:
         description: Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch
         default: ''
         required: false
+      BASE_IMAGE:
+        type: string
     outputs:
       DOCKER_TAGS:
         description: JSON object containing tags of all docker images built
@@ -35,7 +37,7 @@ jobs:
       ARTIFACT_NAME: artifact-jax-build
       BADGE_FILENAME: badge-jax-build
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+      BASE_IMAGE: ${{ inputs.BASE_IMAGE }}
       CONTAINER_NAME: jax
       DOCKERFILE: .github/container/Dockerfile.jax
       RUNNER_SIZE: large
