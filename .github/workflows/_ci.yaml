@@ -27,7 +27,7 @@ permissions:
   packages: write # to upload container
 
 jobs:
-
+  # _base.yaml
   build-base:
     uses: ./.github/workflows/_build_base.yaml
     with:
@@ -36,6 +36,7 @@ jobs:
       MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
+  # _core.yaml
   build-jax:
     needs: build-base
     uses: ./.github/workflows/_build.yaml
@@ -50,6 +51,64 @@ jobs:
       RUNNER_SIZE: large
     secrets: inherit
 
+  test-jax:
+    needs: build-jax
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: jax
+      EXECUTE: |
+        docker run -i --shm-size=1g --gpus all \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-backend-independent.log
+          test-jax.sh -b backend-independent 
+        EOF
+        docker run -i --shm-size=1g --gpus all \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee tee test-gpu.log
+          test-jax.sh -b gpu
+        EOF
+      STATISTICS_SCRIPT: |
+        errors=$(cat test-*.log | grep -c 'ERROR:' || true)
+        failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
+        passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
+        total_tests=$((failed_tests + passed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-backend-independent.log
+        test-gpu.log
+    secrets: inherit
+  
+  test-pallas:
+    needs: build-jax
+    if: inputs.ARCHITECTURE == 'amd64' # triton doesn't support arm64(?)
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: pallas
+      EXECUTE: |
+        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-pallas.log
+          python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml
+        EOF
+      STATISTICS_SCRIPT: |
+        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
+        total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
+        errors=$(./yq '.testsuites."+@errors"' pallas_test.xml)
+        failed_tests=$(./yq '.testsuites."+@failures"' pallas_test.xml)
+        passed_tests=$((total_tests - errors - failed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-pallas.log
+    secrets: inherit
+
+  # _triton.yaml
   build-triton:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
@@ -64,6 +123,33 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.triton
     secrets: inherit
 
+  test-triton:
+    needs: build-triton
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: triton
+      EXECUTE: |
+        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
+        ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-triton.log
+          python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
+        EOF
+      STATISTICS_SCRIPT: |
+        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
+        total_tests=$(./yq '.testsuites."+@tests"' triton_test.xml)
+        errors=$(./yq '.testsuites."+@errors"' triton_test.xml)
+        failed_tests=$(./yq '.testsuites."+@failures"' triton_test.xml)
+        passed_tests=$((total_tests - errors - failed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-triton.log
+    secrets: inherit
+
+  # _equinox.yaml
   build-equinox:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
@@ -77,7 +163,63 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.equinox
     secrets: inherit
 
-  build-maxtext:
+  # _levanter.yaml
+  build-levanter:
+    needs: [build-jax]
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: 'artifact-levanter-build'
+      BADGE_FILENAME: 'badge-levanter-build'
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: levanter
+      DOCKERFILE: .github/container/Dockerfile.levanter
+    secrets: inherit
+
+  test-levanter:
+    needs: build-levanter
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: levanter
+      EXECUTE: |
+        docker run -i --gpus all --shm-size=1g \
+        ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-levanter.log
+          pip install pytest
+          PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests
+        EOF
+      STATISTICS_SCRIPT: |
+        summary_line=$(tail -n1 test-levanter.log)
+        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
+        total_tests=$((failed_tests + passed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-levanter.log
+    secrets: inherit
+
+  # _grok.yaml
+  build-grok:
+    needs: [build-jax]
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: 'artifact-grok-build'
+      BADGE_FILENAME: 'badge-grok-build'
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: grok
+      DOCKERFILE: .github/container/Dockerfile.grok
+    secrets: inherit
+
+  # _maxtext.yaml
+  build-upstream-maxtext:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
     uses: ./.github/workflows/_build.yaml
@@ -91,32 +233,65 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.maxtext.amd64
     secrets: inherit
 
-  build-levanter:
-    needs: [build-jax]
-    uses: ./.github/workflows/_build.yaml
+  test-upstream-maxtext:
+    needs: build-upstream-maxtext
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_upstream_maxtext.yaml
     with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-levanter-build"
-      BADGE_FILENAME: "badge-levanter-build"
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: levanter
-      DOCKERFILE: .github/container/Dockerfile.levanter
+      MAXTEXT_IMAGE: ${{ needs.build-upstream-maxtext.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
+  build-rosetta-maxtext:
+    needs: build-upstream-maxtext
+    uses: ./.github/workflows/_build_rosetta.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-upstream-maxtext.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: maxtext
+    secrets: inherit
+
+  # _t5x.yaml
   build-upstream-t5x:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-t5x-build"
-      BADGE_FILENAME: "badge-t5x-build"
+      ARTIFACT_NAME: 'artifact-t5x-build'
+      BADGE_FILENAME: 'badge-t5x-build'
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
       DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
+  test-upstream-t5x:
+    needs: build-upstream-t5x
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    uses: ./.github/workflows/_test_upstream_t5x.yaml
+    with:
+      T5X_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  build-rosetta-t5x:
+    needs: build-upstream-t5x
+    uses: ./.github/workflows/_build_rosetta.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: t5x
+    secrets: inherit
+
+  test-rosetta-t5x:
+    needs: build-rosetta-t5x
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_t5x_rosetta.yaml
+    with:
+      T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  # _pax.yaml
   build-upstream-pax:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
@@ -130,14 +305,48 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
     secrets: inherit
 
-  build-rosetta-t5x:
-    needs: build-upstream-t5x
-    uses: ./.github/workflows/_build_rosetta.yaml
+  test-te-multigpu:
+    needs: build-upstream-pax
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    uses: ./.github/workflows/_test_te.yaml
     with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}
-      BASE_LIBRARY: t5x
+      TE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-te:
+    needs: build-upstream-pax
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: te
+      EXECUTE: |
+        docker run -i --gpus all --shm-size=1g -v $PWD:/log \
+        ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-te.log
+          pip install pytest-reportlog
+          pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TE}/tests/jax
+        EOF
+      STATISTICS_SCRIPT: |
+        summary_line=$(tail -n1 test-te.log)
+        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)
+        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "failed") | .outcome' | wc -l)          
+        total_tests=$((failed_tests + passed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-te.log
+        pytest-report.jsonl
+    secrets: inherit
+
+  test-upstream-pax:
+    needs: build-upstream-pax
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_upstream_pax.yaml
+    with:
+      PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
   build-rosetta-pax:
@@ -150,22 +359,18 @@ jobs:
       BASE_LIBRARY: pax
     secrets: inherit
 
-  build-grok:
-    needs: [build-jax]
-    uses: ./.github/workflows/_build.yaml
+  test-rosetta-pax:
+    needs: build-rosetta-pax
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-grok-build"
-      BADGE_FILENAME: "badge-grok-build"
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: grok
-      DOCKERFILE: .github/container/Dockerfile.grok
+      PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
-    
+
+  # publish
   collect-docker-tags:
     runs-on: ubuntu-22.04
-    if: "!cancelled()"
+    if: '!cancelled()'
     needs:
       - build-base
       - build-jax
@@ -214,6 +419,7 @@ jobs:
 
           echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
 
+  # other tests
   test-distribution:
     runs-on: ubuntu-22.04
     strategy:
@@ -235,37 +441,6 @@ jobs:
         uses: actions/checkout@v4
       - name: Run integration test ${{ matrix.TEST_SCRIPT }}
         run: bash rosetta/tests/${{ matrix.TEST_SCRIPT }}
-
-  test-jax:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: jax
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-backend-independent.log
-          test-jax.sh -b backend-independent 
-        EOF
-        docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee tee test-gpu.log
-          test-jax.sh -b gpu
-        EOF
-      STATISTICS_SCRIPT: |
-        errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-        failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-        passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-backend-independent.log
-        test-gpu.log
-    secrets: inherit
 
   # test-equinox:
   #   needs: build-equinox
@@ -291,157 +466,3 @@ jobs:
   #       test-equinox.log
   #   secrets: inherit
 
-  test-te-multigpu:
-    needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-    uses: ./.github/workflows/_test_te.yaml
-    with:
-      TE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
-  test-upstream-t5x:
-    needs: build-upstream-t5x
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-    uses: ./.github/workflows/_test_upstream_t5x.yaml
-    with:
-      T5X_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
-  test-rosetta-t5x:
-    needs: build-rosetta-t5x
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_t5x_rosetta.yaml
-    with:
-      T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
-  test-pallas:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # triton doesn't support arm64(?)
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: pallas
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-pallas.log
-          python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml
-        EOF
-      STATISTICS_SCRIPT: |
-        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
-        total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
-        errors=$(./yq '.testsuites."+@errors"' pallas_test.xml)
-        failed_tests=$(./yq '.testsuites."+@failures"' pallas_test.xml)
-        passed_tests=$((total_tests - errors - failed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-pallas.log
-    secrets: inherit
-
-  test-triton:
-    needs: build-triton
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: triton
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
-        ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-triton.log
-          python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
-        EOF
-      STATISTICS_SCRIPT: |
-        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
-        total_tests=$(./yq '.testsuites."+@tests"' triton_test.xml)
-        errors=$(./yq '.testsuites."+@errors"' triton_test.xml)
-        failed_tests=$(./yq '.testsuites."+@failures"' triton_test.xml)
-        passed_tests=$((total_tests - errors - failed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-triton.log
-    secrets: inherit
-
-  test-levanter:
-    needs: build-levanter
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: levanter
-      EXECUTE: |
-        docker run -i --gpus all --shm-size=1g \
-        ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-levanter.log
-          pip install pytest
-          PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests
-        EOF
-      STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-levanter.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-levanter.log
-    secrets: inherit
-
-  test-te:
-    needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: te
-      EXECUTE: |
-        docker run -i --gpus all --shm-size=1g -v $PWD:/log \
-        ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-te.log
-          pip install pytest-reportlog
-          pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TE}/tests/jax
-        EOF
-      STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-te.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)
-        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "failed") | .outcome' | wc -l)          
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-te.log
-        pytest-report.jsonl
-    secrets: inherit
-
-  test-upstream-pax:
-    needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_upstream_pax.yaml
-    with:
-      PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
-  test-rosetta-pax:
-    needs: build-rosetta-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_pax_rosetta.yaml
-    with:
-      PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
-  test-maxtext:
-    needs: build-maxtext
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_maxtext.yaml
-    with:
-      MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
