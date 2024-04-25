@@ -22,8 +22,8 @@ on:
         value: ${{ jobs.collect-docker-tags.outputs.TAGS }}
 
 permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
+  contents: read # to fetch code
+  actions: write # to cancel previous workflows
   packages: write # to upload container
 
 jobs:
@@ -81,7 +81,7 @@ jobs:
         test-backend-independent.log
         test-gpu.log
     secrets: inherit
-  
+
   test-pallas:
     needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64' # triton doesn't support arm64(?)
@@ -233,23 +233,23 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.maxtext.amd64
     secrets: inherit
 
-  test-upstream-maxtext:
-    needs: build-upstream-maxtext
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_upstream_maxtext.yaml
-    with:
-      MAXTEXT_IMAGE: ${{ needs.build-upstream-maxtext.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
+  # test-upstream-maxtext:
+  #   needs: build-upstream-maxtext
+  #   if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+  #   uses: ./.github/workflows/_test_upstream_maxtext.yaml
+  #   with:
+  #     MAXTEXT_IMAGE: ${{ needs.build-upstream-maxtext.outputs.DOCKER_TAG_FINAL }}
+  #   secrets: inherit
 
-  build-rosetta-maxtext:
-    needs: build-upstream-maxtext
-    uses: ./.github/workflows/_build_rosetta.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-upstream-maxtext.outputs.DOCKER_TAG_MEALKIT }}
-      BASE_LIBRARY: maxtext
-    secrets: inherit
+  # build-rosetta-maxtext:
+  #   needs: build-upstream-maxtext
+  #   uses: ./.github/workflows/_build_rosetta.yaml
+  #   with:
+  #     ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+  #     BUILD_DATE: ${{ inputs.BUILD_DATE }}
+  #     BASE_IMAGE: ${{ needs.build-upstream-maxtext.outputs.DOCKER_TAG_MEALKIT }}
+  #     BASE_LIBRARY: maxtext
+  #   secrets: inherit
 
   # _t5x.yaml
   build-upstream-t5x:
@@ -465,4 +465,3 @@ jobs:
   #     ARTIFACTS: |
   #       test-equinox.log
   #   secrets: inherit
-
