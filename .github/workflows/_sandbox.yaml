@@ -176,7 +176,7 @@ jobs:
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
-  jax-amarm6464:
+  jax-arm64:
     needs: base-arm64
     uses: ./.github/workflows/_jax.yaml
     with:
