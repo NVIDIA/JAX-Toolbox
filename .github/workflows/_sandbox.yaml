@@ -15,7 +15,6 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: YYYY-MM-DD
-      MANIFEST_ARTIFACT_NAME: bump-manifest
     secrets: inherit
 
   build-jax:
