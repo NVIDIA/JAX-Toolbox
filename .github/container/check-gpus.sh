@@ -6,7 +6,7 @@ NOCOLOR='\033[0m'
 
 # Check that all devices are identical
 if [[ -z "$CUDA_VISIBLE_DEVICES" ]]; then
-    # CUDA_VISIBLE_DEVICES are not specifies. Check what GPUs are available
+    # CUDA_VISIBLE_DEVICES is not set. Check what GPUs are available
     diff_gpu_count=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader | sort | uniq | wc -l)
     if [[ $diff_gpu_count -ge 2 ]]; then
             echo -e "${YELLOW}
