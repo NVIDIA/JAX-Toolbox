@@ -117,6 +117,7 @@ jobs:
             test-maxtext.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
+              --model-name default \
               --batch-per-gpu 2 \
               --steps 10 \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
@@ -267,6 +268,7 @@ jobs:
             test-maxtext.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
+              --model-name default \
               --batch-per-gpu 2 \
               --steps 10 \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \

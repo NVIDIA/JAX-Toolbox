@@ -14,7 +14,7 @@ export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false
 ```
 The main reason to do this is to not have any overlaps so that we can get exact costs for different ops.
 
-2. **Generate protobuf**: Once we have the nsys profile generated, we pass it to the python script provided [here [pgo_nsys_converter.py]](https://github.com/abhinavgoel95/jax/blob/patch-1/jax/tools/pgo_nsys_converter.py) to generate the pbtxt file. A sample pbtxt file would look like this:
+2. **Generate protobuf**: Once we have the nsys profile generated, we pass it to the python script provided [here [pgo_nsys_converter.py]](https://github.com/google/jax/blob/main/jax/tools/pgo_nsys_converter.py) to generate the pbtxt file. A sample pbtxt file would look like this:
 ```
 ...
 costs { name: "all-gather-start.1" cost_us: 7040.5215 }

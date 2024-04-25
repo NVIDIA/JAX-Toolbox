@@ -13,6 +13,7 @@ usage() {
     echo ""
     echo "  OPTIONS                    DESCRIPTION"
     echo "  -a, --additional-args      Additional fiddle args to pass to MaxText/train.py"
+    echo "  --model-name               Specify model to run. Example: llama2-7b, default"
     echo "  -b, --batch-per-gpu        Batch size per GPU, defaults to 2."
     echo "  --dtype                    Batch size, defaults to bfloat16."
     echo "  --enable-te                If set, will run with env var ENABLE_TE=1."
@@ -38,6 +39,7 @@ fi
 HARDWARE='gpu'
 OUTPUT=$(mktemp -d)
 
+MODEL_NAME='llama2-7b'
 BATCH_PER_GPU=2
 DTYPE="bfloat16"
 STEPS=10
@@ -55,6 +57,10 @@ while [ : ]; do
     case "$1" in
         -a | --additional-args)
             ADDITIONAL_ARGS="$2"
+            shift 2
+            ;;
+        --model-name)
+            MODEL_NAME="$2"
             shift 2
             ;;
         -b | --batch-per-gpu)
@@ -130,6 +136,7 @@ else
     ici_DP=$DP
 fi
 
+print_var MODEL_NAME
 print_var BATCH_PER_GPU
 print_var DTYPE
 print_var STEPS
@@ -155,7 +162,7 @@ export NVTE_FUSED_ATTN=${ENABLE_FUSED_ATTN}
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.65
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true 
+export BASE_XLA_FLAGS=${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true 
                 --xla_gpu_enable_async_all_gather=true 
                 --xla_gpu_enable_async_reduce_scatter=true 
                 --xla_gpu_enable_triton_gemm=false
@@ -173,12 +180,14 @@ export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
                 --xla_gpu_enable_triton_softmax_fusion=false 
                 --xla_gpu_enable_all_gather_combine_by_dim=false 
                 --xla_gpu_enable_reduce_scatter_combine_by_dim=false 
-                --xla_disable_hlo_passes=rematerialization"
+                --xla_disable_hlo_passes=rematerialization}
+
+export XLA_FLAGS="$BASE_XLA_FLAGS ${XLA_FLAGS:-}"
 
 RUN_NAME="logdir" ## the RUN_NAME cannot be changed
 
-RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME} logits_via_embedding=true decoder_block=default \
-    steps=$STEPS per_device_batch_size=2 base_emb_dim=2560 base_mlp_dim=8192 remat_policy=minimal attention=dot_product\
+RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME} logits_via_embedding=true decoder_block=${MODEL_NAME} \
+    steps=$STEPS per_device_batch_size=${BATCH_PER_GPU} base_emb_dim=2560 base_mlp_dim=8192 remat_policy=minimal attention=dot_product\
     base_num_query_heads=8 base_num_kv_heads=8 base_num_decoder_layers=8 head_dim=128 enable_checkpointing=false\
     base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE\
     dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP\
