@@ -136,9 +136,9 @@ jobs:
             .github/container/manifest.yaml
             .github/container/patches
 
-  amd64:
+  jax-amd64:
     needs: [metadata, bump-manifest]
-    uses: ./.github/workflows/_ci.yaml
+    uses: ./.github/workflows/_jax.yaml
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
