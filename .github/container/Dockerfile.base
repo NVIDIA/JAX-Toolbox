@@ -187,6 +187,19 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 COPY gcp-autoconfig.sh /opt/nvidia/entrypoint.d/
 
 ###############################################################################
+## Add helper scripts for profiling with Nsight Systems
+##
+## The scripts saved to /opt/jax_nsys are embedded in the output archives
+## written by nsys-jax, while the nsys-jax and nsys-jax-gather-src-files
+## utilities are only used inside the container.
+###############################################################################
+
+ADD nsys-jax nsys-jax-gather-src-files /usr/local/bin
+ADD jax_nsys/ /opt/jax_nsys
+ADD requirements-nsys-jax.in /opt/pip-tools.d/
+RUN ln -s /opt/jax_nsys/nsys-jax-ensure-protobuf /usr/local/bin/
+
+###############################################################################
 ## Copy manifest file to the container
 ###############################################################################
 
