@@ -15,8 +15,7 @@ WARNING: There are $diff_gpu_count different GPUs in the system:
 
 $(nvidia-smi --query-gpu=gpu_name --format=csv,noheader | sort | uniq)
 
-Using all of them with JAX may
-cause the JAX failure. To avoid that you can either specify CUDA_VISIBLE_DEVICES env variable:
+Using all of them at once with JAX may cause the JAX to fail. To avoid that you can either specify CUDA_VISIBLE_DEVICES env variable:
    1. inside container:
 
         $ export CUDA_VISIBLE_DEVICES=<coma-separated GPU ids>
@@ -74,8 +73,8 @@ else
     if [[ "$issue_warning" == "true" ]]; then 
             echo -e "${YELLOW}
 
-WARNING: There are different types of GPU specified by CUDA_VISIBLE_DEVICES. Using them with JAX may
-cause the JAX failure. To avoid that please restrict only to identical GPUs.
+WARNING: There are different types of GPUs specified by CUDA_VISIBLE_DEVICES.
+Using them all at once with JAX may cause JAX to fail. To avoid this, please restrict to only using identical GPUs.
 List of devices in use:
 
 ${devices_list}
