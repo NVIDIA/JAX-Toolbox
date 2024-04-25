@@ -22,6 +22,8 @@ on:
       DOCKER_TAGS:
         description: JSON object containing tags of all docker images built
         value: ${{ jobs.collect-docker-tags.outputs.TAGS }}
+      DOCKER_TAG_MEALKIT:
+        value: ${{ jobs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
 
 permissions:
   contents: read # to fetch code

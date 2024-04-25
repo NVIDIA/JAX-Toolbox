@@ -1,0 +1,105 @@
+name: Build, test, and publish PAX
+run-name: CI-${{ inputs.ARCHITECTURE }}
+on:
+  workflow_call:
+    inputs:
+      ARCHITECTURE:
+        type: string
+        required: true
+      BUILD_DATE:
+        type: string
+        description: Build date in YYYY-MM-DD format
+        required: false
+        default: NOT SPECIFIED
+      MANIFEST_ARTIFACT_NAME:
+        type: string
+        description: Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch
+        default: ''
+        required: false
+      BASE_IMAGE:
+        type: string
+    outputs:
+      DOCKER_TAGS:
+        description: JSON object containing tags of all docker images built
+        value: ${{ jobs.collect-docker-tags.outputs.TAGS }}
+
+permissions:
+  contents: read # to fetch code
+  actions: write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+  # _pax.yaml
+  build-upstream-pax:
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-pax-build
+      BADGE_FILENAME: badge-pax-build
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ inputs.BASE_IMAGE }}
+      CONTAINER_NAME: upstream-pax
+      DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+    secrets: inherit
+
+  test-te-multigpu:
+    needs: build-upstream-pax
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    uses: ./.github/workflows/_test_te.yaml
+    with:
+      TE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-te:
+    needs: build-upstream-pax
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: te
+      EXECUTE: |
+        docker run -i --gpus all --shm-size=1g -v $PWD:/log \
+        ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-te.log
+          pip install pytest-reportlog
+          pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TE}/tests/jax
+        EOF
+      STATISTICS_SCRIPT: |
+        summary_line=$(tail -n1 test-te.log)
+        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)
+        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "failed") | .outcome' | wc -l)          
+        total_tests=$((failed_tests + passed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-te.log
+        pytest-report.jsonl
+    secrets: inherit
+
+  test-upstream-pax:
+    needs: build-upstream-pax
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_upstream_pax.yaml
+    with:
+      PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  build-rosetta-pax:
+    needs: [test-te-multigpu, test-te, test-upstream-pax]
+    uses: ./.github/workflows/_build_rosetta.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: pax
+    secrets: inherit
+
+  test-rosetta-pax:
+    needs: build-rosetta-pax
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_pax_rosetta.yaml
+    with:
+      PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
