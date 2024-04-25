@@ -184,7 +184,7 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ## Add the GPU compute capability check to the entrypoint.
 ###############################################################################
 
-COPY check-cc.sh /opt/nvidia/entrypoint.d/
+COPY check-gpus.sh /opt/nvidia/entrypoint.d/
 
 ###############################################################################
 ## Add the GCP - TCPX check to the entrypoint.
