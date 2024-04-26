@@ -2,7 +2,7 @@ name: CI
 
 on:
   schedule:
-    - cron: "30 9 * * *" # Pacific Time 01:30 AM in UTC
+    - cron: '30 9 * * *' # Pacific Time 01:30 AM in UTC
   pull_request:
     types:
       - opened
@@ -10,7 +10,7 @@ on:
       - ready_for_review
       - synchronize
     paths-ignore:
-      - "**.md"
+      - '**.md'
   workflow_dispatch:
     inputs:
       PUBLISH:
@@ -25,7 +25,7 @@ on:
         required: false
       MERGE_BUMPED_MANIFEST:
         type: boolean
-        description: "(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch"
+        description: '(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch'
         default: false
         required: false
 
@@ -80,7 +80,7 @@ jobs:
         id: manifest-branch
         shell: bash -x -e {0}
         run: |
-          BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST || 'false' }}
+          BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST || 'true' }}
           MERGE_BUMPED_MANIFEST=${{ github.event_name == 'schedule' || inputs.MERGE_BUMPED_MANIFEST || 'false' }}
           # Prepend nightly manifest branch with "z" to make it appear at the end
           if [[ "$BUMP_MANIFEST" == "true" ]]; then
@@ -183,7 +183,7 @@ jobs:
           name: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
           path: .github/container/
 
-      - name: "Create local manifest branch: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}"
+      - name: 'Create local manifest branch: ${{ needs.metadata.outputs.MANIFEST_BRANCH }}'
         id: local_branch
         shell: bash -x -e {0}
         run: |
@@ -243,7 +243,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "Log created PR: #${{ fromJson(steps.create_pr.outputs.data).number }}"
+      - name: 'Log created PR: #${{ fromJson(steps.create_pr.outputs.data).number }}'
         if: steps.create_pr.outcome == 'success'
         run: |
           echo "https://github.com/NVIDIA/JAX-Toolbox/pull/${{ fromJson(steps.create_pr.outputs.data).number }}" | tee -a $GITHUB_STEP_SUMMARY
@@ -380,7 +380,7 @@ jobs:
 
   finalize:
     needs: [metadata, amd64, arm64, publish-containers]
-    if: "!cancelled()"
+    if: '!cancelled()'
     uses: ./.github/workflows/_finalize.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
