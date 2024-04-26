@@ -11,13 +11,13 @@ on:
       EXTRA_TEST_ARGS:
         type: string
         description: Extra command line args to pass to test-maxtext.sh
-        default: ""
+        default: ''
         required: false
       BADGE_FILENAME:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'badge-maxtext-test.json'
+        default: 'badge-upstream-maxtext-test.json'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
@@ -34,12 +34,11 @@ on:
         value: ${{ jobs.sitrep.outputs.STATUS }}
 
 jobs:
-
   single-process-multi-device:
     strategy:
       matrix:
         PARALLEL_CONFIG:
-        - [1, 1, 2, 4]
+          - [1, 1, 2, 4]
         # - [1, 1, 1, 8] # PP, DP, FSDP, TP
       fail-fast: false
 
@@ -183,12 +182,12 @@ jobs:
     strategy:
       matrix:
         PARALLEL_CONFIG:
-        - [1, 1, 1, 1]
-        - [1, 1, 8, 1]
-        - [1, 1, 1, 8]
-        - [1, 1, 4, 2]
-        - [1, 2, 2, 2]
-        - [1, 4, 2, 2]
+          - [1, 1, 1, 1]
+          - [1, 1, 8, 1]
+          - [1, 1, 1, 8]
+          - [1, 1, 4, 2]
+          - [1, 2, 2, 2]
+          - [1, 4, 2, 2]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -366,7 +365,7 @@ jobs:
 
   sitrep:
     needs: [single-process-multi-device, maxtext-multinode, metrics]
-    if: "!cancelled()"
+    if: '!cancelled()'
     uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
     with:
@@ -377,7 +376,7 @@ jobs:
   summary:
     runs-on: ubuntu-22.04
     needs: [single-process-multi-device, maxtext-multinode]
-    if: "!cancelled()"
+    if: '!cancelled()'
     steps:
       - name: Generate TensorBoard query URL
         run: |
@@ -394,7 +393,7 @@ jobs:
   outcome:
     needs: sitrep
     runs-on: ubuntu-22.04
-    if: "!cancelled()"
+    if: '!cancelled()'
     steps:
       - name: Sets workflow status based on test outputs
         run: |
