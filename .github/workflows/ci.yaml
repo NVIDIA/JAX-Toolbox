@@ -166,7 +166,7 @@ jobs:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
-      SOURCE_OVERRIDES: ${{ needs.metadata.outputs.SOURCE_OVERRIDES }}
+      EXTRA_BUILD_ARGS: ${{ needs.metadata.outputs.SOURCE_OVERRIDES }}
     secrets: inherit
 
   arm64:
@@ -176,7 +176,7 @@ jobs:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
-      SOURCE_OVERRIDES: ${{ needs.metadata.outputs.SOURCE_OVERRIDES }}
+      EXTRA_BUILD_ARGS: ${{ needs.metadata.outputs.SOURCE_OVERRIDES }}
     secrets: inherit
 
   # Only merge if everything succeeds
