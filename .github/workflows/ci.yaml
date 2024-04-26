@@ -31,21 +31,22 @@ on:
       SOURCE_OVERRIDES:
         type: string
         description: |
-          A comma-separated list of PACKAGE=URL#REF entries to override sources checked-out in the container build.
-          PACKAGE can be (case-insensitive):
-            JAX <br>
-            XLA
-            Flax
-            transformer-engine
-            T5X
-            paxml
-            praxis
-            maxtext
-            levanter
-            haliax
-            grok
-            mujuco
+          A comma-separated <PACKAGE>=<URL>#<REF> list to override sources used by build.
+          <PACKAGE> ∈ {
+            JAX,
+            XLA,
+            Flax,
+            transformer-engine,
+            T5X,
+            paxml,
+            praxis,
+            maxtext,
+            levanter,
+            haliax,
+            grok,
+            mujuco,
             mujuco-mpc
+          } (case-insensitive)
         default: ''
         required: false
 
