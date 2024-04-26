@@ -13,7 +13,7 @@ ARG URLREF_GROK
 ARG SRC_PATH_GROK
 
 RUN <<"EOF" bash -ex
-git-cloneref.sh ${URLREF_GROK} ${SRC_PATH_GROK}
+git-clone.sh ${URLREF_GROK} ${SRC_PATH_GROK}
 sed -i 's/\(^jax\)/# \1/g' ${SRC_PATH_GROK}/requirements.txt
 echo "-e file://${SRC_PATH_GROK}" >> /opt/pip-tools.d/requirements-grok.in
 echo "-r ${SRC_PATH_GROK}/requirements.txt" >> /opt/pip-tools.d/requirements-grok.in

@@ -29,7 +29,7 @@ FROM wheel-builder as tftext-builder
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-git-cloneref.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
+git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
 cd ${SRC_PATH_TFTEXT}
 
 # The tftext build script queries GitHub, but these requests are sometimes
@@ -56,7 +56,7 @@ ARG SRC_PATH_LINGVO
 COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 
 RUN <<"EOF" bash -exu -o pipefail
-git-cloneref.sh ${URLREF_LINGVO} ${SRC_PATH_LINGVO}
+git-clone.sh ${URLREF_LINGVO} ${SRC_PATH_LINGVO}
 EOF
 
 # build lingvo
@@ -115,8 +115,8 @@ echo "tensorflow==2.13.0" >> /opt/pip-tools.d/requirements-paxml.in
 echo "tensorflow_datasets==4.9.2" >> /opt/pip-tools.d/requirements-paxml.in
 echo "auditwheel" >> /opt/pip-tools.d/requirements-paxml.in
 
-git-cloneref.sh ${URLREF_PAXML} ${SRC_PATH_PAXML}
-git-cloneref.sh ${URLREF_PRAXIS} ${SRC_PATH_PRAXIS}
+git-clone.sh ${URLREF_PAXML} ${SRC_PATH_PAXML}
+git-clone.sh ${URLREF_PRAXIS} ${SRC_PATH_PRAXIS}
 echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/requirements-paxml.in
 echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/requirements-paxml.in
 

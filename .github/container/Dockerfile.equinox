@@ -14,7 +14,7 @@ ARG SRC_PATH_EQUINOX
 
 # Specify installation targets
 RUN <<"EOF" bash -ex
-git-cloneref.sh ${URLREF_EQUINOX} ${SRC_PATH_EQUINOX}
+git-clone.sh ${URLREF_EQUINOX} ${SRC_PATH_EQUINOX}
 echo "-e file://${SRC_PATH_EQUINOX}" >> /opt/pip-tools.d/requirements-equinox.in
 EOF
 

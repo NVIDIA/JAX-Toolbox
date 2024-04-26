@@ -31,8 +31,8 @@ ARG GIT_USER_EMAIL
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
-    git-cloneref.sh ${URLREF_JAX} ${SRC_PATH_JAX}
-    git-cloneref.sh ${URLREF_XLA} ${SRC_PATH_XLA}
+    git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX}
+    git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
@@ -88,7 +88,7 @@ EOF
 
 ## Flax
 RUN <<"EOF" bash -ex
-git-cloneref.sh ${URLREF_FLAX} ${SRC_PATH_FLAX}
+git-clone.sh ${URLREF_FLAX} ${SRC_PATH_FLAX}
 echo "-e file://${SRC_PATH_FLAX}" >> /opt/pip-tools.d/requirements-flax.in
 EOF
 
@@ -97,7 +97,7 @@ ENV NVTE_FRAMEWORK=jax
 ENV SRC_PATH_TE=${SRC_PATH_TE}
 RUN <<"EOF" bash -ex -o pipefail
 pip install ninja && rm -rf ~/.cache/pip
-git-cloneref.sh ${URLREF_TE} ${SRC_PATH_TE}
+git-clone.sh ${URLREF_TE} ${SRC_PATH_TE}
 pushd ${SRC_PATH_TE}
 python setup.py bdist_wheel && rm -rf build
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in

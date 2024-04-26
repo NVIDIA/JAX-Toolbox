@@ -17,8 +17,8 @@ ARG SRC_PATH_LEVANTER
 ARG SRC_PATH_HALIAX
 
 RUN <<"EOF" bash -ex
-git-cloneref.sh ${URLREF_LEVANTER} ${SRC_PATH_LEVANTER}
-git-cloneref.sh ${URLREF_HALIAX} ${SRC_PATH_HALIAX}
+git-clone.sh ${URLREF_LEVANTER} ${SRC_PATH_LEVANTER}
+git-clone.sh ${URLREF_HALIAX} ${SRC_PATH_HALIAX}
 sed -i 's/\(^\s*"haliax\)/#\1/g' ${SRC_PATH_LEVANTER}/pyproject.toml
 echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
 echo "-e file://${SRC_PATH_HALIAX}" >> /opt/pip-tools.d/requirements-levanter.in

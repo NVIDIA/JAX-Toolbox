@@ -20,13 +20,13 @@ RUN [ -x "${TRITON_PTXAS_PATH}" ] && [ -x "${TRITON_CUOBJDUMP_PATH}" ] && [ -x "
 ## Check out Triton source and build a wheel
 ###############################################################################
 FROM base as builder
-
+ARG URLREF_OXLA_TRITON
 ARG SRC_PATH_OXLA_TRITON
 
 # bump-openxla-triton.sh ensures that the commit of openxla-triton referenced
 # in the manifest file is consistent with the commit of xla, and that any extra
 # patches are available under patches/openxla-triton
-RUN git-cloneref.sh ${URLREF_OXLA_TRITON} ${SRC_PATH_OXLA_TRITON}
+RUN git-clone.sh ${URLREF_OXLA_TRITON} ${SRC_PATH_OXLA_TRITON}
 RUN <<"EOF" bash -ex
 shopt -s nullglob
 cd /opt/openxla-triton
@@ -62,7 +62,7 @@ RUN echo "triton @ file://$(ls ${SRC_PATH_OXLA_TRITON}/dist/triton-*.whl)" >> /o
 
 # Check out jax-triton
 RUN <<"EOF" bash -ex
-git-cloneref.sh ${URLREF_JAX_TRITON} ${SRC_PATH_JAX_TRITON}
+git-clone.sh ${URLREF_JAX_TRITON} ${SRC_PATH_JAX_TRITON}
 echo "-e file://${SRC_PATH_JAX_TRITON}" >> /opt/pip-tools.d/requirements-triton.in
 sed -i 's|"jax @ [^"]\+"|"jax"|g;s|"triton-nightly @ [^"]\+"|"triton"|g' ${SRC_PATH_JAX_TRITON}/pyproject.toml
 EOF

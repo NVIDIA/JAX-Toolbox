@@ -14,7 +14,7 @@ IFS=$'\n'
 for line in $(cat requirements.pre | egrep '^[^#].+ @ git\+' || true); do
   # VCS installs are of the form "PACKAGE @ git+..."
   PACKAGE=$(echo "$line" | awk '{print $1}')
-  ref=$(yq e ".${PACKAGE}.latest_verified_commit" ${MANIFEST_FILE})
+  ref=$(yq e ".${PACKAGE}.latest_verified_commit" /opt/manifest.d/manifest.yaml)
   echo "${line}@${ref}"
 done | tee requirements.vcs
 unset IFS

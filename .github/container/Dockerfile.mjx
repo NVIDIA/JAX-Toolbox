@@ -36,9 +36,9 @@ EOF
 
 # Specify installation targets
 RUN <<"EOF" bash -ex
-git-cloneref.sh ${URLREF_MUJOCO} ${SRC_PATH_MUJOCO}
-git-cloneref.sh ${URLREF_MUJOCO_MPC} ${SRC_PATH_MUJOCO_MPC}
-git-cloneref.sh ${URLREF_L2R} ${SRC_PATH_L2R}
+git-clone.sh ${URLREF_MUJOCO} ${SRC_PATH_MUJOCO}
+git-clone.sh ${URLREF_MUJOCO_MPC} ${SRC_PATH_MUJOCO_MPC}
+git-clone.sh ${URLREF_L2R} ${SRC_PATH_L2R}
 echo "-f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MUJOCO}/mjx" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MUJOCO_MPC}/python" >> /opt/pip-tools.d/requirements-l2r.in

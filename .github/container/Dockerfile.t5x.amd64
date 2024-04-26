@@ -13,7 +13,7 @@ ARG URLREF_T5X
 ARG SRC_PATH_T5X
 
 RUN <<"EOF" bash -ex
-git-cloneref.sh ${URLREF_T5X} ${SRC_PATH_T5X}
+git-clone.sh ${URLREF_T5X} ${SRC_PATH_T5X}
 echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
 
 # remove head-of-tree specs from select dependencies

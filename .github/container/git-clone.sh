@@ -13,9 +13,9 @@ Usage: $0 [OPTION]... GIT_URL#REF PATH
 
 Example:
   # clone JAX's main branch at /opt/jax and update manifest file at the default location
-  git-cloneref.sh https://github.com/google/jax.git#main /opt/jax
+  git-clone.sh https://github.com/google/jax.git#main /opt/jax
   # clone JAX at jax-v0.4.26 and update manifest file at an alternative location
-  git-cloneref.sh -m /root/manifest.yaml https://github.com/google/jax.git#jax-v0.4.26 /opt/jax
+  git-clone.sh -m /root/manifest.yaml https://github.com/google/jax.git#jax-v0.4.26 /opt/jax
 EOF
     exit $1
 }
@@ -27,7 +27,7 @@ fi
 
 ## Set default arguments
 
-MANIFEST="/opt/manifest.d/manifest.yaml"
+MANIFEST="/opt/manifest.d/git-clone.yaml"
 
 eval set -- "$args"
 while [ : ]; do

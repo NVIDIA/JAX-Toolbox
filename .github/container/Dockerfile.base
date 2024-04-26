@@ -110,7 +110,7 @@ git config --global user.email "${GIT_USER_EMAIL}"
 EOF
 RUN mkdir -p /opt/pip-tools.d
 ADD --chmod=777 \
-    git-cloneref.sh \
+    git-clone.sh \
     pip-finalize.sh \
     /usr/local/bin/
 RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) -O /usr/local/bin/yq && \
@@ -194,3 +194,10 @@ ADD nsys-jax nsys-jax-gather-src-files /usr/local/bin
 ADD jax_nsys/ /opt/jax_nsys
 ADD requirements-nsys-jax.in /opt/pip-tools.d/
 RUN ln -s /opt/jax_nsys/nsys-jax-ensure-protobuf /usr/local/bin/
+
+###############################################################################
+## Copy manifest file to the container
+###############################################################################
+
+ADD manifest.yaml /opt/manifest.d/
+COPY patches/ /opt/manifest.d/patches/

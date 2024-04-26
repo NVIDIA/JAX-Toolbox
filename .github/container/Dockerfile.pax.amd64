@@ -20,8 +20,8 @@ ARG SRC_PATH_PRAXIS
 RUN sed -i "s/transformer-engine @/transformer-engine[test] @/g" /opt/pip-tools.d/requirements-te.in
 
 RUN <<"EOF" bash -ex
-git-cloneref.sh ${URLREF_PAXML} ${SRC_PATH_PAXML}
-git-cloneref.sh ${URLREF_PRAXIS} ${SRC_PATH_PRAXIS}
+git-clone.sh ${URLREF_PAXML} ${SRC_PATH_PAXML}
+git-clone.sh ${URLREF_PRAXIS} ${SRC_PATH_PRAXIS}
 echo "-e file://${SRC_PATH_PAXML}[gpu]" >> /opt/pip-tools.d/requirements-paxml.in
 echo "-e file://${SRC_PATH_PRAXIS}"     >> /opt/pip-tools.d/requirements-paxml.in
 
