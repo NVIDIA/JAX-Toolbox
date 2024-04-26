@@ -208,10 +208,10 @@ We also provide LLaMA-2 7B, 13B and 70B configs. These configs are variants of t
 LLaMA fine-tuning is supported via full supervised fine-tuning (SFT) and LoRA parameter-efficient fine-tuning. Performance and convergence has been tested on LLaMA-2 7B, and results are reported below.
 
 #### SFT Results
-| Size | GPU | Precision | #GPUs | DP | FSDP | TP | BS / GPU | Sequence Length | Sequences/Sec | BoolQ Accuracy |
+| Size | GPU | Precision | #GPUs | DP | FSDP | TP | BS / GPU | Sequence Length | Sequences/Sec | BoolQ Accuracy  (± standard deviation) |
 | ---- | ----- |----- |----- | -- | ---- | -- | ---------| ---------------| ------------------------- | ---------------- |
-| 7B | H100 80G SXM | BF16 |  16    | 1    |16    |1    | 2        |  4096 |  43.24 |      88.4%          |
-| 7B | H100 80G SXM | TE BF16 |  16    |1    |16    |1    | 2        |  4096 | 53.69  |      88.8%        |
+| 7B | H100 80G SXM | BF16 |  16    | 1    |16    |1    | 2        |  4096 |  43.24 |      88.7%  (± 0.12%)      |
+| 7B | H100 80G SXM | TE BF16 |  16    |1    |16    |1    | 2        |  4096 | 53.69  |      88.2% (± 0.17%)       |
 
 #### LoRA Results
 
