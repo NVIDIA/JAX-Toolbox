@@ -121,7 +121,7 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.levanter
       EXTRA_BUILD_ARGS: |
         ${{ fromJson(inputs.SOURCE_OVERRIDES).URLREF_LEVANTER }}
-        ${{ fromJson(inputs.SOURCE_OVERRIDES).URLREF_HALIAX }
+        ${{ fromJson(inputs.SOURCE_OVERRIDES).URLREF_HALIAX }}
     secrets: inherit
 
   build-upstream-t5x:
