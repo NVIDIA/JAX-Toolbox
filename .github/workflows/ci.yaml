@@ -116,7 +116,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           overrides='{}'
-          echo "${{ inputs.SOURCE_OVERRIDES }}" | tr '-' '_' | tr ',' ' ' | while read -s entry; do
+          echo "${{ inputs.SOURCE_OVERRIDES }}" | tr '-' '_' | tr ',' '\n' | while read -s entry; do
             PACKAGE=$(echo $entry | cut -d= -f1 | tr '[:lower:]' '[:upper:]')
             URLREF=$(echo $entry | cut -d= -f2)
             overrides=$(echo "$overrides" | jq -c ". + {\"URLREF_$PACKAGE\": \"$URLREF\"}")
