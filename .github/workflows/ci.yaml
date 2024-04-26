@@ -33,7 +33,7 @@ on:
         description: |
           A comma-separated list of PACKAGE=URL#REF entries to override sources checked-out in the container build.
           PACKAGE can be (case-insensitive):
-            JAX
+            JAX <br>
             XLA
             Flax
             transformer-engine
