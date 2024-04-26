@@ -28,6 +28,26 @@ on:
         description: "(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch"
         default: false
         required: false
+      SOURCE_OVERRIDES:
+        type: string
+        description: |
+          A comma-separated list of PACKAGE=URL#REF entries to override sources checked-out in the container build.
+          PACKAGE can be (case-insensitive):
+            JAX
+            XLA
+            Flax
+            transformer-engine
+            T5X
+            paxml
+            praxis
+            maxtext
+            levanter
+            haliax
+            grok
+            mujuco
+            mujuco-mpc
+        default: ''
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -53,6 +73,7 @@ jobs:
       MANIFEST_ARTIFACT_NAME: ${{ steps.manifest-branch.outputs.MANIFEST_ARTIFACT_NAME }}
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
+      SOURCE_OVERRIDES: ${{ steps.source-overrides.outputs.SOURCE_OVERRIDES }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
         id: cancel-if-draft
@@ -102,6 +123,17 @@ jobs:
             echo "Error: If BUMP_MANIFEST=false, MERGE_BUMPED_MANIFEST cannot be true" >&2
             exit 1
           fi
+      
+      - name: Process source overrides
+        id: source-overrides
+        shell: bash -x -e {0}
+        run: |
+          overrides='{}'
+          echo "${{ inputs.SOURCE_OVERRIDES }}" | tr ',' ' ' | tr '-' '_' | ; while read -s entry; do
+            PACKAGE=$(echo $entry | cut -d= -f1 | tr '[:lower:]' '[:upper:]')
+            URLREF=$(echo $entry | cut -d= -f2)
+            overrides=$(echo "$overrides" | jq -c ". + {\"URLREF_$PACKAGE\": \"$URLREF\"}")
+          echo "SOURCE_OVERRIDES=${overrides}" >> $GITHUB_OUTPUT
 
   bump-manifest:
     needs: metadata
@@ -146,6 +178,7 @@ jobs:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+      SOURCE_OVERRIDES: ${{ needs.metadata.outputs.SOURCE_OVERRIDES }}
     secrets: inherit
 
   arm64:
@@ -155,6 +188,7 @@ jobs:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+      SOURCE_OVERRIDES: ${{ needs.metadata.outputs.SOURCE_OVERRIDES }}
     secrets: inherit
 
   # Only merge if everything succeeds
