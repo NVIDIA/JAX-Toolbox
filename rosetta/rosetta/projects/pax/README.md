@@ -125,7 +125,7 @@ ENABLE_FP8=1 bash paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh /opt/paxm
 Note that transformer engine must be enabled (`ENABLE_TE=1`) in order to train with FP8 using TE). Also, note that packing is currently not supported when using TE. All configs disable packing by default, but beware that if packing is manually enabled, training with TE will error.
 
 ## Native FP8
-Rosetta Pax containers also provide support for native FP8 through XLA. Enabling FP8 can be done by adding the following command-line flag to your bash script: `--fdl.USE_FP8=True`. When using native FP8, TE must be disabled. For a detailed explanation of native FP8 support in Pax, as well as a comparison between native FP8 and TE FP8, please refer to the [NATIVE_FP8](../../../rosetta/docs/NATIVE_FP8.md) documentation.
+Rosetta Pax containers also provide support for native FP8 through XLA. Enabling FP8 can be done by adding the following command-line flag to your bash script: `--fdl.USE_FP8=True`. When using native FP8, TE must be disabled. For a detailed explanation of native FP8 support in Pax, as well as a comparison between native FP8 and TE FP8, please refer to the [NATIVE_FP8](../../../docs/NATIVE_FP8.md) documentation.
 
 ## Flash Attention
 Flash attention is enabled by default in the given container. Divergence has been observed with the GPT 126M model with flash attention enabled. If you observe divergence when running GPT 126M, it is recommended to disable flash attention. If training with Transformer Engine, you can disable FA using the following environment variable: `NVTE_FUSED_ATTN=0`. If not using TE, FA can be disabled using the following XLA flag: `--set_xla_gpu_enable_cudnn_fmha=False`.
