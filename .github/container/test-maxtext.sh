@@ -69,7 +69,7 @@ while [ : ]; do
             shift 2
             ;;
         --attn-type)
-            MODEL_NAME="$2"
+            ATTN_TYPE="$2"
             shift 2
             ;;
         -b | --batch-per-gpu)
