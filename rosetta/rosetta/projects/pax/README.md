@@ -156,7 +156,7 @@ The tables below describe current performance of the given configs. Experiments 
 | Size | GPU | Precision | #GPUs | DP | FSDP | TP | BS / GPU | Sequences/Sec | Est. Walltime (days) | Lambada Accuracy (± standard deviation) |
 | ---- | ----- |----- |----- | -- | ---- | -- | ---------| ---------------| ------------------------- | ---------------- |
 | 126M | A100 80G SXM | BF16 |  64    |64    |1    |1    | 4     |   2098.16  |        0.85        |   39.7% (± 1.2%)     |
-| 5B   | A100 80G SXM | BF16 | 256    | 1    |256    |1    | 8       | 594.13    |    2.99    |       N/A        | 
+| 5B   | A100 80G SXM | BF16 | 256    | 1    |256    |1    | 8       | 594.13    |    2.99    |       N/A        |
 | 175B | A100 80G SXM | BF16 | 256    |1    |256    |1    | 6       |   *    |      *     |        N/A       |
 | 126M | A100 80G SXM | TE BF16 |  64    |64    |1    |1    | 4     |  2526.72   |     0.70            |   N/A |
 | 5B   | A100 80G SXM | TE BF16 | 256    | 1    |256    |1    | 8       | 718.19    |    2.48    |       N/A        |
@@ -218,12 +218,13 @@ LLaMA fine-tuning is supported via full supervised fine-tuning (SFT) and LoRA pa
 Default LoRA parameters for all runs:
 - LORA_RANK = 32
 - LORA_TARGET_LAYERS = all
+- TRAIN_STEPS = 600
 
-| Size | GPU | Precision | #GPUs | DP | FSDP | TP | BS / GPU | Sequence Length | Sequences/Sec | BoolQ Accuracy |
-| ---- | ----- |----- |----- | -- | ---- | -- | ---------| ---------------| ------------------------- | ---------------- |
-| 7B | H100 80G SXM | TE BF16 |  16    |1     |16    |1    | 2        |  4096 |  63.2 |     88.83 %          |
-| 7B | H100 80G SXM | TE BF16 |  16    |1    |16    |1    | 1        |  4096 | 56  |     88.72 %          |
-| 7B | H100 80G SXM | BF16 |  16    |1    |16    |1    | 2        |  4096 | 43.8  |     88.38 %          |
+| Size | GPU | Precision | #GPUs | DP | FSDP | TP | BS / GPU | Sequence Length | Total Sequences | Sequences/Sec | BoolQ Accuracy  (± standard deviation) |
+| ---- | ----- |----- |----- | -- | ---- | -- | ---------| ---------------| ---------------|  ------------------------- | ---------------- |
+| 7B | H100 80G SXM | TE BF16 |  16    |1     |16    |1    | 2        |  4096 | 19,200 | 63.2 |     88.8933 (± 0.146) %          |
+| 7B | H100 80G SXM | TE BF16 |  16    |1    |16    |1    | 1        |  4096 | 9,600 | 56  |     88.52 (± 0.198) %          |
+| 7B | H100 80G SXM | BF16 |  16    |1    |16    |1    | 2        |  4096 | 19,200 | 43.8  |     88.57 (± 0.2275) %          |
 
 ### Running LLaMA Evaluation/Fine-tuning
 
