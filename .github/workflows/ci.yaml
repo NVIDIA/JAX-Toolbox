@@ -160,7 +160,7 @@ jobs:
           )
           # SOURCE_OVERRIDES is a comma-separated list of package=urlref pairs
           IFS=, read -ra overrides <<< "${{ inputs.SOURCE_OVERRIDES }}"
-          for entry in "${overrides[@]}"; do
+          for override in "${overrides[@]}"; do
             PACKAGE=$(cut -d= -f 1 <<< "${override}" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
             URLREF=$(cut -d= -f 2- <<< "${override}")
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
