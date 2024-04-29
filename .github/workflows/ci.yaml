@@ -162,7 +162,7 @@ jobs:
           while IFS= read -r entry; do
             PACKAGE=$(echo "$entry" | cut -d= -f1 | tr '[:lower:]' '[:upper:]')
             URLREF=$(echo "$entry" | cut -d= -f2)
-            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"URLREF_$PACKAGE\": \"$URLREF\"}")
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
           done < <(echo "${{ inputs.SOURCE_OVERRIDES }}" | tr '-' '_' | tr ',' '\n')
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
 
