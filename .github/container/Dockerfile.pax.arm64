@@ -53,6 +53,8 @@ FROM wheel-builder as lingvo-builder
 ARG SRC_PATH_TFTEXT
 ARG SRC_PATH_LINGVO
 
+# Preserve the version of tensorflow-text
+COPY --from=tftext-builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
 COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 
 RUN <<"EOF" bash -exu -o pipefail
@@ -103,6 +105,8 @@ ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 ARG SRC_PATH_TFTEXT
 
+# Preserve version information of tensorflow-text and lingvo
+COPY --from=lingvo-builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
 COPY --from=lingvo-builder /tmp/lingvo/dist/lingvo*linux_aarch64.whl /opt/
 RUN echo "lingvo @ file://$(ls /opt/lingvo*.whl)" >> /opt/pip-tools.d/requirements-paxml.in
 

@@ -164,6 +164,8 @@ EOT
 FROM wheel-builder as tftext-builder
 ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
+# Preserve version information of grain
+COPY --from=grain-builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
 RUN <<"EOF" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
 git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
@@ -191,6 +193,9 @@ FROM wheel-builder as mealkit
 ARG URLREF_T5X
 ARG SRC_PATH_TFTEXT
 ARG SRC_PATH_T5X
+
+# Preserve version information of grain and tensorflow-text
+COPY --from=tftext-builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
 
 COPY --from=array_record-builder /tmp/array_record/all_dist/array_record*linux_aarch64.whl /opt/
 RUN echo "array_record @ file://$(ls /opt/array_record*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
