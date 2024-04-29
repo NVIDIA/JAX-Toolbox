@@ -170,7 +170,10 @@ RUN install-ofed.sh
 ## Amazon EFA support (need to run it inside container separately)
 ##############################################################################
 
-ADD install-efa.sh /usr/local/bin
+ADD --chmod=777 \
+  install-efa.sh \
+  test-aws-efa.sh \
+  /usr/local/bin/
 ENV LD_LIBRARY_PATH=/opt/amazon/efa/lib:${LD_LIBRARY_PATH}
 ENV PATH=/opt/amazon/efa/bin:${PATH}
 
