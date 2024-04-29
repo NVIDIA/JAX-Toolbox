@@ -432,7 +432,7 @@ jobs:
         ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-te.log
           pip install pytest-reportlog
-          pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TE}/tests/jax
+          pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TRANSFORMER_ENGINE}/tests/jax
         EOF
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-te.log)

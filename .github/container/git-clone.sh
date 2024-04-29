@@ -9,7 +9,7 @@ Clones a git repo at a specific ref and update manifest file with the commit has
 Usage: $0 [OPTION]... GIT_URL#REF PATH
   -h, --help             Print usage.
   -m, --manifest FILE    The manifest yaml file to which the downloaded library is documented.
-                         Default is /opt/manifest.d/manifest.yaml
+                         Default is /opt/manifest.d/git-clone.yaml
 
 Example:
   # clone JAX's main branch at /opt/jax and update manifest file at the default location
@@ -32,23 +32,11 @@ MANIFEST="/opt/manifest.d/git-clone.yaml"
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
-    -b | --base-dir)
-        BASE_INSTALL_DIR=$(readlink -f "$2")
-        shift 2
-        ;;
     -h | --help)
         usage
         ;;
-    -l | --library)
-        LIBRARY="$2"
-        shift 2
-        ;;
     -m | --manifest)
         MANIFEST="$2"
-        shift 2
-        ;;
-    -o | --out-requirements)
-        OUT_REQUIREMENTS_FILE="$2"
         shift 2
         ;;
     --)
@@ -62,7 +50,7 @@ GIT_URLREF="$1"; shift
 DESTINATION="$1"; shift
 
 if [[ $# -ge 1 ]]; then
-    echo "Un-recognized argument: $*"
+    echo "Un-recognized argument(s): $*"
     usage 1
 fi
 
@@ -78,7 +66,7 @@ fi
 
 ## check out the source
 GIT_REPO=$(cut -d# -f1 <<< $GIT_URLREF)
-GIT_REF=$(cut -d# -f2 <<< $GIT_URLREF)
+GIT_REF=$(cut -d# -f2- <<< $GIT_URLREF)
 
 echo "Fetching $GIT_REPO#$GIT_REF to $DESTINATION"
 
