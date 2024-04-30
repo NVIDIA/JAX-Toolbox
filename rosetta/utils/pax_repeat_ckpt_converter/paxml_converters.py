@@ -14,26 +14,31 @@
 
 ## TODO: support GQA!
 
+import jax
 import jax.numpy as jnp
-
+import functools
 from utils import ConvertHelper
 
 class PaxConvertHelperBase(ConvertHelper):
 
     @property
-    def catagories(self):
+    def src_categories(self):
         if self.weight_only:
             return ['mdl_vars.params']
         return ['mdl_vars.params', "opt_states_0_2.m.params", "opt_states_0_2.v.params"]
 
+    @property
+    def target_categories(self):
+        return self.src_categories
 
 class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
     
-    ## TODO: need different source and target prefixes
     @property
-    def catagories(self):
+    def target_categories(self):
         if self.weight_only:
             return ['mdl_vars.params']
+
+        ## TODO: make num layers configurable
         return ['mdl_vars.params', "opt_states_0.p#12#i-1_2.m.params", "opt_states_0.p#12#i-1_2.v.params"]
 
     def _generate_ckpt_map(self):
@@ -125,46 +130,50 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
 
 
     def no_prefix_conversions(self):
+
+        def repeat_count(arr, num_layers):
+            return jax.numpy.repeat(arr, num_layers)
+
         ckpt_map = {f"opt_states_0_0.count":
-                        self._get_convert_pkg(
+                        [self._get_convert_pkg(
                             f"opt_states_0.no_prefix_0.count",
                             None, None,
                             just_copy = True),
+                         self._get_convert_pkg(
+                            "opt_states_0.p#12#i-1_0.count",
+                            (), 0,
+                            functools.partial(repeat_count, num_layers=12)),
+                        ],
                     f"opt_states_0_1.count":
-                        self._get_convert_pkg(
+                        [self._get_convert_pkg(
                             f"opt_states_0.no_prefix_1.count",
                             None, None,
                             just_copy = True),
+                         self._get_convert_pkg(
+                            "opt_states_0.p#12#i-1_1.count",
+                            (), 0,
+                            functools.partial(repeat_count, num_layers=12)),
+                        ],
                     f"opt_states_0_2.count":
-                        self._get_convert_pkg(
+                        [self._get_convert_pkg(
                             f"opt_states_0.no_prefix_2.count",
                             None, None,
                             just_copy = True),
+	                 self._get_convert_pkg(
+                            "opt_states_0.p#12#i-1_2.count",
+                            (), 0,
+                            functools.partial(repeat_count, num_layers=12)),
+                        ],
                     f"opt_states_0_3.count":
-                        self._get_convert_pkg(
+                        [self._get_convert_pkg(
                             f"opt_states_0.no_prefix_3.count",
                             None, None,
                             just_copy = True),
-                    f"opt_states_0_0.count":
-                        self._get_convert_pkg(
-                            f"opt_states_0.no_prefix_0.count",
-                            None, None,
-                            just_copy = True),
-                    f"opt_states_0_1.count":
-                        self._get_convert_pkg(
-                            f"opt_states_0.no_prefix_1.count",
-                            None, None,
-                            just_copy = True),
-                    f"opt_states_0_2.count":
-                        self._get_convert_pkg(
-                            f"opt_states_0.no_prefix_2.count",
-                            None, None,
-                            just_copy = True),
-                    f"opt_states_0_3.count":
-                        self._get_convert_pkg(
-                            f"opt_states_0.no_prefix_3.count",
-                            None, None,
-                            just_copy = True),
+	                 self._get_convert_pkg(
+                            "opt_states_0.p#12#i-1_3.count",
+                            (), 0,
+                            functools.partial(repeat_count, num_layers=12)),
+                        ],
                     f"opt_states_0_2.m.params.lm.final_ln.bias":
                         self._get_convert_pkg(
                             f"opt_states_0.no_prefix_2.m.params.lm.final_ln.bias",

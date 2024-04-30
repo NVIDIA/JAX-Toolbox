@@ -63,7 +63,11 @@ class ConvertHelper:
         self.skip_bias = skip_bias
 
     @property
-    def catagories(self):
+    def src_categories(self):
+        raise NotImplementedError
+
+    @property
+    def target_categories(self):
         raise NotImplementedError
 
     def _get_convert_pkg(self,
@@ -97,7 +101,7 @@ class ConvertHelper:
             return False
 
         ckpt_map_with_full_name = {}
-        for prefix in self.catagories:
+        for src_prefix, target_prefix in zip(self.src_categories, self.target_categories):
             for src_path in ckpt_map:
                 ckpt_pkgs = ckpt_map[src_path]
                 if not isinstance(ckpt_pkgs, list):
@@ -108,10 +112,10 @@ class ConvertHelper:
                     target_path, shape, chunk_dim, converters, \
                     extra_src_paths, stack_dim, just_copy = self._unpack_convert_pkg(pkg)
 
-                    full_src_name = prefix + '.' + src_path
-                    full_target_name = prefix + '.' + target_path
+                    full_src_name = src_prefix + '.' + src_path
+                    full_target_name = target_prefix + '.' + target_path
                     full_extra_src_names = None if extra_src_paths is None else \
-                                           [prefix + '.'+ esp for esp in extra_src_paths]
+                                           [src_prefix + '.'+ esp for esp in extra_src_paths]
 
                     ckpt_pkgs_with_full_name.append(
                         self._get_convert_pkg(full_target_name,
