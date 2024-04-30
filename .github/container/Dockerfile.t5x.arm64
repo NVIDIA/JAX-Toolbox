@@ -90,7 +90,7 @@ EOT
 # TODO: Remove this once grain maintainers have published an arm64 wheel.
 
 FROM wheel-builder as grain-builder
-SRC URLREF_GRAIN
+ARG URLREF_GRAIN
 ARG SRC_PATH_GRAIN
 
 COPY --from=array_record-builder /tmp/array_record/all_dist/array_record*linux_aarch64.whl /opt/
