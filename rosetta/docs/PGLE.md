@@ -8,9 +8,8 @@ The workflow to use the Profile Guided Latency Estimator with Nsight Systems (Ns
 1. **Profile Run**: We need to run the workload once, with the async collectives and latency hiding scheduler disabled. To be specific we need to turn the following three XLA flags off. All the remaining flags should be unchanged.
 
 ```
-export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false
---xla_gpu_enable_async_all_gather=false
---xla_gpu_enable_async_reduce_scatter=false"
+export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false --xla_gpu_disable_async_collectives=allreduce,allgather,reducescatter,collectivebroadcast,alltoall,collectivepermute"
+
 ```
 The main reason to do this is to not have any overlaps so that we can get exact costs for different ops.
 
@@ -41,8 +40,6 @@ It can have many entries and it is the expected behaviour. One important thing t
 
 ```
 export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
---xla_gpu_enable_async_all_gather=true
---xla_gpu_enable_async_reduce_scatter=true
 --xla_gpu_pgle_profile_file_or_directory_path=path\to\generated\pbtxt"
 ```
 With that we should see good overlap between the computations and collectives.
@@ -64,12 +61,9 @@ PGLE found latency for async op custom-call-start.1 and (assumed)custom-call-don
 In order to get the best performance with PGLE, here is a list of all recommended XLA flags:
 ```
 export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
---xla_gpu_enable_async_all_gather=true
---xla_gpu_enable_async_reduce_scatter=true
 --xla_gpu_enable_triton_gemm=false
 --xla_gpu_simplify_all_fp_conversions
 --xla_gpu_graph_level=0
---xla_gpu_enable_async_all_reduce=true
 --xla_gpu_enable_highest_priority_async_stream=true
 --xla_gpu_all_reduce_combine_threshold_bytes=1073741824
 --xla_gpu_all_gather_combine_threshold_bytes=1073741824
