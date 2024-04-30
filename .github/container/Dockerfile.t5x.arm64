@@ -40,35 +40,35 @@ COPY --from=wheel-builder /mealkit-python-version /mealkit-python-version
 #   https://github.com/google/array_record/tree/v0.5.0/oss/build.Dockerfile.aarch64
 #
 # BEGIN
-    ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
-    # Install supplementary Python interpreters
-    RUN export PYTHON_BIN_PATH=/usr/bin/python$(cat /mealkit-python-version) && \
-        ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python && \
-        ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python3 && \
-        ln -s ${PYTHON_BIN_PATH} /usr/bin/python
+# Install supplementary Python interpreters
+RUN export PYTHON_BIN_PATH=/usr/bin/python$(cat /mealkit-python-version) && \
+    ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python && \
+    ln -s ${PYTHON_BIN_PATH} /usr/local/bin/python3 && \
+    ln -s ${PYTHON_BIN_PATH} /usr/bin/python
 
-  # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
-  #       pkg-config & libhdf5-dev ensure that 3.11.0, or any future version missing ARM, can be built.
-  #       Related: https://github.com/h5py/h5py/issues/2408
-    RUN apt update && \
-        apt install -yqq \
-            apt-utils \
-            build-essential \
-            checkinstall \
-            libffi-dev \
-            pkg-config libhdf5-dev
+# h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
+#       pkg-config & libhdf5-dev ensure that 3.11.0, or any future version missing ARM, can be built.
+#       Related: https://github.com/h5py/h5py/issues/2408
+RUN apt update && \
+    apt install -yqq \
+    apt-utils \
+    build-essential \
+    checkinstall \
+    libffi-dev \
+    pkg-config libhdf5-dev
 
-    # Install pip dependencies needed for array_record
-    RUN /usr/bin/python -m pip install -U pip && \
-        /usr/bin/python -m pip install -U \
-            absl-py \
-            auditwheel \
-            etils[epath] \
-            patchelf \
-            setuptools \
-            twine \
-            wheel
+# Install pip dependencies needed for array_record
+RUN /usr/bin/python -m pip install -U pip && \
+    /usr/bin/python -m pip install -U \
+    absl-py \
+    auditwheel \
+    etils[epath] \
+    patchelf \
+    setuptools \
+    twine \
+    wheel
 # END
 
 RUN <<"EOT" bash -exu
@@ -90,7 +90,7 @@ EOT
 # TODO: Remove this once grain maintainers have published an arm64 wheel.
 
 FROM wheel-builder as grain-builder
-SRC URLREF_GRAIN
+ARG URLREF_GRAIN
 ARG SRC_PATH_GRAIN
 
 COPY --from=array_record-builder /tmp/array_record/all_dist/array_record*linux_aarch64.whl /opt/
@@ -99,34 +99,34 @@ COPY --from=array_record-builder /tmp/array_record/all_dist/array_record*linux_a
 #   https://github.com/google/grain/blob/ab557c31672cc2ac6f9b31e33aea2df00a7da5bf/grain/oss/build.Dockerfile
 #
 # BEGIN
-    # Setup python
-    RUN export MEALKIT_PYTHON_VERSION=$(cat /mealkit-python-version) && \
-        apt-get update && apt-get install -y \
-            python3-dev python3-pip python3-venv && \
-            rm -rf /var/lib/apt/lists/* && \
-            python${MEALKIT_PYTHON_VERSION} -m pip install pip --upgrade && \
-            update-alternatives --install /usr/bin/python python /usr/bin/python${MEALKIT_PYTHON_VERSION} 0
+# Setup python
+RUN export MEALKIT_PYTHON_VERSION=$(cat /mealkit-python-version) && \
+    apt-get update && apt-get install -y \
+    python3-dev python3-pip python3-venv && \
+    rm -rf /var/lib/apt/lists/* && \
+    python${MEALKIT_PYTHON_VERSION} -m pip install pip --upgrade && \
+    update-alternatives --install /usr/bin/python python /usr/bin/python${MEALKIT_PYTHON_VERSION} 0
 
-    # Install pip dependencies needed for grain
-    RUN pip install \
-            absl-py \
-            /opt/array_record*.whl \
-            build \
-            cloudpickle \
-            dm-tree \
-            etils[epath] \
-            jaxtyping \
-            "more-itertools>=9.1.0" \
-            numpy
+# Install pip dependencies needed for grain
+RUN pip install \
+    absl-py \
+    /opt/array_record*.whl \
+    build \
+    cloudpickle \
+    dm-tree \
+    etils[epath] \
+    jaxtyping \
+    "more-itertools>=9.1.0" \
+    numpy
 
-    # Install pip dependencies needed for grain tests
-    RUN pip install \
-            auditwheel \
-            dill \
-            jax \
-            jaxlib \
-            tensorflow \
-            tensorflow-datasets
+# Install pip dependencies needed for grain tests
+RUN pip install \
+    auditwheel \
+    dill \
+    jax \
+    jaxlib \
+    tensorflow \
+    tensorflow-datasets
 # END
 
 RUN git-clone.sh "${URLREF_GRAIN}" "${SRC_PATH_GRAIN}"

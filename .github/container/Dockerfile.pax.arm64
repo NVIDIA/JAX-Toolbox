@@ -19,13 +19,14 @@ FROM ${BASE_IMAGE} as wheel-builder
 
 # tensorflow-text and lingvo build needs bazel
 RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
-    chmod a+x /usr/bin/bazel
+  chmod a+x /usr/bin/bazel
 
 #------------------------------------------------------------------------------
 # build tensorflow-text from source
 #------------------------------------------------------------------------------
 
 FROM wheel-builder as tftext-builder
+ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
 pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
@@ -50,6 +51,7 @@ EOF
 #------------------------------------------------------------------------------
 
 FROM wheel-builder as lingvo-builder
+ARG URLREF_LINGVO
 ARG SRC_PATH_TFTEXT
 ARG SRC_PATH_LINGVO
 
@@ -101,6 +103,8 @@ EOF
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_PAXML
+ARG URLREF_PRAXIS
 ARG SRC_PATH_PAXML
 ARG SRC_PATH_PRAXIS
 ARG SRC_PATH_TFTEXT

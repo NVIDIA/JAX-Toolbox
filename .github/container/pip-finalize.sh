@@ -14,7 +14,7 @@ IFS=$'\n'
 for line in $(cat requirements.pre | egrep '^[^#].+ @ git\+' || true); do
   # VCS installs are of the form "PACKAGE @ git+..."
   PACKAGE=$(echo "$line" | awk '{print $1}')
-  ref=$(yq e ".${PACKAGE}.latest_verified_commit" /opt/manifest.d/manifest.yaml)
+  ref=$(yq e ".${PACKAGE}.latest_verified_commit" ${MANIFEST_FILE})
   echo "${line}@${ref}"
 done | tee requirements.vcs
 unset IFS
@@ -22,7 +22,7 @@ unset IFS
 # Second pip-compile includes one more requirements file that pins all vcs installs
 # Uses a special env var to let our custom pip impl know to treat the following as
 # equivalent:
-# 
+#
 # fiddle @ git+https://github.com/google/fiddle
 # fiddle @ git+https://github.com/google/fiddle@cd4497e4c09bdf95dcccaa1e138c2c125d32d39f
 #
