@@ -184,7 +184,8 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ## Add the GCP - TCPX check to the entrypoint.
 ###############################################################################
 
-COPY gcp-autoconfig.sh /opt/nvidia/entrypoint.d/
+# TODO(chaserileyroberts): Reenable once fully tested on GCP.
+# COPY gcp-autoconfig.sh /opt/nvidia/entrypoint.d/
 
 ###############################################################################
 ## Add helper scripts for profiling with Nsight Systems
