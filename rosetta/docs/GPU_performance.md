@@ -44,6 +44,10 @@ To enable asynchronous communication for all collectives, the following is recom
 
 - --xla_gpu_enable_highest_priority_async_stream=true
 
+For more fine-grained control over which collectives should be asynchronous or not, please use: 
+
+- --xla_gpu_disable_async_collectives=allreduce,allgather,reducescatter,collectivebroadcast,alltoall,collectivepermute
+
 ### Flags to enable optimizations for FSDP communication 
 
 With FSDP in JAX/XLA, there are additional optimizations of 

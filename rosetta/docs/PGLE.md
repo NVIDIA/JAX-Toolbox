@@ -8,7 +8,7 @@ The workflow to use the Profile Guided Latency Estimator with Nsight Systems (Ns
 1. **Profile Run**: We need to run the workload once, with the async collectives and latency hiding scheduler disabled. To be specific we need to turn the following three XLA flags off. All the remaining flags should be unchanged.
 
 ```
-export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false"
+export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false --xla_gpu_disable_async_collectives=allreduce,allgather,reducescatter,collectivebroadcast,alltoall,collectivepermute"
 
 ```
 The main reason to do this is to not have any overlaps so that we can get exact costs for different ops.
