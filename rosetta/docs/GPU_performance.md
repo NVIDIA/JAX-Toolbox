@@ -42,14 +42,7 @@ To enable latency hiding optimizations with XLA, turn on the following flag:
 
 To enable asynchronous communication for all collectives, the following is recommended, and is set by default in XLA :
 
-- --xla_gpu_enable_async_collectives=true
 - --xla_gpu_enable_highest_priority_async_stream=true
-
-For more fine-grained control over which collectives should be asynchronous or not, please use: 
-
-- --xla_gpu_enable_async_all_reduce=<>
-- --xla_gpu_enable_async_collective_permute=<>
-
 
 ### Flags to enable optimizations for FSDP communication 
 
