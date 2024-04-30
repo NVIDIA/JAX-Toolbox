@@ -307,6 +307,7 @@ Note that with models that are particularly dataloading-bottlenecked (e.g. small
 * TE is currently not supported with GLaM models. Future releases will include TE support with GLaM.
 * The provided LLaMA configs do not support TE FP8 for fine-tuning. Future releases will add FP8 support.
 * The Paxml containers disable `NCCL_NVLS_ENABLE=0` ([doc](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature.
+* LoRA without TE is currently not supported for models using `CombinedQKVProjection` where `input_dim != num_heads * dims_per_head`. Fix for this issue will be available in the nightlies soon.
 
 # Changelog
 ## 4/26/2024
