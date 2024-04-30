@@ -56,97 +56,96 @@ ADDITIONAL_ARGS=""
 eval set -- "$args"
 while [ : ]; do
     case "$1" in
-        -a | --additional-args)
-            ADDITIONAL_ARGS="$2"
-            shift 2
-            ;;
-        --mem-fraction)
-            MEM_FRACTION="$2"
-            shift 2
-            ;;
-        --model-name)
-            MODEL_NAME="$2"
-            shift 2
-            ;;
-        --attn-type)
-            ATTN_TYPE="$2"
-            shift 2
-            ;;
-        -b | --batch-per-gpu)
-            BATCH_PER_GPU="$2"
-            shift 2
-            ;;
-        --dtype)
-            DTYPE="$2"
-            shift 2
-            ;;
-        --enable-te)
-            ENABLE_TE=1
-            shift 1
-            ;;
-        -s | --steps)
-            STEPS="$2"
-            shift 2
-            ;;
-        --multiprocess)
-            HARDWARE='gpu_multiprocess'
-            shift 1
-            ;;
-        -o | --output)
-            OUTPUT=$2
-            shift 2
-            ;;
-        --data-parallel)
-            DP="$2"
-            shift 2
-            ;;
-        --fsdp)
-            FSDP="$2"
-            shift 2
-            ;;
-        --tensor-parallel)
-            TP="$2"
-            shift 2
-            ;;
-        --pipeline-parallel)
-            PP="$2"
-            shift 2
-            ;;
-        -n | --nodes)
-            NODES="$2"
-            shift 2
-            ;;
-        -h | --help)
-            usage 1
-            ;;
-        --)
-            shift;
-            break 
-            ;;
-        *)
-            echo "UNKNOWN OPTION $1"
-            usage 1
+    -a | --additional-args)
+        ADDITIONAL_ARGS="$2"
+        shift 2
+        ;;
+    --mem-fraction)
+        MEM_FRACTION="$2"
+        shift 2
+        ;;
+    --model-name)
+        MODEL_NAME="$2"
+        shift 2
+        ;;
+    --attn-type)
+        ATTN_TYPE="$2"
+        shift 2
+        ;;
+    -b | --batch-per-gpu)
+        BATCH_PER_GPU="$2"
+        shift 2
+        ;;
+    --dtype)
+        DTYPE="$2"
+        shift 2
+        ;;
+    --enable-te)
+        ENABLE_TE=1
+        shift 1
+        ;;
+    -s | --steps)
+        STEPS="$2"
+        shift 2
+        ;;
+    --multiprocess)
+        HARDWARE='gpu_multiprocess'
+        shift 1
+        ;;
+    -o | --output)
+        OUTPUT=$2
+        shift 2
+        ;;
+    --data-parallel)
+        DP="$2"
+        shift 2
+        ;;
+    --fsdp)
+        FSDP="$2"
+        shift 2
+        ;;
+    --tensor-parallel)
+        TP="$2"
+        shift 2
+        ;;
+    --pipeline-parallel)
+        PP="$2"
+        shift 2
+        ;;
+    -n | --nodes)
+        NODES="$2"
+        shift 2
+        ;;
+    -h | --help)
+        usage 1
+        ;;
+    --)
+        shift
+        break
+        ;;
+    *)
+        echo "UNKNOWN OPTION $1"
+        usage 1
+        ;;
     esac
 done
 
 # # Set derived variables
 
 GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
-NGPUS=$(( GPUS_PER_NODE * NODES ))
+NGPUS=$((GPUS_PER_NODE * NODES))
 
 # Heuristic to figure out ici and dcn of DP
 # We only use DP across different nodes
-if [ $NGPUS -gt 8 ]
-then 
-    dcn_DP=$((NGPUS/8))
-    ici_DP=$((DP/dcn_DP))
+if [ $NGPUS -gt 8 ]; then
+    dcn_DP=$((NGPUS / 8))
+    ici_DP=$((DP / dcn_DP))
 else
     dcn_DP=1
     ici_DP=$DP
 fi
 
-if [ $ATTN_TYPE -eq 'cudnn_flash_te' ]
-then
+if [ $ATTN_TYPE -eq 'cudnn_flash_te' ]; then
     ENABLE_FUSED_ATTN=1
 fi
 
@@ -178,8 +177,6 @@ export XLA_PYTHON_CLIENT_MEM_FRACTION=${MEM_FRACTION}
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 export BASE_XLA_FLAGS=${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true 
-                --xla_gpu_enable_async_all_gather=true 
-                --xla_gpu_enable_async_reduce_scatter=true 
                 --xla_gpu_enable_triton_gemm=false
                 --xla_gpu_simplify_all_fp_conversions 
                 --xla_gpu_graph_level=0 
@@ -204,11 +201,7 @@ RUN_NAME="logdir" ## the RUN_NAME cannot be changed
 RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME} logits_via_embedding=true decoder_block=${MODEL_NAME} \
     steps=$STEPS per_device_batch_size=${BATCH_PER_GPU} base_emb_dim=2560 base_mlp_dim=8192 remat_policy=minimal attention=${ATTN_TYPE}\
     base_num_query_heads=8 base_num_kv_heads=8 base_num_decoder_layers=8 head_dim=128 enable_checkpointing=false\
-    base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE\
-    dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP\
-    ici_data_parallelism=$ici_DP dcn_data_parallelism=$dcn_DP\
-    ici_tensor_parallelism=$TP dcn_tensor_parallelism=1"
-
+    base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE    dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP    ici_data_parallelism=$ici_DP dcn_data_parallelism=$dcn_DP    ici_tensor_parallelism=$TP dcn_tensor_parallelism=1"
 
 echo "Command: python3 $RUN_SETTINGS"
 python3 $RUN_SETTINGS

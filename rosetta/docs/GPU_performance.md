@@ -48,8 +48,6 @@ To enable asynchronous communication for all collectives, the following is recom
 For more fine-grained control over which collectives should be asynchronous or not, please use: 
 
 - --xla_gpu_enable_async_all_reduce=<>
-- --xla_gpu_enable_async_all_gather=<>
-- --xla_gpu_enable_async_reduce_scatter=<> 
 - --xla_gpu_enable_async_collective_permute=<>
 
 
