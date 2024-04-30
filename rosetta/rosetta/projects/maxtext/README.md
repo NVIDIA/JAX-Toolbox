@@ -2,7 +2,7 @@
 [MaxText](https://github.com/google/maxtext) is high performance scalable LLM framework by Google written in Python and JAX. We support the upstream maxtext and have containers that can support the MaxText main branch out-of-the-box. While training, we strongly recommend to use propoer XLA flags pointed below.
 
 ## Hardware and Software Specifications
-Functionality and performance have been validated on NVIDIA DGX H100 (8x H100 80G) nodes; for details, please refer to the `results and config`section below. We provide both singlenode and multinode pre-training support. If running on a machine with less than 80G memory, some of the default configurations may run out of memory; if you run out of memory and have more GPUs available, increase your GPU count and decrease your batch size per GPU.
+Functionality and performance have been validated on NVIDIA DGX H100 (8x H100 80G) nodes; We provide both singlenode and multinode pre-training support. If running on a machine with less than 80G memory, some of the default configurations may run out of memory; if you run out of memory and have more GPUs available, increase your GPU count and decrease your batch size per GPU.
 
 The [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit) is required to run the subsequent commands with GPU support. Ensure the NVIDIA Container Toolkit is installed before proceeding.
 
@@ -22,14 +22,33 @@ docker run -ti --gpus=all --net=host --ipc=host -v <WORKSPACE_PATH>:/opt/maxtext
 where `WORKSPACE_PATH` is the path to the directory where you would like to store any persistent files and `container` is the name of the maxtext container. You can additionally add dataset and vocab paths with the `-v` flag.
 
 ## Running a job
+### Quick Runs
+#### Interactive: Single node
 Once the container is up and running, you can quickly launch a job with the following command
 ```
-python3 MaxText/train.py MaxText/configs/base.yml hardware-gpu run_name=$YOUR_JOB_NAME
+python3 MaxText/train.py MaxText/configs/base.yml hardware=gpu run_name=$YOUR_JOB_NAME
 ```
-### Running a multinode job
-Please see the (example_slurm.sub)[./scripts/example_slurm.sub] for a multinode multiprocess job.
+You can similarly launch a llama2-7b training job with following command:
+```
+python3 MaxText/train.py MaxText/configs/base.yml run_name=$YOUR_JOB_NAME use_iota_embed=true scan_layers=true\
+    steps=15 per_device_batch_size=2 model_name=llama2-7b remat_policy=minimal_flash enable_checkpointing=false logits_dot_in_fp32=false\
+    base_output_directory=local_train dataset_path=local dataset_type=synthetic attention=dot_product\
+    max_target_length=4096 hardware=gpu
+```
 
-... more details to be included
+#### Running with Flash Attention
+Currently, MaxText offers flash attention through [Transformer Engine](https://github.com/NVIDIA/TransformerEngine). In order to use flash attention, please select the proper attention type through `attention=cudnn_flash_te` argument. Additionally you need to set `export NVTE_FUSED_ATTN=1`.
+
+#### Running a multinode job
+Please see the [example_slurm.sub](scripts/example_slurm.sub) for a multinode multiprocess job. For a single node (8 GPUs) llama2-7b run, the command should look like:
+```
+sbatch -N 1 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/example_slurm.sub
+```
+If can edit the script to add necessary mounts and paths or you can also pass them with the command line like this:
+```
+CONTAINER=<CONTAINER> BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> sbatch -N 1 -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/example_slurm.sub
+```
+In order to obtain the best performance, please set the appropriate XLA flags. We further discuss it below:
 
 ## XLA Flags
 The [GPU Performance document](../../../docs/GPU_performance.md) provides a detailed description of the XLA flags that can be set to optimize performance. These are the recommended XLA flags to get good performance for MaxText.
@@ -55,10 +74,10 @@ XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
             --xla_gpu_enable_reduce_scatter_combine_by_dim=false 
             --xla_disable_hlo_passes=rematerialization"
 ```
-
 # Notes
 1. The only changes we need to support multiprocessing is to pin tensorflow and tensorflow-text to 2.13.0 version.
 2. In order to remove extra copies introduced by DUS (dynamic update slice) when used in conjunction with custom NVIDIA kernels (like cuBLAS for GEMMs), the `--xla_gpu_enable_custom_fusions` and `--xla_gpu_enable_address_computation_fusion` flags were introduced. However, the current XLA has some limitation and sometimes using these flags lead to error. So, in this release, it is advised to turn off these two flags:
     - --xla_gpu_enable_custom_fusions=false
     - --xla_gpu_enable_address_computation_fusion=false
 
+    In addtion to the above XLA flags, you may need to add these two flags.
