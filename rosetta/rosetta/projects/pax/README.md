@@ -125,7 +125,7 @@ ENABLE_FP8=1 bash paxml/contrib/gpu/scripts_gpu/run_pile_singlenode.sh /opt/paxm
 Note that transformer engine must be enabled (`ENABLE_TE=1`) in order to train with FP8 using TE). Also, note that packing is currently not supported when using TE. All configs disable packing by default, but beware that if packing is manually enabled, training with TE will error.
 
 ## Native FP8
-Rosetta Pax containers also provide support for native FP8 through XLA. Enabling FP8 can be done by adding the following command-line flag to your bash script: `--fdl.USE_FP8=True`. When using native FP8, TE must be disabled. For a detailed explanation of native FP8 support in Pax, as well as a comparison between native FP8 and TE FP8, please refer to the [NATIVE_FP8](../../../rosetta/docs/NATIVE_FP8.md) documentation.
+Rosetta Pax containers also provide support for native FP8 through XLA. Enabling FP8 can be done by adding the following command-line flag to your bash script: `--fdl.USE_FP8=True`. When using native FP8, TE must be disabled. For a detailed explanation of native FP8 support in Pax, as well as a comparison between native FP8 and TE FP8, please refer to the [NATIVE_FP8](../../../docs/NATIVE_FP8.md) documentation.
 
 ## Flash Attention
 Flash attention is enabled by default in the given container. Divergence has been observed with the GPT 126M model with flash attention enabled. If you observe divergence when running GPT 126M, it is recommended to disable flash attention. If training with Transformer Engine, you can disable FA using the following environment variable: `NVTE_FUSED_ATTN=0`. If not using TE, FA can be disabled using the following XLA flag: `--set_xla_gpu_enable_cudnn_fmha=False`.
@@ -258,7 +258,7 @@ if converting the 70B checkpoint, the following additional arguments should be p
 ```
 Please refer to the checkpoint converter [readme](../../../utils/te_pax_t5x_ckpt_converter#readme) for more detailed instructions.
 
-The script [download_boolq.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_boolq.py) downloads the BoolQ dataset to the `TFDS_DATA_DIR` (see [Downloading the Pile and Lambada Datasets](#Downloading-the-pile-and-lambada-datasets) for more). Once BoolQ has been downloaded, the script [example_slurm_llama.sub](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/scripts/example_slurm_llama.sub) can be used to reproduce the results reported in the tables. The script calls `paxml/contrib/gpu/scripts_gpu/run_llama_boolq.sh`, which is configured to run the 7B model by default. Please inspect `run_llama_boolq.sh` in your container to see the arguments that can be overwritten if interested in running other model sizes. Launch `example_slurm_llama.sub` using the following command:
+The script [download_boolq.py](https://github.com/google/paxml/blob/main/paxml/contrib/gpu/scripts_gpu/download_boolq.py) downloads the BoolQ dataset to the `TFDS_DATA_DIR` (see [Downloading the Pile and Lambada Datasets](#Downloading-the-pile-and-lambada-datasets) for more). Once BoolQ has been downloaded, the script [example_slurm_llama.sub](scripts/example_slurm_llama.sub) can be used to reproduce the results reported in the tables. The script calls `paxml/contrib/gpu/scripts_gpu/run_llama_boolq.sh`, which is configured to run the 7B model by default. Please inspect `run_llama_boolq.sh` in your container to see the arguments that can be overwritten if interested in running other model sizes. Launch `example_slurm_llama.sub` using the following command:
 
 ```
 CONTAINER=<CONTAINER> BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_BOOLQ> BASE_VOCAB_PATH=<PATH_TO_LLAMA_TOKENIZER> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> EVAL_ONLY=<EVAL_ONLY> USE_LORA=<USE_LORA> BASE_CHECKPOINT_RESTORE_PATH=<PATH_TO_PRETRAINED_CHECKPOINT> LOG_DIR_LOCAL=<DIR_TO_STORE_NEW_CHECKPOINTS_AND_LOGS> CONFIG=<LLaMA_CONFIG> ENABLE_TE=<ENABLE_TE> sbatch -N <NUM_NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/example_slurm_llama.sub
@@ -279,9 +279,9 @@ CONTAINER=<CONTAINER> BASE_WORKSPACE_DIR=$PWD BASE_TFDS_DATA_DIR=<PATH_TO_BOOLQ>
 _Note_: The given LLaMA configs currently do not support FP8 training via Transformer Engine. We are actively working on this and will update the configs as TE support becomes available.
 
 ## Running an Experiment with Base Configs
-The `run_base_config_multinode.sh` script is provided to run any of the base configs provided in `paxml/contrib/gpu/scripts_gpu/configs.py` out of the box. [scripts/launch_base_config.sub](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/scripts/launch_base_config.sub) uses this script to train a model on a slurm cluster. Launch this script using the following command:
+The `run_base_config_multinode.sh` script is provided to run any of the base configs provided in `paxml/contrib/gpu/scripts_gpu/configs.py` out of the box. [scripts/launch_base_script.sub](scripts/launch_base_script.sub) uses this script to train a model on a slurm cluster. Launch this script using the following command:
 ```
-CONTAINER=<CONTAINER> CONFIG=<CONFIG_NAME> BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=<PRECISION> GPUS_PER_NODE=<GPUS_PER_NODE> ENABLE_TE=<ENABLE_TE> ENABLE_FP8=<ENABLE_FP8> sbatch -N <NUM_NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/launch_base_config.sub
+CONTAINER=<CONTAINER> CONFIG=<CONFIG_NAME> BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> BASE_TFDS_DATA_DIR=<PATH_TO_THE_PILE> BASE_VOCAB_PATH=<PATH_TO_SENTENCEPIECE_MODEL> LOG_DIR_LOCAL=<LOG_DIR_LOCAL> OUTPUT_DIR=<OUTPUT_DIR_LOCAL> PREC=<PRECISION> GPUS_PER_NODE=<GPUS_PER_NODE> ENABLE_TE=<ENABLE_TE> ENABLE_FP8=<ENABLE_FP8> sbatch -N <NUM_NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> scripts/launch_base_script.sub
 ```
 where `CONFIG` is the name of the config from `paxml/contrib/gpu/scripts_gpu/configs.py`. Here, it is assumed that you are running with the number of nodes reported in the table. If using a different node count, scale `DCN_MESH_SHAPE` accordingly. For example, the default value of `DCN_MESH_SHAPE` for `GPT5B` is `[1,32,1]`. If running on 16 nodes, adjust `DCN_MESH_SHAPE` in your bash script as follows:
 ```
@@ -289,10 +289,10 @@ where `CONFIG` is the name of the config from `paxml/contrib/gpu/scripts_gpu/con
 ```
 
 ### Synthetic Dataset
-We also provide GPT 126M, 5B and 175B configurations with a dummy dataset for quick benchmarking. The script `run_base_config_multinode.sh` can also be used to benchmark any of the given base models using the synthetic dataset. [scripts/launch_base_config.sub](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/scripts/launch_base_config.sub) can be used to launch this script on a slurm cluster. When training using a dummy dataset, it is not required to pass in a `BASE_VOCAB_PATH` or `TFDS_DATA_DIR`:
+We also provide GPT 126M, 5B and 175B configurations with a dummy dataset for quick benchmarking. The script `run_base_config_multinode.sh` can also be used to benchmark any of the given base models using the synthetic dataset. [scripts/launch_base_script.sub](scripts/launch_base_script.sub) can be used to launch this script on a slurm cluster. When training using a dummy dataset, it is not required to pass in a `BASE_VOCAB_PATH` or `TFDS_DATA_DIR`:
 
 ```
-BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> CONFIG=Synthetic<126M, 5B, 175B> OUTPUT_DIR=<OUTPUT_DIR> PREC=bfloat16 ENABLE_TE=<ENABLE_TE> ENABLE_FP8=<ENABLE_FP8> LOG_DIR_LOCAL=<LOG_DIR> sbatch -N <NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> -t <TIME_LIMIT> scripts/launch_base_config.sub
+BASE_WORKSPACE_DIR=<PATH_TO_WORKSPACE> CONFIG=Synthetic<126M, 5B, 175B> OUTPUT_DIR=<OUTPUT_DIR> PREC=bfloat16 ENABLE_TE=<ENABLE_TE> ENABLE_FP8=<ENABLE_FP8> LOG_DIR_LOCAL=<LOG_DIR> sbatch -N <NODES> -A <ACCOUNT> -p <PARTITION> -J <JOBNAME> -t <TIME_LIMIT> scripts/launch_base_script.sub
 ```
 
 For example, the following command benchmarks the 5B model on 32 nodes with TE BF16 using the synthetic dataset:
