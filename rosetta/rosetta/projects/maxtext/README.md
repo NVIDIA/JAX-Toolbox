@@ -30,14 +30,27 @@ python3 MaxText/train.py MaxText/configs/base.yml hardware=gpu run_name=$YOUR_JO
 ```
 You can similarly launch a llama2-7b training job with following command:
 ```
-python3 MaxText/train.py MaxText/configs/base.yml run_name=$YOUR_JOB_NAME use_iota_embed=true scan_layers=true\
-    steps=15 per_device_batch_size=2 model_name=llama2-7b remat_policy=minimal_flash enable_checkpointing=false logits_dot_in_fp32=false\
-    base_output_directory=local_train dataset_path=local dataset_type=synthetic attention=dot_product\
-    max_target_length=4096 hardware=gpu
+python3 MaxText/train.py \
+    MaxText/configs/base.yml \
+    model_name=llama2-7b \
+    per_device_batch_size=2 \
+    max_target_length=4096 \
+    scan_layers=true \
+    steps=15 \
+    remat_policy=minimal \
+    use_iota_embed=true \
+    logits_dot_in_fp32=false \
+    enable_checkpointing=false \
+    base_output_directory=local_train \
+    dataset_path=local \
+    dataset_type=synthetic \
+    attention=dot_product \
+    hardware=gpu
+    run_name=${YOUR_JOB_NAME}
 ```
 
 #### Running with Flash Attention
-Currently, MaxText offers flash attention through [Transformer Engine](https://github.com/NVIDIA/TransformerEngine). In order to use flash attention, please select the proper attention type through `attention=cudnn_flash_te` argument. Additionally you need to set `export NVTE_FUSED_ATTN=1`.
+Currently, MaxText offers flash attention through [Transformer Engine](https://github.com/NVIDIA/TransformerEngine). In order to use flash attention, please select the proper attention type through `attention=cudnn_flash_te` argument. Additionally you need to set `export NVTE_FUSED_ATTN=1`. Also if you are interested in using `minimal` remat policy, for flash attention, please specify `remat_policy=minimal_flash`. This optionally saves the flash attention output tensor named `'context'`.
 
 #### Running a multinode job
 Please see the [example_slurm.sub](scripts/example_slurm.sub) for a multinode multiprocess job. For a single node (8 GPUs) llama2-7b run, the command should look like:
