@@ -4,17 +4,13 @@
 
 usage() {
 cat <<EOF
-This script is a utility for updating source references in a manifest YAML file for building 
-JAX-Toolbox images. It either updates the 'commit' for each package in the
-manifest based on its current tracking reference, or, if specified, creates local patches that
-freeze git-refs (which can point to different SHAs).
+This script is a utility for updating patches when building JAX-Toolbox images.
 
 Usage: $0 [OPTION]...
   -b, --base-patch-dir  PATH     Where generated patch files are written. Default is $SCRIPT_DIR/patches
   -i, --input-manifest  PATH     The YAML manifest file specifying the world state. Updated in-place unless --output-manifest is provided
   -h, --help                     Print usage.
   -o, --output-manifest PATH     Path to output manifest. Use this if you don't want to update manifest in-place
-  -s, --skip-bump-refs           If provided, update patch files and the patchlist in the manifest, but skip bumping refs
 
 Note: patches are always updated in-place
 
@@ -34,10 +30,6 @@ while [ : ]; do
     -b | --base-patch-dir)
         BASE_PATCH_DIR=$(readlink -f "$2")
         shift 2
-        ;;
-    -s | --skip-bump-refs)
-        SKIP_BUMP_REFS=1
-        shift 1
         ;;
     -i | --input-manifest)
         MANIFEST_IN=$(readlink -f "$2")
@@ -68,7 +60,6 @@ set -eou pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 BASE_PATCH_DIR=${BASE_PATCH_DIR:-$SCRIPT_DIR/patches}
-SKIP_BUMP_REFS=${SKIP_BUMP_REFS:-0}
 
 if [[ -z "${MANIFEST_IN:-}" ]]; then
   echo "Need to provide a value for -i/--input-manifest"
@@ -84,17 +75,6 @@ else
 fi
 
 for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
-    mode=$(yq e ".${pkg}.mode" $MANIFEST_OUT)
-    if [[ $mode == pip-vcs && $SKIP_BUMP_REFS -eq 0 ]]; then
-        url=$(yq e ".${pkg}.url" $MANIFEST_OUT)
-        tracking_ref=$(yq e ".${pkg}.tracking_ref" $MANIFEST_OUT)
-        if ! new_ref=$(git ls-remote --exit-code $url $tracking_ref | awk '{print $1}'); then
-          echo "Could not fetch $tracking_ref from $url"
-          exit 1
-	      fi
-        yq e ".${pkg}.commit = \"$new_ref\"" -i $MANIFEST_OUT
-    fi
-
     has_patches=$(yq e ".${pkg} | has(\"patches\")" $MANIFEST_OUT)
     if [[ $has_patches == "true" ]]; then
         url=$(yq e ".${pkg}.url" $MANIFEST_OUT)

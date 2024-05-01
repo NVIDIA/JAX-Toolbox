@@ -26,37 +26,3 @@ praxis:
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
     pull/36/head: file://patches/praxis/PR-36.patch # adds Transformer Engine support
-# Used by praxis
-fiddle:
-  url: https://github.com/google/fiddle.git
-  tracking_ref: main
-  mode: pip-vcs
-# Used by t5x
-airio:
-  url: https://github.com/google/airio.git
-  tracking_ref: main
-  mode: pip-vcs
-clu:
-  url: https://github.com/google/CommonLoopUtils.git
-  tracking_ref: main
-  mode: pip-vcs
-dllogger:
-  url: https://github.com/NVIDIA/dllogger.git
-  tracking_ref: master
-  mode: pip-vcs
-jestimator:
-  url: https://github.com/google-research/jestimator.git
-  tracking_ref: main
-  mode: pip-vcs
-optax:
-  url: https://github.com/google-deepmind/optax.git
-  tracking_ref: main
-  mode: pip-vcs
-seqio:
-  url: https://github.com/google/seqio.git
-  tracking_ref: main
-  mode: pip-vcs
-mlperf-logging:
-  url: https://github.com/mlcommons/logging.git
-  tracking_ref: master
-  mode: pip-vcs
