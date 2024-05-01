@@ -96,7 +96,7 @@ for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
     fi
 
     has_patches=$(yq e ".${pkg} | has(\"patches\")" $MANIFEST_OUT)
-    if [[ $mode == git-clone && $has_patches == "true" ]]; then
+    if [[ $has_patches == "true" ]]; then
         url=$(yq e ".${pkg}.url" $MANIFEST_OUT)
         repo_tmp=$(mktemp -d /tmp/${pkg}.XXXXXX)
         git clone $url $repo_tmp

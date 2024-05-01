@@ -42,7 +42,6 @@ t5x:
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
   extra_dir: $extra_tmp
   tracking_ref: main
-  mode: git-clone
   patches:
     $EXTRA_PATCH_BRANCH: null
 EOF
