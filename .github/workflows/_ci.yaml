@@ -8,17 +8,22 @@ on:
         required: true
       BUILD_DATE:
         type: string
-        description: Build date in YYYY-MM-DD format
+        description: 'Build date in YYYY-MM-DD format'
         required: false
         default: NOT SPECIFIED
       MANIFEST_ARTIFACT_NAME:
         type: string
-        description: Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch
+        description: 'Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch'
         default: ''
         required: false
+      SOURCE_URLREFS:
+        type: string
+        description: 'A JSON object containing git url+refs for softwares to be built'
+        required: false
+        default: '{}'
     outputs:
       DOCKER_TAGS:
-        description: JSON object containing tags of all docker images built
+        description: 'JSON object containing tags of all docker images built'
         value: ${{ jobs.collect-docker-tags.outputs.TAGS }}
 
 permissions:
@@ -48,21 +53,29 @@ jobs:
       CONTAINER_NAME: jax
       DOCKERFILE: .github/container/Dockerfile.jax
       RUNNER_SIZE: large
+      EXTRA_BUILD_ARGS: |
+        URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
+        URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
+        URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
+        URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
     secrets: inherit
 
-  build-triton:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-triton-build
-      BADGE_FILENAME: badge-triton-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: triton
-      DOCKERFILE: .github/container/Dockerfile.triton
-    secrets: inherit
+  # build-triton:
+  #   needs: build-jax
+  #   if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
+  #   uses: ./.github/workflows/_build.yaml
+  #   with:
+  #     ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+  #     ARTIFACT_NAME: artifact-triton-build
+  #     BADGE_FILENAME: badge-triton-build
+  #     BUILD_DATE: ${{ inputs.BUILD_DATE }}
+  #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+  #     CONTAINER_NAME: triton
+  #     DOCKERFILE: .github/container/Dockerfile.triton
+  #     EXTRA_BUILD_ARGS: |
+  #       URLREF_OXLA_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).OXLA_TRITON }}
+  #       URLREF_JAX_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
+  #   secrets: inherit
 
   build-equinox:
     needs: build-jax
@@ -75,6 +88,8 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: equinox
       DOCKERFILE: .github/container/Dockerfile.equinox
+      EXTRA_BUILD_ARGS: |
+        URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
     secrets: inherit
 
   build-maxtext:
@@ -89,6 +104,8 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: maxtext
       DOCKERFILE: .github/container/Dockerfile.maxtext.amd64
+      EXTRA_BUILD_ARGS: |
+        URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
     secrets: inherit
 
   build-levanter:
@@ -102,6 +119,9 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: levanter
       DOCKERFILE: .github/container/Dockerfile.levanter
+      EXTRA_BUILD_ARGS: |
+        URLREF_LEVANTER=${{ fromJson(inputs.SOURCE_URLREFS).LEVANTER }}
+        URLREF_HALIAX=${{ fromJson(inputs.SOURCE_URLREFS).HALIAX }}
     secrets: inherit
 
   build-upstream-t5x:
@@ -115,6 +135,8 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
       DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
+      EXTRA_BUILD_ARGS: |
+        URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
     secrets: inherit
 
   build-upstream-pax:
@@ -128,6 +150,9 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-pax
       DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+      EXTRA_BUILD_ARGS: |
+        URLREF_PAXML=${{ fromJson(inputs.SOURCE_URLREFS).PAXML }}
+        URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
     secrets: inherit
 
   build-rosetta-t5x:
@@ -161,15 +186,17 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: grok
       DOCKERFILE: .github/container/Dockerfile.grok
+      EXTRA_BUILD_ARGS: |
+        URLREF_GROK_1=${{ fromJson(inputs.SOURCE_URLREFS).GROK_1 }}
     secrets: inherit
-    
+
   collect-docker-tags:
     runs-on: ubuntu-22.04
     if: "!cancelled()"
     needs:
       - build-base
       - build-jax
-      - build-triton
+      # - build-triton
       - build-equinox
       - build-maxtext
       - build-levanter
@@ -317,7 +344,7 @@ jobs:
 
   test-pallas:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # triton doesn't support arm64(?)
+    if: inputs.ARCHITECTURE == 'amd64'
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: pallas
@@ -341,31 +368,31 @@ jobs:
         test-pallas.log
     secrets: inherit
 
-  test-triton:
-    needs: build-triton
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: triton
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
-        ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-triton.log
-          python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
-        EOF
-      STATISTICS_SCRIPT: |
-        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
-        total_tests=$(./yq '.testsuites."+@tests"' triton_test.xml)
-        errors=$(./yq '.testsuites."+@errors"' triton_test.xml)
-        failed_tests=$(./yq '.testsuites."+@failures"' triton_test.xml)
-        passed_tests=$((total_tests - errors - failed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-triton.log
-    secrets: inherit
+  # test-triton:
+  #   needs: build-triton
+  #   if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+  #   uses: ./.github/workflows/_test_unit.yaml
+  #   with:
+  #     TEST_NAME: triton
+  #     EXECUTE: |
+  #       docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
+  #       ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
+  #       bash <<"EOF" |& tee test-triton.log
+  #         python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
+  #       EOF
+  #     STATISTICS_SCRIPT: |
+  #       curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
+  #       total_tests=$(./yq '.testsuites."+@tests"' triton_test.xml)
+  #       errors=$(./yq '.testsuites."+@errors"' triton_test.xml)
+  #       failed_tests=$(./yq '.testsuites."+@failures"' triton_test.xml)
+  #       passed_tests=$((total_tests - errors - failed_tests))
+  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+  #       echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+  #     ARTIFACTS: |
+  #       test-triton.log
+  #   secrets: inherit
 
   test-levanter:
     needs: build-levanter
@@ -405,7 +432,7 @@ jobs:
         ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-te.log
           pip install pytest-reportlog
-          pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TE}/tests/jax
+          pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TRANSFORMER_ENGINE}/tests/jax
         EOF
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-te.log)

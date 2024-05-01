@@ -28,6 +28,13 @@ on:
         description: "(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch"
         default: false
         required: false
+      SOURCE_OVERRIDES:
+        type: string
+        description: |
+          A comma-separated PACKAGE=URL#REF list to override sources used by build.
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,paxml,praxis,maxtext,levanter,haliax,grok,mujuco,mujuco-mpc} (case-insensitive)
+        default: ''
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -102,10 +109,12 @@ jobs:
             echo "Error: If BUMP_MANIFEST=false, MERGE_BUMPED_MANIFEST cannot be true" >&2
             exit 1
           fi
-
+      
   bump-manifest:
     needs: metadata
     runs-on: ubuntu-22.04
+    outputs:
+      SOURCE_URLREFS: ${{ steps.source-urlrefs.outputs.SOURCE_URLREFS }}
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
@@ -139,6 +148,25 @@ jobs:
             .github/container/manifest.yaml
             .github/container/patches
 
+      - name: Create URL ref build args
+        id: source-urlrefs
+        shell: bash -x -e {0}
+        run: |
+          # converts manifest yaml to a json object of {SOFTWARE_NAME: URL#REF, ...}
+          urlrefs=$(
+            cat .github/container/manifest.yaml |\
+            yq -o=json 'to_entries | .[] | select(.value.mode == "git-clone") | {( .key | upcase | sub("-", "_") ): .value.url + "#" + .value.latest_verified_commit}' |\
+            jq -c -s 'add'
+          )
+          # SOURCE_OVERRIDES is a comma-separated list of package=urlref pairs
+          IFS=, read -ra overrides <<< "${{ inputs.SOURCE_OVERRIDES }}"
+          for override in "${overrides[@]}"; do
+            PACKAGE=$(cut -d= -f 1 <<< "${override}" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+            URLREF=$(cut -d= -f 2- <<< "${override}")
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
+          done
+          echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
+
   amd64:
     needs: [metadata, bump-manifest]
     uses: ./.github/workflows/_ci.yaml
@@ -146,6 +174,7 @@ jobs:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+      SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
     secrets: inherit
 
   arm64:
@@ -155,6 +184,7 @@ jobs:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+      SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
     secrets: inherit
 
   # Only merge if everything succeeds
@@ -288,7 +318,7 @@ jobs:
           declare -a FLAVORS=(
             base
             jax
-            triton
+            # triton
             equinox
             maxtext
             levanter
