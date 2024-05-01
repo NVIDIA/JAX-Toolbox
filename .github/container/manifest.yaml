@@ -34,9 +34,6 @@ praxis:
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
     pull/36/head: file://patches/praxis/PR-36.patch # adds Transformer Engine support
-pydantic:
-  version: X.Y.Z
-  mode: pip-constraint
 # Used by praxis
 fiddle:
   url: https://github.com/google/fiddle.git
