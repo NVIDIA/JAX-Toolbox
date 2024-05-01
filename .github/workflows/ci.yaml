@@ -155,7 +155,7 @@ jobs:
           # converts manifest yaml to a json object of {SOFTWARE_NAME: URL#REF, ...}
           urlrefs=$(
             cat .github/container/manifest.yaml |\
-            yq -o=json 'to_entries | .[] | select(.value.mode == "git-clone") | {( .key | upcase | sub("-", "_") ): .value.url + "#" + .value.latest_verified_commit}' |\
+            yq -o=json 'to_entries | .[] | select(.value.mode == "git-clone") | {( .key | upcase | sub("-", "_") ): .value.url + "#" + .value.commit}' |\
             jq -c -s 'add'
           )
           # SOURCE_OVERRIDES is a comma-separated list of package=urlref pairs
