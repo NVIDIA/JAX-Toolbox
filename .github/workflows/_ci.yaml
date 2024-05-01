@@ -60,22 +60,20 @@ jobs:
         URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
     secrets: inherit
 
-  # build-triton:
-  #   needs: build-jax
-  #   if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
-  #   uses: ./.github/workflows/_build.yaml
-  #   with:
-  #     ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-  #     ARTIFACT_NAME: artifact-triton-build
-  #     BADGE_FILENAME: badge-triton-build
-  #     BUILD_DATE: ${{ inputs.BUILD_DATE }}
-  #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-  #     CONTAINER_NAME: triton
-  #     DOCKERFILE: .github/container/Dockerfile.triton
-  #     EXTRA_BUILD_ARGS: |
-  #       URLREF_OXLA_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).OXLA_TRITON }}
-  #       URLREF_JAX_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
-  #   secrets: inherit
+  build-triton:
+    needs: build-jax
+    if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-triton-build
+      BADGE_FILENAME: badge-triton-build
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: triton
+      DOCKERFILE: .github/container/Dockerfile.triton
+      EXTRA_BUILD_ARGS: URLREF_JAX_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
+    secrets: inherit
 
   build-equinox:
     needs: build-jax
@@ -94,7 +92,7 @@ jobs:
 
   build-maxtext:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
+    if: inputs.ARCHITECTURE == 'amd64'
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -196,7 +194,7 @@ jobs:
     needs:
       - build-base
       - build-jax
-      # - build-triton
+      - build-triton
       - build-equinox
       - build-maxtext
       - build-levanter
@@ -368,31 +366,31 @@ jobs:
         test-pallas.log
     secrets: inherit
 
-  # test-triton:
-  #   needs: build-triton
-  #   if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-  #   uses: ./.github/workflows/_test_unit.yaml
-  #   with:
-  #     TEST_NAME: triton
-  #     EXECUTE: |
-  #       docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
-  #       ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
-  #       bash <<"EOF" |& tee test-triton.log
-  #         python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
-  #       EOF
-  #     STATISTICS_SCRIPT: |
-  #       curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
-  #       total_tests=$(./yq '.testsuites."+@tests"' triton_test.xml)
-  #       errors=$(./yq '.testsuites."+@errors"' triton_test.xml)
-  #       failed_tests=$(./yq '.testsuites."+@failures"' triton_test.xml)
-  #       passed_tests=$((total_tests - errors - failed_tests))
-  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-  #       echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-  #     ARTIFACTS: |
-  #       test-triton.log
-  #   secrets: inherit
+  test-triton:
+    needs: build-triton
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: triton
+      EXECUTE: |
+        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
+        ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-triton.log
+          python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
+        EOF
+      STATISTICS_SCRIPT: |
+        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
+        total_tests=$(./yq '.testsuites."+@tests"' triton_test.xml)
+        errors=$(./yq '.testsuites."+@errors"' triton_test.xml)
+        failed_tests=$(./yq '.testsuites."+@failures"' triton_test.xml)
+        passed_tests=$((total_tests - errors - failed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-triton.log
+    secrets: inherit
 
   test-levanter:
     needs: build-levanter
