@@ -21,7 +21,7 @@ on:
       BUMP_MANIFEST:
         type: boolean
         description: Bump git repos in manifest.yaml to head of tree?
-        default: false
+        default: true
         required: false
       MERGE_BUMPED_MANIFEST:
         type: boolean
