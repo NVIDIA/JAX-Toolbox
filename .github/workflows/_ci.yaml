@@ -54,10 +54,10 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.jax
       RUNNER_SIZE: large
       EXTRA_BUILD_ARGS: |
-        URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
-        URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
-        URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
-        URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+        ${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
+        ${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
+        ${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
+        ${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
     secrets: inherit
 
   build-triton:
@@ -72,7 +72,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: triton
       DOCKERFILE: .github/container/Dockerfile.triton
-      EXTRA_BUILD_ARGS: URLREF_JAX_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
+      EXTRA_BUILD_ARGS: ${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
     secrets: inherit
 
   build-equinox:
@@ -86,8 +86,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: equinox
       DOCKERFILE: .github/container/Dockerfile.equinox
-      EXTRA_BUILD_ARGS: |
-        URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
+      EXTRA_BUILD_ARGS: ${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
     secrets: inherit
 
   build-maxtext:
@@ -102,8 +101,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: maxtext
       DOCKERFILE: .github/container/Dockerfile.maxtext.amd64
-      EXTRA_BUILD_ARGS: |
-        URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
+      EXTRA_BUILD_ARGS: ${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
     secrets: inherit
 
   build-levanter:
@@ -118,8 +116,8 @@ jobs:
       CONTAINER_NAME: levanter
       DOCKERFILE: .github/container/Dockerfile.levanter
       EXTRA_BUILD_ARGS: |
-        URLREF_LEVANTER=${{ fromJson(inputs.SOURCE_URLREFS).LEVANTER }}
-        URLREF_HALIAX=${{ fromJson(inputs.SOURCE_URLREFS).HALIAX }}
+        ${{ fromJson(inputs.SOURCE_URLREFS).LEVANTER }}
+        ${{ fromJson(inputs.SOURCE_URLREFS).HALIAX }}
     secrets: inherit
 
   build-upstream-t5x:
@@ -133,8 +131,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
       DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
-      EXTRA_BUILD_ARGS: |
-        URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
+      EXTRA_BUILD_ARGS: ${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
     secrets: inherit
 
   build-upstream-pax:
@@ -149,8 +146,8 @@ jobs:
       CONTAINER_NAME: upstream-pax
       DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
       EXTRA_BUILD_ARGS: |
-        URLREF_PAXML=${{ fromJson(inputs.SOURCE_URLREFS).PAXML }}
-        URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
+        ${{ fromJson(inputs.SOURCE_URLREFS).PAXML }}
+        ${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
     secrets: inherit
 
   build-rosetta-t5x:
@@ -184,8 +181,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: grok
       DOCKERFILE: .github/container/Dockerfile.grok
-      EXTRA_BUILD_ARGS: |
-        URLREF_GROK_1=${{ fromJson(inputs.SOURCE_URLREFS).GROK_1 }}
+      EXTRA_BUILD_ARGS: ${{ fromJson(inputs.SOURCE_URLREFS).GROK_1 }}
     secrets: inherit
 
   collect-docker-tags:

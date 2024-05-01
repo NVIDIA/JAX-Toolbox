@@ -163,7 +163,7 @@ jobs:
           for override in "${overrides[@]}"; do
             PACKAGE=$(cut -d= -f 1 <<< "${override}" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
             URLREF=$(cut -d= -f 2- <<< "${override}")
-            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"URLREF_${PACKAGE}=$URLREF\"}")
           done
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
 
