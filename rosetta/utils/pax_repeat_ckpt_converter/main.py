@@ -59,6 +59,22 @@ def parse_args():
                         action="store_true",
                         default=False,
                         help="indicate whether the source checkpoint has biases.")
+    parser.add_argument(
+        '--use-gated-activations',
+        action="store_true",
+        default=False,
+        help="indicate if the model uses a gated activation function.")
+    parser.add_argument(
+        '--pax-split-qkv',
+        action="store_true",
+        default=False,
+        help="indicate if the source Pax checkpoint has split QKV parameters.")
+    parser.add_argument(
+        '--skip-position-emb',
+        action="store_true",
+        default=False,
+        help="indicate if the model does NOT have a trainable position embedding.")
+
     args = parser.parse_args()
 
     return args
@@ -70,7 +86,8 @@ def get_convert_helper(args):
                                args.mlp_intermediate_dim)
 
     return NonRepeat2RepeatConvertHelper(args.input_path, args.output_path, model_config,
-                              args.weight_only, args.skip_bias)
+                              args.weight_only, args.skip_bias, args.use_gated_activations,
+                              args.pax_split_qkv, args.skip_position_emb)
 
 
 if __name__ == "__main__":

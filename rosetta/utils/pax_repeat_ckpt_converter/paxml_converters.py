@@ -72,12 +72,6 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                             (hidden_dim,), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.layer_norm.scale" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.x_layers_0.self_attention.combined_qkv.w":
-                      self._get_convert_pkg(
-                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.combined_qkv.w",
-                            (3, hidden_dim, num_of_head, head_dim), 0,
-                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.combined_qkv.w" for i in range(1, num_layers)],
-                            stack_dim = 0),
                     f"lm.transformer.x_layers_0.self_attention.post.w":
                       self._get_convert_pkg(
                             f"lm.transformer.repeat.sub.x_layers_0.self_attention.post.w",
@@ -87,44 +81,110 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                    }
         
         if not self.skip_bias:
+            ckpt_map.update({
+                f"lm.transformer.x_layers_0.ff_layer.ffn_layer1.bias.b":
+                    self._get_convert_pkg(
+                        f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer1.bias.b",
+                        (mlp_intermediate_dim,), 0,
+                        extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1.bias.b" for i in range(1, num_layers)],
+                        stack_dim = 0),
+                f"lm.transformer.x_layers_0.ff_layer.ffn_layer2.bias.b":
+                    self._get_convert_pkg(
+                        f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer2.bias.b",
+                        (hidden_dim,), 0,
+                        extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer2.bias.b" for i in range(1, num_layers)],
+                        stack_dim = 0),
+                f"lm.transformer.x_layers_0.ff_layer.layer_norm.bias":
+                    self._get_convert_pkg(
+                        f"lm.transformer.repeat.sub.x_layers_0.ff_layer.layer_norm.bias",
+                        (mlp_intermediate_dim,), 0,
+                        extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.layer_norm.bias" for i in range(1, num_layers)],
+                        stack_dim = 0),
+                f"lm.transformer.x_layers_0.layer_norm.bias":
+                    self._get_convert_pkg(
+                        f"lm.transformer.repeat.sub.x_layers_0.layer_norm.bias",
+                        (hidden_dim,), 0,
+                        extra_src_paths = [f"lm.transformer.x_layers_{i}.layer_norm.bias" for i in range(1, num_layers)],
+                        stack_dim = 0),
+                f"lm.transformer.x_layers_0.self_attention.post.b":
+                    self._get_convert_pkg(
+                        f"lm.transformer.repeat.sub.x_layers_0.self_attention.post.b",
+                        (hidden_dim,), 0,
+                        extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.post.b" for i in range(1, num_layers)],
+                        stack_dim = 0),
+            })
+
+        if self.use_gated_activations:
+            ckpt_map.update({
+                f"lm.transformer.x_layers_0.ff_layer.ffn_layer1_gate.linear.w":
+                    self._get_convert_pkg(
+                            f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer1_gate.linear.w",
+                            (hidden_dim, mlp_intermediate_dim), 0,
+                            extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1_gate.linear.w" for i in range(1, num_layers)],
+                            stack_dim = 0),
+            })
+ 
+        if self.split_qkv:
+            ckpt_map.update({
+                f"lm.transformer.x_layers_0.self_attention.query.w":
+                      self._get_convert_pkg(
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.query.w",
+                            (hidden_dim, num_of_head, head_dim), 0,
+                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.query.w" for i in range(1, num_layers)],
+                            stack_dim = 0),
+                f"lm.transformer.x_layers_0.self_attention.key.w":
+                      self._get_convert_pkg(
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.key.w",
+                            (hidden_dim, num_of_head, head_dim), 0,
+                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.key.w" for i in range(1, num_layers)],
+                            stack_dim = 0),
+                f"lm.transformer.x_layers_0.self_attention.value.w":
+                      self._get_convert_pkg(
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.value.w",
+                            (hidden_dim, num_of_head, head_dim), 0,
+                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.query.w" for i in range(1, num_layers)],
+                            stack_dim = 0),
+            })
+            if not self.skip_bias:
                 ckpt_map.update({
-                    f"lm.transformer.x_layers_0.ff_layer.ffn_layer1.bias.b":
+                    f"lm.transformer.x_layers_0.self_attention.query.b":
                         self._get_convert_pkg(
-                            f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer1.bias.b",
-                            (mlp_intermediate_dim,), 0,
-                            extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1.bias.b" for i in range(1, num_layers)],
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.query.b",
+                            (num_of_head, head_dim), 0,
+                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.query.b" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.x_layers_0.ff_layer.ffn_layer2.bias.b":
+                    f"lm.transformer.x_layers_0.self_attention.key.b":
                         self._get_convert_pkg(
-                            f"lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer2.bias.b",
-                            (hidden_dim,), 0,
-                            extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer2.bias.b" for i in range(1, num_layers)],
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.key.b",
+                            (num_of_head, head_dim), 0,
+                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.key.b" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.x_layers_0.ff_layer.layer_norm.bias":
+                    f"lm.transformer.x_layers_0.self_attention.value.b":
                         self._get_convert_pkg(
-                            f"lm.transformer.repeat.sub.x_layers_0.ff_layer.layer_norm.bias",
-                            (mlp_intermediate_dim,), 0,
-                            extra_src_paths = [f"lm.transformer.x_layers_{i}.ff_layer.layer_norm.bias" for i in range(1, num_layers)],
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.value.b",
+                            (num_of_head, head_dim), 0,
+                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.value.b" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.x_layers_0.layer_norm.bias":
-                        self._get_convert_pkg(
-                            f"lm.transformer.repeat.sub.x_layers_0.layer_norm.bias",
-                            (hidden_dim,), 0,
-                            extra_src_paths = [f"lm.transformer.x_layers_{i}.layer_norm.bias" for i in range(1, num_layers)],
+                })
+        else:
+            ckpt_map.update({
+                f"lm.transformer.x_layers_0.self_attention.combined_qkv.w":
+                      self._get_convert_pkg(
+                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.combined_qkv.w",
+                            (3, hidden_dim, num_of_head, head_dim), 0,
+                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.combined_qkv.w" for i in range(1, num_layers)],
                             stack_dim = 0),
+            })
+            if not self.skip_bias:
+                ckpt_map.update({
                     f"lm.transformer.x_layers_0.self_attention.combined_qkv.b":
                         self._get_convert_pkg(
                             f"lm.transformer.repeat.sub.x_layers_0.self_attention.combined_qkv.b",
                             (3, num_of_head, head_dim), 0,
                             extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.combined_qkv.b" for i in range(1, num_layers)],
                             stack_dim = 0),
-                    f"lm.transformer.x_layers_0.self_attention.post.b":
-                        self._get_convert_pkg(
-                            f"lm.transformer.repeat.sub.x_layers_0.self_attention.post.b",
-                            (hidden_dim,), 0,
-                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.post.b" for i in range(1, num_layers)],
-                            stack_dim = 0),
                 })
+            
                 
         return ckpt_map
 
@@ -159,7 +219,7 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                             f"opt_states_0.no_prefix_2.count",
                             None, None,
                             just_copy = True),
-	                 self._get_convert_pkg(
+                         self._get_convert_pkg(
                             "opt_states_0.p#12#i-1_2.count",
                             (), 0,
                             functools.partial(repeat_count, num_layers=12)),
@@ -169,34 +229,19 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                             f"opt_states_0.no_prefix_3.count",
                             None, None,
                             just_copy = True),
-	                 self._get_convert_pkg(
+                         self._get_convert_pkg(
                             "opt_states_0.p#12#i-1_3.count",
                             (), 0,
                             functools.partial(repeat_count, num_layers=12)),
                         ],
-                    f"opt_states_0_2.m.params.lm.final_ln.bias":
-                        self._get_convert_pkg(
-                            f"opt_states_0.no_prefix_2.m.params.lm.final_ln.bias",
-                            None, None,
-                            just_copy = True),
                     f"opt_states_0_2.m.params.lm.final_ln.scale":
                         self._get_convert_pkg(
                             f"opt_states_0.no_prefix_2.m.params.lm.final_ln.scale",
                             None, None,
                             just_copy = True),
-                    f"opt_states_0_2.m.params.lm.position_emb.emb_var":
-                        self._get_convert_pkg(
-                            f"opt_states_0.no_prefix_2.m.params.lm.position_emb.emb_var",
-                            None, None,
-                            just_copy = True),
                     f"opt_states_0_2.m.params.lm.softmax.logits_ffn.linear.w":
                         self._get_convert_pkg(
                             f"opt_states_0.no_prefix_2.m.params.lm.softmax.logits_ffn.linear.w",
-                            None, None,
-                            just_copy = True),
-                    f"opt_states_0_2.v.params.lm.final_ln.bias":
-                        self._get_convert_pkg(
-                            f"opt_states_0.no_prefix_2.v.params.lm.final_ln.bias",
                             None, None,
                             just_copy = True),
                     f"opt_states_0_2.v.params.lm.final_ln.scale":
@@ -215,5 +260,29 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                             None, None,
                             just_copy = True),
             }
+
+        if not self.skip_bias:
+            ckpt_map.update({
+                    f"opt_states_0_2.m.params.lm.final_ln.bias":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.m.params.lm.final_ln.bias",
+                            None, None,
+                            just_copy = True),
+                    f"opt_states_0_2.v.params.lm.final_ln.bias":
+                        self._get_convert_pkg(
+                            f"opt_states_0.no_prefix_2.v.params.lm.final_ln.bias",
+                            None, None,
+                            just_copy = True),
+                })
+
+        if not self.skip_position_emb:
+            ckpt_map.update({
+                f"opt_states_0_2.m.params.lm.position_emb.emb_var":
+                    self._get_convert_pkg(
+                        f"opt_states_0.no_prefix_2.m.params.lm.position_emb.emb_var",
+                        None, None,
+                        just_copy = True),
+            })
+
 
         return ckpt_map

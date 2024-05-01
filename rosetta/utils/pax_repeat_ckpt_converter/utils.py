@@ -55,12 +55,16 @@ class ConvertPkg:
 class ConvertHelper:
 
     def __init__(self, input_path: str, output_path: str, model_config: ModelConfig,
-                 weight_only: bool, skip_bias: bool):
+                 weight_only: bool, skip_bias: bool, use_gated_activations: bool,
+                 split_qkv: bool, skip_position_emb: bool):
         self.input_path = input_path
         self.output_path = output_path
         self.model_config = model_config
         self.weight_only = weight_only
         self.skip_bias = skip_bias
+        self.use_gated_activations = use_gated_activations
+        self.split_qkv = split_qkv
+        self.skip_position_emb = skip_position_emb
 
     @property
     def src_categories(self):
