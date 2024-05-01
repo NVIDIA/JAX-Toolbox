@@ -10,14 +10,23 @@ pushd /opt/pip-tools.d
 # twice
 pip-compile -o requirements.pre $(ls requirements-*.in)
 
-IFS=$'\n'
-for line in $(cat requirements.pre | egrep '^[^#].+ @ git\+' || true); do
-  # VCS installs are of the form "PACKAGE @ git+..."
-  PACKAGE=$(echo "$line" | awk '{print $1}')
+# Find the VCS installs, which are of the form
+# PACKAGE @ git+GIT_REPO_URL
+for line in $(sed -n -e 's/^\([^#].*\) @ git+\(.*\)$/\1=\2/p' requirements.pre); do
+  PACKAGE="${line%=*}"
+  REPO_URL="${line#*=}"
   ref=$(yq e ".${PACKAGE}.commit" ${MANIFEST_FILE})
-  echo "${line}@${ref}"
+  if [[ "${ref}" == "null" ]]; then
+    # If a commit wasn't pinned in the manifest, get the latest version of the
+    # default branch of $REPO_URL, pin it, and write it to the manifest.
+    ref=$(git ls-remote --exit-code "${REPO_URL}" HEAD | awk '{ print $1 }')
+    touch /opt/manifest.d/pip-finalize.yaml
+    yq -i e ".${PACKAGE}.commit = \"${ref}\"" /opt/manifest.d/pip-finalize.yaml
+    yq -i e ".${PACKAGE}.mode = \"pip-vcs\"" /opt/manifest.d/pip-finalize.yaml
+    yq -i e ".${PACKAGE}.url = \"${REPO_URL}\"" /opt/manifest.d/pip-finalize.yaml
+  fi
+  echo "${PACKAGE} @ git+${REPO_URL}@${ref}"
 done | tee requirements.vcs
-unset IFS
 
 # Second pip-compile includes one more requirements file that pins all vcs installs
 # Uses a special env var to let our custom pip impl know to treat the following as
