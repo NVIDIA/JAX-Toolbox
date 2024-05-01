@@ -1,0 +1,37 @@
+#!/bin/bash
+set -e -o pipefail
+
+# Handle commandline arguments
+proto_dir="$1"
+shift
+
+# Work in a temporary directory
+tmp_dir=$(mktemp -d --tmpdir protoc-install.XXXXXXXX)
+pushd "$tmp_dir" 1>&2
+
+# We need a compatible version of `protoc` and the `google.protobuf` runtime.
+# If both already exist: assume they are compatible.
+# Otherwise: fetch the latest versions of both.
+virtualenv venv 1>&2
+. venv/bin/activate 1>&2
+nsys-jax-ensure-protobuf 1>&2
+
+# Either way, protoc and google.protobuf should work now.
+mkdir compiled
+find "${proto_dir}" -name '*.proto' | xargs protoc -I=${proto_dir} --python_out=compiled 1>&2
+
+# Parse the .hlo.pb files from $@ and print the set of referenced source files
+PYTHONPATH="${PWD}/compiled:${PYTHONPATH}" python - "$@" <<EOL
+import sys
+from xla.service import hlo_pb2
+hlo = hlo_pb2.HloProto()
+src_files = set()
+for hlo_pb_file in sys.argv[1:]:
+    with open(hlo_pb_file, "rb") as f: hlo.ParseFromString(f.read())
+    src_files |= set(hlo.hlo_module.stack_frame_index.file_names)
+print("\n".join(src_files), end="")
+EOL
+
+# Cleanup
+popd 1>&2
+rm -rf "${tmp_dir}"

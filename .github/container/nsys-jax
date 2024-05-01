@@ -1,0 +1,553 @@
+#!/usr/bin/env python
+import argparse
+from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
+from contextlib import contextmanager
+from glob import glob, iglob
+import lzma
+import os
+import os.path as osp
+import queue
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import zipfile
+
+# The valid invocations of this wrapper are:
+#   nsys-jax exe [exe args ...]
+#   nsys-jax [nsys args ...] -- exe [exe args ...]
+# where if `exe args` contains `--` then the second form must be used.
+# The wrapper has a few extra arguments of its own, which are all prefixed with
+# --nsys-jax- and must be passed as "nsys args" in the form above.
+nsys_flags_and_cmd = sys.argv[1:]
+try:
+    limit = nsys_flags_and_cmd.index("--")
+    nsys_flags = nsys_flags_and_cmd[:limit]
+    application = nsys_flags_and_cmd[limit + 1 :]
+except ValueError:
+    # No --, everything is the application
+    nsys_flags = []
+    application = nsys_flags_and_cmd
+
+if shutil.which(application[0]) is None:
+    raise Exception(
+        f"{application[0]} not found by shutil.which. Did you remember to place -- between extra arguments for nsys and your application?"
+    )
+
+
+# Expand %q{ENV_VAR} if the variable is defined.
+def expand(string, skip_missing=True):
+    missing = set()
+
+    def rep(x):
+        if len(x.group(1)) % 2 == 0:
+            return x.group(0)
+        if x.group(2) not in os.environ:
+            missing.add(x.group(2))
+            return x.group(0)
+        return x.group(1)[:-1] + os.environ[x.group(2)]
+
+    expanded = re.sub(r"([%]+)q\{(.*?)\}", rep, string).replace("%%", "%")
+    if not skip_missing and missing:
+        raise Exception(f"{missing} not defined when expanding '{string}'")
+    return expanded
+
+
+# Parse any --nsys-jax arguments and remove them from nsys_flags
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--nsys-jax-condition",
+    help=(
+        "Bash expression that will be expanded to determine if this instance "
+        "of nsys-jax should actually launch nsys. Example: "
+        "--nsys-jax-condition='$SLURM_LOCALID == 0' to only profile the first "
+        "rank on each node. The expression is evaluated inside [[ ... ]]."
+    ),
+)
+nsys_jax_flags, nsys_flags = parser.parse_known_args(nsys_flags)
+
+enable_profiling = True
+if nsys_jax_flags.nsys_jax_condition is not None:
+    enable_profiling = (
+        subprocess.run(
+            ["/bin/bash", "-c", f"[[ {nsys_jax_flags.nsys_jax_condition} ]]"],
+            shell=False,
+        ).returncode
+        == 0
+    )
+
+# See if an output location was already passed to nsys. There are four known
+# syntaxes for this: -o XXX, -oXXX, --output=XXX, and --output XXX. Here we
+# extract XXX *and* remove the relevant arguments from the list. This is
+# because we write the report initially to a temporary directory.
+nsys_output = None
+for n, flag in enumerate(nsys_flags):
+    if flag in {"-o", "--output"}:
+        nsys_output = nsys_flags[n + 1]
+        del nsys_flags[n : n + 2]
+        break
+    elif flag.startswith("-o"):
+        nsys_output = flag[2:]
+        del nsys_flags[n]
+        break
+    elif flag.startswith("--output="):
+        nsys_output = flag[9:]
+        del nsys_flags[n]
+        break
+if nsys_output is not None:
+    # --output=test and --output=test.nsys-rep result in the same thing
+    nsys_output = expand(nsys_output.removesuffix(".nsys-rep"))
+    if not osp.isabs(nsys_output):
+        nsys_output = osp.join(os.getcwd(), nsys_output)
+    archive_name = nsys_output + ".zip"
+elif enable_profiling:
+    # There was not an explicit output location; generate one. There may be
+    # multiple ranks racing to do this.
+    archive_handle, archive_name = tempfile.mkstemp(
+        dir=os.getcwd(), prefix="nsys-jax-report-", suffix=".zip"
+    )
+    # Re-open it based on name later, mkstemp is just a way of avoiding races
+    os.close(archive_handle)
+
+# We will write /final/output/path/name.zip, and it will contain name.nsys-rep,
+# but we do not instruct nsys to write that to /final/output/path/name.nsys-rep
+# so that more of the processing can happen on a faster, more local filesystem.
+tmp_dir = tempfile.mkdtemp()
+tmp_rep = osp.join(tmp_dir, "report.nsys-rep")
+nsys_flags += ["--output", tmp_rep]
+
+
+def override_nsys_default(arg, value):
+    if any(x.startswith(f"--{arg}=") for x in nsys_flags):
+        return
+    nsys_flags.append(f"--{arg}={value}")
+
+
+# Override some Nsight Systems defaults, but don't block setting them explicitly.
+override_nsys_default("cuda-graph-trace", "node")
+override_nsys_default("cpuctxsw", "none")
+override_nsys_default("python-sampling", "true")
+# TODO: consider dropping osrt from here
+override_nsys_default("trace", "cublas,cuda,cudnn,cusolver,nvtx,osrt")
+
+# Extract --force-overwrite=X (or variants: --force-overwrite X, -f X, -fX)
+# from arguments; need to propagate this to nsys recipe below.
+for n, flag in enumerate(nsys_flags):
+    if flag in {"-f", "--force-overwrite"}:
+        nsys_force_overwrite = nsys_flags[n + 1]
+        break
+    elif flag.startswith("-f"):
+        nsys_force_overwrite = flag[2:]
+        break
+    elif flag.startswith("--force-overwrite="):
+        nsys_force_overwrite = flag[18:]
+        break
+else:
+    nsys_force_overwrite = "false"
+assert nsys_force_overwrite in {"true", "false"}
+nsys_force_overwrite = nsys_force_overwrite == "true"
+
+# Modified environment in which to run the application
+env = os.environ.copy()
+
+# Stop stack traces from being truncated in the metadata passed to XLA unless
+# the option was explicitly set.
+if "JAX_TRACEBACK_IN_LOCATIONS_LIMIT" not in env:
+    env["JAX_TRACEBACK_IN_LOCATIONS_LIMIT"] = "-1"
+
+# Disable the compilation cache so that we get the full set of .pb files
+if "JAX_ENABLE_COMPILATION_CACHE" not in env:
+    env["JAX_ENABLE_COMPILATION_CACHE"] = "false"
+
+# Get the existing XLA_FLAGS and parse them into a dictionary.
+xla_flag_list = shlex.split(env.get("XLA_FLAGS", ""))
+xla_flags = {}
+for flag in xla_flag_list:
+    assert flag.startswith("--")
+    bits = flag[2:].split("=", maxsplit=1)
+    name, value = bits[0], bits[1] if len(bits) > 1 else None
+    assert name not in xla_flags
+    xla_flags[name] = value
+
+
+def as_list(flags):
+    return [f"--{n}" if v is None else f"--{n}={v}" for n, v in flags.items()]
+
+
+assert xla_flag_list == as_list(xla_flags)
+
+
+def as_bool(s):
+    """String -> bool conversion following XLA's semantics."""
+    if s.lower() == "true" or s == "1":
+        return True
+    if s.lower() == "false" or s == "0":
+        return False
+    raise Exception("Could not convert '{}' to bool".format(s))
+
+
+# Enable dumping protobufs unless it was explicitly disabled
+if "xla_dump_hlo_as_proto" not in xla_flags:
+    xla_flags["xla_dump_hlo_as_proto"] = "true"
+
+proto_dump_enabled = as_bool(xla_flags["xla_dump_hlo_as_proto"])
+
+# For simplicity, impose our directory structure on the dump from XLA
+if proto_dump_enabled:
+    if "xla_dump_to" in xla_flags:
+        print(f"WARNING: --xla_dump_to={xla_flags['xla_dump_to']} being overriden")
+    xla_flags["xla_dump_to"] = osp.join(tmp_dir, "dump")
+else:
+    print("WARNING: protobuf dump explicitly disabled, things will break")
+
+# Serialise the modified XLA flags. shlex.join is tempting, but doesn't seem to
+# get the right result for --xla_dump_hlo_pass_re=.*, as it adds extra quotes.
+env["XLA_FLAGS"] = " ".join(as_list(xla_flags))
+
+# Run the application in nsys
+# TODO: consider being more fault-tolerant?
+# The Nsight Systems command prefix
+nsys = [
+    "nsys",
+    "profile",
+] + nsys_flags
+subprocess.run((nsys if enable_profiling else []) + application, check=True, env=env)
+
+# If we skipped profiling the application, there is nothing more to be done.
+if not enable_profiling:
+    sys.exit(0)
+
+# Check the output report was written and is new
+if not osp.exists(tmp_rep):
+    raise Exception(f"Could not find output file: {tmp_rep}")
+
+
+# Use deflate compression
+compress_deflate = {"compress_type": zipfile.ZIP_DEFLATED}
+# Do not compress (if the file is already compressed)
+compress_none = {}
+
+
+def copy_proto_files_to_tmp(tmp_dir, xla_dir="/opt/xla"):
+    """
+    Copy .proto files from XLA into a temporary directory under `tmp_dir`.
+
+    TODO: install .proto files as part of `jaxlib`, so this can work without
+          the XLA sources being available under `xla_dir` e.g. as part of a
+          generic `pip` installation of JAX.
+
+    Returns: (name of temporary directory, list of relative .proto paths)
+    """
+    start = time.time()
+    proto_dir = osp.join(tmp_dir, "protos")
+    tsl_dir = osp.join(xla_dir, "third_party", "tsl")
+    proto_files = []
+    for p, root in [("tsl/**/*.proto", tsl_dir), ("xla/**/*.proto", xla_dir)]:
+        for proto in iglob(p, recursive=True, root_dir=root):
+            proto_files.append(proto)
+            dst_dir = osp.join(proto_dir, osp.dirname(proto))
+            if not osp.isdir(dst_dir):
+                os.makedirs(dst_dir)
+            shutil.copy(osp.join(root, proto), osp.join(proto_dir, proto))
+    print(f"{archive_name}: gathered .proto files in {time.time()-start:.2f}s")
+    return proto_dir, proto_files
+
+
+def run_nsys_recipe(recipe, report_file, tmp_dir, output_queue):
+    """
+    Post-process a .nsys-rep file into a .parquet file for offline analysis.
+    This is currently implemented using the given nsys recipe.
+    """
+    start = time.time()
+    recipe_output = osp.join(tmp_dir, recipe)
+    subprocess.run(
+        [
+            "nsys",
+            "recipe",
+            recipe,
+            "--input",
+            report_file,
+            "--output",
+            recipe_output,
+        ]
+        + (["--force-overwrite"] if nsys_force_overwrite else []),
+        check=True,
+    )
+    for ofile in iglob(recipe + "/**", recursive=True, root_dir=tmp_dir):
+        output_queue.put((ofile, osp.join(tmp_dir, ofile), compress_none))
+    print(f"{archive_name}: post-processing finished in {time.time()-start:.2f}s")
+
+
+def compress_and_archive(prefix, file, output_queue):
+    """
+    Read prefix+file, compress it, queue the compressed bytes for archival
+    without further compression.
+    """
+    with open(osp.join(prefix, file), "rb") as ifile:
+        output_queue.put((file + ".xz", lzma.compress(ifile.read()), compress_none))
+
+
+def run_nsys_stats_report(report, report_file, tmp_dir, output_queue, wait_on):
+    """
+    Run a stats recipe on an .nsys-rep file (that has probably already been
+    exported to .sqlite).
+    """
+    try:
+        wait_on.result()
+    except:
+        raise Exception("Dependency raised exception")
+    start = time.time()
+    subprocess.run(
+        [
+            "nsys",
+            "stats",
+            "--report",
+            report,
+            "--input",
+            report_file,
+            "--output",
+            ".",
+        ]
+        + (["--force-overwrite"] if nsys_force_overwrite else []),
+        check=True,
+    )
+    for ofile in iglob("report_" + report + ".csv", root_dir=tmp_dir):
+        compress_and_archive(tmp_dir, ofile, output_queue)
+    print(f"{archive_name}: post-processing finished in {time.time()-start:.2f}s")
+
+
+def copy_jax_nsys_files(input_dir, output_queue):
+    """
+    Gather files from `input_dir` and queue them for archival.
+    """
+    # Gather the files from /opt/jax_nsys that should be bundled into the archive.
+    for file in iglob("**", recursive=True, root_dir=input_dir):
+        output_queue.put((file, osp.join(input_dir, file), compress_deflate))
+
+
+def find_pb_files_in_tmp(tmp_dir):
+    """
+    Return a prefix + list of relative paths to Protobuf files dumped by XLA.
+    """
+    return tmp_dir, glob("dump/*.pb", root_dir=tmp_dir) + glob(
+        "dump/*.pbtxt", root_dir=tmp_dir
+    )
+
+
+def gather_source_files(proto_dir, pb_file_prefix, pb_file_list, output_queue):
+    """
+    Given a directory containing the required .proto files (`proto_dir`) and a
+    prefix (`pb_file_prefix`) and list of relative paths to .pb files
+    (`pb_file_list`), extract a list of source code files referred to by the
+    XLA metadata and embed those source code files in the output archive.
+    """
+    start = time.time()
+    # .hlo.pb are used to gather source code to be embedded
+    hlo_pb_files = [
+        osp.join(pb_file_prefix, x) for x in pb_file_list if x.endswith(".hlo.pb")
+    ]
+    # Delegate to another script to extract the list of source files referenced
+    # by .hlo.pb files. This pattern allows the other script to setup
+    # google.protobuf and protoc if needed to get a consistent installation.
+    p = subprocess.Popen(
+        ["nsys-jax-gather-src-files", proto_dir] + hlo_pb_files,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    stdout, stderr = p.communicate()
+    if p.returncode != 0:
+        raise Exception("Gathering source code failed: " + stderr)
+    src_files = stdout.splitlines()
+    if len(src_files) == 0:
+        raise Exception("No source files were gathered")
+    # Copy these files into the output archive.
+    for src_file in src_files:
+        assert osp.isabs(src_file), f"{src_file} is not absolute"
+        output_queue.put(("sources" + src_file, src_file, compress_deflate))
+    print(f"{archive_name}: gathered source code in {time.time()-start:.2f}s")
+
+
+def write_output_file(to_process, output_file):
+    """
+    Write the output archive (`output_file`) by consuming entries from the
+    queue until a `None` sentinel value is seen.
+    """
+    start = time.time()
+    with zipfile.ZipFile(output_file, "w") as archive:
+        while True:
+            timeout = 30
+            try:
+                item = to_process.get(timeout=timeout)
+                to_process.task_done()
+                if item is None:
+                    # This is the sentinel value instructing us to exit.
+                    assert to_process.empty()
+                    break
+                path_in_archive, content, kwargs = item
+                if isinstance(content, bytes):
+                    archive.writestr(path_in_archive, content, **kwargs)
+                else:
+                    archive.write(content, arcname=path_in_archive, **kwargs)
+            except queue.Empty:
+                print(f"{archive_name}: output stalled ({timeout}s heartbeat)")
+    os.chmod(output_file, 0o644)
+    print(f"{archive_name}: wrote in {time.time()-start:.2f}s")
+
+
+def process_pb_files(pb_future):
+    """
+    Queue .pb and .pbtxt files for inclusion in the output archive.
+    """
+    pb_file_prefix, pb_file_list = pb_future.result()
+    for pb_file in pb_file_list:
+        futures.append(
+            executor.submit(
+                compress_and_archive, pb_file_prefix, pb_file, files_to_archive
+            )
+        )
+
+
+def process_pb_and_proto_files(pb_future, proto_future, output_queue, futures):
+    """
+    Queue .proto files for inclusion in the output archive and trigger
+    gathering source code files once .pb/.pbtxt/.proto files are available.
+    """
+    # Block for completion of copy_proto_files_to_tmp
+    proto_dir, proto_files = proto_future.result()
+    # Queue them for inclusion in the output archive
+    for proto_file in proto_files:
+        output_queue.put(
+            (
+                osp.join("protos", proto_file),
+                osp.join(proto_dir, proto_file),
+                compress_deflate,
+            )
+        )
+    # Wait to have pb files too
+    pb_file_prefix, pb_file_list = pb_future.result()
+    # Submit work that depends on the proto directory
+    futures.append(
+        executor.submit(
+            gather_source_files,
+            proto_dir,
+            pb_file_prefix,
+            pb_file_list,
+            files_to_archive,
+        )
+    )
+
+
+# Orchestrate post-processing steps:
+# - collect Python source files:
+#   - collect list of .proto files
+#   - copy them to a temp dir
+#   - extract list of Python source files from .pb/.pbtxt files using that dir
+#   - save those source files to the archive
+#   - save the .proto files in the temp dir to the archive
+# - save .pb/.pbtxt files:
+#   - gather a list of these
+#   - compress them individually
+#   - add the compressed versions to the output archive w/out extra compression
+# - save the .nsys-rep file to the output archive with compression
+# - post-process the .nsys-rep
+#   - convert .nsys-rep -> .parquet in the temp dir with nsys recipe
+#   - save the .parquet file to the output archive w/out extra compression
+# - copy the contents of /opt/jax_nsys into the output archive
+
+# Element format: (path_in_archive, Path or bytes, ZipFile.write* kwargs)
+files_to_archive = queue.Queue()
+
+
+@contextmanager
+def output_thread(executor: ThreadPoolExecutor):
+    """
+    Launch the output worker on context manager entry, signal that it should
+    exit on context manager exit.
+    """
+    try:
+        # Spawn a worker to actually write the output file, consuming entries
+        # in output_queue.
+        yield executor.submit(write_output_file, files_to_archive, archive_name)
+    finally:
+        # Signal via the output queue that the worker should exit.
+        files_to_archive.put(None)
+
+
+exit_code = 0
+with ThreadPoolExecutor() as executor, output_thread(executor):
+    # Track futures so we can wait on them and report errors.
+    futures = []
+    # Queue the .nsys-rep for compression
+    files_to_archive.put(
+        (
+            osp.basename(archive_name).removesuffix(".zip") + ".nsys-rep",
+            tmp_rep,
+            compress_deflate,
+        )
+    )
+    # Convert .nsys-rep -> .parquet and queue the latter for archival
+    gpu_proj_future = executor.submit(
+        run_nsys_recipe,
+        "nvtx_gpu_proj_trace",
+        tmp_rep,
+        tmp_dir,
+        files_to_archive,
+    )
+    futures.append(gpu_proj_future)
+    # Copy /opt/jax_nsys into the archive
+    futures.append(
+        executor.submit(copy_jax_nsys_files, "/opt/jax_nsys", files_to_archive)
+    )
+    # Gather the list of .proto files
+    proto_future = executor.submit(copy_proto_files_to_tmp, tmp_dir)
+    # Gather the list of .pb[txt] files
+    pb_future = executor.submit(find_pb_files_in_tmp, tmp_dir)
+    futures.append(pb_future)
+    futures.append(executor.submit(process_pb_files, pb_future))
+    # Wait on pb_future and proto_future and submit dependent work
+    futures.append(
+        executor.submit(
+            process_pb_and_proto_files,
+            pb_future,
+            proto_future,
+            files_to_archive,
+            futures,
+        )
+    )
+    # Don't run this in parallel with gpu_proj_future because the two recipes
+    # implicitly create the same .sqlite export on demand.
+    futures.append(
+        executor.submit(
+            run_nsys_stats_report,
+            "nvtx_pushpop_trace",
+            tmp_rep,
+            tmp_dir,
+            files_to_archive,
+            gpu_proj_future,  # for dependency purposes only
+        )
+    )
+    # Wait for errors/completion of `futures`; note that this does not include
+    # the output thread, which is signaled to on exit from this block.
+    total_futures = len(futures)
+    while True:
+        results = wait(futures, return_when=FIRST_EXCEPTION, timeout=30)
+        # Check if we exited early because of an exception and, if so, print it
+        # immediately. Do not abort, so even in case of errors a valid archive
+        # containing as much useful information as possible will be written.
+        for future in results.done:
+            if future.done() and future.exception() is not None:
+                exit_code = 1
+                print("Exception:", future.exception())
+        pending = len(results.not_done)
+        if pending == 0:
+            break
+        print(f"{archive_name}: {pending}/{total_futures} pending")
+        # Only continue to monitor the ones that weren't already finished
+        futures = results.not_done
+if exit_code:
+    print(f"{archive_name}: exiting with code {exit_code} due to errors")
+sys.exit(exit_code)
