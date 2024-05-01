@@ -21,8 +21,8 @@ on:
       BUMP_MANIFEST:
         type: boolean
         description: Bump git repos in manifest.yaml to head of tree?
-        default: false
-        required: false
+        default: true
+        required: true
       MERGE_BUMPED_MANIFEST:
         type: boolean
         description: "(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch"
@@ -88,7 +88,11 @@ jobs:
         id: manifest-branch
         shell: bash -x -e {0}
         run: |
-          BUMP_MANIFEST=${{ github.event_name == 'schedule' || inputs.BUMP_MANIFEST || 'false' }}
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            BUMP_MANIFEST="${{ inputs.BUMP_MANIFEST }}"
+          else
+            BUMP_MANIFEST="true"
+          fi
           MERGE_BUMPED_MANIFEST=${{ github.event_name == 'schedule' || inputs.MERGE_BUMPED_MANIFEST || 'false' }}
           # Prepend nightly manifest branch with "z" to make it appear at the end
           if [[ "$BUMP_MANIFEST" == "true" ]]; then
