@@ -194,6 +194,9 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
         def repeat_count(arr, num_layers):
             return jax.numpy.repeat(arr, num_layers)
 
+        if self.weight_only:
+            return {}
+
         ckpt_map = {f"opt_states_0_0.count":
                         [self._get_convert_pkg(
                             f"opt_states_0.no_prefix_0.count",
@@ -254,11 +257,6 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                             f"opt_states_0.no_prefix_2.v.params.lm.softmax.logits_ffn.linear.w",
                             None, None,
                             just_copy = True),
-                    f"opt_states_0_2.v.params.lm.position_emb.emb_var":
-                        self._get_convert_pkg(
-                            f"opt_states_0.no_prefix_2.v.params.lm.position_emb.emb_var",
-                            None, None,
-                            just_copy = True),
             }
 
         if not self.skip_bias:
@@ -280,6 +278,11 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                 f"opt_states_0_2.m.params.lm.position_emb.emb_var":
                     self._get_convert_pkg(
                         f"opt_states_0.no_prefix_2.m.params.lm.position_emb.emb_var",
+                        None, None,
+                        just_copy = True),
+                f"opt_states_0_2.v.params.lm.position_emb.emb_var":
+                    self._get_convert_pkg(
+                        f"opt_states_0.no_prefix_2.v.params.lm.position_emb.emb_var",
                         None, None,
                         just_copy = True),
             })
