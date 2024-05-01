@@ -90,11 +90,11 @@ XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
 
 # Configs
 ### LLaMA
-We have run some intial performance and functionality tests with [LLaMA2-7B](https://ai.meta.com/research/publications/llama-2-open-foundation-and-fine-tuned-chat-models/) model. The table below shows the current performance of the given configs. Experiments were run using NVIDIA DGX A100 80G and H100 80G nodes.
+We have run some intial performance and functionality tests with [LLaMA2-7B](https://ai.meta.com/research/publications/llama-2-open-foundation-and-fine-tuned-chat-models/) model. The table below shows the current performance of the given configs. Experiments were run using NVIDIA DGX H100 80G nodes.
 
 | Size |     GPU      | Precision | Sequence Length | #GPUs | BS / GPU | DP | FSDP | TP | GBS | Attention | Remat Policy | Scan | Step Time | Sequences/Sec |
 | ---- | ------------ | --------- | --------------- | ----- | -------- | -- | ---- | -- | --- | --------- | ------------ | ---- | --------- | ------------- |
-| 7B   | A100 80G SXM | BF16      | 4096            | 8     | 2        | 1  | 8    | 1  | 16  | Flash     | minimal_flash| Off  | 0.721     | 22.19         |
+| 7B   | H100 80G SXM | BF16      | 4096            | 8     | 2        | 1  | 8    | 1  | 16  | Flash     | minimal_flash| Off  | 0.721     | 22.19         |
 
 Please refer to the [example run script](scripts/example_slurm.sub) for more details. We will continue to add more models and associated performance metrics.
 
