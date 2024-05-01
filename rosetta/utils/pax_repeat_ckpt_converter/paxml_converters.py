@@ -39,7 +39,7 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
             return ['mdl_vars.params']
 
         ## TODO: make num layers configurable
-        return ['mdl_vars.params', "opt_states_0.p#12#i-1_2.m.params", "opt_states_0.p#12#i-1_2.v.params"]
+        return ['mdl_vars.params', f"opt_states_0.p#{self.model_config.num_of_layer}#i-1_2.m.params", f"opt_states_0.p#{self.model_config.num_of_layer}#i-1_2.v.params"]
 
     def _generate_ckpt_map(self):
         num_of_head = self.model_config.num_of_head
@@ -142,7 +142,7 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                       self._get_convert_pkg(
                             f"lm.transformer.repeat.sub.x_layers_0.self_attention.value.w",
                             (hidden_dim, num_of_head, head_dim), 0,
-                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.query.w" for i in range(1, num_layers)],
+                            extra_src_paths = [f"lm.transformer.x_layers_{i}.self_attention.value.w" for i in range(1, num_layers)],
                             stack_dim = 0),
             })
             if not self.skip_bias:
@@ -191,6 +191,8 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
 
     def no_prefix_conversions(self):
 
+        num_layers = self.model_config.num_of_layer
+
         def repeat_count(arr, num_layers):
             return jax.numpy.repeat(arr, num_layers)
 
@@ -203,9 +205,9 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                             None, None,
                             just_copy = True),
                          self._get_convert_pkg(
-                            "opt_states_0.p#12#i-1_0.count",
+                            f"opt_states_0.p#{num_layers}#i-1_0.count",
                             (), 0,
-                            functools.partial(repeat_count, num_layers=12)),
+                            functools.partial(repeat_count, num_layers=num_layers)),
                         ],
                     f"opt_states_0_1.count":
                         [self._get_convert_pkg(
@@ -213,9 +215,9 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                             None, None,
                             just_copy = True),
                          self._get_convert_pkg(
-                            "opt_states_0.p#12#i-1_1.count",
+                            f"opt_states_0.p#{num_layers}#i-1_1.count",
                             (), 0,
-                            functools.partial(repeat_count, num_layers=12)),
+                            functools.partial(repeat_count, num_layers=num_layers)),
                         ],
                     f"opt_states_0_2.count":
                         [self._get_convert_pkg(
@@ -223,9 +225,9 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                             None, None,
                             just_copy = True),
                          self._get_convert_pkg(
-                            "opt_states_0.p#12#i-1_2.count",
+                            f"opt_states_0.p#{num_layers}#i-1_2.count",
                             (), 0,
-                            functools.partial(repeat_count, num_layers=12)),
+                            functools.partial(repeat_count, num_layers=num_layers)),
                         ],
                     f"opt_states_0_3.count":
                         [self._get_convert_pkg(
@@ -233,9 +235,9 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                             None, None,
                             just_copy = True),
                          self._get_convert_pkg(
-                            "opt_states_0.p#12#i-1_3.count",
+                            f"opt_states_0.p#{num_layers}#i-1_3.count",
                             (), 0,
-                            functools.partial(repeat_count, num_layers=12)),
+                            functools.partial(repeat_count, num_layers=num_layers)),
                         ],
                     f"opt_states_0_2.m.params.lm.final_ln.scale":
                         self._get_convert_pkg(
@@ -283,6 +285,20 @@ class NonRepeat2RepeatConvertHelper(PaxConvertHelperBase):
                 f"opt_states_0_2.v.params.lm.position_emb.emb_var":
                     self._get_convert_pkg(
                         f"opt_states_0.no_prefix_2.v.params.lm.position_emb.emb_var",
+                        None, None,
+                        just_copy = True),
+            })
+
+        else:
+            ckpt_map.update({
+                f"opt_states_0_2.m.params.lm.embedding_lookup.emb_var":
+                    self._get_convert_pkg(
+                        f"opt_states_0.no_prefix_2.m.params.lm.embedding_lookup.emb_var",
+                        None, None,
+                        just_copy = True),
+                f"opt_states_0_2.v.params.lm.embedding_lookup.emb_var":
+                    self._get_convert_pkg(
+                        f"opt_states_0.no_prefix_2.v.params.lm.embedding_lookup.emb_var",
                         None, None,
                         just_copy = True),
             })
