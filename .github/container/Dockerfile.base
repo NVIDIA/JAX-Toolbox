@@ -204,5 +204,6 @@ RUN ln -s /opt/jax_nsys/nsys-jax-ensure-protobuf /usr/local/bin/
 ###############################################################################
 
 ENV MANIFEST_FILE="/opt/manifest.d/manifest.yaml"
-ADD manifest.yaml create-distribution.sh /opt/manifest.d/
+ADD manifest.yaml create-distribution.sh bump.sh /opt/manifest.d/
+
 COPY patches/ /opt/manifest.d/patches/
