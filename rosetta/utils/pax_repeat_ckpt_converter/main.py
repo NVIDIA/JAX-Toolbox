@@ -15,10 +15,16 @@
 
 import argparse
 
-from paxml_converters import NonRepeat2RepeatConvertHelper
+from paxml_converters import (
+    NonRepeat2RepeatConvertHelper,
+    Repeat2NonRepeatConvertHelper
+)
 from utils import ModelConfig
 
-PAX = 'pax'
+PAX_CONVERT_HELPER_DICT = {
+    "to_repeat": NonRepeat2RepeatConvertHelper,
+    "from_repeat": Repeat2NonRepeatConvertHelper,
+}
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Pax Non-repeat to repeat CKPT Converter.",
@@ -32,6 +38,11 @@ def parse_args():
                         type=str,
                         required=True,
                         help="the path to store the converted checkponint.")
+    parser.add_argument('--direction',
+                        type=str,
+                        choices=("to_repeat", "from_repeat"),
+                        required=True,
+                        help="the framework that stored the given source checkpoint.")
     parser.add_argument('--num-of-layer',
                         type=int,
                         required=True,
@@ -85,9 +96,16 @@ def get_convert_helper(args):
     model_config = ModelConfig(args.num_of_layer, args.num_of_head, args.head_dim,
                                args.mlp_intermediate_dim)
 
-    return NonRepeat2RepeatConvertHelper(args.input_path, args.output_path, model_config,
-                              args.weight_only, args.skip_bias, args.use_gated_activations,
-                              args.pax_split_qkv, args.skip_position_emb)
+    return PAX_CONVERT_HELPER_DICT[args.direction](
+        args.input_path,
+        args.output_path,
+        model_config,
+        args.weight_only,
+        args.skip_bias,
+        args.use_gated_activations,
+        args.pax_split_qkv,
+        args.skip_position_emb
+    )
 
 
 if __name__ == "__main__":

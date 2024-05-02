@@ -48,6 +48,7 @@ class ConvertPkg:
     chunk_dim: int
     converters: tuple
     extra_src_paths: list[str]
+    extra_target_paths: list[str]
     stack_dim: int
     just_copy: bool
 
@@ -80,14 +81,17 @@ class ConvertHelper:
                          chunk_dim,
                          *converters,
                          extra_src_paths=[],
+                         extra_target_paths=[],
                          stack_dim=0,
                          just_copy=False):
-        return ConvertPkg(target_path, shape, chunk_dim, tuple(converters), extra_src_paths,
+        return ConvertPkg(target_path, shape, chunk_dim, tuple(converters),
+                          extra_src_paths, extra_target_paths,
                           stack_dim, just_copy)
 
     def _unpack_convert_pkg(self, pkg):
         return pkg.target_path, pkg.shape, pkg.chunk_dim, pkg.converters, \
-               pkg.extra_src_paths, pkg.stack_dim, pkg.just_copy
+               pkg.extra_src_paths, pkg.extra_target_paths, \
+               pkg.stack_dim, pkg.just_copy
 
     def _generate_ckpt_map(self):
         raise NotImplementedError
@@ -114,12 +118,14 @@ class ConvertHelper:
                 ckpt_pkgs_with_full_name = []
                 for pkg in ckpt_pkgs:
                     target_path, shape, chunk_dim, converters, \
-                    extra_src_paths, stack_dim, just_copy = self._unpack_convert_pkg(pkg)
+                    extra_src_paths, extra_target_paths, stack_dim, just_copy = self._unpack_convert_pkg(pkg)
 
                     full_src_name = src_prefix + '.' + src_path
                     full_target_name = target_prefix + '.' + target_path
                     full_extra_src_names = None if extra_src_paths is None else \
                                            [src_prefix + '.'+ esp for esp in extra_src_paths]
+                    full_extra_target_names = None if extra_target_paths is None else \
+                                              [target_prefix + '.'+ esp for esp in extra_target_paths]
 
                     ckpt_pkgs_with_full_name.append(
                         self._get_convert_pkg(full_target_name,
@@ -127,6 +133,7 @@ class ConvertHelper:
                                               chunk_dim,
                                               *converters,
                                               extra_src_paths=full_extra_src_names,
+                                              extra_target_paths=full_extra_target_names,
                                               stack_dim=stack_dim,
                                               just_copy=just_copy))
 
@@ -153,15 +160,13 @@ class ConvertHelper:
 
             for ckpt_pkg in ckpt_map_with_full_path[folder]:
                 target_path, shape, chunk_dim, converters, \
-                extra_src_paths, stack_dim, just_copy = self._unpack_convert_pkg(ckpt_pkg)
+                extra_src_paths, extra_target_paths, stack_dim, just_copy = self._unpack_convert_pkg(ckpt_pkg)
 
                 if just_copy:
                     src_path = os.path.join(self.input_path, folder)
                     target_path = os.path.join(self.output_path, target_path)
                     copy_ckpt(src_path, target_path)
                 else:
-                    target_path = os.path.join(self.output_path, target_path)
-
                     jnp_arrs = []
                     for src in [folder, *extra_src_paths]:
                         skip_pool.add(src)
@@ -176,8 +181,18 @@ class ConvertHelper:
                     for converter in converters:
                         jnp_arr = converter(jnp_arr)
 
-                    deserialize_tensor(target_path, jnp_arr, chunk_dim,
-                                       self.model_config.kernel_chunk_size)
+                    if len(extra_target_paths):
+                        assert len(jnp_arr) == len(extra_target_paths) + 1
+
+                        target_paths = [target_path, *extra_target_paths]
+                        for (i, target) in enumerate(target_paths):
+                            arr = jnp_arr[i]
+                            deserialize_tensor(os.path.join(self.output_path, target), arr, chunk_dim,
+                                               self.model_config.kernel_chunk_size)
+
+                    else:
+                        deserialize_tensor(os.path.join(self.output_path, target_path), jnp_arr, chunk_dim,
+                                           self.model_config.kernel_chunk_size)
 
         for folder in os.listdir(self.input_path):
             if folder not in ckpt_map_with_full_path and folder not in skip_pool:
