@@ -93,7 +93,8 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
           # preload enroot container using one task per node
           time srun \
             --ntasks-per-node=1 \
@@ -268,6 +269,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -414,6 +416,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
