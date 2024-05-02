@@ -103,7 +103,7 @@ echo "*******STARTING********" \
     base_output_directory=local_train \
     dataset_path=local \
     dataset_type=synthetic \
-    hardware=gpu_multiprocess
+    hardware=gpu_multiprocess \
     run_name=$RUN_NAME
 EOF
 
