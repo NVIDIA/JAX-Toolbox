@@ -33,23 +33,22 @@ env:
   VIT_BATCH_SIZE_PER_GPU: 256
 
 jobs:
-
   single-process-multi-device:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1P1G_te-1"
+          - TEST_NAME: '1P1G_te-1'
             N_GPU: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "1P1G_te-0"
+            ADDITIONAL_ARGS: ''
+            EXTRA_GIN_ARGS: '--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False'
+          - TEST_NAME: '1P1G_te-0'
             N_GPU: 1
-            ADDITIONAL_ARGS: "--enable-te 0"
-            EXTRA_GIN_ARGS: ""
-          - TEST_NAME: "1P8G_te-1"
+            ADDITIONAL_ARGS: '--enable-te 0'
+            EXTRA_GIN_ARGS: ''
+          - TEST_NAME: '1P8G_te-1'
             N_GPU: 8
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
+            ADDITIONAL_ARGS: ''
+            EXTRA_GIN_ARGS: '--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False'
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -63,10 +62,10 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          
+
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
-        
+
       - name: Setup SSH known hosts
         id: ssh-known-hosts
         run: |
@@ -182,7 +181,7 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
-          
+
       - name: Generate sitrep
         if: success() || failure()
         shell: bash -x -e {0}
@@ -196,7 +195,7 @@ jobs:
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
-          
+
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
@@ -234,26 +233,26 @@ jobs:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1N1G-te-1"
+          - TEST_NAME: '1N1G-te-1'
             N_GPU: 1
             N_NODE: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "1N8G-te-1"
+            ADDITIONAL_ARGS: ''
+            EXTRA_GIN_ARGS: '--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False'
+          - TEST_NAME: '1N8G-te-1'
             N_GPU: 8
             N_NODE: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "2N8G-te-1"
+            ADDITIONAL_ARGS: ''
+            EXTRA_GIN_ARGS: '--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False'
+          - TEST_NAME: '2N8G-te-1'
             N_GPU: 8
             N_NODE: 2
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "2N2G_te-0"
+            ADDITIONAL_ARGS: ''
+            EXTRA_GIN_ARGS: '--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False'
+          - TEST_NAME: '2N2G_te-0'
             N_GPU: 2
             N_NODE: 2
-            ADDITIONAL_ARGS: "--enable-te 0"
-            EXTRA_GIN_ARGS: ""
+            ADDITIONAL_ARGS: '--enable-te 0'
+            EXTRA_GIN_ARGS: ''
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -402,7 +401,7 @@ jobs:
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
-          
+
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
@@ -429,7 +428,7 @@ jobs:
           color="${badge_color}" \
           to_json schemaVersion label message color \
           > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
- 
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -571,7 +570,7 @@ jobs:
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
-          
+
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
@@ -744,7 +743,7 @@ jobs:
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
           failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
           total_tests=$(ls $EXIT_STATUSES | wc -l)
-          
+
           if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
@@ -771,7 +770,7 @@ jobs:
           color="${badge_color}" \
           to_json schemaVersion label message color \
           > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
- 
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -779,7 +778,13 @@ jobs:
           path: output/*
 
   metrics:
-    needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node]
+    needs:
+      [
+        multi-gpu-multi-node,
+        single-process-multi-device,
+        vit-single-process-multi-device,
+        vit-multi-gpu-multi-node,
+      ]
     runs-on: ubuntu-22.04
 
     steps:
@@ -810,21 +815,27 @@ jobs:
           path: |
             report.jsonl
             *_metrics.json
-  
+
   sitrep:
     needs: metrics
-    if: "!cancelled()"
+    if: '!cancelled()'
     uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
     with:
       BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
       ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
       FW_NAME: ${{ inputs.FW_NAME }}
-      
+
   summary:
     runs-on: ubuntu-22.04
-    needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node]
-    if: "!cancelled()"
+    needs:
+      [
+        multi-gpu-multi-node,
+        single-process-multi-device,
+        vit-single-process-multi-device,
+        vit-multi-gpu-multi-node,
+      ]
+    if: '!cancelled()'
     steps:
       - name: Generate TensorBoard query URL
         run: |
@@ -841,10 +852,86 @@ jobs:
   outcome:
     needs: sitrep
     runs-on: ubuntu-22.04
-    if: "!cancelled()"
+    if: '!cancelled()'
     steps:
       - name: Sets workflow status based on test outputs
         run: |
           if [[ ${{ needs.sitrep.outputs.STATUS }} != success ]]; then
             exit 1
           fi
+
+  unit-tests:
+    runs-on: [self-hosted, V100]
+    env:
+      TEST_ARTIFACT_NAME: rosetta-test-logs
+      TEST_LOG_LOCAL_PATH: /log/unit-report.jsonl
+    steps:
+      - name: Print environment variables
+        run: |
+          env
+
+      - name: Print GPU information
+        run: nvidia-smi
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull Rosetta image
+        shell: bash -x -e {0}
+        run: |
+          docker pull ${{ inputs.T5X_IMAGE }}
+          docker tag ${{ inputs.T5X_IMAGE }} rosetta:latest
+
+      - name: Run Rosetta tests w/ docker
+        shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log rosetta:latest bash -x -e /cmd.sh
+        run: |
+          ROSETTA_PATH=$(dirname $(python -c "import rosetta; print(*rosetta.__path__)"))
+          pip install "${ROSETTA_PATH}[test]" pytest-reportlog
+          pytest --report-log=${{ env.TEST_LOG_LOCAL_PATH }} ${ROSETTA_PATH} || true
+
+      - name: Upload unit test json logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.TEST_ARTIFACT_NAME }}
+          path: ${{ env.TEST_LOG_LOCAL_PATH }}
+
+  publish-test:
+    needs: unit-tests
+    uses: ./.github/workflows/_publish_badge.yaml
+    if: ( always() )
+    secrets: inherit
+    with:
+      ENDPOINT_FILENAME: 'rosetta-unit-test-status.json'
+      PUBLISH: false
+      SCRIPT: |
+        ARTIFACTS="${{ needs.rosetta-unit-tests.outputs.TEST_ARTIFACT_NAME }}/*.jsonl"
+        all_outcomes() {
+          cat $ARTIFACTS | jq -r '. | select((.["$report_type"] == "TestReport") and (.when == "call")) | .outcome'
+        }
+        cnt_type() {
+          cat $ARTIFACTS | jq '. | select((.["$report_type"] == "TestReport") and (.when == "call") and (.outcome | contains("'${1}'"))) | .outcome' | wc -l
+        }
+        SKIPPED_TESTS=$(cnt_type skipped)
+        FAILED_TESTS=$(cnt_type failed)
+        PASSED_TESTS=$(cnt_type passed)
+        TOTAL_TESTS=$(all_outcomes | wc -l)
+        echo "## Unit/Integration test breakdown" | tee -a $GITHUB_STEP_SUMMARY
+        all_outcomes | sort | uniq -c | tee -a $GITHUB_STEP_SUMMARY
+        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]]; then
+          BADGE_COLOR=brightgreen
+          echo "STATUS=success" >> $GITHUB_OUTPUT
+        else
+          echo "STATUS=failure" >> $GITHUB_OUTPUT
+          if [[ $PASSED_TESTS -eq 0 ]]; then
+            BADGE_COLOR=red
+          else
+            BADGE_COLOR=yellow
+          fi
+        fi
+        echo "LABEL='V100 Unit'" >> $GITHUB_OUTPUT
+        echo "MESSAGE='${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail'" >> $GITHUB_OUTPUT
+        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT

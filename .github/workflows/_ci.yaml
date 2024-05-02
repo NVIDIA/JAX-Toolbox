@@ -137,6 +137,16 @@ jobs:
         URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
     secrets: inherit
 
+  build-rosetta-t5x:
+    needs: build-upstream-t5x
+    uses: ./.github/workflows/_build_rosetta.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: t5x
+    secrets: inherit
+
   build-upstream-pax:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
@@ -151,16 +161,6 @@ jobs:
       EXTRA_BUILD_ARGS: |
         URLREF_PAXML=${{ fromJson(inputs.SOURCE_URLREFS).PAXML }}
         URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
-    secrets: inherit
-
-  build-rosetta-t5x:
-    needs: build-upstream-t5x
-    uses: ./.github/workflows/_build_rosetta.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}
-      BASE_LIBRARY: t5x
     secrets: inherit
 
   build-rosetta-pax:
@@ -335,7 +335,7 @@ jobs:
   test-rosetta-t5x:
     needs: build-rosetta-t5x
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_t5x_rosetta.yaml
+    uses: ./.github/workflows/_test_rosetta_t5x.yaml
     with:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
@@ -458,7 +458,7 @@ jobs:
   test-rosetta-pax:
     needs: build-rosetta-pax
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_pax_rosetta.yaml
+    uses: ./.github/workflows/_test_rosetta_pax.yaml
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
