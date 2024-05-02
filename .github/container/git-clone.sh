@@ -84,4 +84,4 @@ popd
 mkdir -p $(dirname ${MANIFEST})
 touch ${MANIFEST}
 PACKAGE=$(basename "${DESTINATION}")
-yq eval --inplace ". += {\"${PACKAGE}\": {\"url\": \"${GIT_REPO}\", \"tracking_ref\": \"${GIT_REF}\", \"latest_verified_commit\": \"${COMMIT_SHA}\", \"mode\": \"git-clone\"}}" ${MANIFEST}
+yq eval --inplace ". += {\"${PACKAGE}\": {\"url\": \"${GIT_REPO}\", \"tracking_ref\": \"${GIT_REF}\", \"commit\": \"${COMMIT_SHA}\", \"mode\": \"git-clone\"}}" ${MANIFEST}

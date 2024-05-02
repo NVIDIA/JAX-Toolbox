@@ -42,7 +42,7 @@ cp -r /mnt/jax-toolbox/rosetta /opt/rosetta
 
 if [[ -n "${UPDATED_TE_REF}" ]]; then
   TE_INSTALL_DIR=/opt/transformer-engine
-  yq e ".transformer-engine.latest_verified_commit = \"${UPDATED_TE_REF}\"" -i $MANIFEST_FILE
+  yq e ".transformer-engine.commit = \"${UPDATED_TE_REF}\"" -i /opt/manifest.d/git-clone.yaml
   # Install from source instead of pre-built wheel
   sed -i -E 's@( file:///opt/transformer-engine)/dist/[^ ]*@\1@' /opt/pip-tools.d/requirements-te.in
   git -C $TE_INSTALL_DIR fetch -a
