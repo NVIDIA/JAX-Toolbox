@@ -25,7 +25,7 @@ jobs:
           a smooth integration process once the changes are ready to be merged.
 
           Usage:
-
+          
           1. In your development branch, modify the sandbox.yml workflow file
              to include the new actions you want to test. Make sure to commit
              the changes to the development branch.

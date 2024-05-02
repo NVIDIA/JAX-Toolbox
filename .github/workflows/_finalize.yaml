@@ -151,11 +151,11 @@ jobs:
             # Extract directory name
             key=$(dirname "$FILE")
             # Extract the summary field from the JSON files and append the content to the output JSON file.
-            if [[ "$key" == "./artifact-t5x-mgmn-test" || "$key" == "./artifact-pax-mgmn-test" ]]; then
+            if [[ "$key" == "./artifact-t5x-mgmn-test" || "$key" == "./artifact-pax-mgmn-test" ]]; then 
               val_tmp=$(cat "$FILE" |  jq -r '.summary' )
               # For t5x/pax mgmn test extract the test summary of tests and ignore extended metric info in the summary.
               delimiter="|"
-              IFS=$delimiter read -ra parts <<< "$val_tmp"
+              IFS=$delimiter read -ra parts <<< "$val_tmp" 
               value="${parts[0]}passed"
             else
               value=$(cat "$FILE" |  jq -r '.summary' )
