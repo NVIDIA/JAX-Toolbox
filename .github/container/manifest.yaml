@@ -2,6 +2,7 @@ flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
+  commit: 08b13368f6b00e6f00c5b6d43105db4902019ffb
   # Patches are only used for rosetta t5x
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
