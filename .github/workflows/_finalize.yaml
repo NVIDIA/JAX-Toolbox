@@ -191,9 +191,9 @@ jobs:
                 sitrep=$(<"$dir/sitrep.json")
             fi
 
-            # Check if the metric_summary.json file exists and read it, else use default
-            if [ -f "$dir/metric_summary.json" ]; then
-                metricSummary=$(<"$dir/metric_summary.json")
+            # Check if the metrics_summary.json file exists and read it, else use default
+            if [ -f "$dir/metrics_summary.json" ]; then
+                metricSummary=$(<"$dir/metrics_summary.json")
             fi
 
             # Use Bash globbing to find the *-status.json file and read it, else use default
@@ -208,7 +208,7 @@ jobs:
                               --argjson sitrep "$sitrep" \
                               --argjson status "$status" \
                               --argjson metricSummary "$metricSummary" \
-                              '.[$dirName] = {"sitrep": $sitrep, "status": $status, "metric_summary": $metricSummary}' <<<"$combinedJson")
+                              '.[$dirName] = {"sitrep": $sitrep, "status": $status, "metrics_summary": $metricSummary}' <<<"$combinedJson")
           done < <(find . -maxdepth 1 -type d)
 
           # Output the combined JSON to the file, nicely formatted

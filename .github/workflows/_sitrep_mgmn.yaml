@@ -60,29 +60,35 @@ jobs:
         id: metrics
         shell: bash -x -e {0}
         run: |
-          METRICS_SUMMARY_FILE="metrics_summary.json"
+          METRICS_SUMMARY_MD="metrics_summary.md"
+          METRICS_SUMMARY_JSON="metrics_summary.json"
 
-          echo '## ${{ inputs.FW_NAME }} MGMN Test Metrics' | tee -a $METRICS_SUMMARY_FILE
-          python <<EOF | tee -a $METRICS_SUMMARY_FILE
+          echo '## ${{ inputs.FW_NAME }} MGMN Test Metrics' | tee -a $METRICS_SUMMARY_MD
+          python <<EOF | tee -a $METRICS_SUMMARY_MD
           import json
           files = "$(echo ${{ inputs.FW_NAME }}-metrics-test-log/*_metrics.json)".split()
           header = None
+          all_metrics = []
           print_row = lambda lst: print('| ' + ' | '.join(str(el) for el in lst) + ' |')
           for path in files:
             with open(path) as f:
               obj = json.loads(f.read())
+              all_metrics.append(obj)
               if not header:
                 header = list(obj.keys())
                 print_row(["Job Name"] + header)
                 print_row(["---"] * (1+len(header)))
               job_name = path[:-len('_metrics.json')]
               print_row([job_name] + [obj[h] for h in header])
-          print('NOTE: Average step time includes compilation time and thus may be an underestimate of true performance')
 
+          with open('$METRICS_SUMMARY_JSON', 'w') as f:
+            json.dump(all_metrics, f, indent=4)
+
+          print('NOTE: Average step time includes compilation time and thus may be an underestimate of true performance')
           EOF
 
-          cat $METRICS_SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
-          echo "METRICS_SUMMARY_FILE=$METRICS_SUMMARY_FILE" >> ${GITHUB_OUTPUT}
+          cat $METRICS_SUMMARY_MD >> $GITHUB_STEP_SUMMARY
+          echo "METRICS_SUMMARY_FILE=$METRICS_SUMMARY_MD" >> ${GITHUB_OUTPUT}
 
       - name: Generate sitrep
         id: gen-sitrep
