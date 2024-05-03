@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_MAXTEXT=https://github.com/google/maxtext.git#main
 ARG SRC_PATH_MAXTEXT=/opt/maxtext
 
 ###############################################################################
@@ -8,14 +9,20 @@ ARG SRC_PATH_MAXTEXT=/opt/maxtext
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
-
+ARG URLREF_MAXTEXT
 ARG SRC_PATH_MAXTEXT
 
 RUN <<"EOF" bash -ex
-cat ${MANIFEST_FILE}
-get-source.sh -l maxtext -m ${MANIFEST_FILE} 
-cat "${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
+echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
+
+###############################################################################
+## Apply patch
+###############################################################################
+
+ADD maxtext-mha.patch /opt
+RUN cd "${SRC_PATH_MAXTEXT}" && patch -p1 < /opt/maxtext-mha.patch && git diff
 
 ###############################################################################
 ## Add test script to the path

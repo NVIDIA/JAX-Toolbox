@@ -1,10 +1,13 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:base
-ARG DEST_MANIFEST_DIR=/opt/manifest.d
+ARG URLREF_JAX=https://github.com/google/jax.git#main
+ARG URLREF_XLA=https://github.com/openxla/xla.git#main
+ARG URLREF_FLAX=https://github.com/google/flax.git#main
+ARG URLREF_TRANSFORMER_ENGINE=https://github.com/NVIDIA/TransformerEngine.git#main
 ARG SRC_PATH_JAX=/opt/jax
 ARG SRC_PATH_XLA=/opt/xla
 ARG SRC_PATH_FLAX=/opt/flax
-ARG SRC_PATH_TE=/opt/transformer-engine
+ARG SRC_PATH_TRANSFORMER_ENGINE=/opt/transformer-engine
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 
@@ -16,19 +19,21 @@ ARG BUILD_DATE
 ###############################################################################
 
 FROM ${BASE_IMAGE} as builder
-ARG DEST_MANIFEST_DIR
+ARG URLREF_JAX
+ARG URLREF_XLA
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG BAZEL_CACHE
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
 
-ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 
-RUN get-source.sh -l jax -m ${MANIFEST_FILE}
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
-    get-source.sh -l xla -m ${MANIFEST_FILE}
+<<"EOF" bash -ex
+    git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX}
+    git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
+EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 # TODO: move this patch into the manifest
@@ -47,27 +52,28 @@ RUN build-jax.sh \
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
-ARG DEST_MANIFEST_DIR
+ARG URLREF_FLAX
+ARG URLREF_TRANSFORMER_ENGINE
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
-ARG SRC_PATH_TE
+ARG SRC_PATH_FLAX
+ARG SRC_PATH_TRANSFORMER_ENGINE
 ARG BUILD_DATE
 
 ENV BUILD_DATE=${BUILD_DATE}
 # The following environment variables tune performance
 ENV XLA_FLAGS=""
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_latency_hiding_scheduler=true"
-ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_async_all_gather=true"
-ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_async_reduce_scatter=true"
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_triton_gemm=false"
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_NVLS_ENABLE=0
 ENV CUDA_MODULE_LOADING=EAGER
 
-ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
+# Preserve the versions of jax and xla
+COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
@@ -81,20 +87,21 @@ echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/requ
 EOF
 
 ## Flax
-RUN get-source.sh -l flax -m ${MANIFEST_FILE} -o /opt/pip-tools.d/requirements-flax.in
+RUN <<"EOF" bash -ex
+git-clone.sh ${URLREF_FLAX} ${SRC_PATH_FLAX}
+echo "-e file://${SRC_PATH_FLAX}" >> /opt/pip-tools.d/requirements-flax.in
+EOF
 
 ## Transformer engine: check out source and build wheel
 ENV NVTE_FRAMEWORK=jax
-ENV SRC_PATH_TE=${SRC_PATH_TE}
+ENV SRC_PATH_TRANSFORMER_ENGINE=${SRC_PATH_TRANSFORMER_ENGINE}
 RUN <<"EOF" bash -ex -o pipefail
 pip install ninja && rm -rf ~/.cache/pip
-get-source.sh -l transformer-engine -m ${MANIFEST_FILE}
-pushd ${SRC_PATH_TE}
+git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
+pushd ${SRC_PATH_TRANSFORMER_ENGINE}
 python setup.py bdist_wheel && rm -rf build
-echo "transformer-engine @ file://$(ls ${SRC_PATH_TE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in
+echo "transformer-engine @ file://$(ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in
 EOF
-
-# TODO: properly configure entrypoint
 
 ###############################################################################
 ## Install primary packages and transitive dependencies
@@ -103,4 +110,3 @@ EOF
 FROM mealkit as final
 
 RUN pip-finalize.sh
-

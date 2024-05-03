@@ -1,0 +1,8 @@
+[project]
+name = "jax-nsys"
+dynamic = ["version"]
+dependencies = [
+  "numpy",
+  "pandas",
+  "pyarrow",
+]

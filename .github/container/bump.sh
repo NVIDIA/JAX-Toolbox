@@ -110,11 +110,3 @@ for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
         rm -rf $repo_tmp
     fi
 done
-
-# unfortunately the openxla-triton commit must be derived from the content of
-# the xla repository
-if [[ $SKIP_BUMP_REFS -eq 0 ]]; then
-    "${SCRIPT_DIR}/bump-openxla-triton.sh" \
-      --base-patch-dir $BASE_PATCH_DIR \
-      --manifest "${MANIFEST_OUT}"
-fi

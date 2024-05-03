@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# This tests creating a distribution using pull requests from an upstream repo and
+# validates that the commits were applied correctly.
+#
+# This tests patches of the form:
+#
+#    patches:
+#      pull/<PR_NUM>/head: file://a.patch
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd $SCRIPT_DIR
 
@@ -25,7 +33,7 @@ t5x:
   patches:
     pull/1372/head: null
 EOF
-bash ../../.github/container/get-source.sh --base-dir $tmp_base --manifest $manifest_tmp --library $LIBRARY
+bash ../../.github/container/git-clone.sh https://github.com/google-research/t5x.git#$DISTRIBUTION_BASE_REF $repo_tmp
 
 cp ../../.github/container/create-distribution.sh $workspace_tmp/
 base_cmd() {

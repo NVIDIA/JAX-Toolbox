@@ -73,7 +73,7 @@ fiddle:
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: 3e13fd16038f3f376cddd289bd10eef53a4933f4
+  latest_verified_commit: cfca4a10de1491d76d2d00fcbd7142079837ca99
   mode: pip-vcs
 clu:
   url: https://github.com/google/CommonLoopUtils.git
@@ -100,12 +100,6 @@ seqio:
   tracking_ref: main
   latest_verified_commit: 11706e4a1e01a81ea6b3e02c5ad147028d5b94bb
   mode: pip-vcs
-# used by Pallas
-openxla-triton:
-  url: https://github.com/openxla/triton.git
-  tracking_ref: llvm-head
-  latest_verified_commit: cl612852008
-  mode: git-clone
 jax-triton:
   url: https://github.com/jax-ml/jax-triton.git
   tracking_ref: main
@@ -114,7 +108,7 @@ jax-triton:
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
-  latest_verified_commit: 02d83aa564df985512b2e3b110c3deae5b89c2c9
+  latest_verified_commit: 78daad198544def8274dbd656d122fbe6a0e1129
   mode: git-clone
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
@@ -130,12 +124,6 @@ mujoco:
   url: https://github.com/google-deepmind/mujoco.git
   tracking_ref: main
   latest_verified_commit: e95159b4f6d48d114b16a8dc13ad26b3e44bc3e2
-  mode: git-clone
-grain:
-  # Used only in ARM t5x builds
-  url: https://github.com/google/grain.git
-  tracking_ref: main
-  latest_verified_commit: 10600a3f5510bcb696a90e72c6e6cb1ac2bb016f
   mode: git-clone
 mujoco-mpc:
   url: https://github.com/google-deepmind/mujoco_mpc.git

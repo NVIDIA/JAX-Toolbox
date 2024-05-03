@@ -104,7 +104,7 @@ jobs:
     steps:
       - name: Print environment variables
         run: env
-        
+
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
 
@@ -170,10 +170,10 @@ jobs:
             GIT_USER_NAME=${{ inputs.GIT_USER_NAME }}
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
+            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) || '' }}
             JAX_NCCL_VERSION=${{ needs.nccl-version.outputs.JAX_NCCL_VERSION }}
             JAX_LIBNCCL_PACKAGE=${{ needs.nccl-version.outputs.JAX_LIBNCCL_PACKAGE }}
-        
+
       - name: Generate sitrep
         if: "!cancelled()"
         shell: bash -x -e {0}
