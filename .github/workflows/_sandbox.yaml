@@ -9,10 +9,12 @@ jobs:
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: amd64
+      JAX_NCCL_VERSION: 2.21.5+cuda12.4
     secrets: inherit	        
 
   build-base-arm64:	
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: arm64
+      JAX_NCCL_VERSION: 2.21.5+cuda12.4
     secrets: inherit	        
