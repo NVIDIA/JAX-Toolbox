@@ -72,6 +72,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: triton
       DOCKERFILE: .github/container/Dockerfile.triton
+      RUNNER_SIZE: large
       EXTRA_BUILD_ARGS: URLREF_JAX_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
     secrets: inherit
 
