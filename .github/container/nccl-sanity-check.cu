@@ -123,9 +123,6 @@ int main(int argc, char* argv[])
   // The minimum duration required to pass the sanity check.
   int threshold = getEnvAsInt("NCCL_SANITY_CHECK_LATENCY_US", 1000);
 
-  // int myRank = getEnvAsInt("OMPI_COMM_WORLD_RANK", -1);
-  // int nRanks = getEnvAsInt("OMPI_COMM_WORLD_SIZE", -1);
-  // int localRank = getEnvAsInt("OMPI_COMM_WORLD_LOCAL_RANK", -1);
   int nRanks, myRank, localRank;
   char coordinatorAddress[128];
   parseArgs(argc, argv, &nRanks, &myRank, &localRank, coordinatorAddress);
@@ -134,7 +131,7 @@ int main(int argc, char* argv[])
 
   // Compute same NCCL unique id in all ranks
   ncclUniqueId id;
-  if (!setenv("NCCL_COMM_ID", coordinatorAddress, 1)) {
+  if (setenv("NCCL_COMM_ID", coordinatorAddress, 1) != 0) {
     printf("Failed: Could not set NCCL_COMM_ID\n");
     exit(EXIT_FAILURE);
   }
