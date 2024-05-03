@@ -14,8 +14,9 @@ usage() {
     echo "  OPTIONS                    DESCRIPTION"
     echo "  -a, --additional-args      Additional fiddle args to pass to MaxText/train.py"
     echo "  --mem-fraction             Specify the percentage of memory to preallocate for XLA. Example: 0.90, 0.85, 0.65"
-    echo "  --model-name               Specify model to run. Example: llama2-7b, default"
+    echo "  --decoder-block            Specify decoder block to run. Example: llama2, default"
     echo "  --attn-type                Specify the attention type. Example: dot_product, cudnn_flash_te"
+    echo "  --remat-policy             Specify remat policy. Example: minimal, minimal_flash, save_dot_except_mlp"
     echo "  -b, --batch-per-gpu        Batch size per GPU, defaults to 2."
     echo "  --dtype                    Batch size, defaults to bfloat16."
     echo "  -s, --steps                Number of steps to run, defaults to 500."
@@ -30,7 +31,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,mem-fraction:,model-name:,attn-type:,batch-per-gpu:,dtype:,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,mem-fraction:,decoder-block:,attn-type:,remat-policy:,batch-per-gpu:,dtype:,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -40,8 +41,9 @@ HARDWARE='gpu'
 OUTPUT=$(mktemp -d)
 MEM_FRACTION=0.65
 
-MODEL_NAME='llama2-7b'
-ATTN_TYPE='dot_product'
+DECODER_BLOCK="default"
+ATTN_TYPE="dot_product"
+REMAT_POLICY="minimal"
 BATCH_PER_GPU=2
 DTYPE="bfloat16"
 STEPS=10
@@ -64,12 +66,16 @@ while [ : ]; do
         MEM_FRACTION="$2"
         shift 2
         ;;
-    --model-name)
-        MODEL_NAME="$2"
+    --decoder-block)
+        DECODER_BLOCK="$2"
         shift 2
         ;;
     --attn-type)
         ATTN_TYPE="$2"
+        shift 2
+        ;;
+    --remat-policy)
+        REMAT_POLICY="$2"
         shift 2
         ;;
     -b | --batch-per-gpu)
@@ -147,11 +153,14 @@ fi
 
 if [ $ATTN_TYPE -eq 'cudnn_flash_te' ]; then
     ENABLE_FUSED_ATTN=1
+    REMAT_POLICY="minimal_flash"
 fi
 
+print_var ADDITIONAL_ARGS
 print_var MEM_FRACTION
-print_var MODEL_NAME
+print_var DECODER_BLOCK
 print_var ATTN_TYPE
+print_var REMAT_POLICY
 print_var BATCH_PER_GPU
 print_var DTYPE
 print_var STEPS
@@ -197,10 +206,13 @@ export XLA_FLAGS="$BASE_XLA_FLAGS ${XLA_FLAGS:-}"
 
 RUN_NAME="logdir" ## the RUN_NAME cannot be changed
 
-RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME} logits_via_embedding=true decoder_block=${MODEL_NAME} \
-    steps=$STEPS per_device_batch_size=${BATCH_PER_GPU} base_emb_dim=2560 base_mlp_dim=8192 remat_policy=minimal attention=${ATTN_TYPE}\
+RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME} logits_via_embedding=true decoder_block=${DECODER_BLOCK} \
+    steps=$STEPS per_device_batch_size=${BATCH_PER_GPU} base_emb_dim=2560 base_mlp_dim=8192 remat_policy=${REMAT_POLICY}attention=${ATTN_TYPE}\
     base_num_query_heads=8 base_num_kv_heads=8 base_num_decoder_layers=8 head_dim=128 enable_checkpointing=false\
-    base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE    dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP    ici_data_parallelism=$ici_DP dcn_data_parallelism=$dcn_DP    ici_tensor_parallelism=$TP dcn_tensor_parallelism=1"
+    base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE\
+    dcn_fsdp_parallelism=1 ici_fsdp_parallelism=$FSDP\
+    ici_data_parallelism=$ici_DP dcn_data_parallelism=$dcn_DP\
+    ici_tensor_parallelism=$TP dcn_tensor_parallelism=1 ${ADDITIONAL_ARGS}"
 
 echo "Command: python3 $RUN_SETTINGS"
 python3 $RUN_SETTINGS
