@@ -62,8 +62,36 @@ permissions:
 
 jobs:
 
+  nccl-version:
+    runs-on: ubuntu-22.04
+    outputs:
+      JAX_NCCL_VERSION: ${{ steps.get-nccl-version.JAX_NCCL_VERSION}}
+      JAX_LIBNCCL_PACKAGE: ${{ steps.get-nccl-version.JAX_LIBNCCL_PACKAGE}}
+    steps:
+      - name: Get NCCL version
+        id: get-nccl-version
+        shell: bash -x -e {0}
+        run: |
+          JAX_LIBNCCL_PACKAGE=${{ inputs.JAX_LIBNCCL_PACKAGE }}
+          if [[ -z $JAX_LIBNCCL_PACKAGE ]]; then
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            if [[ $BASE_IMAGE == latest ]]; then
+              BASE_IMAGE=$(cat .github/container/Dockerfile.base | sed -n "s/^ARG BASE_IMAGE=\(.*\)$/\1/p")
+            fi
+
+            # try to get NCCL version from provided BASE_IMAGE of ARM64-arch
+            source .github/workflows/scripts/get_remote_env.sh
+            JAX_LIBNCCL_PACKAGE=$(get_remote_env ${BASE_IMAGE:-ubuntu} linux amd64 | jq -r '.[]' | egrep '^NV_LIBNCCL_PACKAGE')
+            JAX_NCCL_VERSION=$(get_remote_env ${BASE_IMAGE:-ubuntu} linux amd64 | jq -r '.[]' | egrep '^NCCL_VERSION=' | cut -d= -f2-)
+          else
+            JAX_NCCL_VERSION=$(echo $JAX_LIBNCCL_PACKAGE | cut -d= -f2 | cut -d+ -f1)
+          fi
+          echo "JAX_NCCL_VERSION=$JAX_NCCL_VERSION" >> $GITHUB_OUTPUT
+          echo "JAX_LIBNCCL_PACKAGE=$JAX_LIBNCCL_PACKAGE" >> $GITHUB_OUTPUT
+
   build-base:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+    needs: nccl-version
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
@@ -71,7 +99,6 @@ jobs:
     steps:
       - name: Print environment variables
         run: env
-
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
 
@@ -110,27 +137,6 @@ jobs:
           driver-opts: |
             image=moby/buildkit:v0.12.1
 
-      - name: Get NCCL version
-        id: nccl-version
-        shell: bash -x -e {0}
-        run: |
-          JAX_LIBNCCL_PACKAGE=${{ inputs.JAX_LIBNCCL_PACKAGE }}
-          if [[ -z $JAX_LIBNCCL_PACKAGE ]]; then
-            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-            if [[ $BASE_IMAGE == latest ]]; then
-              BASE_IMAGE=$(cat .github/container/Dockerfile.base | sed -n "s/^ARG BASE_IMAGE=\(.*\)$/\1/p")
-            fi
-
-            # try to get NCCL version from provided BASE_IMAGE of ARM64-arch
-            source .github/workflows/scripts/get_remote_env.sh
-            JAX_LIBNCCL_PACKAGE=$(get_remote_env ${BASE_IMAGE:-ubuntu} linux amd64 | jq -r '.[]' | egrep '^NV_LIBNCCL_PACKAGE')
-            JAX_NCCL_VERSION=$(get_remote_env ${BASE_IMAGE:-ubuntu} linux amd64 | jq -r '.[]' | egrep '^NCCL_VERSION=' | cut -d= -f2-)
-          else
-            JAX_NCCL_VERSION=$(echo $JAX_LIBNCCL_PACKAGE | cut -d= -f2 | cut -d+ -f1)
-          fi
-          echo "JAX_NCCL_VERSION=$JAX_NCCL_VERSION" >> $GITHUB_OUTPUT
-          echo "JAX_LIBNCCL_PACKAGE=$JAX_LIBNCCL_PACKAGE" >> $GITHUB_OUTPUT
-
       - name: Set docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -159,8 +165,8 @@ jobs:
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
-            JAX_NCCL_VERSION=${{ steps.nccl-version.outputs.JAX_NCCL_VERSION }}
-            JAX_LIBNCCL_PACKAGE=${{ steps.nccl-version.outputs.JAX_LIBNCCL_PACKAGE }}
+            JAX_NCCL_VERSION=${{ needs.nccl-version.outputs.JAX_NCCL_VERSION }}
+            JAX_LIBNCCL_PACKAGE=${{ needs.nccl-version.outputs.JAX_LIBNCCL_PACKAGE }}
         
       - name: Generate sitrep
         if: "!cancelled()"
