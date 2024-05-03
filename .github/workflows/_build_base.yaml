@@ -104,6 +104,7 @@ jobs:
     steps:
       - name: Print environment variables
         run: env
+        
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
 
