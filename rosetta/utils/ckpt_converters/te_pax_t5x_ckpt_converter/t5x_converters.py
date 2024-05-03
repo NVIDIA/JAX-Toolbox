@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from utils import ConvertHelper
+from ..common.utils import ConvertHelper
 
 CATAGORIES = ['target', "state.param_states.1.0.mu", "state.param_states.1.0.nu"]
 

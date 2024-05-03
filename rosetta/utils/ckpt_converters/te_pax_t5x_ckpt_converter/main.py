@@ -19,7 +19,7 @@ from paxml_converters import Pax2TEConvertHelper, Pax2TERepeatConvertHelper
 from paxml_converters import TE2PaxConvertHelper, TE2PaxRepeatConvertHelper
 from t5x_converters import T5X2TEFuseQKVConvertHelper, T5X2TENotFuseQKVConvertHelper
 from t5x_converters import TEFuseQKV2T5XConvertHelper, TENotFuseQKV2T5XConvertHelper
-from utils import ModelConfig
+from ..common.utils import ModelConfig
 
 PAX = 'pax'
 T5X = 't5x'

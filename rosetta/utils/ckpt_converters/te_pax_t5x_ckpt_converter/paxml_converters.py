@@ -15,7 +15,7 @@
 
 import jax.numpy as jnp
 
-from utils import ConvertHelper
+from ..common.utils import ConvertHelper
 
 
 class PaxConvertHelperBase(ConvertHelper):

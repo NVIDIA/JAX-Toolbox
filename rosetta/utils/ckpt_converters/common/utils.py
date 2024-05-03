@@ -35,6 +35,7 @@ SHARDING = jax.sharding.NamedSharding(MESH, jax.sharding.PartitionSpec())
 @dataclass
 class ModelConfig:
     num_of_layer: int
+    embed_dim: int
     num_of_head: int
     head_dim: int
     mlp_intermediate_dim: int
@@ -55,13 +56,23 @@ class ConvertPkg:
 
 class ConvertHelper:
 
-    def __init__(self, input_path: str, output_path: str, model_config: ModelConfig,
-                 weight_only: bool, skip_bias: bool, use_gated_activations: bool,
-                 split_qkv: bool, skip_position_emb: bool):
+    def __init__(
+        self,
+        input_path: str,
+        output_path: str,
+        model_config: ModelConfig,
+        weight_only: bool,
+        skip_ln: Optional[bool] = False,
+        skip_bias: Optional[bool] = False,
+        use_gated_activations: Optional[bool] = False,
+        split_qkv: Optional[bool] = False,
+        skip_position_emb: Optional[bool] = False,
+    ):
         self.input_path = input_path
         self.output_path = output_path
         self.model_config = model_config
         self.weight_only = weight_only
+        self.skip_ln = skip_ln
         self.skip_bias = skip_bias
         self.use_gated_activations = use_gated_activations
         self.split_qkv = split_qkv
@@ -107,6 +118,11 @@ class ConvertHelper:
             if "ln_bias" in key:
                 return True
             return False
+        
+        if self.skip_ln:
+            for key in ckpt_map:
+                if is_ln_weights(key):
+                    ckpt_map.pop(key)
 
         ckpt_map_with_full_name = {}
         for src_prefix, target_prefix in zip(self.src_categories, self.target_categories):

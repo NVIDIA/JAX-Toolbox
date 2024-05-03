@@ -19,7 +19,7 @@ from paxml_converters import (
     NonRepeat2RepeatConvertHelper,
     Repeat2NonRepeatConvertHelper
 )
-from utils import ModelConfig
+from ..common.utils import ModelConfig
 
 PAX_CONVERT_HELPER_DICT = {
     "to_repeat": NonRepeat2RepeatConvertHelper,
@@ -76,7 +76,7 @@ def parse_args():
         default=False,
         help="indicate if the model uses a gated activation function.")
     parser.add_argument(
-        '--pax-split-qkv',
+        '--split-qkv',
         action="store_true",
         default=False,
         help="indicate if the source Pax checkpoint has split QKV parameters.")
@@ -93,18 +93,21 @@ def parse_args():
 
 def get_convert_helper(args):
 
-    model_config = ModelConfig(args.num_of_layer, args.num_of_head, args.head_dim,
+    model_config = ModelConfig(args.num_of_layer,
+                               None, # embed_dim unused
+                               args.num_of_head,
+                               args.head_dim,
                                args.mlp_intermediate_dim)
 
     return PAX_CONVERT_HELPER_DICT[args.direction](
-        args.input_path,
-        args.output_path,
-        model_config,
-        args.weight_only,
-        args.skip_bias,
-        args.use_gated_activations,
-        args.pax_split_qkv,
-        args.skip_position_emb
+        input_path=args.input_path,
+        output_path=args.output_path,
+        model_config=model_config,
+        weight_only=args.weight_only,
+        skip_bias=args.skip_bias,
+        use_gated_activations=args.use_gated_activations,
+        split_qkv=args.split_qkv,
+        skip_position_emb=args.skip_position_emb
     )
 
 
