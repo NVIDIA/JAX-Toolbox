@@ -65,14 +65,14 @@ jobs:
   nccl-version:
     runs-on: ubuntu-22.04
     outputs:
-      JAX_NCCL_VERSION: ${{ steps.get-nccl-version.JAX_NCCL_VERSION}}
-      JAX_LIBNCCL_PACKAGE: ${{ steps.get-nccl-version.JAX_LIBNCCL_PACKAGE}}
+      JAX_NCCL_VERSION: ${{ steps.get-nccl-version.outputs.JAX_NCCL_VERSION }}
+      JAX_LIBNCCL_PACKAGE: ${{ steps.get-nccl-version.outputs.JAX_LIBNCCL_PACKAGE }}
     steps:
       - name: Print environment variables
         run: env
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
-        
+
       - name: Get NCCL version
         id: get-nccl-version
         shell: bash -x -e {0}
