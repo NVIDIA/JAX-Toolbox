@@ -94,7 +94,7 @@ while [ : ]; do
         ;;
     --)
         shift;
-        break 
+        break
         ;;
   esac
 done
@@ -105,7 +105,7 @@ if [[ $# -ge 1 ]]; then
     usage 1
 fi
 
-set -eou pipefail
+set -eoux pipefail
 # readlink -f $(pwd) is cross-platform way to ensure /tmp gets resolved correctly on macos
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && readlink -f $(pwd) )
 
@@ -117,7 +117,7 @@ fi
 BASE_PATCH_DIR=${BASE_PATCH_DIR:-$SCRIPT_DIR/patches}
 CLEAN_PATCHES=${CLEAN_PATCHES:-0}
 UPSTREAM_URL=$(yq e ".${PACKAGE}.url" $MANIFEST)
-# The tracking_ref is interpreted as the default "main" branch and all patches are 
+# The tracking_ref is interpreted as the default "main" branch and all patches are
 # assumed to be rooted on a sha on the tracking_ref's history
 TRACKING_REF=$(yq e ".${PACKAGE}.tracking_ref" $MANIFEST)
 INSTALLED_DIR=${OVERRIDE_INSTALL_DIR:-/opt/${PACKAGE}}
@@ -198,7 +198,7 @@ if [[ -n "${EXTRA_DIR+x}" ]] && [[ -d ${EXTRA_DIR} ]]; then
     # We will use refs/heads/$local_branch instead of $local_branch
     git+extra branch --force ${local_branch}${TMP_BRANCH_SUFFIX} refs/heads/$local_branch
   done
-  
+
   if git remote show ${EXTRA_REMOTE_NAME} &>/dev/null; then
     git remote remove ${EXTRA_REMOTE_NAME}
   fi
