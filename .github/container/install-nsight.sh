@@ -30,3 +30,7 @@ if [[ "${UBUNTU_ARCH}" == "amd64" && -d "${NSYS202411}" ]]; then
   ln -s "${LIBCUPTI123}" "${NSYS202411}/target-linux-x64/libcupti.so.12.3"
   mv "${NSYS202411}/target-linux-x64/libcupti.so.12.4" "${NSYS202411}/target-linux-x64/_libcupti.so.12.4"
 fi
+
+# Install extra dependencies needed for `nsys recipe ...` commands. These are
+# used by the nsys-jax wrapper script.
+ln -s $(dirname $(realpath $(command -v nsys)))/python/packages/nsys_recipe/requirements/common.txt /opt/pip-tools.d/requirements-nsys-recipe.in

@@ -43,10 +43,10 @@ jobs:
           pytest \
           pytest-reportlog \
           cuda-python \
-          -r ${SRC_PATH_TE}/examples/jax/encoder/requirements.txt
+          -r ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder/requirements.txt
       SRUN_SCRIPT: |
         set -ex
-        cd ${SRC_PATH_TE}/examples/jax/encoder
+        cd ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder
         pytest --report-log=/output/pytest-report.jsonl \
           test_single_gpu_encoder.py \
           test_multigpu_encoder.py \

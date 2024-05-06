@@ -1,0 +1,62 @@
+#!/bin/bash
+set -e -o pipefail
+
+# Usage: nsys-jax-ensure-protobuf
+#
+# If `protoc` and `google.protobuf` are both usable, do nothing. Otherwise,
+# assert that a virtual environment is active and install the latest versions
+# of both inside it. This script is expected to work on both macOS and Linux.
+PYTHON=${PYTHON:-python}
+
+if ${PYTHON} -c "import google.protobuf" > /dev/null 2>&1 && command -v protoc > /dev/null; then
+    # TODO: a more sophisticated compatibility check?
+    echo "INFO: using system google.protobuf/protoc"
+    exit 0
+fi
+
+# Check that a virtual environment is active
+if ! ${PYTHON} -c "import sys; sys.exit(sys.prefix == sys.base_prefix)"; then
+    echo "ERROR: $0 expects to be run inside a Python virtual environment"
+    exit 1
+fi
+
+VIRTUALENV=$(${PYTHON} -c "import sys; print(sys.prefix, end='')")
+echo "INFO: installing into virtual environment ${VIRTUALENV}"
+
+# Install google.protobuf, and dependencies for fetching protoc
+${PYTHON} -m pip install --disable-pip-version-check --upgrade pip
+${PYTHON} -m pip install --disable-pip-version-check --upgrade protobuf requests
+
+# Fetch the latest version of protoc from GitHub
+${PYTHON} - "${VIRTUALENV}" <<EOL
+import io, platform, requests, sys, zipfile
+s = requests.Session()
+s.mount('https://', requests.adapters.HTTPAdapter(max_retries=5))
+r = s.get("https://api.github.com/repos/protocolbuffers/protobuf/releases/latest")
+r.raise_for_status()
+system = platform.system().lower()
+machine = platform.machine()
+system = {"darwin": "osx"}.get(system, system)
+machine = {"arm64": "aarch_64"}.get(machine, machine)
+suffix = "-{}-{}.zip".format(system, machine)
+urls = [a["browser_download_url"] for a in r.json()["assets"]]
+urls = [url for url in urls if url.endswith(suffix)]
+assert len(urls) == 1
+r = s.get(urls[0])
+r.raise_for_status()
+output = sys.argv[1]
+with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+  for name in z.namelist():
+    if '..' in name: continue
+    if name.startswith("bin/") or name.startswith("include/"):
+      z.extract(name, path=output)
+EOL
+
+# Make sure the protoc binary is executable
+chmod 755 "${VIRTUALENV}/bin/protoc"
+
+if ! ${PYTHON} -c "import google.protobuf" || ! command -v protoc > /dev/null; then
+    # TODO: a more sophisticated compatibility check?
+    echo "ERROR: failed to achieve a working google.protobuf/protoc pairing"
+    exit 1
+fi

@@ -2,8 +2,6 @@
 ARG BASE_IMAGE=nvidia/cuda:12.4.1-devel-ubuntu22.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
-ARG SRC_MANIFEST_FILE=manifest.yaml
-ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG CLANG_VERSION=17
 
 ###############################################################################
@@ -30,8 +28,6 @@ RUN /scripts/container_entry.sh install
 FROM ${BASE_IMAGE}
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
-ARG SRC_MANIFEST_FILE
-ARG DEST_MANIFEST_DIR
 ARG CLANG_VERSION
 
 ###############################################################################
@@ -44,6 +40,7 @@ export TZ=America/Los_Angeles
 apt-get update
 
 apt_packages=(
+  # generic
   bat
   build-essential
   checkinstall
@@ -57,8 +54,11 @@ apt_packages=(
   rsync
   vim
   wget
+  jq
   # llvm.sh
   lsb-release software-properties-common
+  # GCP autoconfig
+  pciutils hwloc bind9-host
 )
 if [[ $(dpkg --print-architecture) == arm64 ]]; then
   # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
@@ -110,11 +110,11 @@ git config --global user.email "${GIT_USER_EMAIL}"
 EOF
 RUN mkdir -p /opt/pip-tools.d
 ADD --chmod=777 \
-    get-source.sh \
-    pip-finalize.sh \
-    /usr/local/bin/
+  git-clone.sh \
+  pip-finalize.sh \
+  /usr/local/bin/
 RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) -O /usr/local/bin/yq && \
-    chmod 777 /usr/local/bin/yq
+  chmod 777 /usr/local/bin/yq
 RUN git clone -b 23.3.1 https://github.com/pypa/pip.git /opt/pip
 # Patch is specific to 23.3.1
 # Generated via: "git diff > pip-vcs-equivalency.patch"
@@ -166,7 +166,10 @@ RUN install-ofed.sh
 ## Amazon EFA support (need to run it inside container separately)
 ##############################################################################
 
-ADD install-efa.sh /usr/local/bin
+ADD --chmod=777 \
+  install-efa.sh \
+  test-aws-efa.sh \
+  /usr/local/bin/
 ENV LD_LIBRARY_PATH=/opt/amazon/efa/lib:${LD_LIBRARY_PATH}
 ENV PATH=/opt/amazon/efa/bin:${PATH}
 
@@ -180,18 +183,27 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ## Add the GCP - TCPX check to the entrypoint.
 ###############################################################################
 
-COPY gcp-tcpx-check.sh /opt/nvidia/entrypoint.d/
+# TODO(chaserileyroberts): Reenable once fully tested on GCP.
+# COPY gcp-autoconfig.sh /opt/nvidia/entrypoint.d/
+
+###############################################################################
+## Add helper scripts for profiling with Nsight Systems
+##
+## The scripts saved to /opt/jax_nsys are embedded in the output archives
+## written by nsys-jax, while the nsys-jax and nsys-jax-gather-src-files
+## utilities are only used inside the container.
+###############################################################################
+
+ADD nsys-jax nsys-jax-gather-src-files /usr/local/bin
+ADD jax_nsys/ /opt/jax_nsys
+ADD requirements-nsys-jax.in /opt/pip-tools.d/
+RUN ln -s /opt/jax_nsys/nsys-jax-ensure-protobuf /usr/local/bin/
 
 ###############################################################################
 ## Copy manifest file to the container
 ###############################################################################
 
-# Set the manifest env vars
-ENV MANIFEST_FILE=${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-# Copy all required files for manifestation
-ADD ${SRC_MANIFEST_FILE} \
-    bump.sh \
-    bump-openxla-triton.sh \
-    create-distribution.sh \
-    ${DEST_MANIFEST_DIR}/
-COPY patches/ ${DEST_MANIFEST_DIR}/patches/
+ENV MANIFEST_FILE="/opt/manifest.d/manifest.yaml"
+ADD manifest.yaml create-distribution.sh bump.sh /opt/manifest.d/
+
+COPY patches/ /opt/manifest.d/patches/

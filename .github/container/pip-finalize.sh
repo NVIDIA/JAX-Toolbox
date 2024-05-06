@@ -22,7 +22,7 @@ unset IFS
 # Second pip-compile includes one more requirements file that pins all vcs installs
 # Uses a special env var to let our custom pip impl know to treat the following as
 # equivalent:
-# 
+#
 # fiddle @ git+https://github.com/google/fiddle
 # fiddle @ git+https://github.com/google/fiddle@cd4497e4c09bdf95dcccaa1e138c2c125d32d39f
 #
