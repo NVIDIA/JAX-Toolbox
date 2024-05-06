@@ -118,7 +118,7 @@ jobs:
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --mem-fraction 0.65 \
-              --model-name default \
+              --decoder-block default \
               --attn-type dot_product \
               --batch-per-gpu 2 \
               --steps 10 \
@@ -271,7 +271,7 @@ jobs:
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --mem-fraction 0.65 \
-              --model-name default \
+              --decoder-block default \
               --attn-type dot_product \
               --batch-per-gpu 2 \
               --steps 10 \
