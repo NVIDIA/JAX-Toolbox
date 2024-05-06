@@ -1,4 +1,5 @@
 #!/bin/bash
+set -exou pipefail
 
 # # Parse command-line arguments
 
@@ -151,7 +152,7 @@ else
     ici_DP=$DP
 fi
 
-if [ $ATTN_TYPE -eq 'cudnn_flash_te' ]; then
+if [[ $ATTN_TYPE == 'cudnn_flash_te' ]]; then
     ENABLE_FUSED_ATTN=1
     REMAT_POLICY="minimal_flash"
 fi
@@ -179,7 +180,6 @@ MAXTEXT_DIR="/opt/maxtext"
 pushd ${MAXTEXT_DIR}
 
 ## Launch
-set -ex
 
 export NVTE_FUSED_ATTN=${ENABLE_FUSED_ATTN}
 export XLA_PYTHON_CLIENT_MEM_FRACTION=${MEM_FRACTION}
@@ -217,5 +217,4 @@ RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME} log
 echo "Command: python3 $RUN_SETTINGS"
 python3 $RUN_SETTINGS
 
-set +x
 echo "Output at ${OUTPUT}"
