@@ -151,7 +151,7 @@ else
     ici_DP=$DP
 fi
 
-if [ $ATTN_TYPE -eq 'cudnn_flash_te' ]; then
+if [[ $ATTN_TYPE == 'cudnn_flash_te' ]]; then
     ENABLE_FUSED_ATTN=1
     REMAT_POLICY="minimal_flash"
 fi
