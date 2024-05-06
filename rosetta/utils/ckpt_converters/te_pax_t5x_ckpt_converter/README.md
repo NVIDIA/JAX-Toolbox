@@ -32,7 +32,7 @@
 
 1. TE -> Pax (Repeat):
 ```bash
-python  converter/main.py \
+python  main.py \
     --input-path=/your_path_to_src_ckpt \
     --output-path=/your_path_to_output_ckpt \
     --fw=pax \
@@ -46,7 +46,7 @@ python  converter/main.py \
 
 2. TE -> Pax (Not Repeat):
 ```bash
-python  converter/main.py \
+python  main.py \
     --input-path=/your_path_to_src_ckpt \
     --output-path=/your_path_to_output_ckpt \
     --fw=pax \
@@ -59,7 +59,7 @@ python  converter/main.py \
 
 3. Pax -> TE (Repeat):
 ```bash
-python  converter/main.py \
+python  main.py \
     --input-path=/your_path_to_src_ckpt \
     --output-path=/your_path_to_output_ckpt \
     --fw=pax \
@@ -73,7 +73,7 @@ python  converter/main.py \
 
 2. Pax -> TE (Not Repeat):
 ```bash
-python  converter/main.py \
+python  main.py \
     --input-path=/your_path_to_src_ckpt \
     --output-path=/your_path_to_output_ckpt \
     --fw=pax \
@@ -87,7 +87,7 @@ python  converter/main.py \
 #### T5X
 1. TE/FusedQKV -> T5X:
 ```bash
-python  converter/main.py \
+python  main.py \
     --input-path=/your_path_to_src_ckpt \
     --output-path=/your_path_to_output_ckpt \
     --fw=t5x \
@@ -102,7 +102,7 @@ python  converter/main.py \
 
 2. TE/NotFusedQKV -> T5X:
 ```bash
-python  converter/main.py \
+python  main.py \
     --input-path=/your_path_to_src_ckpt \
     --output-path=/your_path_to_output_ckpt \
     --fw=t5x \
@@ -116,7 +116,7 @@ python  converter/main.py \
 
 3. T5X -> TE/FusedQKV:
 ```bash
-python  converter/main.py \
+python  main.py \
     --input-path=/your_path_to_src_ckpt \
     --output-path=/your_path_to_output_ckpt \
     --fw=t5x \
@@ -131,7 +131,7 @@ python  converter/main.py \
 
 4. T5X -> TE/NotFusedQKV:
 ```bash
-python  converter/main.py \
+python  main.py \
     --input-path=/your_path_to_src_ckpt \
     --output-path=/your_path_to_output_ckpt \
     --fw=t5x \
