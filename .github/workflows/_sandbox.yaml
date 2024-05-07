@@ -1,6 +1,7 @@
 name: "~Sandbox"
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
@@ -10,7 +11,11 @@ jobs:
       - name: Get data from runner
         shell: bash -x -e {0}
         run: |
-          hostname
-          echo GITHUB_WORKSPACE=$GITHUB_WORKSPACE
-          df -h
-          ls -lah $GITHUB_WORKSPACE
+          touch rosetta-pax-8957256120-LLaMA_eval_TE.log
+          touch rosetta-pax-8957256120-16DP1FSDP1TP1PP_TE.txt
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: !*_eval_*
+        
