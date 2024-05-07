@@ -1,0 +1,23 @@
+name: watchdog
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  main:
+    runs-on: ubuntu-22.04
+    if: >
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/cicd')
+    steps:
+      - name: Triggered by comment
+        shell: bash
+        run: |
+          PR_URL="${{ github.event.issue.pull_request.url }}"
+          PR_NUM=${PR_URL##*/}
+          
+          echo ${{ github.head_ref || github.ref }}
+          echo $PR_NUM
+          exit 0
