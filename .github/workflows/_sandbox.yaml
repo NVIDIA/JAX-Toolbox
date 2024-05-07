@@ -17,5 +17,5 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: !*_eval_*
+          pattern: '!*_eval_*'
         
