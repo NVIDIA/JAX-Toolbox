@@ -403,7 +403,7 @@ jobs:
         ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-levanter.log
           pip install flake8 pytest soundfile librosa
-          PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests
+          PYTHONPATH=/opt/levanter/tests:/opt/levanter/src:$PYTHONPATH pytest /opt/levanter/tests -m "not slow and not ray"
         EOF
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-levanter.log)
