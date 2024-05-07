@@ -405,7 +405,7 @@ jobs:
         docker run -i --gpus all --shm-size=1g \
         ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-levanter.log
-          pip install pytest
+          pip install flake8 pytest soundfile librosa
           PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests
         EOF
       STATISTICS_SCRIPT: |
