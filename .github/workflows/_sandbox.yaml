@@ -17,9 +17,26 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4     
         with:
+          name: rosetta-pax-8957256120-LLaMA_eval_TE 
           path: |
-            rosetta-pax*
-            
+            rosetta-pax-8957256120-LLaMA_eval_TE*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4     
+        with:
+          name: rosetta-pax-8957256120-16DP1FSDP1TP1PP_TE
+          path: |
+            rosetta-pax-8957256120-16DP1FSDP1TP1PP_TE*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4     
+        with:
+          name: rosetta-pax-8957256120-LLaMA_eval_TE
+          path: |
+            rosetta-pax-8957256120-LLaMA_eval_TE.log
+        
+
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
