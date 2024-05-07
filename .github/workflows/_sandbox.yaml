@@ -7,6 +7,9 @@ jobs:
   sandbox:
     runs-on: ubuntu-22.04
     steps:
-    - echo GITHUB_WORKSPACE=$GITHUB_WORKSPACE
-    - df -h
-    - ls -lah $GITHUB_WORKSPACE
+      - name: Get data from runner
+        shell: bash -x -e {0}
+        run: |
+          echo GITHUB_WORKSPACE=$GITHUB_WORKSPACE
+          df -h
+          ls -lah $GITHUB_WORKSPACE
