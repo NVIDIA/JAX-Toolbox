@@ -14,6 +14,9 @@ jobs:
           touch rosetta-pax-8957256120-LLaMA_eval_TE.log
           touch rosetta-pax-8957256120-16DP1FSDP1TP1PP_TE.txt
       
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4     
+        
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
