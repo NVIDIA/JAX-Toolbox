@@ -10,6 +10,7 @@ jobs:
       - name: Get data from runner
         shell: bash -x -e {0}
         run: |
+          hostname
           echo GITHUB_WORKSPACE=$GITHUB_WORKSPACE
           df -h
           ls -lah $GITHUB_WORKSPACE
