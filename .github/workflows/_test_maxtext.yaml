@@ -350,7 +350,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           # skip downloading checkpoints
-          pattern: '!*_eval_*'
+          pattern: '!*_checkpoints'
 
       - name: Run pytest
         shell: bash -eux {0}
