@@ -388,6 +388,9 @@ else
 fi
 
 if [[ ${EVALUATE} -ne 0 ]]; then
+
+  trap "rm -rf ${OUTPUT}/checkpoints" ERR
+
   ## train for 0 steps to generate an initial checkpoint
   python -m paxml.main \
     --fdl_config=${CONFIG} \
