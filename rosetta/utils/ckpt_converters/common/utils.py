@@ -25,6 +25,8 @@ from jax.experimental import mesh_utils
 from jax.experimental.array_serialization import serialization
 from jax.experimental.array_serialization.serialization import get_tensorstore_spec
 
+from typing import Optional
+
 # Use host to convert tensors for leveraging the larger host memory.
 jax.config.update('jax_platform_name', 'cpu')
 
@@ -37,6 +39,7 @@ class ModelConfig:
     num_of_layer: int
     embed_dim: int
     num_of_head: int
+    num_gqa_groups: int
     head_dim: int
     mlp_intermediate_dim: int
     kernel_chunk_size: int = None
@@ -65,7 +68,6 @@ class ConvertHelper:
         skip_ln: Optional[bool] = False,
         skip_bias: Optional[bool] = False,
         use_gated_activations: Optional[bool] = False,
-        split_qkv: Optional[bool] = False,
         skip_position_emb: Optional[bool] = False,
     ):
         self.input_path = input_path
@@ -75,7 +77,6 @@ class ConvertHelper:
         self.skip_ln = skip_ln
         self.skip_bias = skip_bias
         self.use_gated_activations = use_gated_activations
-        self.split_qkv = split_qkv
         self.skip_position_emb = skip_position_emb
 
     @property
@@ -84,7 +85,11 @@ class ConvertHelper:
 
     @property
     def target_categories(self):
-        raise NotImplementedError
+        return self.src_categories
+
+    @property
+    def no_prefix_conversions(self):
+        return []
 
     def _get_convert_pkg(self,
                          target_path,
@@ -136,6 +141,7 @@ class ConvertHelper:
                     target_path, shape, chunk_dim, converters, \
                     extra_src_paths, extra_target_paths, stack_dim, just_copy = self._unpack_convert_pkg(pkg)
 
+
                     full_src_name = src_prefix + '.' + src_path
                     full_target_name = target_prefix + '.' + target_path
                     full_extra_src_names = None if extra_src_paths is None else \
@@ -155,7 +161,7 @@ class ConvertHelper:
 
                 ckpt_map_with_full_name[full_src_name] = ckpt_pkgs_with_full_name
 
-        no_prefix_map = self.no_prefix_conversions()
+        no_prefix_map = self.no_prefix_conversions
         for src_path in no_prefix_map:
             ckpt_pkgs = no_prefix_map[src_path]
             if not isinstance(ckpt_pkgs, list):
@@ -267,6 +273,8 @@ def deserialize_tensor(path: str, tensor: jnp.ndarray, chunk_dim: int = None, ch
 
     tspec = get_json_tspec(path)
     tspec['metadata'] = serialization._get_metadata(tensor)
+    ## TODO: it looke like the way metadata is stored in orbax has changes recently
+    ## needed to comment this out to get converter to run
     del tspec['metadata']['dtype']
 
     if chunk_dim is not None:

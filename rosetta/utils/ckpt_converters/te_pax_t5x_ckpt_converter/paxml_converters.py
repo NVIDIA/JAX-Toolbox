@@ -15,13 +15,13 @@
 
 import jax.numpy as jnp
 
-from ..common.utils import ConvertHelper
+from common.utils import ConvertHelper
 
 
 class PaxConvertHelperBase(ConvertHelper):
 
     @property
-    def catagories(self):
+    def src_categories(self):
         if self.weight_only:
             return ['mdl_vars.params']
         return ['mdl_vars.params', "opt_states_0_2.m.params", "opt_states_0_2.v.params"]

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ..common.utils import ConvertHelper
+from common.utils import ConvertHelper
 
 CATAGORIES = ['target', "state.param_states.1.0.mu", "state.param_states.1.0.nu"]
 
@@ -20,7 +20,7 @@ CATAGORIES = ['target', "state.param_states.1.0.mu", "state.param_states.1.0.nu"
 class T5XConvertHelperBase(ConvertHelper):
 
     @property
-    def catagories(self):
+    def src_categories(self):
         if self.weight_only:
             return CATAGORIES[:1]
         return CATAGORIES

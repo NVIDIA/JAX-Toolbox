@@ -15,7 +15,7 @@
 import jax
 import jax.numpy as jnp
 import functools
-from utils import ConvertHelper
+from common.utils import ConvertHelper
 
 class NonRepeat2RepeatConvertHelper(ConvertHelper):
 
@@ -45,6 +45,7 @@ class NonRepeat2RepeatConvertHelper(ConvertHelper):
 
     def _generate_ckpt_map(self):
         num_of_head = self.model_config.num_of_head
+        num_gqa_groups = self.model_config.num_gqa_groups
         head_dim = self.model_config.head_dim
         hidden_dim = num_of_head * head_dim
         mlp_intermediate_dim = self.model_config.mlp_intermediate_dim
@@ -78,11 +79,11 @@ class NonRepeat2RepeatConvertHelper(ConvertHelper):
         if self.use_gated_activations:
             ckpt_map = self.create_convert_pkg(ckpt_map, "ff_layer.ffn_layer1_gate.linear.w", num_layers, (hidden_dim, mlp_intermediate_dim))
  
-        if self.split_qkv:
+        if num_gqa_groups:
             qkv_names_shapes = [
                 ("self_attention.query.w", (hidden_dim, num_of_head, head_dim)),
-                ("self_attention.key.w", (hidden_dim, num_of_head, head_dim)),
-                ("self_attention.value.w", (hidden_dim, num_of_head, head_dim))
+                ("self_attention.key.w", (hidden_dim, num_gqa_groups, head_dim)),
+                ("self_attention.value.w", (hidden_dim, num_gqa_groups, head_dim))
             ]
             for name, shape in qkv_names_shapes:
                 ckpt_map = self.create_convert_pkg(ckpt_map, name, num_layers, shape)
@@ -104,6 +105,7 @@ class NonRepeat2RepeatConvertHelper(ConvertHelper):
         return ckpt_map
 
 
+    @property
     def no_prefix_conversions(self):
 
         num_layers = self.model_config.num_of_layer
@@ -205,6 +207,7 @@ class Repeat2NonRepeatConvertHelper(ConvertHelper):
     def _generate_ckpt_map(self):
         num_of_head = self.model_config.num_of_head
         head_dim = self.model_config.head_dim
+        num_gqa_groups = self.model_config.num_gqa_groups
         hidden_dim = num_of_head * head_dim
         mlp_intermediate_dim = self.model_config.mlp_intermediate_dim
         num_layers = self.model_config.num_of_layer
@@ -235,13 +238,13 @@ class Repeat2NonRepeatConvertHelper(ConvertHelper):
                 ckpt_map = self.create_convert_pkg(ckpt_map, name, num_layers, shape)
 
         if self.use_gated_activations:
-            ckpt_map = self.create_convert_pkg(ckpt_map, "ff_layer.ffn_layer1_gate.linear.w", num_layers, (hidden_dim, mlp_intermediate_dim))
+            ckpt_map = self.create_convert_pkg(ckpt_map, "ff_layer.ffn_layer1_gate.linear.w", num_layers, (num_layers, hidden_dim, mlp_intermediate_dim))
 
-        if self.split_qkv:
+        if num_gqa_groups:
             qkv_names_shapes = [
                 ("self_attention.query.w", (num_layers, hidden_dim, num_of_head, head_dim)),
-                ("self_attention.key.w", (num_layers, hidden_dim, num_of_head, head_dim)),
-                ("self_attention.value.w", (num_layers, hidden_dim, num_of_head, head_dim))
+                ("self_attention.key.w", (num_layers, hidden_dim, num_gqa_groups, head_dim)),
+                ("self_attention.value.w", (num_layers, hidden_dim, num_gqa_groups, head_dim))
             ]
             for name, shape in qkv_names_shapes:
                 ckpt_map = self.create_convert_pkg(ckpt_map, name, num_layers, shape)
@@ -262,7 +265,7 @@ class Repeat2NonRepeatConvertHelper(ConvertHelper):
 
         return ckpt_map
 
-
+    @property
     def no_prefix_conversions(self):
 
         num_layers = self.model_config.num_of_layer

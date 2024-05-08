@@ -15,11 +15,11 @@
 
 import argparse
 
-from paxml_converters import (
+from bidirectional_converter import (
     NonRepeat2RepeatConvertHelper,
     Repeat2NonRepeatConvertHelper
 )
-from ..common.utils import ModelConfig
+from common.utils import ModelConfig
 
 PAX_CONVERT_HELPER_DICT = {
     "to_repeat": NonRepeat2RepeatConvertHelper,
@@ -76,15 +76,15 @@ def parse_args():
         default=False,
         help="indicate if the model uses a gated activation function.")
     parser.add_argument(
-        '--split-qkv',
-        action="store_true",
-        default=False,
-        help="indicate if the source Pax checkpoint has split QKV parameters.")
-    parser.add_argument(
         '--skip-position-emb',
         action="store_true",
         default=False,
         help="indicate if the model does NOT have a trainable position embedding.")
+    parser.add_argument(
+        '--num-gqa-groups',
+        type=int,
+        default=None,
+        help="the number of GQA groups (key-value heads) of the given source checkpoint. ")
 
     args = parser.parse_args()
 
@@ -96,6 +96,7 @@ def get_convert_helper(args):
     model_config = ModelConfig(args.num_of_layer,
                                None, # embed_dim unused
                                args.num_of_head,
+                               args.num_gqa_groups,
                                args.head_dim,
                                args.mlp_intermediate_dim)
 
@@ -106,7 +107,6 @@ def get_convert_helper(args):
         weight_only=args.weight_only,
         skip_bias=args.skip_bias,
         use_gated_activations=args.use_gated_activations,
-        split_qkv=args.split_qkv,
         skip_position_emb=args.skip_position_emb
     )
 
