@@ -454,6 +454,7 @@ jobs:
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}_checkpoints
           path: output/**/checkpoints/*
+          if-no-files-found: ignore
 
 
   rosetta-pax-multi-node:

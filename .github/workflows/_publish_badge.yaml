@@ -30,6 +30,9 @@ jobs:
     steps:
       - name: Download all artifacts from the previous jobs
         uses: actions/download-artifact@v4
+        with:
+          # skip downloading checkpoints
+          pattern: '!*_checkpoints'
 
       - name: Execute data processing script
         id: script

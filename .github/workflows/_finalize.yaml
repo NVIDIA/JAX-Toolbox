@@ -68,6 +68,11 @@ jobs:
     steps:
       - name: Download artifacts specified by input
         uses: actions/download-artifact@v4
+        with:
+          # skip downloading checkpoints
+          pattern: '!*_checkpoints'
+
+
 
       - name: Collect all badge files to temporary folder
         id: collect
@@ -128,6 +133,10 @@ jobs:
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          # skip downloading checkpoints
+          pattern: '!*_checkpoints'
+
 
       - name: Write output to step summary
         shell: bash -x -e {0}
