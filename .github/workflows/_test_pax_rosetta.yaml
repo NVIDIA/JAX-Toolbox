@@ -445,7 +445,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
-          path: output/*
+          path: |
+            output/*
+            !output/**/checkpoints/*
+
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.JOB_NAME }}_checkpoints
+          path: output/**/checkpoints/*
+
 
   rosetta-pax-multi-node:
     strategy:
@@ -1027,6 +1036,7 @@ jobs:
           path: output/*
 
   metrics:
+    name: test-pax-rosetta-metrics
     needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te]
     runs-on: ubuntu-22.04
 
@@ -1036,6 +1046,9 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          # skip downloading checkpoints
+          pattern: '!*_checkpoints'
 
       - name: Run pytest
         shell: bash -eux {0}
@@ -1060,6 +1073,7 @@ jobs:
             *_metrics.json
 
   sitrep:
+    name: test-pax-rosetta-sitrep
     needs: metrics
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
@@ -1070,6 +1084,7 @@ jobs:
       FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
+    name: test-pax-rosetta-summary
     runs-on: ubuntu-22.04
     needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te]
     if: "!cancelled()"
@@ -1087,6 +1102,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
+    name: test-pax-rosetta-outcome
     needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"

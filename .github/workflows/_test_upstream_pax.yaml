@@ -351,7 +351,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
-          path: output/*
+          path: |
+            output/*
+            !output/**/checkpoints/
+
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.JOB_NAME }}_checkpoints
+          path: output/**/checkpoints/
 
   single-process-evaluation:
     strategy:
@@ -501,6 +509,7 @@ jobs:
           path: output/*
 
   metrics:
+    name: test-upstream-pax-metrics
     needs: [single-process-multi-device, pax-multi-node, single-process-evaluation]
     runs-on: ubuntu-22.04
 
@@ -510,6 +519,9 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          # skip downloading checkpoints
+          pattern: '!*_checkpoints'
 
       - name: Run pytest
         shell: bash -eux {0}
@@ -534,6 +546,7 @@ jobs:
             *_metrics.json
 
   sitrep:
+    name: test-upstream-pax-sitrep
     needs: metrics
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
@@ -544,6 +557,7 @@ jobs:
       FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
+    name: test-upstream-pax-summary
     runs-on: ubuntu-22.04
     needs: [single-process-multi-device, pax-multi-node, single-process-evaluation]
     if: "!cancelled()"
@@ -561,6 +575,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
+    name: test-upstream-pax-outcome
     needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"

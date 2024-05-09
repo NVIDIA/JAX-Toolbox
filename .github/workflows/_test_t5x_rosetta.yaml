@@ -779,6 +779,7 @@ jobs:
           path: output/*
 
   metrics:
+    name: test-t5x-rosetta-metrics
     needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node]
     runs-on: ubuntu-22.04
 
@@ -788,6 +789,9 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          # skip downloading checkpoints
+          pattern: '!*_checkpoints'
 
       - name: Run pytest
         shell: bash -eux {0}
@@ -812,6 +816,7 @@ jobs:
             *_metrics.json
   
   sitrep:
+    name: test-t5x-rosetta-sitrep
     needs: metrics
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
@@ -822,6 +827,7 @@ jobs:
       FW_NAME: ${{ inputs.FW_NAME }}
       
   summary:
+    name: test-t5x-rosetta-summary
     runs-on: ubuntu-22.04
     needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node]
     if: "!cancelled()"
@@ -839,6 +845,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
+    name: test-t5x-rosetta-outcome
     needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"

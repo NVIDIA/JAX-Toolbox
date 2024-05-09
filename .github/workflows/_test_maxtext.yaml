@@ -118,7 +118,7 @@ jobs:
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --mem-fraction 0.65 \
-              --model-name default \
+              --decoder-block default \
               --attn-type dot_product \
               --batch-per-gpu 2 \
               --steps 10 \
@@ -271,7 +271,7 @@ jobs:
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --mem-fraction 0.65 \
-              --model-name default \
+              --decoder-block default \
               --attn-type dot_product \
               --batch-per-gpu 2 \
               --steps 10 \
@@ -338,6 +338,7 @@ jobs:
           path: output/*
 
   metrics:
+    name: test-maxtext-metrics
     needs: [single-process-multi-device, maxtext-multinode]
     runs-on: ubuntu-22.04
 
@@ -347,6 +348,9 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          # skip downloading checkpoints
+          pattern: '!*_checkpoints'
 
       - name: Run pytest
         shell: bash -eux {0}
@@ -371,6 +375,7 @@ jobs:
             *_metrics.json
 
   sitrep:
+    name: test-maxtext-sitrep
     needs: [single-process-multi-device, maxtext-multinode, metrics]
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
@@ -381,6 +386,7 @@ jobs:
       FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
+    name: test-maxtext-summary
     runs-on: ubuntu-22.04
     needs: [single-process-multi-device, maxtext-multinode]
     if: "!cancelled()"
@@ -398,6 +404,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
+    name: test-maxtext-outcome
     needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"
