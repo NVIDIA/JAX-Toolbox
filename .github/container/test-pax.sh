@@ -389,7 +389,7 @@ fi
 
 if [[ ${EVALUATE} -ne 0 ]]; then
 
-  trap "rm -rf ${OUTPUT}/checkpoints" ERR
+  trap "rm -rf ${OUTPUT}/checkpoints" ERR INT HUP TERM EXIT
 
   ## train for 0 steps to generate an initial checkpoint
   python -m paxml.main \
@@ -411,7 +411,6 @@ if [[ ${EVALUATE} -ne 0 ]]; then
     $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 
-  rm -rf ${OUTPUT}/checkpoints
 else
   python -m paxml.main \
     --fdl_config=${CONFIG} \
