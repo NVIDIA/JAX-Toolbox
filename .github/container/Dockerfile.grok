@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_GROK_1=https://github.com/xai-org/grok-1.git#main
+ARG SRC_PATH_GROK_1=/opt/grok-1
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_GROK_1
+ARG SRC_PATH_GROK_1
+
+RUN <<"EOF" bash -ex
+git-clone.sh ${URLREF_GROK_1} ${SRC_PATH_GROK_1}
+sed -i 's/\(^jax\)/# \1/g' ${SRC_PATH_GROK_1}/requirements.txt
+echo "-e file://${SRC_PATH_GROK_1}" >> /opt/pip-tools.d/requirements-grok.in
+echo "-r ${SRC_PATH_GROK_1}/requirements.txt" >> /opt/pip-tools.d/requirements-grok.in
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh

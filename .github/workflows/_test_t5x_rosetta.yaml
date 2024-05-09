@@ -12,16 +12,21 @@ on:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'badge-t5x-rosetta-mgmn-test.json'
+        default: 'badge-rosetta-t5x-mgmn-test.json'
+      ARTIFACT_NAME:
+        type: string
+        description: 'Name of the artifact zip file'
+        required: false
+        default: 'artifact-rosetta-t5x-mgmn-test'
       FW_NAME:
         type: string
         description: 'Name of the framework being used'
         required: false
-        default: 'T5X'
+        default: 'rosetta-t5x'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
-        value: ${{ jobs.publish-test.outputs.STATUS }}
+        value: ${{ jobs.sitrep.outputs.STATUS }}
 
 env:
   BATCH_SIZE_PER_GPU: 32
@@ -49,7 +54,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: rosetta-t5x-single-process-multi-device
+      BADGE_FILENAME_PREFIX: badge-rosetta-t5x-single-process-multi-device
     steps:
       - name: Print environment variables
         run: env
@@ -78,7 +83,7 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
-          JOB_NAME=rosetta-T5X-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -99,13 +104,23 @@ jobs:
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
           #SBATCH --nodes=1
-          #SBATCH --tasks=1
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+
+          # run job with tasks on each node sharing one container
+          time srun \
+            --ntasks=1 \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             bash -c 'wget -P /tmp/ https://raw.githubusercontent.com/NVIDIA/JAX-Toolbox/${{ github.sha }}/.github/container/test-t5x.sh && sleep 10 && bash /tmp/test-t5x.sh \
@@ -122,12 +137,9 @@ jobs:
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLRUM Job $JOB finished."
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -159,7 +171,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-T5X-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -210,7 +222,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
@@ -246,7 +258,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: rosetta-t5x-multi-gpu-multi-node
+      BADGE_FILENAME_PREFIX: badge-rosetta-t5x-multi-gpu-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -276,7 +288,7 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=rosetta-T5X-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
@@ -298,13 +310,22 @@ jobs:
           #SBATCH --exclusive
           #SBATCH --nodes=${{ matrix.N_NODE }}
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+
+          # run job with tasks on each node sharing one container
+          time srun \
+            --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
+            --ntasks-per-node=${{ matrix.N_GPU }} \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             bash -c 'wget -P /tmp/ https://raw.githubusercontent.com/NVIDIA/JAX-Toolbox/${{ github.sha }}/.github/container/test-t5x.sh && sleep 10 && bash /tmp/test-t5x.sh \
@@ -322,12 +343,9 @@ jobs:
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLRUM Job $JOB finished."
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -359,7 +377,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-T5X-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -410,7 +428,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
  
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
@@ -426,7 +444,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: rosetta-t5x-vit-single-process-multi-device
+      BADGE_FILENAME_PREFIX: badge-rosetta-t5x-vit-single-process-multi-device
     steps:
       - name: Print environment variables
         run: env
@@ -455,7 +473,7 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=VIT1P${{ matrix.N_GPU }}G
-          JOB_NAME=rosetta-VIT-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-vit-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.VIT_BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
@@ -476,13 +494,22 @@ jobs:
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
           #SBATCH --nodes=1
-          #SBATCH --tasks=1
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+
+          # run job with tasks on each node sharing one container
+          time srun \
+            --ntasks=1 \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-vit.sh \
@@ -492,12 +519,9 @@ jobs:
           EOF
           )
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLRUM Job $JOB finished."
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -522,7 +546,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-VIT-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-vit-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -573,7 +597,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
@@ -590,7 +614,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     env:
-      BADGE_FILENAME_FULL: rosetta-t5x-vit-multi-gpu-multi-node
+      BADGE_FILENAME_PREFIX: badge-rosetta-t5x-vit-multi-gpu-multi-node
     steps:
       - name: Print environment variables
         run: env
@@ -620,7 +644,7 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=VIT${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=rosetta-VIT-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-vit-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ env.VIT_BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
@@ -642,13 +666,22 @@ jobs:
           #SBATCH --exclusive
           #SBATCH --nodes=${{ matrix.N_NODE }}
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }},XLA_PYTHON_CLIENT_MEM_FRACTION=0.85"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+
+          # run job with tasks on each node sharing one container
+          time srun \
+            --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
+            --ntasks-per-node=${{ matrix.N_GPU }} \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-vit.sh \
@@ -659,12 +692,9 @@ jobs:
           EOF
           )
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLRUM Job $JOB finished."
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -689,7 +719,7 @@ jobs:
             output/ || true
           rsync -rtz --progress \
             output/ \
-            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/rosetta-VIT-${GITHUB_RUN_ID}/ || true
+            ${{ secrets.TENSORBOARD_UPLOAD_USER }}@${{ vars.HOSTNAME_TENSORBOARD }}:/tensorboard-logs/${{ inputs.FW_NAME }}-vit-${GITHUB_RUN_ID}/ || true
 
       - name: Write SLURM job status to file
         shell: bash -x -e {0}
@@ -740,7 +770,7 @@ jobs:
           message="${badge_message}" \
           color="${badge_color}" \
           to_json schemaVersion label message color \
-          > output/${{ env.BADGE_FILENAME_FULL }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
+          > output/${{ env.BADGE_FILENAME_PREFIX }}-${{ steps.meta.outputs.TEST_CASE_NAME }}.json
  
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
@@ -748,69 +778,56 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: output/*
 
-  publish-test:
+  metrics:
+    name: test-t5x-rosetta-metrics
     needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node]
-    uses: ./.github/workflows/_publish_badge.yaml
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          # skip downloading checkpoints
+          pattern: '!*_checkpoints'
+
+      - name: Run pytest
+        shell: bash -eux {0}
+        run: |
+          pip install pytest pytest-reportlog tensorboard
+          for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-* ${{ inputs.FW_NAME }}-vit-${GITHUB_RUN_ID}-*; do
+            JOB_NAME=$(echo $i | awk -F "${GITHUB_RUN_ID}-" '{print $2}')
+            METRIC_PATH=${JOB_NAME}_metrics.json
+            python3 .github/workflows/baselines/summarize_metrics.py $i/$JOB_NAME --perf_summary_name "timing/steps_per_second" --output_json_path $METRIC_PATH
+            # Test script expects the job dir and the log to be in the CWD
+            mv $i/$JOB_NAME $i/${JOB_NAME}.log .
+          done
+
+          RESULTS_DIR=$PWD BASELINES_DIR=T5X_MGMN/rosetta pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
+
+      - name: Upload metrics test json logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.FW_NAME }}-metrics-test-log
+          path: |
+            report.jsonl
+            *_metrics.json
+  
+  sitrep:
+    name: test-t5x-rosetta-sitrep
+    needs: metrics
     if: "!cancelled()"
+    uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
     with:
-      ENDPOINT_FILENAME: 'rosetta-t5x-test-completion-status.json'
-      PUBLISH: false
-      SCRIPT: |
-        T5X_EXIT_STATUSES="rosetta-T5X-${GITHUB_RUN_ID}-*/*-status.json"
-        T5X_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $T5X_EXIT_STATUSES | wc -l)
-        T5X_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $T5X_EXIT_STATUSES | wc -l)
-        T5X_TOTAL_TESTS=$(ls $T5X_EXIT_STATUSES | wc -l)
-
-        cat <<EOF >>$GITHUB_STEP_SUMMARY
-        ## T5x MGMN+SPMD Test Status
-        | Test Case | State | Exit Code |
-        | --- | --- | --- |
-        EOF
-        for i in $T5X_EXIT_STATUSES; do
-          # Files are named -rosetta-t5x-<GHID>-<NAME>/<NAME>-status.json
-          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
-        done | tee -a $GITHUB_STEP_SUMMARY
-
-        VIT_EXIT_STATUSES="rosetta-VIT-${GITHUB_RUN_ID}-*/*-status.json"
-        VIT_PASSED_TESTS=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $VIT_EXIT_STATUSES | wc -l)
-        VIT_FAILED_TESTS=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $VIT_EXIT_STATUSES | wc -l)
-        VIT_TOTAL_TESTS=$(ls $VIT_EXIT_STATUSES | wc -l)
-
-        cat <<EOF >>$GITHUB_STEP_SUMMARY
-        ## ViT MGMN+SPMD Test Status
-        | Test Case | State | Exit Code |
-        | --- | --- | --- |
-        EOF
-        for i in $VIT_EXIT_STATUSES; do
-          # Files are named <GHID>-<NAME>/<NAME>-status.json
-          echo "| $(echo $i | cut -d/ -f1 | cut -d- -f4-) | $(jq -r .state $i) | $(jq -r .exitcode $i)"
-        done | tee -a $GITHUB_STEP_SUMMARY
-
-        EXIT_STATUSES="$VIT_EXIT_STATUSES $T5X_EXIT_STATUSES"
-        PASSED_TESTS=$(( T5X_PASSED_TESTS + VIT_PASSED_TESTS ))
-        FAILED_TESTS=$(( T5X_FAILED_TESTS + VIT_FAILED_TESTS ))
-        TOTAL_TESTS=$(( T5X_TOTAL_TESTS +  VIT_TOTAL_TESTS ))
-
-        echo "Test statuses:"
-        jq -rc 'input_filename,.' $EXIT_STATUSES
-
-        if [[ $FAILED_TESTS -eq 0 ]] && [[ $TOTAL_TESTS -gt 0 ]] || [[ $PASSED_TESTS -eq $TOTAL_TESTS ]]; then
-          echo "STATUS=success" >> $GITHUB_OUTPUT
-          BADGE_COLOR=brightgreen
-        elif [[ $PASSED_TESTS -eq 0 ]]; then
-          echo "STATUS=failure" >> $GITHUB_OUTPUT
-          BADGE_COLOR=red
-        else
-          echo "STATUS=failure" >> $GITHUB_OUTPUT
-          BADGE_COLOR=yellow
-        fi
-        echo "LABEL='Completion'" >> $GITHUB_OUTPUT
-        echo "MESSAGE='${PASSED_TESTS}/${TOTAL_TESTS} passed'" >> $GITHUB_OUTPUT
-        echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
-
-
+      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+      FW_NAME: ${{ inputs.FW_NAME }}
+      
   summary:
+    name: test-t5x-rosetta-summary
     runs-on: ubuntu-22.04
     needs: [multi-gpu-multi-node, single-process-multi-device, vit-single-process-multi-device, vit-multi-gpu-multi-node]
     if: "!cancelled()"
@@ -822,18 +839,19 @@ jobs:
 
           ## Rosetta T5X MGMN training
 
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=rosetta-[T5X|VIT]-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
+          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.FW_NAME }}.*-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
 
           EOF
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
-    needs: publish-test
+    name: test-t5x-rosetta-outcome
+    needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"
     steps:
       - name: Sets workflow status based on test outputs
         run: |
-          if [[ ${{ needs.publish-test.outputs.STATUS }} != success ]]; then
+          if [[ ${{ needs.sitrep.outputs.STATUS }} != success ]]; then
             exit 1
           fi

@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_EQUINOX=https://github.com/patrick-kidger/equinox.git#main
+ARG SRC_PATH_EQUINOX=/opt/equinox
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_EQUINOX
+ARG SRC_PATH_EQUINOX
+
+# Specify installation targets
+RUN <<"EOF" bash -ex
+git-clone.sh ${URLREF_EQUINOX} ${SRC_PATH_EQUINOX}
+echo "-e file://${SRC_PATH_EQUINOX}" >> /opt/pip-tools.d/requirements-equinox.in
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh

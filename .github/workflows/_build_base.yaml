@@ -37,11 +37,11 @@ on:
         description: 'User email in GIT to perform git pull/push'
         required: false
         default: 'jax@nvidia.com'
-      BUMP_MANIFEST:
-        type: boolean
-        description: "Flag to bump manifest file or not"
-        default: false
-        required: false         
+      MANIFEST_ARTIFACT_NAME:
+        type: string
+        description: Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch
+        default: ''
+        required: false
     outputs:
       DOCKER_TAG:
         description: "Tag of the image built"
@@ -57,40 +57,7 @@ permissions:
 
 jobs:
 
-  bump-manifest:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
-
-      - name: Test if manifest bump is functional, and save result to a new file
-        working-directory: .github/container
-        shell: bash -x -e {0}
-        run: |
-          bash bump.sh --input-manifest manifest.yaml --output-manifest manifest.yaml.new
-
-      - name: Replace current manifest with the new one and show diff
-        if: inputs.BUMP_MANIFEST
-        working-directory: .github/container
-        shell: bash -x -e {0}
-        run: |
-          mv manifest.yaml.new manifest.yaml
-          git diff
-
-      - name: Upload bumped manifest to be used in build-base
-        uses: actions/upload-artifact@v4
-        with:
-          name: maybe-bumped-manifest-${{ inputs.ARCHITECTURE }}
-          path: .github/container/manifest.yaml
-      
-      - name: Upload patch folder to be used in build-base
-        uses: actions/upload-artifact@v4
-        with:
-          name: maybe-bumped-patches-${{ inputs.ARCHITECTURE }}
-          path: .github/container/patches
-
   build-base:
-    needs: bump-manifest
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
@@ -104,24 +71,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Delete checked-out manifest and patches
-        if: inputs.BUMP_MANIFEST
+        if: inputs.MANIFEST_ARTIFACT_NAME != ''
         run: |
           rm .github/container/manifest.yaml
           rm -rf .github/container/patches
 
-      - name: Replace checked-out manifest file with bumped one
-        if: inputs.BUMP_MANIFEST
+      - name: Replace checked-out manifest file/patches with bumped one
+        if: inputs.MANIFEST_ARTIFACT_NAME != ''
         uses: actions/download-artifact@v4
         with:
-          name: maybe-bumped-manifest-${{ inputs.ARCHITECTURE }}
+          name: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
           path: .github/container/
-      
-      - name: Replace checked-out patch folder with bumped one
-        if: inputs.BUMP_MANIFEST
-        uses: actions/download-artifact@v4
-        with:
-          name: maybe-bumped-patches-${{ inputs.ARCHITECTURE }}
-          path: .github/container/patches
 
       - name: Log the changes in manifest file and patch folder
         working-directory: .github/container
@@ -172,7 +132,7 @@ jobs:
             GIT_USER_NAME=${{ inputs.GIT_USER_NAME }}
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) }}
+            ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) || '' }}
         
       - name: Generate sitrep
         if: "!cancelled()"

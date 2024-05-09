@@ -10,6 +10,7 @@ manifest based on its current tracking reference, or, if specified, creates loca
 freeze git-refs (which can point to different SHAs).
 
 Usage: $0 [OPTION]...
+  -b, --base-patch-dir  PATH     Where generated patch files are written. Default is $SCRIPT_DIR/patches
   -i, --input-manifest  PATH     The YAML manifest file specifying the world state. Updated in-place unless --output-manifest is provided
   -h, --help                     Print usage.
   -o, --output-manifest PATH     Path to output manifest. Use this if you don't want to update manifest in-place
@@ -21,7 +22,7 @@ EOF
 exit $1
 }
 
-args=$(getopt -o i:ho:s --long input-manifest:,help,output-manifest:,skip-bump-refs -- "$@")
+args=$(getopt -o b:i:ho:s --long base-patch-dir:,input-manifest:,help,output-manifest:,skip-bump-refs -- "$@")
 if [[ $? -ne 0 ]]; then
   echo
   usage 1
@@ -30,6 +31,10 @@ fi
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
+    -b | --base-patch-dir)
+        BASE_PATCH_DIR=$(readlink -f "$2")
+        shift 2
+        ;;
     -s | --skip-bump-refs)
         SKIP_BUMP_REFS=1
         shift 1
@@ -62,6 +67,7 @@ set -eou pipefail
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
+BASE_PATCH_DIR=${BASE_PATCH_DIR:-$SCRIPT_DIR/patches}
 SKIP_BUMP_REFS=${SKIP_BUMP_REFS:-0}
 
 if [[ -z "${MANIFEST_IN:-}" ]]; then
@@ -96,6 +102,7 @@ for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
         git clone $url $repo_tmp
         # Skip apply to defer to allow building upstream t5x and rosetta t5x
         $SCRIPT_DIR/create-distribution.sh \
+          --base-patch-dir $BASE_PATCH_DIR \
           --manifest $MANIFEST_OUT \
           --override_dir $repo_tmp \
           --package ${pkg} \
@@ -103,9 +110,3 @@ for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
         rm -rf $repo_tmp
     fi
 done
-
-# unfortunately the openxla-triton commit must be derived from the content of
-# the xla repository
-if [[ $SKIP_BUMP_REFS -eq 0 ]]; then
-    "${SCRIPT_DIR}/bump-openxla-triton.sh" --manifest "${MANIFEST_OUT}"
-fi

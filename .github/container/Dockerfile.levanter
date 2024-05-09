@@ -1,18 +1,27 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_LEVANTER=https://github.com/stanford-crfm/levanter.git#main
+ARG URLREF_HALIAX=https://github.com/stanford-crfm/haliax.git#main
 ARG SRC_PATH_LEVANTER=/opt/levanter
+ARG SRC_PATH_HALIAX=/opt/haliax
 
 ###############################################################################
 ## Download source and add auxiliary scripts
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_LEVANTER
+ARG URLREF_HALIAX
 ARG SRC_PATH_LEVANTER
+ARG SRC_PATH_HALIAX
 
 RUN <<"EOF" bash -ex
-get-source.sh -l levanter -m ${MANIFEST_FILE} 
+git-clone.sh ${URLREF_LEVANTER} ${SRC_PATH_LEVANTER}
+git-clone.sh ${URLREF_HALIAX} ${SRC_PATH_HALIAX}
+sed -i 's/\(^\s*"haliax\)/#\1/g' ${SRC_PATH_LEVANTER}/pyproject.toml
 echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.in
+echo "-e file://${SRC_PATH_HALIAX}" >> /opt/pip-tools.d/requirements-levanter.in
 EOF
 
 ###############################################################################

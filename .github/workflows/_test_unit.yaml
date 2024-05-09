@@ -3,24 +3,22 @@ name: ~test, unit
 on:
   workflow_call:
     inputs:
-      IMAGE:
-        type: string
-        description: 'Image to be tested'
-        required: true
       TEST_NAME:
         type: string
-        description: 'Name of the test, must be jax or pallas'
+        description: 'Library to run unit tests on SLURM for'
         required: true
-      ARTIFACT_NAME:
+      EXECUTE:
         type: string
-        description: 'Name of the artifact zip file'
-        required: true
-        # default: 'artifact-jax-unit-test'
-      BADGE_FILENAME:
-        type: string
-        description: 'Name of the endpoint JSON file for shields.io badge'
+        description: 'Test command to run in the container'
         required: false
-        # default: 'badge-jax-unit-test'
+      STATISTICS_SCRIPT:
+        type: string
+        description: 'Script to compile the test statistics to report in badge file'
+        required: false
+      ARTIFACTS:
+        type: string
+        description: 'Test artifacts to collect'
+        required: false
 
 jobs:
   runner:
@@ -31,8 +29,7 @@ jobs:
       TIME: "01:00:00"
     secrets: inherit
 
-  jax-unit-test:
-    if: ${{ inputs.TEST_NAME == 'jax' }}
+  run-unit-test:
     strategy:
       fail-fast: false
       matrix:
@@ -42,12 +39,14 @@ jobs:
           # ensures A100 job lands on dedicated runner for this particular job
           - GPU_ARCH: A100
             EXTRA_LABEL: "${{ github.run_id }}"
-    runs-on:
+    name: ${{ inputs.TEST_NAME }}-${{ matrix.GPU_ARCH }}-unit-test
+    runs-on: 
       - self-hosted
       - "${{ matrix.GPU_ARCH }}"
       - "${{ matrix.EXTRA_LABEL }}"
     env:
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
+      ARTIFACT_NAME_FULL: ${{ inputs.TEST_NAME }}-unit-test-${{ matrix.GPU_ARCH }}
+      BADGE_FILENAME_FULL: badge-${{ inputs.TEST_NAME }}-unit-test-${{ matrix.GPU_ARCH }}.json
     steps:
       - name: Print environment variables
         run: env
@@ -65,52 +64,60 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull JAX image
+      - name: Run tests
+        shell: bash -x -e {0}
+        continue-on-error: true
+        run: |
+          ${{ inputs.EXECUTE }}
+
+      - name: Calculate test statistics
+        id: test-stats
+        shell: bash -x -e {0}
+        continue-on-error: true
+        run: |
+          ${{ inputs.STATISTICS_SCRIPT }}
+
+      - name: Summarize test statistics
+        id: summary
         shell: bash -x -e {0}
         run: |
-          docker pull ${{ inputs.IMAGE }}
+          total_tests=${{ steps.test-stats.outputs.TOTAL_TESTS }}
+          errors=${{ steps.test-stats.outputs.ERRORS }}
+          failed_tests=${{ steps.test-stats.outputs.FAILED_TESTS }}
+          passed_tests=${{ steps.test-stats.outputs.PASSED_TESTS }}
 
-      - name: Backend-independent tests
-        shell: bash -x -e -o pipefail {0}
-        continue-on-error: true
-        run: |
-          docker run --gpus all ${{ inputs.IMAGE }} test-jax.sh -b backend-independent | tee test-backend-independent.log
-
-      - name: GPU-specific tests
-        shell: bash -x -e -o pipefail {0}
-        continue-on-error: true
-        run: |
-          docker run --gpus all ${{ inputs.IMAGE }} test-jax.sh -b gpu | tee test-gpu.log
+          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+            echo "badge_color=red" >> $GITHUB_OUTPUT
+            echo "badge_message=error" >> $GITHUB_OUTPUT
+            echo "summary=${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors." >> $GITHUB_OUTPUT
+            exit 1
+          else
+            if [[ ${failed_tests} == 0 ]]; then
+              echo "badge_color=brightgreen" >> $GITHUB_OUTPUT
+            else
+              echo "badge_color=yellow" >> $GITHUB_OUTPUT
+            fi
+            echo "badge_message=${passed_tests}/${total_tests} passed" >> $GITHUB_OUTPUT
+            echo "summary=${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: ${total_tests} total tests, ${errors} errors, ${passed_tests} passed, ${failed_tests} failed." >> $GITHUB_OUTPUT
+          fi
 
       - name: Generate sitrep
+        id: sitrep
+        if: "!cancelled()"
         shell: bash -x -e {0}
-        continue-on-error: ${{ github.event_name == 'schedule' }}
         run: |
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='JAX ${{ matrix.GPU_ARCH }} Unit'
+          badge_label='${{ inputs.TEST_NAME }} ${{ matrix.GPU_ARCH }} Unit'
 
-          errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-          failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-          passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
-          total_tests=$((failed_tests + passed_tests))
-
-          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
-            badge_message='error'
-            badge_color=red
-            summary='JAX unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
-            exit 1
-          else
-            badge_message="${passed_tests}/${total_tests} passed"
-            if [[ ${failed_tests} == 0 ]]; then
-              badge_color=brightgreen
-            else
-              badge_color=yellow
-            fi
-            summary="JAX unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
-          fi
-
+          total_tests=${{ steps.test-stats.outputs.TOTAL_TESTS }} \
+          errors=${{ steps.test-stats.outputs.ERRORS }} \
+          failed_tests=${{ steps.test-stats.outputs.FAILED_TESTS }} \
+          passed_tests=${{ steps.test-stats.outputs.PASSED_TESTS }} \
+          summary="${{ steps.summary.outputs.summary }}" \
+          badge_message="${{ steps.summary.outputs.badge_message }}" \
+          badge_color="${{ steps.summary.outputs.badge_color }}" \
           to_json \
             summary \
             errors total_tests passed_tests failed_tests \
@@ -119,211 +126,17 @@ jobs:
 
           schemaVersion=1 \
           label="${badge_label}" \
-          message="${badge_message}" \
-          color="${badge_color}" \
+          message="${{ steps.summary.outputs.badge_message }}" \
+          color="${{ steps.summary.outputs.badge_color }}" \
           to_json schemaVersion label message color \
           > ${{ env.BADGE_FILENAME_FULL }}
 
       - name: Upload artifacts
+        if: "!cancelled()"
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
+          name: ${{ env.ARTIFACT_NAME_FULL }}
           path: |
-            test-backend-independent.log
-            test-gpu.log
             sitrep.json
             ${{ env.BADGE_FILENAME_FULL }}
-
-  pallas-unit-test:
-    if: ${{ inputs.TEST_NAME == 'pallas' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        GPU_ARCH: [V100, A100]
-        include:
-          - EXTRA_LABEL: "self-hosted"
-          # ensures A100 job lands on dedicated runner for this particular job
-          - GPU_ARCH: A100
-            EXTRA_LABEL: "${{ github.run_id }}"
-    runs-on:
-      - self-hosted
-      - "${{ matrix.GPU_ARCH }}"
-      - "${{ matrix.EXTRA_LABEL }}"
-    env:
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
-    steps:
-      - name: Print environment variables
-        run: env
-
-      - name: Print GPU information
-        run: nvidia-smi
-
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pull Pallas image
-        shell: bash -x -e {0}
-        run: |
-          docker pull ${{ inputs.IMAGE }}
-
-      - name: Run Pallas tests
-        shell: bash -x -e -o pipefail {0}
-        continue-on-error: true
-        run: |
-          docker run --shm-size=1g --gpus all --volume $PWD:/output ${{ inputs.IMAGE }} python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml | tee test-pallas.log
-
-      - name: Generate sitrep
-        shell: bash -x -e {0}
-        continue-on-error: ${{ github.event_name == 'schedule' }}
-        run: |
-          # bring in utility functions
-          source .github/workflows/scripts/to_json.sh
-
-          curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq
-
-          badge_label='${{ matrix.GPU_ARCH }} Pallas'
-
-          total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
-          errors=$(./yq '.testsuites."+@errors"' pallas_test.xml)
-          failed_tests=$(./yq '.testsuites."+@failures"' pallas_test.xml)
-          passed_tests=$((total_tests - errors - failed_tests))
-
-          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
-            badge_message='error'
-            badge_color=red
-            summary='Pallas test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
-            exit 1
-          else
-            badge_message="${passed_tests}/${total_tests} passed"
-            if [[ ${failed_tests} == 0 ]]; then
-              badge_color=brightgreen
-            else
-              badge_color=yellow
-            fi
-            summary="Pallas unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
-          fi
-
-          to_json \
-            summary \
-            errors total_tests passed_tests failed_tests \
-            badge_label badge_color badge_message \
-          > sitrep.json
-
-          schemaVersion=1 \
-          label="${badge_label}" \
-          message="${badge_message}" \
-          color="${badge_color}" \
-          to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
-          path: |
-            test-pallas.log
-            sitrep.json
-            ${{ env.BADGE_FILENAME_FULL }}
-
-  levanter-unit-test:
-    if: ${{ inputs.TEST_NAME == 'levanter' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        GPU_ARCH: [V100, A100]
-        include:
-          - EXTRA_LABEL: "self-hosted"
-          # ensures A100 job lands on dedicated runner for this particular job
-          - GPU_ARCH: A100
-            EXTRA_LABEL: "${{ github.run_id }}"
-    runs-on:
-      - self-hosted
-      - "${{ matrix.GPU_ARCH }}"
-      - "${{ matrix.EXTRA_LABEL }}"
-    env:
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.GPU_ARCH }}.json
-    steps:
-      - name: Print environment variables
-        run: env
-
-      - name: Print GPU information
-        run: nvidia-smi  
-
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pull Levanter image
-        shell: bash -x -e {0}
-        run: |
-          docker pull ${{ inputs.IMAGE }}
-
-      - name: Test with pytest
-        shell: bash -x -e -o pipefail {0}
-        continue-on-error: true
-        run: |
-          docker run --gpus all --shm-size=1g ${{ inputs.IMAGE }} bash -o pipefail -exc "pip install flake8 pytest test-utils && pytest /opt/levanter/tests" | tee test-levanter.log
-
-      - name: Generate sitrep
-        shell: bash -x -e {0}
-        continue-on-error: ${{ github.event_name == 'schedule' }}
-        run: |
-          # bring in utility functions
-          source .github/workflows/scripts/to_json.sh
-
-          badge_label='${{ matrix.GPU_ARCH }} Unit'
-
-          errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-          failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-          passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
-          total_tests=$((failed_tests + passed_tests))
-
-          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
-            badge_message='error'
-            badge_color=red
-            summary='Levanter unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors.'
-            exit 1
-          else
-            badge_message="${passed_tests}/${total_tests} passed"
-            if [[ ${failed_tests} == 0 ]]; then
-              badge_color=brightgreen
-            else
-              badge_color=yellow
-            fi
-            summary="Levanter unit test on ${{ matrix.GPU_ARCH }}: $badge_message"
-          fi
-
-          to_json \
-            summary \
-            errors total_tests passed_tests failed_tests \
-            badge_label badge_color badge_message \
-          > sitrep.json
-
-          schemaVersion=1 \
-          label="${badge_label}" \
-          message="${badge_message}" \
-          color="${badge_color}" \
-          to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.GPU_ARCH }}
-          path: |
-            test-levanter.log
-            sitrep.json
-            ${{ env.BADGE_FILENAME_FULL }}
+            ${{ inputs.ARTIFACTS }}

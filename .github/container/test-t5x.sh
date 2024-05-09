@@ -20,13 +20,15 @@ usage() {
     echo "  -e, --epochs              Number of epochs to run, defaults to 7."
     echo "  --multiprocess            Enable the multiprocess GPU mode."
     echo "  -o, --output NAME         Name for the output folder, a temporary folder will be created if none specified."
+    echo "  --save-hlo {0, 1}         1 to save the dumped hlo, 0 to remove the hlo dumped folder"
     echo "  --seed INT                Random seed for deterministim. Defaults to 42."
     echo "  -s, --steps-per-epoch INT Steps per epoch. Detauls to 100"
+    echo "  --enable-fmha {0, 1}      1 to enable fmha testing, 0 to run test without fmha; default is 0"
     echo "  -h, --help                Print usage."
     exit $1
 }
 
-args=$(getopt -o a:b:cd:e:ho:s: --long additional-args:,batch-size:,use-contrib-configs,dtype:,enable-te:,epochs:,help,multiprocess,output:,seed:,steps-per-epoch: -- "$@")
+args=$(getopt -o a:b:cd:e:ho:s: --long additional-args:,batch-size:,use-contrib-configs,dtype:,enable-te:,enable-fmha:,epochs:,help,multiprocess,output:,seed:,save-hlo:,steps-per-epoch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -43,6 +45,8 @@ OUTPUT=$(mktemp -d)
 SEED=42
 STEPS_PER_EPOCH=100
 ENABLE_TE=${ENABLE_TE:-0}
+ENABLE_FMHA=${ENABLE_FMHA:-0}
+SAVE_HLO=${SAVE_HLO:-1}
 
 eval set -- "$args"
 while [ : ]; do
@@ -67,6 +71,10 @@ while [ : ]; do
             ENABLE_TE="$2"
             shift 2
             ;;
+        --enable-fmha)
+            ENABLE_FMHA="$2"
+            shift 2
+            ;;
         -e | --epochs)
             EPOCHS="$2"
             shift 2
@@ -80,6 +88,10 @@ while [ : ]; do
             ;;
         -o | --output)
             OUTPUT="$2"
+            shift 2
+            ;;
+        --save-hlo)
+            SAVE_HLO="$2"
             shift 2
             ;;
         --seed)
@@ -105,6 +117,20 @@ if [[ $BATCH_SIZE == 0 ]]; then
     usage 1
 fi
 
+# Set hlo dump folder after output folder is set.
+HLO_DIR=${OUTPUT}/hlo
+export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_dump_hlo_as_text --xla_dump_to=${HLO_DIR}}"
+export XLA_FLAGS="${BASE_XLA_FLAGS} ${XLA_FLAGS:-}"
+echo "HLO will be dumped in ${HLO_DIR} dir."
+
+## Setting the env variables for FMHA
+if [[ "$ENABLE_FMHA" -eq "1" ]]; then  
+    echo "Setting XLA FMHA Flags";
+    export BASE_XLA_FLAGS_FMHA="${BASE_XLA_FLAGS_FMHA:---xla_gpu_fused_attention_use_cudnn_rng=true --xla_gpu_enable_cudnn_fmha=true}"
+    export XLA_FLAGS="${BASE_XLA_FLAGS_FMHA} ${XLA_FLAGS:-}"
+fi
+
+echo "XLA FLAGS: $XLA_FLAGS"
 ## Set derived variables
 
 TRAIN_STEPS=$(($EPOCHS * $STEPS_PER_EPOCH))
@@ -114,11 +140,13 @@ print_var BATCH_SIZE
 print_var USE_CONTRIB_CONFIGS
 print_var DTYPE
 print_var ENABLE_TE
+print_var ENABLE_FMHA
 print_var EPOCHS
 print_var OUTPUT
 print_var MULTIPROCESS
 print_var STEPS_PER_EPOCH
 print_var TRAIN_STEPS
+print_var SAVE_HLO
 
 ## Enter T5X source folder
 T5X_DIR=$(dirname `python -c 'import t5x; print(*t5x.__path__)'`)
@@ -178,7 +206,7 @@ $(
 import dummy_wikipedia
 
 MIXTURE_OR_TASK_NAME = "dummy_wikipedia"
-TASK_FEATURE_LENGTHS = {"inputs": 512, "targets": 114}
+TASK_FEATURE_LENGTHS = {"inputs": 512, "targets": 128}
 DROPOUT_RATE = 0.0
 USE_CACHED_TASKS = False
 TRAIN_STEPS = %gin.REQUIRED
@@ -206,3 +234,26 @@ ENABLE_TE=$ENABLE_TE python -m t5x.train \
     $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 echo "Output at ${OUTPUT}"
+
+if [[ "$ENABLE_FMHA" -eq "1" ]]; then 
+    ## Check if fmha instructions are present in the HLO dumped file or not.
+    fmha_regex="fmha[-bmm]?[-scale]?[-bias]?[-mask]?[-softmax]?[-dropout]?[-bmm]?[-backward]?*"
+    result=$(grep -irlnE "$fmha_regex" "${HLO_DIR}/"*.txt)
+
+    if [[ $SAVE_HLO -eq 0 ]]; then
+        rm -rf $HLO_DIR
+        echo "Removed dumped HLO directory!"
+    fi
+
+    if [ -z "$result" ]; then
+        echo "E: No FMHA instructions were found in the hlo files!"
+	exit 1
+    else
+        echo -e "Found FMHA instructions in the following HLO files: \n $result"
+    fi
+else
+    if [[ $SAVE_HLO -eq 0 ]]; then
+        rm -rf $HLO_DIR
+ 	echo "Removed dumped HLO directory!"
+    fi
+fi

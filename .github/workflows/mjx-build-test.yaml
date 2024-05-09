@@ -116,6 +116,8 @@ jobs:
     #if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
     with:
+      ARTIFACT_NAME: mealkit-mjx
+      ARTIFACT_TAG: mjx-mealkit-${{ needs.metadata.outputs.BUILD_DATE }}
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}
         ${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}
@@ -130,6 +132,8 @@ jobs:
     #if: needs.metadata.outputs.PUBLISH == 'true'
     uses: ./.github/workflows/_publish_container.yaml
     with:
+      ARTIFACT_NAME: final-mjx
+      ARTIFACT_TAG: mjx-nightly-${{ needs.metadata.outputs.BUILD_DATE }}
       SOURCE_IMAGE: |
         ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
         ${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}

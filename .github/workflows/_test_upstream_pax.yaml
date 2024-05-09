@@ -12,17 +12,17 @@ on:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'badge-pax-mgmn-test.json'
+        default: 'badge-upstream-pax-mgmn-test.json'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'artifact-pax-mgmn-test'
+        default: 'artifact-upstream-pax-mgmn-test'
       FW_NAME:
         type: string
         description: 'Name of the framework being used'
         required: false
-        default: 'PAXML'
+        default: 'upstream-pax'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -43,6 +43,9 @@ jobs:
     steps:
       - name: Print environment variables
         run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -65,14 +68,13 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_single_process
-          TOTAL_TASKS=1
           MAX_GPUS_PER_NODE=8
           NODES=1
           GPUS_PER_NODE=8
           JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          for var in IMAGE TEST_CASE_NAME TOTAL_TASKS NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
+          for var in IMAGE TEST_CASE_NAME NODES GPUS_PER_NODE JOB_NAME LOG_FILE MODEL_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
@@ -89,12 +91,22 @@ jobs:
           #SBATCH --exclusive
           #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+          
+          # run job with tasks on each node sharing one container
+          time srun \
+            --ntasks=1 \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-pax.sh \
@@ -112,12 +124,10 @@ jobs:
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLURM Job $JOB finished."
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
+
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
           SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
@@ -167,14 +177,39 @@ jobs:
   pax-multi-node:
     strategy:
       matrix:
-        PARALLEL_CONFIG:
-        - [1, 1, 1, 1]
-        - [1, 8, 1, 1]
-        - [1, 1, 8, 1]
-        - [4, 2, 1, 1]
-        - [1, 4, 1, 2]
-        - [1, 16, 1, 1]
-        - [4, 2, 1, 2]
+        include:
+          - TEST_NAME: 1DP1FSDP1TP1PP
+            PARALLEL_CONFIG: [1, 1, 1, 1]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 8DP1FSDP1TP1PP
+            PARALLEL_CONFIG: [1, 8, 1, 1]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 1DP8FSDP1TP1PP
+            PARALLEL_CONFIG: [1, 1, 8, 1]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 2DP1FSDP1TP4PP
+            PARALLEL_CONFIG: [4, 2, 1, 1]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 4DP1FSDP2TP1PP
+            PARALLEL_CONFIG: [1, 4, 1, 2]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 16DP1FSDP1TP1PP
+            PARALLEL_CONFIG: [1, 16, 1, 1]
+            BATCH_SIZE: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: 2DP1FSDP2TP4PP
+            PARALLEL_CONFIG: [4, 2, 1, 2]
+            BATCH_SIZE: 4
+          - TEST_NAME: LLaMA_eval
+            PARALLEL_CONFIG: [1, 1, 8, 1]
+            BATCH_SIZE: 4
+            EVALUATE: true
+            ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -182,6 +217,9 @@ jobs:
     steps:
       - name: Print environment variables
         run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -203,7 +241,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
           MAX_GPUS_PER_NODE=8
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
@@ -229,13 +267,22 @@ jobs:
           #SBATCH --exclusive
           #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+
+          # run job with tasks on each node sharing one container
+          time srun \
+            --tasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
+            --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }} \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-pax.sh \
@@ -248,19 +295,16 @@ jobs:
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
+              $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
+              ${{ matrix.ADDITIONAL_ARGS }}
           EOF
           )
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
+          . .github/workflows/scripts/wait_for_slurm_job.sh
 
-          echo "SLURM Job $JOB finished."
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -307,7 +351,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
-          path: output/*
+          path: |
+            output/*
+            !output/**/checkpoints/
+
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.JOB_NAME }}_checkpoints
+          path: output/**/checkpoints/
 
   single-process-evaluation:
     strategy:
@@ -321,6 +373,9 @@ jobs:
     steps:
       - name: Print environment variables
         run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -367,13 +422,22 @@ jobs:
           #SBATCH --exclusive
           #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --tasks-per-node=1
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+          
+          # run job with tasks on each node sharing one container
+          time srun \
+            --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-pax.sh \
@@ -393,13 +457,9 @@ jobs:
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
+          . .github/workflows/scripts/wait_for_slurm_job.sh
 
-          echo "SLURM Job $JOB finished."
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -449,6 +509,7 @@ jobs:
           path: output/*
 
   metrics:
+    name: test-upstream-pax-metrics
     needs: [single-process-multi-device, pax-multi-node, single-process-evaluation]
     runs-on: ubuntu-22.04
 
@@ -458,15 +519,20 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          # skip downloading checkpoints
+          pattern: '!*_checkpoints'
 
       - name: Run pytest
-        shell: bash -x {0}
+        shell: bash -eux {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
           for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*; do
-            SUBDIR=$(echo $i | cut -d'-' -f3)
-            mv $i/$SUBDIR* .
-            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR # create result json in baseline format
+            JOB_NAME=$(echo $i | awk -F "${GITHUB_RUN_ID}-" '{print $2}')
+            METRIC_PATH=${JOB_NAME}_metrics.json
+            python3 .github/workflows/baselines/summarize_metrics.py $i/$JOB_NAME --output_json_path $METRIC_PATH
+            # Test script expects the job dir and the log to be in the CWD
+            mv $i/$JOB_NAME $i/${JOB_NAME}.log .
           done
 
           RESULTS_DIR=$PWD BASELINES_DIR=PAX_MGMN/upstream pytest --report-log=report.jsonl .github/workflows/baselines/test_pax_mgmn_metrics.py || true
@@ -474,13 +540,14 @@ jobs:
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v4
         with:
-          name: upstream-${{ inputs.FW_NAME }}-metrics-test-log
+          name: ${{ inputs.FW_NAME }}-metrics-test-log
           path: |
             report.jsonl
             *_metrics.json
 
   sitrep:
-    needs: [single-process-multi-device, pax-multi-node, single-process-evaluation, metrics]
+    name: test-upstream-pax-sitrep
+    needs: metrics
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
@@ -490,6 +557,7 @@ jobs:
       FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
+    name: test-upstream-pax-summary
     runs-on: ubuntu-22.04
     needs: [single-process-multi-device, pax-multi-node, single-process-evaluation]
     if: "!cancelled()"
@@ -507,6 +575,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
+    name: test-upstream-pax-outcome
     needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"

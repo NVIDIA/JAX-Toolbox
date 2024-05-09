@@ -17,17 +17,17 @@ on:
         type: string
         description: 'Name of the endpoint JSON file for shields.io badge'
         required: false
-        default: 'badge-t5x-mgmn-test.json'
+        default: 'badge-upstream-t5x-mgmn-test.json'
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'artifact-t5x-mgmn-test'
+        default: 'artifact-upstream-t5x-mgmn-test'
       FW_NAME:
         type: string
         description: 'Name of the framework being used'
         required: false
-        default: 'T5X'
+        default: 'upstream-t5x'
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -38,7 +38,24 @@ jobs:
   t5x-multi-gpu:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
+        include:
+          - TEST_NAME: "1P1G"
+            N_GPU: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "1P2G"
+            N_GPU: 2
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "1P4G"
+            N_GPU: 4
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "1P8G"
+            N_GPU: 8
+          - TEST_NAME: "1P1G_fmha"
+            N_GPU: 1
+            ADDITIONAL_ARGS: "--enable-fmha 1"
+          - TEST_NAME: "1P2G_fmha"
+            N_GPU: 2
+            ADDITIONAL_ARGS: "--enable-fmha 1"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -46,6 +63,9 @@ jobs:
     steps:
       - name: Print environment variables
         run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -67,7 +87,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
@@ -88,13 +108,22 @@ jobs:
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
           #SBATCH --nodes=1
-          #SBATCH --tasks=1
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+
+          # run job with tasks on each node sharing one container
+          time srun \
+            --ntasks=1 \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-t5x.sh \
@@ -102,18 +131,16 @@ jobs:
               --dtype bfloat16 \
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
-              --steps-per-epoch 100
+              --steps-per-epoch 100 \
+              ${{ matrix.ADDITIONAL_ARGS }} 
           EOF
           )
-
+          
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLRUM Job $JOB finished."
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -165,8 +192,47 @@ jobs:
   t5x-multi-node:
     strategy:
       matrix:
-        N_GPU: [1, 2, 4, 8]
-        N_NODE: [1, 2]
+        include:
+          - TEST_NAME: "1G1N"
+            N_GPU: 1
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "2G1N"
+            N_GPU: 2
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "4G1N"
+            N_GPU: 4
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "8G1N"
+            N_GPU: 8
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "1G2N"
+            N_GPU: 1
+            N_NODE: 2
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "2G2N"
+            N_GPU: 2
+            N_NODE: 2
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "4G2N"
+            N_GPU: 4
+            N_NODE: 2
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "8G2N"
+            N_GPU: 8
+            N_NODE: 2
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "2G2N_fmha"
+            N_GPU: 2
+            N_NODE: 2
+            ADDITIONAL_ARGS: "--enable-fmha 1"
+          - TEST_NAME: "8G2N_fmha"
+            N_GPU: 8
+            N_NODE: 2
+            ADDITIONAL_ARGS: "--enable-fmha 1"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -174,6 +240,9 @@ jobs:
     steps:
       - name: Print environment variables
         run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -195,9 +264,9 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.N_GPU }}G${{ matrix.N_NODE }}N
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=$((${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
-          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME};
           LOG_FILE=/nfs/cluster/${JOB_NAME}.log
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
           BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }} * ${{ matrix.N_NODE }}))
@@ -218,13 +287,22 @@ jobs:
           #SBATCH --exclusive
           #SBATCH --nodes=${{ matrix.N_NODE }}
           #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-          #SBATCH --tasks=${{ steps.meta.outputs.TOTAL_TASKS }}
-          #SBATCH --tasks-per-node=${{ matrix.N_GPU }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
+          # preload enroot container using one task per node
           time srun \
+            --ntasks-per-node=1 \
+            --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
+            true
+
+          # run job with tasks on each node sharing one container
+          time srun \
+            --tasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
+            --tasks-per-node=${{ matrix.N_GPU }} \
+            --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
             test-t5x.sh \
@@ -233,18 +311,16 @@ jobs:
               --batch-size ${{ steps.meta.outputs.BATCH_SIZE }} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              --multiprocess
+              --multiprocess \
+              ${{ matrix.ADDITIONAL_ARGS }}
           EOF
           )
 
           echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLRUM Job $JOB finished."
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+
+          wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
           # Gather job info
           SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
@@ -295,6 +371,7 @@ jobs:
           path: output/*
 
   metrics:
+    name: test-upstream-t5x-metrics
     needs: [t5x-multi-node, t5x-multi-gpu]
     runs-on: ubuntu-22.04
 
@@ -304,30 +381,36 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          # skip downloading checkpoints
+          pattern: '!*_checkpoints'
 
       - name: Run pytest
-        shell: bash -x {0}
+        shell: bash -eux {0}
         run: |
           pip install pytest pytest-reportlog tensorboard
           for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*; do
-            SUBDIR=$(echo $i | cut -d'-' -f3)
-            mv $i/$SUBDIR* .
-            python3 .github/workflows/baselines/summarize_metrics.py $SUBDIR --perf_summary_name "timing/steps_per_second" # create result json in baseline format
+            JOB_NAME=$(echo $i | awk -F "${GITHUB_RUN_ID}-" '{print $2}')
+            METRIC_PATH=${JOB_NAME}_metrics.json
+            python3 .github/workflows/baselines/summarize_metrics.py $i/$JOB_NAME --perf_summary_name "timing/steps_per_second" --output_json_path $METRIC_PATH
+            # Test script expects the job dir and the log to be in the CWD
+            mv $i/$JOB_NAME $i/${JOB_NAME}.log .
           done
 
-          RESULTS_DIR=$PWD pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
+          RESULTS_DIR=$PWD BASELINES_DIR=T5X_MGMN/upstream pytest --report-log=report.jsonl .github/workflows/baselines/test_t5x_mgmn_metrics.py || true
 
       - name: Upload metrics test json logs
         uses: actions/upload-artifact@v4
         with:
-          name: upstream-${{ inputs.FW_NAME }}-metrics-test-log
+          name: ${{ inputs.FW_NAME }}-metrics-test-log
           path: |
             report.jsonl
             *_metrics.json
 
 
   sitrep:
-    needs: [t5x-multi-node, t5x-multi-gpu, metrics]
+    name: test-upstream-t5x-sitrep
+    needs: metrics
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
     secrets: inherit
@@ -337,6 +420,7 @@ jobs:
       FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
+    name: test-upstream-t5x-summary
     runs-on: ubuntu-22.04
     needs: [t5x-multi-node, t5x-multi-gpu]
     if: "!cancelled()"
@@ -354,6 +438,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
+    name: test-upstream-t5x-outcome
     needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"

@@ -10,6 +10,7 @@ or fixes from the patches. This script does not build or install the library, bu
 that includes all of the patches.
 
 Usage: $0 [OPTION]...
+  -b, --base-patch-dir      Where generated patch files are written. Default is $SCRIPT_DIR/patches
   -c, --clean               If set, will clean the patch dir. Default is not to clean
   -h, --help                Print usage.
   -m, --manifest=PATH       Path to the manifest. Updates it in-place
@@ -55,7 +56,7 @@ EOF
 exit $1
 }
 
-args=$(getopt -o chm:p:s --long clean,help,manifest:,override_dir:,package:,skip-apply -- "$@")
+args=$(getopt -o b:chm:p:s --long base-patch-dir:,clean,help,manifest:,override_dir:,package:,skip-apply -- "$@")
 if [[ $? -ne 0 ]]; then
   echo
   usage 1
@@ -64,6 +65,10 @@ fi
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
+    -b | --base-patch-dir)
+        BASE_PATCH_DIR=$(readlink -f "$2")
+        shift 2
+        ;;
     -c | --clean)
         CLEAN_PATCHES=1
         shift 1
@@ -89,7 +94,7 @@ while [ : ]; do
         ;;
     --)
         shift;
-        break 
+        break
         ;;
   esac
 done
@@ -100,7 +105,7 @@ if [[ $# -ge 1 ]]; then
     usage 1
 fi
 
-set -eou pipefail
+set -eoux pipefail
 # readlink -f $(pwd) is cross-platform way to ensure /tmp gets resolved correctly on macos
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && readlink -f $(pwd) )
 
@@ -109,9 +114,10 @@ if [[ -z "$MANIFEST" || -z "$PACKAGE" ]]; then
   usage 1
 fi
 
+BASE_PATCH_DIR=${BASE_PATCH_DIR:-$SCRIPT_DIR/patches}
 CLEAN_PATCHES=${CLEAN_PATCHES:-0}
 UPSTREAM_URL=$(yq e ".${PACKAGE}.url" $MANIFEST)
-# The tracking_ref is interpreted as the default "main" branch and all patches are 
+# The tracking_ref is interpreted as the default "main" branch and all patches are
 # assumed to be rooted on a sha on the tracking_ref's history
 TRACKING_REF=$(yq e ".${PACKAGE}.tracking_ref" $MANIFEST)
 INSTALLED_DIR=${OVERRIDE_INSTALL_DIR:-/opt/${PACKAGE}}
@@ -119,7 +125,7 @@ MIRROR_GIT_URL=$(yq e ".${PACKAGE}.mirror_url // \"\"" $MANIFEST)
 EXTRA_DIR=$(yq e ".${PACKAGE}.extra_dir // \"\"" $MANIFEST)
 
 SKIP_APPLY=${SKIP_APPLY:-0}
-GEN_PATCH_DIR=$SCRIPT_DIR/patches/$PACKAGE
+GEN_PATCH_DIR=$BASE_PATCH_DIR/$PACKAGE
 # Associative arrays aren't available before bash <4.0, so maintaining separate key/value arrays
 PATCH_KEYS=()
 PATCH_VALUES=()
@@ -192,7 +198,7 @@ if [[ -n "${EXTRA_DIR+x}" ]] && [[ -d ${EXTRA_DIR} ]]; then
     # We will use refs/heads/$local_branch instead of $local_branch
     git+extra branch --force ${local_branch}${TMP_BRANCH_SUFFIX} refs/heads/$local_branch
   done
-  
+
   if git remote show ${EXTRA_REMOTE_NAME} &>/dev/null; then
     git remote remove ${EXTRA_REMOTE_NAME}
   fi
@@ -217,7 +223,7 @@ fork-point() {
   git merge-base ${merge_commit}^ ${feat_branch}^
 }
 # Applies git-am and returns the local patch URI
-apply-local-patch() {
+maybe-apply-local-patch() {
   # This is the associated array key used to update the patchlist
   patch_name=$1
   # Canonicalize path to remove extra slashes or dot syntax
@@ -248,7 +254,7 @@ EOF
     exit 1
   fi
 }
-apply-ref-patches() {
+create-and-maybe-apply-ref-patches() {
   patch_name=$1
   from=$2
   to=$3
@@ -272,7 +278,7 @@ apply-ref-patches() {
     git branch -D ${to_linear}
   fi
   # Apply the patch
-  apply-local-patch $patch_name $GEN_PATCH_DIR/$patch_fname
+  maybe-apply-local-patch $patch_name $GEN_PATCH_DIR/$patch_fname
 }
 if [[ -n "${MIRROR_GIT_URL}" ]] ; then
   MIRROR_REMOTE_NAME=mirror
@@ -287,15 +293,22 @@ fi
 #################
 IFS=$'\n'
 for git_ref in $(yq e ".${PACKAGE}.patches | keys | .[]" $MANIFEST); do
+  echo '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+  echo "@@ Processing git_ref=$git_ref"
+  echo '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
   if [[ $SKIP_APPLY -eq 0 ]]; then
     # If we apply, then use the value, not the key
-    patch_uri=$(yq e ".${PACKAGE}.patches.${git_ref}" $MANIFEST)
+    patch_uri=$(yq e ".${PACKAGE}.patches.\"${git_ref}\"" $MANIFEST)
     patch_path=$SCRIPT_DIR/${patch_uri#file://}
     if [[ ! -f $patch_path ]]; then
       echo "[ERROR]: ${git_ref} refers to $patch_path which does not exist"
       exit 1
     fi
-    apply-local-patch $git_ref $patch_path
+    maybe-apply-local-patch $git_ref $patch_path
+    continue
+  elif [[ "${git_ref}" =~ ^file:// ]]; then
+    # Getting here means the manifest has a patches entry that looks like {file://a.patch: file://b.patch}
+    # So the patch does not need to be created and we'll use whatever the value is. In this case file://b.patch
     continue
   elif [[ "${git_ref}" =~ ^pull/ ]]; then
     REMOTE_NAME=origin
@@ -334,7 +347,7 @@ for git_ref in $(yq e ".${PACKAGE}.patches | keys | .[]" $MANIFEST); do
     main_branch=${REMOTE_NAME}/${TRACKING_REF}${TMP_BRANCH_SUFFIX}
   fi
   fork_point=$(fork-point ${main_branch} ${branch})
-  apply-ref-patches ${git_ref} ${fork_point} ${branch} || ret_code=$?
+  create-and-maybe-apply-ref-patches ${git_ref} ${fork_point} ${branch} || ret_code=$?
   if [[ ${ret_code:-0} -ne 0 ]]; then
     cat <<EOF
 [ERROR]: Tried patching commits from ${fork_point}..${branch} errored. Some possibilities include:
@@ -356,7 +369,7 @@ done
 
 # Update the patches
 for i in "${!PATCH_KEYS[@]}"; do
-  yq e ".${PACKAGE}.patches.${PATCH_KEYS[$i]} = \"${PATCH_VALUES[$i]}\"" -i $MANIFEST
+  yq e ".${PACKAGE}.patches.\"${PATCH_KEYS[$i]}\" = \"${PATCH_VALUES[$i]}\"" -i $MANIFEST
 done
 
 ###########

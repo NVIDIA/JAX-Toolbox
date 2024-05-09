@@ -1,0 +1,101 @@
+# syntax=docker/dockerfile:1-labs
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_JAX_TRITON=https://github.com/jax-ml/jax-triton.git#main
+ARG SRC_PATH_JAX=/opt/jax
+ARG SRC_PATH_JAX_TRITON=/opt/jax-triton
+ARG SRC_PATH_TRITON=/opt/triton
+ARG SRC_PATH_XLA=/opt/xla
+
+FROM ${BASE_IMAGE} as base
+# Triton setup.py downloads and installs CUDA binaries at specific versions
+# hardcoded in the script itself:
+# https://github.com/openxla/triton/blob/84f9d9de158fb866fac67970f0f5d323999d9db1/python/setup.py#L373-L393
+# Tell Triton to use CUDA binaries from the host container instead. These should be set
+# both during the build stage and in the final container.
+ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
+ENV TRITON_CUOBJDUMP_PATH=/usr/local/cuda/bin/cuobjdump
+ENV TRITON_NVDISASM_PATH=/usr/local/cuda/bin/nvdisasm
+RUN [ -x "${TRITON_PTXAS_PATH}" ] && [ -x "${TRITON_CUOBJDUMP_PATH}" ] && [ -x "${TRITON_NVDISASM_PATH}" ]
+
+###############################################################################
+## Check out LLVM and Triton sources that match XLA, build them.
+###############################################################################
+FROM base as builder
+ARG SRC_PATH_JAX
+ARG SRC_PATH_XLA
+RUN <<"EOF" bash -ex
+# Use XLA's Bazel configuration to get the relevant tag from the openxla/triton
+# fork's llvm-head branch and apply XLA's extra patches to it. Also fetches the
+# compatible LLVM sources.
+pushd "${SRC_PATH_XLA}"
+BAZEL=$(find "${SRC_PATH_JAX}/build" -type f -executable -name 'bazel-*')
+"${BAZEL}" --output_base=/opt/checkout fetch @triton//:BUILD
+# Build XLA's version of LLVM
+mkdir /opt/llvm-build
+pushd /opt/llvm-build
+cmake -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_CXX_COMPILER=clang++ \
+  -DLLVM_ENABLE_ASSERTIONS=ON \
+  -DLLVM_ENABLE_PROJECTS="mlir;llvm" \
+  -DLLVM_TARGETS_TO_BUILD="host;NVPTX" \
+  /opt/checkout/external/llvm-raw/llvm
+ninja
+# Build XLA's version of Triton against that LLVM
+pushd /opt/checkout/external/triton
+mkdir dist
+# Do not compile with -Werror
+sed -i -e 's|-Werror||g' CMakeLists.txt
+# The LLVM build above does not enable these libraries
+sed -i -e 's|\(LLVMAMDGPU.*\)|# \1|g' CMakeLists.txt
+# Do not build tests
+sed -i -e 's|^add_subdirectory(unittest)|# unit tests disabled|' CMakeLists.txt
+# Do not build the AMD GPU backend
+sed -i -e 's|BackendInstaller.copy(\["nvidia", "amd"\])|BackendInstaller.copy(["nvidia"])|g' python/setup.py
+# Extra patches to Triton maintained in XLA. These are already applied in the working directory.
+XLA_TRITON_PATCHES="${SRC_PATH_XLA}/third_party/triton"
+# This patch adds two files that are not known to CMake
+if [[ -f "${XLA_TRITON_PATCHES}/xla_extensions/sparse_dot_base.patch" ]]; then
+  sed -i -e '/ConvertLayoutOpToLLVM.cpp/a ConvertLayoutOpToLLVM/SharedToSparseDotOperand.cpp' third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeLists.txt
+  sed -i -e '/DotOpToLLVM.cpp/a DotOpToLLVM/Sparse.cpp' third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeLists.txt
+fi
+# Use clang to match Google etc.
+LLVM_INCLUDE_DIRS=/opt/llvm-build/include \
+  LLVM_LIBRARY_DIR=/opt/llvm-build/lib \
+  LLVM_SYSPATH=/opt/llvm-build \
+  TRITON_BUILD_WITH_CLANG_LLD=1 \
+  pip wheel --verbose --wheel-dir=dist/ python/
+# Clean up the wheel build directory so it doesn't end up bloating the container
+rm -rf python/build
+# Make the layer for the *current* step smaller, so it is more likely to stay
+# resident in the Docker cache
+cp -r /opt/checkout/external/triton /opt/triton-copy
+rm -rf /opt/checkout /opt/llvm-build /root/.cache
+EOF
+
+###############################################################################
+## Copy Triton source/wheel from the builder, checkout JAX-Triton
+###############################################################################
+FROM base as mealkit
+ARG URLREF_JAX_TRITON
+ARG SRC_PATH_JAX_TRITON
+ARG SRC_PATH_TRITON
+
+# Get the triton source + wheel from the build step
+COPY --from=builder /opt/triton-copy ${SRC_PATH_TRITON}
+RUN echo "triton @ file://$(ls ${SRC_PATH_TRITON}/dist/triton-*.whl)" >> /opt/pip-tools.d/requirements-triton.in
+
+# Check out jax-triton
+RUN <<"EOF" bash -ex
+git-clone.sh ${URLREF_JAX_TRITON} ${SRC_PATH_JAX_TRITON}
+echo "-e file://${SRC_PATH_JAX_TRITON}" >> /opt/pip-tools.d/requirements-triton.in
+sed -i 's|"jax @ [^"]\+"|"jax"|g;s|"triton-nightly @ [^"]\+"|"triton"|g' ${SRC_PATH_JAX_TRITON}/pyproject.toml
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+FROM mealkit as final
+
+RUN pip-finalize.sh

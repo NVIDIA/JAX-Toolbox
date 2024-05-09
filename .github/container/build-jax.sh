@@ -11,9 +11,9 @@ print_var() {
 supported_compute_capabilities() {
     ARCH=$1
     if [[ "${ARCH}" == "amd64" ]]; then
-        echo "5.2,6.0,6.1,7.0,7.5,8.0,8.6,8.9,9.0"
+        echo "5.2,6.0,6.1,7.0,7.5,8.0,8.6,8.9,9.0,9.0a"
     elif [[ "${ARCH}" == "arm64" ]]; then
-        echo "5.3,6.2,7.0,7.2,7.5,8.0,8.6,8.7,8.9,9.0"
+        echo "5.3,6.2,7.0,7.2,7.5,8.0,8.6,8.7,8.9,9.0,9.0a"
     else
         echo "Invalid arch '$ARCH' (expected 'amd64' or 'arm64')" 1>&2
         return 1
@@ -238,9 +238,7 @@ apt-get update
 apt-get install -y \
     build-essential \
     checkinstall \
-    clang \
     git \
-    lld \
     wget \
     curl
 

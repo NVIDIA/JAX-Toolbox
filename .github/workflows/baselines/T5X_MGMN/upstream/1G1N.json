@@ -1,0 +1,31 @@
+{
+  "start_step": 100,
+  "end_step": 700,
+  "step_interval": 100,
+  "loss_values": [
+    21865.04296875,
+    16778.55078125,
+    15394.390625,
+    14834.7900390625,
+    14571.5107421875,
+    13927.41015625,
+    13905.013671875
+  ],
+  "step_times": [
+    2.473292112350464,
+    17.985205332438152,
+    18.19552739461263,
+    18.03304926554362,
+    18.031944910685223,
+    18.190677007039387,
+    18.142311096191406
+  ],
+  "step_time_avg": 15.864572445551554,
+  "e2e_time_seconds": 63.13766666666667,
+  "run_urls": [
+    "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/8324237226/artifacts",
+    "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/8314453358/artifacts",
+    "https://api.github.com/repos/NVIDIA/JAX-Toolbox/actions/runs/8306837544/artifacts"
+  ],
+  "date": "2024-03-19"
+}

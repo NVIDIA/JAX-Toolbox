@@ -8,244 +8,81 @@ on:
         description: 'JAX+TE+PAXML image'
         required: true
         default: 'ghcr.io/nvidia/upstream-pax:latest'
-      ARTIFACT_NAME:
+      ARTIFACT_PREFIX:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'artifact-te'
-      BADGE_FILENAME:
-        type: string
-        description: 'Name of the endpoint JSON file for shields.io badge'
-        required: false
-        default: 'badge-te'
+        default: 'te'
 
 jobs:
-  te-unit-tests:
-    runs-on: [self-hosted, V100]
-    env:
-      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME }}-unit-test
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-unit-test.json
-    steps:
-      - name: Print environment variables
-        run: env
-
-      - name: Print GPU information
-        run: nvidia-smi
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
-        
-      - name: Pull TE image
-        shell: bash -x -e {0}
-        run: |
-          docker pull ${{ inputs.TE_IMAGE }}
-          docker tag ${{ inputs.TE_IMAGE }} te:local
-
-      - name: Run TE unit tests with docker
-        shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log te:local bash -x /cmd.sh
-        run: |
-          pip install pytest-reportlog
-          pytest --report-log=/log/report.jsonl ${SRC_PATH_TE}/tests/jax
-
-      - name: Generate sitrep
-        if: success() || failure()
-        shell: bash -x -e {0}
-        run: |
-          # bring in utility functions
-          source .github/workflows/scripts/to_json.sh
-
-          badge_label='TE Unit test'
-          failed_tests=$(cat /log/report.jsonl | grep -c 'failed' || true)
-          passed_tests=$(cat /log/report.jsonl | grep -c 'passed' || true)
-          total_tests=$((failed_tests + passed_tests))
-          
-          if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
-            badge_message='error'
-            badge_color=red
-            summary='TE Unit test did not complete due to errors.'
-          else
-            badge_message="${passed_tests}/${total_tests} passed"
-            if [[ ${failed_tests} == 0 ]]; then
-              badge_color=brightgreen
-            else
-              badge_color=yellow
-            fi
-            summary="TE Unit test: $badge_message"
-          fi
-          echo "failed tests: " $failed_tests " passed tests: " $passed_tests " total_tests: " $total_tests " summary: " $summary
-          to_json \
-            summary \
-            errors total_tests passed_tests failed_tests \
-            badge_label badge_color badge_message \
-          > sitrep.json
-
-          schemaVersion=1 \
-          label="${badge_label}" \
-          message="${badge_message}" \
-          color="${badge_color}" \
-          to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
-
-      - name: Upload unit test json logs
-        if: success() || failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT_NAME_FULL }}
-          path: |
-            /log/report.jsonl
-            sitrep.json
-            ${{ env.BADGE_FILENAME_FULL }}
-
   te-multi-gpu:
+    uses: ./.github/workflows/_test_slurm_pyxis.yaml
     strategy:
       matrix:
-        N_GPU: [1, 2]
+        N_GPU: [2, 4, 8]
       fail-fast: false
-    runs-on: ubuntu-22.04
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
+      CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
+    with:
+      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
+      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
+      OUTPUT_BASEDIR: /nfs/cluster
+      OUTPUT_MOUNTPOINT: /output
+      NODES: 1
+      GPUS_PER_NODE: ${{ matrix.N_GPU }}
+      NTASKS: 1
+      NTASKS_PER_NODE: 1
+      TIME_LIMIT: '00:10:00'
+      EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
+      IMAGE: ${{ inputs.TE_IMAGE }}
+      SRUN_PREAMBLE: |
+        nvidia-smi
+        pip install \
+          pytest \
+          pytest-reportlog \
+          cuda-python \
+          -r ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder/requirements.txt
+      SRUN_SCRIPT: |
+        set -ex
+        cd ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder
+        pytest --report-log=/output/pytest-report.jsonl \
+          test_single_gpu_encoder.py \
+          test_multigpu_encoder.py \
+          test_model_parallel_encoder.py
+
+  sitrep:
+    needs: te-multi-gpu
+    if: success() || failure()
+    runs-on: ubuntu-latest
     env:
-      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_NAME }}-${{ matrix.N_GPU }}g-test
-      BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ matrix.N_GPU }}g-test.json
+      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_PREFIX }}-multigpu-test
+      BADGE_FILENAME_FULL: badge-${{ inputs.ARTIFACT_PREFIX }}-multigpu-test.json
     steps:
-      - name: Print environment variables
-        run: env
-
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
 
-      - name: Setup SSH known hosts
-        id: ssh-known-hosts
-        run: |
-          mkdir -p ~/.ssh
-          cat >> ~/.ssh/known_hosts << EOF
-          ${{ vars.SSH_KNOWN_HOSTS }}
-          EOF
-          chmod 600 ~/.ssh/known_hosts
-          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
-
-      - name: Labels and metadata
-        id: meta
-        shell: bash -x -e {0}
-        run: |
-          PYXIS_IMAGE_NAME=${{ inputs.TE_IMAGE }}
-          PYXIS_IMAGE_NAME=${PYXIS_IMAGE_NAME/ghcr.io\//ghcr.io#}
-          TEST_CASE_NAME=1P${{ matrix.N_GPU }}G
-          JOB_NAME=${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          SLURM_LOG_FILE=/nfs/cluster/${JOB_NAME}.log
-          PYTEST_LOG_FILE=/nfs/cluster/${JOB_NAME}-pytest.jsonl
-          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
-          for var in PYXIS_IMAGE_NAME TEST_CASE_NAME JOB_NAME SLURM_LOG_FILE PYTEST_LOG_FILE BATCH_SIZE; do
-            echo "$var=${!var}" >> $GITHUB_OUTPUT
-          done
-
-      - name: Submit SLURM jobs over SSH
-        id: submit
-        shell: bash -O expand_aliases -x -e {0}
-        run: |
-          cd $GITHUB_WORKSPACE
-          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-          sshx "date && hostname && sinfo"
-          JOB=$(sshx sbatch --parsable << EOF
-          #!/bin/bash
-          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
-          #SBATCH --exclusive
-          #SBATCH --nodes=1
-          #SBATCH --tasks=1
-          #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
-          #SBATCH --time=00:15:00
-          #SBATCH --output=${{ steps.meta.outputs.SLURM_LOG_FILE }}
-          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
-          time srun \
-            --container-image=${{ steps.meta.outputs.PYXIS_IMAGE_NAME }} \
-            --container-mounts=$(dirname ${{ steps.meta.outputs.PYTEST_LOG_FILE }}):/output \
-            --container-entrypoint \
-            bash -e -x -c 'nvidia-smi
-                     pip install pytest pytest-reportlog cuda-python
-                     cd \${SRC_PATH_TE}/examples/jax/encoder
-                     pip install -r requirements.txt
-                     pytest --report-log=/output/$(basename ${{ steps.meta.outputs.PYTEST_LOG_FILE }}) \
-                     test_single_gpu_encoder.py \
-                     test_multigpu_encoder.py \
-                     test_model_parallel_encoder.py'
-          EOF
-          )
-
-          echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
-
-          set +x
-          while sshx squeue -j $JOB | grep -q $JOB; do
-            echo "SLURM Job $JOB is still running."
-            sleep 15
-          done
-          echo "SLRUM Job $JOB finished."
-          set -x
-          
-          # Gather job info
-          SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
-          SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
-          echo "SLURM Job state is ${SLURM_STATE}"
-          echo "SLURM Job exit code is ${SLURM_EXITCODE}"
-          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
-          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
-
-      - name: Remove orphaned SLURM job if the CI job is canceled
-        if: cancelled()
-        shell: bash -x -e {0}
-        run: |
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
-            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
-
-      - name: Retrieve training logs
-        shell: bash -x -e {0}
-        run: |
-          cd $GITHUB_WORKSPACE
-          mkdir output/
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} "ls /nfs/cluster/${GITHUB_RUN_ID}*"
-          rsync -rtz --progress \
-            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.SLURM_LOG_FILE }} \
-            output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log
-          cat output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log
-
-          rsync -rtz --progress \
-            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.PYTEST_LOG_FILE }} \
-            output/${{ steps.meta.outputs.TEST_CASE_NAME }}-pytest.jsonl
-            
-      - name: Write SLURM job status to file
-        shell: bash -x -e {0}
-        run: |
-          python << EOF
-          import json
-          with open("output/${{ steps.meta.outputs.TEST_CASE_NAME }}-status.json", "w") as f:
-              dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
-              json.dump(dump, f)
-          EOF
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ inputs.ARTIFACT_PREFIX }}-*
+          merge-multiple: true
 
       - name: Generate sitrep
-        if: success() || failure()
         shell: bash -x -e {0}
         run: |
           # bring in utility functions
-          cd $GITHUB_WORKSPACE
           source .github/workflows/scripts/to_json.sh
 
-          EXIT_STATUSES="output/*-status.json"
+          test_outcome_files=$(find -name pytest-report.jsonl)
+
           badge_label='TE Multi GPU tests'
-          passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
-          failed_tests=$(jq -r '. | select ((.state != "COMPLETED") or (.exitcode != "0")) | .state' $EXIT_STATUSES | wc -l)
-          total_tests=$(ls $EXIT_STATUSES | wc -l)
+          passed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)
+          failed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "failed") | .outcome' | wc -l)
+          total_tests=$((failed_tests + passed_tests))
           
-          if [[ ${failed_tests} > 0 ]] || [[ ${total_tests} == 0 ]]; then
+          if [[ ${total_tests} == 0 ]]; then
             badge_message='error'
             badge_color=red
             summary='TE multi GPU tests did not complete due to errors.'
@@ -259,7 +96,9 @@ jobs:
             summary="TE multi GPU tests : $badge_message"
           fi
 
+          run_id=${{ github.run_id }} \
           to_json \
+            run_id \
             summary \
             total_tests passed_tests failed_tests \
             badge_label badge_color badge_message \
@@ -271,12 +110,11 @@ jobs:
           color="${badge_color}" \
           to_json schemaVersion label message color \
           > ${{ env.BADGE_FILENAME_FULL }}
-          
+
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME_FULL }}
           path: |
-            output/
             sitrep.json
             ${{ env.BADGE_FILENAME_FULL }}
