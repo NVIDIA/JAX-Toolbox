@@ -85,6 +85,10 @@ jobs:
             fi
 
             # try to get NCCL version from provided BASE_IMAGE of ARM64-arch
+            if [[ -z "$BASE_IMAGE" ]]; then
+              echo "Need to pass non-empty BASE_IMAGE variable"
+              exit 1
+            fi
             source .github/workflows/scripts/get_remote_env.sh
             JAX_LIBNCCL_PACKAGE=$(get_remote_env ${BASE_IMAGE:-ubuntu} linux amd64 | jq -r '.[]' | egrep '^NV_LIBNCCL_PACKAGE')
             JAX_NCCL_VERSION=$(get_remote_env ${BASE_IMAGE:-ubuntu} linux amd64 | jq -r '.[]' | egrep '^NCCL_VERSION=' | cut -d= -f2-)
