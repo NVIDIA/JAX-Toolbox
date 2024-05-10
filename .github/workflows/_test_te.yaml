@@ -68,7 +68,6 @@ jobs:
         with:
           pattern: |
             ${{ inputs.ARTIFACT_PREFIX }}-*
-            '!*_checkpoints'
           merge-multiple: true
 
       - name: Generate sitrep
