@@ -14,6 +14,7 @@ cat <<"EOF" > "$BIN_DIR/$NAME.sh"
 set -e
 export NCCL_SANITY_CHECK_LATENCY_US=1000
 NCCL_SANITY_CHECK_ARGS=$(python3 -c 'import jax; import jax.distributed; jax.distributed.initialize(); lds = jax.local_devices(); assert(len(lds) == 1); from jax._src.distributed import global_state as gs; print(gs.num_processes, gs.process_id, lds[0].local_hardware_id, gs.coordinator_address)')
+set -x
 nccl-sanity-check $NCCL_SANITY_CHECK_ARGS
 EOF
 chmod +x "$BIN_DIR/$NAME.sh"
