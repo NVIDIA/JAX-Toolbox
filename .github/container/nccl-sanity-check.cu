@@ -50,7 +50,8 @@ void printUsageAndAbort(char* progName) {
 }
 
 
-void parseArgs(int argc, char* argv[], int* nRanks, int* myRank, int* localRank, char* coordinatorAddress) {
+void parseArgs(int argc, char* argv[], int* nRanks, int* myRank, int* localRank,
+    char* coordinatorAddress) {
   if (argc != 5) {
     printUsageAndAbort(argv[0]);
   }
@@ -66,14 +67,16 @@ void parseArgs(int argc, char* argv[], int* nRanks, int* myRank, int* localRank,
     printf("Expected local-rank to be a non-negative integer\n");
     printUsageAndAbort(argv[0]);
   }
-  if (sscanf(argv[4], "%127s", coordinatorAddress) != 1 || strlen(coordinatorAddress) >= 127) {
+  if (sscanf(argv[4], "%127s", coordinatorAddress) != 1 ||
+      strlen(coordinatorAddress) >= 127) {
     printf("Expected coordinator-address to be a string (ip:port)\n");
     printUsageAndAbort(argv[0]);
   }
 }
 
 
-std::tuple<uint64_t, uint64_t> sampleAllReduces(int rank, int nRanks, ncclUniqueId id, int size, int rounds) {
+std::tuple<uint64_t, uint64_t> sampleAllReduces(int rank, int nRanks, ncclUniqueId id,
+    int size, int rounds) {
   float *sendbuff, *recvbuff;
   CUDACHECK(cudaMalloc((void**) &sendbuff, size * sizeof(float)));
   CUDACHECK(cudaMalloc((void**) &recvbuff, size * sizeof(float)));
@@ -91,12 +94,12 @@ std::tuple<uint64_t, uint64_t> sampleAllReduces(int rank, int nRanks, ncclUnique
   for (int i=0; i<rounds; i++) {
     auto t_start = std::chrono::high_resolution_clock::now();
 
-    NCCLCHECK(ncclAllReduce((const void*)sendbuff, (void*)recvbuff, size, ncclFloat, ncclSum, comm, s));
+    NCCLCHECK(ncclAllReduce((const void*)sendbuff, (void*)recvbuff, size, ncclFloat,
+      ncclSum, comm, s));
     CUDACHECK(cudaStreamSynchronize(s));
 
     uint64_t duration = std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::high_resolution_clock::now() - t_start).count();
-    // printf("[MPI Rank %d] round %d, duration %" PRIu64 "us\n", rank, i, duration);
     if (duration < minDuration) {
       minDuration = duration;
     }
@@ -152,7 +155,9 @@ int main(int argc, char* argv[])
 
   // Report result of the sanity check
   bool success = threshold >= minDuration;
-  printf("nccl-sanity-check success=%d rank=%d nRanks=%d rounds=%d threshold=%dus minDuration=%" PRIu64 "us maxDuration=%" PRIu64 "us\n",
+  printf(
+    "nccl-sanity-check success=%d rank=%d nRanks=%d rounds=%d threshold=%dus "
+    "minDuration=%" PRIu64 "us maxDuration=%" PRIu64 "us\n",
     success, myRank, nRanks, rounds, threshold, minDuration, maxDuration);
   return !success;
 }
