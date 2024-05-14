@@ -173,6 +173,14 @@ ADD --chmod=777 \
 ENV LD_LIBRARY_PATH=/opt/amazon/efa/lib:${LD_LIBRARY_PATH}
 ENV PATH=/opt/amazon/efa/bin:${PATH}
 
+##############################################################################
+## NCCL sanity check utility
+##############################################################################
+
+ADD install-nccl-sanity-check.sh /usr/local/bin
+ADD nccl-sanity-check.cu /opt
+RUN install-nccl-sanity-check.sh
+
 ###############################################################################
 ## Add the systemcheck to the entrypoint.
 ###############################################################################
