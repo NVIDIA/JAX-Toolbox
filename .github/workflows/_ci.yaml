@@ -492,15 +492,13 @@ jobs:
   test-gemma:
     needs: build-gemma
     uses: ./.github/workflows/_test_unit.yaml  
-    if: false
+    if: inputs.ARCHITECTURE == 'amd64'
     with:
-      IMAGE: ${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: gemma
       EXECUTE: |
         docker run --shm-size=1g --gpus all ${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }} \
         bash -ec \
-        "pip install -e /opt/gemma[test] && pytest /opt/gemma/" | tee test-gemma.log;
-         python /opt/gemma/tests/test_paligemma.py | tee test-paligemma.log;
+        "pip install -e /opt/gemma[test] && pytest /opt/gemma/" | tee test-gemma.log; python /opt/gemma/tests/test_paligemma.py | tee test-paligemma.log;"
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-gemma.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
@@ -514,8 +512,7 @@ jobs:
       ARTIFACTS: |
         test-gemma.log
         test-paligemma.log
-      ARTIFACT_NAME: artifact-jax-unit-test
-      BADGE_FILENAME: badge-jax-unit-test
+      ARTIFACT_NAME: artifact-gemma-unit-test
     secrets: inherit
 
   test-maxtext:
