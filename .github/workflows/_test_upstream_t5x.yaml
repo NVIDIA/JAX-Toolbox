@@ -371,6 +371,7 @@ jobs:
           path: output/*
 
   metrics:
+    name: test-upstream-t5x-metrics
     needs: [t5x-multi-node, t5x-multi-gpu]
     runs-on: ubuntu-22.04
 
@@ -405,6 +406,7 @@ jobs:
 
 
   sitrep:
+    name: test-upstream-t5x-sitrep
     needs: metrics
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
@@ -415,6 +417,7 @@ jobs:
       FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
+    name: test-upstream-t5x-summary
     runs-on: ubuntu-22.04
     needs: [t5x-multi-node, t5x-multi-gpu]
     if: "!cancelled()"
@@ -432,6 +435,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
+    name: test-upstream-t5x-outcome
     needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"

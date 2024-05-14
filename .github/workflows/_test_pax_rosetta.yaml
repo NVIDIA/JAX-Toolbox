@@ -98,7 +98,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -319,7 +319,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -445,7 +445,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
-          path: output/*
+          path: |
+            output/*
 
   rosetta-pax-multi-node:
     strategy:
@@ -516,7 +517,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -708,7 +709,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -900,7 +901,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -1027,6 +1028,7 @@ jobs:
           path: output/*
 
   metrics:
+    name: test-pax-rosetta-metrics
     needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te]
     runs-on: ubuntu-22.04
 
@@ -1060,6 +1062,7 @@ jobs:
             *_metrics.json
 
   sitrep:
+    name: test-pax-rosetta-sitrep
     needs: metrics
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
@@ -1070,6 +1073,7 @@ jobs:
       FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
+    name: test-pax-rosetta-summary
     runs-on: ubuntu-22.04
     needs: [single-process-multi-device-te, rosetta-pax-multi-node, rosetta-pax-multi-node-te, rosetta-pax-single-node-dropout-te, single-process-evaluation-te]
     if: "!cancelled()"
@@ -1087,6 +1091,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
+    name: test-pax-rosetta-outcome
     needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"

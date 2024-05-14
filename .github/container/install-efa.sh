@@ -29,9 +29,6 @@ tar -xf aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && cd aws-efa-installe
 
 popd
 
-# check the installation is successful
-/opt/amazon/efa/bin/fi_info --version
-
 # Clean up
 apt-get clean
 rm -rf /var/lib/apt/lists/*

@@ -43,10 +43,10 @@ jobs:
           pytest \
           pytest-reportlog \
           cuda-python \
-          -r ${SRC_PATH_TE}/examples/jax/encoder/requirements.txt
+          -r ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder/requirements.txt
       SRUN_SCRIPT: |
         set -ex
-        cd ${SRC_PATH_TE}/examples/jax/encoder
+        cd ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder
         pytest --report-log=/output/pytest-report.jsonl \
           test_single_gpu_encoder.py \
           test_multigpu_encoder.py \
@@ -66,7 +66,8 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: ${{ inputs.ARTIFACT_PREFIX }}-*
+          pattern: |
+            ${{ inputs.ARTIFACT_PREFIX }}-*
           merge-multiple: true
 
       - name: Generate sitrep

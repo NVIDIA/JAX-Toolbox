@@ -372,6 +372,7 @@ set -ex
 export XLA_PYTHON_CLIENT_MEM_FRACTION=${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.65}
 export ENABLE_TE=$ENABLE_TE
 export NVTE_FUSED_ATTN=$NVTE_FUSED_ATTN
+export VOCAB_PATH=${VOCAB_PATH:-gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model}
 
 if [[ ${MODEL_TYPE} == "126M" ]]; then
   CONFIG=ci_configs.Synthetic126MCI
@@ -387,6 +388,9 @@ else
 fi
 
 if [[ ${EVALUATE} -ne 0 ]]; then
+
+  trap "rm -rf ${OUTPUT}/checkpoints" ERR INT HUP TERM EXIT
+
   ## train for 0 steps to generate an initial checkpoint
   python -m paxml.main \
     --fdl_config=${CONFIG} \
@@ -407,7 +411,6 @@ if [[ ${EVALUATE} -ne 0 ]]; then
     $ADDITIONAL_ARGS \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 
-  rm -rf ${OUTPUT}/checkpoints
 else
   python -m paxml.main \
     --fdl_config=${CONFIG} \

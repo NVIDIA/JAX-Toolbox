@@ -4,6 +4,8 @@ This page documents the various flags in XLA and JAX to improve performance for 
 
 The flags can be set via the environment variable `XLA_FLAGS="--xla-flag1=true --xla-flag2=false"` on command line or your script.
 
+Please note that some of these flags are experimental. All combinations of flags have not been tested, yet. If you see any unexpected behaviors, please let us know.
+
 
 ## Flags to manage memory used in JAX/XLA
 
@@ -40,16 +42,11 @@ To enable latency hiding optimizations with XLA, turn on the following flag:
 
 To enable asynchronous communication for all collectives, the following is recommended, and is set by default in XLA :
 
-- --xla_gpu_enable_async_collectives=true
 - --xla_gpu_enable_highest_priority_async_stream=true
 
 For more fine-grained control over which collectives should be asynchronous or not, please use: 
 
-- --xla_gpu_enable_async_all_reduce=<>
-- --xla_gpu_enable_async_all_gather=<>
-- --xla_gpu_enable_async_reduce_scatter=<> 
-- --xla_gpu_enable_async_collective_permute=<>
-
+- --xla_gpu_disable_async_collectives=allreduce,allgather,reducescatter,collectivebroadcast,alltoall,collectivepermute
 
 ### Flags to enable optimizations for FSDP communication 
 
@@ -105,8 +102,9 @@ The below enables CUDA Graph suppport for JAX/XLA workloads, and is enabled by d
 
 ### Dynamic-Update Slice Fusion
 
-The following flag removes extra copies introduced by DUS (dynamic update slice) when used in conjunction with custom NVIDIA kernels (like cuBLAS for GEMMs)
+The following flag removes extra copies introduced by DUS (dynamic update slice) when used in conjunction with custom NVIDIA kernels (like cuBLAS for GEMMs). This happens in particular when used with scan operations.
 - --xla_gpu_enable_custom_fusions=true
+- --xla_gpu_enable_address_computation_fusion=true
 
 ### NCCL Optimizations
 
@@ -114,7 +112,7 @@ Enable user-buffers in NCCL for zero-copy collectives and send/recv. Needs NCCL_
 - --xla_gpu_enable_nccl_user_buffers=true
 
 Flags to reduce memory consumed by NCCL.
-- --xla_gpu_enable_nccl_comm_splitting=false  
+- --xla_gpu_enable_nccl_comm_splitting=true  
 - --xla_gpu_enable_nccl_per_stream_comms=false [https://github.com/openxla/xla/pull/9845](https://github.com/openxla/xla/pull/9845)
 
 Fine-grain control to improve performance by initializing a NCCL communicator to use only max_nchannels (SMs). Default value of 0 gets the default values from NCCL for SMs used per collective.
