@@ -59,7 +59,7 @@ EOF
 ENV PYTHONPATH "/opt/big_vision/:${PYTHONPATH}"
 
 ADD ./rosetta/projects/paligemma/Finetune_PaliGemma.ipynb ${SRC_PATH_GEMMA}/examples/Finetune_PaliGemma.ipynb
-ADD ./rosetta/tests/test_gemma.py ${SRC_PATH_GEMMA}/tests/test_gemma.py
+ADD ./tests/test_gemma.py ${SRC_PATH_GEMMA}/tests/test_gemma.py
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
