@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 
-def generate_compilation_statistics(compile_df: pd.DataFrame):
+def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
     """
     Analyse a "compile" data frame returned by `load_profiler_data` and aggregate over
     different compilations in a parallel-compilation-aware way.
@@ -86,8 +86,6 @@ def generate_compilation_statistics(compile_df: pd.DataFrame):
     for row in compile_df[compile_df["TID"] == main_thread].itertuples():
         compile_time_ns[row.Name] += (row.DurNonChildNs, row.DurChildNs)
 
-    # TODO: add DurChildNs too?
-    ret = pd.DataFrame.from_dict(
+    return pd.DataFrame.from_dict(
         compile_time_ns, columns=["DurNonChildNs", "DurChildNs"], orient="index"
     ).sort_values(by=["DurNonChildNs"], ascending=False)
-    return ret

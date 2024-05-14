@@ -37,7 +37,7 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
     # include the non-overlapped time
     for comm_thunk in thunk_df[thunk_df["Communication"]].itertuples():
         # This is a range annotating a communication operation, i.e. NCCL kernel
-        # That kernel was active from thunk_row.ProjStartNs until thunk_row.ProjEndNs
+        # That kernel was active from comm_thunk.ProjStartNs until comm_thunk.ProjEndNs
         # but during that time then other computation was going on. We want to
         # find how much of the time did not overlap with other computation.
         compute_df = thunk_df[

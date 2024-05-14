@@ -1,5 +1,5 @@
 import pandas as pd
-
+from typing import Optional
 
 def remove_child_ranges(df: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:
     """
@@ -10,7 +10,7 @@ def remove_child_ranges(df: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:
     autotuning compilation) instead of as lower-level operations (emitting IR,
     optimizing IR, ...).
     """
-    to_remove = None
+    to_remove: Optional[pd.Series] = None
     mask &= df["NumChild"] != 0
     for row in df[mask].itertuples():
         child_mask = df["RangeStack"].str.startswith(f"{row.RangeStack}:")
