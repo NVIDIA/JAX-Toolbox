@@ -512,7 +512,6 @@ jobs:
       ARTIFACTS: |
         test-gemma.log
         test-paligemma.log
-      ARTIFACT_NAME: artifact-gemma-unit-test
     secrets: inherit
 
   test-maxtext:
