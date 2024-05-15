@@ -189,6 +189,25 @@ jobs:
         URLREF_GROK_1=${{ fromJson(inputs.SOURCE_URLREFS).GROK_1 }}
     secrets: inherit
 
+
+  build-gemma:
+    uses: ./.github/workflows/_build_rosetta.yaml
+    if: inputs.ARCHITECTURE == 'amd64' # build only amd64
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: gemma
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      ARTIFACT_NAME: artifact-gemma-build
+      EXTRA_BUILD_ARGS: |
+        URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
+        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
+        URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).common_loop_utils }}
+        URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).flaxformer }}
+        URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).panopticapi }}
+    secrets: inherit
+
+
   build-gemma:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml

@@ -6,18 +6,19 @@ on:
 
 jobs:
   build-gemma:
-    uses: ./.github/workflows/_build_rosetta.yaml
+    uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: amd64
-      BASE_IMAGE: ghcr.io/nvidia/jax-mealkit:jax
-      BASE_LIBRARY: gemma
-      BUILD_DATE: '2024-12-12'
       ARTIFACT_NAME: artifact-gemma-build
-      BADGE_FILENAME_PREFIX: badge-gemma-build
-      # EXTRA_BUILD_ARGS: |
-      #   URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
-      #   URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
-      #   URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).common_loop_utils }}
-      #   URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).flaxformer }}
-      #   URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).panopticapi }}
+      BADGE_FILENAME: badge-gemma-build
+      BUILD_DATE: `2024-11-12`
+      BASE_IMAGE: ghcr.io/nvidia/jax-mealkit:jax
+      CONTAINER_NAME: gemma
+      DOCKERFILE: rosetta/Dockerfile.gemma
+      EXTRA_BUILD_ARGS: |
+        URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
+        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
+        URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).common_loop_utils }}
+        URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).flaxformer }}
+        URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).panopticapi }}
     secrets: inherit
