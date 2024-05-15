@@ -2,7 +2,7 @@
 
 PaliGemma is a vision language model (VLM). These models are well-suited for a variety of tasks that require visually-situated text understanding and object localization. On a high level, the architecture follows a vision encoder (ViT) that encodes an image into tokens which together with text input (question, prompt, instruction), are passed to a decoder-only transformer (Gemma) that generates a text output.
 
-For more details, refer to the [PaliGemma model card](https://ai.google.dev/gemma/docs/model_card) released by Google.
+For more details, refer to the [PaliGemma model card](https://ai.google.dev/gemma/docs/paligemma/model-card) released by Google.
 
 ## Customizing PaliGemma with JAX
 
@@ -51,5 +51,5 @@ docker pull nvcr.io/nvidia/jax:gemma
 The best way to run this notebook is from within the container. You can do that by launching the container with the following command
 
 ```bash
-docker run --gpus all -it --rm -p 8888:8888 nvcr.io/nvidia/jax:gemma bash -c 'source /usr/local/nvm/nvm.sh && jupyter lab'
+docker run --gpus all -it -p 8888:8888 nvcr.io/nvidia/jax:gemma bash -c 'jupyter lab --ip 0.0.0.0 --allow-root'
 ```
