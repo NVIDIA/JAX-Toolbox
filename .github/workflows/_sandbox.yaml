@@ -9,6 +9,7 @@ jobs:
     uses: ./.github/workflows/_build_rosetta.yaml
     with:
       ARCHITECTURE: amd64
+      BASE_IMAGE: ghcr.io/nvidia/jax-mealkit:jax
       BASE_LIBRARY: gemma
       BUILD_DATE: '2024-12-12'
       ARTIFACT_NAME: artifact-gemma-build
