@@ -247,6 +247,22 @@
       <td>
       </td>
     </tr>
+    <tr>
+      <td>
+        <picture>
+          <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Gemma%3D%7Bcore%2CGemma%2CPaliGemma%7D">
+        </picture>
+      </td>
+      <td>
+        <code>ghcr.io/nvidia/jax:gemma</code>
+      </td>
+      <td>
+<!--         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-grok-md"><img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-grok-build-amd64.json&logo=docker&label=amd64"></a>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-grok-md"><img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-grok-build-arm64.json&logo=docker&label=arm64"></a> -->
+      </td>
+      <td>
+      </td>
+    </tr>
   </tbody>
 </table>
 
@@ -266,6 +282,7 @@ We currently enable training and evaluation for the following models:
 | [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
 | [ViT](./rosetta/rosetta/projects/vit) | ✔️ | ✔️ | ✔️ |
 | [Imagen](./rosetta/rosetta/projects/imagen) | ✔️ |   | ✔️ |
+| [PaliGemma](./rosetta/rosetta/projects/paligemma) |  | ✔️ | ✔️ |
 
 We will update this table as new models become available, so stay tuned.
 
