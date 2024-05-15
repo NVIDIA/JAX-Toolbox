@@ -28,6 +28,10 @@ ARG SRC_PATH_FLAXFORMER
 ARG URLREF_PANOPTICAPI
 ARG SRC_PATH_PANOPTICAPI
 
+ADD ./rosetta/projects/paligemma/Finetune_PaliGemma.ipynb ${SRC_PATH_GEMMA}/examples/Finetune_PaliGemma.ipynb
+ADD ./tests/test_gemma.py ${SRC_PATH_GEMMA}/tests/test_gemma.py
+
+
 RUN <<"EOF" bash -ex
 git-clone.sh ${URLREF_GEMMA} ${SRC_PATH_GEMMA}
 git-clone.sh ${URLREF_BIG_VISION} ${SRC_PATH_BIG_VISION}
@@ -58,8 +62,6 @@ EOF
 
 ENV PYTHONPATH "/opt/big_vision/:${PYTHONPATH}"
 
-ADD ./rosetta/projects/paligemma/Finetune_PaliGemma.ipynb ${SRC_PATH_GEMMA}/examples/Finetune_PaliGemma.ipynb
-ADD ./tests/test_gemma.py ${SRC_PATH_GEMMA}/tests/test_gemma.py
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
