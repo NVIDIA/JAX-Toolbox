@@ -499,7 +499,7 @@ jobs:
       EXECUTE: |
         docker run --shm-size=1g --gpus all ${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }} \
         bash -ec \
-        "pip install -e /opt/gemma[test] && pytest /opt/gemma/" | tee test-gemma.log; python /opt/gemma/tests/test_paligemma.py | tee test-paligemma.log;"
+        "pip install -e /opt/gemma[test] && pytest /opt/gemma/ && python /opt/gemma/tests/test_paligemma.py" | tee test-gemma.log
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-gemma.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
@@ -512,7 +512,6 @@ jobs:
         echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
       ARTIFACTS: |
         test-gemma.log
-        test-paligemma.log
     secrets: inherit
 
   test-maxtext:
