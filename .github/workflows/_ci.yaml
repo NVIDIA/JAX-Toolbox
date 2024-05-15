@@ -204,7 +204,7 @@ jobs:
       DOCKER_CONTEXT: .
       EXTRA_BUILD_ARGS: |
         URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
-        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big-vision }}
+        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
         URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).common_loop_utils }}
         URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).flaxformer }}
         URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).panopticapi }}
