@@ -155,3 +155,23 @@ grok-1:
   tracking_ref: main
   latest_verified_commit: 7207216386e07206b2083c5c0be88db1add8e631
   mode: git-clone
+big-vision:
+  url: https://github.com/google-research/big_vision.git
+  tracking_ref: main
+  latest_verified_commit: 70b22bb60c46023e50fd0f5d42e0f48f8dfe2fdb
+  mode: git-clone
+common-loop-utils:
+  url: https://github.com/google/CommonLoopUtils.git
+  tracking_ref: main
+  latest_verified_commit: b172f5a21fbd6236ea9408ed94d0fc0b11bffe33
+  mode: git-clone
+flaxformer:
+  url: https://github.com/google/flaxformer.git
+  tracking_ref: main
+  latest_verified_commit: 399ea3a85e9807ada653fd0de1a9de627eb0acde
+  mode: git-clone
+panopticapi:
+  url: https://github.com/akolesnikoff/panopticapi.git
+  tracking_ref: mute
+  latest_verified_commit: a698a12deb21e4cf0f99ef0581b2c30c466bf355
+  mode: git-clone
