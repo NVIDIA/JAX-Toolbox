@@ -12,7 +12,7 @@ jobs:
       BASE_LIBRARY: gemma
       BUILD_DATE: '2024-12-12'
       ARTIFACT_NAME: artifact-gemma-build
-      BADGE_FILENAME: badge-gemma-build
+      BADGE_FILENAME_PREFIX: badge-gemma-build
       # EXTRA_BUILD_ARGS: |
       #   URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
       #   URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
