@@ -23,6 +23,8 @@ usage() {
     echo "  -s, --steps                Number of steps to run, defaults to 500."
     echo "  --multiprocess             Enable the multiprocess GPU mode."
     echo "  -o, --output NAME          Name for the output folder, a temporary folder will be created if none specified."
+    echo "  --save-hlo {0, 1}          1 to save the dumped hlo, 0 to remove the hlo dumped folder"
+    echo "  --enable-fmha {0, 1}       1 to enable fmha testing, 0 to run test without fmha; default is 0"
     echo "  --data-parallel            Data parallelism to use. Defaults to 1."
     echo "  --fsdp                     Fully-sharded data parallelism to use. Defaults to 1."
     echo "  --tensor-parallel          Tensor parallelism to use. Defaults to 1."
@@ -32,7 +34,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,enable-fused-attn,model-type:,evaluate,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,enable-fused-attn,model-type:,enable-fmha:,evaluate,steps:,help,multiprocess,output:,save-hlo:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -55,6 +57,8 @@ NVTE_FUSED_ATTN=0
 DROPOUT=0
 EVALUATE=0
 ADDITIONAL_ARGS=""
+ENABLE_FMHA=${ENABLE_FMHA:-0}
+SAVE_HLO=${SAVE_HLO:-1}
 
 eval set -- "$args"
 while [ : ]; do
@@ -74,6 +78,10 @@ while [ : ]; do
         --enable-te)
             ENABLE_TE=1
             shift 1
+            ;;
+        --enable-fmha)
+            ENABLE_FMHA="$2"
+            shift 2
             ;;
         --enable-dropout)
             DROPOUT='0.1'
@@ -101,6 +109,10 @@ while [ : ]; do
             ;;
         -o | --output)
             OUTPUT=$2
+            shift 2
+            ;;
+        --save-hlo)
+            SAVE_HLO="$2"
             shift 2
             ;;
         --data-parallel)
@@ -136,6 +148,21 @@ while [ : ]; do
     esac
 done
 
+# Set hlo dump folder after output folder is set.
+HLO_DIR=${OUTPUT}/hlo
+export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_dump_hlo_as_text --xla_dump_to=${HLO_DIR}}"
+export XLA_FLAGS="${BASE_XLA_FLAGS} ${XLA_FLAGS:-}"
+echo "HLO will be dumped in ${HLO_DIR} dir."
+
+## Setting the env variables for FMHA
+if [[ "$ENABLE_FMHA" -eq "1" ]]; then  
+    echo "Setting XLA FMHA Flags";
+    export BASE_XLA_FLAGS_FMHA="${BASE_XLA_FLAGS_FMHA:---xla_gpu_fused_attention_use_cudnn_rng=true --xla_gpu_enable_cudnn_fmha=true}"
+    export XLA_FLAGS="${BASE_XLA_FLAGS_FMHA} ${XLA_FLAGS:-}"
+fi
+
+echo "XLA FLAGS: $XLA_FLAGS"
+
 # # Set derived variables
 
 GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
@@ -149,8 +176,10 @@ print_var NGPUS
 print_var OUTPUT
 print_var MULTIPROCESS
 print_var ENABLE_TE
+print_var ENABLE_FMHA
 print_var NVTE_FUSED_ATTN
 print_var EVALUATE
+print_var SAVE_HLO
 print_var DROPOUT
 print_var DP
 print_var FSDP
@@ -421,3 +450,26 @@ fi
 
 set +x
 echo "Output at ${OUTPUT}"
+
+if [[ "$ENABLE_FMHA" -eq "1" ]]; then 
+    ## Check if fmha instructions are present in the HLO dumped file or not.
+    fmha_regex="fmha[-bmm]?[-scale]?[-bias]?[-mask]?[-softmax]?[-dropout]?[-bmm]?[-backward]?*"
+    result=$(grep -irlnE "$fmha_regex" "${HLO_DIR}/"*.txt)
+
+    if [[ $SAVE_HLO -eq 0 ]]; then
+        rm -rf $HLO_DIR
+        echo "Removed dumped HLO directory!"
+    fi
+
+    if [ -z "$result" ]; then
+        echo "E: No FMHA instructions were found in the hlo files!"
+	exit 1
+    else
+        echo -e "Found FMHA instructions in the following HLO files: \n $result"
+    fi
+else
+    if [[ $SAVE_HLO -eq 0 ]]; then
+        rm -rf $HLO_DIR
+ 	echo "Removed dumped HLO directory!"
+    fi
+fi
