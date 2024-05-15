@@ -201,6 +201,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: gemma
       DOCKERFILE: rosetta/Dockerfile.gemma
+      DOCKER_CONTEXT: .
       EXTRA_BUILD_ARGS: |
         URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
         URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
