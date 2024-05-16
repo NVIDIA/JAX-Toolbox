@@ -89,5 +89,3 @@ jobs:
     with:
       PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
-
-    secrets: inherit
