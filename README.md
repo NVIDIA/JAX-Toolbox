@@ -247,6 +247,22 @@
       <td>
       </td>
     </tr>
+    <tr>
+      <td>
+        <picture>
+          <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Gemma%3D%7Bcore%2CGemma%2CPaliGemma%7D">
+        </picture>
+      </td>
+      <td>
+        <code>ghcr.io/nvidia/jax:gemma</code>
+      </td>
+      <td>
+<!--         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-grok-md"><img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-grok-build-amd64.json&logo=docker&label=amd64"></a>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-grok-md"><img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-grok-build-arm64.json&logo=docker&label=arm64"></a> -->
+      </td>
+      <td>
+      </td>
+    </tr>
   </tbody>
 </table>
 
@@ -266,6 +282,7 @@ We currently enable training and evaluation for the following models:
 | [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
 | [ViT](./rosetta/rosetta/projects/vit) | ✔️ | ✔️ | ✔️ |
 | [Imagen](./rosetta/rosetta/projects/imagen) | ✔️ |   | ✔️ |
+| [PaliGemma](./rosetta/rosetta/projects/paligemma) |  | ✔️ | ✔️ |
 
 We will update this table as new models become available, so stay tuned.
 
@@ -276,8 +293,6 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 | XLA Flags | Value | Explanation |
 | --------- | ----- | ----------- |
 | `--xla_gpu_enable_latency_hiding_scheduler` | `true`  | allows XLA to move communication collectives to increase overlap with compute kernels |
-| `--xla_gpu_enable_async_all_gather` | `true` | allows XLA to run NCCL [AllGather](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/operations.html#allgather) kernels on a separate CUDA stream to allow overlap with compute kernels |
-| `--xla_gpu_enable_async_reduce_scatter` | `true` | allows XLA to run NCCL [ReduceScatter](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/operations.html#reducescatter) kernels on a separate CUDA stream to allow overlap with compute kernels |
 | `--xla_gpu_enable_triton_gemm` | `false` | use cuBLAS instead of Trition GeMM kernels |
 
 | Environment Variable | Value | Explanation |

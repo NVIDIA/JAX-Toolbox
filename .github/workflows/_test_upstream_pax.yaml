@@ -103,8 +103,8 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
-          
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+
           # preload enroot container using one task per node
           time srun \
             --ntasks-per-node=1 \
@@ -288,7 +288,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -370,9 +370,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.meta.outputs.JOB_NAME }}
-          path: output/*
+          path: |
+            output/*
 
-  single-process-evaluation:
+  pax-single-process-evaluation:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -435,7 +436,7 @@ jobs:
           #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model,ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
+          #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
 
           # preload enroot container using one task per node
           time srun \
@@ -520,7 +521,8 @@ jobs:
           path: output/*
 
   metrics:
-    needs: [pax-single-process-multi-device, pax-multi-node, single-process-evaluation]
+    name: test-upstream-pax-metrics
+    needs: [pax-single-process-multi-device, pax-multi-node, pax-single-process-evaluation]
     runs-on: ubuntu-22.04
 
     steps:
@@ -553,6 +555,7 @@ jobs:
             *_metrics.json
 
   sitrep:
+    name: test-upstream-pax-sitrep
     needs: metrics
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
@@ -563,8 +566,9 @@ jobs:
       FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
+    name: test-upstream-pax-summary
     runs-on: ubuntu-22.04
-    needs: [pax-single-process-multi-device, pax-multi-node, single-process-evaluation]
+    needs: [pax-single-process-multi-device, pax-multi-node, pax-single-process-evaluation]
     if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
@@ -580,6 +584,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
+    name: test-upstream-pax-outcome
     needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"
