@@ -2,90 +2,40 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
-    inputs:
-      ARCHITECTURE:
-        type: string
-        required: false
-        default: "amd64"
-      BUILD_DATE:
-        type: string
-        description: Build date in YYYY-MM-DD format
-        required: false
-        default: NOT SPECIFIED
-      MANIFEST_ARTIFACT_NAME:
-        type: string
-        description: Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch
-        default: ''
-        required: false
-
-permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
 
 jobs:
-
-  build-base:
-    uses: ./.github/workflows/_build_base.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
-    secrets: inherit
-
-  build-jax:
-    needs: build-base
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-jax-build
-      BADGE_FILENAME: badge-jax-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-      CONTAINER_NAME: jax
-      DOCKERFILE: .github/container/Dockerfile.jax
-      RUNNER_SIZE: large
-    secrets: inherit
-
-  build-upstream-pax:
-    needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-pax-build
-      BADGE_FILENAME: badge-pax-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: upstream-pax
-      DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
-    secrets: inherit
-
-  test-distribution:
+  sandbox:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        TEST_SCRIPT:
-          - extra-only-distribution.sh
-          - mirror-only-distribution.sh
-          - upstream-only-distribution.sh
-          - local-patch-distribution.sh
-      fail-fast: false
     steps:
-      - name: Print environment variables
-        run: env
-      - name: Set git login for tests
-        run: |
-          git config --global user.email "jax@nvidia.com"
-          git config --global user.name "JAX-Toolbox CI"
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
-      - name: Run integration test ${{ matrix.TEST_SCRIPT }}
-        run: bash rosetta/tests/${{ matrix.TEST_SCRIPT }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  test-upstream-pax:
-    needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_upstream_pax.yaml
-    with:
-      PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
+      - name: Print usage
+        run: |
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
+
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
