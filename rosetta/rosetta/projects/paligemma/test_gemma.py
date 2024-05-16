@@ -33,4 +33,3 @@ backend = jax.lib.xla_bridge.get_backend()
 print(f"JAX version:  {jax.__version__}")
 print(f"JAX platform: {backend.platform}")
 print(f"JAX devices:  {jax.device_count()}")
-
