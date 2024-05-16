@@ -384,7 +384,7 @@ jobs:
         ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-triton.log
           # autotuner tests from jax-triton now hit a triton code path that uses utilities from pytorch...
-          pip install --no-deps torch
+          pip install --no-deps torch --index-url https://download.pytorch.org/whl/cpu
           python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
         EOF
       STATISTICS_SCRIPT: |
