@@ -447,14 +447,6 @@ jobs:
           name: ${{ steps.meta.outputs.JOB_NAME }}
           path: |
             output/*
-            !output/**/checkpoints/*
-
-      - name: Upload training logs as artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.meta.outputs.JOB_NAME }}_checkpoints
-          path: output/**/checkpoints/*
-
 
   rosetta-pax-multi-node:
     strategy:
@@ -1046,9 +1038,6 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
-        with:
-          # skip downloading checkpoints
-          pattern: '!*_checkpoints'
 
       - name: Run pytest
         shell: bash -eux {0}
