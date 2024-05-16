@@ -448,10 +448,10 @@ else
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 fi
 
-set +x
-echo "Output at ${OUTPUT}"
+echo "Checking for FMHA instructions in HLO!"
 
 if [[ "$ENABLE_FMHA" -eq "1" ]]; then 
+    echo "Inside if Statement!"
     ## Check if fmha instructions are present in the HLO dumped file or not.
     fmha_regex="fmha[-bmm]?[-scale]?[-bias]?[-mask]?[-softmax]?[-dropout]?[-bmm]?[-backward]?*"
     result=$(grep -irlnE "$fmha_regex" "${HLO_DIR}/"*.txt)
@@ -473,3 +473,6 @@ else
  	echo "Removed dumped HLO directory!"
     fi
 fi
+
+set +x
+echo "Output at ${OUTPUT}"
