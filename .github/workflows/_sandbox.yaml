@@ -40,5 +40,5 @@ jobs:
           secret-files: |
             "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
           build-args: |
-            GIT_USER_NAME=blah
+            blah
             
