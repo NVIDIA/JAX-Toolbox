@@ -33,6 +33,11 @@ on:
         type: string
         description: "Dockerfile to use, e.g. .github/container/Dockerfile.t5x.amd64"
         required: true
+      DOCKER_CONTEXT:
+        type: string
+        description: "Dockerfile context to build"
+        default: '.github/container'
+        required: false
       RUNNER_SIZE:
         type: string
         description: "Size of the runner to use"
@@ -120,7 +125,7 @@ jobs:
         id: mealkit-build
         uses: docker/build-push-action@v5
         with:
-          context: .github/container
+          context: ${{ inputs.DOCKER_CONTEXT }}
           push: true
           file: ${{ inputs.DOCKERFILE }}
           platforms: linux/${{ inputs.ARCHITECTURE }}
@@ -153,7 +158,7 @@ jobs:
         id: final-build
         uses: docker/build-push-action@v5
         with:
-          context: .github/container
+          context: ${{ inputs.DOCKER_CONTEXT }}
           push: true
           file: ${{ inputs.DOCKERFILE }}
           platforms: linux/${{ inputs.ARCHITECTURE }}

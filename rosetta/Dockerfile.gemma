@@ -1,0 +1,71 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_GEMMA=https://github.com/google-deepmind/gemma.git#main
+ARG SRC_PATH_GEMMA=/opt/gemma
+ARG URLREF_BIG_VISION=https://github.com/google-research/big_vision.git#main
+ARG SRC_PATH_BIG_VISION=/opt/big_vision
+ARG URLREF_COMMON_LOOP_UTILS=https://github.com/google/CommonLoopUtils.git#main
+ARG SRC_PATH_COMMON_LOOP_UTILS=/opt/common_loop_utils
+ARG URLREF_FLAXFORMER=https://github.com/google/flaxformer.git#main
+ARG SRC_PATH_FLAXFORMER=/opt/flaxformer
+ARG URLREF_PANOPTICAPI=https://github.com/akolesnikoff/panopticapi.git#mute
+ARG SRC_PATH_PANOPTICAPI=/opt/panopticapi
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_GEMMA
+ARG SRC_PATH_GEMMA
+ARG URLREF_BIG_VISION
+ARG SRC_PATH_BIG_VISION
+ARG URLREF_COMMON_LOOP_UTILS
+ARG SRC_PATH_COMMON_LOOP_UTILS
+ARG URLREF_FLAXFORMER
+ARG SRC_PATH_FLAXFORMER
+ARG URLREF_PANOPTICAPI
+ARG SRC_PATH_PANOPTICAPI
+
+
+RUN <<"EOF" bash -ex
+git-clone.sh ${URLREF_GEMMA} ${SRC_PATH_GEMMA}
+git-clone.sh ${URLREF_BIG_VISION} ${SRC_PATH_BIG_VISION}
+git-clone.sh ${URLREF_COMMON_LOOP_UTILS} ${SRC_PATH_COMMON_LOOP_UTILS}
+git-clone.sh ${URLREF_FLAXFORMER} ${SRC_PATH_FLAXFORMER}
+git-clone.sh ${URLREF_PANOPTICAPI} ${SRC_PATH_PANOPTICAPI}
+echo "-e file://${SRC_PATH_GEMMA}" >> /opt/pip-tools.d/requirements-gemma.in
+echo "-e file://${SRC_PATH_COMMON_LOOP_UTILS}" >> /opt/pip-tools.d/requirements-gemma.in
+echo "-e file://${SRC_PATH_FLAXFORMER}" >> /opt/pip-tools.d/requirements-gemma.in
+echo "-e file://${SRC_PATH_PANOPTICAPI}" >> /opt/pip-tools.d/requirements-gemma.in
+echo "jupyterlab
+gcloud
+overrides
+ml_collections
+einops~=0.7
+sentencepiece
+kagglehub
+absl-py
+distrax
+optax
+protobuf
+tfds-nightly
+tensorflow
+tensorflow-text
+tensorflow-gan
+" >> /opt/pip-tools.d/requirements-gemma.in
+EOF
+
+ENV PYTHONPATH "${SRC_PATH_BIG_VISION}:${PYTHONPATH}"
+
+ADD ./rosetta/rosetta/projects/paligemma/Finetune_PaliGemma.ipynb ${SRC_PATH_GEMMA}/examples/Finetune_PaliGemma.ipynb
+ADD ./rosetta/rosetta/projects/paligemma/test_gemma.py ${SRC_PATH_GEMMA}/tests/test_gemma.py
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh
