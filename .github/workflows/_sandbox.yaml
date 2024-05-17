@@ -5,14 +5,12 @@ on:
 
 jobs:
   test-jax:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: jax
       EXECUTE: |
         docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        ghcr.io/nvidia/jax:jax \
         bash <<"EOF" |& tee test-backend-independent.log
           test-jax.sh --build-jaxlib -b backend-independent 
         EOF
