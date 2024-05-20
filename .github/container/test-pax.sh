@@ -58,7 +58,7 @@ DROPOUT=0
 EVALUATE=0
 ADDITIONAL_ARGS=""
 ENABLE_FMHA=${ENABLE_FMHA:-0}
-SAVE_HLO=${SAVE_HLO:-1}
+SAVE_HLO=${SAVE_HLO:-0}
 
 eval set -- "$args"
 while [ : ]; do
@@ -454,15 +454,9 @@ fi
 echo "Checking for FMHA instructions in HLO!"
 
 if [[ "$ENABLE_FMHA" -eq "1" ]]; then 
-    echo "Inside if Statement!"
     ## Check if fmha instructions are present in the HLO dumped file or not.
     fmha_regex="fmha[-bmm]?[-scale]?[-bias]?[-mask]?[-softmax]?[-dropout]?[-bmm]?[-backward]?*"
     result=$(grep -irlnE "$fmha_regex" "${HLO_DIR}/"*.txt)
-
-    if [[ $SAVE_HLO -eq 0 ]]; then
-        rm -rf $HLO_DIR
-        echo "Removed dumped HLO directory!"
-    fi
 
     if [ -z "$result" ]; then
         echo "E: No FMHA instructions were found in the hlo files!"
@@ -470,11 +464,11 @@ if [[ "$ENABLE_FMHA" -eq "1" ]]; then
     else
         echo -e "Found FMHA instructions in the following HLO files: \n $result"
     fi
-else
-    if [[ $SAVE_HLO -eq 0 ]]; then
-        rm -rf $HLO_DIR
- 	echo "Removed dumped HLO directory!"
-    fi
+fi
+
+if [[ $SAVE_HLO -eq 0 ]]; then
+    rm -rf $HLO_DIR
+    echo "Removed dumped HLO directory!"
 fi
 
 set +x
