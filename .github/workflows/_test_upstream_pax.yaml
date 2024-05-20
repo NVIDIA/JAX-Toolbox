@@ -45,7 +45,7 @@ jobs:
           - TEST_NAME: 8DP1FSDP1TP1PP_fmha
             PARALLEL_CONFIG: [1, 8, 1, 1]
             BATCH_SIZE: 4
-            ADDITIONAL_ARGS: "--enable-fmha 1"
+            ADDITIONAL_ARGS: "--enable-fmha 1 --save-hlo 1"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -224,11 +224,11 @@ jobs:
           - TEST_NAME: 2DP1FSDP1TP4PP_fmha
             PARALLEL_CONFIG: [4, 2, 1, 1]
             BATCH_SIZE: 4
-            ADDITIONAL_ARGS: "--enable-fmha 1"
+            ADDITIONAL_ARGS: "--enable-fmha 1 --save-hlo 1"
           - TEST_NAME: 16DP1FSDP1TP1PP_fmha
             PARALLEL_CONFIG: [1, 16, 1, 1]
             BATCH_SIZE: 4
-            ADDITIONAL_ARGS: "--enable-fmha 1"          
+            ADDITIONAL_ARGS: "--enable-fmha 1 --save-hlo 1"          
       fail-fast: false
 
     runs-on: ubuntu-22.04
