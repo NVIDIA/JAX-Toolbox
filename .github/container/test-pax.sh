@@ -17,7 +17,6 @@ usage() {
     echo "  --dtype                    Batch size, defaults to bfloat16."
     echo "  --enable-te                If set, will run with env var ENABLE_TE=1." 
     echo "  --enable-dropout           If set, will set DROPOUT_PROB to 0.1."
-    echo "  --enable-fused-attn        Whether to test fused attention through TE."
     echo "  --model-type               One of 126M, 5B, LLaMA70BProxy. Defaults to 126M"
     echo "  --evaluate                 Whether to test evaluation rather than training."
     echo "  -s, --steps                Number of steps to run, defaults to 500."
@@ -34,7 +33,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,enable-fused-attn,model-type:,enable-fmha:,evaluate,steps:,help,multiprocess,output:,save-hlo:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,model-type:,enable-fmha:,evaluate,steps:,help,multiprocess,output:,save-hlo:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -81,14 +80,11 @@ while [ : ]; do
             ;;
         --enable-fmha)
             ENABLE_FMHA="$2"
+	    NVTE_FUSED_ATTN=1
             shift 2
             ;;
         --enable-dropout)
             DROPOUT='0.1'
-            shift 1
-            ;;
-        --enable-fused-attn)
-            NVTE_FUSED_ATTN=1
             shift 1
             ;;
         --model-type)
