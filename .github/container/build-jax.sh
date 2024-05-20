@@ -21,7 +21,7 @@ supported_compute_capabilities() {
 }
 
 clean() {
-    $(find -type f -executable -iname "bazel*") clean --expunge || true
+    /usr/bin/bazel clean --expunge || true
     rm -rf bazel
     rm -rf .jax_configure.bazelrc
     rm -rf ${HOME}/.cache/bazel
