@@ -296,7 +296,7 @@ jobs:
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-backend-independent.log
-          test-jax.sh --build-jaxlib -b backend-independent
+          test-jax.sh -b backend-independent
         EOF
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
