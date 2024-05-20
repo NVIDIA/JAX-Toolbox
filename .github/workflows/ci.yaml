@@ -331,6 +331,7 @@ jobs:
             t5x
             pax
             grok
+            gemma
           )
           declare -a STAGES=(
             mealkit
