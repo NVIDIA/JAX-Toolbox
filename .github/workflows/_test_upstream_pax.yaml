@@ -220,7 +220,7 @@ jobs:
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 4
             EVALUATE: true
-            ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate --save-hlo 0"
+            ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
           - TEST_NAME: 2DP1FSDP1TP4PP_fmha
             PARALLEL_CONFIG: [4, 2, 1, 1]
             BATCH_SIZE: 4
