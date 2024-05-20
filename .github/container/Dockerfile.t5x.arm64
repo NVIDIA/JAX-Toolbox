@@ -18,9 +18,6 @@ ARG SRC_PATH_T5X=/opt/t5x
 
 FROM ${BASE_IMAGE} as wheel-builder
 
-RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
-    chmod a+x /usr/bin/bazel
-
 #------------------------------------------------------------------------------
 # build tensorflow-text from source
 #------------------------------------------------------------------------------
