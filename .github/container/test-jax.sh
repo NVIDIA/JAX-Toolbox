@@ -142,7 +142,6 @@ case "${BATTERY}" in
         JOBS=$((NGPUS * JOBS_PER_GPU))
         EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
         BAZEL_TARGET="${BAZEL_TARGET} //tests:gpu_tests"
-        EXTRA_CONFIG_FLAG="--enable_cuda"
         ;;
     backend-independent)
         JOBS_PER_GPU=4
@@ -185,6 +184,6 @@ pip install matplotlib
 ## Run tests
 
 cd `jax_source_dir`
-python build/build.py --configure_only ${EXTRA_CONFIG_FLAG}
+python build/build.py --configure_only --enable_cuda
 BAZEL=$(find -type f -executable -name "bazel-*")
 $BAZEL test ${BAZEL_TARGET} ${COMMON_FLAGS} ${EXTRA_FLAGS}
