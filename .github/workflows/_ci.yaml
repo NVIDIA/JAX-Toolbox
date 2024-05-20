@@ -189,6 +189,27 @@ jobs:
         URLREF_GROK_1=${{ fromJson(inputs.SOURCE_URLREFS).GROK_1 }}
     secrets: inherit
 
+  build-gemma:
+    needs: build-jax
+    uses: ./.github/workflows/_build.yaml
+    if: inputs.ARCHITECTURE == 'amd64' # build only amd64
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-gemma-build
+      BADGE_FILENAME: badge-gemma-build
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: gemma
+      DOCKERFILE: rosetta/Dockerfile.gemma
+      DOCKER_CONTEXT: .
+      EXTRA_BUILD_ARGS: |
+        URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
+        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
+        URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).common_loop_utils }}
+        URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).flaxformer }}
+        URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).panopticapi }}
+    secrets: inherit
+
   collect-docker-tags:
     runs-on: ubuntu-22.04
     if: "!cancelled()"
@@ -223,6 +244,7 @@ jobs:
             {"flavor": "t5x",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "pax",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "grok",         "stage": "final",   "priority": 900,  "tag": "${{ needs.build-grok.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "gemma",        "stage": "final",   "priority": 900,  "tag": "${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "triton",       "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
@@ -233,6 +255,8 @@ jobs:
             {"flavor": "t5x",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "pax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "grok",         "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-grok.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "gemma",        "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-gemma.outputs.DOCKER_TAG_MEALKIT }}"},\
+
             {}\
           ]
           EOF
@@ -464,6 +488,30 @@ jobs:
     uses: ./.github/workflows/_test_pax_rosetta.yaml
     with:
       PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+  
+  test-gemma:
+    needs: build-gemma
+    uses: ./.github/workflows/_test_unit.yaml  
+    if: inputs.ARCHITECTURE == 'amd64'
+    with:
+      TEST_NAME: gemma
+      EXECUTE: |
+        docker run --shm-size=1g --gpus all ${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }} \
+        bash -ec \
+        "cd /opt/gemma && pip install -e .[test] && pytest . && python /opt/gemma/tests/test_paligemma.py" | tee test-gemma.log
+      STATISTICS_SCRIPT: |
+        summary_line=$(tail -n1 test-gemma.log)
+        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
+        total_tests=$((failed_tests + passed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-gemma.log
     secrets: inherit
 
   test-maxtext:

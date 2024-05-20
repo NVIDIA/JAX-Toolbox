@@ -32,7 +32,7 @@ on:
         type: string
         description: |
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
-          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,paxml,praxis,maxtext,levanter,haliax,grok,mujuco,mujuco-mpc} (case-insensitive)
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,paxml,praxis,maxtext,levanter,haliax,grok,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
         default: ''
         required: false
 
