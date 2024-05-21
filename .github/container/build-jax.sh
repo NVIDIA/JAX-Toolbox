@@ -21,7 +21,7 @@ supported_compute_capabilities() {
 }
 
 clean() {
-    /usr/bin/bazel clean --expunge || true
+    bazel clean --expunge || true
     rm -rf bazel
     rm -rf .jax_configure.bazelrc
     rm -rf ${HOME}/.cache/bazel

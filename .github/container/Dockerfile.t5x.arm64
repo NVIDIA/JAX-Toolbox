@@ -13,16 +13,10 @@ ARG SRC_PATH_T5X=/opt/t5x
 ###############################################################################
 
 #------------------------------------------------------------------------------
-# Install bazel (needed by some source builds) and expose the python version
-#------------------------------------------------------------------------------
-
-FROM ${BASE_IMAGE} as wheel-builder
-
-#------------------------------------------------------------------------------
 # build tensorflow-text from source
 #------------------------------------------------------------------------------
 
-FROM wheel-builder as tftext-builder
+FROM ${BASE_IMAGE} as tftext-builder
 ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail

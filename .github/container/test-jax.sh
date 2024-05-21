@@ -27,8 +27,7 @@ jax_source_dir() {
 query_tests() {
     cd `jax_source_dir`
     python build/build.py --configure_only
-    BAZEL=$(find -type f -executable -name "bazel-*")
-    $BAZEL query tests/... 2>&1 | grep -F '//tests:'
+    bazel query tests/... 2>&1 | grep -F '//tests:'
     exit
 }
 
