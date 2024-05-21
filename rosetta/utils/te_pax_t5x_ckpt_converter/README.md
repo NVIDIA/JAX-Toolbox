@@ -63,7 +63,7 @@ python  converter/main.py \
     --input-path=/your_path_to_src_ckpt \
     --output-path=/your_path_to_output_ckpt \
     --fw=pax \
-    --direction=fw2tw \
+    --direction=fw2te \
     --pax-repeat \
     --num-of-layer=8 \
     --num-of-head=6 \
@@ -154,7 +154,7 @@ restoring it to keep training.
 
 #### The folder structure of CKPT by Pax and T5X
 If you would like to run the converted CKPTs with frameworks, you may expect the converted CKPTs have the same folder
-structure with CKPTs stored by frameworks. In this case, you could set `--output-path` to be the same stucture as the 
+structure with CKPTs stored by frameworks. In this case, you could set `--output-path` to be the same stucture as the
 CKPTs from frameworks, and no need to pre-generate folders, since it would be generated when needed.
 For Pax, you could set `--output-path` be like ` /${your_path_to_output}/checkpoints/checkpoint_${step}`.
 For T5X, you could set `--output-path` be like `/${your_path_to_output}/checkpoint_${step}`.
