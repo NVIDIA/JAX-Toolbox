@@ -36,6 +36,10 @@ RUN --mount=type=ssh \
 EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+# Install bazelisk
+RUN ARCH="$(dpkg --print-architecture)" && \
+    wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
+    chmod +x /usr/local/bin/bazel
 # TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt
 RUN build-jax.sh \
@@ -72,6 +76,7 @@ ENV CUDA_MODULE_LOADING=EAGER
 
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
+COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
 # Preserve the versions of jax and xla
 COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/

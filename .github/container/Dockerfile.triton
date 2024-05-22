@@ -28,8 +28,7 @@ ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 RUN <<"EOF" bash -ex
 pushd "${SRC_PATH_XLA}"
-BAZEL=$(find "${SRC_PATH_JAX}/build" -type f -executable -name 'bazel-*')
-"${BAZEL}" --output_base=/opt/checkout fetch @triton//:BUILD
+bazel --output_base=/opt/checkout fetch @triton//:BUILD
 rm -rf /root/.cache
 EOF
 
