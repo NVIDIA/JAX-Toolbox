@@ -184,5 +184,4 @@ pip install matplotlib
 
 cd `jax_source_dir`
 python build/build.py --configure_only
-BAZEL=$(find -type f -executable -name "bazel-*")
-$BAZEL test ${BAZEL_TARGET} ${COMMON_FLAGS} ${EXTRA_FLAGS}
+bazel test ${BAZEL_TARGET} ${COMMON_FLAGS} ${EXTRA_FLAGS}
