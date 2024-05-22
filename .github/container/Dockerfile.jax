@@ -38,7 +38,7 @@ EOF
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 # Install bazelisk
 RUN ARCH="$(dpkg --print-architecture)" && \
-    wget -O /usr/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
+    wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
     chmod +x /usr/local/bin/bazel
 # TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt

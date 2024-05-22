@@ -42,7 +42,7 @@ EOF
 ## T5X for AArch64
 ###############################################################################
 
-FROM wheel-builder as mealkit
+FROM ${BASE_IMAGE} as mealkit
 ARG URLREF_T5X
 ARG SRC_PATH_TFTEXT
 ARG SRC_PATH_T5X
