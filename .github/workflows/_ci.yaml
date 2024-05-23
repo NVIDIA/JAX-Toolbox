@@ -33,32 +33,32 @@ permissions:
 
 jobs:
 
-  build-base:
-    uses: ./.github/workflows/_build_base.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
-    secrets: inherit
+  # build-base:
+  #   uses: ./.github/workflows/_build_base.yaml
+  #   with:
+  #     ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+  #     BUILD_DATE: ${{ inputs.BUILD_DATE }}
+  #     MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
+  #   secrets: inherit
 
-  build-jax:
-    needs: build-base
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-jax-build
-      BADGE_FILENAME: badge-jax-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-      CONTAINER_NAME: jax
-      DOCKERFILE: .github/container/Dockerfile.jax
-      RUNNER_SIZE: large
-      EXTRA_BUILD_ARGS: |
-        URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
-        URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
-        URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
-        URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
-    secrets: inherit
+  # build-jax:
+  #   needs: build-base
+  #   uses: ./.github/workflows/_build.yaml
+  #   with:
+  #     ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+  #     ARTIFACT_NAME: artifact-jax-build
+  #     BADGE_FILENAME: badge-jax-build
+  #     BUILD_DATE: ${{ inputs.BUILD_DATE }}
+  #     BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+  #     CONTAINER_NAME: jax
+  #     DOCKERFILE: .github/container/Dockerfile.jax
+  #     RUNNER_SIZE: large
+  #     EXTRA_BUILD_ARGS: |
+  #       URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
+  #       URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
+  #       URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
+  #       URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+  #   secrets: inherit
 
   # build-triton:
   #   needs: build-jax
@@ -181,12 +181,12 @@ jobs:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: "artifact-grok-build"
       BADGE_FILENAME: "badge-grok-build"
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      BUILD_DATE: '2024-03-15'
+      BASE_IMAGE: ghcr.io/nvidia/jax-mealkit:jax
       CONTAINER_NAME: grok
       DOCKERFILE: .github/container/Dockerfile.grok
-      EXTRA_BUILD_ARGS: |
-        URLREF_GROK_1=${{ fromJson(inputs.SOURCE_URLREFS).GROK_1 }}
+      # EXTRA_BUILD_ARGS: |
+      #   URLREF_GROK_1=${{ fromJson(inputs.SOURCE_URLREFS).GROK_1 }}
     secrets: inherit
 
   build-gemma:
@@ -197,25 +197,25 @@ jobs:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       ARTIFACT_NAME: artifact-gemma-build
       BADGE_FILENAME: badge-gemma-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      BUILD_DATE: '2024-03-15'
+      BASE_IMAGE: ghcr.io/nvidia/jax-mealkit:jax
       CONTAINER_NAME: gemma
       DOCKERFILE: rosetta/Dockerfile.gemma
       DOCKER_CONTEXT: .
-      EXTRA_BUILD_ARGS: |
-        URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
-        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
-        URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).common_loop_utils }}
-        URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).flaxformer }}
-        URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).panopticapi }}
+      # EXTRA_BUILD_ARGS: |
+      #   URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
+      #   URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
+      #   URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).common_loop_utils }}
+      #   URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).flaxformer }}
+      #   URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).panopticapi }}
     secrets: inherit
 
   collect-docker-tags:
     runs-on: ubuntu-22.04
     if: "!cancelled()"
     needs:
-      - build-base
-      - build-jax
+      # - build-base
+      # - build-jax
       # - build-triton
       # - build-equinox
       # - build-maxtext
