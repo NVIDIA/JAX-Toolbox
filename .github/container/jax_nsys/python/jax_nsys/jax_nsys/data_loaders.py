@@ -12,7 +12,8 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
     # Classify each thunk as either communication or computation, as we only
     # want to attribute non-overlapped communication time to those operations.
     # Use HloInstructionProto.channel_id as a proxy for whether an operation is
-    # communication.
+    # communication. Assume that different TID values correspond to different GPUs
+    # being driven by the same process.
     def is_communication(row):
         if row["ProgramId"] == -1:
             # Assume this is an autotuning execution.
@@ -33,44 +34,45 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
     # For convenience when calculating unhidden comms
     thunk_df["ProjEndNs"] = thunk_df["ProjStartNs"] + thunk_df["ProjDurNs"]
 
-    # Update the projected duration of each communication kernel to only
-    # include the non-overlapped time
-    for comm_thunk in thunk_df[thunk_df["Communication"]].itertuples():
-        # This is a range annotating a communication operation, i.e. NCCL kernel
-        # That kernel was active from comm_thunk.ProjStartNs until comm_thunk.ProjEndNs
-        # but during that time then other computation was going on. We want to
-        # find how much of the time did not overlap with other computation.
-        compute_df = thunk_df[
-            (
-                (thunk_df["ProjEndNs"] > comm_thunk.ProjStartNs)
-                & (thunk_df["ProjStartNs"] < comm_thunk.ProjEndNs)
-                & ~thunk_df["Communication"]
+    for _, thread_df in thunk_df.groupby("TID"):
+        # Update the projected duration of each communication kernel to only
+        # include the non-overlapped time
+        for comm_thunk in thread_df[thread_df["Communication"]].itertuples():
+            # This is a range annotating a communication operation, i.e. NCCL kernel
+            # That kernel was active from comm_thunk.ProjStartNs until comm_thunk.ProjEndNs
+            # but during that time then other computation was going on. We want to
+            # find how much of the time did not overlap with other computation.
+            compute_df = thread_df[
+                (
+                    (thread_df["ProjEndNs"] > comm_thunk.ProjStartNs)
+                    & (thread_df["ProjStartNs"] < comm_thunk.ProjEndNs)
+                    & ~thread_df["Communication"]
+                )
+            ]
+            # The computation kernels should all be serialised, but check that
+            for row1, row2 in itertools.pairwise(compute_df.itertuples()):
+                assert (
+                    row2.ProjStartNs >= row1.ProjEndNs
+                ), f"{row2.Name} starts at {row2.ProjStartNs} before {row1.Name} ends at {row1.ProjEndNs}"
+            compute_time = sum(
+                min(row.ProjEndNs, comm_thunk.ProjEndNs)
+                - max(row.ProjStartNs, comm_thunk.ProjStartNs)
+                for row in compute_df.itertuples()
             )
-        ]
-        # The computation kernels should all be serialised, but check that
-        for row1, row2 in itertools.pairwise(compute_df.itertuples()):
-            assert (
-                row2.ProjStartNs >= row1.ProjEndNs
-            ), f"{row2.Name} starts at {row2.ProjStartNs} before {row1.Name} ends at {row1.ProjEndNs}"
-        compute_time = sum(
-            min(row.ProjEndNs, comm_thunk.ProjEndNs)
-            - max(row.ProjStartNs, comm_thunk.ProjStartNs)
-            for row in compute_df.itertuples()
-        )
-        # Update the projected duration of communication kernels to just be the
-        # time that is not hidden.
-        unhidden_comm_time = comm_thunk.ProjDurNs - compute_time
-        thunk_df.loc[comm_thunk.Index, "ProjDurNs"] = unhidden_comm_time
+            # Update the projected duration of communication kernels to just be the
+            # time that is not hidden.
+            unhidden_comm_time = comm_thunk.ProjDurNs - compute_time
+            thread_df.loc[comm_thunk.Index, "ProjDurNs"] = unhidden_comm_time
 
-    # We assume that there is no compute-compute overlap for now; check that.
-    # TODO: be smarter about this if it's seen to take non-trivial time.
-    compute_df = thunk_df[~thunk_df["Communication"]]
-    for compute_thunk in compute_df.itertuples():
-        # This should just find the thunk itself
-        mask = (compute_df["ProjEndNs"] > compute_thunk.ProjStartNs) & (
-            compute_df["ProjStartNs"] < compute_thunk.ProjEndNs
-        )
-        assert mask.sum() == 1
+        # We assume that there is no compute-compute overlap for now; check that.
+        # TODO: be smarter about this if it's seen to take non-trivial time.
+        compute_df = thread_df[~thread_df["Communication"]]
+        for compute_thunk in compute_df.itertuples():
+            # This should just find the thunk itself
+            mask = (compute_df["ProjEndNs"] > compute_thunk.ProjStartNs) & (
+                compute_df["ProjStartNs"] < compute_thunk.ProjEndNs
+            )
+            assert mask.sum() == 1
 
     return thunk_df.drop(columns=["ProjEndNs"])
 
@@ -239,7 +241,6 @@ def _load_nvtx_gpu_proj_trace(
                 "ParentId",
                 "RangeStack",
                 "Style",
-                "TID",
             ]
             + extra_columns
         ).astype({"ModuleExecution": np.int32, "ProgramId": np.int32})
