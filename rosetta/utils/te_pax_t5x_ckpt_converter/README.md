@@ -184,6 +184,10 @@ python  converter/main.py \
     --mlp-intermediate-dim=1024
 ```
 
+NOTE:
+For the generated FP8 meta, only the amax of weights is accurate. Therefore, please be aware that a few steps for adjusting FP8 meta
+of inputs and gradients are needed when resuming training with the converted FP8 checkpoints.
+
 #### The folder structure of CKPT by Pax and T5X
 If you would like to run the converted CKPTs with frameworks, you may expect the converted CKPTs have the same folder
 structure with CKPTs stored by frameworks. In this case, you could set `--output-path` to be the same stucture as the
