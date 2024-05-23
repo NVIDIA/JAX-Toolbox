@@ -175,7 +175,7 @@ jobs:
   #   secrets: inherit
 
   build-grok:
-    needs: [build-jax]
+    # needs: [build-jax]
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -190,7 +190,7 @@ jobs:
     secrets: inherit
 
   build-gemma:
-    needs: build-jax
+    # needs: build-jax
     uses: ./.github/workflows/_build.yaml
     if: inputs.ARCHITECTURE == 'amd64' # build only amd64
     with:
