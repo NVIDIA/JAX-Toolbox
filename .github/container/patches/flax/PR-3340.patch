@@ -1,16 +1,16 @@
-From d748ab4447dbb82ea9317f71211a3bbd9ba4207f Mon Sep 17 00:00:00 2001
+From 97ad32bf809e1e7b1715747c942213031f88fcc6 Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
 Date: Fri, 2 Jun 2023 15:01:21 -0700
 Subject: [PATCH 1/3] add t5x sharding annotations to flax layers
 
 ---
- flax/linen/attention.py     | 34 +++++++++++++++++++++++-------
+ flax/linen/attention.py     | 33 ++++++++++++++++++++++-------
  flax/linen/linear.py        | 41 ++++++++++++++++++++++++++++---------
  flax/linen/normalization.py | 25 ++++++++++++++++++----
- 3 files changed, 79 insertions(+), 21 deletions(-)
+ 3 files changed, 78 insertions(+), 21 deletions(-)
 
 diff --git a/flax/linen/attention.py b/flax/linen/attention.py
-index efcf2b78..689ce4da 100644
+index 99b79f2d..bcabd554 100644
 --- a/flax/linen/attention.py
 +++ b/flax/linen/attention.py
 @@ -30,6 +30,7 @@ from flax.linen.linear import (
@@ -27,12 +27,12 @@ index efcf2b78..689ce4da 100644
  
 -
  def dot_product_attention_weights(
-   query: Array,
-   key: Array,
-@@ -287,6 +287,17 @@ class MultiHeadDotProductAttention(Module):
+     query: Array,
+     key: Array,
+@@ -313,6 +313,16 @@ class MultiHeadDotProductAttention(Module):
        num_heads, value_channels]``
-     decode: whether to prepare and use an autoregressive cache.
-     normalize_qk: should QK normalization be applied (arxiv.org/abs/2302.05442).
+     decode: Whether to prepare and use an autoregressive cache.
+     normalize_qk: Should QK normalization be applied (arxiv.org/abs/2302.05442).
 +    in_proj_kernel_axes: a tuple of axes over which to shard the kernel for
 +      the attention in-projection.
 +    in_proj_bias_axes: a tuple of axis names associated with the bias for
@@ -43,11 +43,10 @@ index efcf2b78..689ce4da 100644
 +      the attention out-projection.
 +    decode_axes: a tuple of axis names associated with auroregressive cache.
 +      Only used when decode=True.
-+ 
    """
  
    num_heads: int
-@@ -309,6 +320,11 @@ class MultiHeadDotProductAttention(Module):
+@@ -336,6 +346,11 @@ class MultiHeadDotProductAttention(Module):
    out_dot_general: Optional[DotGeneralT] = None
    qkv_dot_general_cls: Any = None
    out_dot_general_cls: Any = None
@@ -59,7 +58,7 @@ index efcf2b78..689ce4da 100644
  
    @overload
    def __call__(
-@@ -447,6 +463,8 @@ class MultiHeadDotProductAttention(Module):
+@@ -474,6 +489,8 @@ class MultiHeadDotProductAttention(Module):
        precision=self.precision,
        dot_general=self.qkv_dot_general,
        dot_general_cls=self.qkv_dot_general_cls,
@@ -68,7 +67,7 @@ index efcf2b78..689ce4da 100644
      )
      # project inputs_q to multi-headed q/k/v
      # dimensions are then [batch..., length, n_heads, n_features_per_head]
-@@ -477,14 +495,14 @@ class MultiHeadDotProductAttention(Module):
+@@ -504,14 +521,14 @@ class MultiHeadDotProductAttention(Module):
      if self.decode:
        # detect if we're initializing by absence of existing cache data.
        is_initialized = self.has_variable('cache', 'cached_key')
@@ -89,7 +88,7 @@ index efcf2b78..689ce4da 100644
        )
        if is_initialized:
          (
-@@ -580,6 +598,8 @@ class MultiHeadDotProductAttention(Module):
+@@ -607,6 +624,8 @@ class MultiHeadDotProductAttention(Module):
        dot_general=self.out_dot_general,
        dot_general_cls=self.out_dot_general_cls,
        name='out',  # type: ignore[call-arg]
@@ -99,18 +98,18 @@ index efcf2b78..689ce4da 100644
      return out
  
 diff --git a/flax/linen/linear.py b/flax/linen/linear.py
-index 36365ea1..4656abf9 100644
+index e4901293..27e22325 100644
 --- a/flax/linen/linear.py
 +++ b/flax/linen/linear.py
-@@ -35,6 +35,7 @@ from flax.core import meta
- from flax.linen import initializers
+@@ -37,6 +37,7 @@ from flax.linen import initializers
  from flax.linen.dtypes import promote_dtype
+ from flax.linen import module
  from flax.linen.module import Module, compact
 +from flax.linen.partitioning import param_with_axes
  from flax.typing import (
    Array,
    PRNGKey as PRNGKey,
-@@ -97,6 +98,8 @@ class DenseGeneral(Module):
+@@ -99,6 +100,8 @@ class DenseGeneral(Module):
      bias_init: initializer function for the bias.
      precision: numerical precision of the computation see ``jax.lax.Precision``
        for details.
@@ -119,7 +118,7 @@ index 36365ea1..4656abf9 100644
    """
  
    features: Union[int, Sequence[int]]
-@@ -111,6 +114,8 @@ class DenseGeneral(Module):
+@@ -113,6 +116,8 @@ class DenseGeneral(Module):
    # Deprecated. Will be removed.
    dot_general: Optional[DotGeneralT] = None
    dot_general_cls: Any = None
@@ -128,7 +127,7 @@ index 36365ea1..4656abf9 100644
  
    @compact
    def __call__(self, inputs: Array) -> Array:
-@@ -159,8 +164,9 @@ class DenseGeneral(Module):
+@@ -161,8 +166,9 @@ class DenseGeneral(Module):
        if ax not in axis
      )
      kernel_shape = tuple(inputs.shape[ax] for ax in axis) + features
@@ -140,7 +139,7 @@ index 36365ea1..4656abf9 100644
      )
  
      batch_ind = tuple(range(n_batch_dims))
-@@ -178,9 +184,11 @@ class DenseGeneral(Module):
+@@ -180,9 +186,11 @@ class DenseGeneral(Module):
            return meta.replace_boxed(bias, jnp.reshape(bias.unbox(), shape))
          return jnp.reshape(bias, shape)
  
@@ -154,7 +153,7 @@ index 36365ea1..4656abf9 100644
      else:
        bias = None
  
-@@ -228,6 +236,8 @@ class Dense(Module):
+@@ -230,6 +238,8 @@ class Dense(Module):
        for details.
      kernel_init: initializer function for the weight matrix.
      bias_init: initializer function for the bias.
@@ -163,7 +162,7 @@ index 36365ea1..4656abf9 100644
    """
  
    features: int
-@@ -240,6 +250,8 @@ class Dense(Module):
+@@ -242,6 +252,8 @@ class Dense(Module):
    # Deprecated. Will be removed.
    dot_general: Optional[DotGeneralT] = None
    dot_general_cls: Any = None
@@ -172,7 +171,7 @@ index 36365ea1..4656abf9 100644
  
    @compact
    def __call__(self, inputs: Array) -> Array:
-@@ -251,15 +263,18 @@ class Dense(Module):
+@@ -253,15 +265,18 @@ class Dense(Module):
      Returns:
        The transformed input.
      """
@@ -194,7 +193,7 @@ index 36365ea1..4656abf9 100644
        )
      else:
        bias = None
-@@ -351,6 +366,8 @@ class _Conv(Module):
+@@ -474,6 +489,8 @@ class _Conv(Module):
        for details.
      kernel_init: initializer for the convolutional kernel.
      bias_init: initializer for the bias.
@@ -203,7 +202,7 @@ index 36365ea1..4656abf9 100644
    """
  
    features: int
-@@ -370,6 +387,8 @@ class _Conv(Module):
+@@ -493,6 +510,8 @@ class _Conv(Module):
    # Deprecated. Will be removed.
    conv_general_dilated: Optional[ConvGeneralDilatedT] = None
    conv_general_dilated_cls: Any = None
@@ -212,7 +211,7 @@ index 36365ea1..4656abf9 100644
  
    @property
    def shared_weights(self) -> bool:  # type: ignore
-@@ -511,8 +530,10 @@ class _Conv(Module):
+@@ -634,8 +653,10 @@ class _Conv(Module):
          f'Shapes are: {self.mask.shape}, {kernel_shape}'
        )
  
@@ -225,7 +224,7 @@ index 36365ea1..4656abf9 100644
      )
  
      if self.mask is not None:
-@@ -526,7 +547,7 @@ class _Conv(Module):
+@@ -649,7 +670,7 @@ class _Conv(Module):
          # One bias weight per output entry, unshared betwen pixels.
          bias_shape = conv_output_shape[1:]
  
@@ -235,7 +234,7 @@ index 36365ea1..4656abf9 100644
        bias = None
  
 diff --git a/flax/linen/normalization.py b/flax/linen/normalization.py
-index abfbfb5a..bab40243 100644
+index 0680737f..ed241d08 100644
 --- a/flax/linen/normalization.py
 +++ b/flax/linen/normalization.py
 @@ -24,6 +24,7 @@ from jax import lax
@@ -246,7 +245,7 @@ index abfbfb5a..bab40243 100644
  from flax.typing import (
    Array,
    PRNGKey as PRNGKey,
-@@ -154,6 +155,7 @@ def _normalize(
+@@ -159,6 +160,7 @@ def _normalize(
    use_scale: bool,
    bias_init: Initializer,
    scale_init: Initializer,
@@ -254,7 +253,7 @@ index abfbfb5a..bab40243 100644
  ):
    """Normalizes the input of a normalization layer and optionally applies a learned scale and bias.
  
-@@ -173,6 +175,7 @@ def _normalize(
+@@ -178,6 +180,7 @@ def _normalize(
      use_scale: If true, scale the output.
      bias_init: Initialization function for the bias term.
      scale_init: Initialization function for the scaling function.
@@ -262,7 +261,7 @@ index abfbfb5a..bab40243 100644
  
    Returns:
      The normalized input.
-@@ -191,15 +194,17 @@ def _normalize(
+@@ -196,15 +199,17 @@ def _normalize(
    mul = lax.rsqrt(var + epsilon)
    args = [x]
    if use_scale:
@@ -284,7 +283,7 @@ index abfbfb5a..bab40243 100644
      ).reshape(feature_shape)
      y += bias
      args.append(bias)
-@@ -283,6 +288,7 @@ class BatchNorm(Module):
+@@ -289,6 +294,7 @@ class BatchNorm(Module):
        more details.
      use_fast_variance: If true, use a faster, but less numerically stable,
        calculation for the variance.
@@ -292,15 +291,15 @@ index abfbfb5a..bab40243 100644
    """
  
    use_running_average: Optional[bool] = None
-@@ -298,6 +304,7 @@ class BatchNorm(Module):
-   axis_name: Optional[str] = None
+@@ -305,6 +311,7 @@ class BatchNorm(Module):
    axis_index_groups: Any = None
    use_fast_variance: bool = True
+   force_float32_reductions: bool = True
 +  pjit_axis_name: Tuple[str, ...] = None
  
    @compact
    def __call__(
-@@ -377,6 +384,7 @@ class BatchNorm(Module):
+@@ -385,6 +392,7 @@ class BatchNorm(Module):
        self.use_scale,
        self.bias_init,
        self.scale_init,
@@ -308,7 +307,7 @@ index abfbfb5a..bab40243 100644
      )
  
  
-@@ -439,6 +447,7 @@ class LayerNorm(Module):
+@@ -448,6 +456,7 @@ class LayerNorm(Module):
        more details.
      use_fast_variance: If true, use a faster, but less numerically stable,
        calculation for the variance.
@@ -316,15 +315,15 @@ index abfbfb5a..bab40243 100644
    """
  
    epsilon: float = 1e-6
-@@ -453,6 +462,7 @@ class LayerNorm(Module):
-   axis_name: Optional[str] = None
+@@ -463,6 +472,7 @@ class LayerNorm(Module):
    axis_index_groups: Any = None
    use_fast_variance: bool = True
+   force_float32_reductions: bool = True
 +  pjit_axis_name: Tuple[str, ...] = None
  
    @compact
    def __call__(self, x, *, mask: Optional[jax.Array] = None):
-@@ -490,6 +500,7 @@ class LayerNorm(Module):
+@@ -501,6 +511,7 @@ class LayerNorm(Module):
        self.use_scale,
        self.bias_init,
        self.scale_init,
@@ -332,7 +331,7 @@ index abfbfb5a..bab40243 100644
      )
  
  
-@@ -538,6 +549,7 @@ class RMSNorm(Module):
+@@ -549,6 +560,7 @@ class RMSNorm(Module):
        more details.
      use_fast_variance: If true, use a faster, but less numerically stable,
        calculation for the variance.
@@ -340,15 +339,15 @@ index abfbfb5a..bab40243 100644
    """
  
    epsilon: float = 1e-6
-@@ -550,6 +562,7 @@ class RMSNorm(Module):
-   axis_name: Optional[str] = None
+@@ -562,6 +574,7 @@ class RMSNorm(Module):
    axis_index_groups: Any = None
    use_fast_variance: bool = True
+   force_float32_reductions: bool = True
 +  pjit_axis_name: Tuple[str, ...] = None
  
    @compact
    def __call__(self, x, *, mask: Optional[jax.Array] = None):
-@@ -588,6 +601,7 @@ class RMSNorm(Module):
+@@ -601,6 +614,7 @@ class RMSNorm(Module):
        self.use_scale,
        initializers.zeros,
        self.scale_init,
@@ -356,7 +355,7 @@ index abfbfb5a..bab40243 100644
      )
  
  
-@@ -657,6 +671,7 @@ class GroupNorm(Module):
+@@ -671,6 +685,7 @@ class GroupNorm(Module):
        more details.
      use_fast_variance: If true, use a faster, but less numerically stable,
        calculation for the variance.
@@ -364,15 +363,15 @@ index abfbfb5a..bab40243 100644
    """
  
    num_groups: Optional[int] = 32
-@@ -672,6 +687,7 @@ class GroupNorm(Module):
-   axis_name: Optional[str] = None
+@@ -687,6 +702,7 @@ class GroupNorm(Module):
    axis_index_groups: Any = None
    use_fast_variance: bool = True
+   force_float32_reductions: bool = True
 +  pjit_axis_name: Tuple[str, ...] = None
  
    @compact
    def __call__(self, x, *, mask: Optional[jax.Array] = None):
-@@ -885,6 +901,7 @@ class InstanceNorm(Module):
+@@ -904,6 +920,7 @@ class InstanceNorm(Module):
        self.use_scale,
        self.bias_init,
        self.scale_init,
@@ -381,10 +380,10 @@ index abfbfb5a..bab40243 100644
  
  
 -- 
-2.25.1
+2.45.1
 
 
-From c945c2ff513282b4af2e956c9c09c784e6d48c44 Mon Sep 17 00:00:00 2001
+From bb04792f9d863f3d2f20e3635b28863f286a740f Mon Sep 17 00:00:00 2001
 From: Terry Kong <terrycurtiskong@gmail.com>
 Date: Mon, 2 Oct 2023 16:10:05 -0700
 Subject: [PATCH 2/3] Added ConvTranspose sharding annotations (#3)
@@ -395,10 +394,10 @@ Co-authored-by: sahilj <sahilj@nvidia.com>
  1 file changed, 20 insertions(+), 4 deletions(-)
 
 diff --git a/flax/linen/linear.py b/flax/linen/linear.py
-index 4656abf9..187ab6f5 100644
+index 27e22325..d964eefb 100644
 --- a/flax/linen/linear.py
 +++ b/flax/linen/linear.py
-@@ -796,6 +796,21 @@ class ConvTranspose(Module):
+@@ -922,6 +922,21 @@ class ConvTranspose(Module):
    bias_init: Initializer = initializers.zeros_init()
    transpose_kernel: bool = False
  
@@ -420,7 +419,7 @@ index 4656abf9..187ab6f5 100644
    @compact
    def __call__(self, inputs: Array) -> Array:
      """Applies a transposed convolution to the inputs.
-@@ -852,8 +867,9 @@ class ConvTranspose(Module):
+@@ -986,8 +1001,9 @@ class ConvTranspose(Module):
          f'Shapes are: {self.mask.shape}, {kernel_shape}'
        )
  
@@ -432,7 +431,7 @@ index 4656abf9..187ab6f5 100644
      )
  
      if self.mask is not None:
-@@ -864,8 +880,8 @@ class ConvTranspose(Module):
+@@ -998,8 +1014,8 @@ class ConvTranspose(Module):
        padding_lax = 'VALID'
  
      if self.use_bias:
@@ -444,10 +443,10 @@ index 4656abf9..187ab6f5 100644
      else:
        bias = None
 -- 
-2.25.1
+2.45.1
 
 
-From 8b184f603e31feabb7580f1a969e101a7fe9e992 Mon Sep 17 00:00:00 2001
+From f3de082c72dc99b20f04ece2484ad2d6f5cceb28 Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
 Date: Thu, 1 Feb 2024 09:54:25 -0800
 Subject: [PATCH 3/3] Add missing import
@@ -459,7 +458,7 @@ Subject: [PATCH 3/3] Add missing import
  3 files changed, 3 insertions(+)
 
 diff --git a/flax/linen/attention.py b/flax/linen/attention.py
-index 689ce4da..b19d795e 100644
+index bcabd554..b594add9 100644
 --- a/flax/linen/attention.py
 +++ b/flax/linen/attention.py
 @@ -39,6 +39,7 @@ from flax.typing import (
@@ -471,10 +470,10 @@ index 689ce4da..b19d795e 100644
  
  def dot_product_attention_weights(
 diff --git a/flax/linen/linear.py b/flax/linen/linear.py
-index 187ab6f5..759406ed 100644
+index d964eefb..e1c2751e 100644
 --- a/flax/linen/linear.py
 +++ b/flax/linen/linear.py
-@@ -47,6 +47,7 @@ from flax.typing import (
+@@ -49,6 +49,7 @@ from flax.typing import (
    ConvGeneralDilatedT,
    PaddingLike,
    LaxPadding,
@@ -483,7 +482,7 @@ index 187ab6f5..759406ed 100644
  
  
 diff --git a/flax/linen/normalization.py b/flax/linen/normalization.py
-index bab40243..1e1169a0 100644
+index ed241d08..30a5b0fe 100644
 --- a/flax/linen/normalization.py
 +++ b/flax/linen/normalization.py
 @@ -32,6 +32,7 @@ from flax.typing import (
@@ -495,5 +494,5 @@ index bab40243..1e1169a0 100644
  
  field = dataclasses.field
 -- 
-2.25.1
+2.45.1
 
