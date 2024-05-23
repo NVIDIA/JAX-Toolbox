@@ -116,7 +116,7 @@ def parse_args():
     parser.add_argument(
         '--amax-history-len',
         type=int,
-        default=1,
+        default=1024,
         help="the length of amax history, which is only used when --gen-fp8-meta is specified.")
 
     parser.add_argument('--pax-repeat',
