@@ -72,7 +72,7 @@ jobs:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.mealkit-build.outcome == 'success' && steps.mealkit-metadata.outputs.tags || '' }}
-      DOCKER_TAG_FINAL: ${{ steps.final-metadata.outputs.tags || '' }}
+      DOCKER_TAG_FINAL: ${{ steps.final-build.outcome == 'success' && steps.final-metadata.outputs.tags || '' }}
     steps:
       - name: Print environment variables
         run: env
@@ -154,25 +154,25 @@ jobs:
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      # - name: Build final image
-      #   id: final-build
-      #   uses: docker/build-push-action@v5
-      #   with:
-      #     context: ${{ inputs.DOCKER_CONTEXT }}
-      #     push: true
-      #     file: ${{ inputs.DOCKERFILE }}
-      #     platforms: linux/${{ inputs.ARCHITECTURE }}
-      #     tags: ${{ steps.final-metadata.outputs.tags }}
-      #     labels: ${{ steps.final-metadata.outputs.labels }}
-      #     target: final
-      #     ssh: default
-      #     secret-files: |
-      #       "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
-      #     build-args: |
-      #       BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-      #       BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
-      #       BUILD_DATE=${{ inputs.BUILD_DATE }}
-      #       ${{ inputs.EXTRA_BUILD_ARGS }}
+      - name: Build final image
+        id: final-build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.DOCKER_CONTEXT }}
+          push: true
+          file: ${{ inputs.DOCKERFILE }}
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          tags: ${{ steps.final-metadata.outputs.tags }}
+          labels: ${{ steps.final-metadata.outputs.labels }}
+          target: final
+          ssh: default
+          secret-files: |
+            "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
+            ${{ inputs.EXTRA_BUILD_ARGS }}
 
       - name: Generate sitrep
         if: "!cancelled()"
