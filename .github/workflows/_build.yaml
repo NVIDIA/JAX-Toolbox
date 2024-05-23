@@ -121,25 +121,25 @@ jobs:
           labels:
             org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
 
-      # - name: Build mealkit image
-      #   id: mealkit-build
-      #   uses: docker/build-push-action@v5
-      #   with:
-      #     context: ${{ inputs.DOCKER_CONTEXT }}
-      #     push: true
-      #     file: ${{ inputs.DOCKERFILE }}
-      #     platforms: linux/${{ inputs.ARCHITECTURE }}
-      #     target: mealkit
-      #     tags: ${{ steps.mealkit-metadata.outputs.tags }}
-      #     labels: ${{ steps.mealkit-metadata.outputs.labels }}
-      #     ssh: default
-      #     secret-files: |
-      #       "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
-      #     build-args: |
-      #       BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-      #       BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
-      #       BUILD_DATE=${{ inputs.BUILD_DATE }}
-      #       ${{ inputs.EXTRA_BUILD_ARGS }}
+      - name: Build mealkit image
+        id: mealkit-build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.DOCKER_CONTEXT }}
+          push: true
+          file: ${{ inputs.DOCKERFILE }}
+          platforms: linux/${{ inputs.ARCHITECTURE }}
+          target: mealkit
+          tags: ${{ steps.mealkit-metadata.outputs.tags }}
+          labels: ${{ steps.mealkit-metadata.outputs.labels }}
+          ssh: default
+          secret-files: |
+            "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
+          build-args: |
+            BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+            BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
+            BUILD_DATE=${{ inputs.BUILD_DATE }}
+            ${{ inputs.EXTRA_BUILD_ARGS }}
 
       - name: Set docker metadata - final
         id: final-metadata
