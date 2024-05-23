@@ -209,7 +209,7 @@ def _load_nvtx_gpu_proj_trace(
 
     # Add a new column describing which (0th, 1st, ...) execution of the module
     # each module/thunk range corresponds to.
-    mod_exec_indices = df.loc[mod_ids, :].groupby("ProgramId").cumcount()
+    mod_exec_indices = df.loc[mod_ids, :].groupby(["TID", "ProgramId"]).cumcount()
     df.loc[mod_ids, "ModuleExecution"] = mod_exec_indices
     df.loc[all_thunks, "ModuleExecution"] = mod_exec_indices[
         df.loc[all_thunks, "ModuleId"]
