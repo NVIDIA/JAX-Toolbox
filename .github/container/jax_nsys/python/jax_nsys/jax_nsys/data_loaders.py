@@ -50,29 +50,18 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
                 )
             ]
             # The computation kernels should all be serialised, but check that
-            for row1, row2 in itertools.pairwise(compute_df.itertuples()):
-                assert (
-                    row2.ProjStartNs >= row1.ProjEndNs
-                ), f"{row2.Name} starts at {row2.ProjStartNs} before {row1.Name} ends at {row1.ProjEndNs}"
-            compute_time = sum(
-                min(row.ProjEndNs, comm_thunk.ProjEndNs)
-                - max(row.ProjStartNs, comm_thunk.ProjStartNs)
-                for row in compute_df.itertuples()
+            assert (
+                compute_df["ProjStartNs"].iloc[1:].array
+                >= compute_df["ProjEndNs"].iloc[:-1].array
+            ).all()
+            compute_time = np.sum(
+                np.minimum(compute_df["ProjEndNs"], comm_thunk.ProjEndNs)
+                - np.maximum(compute_df["ProjStartNs"], comm_thunk.ProjStartNs)
             )
             # Update the projected duration of communication kernels to just be the
             # time that is not hidden.
             unhidden_comm_time = comm_thunk.ProjDurNs - compute_time
             thread_df.loc[comm_thunk.Index, "ProjDurNs"] = unhidden_comm_time
-
-        # We assume that there is no compute-compute overlap for now; check that.
-        # TODO: be smarter about this if it's seen to take non-trivial time.
-        compute_df = thread_df[~thread_df["Communication"]]
-        for compute_thunk in compute_df.itertuples():
-            # This should just find the thunk itself
-            mask = (compute_df["ProjEndNs"] > compute_thunk.ProjStartNs) & (
-                compute_df["ProjStartNs"] < compute_thunk.ProjEndNs
-            )
-            assert mask.sum() == 1
 
     return thunk_df.drop(columns=["ProjEndNs"])
 
