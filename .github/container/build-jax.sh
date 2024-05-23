@@ -275,7 +275,8 @@ line="jaxlib @ file://${BUILD_PATH_JAXLIB}"
 if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
     pushd "${SRC_PATH_JAX}"
     echo "${line}" >> build/requirements.in
-    bazel run //build:requirements_dev.update --repo_env=HERMETIC_PYTHON_VERSION="3.10"
+    PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
+    bazel run //build:requirements_dev.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
     popd
 fi
 
