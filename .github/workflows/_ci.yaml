@@ -225,6 +225,7 @@ jobs:
       - build-rosetta-t5x
       - build-rosetta-pax
       - build-grok
+      - build-gemma
     outputs:
       TAGS: ${{ steps.collect-tags.outputs.TAGS }}
     steps:
