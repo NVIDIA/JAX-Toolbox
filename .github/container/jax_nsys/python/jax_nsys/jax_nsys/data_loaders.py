@@ -61,7 +61,7 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
             # Update the projected duration of communication kernels to just be the
             # time that is not hidden.
             unhidden_comm_time = comm_thunk.ProjDurNs - compute_time
-            thread_df.loc[comm_thunk.Index, "ProjDurNs"] = unhidden_comm_time
+            thunk_df.loc[comm_thunk.Index, "ProjDurNs"] = unhidden_comm_time
 
     return thunk_df.drop(columns=["ProjEndNs"])
 
