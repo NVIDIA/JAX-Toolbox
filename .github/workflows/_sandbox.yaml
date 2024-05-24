@@ -4,17 +4,25 @@ on:
   workflow_dispatch:
 
 jobs:
-  slurm-runner:
-    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
-    with:
-      NAME: "A100"
-      LABELS: "A100,${{ github.run_id }}"
-      TIME: "01:00:00"
-    secrets: inherit
+  t5x-multi-gpu:
+    strategy:
+      matrix:
+        include:
+          - TEST_NAME: ["1P1G", "1P2G", "1P4G"]
+            N_GPU: [1, 2, 4]
+            ADDITIONAL_ARGS: ""
+          # - TEST_NAME: ["1P8G"]
+          #   N_GPU: [8]
+          # - TEST_NAME: ["1P1G_fmha", "1P2G_fmha"]
+          #   N_GPU: [1,2]
+          #   ADDITIONAL_ARGS: "--enable-fmha 1"
+      fail-fast: false
 
+    runs-on: ubuntu-22.04
 
-  test-upstream-t5x:
-    uses: ./.github/workflows/_test_upstream_t5x.yaml
-    with:
-      T5X_IMAGE: ghcr.io/nvidia/jax:upstream-t5x
-    secrets: inherit
+    steps:
+      - name: Check concatination
+        run: |
+          TEST_CASE_NAME=$(IFS=_ ; echo "${{ matrix.TEST_NAME }}[*]")
+          echo $TEST_CASE_NAME
+
