@@ -5,12 +5,13 @@ on:
 
 jobs:
   t5x-multi-gpu:
+  env:
     strategy:
       matrix:
         include:
-          - TEST_NAME: ["1P1G", "1P2G", "1P4G", "1P8G", "1P1G_fmha", "1P2G_fmha"]
-            N_GPU: [1, 2, 4, 8, 1, 2]
-            ADDITIONAL_ARGS: ["", "", "", "", "--enable-fmha 1", "--enable-fmha 1"]
+          - TEST_NAME: ["1P1G", "1P2G", "1P4G", "1G1N", "1P8G", "1P1G_fmha", "1P2G_fmha",  "2G1N", "4G1N", "8G1N"]
+            N_GPU: [1, 2, 4, 1, 8, 1, 2, 2, 4, 8]
+            ADDITIONAL_ARGS: ["", "", "", "--multiprocess", "", "--enable-fmha 1", "--enable-fmha 1", "--multiprocess","--multiprocess", "--multiprocess"]
       fail-fast: false
 
     runs-on: ubuntu-22.04

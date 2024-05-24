@@ -35,23 +35,29 @@ on:
 
 jobs:
 
+  #         - TEST_NAME: "4G1N"
+  #           N_GPU: 4
+  #           N_NODE: 1
+  #           ADDITIONAL_ARGS: ""
+  #         - TEST_NAME: "8G1N"
+  #           N_GPU: 8
+  #           N_NODE: 1
+  #           ADDITIONAL_ARGS: ""
+
+
+
+
   t5x-multi-gpu:
     strategy:
       matrix:
         include:
-          - TEST_NAME: ["1P1G", "1P2G", "1P4G"]
-            N_GPU: [1, 2, 4]
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: ["1P8G"]
-            N_GPU: [8]
-          - TEST_NAME: ["1P1G_fmha", "1P2G_fmha"]
-            N_GPU: [1,2]
-            ADDITIONAL_ARGS: "--enable-fmha 1"
+          - TEST_NAME: ["1P1G", "1P2G", "1P4G", "1G1N", "1P8G", "1P1G_fmha", "1P2G_fmha",  "2G1N", "4G1N", "8G1N"]
+            N_GPU: [1, 2, 4, 1, 8, 1, 2, 2, 4, 8]
+            ADDITIONAL_ARGS: ["", "", "", "--multiprocess", "", "--enable-fmha 1", "--enable-fmha 1", "--multiprocess","--multiprocess", "--multiprocess"]
       fail-fast: false
-
     runs-on: ubuntu-22.04
 
-    steps:
+    steps:          
       - name: Print environment variables
         run: env
 
@@ -87,11 +93,11 @@ jobs:
           test_names=(${{ join(matrix.TEST_NAME, ' ') }})
           test_count=${#test_names[@]}
           for idx in $(seq 0 $((test_count-1))); do
-            if [[ $cuda_start_idx > $MAX_GPUS_PER_NODE ]]; then
-                echo "CUDA GPU idx is greater than number of available GPUs"
-                exit 1
-            fi
             n_gpu=n_gpus[$idx]
+            if [[ $((cuda_start_idx+n_gpu)) -ge $MAX_GPUS_PER_NODE ]]; then
+                SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
+                cuda_start_idx=0
+            fi
             cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
             visible_devices=$(seq -s ',' $cuda_start_idx $cuda_end_idx)
             test_name=${test_names[$idx]}
@@ -103,11 +109,10 @@ jobs:
               --batch-size ${BATCH_SIZE} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              ${{ matrix.ADDITIONAL_ARGS }} | tee /output/$test_name/${test_name}.log &
-            "
+              ${{ matrix.ADDITIONAL_ARGS }} | tee /output/$test_name/${test_name}.log &"
             cuda_start_idx=$((cuda_end_idx+1))
           done
-          SLURM_SCRIPT="$SLURM_SCRIPT; wait"
+          SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
 
           for var in IMAGE TEST_CASE_NAME JOB_NAME SLURM_SCRIPT; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
@@ -204,22 +209,6 @@ jobs:
   #   strategy:
   #     matrix:
   #       include:
-  #         - TEST_NAME: "1G1N"
-  #           N_GPU: 1
-  #           N_NODE: 1
-  #           ADDITIONAL_ARGS: ""
-  #         - TEST_NAME: "2G1N"
-  #           N_GPU: 2
-  #           N_NODE: 1
-  #           ADDITIONAL_ARGS: ""
-  #         - TEST_NAME: "4G1N"
-  #           N_GPU: 4
-  #           N_NODE: 1
-  #           ADDITIONAL_ARGS: ""
-  #         - TEST_NAME: "8G1N"
-  #           N_GPU: 8
-  #           N_NODE: 1
-  #           ADDITIONAL_ARGS: ""
   #         - TEST_NAME: "1G2N"
   #           N_GPU: 1
   #           N_NODE: 2
