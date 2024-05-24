@@ -28,7 +28,7 @@ jobs:
           MAX_GPUS_PER_NODE=8
           n_gpus=(${{ join(matrix.N_GPU, ' ') }})
           test_names=(${{ join(matrix.TEST_NAME, ' ') }})
-          test_count=$(wc ${{ join(matrix.N_GPU, ' ') }})
+          test_count=${#test_names[@]}
           for idx in $(seq 0 $((test_count-1))); do
             if [[ $cuda_start_idx > $MAX_GPUS_PER_NODE ]]; then
                 echo "CUDA GPU idx is greater than number of available GPUs"
