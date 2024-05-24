@@ -23,6 +23,6 @@ jobs:
     steps:
       - name: Check concatination
         run: |
-          TEST_CASE_NAME=join(${{ matrix.TEST_NAME }}, '_')
+          TEST_CASE_NAME=join(${{ matrix.TEST_NAME[] }}, '_')
           echo $TEST_CASE_NAME
 
