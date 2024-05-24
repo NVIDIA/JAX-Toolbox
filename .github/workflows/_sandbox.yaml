@@ -23,21 +23,20 @@ jobs:
     steps:
       - name: Check concatination
         run: |
-          idx=0
           cuda_start_idx=0
           cuda_end_idx=0
           MAX_GPUS_PER_NODE=8
           n_gpus=(${{ join(matrix.N_GPU, ' ') }})
-          for test in ${{ join(matrix.TEST_NAME,' ') }}; do
+          test_names=(${{ join(matrix.TEST_NAME, ' ') }})
+          test_count=$(wc ${{ join(matrix.N_GPU, ' ') }})
+          for idx in $(seq 0 $((test_count-1))); do
+            if [[ $cuda_start_idx > $MAX_GPUS_PER_NODE ]]; then
+                echo "CUDA GPU idx is greater than number of available GPUs"
+                exit 1
+            fi
             n_gpu=n_gpus[$idx]
             cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
             cuda_visible_devices=$(seq $cuda_start_idx $cuda_end_idx)
-            echo cuda_visible_devices=$cuda_visible_devices
-            if [[ $cuda_start_idx > $MAX_GPUS_PER_NODE ]]; then
-              echo "CUDA GPU idx is greater than number of available GPUs"
-              exit 1
-            fi
+            echo ${n_gpu}, $cuda_visible_devices
             cuda_start_idx=$((cuda_end_idx+1))
-            ((idx++))
           done
-
