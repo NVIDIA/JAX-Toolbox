@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Check concatination
         run: |
-          
-          a=${{ join(matrix.TEST_NAME,'_') }}
-          echo $a
+          for test in ${{ join(matrix.TEST_NAME,' ') }}; docker
+            echo $test
+          done
 

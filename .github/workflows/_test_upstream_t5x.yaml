@@ -78,12 +78,9 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=$(IFS=_ ; echo "${foo[*]}")
+          TEST_CASE_NAME=${{ join(matrix.TEST_NAME, '-') }}
           JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          LOG_FILE=/nfs/cluster/${JOB_NAME}.log
-          MODEL_PATH=/nfs/cluster/${JOB_NAME}
-          BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * ${{ matrix.N_GPU }}))
-          for var in IMAGE TEST_CASE_NAME JOB_NAME LOG_FILE MODEL_PATH BATCH_SIZE; do
+          for var in IMAGE TEST_CASE_NAME JOB_NAME; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
