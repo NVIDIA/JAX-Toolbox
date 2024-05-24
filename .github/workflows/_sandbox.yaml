@@ -27,9 +27,10 @@ jobs:
           cuda_start_idx=0
           cuda_end_idx=0
           MAX_GPUS_PER_NODE=8
+          n_gpus = (${{ join(matrix.N_GPU, ' ') }})
           for test in ${{ join(matrix.TEST_NAME,' ') }}; do
-            n_gpus = ${{ matrix.N_GPU[$idx] }}
-            cuda_end_idx=$((cuda_start_idx + n_gpus - 1))
+            n_gpu=n_gpus[$idx]
+            cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
             cuda_visible_devices=$(seq $cuda_start_idx $cuda_end_idx)
             echo cuda_visible_devices=$cuda_visible_devices
             if [[ $cuda_start_idx > $MAX_GPUS_PER_NODE ]]; then
