@@ -21,8 +21,8 @@ jobs:
           cuda_start_idx=0
           cuda_end_idx=0
           MAX_GPUS_PER_NODE=8
-          n_gpus=(${{ join(matrix.N_GPU, ',') }})
-          test_names=(${{ join(matrix.TEST_NAME, ',') }})
+          n_gpus=(${{ join(matrix.N_GPU, ' ') }})
+          test_names=(${{ join(matrix.TEST_NAME, ' ') }})
           test_count=${#test_names[@]}
           additional_args=(${{ join(matrix.ADDITIONAL_ARGS, ',') }})
           for idx in $(seq 0 $((test_count-1))); do
