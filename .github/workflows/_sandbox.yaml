@@ -24,7 +24,7 @@ jobs:
           n_gpus=(${{ join(matrix.N_GPU, ' ') }})
           test_names=(${{ join(matrix.TEST_NAME, ' ') }})
           test_count=${#test_names[@]}
-          additional_args=(${{ join(matrix.ADDITIONAL_ARGS, ',') }})
+          additional_args=(${{ join(matrix.ADDITIONAL_ARGS, ' ') }})
           for idx in $(seq 0 $((test_count-1))); do
             n_gpu=n_gpus[$idx]
             additional_arg=${additional_args[$idx]}
