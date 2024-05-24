@@ -179,3 +179,4 @@ orbax-checkpoint:
   url: https://github.com/google/orbax/#subdirectory=checkpoint
   tracking_ref: main
   latest_verified_commit: 16c2d409e365576284dbaf190ac002b24c1f927f
+  mode: pip-vcs
