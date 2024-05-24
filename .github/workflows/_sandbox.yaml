@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Check concatination
         run: |
-          echo ${{ matrix.TEST_NAME }}
+          echo ${{ matrix.TEST_NAME.* }}
           TEST_CASE_NAME=fromJson(${{ matrix.TEST_NAME }})
           echo $TEST_CASE_NAME
 
