@@ -10,7 +10,6 @@ jobs:
         include:
           - TEST_NAME: ["1P1G", "1P2G", "1P4G", "1G1N", "1P8G", "1P1G_fmha", "1P2G_fmha",  "2G1N", "4G1N", "8G1N"]
             N_GPU: [1, 2, 4, 1, 8, 1, 2, 2, 4, 8]
-            ADDITIONAL_ARGS: ["\\", "\\", "\\", "--multiprocess", "\\", "--enable-fmha 1", "--enable-fmha 1", "--multiprocess", "--multiprocess", "--multiprocess"]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -27,7 +26,6 @@ jobs:
           additional_args=(${{ join(matrix.ADDITIONAL_ARGS, ' ') }})
           for idx in $(seq 0 $((test_count-1))); do
             n_gpu=n_gpus[$idx]
-            additional_arg=${additional_args[$idx]}
             if [[ $((cuda_start_idx+n_gpu)) -gt $MAX_GPUS_PER_NODE ]]; then
                 SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
                 cuda_start_idx=0
@@ -35,6 +33,13 @@ jobs:
             cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
             visible_devices=$(seq -s ',' $cuda_start_idx $cuda_end_idx)
             test_name=${test_names[$idx]}
+            if [[ $test_name ~= *"fmha"* ]]; then
+                additional_arg="--enable-fmha 1"
+            elif [[ $test_name ~= *"G1N"* ]]; then
+                additional_arg="--multiprocess"
+            else
+              additional_arg=""
+            fi
             BATCH_SIZE=$((32 * $n_gpu))
             SLURM_SCRIPT="$SLURM_SCRIPT 
               CUDA_VISIBLE_DEVICES=${visible_devices} test-t5x.sh \
