@@ -80,21 +80,33 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ join(matrix.TEST_NAME, '-') }}
           JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          idx=0
           cuda_start_idx=0
           cuda_end_idx=0
           MAX_GPUS_PER_NODE=8
-          for test in ${{ join(matrix.TEST_NAME,' ') }}; do
-            n_gpus = ${{ matrix.N_GPU[$idx] }}
-            cuda_end_idx=$(())
-            cuda_visible_devices=$(seq)
-            SLURM_SCRIPT="$SLURM_SCRIPT "
+          n_gpus=(${{ join(matrix.N_GPU, ' ') }})
+          test_names=(${{ join(matrix.TEST_NAME, ' ') }})
+          test_count=${#test_names[@]}
+          for idx in $(seq 0 $((test_count-1))); do
             if [[ $cuda_start_idx > $MAX_GPUS_PER_NODE ]]; then
-              echo "CUDA GPU idx is greater than number of available GPUs"
-              exit 1
-            end
-            ((idx++))
+                echo "CUDA GPU idx is greater than number of available GPUs"
+                exit 1
+            fi
+            n_gpu=n_gpus[$idx]
+            cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
+            visible_devices=$(seq -s ',' $cuda_start_idx $cuda_end_idx)
+            test_name=${test_names[$idx]}
+            BATCH_SIZE=$((32 * $n_gpu))
+            SLURM_SCRIPT="$SLURM_SCRIPT 
+              CUDA_VISIBLE_DEVICES=${visible_devices} test-t5x.sh \
+              --output /output/${test_name} \
+              --dtype bfloat16 \
+              --batch-size ${BATCH_SIZE} \
+              --epochs 7 \
+              --steps-per-epoch 100 | tee /output/$test_name/${test_name}.log &
+            "
+            cuda_start_idx=$((cuda_end_idx+1))
           done
+          SLURM_SCRIPT="$SLURM_SCRIPT; wait"
 
           for var in IMAGE TEST_CASE_NAME JOB_NAME SLURM_SCRIPT; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
@@ -133,25 +145,7 @@ jobs:
             --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint bash -ec \
-            "CUDA_VISIBLE_DEVICES=0 test-t5x.sh \
-              --output /output/"1P1G" \
-              --dtype bfloat16 \
-              --batch-size 32 \
-              --epochs 7 \
-              --steps-per-epoch 100 &
-            CUDA_VISIBLE_DEVICES=1,2 test-t5x.sh \
-              --output /output/"1P2G" \
-              --dtype bfloat16 \
-              --batch-size 64 \
-              --epochs 7 \
-              --steps-per-epoch 100 &
-            CUDA_VISIBLE_DEVICES=4,5,6,7 test-t5x.sh \
-              --output /output/"1P4G" \
-              --dtype bfloat16 \
-              --batch-size 128 \
-              --epochs 7 \
-              --steps-per-epoch 100;
-            wait"
+            "${{ steps.meta.outputs.SLURM_SCRIPT }}"
           EOF
           )
           

@@ -11,11 +11,11 @@ jobs:
           - TEST_NAME: ["1P1G", "1P2G", "1P4G"]
             N_GPU: [1, 2, 4]
             ADDITIONAL_ARGS: ""
-          # - TEST_NAME: ["1P8G"]
-          #   N_GPU: [8]
-          # - TEST_NAME: ["1P1G_fmha", "1P2G_fmha"]
-          #   N_GPU: [1,2]
-          #   ADDITIONAL_ARGS: "--enable-fmha 1"
+          - TEST_NAME: ["1P8G"]
+            N_GPU: [8]
+          - TEST_NAME: ["1P1G_fmha", "1P2G_fmha"]
+            N_GPU: [1,2]
+            ADDITIONAL_ARGS: "--enable-fmha 1"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -45,9 +45,10 @@ jobs:
               --dtype bfloat16 \
               --batch-size ${BATCH_SIZE} \
               --epochs 7 \
-              --steps-per-epoch 100 | tee /output/$test_name/${test_name}.log &
+              --steps-per-epoch 100 \
+              ${{ matrix.ADDITIONAL_ARGS }} | tee /output/$test_name/${test_name}.log &
             "
             cuda_start_idx=$((cuda_end_idx+1))
           done
           SLURM_SCRIPT="$SLURM_SCRIPT; wait"
-          echo $SLURM_SCRIPT
+          
