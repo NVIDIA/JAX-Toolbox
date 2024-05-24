@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Check concatination
         run: |
-          fromJSON(matrix)
-          a=${{ fromJSON(matrix) }}
+          
+          a=${{ join(matrix.TEST_NAME,'_') }}
           echo $a
 
