@@ -99,7 +99,7 @@ jobs:
           #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
           #SBATCH --exclusive
           #SBATCH --nodes=1
-          #SBATCH --gpus-per-node=${{ matrix.N_GPU }}
+          #SBATCH --gpus-per-node=8
           #SBATCH --time=00:30:00
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="ENROOT_PASSWORD=${{ secrets.GITHUB_TOKEN }}"
