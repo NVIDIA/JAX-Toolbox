@@ -38,7 +38,7 @@ jobs:
             cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
             visible_devices=$(seq $cuda_start_idx $cuda_end_idx)
             test_name=${test_names[$idx]}
-            BATCH_SIZE=$((${{ inputs.BATCH_SIZE_PER_GPU }} * $n_gpu))
+            BATCH_SIZE=$((32 * $n_gpu))
             SLURM_SCRIPT="$SLURM_SCRIPT 
               CUDA_VISIBLE_DEVICES=${visible_devices} test-t5x.sh \
               --output /output/${test_name} \
@@ -50,3 +50,4 @@ jobs:
             cuda_start_idx=$((cuda_end_idx+1))
           done
           SLURM_SCRIPT="$SLURM_SCRIPT; wait"
+          echo $SLURM_SCRIPT
