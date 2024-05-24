@@ -382,6 +382,10 @@ elif [[ ${MODEL_TYPE} == "5B" ]]; then
 elif [[ ${MODEL_TYPE} == "LLaMA70BProxy" ]]; then
   CONFIG=ci_configs.LLaMA70BSyntheticSmall
   ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU}"
+## hard-code ICI mesh shape for Grok
+elif [[ ${MODEL_TYPE} == "GrokProxy" ]]; then
+  CONFIG=paxml.tasks.lm.params.nvidia.Grok_Proxy
+  ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1,1] --fdl.ICI_MESH_SHAPE=[1,1,8,1] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU} --fdl.NUM_LAYERS=2"
 else
   echo "Unsupported model ${MODEL_TYPE}"
   exit 1

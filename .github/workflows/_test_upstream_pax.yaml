@@ -210,6 +210,11 @@ jobs:
             BATCH_SIZE: 4
             EVALUATE: true
             ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
+          - TEST_NAME: Grok
+            PARALLEL_CONFIG: [1, 2, 8, 1] ## note: only used to compute num nodes
+            BATCH_SIZE: 4
+            EVALUATE: true
+            ADDITIONAL_ARGS: "--model-type GrokProxy"
       fail-fast: false
 
     runs-on: ubuntu-22.04
