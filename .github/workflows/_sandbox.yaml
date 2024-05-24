@@ -51,4 +51,5 @@ jobs:
             cuda_start_idx=$((cuda_end_idx+1))
           done
           SLURM_SCRIPT="$SLURM_SCRIPT; wait"
+          echo $SLURM_SCRIPT
           
