@@ -36,7 +36,7 @@ jobs:
             fi
             n_gpu=n_gpus[$idx]
             cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
-            visible_devices=$(seq $cuda_start_idx $cuda_end_idx)
+            visible_devices=$(seq -s ',' $cuda_start_idx $cuda_end_idx)
             test_name=${test_names[$idx]}
             BATCH_SIZE=$((32 * $n_gpu))
             SLURM_SCRIPT="$SLURM_SCRIPT 
