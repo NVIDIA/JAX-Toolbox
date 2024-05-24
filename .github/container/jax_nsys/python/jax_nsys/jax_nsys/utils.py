@@ -1,6 +1,14 @@
 import pandas as pd
 from typing import Optional
 
+
+def make_child_mask(df: pd.DataFrame, parent_row: int) -> pd.Series:
+    """
+    Return a mask of descendants of the given range.
+    """
+    return df["RangeStack"].str.startswith(df.loc[parent_row, "RangeStack"] + ":")
+
+
 def remove_child_ranges(df: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:
     """
     Return a new data frame with the children of ``df[mask]`` removed.
@@ -13,11 +21,8 @@ def remove_child_ranges(df: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:
     to_remove: Optional[pd.Series] = None
     mask &= df["NumChild"] != 0
     for row in df[mask].itertuples():
-        child_mask = df["RangeStack"].str.startswith(f"{row.RangeStack}:")
+        child_mask = make_child_mask(df, row.Index)
         to_remove = child_mask if to_remove is None else child_mask | to_remove
         df.loc[row.Index, ["NumChild", "DurChildNs"]] = 0
         df.loc[row.Index, "DurNonChildNs"] = row.DurNs
-    if to_remove is None:
-        return df
-    else:
-        return df[~to_remove].copy()
+    return df if to_remove is None else df[~to_remove]

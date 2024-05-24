@@ -29,8 +29,7 @@ def create_flamegraph(
     flat_data = ""
     for loc, value in data.items():
         assert not any(";" in x for x in loc)
-        if value < 0.0:
-            raise Exception(f"Negative value {value} under {loc}")
+        assert value >= 0.0, f"Negative value {value} under {loc}"
         flat_data += ";".join(map(str, loc)) + " " + str(value) + "\n"
     svg = subprocess.run(
         [which("flamegraph.pl"), f"--width={width}", f"--title={title}"],

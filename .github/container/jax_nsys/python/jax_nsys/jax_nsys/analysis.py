@@ -2,6 +2,8 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
+from .utils import make_child_mask
+
 
 def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -47,9 +49,7 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
         # without overlap between A, B and C. For simplicity, we assume that there is
         # only one parallel region B in a given parent range, but this restriction
         # could be relaxed if needed.
-        child_df = compile_df.loc[
-            compile_df["RangeStack"].str.startswith(f"{launcher_row.RangeStack}:"), :
-        ]
+        child_df = compile_df[make_child_mask(compile_df, launcher_row.Index)]
         is_main = child_df["TID"] == launcher_row.TID
         child_ends = child_df["StartNs"] + child_df["DurNs"]
         # Assuming there's only one parallel region inside `launcher_row`
