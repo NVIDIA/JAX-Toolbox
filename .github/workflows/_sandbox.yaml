@@ -10,7 +10,7 @@ jobs:
         include:
           - TEST_NAME: ["1P1G", "1P2G", "1P4G", "1G1N", "1P8G", "1P1G_fmha", "1P2G_fmha",  "2G1N", "4G1N", "8G1N"]
             N_GPU: [1, 2, 4, 1, 8, 1, 2, 2, 4, 8]
-            ADDITIONAL_ARGS: ["\", "\", "\", "--multiprocess", "", "--enable-fmha 1", "--enable-fmha 1", "--multiprocess", "--multiprocess", "--multiprocess"]
+            ADDITIONAL_ARGS: ["\\", "\\", "\\", "--multiprocess", "\\", "--enable-fmha 1", "--enable-fmha 1", "--multiprocess", "--multiprocess", "--multiprocess"]
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -43,8 +43,7 @@ jobs:
               --batch-size ${BATCH_SIZE} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              ${additional_arg} \
-              tee /output/$test_name/${test_name}.log &"
+              ${additional_arg} | tee /output/$test_name/${test_name}.log &"
             cuda_start_idx=$((cuda_end_idx+1))
           done
           SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
