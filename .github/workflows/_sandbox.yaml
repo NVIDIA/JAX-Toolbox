@@ -33,9 +33,9 @@ jobs:
             cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
             visible_devices=$(seq -s ',' $cuda_start_idx $cuda_end_idx)
             test_name=${test_names[$idx]}
-            if [[ $test_name ~= *"fmha"* ]]; then
+            if [[ $test_name == *"fmha"* ]]; then
                 additional_arg="--enable-fmha 1"
-            elif [[ $test_name ~= *"G1N"* ]]; then
+            elif [[ $test_name == *"G1N"* ]]; then
                 additional_arg="--multiprocess"
             else
               additional_arg=""
