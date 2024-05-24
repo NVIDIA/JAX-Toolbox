@@ -116,26 +116,26 @@ jobs:
             --ntasks=1 \
             --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
-            --container-entrypoint \
-            CUDA_VISIBLE_DEVICES=0 test-t5x.sh \
-              --output /output/"1P1G" \
-              --dtype bfloat16 \
-              --batch-size 32 \
-              --epochs 7 \
-              --steps-per-epoch 100 &; \
-            CUDA_VISIBLE_DEVICES=1,2 test-t5x.sh \
-              --output /output/"1P2G" \
-              --dtype bfloat16 \
-              --batch-size 64 \
-              --epochs 7 \
-              --steps-per-epoch 100 &; \
-            CUDA_VISIBLE_DEVICES=4,5,6,7 test-t5x.sh \
-              --output /output/"1P4G" \
-              --dtype bfloat16 \
-              --batch-size 128 \
-              --epochs 7 \
-              --steps-per-epoch 100; \
-            wait
+            --container-entrypoint bash -ec \
+            "CUDA_VISIBLE_DEVICES=0 test-t5x.sh
+              --output /output/"1P1G"
+              --dtype bfloat16
+              --batch-size 32
+              --epochs 7
+              --steps-per-epoch 100 &
+            CUDA_VISIBLE_DEVICES=1,2 test-t5x.sh
+              --output /output/"1P2G"
+              --dtype bfloat16
+              --batch-size 64
+              --epochs 7
+              --steps-per-epoch 100 &
+            CUDA_VISIBLE_DEVICES=4,5,6,7 test-t5x.sh
+              --output /output/"1P4G"
+              --dtype bfloat16
+              --batch-size 128
+              --epochs 7 
+              --steps-per-epoch 100;
+            wait"
           EOF
           )
           
