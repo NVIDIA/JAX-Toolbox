@@ -4,6 +4,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  slurm-runner:
+    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+    with:
+      NAME: "A100"
+      LABELS: "A100,${{ github.run_id }}"
+      TIME: "01:00:00"
+    secrets: inherit
+
+
   test-upstream-t5x:
     uses: ./.github/workflows/_test_upstream_t5x.yaml
     with:
