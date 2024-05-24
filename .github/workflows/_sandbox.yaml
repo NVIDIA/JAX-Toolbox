@@ -24,8 +24,10 @@ jobs:
           n_gpus=(${{ join(matrix.N_GPU, ' ') }})
           test_names=(${{ join(matrix.TEST_NAME, ' ') }})
           test_count=${#test_names[@]}
+          additional_args=(${{ join(matrix.ADDITIONAL_ARGS, ' ') }})
           for idx in $(seq 0 $((test_count-1))); do
             n_gpu=n_gpus[$idx]
+            additional_arg=additional_args[$idx]
             if [[ $((cuda_start_idx+n_gpu)) -gt $MAX_GPUS_PER_NODE ]]; then
                 SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
                 cuda_start_idx=0
@@ -41,7 +43,7 @@ jobs:
               --batch-size ${BATCH_SIZE} \
               --epochs 7 \
               --steps-per-epoch 100 \
-              ${{ matrix.ADDITIONAL_ARGS }} | tee /output/$test_name/${test_name}.log &"
+              ${additional_arg} | tee /output/$test_name/${test_name}.log &"
             cuda_start_idx=$((cuda_end_idx+1))
           done
           SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
