@@ -80,9 +80,28 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ join(matrix.TEST_NAME, '-') }}
           JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
-          for var in IMAGE TEST_CASE_NAME JOB_NAME; do
+          idx=0
+          cuda_start_idx=0
+          cuda_end_idx=0
+          MAX_GPUS_PER_NODE=8
+          for test in ${{ join(matrix.TEST_NAME,' ') }}; do
+            n_gpus = ${{ matrix.N_GPU[$idx] }}
+            cuda_end_idx=$(())
+            cuda_visible_devices=$(seq)
+            SLURM_SCRIPT="$SLURM_SCRIPT "
+            if [[ $cuda_start_idx > $MAX_GPUS_PER_NODE ]]; then
+              echo "CUDA GPU idx is greater than number of available GPUs"
+              exit 1
+            end
+            ((idx++))
+          done
+
+          for var in IMAGE TEST_CASE_NAME JOB_NAME SLURM_SCRIPT; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
+          
+
+          
 
       - name: Submit SLURM jobs over SSH
         id: submit
