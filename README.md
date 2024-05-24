@@ -282,7 +282,7 @@ We currently support the following frameworks and models. More details about eac
 | [T5X](./rosetta/rosetta/projects/t5x) | T5 | pre-training, fine-tuning | `nvcr.io/nvidia/jax:23.10-paxml-py3` |
 | [T5X](./rosetta/rosetta/projects/vit) | ViT | pre-training, fine-tuning | `ghcr.io/nvidia/t5x:vit-2023-07-21` |
 | [T5X](./rosetta/rosetta/projects/imagen) | Imagen | pre-training | `ghcr.io/nvidia/t5x:imagen-2023-10-02` |
-| [Big Vision](./rosetta/rosetta/projects/paligemma) | PaliGemma | fine-tuning | `ghcr.io/nvidia/jax:gemma` |
+| [Big Vision](./rosetta/rosetta/projects/paligemma) | PaliGemma | fine-tuning, evaluation | `ghcr.io/nvidia/jax:gemma` |
 | levanter | GPT, LLaMA, MPT, Backpacks | pretraining, fine-tuning | `ghcr.io/nvidia/jax:levanter-2024-04-16` |
 | maxtext| LLaMA, Gemma | pretraining | `nvcr.io/nvidia/jax:24.04-maxtext-py3` |
 
