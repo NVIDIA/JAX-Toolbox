@@ -23,6 +23,6 @@ jobs:
     steps:
       - name: Check concatination
         run: |
-          TEST_CASE_NAME=$(IFS=_ ; echo "${{ matrix.TEST_NAME }}[*]")
+          TEST_CASE_NAME=$(IFS=_ ; echo "${{ matrix.TEST_NAME[*] }}")
           echo $TEST_CASE_NAME
 
