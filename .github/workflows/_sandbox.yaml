@@ -4,53 +4,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  t5x-multi-gpu:
-    strategy:
-      matrix:
-        include:
-          - TEST_NAME: ["1P1G", "1P2G", "1P4G", "1G1N", "1P8G", "1P1G_fmha", "1P2G_fmha",  "2G1N", "4G1N", "8G1N"]
-            N_GPU: [1, 2, 4, 1, 8, 1, 2, 2, 4, 8]
-      fail-fast: false
-
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Check concatination
-        run: |
-          cuda_start_idx=0
-          cuda_end_idx=0
-          MAX_GPUS_PER_NODE=8
-          n_gpus=(${{ join(matrix.N_GPU, ' ') }})
-          test_names=(${{ join(matrix.TEST_NAME, ' ') }})
-          test_count=${#test_names[@]}
-          additional_args=(${{ join(matrix.ADDITIONAL_ARGS, ' ') }})
-          for idx in $(seq 0 $((test_count-1))); do
-            n_gpu=n_gpus[$idx]
-            if [[ $((cuda_start_idx+n_gpu)) -gt $MAX_GPUS_PER_NODE ]]; then
-                SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
-                cuda_start_idx=0
-            fi
-            cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
-            visible_devices=$(seq -s ',' $cuda_start_idx $cuda_end_idx)
-            test_name=${test_names[$idx]}
-            if [[ $test_name == *"fmha"* ]]; then
-                additional_arg="--enable-fmha 1"
-            elif [[ $test_name == *"G1N"* ]]; then
-                additional_arg="--multiprocess"
-            else
-              additional_arg=""
-            fi
-            BATCH_SIZE=$((32 * $n_gpu))
-            SLURM_SCRIPT="$SLURM_SCRIPT 
-              CUDA_VISIBLE_DEVICES=${visible_devices} test-t5x.sh \
-              --output /output/${test_name} \
-              --dtype bfloat16 \
-              --batch-size ${BATCH_SIZE} \
-              --epochs 7 \
-              --steps-per-epoch 100 \
-              ${additional_arg} | tee /output/$test_name/${test_name}.log &"
-            cuda_start_idx=$((cuda_end_idx+1))
-          done
-          SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
-          echo $SLURM_SCRIPT
+  test-upstream-t5x:
+    uses: ./.github/workflows/_test_upstream_t5x.yaml
+    with:
+      T5X_IMAGE: ghcr.io/nvidia/jax:upstream-t5x
+    secrets: inherit
           
