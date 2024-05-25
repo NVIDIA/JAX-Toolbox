@@ -86,6 +86,7 @@ jobs:
           IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ join(matrix.TEST_NAME, '-') }}
           JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          MODEL_PATH=/nfs/cluster/${JOB_NAME}
           cuda_start_idx=0
           cuda_end_idx=0
           MAX_GPUS_PER_NODE=8
@@ -122,7 +123,7 @@ jobs:
           SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
           echo $SLURM_SCRIPT
 
-          for var in IMAGE TEST_CASE_NAME JOB_NAME SLURM_SCRIPT; do
+          for var in IMAGE TEST_CASE_NAME JOB_NAME MODEL_PATH SLURM_SCRIPT; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
