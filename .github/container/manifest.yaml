@@ -176,7 +176,7 @@ panopticapi:
   latest_verified_commit: a698a12deb21e4cf0f99ef0581b2c30c466bf355
   mode: git-clone
 orbax-checkpoint:
-  url: https://github.com/google/orbax/#subdirectory=checkpoint
+  url: https://github.com/google/orbax.git
   tracking_ref: main
   latest_verified_commit: 16c2d409e365576284dbaf190ac002b24c1f927f
   mode: pip-vcs
