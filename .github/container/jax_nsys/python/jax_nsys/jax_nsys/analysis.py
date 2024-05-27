@@ -1,8 +1,133 @@
 from collections import defaultdict
+import functools
+import math
 import numpy as np
 import pandas as pd
 
+from .protobuf import xla_module_metadata
 from .utils import make_child_mask
+
+
+def element_type_in_bits(element_type: int) -> int:
+    """
+    Given an int representing an XLA PrimitiveType enum value, return the width of that
+    type in bits.
+    """
+    from xla.xla_data_pb2 import PrimitiveType
+
+    enum_name = PrimitiveType.Name(element_type)
+    if enum_name == "PRED":
+        # Based on
+        # https://github.com/openxla/xla/blob/664a36a2b5e5be9179c5841830da56799b6dfe60/xla/service/gpu/runtime/nccl_api.cc#L116-L118
+        return 8
+
+    # S32 is a 32-bit type and so on.
+    # FIXME: does not handle FP8 yet
+    for prefix in ["BF", "C", "F", "S", "U"]:
+        if enum_name.startswith(prefix):
+            return int(enum_name[len(prefix) :])
+    raise Exception(f"Could not deduce size of {enum_name}")
+
+
+@functools.lru_cache
+def get_message_size(program_id: int, instruction: str) -> int:
+    """
+    Given the name of a collective instruction (e.g. all-gather-start.N), calculate the
+    message size in bytes. See https://openxla.org/xla/operation_semantics#allgather,
+    https://openxla.org/xla/operation_semantics#allreduce and so on for more explanation
+    of the semantics. This implementation aims to follow the same conventions that NCCL
+    uses in its NVTX payloads and tests.
+    """
+    module_proto = xla_module_metadata(program_id)
+    _, inst = module_proto.find_instruction(instruction)
+    assert inst.opcode in {
+        "all-gather-start",
+        "all-reduce-start",
+        "collective-broadcast",
+        "collective-permute-start",
+        "reduce-scatter",
+    }, f"{instruction}: message size calculation for {inst.opcode} has not yet been validated"
+    if inst.opcode == "collective-permute-start":
+        # See https://openxla.org/xla/operation_semantics#collectivepermute, which
+        # generates pair-wise send+recv between devices
+        collective_size = 2
+    else:
+        # replica_groups is something like {{0,1},{4,5},{2,3},{6,7}}, if there are 8
+        # devices that are doing pair-wise collectives
+        collective_sizes = tuple(
+            {len(group.replica_ids) for group in inst.replica_groups}
+        )
+        assert (
+            len(collective_sizes) == 1
+        ), f"Heterogeneous collective {inst.replica_groups} could not be interpreted"
+        collective_size = collective_sizes[0]
+    total_msg_size = 0
+    for operand_id in inst.operand_ids:
+        _, operand = module_proto.find_instruction_by_id(operand_id)
+        msg_size_bits = math.prod(
+            operand.shape.dimensions,
+            start=element_type_in_bits(operand.shape.element_type),
+        )
+        if inst.opcode == "reduce-scatter":
+            # NCCL's convention is that the message size of a reduce-scatter is the size of output buffer:
+            # https://github.com/NVIDIA/nccl/blob/ab2b89c4c339bd7f816fbc114a4b05d386b66290/src/collectives.cc#L122
+            assert msg_size_bits % collective_size == 0
+            msg_size_bits //= collective_size
+        assert msg_size_bits % 8 == 0
+        total_msg_size += msg_size_bits // 8
+
+    # Calculate the correction factor from algorithm bandwidth to bus bandwidth, see:
+    # https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bus-bandwidth
+    collective = inst.opcode.removesuffix("-start")
+    bw_correction, bus_correction = {
+        # For AllGather the size in the bandwidth calculation is the total/output size
+        # https://github.com/NVIDIA/nccl-tests/blob/c6afef0b6f76ffc55d4172d971be6cf5a08a73a4/doc/PERFORMANCE.md#allgather
+        "all-gather": (collective_size, (collective_size - 1) / collective_size),
+        "all-reduce": (1, 2 * (collective_size - 1) / collective_size),
+        "collective-broadcast": (1, 1),
+        "collective-permute": (1, 1),
+        # For ReduceScatter the size in the bandwidth calculation is the total size
+        # https://github.com/NVIDIA/nccl-tests/blob/c6afef0b6f76ffc55d4172d971be6cf5a08a73a4/doc/PERFORMANCE.md#reducescatter
+        "reduce-scatter": (collective_size, (collective_size - 1) / collective_size),
+    }[collective]
+    return pd.Series(
+        [total_msg_size, collective, collective_size, bw_correction, bus_correction],
+        index=[
+            "MessageSize",
+            "Collective",
+            "CollectiveSize",
+            "BandwidthCorrection",
+            "BusBandwidthCorrection",
+        ],
+    )
+
+
+def calculate_collective_metrics(thunk_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Given a "thunk" data frame from `load_profiler_data`, produce a new data frame that
+    contains one row per communication thunk and contains extra metrics such as the
+    message size, algorithm bandwidth, bus bandwidth, and collective operation.
+    """
+    comm_df = thunk_df[thunk_df["Communication"]].drop(columns=["Communication"])
+    comm_df = pd.concat(
+        [
+            comm_df,
+            comm_df.apply(
+                lambda row: get_message_size(row.ProgramId, row.Name), axis=1
+            ),
+        ],
+        axis=1,
+    )
+    # Note that this is decimal GB not binary GiB; GB/s == B/ns
+    comm_df["AlgorithmBandwidthGBPerSec"] = (
+        comm_df["BandwidthCorrection"]
+        * comm_df["MessageSize"]
+        / (comm_df["ProjDurNs"] + comm_df["ProjDurHiddenNs"])
+    )
+    comm_df["BusBandwidthGBPerSec"] = (
+        comm_df["AlgorithmBandwidthGBPerSec"] * comm_df["BusBandwidthCorrection"]
+    )
+    return comm_df.drop(columns=["BandwidthCorrection", "BusBandwidthCorrection"])
 
 
 def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:

@@ -5,6 +5,7 @@ import pathlib
 import re
 
 from .protobuf import xla_module_metadata
+from .utils import make_child_mask
 
 
 def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFrame:
@@ -30,6 +31,7 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
         return hlo_inst.channel_id != 0
 
     thunk_df["Communication"] = thunk_df.apply(is_communication, axis=1)
+    thunk_df["ProjDurHiddenNs"] = 0.0
     # For convenience when calculating unhidden comms
     thunk_df["ProjEndNs"] = thunk_df["ProjStartNs"] + thunk_df["ProjDurNs"]
 
@@ -61,6 +63,7 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
             # time that is not hidden.
             unhidden_comm_time = comm_thunk.ProjDurNs - compute_time
             thunk_df.loc[comm_thunk.Index, "ProjDurNs"] = unhidden_comm_time
+            thunk_df.loc[comm_thunk.Index, "ProjDurHiddenNs"] = compute_time
 
     return thunk_df.drop(columns=["ProjEndNs"])
 
@@ -318,7 +321,7 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]):
             assert worker_range.Name.startswith("TSL:Xla")
             # Find the deepest still-open range in the main thread
             mask = (
-                compile_df["RangeStack"].str.startswith(f":{compile_range.Index}:")
+                make_child_mask(compile_df, compile_range.Index)
                 & (compile_df["StartNs"] < worker_range.StartNs)
                 & (compile_df["EndNs"] > worker_range.EndNs)
                 & (compile_df["TID"] == compile_range.TID)
@@ -331,7 +334,7 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]):
             compile_df.loc[new_parent_index, "NumChild"] += 1
             range_stack_prefix = compile_df.loc[new_parent_index, "RangeStack"]
             # Get a mask for this worker range and all its children
-            mask = compile_df["RangeStack"].str.startswith(f":{worker_range.Index}:")
+            mask = make_child_mask(compile_df, worker_range.Index)
             mask.loc[worker_range.Index] = True
             # prefix RangeStack values with `range_stack_prefix`
             compile_df.loc[mask, "RangeStack"] = compile_df.loc[
@@ -346,9 +349,8 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]):
     # TODO: update the DurChildNs and DurNonChildNs values for `new_parent_ranges` to avoid double-counting
     # Mask out anything that's not descended from XlaCompile now
     compile_related_mask = compile_mask
-    for compile_range in compile_df[compile_mask].itertuples():
-        mask = compile_df["RangeStack"].str.startswith(f":{compile_range.Index}:")
-        compile_related_mask |= mask
+    for compile_range_index in compile_mask[compile_mask].index:
+        compile_related_mask |= make_child_mask(compile_df, compile_range_index)
     compile_df = compile_df[compile_related_mask]
     # Fill in all the missing ProgramId and ProgramName values by navigating up
     # to the closest ancestor range that has them set.
