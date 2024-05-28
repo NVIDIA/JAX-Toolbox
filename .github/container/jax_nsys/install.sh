@@ -13,8 +13,8 @@
 SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 VIRTUALENV="${SCRIPT_DIR}/nsys_jax_venv"
 if [[ ! -d "${VIRTUALENV}" ]]; then
-  # Let `virtualenv` find/choose a Python
-  virtualenv "$@" "${VIRTUALENV}"
+  # Let `virtualenv` find/choose a Python. Currently >=3.10 is supported.
+  virtualenv -p 3.12 -p 3.11 -p 3.10 "$@" "${VIRTUALENV}"
   . "${VIRTUALENV}/bin/activate"
   python -m pip install -U pip
   "${SCRIPT_DIR}/nsys-jax-ensure-protobuf"
