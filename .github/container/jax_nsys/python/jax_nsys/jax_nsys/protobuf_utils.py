@@ -22,10 +22,13 @@ def which(executable: str) -> pathlib.Path:
         venv_bin = os.path.join(sys.prefix, "bin")
         if venv_bin not in path:
             path.insert(0, venv_bin)
-    return shutil.which(executable, path=":".join(path))
+    exe = shutil.which(executable, path=":".join(path))
+    if exe is None:
+        raise Exception(f"Did not find {executable} in PATH")
+    return pathlib.Path(exe)
 
 
-def compile_protos(proto_dir: pathlib.Path, output_dir: pathlib.Path):
+def compile_protos(proto_dir: str | pathlib.Path, output_dir: str | pathlib.Path):
     if not os.path.isdir(proto_dir):
         raise Exception(f"Input: {proto_dir} is not a directory")
     if not os.path.isdir(output_dir):
@@ -36,7 +39,6 @@ def compile_protos(proto_dir: pathlib.Path, output_dir: pathlib.Path):
         raise Exception(f"Did not find any .proto files under {proto_dir}")
     protoc = which("protoc")
     # Generate code to load the protobuf files
-    subprocess.run(
-        [protoc, f"-I={proto_dir}", f"--python_out={output_dir}"] + proto_files,
-        check=True,
-    )
+    args: list[str | pathlib.Path] = [protoc, f"-I={proto_dir}", f"--python_out={output_dir}"]
+    args += proto_files
+    subprocess.run(args, check=True)
