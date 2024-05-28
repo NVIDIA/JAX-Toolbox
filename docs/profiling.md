@@ -197,10 +197,7 @@ It is usually a good idea to set the profile names to something meaningful using
 `nsys-jax` will read the value of this option and save extra metadata under the same prefix, with the restriction that
 only `%q{ENV_VAR}` expansions are supported. An example when using the Slurm job orchestrator is:
 `nsys-jax -o /out/job%q{SLURM_JOB_ID}/step%q{SLURM_STEP_ID}/rank%q{SLURM_PROCID} -- python my_program.py`
-which will result in an output structure:
-- `/out/job42/step7/rank0.nsys-rep`: the regular Nsight Systems report file
-- `/out/job42/step7/rank0.zip`: archive produced by `nsys-jax`; copy this for offline analysis
-- `/out/job42/step7/rank0/`: prefix for extra metadata files, the archive contains the most relevant parts of this
+which will result in an output archive `/out/job42/step7/rank0.zip` that contains `rank0.nsys-rep` and other metadata.
 
 As well as running `nsys profile`, this automatically sets some configuration variables mentioned above, such as
 `JAX_TRACEBACK_IN_LOCATIONS_LIMIT`, and sets XLA flags requesting that metadata be saved in Protobuf format.
@@ -222,7 +219,8 @@ After collecting the Nsight Systems profile, `nsys-jax` triggers two extra proce
 - the metadata dumped by XLA is scanned for references to Python source code files -- i.e. your JAX program and the
   Python libraries on which it depends. Those files are copied to the output archive.
 
-Finally, a compressed `.zip` archive is generated.
+Finally, a compressed `.zip` archive is generated. The post-processing uses a local, temporary directory. Only the
+final archive is written to the given output location, which is likely to be on slower, shared storage.
 
 ### Offline analysis
 Copy an `nsys-jax` archive to an interactive system, and extract it. At the top level, there is an `install.sh` script
