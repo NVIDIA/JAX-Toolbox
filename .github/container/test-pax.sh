@@ -22,11 +22,9 @@ usage() {
     echo "  --evaluate                 Whether to test evaluation rather than training."
     echo "  -s, --steps                Number of steps to run, defaults to 500."
     echo "  --multiprocess             Enable the multiprocess GPU mode."
+    echo "  --ici                      ICI mesh shape."
+    echo "  --dcn                      DCN mesh shape."
     echo "  -o, --output NAME          Name for the output folder, a temporary folder will be created if none specified."
-    echo "  --data-parallel            Data parallelism to use. Defaults to 1."
-    echo "  --fsdp                     Fully-sharded data parallelism to use. Defaults to 1."
-    echo "  --tensor-parallel          Tensor parallelism to use. Defaults to 1."
-    echo "  --pipeline-parallel        Pipeline parallelism to use. Defaults to 1 for no pipelining." 
     echo "  -n, --nodes                Number of nodes."
     echo "  -h, --help                 Print usage."
     exit $1
@@ -44,10 +42,8 @@ OUTPUT=$(mktemp -d)
 BATCH_PER_GPU=4
 DTYPE="bfloat16"
 STEPS=500
-DP=1
-FSDP=1
-TP=1
-PP=1
+ICI="[1,1,1]"
+DCN="[1,1,1]"
 NODES=1
 ENABLE_TE=0
 MODEL_TYPE=126M
@@ -103,20 +99,12 @@ while [ : ]; do
             OUTPUT=$2
             shift 2
             ;;
-        --data-parallel)
-            DP="$2"
+        --ici)
+            ICI="$2"
             shift 2
             ;;
-        --fsdp)
-            FSDP="$2"
-            shift 2
-            ;;
-        --tensor-parallel)
-            TP="$2"
-            shift 2
-            ;;
-        --pipeline-parallel)
-            PP="$2"
+        --dcn)
+            DCN="$2"
             shift 2
             ;;
         -n | --nodes)
@@ -152,10 +140,8 @@ print_var ENABLE_TE
 print_var NVTE_FUSED_ATTN
 print_var EVALUATE
 print_var DROPOUT
-print_var DP
-print_var FSDP
-print_var TP
-print_var PP
+print_var ICI
+print_var DCN
 
 PAXML_DIR=$(dirname `python -c 'import paxml; print(*paxml.__path__)'`)
 pushd ${PAXML_DIR}
@@ -174,16 +160,7 @@ from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
 from praxis import base_layer
 from praxis import layers
 
-dp = ${DP}
-fsdp = ${FSDP}
-tp = ${TP}
-pp = ${PP}
-num_gpus = ${NGPUS}
-percore_batch_size = ${BATCH_PER_GPU}
-dtype = "${DTYPE}"
-dropout = float(${DROPOUT})
-
-assert num_gpus == dp*fsdp*tp*pp, f'product of parallel strategies should equal number of available gpus. Have {num_gpus} gpus, but product of parallel strategies is {dp*fsdp*tp*pp}'
+assert num_gpus == np.prod(${ICI}) * np.prod(${DCN}), f'product of parallel strategies should equal number of available gpus. Have {num_gpus} gpus, but product of parallel strategies is {np.prod(${ICI}) * np.prod(${DCN})}'
 
 ## heuristics to get ici and dcn mesh shapes.
 ## these heuristics only support one parallel strategy across nodes
@@ -301,11 +278,6 @@ class LLaMA70BSyntheticSmall(BaseLLaMA, SyntheticDataset):
     USE_MQA = True
     NUM_KV_HEADS = 8
 
-    PERCORE_BATCH_SIZE = 4
-
-    ICI_MESH_SHAPE = [1, 8, 1]
-    DCN_MESH_SHAPE = [1, 1, 1]
-
     def task(self):
       task_p = super().task()
       task_p.train.always_use_train_for_model_init=False
@@ -317,11 +289,8 @@ if pp > 1:
   @experiment_registry.register
   class Synthetic126MCI(GPT126MPP, SyntheticDataset):
     
-    ICI_MESH_SHAPE = [pp, dp, fsdp, tp]
-    DCN_MESH_SHAPE = [dcn_pp, dcn_dp, dcn_fsdp, 1]
     MICROBATCH_SIZE = 2
     NUM_STAGES = pp
-    PERCORE_BATCH_SIZE = percore_batch_size
     FRPOP_DTYPE = dtype
     
     def task(self):
@@ -334,9 +303,6 @@ else:
   @experiment_registry.register
   class Synthetic126MCI(Synthetic126M):
     
-    ICI_MESH_SHAPE = [dp, fsdp, tp]
-    DCN_MESH_SHAPE = [dcn_dp, dcn_fsdp, 1]
-    PERCORE_BATCH_SIZE = percore_batch_size
     FRPOP_DTYPE = dtype
 
     DROPOUT_PROB = dropout
@@ -378,52 +344,41 @@ if [[ ${MODEL_TYPE} == "126M" ]]; then
   CONFIG=ci_configs.Synthetic126MCI
 elif [[ ${MODEL_TYPE} == "5B" ]]; then
   CONFIG=paxml.contrib.gpu.scripts_gpu.configs.Synthetic5B
-  ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU}"
 elif [[ ${MODEL_TYPE} == "LLaMA70BProxy" ]]; then
   CONFIG=ci_configs.LLaMA70BSyntheticSmall
-  ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1] --fdl.ICI_MESH_SHAPE=[${DP},${FSDP},${TP}] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU}"
 ## hard-code ICI mesh shape for Grok
 elif [[ ${MODEL_TYPE} == "GrokProxy" ]]; then
   CONFIG=paxml.tasks.lm.params.nvidia.Grok_Proxy
-  ADDITIONAL_ARGS="--fdl.DCN_MESH_SHAPE=[1,${NODES},1,1] --fdl.ICI_MESH_SHAPE=[1,1,8,1] ${ADDITIONAL_ARGS} --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU} --fdl.NUM_LAYERS=2"
+  ADDITIONAL_ARGS="--fdl.NUM_LAYERS=2"
 else
   echo "Unsupported model ${MODEL_TYPE}"
   exit 1
 fi
+
+CMD_LINE_FLAGS = "--fdl_config=${CONFIG} \
+    --fdl.MAX_STEPS=0 \
+    --job_log_dir=${OUTPUT} \
+    --alsologtostderr \
+    --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU} \
+    --fdl.ICI_MESH_SHAPE=${ICI} \
+    --fdl.DCN_MESH_SHAPE=${DCN} \
+    $ADDITIONAL_ARGS \
+    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)"
 
 if [[ ${EVALUATE} -ne 0 ]]; then
 
   trap "rm -rf ${OUTPUT}/checkpoints" ERR INT HUP TERM EXIT
 
   ## train for 0 steps to generate an initial checkpoint
-  python -m paxml.main \
-    --fdl_config=${CONFIG} \
-    --fdl.MAX_STEPS=0 \
-    --job_log_dir=${OUTPUT} \
-    --alsologtostderr \
-    $ADDITIONAL_ARGS \
-    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
+  python -m paxml.main ${CMD_LINE_FLAGS}
 
   ## restore from initial checkpoint for eval
-  python -m paxml.main \
-    --fdl_config=${CONFIG} \
-    --job_log_dir=${OUTPUT} \
-    --mode='eval' \
-    --fdl.MAX_STEPS=0 \
-    --alsologtostderr \
-    --enable_checkpoint_saving=False \
-    $ADDITIONAL_ARGS \
-    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
+  python -m paxml.main ${CMD_LINE_FLAGS} \
+    --enable_checkpoint_saving=False
 
 else
-  python -m paxml.main \
-    --fdl_config=${CONFIG} \
-    --job_log_dir=${OUTPUT} \
-    --alsologtostderr \
-    --fdl.MAX_STEPS=${STEPS} \
-    --enable_checkpoint_saving=False \
-    $ADDITIONAL_ARGS \
-    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
+  python -m paxml.main ${CMD_LINE_FLAGS} \
+    --enable_checkpoint_saving=False
 fi
 
 set +x
