@@ -195,7 +195,7 @@ def sample(
   sampled_ctr = 0
   rng = jax.random.PRNGKey(0)
   for start_idx in range(resume_from, max_images, batch_size // gen_per_prompt):
-      if start_idx > prompt_ct:
+      if start_idx >= prompt_ct:
           break
       prompt_batch = prompts[start_idx: start_idx + (batch_size // gen_per_prompt)] * gen_per_prompt
       rng, rng_base, rng_sr, rng_sr2, rng_aug = jax.random.split(rng, 5)
