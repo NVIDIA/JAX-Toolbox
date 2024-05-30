@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 CFG=${CFG:=2}
+GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-4}
+GEN_PER_PROMPT=${GEN_PER_PROMPT:-1}
 BASE_PATH=${BASE_PATH:=\"/opt/rosetta/runs/imagen_base/checkpoint_5000\"}
 SR1_PATH=${SR1_PATH:=\"/opt/rosetta/runs/efficient_sr1/checkpoint_5000\"}
 PROMPT_TEXT_FILE=${PROMPT_TEXT_FILE:=\"/opt/rosetta/rosetta/projects/diffusion/tests/custom_eval_prompts/custom_eval_prompts.txt\"}
@@ -25,7 +27,7 @@ python /opt/rosetta/rosetta/projects/imagen/imagen_pipe.py \
     --gin.T5_CHECKPOINT_PATH="\"/opt/rosetta/rosetta/projects/inference_serving/checkpoints/checkpoint_1000000_t5_1_1_xxl\"" \
     --gin.base_model/samplers.CFGSamplingConfig.cf_guidance_weight=${CFG} \
     --gin.PROMPT_TEXT_FILE=${PROMPT_TEXT_FILE}\
-    --gin.GLOBAL_BATCH_SIZE=4 \
+    --gin.GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE} \
     --gin.SAVE_DIR="\"generations/generations-${CFG}\"" \
-    --gin.GEN_PER_PROMPT=1 \
+    --gin.GEN_PER_PROMPT=${GEN_PER_PROMPT} \
     --gin.RESUME_FROM=0
