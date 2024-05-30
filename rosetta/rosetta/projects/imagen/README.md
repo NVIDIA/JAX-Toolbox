@@ -17,7 +17,7 @@ For maximum flexibility and low disk requirements, this repo supports a **distri
 We provide [scripts](scripts) to run [interactively](scripts/singlenode_inf_train.sh) or on [SLURM](scripts/example_slurm_inf_train.sub).
 
 ### Container
-We provide a fully built and ready-to-use container here: `ghcr.io/nvidia/t5x:imagen-2023-10-02`.
+We provide a fully built and ready-to-use container here: `ghcr.io/nvidia/t5x:imagen-2023-10-02.v2`.
 
 We do not currently have custom-built container workflows, but are actively working on supporting this, stay tuned for updates!
 Imagen will also be available in our T5x container in future releases.
