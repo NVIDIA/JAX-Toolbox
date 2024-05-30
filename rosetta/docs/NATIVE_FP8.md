@@ -134,34 +134,53 @@ Please ensure you include the first two flags, `--xla_gpu_enable_reduction_epilo
 The specific graph pattern that XLA supports for FP8 matmul is illustrated below:
 
 ```
-convert -> multiply -> (x) -> dot
-  bcast ->
+  convert -> multiply -> (x) -> dot
+broadcast ->
+
+# or
+
+  convert -> (x) -> dot
 ```
 
 XLA will pattern match the above and rewrite it to FP8 matmul when:
-1. `convert`: supports `f8` to [`bf16`|`f16`|`f32`].
-2. `bcast`: broadcasts a [`bf16`|`f16`|`f32`] scalar.
-3. `(x)`: an arbitrary number of allowed ops (e.g., all-gather, copy, bitcast...), the full list of which can be found [here](https://github.com/openxla/xla/blob/e4fc3298eefa91702f86068af45340cad78d0335/xla/service/gpu/gemm_rewriter.cc#L259-L265).
+1. `convert`: converts `f8` inputs to [`bf16`|`f16`|`f32`].
+2. `broadcast`: broadcasts a [`bf16`|`f16`|`f32`] scalar. The scalar will be used as the scaling factor of the inputs. Note, the `convert` and `broadcast` need to have the same output dtype. If `broadcast` (and `multiply`) is not provided, the scaling factor will be set to `1.`.
+3. `(x)`: an arbitrary number of these allowed ops:
 
-### Gradient accumulation of FP8 params
-FP8 params, also known as OWG params (or FP8 meta), may be shared across different iterations of a loop in the context of pipeline parallelism. During backpropagation, the autograd system accumulates their gradients from each iteration through the default addition operation. This is undesirable as addition is meaningless for FP8 params.
-
-To address this, we introduce a custom dtype wrapper `fm32` (means fp8 meta with the 32-bit physical size). It tells the autograd system to perform the max operation for gradient accumulation. This aligns with our expectations for FP8 params. The basic usage is demonstrated below:
-
-```python
-def outer_fn(scale_f32, ...):
-  # Convert fp8 meta f32->fm32 before the scan_loop
-  scale_fm32 = jax.lax.convert_element_type(scale_f32, fp8_ops.fm32)
-
-  def body_fn(carry, _):
-    # Can temperarily convert scale_fm32 back to f32 for general math operations
-    return carry, None
-
-  jax.lax.scan(body_fun, ..., length=3)
-  return ...
+```
+Bitcast, Broadcast, Copy, DynamicSlice, Pad, Reshape, Select, Slice, Transpose,
+AllGather, AllToAll, CollectivePermute
 ```
 
-In the example, we need to convert the FP8 params (e.g. the scale) from the original `f32` to `fm32` before launching the scan loop so that the autograd can apply the correct grad accumulation between loop iterations. Inside each iteration (i.e. `body_fn`), we can convert them from `fm32` to `f32` for general math operations (e.g. `mul`, `div`, etc.) and convert back to `fm32` at exit.
+### Gradient accumulation of FP8 params
+FP8 params, also known as `OverwriteWithGrad` params (or FP8 meta), may be shared across different iterations of a loop in the context of pipeline parallelism. During backpropagation, the autograd system accumulates their gradients from each iteration through the default addition operation. This is undesirable as addition is meaningless for FP8 params.
+
+To address this, we introduce a custom dtype wrapper `fp32_max_grad`. It tells the autograd system to perform the max operation for gradient accumulation. This aligns with our expectations for FP8 params. The basic usage is demonstrated below:
+
+```python
+from flax.linen import fp8_ops
+# ah and sf are short for amax history and scaling factor used as the FP8 params.
+f32 = jnp.float32
+fm32 = fp8_ops.fp32_max_grad
+def outer(x, ah_f32, sf_f32):
+  ah_fm32 = jax.lax.convert_element_type(ah_f32, fm32)
+  sf_fm32 = jax.lax.convert_element_type(sf_f32, fm32)
+  array_x = jnp.array([x], f32)
+  def body_fn(carry, _):
+    carry = fp8_ops.in_qdq(f32, carry, sf_fm32, ah_fm32)
+    return carry, None
+  array_x, _ = jax.lax.scan(body_fn, array_x, None, length=3)
+  return array_x[0]
+
+outer_fn = jax.grad(outer, (0, 1, 2))
+outer_fn = jax.jit(outer_fn)
+
+ah = jnp.array([0., 0., 0.], f32)
+sf = jnp.array([1.], f32)
+grads, new_ah, new_sf = outer_fn(2.0, ah, sf)
+```
+
+In the example, we convert the FP8 params from the original `f32` to `fp32_max_grad` before launching the scan loop so that the autograd can apply the correct grad accumulation between loop iterations. Inside each iteration (i.e. `body_fn`), we can operate them by, for example, calling `fp8_ops.in_qdq()` where internally they will be converted back to `f32` for general math operations (e.g. `mul`, `div`, etc.) and convert to `fp32_max_grad` at exit.
 
 ## Transformer Engine vs Native FP8 Support
 Native XLA-FP8 specifically targets matrix multiplication operations. In contrast, the Transformer Engine focuses on enhancing the overall performance of the entire transformer layer. This encompasses not only the FP8 matrix multiplication but also attention mechanisms, layer normalizations, and other components.
