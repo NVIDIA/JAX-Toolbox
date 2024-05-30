@@ -101,7 +101,7 @@ You can find example sampling scripts that use the 500M base model and Efficient
 #### Sampling 256x256 images
 Defaults to [imagen_256_sample.gin](configs/imagen_256_sample.gin) config (can be adjusted in script)
 ```
-CUDA_VISIBLE_DEVICES=<DEVICES> CFG=5.0 BASE_PATH=<BASE_CKPT> SR1_PATH=<SR1_CKPT> PROMPT_TEXT_FILES=<FILE> ./rosetta/projects/imagen/scripts/sample_imagen_256.sh 
+CUDA_VISIBLE_DEVICES=<DEVICES> CFG=5.0 GLOBAL_BATCH_SIZE=<GBS> GEN_PER_PROMPT=1 BASE_PATH=<BASE_CKPT> SR1_PATH=<SR1_CKPT> PROMPT_TEXT_FILES=<FILE> ./rosetta/projects/imagen/scripts/sample_imagen_256.sh 
 ```
 
 Here is an example:
@@ -109,13 +109,15 @@ Here is an example:
 # Note:
 #  - the quoting of double quotes wrapping single quotes is necessary.
 #  - BASE_PATH/SR1_PATH are checkpoint dirs, and are expected to contain a `checkpoint` file, e.g., the file $BASE_PATH/checkpoint should exist
-CUDA_VISIBLE_DEVICES=0,1 CFG=5.0 BASE_PATH='"/mnt/imagen_ckpt/checkpoint_585000"' SR1_PATH='"/mnt/sr1_ckpt/checkpoint_5000"' PROMPT_TEXT_FILES='"./rosetta/projects/diffusion/tests/custom_eval_prompts/custom_eval_prompts.txt"' ./rosetta/projects/imagen/scripts/sample_imagen_256.sh
+#  - GLOBAL_BATCH_SIZE should be set with number of GPUs in mind. For instance GLOBAL_BATCH_SIZE >= num gpus, 
+#    to ensure at least one example is sent to each GPU.
+CUDA_VISIBLE_DEVICES=0,1 CFG=5.0 GLOBAL_BATCH_SIZE=4 GEN_PER_PROMPT=1 BASE_PATH='"/mnt/imagen_ckpt/checkpoint_585000"' SR1_PATH='"/mnt/sr1_ckpt/checkpoint_5000"' PROMPT_TEXT_FILES='"./rosetta/projects/diffusion/tests/custom_eval_prompts/custom_eval_prompts.txt"' ./rosetta/projects/imagen/scripts/sample_imagen_256.sh
 ```
 
 #### Sampling 1024x1024 images
 Defaults to [imagen_1024_sample.gin](configs/imagen_1024_sample.gin) config (can be adjusted in script).
 ```
-CUDA_VISIBLE_DEVICES=<DEVICES> CFG=5.0 BASE_PATH=<BASE_CKPT> SR1_PATH=<SR1_CKPT> SR2_PATH=<SR2_CKPT> PROMPT_TEXT_FILES=<FILE> ./rosetta/projects/imagen/scripts/sample_imagen_1024.sh 
+CUDA_VISIBLE_DEVICES=<DEVICES> CFG=5.0 GLOBAL_BATCH_SIZE=<GBS> GEN_PER_PROMPT=1 BASE_PATH=<BASE_CKPT> SR1_PATH=<SR1_CKPT> SR2_PATH=<SR2_CKPT> PROMPT_TEXT_FILES=<FILE> ./rosetta/projects/imagen/scripts/sample_imagen_1024.sh 
 ```
 
 
