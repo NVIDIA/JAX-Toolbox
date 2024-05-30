@@ -263,7 +263,7 @@ We currently support the following frameworks and models. More details about eac
 | Framework | Supported Models | Use-cases | Container |
 | :--- | :---: | :---: | :---: |
 | [Paxml](rosetta/rosetta/projects/pax) | GPT, LLaMA, MoE | pretraining, fine-tuning, LoRA | `nvcr.io/nvidia/jax:24.04-paxml-py3` |
-| [T5X](rosetta/rosetta/projects/t5x) | T5 | pre-training, fine-tuning | `nvcr.io/nvidia/jax:23.10-paxml-py3` |
+| [T5X](rosetta/rosetta/projects/t5x) | T5 | pre-training, fine-tuning | `nvcr.io/nvidia/jax:23.10-t5x-py3` |
 | [T5X](rosetta/rosetta/projects/vit) | ViT | pre-training, fine-tuning | `ghcr.io/nvidia/t5x:vit-2023-07-21` |
 | [T5X](rosetta/rosetta/projects/imagen) | Imagen | pre-training | `ghcr.io/nvidia/t5x:imagen-2023-10-02` |
 | levanter | GPT, LLaMA, MPT, Backpacks | pretraining, fine-tuning | `ghcr.io/nvidia/jax:levanter-2024-04-16` |
