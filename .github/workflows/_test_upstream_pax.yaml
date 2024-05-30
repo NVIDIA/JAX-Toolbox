@@ -179,6 +179,7 @@ jobs:
   pax-multi-node:
     strategy:
       matrix:
+        include:
           - TEST_NAME: 1DP1FSDP1TP1PP
             ICI: [1, 1, 1]
             DCN: [1, 1, 1]
