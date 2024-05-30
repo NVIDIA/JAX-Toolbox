@@ -358,7 +358,7 @@ jobs:
               --batch-per-gpu ${{ matrix.BATCH_SIZE }} \
               --steps 300 \
               --ici ${{ matrix.ICI }} \
-              --dcn ${{ matric.DCN }} \
+              --dcn ${{ matrix.DCN }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               --enable-te \
               --additional-args "--fdl.PACKED_INPUT=False"  \
