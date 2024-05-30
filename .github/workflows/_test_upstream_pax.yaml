@@ -118,8 +118,8 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 500 \
-              --ici ${{ matrix.ICI }} \
-              --dcn ${{ matrix.DCN }} \
+              --ici "\"${{ matrix.ICI }}\"" \
+              --dcn "\"${{ matrix.DCN }}\"" \
               --nodes ${{ steps.meta.outputs.NODES }}
           EOF
           )
@@ -307,8 +307,8 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 500 \
-              --ici ${{ matrix.ICI }} \
-              --dcn ${{ matrix.DCN }} \
+              --ici "\"${{ matrix.ICI }}\"" \
+              --dcn "\"${{ matrix.DCN }}\"" \
               --nodes ${{ steps.meta.outputs.NODES }} \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ matrix.ADDITIONAL_ARGS }}
@@ -456,8 +456,8 @@ jobs:
               --batch-per-gpu 4 \
               --steps 500 \
               --evaluate \
-              --ici ${{ matrix.ICI }} \
-              --dcn ${{ matrix.DCN }} \
+              --ici "\"${{ matrix.ICI }}\"" \
+              --dcn "\"${{ matrix.DCN }}\"" \
               --nodes ${{ steps.meta.outputs.NODES }} \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
           EOF
