@@ -355,7 +355,7 @@ else
   exit 1
 fi
 
-CMD_LINE_FLAGS = "--fdl_config=${CONFIG} \
+CMD_LINE_FLAGS="--fdl_config=${CONFIG} \
     --fdl.MAX_STEPS=0 \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
