@@ -1,11 +1,13 @@
 import lzma
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 import pathlib
 import re
 
 from .protobuf import xla_module_metadata
 from .utils import make_child_mask
+
+pd.options.mode.copy_on_write = True
 
 
 def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFrame:

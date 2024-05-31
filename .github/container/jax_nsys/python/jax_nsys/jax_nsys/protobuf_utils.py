@@ -1,12 +1,12 @@
 # WARNING: it is tacitly assumed that the protobuf compiler (protoc) is
 # compatible with the google.protobuf version.
 import glob
-import google.protobuf
 import os
 import pathlib
 import shutil
 import subprocess
 import sys
+from typing import Optional
 
 
 def which(executable: str) -> pathlib.Path:
@@ -28,7 +28,11 @@ def which(executable: str) -> pathlib.Path:
     return pathlib.Path(exe)
 
 
-def compile_protos(proto_dir: str | pathlib.Path, output_dir: str | pathlib.Path):
+def compile_protos(
+    proto_dir: str | pathlib.Path,
+    output_dir: str | pathlib.Path,
+    output_stub_dir: Optional[str | pathlib.Path] = None,
+):
     if not os.path.isdir(proto_dir):
         raise Exception(f"Input: {proto_dir} is not a directory")
     if not os.path.isdir(output_dir):
@@ -39,6 +43,12 @@ def compile_protos(proto_dir: str | pathlib.Path, output_dir: str | pathlib.Path
         raise Exception(f"Did not find any .proto files under {proto_dir}")
     protoc = which("protoc")
     # Generate code to load the protobuf files
-    args: list[str | pathlib.Path] = [protoc, f"-I={proto_dir}", f"--python_out={output_dir}"]
+    args: list[str | pathlib.Path] = [
+        protoc,
+        f"-I={proto_dir}",
+        f"--python_out={output_dir}",
+    ]
+    if output_stub_dir is not None:
+        args.append(f"--pyi_out={output_stub_dir}")
     args += proto_files
     subprocess.run(args, check=True)

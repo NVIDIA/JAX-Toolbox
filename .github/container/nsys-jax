@@ -18,7 +18,7 @@ import zipfile
 
 
 # Expand %q{ENV_VAR} if the variable is defined.
-def expand(string, skip_missing=True):
+def expand(string: str, skip_missing=True) -> str:
     missing = set()
 
     def rep(x):
@@ -155,18 +155,18 @@ override_nsys_default("trace", "cublas,cuda,cudnn,cusolver,nvtx,osrt")
 # from arguments; need to propagate this to nsys recipe below.
 for n, flag in enumerate(nsys_flags):
     if flag in {"-f", "--force-overwrite"}:
-        nsys_force_overwrite = nsys_flags[n + 1]
+        nsys_force_overwrite_str = nsys_flags[n + 1]
         break
     elif flag.startswith("-f"):
-        nsys_force_overwrite = flag[2:]
+        nsys_force_overwrite_str = flag[2:]
         break
     elif flag.startswith("--force-overwrite="):
-        nsys_force_overwrite = flag[18:]
+        nsys_force_overwrite_str = flag[18:]
         break
 else:
-    nsys_force_overwrite = "false"
-assert nsys_force_overwrite in {"true", "false"}
-nsys_force_overwrite = nsys_force_overwrite == "true"
+    nsys_force_overwrite_str = "false"
+assert nsys_force_overwrite_str in {"true", "false"}
+nsys_force_overwrite = nsys_force_overwrite_str == "true"
 
 # Modified environment in which to run the application
 env = os.environ.copy()
@@ -246,7 +246,7 @@ if not osp.exists(tmp_rep):
 # Use deflate compression
 compress_deflate = {"compress_type": zipfile.ZIP_DEFLATED}
 # Do not compress (if the file is already compressed)
-compress_none = {}
+compress_none: dict[str, int] = {}
 
 
 def copy_proto_files_to_tmp(tmp_dir, xla_dir="/opt/xla"):
@@ -313,10 +313,7 @@ def run_nsys_stats_report(report, report_file, tmp_dir, output_queue, wait_on):
     Run a stats recipe on an .nsys-rep file (that has probably already been
     exported to .sqlite).
     """
-    try:
-        wait_on.result()
-    except:
-        raise Exception("Dependency raised exception")
+    wait_on.result()
     start = time.time()
     subprocess.run(
         [
@@ -477,7 +474,7 @@ def process_pb_and_proto_files(pb_future, proto_future, output_queue, futures):
 # - copy the contents of /opt/jax_nsys into the output archive
 
 # Element format: (path_in_archive, Path or bytes, ZipFile.write* kwargs)
-files_to_archive = queue.Queue()
+files_to_archive: queue.Queue = queue.Queue()
 
 
 @contextmanager
