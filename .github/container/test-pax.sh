@@ -356,7 +356,6 @@ else
 fi
 
 CMD_LINE_FLAGS="--fdl_config=${CONFIG} \
-    --fdl.MAX_STEPS=0 \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
     --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU} \
@@ -370,15 +369,13 @@ if [[ ${EVALUATE} -ne 0 ]]; then
   trap "rm -rf ${OUTPUT}/checkpoints" ERR INT HUP TERM EXIT
 
   ## train for 0 steps to generate an initial checkpoint
-  python -m paxml.main ${CMD_LINE_FLAGS}
+  python -m paxml.main ${CMD_LINE_FLAGS} --fdl.MAX_STEPS=0
 
   ## restore from initial checkpoint for eval
-  python -m paxml.main ${CMD_LINE_FLAGS} \
-    --enable_checkpoint_saving=False
+  python -m paxml.main ${CMD_LINE_FLAGS} --enable_checkpoint_saving=False
 
 else
-  python -m paxml.main ${CMD_LINE_FLAGS} \
-    --enable_checkpoint_saving=False
+  python -m paxml.main ${CMD_LINE_FLAGS} --enable_checkpoint_saving=False
 fi
 
 set +x
