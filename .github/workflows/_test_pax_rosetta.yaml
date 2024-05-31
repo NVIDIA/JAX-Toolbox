@@ -122,8 +122,8 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 500 \
-              --ici "\"${{ matrix.ICI }}\"" \
-              --dcn "\"${{ matrix.DCN }}\"" \
+              --ici "${{ matrix.ICI }}" \
+              --dcn "${{ matrix.DCN }}" \
               --nodes ${{ steps.meta.outputs.NODES }} \
               --enable-te
           EOF
@@ -357,8 +357,8 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu ${{ matrix.BATCH_SIZE }} \
               --steps 300 \
-              --ici "\"${{ matrix.ICI }}\"" \
-              --dcn "\"${{ matrix.DCN }}\"" \
+              --ici "${{ matrix.ICI }}" \
+              --dcn "${{ matrix.DCN }}" \
               --nodes ${{ steps.meta.outputs.NODES }} \
               --enable-te \
               --additional-args "--fdl.PACKED_INPUT=False"  \
@@ -569,8 +569,8 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 300 \
-              --ici "\"${{ matrix.ICI }}\"" \
-              --dcn "\"${{ matrix.DCN }}\"" \
+              --ici "${{ matrix.ICI }}" \
+              --dcn "${{ matrix.DCN }}" \
               --nodes ${{ steps.meta.outputs.NODES }} \
               ${{ matrix.ADDITIONAL_ARGS }} \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
@@ -763,8 +763,8 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 300 \
-              --ici "\"${{ matrix.ICI }}\"" \
-              --dcn "\"${{ matrix.DCN }}\"" \
+              --ici "${{ matrix.ICI }}" \
+              --dcn "${{ matrix.DCN }}" \
               --nodes ${{ steps.meta.outputs.NODES }} \
               --enable-dropout \
               --enable-te \
@@ -956,8 +956,8 @@ jobs:
               --batch-per-gpu 4 \
               --steps 500 \
               --evaluate \
-              --ici "\"${{ matrix.ICI }}\"" \
-              --dcn "\"${{ matrix.DCN }}\"" \
+              --ici "${{ matrix.ICI }}" \
+              --dcn "${{ matrix.DCN }}" \
               --nodes 1 \
               --enable-te
           EOF
