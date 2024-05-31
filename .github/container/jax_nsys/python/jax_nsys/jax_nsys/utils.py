@@ -1,5 +1,7 @@
-import pandas as pd
+import pandas as pd  # type: ignore
 from typing import Optional
+
+pd.options.mode.copy_on_write = True
 
 
 def make_child_mask(df: pd.DataFrame, parent_row: int) -> pd.Series:

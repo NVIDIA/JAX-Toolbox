@@ -2,10 +2,12 @@ from collections import defaultdict
 import functools
 import math
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 
 from .protobuf import xla_module_metadata
 from .utils import make_child_mask
+
+pd.options.mode.copy_on_write = True
 
 
 def element_type_in_bits(element_type: int) -> int:
@@ -40,13 +42,16 @@ def get_message_size(program_id: int, instruction: str) -> int:
     """
     module_proto = xla_module_metadata(program_id)
     _, inst = module_proto.find_instruction(instruction)
-    assert inst.opcode in {
-        "all-gather-start",
-        "all-reduce-start",
-        "collective-broadcast",
-        "collective-permute-start",
-        "reduce-scatter",
-    }, f"{instruction}: message size calculation for {inst.opcode} has not yet been validated"
+    assert (
+        inst.opcode
+        in {
+            "all-gather-start",
+            "all-reduce-start",
+            "collective-broadcast",
+            "collective-permute-start",
+            "reduce-scatter",
+        }
+    ), f"{instruction}: message size calculation for {inst.opcode} has not yet been validated"
     if inst.opcode == "collective-permute-start":
         # See https://openxla.org/xla/operation_semantics#collectivepermute, which
         # generates pair-wise send+recv between devices
@@ -153,7 +158,7 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
     main_thread = main_thread[0]
 
     # Aggregate compilation stats in here
-    compile_time_ns = defaultdict(lambda: np.zeros(2))
+    compile_time_ns: dict[str, np.ndarray] = defaultdict(lambda: np.zeros(2))
 
     # Identify the ranges in the main thread that represent parallel compilation, i.e.
     # ranges whose child ranges are in different threads.
