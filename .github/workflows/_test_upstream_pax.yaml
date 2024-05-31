@@ -35,11 +35,11 @@ jobs:
       matrix:
         include:
           - TEST_NAME: 8DP1FSDP1TP1PP_single_process
-            ICI: [8, 1, 1]
-            DCN: [1, 1, 1]
+            ICI: "[8, 1, 1]"
+            DCN: "[1, 1, 1]"
           - TEST_NAME: 1DP2FSDP4TP1PP_single_process
-            ICI: [8, 1, 1]
-            DCN: [1, 1, 1]
+            ICI: "[8, 1, 1]"
+            DCN: "[1, 1, 1]"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -71,7 +71,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.TEST_CASE_NAME }}
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           MAX_GPUS_PER_NODE=8
           NODES=1
           GPUS_PER_NODE=8
@@ -181,49 +181,49 @@ jobs:
       matrix:
         include:
           - TEST_NAME: 1DP1FSDP1TP1PP
-            ICI: [1, 1, 1]
-            DCN: [1, 1, 1]
+            ICI: "[1, 1, 1]"
+            DCN: "[1, 1, 1]"
             TASKS: 1
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 8DP1FSDP1TP1PP
-            ICI: [8, 1, 1]
-            DCN: [1, 1, 1]
+            ICI: "[8, 1, 1]"
+            DCN: "[1, 1, 1]"
             TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 1DP8FSDP1TP1PP
-            ICI: [1, 8, 1]
-            DCN: [1, 1, 1]
+            ICI: "[1, 8, 1]"
+            DCN: "[1, 1, 1]"
             TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 2DP1FSDP1TP4PP
-            ICI: [4, 2, 1, 1]
-            DCN: [1, 1, 1, 1]
+            ICI: "[4, 2, 1, 1]"
+            DCN: "[1, 1, 1, 1]"
             TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 4DP1FSDP2TP1PP
-            ICI: [4, 2, 1]
-            DCN: [1, 1, 1]
+            ICI: "[4, 2, 1]"
+            DCN: "[1, 1, 1]"
             TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 16DP1FSDP1TP1PP
-            ICI: [8, 1, 1]
-            DCN: [2, 1, 1]
+            ICI: "[8, 1, 1]"
+            DCN: "[2, 1, 1]"
             TASKS: 16
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 2DP1FSDP2TP4PP
-            ICI: [1, 1, 2, 4]
-            DCN: [2, 1, 1, 1]
+            ICI: "[1, 1, 2, 4]"
+            DCN: "[2, 1, 1, 1]"
             TASKS: 16
             ADDITIONAL_ARGS: ""
           - TEST_NAME: LLaMA_eval
-            ICI: [1, 8, 1]
-            DCN: [1, 1, 1]
+            ICI: "[1, 8, 1]"
+            DCN: "[1, 1, 1]"
             TASKS: 16
             EVALUATE: true
             ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
           - TEST_NAME: Grok
-            ICI: [1, 1, 8, 1]
-            DCN: [1, 2, 1, 1]
+            ICI: "[1, 1, 8, 1]"
+            DCN: "[1, 2, 1, 1]"
             TASKS: 16
             EVALUATE: true
             ADDITIONAL_ARGS: "--model-type GrokProxy"
@@ -374,8 +374,8 @@ jobs:
       matrix:
         include:
           - TEST_NAME: 8DP1FSDP1TP1PP_eval
-            ICI: [8, 1, 1]
-            DCN: [1, 1, 1]
+            ICI: "[8, 1, 1]"
+            DCN: "[1, 1, 1]"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -407,7 +407,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.TEST_CASE_NAME }}PP
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=1
           NODES=1
           GPUS_PER_NODE=8
