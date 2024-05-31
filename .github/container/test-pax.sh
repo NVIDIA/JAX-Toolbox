@@ -372,7 +372,7 @@ if [[ ${EVALUATE} -ne 0 ]]; then
   python -m paxml.main ${CMD_LINE_FLAGS} --fdl.MAX_STEPS=0
 
   ## restore from initial checkpoint for eval
-  python -m paxml.main ${CMD_LINE_FLAGS} --enable_checkpoint_saving=False
+  python -m paxml.main ${CMD_LINE_FLAGS} --enable_checkpoint_saving=False --fdl.MAX_STEPS=0
 
 else
   python -m paxml.main ${CMD_LINE_FLAGS} --enable_checkpoint_saving=False
