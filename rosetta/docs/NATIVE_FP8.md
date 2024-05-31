@@ -142,23 +142,24 @@ layer](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/ja
 The specific graph pattern that XLA supports for FP8 matmul is illustrated below:
 
 ```
-  convert -> multiply -> (x) -> dot
+  convert -> multiply -> (x) -> dot -> (y)
 broadcast ->
 
 # or
 
-  convert -> (x) -> dot
+  convert -> (x) -> dot -> (y)
 ```
 
 XLA will pattern match the above and rewrite it to FP8 matmul when:
 1. `convert`: converts `f8` inputs to [`bf16`|`f16`|`f32`].
 2. `broadcast`: broadcasts a [`bf16`|`f16`|`f32`] scalar. The scalar will be used as the scaling factor of the inputs. Note, the `convert` and `broadcast` need to have the same output dtype. If `broadcast` (and `multiply`) is not provided, the scaling factor will be set to `1.`.
 3. `(x)`: an arbitrary number of these allowed ops:
-
 ```
 Bitcast, Broadcast, Copy, DynamicSlice, Pad, Reshape, Select, Slice, Transpose,
 AllGather, AllToAll, CollectivePermute
 ```
+4. `dot`: the inputs and outputs are both [`bf16`|`f16`|`f32`].
+5. `y`: supports epilog fusions, like `add` (optional).
 
 ### Gradient accumulation of FP8 params
 FP8 params, also known as `OverwriteWithGrad` params (or FP8 meta), may be shared across different iterations of a loop in the context of pipeline parallelism. During backpropagation, the autograd system accumulates their gradients from each iteration through the default addition operation. This is undesirable as addition is meaningless for FP8 params.
