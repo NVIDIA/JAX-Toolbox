@@ -199,7 +199,7 @@ jobs:
             ICI: "[4, 2, 1, 1]"
             DCN: "[1, 1, 1, 1]"
             TASKS: 8
-            ADDITIONAL_ARGS: ""
+            ADDITIONAL_ARGS: "--enable-pipeline-parallel"
           - TEST_NAME: 4DP1FSDP2TP1PP
             ICI: "[4, 2, 1]"
             DCN: "[1, 1, 1]"
@@ -214,7 +214,7 @@ jobs:
             ICI: "[1, 1, 2, 4]"
             DCN: "[2, 1, 1, 1]"
             TASKS: 16
-            ADDITIONAL_ARGS: ""
+            ADDITIONAL_ARGS: "--enable-pipeline-parallel"
           - TEST_NAME: LLaMA_eval
             ICI: "[1, 8, 1]"
             DCN: "[1, 1, 1]"

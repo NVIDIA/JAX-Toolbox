@@ -24,13 +24,14 @@ usage() {
     echo "  --multiprocess             Enable the multiprocess GPU mode."
     echo "  --ici                      ICI mesh shape."
     echo "  --dcn                      DCN mesh shape."
+    echo "  --enable-pipeline-parallel Whether to use pipeline parallelism."
     echo "  -o, --output NAME          Name for the output folder, a temporary folder will be created if none specified."
     echo "  -n, --nodes                Number of nodes."
     echo "  -h, --help                 Print usage."
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,enable-fused-attn,model-type:,evaluate,steps:,help,multiprocess,output:,ici:,dcn:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,enable-fused-attn,enable-pipeline-parallel,model-type:,evaluate,steps:,help,multiprocess,output:,ici:,dcn:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -48,6 +49,7 @@ NODES=1
 ENABLE_TE=0
 MODEL_TYPE=126M
 NVTE_FUSED_ATTN=0
+ENABLE_PP=0
 DROPOUT=0
 EVALUATE=0
 ADDITIONAL_ARGS=""
@@ -79,6 +81,10 @@ while [ : ]; do
             NVTE_FUSED_ATTN=1
             shift 1
             ;;
+	--enable-pipeline-parallel)
+	    ENABLE_PP=1
+	    shift 1
+	    ;;
         --model-type)
             MODEL_TYPE=$2
             shift 2
@@ -149,6 +155,7 @@ pushd ${PAXML_DIR}
 ## Create configs file
 cat > ci_configs.py <<EOF
 import math
+import numpy as np
 from paxml import tasks_lib, experiment_registry
 from paxml.contrib.gpu.scripts_gpu.configs import (
     BaseLLaMA,
@@ -160,25 +167,12 @@ from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
 from praxis import base_layer
 from praxis import layers
 
-assert num_gpus == np.prod(${ICI}) * np.prod(${DCN}), f'product of parallel strategies should equal number of available gpus. Have {num_gpus} gpus, but product of parallel strategies is {np.prod(${ICI}) * np.prod(${DCN})}'
+num_gpus = ${NGPUS}
+dropout = float(${DROPOUT})
+dtype = "${DTYPE}"
+pp = $ENABLE_PP
 
-## heuristics to get ici and dcn mesh shapes.
-## these heuristics only support one parallel strategy across nodes
-## but should be sufficient for now
-dcn_factor = math.ceil(num_gpus / 8)
-dcn_dp = 1
-dcn_fsdp = 1
-dcn_pp = 1
-if dcn_factor > 1:
-  if dp % dcn_factor == 0:
-    dcn_dp = dcn_factor
-    dp = int(dp / dcn_factor)
-  elif fsdp % dcn_factor == 0: 
-    dcn_fsdp = dcn_factor
-    fsdp = int(fsdp / dcn_factor)
-  elif pp % dcn_factor == 0: 
-    dcn_pp = dcn_factor
-    pp = int(pp / dcn_factor)
+assert num_gpus == np.prod(${ICI}) * np.prod(${DCN}), f'product of parallel strategies should equal number of available gpus. Have {num_gpus} gpus, but product of parallel strategies is {np.prod(${ICI}) * np.prod(${DCN})}'
 
 WeightInit = base_layer.WeightInit
 
@@ -285,12 +279,12 @@ class LLaMA70BSyntheticSmall(BaseLLaMA, SyntheticDataset):
       return task_p
 
 
-if pp > 1:
+if pp == 1:
   @experiment_registry.register
   class Synthetic126MCI(GPT126MPP, SyntheticDataset):
     
     MICROBATCH_SIZE = 2
-    NUM_STAGES = pp
+    NUM_STAGES = ${ICI}[0]
     FRPOP_DTYPE = dtype
     
     def task(self):
@@ -355,14 +349,18 @@ else
   exit 1
 fi
 
+echo "HERE"
+
 CMD_LINE_FLAGS="--fdl_config=${CONFIG} \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
     --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU} \
     --fdl.ICI_MESH_SHAPE=${ICI} \
     --fdl.DCN_MESH_SHAPE=${DCN} \
-    $ADDITIONAL_ARGS \
-    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)"
+    $ADDITIONAL_ARGS"
+if [[ $MULTIPROCESS != 0 ]]; then
+  CMD_LINE_FLAGS+=" --multiprocess_gpu"
+fi
 
 if [[ ${EVALUATE} -ne 0 ]]; then
 
