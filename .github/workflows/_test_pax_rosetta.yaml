@@ -35,11 +35,11 @@ jobs:
       matrix:
         include:
           - TEST_NAME: 8DP1FSDP1TP1PP_single_process_TE
-            ICI: "[8, 1, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[8,1,1]"
+            DCN: "[1,1,1]"
           - TEST_NAME: 1DP2FSDP4TP1PP_single_process_TE
-            ICI: "[8, 1, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[8,1,1]"
+            DCN: "[1,1,1]"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -228,50 +228,50 @@ jobs:
       matrix:
         include:
           - TEST_NAME: 1DP1FSDP1TP1PP_TE
-            ICI: "[1, 1, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[1,1,1]"
+            DCN: "[1,1,1]"
             BATCH_SIZE: 4
             TASKS: 1
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 8DP1FSDP1TP1PP_TE
-            ICI: "[8, 1, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[8,1,1]"
+            DCN: "[1,1,1]"
             ADDITIONAL_ARGS: ""
             BATCH_SIZE: 4
             TASKS: 8
           - TEST_NAME: 1DP8FSDP1TP1PP_TE
-            ICI: "[1, 8, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[1,8,1]"
+            DCN: "[1,1,1]"
             BATCH_SIZE: 4
             TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 4DP1FSDP2TP1PP_TE
-            ICI: "[4, 1, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[4,1,1]"
+            DCN: "[1,1,1]"
             BATCH_SIZE: 4
             TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 16DP1FSDP1TP1PP_TE
-            ICI: "[8, 1, 1]"
-            DCN: "[2, 1, 1]"
+            ICI: "[8,1,1]"
+            DCN: "[2,1,1]"
             BATCH_SIZE: 4
             TASKS: 16
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 5B_fused_attn_1
-            ICI: "[1, 8, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[1,8,1]"
+            DCN: "[1,1,1]"
             BATCH_SIZE: 2
             TASKS: 8
             ADDITIONAL_ARGS: "--model-type 5B --enable-fused-attn"
           - TEST_NAME: 5B_fused_attn_0
-            ICI: "[1, 8, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[1,8,1]"
+            DCN: "[1,1,1]"
             BATCH_SIZE: 2
             TASKS: 8
             ADDITIONAL_ARGS: "--model-type 5B"
           - TEST_NAME: LLaMA_eval_TE
-            ICI: "[1, 8, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[1,8,1]"
+            DCN: "[1,1,1]"
             BATCH_SIZE: 4
             TASKS: 8
             EVALUATE: true
@@ -468,23 +468,23 @@ jobs:
       matrix:
         include:
           - TEST_NAME: 8DP1FSDP1TP1PP
-            ICI: "[8, 1, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[8,1,1]"
+            DCN: "[1,1,1]"
             TASKS: 1
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 4DP1FSDP2TP1PP
-            ICI: "[4, 1, 2]"
-            DCN: "[1, 1, 1]"
+            ICI: "[4,1,2]"
+            DCN: "[1,1,1]"
             TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 4DP1FSDP1TP2PP
-            ICI: "[4, 2, 1, 1]"
-            DCN: "[1, 1, 1, 1]"
+            ICI: "[4,2,1,1]"
+            DCN: "[1,1,1,1]"
             TASKS: 8
             ADDITIONAL_ARGS: "--enable-pipeline-parallel"
           - TEST_NAME: 4DP1FSDP2TP2PP
-            ICI: "[2, 2, 1, 2]"
-            DCN: "[2, 1, 1, 1]"
+            ICI: "[2,2,1,2]"
+            DCN: "[2,1,1,1]"
             TASKS: 16
             ADDITIONAL_ARGS: "--enable-pipeline-parallel"
       fail-fast: false
@@ -678,8 +678,8 @@ jobs:
       matrix:
         include:
           - TEST_NAME: 8DP_TE_dropout
-            ICI: "[8, 1, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[8,1,1]"
+            DCN: "[1,1,1]"
             TASKS: 8
       fail-fast: false
 
@@ -873,8 +873,8 @@ jobs:
       matrix:
         include:
           - TEST_NAME: 8DP1FSDP1TP1PP_eval_TE
-            ICI: "[8, 1, 1]"
-            DCN: "[1, 1, 1]"
+            ICI: "[8,1,1]"
+            DCN: "[1,1,1]"
       fail-fast: false
 
     runs-on: ubuntu-22.04
