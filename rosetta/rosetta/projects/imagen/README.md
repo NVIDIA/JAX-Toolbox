@@ -111,6 +111,8 @@ Here is an example:
 #  - BASE_PATH/SR1_PATH are checkpoint dirs, and are expected to contain a `checkpoint` file, e.g., the file $BASE_PATH/checkpoint should exist
 #  - GLOBAL_BATCH_SIZE should be set with number of GPUs in mind. For instance GLOBAL_BATCH_SIZE >= num gpus, 
 #    to ensure at least one example is sent to each GPU.
+#  - Currently there is a limitation where the number of lines in PROMPT_TEXT_FILES should be divisible by the number of GPUs.
+#    The easiest way to ensure that is just to pad the files with dummy prompts until it is divisible
 CUDA_VISIBLE_DEVICES=0,1 CFG=5.0 GLOBAL_BATCH_SIZE=4 GEN_PER_PROMPT=1 BASE_PATH='"/mnt/imagen_ckpt/checkpoint_585000"' SR1_PATH='"/mnt/sr1_ckpt/checkpoint_5000"' PROMPT_TEXT_FILES='"./rosetta/projects/diffusion/tests/custom_eval_prompts/custom_eval_prompts.txt"' ./rosetta/projects/imagen/scripts/sample_imagen_256.sh
 ```
 
