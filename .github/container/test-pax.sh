@@ -106,11 +106,11 @@ while [ : ]; do
             shift 2
             ;;
         --ici)
-            ICI="$2"
+            ICI=$2
             shift 2
             ;;
         --dcn)
-            DCN="$2"
+            DCN=$2
             shift 2
             ;;
         -n | --nodes)
@@ -355,8 +355,8 @@ CMD_LINE_FLAGS="--fdl_config=${CONFIG} \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
     --fdl.PERCORE_BATCH_SIZE=${BATCH_PER_GPU} \
-    --fdl.ICI_MESH_SHAPE=\"${ICI}\" \
-    --fdl.DCN_MESH_SHAPE=\"${DCN}\" \
+    --fdl.ICI_MESH_SHAPE=${ICI} \
+    --fdl.DCN_MESH_SHAPE=${DCN} \
     $ADDITIONAL_ARGS"
 if [[ $MULTIPROCESS != 0 ]]; then
   CMD_LINE_FLAGS+=" --multiprocess_gpu"
