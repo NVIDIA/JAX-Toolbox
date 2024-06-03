@@ -43,6 +43,9 @@ def _collective_correction(kind: str, size: int) -> tuple[float, float]:
             return (size, (size - 1) / size)
         case "all-reduce":
             return (1, 2 * (size - 1) / size)
+        case "all-to-all":
+            # https://github.com/NVIDIA/nccl-tests/blob/a1efb427e764241bc43d2d91be875c9f55da03a5/src/alltoall.cu#L44
+            return (1, (size - 1) / size)
         case "collective-broadcast":
             return (1, 1)
         case "collective-permute":
@@ -71,6 +74,7 @@ def get_message_size(program_id: int, instruction: str) -> pd.Series:
         in {
             "all-gather-start",
             "all-reduce-start",
+            "all-to-all",
             "collective-broadcast",
             "collective-permute-start",
             "reduce-scatter",
