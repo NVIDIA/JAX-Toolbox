@@ -19,6 +19,7 @@ import re
 import functools
 from typing import Mapping, Any, Optional, Callable, Sequence
 import logging
+import time
 
 import numpy as np
 import jax
@@ -194,6 +195,7 @@ def sample(
 
   sampled_ctr = 0
   rng = jax.random.PRNGKey(0)
+  start_time = time.time()
   for start_idx in range(resume_from, max_images, batch_size // gen_per_prompt):
       if start_idx >= prompt_ct:
           break
@@ -235,6 +237,7 @@ def sample(
             matimg.imsave(os.path.join(sr2_dir, sanitize_filename(f'{prompt_batch[i]}_{sampled_ctr + i}.png')), sr_out[i])
 
       sampled_ctr += sr_out.shape[0]
+      print(f'samples generated/sec={sampled_ctr/(time.time() - start)}')
   
 
 if __name__ == '__main__':
