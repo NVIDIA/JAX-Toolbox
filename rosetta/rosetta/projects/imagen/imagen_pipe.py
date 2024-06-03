@@ -240,7 +240,7 @@ def sample(
 
       sampled_ctr += sr_out.shape[0]
       print(f'total samples generated={sampled_ctr}')
-      print(f'batch sec/sample={(time.time() - start_time)/sampled_ctr}')
+      print(f'batch sec/sample={(time.time() - start_time) / sr_out.shape[0]}')
   
 
 if __name__ == '__main__':
