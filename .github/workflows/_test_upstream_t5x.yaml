@@ -35,24 +35,12 @@ on:
 
 jobs:
 
-  #         - TEST_NAME: "4G1N"
-  #           N_GPU: 4
-  #           N_NODE: 1
-  #           ADDITIONAL_ARGS: ""
-  #         - TEST_NAME: "8G1N"
-  #           N_GPU: 8
-  #           N_NODE: 1
-  #           ADDITIONAL_ARGS: ""
-
-
-
-
   t5x-multi-gpu:
     strategy:
       matrix:
         include:
-          - TEST_NAME: ["1P1G", "1P2G", "1P4G", "1G1N", "1P8G", "1P1G_fmha", "1P2G_fmha",  "2G1N", "4G1N", "8G1N"]
-            N_GPU: [1, 2, 4, 1, 8, 1, 2, 2, 4, 8]
+          - TEST_NAME: ["1P1G", "1P2G", "1P4G", "1P8G", "1P1G_fmha", "1P2G_fmha"]
+            N_GPU: [1, 2, 4, 1, 8, 1, 2]
             ADDITIONAL_ARGS: ["--enable-fmha 1", ]
       fail-fast: false
     runs-on: ubuntu-22.04
@@ -87,6 +75,15 @@ jobs:
           TEST_CASE_NAME=${{ join(matrix.TEST_NAME, '-') }}
           JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
           MODEL_PATH=/nfs/cluster/${JOB_NAME}
+
+          for var in IMAGE TEST_CASE_NAME JOB_NAME MODEL_PATH; do
+            echo "$var=${!var}" >> $GITHUB_OUTPUT
+          done
+
+      - name: Compile SLURM script
+        id: slurm-script
+        shell: bash -O expand_aliases -x -e {0}
+        run: |
           cuda_start_idx=0
           cuda_end_idx=0
           MAX_GPUS_PER_NODE=8
@@ -121,11 +118,7 @@ jobs:
             cuda_start_idx=$((cuda_end_idx+1))
           done
           SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
-          echo $SLURM_SCRIPT
-
-          for var in IMAGE TEST_CASE_NAME JOB_NAME MODEL_PATH SLURM_SCRIPT; do
-            echo "$var=${!var}" >> $GITHUB_OUTPUT
-          done
+          echo "SLURM_SCRIPT=${SLURM_SCRIPT}" >> $GITHUB_OUTPUT
 
       - name: Submit SLURM jobs over SSH
         id: submit
@@ -157,7 +150,7 @@ jobs:
             --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint bash -ec \
-            "${{ steps.meta.outputs.SLURM_SCRIPT }}"
+            "${{ steps.slurm-script.outputs.SLURM_SCRIPT }}"
           EOF
           )
           
@@ -218,6 +211,22 @@ jobs:
     strategy:
       matrix:
         include:
+          - TEST_NAME: "1G1N"
+            N_GPU: 1
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "2G1N"
+            N_GPU: 2
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "4G1N"
+            N_GPU: 4
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
+          - TEST_NAME: "8G1N"
+            N_GPU: 8
+            N_NODE: 1
+            ADDITIONAL_ARGS: ""
           - TEST_NAME: "1G2N"
             N_GPU: 1
             N_NODE: 2

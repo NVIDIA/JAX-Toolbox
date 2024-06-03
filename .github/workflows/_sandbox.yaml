@@ -4,9 +4,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-upstream-t5x:
-    uses: ./.github/workflows/_test_upstream_t5x.yaml
-    with:
-      T5X_IMAGE: ghcr.io/nvidia/jax:upstream-t5x
-    secrets: inherit
+  
+  # test-upstream-t5x:
+  #   uses: ./.github/workflows/_test_upstream_t5x.yaml
+  #   with:
+  #     T5X_IMAGE: ghcr.io/nvidia/jax:upstream-t5x
+  #   secrets: inherit
           
