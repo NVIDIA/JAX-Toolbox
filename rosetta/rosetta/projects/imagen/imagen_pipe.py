@@ -237,7 +237,8 @@ def sample(
             matimg.imsave(os.path.join(sr2_dir, sanitize_filename(f'{prompt_batch[i]}_{sampled_ctr + i}.png')), sr_out[i])
 
       sampled_ctr += sr_out.shape[0]
-      print(f'samples generated/sec={sampled_ctr/(time.time() - start_time)}')
+      print(f'total samples generated={sampled_ctr}')
+      print(f'batch sec/sample={(time.time() - start_time)/sampled_ctr}')
   
 
 if __name__ == '__main__':
