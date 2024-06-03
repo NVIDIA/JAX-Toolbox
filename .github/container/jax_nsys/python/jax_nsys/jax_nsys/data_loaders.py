@@ -247,6 +247,14 @@ def _load_nvtx_gpu_proj_trace(
             value=r"\2",
             regex=True,
         )
+        # Add a new column describing which (0th, 1st, ...) execution of the thunk
+        # within the given module execution this is. For example, while loops in the
+        # HLO can lead to the same thunk being executed multiple times within the same
+        # module execution.
+        thunk_df["ThunkExecution"] = thunk_df.groupby(
+            ["TID", "ProgramId", "Name", "ModuleExecution"]
+        ).cumcount()
+
         # Classify thunks as communication/computation and save to output
         output["thunk"] = _classify_comms(thunk_df, prefix)
 

@@ -10,6 +10,7 @@
 # The expectation is that those archives will be copied and extracted on a
 # laptop or workstation, and this installation script will be run there, while
 # the `nsys-jax` wrapper is executed on a remote GPU cluster.
+set -ex
 SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 VIRTUALENV="${SCRIPT_DIR}/nsys_jax_venv"
 if [[ ! -d "${VIRTUALENV}" ]]; then
@@ -18,12 +19,17 @@ if [[ ! -d "${VIRTUALENV}" ]]; then
   . "${VIRTUALENV}/bin/activate"
   python -m pip install -U pip
   "${SCRIPT_DIR}/nsys-jax-ensure-protobuf"
-  python -m pip install jupyterlab
+  # matplotlib is a dependency of Analysis.ipynb but not jax_nsys
+  python -m pip install jupyterlab matplotlib
   python -m pip install -e "${SCRIPT_DIR}/python/jax_nsys"
   curl -o "${VIRTUALENV}/bin/flamegraph.pl" https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl
   chmod 755 "${VIRTUALENV}/bin/flamegraph.pl"
 else
   echo "Virtual environment already exists, not installing anything..."
 fi
-echo "Launching: cd ${SCRIPT_DIR} && ${VIRTUALENV}/bin/python -m jupyterlab Analysis.ipynb"
-cd "${SCRIPT_DIR}" && "${VIRTUALENV}/bin/python" -m jupyterlab Analysis.ipynb
+if [ -z ${NSYS_JAX_INSTALL_SKIP_LAUNCH+x} ]; then
+  echo "Launching: cd ${SCRIPT_DIR} && ${VIRTUALENV}/bin/python -m jupyterlab Analysis.ipynb"
+  cd "${SCRIPT_DIR}" && "${VIRTUALENV}/bin/python" -m jupyterlab Analysis.ipynb
+else
+  echo "Skipping launch of jupyterlab due to NSYS_JAX_INSTALL_SKIP_LAUNCH"
+fi
