@@ -189,7 +189,7 @@ class TE2PaxConvertHelper(PaxConvertHelperBase):
 class PaxRepeatConvertHelperBase(ConvertHelper):
 
     @property
-    def catagories(self):
+    def src_categories(self):
         if self.weight_only:
             return ['mdl_vars.params']
 

@@ -128,8 +128,14 @@ def parse_args():
 
 def get_convert_helper(args):
 
-    model_config = ModelConfig(args.num_of_layer, args.embed_dim, args.num_of_head, args.head_dim,
-                               args.mlp_intermediate_dim, args.kernel_chunk_size)
+    model_config = ModelConfig(args.num_of_layer,
+                               args.embed_dim,
+                               args.num_of_head,
+                               None, ## GQA groups is None
+                               args.head_dim,
+                               args.mlp_intermediate_dim,
+                               args.kernel_chunk_size
+                              )
 
     convert_helper_cls = None
 

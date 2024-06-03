@@ -273,9 +273,9 @@ def deserialize_tensor(path: str, tensor: jnp.ndarray, chunk_dim: int = None, ch
 
     tspec = get_json_tspec(path)
     tspec['metadata'] = serialization._get_metadata(tensor)
-    ## TODO: it looke like the way metadata is stored in orbax has changes recently
+    ## TODO: it looks like the way metadata is stored in orbax has changes recently
     ## needed to comment this out to get converter to run
-    del tspec['metadata']['dtype']
+    #del tspec['metadata']['dtype']
 
     if chunk_dim is not None:
         chunk_shape = tuple([
