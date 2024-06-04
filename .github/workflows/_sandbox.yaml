@@ -4,10 +4,88 @@ on:
   workflow_dispatch:
 
 jobs:
-  
-  # test-upstream-t5x:
-  #   uses: ./.github/workflows/_test_upstream_t5x.yaml
-  #   with:
-  #     T5X_IMAGE: ghcr.io/nvidia/jax:upstream-t5x
-  #   secrets: inherit
-          
+  t5x-multi-gpu:
+    strategy:
+      matrix:
+        include:
+          - TEST_NAME: ["1P1G", "1P2G", "1P4G", "1P8G", "1P1G_fmha", "1P2G_fmha"]
+            N_GPU: [1, 2, 4, 1, 8, 1, 2]
+      fail-fast: false
+    runs-on: ubuntu-22.04
+
+    steps:          
+      - name: Print environment variables
+        run: env
+
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Labels and metadata
+        id: meta
+        shell: bash -x -e {0}
+        run: |
+          IMAGE="$(echo ${{inputs.T5X_IMAGE}} | sed 's/\//#/')"
+          TEST_CASE_NAME=${{ join(matrix.TEST_NAME, '-') }}
+          JOB_NAME=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}
+          MODEL_PATH=/nfs/cluster/${JOB_NAME}
+
+          for var in IMAGE TEST_CASE_NAME JOB_NAME MODEL_PATH; do
+            echo "$var=${!var}" >> $GITHUB_OUTPUT
+          done
+
+      - name: Compile SLURM script
+        id: slurm-script
+        shell: bash -O expand_aliases -x -e {0}
+        run: |
+          test_args() {
+            test_name=$1
+            additional_arg=""
+            if [[ $test_name == *"fmha"* ]]; then
+              additional_arg="--enable-fmha 1"
+            fi
+            echo $additional_arg
+          }
+          cuda_start_idx=0
+          cuda_end_idx=0
+          MAX_GPUS_PER_NODE=8
+          n_gpus=(${{ join(matrix.N_GPU, ' ') }})
+          test_names=(${{ join(matrix.TEST_NAME, ' ') }})
+          test_count=${#test_names[@]}
+          for idx in $(seq 0 $((test_count-1))); do
+            n_gpu=n_gpus[$idx]
+            if [[ $((cuda_start_idx+n_gpu)) -gt $MAX_GPUS_PER_NODE ]]; then
+                SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
+                cuda_start_idx=0
+            fi
+            cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
+            visible_devices=$(seq -s ',' $cuda_start_idx $cuda_end_idx)
+            test_name=${test_names[$idx]}
+            BATCH_SIZE=$((32 * $n_gpu))
+            additional_arg=$(test_args $test_name)
+            SLURM_SCRIPT="$SLURM_SCRIPT 
+              CUDA_VISIBLE_DEVICES=${visible_devices} test-t5x.sh \
+              --output /output/${test_name} \
+              --dtype bfloat16 \
+              --batch-size ${BATCH_SIZE} \
+              --epochs 7 \
+              --steps-per-epoch 100 \
+              ${additional_arg} | tee /output/$test_name/${test_name}.log &"
+            cuda_start_idx=$((cuda_end_idx+1))
+          done
+          SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
+          echo "SLURM_SCRIPT=${SLURM_SCRIPT}" | tee -a $GITHUB_OUTPUT          

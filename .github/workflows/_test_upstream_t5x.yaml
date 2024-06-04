@@ -41,7 +41,6 @@ jobs:
         include:
           - TEST_NAME: ["1P1G", "1P2G", "1P4G", "1P8G", "1P1G_fmha", "1P2G_fmha"]
             N_GPU: [1, 2, 4, 1, 8, 1, 2]
-            ADDITIONAL_ARGS: ["--enable-fmha 1", ]
       fail-fast: false
     runs-on: ubuntu-22.04
 
@@ -84,6 +83,14 @@ jobs:
         id: slurm-script
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          test_args() {
+            test_name=$1
+            additional_arg=""
+            if [[ $test_name == *"fmha"* ]]; then
+              additional_arg="--enable-fmha 1"
+            fi
+            echo $additional_arg
+          }
           cuda_start_idx=0
           cuda_end_idx=0
           MAX_GPUS_PER_NODE=8
@@ -99,14 +106,8 @@ jobs:
             cuda_end_idx=$((cuda_start_idx + n_gpu - 1))
             visible_devices=$(seq -s ',' $cuda_start_idx $cuda_end_idx)
             test_name=${test_names[$idx]}
-            if [[ $test_name == *"fmha"* ]]; then
-                additional_arg="--enable-fmha 1"
-            elif [[ $test_name == *"G1N"* ]]; then
-                additional_arg="--multiprocess"
-            else
-              additional_arg=""
-            fi
             BATCH_SIZE=$((32 * $n_gpu))
+            additional_arg=$(test_args $test_name)
             SLURM_SCRIPT="$SLURM_SCRIPT 
               CUDA_VISIBLE_DEVICES=${visible_devices} test-t5x.sh \
               --output /output/${test_name} \
@@ -118,7 +119,7 @@ jobs:
             cuda_start_idx=$((cuda_end_idx+1))
           done
           SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
-          echo "SLURM_SCRIPT=${SLURM_SCRIPT}" >> $GITHUB_OUTPUT
+          echo "SLURM_SCRIPT=${SLURM_SCRIPT}" | tee -a $GITHUB_OUTPUT
 
       - name: Submit SLURM jobs over SSH
         id: submit
