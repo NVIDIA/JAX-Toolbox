@@ -85,7 +85,6 @@ jobs:
         run: |
           test_args() {
             test_name=$1
-            additional_arg=""
             if [[ $test_name == *"fmha"* ]]; then
               additional_arg="--enable-fmha 1"
             fi
@@ -108,8 +107,8 @@ jobs:
             test_name=${test_names[$idx]}
             BATCH_SIZE=$((32 * $n_gpu))
             additional_arg=$(test_args $test_name)
-            SLURM_SCRIPT="$SLURM_SCRIPT " \ 
-              "CUDA_VISIBLE_DEVICES=${visible_devices} test-t5x.sh \
+            SLURM_SCRIPT="$SLURM_SCRIPT \
+              CUDA_VISIBLE_DEVICES=${visible_devices} test-t5x.sh \
               --output /output/${test_name} \
               --dtype bfloat16 \
               --batch-size ${BATCH_SIZE} \
