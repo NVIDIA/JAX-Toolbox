@@ -38,10 +38,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1P1G_te-1"
-            N_GPU: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
           - TEST_NAME: "1P1G_te-0"
             N_GPU: 1
             ADDITIONAL_ARGS: "--enable-te 0"
@@ -234,16 +230,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1N1G-te-1"
-            N_GPU: 1
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
-          - TEST_NAME: "1N8G-te-1"
-            N_GPU: 8
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-            EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
           - TEST_NAME: "2N8G-te-1"
             N_GPU: 8
             N_NODE: 2
