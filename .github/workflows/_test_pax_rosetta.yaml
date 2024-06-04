@@ -246,7 +246,7 @@ jobs:
             TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 4DP1FSDP2TP1PP_TE
-            ICI: "[4,1,1]"
+            ICI: "[4,1,2]"
             DCN: "[1,1,1]"
             BATCH_SIZE: 4
             TASKS: 8
@@ -470,19 +470,19 @@ jobs:
           - TEST_NAME: 8DP1FSDP1TP1PP
             ICI: "[8,1,1]"
             DCN: "[1,1,1]"
-            TASKS: 1
+            TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 4DP1FSDP2TP1PP
             ICI: "[4,1,2]"
             DCN: "[1,1,1]"
             TASKS: 8
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: 4DP1FSDP1TP2PP
+          - TEST_NAME: 2DP1FSDP1TP4PP
             ICI: "[4,2,1,1]"
             DCN: "[1,1,1,1]"
             TASKS: 8
             ADDITIONAL_ARGS: "--enable-pipeline-parallel"
-          - TEST_NAME: 4DP1FSDP2TP2PP
+          - TEST_NAME: 2DP1FSDP2TP4PP
             ICI: "[2,2,1,2]"
             DCN: "[2,1,1,1]"
             TASKS: 16

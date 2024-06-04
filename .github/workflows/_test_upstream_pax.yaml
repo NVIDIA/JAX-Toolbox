@@ -218,7 +218,7 @@ jobs:
           - TEST_NAME: LLaMA_eval
             ICI: "[1,8,1]"
             DCN: "[1,1,1]"
-            TASKS: 16
+            TASKS: 8
             EVALUATE: true
             ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
           - TEST_NAME: Grok
