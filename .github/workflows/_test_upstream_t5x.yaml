@@ -79,7 +79,7 @@ jobs:
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
 
-      - name: Compile SLURM script
+      - name: Generate SLURM script
         id: slurm-script
         shell: bash -O expand_aliases -x -e {0}
         run: |
@@ -119,12 +119,13 @@ jobs:
             cuda_start_idx=$((cuda_end_idx+1))
           done
           SLURM_SCRIPT="$SLURM_SCRIPT; wait;"
-          echo "SLURM_SCRIPT=${SLURM_SCRIPT}" | tee -a $GITHUB_OUTPUT
+          echo "SLURM_SCRIPT=${SLURM_SCRIPT}" >> $GITHUB_OUTPUT
 
       - name: Submit SLURM jobs over SSH
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
+          echo "SLURM_SCRIPT=${{ steps.slurm-script.outputs.SLURM_SCRIPT }}"
           alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
