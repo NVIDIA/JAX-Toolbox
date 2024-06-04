@@ -1,0 +1,25 @@
+From 84fb6abae11b5cfa9a483345ef5c2843948f29c9 Mon Sep 17 00:00:00 2001
+From: Haixin Liu <haixinl@nvidia.com>
+Date: Fri, 31 May 2024 18:15:29 -0700
+Subject: [PATCH] quantize dispatch gemm to fp8
+
+---
+ praxis/layers/transformers.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/praxis/layers/transformers.py b/praxis/layers/transformers.py
+index 37e827d..a1f60d1 100644
+--- a/praxis/layers/transformers.py
++++ b/praxis/layers/transformers.py
+@@ -1031,7 +1031,7 @@ class TransformerFeedForwardMoe(base_layer.BaseLayer):
+     if self.gating_func in ['top2', 'expert_choice_v2']:
+       combine_tensor = self._split(combine_tensor, ap.gsec)
+       dispatch_tensor = self._split(dispatch_tensor, ap.gsec)
+-      expert_inputs = jnp.einsum(
++      expert_inputs = self.einsum(
+           'gsec,gsm->egcm', dispatch_tensor, reshaped_inputs
+       )
+     elif self.gating_func == 'expert_choice':
+-- 
+2.34.1
+

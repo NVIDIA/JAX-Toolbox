@@ -1,0 +1,411 @@
+From 657935a9a8a2f3877a734ca4b10e4e4204d52fea Mon Sep 17 00:00:00 2001
+From: Haixin Liu <haixinl@nvidia.com>
+Date: Wed, 15 May 2024 13:32:21 -0700
+Subject: [PATCH 1/5] modify sharding
+
+---
+ paxml/tasks/lm/model_params.py | 45 ++++++++++++++++++++++++----------
+ 1 file changed, 32 insertions(+), 13 deletions(-)
+
+diff --git a/paxml/tasks/lm/model_params.py b/paxml/tasks/lm/model_params.py
+index ea54531..e0726b5 100644
+--- a/paxml/tasks/lm/model_params.py
++++ b/paxml/tasks/lm/model_params.py
+@@ -834,8 +834,8 @@ class TransformerLmSpmdPipelineAdafactor(TransformerLmSpmdAdafactor):
+     assert self.NUM_STAGES is not None
+     assert self.NUM_LAYERS % (self.NUM_STAGES * self.CIRCULAR_REPEAT) == 0
+     assert self.NUM_MICROBATCHES is not None or self.MICROBATCH_SIZE is not None
+-    assert self.ICI_MESH_SHAPE is not None and len(self.ICI_MESH_SHAPE) == 4
+-    assert self.DCN_MESH_SHAPE is not None and len(self.DCN_MESH_SHAPE) == 4
++    # assert self.ICI_MESH_SHAPE is not None and len(self.ICI_MESH_SHAPE) == 4
++    # assert self.DCN_MESH_SHAPE is not None and len(self.DCN_MESH_SHAPE) == 4
+     assert self.ICI_MESH_SHAPE[0] * self.DCN_MESH_SHAPE[0] == self.NUM_STAGES
+ 
+     task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='xformer_task')
+@@ -949,23 +949,42 @@ class TransformerLmSpmdPipelineAdafactor(TransformerLmSpmdAdafactor):
+     replica_axis = 'replica'
+     data_axis = 'data'
+     mdl_axis = 'mdl'
+-    mesh_axis_names = [stage_axis, replica_axis, data_axis, mdl_axis]
++
++    if self.USE_EXPERT_PARALLEL:
++      data_expert_axis = 'data_expert'
++      mesh_axis_names = [stage_axis, replica_axis, data_axis, data_expert_axis, mdl_axis]
++    else:
++      mesh_axis_names = [stage_axis, replica_axis, data_axis, mdl_axis]
+     model_p.mesh_axis_names = mesh_axis_names
+ 
+     # Set in-stage layer shardings.
+     lm_cls = cast(
+         Type[layers.TransformerLm], pax_fiddle.get_callable(model_p.lm_tpl)
+     )
+-    model_p.lm_tpl = lm_cls.set_sharding_params_v1(
+-        model_p.lm_tpl,
+-        replica_axis=replica_axis,
+-        data_axis=data_axis,
+-        mdl_axis=mdl_axis,
+-        ici_mesh_shape=model_p.ici_mesh_shape,
+-        dcn_mesh_shape=model_p.dcn_mesh_shape,
+-        mesh_axis_names=mesh_axis_names,
+-        training_optimized=self.TRAINING_OPTIMIZED_SHARDING,
+-    )
++    if self.USE_EXPERT_PARALLEL:
++      model_p.lm_tpl = lm_cls.set_sharding_params_with_expert_parallelism(
++          model_p.lm_tpl,
++          replica_axis=replica_axis,
++          data_axis=data_axis,
++          data_expert_axis=data_expert_axis,
++          mdl_axis=mdl_axis,
++          ici_mesh_shape=model_p.ici_mesh_shape,
++          dcn_mesh_shape=model_p.dcn_mesh_shape,
++          mesh_axis_names=mesh_axis_names,
++          training_optimized=self.TRAINING_OPTIMIZED_SHARDING,
++      )
++    else:
++      model_p.lm_tpl = lm_cls.set_sharding_params_v1(
++          model_p.lm_tpl,
++          replica_axis=replica_axis,
++          data_axis=data_axis,
++          mdl_axis=mdl_axis,
++          ici_mesh_shape=model_p.ici_mesh_shape,
++          dcn_mesh_shape=model_p.dcn_mesh_shape,
++          mesh_axis_names=mesh_axis_names,
++          training_optimized=self.TRAINING_OPTIMIZED_SHARDING,
++      )
++
+ 
+     # Include stage_axis in input partitioning to allow full data parallelism in
+     # embedding layers.
+-- 
+2.34.1
+
+
+From 2d90ec8e525b9e0fb6e2f91786d23af4a2d84485 Mon Sep 17 00:00:00 2001
+From: Haixin Liu <haixinl@nvidia.com>
+Date: Mon, 20 May 2024 16:54:40 -0700
+Subject: [PATCH 2/5] add pp + ep
+
+---
+ paxml/tasks/lm/model_params.py  |   4 +-
+ paxml/tasks/lm/params/nvidia.py | 179 ++++++++++++++++++++++++++++++++
+ 2 files changed, 181 insertions(+), 2 deletions(-)
+
+diff --git a/paxml/tasks/lm/model_params.py b/paxml/tasks/lm/model_params.py
+index e0726b5..4c12614 100644
+--- a/paxml/tasks/lm/model_params.py
++++ b/paxml/tasks/lm/model_params.py
+@@ -834,8 +834,8 @@ class TransformerLmSpmdPipelineAdafactor(TransformerLmSpmdAdafactor):
+     assert self.NUM_STAGES is not None
+     assert self.NUM_LAYERS % (self.NUM_STAGES * self.CIRCULAR_REPEAT) == 0
+     assert self.NUM_MICROBATCHES is not None or self.MICROBATCH_SIZE is not None
+-    # assert self.ICI_MESH_SHAPE is not None and len(self.ICI_MESH_SHAPE) == 4
+-    # assert self.DCN_MESH_SHAPE is not None and len(self.DCN_MESH_SHAPE) == 4
++    assert self.ICI_MESH_SHAPE is not None and len(self.ICI_MESH_SHAPE) >= 4
++    assert self.DCN_MESH_SHAPE is not None and len(self.DCN_MESH_SHAPE) >= 4
+     assert self.ICI_MESH_SHAPE[0] * self.DCN_MESH_SHAPE[0] == self.NUM_STAGES
+ 
+     task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='xformer_task')
+diff --git a/paxml/tasks/lm/params/nvidia.py b/paxml/tasks/lm/params/nvidia.py
+index 5dc4bb0..a0cbd5b 100644
+--- a/paxml/tasks/lm/params/nvidia.py
++++ b/paxml/tasks/lm/params/nvidia.py
+@@ -35,7 +35,10 @@ from praxis.layers import glam
+ from praxis.layers import gpu_fast_attention
+ from praxis.layers import grok
+ from praxis.layers import transformers
++from praxis import py_utils
++from praxis.layers import embedding_softmax
+ 
++NestedMap = py_utils.NestedMap
+ WeightInit = base_layer.WeightInit
+ 
+ 
+@@ -884,6 +887,7 @@ class Grok_Proxy(NVIDIA1_3B):
+         use_gated_activation=True,
+         combine_qkv=self.COMBINE_QKV,
+         checkpoint_policy=self.CHECKPOINT_POLICY,
++        use_fp8=self.USE_FP8,
+     )
+     ## set sharding
+     lm_cls = cast(
+@@ -908,3 +912,178 @@ class Grok_Proxy(NVIDIA1_3B):
+         task_p.model.lm_tpl.position_emb_tpl = None
+ 
+     return task_p
++
++@experiment_registry.register
++class Grok_Proxy_PP(NVIDIA5B):
++  """Grok Model"""
++
++  NUM_STAGES=8
++  NUM_GPUS = 64
++
++  USE_REPEATED_LAYER=False
++  NUM_LAYERS = 16
++  NUM_HEADS = 48
++  NUM_KV_HEADS = 8
++  DIMS_PER_HEAD = 128
++  CHECKPOINT_POLICY = layers.AutodiffCheckpointType.SAVE_QKV_OUT_PROJ
++  MODEL_DIMS = 6144
++  HIDDEN_DIMS = 32768
++  COMBINE_QKV = False
++  MAX_SEQ_LEN = 8192
++  USE_FP8=False
++  VOCAB_SIZE = 131072
++
++  NUM_MICROBATCHES = 32
++  MICROBATCH_SIZE = 8
++  PERCORE_BATCH_SIZE = 1
++
++  NUM_EXPERTS = 8
++  NUM_GROUPS = 8
++
++  MAX_STEPS = 10
++  USE_EXPERT_PARALLEL = True
++
++  ICI_MESH_SHAPE = [1, 1, 8, 1] # pp, dp, fsdp, ep+fsdp, tp
++  DCN_MESH_SHAPE = [NUM_STAGES, 1, 8, 1]
++  MESH_AXIS_NAMES = ['stage', 'replica', 'data', 'mdl']
++  if USE_EXPERT_PARALLEL:
++      ICI_MESH_SHAPE = [1, 1, 1, 8, 1]
++      DCN_MESH_SHAPE = [NUM_STAGES, 1, 8, 1, 1]
++      MESH_AXIS_NAMES = ['stage', 'replica', 'data', 'data_expert', 'mdl']
++
++  USE_ROPE = True
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    task_p.train.num_train_steps = self.MAX_STEPS
++    task_p.model.lm_tpl = grok.GrokUniTransformerLmHParams(
++        name='grok_lm',
++        vocab_size=self.VOCAB_SIZE,
++        num_transformer_layers=self.NUM_LAYERS,
++        moe=True,
++        model_dim=self.MODEL_DIMS,
++        ff_dim=self.HIDDEN_DIMS,
++        moe_hidden_dim=self.HIDDEN_DIMS,
++        attention_num_heads=self.NUM_HEADS,
++        attention_num_groups=self.NUM_KV_HEADS,
++        attention_key_value_dim=self.MODEL_DIMS // self.NUM_HEADS,
++        attention_extra_logit=0.0,
++        use_tgt_labels_size_as_loss_denominator=True,
++        moe_load_balance_loss_weight=0.01,
++        z_loss_weight=1e-4,
++        moe_gating_func='top2',
++        moe_gating_embedding_level='token',
++        c_dim=None,  ## determined automatically when capacity_factor is set
++        capacity_factor=2.0,
++        e_dim=self.NUM_EXPERTS,
++        num_groups=self.NUM_GROUPS,
++        use_gated_activation=True,
++        combine_qkv=self.COMBINE_QKV,
++        checkpoint_policy=self.CHECKPOINT_POLICY,
++        num_pipeline_stages=self.NUM_STAGES,
++        num_pipeline_microbatches=self.NUM_MICROBATCHES,
++        use_fp8=self.USE_FP8,
++    )
++    ## set sharding
++    replica_axis='replica'
++    stage_axis='stage'
++    data_axis='data'
++    data_expert_axis='data_expert'
++    mdl_axis='mdl'
++    lm_cls = cast(
++        Type[layers.TransformerLm], pax_fiddle.get_callable(task_p.model.lm_tpl)
++    )
++    if self.USE_EXPERT_PARALLEL:
++      task_p.model.lm_tpl = lm_cls.set_sharding_params_with_expert_parallelism(
++        task_p.model.lm_tpl,
++          replica_axis='replica',
++          data_axis='data',
++          data_expert_axis='data_expert',
++          mdl_axis='mdl',
++          ici_mesh_shape=task_p.model.ici_mesh_shape,
++          dcn_mesh_shape=task_p.model.dcn_mesh_shape,
++          mesh_axis_names=self.MESH_AXIS_NAMES,
++          training_optimized=self.TRAINING_OPTIMIZED_SHARDING,
++      )
++    else:
++      task_p.model.lm_tpl = lm_cls.set_sharding_params_v1(
++          task_p.model.lm_tpl,
++          replica_axis='replica',
++          data_axis='data',
++          mdl_axis='mdl',
++          ici_mesh_shape=task_p.model.ici_mesh_shape,
++          dcn_mesh_shape=task_p.model.dcn_mesh_shape,
++          mesh_axis_names=['stage', 'replica', 'data', 'mdl'],
++          training_optimized=self.TRAINING_OPTIMIZED_SHARDING,
++      )
++
++
++    model_p = task_p.model
++
++    # Include stage_axis in input partitioning to allow full data parallelism in
++    # embedding layers.
++    if self.USE_EXPERT_PARALLEL:
++      batch_dims = (stage_axis, replica_axis, data_axis, data_expert_axis)
++    else:
++      batch_dims = (stage_axis, replica_axis, data_axis)
++
++    task_p.train.inputs_split_mapping = NestedMap(
++        map_1d=(batch_dims,), map_2d=(batch_dims, None))
++
++    # Run softmax/embedding in data parallelism across all cores.
++    softmax_p = model_p.lm_tpl.softmax_tpl
++    if self.SEPARATE_EMBEDDING:
++      embedding_p = model_p.lm_tpl.separate_embedding_tpl
++    else:
++      embedding_p = model_p.lm_tpl.softmax_tpl
++    embedding_p.activation_split_dims_mapping.emb_out_split_dims_mapping = [
++        batch_dims,
++        None,
++        mdl_axis,
++    ]
++    embedding_p.activation_split_dims_mapping.out = [batch_dims, None, mdl_axis]
++    if (
++        fdl.get_callable(softmax_p)
++        == embedding_softmax.GShardSharedEmbeddingSoftmax
++    ):
++      # Softmax weight is of shape [vocab_size, input_dim].
++      softmax_p.weight_split_dims_mapping.wt = [mdl_axis, self.EMB_W_DATA_DIMS]
++    elif fdl.get_callable(softmax_p) in {
++        embedding_softmax.SharedEmbeddingSoftmax,
++        embedding_softmax.FullSoftmax,
++    }:
++      # Softmax weight is of shape [input_dim, vocab_size].
++      softmax_p.weight_split_dims_mapping.wt = [self.EMB_W_DATA_DIMS, mdl_axis]
++    else:
++      raise NotImplementedError(
++          f'softmax class {fdl.get_callable(softmax_p)} not supported'
++      )
++    if self.SEPARATE_EMBEDDING:
++      embedding_p.weight_split_dims_mapping.wt = [
++          self.EMB_W_DATA_DIMS,
++          mdl_axis,
++      ]
++
++    pipeline_layer_p = model_p.lm_tpl.stacked_transformer_tpl
++    pipeline_layer_p.weight_split_dims_mapping.stages = [stage_axis]
++    # Match the final output sharding to softmax input sharding.
++    pipeline_layer_p.activation_split_dims_mapping.final_out = [
++        batch_dims, None, mdl_axis
++    ]
++
++    task_p.train.always_use_train_for_model_init=False
++    task_p.model.report_strict_acc=True
++
++    stacked_p = task_p.model.lm_tpl.stacked_transformer_tpl.block
++    transformer_layer_p = stacked_p.transformer_layer_params_tpl
++    if self.USE_ROPE:
++        transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
++        task_p.model.lm_tpl.position_emb_tpl = None
++
++    return task_p
++
++@experiment_registry.register
++class Grok_PP(Grok_Proxy_PP):
++  """Grok Model"""
++
++  NUM_LAYERS = 64
+\ No newline at end of file
+-- 
+2.34.1
+
+
+From 1c9f59aeaeace56b889ef05728aaf587a78e2593 Mon Sep 17 00:00:00 2001
+From: Haixin Liu <haixinl@nvidia.com>
+Date: Wed, 22 May 2024 10:45:41 -0700
+Subject: [PATCH 3/5] add condition for assert
+
+---
+ paxml/tasks/lm/model_params.py | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/paxml/tasks/lm/model_params.py b/paxml/tasks/lm/model_params.py
+index 4c12614..20959b1 100644
+--- a/paxml/tasks/lm/model_params.py
++++ b/paxml/tasks/lm/model_params.py
+@@ -818,6 +818,8 @@ class TransformerLmSpmdPipelineAdafactor(TransformerLmSpmdAdafactor):
+ 
+   MODEL_CLASS = models.LanguageModel
+ 
++  USE_EXPERT_PARALLEL = False
++
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     """Returns the task parameters."""
+     if self.DIMS_PER_HEAD is not None:
+@@ -834,8 +836,12 @@ class TransformerLmSpmdPipelineAdafactor(TransformerLmSpmdAdafactor):
+     assert self.NUM_STAGES is not None
+     assert self.NUM_LAYERS % (self.NUM_STAGES * self.CIRCULAR_REPEAT) == 0
+     assert self.NUM_MICROBATCHES is not None or self.MICROBATCH_SIZE is not None
+-    assert self.ICI_MESH_SHAPE is not None and len(self.ICI_MESH_SHAPE) >= 4
+-    assert self.DCN_MESH_SHAPE is not None and len(self.DCN_MESH_SHAPE) >= 4
++    if self.USE_EXPERT_PARALLEL:
++      assert self.ICI_MESH_SHAPE is not None and len(self.ICI_MESH_SHAPE) == 5
++      assert self.DCN_MESH_SHAPE is not None and len(self.DCN_MESH_SHAPE) == 5
++    else:
++      assert self.ICI_MESH_SHAPE is not None and len(self.ICI_MESH_SHAPE) == 4
++      assert self.DCN_MESH_SHAPE is not None and len(self.DCN_MESH_SHAPE) == 4
+     assert self.ICI_MESH_SHAPE[0] * self.DCN_MESH_SHAPE[0] == self.NUM_STAGES
+ 
+     task_p = pax_fiddle.Config(tasks_lib.SingleTask, name='xformer_task')
+-- 
+2.34.1
+
+
+From 434823ae1ceaa2416f1c7a60cc2307b79efb6118 Mon Sep 17 00:00:00 2001
+From: Haixin Liu <haixinl@nvidia.com>
+Date: Wed, 22 May 2024 13:06:27 -0700
+Subject: [PATCH 4/5] add fp8 to Grok
+
+---
+ paxml/tasks/lm/params/nvidia.py | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/paxml/tasks/lm/params/nvidia.py b/paxml/tasks/lm/params/nvidia.py
+index a0cbd5b..096371f 100644
+--- a/paxml/tasks/lm/params/nvidia.py
++++ b/paxml/tasks/lm/params/nvidia.py
+@@ -801,6 +801,7 @@ class Grok(NVIDIA1_3B):
+         use_gated_activation=True,
+         combine_qkv=self.COMBINE_QKV,
+         checkpoint_policy=self.CHECKPOINT_POLICY,
++        use_fp8=self.USE_FP8,
+     )
+     ## set sharding
+     lm_cls = cast(
+-- 
+2.34.1
+
+
+From b698c9237f27a5a43dc7e244b3603135cec0b2d4 Mon Sep 17 00:00:00 2001
+From: Haixin Liu <haixinl@nvidia.com>
+Date: Wed, 22 May 2024 15:48:58 -0700
+Subject: [PATCH 5/5] fix rope for pp
+
+---
+ paxml/tasks/lm/params/nvidia.py | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/paxml/tasks/lm/params/nvidia.py b/paxml/tasks/lm/params/nvidia.py
+index 096371f..7185895 100644
+--- a/paxml/tasks/lm/params/nvidia.py
++++ b/paxml/tasks/lm/params/nvidia.py
+@@ -1075,7 +1075,13 @@ class Grok_Proxy_PP(NVIDIA5B):
+     task_p.train.always_use_train_for_model_init=False
+     task_p.model.report_strict_acc=True
+ 
+-    stacked_p = task_p.model.lm_tpl.stacked_transformer_tpl.block
++    stacked_p = model_p.lm_tpl.stacked_transformer_tpl
++    if fdl.get_callable(stacked_p) == transformers.PipelinedTransformer:
++      stacked_p = stacked_p.pipeline_stage
++    if issubclass(
++        fdl.get_callable(stacked_p), transformers.StackedTransformerRepeated
++    ):
++      stacked_p = stacked_p.block
+     transformer_layer_p = stacked_p.transformer_layer_params_tpl
+     if self.USE_ROPE:
+         transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
+-- 
+2.34.1
+
