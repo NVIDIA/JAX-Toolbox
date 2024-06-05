@@ -4,6 +4,9 @@ on:
   issue_comment:
     types: [created]
 
+env:
+  message: ${{ github.event.comment.body }}
+
 jobs:
   pre-woof:
     runs-on: ubuntu-22.04
@@ -12,8 +15,6 @@ jobs:
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/ci') &&
       contains(fromJSON('["ko3n1g","nouiz","joker-eph","yhtang","terrykong","hemildesai","chaserileyroberts","CliveUnger","DwarKapex","mingxu1067","kocchop","SahilJain314","ashors1","maanug-nv","olupton","hmonishN","gspschmid"]'), github.actor)
-    env:
-      message: ${{ github.event.comment.body }}
     outputs:
       test_subset: ${{ steps.state.outputs.test_subset }}
     steps:
