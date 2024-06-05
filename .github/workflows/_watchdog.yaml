@@ -11,7 +11,7 @@ jobs:
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/ci') &&
-      contains(fromJSON('["ko3n1g","nouiz","joker-eph","yhtang","terrykong","hemildesai","chaserileyroberts","CliveUnger","DwarKapex","mingxu1067","kocchop","SahilJain314","ashors1","maanug-nv","hmonishN","gspschmid"]'), github.actor)
+      contains(fromJSON('["ko3n1g","nouiz","joker-eph","yhtang","terrykong","hemildesai","chaserileyroberts","CliveUnger","DwarKapex","mingxu1067","kocchop","SahilJain314","ashors1","maanug-nv","olupton","hmonishN","gspschmid"]'), github.actor)
     env:
       message: ${{ github.event.comment.body }}
     outputs:
