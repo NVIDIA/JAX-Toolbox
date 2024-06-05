@@ -3,6 +3,9 @@ name: CI
 on:
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       PUBLISH:
