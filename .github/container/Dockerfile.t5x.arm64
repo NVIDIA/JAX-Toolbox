@@ -13,19 +13,10 @@ ARG SRC_PATH_T5X=/opt/t5x
 ###############################################################################
 
 #------------------------------------------------------------------------------
-# Install bazel (needed by some source builds) and expose the python version
-#------------------------------------------------------------------------------
-
-FROM ${BASE_IMAGE} as wheel-builder
-
-RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64 -O /usr/bin/bazel && \
-    chmod a+x /usr/bin/bazel
-
-#------------------------------------------------------------------------------
 # build tensorflow-text from source
 #------------------------------------------------------------------------------
 
-FROM wheel-builder as tftext-builder
+FROM ${BASE_IMAGE} as tftext-builder
 ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
@@ -51,7 +42,7 @@ EOF
 ## T5X for AArch64
 ###############################################################################
 
-FROM wheel-builder as mealkit
+FROM ${BASE_IMAGE} as mealkit
 ARG URLREF_T5X
 ARG SRC_PATH_TFTEXT
 ARG SRC_PATH_T5X

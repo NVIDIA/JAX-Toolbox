@@ -168,7 +168,6 @@ jobs:
           ssh: default
           secret-files: |
             "SSH_KNOWN_HOSTS=${{ steps.ssh-known-hosts.outputs.FILE }}"
-
           build-args: |
             BASE_IMAGE=${{ inputs.BASE_IMAGE }}
             BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}

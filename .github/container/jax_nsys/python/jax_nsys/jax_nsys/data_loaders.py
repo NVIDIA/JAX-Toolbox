@@ -1,4 +1,3 @@
-import itertools
 import lzma
 import numpy as np
 import pandas as pd
@@ -6,13 +5,15 @@ import pathlib
 import re
 
 from .protobuf import xla_module_metadata
+from .utils import make_child_mask
 
 
 def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFrame:
     # Classify each thunk as either communication or computation, as we only
     # want to attribute non-overlapped communication time to those operations.
     # Use HloInstructionProto.channel_id as a proxy for whether an operation is
-    # communication.
+    # communication. Assume that different TID values correspond to different GPUs
+    # being driven by the same process.
     def is_communication(row):
         if row["ProgramId"] == -1:
             # Assume this is an autotuning execution.
@@ -30,47 +31,39 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
         return hlo_inst.channel_id != 0
 
     thunk_df["Communication"] = thunk_df.apply(is_communication, axis=1)
+    thunk_df["ProjDurHiddenNs"] = 0.0
     # For convenience when calculating unhidden comms
     thunk_df["ProjEndNs"] = thunk_df["ProjStartNs"] + thunk_df["ProjDurNs"]
 
-    # Update the projected duration of each communication kernel to only
-    # include the non-overlapped time
-    for comm_thunk in thunk_df[thunk_df["Communication"]].itertuples():
-        # This is a range annotating a communication operation, i.e. NCCL kernel
-        # That kernel was active from thunk_row.ProjStartNs until thunk_row.ProjEndNs
-        # but during that time then other computation was going on. We want to
-        # find how much of the time did not overlap with other computation.
-        compute_df = thunk_df[
-            (
-                (thunk_df["ProjEndNs"] > comm_thunk.ProjStartNs)
-                & (thunk_df["ProjStartNs"] < comm_thunk.ProjEndNs)
-                & ~thunk_df["Communication"]
-            )
-        ]
-        # The computation kernels should all be serialised, but check that
-        for row1, row2 in itertools.pairwise(compute_df.itertuples()):
+    for _, thread_df in thunk_df.groupby("TID"):
+        # Update the projected duration of each communication kernel to only
+        # include the non-overlapped time
+        for comm_thunk in thread_df[thread_df["Communication"]].itertuples():
+            # This is a range annotating a communication operation, i.e. NCCL kernel
+            # That kernel was active from comm_thunk.ProjStartNs until comm_thunk.ProjEndNs
+            # but during that time then other computation was going on. We want to
+            # find how much of the time did not overlap with other computation.
+            compute_df = thread_df[
+                (
+                    (thread_df["ProjEndNs"] > comm_thunk.ProjStartNs)
+                    & (thread_df["ProjStartNs"] < comm_thunk.ProjEndNs)
+                    & ~thread_df["Communication"]
+                )
+            ]
+            # The computation kernels should all be serialised, but check that
             assert (
-                row2.ProjStartNs >= row1.ProjEndNs
-            ), f"{row2.Name} starts at {row2.ProjStartNs} before {row1.Name} ends at {row1.ProjEndNs}"
-        compute_time = sum(
-            min(row.ProjEndNs, comm_thunk.ProjEndNs)
-            - max(row.ProjStartNs, comm_thunk.ProjStartNs)
-            for row in compute_df.itertuples()
-        )
-        # Update the projected duration of communication kernels to just be the
-        # time that is not hidden.
-        unhidden_comm_time = comm_thunk.ProjDurNs - compute_time
-        thunk_df.loc[comm_thunk.Index, "ProjDurNs"] = unhidden_comm_time
-
-    # We assume that there is no compute-compute overlap for now; check that.
-    # TODO: be smarter about this if it's seen to take non-trivial time.
-    compute_df = thunk_df[~thunk_df["Communication"]]
-    for compute_thunk in compute_df.itertuples():
-        # This should just find the thunk itself
-        mask = (compute_df["ProjEndNs"] > compute_thunk.ProjStartNs) & (
-            compute_df["ProjStartNs"] < compute_thunk.ProjEndNs
-        )
-        assert mask.sum() == 1
+                compute_df["ProjStartNs"].iloc[1:].array
+                >= compute_df["ProjEndNs"].iloc[:-1].array
+            ).all()
+            compute_time = np.sum(
+                np.minimum(compute_df["ProjEndNs"], comm_thunk.ProjEndNs)
+                - np.maximum(compute_df["ProjStartNs"], comm_thunk.ProjStartNs)
+            )
+            # Update the projected duration of communication kernels to just be the
+            # time that is not hidden.
+            unhidden_comm_time = comm_thunk.ProjDurNs - compute_time
+            thunk_df.loc[comm_thunk.Index, "ProjDurNs"] = unhidden_comm_time
+            thunk_df.loc[comm_thunk.Index, "ProjDurHiddenNs"] = compute_time
 
     return thunk_df.drop(columns=["ProjEndNs"])
 
@@ -207,7 +200,7 @@ def _load_nvtx_gpu_proj_trace(
 
     # Add a new column describing which (0th, 1st, ...) execution of the module
     # each module/thunk range corresponds to.
-    mod_exec_indices = df.loc[mod_ids, :].groupby("ProgramId").cumcount()
+    mod_exec_indices = df.loc[mod_ids, :].groupby(["TID", "ProgramId"]).cumcount()
     df.loc[mod_ids, "ModuleExecution"] = mod_exec_indices
     df.loc[all_thunks, "ModuleExecution"] = mod_exec_indices[
         df.loc[all_thunks, "ModuleId"]
@@ -239,7 +232,6 @@ def _load_nvtx_gpu_proj_trace(
                 "ParentId",
                 "RangeStack",
                 "Style",
-                "TID",
             ]
             + extra_columns
         ).astype({"ModuleExecution": np.int32, "ProgramId": np.int32})
@@ -277,48 +269,113 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]):
     compile_df = compile_df.rename(
         columns={
             "Start (ns)": "StartNs",
+            "End (ns)": "EndNs",
             "Duration (ns)": "DurNs",
             "DurChild (ns)": "DurChildNs",
             "DurNonChild (ns)": "DurNonChildNs",
         }
-    ).drop(columns=["End (ns)", "PID", "TID", "Lvl", "NameTree"])
+    ).drop(columns=["PID", "Lvl", "NameTree"])
     # XlaCompileBackend always has the name and program ID, while one code path
-    # produces XlaCompile annotations that don't have the program ID. Note that
-    # the autotuner produces XlaCompileBackend ranges that do not have
-    # XlaCompile parents (and which run in a threadpool, leading to them not
-    # having ParentId set).
-    compile_prefix = "TSL:XlaCompile:#module="
+    # produces XlaCompile annotations that don't have the program ID. Also, the
+    # auto-tuner produces nested XlaCompileBackend ranges with different names
+    # and IDs to the ancestor XlaCompile range.
     backend_prefix = "TSL:XlaCompileBackend:#module="
-    compile_mask = compile_df["Name"].str.startswith(compile_prefix)
-    # Only those XlaCompileBackend ranges that do have parent ranges
-    backend_mask = (
-        compile_df["Name"].str.startswith(backend_prefix)
-        & ~compile_df["ParentId"].isna()
-    )
-    # The latter should be direct children of the former
-    compile_ids = compile_df[compile_mask].index.array
-    backend_parent_ids = compile_df.loc[backend_mask, "ParentId"].astype(np.int32).array
-    assert all(compile_ids == backend_parent_ids)
     backend_re = re.compile("^" + backend_prefix + r"(.*?),program_id=(\d+)#$")
-    # Set the program ID and name on the top-level range
-    compile_df.loc[compile_mask, "ProgramId"] = (
-        compile_df.loc[backend_mask, "Name"]
-        .str.replace(backend_re, r"\2", regex=True)
-        .array
+    backend_mask = compile_df["Name"].str.startswith(backend_prefix)
+    # Populate ProgramId and ProgramName by parsing the XlaCompileBackend name
+    compile_df.loc[backend_mask, "ProgramId"] = compile_df.loc[
+        backend_mask, "Name"
+    ].str.replace(backend_re, r"\2", regex=True)
+    compile_df.loc[backend_mask, "ProgramName"] = compile_df.loc[
+        backend_mask, "Name"
+    ].str.replace(backend_re, r"\1", regex=True)
+    # Propagate ProgramId and ProgramName up from XlaCompileBackend to XlaCompile
+    backends_with_parents = backend_mask & ~compile_df["ParentId"].isna()
+    backend_parent_ids = (
+        compile_df.loc[backends_with_parents, "ParentId"].astype(np.int32).array
     )
-    compile_df.loc[compile_mask, "ProgramName"] = (
-        compile_df.loc[backend_mask, "Name"]
-        .str.replace(backend_re, r"\1", regex=True)
-        .array
+    compile_prefix = "TSL:XlaCompile:#module="
+    assert (
+        compile_df.loc[backend_parent_ids, "Name"].str.startswith(compile_prefix).all()
     )
-    # Set it on all the child ranges too
-    compile_related_mask = compile_mask
+    compile_df.loc[backend_parent_ids, "ProgramId"] = compile_df.loc[
+        backends_with_parents, "ProgramId"
+    ].array
+    compile_df.loc[backend_parent_ids, "ProgramName"] = compile_df.loc[
+        backends_with_parents, "ProgramName"
+    ].array
+    # When parallel compilation is enabled, we end up with worker threads that
+    # emit NVTX ranges but which are not accounted for in the RangeStack tree.
+    # Splice these in.
+    compile_mask = compile_df["Name"].str.startswith(compile_prefix)
+    new_parent_ranges = set()
     for compile_range in compile_df[compile_mask].itertuples():
-        mask = compile_df["RangeStack"].str.startswith(f":{compile_range.Index}:")
-        compile_related_mask |= mask
-        compile_df.loc[mask, "ProgramId"] = compile_range.ProgramId
-        compile_df.loc[mask, "ProgramName"] = compile_range.ProgramName
+        # Identify top-level ranges in possible worker threads associated to this XlaCompile range
+        worker_mask = (
+            (compile_df["StartNs"] >= compile_range.StartNs)
+            & (compile_df["EndNs"] <= compile_range.EndNs)
+            & (compile_df["TID"] != compile_range.TID)
+            & (compile_df["ParentId"].isna())
+        )
+        for worker_range in compile_df[worker_mask].itertuples():
+            assert worker_range.Name.startswith("TSL:Xla")
+            # Find the deepest still-open range in the main thread
+            mask = (
+                make_child_mask(compile_df, compile_range.Index)
+                & (compile_df["StartNs"] < worker_range.StartNs)
+                & (compile_df["EndNs"] > worker_range.EndNs)
+                & (compile_df["TID"] == compile_range.TID)
+            )
+            new_parent_index = mask[mask].index[-1]
+            assert compile_df.loc[new_parent_index, "TID"] == compile_range.TID
+            # Graft this worker/child range and its children into compile_df as
+            # children of `new_parent_index`
+            compile_df.loc[worker_range.Index, "ParentId"] = new_parent_index
+            compile_df.loc[new_parent_index, "NumChild"] += 1
+            range_stack_prefix = compile_df.loc[new_parent_index, "RangeStack"]
+            # Get a mask for this worker range and all its children
+            mask = make_child_mask(compile_df, worker_range.Index)
+            mask.loc[worker_range.Index] = True
+            # prefix RangeStack values with `range_stack_prefix`
+            compile_df.loc[mask, "RangeStack"] = compile_df.loc[
+                mask, "RangeStack"
+            ].str.slice_replace(stop=0, repl=range_stack_prefix)
+            new_parent_ranges.add(new_parent_index)
+            # See TODO below. Set to NaN to avoid meaningless numbers being used.
+            compile_df.loc[new_parent_index, ("DurChildNs", "DurNonChildNs")] = (
+                np.nan,
+                np.nan,
+            )
+    # TODO: update the DurChildNs and DurNonChildNs values for `new_parent_ranges` to avoid double-counting
+    # Mask out anything that's not descended from XlaCompile now
+    compile_related_mask = compile_mask
+    for compile_range_index in compile_mask[compile_mask].index:
+        compile_related_mask |= make_child_mask(compile_df, compile_range_index)
     compile_df = compile_df[compile_related_mask]
+    # Fill in all the missing ProgramId and ProgramName values by navigating up
+    # to the closest ancestor range that has them set.
+    mask = compile_df["ProgramId"].isna()
+    assert compile_df.loc[mask, "ProgramName"].isna().all()
+    rows_to_fill = mask[mask].index
+    ancestor_rows = compile_df.loc[rows_to_fill, "ParentId"]
+    while len(rows_to_fill):
+        # If any ancestor_row values are nan we can't navigate further; mask them
+        good_mask = ~ancestor_rows.isna()
+        ancestor_rows = ancestor_rows[good_mask]
+        rows_to_fill = rows_to_fill[good_mask]
+        # For each (row, ancestor) in zip(rows_to_fill, ancestor_rows) see if
+        # ProgramId and ProgramName in `row` can be populated from `ancestor`.
+        # If not, make ancestor one generation higher.
+        ancestor_ids = compile_df.loc[ancestor_rows, "ProgramId"]
+        ancestor_names = compile_df.loc[ancestor_rows, "ProgramName"]
+        # If yes, copy those values into the row
+        good_mask = ~ancestor_ids.isna()
+        done_rows = rows_to_fill[good_mask].array
+        compile_df.loc[done_rows, "ProgramId"] = ancestor_ids[good_mask].array
+        compile_df.loc[done_rows, "ProgramName"] = ancestor_names[good_mask].array
+        # If not, look one generation higher above the row
+        ancestor_rows = compile_df.loc[ancestor_rows.array[~good_mask], "ParentId"]
+        rows_to_fill = rows_to_fill[~good_mask]
     # It makes analysis confusing to have ranges from cuBLAS appear as
     # children of XLA ranges, so fold non-TSL ranges into their TSL parents
     non_xla_mask = ~compile_df["Name"].str.startswith("TSL:")
@@ -330,10 +387,23 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]):
         compile_df.loc[parent_id, "NumChild"] -= 1
         compile_df.loc[parent_id, "DurChildNs"] -= non_xla_range.DurNs
         compile_df.loc[parent_id, "DurNonChildNs"] += non_xla_range.DurNs
+
+    # Because the ProgramId and ProgramName ranges provide the same information,
+    # remove those fields from the compilation range names.
+    def remove_program_id_and_name(row):
+        row.Name = (
+            row.Name.removeprefix("TSL:")
+            .replace(f",program_id={int(row.ProgramId)}", "")
+            .replace(f",module={row.ProgramName}", "")
+            .replace(f":#module={row.ProgramName}#", "")
+        )
+        return row
+
     return {
         "compile": compile_df[~non_xla_mask]
-        .drop(columns=["ParentId"])
+        .drop(columns=["EndNs"])
         .astype({"ProgramId": np.int32})
+        .transform(remove_program_id_and_name, axis="columns")
     }
 
 

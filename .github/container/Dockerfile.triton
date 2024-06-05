@@ -28,8 +28,7 @@ ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 RUN <<"EOF" bash -ex
 pushd "${SRC_PATH_XLA}"
-BAZEL=$(find "${SRC_PATH_JAX}/build" -type f -executable -name 'bazel-*')
-"${BAZEL}" --output_base=/opt/checkout fetch @triton//:BUILD
+bazel --output_base=/opt/checkout fetch @triton//:BUILD
 rm -rf /root/.cache
 EOF
 
@@ -70,7 +69,7 @@ sed -i -e '/include_directories(${PROJECT_BINARY_DIR}\/third_party)/a include_di
 # Extra patches to Triton maintained in XLA. These are already applied in the working directory.
 XLA_TRITON_PATCHES="${SRC_PATH_XLA}/third_party/triton"
 # This patch adds two files that are not known to CMake
-if [[ -f "${XLA_TRITON_PATCHES}/xla_extensions/sparse_dot_base.patch" ]]; then
+if [[ -f "${XLA_TRITON_PATCHES}/xla_extensions/sparse_dot.patch" ]]; then
   sed -i -e '/ConvertLayoutOpToLLVM.cpp/a ConvertLayoutOpToLLVM/SharedToSparseDotOperand.cpp' third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeLists.txt
   sed -i -e '/DotOpToLLVM.cpp/a DotOpToLLVM/Sparse.cpp' third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeLists.txt
 fi
