@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import jax.numpy as jnp
 
 from utils import ConvertHelper
@@ -25,6 +24,10 @@ class PaxConvertHelperBase(ConvertHelper):
         if self.weight_only:
             return ['mdl_vars.params']
         return ['mdl_vars.params', "opt_states_0_2.m.params", "opt_states_0_2.v.params"]
+
+    @property
+    def fp8_meta_catagories(self):
+        return {'mdl_vars.params': 'mdl_vars.fp8_metas'}
 
 
 class Pax2TEConvertHelper(PaxConvertHelperBase):
@@ -46,8 +49,11 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                 f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer1.linear.w":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.wi_kernel",
-                        (hidden_dim, mlp_intermediate_dim), 0,
-                        lambda x: jnp.reshape(x, (*x.shape[:-1], 1, x.shape[-1]))),
+                        (hidden_dim, mlp_intermediate_dim),
+                        0,
+                        lambda x: jnp.reshape(x, (*x.shape[:-1], 1, x.shape[-1])),
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='0'),
                 f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer2.bias.b":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.wo_bias",
@@ -57,7 +63,10 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                 f"lm.transformer.x_layers_{i}.ff_layer.ffn_layer2.linear.w":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.wo_kernel",
-                        (mlp_intermediate_dim, hidden_dim), 1),
+                        (mlp_intermediate_dim, hidden_dim),
+                        1,
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='1'),
                 f"lm.transformer.x_layers_{i}.ff_layer.layer_norm.bias":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.mlp.ln_bias",
@@ -90,9 +99,12 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                 f"lm.transformer.x_layers_{i}.self_attention.combined_qkv.w":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.qkv.kernel",
-                        (3, hidden_dim, num_of_head, head_dim), 0,
+                        (3, hidden_dim, num_of_head, head_dim),
+                        0,
                         lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
-                        lambda x: jnp.transpose(x, (1, 0, 2))),
+                        lambda x: jnp.transpose(x, (1, 0, 2)),
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='0'),
                 f"lm.transformer.x_layers_{i}.self_attention.post.b":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.out.bias",
@@ -102,9 +114,12 @@ class Pax2TEConvertHelper(PaxConvertHelperBase):
                 f"lm.transformer.x_layers_{i}.self_attention.post.w":
                     self._get_convert_pkg(
                         f"lm.transformer.x_layers_{i}.transformerlayer.cld.attention.out.kernel",
-                        (hidden_dim, num_of_head, head_dim), 1,
+                        (hidden_dim, num_of_head, head_dim),
+                        1,
                         lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
-                        lambda x: jnp.transpose(x, (1, 0)))
+                        lambda x: jnp.transpose(x, (1, 0)),
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='0')
             })
 
         return ckpt_map
@@ -199,6 +214,10 @@ class PaxRepeatConvertHelperBase(ConvertHelper):
             f"opt_states_0.p#{num_of_layer}#i-1_2.v.params"
         ]
 
+    @property
+    def fp8_meta_catagories(self):
+        return {'mdl_vars.params': 'mdl_vars.fp8_metas'}
+
 
 class Pax2TERepeatConvertHelper(PaxRepeatConvertHelperBase):
 
@@ -220,8 +239,12 @@ class Pax2TERepeatConvertHelper(PaxRepeatConvertHelperBase):
             'lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer1.linear.w':
                 self._get_convert_pkg(
                     'lm.transformer.repeat.sub.x_layers_0.transformerlayer.cld.mlp.wi_kernel',
-                    (num_of_layer, hidden_dim, mlp_intermediate_dim), 1,
-                    lambda x: jnp.reshape(x, (*x.shape[:-1], 1, x.shape[-1]))),
+                    (num_of_layer, hidden_dim, mlp_intermediate_dim),
+                    1,
+                    lambda x: jnp.reshape(x, (*x.shape[:-1], 1, x.shape[-1])),
+                    gen_fp8_meta=True,
+                    fp8_meta_postfix='0',
+                    fp8_meta_shape_prefix=(num_of_layer,)),
             'lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer2.bias.b':
                 self._get_convert_pkg(
                     'lm.transformer.repeat.sub.x_layers_0.transformerlayer.cld.mlp.wo_bias',
@@ -231,7 +254,11 @@ class Pax2TERepeatConvertHelper(PaxRepeatConvertHelperBase):
             'lm.transformer.repeat.sub.x_layers_0.ff_layer.ffn_layer2.linear.w':
                 self._get_convert_pkg(
                     'lm.transformer.repeat.sub.x_layers_0.transformerlayer.cld.mlp.wo_kernel',
-                    (num_of_layer, mlp_intermediate_dim, hidden_dim), 2),
+                    (num_of_layer, mlp_intermediate_dim, hidden_dim),
+                    2,
+                    gen_fp8_meta=True,
+                    fp8_meta_postfix='1',
+                    fp8_meta_shape_prefix=(num_of_layer,)),
             'lm.transformer.repeat.sub.x_layers_0.ff_layer.layer_norm.bias':
                 self._get_convert_pkg(
                     'lm.transformer.repeat.sub.x_layers_0.transformerlayer.cld.mlp.ln_bias',
@@ -264,9 +291,13 @@ class Pax2TERepeatConvertHelper(PaxRepeatConvertHelperBase):
             'lm.transformer.repeat.sub.x_layers_0.self_attention.combined_qkv.w':
                 self._get_convert_pkg(
                     'lm.transformer.repeat.sub.x_layers_0.transformerlayer.cld.attention.qkv.kernel',
-                    (num_of_layer, 3, hidden_dim, num_of_head, head_dim), 1,
+                    (num_of_layer, 3, hidden_dim, num_of_head, head_dim),
+                    1,
                     lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
-                    lambda x: jnp.transpose(x, (0, 2, 1, 3))),
+                    lambda x: jnp.transpose(x, (0, 2, 1, 3)),
+                    gen_fp8_meta=True,
+                    fp8_meta_postfix='0',
+                    fp8_meta_shape_prefix=(num_of_layer,)),
             'lm.transformer.repeat.sub.x_layers_0.self_attention.post.b':
                 self._get_convert_pkg(
                     'lm.transformer.repeat.sub.x_layers_0.transformerlayer.cld.attention.out.bias',
@@ -276,9 +307,13 @@ class Pax2TERepeatConvertHelper(PaxRepeatConvertHelperBase):
             'lm.transformer.repeat.sub.x_layers_0.self_attention.post.w':
                 self._get_convert_pkg(
                     'lm.transformer.repeat.sub.x_layers_0.transformerlayer.cld.attention.out.kernel',
-                    (num_of_layer, hidden_dim, num_of_head, head_dim), 2,
+                    (num_of_layer, hidden_dim, num_of_head, head_dim),
+                    2,
                     lambda x: jnp.reshape(x, (*x.shape[:-2], x.shape[-2] * x.shape[-1])),
-                    lambda x: jnp.transpose(x, (0, 2, 1)))
+                    lambda x: jnp.transpose(x, (0, 2, 1)),
+                    gen_fp8_meta=True,
+                    fp8_meta_postfix='0',
+                    fp8_meta_shape_prefix=(num_of_layer,))
         })
 
         return ckpt_map

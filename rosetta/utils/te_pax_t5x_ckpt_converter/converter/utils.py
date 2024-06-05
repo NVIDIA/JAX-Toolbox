@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import asyncio
 import os
 import shutil
@@ -40,6 +39,7 @@ class ModelConfig:
     head_dim: int
     mlp_intermediate_dim: int
     kernel_chunk_size: int = None
+    amax_history_len: int = 1
 
 
 @dataclass
@@ -51,39 +51,67 @@ class ConvertPkg:
     extra_src_paths: list[str]
     stack_dim: int
     just_copy: bool
+    gen_fp8_meta: bool
+    fp8_meta_prefix: str
+    fp8_meta_postfix: str
+    fp8_meta_shape_prefix: tuple[int]
 
 
 class ConvertHelper:
 
     def __init__(self, input_path: str, output_path: str, model_config: ModelConfig,
-                 weight_only: bool, skip_ln: bool):
+                 weight_only: bool, skip_ln: bool, gen_fp8_meta: bool):
         self.input_path = input_path
         self.output_path = output_path
         self.model_config = model_config
         self.weight_only = weight_only
         self.skip_ln = skip_ln
+        self.gen_fp8_meta = gen_fp8_meta
 
     @property
     def catagories(self):
         raise NotImplementedError
 
-    def _get_convert_pkg(self,
-                         target_path,
-                         shape,
-                         chunk_dim,
-                         *converters,
-                         extra_src_paths=[],
-                         stack_dim=0,
-                         just_copy=False):
+    @property
+    def fp8_meta_catagories(self):
+        raise NotImplementedError
+
+    def _get_convert_pkg(
+            self,
+            target_path,
+            shape,
+            chunk_dim,
+            *converters,
+            extra_src_paths=[],
+            stack_dim=0,
+            just_copy=False,
+            gen_fp8_meta=False,
+            fp8_meta_prefix='',
+            fp8_meta_postfix='0',
+            fp8_meta_shape_prefix=tuple(),
+    ):
         return ConvertPkg(target_path, shape, chunk_dim, tuple(converters), extra_src_paths,
-                          stack_dim, just_copy)
+                          stack_dim, just_copy, gen_fp8_meta, fp8_meta_prefix, fp8_meta_postfix,
+                          fp8_meta_shape_prefix)
 
     def _unpack_convert_pkg(self, pkg):
         return pkg.target_path, pkg.shape, pkg.chunk_dim, pkg.converters, \
-               pkg.extra_src_paths, pkg.stack_dim, pkg.just_copy
+               pkg.extra_src_paths, pkg.stack_dim, pkg.just_copy, \
+               pkg.gen_fp8_meta, pkg.fp8_meta_prefix, pkg.fp8_meta_postfix, \
+               pkg.fp8_meta_shape_prefix
 
     def _generate_ckpt_map(self):
         raise NotImplementedError
+
+    def _generate_fp8_path(self, prefix, target_path):
+        fp8_meta_full_prefix = prefix + '.' + target_path[:target_path.rfind('.')]
+        return fp8_meta_full_prefix
+        # fp8_meta_amax_full_paths = []
+        # fp8_meta_scale_full_paths = []
+        # for t in ['i', 'w', 'g']:
+        #     fp8_meta_amax_full_paths.append(fp8_meta_full_prefix + f'.amax_{t}_{postfix}')
+        #     fp8_meta_scale_full_paths.append(fp8_meta_full_prefix + f'.scale_{t}_{postfix}')
+        # return *fp8_meta_amax_full_paths, *fp8_meta_amax_full_paths
 
     def generate_ckpt_map_with_full_name(self):
         ckpt_map = self._generate_ckpt_map()
@@ -98,9 +126,12 @@ class ConvertHelper:
             return False
 
         if self.skip_ln:
+            keys_to_pop = []
             for key in ckpt_map:
                 if is_ln_weights(key):
-                    ckpt_map.pop(key)
+                    keys_to_pop.append(key)
+            for key in keys_to_pop:
+                ckpt_map.pop(key)
 
         ckpt_map_with_full_name = {}
         for prefix in self.catagories:
@@ -112,12 +143,20 @@ class ConvertHelper:
                 ckpt_pkgs_with_full_name = []
                 for pkg in ckpt_pkgs:
                     target_path, shape, chunk_dim, converters, \
-                    extra_src_paths, stack_dim, just_copy = self._unpack_convert_pkg(pkg)
+                    extra_src_paths, stack_dim, just_copy, \
+                    gen_fp8_meta, fp8_meta_prefix, fp8_meta_postfix, \
+                    fp8_meta_shape_prefix= self._unpack_convert_pkg(pkg)
 
                     full_src_name = prefix + '.' + src_path
                     full_target_name = prefix + '.' + target_path
                     full_extra_src_names = None if extra_src_paths is None else \
                                            [prefix + '.'+ esp for esp in extra_src_paths]
+
+                    if prefix not in self.fp8_meta_catagories:
+                        gen_fp8_meta = False
+                    else:
+                        fp8_meta_prefix = self.fp8_meta_catagories[prefix]
+                        fp8_meta_prefix = self._generate_fp8_path(fp8_meta_prefix, target_path)
 
                     ckpt_pkgs_with_full_name.append(
                         self._get_convert_pkg(full_target_name,
@@ -126,7 +165,11 @@ class ConvertHelper:
                                               *converters,
                                               extra_src_paths=full_extra_src_names,
                                               stack_dim=stack_dim,
-                                              just_copy=just_copy))
+                                              just_copy=just_copy,
+                                              gen_fp8_meta=gen_fp8_meta,
+                                              fp8_meta_prefix=fp8_meta_prefix,
+                                              fp8_meta_postfix=fp8_meta_postfix,
+                                              fp8_meta_shape_prefix=fp8_meta_shape_prefix))
 
                 ckpt_map_with_full_name[full_src_name] = ckpt_pkgs_with_full_name
 
@@ -143,12 +186,15 @@ class ConvertHelper:
 
             for ckpt_pkg in ckpt_map_with_full_path[folder]:
                 target_path, shape, chunk_dim, converters, \
-                extra_src_paths, stack_dim, just_copy = self._unpack_convert_pkg(ckpt_pkg)
+                extra_src_paths, stack_dim, just_copy, \
+                gen_fp8_meta, fp8_meta_prefix, fp8_meta_postfix, \
+                fp8_meta_shape_prefix = self._unpack_convert_pkg(ckpt_pkg)
 
                 if just_copy:
                     src_path = os.path.join(self.input_path, folder)
                     target_path = os.path.join(self.output_path, target_path)
                     copy_ckpt(src_path, target_path)
+                    target_shape = shape
                 else:
                     target_path = os.path.join(self.output_path, target_path)
 
@@ -156,7 +202,7 @@ class ConvertHelper:
                     for src in [folder, *extra_src_paths]:
                         skip_pool.add(src)
                         src_path = os.path.join(self.input_path, src)
-                        jnp_arrs.append(serialize_tensor(src_path, shape))
+                        jnp_arrs.append(deserialize_tensor(src_path, shape))
 
                     if len(jnp_arrs) == 1:
                         jnp_arr = jnp_arrs[0]
@@ -166,8 +212,30 @@ class ConvertHelper:
                     for converter in converters:
                         jnp_arr = converter(jnp_arr)
 
-                    deserialize_tensor(target_path, jnp_arr, chunk_dim,
-                                       self.model_config.kernel_chunk_size)
+                    target_shape = jnp_arr.shape
+                    serialize_tensor(target_path, jnp_arr, chunk_dim,
+                                     self.model_config.kernel_chunk_size)
+
+                if gen_fp8_meta and self.gen_fp8_meta:
+                    jarr = deserialize_tensor(target_path, target_shape)
+                    for t in ['i', 'w', 'g']:
+                        fp8_meta_amax_path = \
+                            os.path.join(self.output_path,
+                                         fp8_meta_prefix + f'.amax_{t}_{fp8_meta_postfix}')
+                        fp8_meta_scale_path = \
+                            os.path.join(self.output_path,
+                                         fp8_meta_prefix + f'.scale_{t}_{fp8_meta_postfix}')
+
+                        amax = jnp.zeros(fp8_meta_shape_prefix +
+                                         (self.model_config.amax_history_len,),
+                                         dtype=jnp.float32)
+                        scale = jnp.ones(fp8_meta_shape_prefix + (1,), dtype=jnp.float32)
+                        if t == 'w':
+                            w_amax = jnp.max(jnp.abs(jarr)).astype(jnp.float32)
+                            amax = amax.at[0].set(w_amax)
+
+                        serialize_tensor(fp8_meta_amax_path, amax, None, None)
+                        serialize_tensor(fp8_meta_scale_path, scale, None, None)
 
         for folder in os.listdir(self.input_path):
             if folder not in ckpt_map_with_full_path and folder not in skip_pool:
@@ -212,7 +280,7 @@ def get_cast_tspec_serialize(tspec, value):
     return tspec
 
 
-def serialize_tensor(path: str, shape: tuple, dtype=jnp.float32):
+def deserialize_tensor(path: str, shape: tuple, dtype=jnp.float32):
     path = epath.Path(path)
 
     tspec = get_json_tspec(path)
@@ -221,12 +289,13 @@ def serialize_tensor(path: str, shape: tuple, dtype=jnp.float32):
     return jnp_arr
 
 
-def deserialize_tensor(path: str, tensor: jnp.ndarray, chunk_dim: int = None, chunk_size=None):
+def serialize_tensor(path: str, tensor: jnp.ndarray, chunk_dim: int = None, chunk_size=None):
     path = epath.Path(path)
 
     tspec = get_json_tspec(path)
     tspec['metadata'] = serialization._get_metadata(tensor)
-    del tspec['metadata']['dtype']
+    if 'dtype' in tspec['metadata']:
+        del tspec['metadata']['dtype']
 
     if chunk_dim is not None:
         chunk_shape = tuple([

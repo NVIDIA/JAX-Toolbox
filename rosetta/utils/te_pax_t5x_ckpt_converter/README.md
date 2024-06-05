@@ -23,6 +23,9 @@
                     the size to chucnk kernel (weighs) then store, only support with --fw=pax. Setting None means no chunking. (default: None)
 --weight-only         indicate if the source checkpoint only includes weights. (default: False)
 --skip-ln             indicate if skip the conversion for LayerNorm. (default: False)
+--gen-fp8-meta        indicate if generate corresponding FP8 meta. Only works when --direction=fw2te (default: False)
+--amax-history-len AMAX_HISTORY_LEN
+                   the length of amax history, which is only used when --gen-fp8-meta is specified. (default: 1024)
 --pax-repeat          indicate if the source Pax checkpoint enables Repeat. (default: False)
 --t5x-fuse-qkv        indicate if the source T5X checkpoint enables fused_qkv_params of TE. (default: False)
 ```
@@ -63,7 +66,7 @@ python  converter/main.py \
     --input-path=/your_path_to_src_ckpt \
     --output-path=/your_path_to_output_ckpt \
     --fw=pax \
-    --direction=fw2tw \
+    --direction=fw2te \
     --pax-repeat \
     --num-of-layer=8 \
     --num-of-head=6 \
@@ -145,16 +148,49 @@ python  converter/main.py \
 
 ### Notes
 #### Running converted CKPTs with Transformer Engine (TE) + FP8
-If you run the converted TE checkpoints ,from frameworks Pax or T5X, with FP8 enabled, you might enounter
-an error said that there is not FP8 meta found in the given checkpoint at restoring phase. That is because the
-original checkpoints to convert do not contains information about FP8 meta. To address this issue, please run
-a training process with the same model config on the target framework, plus TE and FP8, then store a checkpoint
-at step 0. Next, use the converted checkpoint to replace weights of the checkpoint from famework + TE + FP8, and
-restoring it to keep training.
+We now support auto-generating FP8 meta for converted TE checkpoints from framework checkpoints for further FP8 training.
+To enable this feature, please add `--gen-fp8-meta` to your command when running the converter.
+Additionally, you should specify the size of the amax history to be applied to subsequent FP8 training using `--amax-history-len`.
+
+For examples:
+- Pax -> TE (Repeat) with FP8 with 1024 amax history length:
+```bash
+python  converter/main.py \
+    --input-path=/your_path_to_src_ckpt \
+    --output-path=/your_path_to_output_ckpt \
+    --fw=pax \
+    --direction=fw2te \
+    --pax-repeat \
+    --gen-fp8-meta \
+    --amax-history-len=1024 \
+    --num-of-layer=8 \
+    --num-of-head=6 \
+    --head-dim=64 \
+    --mlp-intermediate-dim=1024
+```
+
+- T5X -> TE/FusedQKV with FP8 with 1024 amax history length:
+```bash
+python  converter/main.py \
+    --input-path=/your_path_to_src_ckpt \
+    --output-path=/your_path_to_output_ckpt \
+    --fw=t5x \
+    --direction=fw2te \
+    --t5x-fuse-qkv \
+    --embed-dim=512 \
+    --num-of-layer=8 \
+    --num-of-head=6 \
+    --head-dim=64 \
+    --mlp-intermediate-dim=1024
+```
+
+NOTE:
+For the generated FP8 meta, only the amax of weights is accurate. Therefore, please be aware that a few steps for adjusting FP8 meta
+of inputs and gradients are needed when resuming training with the converted FP8 checkpoints.
 
 #### The folder structure of CKPT by Pax and T5X
 If you would like to run the converted CKPTs with frameworks, you may expect the converted CKPTs have the same folder
-structure with CKPTs stored by frameworks. In this case, you could set `--output-path` to be the same stucture as the 
+structure with CKPTs stored by frameworks. In this case, you could set `--output-path` to be the same stucture as the
 CKPTs from frameworks, and no need to pre-generate folders, since it would be generated when needed.
 For Pax, you could set `--output-path` be like ` /${your_path_to_output}/checkpoints/checkpoint_${step}`.
 For T5X, you could set `--output-path` be like `/${your_path_to_output}/checkpoint_${step}`.

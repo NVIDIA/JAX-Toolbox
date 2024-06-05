@@ -25,6 +25,10 @@ class T5XConvertHelperBase(ConvertHelper):
             return CATAGORIES[:1]
         return CATAGORIES
 
+    @property
+    def fp8_meta_catagories(self):
+        return {CATAGORIES[0]: 'flax_mutables.fp8_metas'}
+
 
 class T5X2TENotFuseQKVConvertHelper(T5XConvertHelperBase):
 
@@ -32,6 +36,9 @@ class T5X2TENotFuseQKVConvertHelper(T5XConvertHelperBase):
         ckpt_map = {}
 
         embed_dim = self.model_config.embed_dim
+        num_of_head = self.model_config.num_of_head
+        head_dim = self.model_config.head_dim
+        hidden_dim = num_of_head * head_dim
         mlp_intermediate_dim = self.model_config.mlp_intermediate_dim
 
         for i in range(self.model_config.num_of_layer):
@@ -43,19 +50,32 @@ class T5X2TENotFuseQKVConvertHelper(T5XConvertHelperBase):
                                           just_copy=True),
                 f"encoder.layers_{i}.attention.query.kernel":
                     self._get_convert_pkg(f"encoder.layers_{i}.attention.query.kernel",
+                                          (embed_dim, hidden_dim),
                                           None,
-                                          None,
-                                          just_copy=True),
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"encoder.layers_{i}.attention.key.kernel":
                     self._get_convert_pkg(f"encoder.layers_{i}.attention.key.kernel",
+                                          (embed_dim, hidden_dim),
                                           None,
-                                          None,
-                                          just_copy=True),
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"encoder.layers_{i}.attention.value.kernel":
                     self._get_convert_pkg(f"encoder.layers_{i}.attention.value.kernel",
+                                          (embed_dim, hidden_dim),
                                           None,
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
+                f"encoder.layers_{i}.attention.out.kernel":
+                    self._get_convert_pkg(f"encoder.layers_{i}.attention.out.kernel",
+                                          (hidden_dim, embed_dim),
                                           None,
-                                          just_copy=True),
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"encoder.layers_{i}.pre_mlp_layer_norm.scale":
                     self._get_convert_pkg(f"encoder.layers_{i}.mlp.scale",
                                           None,
@@ -66,12 +86,16 @@ class T5X2TENotFuseQKVConvertHelper(T5XConvertHelperBase):
                                           (embed_dim, mlp_intermediate_dim),
                                           None,
                                           extra_src_paths=[f"encoder.layers_{i}.mlp.wi_1.kernel"],
-                                          stack_dim=1),
+                                          stack_dim=1,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"encoder.layers_{i}.mlp.wo.kernel":
                     self._get_convert_pkg(f"encoder.layers_{i}.mlp.wo_kernel",
+                                          (mlp_intermediate_dim, embed_dim),
                                           None,
-                                          None,
-                                          just_copy=True),
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='1'),
                 f"decoder.layers_{i}.pre_self_attention_layer_norm.scale":
                     self._get_convert_pkg(f"decoder.layers_{i}.self_attention.query.scale",
                                           None,
@@ -79,19 +103,32 @@ class T5X2TENotFuseQKVConvertHelper(T5XConvertHelperBase):
                                           just_copy=True),
                 f"decoder.layers_{i}.self_attention.query.kernel":
                     self._get_convert_pkg(f"decoder.layers_{i}.self_attention.query.kernel",
+                                          (embed_dim, hidden_dim),
                                           None,
-                                          None,
-                                          just_copy=True),
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.self_attention.key.kernel":
                     self._get_convert_pkg(f"decoder.layers_{i}.self_attention.key.kernel",
+                                          (embed_dim, hidden_dim),
                                           None,
-                                          None,
-                                          just_copy=True),
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.self_attention.value.kernel":
                     self._get_convert_pkg(f"decoder.layers_{i}.self_attention.value.kernel",
+                                          (embed_dim, hidden_dim),
                                           None,
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
+                f"decoder.layers_{i}.self_attention.out.kernel":
+                    self._get_convert_pkg(f"decoder.layers_{i}.self_attention.out.kernel",
+                                          (hidden_dim, embed_dim),
                                           None,
-                                          just_copy=True),
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.pre_cross_attention_layer_norm.scale":
                     self._get_convert_pkg(
                         f"decoder.layers_{i}.encoder_decoder_attention.query.scale",
@@ -101,21 +138,35 @@ class T5X2TENotFuseQKVConvertHelper(T5XConvertHelperBase):
                 f"decoder.layers_{i}.encoder_decoder_attention.query.kernel":
                     self._get_convert_pkg(
                         f"decoder.layers_{i}.encoder_decoder_attention.query.kernel",
+                        (embed_dim, hidden_dim),
                         None,
-                        None,
-                        just_copy=True),
+                        just_copy=True,
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.encoder_decoder_attention.key.kernel":
                     self._get_convert_pkg(
                         f"decoder.layers_{i}.encoder_decoder_attention.key.kernel",
+                        (embed_dim, hidden_dim),
                         None,
-                        None,
-                        just_copy=True),
+                        just_copy=True,
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.encoder_decoder_attention.value.kernel":
                     self._get_convert_pkg(
                         f"decoder.layers_{i}.encoder_decoder_attention.value.kernel",
+                        (embed_dim, hidden_dim),
                         None,
+                        just_copy=True,
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='0'),
+                f"decoder.layers_{i}.encoder_decoder_attention.out.kernel":
+                    self._get_convert_pkg(
+                        f"decoder.layers_{i}.encoder_decoder_attention.out.kernel",
+                        (hidden_dim, embed_dim),
                         None,
-                        just_copy=True),
+                        just_copy=True,
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.pre_mlp_layer_norm.scale":
                     self._get_convert_pkg(f"decoder.layers_{i}.mlp.scale",
                                           None,
@@ -126,12 +177,16 @@ class T5X2TENotFuseQKVConvertHelper(T5XConvertHelperBase):
                                           (embed_dim, mlp_intermediate_dim),
                                           None,
                                           extra_src_paths=[f"decoder.layers_{i}.mlp.wi_1.kernel"],
-                                          stack_dim=1),
+                                          stack_dim=1,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.mlp.wo.kernel":
                     self._get_convert_pkg(f"decoder.layers_{i}.mlp.wo_kernel",
+                                          (mlp_intermediate_dim, embed_dim),
                                           None,
-                                          None,
-                                          just_copy=True),
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='1'),
             })
         return ckpt_map
 
@@ -276,7 +331,15 @@ class T5X2TEFuseQKVConvertHelper(T5XConvertHelperBase):
                                               f"encoder.layers_{i}.attention.key.kernel",
                                               f"encoder.layers_{i}.attention.value.kernel"
                                           ],
-                                          stack_dim=1),
+                                          stack_dim=1,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
+                f"encoder.layers_{i}.attention.out.kernel":
+                    self._get_convert_pkg(f"encoder.layers_{i}.attention.out.kernel",
+                                          (hidden_dim, embed_dim),
+                                          None,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"encoder.layers_{i}.pre_mlp_layer_norm.scale":
                     self._get_convert_pkg(f"encoder.layers_{i}.mlp.scale",
                                           None,
@@ -287,12 +350,16 @@ class T5X2TEFuseQKVConvertHelper(T5XConvertHelperBase):
                                           (embed_dim, mlp_intermediate_dim),
                                           None,
                                           extra_src_paths=[f"encoder.layers_{i}.mlp.wi_1.kernel"],
-                                          stack_dim=1),
+                                          stack_dim=1,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"encoder.layers_{i}.mlp.wo.kernel":
                     self._get_convert_pkg(f"encoder.layers_{i}.mlp.wo_kernel",
                                           None,
                                           None,
-                                          just_copy=True),
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='1'),
                 f"decoder.layers_{i}.pre_self_attention_layer_norm.scale":
                     self._get_convert_pkg(f"decoder.layers_{i}.self_attention.qkv.scale",
                                           None,
@@ -306,7 +373,15 @@ class T5X2TEFuseQKVConvertHelper(T5XConvertHelperBase):
                                               f"decoder.layers_{i}.self_attention.key.kernel",
                                               f"decoder.layers_{i}.self_attention.value.kernel"
                                           ],
-                                          stack_dim=1),
+                                          stack_dim=1,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
+                f"decoder.layers_{i}.self_attention.out.kernel":
+                    self._get_convert_pkg(f"decoder.layers_{i}.self_attention.out.kernel",
+                                          (hidden_dim, embed_dim),
+                                          None,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.pre_cross_attention_layer_norm.scale":
                     self._get_convert_pkg(
                         f"decoder.layers_{i}.encoder_decoder_attention.query.scale",
@@ -316,9 +391,11 @@ class T5X2TEFuseQKVConvertHelper(T5XConvertHelperBase):
                 f"decoder.layers_{i}.encoder_decoder_attention.query.kernel":
                     self._get_convert_pkg(
                         f"decoder.layers_{i}.encoder_decoder_attention.query.kernel",
+                        (embed_dim, hidden_dim),
                         None,
-                        None,
-                        just_copy=True),
+                        just_copy=True,
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.encoder_decoder_attention.key.kernel":
                     self._get_convert_pkg(
                         f"decoder.layers_{i}.encoder_decoder_attention.kv.kernel",
@@ -327,7 +404,17 @@ class T5X2TEFuseQKVConvertHelper(T5XConvertHelperBase):
                         extra_src_paths=[
                             f"decoder.layers_{i}.encoder_decoder_attention.value.kernel"
                         ],
-                        stack_dim=1),
+                        stack_dim=1,
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='0'),
+                f"decoder.layers_{i}.encoder_decoder_attention.out.kernel":
+                    self._get_convert_pkg(
+                        f"decoder.layers_{i}.encoder_decoder_attention.out.kernel",
+                        (hidden_dim, embed_dim),
+                        None,
+                        just_copy=True,
+                        gen_fp8_meta=True,
+                        fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.pre_mlp_layer_norm.scale":
                     self._get_convert_pkg(f"decoder.layers_{i}.mlp.scale",
                                           None,
@@ -338,12 +425,16 @@ class T5X2TEFuseQKVConvertHelper(T5XConvertHelperBase):
                                           (embed_dim, mlp_intermediate_dim),
                                           None,
                                           extra_src_paths=[f"decoder.layers_{i}.mlp.wi_1.kernel"],
-                                          stack_dim=1),
+                                          stack_dim=1,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='0'),
                 f"decoder.layers_{i}.mlp.wo.kernel":
                     self._get_convert_pkg(f"decoder.layers_{i}.mlp.wo_kernel",
                                           None,
                                           None,
-                                          just_copy=True),
+                                          just_copy=True,
+                                          gen_fp8_meta=True,
+                                          fp8_meta_postfix='1'),
             })
         return ckpt_map
 
