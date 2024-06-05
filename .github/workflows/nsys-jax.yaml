@@ -71,6 +71,32 @@ jobs:
           export MYPYPATH="${PWD}/compiled_stubs"
           ./venv/bin/mypy ${NSYS_JAX_PYTHON_FILES}
 
+  notebook:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+      - name: Mock up the structure of an extracted .zip file
+        shell: bash -x -e {0}
+        run: |
+          # Get the actual test data from a real archive, minus the .nsys-rep file
+          unzip -d .github/container/jax_nsys/ .github/workflows/nsys-jax/maxtext_fsdp4_test_data.zip
+      - name: "Setup Python 3.10"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Run the install script, but skip launching Jupyter Lab
+        shell: bash -x -e {0}
+        run: |
+          pip install virtualenv
+          NSYS_JAX_INSTALL_SKIP_LAUNCH=1 ./.github/container/jax_nsys/install.sh
+      - name: Test the Jupyter Lab installation and execute the notebook
+        shell: bash -x -e {0}
+        run: |
+          pushd .github/container/jax_nsys
+          ./nsys_jax_venv/bin/python -m jupyterlab --version
+          ./nsys_jax_venv/bin/ipython Analysis.ipynb
+
   ruff:
     runs-on: ubuntu-24.04
     steps:
