@@ -10,20 +10,18 @@ PaliGemma models are originally developed in JAX and released in Google's [Big V
 
 ### Fine-Tuning
 
-Full Fine-Tuning is the process of fine-tuning all of a model’s parameters on supervised data of inputs and outputs. It teaches the model how to follow user specified instructions and is typically done after model pre-training. 
+Full Fine-Tuning is the process of fine-tuning all of a model’s parameters on supervised data of inputs and outputs. It teaches the model how to follow user-specified instructions and is typically done after model pre-training. 
 
-Full fine-tuning is resource intensive so for this example to make it easy to run on a T4 colab runtime with 16GB HBM and 12GB RAM, we opt to only finetune the attention layers of the language model and freeze the other parameters.
+Full fine-tuning is resource intensive so for this example to make it easy to run on a T4 with 16GB HBM and 12GB RAM, we opt to only finetune the attention layers of the language model and freeze the other parameters.
 
 This example will describe the steps involved in fine-tuning PaliGemma for generating image captions based on a training dataset of 90 pairs of images and long captions. 
 
-[Get Started Here](./)
-
 ## Download the model and data
 
-PaliGemma models are available on [Kaggle](https://www.kaggle.com/models/google/paligemma/) and in this notebook you can provide a Kaggle username and a Kaggle API key to download the model.
+PaliGemma models are available on [Kaggle](https://www.kaggle.com/models/google/paligemma/) and in this notebook, you can provide a Kaggle username and a Kaggle API key to download the model.
 
 ```python
-kagglehub.model_download('google/paligemma/jax/pt_224', 'pt_224.f16.npz')
+kagglehub.model_download('google/paligemma/jax/paligemma-3b-pt-224', 'paligemma-3b-pt-224.f16.npz')
 ```
 
 The tokenizer is available in a Google Cloud Storage bucket. You can install the Google Cloud CLI tool (gsutil) via pip.
@@ -45,11 +43,11 @@ JAX Toolbox containers include NVIDIA's latest performance optimizations in JAX 
 You can pull a container that includes JAX and all dependencies needed for this notebook with the following:
 
 ```bash
-docker pull nvcr.io/nvidia/jax:gemma
+docker pull ghcr.io/nvidia/jax:gemma
 ```
 
 The best way to run this notebook is from within the container. You can do that by launching the container with the following command
 
 ```bash
-docker run --gpus all -it -p 8888:8888 nvcr.io/nvidia/jax:gemma bash -c 'jupyter lab --ip 0.0.0.0 --allow-root'
+docker run --gpus all -it -p 8888:8888 ghcr.io/nvidia/jax:gemma bash -c 'jupyter lab --ip 0.0.0.0 --allow-root'
 ```
