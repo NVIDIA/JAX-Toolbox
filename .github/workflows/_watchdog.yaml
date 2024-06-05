@@ -5,16 +5,74 @@ on:
     types: [created]
 
 jobs:
-  woof:
+  pre-woof:
     runs-on: ubuntu-22.04
     if: >
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/ci') &&
       contains(fromJSON('["ko3n1g","nouiz","joker-eph","yhtang","terrykong","hemildesai","chaserileyroberts","CliveUnger","DwarKapex","mingxu1067","kocchop","SahilJain314","ashors1","maanug-nv","hmonishN","gspschmid"]'), github.actor)
+    env:
+      message: ${{ github.event.comment.body }}
+    outputs:
+      test_subset: ${{ steps.state.outputs.test_subset }}
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Verify state
+        shell: bash -x -e {0}
+        id: state
+        run: |
+          test_subsets=$(echo "$message" | awk '{$1=$1;print}' | cut -d' ' -f2-)
+          IFS=' ' read -a test_subsets <<< "$test_subsets"
+
+          valid_test_subsets=$(yq '.on.workflow_dispatch.inputs.TEST_SUBSET.options | join(",")'  .github/workflows/ci.yaml)
+
+          for test_subset in "${test_subsets[@]}"; do     
+            if [[ $test_subset == "" || "$valid_test_subsets" != *"$test_subset"* ]]; then
+              message="Invalid value for '/ci <TEST_SUBSET>' provided ❌. Expected one of: ($valid_test_subsets), Actual: '$test_subset'"
+              echo "message=$message" >> "$GITHUB_OUTPUT"
+              exit 1
+            fi
+          done
+
+          test_subsets=$(IFS=' '; echo "${test_subsets[*]}")
+
+          message="About to trigger presubmit CI on '$test_subsets'. Stay tuned for the next update ⏳."
+          echo "message=$message" >> "$GITHUB_OUTPUT"
+          echo "test_subset=$test_subsets" >> "$GITHUB_OUTPUT"
+
+      - name: Update PR issue comment
+        shell: bash -x -e {0}
+        if: always()
+        run: |
+          message="$message<woof>
+
+          ---
+
+          Watchdog 🤖: ${{ steps.state.outputs.message }}
+          </woof>
+          "
+
+          # GitHub needs HTML tags instead of newline chars
+          message="${message//$'\n'/<br>}"
+
+          # Fire
+          curl -L \
+            -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }} \
+            -d '{"body":"'"$message"'"}'
+
+  woof:
+    runs-on: ubuntu-22.04
+    needs: pre-woof
     steps:
       - name: Get PR number
-        shell: bash
+        shell: bash -x -e {0}
         id: get-pr-num
         run: |
           PR_URL="${{ github.event.issue.pull_request.url }}"
@@ -35,32 +93,50 @@ jobs:
             console.log('Pull Request Information:', pr.data);
             return pr.data.head.ref;
 
-      - name: Trigger `CI` workflow on subset of tests          
+      - name: Trigger `CI` workflow on subset of tests
         uses: aurelien-baudet/workflow-dispatch@v2.1.1
         id: trigger
         with:
-          workflow: "CI"
+          workflow: 'CI'
           token: ${{ secrets.GITHUB_TOKEN }}
           wait-for-completion: false
           ref: ${{ steps.get-pr-branch.outputs.result }}
+          inputs: '{ "TEST_SUBSET": "${{ needs.pre-woof.outputs.test_subset }}" }'
 
-      - name: Update `GITHUB_STEP_SUMMARY`
-        shell: bash
-        run: echo "Click [here](${{ steps.trigger.outputs.workflow-url }}) to navigate to the workflow run." >> $GITHUB_STEP_SUMMARY
-
-      - name: Update PR issue comment
-        shell: bash
-        env:
-          message: ${{ github.event.comment.body }}
+      - name: Create result message
+        shell: bash -x -e {0}
+        id: result
+        if: always()
         run: |
-          message="$message
+          if [[ "${{ steps.trigger.outcome }}" == "success" ]]; then
+            dispatch_result_message="presubmit CI was successfully triggered ✅. Click [here](${{ steps.trigger.outputs.workflow-url }}) to navigate to the workflow run."
+          else
+            dispatch_result_message="presubmit CI was not successfully triggered ❌. Click [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more information."
+          fi
+
+          dispatch_result_message="Watchdog 🤖: $dispatch_result_message"
+
+          echo "${{ steps.message.outputs.message }}" >> $GITHUB_STEP_SUMMARY
+
+          # Fetch original commit issue message
+          message="$message"
+
+          # Remove previous woof-response
+          message=$(awk -F '<woof>' '{print $1}' <<< "$message")
+
+          # Add new woof-response
+          message="$message<woof>
 
           ---
 
-          Watchdog 🤖: presubmit CI was automatically triggered. Click [here](${{ steps.trigger.outputs.workflow-url }}) to navigate to the workflow run.
+          $dispatch_result_message
+          </woof>
           "
+
+          # GitHub needs HTML tags instead of newline chars
           message="${message//$'\n'/<br>}"
 
+          # Fire
           curl -L \
             -X PATCH \
             -H "Accept: application/vnd.github+json" \

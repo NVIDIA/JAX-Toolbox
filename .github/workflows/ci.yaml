@@ -34,6 +34,22 @@ on:
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
           PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,paxml,praxis,maxtext,levanter,haliax,grok,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
         default: ''
+      TEST_SUBSET:
+        type: string
+        options:
+          - base
+          - jax
+          - levanter
+          - equinox
+          - triton
+          - upstream-t5x
+          - rosetta-t5x
+          - upstream-pax
+          - rosetta-pax
+          - maxtext
+          - grok
+        description: Subset of tests to run. Will run all downstream-connected nodes and leaves.
+        default: 'base'
         required: false
 
 concurrency:
@@ -60,6 +76,7 @@ jobs:
       MANIFEST_ARTIFACT_NAME: ${{ steps.manifest-branch.outputs.MANIFEST_ARTIFACT_NAME }}
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
+      TEST_SUBSET: ${{ steps.testset.outputs.TEST_SUBSET }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
         id: cancel-if-draft
@@ -113,7 +130,14 @@ jobs:
             echo "Error: If BUMP_MANIFEST=false, MERGE_BUMPED_MANIFEST cannot be true" >&2
             exit 1
           fi
-      
+
+      - name: Set TESTSET
+        id: testset
+        shell: bash -x -e {0}
+        run: |
+          TEST_SUBSET="${{ inputs.TEST_SUBSET || 'base' }}"
+          echo "TEST_SUBSET=$TEST_SUBSET" | tee -a $GITHUB_OUTPUT
+
   bump-manifest:
     needs: metadata
     runs-on: ubuntu-22.04
@@ -179,6 +203,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
+      TEST_SUBSET: ${{ needs.metadata.outputs.TEST_SUBSET }}
     secrets: inherit
 
   arm64:
@@ -189,6 +214,7 @@ jobs:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
+      TEST_SUBSET: ${{ needs.metadata.outputs.TEST_SUBSET }}
     secrets: inherit
 
   # Only merge if everything succeeds
