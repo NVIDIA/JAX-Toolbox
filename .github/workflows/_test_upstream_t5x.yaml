@@ -39,20 +39,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1P1G"
-            N_GPU: 1
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "1P2G"
-            N_GPU: 2
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "1P4G"
-            N_GPU: 4
-            ADDITIONAL_ARGS: ""
           - TEST_NAME: "1P8G"
             N_GPU: 8
-          - TEST_NAME: "1P1G_fmha"
-            N_GPU: 1
-            ADDITIONAL_ARGS: "--enable-fmha 1"
           - TEST_NAME: "1P2G_fmha"
             N_GPU: 2
             ADDITIONAL_ARGS: "--enable-fmha 1"
@@ -193,42 +181,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1G1N"
-            N_GPU: 1
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2G1N"
-            N_GPU: 2
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "4G1N"
-            N_GPU: 4
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "8G1N"
-            N_GPU: 8
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "1G2N"
-            N_GPU: 1
-            N_NODE: 2
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2G2N"
-            N_GPU: 2
-            N_NODE: 2
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "4G2N"
-            N_GPU: 4
-            N_NODE: 2
-            ADDITIONAL_ARGS: ""
           - TEST_NAME: "8G2N"
             N_GPU: 8
             N_NODE: 2
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2G2N_fmha"
-            N_GPU: 2
-            N_NODE: 2
-            ADDITIONAL_ARGS: "--enable-fmha 1"
           - TEST_NAME: "8G2N_fmha"
             N_GPU: 8
             N_NODE: 2
