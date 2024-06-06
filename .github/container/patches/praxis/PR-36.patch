@@ -1,7 +1,7 @@
 From 41488517eb6d95eb7943681e706c8804e6102c41 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 11:38:27 +0800
-Subject: [PATCH 01/10] Adding TE support
+Subject: [PATCH 01/15] Adding TE support
 
 ---
  praxis/contrib/gpu/scripts_gpu/te_helper.py | 176 ++++++++++++++++++++
@@ -247,13 +247,13 @@ index ab6cff3..c79dac9 100644
        # Annotate the inputs before the pipeline to prevent unexpected
        # propagation from earlier layers.
 -- 
-2.25.1
+2.45.2
 
 
 From ff1745796009cf1ec59f463f8e776c66f1286938 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 17 Nov 2023 15:21:06 +0800
-Subject: [PATCH 02/10] Fix missing vars wiht PP.
+Subject: [PATCH 02/15] Fix missing vars wiht PP.
 
 ---
  praxis/contrib/gpu/scripts_gpu/te_helper.py | 34 ++++++++++++---------
@@ -358,13 +358,13 @@ index e3b2f7c..b31526e 100644
            trans_in_fn=_get_to_f32_converter(bf16_vars_to_convert),
            trans_out_fn=_get_to_bf16_converter(bf16_vars_to_convert),
 -- 
-2.25.1
+2.45.2
 
 
 From 99e26aaf14131ca73501f08162be628b55c86a88 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Wed, 17 Jan 2024 02:36:31 -0800
-Subject: [PATCH 03/10] Add checkpoint_policy checker for fused attn + dropout
+Subject: [PATCH 03/15] Add checkpoint_policy checker for fused attn + dropout
 
 Signed-off-by: Reese Wang <rewang@nvidia.com>
 ---
@@ -476,13 +476,13 @@ index c79dac9..e076530 100644
          repeats.Repeat,
          sub_tpl=self.block,
 -- 
-2.25.1
+2.45.2
 
 
 From ab12f857404d84ed423e095d59e0bd336b94f151 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Mon, 15 Jan 2024 08:25:59 -0800
-Subject: [PATCH 04/10] Support more TE configurations
+Subject: [PATCH 04/15] Support more TE configurations
 
 Signed-off-by: Reese Wang <rewang@nvidia.com>
 ---
@@ -605,13 +605,13 @@ index 290b74c..9defcbd 100644
          te_transformer_tpl.attention_dropout = stacked_transformer_obj.atten_dropout_prob or stacked_transformer_obj.dropout_prob
          te_transformer_tpl.hidden_dropout = stacked_transformer_obj.residual_dropout_prob or stacked_transformer_obj.dropout_prob
 -- 
-2.25.1
+2.45.2
 
 
 From dc632f0b2bf8da8724e4959360da034b3a7b4075 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Sun, 18 Feb 2024 01:14:41 -0800
-Subject: [PATCH 05/10] Change the gated activations orders
+Subject: [PATCH 05/15] Change the gated activations orders
 
 Signed-off-by: Reese Wang <rewang@nvidia.com>
 ---
@@ -643,13 +643,13 @@ index 9defcbd..1f8f6d6 100644
              return te_tpl
  
 -- 
-2.25.1
+2.45.2
 
 
 From f2e8560e6861a6dea981209b402b27dc6bc92022 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Wed, 28 Feb 2024 22:37:46 -0800
-Subject: [PATCH 06/10] Remove RoPE restriction from DPA module
+Subject: [PATCH 06/15] Remove RoPE restriction from DPA module
 
 Signed-off-by: Reese Wang <rewang@nvidia.com>
 ---
@@ -677,13 +677,13 @@ index 1f8f6d6..7d83c08 100644
                  assert attn_tpl.attention_extra_logit is None
                  assert attn_tpl.ngrammer_tpl is None
 -- 
-2.25.1
+2.45.2
 
 
 From 3d6b5c34a64939dadcc751cf2e989cec1affc648 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Wed, 28 Feb 2024 22:56:44 -0800
-Subject: [PATCH 07/10] Add rotary_pos_emb_group dispatch
+Subject: [PATCH 07/15] Add rotary_pos_emb_group dispatch
 
 Signed-off-by: Reese Wang <rewang@nvidia.com>
 ---
@@ -721,13 +721,13 @@ index 7d83c08..d187ba1 100644
                  raise ValueError(f'Unsupported {attn_tpl.cls=}')
              assert attn_tpl.atten_logit_cap <= 0., 'atten_logit_cap > 0. is not supported in TE'
 -- 
-2.25.1
+2.45.2
 
 
 From 454f760a095562d995e7e9102f97c05158415312 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Sun, 3 Mar 2024 01:16:46 -0800
-Subject: [PATCH 08/10] Fix the missing .cls
+Subject: [PATCH 08/15] Fix the missing .cls
 
 Signed-off-by: Reese Wang <rewang@nvidia.com>
 ---
@@ -757,13 +757,13 @@ index d187ba1..733e9bf 100644
              else:
                  raise ValueError(f'Unsupported {attn_tpl.cls=}')
 -- 
-2.25.1
+2.45.2
 
 
 From 0bd4a531a3d8e4ddafb5ed680092fd5636aa9f8e Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 2 Feb 2024 10:58:40 +0800
-Subject: [PATCH 09/10] Fixed the unexpected input sharding pattern when TE
+Subject: [PATCH 09/15] Fixed the unexpected input sharding pattern when TE
  enabled.
 
 Signed-off-by: Ming-Xu Huang <mingh@nvidia.com>
@@ -872,13 +872,13 @@ index d8720ae..235d63e 100644
          [data_axis, None, None, mdl_axis]
          if training_optimized
 -- 
-2.25.1
+2.45.2
 
 
 From e3e785cfedb4f350cfcb2c43b093f94288dbc846 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 7 Feb 2024 12:34:01 +0800
-Subject: [PATCH 10/10] Addind a comment to get_input_bld
+Subject: [PATCH 10/15] Addind a comment to get_input_bld
 
 Signed-off-by: Ming-Xu Huang <mingh@nvidia.com>
 ---
@@ -907,5 +907,318 @@ index ee0fc84..d0afc1a 100644
  
      @staticmethod
 -- 
-2.25.1
+2.45.2
+
+
+From c45ae5b62a72cfce80f5c79b9f6f22ffb0dbfad1 Mon Sep 17 00:00:00 2001
+From: Ming Huang <mingh@nvidia.com>
+Date: Thu, 14 Mar 2024 20:33:36 -0700
+Subject: [PATCH 11/15] Leverage the origianl input bld when ENABLE_SP=False
+
+Signed-off-by: Ming Huang <mingh@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index d0afc1a..fa0375f 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -236,10 +236,10 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+         return te_transformer_tpl
+ 
+     @staticmethod
+-    def get_input_bld(_, batch_axes, mdl_axis):
++    def get_input_bld(original_bld, batch_axes, mdl_axis):
+         if ENABLE_TE_SP:
+             return [batch_axes, mdl_axis, None]
+-        return [batch_axes, None, None]
++        return original_bld
+ 
+     @staticmethod
+     def get_bld_mapping_for_pipelined_transformer(_):
+-- 
+2.45.2
+
+
+From 6a8bfddccb1916389b9a3206e6b3f9e142c30792 Mon Sep 17 00:00:00 2001
+From: Reese Wang <rewang@nvidia.com>
+Date: Mon, 11 Mar 2024 07:20:08 -0700
+Subject: [PATCH 12/15] Use causal_padding instead of padding
+
+Signed-off-by: Reese Wang <rewang@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index fa0375f..e0f9fd1 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -208,7 +208,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+         assert (transformer_layer_tpl.tr_fflayer_tpl.has_bias ==
+             transformer_layer_tpl.tr_atten_tpl.use_bias), "TE only allows same bias settings."
+         te_transformer_tpl.use_bias = transformer_layer_tpl.tr_fflayer_tpl.has_bias
+-        te_transformer_tpl.self_attn_mask_type = 'causal' \
++        te_transformer_tpl.self_attn_mask_type = 'padding_causal' \
+             if stacked_transformer_obj.mask_self_attention else 'padding'
+ 
+         te_transformer_tpl.logical_axes_rules = te_flax.extend_logical_axis_rules(tuple())
+-- 
+2.45.2
+
+
+From 9c26058d7e285700a314c1306a9567ec497a9603 Mon Sep 17 00:00:00 2001
+From: Reese Wang <rewang@nvidia.com>
+Date: Mon, 1 Apr 2024 01:07:12 -0700
+Subject: [PATCH 13/15] Fix rope convert
+
+Signed-off-by: Reese Wang <rewang@nvidia.com>
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index e0f9fd1..df6b9b8 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -177,7 +177,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+                 assert attn_tpl.attention_extra_logit is None
+                 assert attn_tpl.ngrammer_tpl is None
+                 te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
+-                if issubclass(attn_tpl.rotary_position_emb_tpl.cls, embedding_softmax.RotaryPositionalEmbedding):
++                if attn_tpl.rotary_position_emb_tpl.cls == embedding_softmax.RotaryPositionalEmbedding:
+                     te_tpl.rotary_pos_emb_group_method = 'alternate'
+             elif issubclass(attn_tpl.cls, grouped_query_attention.GroupedQueryAttention):
+                 te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
+@@ -188,7 +188,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+             elif issubclass(attn_tpl.cls, multi_query_attention.MultiQueryDotProductAttention):
+                 te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
+                 te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
+-                if issubclass(attn_tpl.rotary_position_emb_tpl.cls, embedding_softmax.RotaryPositionalEmbedding):
++                if attn_tpl.rotary_position_emb_tpl.cls == embedding_softmax.RotaryPositionalEmbedding:
+                     te_tpl.rotary_pos_emb_group_method = 'alternate'
+             else:
+                 raise ValueError(f'Unsupported {attn_tpl.cls=}')
+-- 
+2.45.2
+
+
+From bc21964acbddf8e6a9c5e1c09a17cbcdf24b6a50 Mon Sep 17 00:00:00 2001
+From: Reese Wang <rewang@nvidia.com>
+Date: Mon, 1 Apr 2024 01:08:52 -0700
+Subject: [PATCH 14/15] Add test_te_helper.py
+
+Signed-off-by: Reese Wang <rewang@nvidia.com>
+---
+ .../contrib/gpu/scripts_gpu/test_te_helper.py | 86 +++++++++++++++++++
+ 1 file changed, 86 insertions(+)
+ create mode 100644 praxis/contrib/gpu/scripts_gpu/test_te_helper.py
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/test_te_helper.py b/praxis/contrib/gpu/scripts_gpu/test_te_helper.py
+new file mode 100644
+index 0000000..c65a25d
+--- /dev/null
++++ b/praxis/contrib/gpu/scripts_gpu/test_te_helper.py
+@@ -0,0 +1,86 @@
++from praxis import base_hyperparams
++from praxis import layers
++from praxis import pax_fiddle
++from praxis.contrib.gpu.scripts_gpu.te_helper import TransformerEngineHelper
++from paxml.contrib.gpu.scripts_gpu.llama_utils import BaseLLaMA
++from paxml.contrib.gpu.scripts_gpu.configs import Synthetic5B
++from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
++
++import transformer_engine.jax.praxis as te_praxis
++
++
++class SyntheticLLaMA7B(BaseLLaMA, SyntheticDataset):
++    pass
++
++
++class TestGPT5B():
++
++    def test_te_tpl_convert(self):
++        task = Synthetic5B().task()
++        st_tpl = task.model.lm_tpl.stacked_transformer_tpl.block
++        te_tpl = TransformerEngineHelper().set_layer_params_to_stack_transformer(st_tpl, None, 0)
++        te_cls = base_hyperparams.instantiate(te_tpl)
++        assert te_cls.hidden_size == st_tpl.model_dims
++        assert te_cls.mlp_hidden_size == st_tpl.hidden_dims
++        assert te_cls.num_attention_heads == st_tpl.num_heads
++        assert te_cls.num_gqa_groups == te_cls.num_attention_heads
++        assert te_cls.layernorm_type == 'layernorm'
++        assert te_cls.layernorm_epsilon == 1e-5
++        assert te_cls.zero_centered_gamma == True
++        assert te_cls.hidden_dropout == 0.
++        assert te_cls.hidden_dropout_dims == ()
++        assert te_cls.attention_dropout == 0.
++        assert te_cls.intermediate_dropout == 0.
++        assert te_cls.intermediate_dropout_dims == ()
++        assert te_cls.mlp_activations == ('gelu',)
++        assert te_cls.use_bias == True
++        assert te_cls.apply_residual_connection_post_layernorm == False
++        assert te_cls.output_layernorm == False
++        assert te_cls.float32_attention_logits == False
++        assert te_cls.layer_type == te_praxis.TransformerLayerType.ENCODER
++        assert te_cls.self_attn_mask_type == 'padding_causal'
++        assert te_cls.self_attn_bias_type == None
++        assert te_cls.enable_rotary_pos_emb == False
++        assert te_cls.rotary_pos_emb_windows == (1, 10000)
++        assert te_cls.enable_relative_embedding == False
++        assert te_cls.drop_path == 0.
++        assert te_cls.transpose_batch_sequence == False
++        assert te_cls.scale_attn_logits == True
++        assert te_cls.scaled_query_init == False
++
++
++class TestLLaMA7B():
++
++    def test_te_tpl_convert(self):
++        task = SyntheticLLaMA7B().task()
++        st_tpl = task.model.lm_tpl.stacked_transformer_tpl
++        te_tpl = TransformerEngineHelper().set_layer_params_to_stack_transformer(st_tpl, None, 0)
++        te_cls = base_hyperparams.instantiate(te_tpl)
++        assert te_cls.hidden_size == 4096
++        assert te_cls.mlp_hidden_size == 16384
++        assert te_cls.num_attention_heads == 32
++        assert te_cls.num_gqa_groups == 32
++        assert te_cls.layernorm_type == 'rmsnorm'
++        assert te_cls.layernorm_epsilon == 1e-5
++        assert te_cls.zero_centered_gamma == False
++        assert te_cls.hidden_dropout == 0.
++        assert te_cls.hidden_dropout_dims == ()
++        assert te_cls.attention_dropout == 0.
++        assert te_cls.intermediate_dropout == 0.
++        assert te_cls.intermediate_dropout_dims == ()
++        assert te_cls.mlp_activations == ('linear', 'silu')
++        assert te_cls.use_bias == False
++        assert te_cls.apply_residual_connection_post_layernorm == False
++        assert te_cls.output_layernorm == False
++        assert te_cls.float32_attention_logits == False
++        assert te_cls.layer_type == te_praxis.TransformerLayerType.ENCODER
++        assert te_cls.self_attn_mask_type == 'padding_causal'
++        assert te_cls.self_attn_bias_type == None
++        assert te_cls.enable_rotary_pos_emb == True
++        assert te_cls.rotary_pos_emb_windows == (1, 10000)
++        assert te_cls.rotary_pos_emb_group_method == 'consecutive'
++        assert te_cls.enable_relative_embedding == False
++        assert te_cls.drop_path == 0.
++        assert te_cls.transpose_batch_sequence == False
++        assert te_cls.scale_attn_logits == True
++        assert te_cls.scaled_query_init == False
+-- 
+2.45.2
+
+
+From 4c2f09318b642918adc655bdeb348550a41e2ae3 Mon Sep 17 00:00:00 2001
+From: Hemil Desai <hemil.desai10@gmail.com>
+Date: Thu, 23 May 2024 12:15:21 -0700
+Subject: [PATCH 15/15] Add LoRA support in TE (#11)
+
+---
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 75 +++++++++++++++++++++
+ 1 file changed, 75 insertions(+)
+
+diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+index df6b9b8..d53b4e2 100644
+--- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
++++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
+@@ -1,5 +1,7 @@
+ import os
+ 
++from absl import logging
++
+ from praxis import base_layer
+ from praxis import pax_fiddle
+ from praxis import pytypes
+@@ -9,6 +11,11 @@ from praxis.layers import activations
+ from praxis.layers import attentions, grouped_query_attention, multi_query_attention
+ from praxis.layers import embedding_softmax
+ from praxis.layers import normalizations
++from praxis.contrib.gpu.scripts_gpu.lora_layers import (
++    LoraAttentionProjection,
++    LoraCombinedQKVProjection,
++    LoraLinear,
++)
+ 
+ try:
+     import transformer_engine.jax as te
+@@ -233,6 +240,74 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+         assert len(stacked_transformer_obj.moe_layers) == 0
+         assert stacked_transformer_obj.ngrammer_tpls is None
+ 
++        def update_lora_te_tpl(te_tpl, transformer_layer_tpl):
++            lora_enabled = False
++            te_lora_scope = "none"
++            lora_rank = None
++            if (
++                transformer_layer_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.__fn_or_cls__
++                is LoraLinear
++            ):
++                lora_enabled = True
++                mlp_included_in_lora = True
++                current_rank = (
++                    transformer_layer_tpl.tr_fflayer_tpl.fflayer_tpl.linear_tpl.rank
++                )
++                lora_rank = (
++                    current_rank if lora_rank is None else lora_rank & current_rank
++                )
++
++            attention_included_in_lora = False
++            if (
++                hasattr(transformer_layer_tpl.tr_atten_tpl, "combined_qkv_proj_tpl")
++                and transformer_layer_tpl.tr_atten_tpl.combined_qkv_proj_tpl.__fn_or_cls__
++                is LoraCombinedQKVProjection
++            ):
++                lora_enabled = True
++                attention_included_in_lora = True
++                current_rank = (
++                    transformer_layer_tpl.tr_atten_tpl.combined_qkv_proj_tpl.rank
++                )
++                lora_rank = (
++                    current_rank if lora_rank is None else lora_rank & current_rank
++                )
++
++            if (
++                hasattr(transformer_layer_tpl.tr_atten_tpl, "proj_tpl")
++                and transformer_layer_tpl.tr_atten_tpl.proj_tpl.__fn_or_cls__
++                is LoraAttentionProjection
++            ):
++                lora_enabled = True
++                attention_included_in_lora = True
++                current_rank = transformer_layer_tpl.tr_atten_tpl.proj_tpl.rank
++                lora_rank = (
++                    current_rank if lora_rank is None else lora_rank & current_rank
++                )
++
++            if lora_enabled:
++                assert (
++                    lora_rank > 0
++                ), "LoRA rank should be the same for all layers and greater than 0."
++                if attention_included_in_lora and mlp_included_in_lora:
++                    te_lora_scope = "all"
++                elif attention_included_in_lora and not mlp_included_in_lora:
++                    te_lora_scope = "exclude_mlp"
++                elif mlp_included_in_lora and not attention_included_in_lora:
++                    te_lora_scope = "mlp"
++
++                te_transformer_tpl.low_rank_adaptation_scope = te_lora_scope
++                te_transformer_tpl.low_rank_adaptation_dim = lora_rank
++
++            return te_tpl
++
++        try:
++            te_transformer_tpl = update_lora_te_tpl(
++                te_transformer_tpl, transformer_layer_tpl
++            )
++        except Exception as e:
++            logging.warning(f"Unable to use LoRA with TE: {e}")
++        
++
+         return te_transformer_tpl
+ 
+     @staticmethod
+-- 
+2.45.2
 
