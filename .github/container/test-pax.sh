@@ -343,7 +343,7 @@ elif [[ ${MODEL_TYPE} == "LLaMA70BProxy" ]]; then
 ## hard-code ICI mesh shape for Grok
 elif [[ ${MODEL_TYPE} == "GrokProxy" ]]; then
   CONFIG=paxml.tasks.lm.params.nvidia.Grok_Proxy
-  ADDITIONAL_ARGS+="--fdl.NUM_LAYERS=2"
+  ADDITIONAL_ARGS+="--fdl.NUM_LAYERS=1"
 else
   echo "Unsupported model ${MODEL_TYPE}"
   exit 1
