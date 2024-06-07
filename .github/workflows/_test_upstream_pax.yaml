@@ -33,9 +33,13 @@ jobs:
   single-process-multi-device:
     strategy:
       matrix:
-        PARALLEL_CONFIG:
-        - [1, 8, 1, 1]
-        - [1, 1, 2, 4]
+        include:
+          - TEST_NAME: 8DP1FSDP1TP1PP_single_process
+            ICI: "[8,1,1]"
+            DCN: "[1,1,1]"
+          - TEST_NAME: 1DP2FSDP4TP1PP_single_process
+            ICI: "[8,1,1]"
+            DCN: "[1,1,1]"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -67,7 +71,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_single_process
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           MAX_GPUS_PER_NODE=8
           NODES=1
           GPUS_PER_NODE=8
@@ -114,10 +118,8 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 500 \
-              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
-              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
-              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
-              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
+              --ici ${{ matrix.ICI }} \
+              --dcn ${{ matrix.DCN }} \
               --nodes ${{ steps.meta.outputs.NODES }}
           EOF
           )
@@ -179,37 +181,52 @@ jobs:
       matrix:
         include:
           - TEST_NAME: 1DP1FSDP1TP1PP
-            PARALLEL_CONFIG: [1, 1, 1, 1]
-            BATCH_SIZE: 4
+            ICI: "[1,1,1]"
+            DCN: "[1,1,1]"
+            TASKS: 1
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 8DP1FSDP1TP1PP
-            PARALLEL_CONFIG: [1, 8, 1, 1]
-            BATCH_SIZE: 4
+            ICI: "[8,1,1]"
+            DCN: "[1,1,1]"
+            TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 1DP8FSDP1TP1PP
-            PARALLEL_CONFIG: [1, 1, 8, 1]
-            BATCH_SIZE: 4
+            ICI: "[1,8,1]"
+            DCN: "[1,1,1]"
+            TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 2DP1FSDP1TP4PP
-            PARALLEL_CONFIG: [4, 2, 1, 1]
-            BATCH_SIZE: 4
-            ADDITIONAL_ARGS: ""
+            ICI: "[4,2,1,1]"
+            DCN: "[1,1,1,1]"
+            TASKS: 8
+            ADDITIONAL_ARGS: "--enable-pipeline-parallel"
           - TEST_NAME: 4DP1FSDP2TP1PP
-            PARALLEL_CONFIG: [1, 4, 1, 2]
-            BATCH_SIZE: 4
+            ICI: "[4,2,1]"
+            DCN: "[1,1,1]"
+            TASKS: 8
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 16DP1FSDP1TP1PP
-            PARALLEL_CONFIG: [1, 16, 1, 1]
-            BATCH_SIZE: 4
+            ICI: "[8,1,1]"
+            DCN: "[2,1,1]"
+            TASKS: 16
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 2DP1FSDP2TP4PP
-            PARALLEL_CONFIG: [4, 2, 1, 2]
-            BATCH_SIZE: 4
+            ICI: "[1,1,2,4]"
+            DCN: "[2,1,1,1]"
+            TASKS: 16
+            ADDITIONAL_ARGS: "--enable-pipeline-parallel"
           - TEST_NAME: LLaMA_eval
-            PARALLEL_CONFIG: [1, 1, 8, 1]
-            BATCH_SIZE: 4
+            ICI: "[1,8,1]"
+            DCN: "[1,1,1]"
+            TASKS: 8
             EVALUATE: true
             ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
+          - TEST_NAME: Grok
+            ICI: "[1,1,8,1]"
+            DCN: "[1,2,1,1]"
+            TASKS: 16
+            EVALUATE: true
+            ADDITIONAL_ARGS: "--model-type GrokProxy"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -242,7 +259,7 @@ jobs:
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
           TEST_CASE_NAME=${{ matrix.TEST_NAME }}
-          TOTAL_TASKS=$((${{ matrix.PARALLEL_CONFIG[0] }} * ${{ matrix.PARALLEL_CONFIG[1] }} * ${{ matrix.PARALLEL_CONFIG[2] }} * ${{ matrix.PARALLEL_CONFIG[3] }}))
+          TOTAL_TASKS=${{ matrix.TASKS }}
           MAX_GPUS_PER_NODE=8
           NODES=$(((TOTAL_TASKS+MAX_GPUS_PER_NODE-1)/MAX_GPUS_PER_NODE))
           GPUS_PER_NODE=$((TOTAL_TASKS/NODES))
@@ -290,10 +307,8 @@ jobs:
               --dtype bfloat16 \
               --batch-per-gpu 4 \
               --steps 500 \
-              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
-              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
-              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
-              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
+              --ici ${{ matrix.ICI }} \
+              --dcn ${{ matrix.DCN }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess) \
               ${{ matrix.ADDITIONAL_ARGS }}
@@ -357,8 +372,10 @@ jobs:
   single-process-evaluation:
     strategy:
       matrix:
-        PARALLEL_CONFIG:
-        - [1, 8, 1, 1]
+        include:
+          - TEST_NAME: 8DP1FSDP1TP1PP_eval
+            ICI: "[8,1,1]"
+            DCN: "[1,1,1]"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -390,7 +407,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.PAX_IMAGE}} | sed 's/\//#/')"
-          TEST_CASE_NAME=${{ matrix.PARALLEL_CONFIG[1] }}DP${{ matrix.PARALLEL_CONFIG[2] }}FSDP${{ matrix.PARALLEL_CONFIG[3] }}TP${{ matrix.PARALLEL_CONFIG[0] }}PP_eval
+          TEST_CASE_NAME=${{ matrix.TEST_NAME }}
           TOTAL_TASKS=1
           NODES=1
           GPUS_PER_NODE=8
@@ -439,10 +456,8 @@ jobs:
               --batch-per-gpu 4 \
               --steps 500 \
               --evaluate \
-              --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
-              --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
-              --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
-              --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
+              --ici ${{ matrix.ICI }} \
+              --dcn ${{ matrix.DCN }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
           EOF
