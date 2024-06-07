@@ -309,6 +309,8 @@ Note that with models that are particularly dataloading-bottlenecked (e.g. small
 * The Paxml containers disable `NCCL_NVLS_ENABLE=0` ([doc](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature.
 * LoRA without TE is currently not supported for models using `CombinedQKVProjection` where `input_dim != num_heads * dims_per_head`. Fix for this issue will be available in the nightlies soon.
 * Setting `NVTE_FUSED_ATTN=1` when using single-processing (one process per GPU) results in a hang. This is currently being investigated. It is recommended to disable TE flash attention (`NVTE_FUSED_ATTN=0`) when using single-processing.
+* A bug was introduced to TE on 4/24/2024 that affects LLaMA convergence. This bug is currently being investigated and will be fixed in an upcoming nightly.
+
 
 # Changelog
 ## 4/26/2024
