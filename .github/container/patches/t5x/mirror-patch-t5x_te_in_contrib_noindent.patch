@@ -1,7 +1,7 @@
 From 0bc3617a1befcd249f6a95584dba9634bd6b879c Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Mon, 24 Apr 2023 10:18:29 -0700
-Subject: [PATCH 01/18] Added transformer engine support and GPU optimizations
+Subject: [PATCH 01/19] Added transformer engine support and GPU optimizations
 
 Co-authored-by: Sahil Jain <sahilj@nvidia.com>
 Co-authored-by: Terry Kong <terryk@nvidia.com>
@@ -2465,13 +2465,13 @@ index 965bd09..cebb815 100644
    metrics["learning_rate"] = clu.metrics.Average.from_model_output(
        jnp.asarray([learning_rate])
 -- 
-2.25.1
+2.45.2
 
 
 From dcbbb37dea8cef5b0c2d798b57cdfd2d8600013d Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Tue, 11 Jul 2023 12:10:33 -0700
-Subject: [PATCH 02/18] UNINSTALL_TE in fine-tuning scripts now defaults to
+Subject: [PATCH 02/19] UNINSTALL_TE in fine-tuning scripts now defaults to
  no-action
 
 ---
@@ -2500,13 +2500,13 @@ index 388d2ec..135ecf6 100755
  # Global batch size
  BSIZE=$(( GPUS_PER_NODE * BSIZE_PER_GPU * SLURM_JOB_NUM_NODES / TP_SIZE))
 -- 
-2.25.1
+2.45.2
 
 
 From db6fc5519e240eb74ce39668047327da323f323a Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Wed, 12 Jul 2023 20:26:28 -0700
-Subject: [PATCH 03/18] remove use_gda from LegacyCheckpointManager in train.py
+Subject: [PATCH 03/19] remove use_gda from LegacyCheckpointManager in train.py
  for fp8
 
 ---
@@ -2528,13 +2528,13 @@ index e70bcfb..0e11482 100644
    # Start warming up the input pipeline in the background. This must happen
    # after input pipeline checkpoints were restored.
 -- 
-2.25.1
+2.45.2
 
 
 From a39a08ec58e47976facda6ff8e340d5d1cec1f97 Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Tue, 18 Jul 2023 15:55:01 -0700
-Subject: [PATCH 04/18] Allow singlenode scripts to tee to stdout for better
+Subject: [PATCH 04/19] Allow singlenode scripts to tee to stdout for better
  indication of training status
 
 ---
@@ -2565,13 +2565,13 @@ index def1a1a..0d12f30 100755
 +  2>&1 | tee \
    ${LOG_DIR}/${T5_SIZE}_gpu_${NUM_GPUS}_${PREC}_gbs_${BSIZE}_fp8_${ENABLE_FP8}_fuseqkv_${FUSE_QKV}_transbs_${TRANSPOSE_BS}.log
 -- 
-2.25.1
+2.45.2
 
 
 From 39e637f3bb12dbe75dada4383f1d30805b946dc4 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Fri, 14 Jul 2023 05:00:58 -0700
-Subject: [PATCH 05/18] Explicit specify self_attn_mask_type
+Subject: [PATCH 05/19] Explicit specify self_attn_mask_type
 
 ---
  t5x/te_helper.py | 10 ++++++++--
@@ -2606,13 +2606,13 @@ index fb5f48f..f3750ca 100644
  
  class TransformerEngineHelper(TransformerEngineHelperBase):
 -- 
-2.25.1
+2.45.2
 
 
 From d016f83835aabd2966a50f37126138c885b5a3b0 Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Thu, 3 Aug 2023 14:25:22 -0700
-Subject: [PATCH 06/18] Disables check for packing by the te_helper util since
+Subject: [PATCH 06/19] Disables check for packing by the te_helper util since
  not all dataset configs use packing (CV/Multimodal)
 
 ---
@@ -2633,13 +2633,13 @@ index f3750ca..f585752 100644
          "Transformer Engine does not support dataset.packing, please turn it off."
  
 -- 
-2.25.1
+2.45.2
 
 
 From 83a2b20dfc6e6df59887cd44000c5f84608d0400 Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Sat, 26 Aug 2023 16:13:11 -0700
-Subject: [PATCH 07/18] Corrected T5x large baselines
+Subject: [PATCH 07/19] Corrected T5x large baselines
 
 Updated T5x-large MNLI and SQUAD baselines
 ---
@@ -2660,13 +2660,13 @@ index a9974e1..660df3a 100644
  | [T5-v1.1-xl](../t5/t5_1_1/xl.gin)       | A100 80G SXM     | bf16      | 256   | 1     | 8        | ~4322         | 16.9        | 5.5 days      | 1,408   | 91.15%             | 89.36 / 95.29      | [log](https://tensorboard.dev/experiment/vuRoEYgkRgWiEtbvgxlOqw/#scalars&_smoothingWeight=0) |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
  | [T5-v1.1-xxl](../t5/t5_1_1/xxl.gin)     | A100 80G SXM     | bf16      | 512   | 8     | 36       | ~1887         | 3.69        | 12.6 days     | 6,431  |N/A(partial run)   | N/A(partial run)   |                  |[pile](../t5/t5_1_1/examples/xxl_pile_pretrain.gin)
 -- 
-2.25.1
+2.45.2
 
 
 From 5944f07c1924783a90e1a61915a9d8f2ea7b2215 Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Fri, 8 Sep 2023 15:09:08 -0700
-Subject: [PATCH 08/18] Add t5-large FP8 logs
+Subject: [PATCH 08/19] Add t5-large FP8 logs
 
 ---
  docs/usage/gpu-usage.md | 2 +-
@@ -2686,13 +2686,13 @@ index 660df3a..c31094d 100644
  | [T5-v1.1-xl](../t5/t5_1_1/xl.gin)       | **H100 80G SXM** | TE-fp8    | 256   | 1     | 8        | ~9688         | **37.8**    | **2.4 days**  | **614** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
  
 -- 
-2.25.1
+2.45.2
 
 
 From 2d2fbe8e857990a336f9d949ad7e8d82351b1633 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 20 Oct 2023 14:26:09 +0800
-Subject: [PATCH 09/18] Fix missing fp8_meta_collection in the eval stage.
+Subject: [PATCH 09/19] Fix missing fp8_meta_collection in the eval stage.
 
 ---
  t5x/models.py | 2 +-
@@ -2712,13 +2712,13 @@ index 5891c08..e13b810 100644
          enable_dropout=False,
          method=self.module.encode,
 -- 
-2.25.1
+2.45.2
 
 
 From 4a86f76013173545d1299feaeb0e3383e890bee9 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 20 Oct 2023 14:48:40 +0800
-Subject: [PATCH 10/18] Remove redundant code.
+Subject: [PATCH 10/19] Remove redundant code.
 
 ---
  t5x/models.py | 17 -----------------
@@ -2753,13 +2753,13 @@ index e13b810..cc3348f 100644
      # `decoder_input_tokens`. The EOS is stripped to avoid decoding to stop
      # after the prompt by matching to `output_vocabulary.eos_id`.
 -- 
-2.25.1
+2.45.2
 
 
 From 7b878db04ad1e424bf6ca330c3e6fc8f9e0c1c3b Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 20 Oct 2023 15:05:40 +0800
-Subject: [PATCH 11/18] Fix deprecating warning about TE.
+Subject: [PATCH 11/19] Fix deprecating warning about TE.
 
 ---
  t5x/te_helper.py | 8 ++++----
@@ -2805,13 +2805,13 @@ index f585752..568f596 100644
          name=name)
  
 -- 
-2.25.1
+2.45.2
 
 
 From 4c604770bf02d3ff5fab6b1e795c5b6074032c7e Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Fri, 27 Oct 2023 09:08:10 -0700
-Subject: [PATCH 12/18] Updates TE api from te.extend_* to te.flax.extend_*
+Subject: [PATCH 12/19] Updates TE api from te.extend_* to te.flax.extend_*
  (#7)
 
 Co-authored-by: NVIDIA <jax@nvidia.com>
@@ -2833,13 +2833,13 @@ index 568f596..05c5f6b 100644
    @staticmethod
    def update_fp8_metas(grad_accum, flax_mutables):
 -- 
-2.25.1
+2.45.2
 
 
 From a3f2ab9fdf0681e10ffbcb2588274941e52700ba Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Tue, 31 Oct 2023 21:52:22 -0700
-Subject: [PATCH 13/18] Adds ENABLE_TE env var and renames TEConfig.enabled ->
+Subject: [PATCH 13/19] Adds ENABLE_TE env var and renames TEConfig.enabled ->
  TEConfig.enable_fp8 (#8)
 
 * Allows ENABLE_TE env var to control whether TE code path is invoked
@@ -2996,13 +2996,13 @@ index 05c5f6b..7657c52 100644
      return TENotInstalledHelper
  
 -- 
-2.25.1
+2.45.2
 
 
 From 4abe3e591574b0b2e5bbcdcd5e96df4f8d4367de Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 7 Nov 2023 10:57:34 +0800
-Subject: [PATCH 14/18] Adapting to TE/JAX/Custom_partitioning.
+Subject: [PATCH 14/19] Adapting to TE/JAX/Custom_partitioning.
 
 ---
  t5x/te_helper.py | 5 ++---
@@ -3032,13 +3032,13 @@ index 7657c52..b064d2b 100644
  
    @staticmethod
 -- 
-2.25.1
+2.45.2
 
 
 From bfa6313ce0bc9b67f6d1b48fca460e1bfea16670 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 22 Nov 2023 13:53:49 +0800
-Subject: [PATCH 15/18] Running Partitioner.compile within Mesh context-manager
+Subject: [PATCH 15/19] Running Partitioner.compile within Mesh context-manager
 
 ---
  t5x/partitioning.py | 9 ++++++++-
@@ -3072,13 +3072,13 @@ index 847dc24..63873cf 100644
  
  class PjitPartitioner(BasePjitPartitioner):
 -- 
-2.25.1
+2.45.2
 
 
 From b4dbfdea8313b0f098d7583d80dee4eea6180cdb Mon Sep 17 00:00:00 2001
 From: Terry Kong <terryk@nvidia.com>
 Date: Tue, 14 Nov 2023 23:42:35 -0800
-Subject: [PATCH 16/18] Updates multiprocessing scripts to use SLURM output
+Subject: [PATCH 16/19] Updates multiprocessing scripts to use SLURM output
  variables instead of input variables (#9)
 
 * Update multiprocess scripts
@@ -3549,13 +3549,13 @@ index d083540..56919a5 100755
 -set +x
 +echo Finished
 -- 
-2.25.1
+2.45.2
 
 
 From 189868b45483c3796035ebdd23a173feabe2a4ce Mon Sep 17 00:00:00 2001
 From: ashors1 <71393111+ashors1@users.noreply.github.com>
 Date: Wed, 6 Dec 2023 14:56:45 -0800
-Subject: [PATCH 17/18] Force initial flax mutables to be a frozen dict (#11)
+Subject: [PATCH 17/19] Force initial flax mutables to be a frozen dict (#11)
 
 ---
  t5x/trainer.py | 2 +-
@@ -3575,13 +3575,13 @@ index cebb815..8910ce8 100644
  
    if num_microbatches is None or num_microbatches <= 1:
 -- 
-2.25.1
+2.45.2
 
 
 From 06be7c2e50535630bebe023f6bca922ccfe93448 Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
 Date: Thu, 28 Dec 2023 07:24:33 -0800
-Subject: [PATCH 18/18] update rng dtype in predict_batch
+Subject: [PATCH 18/19] update rng dtype in predict_batch
 
 ---
  t5x/models.py | 2 +-
@@ -3601,5 +3601,32 @@ index cc3348f..eb7bd37 100644
      """Predicts a batch of outputs from the model.
  
 -- 
-2.25.1
+2.45.2
+
+
+From 339b03461fce0caca5e838139289888086c46d15 Mon Sep 17 00:00:00 2001
+From: Reese Wang <rewang@nvidia.com>
+Date: Fri, 22 Mar 2024 23:49:37 -0700
+Subject: [PATCH 19/19] Change decoder attn mask type to padding_causal
+
+Signed-off-by: Reese Wang <rewang@nvidia.com>
+---
+ t5x/te_helper.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/t5x/te_helper.py b/t5x/te_helper.py
+index b064d2b..9410aa4 100644
+--- a/t5x/te_helper.py
++++ b/t5x/te_helper.py
+@@ -241,7 +241,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+         relative_embedding=relative_embedding,
+         dtype=config.dtype,
+         layer_type=te.flax.TransformerLayerType.DECODER,
+-        self_attn_mask_type='causal',
++        self_attn_mask_type='padding_causal',
+         name=name)
+ 
+ 
+-- 
+2.45.2
 
