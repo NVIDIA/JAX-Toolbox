@@ -137,8 +137,8 @@ jobs:
       - name: Docker image compressed size
         shell: bash -x -e {0}
         run: |
-          . .github/workflows/scripts/compressed_image_size.sh
-          compressed_docker_size ${{ steps.meta.outputs.tags }}
+          . .github/workflows/scripts/docker_size.sh
+          dockersize ${{ steps.meta.outputs.tags }}
 
       - name: Generate sitrep
         if: "!cancelled()"
