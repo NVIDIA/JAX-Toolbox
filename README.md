@@ -257,10 +257,16 @@
         <code>ghcr.io/nvidia/jax:gemma</code>
       </td>
       <td>
-<!--         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-grok-md"><img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-grok-build-amd64.json&logo=docker&label=amd64"></a>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-grok-md"><img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-grok-build-arm64.json&logo=docker&label=arm64"></a> -->
+      <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-gemma-md"><img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-gemma-build-amd64.json&logo=docker&label=amd64"></a>
+      <!-- <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-gemma-md"><img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-gemma-build-arm64.json&logo=docker&label=arm64"></a> -->
       </td>
       <td>
+        <picture>
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-gemma-unit-test-V100.json&logo=nvidia&label=V100">
+        </picture>      
+        <picture>
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-gemma-unit-test-A100.json&logo=nvidia&label=A100">
+        </picture>      
       </td>
     </tr>
   </tbody>
@@ -273,16 +279,17 @@ nightly build of the container for `XXX`. These containers are also tagged as
 ## Note
 This repo currently hosts a public CI for JAX on NVIDIA GPUs and covers some JAX libraries like: [T5x](https://github.com/google-research/t5x), [PAXML](https://github.com/google/paxml), [Transformer Engine](https://github.com/NVIDIA/TransformerEngine), [Pallas](https://jax.readthedocs.io/en/latest/pallas/quickstart.html) and others to come soon.
 
-## Supported Models
-We currently enable training and evaluation for the following models:
-| Model Name | Pretraining | Fine-tuning | Evaluation |
+## Frameworks and Supported Models
+We currently support the following frameworks and models. More details about each model and the available containers can be found in their respective READMEs.
+
+| Framework | Supported Models | Use-cases | Container |
 | :--- | :---: | :---: | :---: |
-| [GPT-3(paxml)](./rosetta/rosetta/projects/pax) | ✔️ |   | ✔️ |
-| [LLaMA2(paxml)](./rosetta/rosetta/projects/pax#llama) |  |   | ✔️ |
-| [t5(t5x)](./rosetta/rosetta/projects/t5x) | ✔️ | ✔️ | ✔️ |
-| [ViT](./rosetta/rosetta/projects/vit) | ✔️ | ✔️ | ✔️ |
-| [Imagen](./rosetta/rosetta/projects/imagen) | ✔️ |   | ✔️ |
-| [PaliGemma](./rosetta/rosetta/projects/paligemma) |  | ✔️ | ✔️ |
+| [Paxml](./rosetta/rosetta/projects/pax) | GPT, LLaMA, MoE | pretraining, fine-tuning, LoRA | `ghcr.io/nvidia/jax:pax` |
+| [T5X](./rosetta/rosetta/projects/t5x) | T5, ViT | pre-training, fine-tuning | `ghcr.io/nvidia/jax:t5x` |
+| [T5X](./rosetta/rosetta/projects/imagen) | Imagen | pre-training | `ghcr.io/nvidia/t5x:imagen-2023-10-02` |
+| [Big Vision](./rosetta/rosetta/projects/paligemma) | PaliGemma | fine-tuning, evaluation | `ghcr.io/nvidia/jax:gemma` |
+| levanter | GPT, LLaMA, MPT, Backpacks | pretraining, fine-tuning | `ghcr.io/nvidia/jax:levanter` |
+| maxtext| LLaMA, Gemma | pretraining | `ghcr.io/nvidia/jax:maxtext` |
 
 We will update this table as new models become available, so stay tuned.
 
@@ -300,6 +307,8 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 | `CUDA_DEVICE_MAX_CONNECTIONS` | `1` | use a single queue for GPU work to lower latency of stream operations; OK since XLA already orders launches |
 | `NCCL_NVLS_ENABLE` | `0` | Disables NVLink SHARP ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature. |
 | `CUDA_MODULE_LOADING` | `EAGER` | Disables lazy-loading ([1](https://docs.nvidia.com/cuda/cuda-c-programming-guide/#cuda-environment-variables)) which uses slightly more GPU memory. |
+
+There are various other XLA flags users can set to improve performance. For a detailed explanation of these flags, please refer to the [GPU performance](./rosetta/docs/GPU_performance.md) doc. XLA flags can be tuned per workflow. For example, each script in [contrib/gpu/scripts_gpu](https://github.com/google/paxml/tree/main/paxml/contrib/gpu/scripts_gpu) sets its own [XLA flags](https://github.com/google/paxml/blob/93fbc8010dca95af59ab615c366d912136b7429c/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh#L30-L33).
 
 ## Profiling JAX programs on GPU
 See [this page](./docs/profiling.md) for more information about how to profile JAX programs on GPU.

@@ -34,6 +34,7 @@ usage() {
 }
 
 args=$(getopt -o a:b:s:o:n:h --long additional-args:,batch-per-gpu:,dtype:,enable-te,enable-dropout,model-type:,enable-fmha:,evaluate,steps:,help,multiprocess,output:,save-hlo:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -52,7 +53,7 @@ PP=1
 NODES=1
 ENABLE_TE=0
 MODEL_TYPE=126M
-NVTE_FUSED_ATTN=0
+NVTE_FUSED_ATTN=1
 DROPOUT=0
 EVALUATE=0
 ADDITIONAL_ARGS=""

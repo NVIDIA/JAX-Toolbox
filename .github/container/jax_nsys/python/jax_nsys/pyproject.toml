@@ -2,7 +2,9 @@
 name = "jax-nsys"
 dynamic = ["version"]
 dependencies = [
+  "ipython",
   "numpy",
   "pandas",
   "pyarrow",
 ]
+requires-python = ">= 3.10"

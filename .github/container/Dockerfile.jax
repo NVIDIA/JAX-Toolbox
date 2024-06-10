@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:base
+ARG BUILD_PATH_JAXLIB=/opt/jaxlib
 ARG URLREF_JAX=https://github.com/google/jax.git#main
 ARG URLREF_XLA=https://github.com/openxla/xla.git#main
 ARG URLREF_FLAX=https://github.com/google/flax.git#main
@@ -24,6 +25,7 @@ ARG URLREF_XLA
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 ARG BAZEL_CACHE
+ARG BUILD_PATH_JAXLIB
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
 
@@ -36,10 +38,15 @@ RUN --mount=type=ssh \
 EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+# Install bazelisk
+RUN ARCH="$(dpkg --print-architecture)" && \
+    wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
+    chmod +x /usr/local/bin/bazel
 # TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt
 RUN build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
+    --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
@@ -59,6 +66,7 @@ ARG SRC_PATH_XLA
 ARG SRC_PATH_FLAX
 ARG SRC_PATH_TRANSFORMER_ENGINE
 ARG BUILD_DATE
+ARG BUILD_PATH_JAXLIB
 
 ENV BUILD_DATE=${BUILD_DATE}
 # The following environment variables tune performance
@@ -69,21 +77,20 @@ ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_NVLS_ENABLE=0
 ENV CUDA_MODULE_LOADING=EAGER
 
-
+COPY --from=builder ${BUILD_PATH_JAXLIB} ${BUILD_PATH_JAXLIB}
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
+COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
 # Preserve the versions of jax and xla
 COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
+
+## Editable installations of jax and jaxlib
 RUN <<"EOF" bash -ex
-# Encourage a newer numpy so that pip's dependency resolver will allow newer
-# versions of other packages that rely on newer numpy, but also include fixes
-# for compatibility with newer JAX versions. e.g. chex.
-echo "numpy >= 1.24.1"                                  >> /opt/pip-tools.d/requirements-jax.in
-echo "-e file://${SRC_PATH_JAX}"                        >> /opt/pip-tools.d/requirements-jax.in
-echo "jaxlib @ file://$(ls ${SRC_PATH_JAX}/dist/*.whl)" >> /opt/pip-tools.d/requirements-jax.in
+echo "-e file://${BUILD_PATH_JAXLIB}" > /opt/pip-tools.d/requirements-jax.in
+echo "-e file://${SRC_PATH_JAX}" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax
@@ -108,5 +115,4 @@ EOF
 ###############################################################################
 
 FROM mealkit as final
-
 RUN pip-finalize.sh

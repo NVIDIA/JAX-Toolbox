@@ -24,12 +24,14 @@ class HloProto:
         # Build lookup tables
         self._computations = {}
         self._instructions = {}
+        self._instructions_by_id = {}
         for comp in self._proto.hlo_module.computations:
             assert comp.id not in self._computations
             self._computations[comp.id] = comp
             for inst in comp.instructions:
                 assert inst.name not in self._instructions
                 self._instructions[inst.name] = (comp, inst)
+                self._instructions_by_id[inst.id] = (comp, inst)
 
     def find_computation(self, id: int):
         return self._computations[id]
@@ -42,6 +44,15 @@ class HloProto:
         Returns: (computation, instruction) tuple
         """
         return self._instructions[name]
+
+    def find_instruction_by_id(self, id: int):
+        """
+        Look up an HLO instruction and its associated computation by id in
+        the wrapped HloModule.
+
+        Returns: (computation, instruction) tuple
+        """
+        return self._instructions_by_id[id]
 
     def _get_stack_frame(self, frame_id: int) -> tuple[StackFrame, int]:
         """
