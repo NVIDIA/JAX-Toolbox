@@ -8,7 +8,5 @@ jobs:
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: amd64
-      BUILD_DATE: "2024-14-25"
-      MANIFEST_ARTIFACT_NAME: base
     secrets: inherit
 
