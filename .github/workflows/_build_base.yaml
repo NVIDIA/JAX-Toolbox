@@ -133,7 +133,13 @@ jobs:
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) || '' }}
-        
+
+      - name: Docker image compressed size
+        shell: bash -x -e {0}
+        run: |
+          . .github/workflows/scripts/compressed_image_size.sh
+          compressed_docker_size ${{ steps.meta.outputs.tags }}
+
       - name: Generate sitrep
         if: "!cancelled()"
         shell: bash -x -e {0}
