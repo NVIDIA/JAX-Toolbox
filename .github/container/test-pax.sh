@@ -80,7 +80,7 @@ while [ : ]; do
             ;;
         --enable-fmha)
             ENABLE_FMHA="$2"
-	    NVTE_FUSED_ATTN=1
+	    NVTE_FUSED_ATTN="$2"
             shift 2
             ;;
         --enable-dropout)
