@@ -37,15 +37,11 @@ jobs:
           - TEST_NAME: 8DP1FSDP1TP1PP
             PARALLEL_CONFIG: [1, 8, 1, 1]
             BATCH_SIZE: 4
-            ADDITIONAL_ARGS: ""
+            ADDITIONAL_ARGS: "--save-hlo 1"
           - TEST_NAME: 8DP2FSDP4TP1PP
             PARALLEL_CONFIG: [1, 1, 2, 4]
             BATCH_SIZE: 4
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: 8DP1FSDP1TP1PP_fmha
-            PARALLEL_CONFIG: [1, 8, 1, 1]
-            BATCH_SIZE: 4
-            ADDITIONAL_ARGS: "--save-hlo 1"
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -204,7 +200,7 @@ jobs:
           - TEST_NAME: 2DP1FSDP1TP4PP
             PARALLEL_CONFIG: [4, 2, 1, 1]
             BATCH_SIZE: 4
-            ADDITIONAL_ARGS: ""
+            ADDITIONAL_ARGS: "--save-hlo 1"
           - TEST_NAME: 4DP1FSDP2TP1PP
             PARALLEL_CONFIG: [1, 4, 1, 2]
             BATCH_SIZE: 4
@@ -212,7 +208,7 @@ jobs:
           - TEST_NAME: 16DP1FSDP1TP1PP
             PARALLEL_CONFIG: [1, 16, 1, 1]
             BATCH_SIZE: 4
-            ADDITIONAL_ARGS: ""
+            ADDITIONAL_ARGS: "--save-hlo 1"   
           - TEST_NAME: 2DP1FSDP2TP4PP
             PARALLEL_CONFIG: [4, 2, 1, 2]
             BATCH_SIZE: 4
@@ -220,15 +216,7 @@ jobs:
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 4
             EVALUATE: true
-            ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
-          - TEST_NAME: 2DP1FSDP1TP4PP_fmha
-            PARALLEL_CONFIG: [4, 2, 1, 1]
-            BATCH_SIZE: 4
-            ADDITIONAL_ARGS: "--save-hlo 1"
-          - TEST_NAME: 16DP1FSDP1TP1PP_fmha
-            PARALLEL_CONFIG: [1, 16, 1, 1]
-            BATCH_SIZE: 4
-            ADDITIONAL_ARGS: "--save-hlo 1"          
+            ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"       
       fail-fast: false
 
     runs-on: ubuntu-22.04
