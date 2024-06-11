@@ -1,7 +1,7 @@
 From b2de6bbc35272ba74fddc30676835026e9c0e8c2 Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
 Date: Tue, 18 Jul 2023 10:27:03 -0700
-Subject: [PATCH 01/10] add TE support
+Subject: [PATCH 01/11] add TE support
 
 ---
  paxml/contrib/gpu/scripts_gpu/configs.py   |  22 +-
@@ -654,13 +654,13 @@ index 6ec25e8..0342328 100644
  
    train_state_partition_specs = (
 -- 
-2.34.1
+2.45.2
 
 
 From 33989ab49072915eaf70a127357ad87a2ab0185f Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 27 Sep 2023 10:46:53 +0800
-Subject: [PATCH 02/10] Adding dropout support when enabling TE.
+Subject: [PATCH 02/11] Adding dropout support when enabling TE.
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 10 ++++++++++
@@ -688,13 +688,13 @@ index d44ca67..2b9dba4 100644
          assert self.packed_input == False
          assert len(self.moe_layers) == 0
 -- 
-2.34.1
+2.45.2
 
 
 From 1993f5edd38a6523b12e56e533d22284a17ecc5a Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 24 Oct 2023 10:30:27 +0800
-Subject: [PATCH 03/10] Set deterministic=True for inference.
+Subject: [PATCH 03/11] Set deterministic=True for inference.
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 3 ++-
@@ -715,13 +715,13 @@ index 2b9dba4..ef20305 100644
      return x_out
  
 -- 
-2.34.1
+2.45.2
 
 
 From 7edb0214176ec4169f2aa8b9aef2c89f41f1d0c4 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Thu, 2 Nov 2023 22:04:58 -0700
-Subject: [PATCH 04/10] Fix the excluded list for excluded_for_learner
+Subject: [PATCH 04/11] Fix the excluded list for excluded_for_learner
 
 Signed-off-by: Reese Wang <rewang@nvidia.com>
 ---
@@ -742,13 +742,13 @@ index 0342328..2e9bfd6 100644
      vars_with_opt = tasks_lib.filter_vars_for_grad_or_opt(
          mdl_vars, excluded_for_learner
 -- 
-2.34.1
+2.45.2
 
 
 From b76901e24b0f4bf1add943def4b5b590253527d7 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 7 Nov 2023 11:21:53 +0800
-Subject: [PATCH 05/10] Adapting to TE/JAX/Custom_partitioning.
+Subject: [PATCH 05/11] Adapting to TE/JAX/Custom_partitioning.
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 6 ++++--
@@ -779,13 +779,13 @@ index ef20305..fed1601 100644
          finally:
              pass
 -- 
-2.34.1
+2.45.2
 
 
 From 3d6ff0f9bb38217a7b04f48c36ee6892fa3c5b26 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 7 Nov 2023 15:14:25 +0800
-Subject: [PATCH 06/10] Adding TE-compatiable PipelinedTransformer
+Subject: [PATCH 06/11] Adding TE-compatiable PipelinedTransformer
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 109 +++++++++++++++++++++
@@ -946,13 +946,13 @@ index fed1601..5914e54 100644
      def update_fp8_metas_if_needed(mdl_vars, grads):
          return TransformerEngineHelper.get_helper().update_fp8_metas_if_needed(mdl_vars, grads)
 -- 
-2.34.1
+2.45.2
 
 
 From b289c455efd107076001029f78e1215409dcbeda Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 8 Nov 2023 10:06:49 +0800
-Subject: [PATCH 07/10] Apply OWG to TE's FP8 meta
+Subject: [PATCH 07/11] Apply OWG to TE's FP8 meta
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 59 ----------------------
@@ -1107,13 +1107,13 @@ index 2e9bfd6..270fb3d 100644
          grads, states.opt_states[0], vars_with_opt, wps_with_opt
      )
 -- 
-2.34.1
+2.45.2
 
 
 From c91d86651daec782c4092898c7b9d01b45b76b56 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 14:43:17 +0800
-Subject: [PATCH 08/10] Remove Praxis related setup (Moving to Praxis TE/Patch)
+Subject: [PATCH 08/11] Remove Praxis related setup (Moving to Praxis TE/Patch)
 
 ---
  paxml/contrib/gpu/scripts_gpu/configs.py   |   9 -
@@ -1499,13 +1499,13 @@ index fd482df..b271258 100644
      @contextmanager
      def fp8_autocast(dp_mesh_axis="replica", tp_mesh_axis="mdl", fsdp_mesh_axis="data"):
 -- 
-2.34.1
+2.45.2
 
 
 From b6add3ccf50bffcfa87052830f1dbc52bdccf525 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 14:51:14 +0800
-Subject: [PATCH 09/10] Fix missing DEFAULT_INIT_MUTABLE_LIST
+Subject: [PATCH 09/11] Fix missing DEFAULT_INIT_MUTABLE_LIST
 
 ---
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 4 ++++
@@ -1534,13 +1534,13 @@ index b271258..cbac7cf 100644
  
  class TransformerEngineHelperBase:
 -- 
-2.34.1
+2.45.2
 
 
 From 12adf91f75fcbc5055ddaf93a25ed43ee99918ac Mon Sep 17 00:00:00 2001
 From: Hemil Desai <hemild@nvidia.com>
 Date: Mon, 12 Feb 2024 10:22:15 -0800
-Subject: [PATCH 10/10] Revert mutable kwarg in abstract_init_with_metadata in
+Subject: [PATCH 10/11] Revert mutable kwarg in abstract_init_with_metadata in
  init checkpoint rule
 
 ---
@@ -1561,5 +1561,71 @@ index e475099..43e090c 100644
          var_weight_hparams)
      train_state_pspecs = ckpt_task.create_train_state_partition_specs(
 -- 
-2.34.1
+2.45.2
+
+
+From 953dcab6098054d70505ca0bb1b3e29eac819519 Mon Sep 17 00:00:00 2001
+From: Ming Huang <mingh@nvidia.com>
+Date: Fri, 12 Apr 2024 20:14:01 +0000
+Subject: [PATCH 11/11] Support FM32 to OWG parameters.
+
+Signed-off-by: Ming Huang <mingh@nvidia.com>
+---
+ paxml/trainer_lib.py | 20 +++++++++++++++++++-
+ 1 file changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/paxml/trainer_lib.py b/paxml/trainer_lib.py
+index 270fb3d..a9afc9e 100644
+--- a/paxml/trainer_lib.py
++++ b/paxml/trainer_lib.py
+@@ -26,6 +26,7 @@ import clu.metrics
+ from etils import epath
+ import fiddle as fdl
+ from flax import struct as flax_struct
++from flax.linen.fp8_ops import fm32
+ import jax
+ from jax import numpy as jnp
+ from jax.experimental import pjit
+@@ -35,7 +36,7 @@ from paxml import learners as learners_lib
+ from paxml import sgf
+ from paxml import tasks_lib
+ from paxml import train_states
+-from paxml.contrib.gpu.scripts_gpu.te_helper import TransformerEngineHelper, DEFAULT_INIT_MUTABLE_LIST
++from paxml.contrib.gpu.scripts_gpu.te_helper import DEFAULT_INIT_MUTABLE_LIST
+ from praxis import asserts
+ from praxis import base_hyperparams
+ from praxis import base_input
+@@ -804,6 +805,21 @@ def _default_apply_fn(
+   )
+ 
+ 
++def _maybe_to_fm32_vars(mdl_vars, var_weight_hparams):
++    asserts.assert_same_structure(mdl_vars, var_weight_hparams)
++
++    def _maybe_fm32_var_fn(var, var_param):
++      if base_layer.var_overwrite_with_gradient(var_param):
++        return jax.lax.convert_element_type(var, fm32)
++      else:
++        return var
++
++    is_leaf = lambda x: not isinstance(x, (tuple, dict, list))
++    return jax.tree_util.tree_map(
++        _maybe_fm32_var_fn, mdl_vars, var_weight_hparams, is_leaf=is_leaf
++    )
++
++
+ class LossFnProtocol(Protocol):
+ 
+   def __call__(
+@@ -834,6 +850,8 @@ def _get_default_loss_fn(
+     else:
+       assert NotImplementedError(f'fprop_dtype {fprop_dtype} not supported.')
+ 
++    mdl_vars = _maybe_to_fm32_vars(mdl_vars, var_weight_hparams)
++
+     with base_layer.JaxContext.new_context(hparams=context_p):
+       k1, k2, k3 = jax.random.split(prng_key, 3)
+       (metrics, per_example_output), updated_vars = apply_fn(
+-- 
+2.45.2
 
