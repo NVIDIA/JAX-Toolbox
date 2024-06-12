@@ -39,7 +39,8 @@ echo "-e file://${SRC_PATH_GEMMA}" >> /opt/pip-tools.d/requirements-gemma.in
 echo "-e file://${SRC_PATH_COMMON_LOOP_UTILS}" >> /opt/pip-tools.d/requirements-gemma.in
 echo "-e file://${SRC_PATH_FLAXFORMER}" >> /opt/pip-tools.d/requirements-gemma.in
 echo "-e file://${SRC_PATH_PANOPTICAPI}" >> /opt/pip-tools.d/requirements-gemma.in
-echo "jupyterlab
+echo "ipython==8.2
+jupyterlab
 gcloud
 overrides
 ml_collections

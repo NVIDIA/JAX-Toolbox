@@ -16,30 +16,9 @@ import tempfile
 import time
 import zipfile
 
-# The valid invocations of this wrapper are:
-#   nsys-jax exe [exe args ...]
-#   nsys-jax [nsys args ...] -- exe [exe args ...]
-# where if `exe args` contains `--` then the second form must be used.
-# The wrapper has a few extra arguments of its own, which are all prefixed with
-# --nsys-jax- and must be passed as "nsys args" in the form above.
-nsys_flags_and_cmd = sys.argv[1:]
-try:
-    limit = nsys_flags_and_cmd.index("--")
-    nsys_flags = nsys_flags_and_cmd[:limit]
-    application = nsys_flags_and_cmd[limit + 1 :]
-except ValueError:
-    # No --, everything is the application
-    nsys_flags = []
-    application = nsys_flags_and_cmd
-
-if shutil.which(application[0]) is None:
-    raise Exception(
-        f"{application[0]} not found by shutil.which. Did you remember to place -- between extra arguments for nsys and your application?"
-    )
-
 
 # Expand %q{ENV_VAR} if the variable is defined.
-def expand(string, skip_missing=True):
+def expand(string: str, skip_missing=True) -> str:
     missing = set()
 
     def rep(x):
@@ -56,8 +35,24 @@ def expand(string, skip_missing=True):
     return expanded
 
 
-# Parse any --nsys-jax arguments and remove them from nsys_flags
-parser = argparse.ArgumentParser()
+# Wrapper-specific arguments. This also handles -h and --help.
+parser = argparse.ArgumentParser(
+    allow_abbrev=False,
+    usage=(
+        "nsys-jax [-h] [--nsys-jax-condition EXPRESSION] [nsys profile arguments ...] "
+        "[--] executable [executable arguments ...]"
+    ),
+    description=(
+        "`nsys-jax` is a wrapper for `nsys profile` that collects additional metadata "
+        "that are specific to JAX and XLA, post-processes the profile data, and "
+        "produces a compressed .zip archive containing the relevant files."
+    ),
+    epilog=(
+        "NOTE: if the executable arguments include a literal `--` then the optional "
+        "`--` shown in the usage message MUST be passed to disambiguate. This is also "
+        "required when extra nsys profile arguments are passed."
+    ),
+)
 parser.add_argument(
     "--nsys-jax-condition",
     help=(
@@ -67,7 +62,30 @@ parser.add_argument(
         "rank on each node. The expression is evaluated inside [[ ... ]]."
     ),
 )
-nsys_jax_flags, nsys_flags = parser.parse_known_args(nsys_flags)
+nsys_jax_flags, unknown_args = parser.parse_known_args(sys.argv)
+# Remove the name of the nsys-jax wrapper
+nsys_flags_and_cmd = unknown_args[1:]
+# This can have two forms:
+#   exe [exe args ...]
+#   [nsys args ...] -- exe [exe args ...]
+# where the second one must be used if `exe args` contains `--`, even if no nsys args
+# are passed.
+try:
+    limit = nsys_flags_and_cmd.index("--")
+    nsys_flags = nsys_flags_and_cmd[:limit]
+    application = nsys_flags_and_cmd[limit + 1 :]
+except ValueError:
+    # No --, everything is the application
+    nsys_flags = []
+    application = nsys_flags_and_cmd
+
+if len(application) == 0:
+    parser.print_help()
+    raise Exception("No application to profile")
+
+if shutil.which(application[0]) is None:
+    parser.print_help()
+    raise Exception(f"{application[0]} not found by shutil.which")
 
 enable_profiling = True
 if nsys_jax_flags.nsys_jax_condition is not None:
@@ -137,18 +155,18 @@ override_nsys_default("trace", "cublas,cuda,cudnn,cusolver,nvtx,osrt")
 # from arguments; need to propagate this to nsys recipe below.
 for n, flag in enumerate(nsys_flags):
     if flag in {"-f", "--force-overwrite"}:
-        nsys_force_overwrite = nsys_flags[n + 1]
+        nsys_force_overwrite_str = nsys_flags[n + 1]
         break
     elif flag.startswith("-f"):
-        nsys_force_overwrite = flag[2:]
+        nsys_force_overwrite_str = flag[2:]
         break
     elif flag.startswith("--force-overwrite="):
-        nsys_force_overwrite = flag[18:]
+        nsys_force_overwrite_str = flag[18:]
         break
 else:
-    nsys_force_overwrite = "false"
-assert nsys_force_overwrite in {"true", "false"}
-nsys_force_overwrite = nsys_force_overwrite == "true"
+    nsys_force_overwrite_str = "false"
+assert nsys_force_overwrite_str in {"true", "false"}
+nsys_force_overwrite = nsys_force_overwrite_str == "true"
 
 # Modified environment in which to run the application
 env = os.environ.copy()
@@ -228,7 +246,7 @@ if not osp.exists(tmp_rep):
 # Use deflate compression
 compress_deflate = {"compress_type": zipfile.ZIP_DEFLATED}
 # Do not compress (if the file is already compressed)
-compress_none = {}
+compress_none: dict[str, int] = {}
 
 
 def copy_proto_files_to_tmp(tmp_dir, xla_dir="/opt/xla"):
@@ -295,10 +313,7 @@ def run_nsys_stats_report(report, report_file, tmp_dir, output_queue, wait_on):
     Run a stats recipe on an .nsys-rep file (that has probably already been
     exported to .sqlite).
     """
-    try:
-        wait_on.result()
-    except:
-        raise Exception("Dependency raised exception")
+    wait_on.result()
     start = time.time()
     subprocess.run(
         [
@@ -459,7 +474,7 @@ def process_pb_and_proto_files(pb_future, proto_future, output_queue, futures):
 # - copy the contents of /opt/jax_nsys into the output archive
 
 # Element format: (path_in_archive, Path or bytes, ZipFile.write* kwargs)
-files_to_archive = queue.Queue()
+files_to_archive: queue.Queue = queue.Queue()
 
 
 @contextmanager
@@ -531,23 +546,24 @@ with ThreadPoolExecutor() as executor, output_thread(executor):
         )
     )
     # Wait for errors/completion of `futures`; note that this does not include
-    # the output thread, which is signaled to on exit from this block.
-    total_futures = len(futures)
+    # the output thread, which is signaled to upon exiting from this block.
+    # Also note that the list of futures can still grow at this point.
+    retired = 0
     while True:
         results = wait(futures, return_when=FIRST_EXCEPTION, timeout=30)
         # Check if we exited early because of an exception and, if so, print it
         # immediately. Do not abort, so even in case of errors a valid archive
         # containing as much useful information as possible will be written.
+        retired += len(results.done)
         for future in results.done:
-            if future.done() and future.exception() is not None:
+            futures.remove(future)
+            if future.exception() is not None:
                 exit_code = 1
                 print("Exception:", future.exception())
-        pending = len(results.not_done)
+        pending = len(futures)
         if pending == 0:
             break
-        print(f"{archive_name}: {pending}/{total_futures} pending")
-        # Only continue to monitor the ones that weren't already finished
-        futures = results.not_done
+        print(f"{archive_name}: {pending}/{len(futures) + retired} pending")
 if exit_code:
     print(f"{archive_name}: exiting with code {exit_code} due to errors")
 sys.exit(exit_code)

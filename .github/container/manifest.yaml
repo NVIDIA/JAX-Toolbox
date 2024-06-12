@@ -48,6 +48,7 @@ praxis:
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
     pull/36/head: file://patches/praxis/PR-36.patch # adds Transformer Engine support
+    pull/74/head: file://patches/praxis/PR-74.patch # experimental support for using TE FMHA in GQA
 lingvo:
   # Used only in ARM pax builds
   url: https://github.com/tensorflow/lingvo.git
@@ -175,4 +176,8 @@ panopticapi:
   tracking_ref: mute
   latest_verified_commit: a698a12deb21e4cf0f99ef0581b2c30c466bf355
   mode: git-clone
-  
+orbax-checkpoint:
+  url: https://github.com/google/orbax.git
+  tracking_ref: main
+  latest_verified_commit: 16c2d409e365576284dbaf190ac002b24c1f927f
+  mode: pip-vcs

@@ -15,7 +15,15 @@ for line in $(cat requirements.pre | egrep '^[^#].+ @ git\+' || true); do
   # VCS installs are of the form "PACKAGE @ git+..."
   PACKAGE=$(echo "$line" | awk '{print $1}')
   ref=$(yq e ".${PACKAGE}.latest_verified_commit" ${MANIFEST_FILE})
-  echo "${line}@${ref}"
+  if [[ "$line" == *"#subdirectory="* ]]; then
+    # This is required b/c git-refs/commits cannot come after
+    # the subdirectory fragment.
+    # An example of an install that is of this form is:
+    # 'orbax-checkpoint @ git+https://github.com/google/orbax/#subdirectory=checkpoint'
+    echo "${line}" | sed "s/#subdirectory=/@${ref}#subdirectory=/"
+  else
+    echo "${line}@${ref}"
+  fi
 done | tee requirements.vcs
 unset IFS
 
