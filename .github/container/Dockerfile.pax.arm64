@@ -59,6 +59,8 @@ RUN <<"EOF" bash -exu -o pipefail
 git-clone.sh ${URLREF_LINGVO} ${SRC_PATH_LINGVO}
 EOF
 
+ENV USE_BAZEL_VERSION=7.1.2
+
 # build lingvo
 RUN <<"EOF" bash -exu -o pipefail
 pushd ${SRC_PATH_LINGVO}
