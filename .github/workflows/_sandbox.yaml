@@ -4,17 +4,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-upstream-pax:
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: arm64
-      ARTIFACT_NAME: artifact-pax-build
-      BADGE_FILENAME: badge-pax-build
-      BUILD_DATE: 2024-06-12
-      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:9427786018-jax-arm64-mealkit
-      CONTAINER_NAME: upstream-pax
-      DOCKERFILE: .github/container/Dockerfile.pax.arm64
-      EXTRA_BUILD_ARGS: |
-        URLREF_PAXML=https://github.com/google/paxml.git#4b1899e4a1b47781359d3c2ada8c8464dc1dd262
-        URLREF_PRAXIS=https://github.com/google/praxis.git#bef3beea055c55146811565f5d50c809998298d7
-    secrets: inherit
+  sandbox:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print usage
+        run: |
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
+
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
