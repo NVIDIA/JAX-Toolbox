@@ -46,12 +46,9 @@ runtime_date = min(dates)
 # Get the newest protoc version that isn't newer than that
 r = s.get("https://api.github.com/repos/protocolbuffers/protobuf/releases")
 r.raise_for_status()
-releases = r.json()
-for release in releases:
-  rdate = datetime.datetime.strptime(release["published_at"], '%Y-%m-%dT%H:%M:%SZ')
-  if rdate > runtime_date:
-    continue
-  break
+def is_old_enough(release):
+  return datetime.datetime.strptime(release["published_at"], '%Y-%m-%dT%H:%M:%SZ') <= runtime_date
+release = next(filter(is_old_enough, r.json()))
 print(f"Installing {release['name']}")
 system = platform.system().lower()
 machine = platform.machine()
