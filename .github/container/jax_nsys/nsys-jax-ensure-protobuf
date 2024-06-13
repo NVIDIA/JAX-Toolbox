@@ -27,19 +27,35 @@ echo "INFO: installing into virtual environment ${VIRTUALENV}"
 ${PYTHON} -m pip install --disable-pip-version-check --upgrade pip
 ${PYTHON} -m pip install --disable-pip-version-check --upgrade protobuf requests
 
-# Fetch the latest version of protoc from GitHub
+# Fetch the latest version of protoc from GitHub that is not newer than the installed
+# protobuf runtime version
 ${PYTHON} - "${VIRTUALENV}" <<EOL
-import io, platform, requests, sys, zipfile
+import datetime, google.protobuf, io, platform, requests, sys, zipfile
 s = requests.Session()
 s.mount('https://', requests.adapters.HTTPAdapter(max_retries=5))
-r = s.get("https://api.github.com/repos/protocolbuffers/protobuf/releases/latest")
+
+# Get a date for the installed runtime version
+r = s.get("https://pypi.org/pypi/protobuf/json")
 r.raise_for_status()
+releases = r.json()["releases"]
+assert google.protobuf.__version__ in releases
+dates = [datetime.datetime.strptime(v["upload_time_iso_8601"], '%Y-%m-%dT%H:%M:%S.%fZ')
+         for v in releases[google.protobuf.__version__]]
+runtime_date = min(dates)
+
+# Get the newest protoc version that isn't newer than that
+r = s.get("https://api.github.com/repos/protocolbuffers/protobuf/releases")
+r.raise_for_status()
+def is_old_enough(release):
+  return datetime.datetime.strptime(release["published_at"], '%Y-%m-%dT%H:%M:%SZ') <= runtime_date
+release = next(filter(is_old_enough, r.json()))
+print(f"Installing {release['name']}")
 system = platform.system().lower()
 machine = platform.machine()
 system = {"darwin": "osx"}.get(system, system)
 machine = {"arm64": "aarch_64"}.get(machine, machine)
 suffix = "-{}-{}.zip".format(system, machine)
-urls = [a["browser_download_url"] for a in r.json()["assets"]]
+urls = [a["browser_download_url"] for a in release["assets"]]
 urls = [url for url in urls if url.endswith(suffix)]
 assert len(urls) == 1
 r = s.get(urls[0])
