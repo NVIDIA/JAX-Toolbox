@@ -75,7 +75,6 @@ ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_latency_hiding_scheduler=true"
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_triton_gemm=false"
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_NVLS_ENABLE=0
-ENV CUDA_MODULE_LOADING=EAGER
 
 COPY --from=builder ${BUILD_PATH_JAXLIB} ${BUILD_PATH_JAXLIB}
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
