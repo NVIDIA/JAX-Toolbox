@@ -61,9 +61,9 @@ sed -i -e 's|-Werror||g' CMakeLists.txt
 sed -i -e 's|\(LLVMAMDGPU.*\)|# \1|g' CMakeLists.txt
 # Do not build tests
 sed -i -e 's|^\s*add_subdirectory(unittest)|# unit tests disabled|' CMakeLists.txt
-# Do not build the AMD GPU backend
-sed -i -e 's|BackendInstaller.copy(\["nvidia", "amd"\])|BackendInstaller.copy(["nvidia"])|g' python/setup.py
 # Google has patches that mess with include paths in source files
+sed -i -e '/include_directories(${PROJECT_SOURCE_DIR}\/third_party)/a include_directories(${PROJECT_SOURCE_DIR}/third_party/amd/include)' CMakeLists.txt
+sed -i -e '/include_directories(${PROJECT_BINARY_DIR}\/third_party)/a include_directories(${PROJECT_BINARY_DIR}/third_party/amd/include)' CMakeLists.txt
 sed -i -e '/include_directories(${PROJECT_SOURCE_DIR}\/third_party)/a include_directories(${PROJECT_SOURCE_DIR}/third_party/nvidia/include)' CMakeLists.txt
 sed -i -e '/include_directories(${PROJECT_BINARY_DIR}\/third_party)/a include_directories(${PROJECT_BINARY_DIR}/third_party/nvidia/include)' CMakeLists.txt
 # Extra patches to Triton maintained in XLA. These are already applied in the working directory.
