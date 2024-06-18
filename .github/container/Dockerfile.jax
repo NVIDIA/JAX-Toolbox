@@ -90,7 +90,7 @@ RUN mkdir -p /opt/pip-tools.d
 RUN <<"EOF" bash -ex
 echo "-e file://${BUILD_PATH_JAXLIB}" > /opt/pip-tools.d/requirements-jax.in
 echo "-e file://${SRC_PATH_JAX}" >> /opt/pip-tools.d/requirements-jax.in
-echo "numpy==1.26.4" >> /opt/pip-tools.d/requirements-jax.in
+echo "numpy==1.24.3" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax
