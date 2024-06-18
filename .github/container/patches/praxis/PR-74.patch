@@ -143,7 +143,7 @@ index acd6959..33b7ab1 100644
      # Post projection
      encoded = self.post(encoded)
 -- 
-2.34.1
+2.45.2
 
 
 From 99bff322268ccd38d8b18d031eba66605d342172 Mon Sep 17 00:00:00 2001
@@ -188,7 +188,7 @@ index 33b7ab1..c11ffac 100644
          encoded = self.dpa_layer(query_proj, key_proj, value_proj)
        else:
 -- 
-2.34.1
+2.45.2
 
 
 From 4eece5a90da2317994432c530ff37df42d6e617b Mon Sep 17 00:00:00 2001
@@ -223,5 +223,5 @@ index ad1ff5f..2c1fd72 100644
    """Common setup for Grok-1 Decoder-only Transformer Model.
  
 -- 
-2.34.1
+2.45.2
 
