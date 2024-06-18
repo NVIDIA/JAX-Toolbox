@@ -35,10 +35,10 @@ jobs:
         run: |
           pip install virtualenv
           virtualenv venv
-      - name: "Run nsys-jax-ensure-protobuf"
+      - name: "Install google.protobuf and protoc"
         run: |
-          . ./venv/bin/activate
-          ./JAX-Toolbox/.github/container/jax_nsys/nsys-jax-ensure-protobuf
+          ./venv/bin/pip install -r ./JAX-Toolbox/.github/container/requirements-nsys-jax.in
+          ./venv/bin/python ./JAX-Toolbox/.github/container/jax_nsys/install-protoc ./venv
       - name: "Install jax_nsys Python package"
         run: ./venv/bin/pip install -e JAX-Toolbox/.github/container/jax_nsys/python/jax_nsys
       - name: "Install mypy"

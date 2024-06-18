@@ -18,7 +18,10 @@ if [[ ! -d "${VIRTUALENV}" ]]; then
   virtualenv -p 3.12 -p 3.11 -p 3.10 "$@" "${VIRTUALENV}"
   . "${VIRTUALENV}/bin/activate"
   python -m pip install -U pip
-  "${SCRIPT_DIR}/nsys-jax-ensure-protobuf"
+  if ! python -c "import google.protobuf" > /dev/null 2>&1 || ! command -v protoc > /dev/null; then
+    python -m pip install protobuf requests
+    "${SCRIPT_DIR}/install-protoc" "${VIRTUALENV}"
+  fi
   # matplotlib is a dependency of Analysis.ipynb but not jax_nsys
   python -m pip install jupyterlab matplotlib
   python -m pip install -e "${SCRIPT_DIR}/python/jax_nsys"
