@@ -34,6 +34,10 @@ RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
     git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX}
+    pushd ${SRC_PATH_JAX}/build
+    sed -i '/^numpy/,/^[a-z]/{/^[a-z]/!{/^[a-z]/!d}}' requirements_lock_3_10.txt
+    sed -i '/^numpy/d' requirements_lock_3_10.txt
+    popd
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
@@ -90,7 +94,7 @@ RUN mkdir -p /opt/pip-tools.d
 RUN <<"EOF" bash -ex
 echo "-e file://${BUILD_PATH_JAXLIB}" > /opt/pip-tools.d/requirements-jax.in
 echo "-e file://${SRC_PATH_JAX}" >> /opt/pip-tools.d/requirements-jax.in
-echo "numpy<2.0" >> /opt/pip-tools.d/requirements-jax.in
+echo "numpy=<1.26.4" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax
