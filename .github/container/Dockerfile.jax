@@ -34,10 +34,7 @@ RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
     git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX}
-    pushd ${SRC_PATH_JAX}/build
-    sed -i '/^numpy/,/^[a-z]/{/^[a-z]/!{/^[a-z]/!d}}' requirements_lock_3_10.txt
-    sed -i '/^numpy/d' requirements_lock_3_10.txt
-    popd
+    sed 's/^numpy.*/numpy<2.0.0/' ${SRC_PATH_JAX}/build/requirements.txt
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
