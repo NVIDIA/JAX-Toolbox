@@ -1,5 +1,4 @@
 import functools
-import glob
 import lzma
 import pathlib
 import typing
@@ -92,27 +91,52 @@ class HloProto:
 
 
 @functools.lru_cache
-def xla_module_metadata(program_id: int, prefix: pathlib.Path = pathlib.Path(".")):
+def xla_module_metadata(
+    program_id: int,
+    prefix: pathlib.Path = pathlib.Path("."),
+    policy: str = "consistent",
+):
+    """
+    Load the protobuf metadata for module `program_id`. If given, `prefix` is the
+    search path. `policy` governs what happens if `nsys-jax-combine` found inconsistent
+    protobuf files in different profiles:
+      consistent (default): error if the dumps from different profiles did not match
+      all: return a dict of {profile_name: protobuf} with all the values that were seen
+    """
+    assert policy in {"consistent", "all"}
     # First, find the input file. There is a lot more that can be done here,
     # but the lowest-hanging fruit is to look for a filename like:
     #   module_0016.jit_train_step.sm_8.0_gpu_after_optimizations.hlo.pb
     # where 16 is the program id
     dump_dir = prefix / "dump"
-    for candidate in glob.glob(
-        "*_gpu_after_optimizations.hlo.pb.xz", root_dir=dump_dir
-    ):
+    for candidate in dump_dir.glob("*_gpu_after_optimizations.hlo.pb.xz"):
         if program_id == int(
-            candidate.split(".", maxsplit=1)[0].split("_", maxsplit=1)[1]
+            candidate.name.split(".", maxsplit=1)[0].split("_", maxsplit=1)[1]
         ):
             break
     else:
         raise Exception(
             f"Could not find protobuf input for XlaModule {program_id} in {dump_dir}"
         )
-    from xla.service import hlo_pb2
 
-    hlo = hlo_pb2.HloProto()
-    with lzma.LZMAFile(dump_dir / candidate, "rb") as f:
-        hlo.ParseFromString(f.read())
-    assert hlo.hlo_module.id == program_id
-    return HloProto(hlo)
+    def _load(file: pathlib.Path) -> HloProto:
+        from xla.service import hlo_pb2
+
+        hlo = hlo_pb2.HloProto()
+        with lzma.LZMAFile(file, "rb") as f:
+            hlo.ParseFromString(f.read())
+        assert hlo.hlo_module.id == program_id
+        return HloProto(hlo)
+
+    if candidate.is_dir():
+        # nsys-jax-combine found different .pb.xz files from different profiles
+        if policy == "consistent":
+            raise Exception(
+                f"program_id={program_id}: multiple protobuf dumps were found but policy demands consistency"
+            )
+        assert policy == "all"
+        return {file.name: _load(file) for file in candidate.iterdir()}
+    else:
+        # nsys-jax output, or nsys-jax-combine only saw consistent values
+        proto = _load(candidate)
+        return {None: proto} if policy == "all" else proto
