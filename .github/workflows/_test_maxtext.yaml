@@ -352,7 +352,7 @@ jobs:
       - name: Run pytest
         shell: bash -eux {0}
         run: |
-          pip install numpy<2.0.0 pytest pytest-reportlog tensorboard
+          pip install 'numpy<2.0.0' pytest pytest-reportlog tensorboard
           for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*; do
             JOB_NAME=$(echo $i | awk -F "${GITHUB_RUN_ID}-" '{print $2}')
             METRIC_PATH=${JOB_NAME}_metrics.json
