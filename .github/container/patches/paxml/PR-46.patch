@@ -654,7 +654,7 @@ index 6ec25e8..0342328 100644
  
    train_state_partition_specs = (
 -- 
-2.34.1
+2.45.2
 
 
 From 33989ab49072915eaf70a127357ad87a2ab0185f Mon Sep 17 00:00:00 2001
@@ -688,7 +688,7 @@ index d44ca67..2b9dba4 100644
          assert self.packed_input == False
          assert len(self.moe_layers) == 0
 -- 
-2.34.1
+2.45.2
 
 
 From 1993f5edd38a6523b12e56e533d22284a17ecc5a Mon Sep 17 00:00:00 2001
@@ -715,7 +715,7 @@ index 2b9dba4..ef20305 100644
      return x_out
  
 -- 
-2.34.1
+2.45.2
 
 
 From 7edb0214176ec4169f2aa8b9aef2c89f41f1d0c4 Mon Sep 17 00:00:00 2001
@@ -742,7 +742,7 @@ index 0342328..2e9bfd6 100644
      vars_with_opt = tasks_lib.filter_vars_for_grad_or_opt(
          mdl_vars, excluded_for_learner
 -- 
-2.34.1
+2.45.2
 
 
 From b76901e24b0f4bf1add943def4b5b590253527d7 Mon Sep 17 00:00:00 2001
@@ -779,7 +779,7 @@ index ef20305..fed1601 100644
          finally:
              pass
 -- 
-2.34.1
+2.45.2
 
 
 From 3d6ff0f9bb38217a7b04f48c36ee6892fa3c5b26 Mon Sep 17 00:00:00 2001
@@ -946,7 +946,7 @@ index fed1601..5914e54 100644
      def update_fp8_metas_if_needed(mdl_vars, grads):
          return TransformerEngineHelper.get_helper().update_fp8_metas_if_needed(mdl_vars, grads)
 -- 
-2.34.1
+2.45.2
 
 
 From b289c455efd107076001029f78e1215409dcbeda Mon Sep 17 00:00:00 2001
@@ -1107,7 +1107,7 @@ index 2e9bfd6..270fb3d 100644
          grads, states.opt_states[0], vars_with_opt, wps_with_opt
      )
 -- 
-2.34.1
+2.45.2
 
 
 From c91d86651daec782c4092898c7b9d01b45b76b56 Mon Sep 17 00:00:00 2001
@@ -1499,7 +1499,7 @@ index fd482df..b271258 100644
      @contextmanager
      def fp8_autocast(dp_mesh_axis="replica", tp_mesh_axis="mdl", fsdp_mesh_axis="data"):
 -- 
-2.34.1
+2.45.2
 
 
 From b6add3ccf50bffcfa87052830f1dbc52bdccf525 Mon Sep 17 00:00:00 2001
@@ -1534,7 +1534,7 @@ index b271258..cbac7cf 100644
  
  class TransformerEngineHelperBase:
 -- 
-2.34.1
+2.45.2
 
 
 From 12adf91f75fcbc5055ddaf93a25ed43ee99918ac Mon Sep 17 00:00:00 2001
@@ -1561,7 +1561,7 @@ index e475099..43e090c 100644
          var_weight_hparams)
      train_state_pspecs = ckpt_task.create_train_state_partition_specs(
 -- 
-2.34.1
+2.45.2
 
 
 From 953dcab6098054d70505ca0bb1b3e29eac819519 Mon Sep 17 00:00:00 2001
@@ -1627,5 +1627,5 @@ index 270fb3d..a9afc9e 100644
        k1, k2, k3 = jax.random.split(prng_key, 3)
        (metrics, per_example_output), updated_vars = apply_fn(
 -- 
-2.34.1
+2.45.2
 
