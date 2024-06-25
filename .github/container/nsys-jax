@@ -352,7 +352,9 @@ def find_pb_files_in_tmp(tmp_dir):
     )
 
 
-def gather_source_files(proto_dir, pb_file_prefix, pb_file_list, output_queue):
+def gather_source_files(
+    proto_dir, proto_files, pb_file_prefix, pb_file_list, output_queue
+):
     """
     Given a directory containing the required .proto files (`proto_dir`) and a
     prefix (`pb_file_prefix`) and list of relative paths to .pb files
@@ -364,19 +366,24 @@ def gather_source_files(proto_dir, pb_file_prefix, pb_file_list, output_queue):
     hlo_pb_files = [
         osp.join(pb_file_prefix, x) for x in pb_file_list if x.endswith(".hlo.pb")
     ]
-    # Delegate to another script to extract the list of source files referenced
-    # by .hlo.pb files. This pattern allows the other script to setup
-    # google.protobuf and protoc if needed to get a consistent installation.
-    p = subprocess.Popen(
-        ["nsys-jax-gather-src-files", proto_dir] + hlo_pb_files,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    stdout, stderr = p.communicate()
-    if p.returncode != 0:
-        raise Exception("Gathering source code failed: " + stderr)
-    src_files = stdout.splitlines()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # Compile the .proto files
+        subprocess.run(
+            ["protoc", f"-I={proto_dir}", f"--python_out={tmp_dir}"] + proto_files,
+            check=True,
+            cwd=proto_dir,
+        )
+        # Collect the set of referenced source files
+        sys.path.insert(0, tmp_dir)
+        from xla.service import hlo_pb2
+
+        hlo = hlo_pb2.HloProto()
+        src_files = set()
+        for hlo_pb_file in hlo_pb_files:
+            with open(hlo_pb_file, "rb") as f:
+                hlo.ParseFromString(f.read())
+            src_files |= set(hlo.hlo_module.stack_frame_index.file_names)
+        sys.path.remove(tmp_dir)
     if len(src_files) == 0:
         raise Exception("No source files were gathered")
     # Copy these files into the output archive.
@@ -449,6 +456,7 @@ def process_pb_and_proto_files(pb_future, proto_future, output_queue, futures):
         executor.submit(
             gather_source_files,
             proto_dir,
+            proto_files,
             pb_file_prefix,
             pb_file_list,
             files_to_archive,
