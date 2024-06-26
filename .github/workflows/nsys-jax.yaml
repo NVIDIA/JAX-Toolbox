@@ -13,6 +13,9 @@ on:
       - synchronize
     paths-ignore:
       - '**.md'
+  push:
+    branches:
+      - main
 
 env:
   NSYS_JAX_PYTHON_FILES: JAX-Toolbox/.github/container/nsys-jax JAX-Toolbox/.github/container/jax_nsys
@@ -72,7 +75,13 @@ jobs:
           ./venv/bin/mypy ${NSYS_JAX_PYTHON_FILES}
 
   notebook:
-    runs-on: ubuntu-22.04
+    env:
+      # TODO: these could/should be saved in the repository settings instead
+      RENDERED_NOTEBOOK_GIST_ID: e2cd3520201caab6b67385ed36fad3c1
+      MOCK_RENDERED_NOTEBOOK_GIST_ID: 16698d9e9e52320243165d61b5bb3975
+      # Name/bash regex for shields.io endpoint JSON files
+      PUBLISH_NOTEBOOK_FILES: '(.*\.ipynb)'
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
@@ -95,7 +104,90 @@ jobs:
         run: |
           pushd .github/container/jax_nsys
           ./nsys_jax_venv/bin/python -m jupyterlab --version
+          # Run with ipython for the sake of getting a clear error message
           ./nsys_jax_venv/bin/ipython Analysis.ipynb
+      - name: Render the notebook
+        id: render
+        shell: bash -x -e {0}
+        run: |
+          pushd .github/container/jax_nsys
+          workdir=$(mktemp -d)
+          ./nsys_jax_venv/bin/jupyter nbconvert --execute --to notebook --output-dir=$workdir Analysis.ipynb
+          echo "WORKDIR=$workdir" >> $GITHUB_OUTPUT
+      - name: Upload rendered notebook to Gist
+        id: upload
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          script: |
+            const currentDateTime = new Date().toISOString();
+            const gistDescription =
+              `Rendered IPython notebook from workflow: ${{ github.workflow }}, ` +
+              `Run ID: ${{ github.run_id }}, ` +
+              `Repository: ${{ github.repository }}, ` +
+              `Event: ${{ github.event_name }}, ` +
+              `Created: ${currentDateTime}`;
+            const fs = require('fs').promises;
+            const workdir = '${{ steps.render.outputs.WORKDIR }}'
+            const files = await fs.readdir(workdir);
+            gist = await github.rest.gists.create({
+              description: gistDescription,
+              public: false,
+              files: Object.fromEntries(
+                await Promise.all(
+                  files.map(
+                    async filename => {
+                      const content = await fs.readFile(`${workdir}/${filename}`, 'utf8');
+                      return [filename, { content }];
+                    }
+                  )
+                )
+              )
+            });
+            console.log(gist)
+            return gist.data.id;
+      - name: Copy rendered notebook to Gist with well-known ID
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.NVJAX_GIST_TOKEN }}
+          script: |
+            const srcId = ${{ steps.upload.outputs.result }};
+            const dstId = "${{ github.ref == 'refs/heads/main' && env.RENDERED_NOTEBOOK_GIST_ID || env.MOCK_RENDERED_NOTEBOOK_GIST_ID }}";
+            const { PUBLISH_NOTEBOOK_FILES } = process.env;
+
+            // Fetch existing files from destination gist
+            const { data: dstData } = await github.rest.gists.get({
+              gist_id: dstId
+            });
+
+            // Mark existing files in destination gist for deletion
+            let filesToUpdate = {};
+            for (const filename of Object.keys(dstData.files)) {
+              filesToUpdate[filename] = null;
+            }
+
+            // Fetch files from source gist
+            const { data: srcData } = await github.rest.gists.get({
+              gist_id: srcId
+            });
+
+            // Add or update files based on the pattern
+            const pattern = new RegExp(`${PUBLISH_NOTEBOOK_FILES}`);
+            for (const [filename, fileObj] of Object.entries(srcData.files)) {
+              if (filename.match(pattern)) {
+                filesToUpdate[filename] = {
+                  content: fileObj.content
+                };
+              }
+            }
+
+            // Update files in destination gist
+            await github.rest.gists.update({
+              gist_id: dstId,
+              files: filesToUpdate
+            });
+            console.log("Files copied successfully.");
+            console.log(Object.keys(filesToUpdate));
 
   ruff:
     runs-on: ubuntu-24.04
