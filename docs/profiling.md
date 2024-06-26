@@ -231,5 +231,8 @@ The included notebook is intended to be a template for programmatic analysis of 
 the metadata from XLA. Out of the box it will provide some basic summaries and visualisations:
 ![Analysis notebook inside Jupyter Lab showing an interactive flame graph of JAX source code](./img/jupyter-flamegraph.png)
 
+You can see a rendered example of this notebook, as generated from the `main` branch of this repository, here:
+https://gist.github.com/nvjax/e2cd3520201caab6b67385ed36fad3c1#file-analysis-ipynb.
+
 > **Note**: this code should be considered unstable, the bundled notebook and its input data format may change
 > considerably, but it should provide a useful playground in which to experiment with your own profile data.
