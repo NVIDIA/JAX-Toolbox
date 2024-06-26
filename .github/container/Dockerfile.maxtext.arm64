@@ -1,0 +1,82 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_MAXTEXT=https://github.com/google/maxtext.git#main
+ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#v2.13.0
+ARG SRC_PATH_MAXTEXT=/opt/maxtext
+ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
+
+###############################################################################
+## build tensorflow-text and lingvo, which do not have working arm64 pip wheels
+###############################################################################
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} as wheel-builder
+
+#------------------------------------------------------------------------------
+# build tensorflow-text from source
+#------------------------------------------------------------------------------
+
+FROM wheel-builder as tftext-builder
+ARG URLREF_TFTEXT
+ARG SRC_PATH_TFTEXT
+RUN <<"EOF" bash -exu -o pipefail
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
+git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
+cd ${SRC_PATH_TFTEXT}
+
+# The tftext build script queries GitHub, but these requests are sometimes
+# throttled by GH, resulting in a corrupted uri for tensorflow in WORKSPACE.
+# A workaround (needs to be updated when the tensorflow version changes):
+sed -i "s/# Update TF dependency to installed tensorflow/commit_sha=1cb1a030a62b169d90d34c747ab9b09f332bf905/" oss_scripts/prepare_tf_dep.sh
+
+# Newer versions of LLVM make lld's --undefined-version check of lld is strict
+# by default (https://reviews.llvm.org/D135402), but the tftext build seems to
+# rely on this behavior.
+echo "write_to_bazelrc \"build --linkopt='-Wl,--undefined-version'\"" >> oss_scripts/configure.sh
+
+./oss_scripts/run_build.sh
+EOF
+
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_MAXTEXT
+ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#v2.13.0
+ARG SRC_PATH_MAXTEXT
+ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
+
+# Preserve version information of tensorflow-text
+COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
+RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-maxtext.in
+
+RUN <<"EOF" bash -ex
+git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
+echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+EOF
+
+###############################################################################
+## Apply patch
+###############################################################################
+
+ADD maxtext-mha.patch /opt
+RUN cd "${SRC_PATH_MAXTEXT}" && patch -p1 < /opt/maxtext-mha.patch && git diff
+
+###############################################################################
+## Add test script to the path
+###############################################################################
+
+ADD test-maxtext.sh /usr/local/bin
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh
+
+WORKDIR ${SRC_PATH_MAXTEXT}
