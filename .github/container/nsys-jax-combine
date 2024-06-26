@@ -99,8 +99,8 @@ with zipfile.ZipFile(args.output, "w") as ofile:
                         # modified destination. An input file A/B in reportN.zip will
                         # be saved as A/B/reportN in the output, i.e. A/B will be a
                         # directory instead of a file. TODO: in future instead of using
-                        # input.stem use a standardised format showing the rank numbers
-                        # that were profiled in reportN.zip.
+                        # input.stem use a standardised format showing the device
+                        # numbers that were profiled in reportN.zip.
                         dst_info = copy.copy(member)
                         dst_info.filename = filename + "/" + input.stem
                         write(dst_info)
