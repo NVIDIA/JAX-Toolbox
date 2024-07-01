@@ -18,7 +18,10 @@ on:
       - main
 
 env:
-  NSYS_JAX_PYTHON_FILES: JAX-Toolbox/.github/container/nsys-jax JAX-Toolbox/.github/container/jax_nsys
+  NSYS_JAX_PYTHON_FILES: |
+    JAX-Toolbox/.github/container/nsys-jax
+    JAX-Toolbox/.github/container/nsys-jax-combine
+    JAX-Toolbox/.github/container/jax_nsys
 
 jobs:
   mypy:
@@ -72,7 +75,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           export MYPYPATH="${PWD}/compiled_stubs"
-          ./venv/bin/mypy ${NSYS_JAX_PYTHON_FILES}
+          ./venv/bin/mypy --scripts-are-modules ${NSYS_JAX_PYTHON_FILES}
 
   notebook:
     env:
