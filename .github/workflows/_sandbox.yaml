@@ -75,10 +75,10 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.jax
       RUNNER_SIZE: large
       EXTRA_BUILD_ARGS: |
-        URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
-        URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
-        URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
-        URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+        URLREF_JAX=${{ fromJson(${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}).JAX }}
+        URLREF_XLA=${{ fromJson(${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}).XLA }}
+        URLREF_FLAX=${{ fromJson(${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}).FLAX }}
+        URLREF_TRANSFORMER_ENGINE=${{ fromJson(${{needs.bump-manifest.outputs.SOURCE_URLREFS }}).TRANSFORMER_ENGINE }}
     secrets: inherit
 
 
