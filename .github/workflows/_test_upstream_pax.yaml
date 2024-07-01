@@ -360,7 +360,7 @@ jobs:
           path: |
             output/*
 
-pax-single-process-evaluation:
+  pax-single-process-evaluation:
     strategy:
       matrix:
         PARALLEL_CONFIG:
