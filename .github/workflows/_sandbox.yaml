@@ -28,6 +28,29 @@ permissions:
   packages: write # to upload container
 
 jobs:
+  bump-manifest:
+    runs-on: ubuntu-22.04
+    outputs:
+      SOURCE_URLREFS: ${{ steps.source-urlrefs.outputs.SOURCE_URLREFS }}
+    steps:
+      - name: Create URL ref build args
+        id: source-urlrefs
+        shell: bash -x -e {0}
+        run: |
+          # converts manifest yaml to a json object of {SOFTWARE_NAME: URL#REF, ...}
+          urlrefs=$(
+            cat .github/container/manifest.yaml |\
+            yq -o=json 'to_entries | .[] | select(.value.mode == "git-clone") | {( .key | upcase | sub("-", "_") ): .value.url + "#" + .value.latest_verified_commit}' |\
+            jq -c -s 'add'
+          )
+          # SOURCE_OVERRIDES is a comma-separated list of package=urlref pairs
+          IFS=, read -ra overrides <<< "${{ inputs.SOURCE_OVERRIDES }}"
+          for override in "${overrides[@]}"; do
+            PACKAGE=$(cut -d= -f 1 <<< "${override}" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+            URLREF=$(cut -d= -f 2- <<< "${override}")
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
+          done
+          echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
 
   build-base:
     uses: ./.github/workflows/_build_base.yaml
