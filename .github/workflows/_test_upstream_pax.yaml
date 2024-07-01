@@ -360,7 +360,7 @@ jobs:
           path: |
             output/*
 
-  single-process-evaluation:
+pax-single-process-evaluation:
     strategy:
       matrix:
         PARALLEL_CONFIG:
@@ -509,7 +509,7 @@ jobs:
 
   metrics:
     name: test-upstream-pax-metrics
-    needs: [single-process-multi-device, pax-multi-node, single-process-evaluation]
+    needs: [pax-single-process-multi-device, pax-multi-node, pax-single-process-evaluation]
     runs-on: ubuntu-22.04
 
     steps:
@@ -555,7 +555,7 @@ jobs:
   summary:
     name: test-upstream-pax-summary
     runs-on: ubuntu-22.04
-    needs: [single-process-multi-device, pax-multi-node, single-process-evaluation]
+    needs: [pax-single-process-multi-device, pax-multi-node, pax-single-process-evaluation]
     if: "!cancelled()"
     steps:
       - name: Generate TensorBoard query URL
