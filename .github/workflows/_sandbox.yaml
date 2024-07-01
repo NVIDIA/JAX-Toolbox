@@ -94,8 +94,8 @@ jobs:
       CONTAINER_NAME: upstream-pax
       DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
       EXTRA_BUILD_ARGS: |
-        URLREF_PAXML=${{ fromJson(inputs.SOURCE_URLREFS).PAXML }}
-        URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
+        URLREF_PAXML=${{ fromJson(${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}).PAXML }}
+        URLREF_PRAXIS=${{ fromJson(${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}).PRAXIS }}
     secrets: inherit
 
   test-distribution:
