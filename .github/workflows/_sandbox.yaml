@@ -33,6 +33,8 @@ jobs:
     outputs:
       SOURCE_URLREFS: ${{ steps.source-urlrefs.outputs.SOURCE_URLREFS }}
     steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
       - name: Create URL ref build args
         id: source-urlrefs
         shell: bash -x -e {0}
