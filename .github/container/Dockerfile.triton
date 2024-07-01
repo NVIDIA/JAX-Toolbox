@@ -6,7 +6,7 @@ ARG SRC_PATH_JAX_TRITON=/opt/jax-triton
 ARG SRC_PATH_TRITON=/opt/triton
 ARG SRC_PATH_XLA=/opt/xla
 
-FROM ${BASE_IMAGE} as base
+FROM ${BASE_IMAGE} AS base
 # Triton setup.py downloads and installs CUDA binaries at specific versions
 # hardcoded in the script itself:
 # https://github.com/openxla/triton/blob/84f9d9de158fb866fac67970f0f5d323999d9db1/python/setup.py#L373-L393
@@ -23,7 +23,7 @@ RUN [ -x "${TRITON_PTXAS_PATH}" ] && [ -x "${TRITON_CUOBJDUMP_PATH}" ] && [ -x "
 ## llvm-head branch and apply XLA's extra patches to it. Also fetches the
 ## compatible LLVM sources.
 ###############################################################################
-FROM base as builder
+FROM base AS builder
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 RUN <<"EOF" bash -ex
@@ -85,7 +85,7 @@ EOF
 ###############################################################################
 ## Copy Triton source/wheel from the builder, checkout JAX-Triton
 ###############################################################################
-FROM base as mealkit
+FROM base AS mealkit
 ARG URLREF_JAX_TRITON
 ARG SRC_PATH_JAX_TRITON
 ARG SRC_PATH_TRITON
@@ -104,6 +104,6 @@ EOF
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
-FROM mealkit as final
+FROM mealkit AS final
 
 RUN pip-finalize.sh
