@@ -59,7 +59,7 @@ parser.add_argument(
         "Bash expression that will be expanded to determine if this instance "
         "of nsys-jax should actually launch nsys. Example: "
         "--nsys-jax-condition='$SLURM_LOCALID == 0' to only profile the first "
-        "rank on each node. The expression is evaluated inside [[ ... ]]."
+        "process on each node. The expression is evaluated inside [[ ... ]]."
     ),
 )
 nsys_jax_flags, unknown_args = parser.parse_known_args(sys.argv)
@@ -123,7 +123,7 @@ if nsys_output is not None:
     archive_name = nsys_output + ".zip"
 elif enable_profiling:
     # There was not an explicit output location; generate one. There may be
-    # multiple ranks racing to do this.
+    # multiple processes racing to do this.
     archive_handle, archive_name = tempfile.mkstemp(
         dir=os.getcwd(), prefix="nsys-jax-report-", suffix=".zip"
     )
