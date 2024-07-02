@@ -1,3 +1,4 @@
+from collections import defaultdict
 import functools
 import lzma
 import pathlib
@@ -17,6 +18,70 @@ class StackFrame(typing.NamedTuple):
         return s
 
 
+class HloInstruction:
+    def __init__(self, wrapped_hlo_proto, proto):
+        self._proto = proto
+        # If this instruction represents the launch of a collective operation, find the
+        # proto representing the actual collective, which will be different if the
+        # async launch is handled by an async-start op
+        # TODO: can any of copy-start, custom-call, recv, send represent communication?
+        self._comm_proto = None
+        comm_opcodes = {
+            "all-gather",
+            "all-reduce",
+            "all-to-all",
+            "collective-broadcast",
+            "collective-permute",
+            "reduce-scatter",
+        }
+        comm_start_opcodes = {
+            "all-gather-start",
+            "all-reduce-start",
+            "collective-permute-start",
+        }
+        if self._proto.opcode in comm_opcodes | comm_start_opcodes:
+            self._comm_proto = self._proto
+        elif self._proto.opcode == "async-start":
+            # This might be thinly wrapping an opcode in `comm_opcodes`
+            other_opcodes = defaultdict(int)
+            for called_id in self._proto.called_computation_ids:
+                for called_inst in wrapped_hlo_proto.find_computation(
+                    called_id
+                ).instructions:
+                    if called_inst.opcode in comm_opcodes:
+                        assert (
+                            self._comm_proto is None
+                        ), f"Found {called_inst.opcode} child having already found {self._comm_proto.opcode}"
+                        self._comm_proto = called_inst
+                    else:
+                        other_opcodes[called_inst.opcode] += 1
+            assert (
+                other_opcodes.keys() == {"parameter"}
+            ), f"async-start op {self._proto.name} wrapped too many opcode types ({dict(other_opcodes)}) in addition to {comm_inst}"
+
+    def communication_proto(self):
+        return self._comm_proto
+
+    def is_communication(self) -> bool:
+        """
+        Classify this instruction as representing communication or computation. This is
+        a little more complicated than you might hope, because async communications are
+        not handled uniformly.
+        """
+        if self._comm_proto is None:
+            return False
+        assert (
+            self._comm_proto.channel_id != 0
+        ), f"Got channel_id={self._comm_proto.channel_id} for {self._comm_proto.name}"
+        return True
+
+    def proto(self):
+        """
+        Access the HloInstruction protobuf object directly.
+        """
+        return self._proto
+
+
 class HloProto:
     def __init__(self, proto):
         self._proto = proto
@@ -29,13 +94,15 @@ class HloProto:
             self._computations[comp.id] = comp
             for inst in comp.instructions:
                 assert inst.name not in self._instructions
-                self._instructions[inst.name] = (comp, inst)
-                self._instructions_by_id[inst.id] = (comp, inst)
+                assert inst.id not in self._instructions_by_id
+                wrapped_inst = HloInstruction(self, inst)
+                self._instructions[inst.name] = (comp, wrapped_inst)
+                self._instructions_by_id[inst.id] = (comp, wrapped_inst)
 
     def find_computation(self, id: int):
         return self._computations[id]
 
-    def find_instruction(self, name: str):
+    def find_instruction(self, name: str) -> HloInstruction:
         """
         Look up an HLO instruction and its associated computation by name in
         the wrapped HloModule.
@@ -44,7 +111,7 @@ class HloProto:
         """
         return self._instructions[name]
 
-    def find_instruction_by_id(self, id: int):
+    def find_instruction_by_id(self, id: int) -> HloInstruction:
         """
         Look up an HLO instruction and its associated computation by id in
         the wrapped HloModule.

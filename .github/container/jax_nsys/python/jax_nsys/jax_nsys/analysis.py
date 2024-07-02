@@ -162,8 +162,9 @@ def _get_message_size(
     module_proto: HloProto, instruction: str
 ) -> tuple[int, str, int, float, float]:
     _, inst = module_proto.find_instruction(instruction)
+    comm_inst = inst.communication_proto()
     assert (
-        inst.opcode
+        comm_inst.opcode
         in {
             "all-gather-start",
             "all-reduce-start",
@@ -172,26 +173,31 @@ def _get_message_size(
             "collective-permute-start",
             "reduce-scatter",
         }
-    ), f"{instruction}: message size calculation for {inst.opcode} has not yet been validated"
-    if inst.opcode == "collective-permute-start":
+    ), f"{instruction}: message size calculation for {comm_inst.opcode} has not yet been validated"
+    if comm_inst.opcode == "collective-permute-start":
         # See https://openxla.org/xla/operation_semantics#collectivepermute, which
         # generates pair-wise send+recv between devices
         collective_size = 2
     else:
         # replica_groups is something like {{0,1},{4,5},{2,3},{6,7}}, if there are 8
         # devices that are doing pair-wise collectives
-        collective_size = len(inst.replica_groups[0].replica_ids)
-        assert all(
-            len(group.replica_ids) == collective_size for group in inst.replica_groups
-        ), f"Heterogeneous collective {inst.replica_groups} could not be interpreted"
+        try:
+            replica_groups = comm_inst.collective_device_list.replica_groups
+        except:
+            replica_groups = comm_inst.replica_groups
+        collective_sizes = set(len(group.replica_ids) for group in replica_groups)
+        assert (
+            len(collective_sizes) == 1
+        ), f"Heterogeneous collective {comm_inst} could not be interpreted"
+        collective_size = next(iter(collective_sizes))
     total_msg_size = 0
-    for operand_id in inst.operand_ids:
+    for operand_id in comm_inst.operand_ids:
         _, operand = module_proto.find_instruction_by_id(operand_id)
         msg_size_bits = math.prod(
-            operand.shape.dimensions,
-            start=element_type_width(operand.shape.element_type),
+            operand.proto().shape.dimensions,
+            start=element_type_width(operand.proto().shape.element_type),
         )
-        if inst.opcode == "reduce-scatter":
+        if comm_inst.opcode == "reduce-scatter":
             # NCCL's convention is that the message size of a reduce-scatter is the size of output buffer:
             # https://github.com/NVIDIA/nccl/blob/ab2b89c4c339bd7f816fbc114a4b05d386b66290/src/collectives.cc#L122
             msg_size_bits, rem = divmod(msg_size_bits, collective_size)
@@ -200,7 +206,7 @@ def _get_message_size(
         assert rem == 0
         total_msg_size += msg_size_bytes
 
-    collective = inst.opcode.removesuffix("-start")
+    collective = comm_inst.opcode.removesuffix("-start")
     bw_correction, bus_correction = _collective_correction(collective, collective_size)
     return (total_msg_size, collective, collective_size, bw_correction, bus_correction)
 

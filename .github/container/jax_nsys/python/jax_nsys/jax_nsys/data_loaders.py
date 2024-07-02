@@ -33,7 +33,7 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
             # that we had different protos from different profiles
             protos = xla_module_metadata(program_id, prefix=prefix, policy="all")
             return protos.unique_result(
-                lambda proto: proto.find_instruction(row["Name"])[1].channel_id != 0
+                lambda proto: proto.find_instruction(row["Name"])[1].is_communication()
             )
         except:
             print(f'Failed to get metadata for {row["Name"]} in program #{program_id}')
@@ -44,9 +44,16 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
     # For convenience when calculating unhidden comms
     thunk_df["ProjEndMs"] = thunk_df["ProjStartMs"] + thunk_df["ProjDurMs"]
 
-    for _, module_exec_df in thunk_df.groupby(
+    for (program_id, program_execution, device), module_exec_df in thunk_df.groupby(
         ["ProgramId", "ProgramExecution", "Device"]
     ):
+        # Expect all computation to be serialized
+        compute_df = module_exec_df[~module_exec_df["Communication"]]
+        serial_mask = (
+            compute_df["ProjStartMs"].array[1:] >= compute_df["ProjEndMs"].array[:-1]
+        )
+        assert serial_mask.all(), f"Only {serial_mask.sum()}/{len(serial_mask)} compute kernel pairs failed to overlap in execution {program_execution} of module {program_id} on device {device}"
+
         # Update the projected duration of each communication kernel to only
         # include the non-overlapped time
         for comm_thunk in module_exec_df[module_exec_df["Communication"]].itertuples():
@@ -54,18 +61,17 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
             # That kernel was active from comm_thunk.ProjStartMs until comm_thunk.ProjEndMs
             # but during that time then other computation was going on. We want to
             # find how much of the time did not overlap with other computation.
-            compute_df = module_exec_df[
+            overlap_df = module_exec_df[
                 (
                     (module_exec_df["ProjEndMs"] > comm_thunk.ProjStartMs)
                     & (module_exec_df["ProjStartMs"] < comm_thunk.ProjEndMs)
-                    & ~module_exec_df["Communication"]
                 )
             ]
-            # The computation kernels should all be serialised, but check that
+            overlap_comm_mask = overlap_df["Communication"]
             assert (
-                compute_df["ProjStartMs"].iloc[1:].array
-                >= compute_df["ProjEndMs"].iloc[:-1].array
-            ).all()
+                overlap_comm_mask.sum() == 1
+            ), f"Found {overlap_comm_mask.sum()} ranges overlapping {comm_thunk.Name}, expected 1 (itself)"
+            compute_df = overlap_df[~overlap_comm_mask]
             compute_time = np.sum(
                 np.minimum(compute_df["ProjEndMs"], comm_thunk.ProjEndMs)
                 - np.maximum(compute_df["ProjStartMs"], comm_thunk.ProjStartMs)
