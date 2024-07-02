@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import virtualenv
 import zipfile
 
 
@@ -51,6 +52,15 @@ parser = argparse.ArgumentParser(
         "NOTE: if the executable arguments include a literal `--` then the optional "
         "`--` shown in the usage message MUST be passed to disambiguate. This is also "
         "required when extra nsys profile arguments are passed."
+    ),
+)
+parser.add_argument(
+    "--nsys-jax-analysis",
+    help=(
+        "Post-processing analysis script to execute after report collection. This can "
+        "be the name of a bundled recipe, or the path to a Python script. The script "
+        "will be passed a single argument, which is the path to a directory of the "
+        "same structure as the extracted output archive."
     ),
 )
 parser.add_argument(
@@ -133,9 +143,14 @@ elif enable_profiling:
 # We will write /final/output/path/name.zip, and it will contain name.nsys-rep,
 # but we do not instruct nsys to write that to /final/output/path/name.nsys-rep
 # so that more of the processing can happen on a faster, more local filesystem.
+# TODO: clean this up?
 tmp_dir = tempfile.mkdtemp()
 tmp_rep = osp.join(tmp_dir, "report.nsys-rep")
 nsys_flags += ["--output", tmp_rep]
+
+# If --nsys-jax-analysis is used, we also construct a local directory mirroring
+# the extracted archive structure. TODO: clean this up
+mirror_dir = None if nsys_jax_flags.nsys_jax_analysis is None else tempfile.mkdtemp()
 
 
 def override_nsys_default(arg, value):
@@ -295,7 +310,10 @@ def run_nsys_recipe(recipe, report_file, tmp_dir, output_queue):
         check=True,
     )
     for ofile in iglob(recipe + "/**", recursive=True, root_dir=tmp_dir):
-        output_queue.put((ofile, osp.join(tmp_dir, ofile), compress_none))
+        full_path = osp.join(tmp_dir, ofile)
+        if osp.isdir(full_path):
+            continue
+        output_queue.put((ofile, full_path, compress_none))
     print(f"{archive_name}: post-processing finished in {time.time()-start:.2f}s")
 
 
@@ -340,7 +358,10 @@ def copy_jax_nsys_files(input_dir, output_queue):
     """
     # Gather the files from /opt/jax_nsys that should be bundled into the archive.
     for file in iglob("**", recursive=True, root_dir=input_dir):
-        output_queue.put((file, osp.join(input_dir, file), compress_deflate))
+        full_path = osp.join(input_dir, file)
+        if osp.isdir(full_path):
+            continue
+        output_queue.put((file, full_path, compress_deflate))
 
 
 def find_pb_files_in_tmp(tmp_dir):
@@ -393,10 +414,12 @@ def gather_source_files(
     print(f"{archive_name}: gathered source code in {time.time()-start:.2f}s")
 
 
-def write_output_file(to_process, output_file):
+def write_output_file(to_process, output_file, mirror_dir):
     """
     Write the output archive (`output_file`) by consuming entries from the
-    queue until a `None` sentinel value is seen.
+    queue until a `None` sentinel value is seen. If `mirror_dir` is not None
+    then populate it with symlinks/files as necessary to create a structure
+    equivalent to the output archive.
     """
     start = time.time()
     with zipfile.ZipFile(output_file, "w") as archive:
@@ -410,12 +433,22 @@ def write_output_file(to_process, output_file):
                     assert to_process.empty()
                     break
                 path_in_archive, content, kwargs = item
+                mirror_path = None
+                if mirror_dir is not None:
+                    mirror_path = osp.join(mirror_dir, path_in_archive)
+                    os.makedirs(osp.dirname(mirror_path), exist_ok=True)
                 if isinstance(content, bytes):
                     archive.writestr(path_in_archive, content, **kwargs)
+                    if mirror_path is not None:
+                        with open(mirror_path, "wb") as mfile:
+                            mfile.write(content)
                 else:
                     archive.write(content, arcname=path_in_archive, **kwargs)
+                    if mirror_path is not None:
+                        os.symlink(content, mirror_path)
             except queue.Empty:
                 print(f"{archive_name}: output stalled ({timeout}s heartbeat)")
+        # TODO: execute analysis script here, so the output can still go into the archive?
     os.chmod(output_file, 0o644)
     print(f"{archive_name}: wrote in {time.time()-start:.2f}s")
 
@@ -494,10 +527,15 @@ def output_thread(executor: ThreadPoolExecutor):
     try:
         # Spawn a worker to actually write the output file, consuming entries
         # in output_queue.
-        yield executor.submit(write_output_file, files_to_archive, archive_name)
+        future = executor.submit(
+            write_output_file, files_to_archive, archive_name, mirror_dir
+        )
+        yield future
     finally:
         # Signal via the output queue that the worker should exit.
         files_to_archive.put(None)
+        # Make sure any errors from the output thread are surfaced
+        future.result()
 
 
 exit_code = 0
@@ -572,6 +610,46 @@ with ThreadPoolExecutor() as executor, output_thread(executor):
         if pending == 0:
             break
         print(f"{archive_name}: {pending}/{len(futures) + retired} pending")
+
+if nsys_jax_flags.nsys_jax_analysis is not None:
+    # run post-processing, if needed, in mirror_dir
+    assert mirror_dir is not None
+    venv_dir = osp.join(mirror_dir, "venv")
+    virtualenv.cli_run([venv_dir, "--python", sys.executable, "--system-site-packages"])
+    subprocess.run(
+        [
+            osp.join(venv_dir, "bin", "pip"),
+            "--disable-pip-version-check",
+            "install",
+            "-e",
+            osp.join(mirror_dir, "python", "jax_nsys"),
+        ],
+        check=True,
+    )
+    # If --nsys-jax-analysis is the name of a bundled analysis script, use that. Otherwise it should be a file that exists.
+    search = [
+        osp.join(
+            mirror_dir,
+            "python",
+            "jax_nsys_analysis",
+            nsys_jax_flags.nsys_jax_analysis + ".py",
+        ),
+        nsys_jax_flags.nsys_jax_analysis,
+    ]
+    candidates = list(filter(osp.exists, search))
+    assert len(candidates), f"Could not find analysis script, tried {search}"
+    analysis_command = [
+        osp.join(venv_dir, "bin", "python"),
+        candidates[0],
+        mirror_dir,
+    ]
+    print(f"Running analysis script: {shlex.join(analysis_command)}")
+    subprocess.run(
+        analysis_command,
+        check=True,
+    )
+    # TODO: copy output files of the analysis script?
+
 if exit_code:
     print(f"{archive_name}: exiting with code {exit_code} due to errors")
 sys.exit(exit_code)
