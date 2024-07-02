@@ -20,6 +20,10 @@ from nvidia.dali.auto_aug import auto_augment
 from rosetta.data.dali import BaseDALIPipeline
 from rosetta.data.wds_utils import ModalityConfig
 
+def non_image_preprocessing(raw_text):
+  """ preprocessing of class labels. """
+  return np.array([int(bytes(raw_text).decode('utf-8'))])
+
 
 class ViTPipeline(BaseDALIPipeline):
 
@@ -51,11 +55,12 @@ class ViTPipeline(BaseDALIPipeline):
                      training=training)
 
 
-  def get_wds_pipeline(self):
-    @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=1, device_id=None, seed=self.seed)
-    def wds_vit_pipeline():
-      ## assumes a particular order to the ftypes
-      img, clss = fn.readers.webdataset(
+  def get_dali_pipeline(self):
+
+    ## need to enable conditionals for auto-augment
+    @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=self.num_workers, device_id=None, enable_conditionals=True, seed=self.seed, prefetch_queue_depth=self.prefetch)
+    def main_vit_pipeline():
+      jpegs, clss = fn.readers.webdataset(
         paths=self.urls,
         index_paths=self.index_paths,
         ext=[m.ftype for m in self.modalities],
@@ -64,36 +69,10 @@ class ViTPipeline(BaseDALIPipeline):
         shard_id=self.shard_id,
         num_shards=self.num_shards,
         pad_last_batch=False if self.training else True)
-      return img, clss
-    return wds_vit_pipeline()
-
-  def non_image_preprocessing(self, raw_text, num_classes):
-    """ preprocessing of class labels. """
-    bs = len(raw_text.shape())
-    ascii = [np.asarray(raw_text[i]) for i in range(bs)]
-
-    one_hot = np.zeros((bs, num_classes))
-    for i, el in enumerate(ascii):
-      idx = int(bytes(el).decode('utf-8'))
-      one_hot[i][idx] = 1
-
-    return one_hot
-
-  def data_source(self, num_classes):
-    while True:
-      preprocessed_img, raw_text = self.pipe.run()
-      preprocessed_label = self.non_image_preprocessing(raw_text, num_classes)
-      yield preprocessed_img, preprocessed_label
-
-
-  def get_dali_pipeline(self):
-
-    ## need to enable conditionals for auto-augment
-    @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=self.num_workers, device_id=None, enable_conditionals=True, seed=self.seed, prefetch_queue_depth=self.prefetch)
-    def main_vit_pipeline():
-      jpegs, labels = fn.external_source(source=self.data_source(self.num_classes), num_outputs=2)
-
       img = fn.decoders.image(jpegs, device='cpu', output_type=types.RGB)
+      
+      labels = fn.python_function(clss, function=non_image_preprocessing, num_outputs=1)
+      labels = fn.one_hot(labels, num_classes=self.num_classes)
 
       if self.training:
         img = fn.random_resized_crop(img, size=self.image_shape[:-1], seed=self.seed)

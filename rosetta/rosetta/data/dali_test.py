@@ -21,6 +21,9 @@ from rosetta.data import wds_utils
 from rosetta.data.dali import BaseDALIPipeline
 
 
+def class_preproc(raw_text):
+  return np.array([int(bytes(raw_text).decode('utf-8'))])
+
 class DummyPipeline(BaseDALIPipeline):
 
   def __init__(self,
@@ -52,9 +55,11 @@ class DummyPipeline(BaseDALIPipeline):
                      num_shards=num_shards,
                      training=False)
 
-  def get_wds_pipeline(self):
-    @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=1, device_id=None)
-    def wds_pipeline():
+
+  def get_dali_pipeline(self):
+    @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=self.num_workers, device_id=None)
+    def main_pipeline():
+      # img, labels = fn.external_source(source=self.data_source(), num_outputs=2)
       img, clss = fn.readers.webdataset(
           paths=self.urls,
           index_paths=self.index_paths,
@@ -64,34 +69,10 @@ class DummyPipeline(BaseDALIPipeline):
           shard_id=self.shard_id,
           num_shards=self.num_shards,
           pad_last_batch=False)
-      return img, clss
-    return wds_pipeline()
-
-  ## non-image preprocessing
-  def class_preproc(self, raw_text):
-    bs = len(raw_text.shape())
-    ascii = [np.asarray(raw_text[i]) for i in range(bs)]
-
-    labels = np.zeros((bs, ))
-    for i, el in enumerate(ascii):
-      idx = int(bytes(el).decode('utf-8'))
-      labels[i] = idx
-
-    return labels
-
-  def data_source(self):
-    while True:
-      img, clss = self.pipe.run()
-      clss = self.class_preproc(clss)
-      yield img, clss
-
-
-  def get_dali_pipeline(self):
-    @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=self.num_workers, device_id=None)
-    def main_pipeline():
-      img, labels = fn.external_source(source=self.data_source(), num_outputs=2)
 
       img = fn.decoders.image(img, device='cpu', output_type=types.RGB)
+      labels = fn.python_function(clss, function=class_preproc, num_outputs=1)
+      
       return img, labels
 
     return main_pipeline()
