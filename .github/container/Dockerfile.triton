@@ -61,6 +61,8 @@ sed -i -e 's|-Werror||g' CMakeLists.txt
 sed -i -e 's|\(LLVMAMDGPU.*\)|# \1|g' CMakeLists.txt
 # Do not build tests
 sed -i -e 's|^\s*add_subdirectory(unittest)|# unit tests disabled|' CMakeLists.txt
+# Avoid error due to forward declaration of Module
+sed -i -e '/#include "llvm\/IR\/IRBuilder.h"/a #include "llvm/IR/Module.h"' test/lib/Instrumentation/GPUHello.cpp
 # Google has patches that mess with include paths in source files
 sed -i -e '/include_directories(${PROJECT_SOURCE_DIR}\/third_party)/a include_directories(${PROJECT_SOURCE_DIR}/third_party/amd/include)' CMakeLists.txt
 sed -i -e '/include_directories(${PROJECT_BINARY_DIR}\/third_party)/a include_directories(${PROJECT_BINARY_DIR}/third_party/amd/include)' CMakeLists.txt
