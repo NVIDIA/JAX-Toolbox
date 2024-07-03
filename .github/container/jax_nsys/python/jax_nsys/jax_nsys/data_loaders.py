@@ -7,7 +7,7 @@ import re
 
 from .analysis import calculate_collective_metrics
 from .protobuf import xla_module_metadata
-from .utils import make_child_mask
+from .utils import make_child_mask, ProfilerData
 
 pd.options.mode.copy_on_write = True
 
@@ -476,7 +476,7 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
     )
 
 
-def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]):
+def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataFrame:
     path = prefix / "report_nvtx_pushpop_trace.csv.xz"
     if path.is_dir():
         # We're looking at the output of nsys-jax-combine
@@ -487,18 +487,17 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]):
         filenames = [path]
         keys = [prefix.name]
 
-    compile_df = pd.concat(
+    return pd.concat(
         [_load_nvtx_pushpop_trace_single(file) for file in filenames],
         keys=keys,
         names=["ProfileName", "RangeId"],
     )
-    return {"compile": compile_df}
 
 
 def load_profiler_data(
     prefix: pathlib.Path = pathlib.Path("."),
     frames: set[str] = {"compile", "communication", "thunk", "module"},
-):
+) -> ProfilerData:
     """
     Load post-processed Nsight Systems traces and prepare them for analysis.
 
@@ -511,29 +510,28 @@ def load_profiler_data(
      Dictionary of {frame_name: data_frame} with one entry for each value of
      ``frames``.
     """
-    output = {}
+    output = ProfilerData()
     # Which prepared data frames currently come from the nvtx_pushpop_trace
     # output file.
     nvtx_pushpop_trace_frames = {"compile"}
     if len(frames & nvtx_pushpop_trace_frames):
-        output.update(
-            _load_nvtx_pushpop_trace(prefix, frames & nvtx_pushpop_trace_frames)
+        output.compile = _load_nvtx_pushpop_trace(
+            prefix, frames & nvtx_pushpop_trace_frames
         )
     # Which prepared data frames currently come from the nvtx_gpu_proj_trace
     # output file.
     nvtx_gpu_proj_trace_frames = {"thunk", "module"}
     if len(frames & nvtx_gpu_proj_trace_frames):
-        output.update(
-            _load_nvtx_gpu_proj_trace(
-                prefix,
-                frames & nvtx_gpu_proj_trace_frames,
-            )
-        )
+        for k, v in _load_nvtx_gpu_proj_trace(
+            prefix,
+            frames & nvtx_gpu_proj_trace_frames,
+        ).items():
+            setattr(output, k, v)
 
     if "communication" in frames:
         assert (
-            "thunk" in output
+            output.thunk is not None
         ), "Cannot generate 'communication' frame without 'thunk' frame"
-        output["communication"] = calculate_collective_metrics(output["thunk"])
+        output.communication = calculate_collective_metrics(output.thunk)
 
     return output

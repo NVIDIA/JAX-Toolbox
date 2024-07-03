@@ -6,28 +6,28 @@ import pandas as pd  # type: ignore
 from typing import Any
 
 from .protobuf import xla_module_metadata
-from .utils import make_child_mask
+from .utils import make_child_mask, ProfilerData
 
 pd.options.mode.copy_on_write = True
 
 
 def align_profiler_data_timestamps(
-    frames: dict[str, pd.DataFrame],
-) -> tuple[dict[str, pd.DataFrame], dict[str, Any]]:
+    frames: ProfilerData,
+) -> tuple[ProfilerData, dict[str, Any]]:
     """
-    Given a dictionary of data frames, as returned by `load_profiler_data`, perform a
-    time alignment across profiles collected in different processes. This is based on
-    the end timestamps of collectives involving all devices that were profiled.
+    Given a ProfilerData dataclass, as returned by `load_profiler_data`, perform a time
+    alignment across profiles collected in different processes. This is based on the
+    end timestamps of collectives involving all devices that were profiled.
 
     Returns a tuple of:
-      dictionary of data frames in the same format as the input, but with device-side
-        timestamps corrected
+      ProfilerData data class derived from the input, but with device-side timestamps
+        corrected
       dictionary of information about the alignment process
     """
     assert (
-        "communication" in frames
-    ), f"align_profiler_data_timestamps requires a communication frame, got: {frames.keys()}"
-    comm_df = frames["communication"]
+        frames.communication is not None
+    ), "align_profiler_data_timestamps requires a communication frame"
+    comm_df = frames.communication
     # Determine which collective size will be used for the alignment
     num_profiled_devices = len(comm_df.index.get_level_values("Device").unique())
     max_collective_size = comm_df["CollectiveSize"].max()
@@ -50,9 +50,9 @@ def align_profiler_data_timestamps(
     median_device_skews = device_skews.agg("median")
     # Apply these corrections to the device-side timestamps
     for k in ["communication", "module", "thunk"]:
-        df = frames[k]
+        df = getattr(frames, k)
         df["ProjStartNs"] -= median_device_skews
-        frames[k] = df
+        setattr(frames, k, df)
     return frames, {
         "collective_end_time_skews_ns": end_time_skews,
         "device_corrections": median_device_skews,
@@ -60,24 +60,22 @@ def align_profiler_data_timestamps(
     }
 
 
-def apply_warmup_heuristics(
-    frames: dict[str, pd.DataFrame],
-) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame]]:
+def apply_warmup_heuristics(frames: ProfilerData) -> tuple[ProfilerData, ProfilerData]:
     """
-    Given a dictionary of data frames, as returned by `load_profiler_data`, use
-    heuristics to split the profile data into initialisation and steady state running.
-    The current approach is to assume everything is steady state if compilation was not
-    profiled, and if compilation *was* profiled then label the 0th execution as
-    initialisation and the 2nd and later ones as steady state operation, discarding one
-    execution in between.
+    Given a ProfilerData dataclass, as returned by `load_profiler_data`, use heuristics
+    to split the profile data into initialisation and steady state running. The current
+    approach is to assume everything is steady state if compilation was not profiled,
+    and if compilation *was* profiled then label the 0th execution as initialisation
+    and the 2nd and later ones as steady state operation, discarding one execution in
+    between.
 
     Returns a tuple of:
-      dictionary of data frames like the input, with only initialisation (and compile)
-      dictionary of data frames like the input, with only steady state (and no compile)
+      ProfilerData dataclass, with only initialisation (and compile)
+      ProfilerData dataclass, with only steady state (and no compile)
     """
-    assert "compile" in frames
+    assert frames.compile is not None
     # Which program IDs did we witness compilation of?
-    compilation_ids_seen = sorted(frames["compile"]["ProgramId"].unique())
+    compilation_ids_seen = sorted(frames.compile["ProgramId"].unique())
     # Generally the first execution of a module will be slower, but we don't know for
     # sure if the profile being analysed included the whole runtime or was more
     # selective. As a heuristic, we can skip the first two executions of modules that
@@ -92,19 +90,19 @@ def apply_warmup_heuristics(
     # then one-time costs (e.g. JIT compilation) of postamble(0) will affect when
     # step_function(1) is actually launched, whereas step_function(2) and later are
     # expected to launch closer to in lockstep across processes.
-    init = {"compile": frames["compile"]}
-    steady = {}
+    init = ProfilerData(compile=frames.compile)
+    steady = ProfilerData()
     for k in ["communication", "thunk", "module"]:
-        if k not in frames:
+        df = getattr(frames, k)
+        if df is None:
             continue
-        df = frames[k]
         compile_mask = df.index.get_level_values("ProgramId").isin(compilation_ids_seen)
         prog_exec_values = df.index.get_level_values("ProgramExecution")
         init_mask = compile_mask & (prog_exec_values == 0)
         steady_mask = ~compile_mask | (compile_mask & (prog_exec_values > 1))
         assert (prog_exec_values[~init_mask & ~steady_mask] == 1).all()
-        init[k] = df[init_mask]
-        steady[k] = df[steady_mask]
+        setattr(init, k, df[init_mask])
+        setattr(steady, k, df[steady_mask])
     return init, steady
 
 
