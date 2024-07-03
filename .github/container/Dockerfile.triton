@@ -68,10 +68,6 @@ sed -i -e '/include_directories(${PROJECT_SOURCE_DIR}\/third_party)/a include_di
 sed -i -e '/include_directories(${PROJECT_BINARY_DIR}\/third_party)/a include_directories(${PROJECT_BINARY_DIR}/third_party/nvidia/include)' CMakeLists.txt
 # Extra patches to Triton maintained in XLA. These are already applied in the working directory.
 XLA_TRITON_PATCHES="${SRC_PATH_XLA}/third_party/triton"
-# This patch adds two files that are not known to CMake
-if [[ -f "${XLA_TRITON_PATCHES}/xla_extensions/sparse_dot.patch" ]]; then
-  sed -i -e '/DotOpToLLVM.cpp/a DotOpToLLVM/Sparse.cpp' third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeLists.txt
-fi
 # Use clang to match Google etc.
 LLVM_INCLUDE_DIRS=/opt/llvm-build/include \
   LLVM_LIBRARY_DIR=/opt/llvm-build/lib \
