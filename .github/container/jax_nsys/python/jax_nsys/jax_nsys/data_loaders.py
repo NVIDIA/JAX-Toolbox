@@ -5,8 +5,9 @@ import pandas as pd  # type: ignore
 import pathlib
 import re
 
+from .analysis import calculate_collective_metrics
 from .protobuf import xla_module_metadata
-from .utils import make_child_mask
+from .utils import make_child_mask, ProfilerData
 
 pd.options.mode.copy_on_write = True
 
@@ -15,14 +16,13 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
     # Classify each thunk as either communication or computation, as we only
     # want to attribute non-overlapped communication time to those operations.
     # Use HloInstructionProto.channel_id as a proxy for whether an operation is
-    # communication. Assume that different TID values correspond to different GPUs
-    # being driven by the same process.
+    # communication.
     def is_communication(row):
         assert thunk_df.index.names == [
             "ProgramId",
             "ProgramExecution",
             "ThunkIndex",
-            "Rank",
+            "Device",
         ]
         program_id = row.name[0]
         if program_id == -1:
@@ -49,7 +49,7 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
     thunk_df["ProjEndNs"] = thunk_df["ProjStartNs"] + thunk_df["ProjDurNs"]
 
     for _, module_exec_df in thunk_df.groupby(
-        ["ProgramId", "ProgramExecution", "Rank"]
+        ["ProgramId", "ProgramExecution", "Device"]
     ):
         # Update the projected duration of each communication kernel to only
         # include the non-overlapped time
@@ -87,8 +87,6 @@ def _load_nvtx_gpu_proj_trace_single(
     prefix: pathlib.Path,
     file: pathlib.Path,
     frames: set[str],
-    compile_df: pd.DataFrame,
-    warmup_removal_heuristics: bool,
     process_index: int,
 ):
     # Load input data; rename some columns for convenience with `.itertuples()`; use RangeId as the index
@@ -225,7 +223,7 @@ def _load_nvtx_gpu_proj_trace_single(
 
     # Assume that the thunks are launched from one thread per device, this is probably
     # safe. Also, until https://github.com/openxla/xla/pull/14092 is plumbed through,
-    # assume that thread ID order is local rank order (FIXME!)
+    # assume that thread ID order is local device order (FIXME!)
     tid_to_ordinal: dict[int, int] = {}
     for _, module_df in df[all_thunks].groupby("ProgramId"):
         # A given module should have N threads submitting work to N devices, but the
@@ -234,28 +232,11 @@ def _load_nvtx_gpu_proj_trace_single(
         for ordinal, tid in enumerate(sorted(module_df["TID"].unique())):
             assert tid_to_ordinal.get(tid, ordinal) == ordinal
             tid_to_ordinal[tid] = ordinal
-    # This profile contains ranks [process_index*num_devices, (process_index+1)*num_devices]
+    # This profile contains devices [process_index*num_devices, (process_index+1)*num_devices]
     num_devices = len(set(tid_to_ordinal.values()))
-    df["Rank"] = df["TID"].map(
+    df["Device"] = df["TID"].map(
         {k: process_index * num_devices + v for k, v in tid_to_ordinal.items()}
     )
-
-    if warmup_removal_heuristics:
-        assert compile_df is not None
-        # Which program IDs did we witness compilation of?
-        compilation_ids_seen = set(compile_df["ProgramId"])
-        # Generally the first execution of a module will be slower, but we
-        # don't know for sure if the profile being analysed included the whole
-        # runtime or was more selective. As a heuristic, we can skip the first
-        # executions of modules that we saw the compilation of.
-        mod_ids = filter(
-            lambda row: df.loc[row, "ProgramExecution"]
-            >= (int(df.loc[row, "ProgramId"]) in compilation_ids_seen),
-            mod_ids,
-        )
-        all_thunks &= df.loc[all_thunks, "ProgramExecution"] >= df.loc[
-            all_thunks, "ProgramId"
-        ].isin(compilation_ids_seen)
 
     def clean_data_frame(d):
         return d.drop(
@@ -284,21 +265,21 @@ def _load_nvtx_gpu_proj_trace_single(
         )
         # Add an index of the thunk within the module
         thunk_df["ThunkIndex"] = thunk_df.groupby(
-            ["ProgramId", "ProgramExecution", "Rank"]
+            ["ProgramId", "ProgramExecution", "Device"]
         ).cumcount()
         # Add a new column describing which (0th, 1st, ...) execution of the thunk
         # within the given module execution this is. For example, while loops in the
         # HLO can lead to the same thunk being executed multiple times within the same
         # module execution.
         thunk_df["ThunkExecution"] = thunk_df.groupby(
-            ["ProgramId", "ProgramExecution", "Rank", "Name"]
+            ["ProgramId", "ProgramExecution", "Device", "Name"]
         ).cumcount()
 
         # Classify thunks as communication/computation and save to output
         # TODO: instead of using this sorting here, use a sort bucketed by execution time to speed up overlap detection?
         output["thunk"] = _classify_comms(
             thunk_df.set_index(
-                ["ProgramId", "ProgramExecution", "ThunkIndex", "Rank"]
+                ["ProgramId", "ProgramExecution", "ThunkIndex", "Device"]
             ).sort_index(),
             prefix,
         )
@@ -309,8 +290,11 @@ def _load_nvtx_gpu_proj_trace_single(
         module_df["Name"] = module_df["Name"].replace(
             to_replace=module_re, value=r"\2", regex=True
         )
+        module_df["NumThunks"] = module_df.index.to_frame().apply(
+            lambda row: sum(df.loc[all_thunks, "ModuleId"] == row["RangeId"]), axis=1
+        )
         output["module"] = module_df.set_index(
-            ["ProgramId", "ProgramExecution", "Rank"]
+            ["ProgramId", "ProgramExecution", "Device"]
         )
 
     return output
@@ -319,8 +303,6 @@ def _load_nvtx_gpu_proj_trace_single(
 def _load_nvtx_gpu_proj_trace(
     prefix: pathlib.Path,
     frames: set[str],
-    compile_df: pd.DataFrame,
-    warmup_removal_heuristics: bool,
 ):
     path = prefix / "nvtx_gpu_proj_trace" / "trace.parquet"
     if path.is_dir():
@@ -333,7 +315,7 @@ def _load_nvtx_gpu_proj_trace(
     tmp = defaultdict(list)
     for n_process, file in enumerate(filenames):
         for k, v in _load_nvtx_gpu_proj_trace_single(
-            prefix, file, frames, compile_df, warmup_removal_heuristics, n_process
+            prefix, file, frames, n_process
         ).items():
             tmp[k].append(v)
     # Make sure all the profiles agree about how many devices per profile there are
@@ -494,7 +476,7 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
     )
 
 
-def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]):
+def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataFrame:
     path = prefix / "report_nvtx_pushpop_trace.csv.xz"
     if path.is_dir():
         # We're looking at the output of nsys-jax-combine
@@ -505,19 +487,17 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]):
         filenames = [path]
         keys = [prefix.name]
 
-    compile_df = pd.concat(
+    return pd.concat(
         [_load_nvtx_pushpop_trace_single(file) for file in filenames],
         keys=keys,
         names=["ProfileName", "RangeId"],
     )
-    return {"compile": compile_df}
 
 
 def load_profiler_data(
     prefix: pathlib.Path = pathlib.Path("."),
-    frames: set[str] = {"compile", "thunk", "module"},
-    warmup_removal_heuristics: bool = True,
-):
+    frames: set[str] = {"compile", "communication", "thunk", "module"},
+) -> ProfilerData:
     """
     Load post-processed Nsight Systems traces and prepare them for analysis.
 
@@ -525,38 +505,33 @@ def load_profiler_data(
      prefix: directory under which to search for input data files (default:
         current directory.
      frames: list of prepared data frames to return.
-     warmup_removal_heuristics: attempt to remove warm-up effects from the
-        trace data by ignoring the first execution of any module whose
-        compilation was seen.
 
     Return:
      Dictionary of {frame_name: data_frame} with one entry for each value of
      ``frames``.
     """
-    output = {}
+    output = ProfilerData()
     # Which prepared data frames currently come from the nvtx_pushpop_trace
     # output file.
     nvtx_pushpop_trace_frames = {"compile"}
     if len(frames & nvtx_pushpop_trace_frames):
-        output.update(
-            _load_nvtx_pushpop_trace(prefix, frames & nvtx_pushpop_trace_frames)
+        output.compile = _load_nvtx_pushpop_trace(
+            prefix, frames & nvtx_pushpop_trace_frames
         )
-    elif warmup_removal_heuristics:
-        print(
-            f"WARNING: warmup_removal_heuristics disabled because 'compile' not in {frames}"
-        )
-        warmup_removal_heuristics = False
     # Which prepared data frames currently come from the nvtx_gpu_proj_trace
     # output file.
     nvtx_gpu_proj_trace_frames = {"thunk", "module"}
     if len(frames & nvtx_gpu_proj_trace_frames):
-        output.update(
-            _load_nvtx_gpu_proj_trace(
-                prefix,
-                frames & nvtx_gpu_proj_trace_frames,
-                compile_df=output.get("compile", None),
-                warmup_removal_heuristics=warmup_removal_heuristics,
-            )
-        )
+        for k, v in _load_nvtx_gpu_proj_trace(
+            prefix,
+            frames & nvtx_gpu_proj_trace_frames,
+        ).items():
+            setattr(output, k, v)
+
+    if "communication" in frames:
+        assert (
+            output.thunk is not None
+        ), "Cannot generate 'communication' frame without 'thunk' frame"
+        output.communication = calculate_collective_metrics(output.thunk)
 
     return output

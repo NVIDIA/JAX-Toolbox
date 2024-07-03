@@ -1,7 +1,20 @@
+from dataclasses import dataclass
 import pandas as pd  # type: ignore
 from typing import Optional
 
 pd.options.mode.copy_on_write = True
+
+
+@dataclass
+class ProfilerData:
+    """
+    Collection of profile data frames, as returned by load_profiler_data.
+    """
+
+    communication: Optional[pd.DataFrame] = None
+    compile: Optional[pd.DataFrame] = None
+    module: Optional[pd.DataFrame] = None
+    thunk: Optional[pd.DataFrame] = None
 
 
 def make_child_mask(df: pd.DataFrame, parent_row: int) -> pd.Series:

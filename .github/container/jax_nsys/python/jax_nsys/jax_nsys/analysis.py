@@ -3,11 +3,108 @@ import functools
 import math
 import numpy as np
 import pandas as pd  # type: ignore
+from typing import Any
 
 from .protobuf import xla_module_metadata
-from .utils import make_child_mask
+from .utils import make_child_mask, ProfilerData
 
 pd.options.mode.copy_on_write = True
+
+
+def align_profiler_data_timestamps(
+    frames: ProfilerData,
+) -> tuple[ProfilerData, dict[str, Any]]:
+    """
+    Given a ProfilerData dataclass, as returned by `load_profiler_data`, perform a time
+    alignment across profiles collected in different processes. This is based on the
+    end timestamps of collectives involving all devices that were profiled.
+
+    Returns a tuple of:
+      ProfilerData data class derived from the input, but with device-side timestamps
+        corrected
+      dictionary of information about the alignment process
+    """
+    assert (
+        frames.communication is not None
+    ), "align_profiler_data_timestamps requires a communication frame"
+    comm_df = frames.communication
+    # Determine which collective size will be used for the alignment
+    num_profiled_devices = len(comm_df.index.get_level_values("Device").unique())
+    max_collective_size = comm_df["CollectiveSize"].max()
+    assert (
+        num_profiled_devices == max_collective_size
+    ), f"Aligning {num_profiled_devices} using collectives of size {max_collective_size} is not implemented"
+    # Find the collectives that will be used
+    align_df = comm_df[comm_df["CollectiveSize"] == max_collective_size]
+    # Calculate the collectives' end times
+    end_times = (
+        align_df["ProjStartNs"] + align_df["ProjDurNs"] + align_df["ProjDurHiddenNs"]
+    )
+    # For each collective, calculate the mean end time of each collective across devices
+    mean_end_times = end_times.groupby(
+        ["ProgramId", "ProgramExecution", "ThunkIndex"]
+    ).agg("mean")
+    # For each collective + device, calculate the delta of the end time from the mean
+    end_time_skews = end_times - mean_end_times
+    device_skews = end_time_skews.groupby("Device")
+    median_device_skews = device_skews.agg("median")
+    # Apply these corrections to the device-side timestamps
+    for k in ["communication", "module", "thunk"]:
+        df = getattr(frames, k)
+        df["ProjStartNs"] -= median_device_skews
+        setattr(frames, k, df)
+    return frames, {
+        "collective_end_time_skews_ns": end_time_skews,
+        "device_corrections": median_device_skews,
+        "collective_size": max_collective_size,
+    }
+
+
+def apply_warmup_heuristics(frames: ProfilerData) -> tuple[ProfilerData, ProfilerData]:
+    """
+    Given a ProfilerData dataclass, as returned by `load_profiler_data`, use heuristics
+    to split the profile data into initialisation and steady state running. The current
+    approach is to assume everything is steady state if compilation was not profiled,
+    and if compilation *was* profiled then label the 0th execution as initialisation
+    and the 2nd and later ones as steady state operation, discarding one execution in
+    between.
+
+    Returns a tuple of:
+      ProfilerData dataclass, with only initialisation (and compile)
+      ProfilerData dataclass, with only steady state (and no compile)
+    """
+    assert frames.compile is not None
+    # Which program IDs did we witness compilation of?
+    compilation_ids_seen = sorted(frames.compile["ProgramId"].unique())
+    # Generally the first execution of a module will be slower, but we don't know for
+    # sure if the profile being analysed included the whole runtime or was more
+    # selective. As a heuristic, we can skip the first two executions of modules that
+    # we saw the compilation of. The motivation for skipping the second executions is
+    # that with a typical structure like:
+    #
+    # for n in range(n_iterations):
+    #  preamble(n)
+    #  step_function(n) # involves collectives/synchronisation
+    #  postamble(n)
+    #
+    # then one-time costs (e.g. JIT compilation) of postamble(0) will affect when
+    # step_function(1) is actually launched, whereas step_function(2) and later are
+    # expected to launch closer to in lockstep across processes.
+    init = ProfilerData(compile=frames.compile)
+    steady = ProfilerData()
+    for k in ["communication", "thunk", "module"]:
+        df = getattr(frames, k)
+        if df is None:
+            continue
+        compile_mask = df.index.get_level_values("ProgramId").isin(compilation_ids_seen)
+        prog_exec_values = df.index.get_level_values("ProgramExecution")
+        init_mask = compile_mask & (prog_exec_values == 0)
+        steady_mask = ~compile_mask | (prog_exec_values > 1)
+        assert steady_mask.any(), "No steady-state executions identified, profile collection may have been too short"
+        assert (prog_exec_values[~init_mask & ~steady_mask] == 1).all()
+        setattr(init, k, df[init_mask])
+        setattr(steady, k, df[steady_mask])
+    return init, steady
 
 
 def element_type_width(element_type: int) -> int:
