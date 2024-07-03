@@ -93,7 +93,6 @@ jobs:
 
   build-maxtext:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'
     uses: ./.github/workflows/_build.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -102,7 +101,7 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: maxtext
-      DOCKERFILE: .github/container/Dockerfile.maxtext.amd64
+      DOCKERFILE: .github/container/Dockerfile.maxtext.${{ inputs.ARCHITECTURE }}
       EXTRA_BUILD_ARGS: |
         URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
     secrets: inherit
@@ -517,7 +516,7 @@ jobs:
 
   test-maxtext:
     needs: build-maxtext
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    if: inputs.ARCHITECTURE == 'amd64' # no arm64 gpu runners
     uses: ./.github/workflows/_test_maxtext.yaml
     with:
       MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
