@@ -3,38 +3,145 @@ name: "~Sandbox"
 on:
   workflow_dispatch:
     inputs:
-      ARCHITECTURE:
-        type: string
-        required: true
-      BUILD_DATE:
-        type: string
-        description: 'Build date in YYYY-MM-DD format'
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
         required: false
-        default: NOT SPECIFIED
-      MANIFEST_ARTIFACT_NAME:
+      BUMP_MANIFEST:
+        type: boolean
+        description: Bump git repos in manifest.yaml to head of tree?
+        default: true
+        required: true
+      MERGE_BUMPED_MANIFEST:
+        type: boolean
+        description: "(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch"
+        default: false
+        required: false
+      SOURCE_OVERRIDES:
         type: string
-        description: 'Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch'
+        description: |
+          A comma-separated PACKAGE=URL#REF list to override sources used by build.
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,paxml,praxis,maxtext,levanter,haliax,grok,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
         default: ''
         required: false
-      SOURCE_URLREFS:
-        type: string
-        description: 'A JSON object containing git url+refs for softwares to be built'
-        required: false
-        default: '{}'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
-  contents: read  # to fetch code
-  actions:  write # to cancel previous workflows
-  packages: write # to upload container
+  contents: write       # to fetch code and push branch
+  actions:  write       # to cancel previous workflows
+  packages: write       # to upload container
+  pull-requests: write  # to make pull request for manifest bump
+
+env:
+  DEFAULT_MANIFEST_ARTIFACT_NAME: bumped-manifest
 
 jobs:
+
+  metadata:
+    runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+      BUMP_MANIFEST: ${{ steps.manifest-branch.outputs.BUMP_MANIFEST }}
+      MANIFEST_ARTIFACT_NAME: ${{ steps.manifest-branch.outputs.MANIFEST_ARTIFACT_NAME }}
+      MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
+      MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
+    steps:
+      - name: Cancel workflow run if the trigger is a draft PR
+        id: cancel-if-draft
+        if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+        run: |
+          echo "Cancelling workflow for draft PR"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          while true; do sleep 1; done  # blocks execution in case workflow cancellation takes time
+
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
+
+      - name: Set manifest branch name
+        id: manifest-branch
+        shell: bash -x -e {0}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            BUMP_MANIFEST="${{ inputs.BUMP_MANIFEST }}"
+          else
+            BUMP_MANIFEST="true"
+          fi
+          MERGE_BUMPED_MANIFEST=${{ github.event_name == 'schedule' || inputs.MERGE_BUMPED_MANIFEST || 'false' }}
+          # Prepend nightly manifest branch with "z" to make it appear at the end
+          if [[ "$BUMP_MANIFEST" == "true" ]]; then
+            # This branch is for scheduled nightlies or manually run nightlies
+            MANIFEST_BRANCH=znightly-${{ steps.date.outputs.BUILD_DATE }}-${{ github.run_id }}
+            MANIFEST_ARTIFACT_NAME=${{ env.DEFAULT_MANIFEST_ARTIFACT_NAME }}
+          else
+            # This branch is for presubmits (no bumping needed)
+            MANIFEST_BRANCH=${{ github.sha }}
+            # Empty artifact name means to use the one in version control
+            MANIFEST_ARTIFACT_NAME=""
+          fi
+          echo "MANIFEST_BRANCH=$MANIFEST_BRANCH" | tee -a $GITHUB_OUTPUT
+          echo "MANIFEST_ARTIFACT_NAME=$MANIFEST_ARTIFACT_NAME" | tee -a $GITHUB_OUTPUT
+          echo "BUMP_MANIFEST=$BUMP_MANIFEST" | tee -a $GITHUB_OUTPUT
+          echo "MERGE_BUMBED_MANIFEST=$MERGE_BUMPED_MANIFEST" | tee -a $GITHUB_OUTPUT
+          if [[ "$BUMP_MANIFEST" == "false" && "$MERGE_BUMPED_MANIFEST" == "true" ]]; then
+            echo "Error: If BUMP_MANIFEST=false, MERGE_BUMPED_MANIFEST cannot be true" >&2
+            exit 1
+          fi
+      
   bump-manifest:
+    needs: metadata
     runs-on: ubuntu-22.04
     outputs:
       SOURCE_URLREFS: ${{ steps.source-urlrefs.outputs.SOURCE_URLREFS }}
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
+
+      - name: Test if manifest bump is functional, and save result to a new file
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          bash bump.sh --input-manifest manifest.yaml --output-manifest manifest.yaml.new --base-patch-dir ./patches-new
+      
+      - name: Maybe replace current manifest/patches with the new one and show diff
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          if [[ "${{ needs.metadata.outputs.BUMP_MANIFEST }}" == "true" ]]; then
+            mv manifest.yaml.new manifest.yaml
+            rm -rf patches
+            mv patches-new patches
+          else
+            rm -rf patches-new manifest.yaml.new
+          fi
+          sed -i 's|file://patches-new/|file://patches/|g' manifest.yaml
+          git diff
+
+      - name: Upload bumped manifest/patches to be used in build-base
+        if: needs.metadata.outputs.MANIFEST_ARTIFACT_NAME != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+          path: |
+            .github/container/manifest.yaml
+            .github/container/patches
+
       - name: Create URL ref build args
         id: source-urlrefs
         shell: bash -x -e {0}
@@ -54,76 +161,23 @@ jobs:
           done
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
 
-  build-base:
-    uses: ./.github/workflows/_build_base.yaml
+  amd64:
+    needs: [metadata, bump-manifest]
+    uses: ./.github/workflows/_ci.yaml
     with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
-    secrets: inherit
-
-  build-jax:
-    needs: build-base
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-jax-build
-      BADGE_FILENAME: badge-jax-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-      CONTAINER_NAME: jax
-      DOCKERFILE: .github/container/Dockerfile.jax
-      RUNNER_SIZE: large
-      EXTRA_BUILD_ARGS: |
-        URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
-        URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
-        URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
-        URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+      ARCHITECTURE: amd64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+      SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
     secrets: inherit
 
 
-  build-upstream-pax:
-    needs: build-jax
-    uses: ./.github/workflows/_build.yaml
+  finalize:
+    needs: [metadata, amd64]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_finalize.yaml
     with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-pax-build
-      BADGE_FILENAME: badge-pax-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: upstream-pax
-      DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
-      EXTRA_BUILD_ARGS: |
-        URLREF_PAXML=${{ fromJson(inputs.SOURCE_URLREFS).PAXML }}
-        URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit
-
-  test-distribution:
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        TEST_SCRIPT:
-          - extra-only-distribution.sh
-          - mirror-only-distribution.sh
-          - upstream-only-distribution.sh
-          - local-patch-distribution.sh
-      fail-fast: false
-    steps:
-      - name: Print environment variables
-        run: env
-      - name: Set git login for tests
-        run: |
-          git config --global user.email "jax@nvidia.com"
-          git config --global user.name "JAX-Toolbox CI"
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
-      - name: Run integration test ${{ matrix.TEST_SCRIPT }}
-        run: bash rosetta/tests/${{ matrix.TEST_SCRIPT }}
-
-  test-upstream-pax:
-    needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_upstream_pax.yaml
-    with:
-      PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
+  
