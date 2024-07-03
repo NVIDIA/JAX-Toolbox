@@ -99,7 +99,8 @@ def apply_warmup_heuristics(frames: ProfilerData) -> tuple[ProfilerData, Profile
         compile_mask = df.index.get_level_values("ProgramId").isin(compilation_ids_seen)
         prog_exec_values = df.index.get_level_values("ProgramExecution")
         init_mask = compile_mask & (prog_exec_values == 0)
-        steady_mask = ~compile_mask | (compile_mask & (prog_exec_values > 1))
+        steady_mask = ~compile_mask | (prog_exec_values > 1)
+        assert steady_mask.any(), "No steady-state executions identified, profile collection may have been too short"
         assert (prog_exec_values[~init_mask & ~steady_mask] == 1).all()
         setattr(init, k, df[init_mask])
         setattr(steady, k, df[steady_mask])
