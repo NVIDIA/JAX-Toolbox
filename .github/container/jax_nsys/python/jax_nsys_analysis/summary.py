@@ -7,6 +7,7 @@ from jax_nsys import (
     load_profiler_data,
     remove_autotuning_detail,
 )
+import pandas as pd
 import pathlib
 
 parser = argparse.ArgumentParser(
@@ -30,15 +31,62 @@ module_stats = (
     .agg(
         {
             "Name": ("first", "count"),
-            "ProjDurMs": ("sum", "std"),
             "NumThunks": ("mean", "std"),
+            "ProjDurMs": ("sum", "mean", "std"),
         }
     )
     .sort_values(("ProjDurMs", "sum"), ascending=False)
 )
-module_stats["ProjDurPercent"] = (
+module_stats[("ProjDurMs", "percent")] = (
     100 * module_stats[("ProjDurMs", "sum")] / module_stats[("ProjDurMs", "sum")].sum()
 )
-print(module_stats)
 
-print(generate_compilation_statistics(init.compile))
+
+def dump(fname, df):
+    with open(fname + ".json", "w") as ofile:
+        df.to_json(ofile, orient="split")
+
+
+dump("module-stats", module_stats)
+
+compilation_stats = generate_compilation_statistics(init.compile)
+total_compile_time = compilation_stats["DurNonChildMs"].sum()
+compilation_stats["DurNonChildPercent"] = (
+    100 * compilation_stats["DurNonChildMs"] / total_compile_time
+)
+# Dump before dropping
+dump("compilation-ranges", compilation_stats)
+compilation_stats = compilation_stats.drop(columns=["DurChildMs"])
+top_n = 10
+top_n_ranges = compilation_stats.iloc[:top_n]
+
+
+# All XlaPass ranges combined into a single XlaPasses range, XlaPassPipeline ranges ignored
+def remove_xlapass_xlapasspipeline_detail(name):
+    if name.startswith("XlaPass:#"):
+        return "XlaPasses"
+    elif name.startswith("XlaPassPipeline:#"):
+        return "XlaPassPipelines"
+    else:
+        return name
+
+
+no_pass_detail = (
+    compilation_stats.groupby(remove_xlapass_xlapasspipeline_detail)
+    .agg("sum")
+    .sort_values("DurNonChildMs", ascending=False)
+)
+dump("compilation-high-level", no_pass_detail)
+# Top few passes, with the percentages re-scaled to be relative to XlaPasses above
+pass_df = compilation_stats[
+    compilation_stats.index.to_series().str.startswith("XlaPass:#")
+]
+pass_df["DurNonChildPercent"] = (
+    100 * pass_df["DurNonChildMs"] / pass_df["DurNonChildMs"].sum()
+)
+dump("compilation-passes", pass_df)
+
+print(f" === MODULE EXECUTION SUMMARY ===\n{module_stats}")
+print(f" === COMPILATION TIME -- TOP {top_n} RANGES ===\n{top_n_ranges}")
+print(f" === COMPILATION TIME -- NO PASS DETAIL ===\n{no_pass_detail}")
+print(f" === COMPILATION TIME -- TOP {top_n} XLA PASSES ===\n{pass_df.iloc[:top_n]}")
