@@ -280,7 +280,9 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
             profile_df["TID"].ne(main_thread), "ParentId"
         ].astype(np.int32)
         # These are the main-thread ranges that directly contain parallel workers
-        launcher_mask = profile_df.loc[worker_parent_ids, "TID"].eq(main_thread)
+        launcher_mask = profile_df.loc[(profile_name, worker_parent_ids), "TID"].eq(
+            main_thread
+        )
         launcher_ids = launcher_mask[launcher_mask].index.unique()
         # Loop over the main-thread ranges that launched parallel work
         for launcher_row in profile_df.loc[launcher_ids, :].itertuples():
@@ -318,10 +320,10 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
             child_df[~is_main].apply(attribute_parallel_time, axis="columns")
             # Easy to update these given the simplifying assumptions above; they are set to
             # np.nan when worker ranges are spliced in by `_load_nvtx_pushpop_trace`
-            profile_df.loc[launcher_row.Index, "DurChildNs"] = (
+            compile_df.loc[launcher_row.Index, "DurChildNs"] = (
                 child_df.loc[is_main, "DurNs"].sum() + parallel_dur
             )
-            profile_df.loc[launcher_row.Index, "DurNonChildNs"] = (
+            compile_df.loc[launcher_row.Index, "DurNonChildNs"] = (
                 launcher_row.DurNs - compile_df.loc[launcher_row.Index, "DurChildNs"]
             )
 

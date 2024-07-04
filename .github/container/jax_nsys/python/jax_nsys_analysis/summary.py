@@ -3,6 +3,7 @@ import argparse
 from jax_nsys import (
     apply_warmup_heuristics,
     ensure_compiled_protos_are_importable,
+    generate_compilation_statistics,
     load_profiler_data,
 )
 import pathlib
@@ -40,3 +41,5 @@ module_stats["ProjDurPercent"] = (
     100 * module_stats[("ProjDurMs", "sum")] / module_stats[("ProjDurMs", "sum")].sum()
 )
 print(module_stats)
+
+print(generate_compilation_statistics(init.compile))
