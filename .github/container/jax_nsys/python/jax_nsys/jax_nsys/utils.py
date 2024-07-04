@@ -68,9 +68,10 @@ def remove_autotuning_detail(
         # Removing child ranges of XlaAutotunerMeasurement ranges. The GEMM fusion
         # autotuner creates small modules/thunks when measuring, which emit XlaModule
         # and XlaThunk ranges
-        data.compile = remove_child_ranges(
-            data.compile, data.compile["Name"].str.startswith("XlaAutotunerMeasurement")
-        )
+        mask = data.compile["Name"].str.startswith("XlaAutotunerMeasurement")
+        # Erase the name of the op being autotuned
+        data.compile.loc[mask, "Name"] = "XlaAutotunerMeasurement"
+        data.compile = remove_child_ranges(data.compile, mask)
     if compilation and data.compile is not None:
         # Remove the detail of the constituent parts (EmitLlvmIr etc.) of autotuner
         # compilation
