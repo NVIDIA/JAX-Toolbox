@@ -38,8 +38,8 @@ def remove_child_ranges(df: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:
     for row in df[mask].itertuples():
         child_mask = make_child_mask(df, row.Index)
         to_remove = child_mask if to_remove is None else child_mask | to_remove
-        df.loc[row.Index, ["NumChild", "DurChildNs"]] = 0
-        df.loc[row.Index, "DurNonChildNs"] = row.DurNs
+        df.loc[row.Index, ["NumChild", "DurChildMs"]] = 0
+        df.loc[row.Index, "DurNonChildMs"] = row.DurMs
     return df if to_remove is None else df[~to_remove]
 
 

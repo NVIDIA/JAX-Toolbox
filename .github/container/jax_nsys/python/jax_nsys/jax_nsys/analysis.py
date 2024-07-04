@@ -267,7 +267,7 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
     statistics.
     """
     # Aggregate compilation stats in here
-    compile_time_ns: dict[str, np.ndarray] = defaultdict(lambda: np.zeros(2))
+    compile_time_ms: dict[str, np.ndarray] = defaultdict(lambda: np.zeros(2))
     for profile_name, profile_df in compile_df.groupby("ProfileName"):
         # Identify the main thread
         main_thread = profile_df.loc[compile_df["Name"] == "XlaCompile", "TID"].unique()
@@ -297,41 +297,41 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
             # could be relaxed if needed.
             child_df = profile_df[make_child_mask(profile_df, launcher_row.Index)]
             is_main = child_df["TID"] == launcher_row.TID
-            child_ends = child_df["StartNs"] + child_df["DurNs"]
+            child_ends = child_df["StartMs"] + child_df["DurMs"]
             # Assuming there's only one parallel region inside `launcher_row`
-            parallel_start = child_df.loc[~is_main, "StartNs"].min()
+            parallel_start = child_df.loc[~is_main, "StartMs"].min()
             parallel_end = child_ends[~is_main].max()
             # Assert that there are no main-thread tasks during this period
             main_before = is_main & (child_ends < parallel_start)
-            main_after = is_main & (child_df["StartNs"] > parallel_end)
+            main_after = is_main & (child_df["StartMs"] > parallel_end)
             assert ((main_before | main_after) == is_main).all()
             # Aggregate statistics for how the worker threads spend their time and use that
             # distribution to divide up the [parallel_start, parallel_end] range of the overall
             # compilation time.
             parallel_dur = parallel_end - parallel_start
-            total_worker_time = child_df.loc[~is_main, "DurNonChildNs"].sum()
+            total_worker_time = child_df.loc[~is_main, "DurNonChildMs"].sum()
 
             def attribute_parallel_time(row):
-                compile_time_ns[row.Name] += (
-                    parallel_dur * row.DurNonChildNs / total_worker_time,
-                    parallel_dur * row.DurChildNs / total_worker_time,
+                compile_time_ms[row.Name] += (
+                    parallel_dur * row.DurNonChildMs / total_worker_time,
+                    parallel_dur * row.DurChildMs / total_worker_time,
                 )
 
             child_df[~is_main].apply(attribute_parallel_time, axis="columns")
             # Easy to update these given the simplifying assumptions above; they are set to
             # np.nan when worker ranges are spliced in by `_load_nvtx_pushpop_trace`
-            compile_df.loc[launcher_row.Index, "DurChildNs"] = (
-                child_df.loc[is_main, "DurNs"].sum() + parallel_dur
+            compile_df.loc[launcher_row.Index, "DurChildMs"] = (
+                child_df.loc[is_main, "DurMs"].sum() + parallel_dur
             )
-            compile_df.loc[launcher_row.Index, "DurNonChildNs"] = (
-                launcher_row.DurNs - compile_df.loc[launcher_row.Index, "DurChildNs"]
+            compile_df.loc[launcher_row.Index, "DurNonChildMs"] = (
+                launcher_row.DurMs - compile_df.loc[launcher_row.Index, "DurChildMs"]
             )
 
-        # `compile_time_ns` now accounts for parallel compilation worker threads, but not
+        # `compile_time_ms` now accounts for parallel compilation worker threads, but not
         # the work from the main thread. Add that too.
         for row in compile_df[compile_df["TID"] == main_thread].itertuples():
-            compile_time_ns[row.Name] += (row.DurNonChildNs, row.DurChildNs)
+            compile_time_ms[row.Name] += (row.DurNonChildMs, row.DurChildMs)
 
     return pd.DataFrame.from_dict(
-        compile_time_ns, columns=["DurNonChildNs", "DurChildNs"], orient="index"
-    ).sort_values(by=["DurNonChildNs"], ascending=False)
+        compile_time_ms, columns=["DurNonChildMs", "DurChildMs"], orient="index"
+    ).sort_values(by=["DurNonChildMs"], ascending=False)

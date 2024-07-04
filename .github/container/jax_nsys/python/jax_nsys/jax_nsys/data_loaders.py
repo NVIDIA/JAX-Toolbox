@@ -350,15 +350,12 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
         dtype={"RangeId": np.int32},
         index_col="RangeId",
         usecols=keep_column,
-    ).rename(
-        columns={
-            "Start (ns)": "StartNs",
-            "End (ns)": "EndNs",
-            "Duration (ns)": "DurNs",
-            "DurChild (ns)": "DurChildNs",
-            "DurNonChild (ns)": "DurNonChildNs",
-        }
     )
+    compile_df["StartMs"] = 1e-6 * compile_df.pop("Start (ns)")
+    compile_df["EndMs"] = 1e-6 * compile_df.pop("End (ns)")
+    compile_df["DurMs"] = 1e-6 * compile_df.pop("Duration (ns)")
+    compile_df["DurChildMs"] = 1e-6 * compile_df.pop("DurChild (ns)")
+    compile_df["DurNonChildMs"] = 1e-6 * compile_df.pop("DurNonChild (ns)")
     # XlaCompileBackend always has the name and program ID, while one code path
     # produces XlaCompile annotations that don't have the program ID. Also, the
     # auto-tuner produces nested XlaCompileBackend ranges with different names
@@ -396,8 +393,8 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
     for compile_range in compile_df[compile_mask].itertuples():
         # Identify top-level ranges in possible worker threads associated to this XlaCompile range
         worker_mask = (
-            (compile_df["StartNs"] >= compile_range.StartNs)
-            & (compile_df["EndNs"] <= compile_range.EndNs)
+            (compile_df["StartMs"] >= compile_range.StartMs)
+            & (compile_df["EndMs"] <= compile_range.EndMs)
             & (compile_df["TID"] != compile_range.TID)
             & (compile_df["ParentId"].isna())
         )
@@ -406,8 +403,8 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
             # Find the deepest still-open range in the main thread
             mask = (
                 make_child_mask(compile_df, compile_range.Index)
-                & (compile_df["StartNs"] < worker_range.StartNs)
-                & (compile_df["EndNs"] > worker_range.EndNs)
+                & (compile_df["StartMs"] < worker_range.StartMs)
+                & (compile_df["EndMs"] > worker_range.EndMs)
                 & (compile_df["TID"] == compile_range.TID)
             )
             new_parent_index = mask[mask].index[-1]
@@ -426,11 +423,11 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
             ].str.slice_replace(stop=0, repl=range_stack_prefix)
             new_parent_ranges.add(new_parent_index)
             # See TODO below. Set to NaN to avoid meaningless numbers being used.
-            compile_df.loc[new_parent_index, ("DurChildNs", "DurNonChildNs")] = (
+            compile_df.loc[new_parent_index, ("DurChildMs", "DurNonChildMs")] = (
                 np.nan,
                 np.nan,
             )
-    # TODO: update the DurChildNs and DurNonChildNs values for `new_parent_ranges` to avoid double-counting
+    # TODO: update the DurChildMs and DurNonChildMs values for `new_parent_ranges` to avoid double-counting
     # Mask out anything that's not descended from XlaCompile now
     compile_related_mask = compile_mask
     for compile_range_index in compile_mask[compile_mask].index:
@@ -468,8 +465,8 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
         parent_id = int(non_xla_range.ParentId)
         # Pretend `non_xla_range` doesn't exist as a child of `parent_id`
         compile_df.loc[parent_id, "NumChild"] -= 1
-        compile_df.loc[parent_id, "DurChildNs"] -= non_xla_range.DurNs
-        compile_df.loc[parent_id, "DurNonChildNs"] += non_xla_range.DurNs
+        compile_df.loc[parent_id, "DurChildMs"] -= non_xla_range.DurMs
+        compile_df.loc[parent_id, "DurNonChildMs"] += non_xla_range.DurMs
 
     # Because the ProgramId and ProgramName ranges provide the same information,
     # remove those fields from the compilation range names.
@@ -484,7 +481,7 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
 
     return (
         compile_df[~non_xla_mask]
-        .drop(columns=["EndNs"])
+        .drop(columns=["EndMs"])
         .astype({"ProgramId": np.int32})
         .transform(remove_program_id_and_name, axis="columns")
     )
