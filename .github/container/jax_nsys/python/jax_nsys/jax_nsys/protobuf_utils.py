@@ -6,6 +6,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import tempfile
 from typing import Optional
 
 
@@ -52,3 +53,24 @@ def compile_protos(
         args.append(f"--pyi_out={output_stub_dir}")
     args += proto_files
     subprocess.run(args, check=True)
+
+
+def ensure_compiled_protos_are_importable(*, prefix: pathlib.Path = pathlib.Path(".")):
+    """
+    See if the Python bindings generated from .proto are importable, and if not then
+    generate them in a temporary directory and prepend it to sys.path.
+    """
+
+    def do_import():
+        # Use this as a proxy for everything being importable
+        from xla.service import hlo_pb2
+
+    try:
+        do_import()
+        return
+    except ImportError:
+        tmp_dir = tempfile.mkdtemp()
+        compile_protos(prefix / "protos", tmp_dir)
+        sys.path.insert(0, tmp_dir)
+        do_import()
+        return tmp_dir
