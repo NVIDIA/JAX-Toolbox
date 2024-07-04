@@ -90,20 +90,37 @@ def _load_nvtx_gpu_proj_trace_single(
     process_index: int,
 ):
     # Load input data; rename some columns for convenience with `.itertuples()`; use RangeId as the index
-    df = (
-        pd.read_parquet(file)
-        .rename(
+    df = pd.read_parquet(file).drop(columns=["PID", "Rank"])
+    # Alternative trace.parquet format
+    alt_rename_map = {
+        "Text": "Name",
+        "Start": "ProjStartNs",
+        "End": None,
+        "Children Count": "NumChild",
+        "Range ID": "RangeId",
+        "Parent ID": "ParentId",
+        "Range Stack": "RangeStack",
+        "Stack Level": "Lvl",
+    }
+    if set(df.columns) == alt_rename_map.keys():
+        df = df.rename(
+            columns={k: v for k, v in alt_rename_map.items() if v is not None}
+        )
+        df["ProjDurNs"] = df.pop("End") - df["ProjStartNs"]
+        df["RangeStack"] = df["RangeStack"].map(
+            lambda stack: ":" + ":".join(map(str, stack))
+        )
+        # TODO: add OrigDurNs, OrigStartNs
+    else:
+        df = df.rename(
             columns={
                 "Projected Duration": "ProjDurNs",
                 "Projected Start": "ProjStartNs",
                 "Orig Duration": "OrigDurNs",
                 "Orig Start": "OrigStartNs",
             }
-        )
-        .drop(columns=["PID", "Rank"])
-        .dropna(subset=["RangeId"])
-    )
-    df = df.set_index(df.pop("RangeId").astype(np.int32))
+        ).dropna(subset=["RangeId"])
+    df = df.set_index(df.pop("RangeId").astype(np.int32), verify_integrity=True)
     # Due to idiosyncracies of how Nsight tracks CUDA graphs, and because
     # thunks can be nested, the NVTX hierarchy generally looks like:
     #  Iteration -> XlaModule:A [-> XlaModule:B] -> Thunk:C [-> Thunk:D ...]
