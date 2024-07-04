@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+import argparse
+from jax_nsys import (
+    apply_warmup_heuristics,
+    ensure_compiled_protos_are_importable,
+    load_profiler_data,
+)
+import pathlib
+from pprint import pprint
+
+parser = argparse.ArgumentParser(
+    description="Print summary statistics from an nsys-jax report"
+)
+parser.add_argument("prefix", type=pathlib.Path)
+args = parser.parse_args()
+
+# Make sure that the .proto files under protos/ have been compiled to .py, and
+# that those generated .py files are importable.
+ensure_compiled_protos_are_importable(prefix=args.prefix)
+# Load the profiler data
+all_data = load_profiler_data(args.prefix)
+# Partition the profile data into initialisation and steady-state running
+init, steady_state = apply_warmup_heuristics(all_data)
+# Get high-level statistics about the modules that were profiled
+module_stats = (
+    steady_state["module"]
+    .groupby("ProgramId")
+    .agg(
+        {
+            "Name": ("first", "count"),
+            "ProjDurNs": ("sum", "std"),
+            "NumThunks": ("mean", "std"),
+        }
+    )
+    .sort_values(("ProjDurNs", "sum"), ascending=False)
+)
+module_stats["ProjDurPercent"] = (
+    module_stats[("ProjDurNs", "sum")] / module_stats[("ProjDurNs", "sum")].sum()
+)
+print(module_stats)
