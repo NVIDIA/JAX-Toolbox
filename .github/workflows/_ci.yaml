@@ -482,6 +482,16 @@ jobs:
       PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
+  test-nsys-jax:
+    needs: build-upstream-pax
+    if: inputs.ARCHITECTURE == 'amd64' # no arm64 gpu runners
+    uses: ./.github/workflows/_test_upstream_pax.yaml
+    with:
+      COMMAND_PREFIX: 'nsys-jax --nsys-jax-analysis summary -o ${PROFILE_OUTPUT} --'
+      PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
+      STEPS: 20
+    secrets: inherit
+
   test-rosetta-pax:
     needs: build-rosetta-pax
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
