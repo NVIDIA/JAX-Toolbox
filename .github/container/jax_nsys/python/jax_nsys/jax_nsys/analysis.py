@@ -225,6 +225,8 @@ def calculate_collective_metrics(thunk_df: pd.DataFrame) -> pd.DataFrame:
     message size, algorithm bandwidth, bus bandwidth, and collective operation.
     """
     comm_df = thunk_df[thunk_df["Communication"]].drop(columns=["Communication"])
+    if len(comm_df) == 0:
+        return comm_df
     comm_df = pd.concat(
         [
             comm_df,
