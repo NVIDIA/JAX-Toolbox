@@ -14,7 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
-import virtualenv
+import virtualenv  # type: ignore
 import zipfile
 
 
@@ -551,7 +551,6 @@ def write_output_file(to_process, output_file, mirror_dir, analysis_scripts):
         for path_in_archive, local_path in execute_analysis_scripts(
             mirror_dir, analysis_scripts
         ):
-            print(f"Saving analysis script output {path_in_archive}")
             archive.write(filename=local_path, arcname=path_in_archive)
     os.chmod(output_file, 0o644)
     print(f"{archive_name}: wrote in {time.time()-start:.2f}s")
@@ -718,7 +717,6 @@ with ThreadPoolExecutor() as executor, output_thread(executor):
         if pending == 0:
             break
         print(f"{archive_name}: {pending}/{len(futures) + retired} pending")
-
 if exit_code:
     print(f"{archive_name}: exiting with code {exit_code} due to errors")
 sys.exit(exit_code)

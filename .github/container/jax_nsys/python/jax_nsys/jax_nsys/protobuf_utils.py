@@ -63,7 +63,7 @@ def ensure_compiled_protos_are_importable(*, prefix: pathlib.Path = pathlib.Path
 
     def do_import():
         # Use this as a proxy for everything being importable
-        from xla.service import hlo_pb2
+        from xla.service import hlo_pb2  # noqa: F401
 
     try:
         do_import()

@@ -489,7 +489,7 @@ jobs:
     with:
       COMMAND_PREFIX: 'nsys-jax --nsys-jax-analysis summary -o ${PROFILE_OUTPUT} --'
       PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
-      STEPS: 20
+      STEPS: "20"
     secrets: inherit
 
   test-rosetta-pax:

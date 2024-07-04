@@ -29,10 +29,10 @@ on:
         required: false
         default: ''
       STEPS:
-        type: int
+        type: string
         description: 'Number of execution steps to test'
         required: false
-        default: 500
+        default: "500"
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'

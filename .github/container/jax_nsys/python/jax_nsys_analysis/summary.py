@@ -7,7 +7,6 @@ from jax_nsys import (
     load_profiler_data,
     remove_autotuning_detail,
 )
-import pandas as pd
 import pathlib
 
 parser = argparse.ArgumentParser(
@@ -26,6 +25,7 @@ all_data = remove_autotuning_detail(all_data)
 # Partition the profile data into initialisation and steady-state running
 init, steady_state = apply_warmup_heuristics(all_data)
 # Get high-level statistics about the modules that were profiled
+assert steady_state.module is not None
 module_stats = (
     steady_state.module.groupby("ProgramId")
     .agg(
