@@ -446,7 +446,73 @@ def gather_source_files(
     print(f"{archive_name}: gathered source code in {time.time()-start:.2f}s")
 
 
-def write_output_file(to_process, output_file, mirror_dir):
+def execute_analysis_scripts(mirror_dir, analysis_scripts):
+    """
+    Execute any post-processing scripts passed via --nsys-jax-analysis,
+    returning a list of output files that should be added to the output
+    archive.
+    """
+    output = []
+    if len(analysis_scripts) == 0:
+        return
+
+    assert mirror_dir is not None
+    venv_dir = osp.join(mirror_dir, "venv")
+    virtualenv.cli_run([venv_dir, "--python", sys.executable, "--system-site-packages"])
+    subprocess.run(
+        [
+            osp.join(venv_dir, "bin", "pip"),
+            "--disable-pip-version-check",
+            "install",
+            "-e",
+            osp.join(mirror_dir, "python", "jax_nsys"),
+        ],
+        check=True,
+    )
+    used_slugs = set()
+    for analysis in analysis_scripts:
+        script, args = analysis[0], analysis[1:]
+        # If --nsys-jax-analysis is the name of a bundled analysis script, use that. Otherwise it should be a file that exists.
+        search = [
+            osp.join(
+                mirror_dir,
+                "python",
+                "jax_nsys_analysis",
+                script + ".py",
+            ),
+            script,
+        ]
+        candidates = list(filter(osp.exists, search))
+        assert len(candidates), f"Could not find analysis script, tried {search}"
+        args.append(mirror_dir)
+        analysis_command = [osp.join(venv_dir, "bin", "python"), candidates[0]] + args
+        # Derive a unique name slug from the analysis script name
+        slug = osp.basename(candidates[0]).removesuffix(".py")
+        n, suffix = 1, ""
+        while slug + suffix in used_slugs:
+            suffix = f"-{n}"
+            n += 1
+        slug += suffix
+        used_slugs.add(slug)
+        working_dir = osp.join(mirror_dir, "analysis", slug)
+        os.makedirs(working_dir, exist_ok=True)
+        print(
+            f"Running analysis script: {shlex.join(analysis_command)} in {working_dir}"
+        )
+        subprocess.run(
+            analysis_command,
+            check=True,
+            cwd=working_dir,
+        )
+        # Gather output files of the scrpt
+        for path in iglob("**", recursive=True, root_dir=working_dir):
+            output.append(
+                (osp.join("analysis", slug, path), osp.join(working_dir, path))
+            )
+    return output
+
+
+def write_output_file(to_process, output_file, mirror_dir, analysis_scripts):
     """
     Write the output archive (`output_file`) by consuming entries from the
     queue until a `None` sentinel value is seen. If `mirror_dir` is not None
@@ -480,7 +546,13 @@ def write_output_file(to_process, output_file, mirror_dir):
                         os.symlink(content, mirror_path)
             except queue.Empty:
                 print(f"{archive_name}: output stalled ({timeout}s heartbeat)")
-        # TODO: execute analysis script here, so the output can still go into the archive?
+        # Execute analysis scripts so their outputs can be bundled in the archive
+        # before it is closed
+        for path_in_archive, local_path in execute_analysis_scripts(
+            mirror_dir, analysis_scripts
+        ):
+            print(f"Saving analysis script output {path_in_archive}")
+            archive.write(filename=local_path, arcname=path_in_archive)
     os.chmod(output_file, 0o644)
     print(f"{archive_name}: wrote in {time.time()-start:.2f}s")
 
@@ -560,7 +632,11 @@ def output_thread(executor: ThreadPoolExecutor):
         # Spawn a worker to actually write the output file, consuming entries
         # in output_queue.
         future = executor.submit(
-            write_output_file, files_to_archive, archive_name, mirror_dir
+            write_output_file,
+            files_to_archive,
+            archive_name,
+            mirror_dir,
+            nsys_jax_flags.analysis,
         )
         yield future
     finally:
@@ -642,44 +718,6 @@ with ThreadPoolExecutor() as executor, output_thread(executor):
         if pending == 0:
             break
         print(f"{archive_name}: {pending}/{len(futures) + retired} pending")
-
-if len(nsys_jax_flags.analysis):
-    # run post-processing, if needed, in mirror_dir
-    assert mirror_dir is not None
-    venv_dir = osp.join(mirror_dir, "venv")
-    virtualenv.cli_run([venv_dir, "--python", sys.executable, "--system-site-packages"])
-    subprocess.run(
-        [
-            osp.join(venv_dir, "bin", "pip"),
-            "--disable-pip-version-check",
-            "install",
-            "-e",
-            osp.join(mirror_dir, "python", "jax_nsys"),
-        ],
-        check=True,
-    )
-    for analysis in nsys_jax_flags.analysis:
-        script, args = analysis[0], analysis[1:]
-        # If --nsys-jax-analysis is the name of a bundled analysis script, use that. Otherwise it should be a file that exists.
-        search = [
-            osp.join(
-                mirror_dir,
-                "python",
-                "jax_nsys_analysis",
-                script + ".py",
-            ),
-            script,
-        ]
-        candidates = list(filter(osp.exists, search))
-        assert len(candidates), f"Could not find analysis script, tried {search}"
-        args.append(mirror_dir)
-        analysis_command = [osp.join(venv_dir, "bin", "python"), candidates[0]] + args
-        print(f"Running analysis script: {shlex.join(analysis_command)}")
-        subprocess.run(
-            analysis_command,
-            check=True,
-        )
-        # TODO: copy output files of the analysis script?
 
 if exit_code:
     print(f"{archive_name}: exiting with code {exit_code} due to errors")
