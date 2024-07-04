@@ -40,8 +40,10 @@ def expand(string: str, skip_missing=True) -> str:
 parser = argparse.ArgumentParser(
     allow_abbrev=False,
     usage=(
-        "nsys-jax [-h] [--nsys-jax-condition EXPRESSION] [nsys profile arguments ...] "
-        "[--] executable [executable arguments ...]"
+        "nsys-jax [-h] [--nsys-jax-condition EXPRESSION] [--nsys-jax-analysis A1 "
+        "[--nsys-jax-analysis-arg=A1_ARG1 [--nsys-jax-analysis-arg=A1_ARG2 ...]] "
+        "[--nsys-jax-analysis A2 [--nsys-jax-analysis-arg=A2_ARG1 ...]] [nsys profile "
+        "arguments ...] [--] executable [executable arguments ...]"
     ),
     description=(
         "`nsys-jax` is a wrapper for `nsys profile` that collects additional metadata "
@@ -56,12 +58,23 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument(
     "--nsys-jax-analysis",
+    action="append",
+    dest="analysis",
     help=(
         "Post-processing analysis script to execute after report collection. This can "
         "be the name of a bundled recipe, or the path to a Python script. The script "
-        "will be passed a single argument, which is the path to a directory of the "
+        "will be passed any arguments specified via --nsys-jax-analysis-arg, followed "
+        "by a single positional argument, which is the path to a directory of the "
         "same structure as the extracted output archive."
     ),
+    type=lambda x: ("script", x),
+)
+parser.add_argument(
+    "--nsys-jax-analysis-arg",
+    action="append",
+    dest="analysis",
+    help="Extra arguments to pass to analysis scripts specified via --nsys-jax-analysis",
+    type=lambda x: ("arg", x),
 )
 parser.add_argument(
     "--nsys-jax-condition",
@@ -72,7 +85,26 @@ parser.add_argument(
         "process on each node. The expression is evaluated inside [[ ... ]]."
     ),
 )
+
+
+def shuffle_analysis_arg(analysis):
+    # [Script(A), Arg(A1), Arg(A2), Script(B), Arg(B1)] becomes [[A, A1, A2], [B, B1]]
+    out, current = [], []
+    for t, x in analysis:
+        if t == "script":
+            if len(current):
+                out.append(current)
+            current = [x]
+        else:
+            assert t == "arg" and len(current)
+            current.append(x)
+    if len(current):
+        out.append(current)
+    return out
+
+
 nsys_jax_flags, unknown_args = parser.parse_known_args(sys.argv)
+nsys_jax_flags.analysis = shuffle_analysis_arg(nsys_jax_flags.analysis)
 # Remove the name of the nsys-jax wrapper
 nsys_flags_and_cmd = unknown_args[1:]
 # This can have two forms:
@@ -150,7 +182,7 @@ nsys_flags += ["--output", tmp_rep]
 
 # If --nsys-jax-analysis is used, we also construct a local directory mirroring
 # the extracted archive structure. TODO: clean this up
-mirror_dir = None if nsys_jax_flags.nsys_jax_analysis is None else tempfile.mkdtemp()
+mirror_dir = None if len(nsys_jax_flags.analysis) == 0 else tempfile.mkdtemp()
 
 
 def override_nsys_default(arg, value):
@@ -611,7 +643,7 @@ with ThreadPoolExecutor() as executor, output_thread(executor):
             break
         print(f"{archive_name}: {pending}/{len(futures) + retired} pending")
 
-if nsys_jax_flags.nsys_jax_analysis is not None:
+if len(nsys_jax_flags.analysis):
     # run post-processing, if needed, in mirror_dir
     assert mirror_dir is not None
     venv_dir = osp.join(mirror_dir, "venv")
@@ -626,29 +658,28 @@ if nsys_jax_flags.nsys_jax_analysis is not None:
         ],
         check=True,
     )
-    # If --nsys-jax-analysis is the name of a bundled analysis script, use that. Otherwise it should be a file that exists.
-    search = [
-        osp.join(
-            mirror_dir,
-            "python",
-            "jax_nsys_analysis",
-            nsys_jax_flags.nsys_jax_analysis + ".py",
-        ),
-        nsys_jax_flags.nsys_jax_analysis,
-    ]
-    candidates = list(filter(osp.exists, search))
-    assert len(candidates), f"Could not find analysis script, tried {search}"
-    analysis_command = [
-        osp.join(venv_dir, "bin", "python"),
-        candidates[0],
-        mirror_dir,
-    ]
-    print(f"Running analysis script: {shlex.join(analysis_command)}")
-    subprocess.run(
-        analysis_command,
-        check=True,
-    )
-    # TODO: copy output files of the analysis script?
+    for analysis in nsys_jax_flags.analysis:
+        script, args = analysis[0], analysis[1:]
+        # If --nsys-jax-analysis is the name of a bundled analysis script, use that. Otherwise it should be a file that exists.
+        search = [
+            osp.join(
+                mirror_dir,
+                "python",
+                "jax_nsys_analysis",
+                script + ".py",
+            ),
+            script,
+        ]
+        candidates = list(filter(osp.exists, search))
+        assert len(candidates), f"Could not find analysis script, tried {search}"
+        args.append(mirror_dir)
+        analysis_command = [osp.join(venv_dir, "bin", "python"), candidates[0]] + args
+        print(f"Running analysis script: {shlex.join(analysis_command)}")
+        subprocess.run(
+            analysis_command,
+            check=True,
+        )
+        # TODO: copy output files of the analysis script?
 
 if exit_code:
     print(f"{archive_name}: exiting with code {exit_code} due to errors")
