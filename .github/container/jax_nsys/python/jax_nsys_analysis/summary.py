@@ -30,13 +30,13 @@ module_stats = (
     .agg(
         {
             "Name": ("first", "count"),
-            "ProjDurNs": ("sum", "std"),
+            "ProjDurMs": ("sum", "std"),
             "NumThunks": ("mean", "std"),
         }
     )
-    .sort_values(("ProjDurNs", "sum"), ascending=False)
+    .sort_values(("ProjDurMs", "sum"), ascending=False)
 )
 module_stats["ProjDurPercent"] = (
-    100 * module_stats[("ProjDurNs", "sum")] / module_stats[("ProjDurNs", "sum")].sum()
+    100 * module_stats[("ProjDurMs", "sum")] / module_stats[("ProjDurMs", "sum")].sum()
 )
 print(module_stats)

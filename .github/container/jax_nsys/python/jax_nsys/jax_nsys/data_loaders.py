@@ -44,9 +44,9 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
         return next(iter(results))
 
     thunk_df["Communication"] = thunk_df.apply(is_communication, axis=1)
-    thunk_df["ProjDurHiddenNs"] = 0.0
+    thunk_df["ProjDurHiddenMs"] = 0.0
     # For convenience when calculating unhidden comms
-    thunk_df["ProjEndNs"] = thunk_df["ProjStartNs"] + thunk_df["ProjDurNs"]
+    thunk_df["ProjEndMs"] = thunk_df["ProjStartMs"] + thunk_df["ProjDurMs"]
 
     for _, module_exec_df in thunk_df.groupby(
         ["ProgramId", "ProgramExecution", "Device"]
@@ -55,32 +55,31 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
         # include the non-overlapped time
         for comm_thunk in module_exec_df[module_exec_df["Communication"]].itertuples():
             # This is a range annotating a communication operation, i.e. NCCL kernel
-            # That kernel was active from comm_thunk.ProjStartNs until comm_thunk.ProjEndNs
+            # That kernel was active from comm_thunk.ProjStartMs until comm_thunk.ProjEndMs
             # but during that time then other computation was going on. We want to
             # find how much of the time did not overlap with other computation.
             compute_df = module_exec_df[
                 (
-                    (module_exec_df["ProjEndNs"] > comm_thunk.ProjStartNs)
-                    & (module_exec_df["ProjStartNs"] < comm_thunk.ProjEndNs)
+                    (module_exec_df["ProjEndMs"] > comm_thunk.ProjStartMs)
+                    & (module_exec_df["ProjStartMs"] < comm_thunk.ProjEndMs)
                     & ~module_exec_df["Communication"]
                 )
             ]
             # The computation kernels should all be serialised, but check that
             assert (
-                compute_df["ProjStartNs"].iloc[1:].array
-                >= compute_df["ProjEndNs"].iloc[:-1].array
+                compute_df["ProjStartMs"].iloc[1:].array
+                >= compute_df["ProjEndMs"].iloc[:-1].array
             ).all()
             compute_time = np.sum(
-                np.minimum(compute_df["ProjEndNs"], comm_thunk.ProjEndNs)
-                - np.maximum(compute_df["ProjStartNs"], comm_thunk.ProjStartNs)
+                np.minimum(compute_df["ProjEndMs"], comm_thunk.ProjEndMs)
+                - np.maximum(compute_df["ProjStartMs"], comm_thunk.ProjStartMs)
             )
             # Update the projected duration of communication kernels to just be the
             # time that is not hidden.
-            unhidden_comm_time = comm_thunk.ProjDurNs - compute_time
-            thunk_df.loc[comm_thunk.Index, "ProjDurNs"] = unhidden_comm_time
-            thunk_df.loc[comm_thunk.Index, "ProjDurHiddenNs"] = compute_time
+            thunk_df.loc[comm_thunk.Index, "ProjDurMs"] -= compute_time
+            thunk_df.loc[comm_thunk.Index, "ProjDurHiddenMs"] = compute_time
 
-    return thunk_df.drop(columns=["ProjEndNs"])
+    return thunk_df.drop(columns=["ProjEndMs"])
 
 
 def _load_nvtx_gpu_proj_trace_single(
@@ -94,7 +93,7 @@ def _load_nvtx_gpu_proj_trace_single(
     # Alternative trace.parquet format
     alt_rename_map = {
         "Text": "Name",
-        "Start": "ProjStartNs",
+        "Start": None,
         "End": None,
         "Children Count": "NumChild",
         "Range ID": "RangeId",
@@ -106,20 +105,18 @@ def _load_nvtx_gpu_proj_trace_single(
         df = df.rename(
             columns={k: v for k, v in alt_rename_map.items() if v is not None}
         )
-        df["ProjDurNs"] = df.pop("End") - df["ProjStartNs"]
+        df["ProjDurMs"] = 1e-6 * (df.pop("End") - df["Start"])
+        df["ProjStartMs"] = 1e-6 * df.pop("Start")
         df["RangeStack"] = df["RangeStack"].map(
             lambda stack: ":" + ":".join(map(str, stack))
         )
-        # TODO: add OrigDurNs, OrigStartNs
+        # TODO: add OrigDurMs, OrigStartMs
     else:
-        df = df.rename(
-            columns={
-                "Projected Duration": "ProjDurNs",
-                "Projected Start": "ProjStartNs",
-                "Orig Duration": "OrigDurNs",
-                "Orig Start": "OrigStartNs",
-            }
-        ).dropna(subset=["RangeId"])
+        df["OrigDurMs"] = 1e-6 * df.pop("Orig Duration")
+        df["OrigStartMs"] = 1e-6 * df.pop("Orig Start")
+        df["ProjDurMs"] = 1e-6 * df.pop("Projected Duration")
+        df["ProjStartMs"] = 1e-6 * df.pop("Projected Start")
+        df = df.dropna(subset=["RangeId"])
     df = df.set_index(df.pop("RangeId").astype(np.int32), verify_integrity=True)
     # Due to idiosyncracies of how Nsight tracks CUDA graphs, and because
     # thunks can be nested, the NVTX hierarchy generally looks like:
@@ -138,8 +135,8 @@ def _load_nvtx_gpu_proj_trace_single(
     # and ignore them.
     module_prefix = "TSL:XlaModule:"
     all_modules = df["Name"].str.startswith(module_prefix)
-    first_module_orig_time = df.loc[all_modules, "OrigStartNs"].min()
-    thunks_without_modules = all_thunks & (df["OrigStartNs"] < first_module_orig_time)
+    first_module_orig_time = df.loc[all_modules, "OrigStartMs"].min()
+    thunks_without_modules = all_thunks & (df["OrigStartMs"] < first_module_orig_time)
     if thunks_without_modules.sum():
         print(f"Ignoring {thunks_without_modules.sum()} thunks without modules")
     all_thunks &= ~thunks_without_modules

@@ -38,7 +38,7 @@ def align_profiler_data_timestamps(
     align_df = comm_df[comm_df["CollectiveSize"] == max_collective_size]
     # Calculate the collectives' end times
     end_times = (
-        align_df["ProjStartNs"] + align_df["ProjDurNs"] + align_df["ProjDurHiddenNs"]
+        align_df["ProjStartMs"] + align_df["ProjDurMs"] + align_df["ProjDurHiddenMs"]
     )
     # For each collective, calculate the mean end time of each collective across devices
     mean_end_times = end_times.groupby(
@@ -51,10 +51,10 @@ def align_profiler_data_timestamps(
     # Apply these corrections to the device-side timestamps
     for k in ["communication", "module", "thunk"]:
         df = getattr(frames, k)
-        df["ProjStartNs"] -= median_device_skews
+        df["ProjStartMs"] -= median_device_skews
         setattr(frames, k, df)
     return frames, {
-        "collective_end_time_skews_ns": end_time_skews,
+        "collective_end_time_skews_ms": end_time_skews,
         "device_corrections": median_device_skews,
         "collective_size": max_collective_size,
     }
@@ -236,11 +236,12 @@ def calculate_collective_metrics(thunk_df: pd.DataFrame) -> pd.DataFrame:
         ],
         axis=1,
     )
-    # Note that this is decimal GB not binary GiB; GB/s == B/ns
+    # Note that this is decimal GB not binary GiB; GB/s == B/ns == 1e-6 * B / ms
     comm_df["AlgorithmBandwidthGBPerSec"] = (
-        comm_df["BandwidthCorrection"]
+        1e-6
+        * comm_df["BandwidthCorrection"]
         * comm_df["MessageSize"]
-        / (comm_df["ProjDurNs"] + comm_df["ProjDurHiddenNs"])
+        / (comm_df["ProjDurMs"] + comm_df["ProjDurHiddenMs"])
     )
     comm_df["BusBandwidthGBPerSec"] = (
         comm_df["AlgorithmBandwidthGBPerSec"] * comm_df["BusBandwidthCorrection"]
