@@ -20,14 +20,13 @@ ensure_compiled_protos_are_importable(prefix=args.prefix)
 # Load the profiler data
 all_data = load_profiler_data(args.prefix)
 # Ignore autotuning executions with ProgramId < 0
-all_data["module"] = all_data["module"].loc[0:]
-all_data["thunk"] = all_data["thunk"].loc[0:]
+all_data.module = all_data.module.loc[0:]
+all_data.thunk = all_data.thunk.loc[0:]
 # Partition the profile data into initialisation and steady-state running
 init, steady_state = apply_warmup_heuristics(all_data)
 # Get high-level statistics about the modules that were profiled
 module_stats = (
-    steady_state["module"]
-    .groupby("ProgramId")
+    steady_state.module.groupby("ProgramId")
     .agg(
         {
             "Name": ("first", "count"),
@@ -38,6 +37,6 @@ module_stats = (
     .sort_values(("ProjDurNs", "sum"), ascending=False)
 )
 module_stats["ProjDurPercent"] = (
-    module_stats[("ProjDurNs", "sum")] / module_stats[("ProjDurNs", "sum")].sum()
+    100 * module_stats[("ProjDurNs", "sum")] / module_stats[("ProjDurNs", "sum")].sum()
 )
 print(module_stats)
