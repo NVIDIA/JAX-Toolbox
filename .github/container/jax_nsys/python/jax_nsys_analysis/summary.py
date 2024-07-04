@@ -19,6 +19,9 @@ args = parser.parse_args()
 ensure_compiled_protos_are_importable(prefix=args.prefix)
 # Load the profiler data
 all_data = load_profiler_data(args.prefix)
+# Ignore autotuning executions with ProgramId < 0
+all_data["module"] = all_data["module"].loc[0:]
+all_data["thunk"] = all_data["thunk"].loc[0:]
 # Partition the profile data into initialisation and steady-state running
 init, steady_state = apply_warmup_heuristics(all_data)
 # Get high-level statistics about the modules that were profiled
