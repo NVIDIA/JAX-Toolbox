@@ -85,11 +85,24 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
 def _load_nvtx_gpu_proj_trace_single(
     prefix: pathlib.Path,
     file: pathlib.Path,
+    meta_file: pathlib.Path,
     frames: set[str],
     process_index: int,
 ):
+    # Load the thread metadata used to map module/thunk executions to global device IDs
+    meta_df = pd.read_parquet(meta_file)
+    # Match XLA's launcher thread name. These threads launch work if >1 GPU is being
+    # driven by the process.
+    device_by_pid_tid = (
+        meta_df["Name"]
+        .str.extract(
+            r"^XlaLauncher:#global=(?P<Device>\d+),local=(?P<LocalDevice>\d+),process=(?P<Process>\d+),slice=(?P<Slice>\d+)#$"
+        )
+        .dropna()
+        .astype(np.int32)
+    )
     # Load input data; rename some columns for convenience with `.itertuples()`; use RangeId as the index
-    df = pd.read_parquet(file).drop(columns=["PID", "Rank"])
+    df = pd.read_parquet(file).drop(columns=["Rank"])
     # Alternative trace.parquet format
     alt_rename_map = {
         "Text": "Name",
@@ -235,21 +248,36 @@ def _load_nvtx_gpu_proj_trace_single(
         df.loc[all_thunks, "ModuleId"]
     ].array
 
-    # Assume that the thunks are launched from one thread per device, this is probably
-    # safe. Also, until https://github.com/openxla/xla/pull/14092 is plumbed through,
-    # assume that thread ID order is local device order (FIXME!)
-    tid_to_ordinal: dict[int, int] = {}
+    # Associate thunk executions with the local/global device ID, global process index,
+    # and slice index. A given module should have N threads submitting work to N
+    # devices, but the TID used to submit work to device 0 depends on N. If N=1, the
+    # main thread is used, if N>1 then the 0th worker thread is used. For the N>1 case,
+    # device_by_pid_tid already has the required information. For the N=1 case, add a
+    # row to device_by_pid_tid that maps the main thread PID/TID to LocalDevice 0. This
+    # may still be a little bit wrong; FIXME by storing the LocalDevice ID directly in
+    # the nvtx_gpu_proj_trace output file.
+    main_pid_tid_candidates = set()
     for _, module_df in df[all_thunks].groupby("ProgramId"):
-        # A given module should have N threads submitting work to N devices, but the
-        # thread ID submitting work to device 0 is different for N=1 (main thread) and
-        # N>1 (a worker thread)
-        for ordinal, tid in enumerate(sorted(module_df["TID"].unique())):
-            assert tid_to_ordinal.get(tid, ordinal) == ordinal
-            tid_to_ordinal[tid] = ordinal
-    # This profile contains devices [process_index*num_devices, (process_index+1)*num_devices]
-    num_devices = len(set(tid_to_ordinal.values()))
-    df["Device"] = df["TID"].map(
-        {k: process_index * num_devices + v for k, v in tid_to_ordinal.items()}
+        unique_pid_tid_pairs = module_df.loc[:, ("PID", "TID")].drop_duplicates()
+        if len(unique_pid_tid_pairs) == 1:
+            main_pid_tid_candidates.add(tuple(unique_pid_tid_pairs.iloc[0]))
+    assert len(main_pid_tid_candidates) < 2
+    if len(main_pid_tid_candidates) == 1:
+        # Copy the LocalDevice==0 entry under (main_pid, main_tid)
+        main_thread_df = device_by_pid_tid[device_by_pid_tid["LocalDevice"] == 0]
+        assert len(main_thread_df) == 1
+        main_thread_df.index = pd.MultiIndex.from_tuples(
+            main_pid_tid_candidates, names=["PID", "TID"]
+        )
+        device_by_pid_tid = pd.concat([device_by_pid_tid, main_thread_df])
+
+    assert device_by_pid_tid.index.names == ["PID", "TID"]
+    df = pd.merge(
+        df,
+        device_by_pid_tid,
+        left_on=["PID", "TID"],
+        right_index=True,
+        validate="many_to_one",
     )
 
     def clean_data_frame(d):
@@ -260,15 +288,14 @@ def _load_nvtx_gpu_proj_trace_single(
                 "NumChild",
                 "NumGPUOps",
                 "ParentId",
+                "PID",
                 "RangeStack",
                 "Style",
                 "TID",
             ]
         ).astype({"ProgramExecution": np.int32, "ProgramId": np.int32})
 
-    output = {
-        "#devices": num_devices,
-    }
+    output = {}
     if "thunk" in frames:
         # At this point there should be no need to look beyond the rows for individual thunks + the protobuf data, and we can further clean up the data
         thunk_df = clean_data_frame(df[all_thunks])
@@ -319,22 +346,25 @@ def _load_nvtx_gpu_proj_trace(
     frames: set[str],
 ):
     path = prefix / "nvtx_gpu_proj_trace" / "trace.parquet"
+    meta_path = prefix / "thread-metadata.parquet"
     if path.is_dir():
         # We're looking at the output of nsys-jax-combine
+        assert meta_path.is_dir()
         filenames = sorted(path.iterdir())
+        meta_filenames = sorted(meta_path.iterdir())
     else:
         # We're looking at the output of nsys-jax
+        assert not meta_path.is_dir()
         filenames = [path]
+        meta_filenames = [meta_path]
 
     tmp = defaultdict(list)
-    for n_process, file in enumerate(filenames):
+    for n_process, (file, meta_file) in enumerate(zip(filenames, meta_filenames)):
         for k, v in _load_nvtx_gpu_proj_trace_single(
-            prefix, file, frames, n_process
+            prefix, file, meta_file, frames, n_process
         ).items():
             tmp[k].append(v)
     # Make sure all the profiles agree about how many devices per profile there are
-    device_counts = set(tmp.pop("#devices"))
-    assert len(device_counts) == 1, f"Inconsistent #devices/profile: {device_counts}"
     output = {}
     for k, v in tmp.items():
         output[k] = pd.concat(v, verify_integrity=True).sort_index()
@@ -507,7 +537,12 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
 
 def load_profiler_data(
     prefix: pathlib.Path = pathlib.Path("."),
-    frames: set[str] = {"compile", "communication", "thunk", "module"},
+    frames: set[str] = {
+        "communication",
+        "compile",
+        "module",
+        "thunk",
+    },
 ) -> ProfilerData:
     """
     Load post-processed Nsight Systems traces and prepare them for analysis.
@@ -515,34 +550,29 @@ def load_profiler_data(
     Arguments:
      prefix: directory under which to search for input data files (default:
         current directory.
-     frames: list of prepared data frames to return.
+     frames: set of data frames that must not be None in the return value; frames that
+        are not listed may also not be None
 
     Return:
-     Dictionary of {frame_name: data_frame} with one entry for each value of
-     ``frames``.
+     ProfilerData dataclass with members set according to ``frames``
     """
+    # Dependency management
+    if "communication" in frames:
+        frames.add("thunk")
     output = ProfilerData()
-    # Which prepared data frames currently come from the nvtx_pushpop_trace
-    # output file.
-    nvtx_pushpop_trace_frames = {"compile"}
-    if len(frames & nvtx_pushpop_trace_frames):
-        output.compile = _load_nvtx_pushpop_trace(
-            prefix, frames & nvtx_pushpop_trace_frames
-        )
+    # Load data from the nvtx_pushpop_trace output file
+    if "compile" in frames:
+        output.compile = _load_nvtx_pushpop_trace(prefix, frames)
     # Which prepared data frames currently come from the nvtx_gpu_proj_trace
     # output file.
-    nvtx_gpu_proj_trace_frames = {"thunk", "module"}
-    if len(frames & nvtx_gpu_proj_trace_frames):
+    if len(frames & {"thunk", "module"}):
         for k, v in _load_nvtx_gpu_proj_trace(
             prefix,
-            frames & nvtx_gpu_proj_trace_frames,
+            frames,
         ).items():
             setattr(output, k, v)
 
     if "communication" in frames:
-        assert (
-            output.thunk is not None
-        ), "Cannot generate 'communication' frame without 'thunk' frame"
         output.communication = calculate_collective_metrics(output.thunk, prefix=prefix)
 
     return output

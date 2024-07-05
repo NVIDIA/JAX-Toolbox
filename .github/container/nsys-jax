@@ -525,7 +525,7 @@ def execute_analysis_scripts(mirror_dir, analysis_scripts):
     archive.
     """
     if len(analysis_scripts) == 0:
-        return []
+        return [], 0
 
     assert mirror_dir is not None
     venv_dir = osp.join(mirror_dir, "venv")
@@ -541,6 +541,7 @@ def execute_analysis_scripts(mirror_dir, analysis_scripts):
         check=True,
     )
     output = []
+    exit_code = 0
     used_slugs = set()
     for analysis in analysis_scripts:
         script, args = analysis[0], analysis[1:]
@@ -571,17 +572,18 @@ def execute_analysis_scripts(mirror_dir, analysis_scripts):
         print(
             f"Running analysis script: {shlex.join(analysis_command)} in {working_dir}"
         )
-        subprocess.run(
+        result = subprocess.run(
             analysis_command,
-            check=True,
             cwd=working_dir,
         )
+        if result.returncode != 0:
+            exit_code = result.returncode
         # Gather output files of the scrpt
         for path in iglob("**", recursive=True, root_dir=working_dir):
             output.append(
                 (osp.join("analysis", slug, path), osp.join(working_dir, path))
             )
-    return output
+    return output, exit_code
 
 
 def write_output_file(to_process, output_file, mirror_dir, analysis_scripts):
@@ -620,12 +622,16 @@ def write_output_file(to_process, output_file, mirror_dir, analysis_scripts):
                 print(f"{archive_name}: output stalled ({timeout}s heartbeat)")
         # Execute analysis scripts so their outputs can be bundled in the archive
         # before it is closed
-        for path_in_archive, local_path in execute_analysis_scripts(
+        analysis_outputs, exit_code = execute_analysis_scripts(
             mirror_dir, analysis_scripts
-        ):
+        )
+        for path_in_archive, local_path in analysis_outputs:
             archive.write(filename=local_path, arcname=path_in_archive)
     os.chmod(output_file, 0o644)
     print(f"{archive_name}: wrote in {time.time()-start:.2f}s")
+    if exit_code != 0:
+        print(f"Exiting due to analysis script errors")
+        sys.exit(exit_code)
 
 
 def process_pb_files(pb_future):
