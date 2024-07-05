@@ -400,11 +400,13 @@ def save_device_stream_thread_names(tmp_dir, report, output_queue, wait_on):
     con = sqlite3.connect(db_file)
     cur = con.cursor()
 
-    def table_to_parquet(query, index, filename, columns=None):
+    def table_to_parquet(query, index, filename, columns=None, index_name=None):
         res = cur.execute(query)
         if columns is None:
             columns = [x[0] for x in res.description]
         df = pd.DataFrame(res, columns=columns).set_index(index, verify_integrity=True)
+        if index_name is not None:
+            df.index.name = index_name
         df.to_parquet(osp.join(tmp_dir, filename))
         output_queue.put((filename, osp.join(tmp_dir, filename), compress_none))
 
@@ -444,13 +446,14 @@ def save_device_stream_thread_names(tmp_dir, report, output_queue, wait_on):
         f"""
         SELECT * FROM TARGET_INFO_GPU
         INNER JOIN TARGET_INFO_NVTX_CUDA_DEVICE ON TARGET_INFO_GPU.cuDevice = TARGET_INFO_NVTX_CUDA_DEVICE.deviceId""",
-        ("TARGET_INFO_GPU", "id"),
+        ("TARGET_INFO_GPU", "cuDevice"),
         "device-metadata.parquet",
         columns=pd.MultiIndex.from_tuples(
             TARGET_INFO_GPU_columns + TARGET_INFO_NVTX_CUDA_DEVICE_columns
         ),
+        index_name="cuDevice",
     )
-    print(f"{archive_name}: extracted device names in {time.time()-start:.2f}s")
+    print(f"{archive_name}: extracted device/thread names in {time.time()-start:.2f}s")
 
 
 def copy_jax_nsys_files(input_dir, output_queue):
