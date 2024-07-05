@@ -543,6 +543,6 @@ def load_profiler_data(
         assert (
             output.thunk is not None
         ), "Cannot generate 'communication' frame without 'thunk' frame"
-        output.communication = calculate_collective_metrics(output.thunk)
+        output.communication = calculate_collective_metrics(output.thunk, prefix=prefix)
 
     return output

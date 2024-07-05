@@ -3,6 +3,7 @@ import functools
 import math
 import numpy as np
 import pandas as pd  # type: ignore
+import pathlib
 from typing import Any
 
 from .protobuf import xla_module_metadata
@@ -158,7 +159,9 @@ def _collective_correction(kind: str, size: int) -> tuple[float, float]:
 
 
 @functools.lru_cache
-def get_message_size(program_id: int, instruction: str) -> pd.Series:
+def get_message_size(
+    program_id: int, instruction: str, prefix: pathlib.Path
+) -> pd.Series:
     """
     Given the name of a collective instruction (e.g. all-gather-start.N), calculate the
     message size in bytes. See https://openxla.org/xla/operation_semantics#allgather,
@@ -166,7 +169,7 @@ def get_message_size(program_id: int, instruction: str) -> pd.Series:
     of the semantics. This implementation aims to follow the same conventions that NCCL
     uses in its NVTX payloads and tests.
     """
-    module_proto = xla_module_metadata(program_id)
+    module_proto = xla_module_metadata(program_id, prefix=prefix)
     _, inst = module_proto.find_instruction(instruction)
     assert (
         inst.opcode
@@ -220,7 +223,9 @@ def get_message_size(program_id: int, instruction: str) -> pd.Series:
     )
 
 
-def calculate_collective_metrics(thunk_df: pd.DataFrame) -> pd.DataFrame:
+def calculate_collective_metrics(
+    thunk_df: pd.DataFrame, prefix: pathlib.Path
+) -> pd.DataFrame:
     """
     Given a "thunk" data frame from `load_profiler_data`, produce a new data frame that
     contains one row per communication thunk and contains extra metrics such as the
@@ -232,7 +237,10 @@ def calculate_collective_metrics(thunk_df: pd.DataFrame) -> pd.DataFrame:
     comm_df = pd.concat(
         [
             comm_df,
-            comm_df.apply(lambda row: get_message_size(row.name[0], row.Name), axis=1),
+            comm_df.apply(
+                lambda row: get_message_size(row.name[0], row.Name, prefix=prefix),
+                axis=1,
+            ),
         ],
         axis=1,
     )
