@@ -87,7 +87,6 @@ def _load_nvtx_gpu_proj_trace_single(
     file: pathlib.Path,
     meta_file: pathlib.Path,
     frames: set[str],
-    process_index: int,
 ):
     # Load the thread metadata used to map module/thunk executions to global device IDs
     meta_df = pd.read_parquet(meta_file)
@@ -359,12 +358,11 @@ def _load_nvtx_gpu_proj_trace(
         meta_filenames = [meta_path]
 
     tmp = defaultdict(list)
-    for n_process, (file, meta_file) in enumerate(zip(filenames, meta_filenames)):
+    for file, meta_file in zip(filenames, meta_filenames):
         for k, v in _load_nvtx_gpu_proj_trace_single(
-            prefix, file, meta_file, frames, n_process
+            prefix, file, meta_file, frames
         ).items():
             tmp[k].append(v)
-    # Make sure all the profiles agree about how many devices per profile there are
     output = {}
     for k, v in tmp.items():
         output[k] = pd.concat(v, verify_integrity=True).sort_index()
@@ -537,12 +535,7 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
 
 def load_profiler_data(
     prefix: pathlib.Path = pathlib.Path("."),
-    frames: set[str] = {
-        "communication",
-        "compile",
-        "module",
-        "thunk",
-    },
+    frames: set[str] = {"communication", "compile", "module", "thunk"},
 ) -> ProfilerData:
     """
     Load post-processed Nsight Systems traces and prepare them for analysis.
