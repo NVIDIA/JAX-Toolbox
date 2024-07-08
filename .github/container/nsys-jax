@@ -6,7 +6,7 @@ from glob import glob, iglob
 import lzma
 import os
 import os.path as osp
-import pandas as pd
+import pandas as pd  # type: ignore
 import queue
 import re
 import shlex
@@ -443,7 +443,7 @@ def save_device_stream_thread_names(tmp_dir, report, output_queue, wait_on):
         ).description
     ]
     table_to_parquet(
-        f"""
+        """
         SELECT * FROM TARGET_INFO_GPU
         INNER JOIN TARGET_INFO_NVTX_CUDA_DEVICE ON TARGET_INFO_GPU.cuDevice = TARGET_INFO_NVTX_CUDA_DEVICE.deviceId""",
         ("TARGET_INFO_GPU", "cuDevice"),
@@ -630,7 +630,7 @@ def write_output_file(to_process, output_file, mirror_dir, analysis_scripts):
     os.chmod(output_file, 0o644)
     print(f"{archive_name}: wrote in {time.time()-start:.2f}s")
     if exit_code != 0:
-        print(f"Exiting due to analysis script errors")
+        print("Exiting due to analysis script errors")
         sys.exit(exit_code)
 
 
