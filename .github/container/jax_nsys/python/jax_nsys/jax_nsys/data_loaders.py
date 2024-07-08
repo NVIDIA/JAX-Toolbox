@@ -249,11 +249,12 @@ def _load_nvtx_gpu_proj_trace_single(
 
     # Associate thunk executions with the local/global device ID, global process index,
     # and slice index. A given module should have N threads submitting work to N
-    # devices, but the TID used to submit work to device 0 depends on N. If N=1, the
-    # main thread is used, if N>1 then the 0th worker thread is used. For the N>1 case,
-    # device_by_pid_tid already has the required information. For the N=1 case, add a
-    # row to device_by_pid_tid that maps the main thread PID/TID to LocalDevice 0. This
-    # may still be a little bit wrong; FIXME by storing the LocalDevice ID directly in
+    # devices, but if N=1 the main thread is used instead of a named execution thread
+    # that exists in device_by_pid_tid. We can identify N=1, and therefore identify the
+    # main thread, but there is a slight ambiguity about which device to choose. In one
+    # process per device mode, there is no ambiguity. In one process per node mode, and
+    # when executing modules that do not use multiple devices, just take the 0th one.
+    # This might be slightly wrong; FIXME by storing the LocalDevice ID directly in
     # the nvtx_gpu_proj_trace output file.
     main_pid_tid_candidates = set()
     for _, module_df in df[all_thunks].groupby("ProgramId"):
@@ -262,9 +263,9 @@ def _load_nvtx_gpu_proj_trace_single(
             main_pid_tid_candidates.add(tuple(unique_pid_tid_pairs.iloc[0]))
     assert len(main_pid_tid_candidates) < 2
     if len(main_pid_tid_candidates) == 1:
-        # Copy the LocalDevice==0 entry under (main_pid, main_tid)
-        main_thread_df = device_by_pid_tid[device_by_pid_tid["LocalDevice"] == 0]
-        assert len(main_thread_df) == 1
+        # Possibly not correct if len(device_by_pid_tid) > 1
+        assert len(device_by_pid_tid) > 0
+        main_thread_df = device_by_pid_tid.iloc[:1]
         main_thread_df.index = pd.MultiIndex.from_tuples(
             main_pid_tid_candidates, names=["PID", "TID"]
         )

@@ -200,7 +200,7 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ## written by nsys-jax, while the nsys-jax wrapper is used inside the container.
 ###############################################################################
 
-ADD nsys-jax /usr/local/bin
+ADD nsys-jax nsys-jax-combine /usr/local/bin/
 ADD jax_nsys/ /opt/jax_nsys
 ADD requirements-nsys-jax.in /opt/pip-tools.d/
 RUN ln -s /opt/jax_nsys/install-protoc /usr/local/bin/
