@@ -23,16 +23,6 @@ on:
         description: 'Name of the framework being used'
         required: false
         default: 'upstream-pax'
-      COMMAND_PREFIX:
-        type: string
-        description: 'Prefix for the test command; can be used to enable profiling'
-        required: false
-        default: ''
-      STEPS:
-        type: string
-        description: 'Number of execution steps to test'
-        required: false
-        default: "500"
     outputs:
       TEST_STATUS:
         description: 'Summary pass/fail value indicating if results from tests are acceptable'
@@ -113,18 +103,17 @@ jobs:
             true
           
           # run job with tasks on each node sharing one container
-          PROFILE_OUTPUT="/output/nsys-jax-${{ steps.meta.outputs.TEST_CASE_NAME }}-rank${SLURM_PROCID}"
           time srun \
             --ntasks=1 \
             --ntasks-per-node=1 \
             --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            ${{ inputs.COMMAND_PREFIX }} test-pax.sh \
+            test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-per-gpu 4 \
-              --steps ${{ inputs.STEPS }} \
+              --steps 500 \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
               --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
@@ -290,18 +279,17 @@ jobs:
             true
 
           # run job with tasks on each node sharing one container
-          PROFILE_OUTPUT="/output/nsys-jax-${{ steps.meta.outputs.TEST_CASE_NAME }}-rank${SLURM_PROCID}"
           time srun \
             --tasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
             --tasks-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }} \
             --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            ${{ inputs.COMMAND_PREFIX }} test-pax.sh \
+            test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-per-gpu 4 \
-              --steps ${{ inputs.STEPS }} \
+              --steps 500 \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
               --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
@@ -439,18 +427,17 @@ jobs:
             true
           
           # run job with tasks on each node sharing one container
-          PROFILE_OUTPUT="/output/nsys-jax-${{ steps.meta.outputs.TEST_CASE_NAME }}-rank${SLURM_PROCID}"
           time srun \
             --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
             --ntasks-per-node=1 \
             --container-name=runtime \
             --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
             --container-entrypoint \
-            ${{ inputs.COMMAND_PREFIX }} test-pax.sh \
+            test-pax.sh \
               --output /output/${{ steps.meta.outputs.TEST_CASE_NAME }} \
               --dtype bfloat16 \
               --batch-per-gpu 4 \
-              --steps ${{ inputs.STEPS }} \
+              --steps 500 \
               --evaluate \
               --pipeline-parallel ${{ matrix.PARALLEL_CONFIG[0] }} \
               --data-parallel ${{ matrix.PARALLEL_CONFIG[1] }} \

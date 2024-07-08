@@ -482,19 +482,6 @@ jobs:
       PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  test-nsys-jax:
-    needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no arm64 gpu runners
-    uses: ./.github/workflows/_test_upstream_pax.yaml
-    with:
-      ARTIFACT_NAME: artifact-nsys-jax-test
-      BADGE_FILENAME: badge-nsys-jax-test.json
-      COMMAND_PREFIX: 'nsys-jax --nsys-jax-analysis summary -o ${PROFILE_OUTPUT} --'
-      FW_NAME: nsys-jax
-      PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
-      STEPS: "20"
-    secrets: inherit
-
   test-rosetta-pax:
     needs: build-rosetta-pax
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
