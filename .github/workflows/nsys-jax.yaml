@@ -154,8 +154,11 @@ jobs:
         shell: bash -x -e {0}
         run: |
           pushd .github/container/jax_nsys
+          jupyter="${PWD}/nsys_jax_venv/bin/jupyter"
+          notebook="${PWD}/Analysis.ipynb"
           workdir=$(mktemp -d)
-          ./nsys_jax_venv/bin/jupyter nbconvert --execute --to notebook --output-dir=$workdir Analysis.ipynb
+          cd "${workdir}"
+          "${jupyter}" nbconvert --execute --to notebook --output-dir=$workdir "${notebook}"
           echo "WORKDIR=$workdir" >> $GITHUB_OUTPUT
       - name: Upload rendered notebook to Gist
         id: upload
