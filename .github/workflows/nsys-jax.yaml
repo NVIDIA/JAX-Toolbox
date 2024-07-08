@@ -123,7 +123,7 @@ jobs:
       RENDERED_NOTEBOOK_GIST_ID: e2cd3520201caab6b67385ed36fad3c1
       MOCK_RENDERED_NOTEBOOK_GIST_ID: 16698d9e9e52320243165d61b5bb3975
       # Name/bash regex for shields.io endpoint JSON files
-      PUBLISH_NOTEBOOK_FILES: '(.*\.ipynb)'
+      PUBLISH_NOTEBOOK_FILES: '(.*\.ipynb|.*\.svg)'
     runs-on: ubuntu-24.04
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
