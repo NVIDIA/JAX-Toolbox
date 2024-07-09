@@ -1,5 +1,4 @@
 import functools
-import itertools
 import lzma
 import pathlib
 import typing
@@ -106,8 +105,9 @@ class HloProtoSet:
         Apply a callable to all wrapped HloProto objects, and if the same result is
         always returned then return that; otherwise raise an exception.
         """
-        result = callable(next(iter(self._protos.values())))
-        for proto in itertools.islice(self._protos.values(), 1, None):
+        values = iter(self._protos.values())
+        result = next(values)
+        for proto in values:
             new_result = callable(proto)
             if result != new_result:
                 raise Exception(
