@@ -31,22 +31,18 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
         try:
             # this will be a dict of {profile_name | None: proto} to cover the case
             # that we had different protos from different profiles
-            protos = xla_module_metadata(program_id, prefix, policy="all")
-            results = {
-                proto.find_instruction(row["Name"])[1].channel_id != 0
-                for proto in protos.values()
-            }
-            if len(results) != 1:
-                raise Exception("Inconsistent results from different profiles")
+            protos = xla_module_metadata(program_id, prefix=prefix, policy="all")
+            return protos.unique_result(
+                lambda proto: proto.find_instruction(row["Name"])[1].channel_id != 0
+            )
         except:
             print(f'Failed to get metadata for {row["Name"]} in program #{program_id}')
             raise
-        return next(iter(results))
 
     thunk_df["Communication"] = thunk_df.apply(is_communication, axis=1)
-    thunk_df["ProjDurHiddenNs"] = 0.0
+    thunk_df["ProjDurHiddenMs"] = 0.0
     # For convenience when calculating unhidden comms
-    thunk_df["ProjEndNs"] = thunk_df["ProjStartNs"] + thunk_df["ProjDurNs"]
+    thunk_df["ProjEndMs"] = thunk_df["ProjStartMs"] + thunk_df["ProjDurMs"]
 
     for _, module_exec_df in thunk_df.groupby(
         ["ProgramId", "ProgramExecution", "Device"]
@@ -55,55 +51,81 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
         # include the non-overlapped time
         for comm_thunk in module_exec_df[module_exec_df["Communication"]].itertuples():
             # This is a range annotating a communication operation, i.e. NCCL kernel
-            # That kernel was active from comm_thunk.ProjStartNs until comm_thunk.ProjEndNs
+            # That kernel was active from comm_thunk.ProjStartMs until comm_thunk.ProjEndMs
             # but during that time then other computation was going on. We want to
             # find how much of the time did not overlap with other computation.
             compute_df = module_exec_df[
                 (
-                    (module_exec_df["ProjEndNs"] > comm_thunk.ProjStartNs)
-                    & (module_exec_df["ProjStartNs"] < comm_thunk.ProjEndNs)
+                    (module_exec_df["ProjEndMs"] > comm_thunk.ProjStartMs)
+                    & (module_exec_df["ProjStartMs"] < comm_thunk.ProjEndMs)
                     & ~module_exec_df["Communication"]
                 )
             ]
             # The computation kernels should all be serialised, but check that
             assert (
-                compute_df["ProjStartNs"].iloc[1:].array
-                >= compute_df["ProjEndNs"].iloc[:-1].array
+                compute_df["ProjStartMs"].iloc[1:].array
+                >= compute_df["ProjEndMs"].iloc[:-1].array
             ).all()
             compute_time = np.sum(
-                np.minimum(compute_df["ProjEndNs"], comm_thunk.ProjEndNs)
-                - np.maximum(compute_df["ProjStartNs"], comm_thunk.ProjStartNs)
+                np.minimum(compute_df["ProjEndMs"], comm_thunk.ProjEndMs)
+                - np.maximum(compute_df["ProjStartMs"], comm_thunk.ProjStartMs)
             )
             # Update the projected duration of communication kernels to just be the
             # time that is not hidden.
-            unhidden_comm_time = comm_thunk.ProjDurNs - compute_time
-            thunk_df.loc[comm_thunk.Index, "ProjDurNs"] = unhidden_comm_time
-            thunk_df.loc[comm_thunk.Index, "ProjDurHiddenNs"] = compute_time
+            thunk_df.loc[comm_thunk.Index, "ProjDurMs"] -= compute_time
+            thunk_df.loc[comm_thunk.Index, "ProjDurHiddenMs"] = compute_time
 
-    return thunk_df.drop(columns=["ProjEndNs"])
+    return thunk_df.drop(columns=["ProjEndMs"])
 
 
 def _load_nvtx_gpu_proj_trace_single(
     prefix: pathlib.Path,
     file: pathlib.Path,
+    meta_file: pathlib.Path,
     frames: set[str],
-    process_index: int,
 ):
-    # Load input data; rename some columns for convenience with `.itertuples()`; use RangeId as the index
-    df = (
-        pd.read_parquet(file)
-        .rename(
-            columns={
-                "Projected Duration": "ProjDurNs",
-                "Projected Start": "ProjStartNs",
-                "Orig Duration": "OrigDurNs",
-                "Orig Start": "OrigStartNs",
-            }
+    # Load the thread metadata used to map module/thunk executions to global device IDs
+    meta_df = pd.read_parquet(meta_file)
+    # Match XLA's launcher thread name. These threads launch work if >1 GPU is being
+    # driven by the process.
+    device_by_pid_tid = (
+        meta_df["Name"]
+        .str.extract(
+            r"^XlaLauncher:#global=(?P<Device>\d+),local=(?P<LocalDevice>\d+),process=(?P<Process>\d+),slice=(?P<Slice>\d+)#$"
         )
-        .drop(columns=["PID", "Rank"])
-        .dropna(subset=["RangeId"])
+        .dropna()
+        .astype(np.int32)
     )
-    df = df.set_index(df.pop("RangeId").astype(np.int32))
+    # Load input data; rename some columns for convenience with `.itertuples()`; use RangeId as the index
+    df = pd.read_parquet(file).drop(columns=["Rank"])
+    # Alternative trace.parquet format
+    alt_rename_map = {
+        "Text": "Name",
+        "Start": None,
+        "End": None,
+        "Children Count": "NumChild",
+        "Range ID": "RangeId",
+        "Parent ID": "ParentId",
+        "Range Stack": "RangeStack",
+        "Stack Level": "Lvl",
+    }
+    if set(df.columns) == alt_rename_map.keys():
+        df = df.rename(
+            columns={k: v for k, v in alt_rename_map.items() if v is not None}
+        )
+        df["ProjDurMs"] = 1e-6 * (df.pop("End") - df["Start"])
+        df["ProjStartMs"] = 1e-6 * df.pop("Start")
+        df["RangeStack"] = df["RangeStack"].map(
+            lambda stack: ":" + ":".join(map(str, stack))
+        )
+        # TODO: add OrigDurMs, OrigStartMs
+    else:
+        df["OrigDurMs"] = 1e-6 * df.pop("Orig Duration")
+        df["OrigStartMs"] = 1e-6 * df.pop("Orig Start")
+        df["ProjDurMs"] = 1e-6 * df.pop("Projected Duration")
+        df["ProjStartMs"] = 1e-6 * df.pop("Projected Start")
+        df = df.dropna(subset=["RangeId"])
+    df = df.set_index(df.pop("RangeId").astype(np.int32), verify_integrity=True)
     # Due to idiosyncracies of how Nsight tracks CUDA graphs, and because
     # thunks can be nested, the NVTX hierarchy generally looks like:
     #  Iteration -> XlaModule:A [-> XlaModule:B] -> Thunk:C [-> Thunk:D ...]
@@ -121,8 +143,8 @@ def _load_nvtx_gpu_proj_trace_single(
     # and ignore them.
     module_prefix = "TSL:XlaModule:"
     all_modules = df["Name"].str.startswith(module_prefix)
-    first_module_orig_time = df.loc[all_modules, "OrigStartNs"].min()
-    thunks_without_modules = all_thunks & (df["OrigStartNs"] < first_module_orig_time)
+    first_module_orig_time = df.loc[all_modules, "OrigStartMs"].min()
+    thunks_without_modules = all_thunks & (df["OrigStartMs"] < first_module_orig_time)
     if thunks_without_modules.sum():
         print(f"Ignoring {thunks_without_modules.sum()} thunks without modules")
     all_thunks &= ~thunks_without_modules
@@ -221,21 +243,37 @@ def _load_nvtx_gpu_proj_trace_single(
         df.loc[all_thunks, "ModuleId"]
     ].array
 
-    # Assume that the thunks are launched from one thread per device, this is probably
-    # safe. Also, until https://github.com/openxla/xla/pull/14092 is plumbed through,
-    # assume that thread ID order is local device order (FIXME!)
-    tid_to_ordinal: dict[int, int] = {}
+    # Associate thunk executions with the local/global device ID, global process index,
+    # and slice index. A given module should have N threads submitting work to N
+    # devices, but if N=1 the main thread is used instead of a named execution thread
+    # that exists in device_by_pid_tid. We can identify N=1, and therefore identify the
+    # main thread, but there is a slight ambiguity about which device to choose. In one
+    # process per device mode, there is no ambiguity. In one process per node mode, and
+    # when executing modules that do not use multiple devices, just take the 0th one.
+    # This might be slightly wrong; FIXME by storing the LocalDevice ID directly in
+    # the nvtx_gpu_proj_trace output file.
+    main_pid_tid_candidates = set()
     for _, module_df in df[all_thunks].groupby("ProgramId"):
-        # A given module should have N threads submitting work to N devices, but the
-        # thread ID submitting work to device 0 is different for N=1 (main thread) and
-        # N>1 (a worker thread)
-        for ordinal, tid in enumerate(sorted(module_df["TID"].unique())):
-            assert tid_to_ordinal.get(tid, ordinal) == ordinal
-            tid_to_ordinal[tid] = ordinal
-    # This profile contains devices [process_index*num_devices, (process_index+1)*num_devices]
-    num_devices = len(set(tid_to_ordinal.values()))
-    df["Device"] = df["TID"].map(
-        {k: process_index * num_devices + v for k, v in tid_to_ordinal.items()}
+        unique_pid_tid_pairs = module_df.loc[:, ("PID", "TID")].drop_duplicates()
+        if len(unique_pid_tid_pairs) == 1:
+            main_pid_tid_candidates.add(tuple(unique_pid_tid_pairs.iloc[0]))
+    assert len(main_pid_tid_candidates) < 2
+    if len(main_pid_tid_candidates) == 1:
+        # Possibly not correct if len(device_by_pid_tid) > 1
+        assert len(device_by_pid_tid) > 0
+        main_thread_df = device_by_pid_tid.iloc[:1]
+        main_thread_df.index = pd.MultiIndex.from_tuples(
+            main_pid_tid_candidates, names=["PID", "TID"]
+        )
+        device_by_pid_tid = pd.concat([device_by_pid_tid, main_thread_df])
+
+    assert device_by_pid_tid.index.names == ["PID", "TID"]
+    df = pd.merge(
+        df,
+        device_by_pid_tid,
+        left_on=["PID", "TID"],
+        right_index=True,
+        validate="many_to_one",
     )
 
     def clean_data_frame(d):
@@ -246,15 +284,14 @@ def _load_nvtx_gpu_proj_trace_single(
                 "NumChild",
                 "NumGPUOps",
                 "ParentId",
+                "PID",
                 "RangeStack",
                 "Style",
                 "TID",
             ]
         ).astype({"ProgramExecution": np.int32, "ProgramId": np.int32})
 
-    output = {
-        "#devices": num_devices,
-    }
+    output = {}
     if "thunk" in frames:
         # At this point there should be no need to look beyond the rows for individual thunks + the protobuf data, and we can further clean up the data
         thunk_df = clean_data_frame(df[all_thunks])
@@ -305,22 +342,24 @@ def _load_nvtx_gpu_proj_trace(
     frames: set[str],
 ):
     path = prefix / "nvtx_gpu_proj_trace" / "trace.parquet"
+    meta_path = prefix / "thread-metadata.parquet"
     if path.is_dir():
         # We're looking at the output of nsys-jax-combine
+        assert meta_path.is_dir()
         filenames = sorted(path.iterdir())
+        meta_filenames = sorted(meta_path.iterdir())
     else:
         # We're looking at the output of nsys-jax
+        assert not meta_path.is_dir()
         filenames = [path]
+        meta_filenames = [meta_path]
 
     tmp = defaultdict(list)
-    for n_process, file in enumerate(filenames):
+    for file, meta_file in zip(filenames, meta_filenames):
         for k, v in _load_nvtx_gpu_proj_trace_single(
-            prefix, file, frames, n_process
+            prefix, file, meta_file, frames
         ).items():
             tmp[k].append(v)
-    # Make sure all the profiles agree about how many devices per profile there are
-    device_counts = set(tmp.pop("#devices"))
-    assert len(device_counts) == 1, f"Inconsistent #devices/profile: {device_counts}"
     output = {}
     for k, v in tmp.items():
         output[k] = pd.concat(v, verify_integrity=True).sort_index()
@@ -336,15 +375,12 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
         dtype={"RangeId": np.int32},
         index_col="RangeId",
         usecols=keep_column,
-    ).rename(
-        columns={
-            "Start (ns)": "StartNs",
-            "End (ns)": "EndNs",
-            "Duration (ns)": "DurNs",
-            "DurChild (ns)": "DurChildNs",
-            "DurNonChild (ns)": "DurNonChildNs",
-        }
     )
+    compile_df["StartMs"] = 1e-6 * compile_df.pop("Start (ns)")
+    compile_df["EndMs"] = 1e-6 * compile_df.pop("End (ns)")
+    compile_df["DurMs"] = 1e-6 * compile_df.pop("Duration (ns)")
+    compile_df["DurChildMs"] = 1e-6 * compile_df.pop("DurChild (ns)")
+    compile_df["DurNonChildMs"] = 1e-6 * compile_df.pop("DurNonChild (ns)")
     # XlaCompileBackend always has the name and program ID, while one code path
     # produces XlaCompile annotations that don't have the program ID. Also, the
     # auto-tuner produces nested XlaCompileBackend ranges with different names
@@ -382,8 +418,8 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
     for compile_range in compile_df[compile_mask].itertuples():
         # Identify top-level ranges in possible worker threads associated to this XlaCompile range
         worker_mask = (
-            (compile_df["StartNs"] >= compile_range.StartNs)
-            & (compile_df["EndNs"] <= compile_range.EndNs)
+            (compile_df["StartMs"] >= compile_range.StartMs)
+            & (compile_df["EndMs"] <= compile_range.EndMs)
             & (compile_df["TID"] != compile_range.TID)
             & (compile_df["ParentId"].isna())
         )
@@ -392,8 +428,8 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
             # Find the deepest still-open range in the main thread
             mask = (
                 make_child_mask(compile_df, compile_range.Index)
-                & (compile_df["StartNs"] < worker_range.StartNs)
-                & (compile_df["EndNs"] > worker_range.EndNs)
+                & (compile_df["StartMs"] < worker_range.StartMs)
+                & (compile_df["EndMs"] > worker_range.EndMs)
                 & (compile_df["TID"] == compile_range.TID)
             )
             new_parent_index = mask[mask].index[-1]
@@ -412,11 +448,11 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
             ].str.slice_replace(stop=0, repl=range_stack_prefix)
             new_parent_ranges.add(new_parent_index)
             # See TODO below. Set to NaN to avoid meaningless numbers being used.
-            compile_df.loc[new_parent_index, ("DurChildNs", "DurNonChildNs")] = (
+            compile_df.loc[new_parent_index, ("DurChildMs", "DurNonChildMs")] = (
                 np.nan,
                 np.nan,
             )
-    # TODO: update the DurChildNs and DurNonChildNs values for `new_parent_ranges` to avoid double-counting
+    # TODO: update the DurChildMs and DurNonChildMs values for `new_parent_ranges` to avoid double-counting
     # Mask out anything that's not descended from XlaCompile now
     compile_related_mask = compile_mask
     for compile_range_index in compile_mask[compile_mask].index:
@@ -454,8 +490,8 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
         parent_id = int(non_xla_range.ParentId)
         # Pretend `non_xla_range` doesn't exist as a child of `parent_id`
         compile_df.loc[parent_id, "NumChild"] -= 1
-        compile_df.loc[parent_id, "DurChildNs"] -= non_xla_range.DurNs
-        compile_df.loc[parent_id, "DurNonChildNs"] += non_xla_range.DurNs
+        compile_df.loc[parent_id, "DurChildMs"] -= non_xla_range.DurMs
+        compile_df.loc[parent_id, "DurNonChildMs"] += non_xla_range.DurMs
 
     # Because the ProgramId and ProgramName ranges provide the same information,
     # remove those fields from the compilation range names.
@@ -470,7 +506,7 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
 
     return (
         compile_df[~non_xla_mask]
-        .drop(columns=["EndNs"])
+        .drop(columns=["EndMs"])
         .astype({"ProgramId": np.int32})
         .transform(remove_program_id_and_name, axis="columns")
     )
@@ -496,7 +532,7 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
 
 def load_profiler_data(
     prefix: pathlib.Path = pathlib.Path("."),
-    frames: set[str] = {"compile", "communication", "thunk", "module"},
+    frames: set[str] = {"communication", "compile", "module", "thunk"},
 ) -> ProfilerData:
     """
     Load post-processed Nsight Systems traces and prepare them for analysis.
@@ -504,34 +540,29 @@ def load_profiler_data(
     Arguments:
      prefix: directory under which to search for input data files (default:
         current directory.
-     frames: list of prepared data frames to return.
+     frames: set of data frames that must not be None in the return value; frames that
+        are not listed may also not be None
 
     Return:
-     Dictionary of {frame_name: data_frame} with one entry for each value of
-     ``frames``.
+     ProfilerData dataclass with members set according to ``frames``
     """
+    # Dependency management
+    if "communication" in frames:
+        frames.add("thunk")
     output = ProfilerData()
-    # Which prepared data frames currently come from the nvtx_pushpop_trace
-    # output file.
-    nvtx_pushpop_trace_frames = {"compile"}
-    if len(frames & nvtx_pushpop_trace_frames):
-        output.compile = _load_nvtx_pushpop_trace(
-            prefix, frames & nvtx_pushpop_trace_frames
-        )
+    # Load data from the nvtx_pushpop_trace output file
+    if "compile" in frames:
+        output.compile = _load_nvtx_pushpop_trace(prefix, frames)
     # Which prepared data frames currently come from the nvtx_gpu_proj_trace
     # output file.
-    nvtx_gpu_proj_trace_frames = {"thunk", "module"}
-    if len(frames & nvtx_gpu_proj_trace_frames):
+    if len(frames & {"thunk", "module"}):
         for k, v in _load_nvtx_gpu_proj_trace(
             prefix,
-            frames & nvtx_gpu_proj_trace_frames,
+            frames,
         ).items():
             setattr(output, k, v)
 
     if "communication" in frames:
-        assert (
-            output.thunk is not None
-        ), "Cannot generate 'communication' frame without 'thunk' frame"
-        output.communication = calculate_collective_metrics(output.thunk)
+        output.communication = calculate_collective_metrics(output.thunk, prefix=prefix)
 
     return output
