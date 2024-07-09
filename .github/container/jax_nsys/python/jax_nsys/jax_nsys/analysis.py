@@ -216,17 +216,10 @@ def get_message_size(
     of the semantics. This implementation aims to follow the same conventions that NCCL
     uses in its NVTX payloads and tests.
     """
-    results = {
-        _get_message_size(module_proto, instruction)
-        for module_proto in xla_module_metadata(
-            program_id, prefix=prefix, policy="all"
-        ).values()
-    }
-    assert (
-        len(results) == 1
-    ), f"Got inconsistent collective stats for {instruction} ({program_id}): {results}"
     return pd.Series(
-        list(next(iter(results))),
+        xla_module_metadata(program_id, prefix=prefix, policy="all").unique_result(
+            lambda proto: _get_message_size(proto, instruction)
+        ),
         index=[
             "MessageSize",
             "Collective",

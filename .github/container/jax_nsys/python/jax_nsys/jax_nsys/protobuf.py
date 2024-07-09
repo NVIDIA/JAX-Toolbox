@@ -1,4 +1,5 @@
 import functools
+import itertools
 import lzma
 import pathlib
 import typing
@@ -90,12 +91,37 @@ class HloProto:
         return self._proto
 
 
+class HloProtoSet:
+    """
+    Represents a set of HloProto objects for the same program_id, returned by
+    xla_module_metadata with policy="all".
+    """
+
+    def __init__(self, protos: dict[typing.Optional[str], HloProto]):
+        assert len(protos), f"HloProtoSet got {len(protos)} HloProtos"
+        self._protos = protos
+
+    def unique_result(self, callable):
+        """
+        Apply a callable to all wrapped HloProto objects, and if the same result is
+        always returned then return that; otherwise raise an exception.
+        """
+        result = callable(next(iter(self._protos.values())))
+        for proto in itertools.islice(self._protos.values(), 1, None):
+            new_result = callable(proto)
+            if result != new_result:
+                raise Exception(
+                    f"Inconsistent results of {callable}: {result} and {new_result}"
+                )
+        return result
+
+
 @functools.lru_cache
 def xla_module_metadata(
     program_id: int,
     prefix: pathlib.Path = pathlib.Path("."),
     policy: str = "consistent",
-):
+) -> typing.Union[HloProto, HloProtoSet]:
     """
     Load the protobuf metadata for module `program_id`. If given, `prefix` is the
     search path. `policy` governs what happens if `nsys-jax-combine` found inconsistent
@@ -135,8 +161,8 @@ def xla_module_metadata(
                 f"program_id={program_id}: multiple protobuf dumps were found but policy demands consistency"
             )
         assert policy == "all"
-        return {file.name: _load(file) for file in candidate.iterdir()}
+        return HloProtoSet({file.name: _load(file) for file in candidate.iterdir()})
     else:
         # nsys-jax output, or nsys-jax-combine only saw consistent values
         proto = _load(candidate)
-        return {None: proto} if policy == "all" else proto
+        return HloProtoSet({None: proto}) if policy == "all" else proto

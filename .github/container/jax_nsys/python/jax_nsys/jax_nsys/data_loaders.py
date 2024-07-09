@@ -32,16 +32,12 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
             # this will be a dict of {profile_name | None: proto} to cover the case
             # that we had different protos from different profiles
             protos = xla_module_metadata(program_id, prefix, policy="all")
-            results = {
-                proto.find_instruction(row["Name"])[1].channel_id != 0
-                for proto in protos.values()
-            }
-            if len(results) != 1:
-                raise Exception("Inconsistent results from different profiles")
+            return protos.unique_result(
+                lambda proto: proto.find_instruction(row["Name"])[1].channel_id != 0
+            )
         except:
             print(f'Failed to get metadata for {row["Name"]} in program #{program_id}')
             raise
-        return next(iter(results))
 
     thunk_df["Communication"] = thunk_df.apply(is_communication, axis=1)
     thunk_df["ProjDurHiddenMs"] = 0.0
