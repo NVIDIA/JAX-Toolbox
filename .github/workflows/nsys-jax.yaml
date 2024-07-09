@@ -154,11 +154,10 @@ jobs:
         shell: bash -x -e {0}
         run: |
           pushd .github/container/jax_nsys
-          jupyter="${PWD}/nsys_jax_venv/bin/jupyter"
-          notebook="${PWD}/Analysis.ipynb"
-          "${jupyter}" nbconvert --execute --inplace "${notebook}"
-          ls
-          echo "WORKDIR=$PWD" >> $GITHUB_OUTPUT
+          workdir=$(mktemp -d)
+          ./nsys_jax_venv/bin/jupyter nbconvert --execute --inplace Analysis.ipynb
+          cp *.ipynb *.svg "${workdir}"
+          echo "WORKDIR=${workdir}" >> $GITHUB_OUTPUT
       - name: Upload rendered notebook to Gist
         id: upload
         uses: actions/github-script@v7
