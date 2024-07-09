@@ -106,7 +106,7 @@ class HloProtoSet:
         always returned then return that; otherwise raise an exception.
         """
         values = iter(self._protos.values())
-        result = next(values)
+        result = callable(next(values))
         for proto in values:
             new_result = callable(proto)
             if result != new_result:
