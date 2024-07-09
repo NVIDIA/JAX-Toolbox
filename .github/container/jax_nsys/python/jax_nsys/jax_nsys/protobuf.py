@@ -116,11 +116,27 @@ class HloProtoSet:
         return result
 
 
+@typing.overload
+def xla_module_metadata(
+    program_id: int,
+    policy: typing.Literal["consistent"],
+    prefix: pathlib.Path = pathlib.Path("."),
+) -> HloProto: ...
+
+
+@typing.overload
+def xla_module_metadata(
+    program_id: int,
+    policy: typing.Literal["all"],
+    prefix: pathlib.Path = pathlib.Path("."),
+) -> HloProtoSet: ...
+
+
 @functools.lru_cache
 def xla_module_metadata(
     program_id: int,
-    prefix: pathlib.Path = pathlib.Path("."),
     policy: str = "consistent",
+    prefix: pathlib.Path = pathlib.Path("."),
 ) -> typing.Union[HloProto, HloProtoSet]:
     """
     Load the protobuf metadata for module `program_id`. If given, `prefix` is the

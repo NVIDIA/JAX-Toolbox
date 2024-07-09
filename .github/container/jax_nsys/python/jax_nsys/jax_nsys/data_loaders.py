@@ -31,7 +31,7 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
         try:
             # this will be a dict of {profile_name | None: proto} to cover the case
             # that we had different protos from different profiles
-            protos = xla_module_metadata(program_id, prefix, policy="all")
+            protos = xla_module_metadata(program_id, prefix=prefix, policy="all")
             return protos.unique_result(
                 lambda proto: proto.find_instruction(row["Name"])[1].channel_id != 0
             )

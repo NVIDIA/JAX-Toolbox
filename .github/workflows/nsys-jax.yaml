@@ -159,6 +159,7 @@ jobs:
           workdir=$(mktemp -d)
           cd "${workdir}"
           "${jupyter}" nbconvert --execute --to notebook --output-dir=$workdir "${notebook}"
+          ls
           echo "WORKDIR=$workdir" >> $GITHUB_OUTPUT
       - name: Upload rendered notebook to Gist
         id: upload
