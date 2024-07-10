@@ -6,14 +6,17 @@ from glob import glob, iglob
 import lzma
 import os
 import os.path as osp
+import pandas as pd  # type: ignore
 import queue
 import re
 import shlex
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
 import time
+import virtualenv  # type: ignore
 import zipfile
 
 
@@ -39,8 +42,10 @@ def expand(string: str, skip_missing=True) -> str:
 parser = argparse.ArgumentParser(
     allow_abbrev=False,
     usage=(
-        "nsys-jax [-h] [--nsys-jax-condition EXPRESSION] [nsys profile arguments ...] "
-        "[--] executable [executable arguments ...]"
+        "nsys-jax [-h] [--nsys-jax-condition EXPRESSION] [--nsys-jax-analysis A1 "
+        "[--nsys-jax-analysis-arg=A1_ARG1 [--nsys-jax-analysis-arg=A1_ARG2 ...]] "
+        "[--nsys-jax-analysis A2 [--nsys-jax-analysis-arg=A2_ARG1 ...]] [nsys profile "
+        "arguments ...] [--] executable [executable arguments ...]"
     ),
     description=(
         "`nsys-jax` is a wrapper for `nsys profile` that collects additional metadata "
@@ -54,15 +59,56 @@ parser = argparse.ArgumentParser(
     ),
 )
 parser.add_argument(
+    "--nsys-jax-analysis",
+    action="append",
+    dest="analysis",
+    help=(
+        "Post-processing analysis script to execute after report collection. This can "
+        "be the name of a bundled recipe, or the path to a Python script. The script "
+        "will be passed any arguments specified via --nsys-jax-analysis-arg, followed "
+        "by a single positional argument, which is the path to a directory of the "
+        "same structure as the extracted output archive."
+    ),
+    type=lambda x: ("script", x),
+)
+parser.add_argument(
+    "--nsys-jax-analysis-arg",
+    action="append",
+    dest="analysis",
+    help="Extra arguments to pass to analysis scripts specified via --nsys-jax-analysis",
+    type=lambda x: ("arg", x),
+)
+parser.add_argument(
     "--nsys-jax-condition",
     help=(
         "Bash expression that will be expanded to determine if this instance "
         "of nsys-jax should actually launch nsys. Example: "
         "--nsys-jax-condition='$SLURM_LOCALID == 0' to only profile the first "
-        "rank on each node. The expression is evaluated inside [[ ... ]]."
+        "process on each node. The expression is evaluated inside [[ ... ]]."
     ),
 )
+
+
+def shuffle_analysis_arg(analysis):
+    if analysis is None:
+        return []
+    # [Script(A), Arg(A1), Arg(A2), Script(B), Arg(B1)] becomes [[A, A1, A2], [B, B1]]
+    out, current = [], []
+    for t, x in analysis:
+        if t == "script":
+            if len(current):
+                out.append(current)
+            current = [x]
+        else:
+            assert t == "arg" and len(current)
+            current.append(x)
+    if len(current):
+        out.append(current)
+    return out
+
+
 nsys_jax_flags, unknown_args = parser.parse_known_args(sys.argv)
+nsys_jax_flags.analysis = shuffle_analysis_arg(nsys_jax_flags.analysis)
 # Remove the name of the nsys-jax wrapper
 nsys_flags_and_cmd = unknown_args[1:]
 # This can have two forms:
@@ -123,7 +169,7 @@ if nsys_output is not None:
     archive_name = nsys_output + ".zip"
 elif enable_profiling:
     # There was not an explicit output location; generate one. There may be
-    # multiple ranks racing to do this.
+    # multiple processes racing to do this.
     archive_handle, archive_name = tempfile.mkstemp(
         dir=os.getcwd(), prefix="nsys-jax-report-", suffix=".zip"
     )
@@ -133,9 +179,14 @@ elif enable_profiling:
 # We will write /final/output/path/name.zip, and it will contain name.nsys-rep,
 # but we do not instruct nsys to write that to /final/output/path/name.nsys-rep
 # so that more of the processing can happen on a faster, more local filesystem.
+# TODO: clean this up?
 tmp_dir = tempfile.mkdtemp()
 tmp_rep = osp.join(tmp_dir, "report.nsys-rep")
 nsys_flags += ["--output", tmp_rep]
+
+# If --nsys-jax-analysis is used, we also construct a local directory mirroring
+# the extracted archive structure. TODO: clean this up
+mirror_dir = None if len(nsys_jax_flags.analysis) == 0 else tempfile.mkdtemp()
 
 
 def override_nsys_default(arg, value):
@@ -295,7 +346,10 @@ def run_nsys_recipe(recipe, report_file, tmp_dir, output_queue):
         check=True,
     )
     for ofile in iglob(recipe + "/**", recursive=True, root_dir=tmp_dir):
-        output_queue.put((ofile, osp.join(tmp_dir, ofile), compress_none))
+        full_path = osp.join(tmp_dir, ofile)
+        if osp.isdir(full_path):
+            continue
+        output_queue.put((ofile, full_path, compress_none))
     print(f"{archive_name}: post-processing finished in {time.time()-start:.2f}s")
 
 
@@ -334,13 +388,84 @@ def run_nsys_stats_report(report, report_file, tmp_dir, output_queue, wait_on):
     print(f"{archive_name}: post-processing finished in {time.time()-start:.2f}s")
 
 
+def save_device_stream_thread_names(tmp_dir, report, output_queue, wait_on):
+    """
+    Extract extra information from the SQLite dump that is needed to map projected NVTX
+    ranges to global device IDs.
+    """
+    wait_on.result()
+    start = time.time()
+    assert report.endswith(".nsys-rep"), f"{report} had an unexpected suffix"
+    db_file = report.removesuffix(".nsys-rep") + ".sqlite"
+    con = sqlite3.connect(db_file)
+    cur = con.cursor()
+
+    def table_to_parquet(query, index, filename, columns=None, index_name=None):
+        res = cur.execute(query)
+        if columns is None:
+            columns = [x[0] for x in res.description]
+        df = pd.DataFrame(res, columns=columns).set_index(index, verify_integrity=True)
+        if index_name is not None:
+            df.index.name = index_name
+        df.to_parquet(osp.join(tmp_dir, filename))
+        output_queue.put((filename, osp.join(tmp_dir, filename), compress_none))
+
+    # Extract {(pid, tid): (name, priority)} map; PID/TID arithmetic comes from
+    # https://docs.nvidia.com/nsight-systems/UserGuide/index.html#common-sqlite-examples
+    table_to_parquet(
+        r"""
+        SELECT
+            StringIds.value AS Name,
+            ThreadNames.priority AS Priority,
+            ThreadNames.globalTid / 0x1000000 % 0x1000000 AS PID,
+            ThreadNames.globalTid % 0x1000000 AS TID
+        FROM ThreadNames
+        INNER JOIN StringIds ON ThreadNames.nameId=StringIds.id""",
+        ["PID", "TID"],
+        "thread-metadata.parquet",
+    )
+    # Extract high level metadata about the profiling session, including the hostname
+    table_to_parquet(
+        "SELECT name, nameEnum, value FROM TARGET_INFO_SYSTEM_ENV",
+        "nameEnum",
+        "system-metadata.parquet",
+    )
+    # Extract {device_id: metadata_and_name} map, making sure to pick up the name that
+    # XLA assigns via NVTX
+    TARGET_INFO_GPU_columns = [
+        ("TARGET_INFO_GPU", x[0])
+        for x in cur.execute("SELECT * FROM TARGET_INFO_GPU LIMIT 1").description
+    ]
+    TARGET_INFO_NVTX_CUDA_DEVICE_columns = [
+        ("TARGET_INFO_NVTX_CUDA_DEVICE", x[0])
+        for x in cur.execute(
+            "SELECT * FROM TARGET_INFO_NVTX_CUDA_DEVICE LIMIT 1"
+        ).description
+    ]
+    table_to_parquet(
+        """
+        SELECT * FROM TARGET_INFO_GPU
+        INNER JOIN TARGET_INFO_NVTX_CUDA_DEVICE ON TARGET_INFO_GPU.cuDevice = TARGET_INFO_NVTX_CUDA_DEVICE.deviceId""",
+        ("TARGET_INFO_GPU", "cuDevice"),
+        "device-metadata.parquet",
+        columns=pd.MultiIndex.from_tuples(
+            TARGET_INFO_GPU_columns + TARGET_INFO_NVTX_CUDA_DEVICE_columns
+        ),
+        index_name="cuDevice",
+    )
+    print(f"{archive_name}: extracted device/thread names in {time.time()-start:.2f}s")
+
+
 def copy_jax_nsys_files(input_dir, output_queue):
     """
     Gather files from `input_dir` and queue them for archival.
     """
     # Gather the files from /opt/jax_nsys that should be bundled into the archive.
     for file in iglob("**", recursive=True, root_dir=input_dir):
-        output_queue.put((file, osp.join(input_dir, file), compress_deflate))
+        full_path = osp.join(input_dir, file)
+        if osp.isdir(full_path):
+            continue
+        output_queue.put((file, full_path, compress_deflate))
 
 
 def find_pb_files_in_tmp(tmp_dir):
@@ -352,7 +477,9 @@ def find_pb_files_in_tmp(tmp_dir):
     )
 
 
-def gather_source_files(proto_dir, pb_file_prefix, pb_file_list, output_queue):
+def gather_source_files(
+    proto_dir, proto_files, pb_file_prefix, pb_file_list, output_queue
+):
     """
     Given a directory containing the required .proto files (`proto_dir`) and a
     prefix (`pb_file_prefix`) and list of relative paths to .pb files
@@ -364,19 +491,24 @@ def gather_source_files(proto_dir, pb_file_prefix, pb_file_list, output_queue):
     hlo_pb_files = [
         osp.join(pb_file_prefix, x) for x in pb_file_list if x.endswith(".hlo.pb")
     ]
-    # Delegate to another script to extract the list of source files referenced
-    # by .hlo.pb files. This pattern allows the other script to setup
-    # google.protobuf and protoc if needed to get a consistent installation.
-    p = subprocess.Popen(
-        ["nsys-jax-gather-src-files", proto_dir] + hlo_pb_files,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    stdout, stderr = p.communicate()
-    if p.returncode != 0:
-        raise Exception("Gathering source code failed: " + stderr)
-    src_files = stdout.splitlines()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # Compile the .proto files
+        subprocess.run(
+            ["protoc", f"-I={proto_dir}", f"--python_out={tmp_dir}"] + proto_files,
+            check=True,
+            cwd=proto_dir,
+        )
+        # Collect the set of referenced source files
+        sys.path.insert(0, tmp_dir)
+        from xla.service import hlo_pb2
+
+        hlo = hlo_pb2.HloProto()
+        src_files = set()
+        for hlo_pb_file in hlo_pb_files:
+            with open(hlo_pb_file, "rb") as f:
+                hlo.ParseFromString(f.read())
+            src_files |= set(hlo.hlo_module.stack_frame_index.file_names)
+        sys.path.remove(tmp_dir)
     if len(src_files) == 0:
         raise Exception("No source files were gathered")
     # Copy these files into the output archive.
@@ -386,10 +518,80 @@ def gather_source_files(proto_dir, pb_file_prefix, pb_file_list, output_queue):
     print(f"{archive_name}: gathered source code in {time.time()-start:.2f}s")
 
 
-def write_output_file(to_process, output_file):
+def execute_analysis_scripts(mirror_dir, analysis_scripts):
+    """
+    Execute any post-processing scripts passed via --nsys-jax-analysis,
+    returning a list of output files that should be added to the output
+    archive.
+    """
+    if len(analysis_scripts) == 0:
+        return [], 0
+
+    assert mirror_dir is not None
+    venv_dir = osp.join(mirror_dir, "venv")
+    virtualenv.cli_run([venv_dir, "--python", sys.executable, "--system-site-packages"])
+    subprocess.run(
+        [
+            osp.join(venv_dir, "bin", "pip"),
+            "--disable-pip-version-check",
+            "install",
+            "-e",
+            osp.join(mirror_dir, "python", "jax_nsys"),
+        ],
+        check=True,
+    )
+    output = []
+    exit_code = 0
+    used_slugs = set()
+    for analysis in analysis_scripts:
+        script, args = analysis[0], analysis[1:]
+        # If --nsys-jax-analysis is the name of a bundled analysis script, use that. Otherwise it should be a file that exists.
+        search = [
+            osp.join(
+                mirror_dir,
+                "python",
+                "jax_nsys_analysis",
+                script + ".py",
+            ),
+            script,
+        ]
+        candidates = list(filter(osp.exists, search))
+        assert len(candidates), f"Could not find analysis script, tried {search}"
+        args.append(mirror_dir)
+        analysis_command = [osp.join(venv_dir, "bin", "python"), candidates[0]] + args
+        # Derive a unique name slug from the analysis script name
+        slug = osp.basename(candidates[0]).removesuffix(".py")
+        n, suffix = 1, ""
+        while slug + suffix in used_slugs:
+            suffix = f"-{n}"
+            n += 1
+        slug += suffix
+        used_slugs.add(slug)
+        working_dir = osp.join(mirror_dir, "analysis", slug)
+        os.makedirs(working_dir, exist_ok=True)
+        print(
+            f"Running analysis script: {shlex.join(analysis_command)} in {working_dir}"
+        )
+        result = subprocess.run(
+            analysis_command,
+            cwd=working_dir,
+        )
+        if result.returncode != 0:
+            exit_code = result.returncode
+        # Gather output files of the scrpt
+        for path in iglob("**", recursive=True, root_dir=working_dir):
+            output.append(
+                (osp.join("analysis", slug, path), osp.join(working_dir, path))
+            )
+    return output, exit_code
+
+
+def write_output_file(to_process, output_file, mirror_dir, analysis_scripts):
     """
     Write the output archive (`output_file`) by consuming entries from the
-    queue until a `None` sentinel value is seen.
+    queue until a `None` sentinel value is seen. If `mirror_dir` is not None
+    then populate it with symlinks/files as necessary to create a structure
+    equivalent to the output archive.
     """
     start = time.time()
     with zipfile.ZipFile(output_file, "w") as archive:
@@ -403,14 +605,33 @@ def write_output_file(to_process, output_file):
                     assert to_process.empty()
                     break
                 path_in_archive, content, kwargs = item
+                mirror_path = None
+                if mirror_dir is not None:
+                    mirror_path = osp.join(mirror_dir, path_in_archive)
+                    os.makedirs(osp.dirname(mirror_path), exist_ok=True)
                 if isinstance(content, bytes):
                     archive.writestr(path_in_archive, content, **kwargs)
+                    if mirror_path is not None:
+                        with open(mirror_path, "wb") as mfile:
+                            mfile.write(content)
                 else:
                     archive.write(content, arcname=path_in_archive, **kwargs)
+                    if mirror_path is not None:
+                        os.symlink(content, mirror_path)
             except queue.Empty:
                 print(f"{archive_name}: output stalled ({timeout}s heartbeat)")
+        # Execute analysis scripts so their outputs can be bundled in the archive
+        # before it is closed
+        analysis_outputs, exit_code = execute_analysis_scripts(
+            mirror_dir, analysis_scripts
+        )
+        for path_in_archive, local_path in analysis_outputs:
+            archive.write(filename=local_path, arcname=path_in_archive)
     os.chmod(output_file, 0o644)
     print(f"{archive_name}: wrote in {time.time()-start:.2f}s")
+    if exit_code != 0:
+        print("Exiting due to analysis script errors")
+        sys.exit(exit_code)
 
 
 def process_pb_files(pb_future):
@@ -449,6 +670,7 @@ def process_pb_and_proto_files(pb_future, proto_future, output_queue, futures):
         executor.submit(
             gather_source_files,
             proto_dir,
+            proto_files,
             pb_file_prefix,
             pb_file_list,
             files_to_archive,
@@ -486,10 +708,19 @@ def output_thread(executor: ThreadPoolExecutor):
     try:
         # Spawn a worker to actually write the output file, consuming entries
         # in output_queue.
-        yield executor.submit(write_output_file, files_to_archive, archive_name)
+        future = executor.submit(
+            write_output_file,
+            files_to_archive,
+            archive_name,
+            mirror_dir,
+            nsys_jax_flags.analysis,
+        )
+        yield future
     finally:
         # Signal via the output queue that the worker should exit.
         files_to_archive.put(None)
+        # Make sure any errors from the output thread are surfaced
+        future.result()
 
 
 exit_code = 0
@@ -541,6 +772,16 @@ with ThreadPoolExecutor() as executor, output_thread(executor):
             "nvtx_pushpop_trace",
             tmp_rep,
             tmp_dir,
+            files_to_archive,
+            gpu_proj_future,  # for dependency purposes only
+        )
+    )
+    # Do some custom post-processing of the .sqlite export generated by gpu_proj_future
+    futures.append(
+        executor.submit(
+            save_device_stream_thread_names,
+            tmp_dir,
+            tmp_rep,
             files_to_archive,
             gpu_proj_future,  # for dependency purposes only
         )

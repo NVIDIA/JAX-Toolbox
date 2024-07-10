@@ -34,6 +34,7 @@ RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
     git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX}
+    sed 's/^numpy.*/numpy<2.0.0/' ${SRC_PATH_JAX}/build/requirements.in
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
@@ -75,7 +76,6 @@ ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_latency_hiding_scheduler=true"
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_triton_gemm=false"
 ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 ENV NCCL_NVLS_ENABLE=0
-ENV CUDA_MODULE_LOADING=EAGER
 
 COPY --from=builder ${BUILD_PATH_JAXLIB} ${BUILD_PATH_JAXLIB}
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
@@ -91,6 +91,7 @@ RUN mkdir -p /opt/pip-tools.d
 RUN <<"EOF" bash -ex
 echo "-e file://${BUILD_PATH_JAXLIB}" > /opt/pip-tools.d/requirements-jax.in
 echo "-e file://${SRC_PATH_JAX}" >> /opt/pip-tools.d/requirements-jax.in
+echo "numpy<2.0.0" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax

@@ -6,7 +6,7 @@ ARG SRC_PATH_JAX_TRITON=/opt/jax-triton
 ARG SRC_PATH_TRITON=/opt/triton
 ARG SRC_PATH_XLA=/opt/xla
 
-FROM ${BASE_IMAGE} as base
+FROM ${BASE_IMAGE} AS base
 # Triton setup.py downloads and installs CUDA binaries at specific versions
 # hardcoded in the script itself:
 # https://github.com/openxla/triton/blob/84f9d9de158fb866fac67970f0f5d323999d9db1/python/setup.py#L373-L393
@@ -23,7 +23,7 @@ RUN [ -x "${TRITON_PTXAS_PATH}" ] && [ -x "${TRITON_CUOBJDUMP_PATH}" ] && [ -x "
 ## llvm-head branch and apply XLA's extra patches to it. Also fetches the
 ## compatible LLVM sources.
 ###############################################################################
-FROM base as builder
+FROM base AS builder
 ARG SRC_PATH_JAX
 ARG SRC_PATH_XLA
 RUN <<"EOF" bash -ex
@@ -61,18 +61,15 @@ sed -i -e 's|-Werror||g' CMakeLists.txt
 sed -i -e 's|\(LLVMAMDGPU.*\)|# \1|g' CMakeLists.txt
 # Do not build tests
 sed -i -e 's|^\s*add_subdirectory(unittest)|# unit tests disabled|' CMakeLists.txt
-# Do not build the AMD GPU backend
-sed -i -e 's|BackendInstaller.copy(\["nvidia", "amd"\])|BackendInstaller.copy(["nvidia"])|g' python/setup.py
+# Avoid error due to forward declaration of Module
+sed -i -e '/#include "llvm\/IR\/IRBuilder.h"/a #include "llvm/IR/Module.h"' test/lib/Instrumentation/GPUHello.cpp
 # Google has patches that mess with include paths in source files
+sed -i -e '/include_directories(${PROJECT_SOURCE_DIR}\/third_party)/a include_directories(${PROJECT_SOURCE_DIR}/third_party/amd/include)' CMakeLists.txt
+sed -i -e '/include_directories(${PROJECT_BINARY_DIR}\/third_party)/a include_directories(${PROJECT_BINARY_DIR}/third_party/amd/include)' CMakeLists.txt
 sed -i -e '/include_directories(${PROJECT_SOURCE_DIR}\/third_party)/a include_directories(${PROJECT_SOURCE_DIR}/third_party/nvidia/include)' CMakeLists.txt
 sed -i -e '/include_directories(${PROJECT_BINARY_DIR}\/third_party)/a include_directories(${PROJECT_BINARY_DIR}/third_party/nvidia/include)' CMakeLists.txt
 # Extra patches to Triton maintained in XLA. These are already applied in the working directory.
 XLA_TRITON_PATCHES="${SRC_PATH_XLA}/third_party/triton"
-# This patch adds two files that are not known to CMake
-if [[ -f "${XLA_TRITON_PATCHES}/xla_extensions/sparse_dot.patch" ]]; then
-  sed -i -e '/ConvertLayoutOpToLLVM.cpp/a ConvertLayoutOpToLLVM/SharedToSparseDotOperand.cpp' third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeLists.txt
-  sed -i -e '/DotOpToLLVM.cpp/a DotOpToLLVM/Sparse.cpp' third_party/nvidia/lib/TritonNVIDIAGPUToLLVM/CMakeLists.txt
-fi
 # Use clang to match Google etc.
 LLVM_INCLUDE_DIRS=/opt/llvm-build/include \
   LLVM_LIBRARY_DIR=/opt/llvm-build/lib \
@@ -86,7 +83,7 @@ EOF
 ###############################################################################
 ## Copy Triton source/wheel from the builder, checkout JAX-Triton
 ###############################################################################
-FROM base as mealkit
+FROM base AS mealkit
 ARG URLREF_JAX_TRITON
 ARG SRC_PATH_JAX_TRITON
 ARG SRC_PATH_TRITON
@@ -105,6 +102,6 @@ EOF
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
-FROM mealkit as final
+FROM mealkit AS final
 
 RUN pip-finalize.sh

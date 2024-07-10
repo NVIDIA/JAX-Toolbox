@@ -1,1 +1,5 @@
+# No version constraint; a compatible version of protoc will be installed later
+protobuf
+# Used by install-protoc
+requests
 virtualenv

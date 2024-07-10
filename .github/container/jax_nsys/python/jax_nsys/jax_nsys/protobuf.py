@@ -1,5 +1,4 @@
 import functools
-import glob
 import lzma
 import pathlib
 import typing
@@ -91,28 +90,95 @@ class HloProto:
         return self._proto
 
 
+class HloProtoSet:
+    """
+    Represents a set of HloProto objects for the same program_id, returned by
+    xla_module_metadata with policy="all".
+    """
+
+    def __init__(self, protos: dict[typing.Optional[str], HloProto]):
+        assert len(protos), f"HloProtoSet got {len(protos)} HloProtos"
+        self._protos = protos
+
+    def unique_result(self, callable):
+        """
+        Apply a callable to all wrapped HloProto objects, and if the same result is
+        always returned then return that; otherwise raise an exception.
+        """
+        values = iter(self._protos.values())
+        result = callable(next(values))
+        for proto in values:
+            new_result = callable(proto)
+            if result != new_result:
+                raise Exception(
+                    f"Inconsistent results of {callable}: {result} and {new_result}"
+                )
+        return result
+
+
+@typing.overload
+def xla_module_metadata(
+    program_id: int,
+    policy: typing.Literal["consistent"],
+    prefix: pathlib.Path = pathlib.Path("."),
+) -> HloProto: ...
+
+
+@typing.overload
+def xla_module_metadata(
+    program_id: int,
+    policy: typing.Literal["all"],
+    prefix: pathlib.Path = pathlib.Path("."),
+) -> HloProtoSet: ...
+
+
 @functools.lru_cache
-def xla_module_metadata(program_id: int, prefix: pathlib.Path = pathlib.Path(".")):
+def xla_module_metadata(
+    program_id: int,
+    policy: str = "consistent",
+    prefix: pathlib.Path = pathlib.Path("."),
+) -> typing.Union[HloProto, HloProtoSet]:
+    """
+    Load the protobuf metadata for module `program_id`. If given, `prefix` is the
+    search path. `policy` governs what happens if `nsys-jax-combine` found inconsistent
+    protobuf files in different profiles:
+      consistent (default): error if the dumps from different profiles did not match
+      all: return a dict of {profile_name: protobuf} with all the values that were seen
+    """
+    assert policy in {"consistent", "all"}
     # First, find the input file. There is a lot more that can be done here,
     # but the lowest-hanging fruit is to look for a filename like:
     #   module_0016.jit_train_step.sm_8.0_gpu_after_optimizations.hlo.pb
     # where 16 is the program id
     dump_dir = prefix / "dump"
-    for candidate in glob.glob(
-        "*_gpu_after_optimizations.hlo.pb.xz", root_dir=dump_dir
-    ):
+    for candidate in dump_dir.glob("*_gpu_after_optimizations.hlo.pb.xz"):
         if program_id == int(
-            candidate.split(".", maxsplit=1)[0].split("_", maxsplit=1)[1]
+            candidate.name.split(".", maxsplit=1)[0].split("_", maxsplit=1)[1]
         ):
             break
     else:
         raise Exception(
             f"Could not find protobuf input for XlaModule {program_id} in {dump_dir}"
         )
-    from xla.service import hlo_pb2
 
-    hlo = hlo_pb2.HloProto()
-    with lzma.LZMAFile(dump_dir / candidate, "rb") as f:
-        hlo.ParseFromString(f.read())
-    assert hlo.hlo_module.id == program_id
-    return HloProto(hlo)
+    def _load(file: pathlib.Path) -> HloProto:
+        from xla.service import hlo_pb2
+
+        hlo = hlo_pb2.HloProto()
+        with lzma.LZMAFile(file, "rb") as f:
+            hlo.ParseFromString(f.read())
+        assert hlo.hlo_module.id == program_id
+        return HloProto(hlo)
+
+    if candidate.is_dir():
+        # nsys-jax-combine found different .pb.xz files from different profiles
+        if policy == "consistent":
+            raise Exception(
+                f"program_id={program_id}: multiple protobuf dumps were found but policy demands consistency"
+            )
+        assert policy == "all"
+        return HloProtoSet({file.name: _load(file) for file in candidate.iterdir()})
+    else:
+        # nsys-jax output, or nsys-jax-combine only saw consistent values
+        proto = _load(candidate)
+        return HloProtoSet({None: proto}) if policy == "all" else proto
