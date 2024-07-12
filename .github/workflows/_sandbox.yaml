@@ -13,24 +13,33 @@ jobs:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
 
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Get IP Addresses
+        id: ip
+        uses: candidob/get-runner-ip@v1.0.0
 
-      - name: Setup SSH known hosts
-        id: ssh-known-hosts
+      - name: See IP Addresses
         run: |
-          mkdir -p ~/.ssh
-          cat >> ~/.ssh/known_hosts << EOF
-          ${{ vars.SSH_KNOWN_HOSTS }}
-          EOF
-          chmod 600 ~/.ssh/known_hosts
-          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+          echo ${{ steps.ip.outputs.ipv4 }}
+          echo ${{ steps.ip.outputs.ipv6 }}
 
-      - name: Submit SLURM jobs over SSH
-        id: submit
-        shell: bash -x -e {0}
-        run: |
-          ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} "date && hostname && sinfo"
+      # - name: Setup SSH agent
+      #   uses: webfactory/ssh-agent@v0.9.0
+      #   with:
+      #     ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # - name: Setup SSH known hosts
+      #   id: ssh-known-hosts
+      #   run: |
+      #     mkdir -p ~/.ssh
+      #     cat >> ~/.ssh/known_hosts << EOF
+      #     ${{ vars.SSH_KNOWN_HOSTS }}
+      #     EOF
+      #     chmod 600 ~/.ssh/known_hosts
+      #     echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      # - name: Submit SLURM jobs over SSH
+      #   id: submit
+      #   shell: bash -x -e {0}
+      #   run: |
+      #     ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} "date && hostname && sinfo"
 

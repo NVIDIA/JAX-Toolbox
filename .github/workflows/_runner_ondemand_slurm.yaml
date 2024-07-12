@@ -18,14 +18,104 @@ on:
         required: true
 
 jobs:
+
   launch-slurm-runner:
     runs-on: ubuntu-latest
     steps:
-      - name: Get IP Addresses
-        id: ip
-        uses: candidob/get-runner-ip@v1.0.0
+      - name: Print environment variables
+        run: env
 
-      - name: See IP Addresses
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts
+        id: ssh-known-hosts
         run: |
-          echo ${{ steps.ip.outputs.ipv4 }}
-          echo ${{ steps.ip.outputs.ipv6 }}
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/known_hosts << EOF
+          ${{ vars.SSH_KNOWN_HOSTS }}
+          EOF
+          chmod 600 ~/.ssh/known_hosts
+          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+
+      - name: Labels and metadata
+        id: meta
+        shell: bash -x -e {0}
+        run: |
+          JOB_NAME=${{ inputs.NAME }}-$(printf "%012x" $(((RANDOM<<32)+(RANDOM<<16)+RANDOM)))
+          LOG_FILE=/nfs/cluster/${JOB_NAME}.log
+          for var in JOB_NAME LOG_FILE; do
+            echo "$var=${!var}" >> $GITHUB_OUTPUT
+          done
+
+      - name: Submit SLURM jobs over SSH
+        id: submit
+        shell: bash -x -e {0}
+        run: |
+          SLURM_JOB_ID_FILE=$(mktemp)
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} >${SLURM_JOB_ID_FILE} \
+            sbatch --parsable \
+          <<"EOF"
+          #!/bin/bash
+          #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+          #SBATCH --exclusive
+          #SBATCH --nodes=1
+          #SBATCH --ntasks=1
+          #SBATCH --gpus-per-node=8
+          #SBATCH --time="${{ inputs.TIME }}"
+          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+
+          date
+          echo "${SLURM_CPUS_ON_NODE} CPUs available"
+          echo "GPUs:"
+          nvidia-smi -L
+
+          # obtain runner registration token
+          RUNNER_TOKEN=$(
+            curl \
+              -L \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.RUNNER_REGISTRATION_AUTH_TOKEN }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/${{ github.repository }}/actions/runners/registration-token |\
+            jq -r '.token'
+          )
+
+          # launch runner
+          time docker run \
+            --network host \
+            --gpus all \
+            --privileged \
+            -v /runner \
+            -e RUNNER_NAME="${{ steps.meta.outputs.JOB_NAME }}" \
+            -e RUNNER_LABELS="${{ inputs.LABELS }}" \
+            -e RUNNER_REPO="${{ github.repository }}" \
+            -e RUNNER_TOKEN="${RUNNER_TOKEN}" \
+            -e RUNNER_EPHEMERAL=true \
+            -e DOCKER_ENABLED=true \
+            -e DOCKERD_IN_RUNNER=true \
+            ghcr.io/yhtang/actions-runner-dind:ubuntu-22.04  # use personal repo for the time being to avoid auth/cost issues
+          EOF
+
+          echo "SLURM_JOB_ID=$(cat ${SLURM_JOB_ID_FILE})" >> $GITHUB_OUTPUT
+
+      - name: Wait for SLURM job to complete
+        shell: bash -x -e {0}
+        run: |
+          . .github/workflows/scripts/wait_for_slurm_job.sh
+          wait_for_slurm_job \
+            ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            ${{ steps.submit.outputs.SLURM_JOB_ID }}
+
+      - name: Remove orphaned SLURM job if the CI job is canceled
+        if: cancelled()
+        shell: bash -x -e {0}
+        run: |
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
