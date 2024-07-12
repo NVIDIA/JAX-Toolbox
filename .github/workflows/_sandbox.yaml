@@ -4,26 +4,6 @@ on:
   workflow_dispatch:
 
 jobs:
-name: ~create an on-demand, ephemeral runner out of a SLURM job
-
-on:
-  workflow_call:
-    inputs:
-      NAME:
-        type: string
-        description: 'Name of the runner'
-        required: true
-      LABELS:
-        type: string
-        description: 'comma-separated list of runner labels'
-        required: true
-      TIME:
-        type: string
-        description: 'SLURM time limit'
-        default: '01:00:00'
-        required: true
-
-jobs:
   launch-slurm-runner:
     runs-on: ubuntu-latest
     steps:
