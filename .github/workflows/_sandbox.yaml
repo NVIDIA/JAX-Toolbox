@@ -32,6 +32,6 @@ jobs:
         id: submit
         shell: bash -x -e {0}
         run: |
-          SLURM_JOB_ID_FILE=$(mktemp)
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}
+          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          sshx "date && hostname && sinfo"
 
