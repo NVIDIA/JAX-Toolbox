@@ -88,7 +88,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          alias sshx='ssh -p 3000 -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
@@ -149,17 +149,17 @@ jobs:
         if: cancelled()
         shell: bash -x -e {0}
         run: |
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+          ssh -p 3000 ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
             scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
           mkdir output/
-          rsync -rtz --progress \
+          rsync -rtz --progress 'ssh -p 3000'  \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress \
+          rsync -rtz --progress 'ssh -p 3000'  \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
@@ -240,7 +240,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          alias sshx='ssh -p 3000 -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
@@ -304,17 +304,17 @@ jobs:
         if: cancelled()
         shell: bash -x -e {0}
         run: |
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+          ssh -p 3000 ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
             scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
           mkdir output/
-          rsync -rtz --progress \
+          rsync -rtz --progress 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress \
+          rsync -rtz --progress 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
