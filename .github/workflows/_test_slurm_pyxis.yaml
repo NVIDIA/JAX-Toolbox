@@ -123,7 +123,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias SSH='ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}'
+          alias SSH='ssh -p 3000 ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}'
           SSH mkdir -p ${{ steps.meta.outputs.OUTPUT_PATH }}
           SLURM_JOB_ID=$(SSH sbatch --parsable <<"EOF"
           #!/bin/bash
@@ -179,7 +179,7 @@ jobs:
         shell: bash -exu -o pipefail {0}
         run: |
           JOB_INFO=$(
-            ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
+            ssh -p 3000 ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
             sacct -j ${{ steps.submit.outputs.SLURM_JOB_ID }} --format=JobID,JobName,State,Exitcode --parsable2 --noheader |\
             grep -E '^[0-9]+\|'
           )
@@ -196,7 +196,7 @@ jobs:
           echo "******************** TAIL OF SLURM LOG BEG ********************"
           echo "***************************************************************"
           echo "***************************************************************"
-          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} tail -n 200 ${{ steps.meta.outputs.LOG_FILE }}
+          ssh -p 3000 ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} tail -n 200 ${{ steps.meta.outputs.LOG_FILE }}
           echo "***************************************************************"
           echo "***************************************************************"
           echo "******************** TAIL OF SLURM LOG END ********************"
@@ -212,7 +212,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           function rsync-down() {
-            rsync -rtz --progress ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}:$1 $2
+            rsync -rtz --progress 'ssh -p 3000' ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}:$1 $2
           }
           mkdir -p artifacts/
           rsync-down ${{ steps.meta.outputs.LOG_FILE }} artifacts/
@@ -243,5 +243,5 @@ jobs:
         if: always() && steps.exit-info.outputs.SLURM_EXITCODE != 0
         shell: bash -x -e {0}
         run: |
-          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
+          ssh -p 3000 ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
             scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
