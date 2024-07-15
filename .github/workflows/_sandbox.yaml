@@ -4,56 +4,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  launch-slurm-runner:
-    runs-on: ubuntu-latest
-    env:
-      OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
-      OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
-      OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
-      OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
-      OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
-
+  sandbox:
+    runs-on: ubuntu-22.04
     steps:
-      - name: Print environment variables
-        run: env
-
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
-
-      - name: Get IP Addresses
-        id: ip
-        run: |
-          IP_ADRESS=$(curl api.ipify.org)
-          echo "RUNNER_IP_ADDRESS=${IP_ADRESS}" >> $GITHUB_OUTPUT
-
-      - name: See IP Address
-        run: |
-          echo ${{ steps.ip.outputs.RUNNER_IP_ADDRESS }}
-
-      - name: Retrieve the OCID of a named compartment in tenancy
-        uses: oracle-actions/run-oci-cli-command@v1.3.0
-        id: find-compartment-id
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          command: 'iam compartment list --compartment-id-in-subtree=true'
-          query: "data[?name=='testing'].id"
-      # - name: Setup SSH agent
-      #   uses: webfactory/ssh-agent@v0.9.0
-      #   with:
-      #     ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Setup SSH known hosts
-      #   id: ssh-known-hosts
-      #   run: |
-      #     mkdir -p ~/.ssh
-      #     cat >> ~/.ssh/known_hosts << EOF
-      #     ${{ vars.SSH_KNOWN_HOSTS }}
-      #     EOF
-      #     chmod 600 ~/.ssh/known_hosts
-      #     echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+      - name: Print usage
+        run: |
+          cat << EOF
+          This is an empty workflow file located in the main branch of your
+          repository. It serves as a testing ground for new GitHub Actions on
+          development branches before merging them to the main branch. By
+          defining and overloading this workflow on your development branch,
+          you can test new actions without affecting your main branch, ensuring
+          a smooth integration process once the changes are ready to be merged.
 
-      # - name: Submit SLURM jobs over SSH
-      #   id: submit
-      #   shell: bash -x -e {0}
-      #   run: |
-      #     ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} "date && hostname && sinfo"
-
+          Usage:
+          
+          1. In your development branch, modify the sandbox.yml workflow file
+             to include the new actions you want to test. Make sure to commit
+             the changes to the development branch.
+          2. Navigate to the 'Actions' tab in your repository, select the
+             '~Sandbox' workflow, and choose your development branch from the
+             branch dropdown menu. Click on 'Run workflow' to trigger the
+             workflow on your development branch.
+          3. Once you have tested and verified the new actions in the Sandbox
+             workflow, you can incorporate them into your main workflow(s) and
+             merge the development branch into the main branch. Remember to
+             revert the changes to the sandbox.yml file in the main branch to
+             keep it empty for future testing.
+          EOF
