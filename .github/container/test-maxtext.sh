@@ -217,3 +217,15 @@ echo "Command: python3 $RUN_SETTINGS"
 python3 $RUN_SETTINGS
 
 echo "Output at ${OUTPUT}"
+
+# fetch HLO file for XLA perf benchmarking
+mkdir -p $XLA_PERF_HLO
+file=$(find "$HLO_DIR" -type f -name '*_pjit__wrapped_step_fn.before_optimization.txt')
+if [ -n "$file" ]; then
+  # Copy the file to the xla hlo directory
+  cp "$file" "$XLA_PERF_HLO"
+  # Also dump the XLA_FLAGS
+  echo $XLA_FLAG > $XLA_PERF_HLO/xla_flags.txt
+fi
+
+
