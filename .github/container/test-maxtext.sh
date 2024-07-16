@@ -23,6 +23,7 @@ usage() {
     echo "  -s, --steps                Number of steps to run, defaults to 500."
     echo "  --multiprocess             Enable the multiprocess GPU mode."
     echo "  -o, --output NAME          Name for the output folder, a temporary folder will be created if none specified."
+    echo "  --save-hlo {0, 1}          1 to save the dumped hlo, 0 to remove the hlo dumped folder"
     echo "  --data-parallel            Data parallelism to use. Defaults to 1."
     echo "  --fsdp                     Fully-sharded data parallelism to use. Defaults to 1."
     echo "  --tensor-parallel          Tensor parallelism to use. Defaults to 1."
@@ -32,7 +33,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,mem-fraction:,decoder-block:,attn-type:,remat-policy:,batch-per-gpu:,dtype:,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,mem-fraction:,decoder-block:,attn-type:,remat-policy:,batch-per-gpu:,dtype:,steps:,help,multiprocess,output:,save-hlo:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -55,6 +56,7 @@ PP=1
 NODES=1
 ENABLE_FUSED_ATTN=0
 ADDITIONAL_ARGS=""
+SAVE_HLO=${SAVE_HLO:-0}
 
 eval set -- "$args"
 while [ : ]; do
@@ -103,6 +105,10 @@ while [ : ]; do
         OUTPUT=$2
         shift 2
         ;;
+    --save-hlo)
+        SAVE_HLO="$2"
+        shift 2
+        ;;
     --data-parallel)
         DP="$2"
         shift 2
@@ -136,6 +142,13 @@ while [ : ]; do
         ;;
     esac
 done
+
+# Set hlo dump folder after output folder is set.
+HLO_DIR=${OUTPUT}/hlo
+XLA_PERF_HLO=${OUTPUT}/xla_perf_hlo
+export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_dump_hlo_as_text --xla_dump_to=${HLO_DIR}}"
+export XLA_FLAGS="${BASE_XLA_FLAGS} ${XLA_FLAGS:-}"
+echo "HLO will be dumped in ${HLO_DIR} dir."
 
 # # Set derived variables
 
@@ -228,4 +241,8 @@ if [ -n "$file" ]; then
   echo $XLA_FLAG > $XLA_PERF_HLO/xla_flags.txt
 fi
 
+if [[ $SAVE_HLO -eq 0 ]]; then
+    rm -rf $HLO_DIR
+    echo "Removed dumped HLO directory!"
+fi
 
