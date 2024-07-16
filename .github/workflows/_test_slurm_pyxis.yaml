@@ -212,7 +212,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           function rsync-down() {
-            rsync -rtz --progress 'ssh -p 3000' ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}:$1 $2
+            rsync -rtz --progress -e 'ssh -p 3000' ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}:$1 $2
           }
           mkdir -p artifacts/
           rsync-down ${{ steps.meta.outputs.LOG_FILE }} artifacts/

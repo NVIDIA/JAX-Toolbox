@@ -154,10 +154,10 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           mkdir output/
-          rsync -rtz --progress 'ssh -p 3000' \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress 'ssh -p 3000' \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
@@ -380,10 +380,10 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           mkdir output/
-          rsync -rtz --progress 'ssh -p 3000' \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress 'ssh -p 3000' \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
@@ -575,10 +575,10 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           mkdir output/
-          rsync -rtz --progress 'ssh -p 3000' \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress 'ssh -p 3000' \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
@@ -770,10 +770,10 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           mkdir output/
-          rsync -rtz --progress 'ssh -p 3000' \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress 'ssh -p 3000' \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
@@ -960,10 +960,10 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           mkdir output/
-          rsync -rtz --progress 'ssh -p 3000' \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress 'ssh -p 3000' \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
