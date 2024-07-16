@@ -119,6 +119,7 @@ fi
 
 # Set hlo dump folder after output folder is set.
 HLO_DIR=${OUTPUT}/hlo
+XLA_PERF_HLO=${OUTPUT}/xla_perf_hlo
 export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_dump_hlo_as_text --xla_dump_to=${HLO_DIR}}"
 export XLA_FLAGS="${BASE_XLA_FLAGS} ${XLA_FLAGS:-}"
 echo "HLO will be dumped in ${HLO_DIR} dir."
@@ -235,15 +236,20 @@ ENABLE_TE=$ENABLE_TE python -m t5x.train \
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 echo "Output at ${OUTPUT}"
 
+# fetch HLO file for XLA perf benchmarking
+mkdir -p $XLA_PERF_HLO
+file=$(find "$HLO_DIR" -type f -name '*_pjit__wrapped_step_fn.before_optimization.txt')
+if [ -n "$file" ]; then
+  # Copy the file to the xla hlo directory
+  cp "$file" "$XLA_PERF_HLO"
+  # Also dump the XLA_FLAGS
+  echo $XLA_FLAG > $XLA_PERF_HLO/xla_flags.txt
+fi
+
 if [[ "$ENABLE_FMHA" -eq "1" ]]; then 
     ## Check if fmha instructions are present in the HLO dumped file or not.
     fmha_regex="fmha[-bmm]?[-scale]?[-bias]?[-mask]?[-softmax]?[-dropout]?[-bmm]?[-backward]?*"
     result=$(grep -irlnE "$fmha_regex" "${HLO_DIR}/"*.txt)
-
-    if [[ $SAVE_HLO -eq 0 ]]; then
-        rm -rf $HLO_DIR
-        echo "Removed dumped HLO directory!"
-    fi
 
     if [ -z "$result" ]; then
         echo "E: No FMHA instructions were found in the hlo files!"
@@ -251,9 +257,9 @@ if [[ "$ENABLE_FMHA" -eq "1" ]]; then
     else
         echo -e "Found FMHA instructions in the following HLO files: \n $result"
     fi
-else
-    if [[ $SAVE_HLO -eq 0 ]]; then
-        rm -rf $HLO_DIR
- 	echo "Removed dumped HLO directory!"
-    fi
+fi
+
+if [[ $SAVE_HLO -eq 0 ]]; then
+    rm -rf $HLO_DIR
+    echo "Removed dumped HLO directory!"
 fi
