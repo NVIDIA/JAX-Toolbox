@@ -57,6 +57,10 @@ RUN <<"EOF" bash -ex
 # 1. Fetch T5X
 git-clone.sh "${URLREF_T5X}" "${SRC_PATH_T5X}"
 echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
+# This is required because pip can sometimes try to pull every version of seqio-nightly during
+# resolution which leads to a ResolutionTooDeep error. The latest nightlies appear to work
+# so setting the lower-bound to something recent
+echo "seqio-nightly>=0.0.18.dev20240714" >> /opt/pip-tools.d/requirements-t5x.in
 
 # 2. Remove head-of-tree specs from select dependencies
 pushd ${SRC_PATH_T5X}
