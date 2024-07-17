@@ -17,20 +17,20 @@ jobs:
       - name: Print environment variables
         run: env
 
-      - name: Retrieve the OCID of a named compartment in tenancy
-        uses: oracle-actions/run-oci-cli-command@v1.3.0
-        id: find-compartment-id
-        with:
-          command: 'iam compartment list --compartment-id-in-subtree=true'
-          query: "data[?name=='testing'].id"
+      # - name: Retrieve the OCID of a named compartment in tenancy
+      #   uses: oracle-actions/run-oci-cli-command@v1.3.0
+      #   id: find-compartment-id
+      #   with:
+      #     command: 'iam compartment list --compartment-id-in-subtree=true'
+      #     query: "data[?name=='jax'].id"
 
-      - name: Retrieve the display name and shape of the instances in my compartment
-        uses: oracle-actions/run-oci-cli-command@v1.3.0
-        id: find-instances
-        with:
-          command: 'compute instance list --compartment-id ${{ steps.find-compartment-id.outputs.raw_output }}'
-          query: 'data[*].{name: \"display-name\", shape: shape}'
+      # - name: Retrieve the display name and shape of the instances in my compartment
+      #   uses: oracle-actions/run-oci-cli-command@v1.3.0
+      #   id: find-instances
+      #   with:
+      #     command: 'compute instance list --compartment-id ${{ steps.find-compartment-id.outputs.raw_output }}'
+      #     query: 'data[*].{name: \"display-name\", shape: shape}'
 
-      - name: List the display name and shape of the instances in my compartment
-        run: |
-          echo ${{ steps.find-instances.outputs.output }} | jq .
+      # - name: List the display name and shape of the instances in my compartment
+      #   run: |
+      #     echo ${{ steps.find-instances.outputs.output }} | jq .
