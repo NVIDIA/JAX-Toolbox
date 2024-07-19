@@ -57,7 +57,7 @@ class HloInstruction:
                         other_opcodes[called_inst.opcode] += 1
             assert (
                 other_opcodes.keys() == {"parameter"}
-            ), f"async-start op {self._proto.name} wrapped too many opcode types ({dict(other_opcodes)}) in addition to {comm_inst}"
+            ), f"async-start op {self._proto.name} wrapped too many opcode types ({dict(other_opcodes)}) in addition to {self._comm_proto}"
 
     def communication_proto(self):
         return self._comm_proto
@@ -199,7 +199,7 @@ def xla_module_metadata(
 ) -> HloProtoSet: ...
 
 
-@functools.lru_cache
+@functools.cache
 def xla_module_metadata(
     program_id: int,
     policy: str = "consistent",

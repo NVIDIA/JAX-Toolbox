@@ -183,7 +183,7 @@ def _get_message_size(
         # devices that are doing pair-wise collectives
         try:
             replica_groups = comm_inst.collective_device_list.replica_groups
-        except:
+        except AttributeError:
             replica_groups = comm_inst.replica_groups
         collective_sizes = set(len(group.replica_ids) for group in replica_groups)
         assert (
@@ -211,7 +211,7 @@ def _get_message_size(
     return (total_msg_size, collective, collective_size, bw_correction, bus_correction)
 
 
-@functools.lru_cache
+@functools.cache
 def get_message_size(
     program_id: int, instruction: str, prefix: pathlib.Path
 ) -> pd.Series:
