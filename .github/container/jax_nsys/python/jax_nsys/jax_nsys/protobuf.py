@@ -102,7 +102,7 @@ class HloProto:
     def find_computation(self, id: int):
         return self._computations[id]
 
-    def find_instruction(self, name: str) -> HloInstruction:
+    def find_instruction(self, name: str) -> tuple[typing.Any, HloInstruction]:
         """
         Look up an HLO instruction and its associated computation by name in
         the wrapped HloModule.
@@ -111,7 +111,7 @@ class HloProto:
         """
         return self._instructions[name]
 
-    def find_instruction_by_id(self, id: int) -> HloInstruction:
+    def find_instruction_by_id(self, id: int) -> tuple[typing.Any, HloInstruction]:
         """
         Look up an HLO instruction and its associated computation by id in
         the wrapped HloModule.

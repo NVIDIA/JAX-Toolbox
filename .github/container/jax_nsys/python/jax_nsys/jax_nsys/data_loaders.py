@@ -362,6 +362,12 @@ def _load_nvtx_gpu_proj_trace_single(
     return output
 
 
+def _enough_processes(work_items: int) -> int:
+    if cpu_count := os.cpu_count() is None:
+        return work_items
+    return min(work_items, cpu_count)
+
+
 def _load_nvtx_gpu_proj_trace(
     prefix: pathlib.Path,
     frames: set[str],
@@ -380,7 +386,7 @@ def _load_nvtx_gpu_proj_trace(
         meta_filenames = [meta_path]
 
     tmp = defaultdict(list)
-    with multiprocessing.Pool(processes=min(os.cpu_count(), len(filenames))) as pool:
+    with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
         for single_trace in pool.starmap(
             _load_nvtx_gpu_proj_trace_single,
             zip(
@@ -582,7 +588,7 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
         filenames = [path]
         keys = [prefix.name]
 
-    with multiprocessing.Pool(processes=min(os.cpu_count(), len(filenames))) as pool:
+    with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
         return pd.concat(
             pool.map(_load_nvtx_pushpop_trace_single, filenames),
             keys=keys,
