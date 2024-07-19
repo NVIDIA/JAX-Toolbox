@@ -363,7 +363,7 @@ def _load_nvtx_gpu_proj_trace_single(
 
 
 def _enough_processes(work_items: int) -> int:
-    if cpu_count := os.cpu_count() is None:
+    if (cpu_count := os.cpu_count()) is None:
         return work_items
     return min(work_items, cpu_count)
 
