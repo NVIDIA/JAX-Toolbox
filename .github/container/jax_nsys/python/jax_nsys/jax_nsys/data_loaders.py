@@ -416,21 +416,26 @@ def _splice_parallel_ranges(compile_df: pd.DataFrame) -> pd.DataFrame:
             & (compile_df["EndMs"] <= compile_range.EndMs)
         ]
         # Ranges underneath `compile_range` in the main thread
-        compile_child_mask = make_child_mask(slice_df, compile_range.Index)
+        compile_main_thread_child_mask = make_child_mask(slice_df, compile_range.Index)
+        assert (
+            slice_df.loc[compile_main_thread_child_mask, "TID"] == compile_range.TID
+        ).all()
         # Top-level ranges in possible worker threads under this XlaCompile range
         worker_mask = slice_df["ParentId"].isna() & (
             slice_df["TID"] != compile_range.TID
         )
-        assert (compile_child_mask & worker_mask).sum() == 0
+        assert (compile_main_thread_child_mask & worker_mask).sum() == 0
+        compile_child_mask = compile_main_thread_child_mask.copy()
         for worker_range in slice_df[worker_mask].itertuples():
             assert worker_range.Name.startswith("TSL:Xla")
             # Find the deepest still-open range in the main thread
             mask = (
-                compile_child_mask
+                compile_main_thread_child_mask
                 & (slice_df["StartMs"] < worker_range.StartMs)
                 & (slice_df["EndMs"] > worker_range.EndMs)
             )
             new_parent_index = mask[mask].index[-1]
+            assert (compile_df.loc[mask[mask].index, "TID"] == compile_range.TID).all()
             # Graft this worker/child range and its children into compile_df as
             # children of `new_parent_index`
             compile_df.loc[worker_range.Index, "ParentId"] = new_parent_index
@@ -472,13 +477,11 @@ def _add_program_id_and_name(compile_df: pd.DataFrame) -> pd.DataFrame:
     compile_df.loc[backend_mask, "ProgramName"] = compile_df.loc[
         backend_mask, "Name"
     ].str.replace(backend_re, r"\1", regex=True)
-    # Propagate ProgramId and ProgramName up from XlaCompileBackend to XlaCompile
+    # Propagate ProgramId and ProgramName up from XlaCompileBackend to XlaCompile; some
+    # XlaCompileBackend ranges are nested under XlaAutotunerCompilation
     backends_with_parents = backend_mask & ~compile_df["ParentId"].isna()
     backend_parent_ids = (
         compile_df.loc[backends_with_parents, "ParentId"].astype(np.int32).array
-    )
-    assert (
-        compile_df.loc[backend_parent_ids, "Name"].str.startswith(compile_prefix).all()
     )
     compile_df.loc[backend_parent_ids, "ProgramId"] = compile_df.loc[
         backends_with_parents, "ProgramId"
