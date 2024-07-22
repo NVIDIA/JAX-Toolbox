@@ -37,7 +37,7 @@ You will need to acquire the LLM checkpoint for T5 (for multimodal training) fro
 **Note**: this should only be done with singlenode jobs
 
 ```bash
-CONTAINER=ghcr.io/nvidia/t5x:imagen-2023-10-02
+CONTAINER=ghcr.io/nvidia/t5x:imagen-2023-10-02.v2
 docker run --rm --gpus=all -it --net=host --ipc=host -v ${PWD}:/opt/rosetta -v ${DATASET_PATH}:/mnt/datasets --privileged $CONTAINER bash
 ```
 
