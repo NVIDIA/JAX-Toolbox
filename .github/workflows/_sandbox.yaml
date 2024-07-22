@@ -2,40 +2,182 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
+    inputs:
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
+        required: false
+      BUMP_MANIFEST:
+        type: boolean
+        description: Bump git repos in manifest.yaml to head of tree?
+        default: true
+        required: true
+      MERGE_BUMPED_MANIFEST:
+        type: boolean
+        description: "(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch"
+        default: false
+        required: false
+      SOURCE_OVERRIDES:
+        type: string
+        description: |
+          A comma-separated PACKAGE=URL#REF list to override sources used by build.
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,paxml,praxis,maxtext,levanter,haliax,grok,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
+        default: ''
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: write       # to fetch code and push branch
+  actions:  write       # to cancel previous workflows
+  packages: write       # to upload container
+  pull-requests: write  # to make pull request for manifest bump
+
+env:
+  DEFAULT_MANIFEST_ARTIFACT_NAME: bumped-manifest
 
 jobs:
-  sandbox:
+
+  metadata:
     runs-on: ubuntu-22.04
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+      BUMP_MANIFEST: ${{ steps.manifest-branch.outputs.BUMP_MANIFEST }}
+      MANIFEST_ARTIFACT_NAME: ${{ steps.manifest-branch.outputs.MANIFEST_ARTIFACT_NAME }}
+      MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
+      MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print usage
+      - name: Cancel workflow run if the trigger is a draft PR
+        id: cancel-if-draft
+        if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
         run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
+          echo "Cancelling workflow for draft PR"
+          curl -X POST -H "Authorization: token ${{ github.token }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          while true; do sleep 1; done  # blocks execution in case workflow cancellation takes time
 
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
+
+      - name: Set manifest branch name
+        id: manifest-branch
+        shell: bash -x -e {0}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            BUMP_MANIFEST="${{ inputs.BUMP_MANIFEST }}"
+          else
+            BUMP_MANIFEST="true"
+          fi
+          MERGE_BUMPED_MANIFEST=${{ github.event_name == 'schedule' || inputs.MERGE_BUMPED_MANIFEST || 'false' }}
+          # Prepend nightly manifest branch with "z" to make it appear at the end
+          if [[ "$BUMP_MANIFEST" == "true" ]]; then
+            # This branch is for scheduled nightlies or manually run nightlies
+            MANIFEST_BRANCH=znightly-${{ steps.date.outputs.BUILD_DATE }}-${{ github.run_id }}
+            MANIFEST_ARTIFACT_NAME=${{ env.DEFAULT_MANIFEST_ARTIFACT_NAME }}
+          else
+            # This branch is for presubmits (no bumping needed)
+            MANIFEST_BRANCH=${{ github.sha }}
+            # Empty artifact name means to use the one in version control
+            MANIFEST_ARTIFACT_NAME=""
+          fi
+          echo "MANIFEST_BRANCH=$MANIFEST_BRANCH" | tee -a $GITHUB_OUTPUT
+          echo "MANIFEST_ARTIFACT_NAME=$MANIFEST_ARTIFACT_NAME" | tee -a $GITHUB_OUTPUT
+          echo "BUMP_MANIFEST=$BUMP_MANIFEST" | tee -a $GITHUB_OUTPUT
+          echo "MERGE_BUMBED_MANIFEST=$MERGE_BUMPED_MANIFEST" | tee -a $GITHUB_OUTPUT
+          if [[ "$BUMP_MANIFEST" == "false" && "$MERGE_BUMPED_MANIFEST" == "true" ]]; then
+            echo "Error: If BUMP_MANIFEST=false, MERGE_BUMPED_MANIFEST cannot be true" >&2
+            exit 1
+          fi
+      
+  bump-manifest:
+    needs: metadata
+    runs-on: ubuntu-22.04
+    outputs:
+      SOURCE_URLREFS: ${{ steps.source-urlrefs.outputs.SOURCE_URLREFS }}
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Test if manifest bump is functional, and save result to a new file
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          bash bump.sh --input-manifest manifest.yaml --output-manifest manifest.yaml.new --base-patch-dir ./patches-new
+      
+      - name: Maybe replace current manifest/patches with the new one and show diff
+        working-directory: .github/container
+        shell: bash -x -e {0}
+        run: |
+          if [[ "${{ needs.metadata.outputs.BUMP_MANIFEST }}" == "true" ]]; then
+            mv manifest.yaml.new manifest.yaml
+            rm -rf patches
+            mv patches-new patches
+          else
+            rm -rf patches-new manifest.yaml.new
+          fi
+          sed -i 's|file://patches-new/|file://patches/|g' manifest.yaml
+          git diff
+
+      - name: Upload bumped manifest/patches to be used in build-base
+        if: needs.metadata.outputs.MANIFEST_ARTIFACT_NAME != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+          path: |
+            .github/container/manifest.yaml
+            .github/container/patches
+
+      - name: Create URL ref build args
+        id: source-urlrefs
+        shell: bash -x -e {0}
+        run: |
+          # converts manifest yaml to a json object of {SOFTWARE_NAME: URL#REF, ...}
+          urlrefs=$(
+            cat .github/container/manifest.yaml |\
+            yq -o=json 'to_entries | .[] | select(.value.mode == "git-clone") | {( .key | upcase | sub("-", "_") ): .value.url + "#" + .value.latest_verified_commit}' |\
+            jq -c -s 'add'
+          )
+          # SOURCE_OVERRIDES is a comma-separated list of package=urlref pairs
+          IFS=, read -ra overrides <<< "${{ inputs.SOURCE_OVERRIDES }}"
+          for override in "${overrides[@]}"; do
+            PACKAGE=$(cut -d= -f 1 <<< "${override}" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+            URLREF=$(cut -d= -f 2- <<< "${override}")
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
+          done
+          echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
+
+  amd64:
+    needs: [metadata, bump-manifest]
+    uses: ./.github/workflows/_ci.yaml
+    with:
+      ARCHITECTURE: amd64
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
+      SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
+    secrets: inherit
+
+
+  finalize:
+    needs: [metadata, amd64]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit
+  
