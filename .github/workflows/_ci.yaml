@@ -76,61 +76,6 @@ jobs:
         URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
     secrets: inherit
 
-  collect-docker-tags:
-    runs-on: ubuntu-22.04
-    if: "!cancelled()"
-    needs:
-      - build-base
-      - build-jax
-      - build-triton
-      - build-equinox
-      - build-maxtext
-      - build-levanter
-      - build-upstream-t5x
-      - build-upstream-pax
-      - build-rosetta-t5x
-      - build-rosetta-pax
-      - build-grok
-      - build-gemma
-    outputs:
-      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
-    steps:
-      - name: Save docker tags as a JSON object
-        id: collect-tags
-        run: |
-          TAGS=$(cat <<EOF | jq -c
-          [\
-            {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
-            {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "triton",       "stage": "final",   "priority": 900,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "levanter",     "stage": "final",   "priority": 900,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "upstream-pax", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "t5x",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "pax",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "grok",         "stage": "final",   "priority": 900,  "tag": "${{ needs.build-grok.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "gemma",        "stage": "final",   "priority": 900,  "tag": "${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "triton",       "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "levanter",     "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "upstream-pax", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-pax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "t5x",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "pax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "grok",         "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-grok.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "gemma",        "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-gemma.outputs.DOCKER_TAG_MEALKIT }}"},\
-
-            {}\
-          ]
-          EOF
-          )
-
-          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
-
   test-distribution:
     runs-on: ubuntu-22.04
     strategy:
