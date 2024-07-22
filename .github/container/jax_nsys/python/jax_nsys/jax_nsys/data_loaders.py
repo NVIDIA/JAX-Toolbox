@@ -1,6 +1,10 @@
 from collections import defaultdict
+import functools
+import itertools
 import lzma
+import multiprocessing
 import numpy as np
+import os
 import pandas as pd  # type: ignore
 import pathlib
 import re
@@ -10,6 +14,71 @@ from .protobuf import xla_module_metadata
 from .utils import make_child_mask, ProfilerData
 
 pd.options.mode.copy_on_write = True
+
+
+@functools.cache
+def _is_communication(
+    program_id: int, prefix: pathlib.Path, instruction_name: str
+) -> bool:
+    if program_id == -1:
+        # Assume this is an autotuning execution.
+        return False
+    try:
+        # this will be a dict of {profile_name | None: proto} to cover the case
+        # that we had different protos from different profiles
+        protos = xla_module_metadata(program_id, prefix=prefix, policy="all")
+        return protos.unique_result(
+            lambda proto: proto.find_instruction(instruction_name)[1].is_communication()
+        )
+    except:
+        print(f"Failed to get metadata for {instruction_name} in program #{program_id}")
+        raise
+
+
+def _calculate_overlap(thunk_df: pd.DataFrame) -> pd.DataFrame:
+    thunk_df["ProjDurHiddenMs"] = 0.0
+    # For convenience when calculating unhidden comms
+    thunk_df["ProjEndMs"] = thunk_df["ProjStartMs"] + thunk_df["ProjDurMs"]
+    for (program_id, device), module_exec_df in thunk_df.groupby(
+        ["ProgramId", "Device"]
+    ):
+        # If *everything* is serialised, communication *and* computation, there's no
+        # work to be done
+        serial_mask = (
+            module_exec_df["ProjStartMs"].array[1:]
+            >= module_exec_df["ProjEndMs"].array[:-1]
+        )
+        if serial_mask.all():
+            continue
+        # At least expect all computation to be serialized
+        comm_df = module_exec_df[module_exec_df["Communication"]]
+        compute_df = module_exec_df[~module_exec_df["Communication"]]
+        serial_mask = (
+            compute_df["ProjStartMs"].array[1:] >= compute_df["ProjEndMs"].array[:-1]
+        )
+        assert serial_mask.all(), f"Only {serial_mask.sum()}/{len(serial_mask)} compute kernel pairs failed to overlap on device {device} and program #{program_id}"
+        # Update the projected duration of each communication kernel to only
+        # include the non-overlapped time
+        for comm_thunk in comm_df.itertuples():
+            # This is a range annotating a communication operation, i.e. NCCL kernel
+            # That kernel was active from comm_thunk.ProjStartMs until comm_thunk.ProjEndMs
+            # but during that time then other computation was going on. We want to
+            # find how much of the time did not overlap with other computation.
+            overlap_df = compute_df.loc[
+                (compute_df["ProjEndMs"] > comm_thunk.ProjStartMs)
+                & (compute_df["ProjStartMs"] < comm_thunk.ProjEndMs),
+                ("ProjStartMs", "ProjEndMs"),
+            ]
+            compute_time = np.sum(
+                np.minimum(overlap_df["ProjEndMs"], comm_thunk.ProjEndMs)
+                - np.maximum(overlap_df["ProjStartMs"], comm_thunk.ProjStartMs)
+            )
+            # Update the projected duration of communication kernels to just be the
+            # time that is not hidden.
+            thunk_df.loc[comm_thunk.Index, "ProjDurMs"] -= compute_time
+            thunk_df.loc[comm_thunk.Index, "ProjDurHiddenMs"] = compute_time
+
+    return thunk_df.drop(columns=["ProjEndMs"])
 
 
 def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFrame:
@@ -24,58 +93,14 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
             "ThunkIndex",
             "Device",
         ]
-        program_id = row.name[0]
-        if program_id == -1:
-            # Assume this is an autotuning execution.
-            return False
-        try:
-            # this will be a dict of {profile_name | None: proto} to cover the case
-            # that we had different protos from different profiles
-            protos = xla_module_metadata(program_id, prefix=prefix, policy="all")
-            return protos.unique_result(
-                lambda proto: proto.find_instruction(row["Name"])[1].channel_id != 0
-            )
-        except:
-            print(f'Failed to get metadata for {row["Name"]} in program #{program_id}')
-            raise
+        return _is_communication(
+            program_id=row.name[0], prefix=prefix, instruction_name=row["Name"]
+        )
 
-    thunk_df["Communication"] = thunk_df.apply(is_communication, axis=1)
-    thunk_df["ProjDurHiddenMs"] = 0.0
-    # For convenience when calculating unhidden comms
-    thunk_df["ProjEndMs"] = thunk_df["ProjStartMs"] + thunk_df["ProjDurMs"]
-
-    for _, module_exec_df in thunk_df.groupby(
-        ["ProgramId", "ProgramExecution", "Device"]
-    ):
-        # Update the projected duration of each communication kernel to only
-        # include the non-overlapped time
-        for comm_thunk in module_exec_df[module_exec_df["Communication"]].itertuples():
-            # This is a range annotating a communication operation, i.e. NCCL kernel
-            # That kernel was active from comm_thunk.ProjStartMs until comm_thunk.ProjEndMs
-            # but during that time then other computation was going on. We want to
-            # find how much of the time did not overlap with other computation.
-            compute_df = module_exec_df[
-                (
-                    (module_exec_df["ProjEndMs"] > comm_thunk.ProjStartMs)
-                    & (module_exec_df["ProjStartMs"] < comm_thunk.ProjEndMs)
-                    & ~module_exec_df["Communication"]
-                )
-            ]
-            # The computation kernels should all be serialised, but check that
-            assert (
-                compute_df["ProjStartMs"].iloc[1:].array
-                >= compute_df["ProjEndMs"].iloc[:-1].array
-            ).all()
-            compute_time = np.sum(
-                np.minimum(compute_df["ProjEndMs"], comm_thunk.ProjEndMs)
-                - np.maximum(compute_df["ProjStartMs"], comm_thunk.ProjStartMs)
-            )
-            # Update the projected duration of communication kernels to just be the
-            # time that is not hidden.
-            thunk_df.loc[comm_thunk.Index, "ProjDurMs"] -= compute_time
-            thunk_df.loc[comm_thunk.Index, "ProjDurHiddenMs"] = compute_time
-
-    return thunk_df.drop(columns=["ProjEndMs"])
+    thunk_df["Communication"] = thunk_df.loc[:, ("Name",)].apply(
+        is_communication, axis=1
+    )
+    return _calculate_overlap(thunk_df)
 
 
 def _load_nvtx_gpu_proj_trace_single(
@@ -337,6 +362,12 @@ def _load_nvtx_gpu_proj_trace_single(
     return output
 
 
+def _enough_processes(work_items: int) -> int:
+    if (cpu_count := os.cpu_count()) is None:
+        return work_items
+    return min(work_items, cpu_count)
+
+
 def _load_nvtx_gpu_proj_trace(
     prefix: pathlib.Path,
     frames: set[str],
@@ -355,32 +386,89 @@ def _load_nvtx_gpu_proj_trace(
         meta_filenames = [meta_path]
 
     tmp = defaultdict(list)
-    for file, meta_file in zip(filenames, meta_filenames):
-        for k, v in _load_nvtx_gpu_proj_trace_single(
-            prefix, file, meta_file, frames
-        ).items():
-            tmp[k].append(v)
+    with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
+        for single_trace in pool.starmap(
+            _load_nvtx_gpu_proj_trace_single,
+            zip(
+                itertools.repeat(prefix),
+                filenames,
+                meta_filenames,
+                itertools.repeat(frames),
+            ),
+        ):
+            for k, v in single_trace.items():
+                tmp[k].append(v)
     output = {}
     for k, v in tmp.items():
         output[k] = pd.concat(v, verify_integrity=True).sort_index()
     return output
 
 
-def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
-    def keep_column(name):
-        return name not in {"PID", "Lvl", "NameTree"}
+compile_prefix = "TSL:XlaCompile:#module="
 
-    compile_df = pd.read_csv(
-        lzma.open(name, "rt", newline=""),
-        dtype={"RangeId": np.int32},
-        index_col="RangeId",
-        usecols=keep_column,
-    )
-    compile_df["StartMs"] = 1e-6 * compile_df.pop("Start (ns)")
-    compile_df["EndMs"] = 1e-6 * compile_df.pop("End (ns)")
-    compile_df["DurMs"] = 1e-6 * compile_df.pop("Duration (ns)")
-    compile_df["DurChildMs"] = 1e-6 * compile_df.pop("DurChild (ns)")
-    compile_df["DurNonChildMs"] = 1e-6 * compile_df.pop("DurNonChild (ns)")
+
+def _splice_parallel_ranges(compile_df: pd.DataFrame) -> pd.DataFrame:
+    # When parallel compilation is enabled, we end up with worker threads that
+    # emit NVTX ranges but which are not accounted for in the RangeStack tree.
+    # Splice these in under the relevant XlaCompile ranges in the RangeStack tree and
+    # drop everything else.
+    retain_mask = pd.Series(False, index=compile_df.index)
+    compile_mask = compile_df["Name"].str.startswith(compile_prefix)
+    for compile_range in compile_df[compile_mask].itertuples():
+        # Identify the slice of `compile_df` that overlaps in time with this XlaCompile
+        # range
+        slice_df = compile_df[
+            (compile_df["StartMs"] >= compile_range.StartMs)
+            & (compile_df["EndMs"] <= compile_range.EndMs)
+        ]
+        # Ranges underneath `compile_range` in the main thread
+        compile_main_thread_child_mask = make_child_mask(slice_df, compile_range.Index)
+        assert (
+            slice_df.loc[compile_main_thread_child_mask, "TID"] == compile_range.TID
+        ).all()
+        # Top-level ranges in possible worker threads under this XlaCompile range
+        worker_mask = slice_df["ParentId"].isna() & (
+            slice_df["TID"] != compile_range.TID
+        )
+        assert (compile_main_thread_child_mask & worker_mask).sum() == 0
+        compile_child_mask = compile_main_thread_child_mask.copy()
+        for worker_range in slice_df[worker_mask].itertuples():
+            assert worker_range.Name.startswith("TSL:Xla")
+            # Find the deepest still-open range in the main thread
+            mask = (
+                compile_main_thread_child_mask
+                & (slice_df["StartMs"] < worker_range.StartMs)
+                & (slice_df["EndMs"] > worker_range.EndMs)
+            )
+            new_parent_index = mask[mask].index[-1]
+            assert (compile_df.loc[mask[mask].index, "TID"] == compile_range.TID).all()
+            # Graft this worker/child range and its children into compile_df as
+            # children of `new_parent_index`
+            compile_df.loc[worker_range.Index, "ParentId"] = new_parent_index
+            compile_df.loc[new_parent_index, "NumChild"] += 1
+            # Set to NaN to avoid meaningless numbers being used.
+            compile_df.loc[new_parent_index, ("DurChildMs", "DurNonChildMs")] = (
+                np.nan,
+                np.nan,
+            )
+            # prefix the RangeStack values of the worker ranges with the RangeStack of
+            # the parent in the main thread that they are being grafted onto
+            range_stack_prefix = compile_df.loc[new_parent_index, "RangeStack"]
+            # Get a mask for this worker range and all its children
+            mask = make_child_mask(slice_df, worker_range.Index)
+            mask.loc[worker_range.Index] = True
+            compile_df.loc[mask[mask].index, "RangeStack"] = slice_df.loc[
+                mask, "RangeStack"
+            ].str.slice_replace(stop=0, repl=range_stack_prefix)
+            # Update the mask with new children
+            compile_child_mask |= mask
+
+        retain_mask[compile_range.Index] = True
+        retain_mask[compile_child_mask[compile_child_mask].index] = True
+    return compile_df[retain_mask]
+
+
+def _add_program_id_and_name(compile_df: pd.DataFrame) -> pd.DataFrame:
     # XlaCompileBackend always has the name and program ID, while one code path
     # produces XlaCompile annotations that don't have the program ID. Also, the
     # auto-tuner produces nested XlaCompileBackend ranges with different names
@@ -395,14 +483,11 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
     compile_df.loc[backend_mask, "ProgramName"] = compile_df.loc[
         backend_mask, "Name"
     ].str.replace(backend_re, r"\1", regex=True)
-    # Propagate ProgramId and ProgramName up from XlaCompileBackend to XlaCompile
+    # Propagate ProgramId and ProgramName up from XlaCompileBackend to XlaCompile; some
+    # XlaCompileBackend ranges are nested under XlaAutotunerCompilation
     backends_with_parents = backend_mask & ~compile_df["ParentId"].isna()
     backend_parent_ids = (
         compile_df.loc[backends_with_parents, "ParentId"].astype(np.int32).array
-    )
-    compile_prefix = "TSL:XlaCompile:#module="
-    assert (
-        compile_df.loc[backend_parent_ids, "Name"].str.startswith(compile_prefix).all()
     )
     compile_df.loc[backend_parent_ids, "ProgramId"] = compile_df.loc[
         backends_with_parents, "ProgramId"
@@ -410,54 +495,6 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
     compile_df.loc[backend_parent_ids, "ProgramName"] = compile_df.loc[
         backends_with_parents, "ProgramName"
     ].array
-    # When parallel compilation is enabled, we end up with worker threads that
-    # emit NVTX ranges but which are not accounted for in the RangeStack tree.
-    # Splice these in.
-    compile_mask = compile_df["Name"].str.startswith(compile_prefix)
-    new_parent_ranges = set()
-    for compile_range in compile_df[compile_mask].itertuples():
-        # Identify top-level ranges in possible worker threads associated to this XlaCompile range
-        worker_mask = (
-            (compile_df["StartMs"] >= compile_range.StartMs)
-            & (compile_df["EndMs"] <= compile_range.EndMs)
-            & (compile_df["TID"] != compile_range.TID)
-            & (compile_df["ParentId"].isna())
-        )
-        for worker_range in compile_df[worker_mask].itertuples():
-            assert worker_range.Name.startswith("TSL:Xla")
-            # Find the deepest still-open range in the main thread
-            mask = (
-                make_child_mask(compile_df, compile_range.Index)
-                & (compile_df["StartMs"] < worker_range.StartMs)
-                & (compile_df["EndMs"] > worker_range.EndMs)
-                & (compile_df["TID"] == compile_range.TID)
-            )
-            new_parent_index = mask[mask].index[-1]
-            assert compile_df.loc[new_parent_index, "TID"] == compile_range.TID
-            # Graft this worker/child range and its children into compile_df as
-            # children of `new_parent_index`
-            compile_df.loc[worker_range.Index, "ParentId"] = new_parent_index
-            compile_df.loc[new_parent_index, "NumChild"] += 1
-            range_stack_prefix = compile_df.loc[new_parent_index, "RangeStack"]
-            # Get a mask for this worker range and all its children
-            mask = make_child_mask(compile_df, worker_range.Index)
-            mask.loc[worker_range.Index] = True
-            # prefix RangeStack values with `range_stack_prefix`
-            compile_df.loc[mask, "RangeStack"] = compile_df.loc[
-                mask, "RangeStack"
-            ].str.slice_replace(stop=0, repl=range_stack_prefix)
-            new_parent_ranges.add(new_parent_index)
-            # See TODO below. Set to NaN to avoid meaningless numbers being used.
-            compile_df.loc[new_parent_index, ("DurChildMs", "DurNonChildMs")] = (
-                np.nan,
-                np.nan,
-            )
-    # TODO: update the DurChildMs and DurNonChildMs values for `new_parent_ranges` to avoid double-counting
-    # Mask out anything that's not descended from XlaCompile now
-    compile_related_mask = compile_mask
-    for compile_range_index in compile_mask[compile_mask].index:
-        compile_related_mask |= make_child_mask(compile_df, compile_range_index)
-    compile_df = compile_df[compile_related_mask]
     # Fill in all the missing ProgramId and ProgramName values by navigating up
     # to the closest ancestor range that has them set.
     mask = compile_df["ProgramId"].isna()
@@ -481,10 +518,12 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
         # If not, look one generation higher above the row
         ancestor_rows = compile_df.loc[ancestor_rows.array[~good_mask], "ParentId"]
         rows_to_fill = rows_to_fill[~good_mask]
-    # It makes analysis confusing to have ranges from cuBLAS appear as
-    # children of XLA ranges, so fold non-TSL ranges into their TSL parents
-    non_xla_mask = ~compile_df["Name"].str.startswith("TSL:")
-    for non_xla_range in compile_df[non_xla_mask].itertuples():
+    return compile_df
+
+
+def _drop_non_tsl(compile_df: pd.DataFrame) -> pd.DataFrame:
+    tsl_mask = compile_df["Name"].str.startswith("TSL:")
+    for non_xla_range in compile_df[~tsl_mask].itertuples():
         # Do not support nested non-TSL children for now.
         assert non_xla_range.NumChild == 0
         parent_id = int(non_xla_range.ParentId)
@@ -492,21 +531,47 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
         compile_df.loc[parent_id, "NumChild"] -= 1
         compile_df.loc[parent_id, "DurChildMs"] -= non_xla_range.DurMs
         compile_df.loc[parent_id, "DurNonChildMs"] += non_xla_range.DurMs
+    return compile_df[tsl_mask]
+
+
+def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
+    def keep_column(name):
+        return name not in {"PID", "Lvl", "NameTree"}
+
+    compile_df = pd.read_csv(
+        lzma.open(name, "rt", newline=""),
+        dtype={"RangeId": np.int32},
+        index_col="RangeId",
+        usecols=keep_column,
+    )
+    compile_df["StartMs"] = 1e-6 * compile_df.pop("Start (ns)")
+    compile_df["EndMs"] = 1e-6 * compile_df.pop("End (ns)")
+    compile_df["DurMs"] = 1e-6 * compile_df.pop("Duration (ns)")
+    compile_df["DurChildMs"] = 1e-6 * compile_df.pop("DurChild (ns)")
+    compile_df["DurNonChildMs"] = 1e-6 * compile_df.pop("DurNonChild (ns)")
+    # Handle parallel compilation by looking for child worker threads within
+    # XlaCompile ranges; splice them into the hierarchy and then drop everything that
+    # is not descended from XlaCompile ranges
+    compile_df = _splice_parallel_ranges(compile_df)
+    # Add ProgramId and ProgramName columns
+    compile_df = _add_program_id_and_name(compile_df)
+    # It makes analysis confusing to have ranges from cuBLAS appear as
+    # children of XLA ranges, so fold non-TSL ranges into their TSL parents
+    compile_df = _drop_non_tsl(compile_df)
 
     # Because the ProgramId and ProgramName ranges provide the same information,
     # remove those fields from the compilation range names.
     def remove_program_id_and_name(row):
         row.Name = (
             row.Name.removeprefix("TSL:")
-            .replace(f",program_id={int(row.ProgramId)}", "")
+            .replace(f",program_id={row.ProgramId}", "")
             .replace(f",module={row.ProgramName}", "")
             .replace(f":#module={row.ProgramName}#", "")
         )
         return row
 
     return (
-        compile_df[~non_xla_mask]
-        .drop(columns=["EndMs"])
+        compile_df.drop(columns=["EndMs"])
         .astype({"ProgramId": np.int32})
         .transform(remove_program_id_and_name, axis="columns")
     )
@@ -523,11 +588,12 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
         filenames = [path]
         keys = [prefix.name]
 
-    return pd.concat(
-        [_load_nvtx_pushpop_trace_single(file) for file in filenames],
-        keys=keys,
-        names=["ProfileName", "RangeId"],
-    )
+    with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
+        return pd.concat(
+            pool.map(_load_nvtx_pushpop_trace_single, filenames),
+            keys=keys,
+            names=["ProfileName", "RangeId"],
+        )
 
 
 def load_profiler_data(
