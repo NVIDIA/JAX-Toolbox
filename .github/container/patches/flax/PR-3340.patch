@@ -1,7 +1,7 @@
 From 97ad32bf809e1e7b1715747c942213031f88fcc6 Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
 Date: Fri, 2 Jun 2023 15:01:21 -0700
-Subject: [PATCH 1/3] add t5x sharding annotations to flax layers
+Subject: [PATCH 1/4] add t5x sharding annotations to flax layers
 
 ---
  flax/linen/attention.py     | 33 ++++++++++++++++++++++-------
@@ -380,13 +380,13 @@ index 0680737f..ed241d08 100644
  
  
 -- 
-2.34.1
+2.45.2
 
 
 From bb04792f9d863f3d2f20e3635b28863f286a740f Mon Sep 17 00:00:00 2001
 From: Terry Kong <terrycurtiskong@gmail.com>
 Date: Mon, 2 Oct 2023 16:10:05 -0700
-Subject: [PATCH 2/3] Added ConvTranspose sharding annotations (#3)
+Subject: [PATCH 2/4] Added ConvTranspose sharding annotations (#3)
 
 Co-authored-by: sahilj <sahilj@nvidia.com>
 ---
@@ -443,13 +443,13 @@ index 27e22325..d964eefb 100644
      else:
        bias = None
 -- 
-2.34.1
+2.45.2
 
 
 From f3de082c72dc99b20f04ece2484ad2d6f5cceb28 Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
 Date: Thu, 1 Feb 2024 09:54:25 -0800
-Subject: [PATCH 3/3] Add missing import
+Subject: [PATCH 3/4] Add missing import
 
 ---
  flax/linen/attention.py     | 1 +
@@ -494,5 +494,151 @@ index ed241d08..30a5b0fe 100644
  
  field = dataclasses.field
 -- 
-2.34.1
+2.45.2
+
+
+From ae6fd3f8429ec4523d7245497c4452b532d7d128 Mon Sep 17 00:00:00 2001
+From: Terry Kong <terrycurtiskong@gmail.com>
+Date: Wed, 17 Jul 2024 09:08:17 -0700
+Subject: [PATCH 4/4] Updates typing to be compatible with upstream's 3.10
+ syntax (#4)
+
+* Revert "Add missing import"
+
+This reverts commit 6d0ddd99ff7ce018a25e4f05058baf38484456cb.
+
+* update patches to use 3.10 typing
+---
+ flax/linen/attention.py     |  1 -
+ flax/linen/linear.py        | 17 ++++++++---------
+ flax/linen/normalization.py | 11 +++++------
+ 3 files changed, 13 insertions(+), 16 deletions(-)
+
+diff --git a/flax/linen/attention.py b/flax/linen/attention.py
+index b594add9..bcabd554 100644
+--- a/flax/linen/attention.py
++++ b/flax/linen/attention.py
+@@ -39,7 +39,6 @@ from flax.typing import (
+   Initializer,
+   PrecisionLike,
+   DotGeneralT,
+-  Tuple,
+ )
+ 
+ def dot_product_attention_weights(
+diff --git a/flax/linen/linear.py b/flax/linen/linear.py
+index e1c2751e..95c2c269 100644
+--- a/flax/linen/linear.py
++++ b/flax/linen/linear.py
+@@ -49,7 +49,6 @@ from flax.typing import (
+   ConvGeneralDilatedT,
+   PaddingLike,
+   LaxPadding,
+-  Tuple,
+ )
+ 
+ 
+@@ -117,8 +116,8 @@ class DenseGeneral(Module):
+   # Deprecated. Will be removed.
+   dot_general: Optional[DotGeneralT] = None
+   dot_general_cls: Any = None
+-  kernel_axes: Tuple[str, ...] = None
+-  bias_axes: Tuple[str, ...] = None
++  kernel_axes: tuple[str, ...] = None
++  bias_axes: tuple[str, ...] = None
+ 
+   @compact
+   def __call__(self, inputs: Array) -> Array:
+@@ -253,8 +252,8 @@ class Dense(Module):
+   # Deprecated. Will be removed.
+   dot_general: Optional[DotGeneralT] = None
+   dot_general_cls: Any = None
+-  kernel_axes: Tuple[str, ...] = None
+-  bias_axes: Tuple[str, ...] = None
++  kernel_axes: tuple[str, ...] = None
++  bias_axes: tuple[str, ...] = None
+ 
+   @compact
+   def __call__(self, inputs: Array) -> Array:
+@@ -511,8 +510,8 @@ class _Conv(Module):
+   # Deprecated. Will be removed.
+   conv_general_dilated: Optional[ConvGeneralDilatedT] = None
+   conv_general_dilated_cls: Any = None
+-  kernel_axes: Tuple[str, ...] = None
+-  bias_axes: Tuple[str, ...] = None
++  kernel_axes: tuple[str, ...] = None
++  bias_axes: tuple[str, ...] = None
+ 
+   @property
+   def shared_weights(self) -> bool:  # type: ignore
+@@ -928,8 +927,8 @@ class ConvTranspose(Module):
+     name: str,
+     init_fn,
+     *init_args,
+-    axes: Optional[Tuple[str, ...]] = None,
+-    module: Optional[Module] = None):
++    axes: tuple[str, ...] | None = None,
++    module: Module | None = None):
+     return param_with_axes(
+       name,
+       init_fn,
+diff --git a/flax/linen/normalization.py b/flax/linen/normalization.py
+index 30a5b0fe..34cc26ea 100644
+--- a/flax/linen/normalization.py
++++ b/flax/linen/normalization.py
+@@ -32,7 +32,6 @@ from flax.typing import (
+   Shape as Shape,
+   Initializer,
+   Axes,
+-  Tuple,
+ )
+ 
+ field = dataclasses.field
+@@ -161,7 +160,7 @@ def _normalize(
+   use_scale: bool,
+   bias_init: Initializer,
+   scale_init: Initializer,
+-  axes: Tuple[str, ...] = None,
++  axes: tuple[str, ...] = None,
+ ):
+   """Normalizes the input of a normalization layer and optionally applies a learned scale and bias.
+ 
+@@ -312,7 +311,7 @@ class BatchNorm(Module):
+   axis_index_groups: Any = None
+   use_fast_variance: bool = True
+   force_float32_reductions: bool = True
+-  pjit_axis_name: Tuple[str, ...] = None
++  pjit_axis_name: tuple[str, ...] = None
+ 
+   @compact
+   def __call__(
+@@ -473,7 +472,7 @@ class LayerNorm(Module):
+   axis_index_groups: Any = None
+   use_fast_variance: bool = True
+   force_float32_reductions: bool = True
+-  pjit_axis_name: Tuple[str, ...] = None
++  pjit_axis_name: tuple[str, ...] = None
+ 
+   @compact
+   def __call__(self, x, *, mask: Optional[jax.Array] = None):
+@@ -575,7 +574,7 @@ class RMSNorm(Module):
+   axis_index_groups: Any = None
+   use_fast_variance: bool = True
+   force_float32_reductions: bool = True
+-  pjit_axis_name: Tuple[str, ...] = None
++  pjit_axis_name: tuple[str, ...] = None
+ 
+   @compact
+   def __call__(self, x, *, mask: Optional[jax.Array] = None):
+@@ -703,7 +702,7 @@ class GroupNorm(Module):
+   axis_index_groups: Any = None
+   use_fast_variance: bool = True
+   force_float32_reductions: bool = True
+-  pjit_axis_name: Tuple[str, ...] = None
++  pjit_axis_name: tuple[str, ...] = None
+ 
+   @compact
+   def __call__(self, x, *, mask: Optional[jax.Array] = None):
+-- 
+2.45.2
 
