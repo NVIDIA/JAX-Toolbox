@@ -219,9 +219,18 @@ jobs:
             const pattern = new RegExp(`${PUBLISH_NOTEBOOK_FILES}`);
             for (const [filename, fileObj] of Object.entries(srcData.files)) {
               if (filename.match(pattern)) {
-                filesToUpdate[filename] = {
-                  content: fileObj.content
-                };
+                // If the total gist size is too large, not all the content will have
+                // been returned and we need some extra requests.
+                if (fileObj.truncated) {
+                  const { data } = await github.request(fileObj.raw_url)
+                  filesToUpdate[filename] = {
+                    content: new TextDecoder().decode(data)
+                  };
+                } else {
+                  filesToUpdate[filename] = {
+                    content: fileObj.content
+                  };
+                }
               }
             }
 
