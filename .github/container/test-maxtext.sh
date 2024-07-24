@@ -239,6 +239,8 @@ if [ -n "$file" ]; then
   cp "$file" "$XLA_PERF_HLO"
   # Also dump the XLA_FLAGS
   echo $XLA_FLAG > $XLA_PERF_HLO/xla_flags.txt
+else
+    echo "HLO file not found!"
 fi
 
 if [[ $SAVE_HLO -eq 0 ]]; then
