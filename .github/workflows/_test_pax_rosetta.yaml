@@ -252,7 +252,7 @@ jobs:
           - TEST_NAME: 5B_fused_attn_0
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 2
-            ADDITIONAL_ARGS: "--model-type 5B --disable-fused-attn"
+            ADDITIONAL_ARGS: "--model-type 5B --enable-fmha 0"
           - TEST_NAME: LLaMA_eval_TE
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 4
