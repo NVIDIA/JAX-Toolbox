@@ -76,6 +76,16 @@ jobs:
         URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
     secrets: inherit
 
+  build-rosetta-pax:
+    needs: build-upstream-pax
+    uses: ./.github/workflows/_build_rosetta.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_LIBRARY: pax
+    secrets: inherit
+
   test-distribution:
     runs-on: ubuntu-22.04
     strategy:
@@ -128,5 +138,13 @@ jobs:
     uses: ./.github/workflows/_test_upstream_pax.yaml
     with:
       PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
+  test-rosetta-pax:
+    needs: build-rosetta-pax
+    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    uses: ./.github/workflows/_test_pax_rosetta.yaml
+    with:
+      PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
