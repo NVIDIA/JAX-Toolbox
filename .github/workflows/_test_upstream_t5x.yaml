@@ -319,6 +319,19 @@ jobs:
               dump = {'state': "${{ steps.submit.outputs.SLURM_STATE }}", 'exitcode': "${{ steps.submit.outputs.SLURM_EXITCODE }}"}
               json.dump(dump, f)
           EOF
+      - name: Upload Hlo files 
+        env: 
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        shell: bash -x -e {0}
+        run: |
+          git clone https://oauth2:glpat-gT2SL1kRRyEzLUvb1_2Q@gitlab-master.nvidia.com:12051/dl/openxla/xla-hlos.git
+          cd JAX-Toolbox
+          TEST_DIR_NAME=${{ inputs.FW_NAME }}-${{ steps.meta.outputs.TEST_CASE_NAME }}
+          mkdir -p $TEST_DIR_NAME
+          cp -r output/xla_perf_hlo/* $TEST_DIR_NAME/
+          git add $TEST_DIR_NAME/*
+          git commit -m "Add hlo files for ${{ steps.meta.outputs.JOB_NAME }}"
+          git push origin main
 
       - name: Upload training logs as artifacts
         uses: actions/upload-artifact@v4
