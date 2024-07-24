@@ -244,6 +244,8 @@ if [ -n "$file" ]; then
   cp "$file" "$XLA_PERF_HLO"
   # Also dump the XLA_FLAGS
   echo $XLA_FLAG > $XLA_PERF_HLO/xla_flags.txt
+else
+    echo "HLO file not found!"
 fi
 
 if [[ "$ENABLE_FMHA" -eq "1" ]]; then 
