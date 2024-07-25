@@ -176,7 +176,7 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         shell: bash -x -e {0}
         run: |
-          git clone https://oauth2:glpat-gT2SL1kRRyEzLUvb1_2Q@gitlab-master.nvidia.com:12051/dl/openxla/xla-hlos.git
+          git clone https://gitlab-ci-token:glpat-gT2SL1kRRyEzLUvb1_2Q@gitlab-master.nvidia.com/dl/openxla/xla-hlos.git
           cd JAX-Toolbox
           TEST_DIR_NAME=${{ inputs.FW_NAME }}-${{ steps.meta.outputs.TEST_CASE_NAME }}
           mkdir -p $TEST_DIR_NAME
@@ -338,7 +338,7 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         shell: bash -x -e {0}
         run: |
-          git clone https://oauth2:glpat-gT2SL1kRRyEzLUvb1_2Q@gitlab-master.nvidia.com:12051/dl/openxla/xla-hlos.git
+          git clone https://gitlab-ci-token:glpat-gT2SL1kRRyEzLUvb1_2Q@gitlab-master.nvidia.com/dl/openxla/xla-hlos.git
           cd JAX-Toolbox
           TEST_DIR_NAME=${{ inputs.FW_NAME }}-${{ steps.meta.outputs.TEST_CASE_NAME }}
           mkdir -p $TEST_DIR_NAME
