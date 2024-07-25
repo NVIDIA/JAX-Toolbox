@@ -140,6 +140,7 @@ jobs:
           target: final
           build-args: |
             BASE_IMAGE=${{ steps.defaults.outputs.BASE_IMAGE }}
+            UPDATE_PATCHES=true
             
       - name: Generate sitrep
         if: "!cancelled()"
