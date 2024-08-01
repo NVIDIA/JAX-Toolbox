@@ -24,7 +24,7 @@ usage() {
     echo "  --dtype                    Data type, defaults to bfloat16. Example: bfloat16, fp8"
     echo "  -s, --steps                Number of steps to run, defaults to 500."
     echo "  --multiprocess             Enable the multiprocess GPU mode. Should be used when run on multinode"
-    echo "  -o, --output               Name for the output folder, a temporary folder will be created if none specified."
+    echo "  -o, --output NAME          Name for the output folder, a temporary folder will be created if none specified."
     echo "  --data-parallel            Data parallelism to use. Defaults to 1. If specified FSDP dims will be inferred."
     echo "  --fsdp                     Fully-sharded data parallelism to use. Defaults to 1. If none of the sharding specs are provided it will assume its FSDP across all available gpus."
     echo "  --tensor-parallel          Tensor parallelism to use. Defaults to 1. If specified, FSDP dims will be inferred."
@@ -164,7 +164,7 @@ if [ $MODEL != "gpt3-52k" ]; then # gpt3-52k only works with dot_product
 fi
 
 # for fp8 runs
-if [ $DTYPE == "fp8" ]; then # gpt3-52k only works with dot_product
+if [ $DTYPE == "fp8" ]; then
     ADDITIONAL_ARGS+=" quantization=$DTYPE"
 fi
 
@@ -178,7 +178,7 @@ NGPUS=$((GPUS_PER_NODE * NODES))
 ici_TP=${TP}
 ici_DP=1
 dcn_FSDP=1
-if [ $((FSDP*TP)) -gt 8 ]; then
+if [ $((FSDP*TP)) -gt ${GPUS_PER_NODE} ]; then
     ici_FSDP=$((GPUS_PER_NODE/TP))
     dcn_FSDP=$((FSDP/ici_FSDP))
     dcn_DP=$((NGPUS/(ici_FSDP*ici_TP*ici_DP*dcn_FSDP)))
