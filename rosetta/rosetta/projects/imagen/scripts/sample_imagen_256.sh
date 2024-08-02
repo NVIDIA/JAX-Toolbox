@@ -15,13 +15,14 @@
 CFG=${CFG:=2}
 GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-4}
 GEN_PER_PROMPT=${GEN_PER_PROMPT:-1}
+SAMPLING_GIN=${SAMPLING_GIN:-/opt/rosetta/rosetta/projects/imagen/configs/imagen_256_sample.gin}
 BASE_PATH=${BASE_PATH:=\"/opt/rosetta/runs/imagen_base/checkpoint_5000\"}
 SR1_PATH=${SR1_PATH:=\"/opt/rosetta/runs/efficient_sr1/checkpoint_5000\"}
 PROMPT_TEXT_FILE=${PROMPT_TEXT_FILE:=\"/opt/rosetta/rosetta/projects/diffusion/tests/custom_eval_prompts/custom_eval_prompts.txt\"}
 
 export DISABLE_TE=True
 python /opt/rosetta/rosetta/projects/imagen/imagen_pipe.py \
-    --gin_file="/opt/rosetta/rosetta/projects/imagen/configs/imagen_256_sample.gin" \
+    --gin_file="${SAMPLING_GIN}" \
     --gin.base_model/utils.RestoreCheckpointConfig.path="${BASE_PATH}" \
     --gin.sr256/utils.RestoreCheckpointConfig.path="${SR1_PATH}" \
     --gin.T5_CHECKPOINT_PATH="\"/opt/rosetta/rosetta/projects/inference_serving/checkpoints/checkpoint_1000000_t5_1_1_xxl\"" \
@@ -30,4 +31,5 @@ python /opt/rosetta/rosetta/projects/imagen/imagen_pipe.py \
     --gin.GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE} \
     --gin.SAVE_DIR="\"generations/generations-${CFG}\"" \
     --gin.GEN_PER_PROMPT=${GEN_PER_PROMPT} \
-    --gin.RESUME_FROM=0
+    --gin.RESUME_FROM=0 \
+    $@

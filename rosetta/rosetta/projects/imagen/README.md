@@ -17,7 +17,7 @@ For maximum flexibility and low disk requirements, this repo supports a **distri
 We provide [scripts](scripts) to run [interactively](scripts/singlenode_inf_train.sh) or on [SLURM](scripts/example_slurm_inf_train.sub).
 
 ### Container
-We provide a fully built and ready-to-use container here: `ghcr.io/nvidia/t5x:imagen-2023-10-02.v2`.
+We provide a fully built and ready-to-use container here: `ghcr.io/nvidia/t5x:imagen-2023-10-02.v3`.
 
 We do not currently have custom-built container workflows, but are actively working on supporting this, stay tuned for updates!
 Imagen will also be available in our T5x container in future releases.
@@ -37,7 +37,7 @@ You will need to acquire the LLM checkpoint for T5 (for multimodal training) fro
 **Note**: this should only be done with singlenode jobs
 
 ```bash
-CONTAINER=ghcr.io/nvidia/t5x:imagen-2023-10-02.v2
+CONTAINER=ghcr.io/nvidia/t5x:imagen-2023-10-02.v3
 docker run --rm --gpus=all -it --net=host --ipc=host -v ${PWD}:/opt/rosetta -v ${DATASET_PATH}:/mnt/datasets --privileged $CONTAINER bash
 ```
 
@@ -99,7 +99,7 @@ sbatch -N 14 rosetta/projects/imagen/scripts/example_slurm_inf_train.sub \
 You can find example sampling scripts that use the 500M base model and EfficientUnet SR models in [scripts](scripts). Prompts should be specified as in [example](../diffusion/tests/custom_eval_prompts/custom_eval_prompts.txt)
 
 #### Sampling 256x256 images
-Defaults to [imagen_256_sample.gin](configs/imagen_256_sample.gin) config (can be adjusted in script)
+Defaults to [imagen_256_sample.gin](configs/imagen_256_sample.gin) config (can be adjusted in script, e.g., [imagen_256_sample_2b.gin](configs/imagen_256_sample_2b.gin)).
 ```
 CUDA_VISIBLE_DEVICES=<DEVICES> CFG=5.0 GLOBAL_BATCH_SIZE=<GBS> GEN_PER_PROMPT=1 BASE_PATH=<BASE_CKPT> SR1_PATH=<SR1_CKPT> PROMPT_TEXT_FILES=<FILE> ./rosetta/projects/imagen/scripts/sample_imagen_256.sh 
 ```
@@ -117,7 +117,7 @@ CUDA_VISIBLE_DEVICES=0,1 CFG=5.0 GLOBAL_BATCH_SIZE=4 GEN_PER_PROMPT=1 BASE_PATH=
 ```
 
 #### Sampling 1024x1024 images
-Defaults to [imagen_1024_sample.gin](configs/imagen_1024_sample.gin) config (can be adjusted in script).
+Defaults to [imagen_1024_sample.gin](configs/imagen_1024_sample.gin) config (can be adjusted in script, e.g., [imagen_1024_sample_2b.gin](configs/imagen_1024_sample_2b.gin)).
 ```
 CUDA_VISIBLE_DEVICES=<DEVICES> CFG=5.0 GLOBAL_BATCH_SIZE=<GBS> GEN_PER_PROMPT=1 BASE_PATH=<BASE_CKPT> SR1_PATH=<SR1_CKPT> SR2_PATH=<SR2_CKPT> PROMPT_TEXT_FILES=<FILE> ./rosetta/projects/imagen/scripts/sample_imagen_1024.sh 
 ```
