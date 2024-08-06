@@ -27,5 +27,5 @@ jobs:
         id: find-instances
         with:
           command: 'oci network security-list list --compartment-id ${{ steps.find-compartment-id.outputs.output }}'
-          query: 'data[?"display-name"=='Default Security List for aoc-osaka_VCN']."ingress-security-rules" | [0]'
+          query: "data[?'display-name'=='Default Security List for aoc-osaka_VCN'].'ingress-security-rules' | [0]"
           silent: false
