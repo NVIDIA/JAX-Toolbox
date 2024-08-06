@@ -14,8 +14,6 @@ jobs:
       OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
       OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
     steps:
-      - name: Print environment variables
-        run: env
       - name: Retrieve the OCID of a named compartment in tenancy
         uses: oracle-actions/run-oci-cli-command@v1.3.0
         id: find-compartment-id
@@ -28,7 +26,7 @@ jobs:
         uses: oracle-actions/run-oci-cli-command@v1.3.0
         id: find-instances
         with:
-          command: 'oci network security-list list --compartment-id ${{ steps.find-compartment-id.outputs.raw_output }}'
+          command: 'network security-list list --compartment-id ${{ steps.find-compartment-id.outputs.raw_output }}'
 
       # - name: List the display name and shape of the instances in my compartment
       #   run: |
