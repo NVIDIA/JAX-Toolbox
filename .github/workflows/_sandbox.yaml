@@ -14,13 +14,8 @@ jobs:
       OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
       OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
     steps:
-      - name: Export OCI vars
-        run: |
-          export OCI_CLI_USER=${{ secrets.OCI_CLI_USER }}
-          
       - name: Print environment variables
         run: env
-
       - name: Retrieve the OCID of a named compartment in tenancy
         uses: oracle-actions/run-oci-cli-command@v1.3.0
         id: find-compartment-id
