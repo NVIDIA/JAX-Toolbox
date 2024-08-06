@@ -14,11 +14,9 @@ set -x
 # File system and volume glue code
 #-------------------------------------------------------------------------------
 # << CHANGE ! >>
-SLURM_ACCOUNT=<YOUR_ACCOUNT>
-USERID=<YOUR_USERNAME>
 
 # << CHANGE ! >>
-CONTAINER=<CONTAINER>
+CONTAINER=${CONTAINER:-ghcr.io#nvidia/t5x:imagen-2023-10-02.v3}
 
 # << CHANGE ! >>
 BASE_ROSETTA_DIR="<YOURPATH>/jax-toolbox-mirror/rosetta/" # path to your clone of the repo

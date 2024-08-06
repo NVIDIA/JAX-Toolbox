@@ -1,0 +1,78 @@
+# Imagen Sampling pipeline 
+include "rosetta/projects/imagen/configs/imagen_256_sample_2b.gin"
+
+from __gin__ import dynamic_registration
+import __main__ as sample_script
+from t5x import gin_utils
+from t5x import utils
+from t5x import partitioning
+
+from rosetta.projects.imagen import network_sr
+from rosetta.projects.diffusion import models
+from rosetta.projects.diffusion import denoisers
+from rosetta.projects.diffusion import samplers
+from rosetta.projects.diffusion import losses
+from rosetta.projects.diffusion import augmentations
+
+#---------------- SR1024 Model -------------------------------------------------
+
+# ------------------- Model ----------------------------------------------------
+SR1024 = @sr1024/models.DenoisingDiffusionModel()
+SIGMA_DATA = 0.5
+sr1024/models.DenoisingDiffusionModel:
+  denoiser= @sr1024/denoisers.EDMTextConditionedSuperResDenoiser()
+  diffusion_loss= None
+  diffusion_sampler= @sr1024/samplers.EDMSampler()
+  optimizer_def = None
+
+#   |--- Denoiser
+sr1024/denoisers.EDMTextConditionedSuperResDenoiser:
+  raw_model= @sr1024/network_sr.ImagenEfficientUNet()
+
+sr1024/samplers.EDMSampler:
+  dim_noise_scalar = 4.
+
+# ------------------- Network specification ------------------------------------
+sr1024/network_sr.ImagenEfficientUNet.config = @sr1024/network_sr.ImagenEfficientUNetConfig()
+sr1024/network_sr.ImagenEfficientUNetConfig:
+  dtype = %DTYPE
+  model_dim = 128
+  cond_dim = 1024
+  resblocks_per_level = (2, 4, 8, 8, 8)
+  width_multipliers = (1, 2, 4, 6, 6)
+  attn_resolutions_divs = {16: 'cross'}
+  mha_head_dim = 64
+  attn_heads = 8
+  resblock_activation = 'silu'
+  resblock_zero_out = True
+  resblock_scale_skip = True
+  dropout_rate = %DROPOUT_RATE
+  cond_strategy = 'shift_scale'
+  norm_32 = True
+  scale_attn_logits = True
+  float32_attention_logits=False
+  text_conditionable = True
+
+sr1024/samplers.CFGSamplingConfig:
+  num_steps=30
+  cf_guidance_weight=0.0
+  cf_guidance_nulls={'text': None, 'text_mask': None}
+
+sr1024/partitioning.PjitPartitioner:
+  num_partitions = 1
+  logical_axis_rules = @partitioning.standard_logical_axis_rules()
+
+sr1024/utils.RestoreCheckpointConfig:
+  mode = 'specific'
+  dtype = 'bfloat16'
+
+sr1024/sample_script.DiffusionModelSetupData:
+  model = %SR1024
+  sampling_cfg = @sr1024/samplers.CFGSamplingConfig()
+  restore_checkpoint_cfg = @sr1024/utils.RestoreCheckpointConfig()
+  partitioner = @partitioning.PjitPartitioner()
+  input_shapes = {'samples': (1, 1024, 1024, 3), 'text': %TXT_SHAPE, 'text_mask': %TXT_SEQLEN, 'low_res_images': (1, 256, 256, 3)}
+  input_types = {'samples': 'float32', 'text': 'float16', 'text_mask': 'int', 'low_res_images': 'float32'}
+
+sample_script.sample:
+  sr1024_setupdata = @sr1024/sample_script.DiffusionModelSetupData()
