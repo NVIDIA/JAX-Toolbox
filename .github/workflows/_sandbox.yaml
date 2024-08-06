@@ -26,8 +26,8 @@ jobs:
         uses: oracle-actions/run-oci-cli-command@v1.3.0
         id: find-instances
         with:
-          command: 'network security-list list --compartment-id ${{ steps.find-compartment-id.outputs.raw_output }}'
+          command: 'compute instance list --compartment-id ${{ steps.find-compartment-id.outputs.raw_output }}'
 
-      # - name: List the display name and shape of the instances in my compartment
-      #   run: |
-      #     echo ${{ steps.find-instances.outputs.output }} | jq .
+      - name: List the display name and shape of the instances in my compartment
+        run: |
+          echo ${{ steps.find-instances.outputs.output }} | jq .
