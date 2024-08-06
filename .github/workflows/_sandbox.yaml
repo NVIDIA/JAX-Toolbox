@@ -24,12 +24,11 @@ jobs:
           query: "data[?name=='jax'].id"
           silent: false
 
-      # - name: Retrieve the display name and shape of the instances in my compartment
-      #   uses: oracle-actions/run-oci-cli-command@v1.3.0
-      #   id: find-instances
-      #   with:
-      #     command: 'compute instance list --compartment-id ${{ steps.find-compartment-id.outputs.raw_output }}'
-      #     query: 'data[*].{name: \"display-name\", shape: shape}'
+      - name: Retrieve the display name and shape of the instances in my compartment
+        uses: oracle-actions/run-oci-cli-command@v1.3.0
+        id: find-instances
+        with:
+          command: 'oci network security-list list --compartment-id ${{ steps.find-compartment-id.outputs.raw_output }}'
 
       # - name: List the display name and shape of the instances in my compartment
       #   run: |
