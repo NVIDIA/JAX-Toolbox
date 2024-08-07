@@ -21,11 +21,17 @@ jobs:
           command: 'iam compartment list --compartment-id-in-subtree=true'
           query: "data[?name=='jax'].id | [0]"
 
+      - name: Echo stuff
+        shell: bash -x -e {0}
+        run: |
+          echo COMPARTMENT="${{ steps.find-compartment-id.outputs.output }}"
+          oci --version
+          
       - name: Get OCI security list
         uses: oracle-actions/run-oci-cli-command@v1.3.0
         id: oci-security-list
         with:
-          command: oci network security-list list --compartment-id "${{ steps.find-compartment-id.outputs.output }}"
+          command: network security-list list --compartment-id "${{ steps.find-compartment-id.outputs.output }}"
           query: "data[?\"display-name\"=='Default Security List for aoc-osaka_VCN'].\"ingress-security-rules\" | [0]"
       
       - name: Add runner CIDR to security list
