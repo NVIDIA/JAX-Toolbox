@@ -20,12 +20,38 @@ jobs:
         with:
           command: 'iam compartment list --compartment-id-in-subtree=true'
           query: "data[?name=='jax'].id | [0]"
-          silent: false
 
-      - name: Retrieve the display name and shape of the instances in my compartment
+      - name: Get OCI security list
         uses: oracle-actions/run-oci-cli-command@v1.3.0
-        id: find-instances
+        id: oci-security-list
         with:
-          command: oci network security-list list --compartment-id ${{ steps.find-compartment-id.outputs.output }}
-          query: data[?\"display-name\"=='Default Security List for aoc-osaka_VCN']."ingress-security-rules" | [0]
-          silent: false
+          command: oci network security-list list --compartment-id "${{ steps.find-compartment-id.outputs.output }}"
+          query: "data[?\"display-name\"=='Default Security List for aoc-osaka_VCN'].\"ingress-security-rules\" | [0]"
+      
+      - name: Add runner CIDR to security list
+        id: update-security-list
+        shell: bash -x -e {0}
+        run: |
+            RUNNER_GLOBAL_IP=$(curl https://api.ipify.org)
+            SECURITY_LIST_UPDATE=$(cat <<EOF | jq -c
+            [\
+            {"description": "JAX-Toolbox Runner ${{github.run_id}}",\
+              "icmp-options": null,\
+              "is-stateless": false,\
+              "protocol": "6",\
+              "source": "$RUNNER_GLOBAL_IP/32",\
+              "source-type": "CIDR_BLOCK",\
+              "tcp-options": {\
+                "destination-port-range": {\
+                  "max": 22,\
+                  "min": 22\
+                },\
+                "source-port-range": null\
+              },\
+              "udp-options": null}\
+            ]
+            EOF
+            )
+            
+            NEW_SECURITY_LIST=$(echo ${{ steps.oci-security-list.outputs.output}} $SECURITY_LIST_UPDATE | jq -s add)
+            echo "NEW_SECURITY_LIST=${NEW_SECURITY_LIST}" | tee -a $GITHUB_OUTPUT
