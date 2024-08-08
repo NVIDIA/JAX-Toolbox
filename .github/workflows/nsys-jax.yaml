@@ -22,6 +22,7 @@ env:
     JAX-Toolbox/.github/container/nsys-jax
     JAX-Toolbox/.github/container/nsys-jax-combine
     JAX-Toolbox/.github/container/jax_nsys
+    JAX-Toolbox/.github/container/jax-nccl-test.py
 
 jobs:
   mypy:
@@ -49,6 +50,8 @@ jobs:
         run: ./venv/bin/pip install -e JAX-Toolbox/.github/container/jax_nsys/python/jax_nsys
       - name: "Install mypy"
         run: ./venv/bin/pip install matplotlib mypy nbconvert types-protobuf
+      - name: "Install JAX for type-checking, this is a CPU-only build of the latest release"
+        run: ./venv/bin/pip install jax
       - name: "Fetch XLA .proto files"
         uses: actions/checkout@v4
         with:
@@ -89,21 +92,24 @@ jobs:
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
-      - name: Use nsys-jax-combine to merge profiles from multiple nsys processes
-        shell: bash -x -e {0}
-        # TODO: when nsys-jax-combine supports --nsys-jax-analysis, exercise that here.
-        run: .github/container/nsys-jax-combine -o .github/workflows/nsys-jax/test_data/pax_fsdp4_4proc.zip .github/workflows/nsys-jax/test_data/pax_fsdp4_4proc_proc*.zip
-      - name: Mock up the structure of an extracted .zip file
-        run: unzip -d .github/container/jax_nsys/ .github/workflows/nsys-jax/test_data/pax_fsdp4_4proc.zip
       - name: "Setup Python 3.12"
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Run the install script, but skip launching Jupyter Lab
+      - name: Use nsys-jax-combine to merge profiles from multiple nsys processes
         shell: bash -x -e {0}
         run: |
           pip install virtualenv
-          NSYS_JAX_INSTALL_SKIP_LAUNCH=1 ./.github/container/jax_nsys/install.sh
+          .github/container/nsys-jax-combine \
+            --analysis summary \
+            --analysis communication \
+            -o .github/workflows/nsys-jax/test_data/pax_fsdp4_4proc.zip \
+            .github/workflows/nsys-jax/test_data/pax_fsdp4_4proc_proc*.zip
+      - name: Mock up the structure of an extracted .zip file
+        run: unzip -d .github/container/jax_nsys/ .github/workflows/nsys-jax/test_data/pax_fsdp4_4proc.zip
+      - name: Run the install script, but skip launching Jupyter Lab
+        shell: bash -x -e {0}
+        run: NSYS_JAX_INSTALL_SKIP_LAUNCH=1 ./.github/container/jax_nsys/install.sh
       - name: Test the Jupyter Lab installation and execute the notebook
         shell: bash -x -e {0}
         run: |

@@ -3,3 +3,5 @@ protobuf
 # Used by install-protoc
 requests
 virtualenv
+# Used by communication analysis recipe
+uncertainties
