@@ -51,7 +51,7 @@ usage() {
 
 # Set defaults
 BAZEL_CACHE=""
-BUILD_PATH_JAXLIB="/opt/jaxlib"
+BUILD_PATH_JAXLIB="/opt/jax/dist"
 BUILD_PARAM=""
 CLEAN=0
 CLEANONLY=0
@@ -257,6 +257,7 @@ popd
 ## Build jaxlib
 mkdir -p "${BUILD_PATH_JAXLIB}"
 time python "${SRC_PATH_JAX}/build/build.py" \
+    --editable \
     --use_clang \
     --enable_cuda \
     --build_gpu_plugin \
@@ -279,6 +280,10 @@ for wheel in `ls ${BUILD_PATH_JAXLIB}/*.whl`; do
     echo -e "\n$wheel" >> build/requirements.in
 done
 
+python "${SRC_PATH_JAX}/build/build.py" \
+    --requirements_update \
+    --python_version="${PYTHON_VERSION}"
+
 PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
 bazel run //build:requirements_dev.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
 popd
@@ -294,7 +299,8 @@ else
 fi
 
 # install jaxlib
-pip --disable-pip-version-check install ${BUILD_PATH_JAXLIB}/*.whl
+for 
+pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/
 
 # install jax
 if [[ "$JAXLIB_ONLY" == "0" ]]; then

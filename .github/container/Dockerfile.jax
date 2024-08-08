@@ -89,7 +89,9 @@ RUN mkdir -p /opt/pip-tools.d
 
 ## Editable installations of jax and jaxlib
 RUN <<"EOF" bash -ex
-echo "-e file://${BUILD_PATH_JAXLIB}" > /opt/pip-tools.d/requirements-jax.in
+for component in $(ls ${BUILD_PATH_JAXLIB}); do
+    echo "-e file://${BUILD_PATH_JAXLIB}/${component}" > /opt/pip-tools.d/requirements-jax.in;
+done
 echo "-e file://${SRC_PATH_JAX}" >> /opt/pip-tools.d/requirements-jax.in
 echo "numpy<2.0.0" >> /opt/pip-tools.d/requirements-jax.in
 EOF
