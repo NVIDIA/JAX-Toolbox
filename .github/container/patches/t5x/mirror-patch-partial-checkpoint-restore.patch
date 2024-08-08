@@ -25,5 +25,5 @@ index 61682ed..77e0860 100644
    ]
    # 2. From a checkpoint specified by `checkpoint_cfg.restore.path`, if set.
 -- 
-2.34.1
+2.46.0
 
