@@ -133,7 +133,7 @@ while [ : ]; do
             ;;
         --)
             shift;
-            break 
+            break
             ;;
         *)
             echo "UNKNOWN OPTION $1"
@@ -164,6 +164,7 @@ export TF_NEED_TENSORRT=0
 export TF_CUDA_PATHS=/usr,/usr/local/cuda
 export TF_CUDNN_PATHS=/usr/lib/$(uname -p)-linux-gnu
 export TF_CUDA_VERSION=$(ls /usr/local/cuda/lib64/libcudart.so.*.*.* | cut -d . -f 3-4)
+export TF_CUDA_MAJOR_VERSION=$(ls /usr/local/cuda/lib64/libcudart.so.*.*.* | cut -d . -f 3)
 export TF_CUBLAS_VERSION=$(ls /usr/local/cuda/lib64/libcublas.so.*.*.* | cut -d . -f 3)
 export TF_CUDNN_VERSION=$(echo "${NV_CUDNN_VERSION}" | cut -d . -f 1)
 export TF_NCCL_VERSION=$(echo "${NCCL_VERSION}" | cut -d . -f 1)
@@ -217,6 +218,7 @@ print_var SRC_PATH_JAX
 print_var SRC_PATH_XLA
 
 print_var TF_CUDA_VERSION
+print_var TF_CUDA_MAJOR_VERSION
 print_var TF_CUDA_COMPUTE_CAPABILITIES
 print_var TF_CUBLAS_VERSION
 print_var TF_CUDNN_VERSION
@@ -255,9 +257,10 @@ popd
 ## Build jaxlib
 mkdir -p "${BUILD_PATH_JAXLIB}"
 time python "${SRC_PATH_JAX}/build/build.py" \
-    --editable \
     --use_clang \
     --enable_cuda \
+    --build_gpu_plugin \
+    --gpu_plugin_cuda_version=$TF_CUDA_MAJOR_VERSION \
     --cuda_path=$TF_CUDA_PATHS \
     --cudnn_path=$TF_CUDNN_PATHS \
     --cuda_version=$TF_CUDA_VERSION \
@@ -271,14 +274,15 @@ time python "${SRC_PATH_JAX}/build/build.py" \
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
-line="jaxlib @ file://${BUILD_PATH_JAXLIB}"
-if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
-    pushd "${SRC_PATH_JAX}"
-    echo "${line}" >> build/requirements.in
-    PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
-    bazel run //build:requirements_dev.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
-    popd
-fi
+pushd "${SRC_PATH_JAX}"
+for wheel in `ls ${BUILD_PATH_JAXLIB}/*.whl`; do
+    echo -e "\n$wheel" >> build/requirements.in
+done
+
+PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
+bazel run //build:requirements_dev.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
+popd
+
 
 ## Install the built packages
 
@@ -290,7 +294,7 @@ else
 fi
 
 # install jaxlib
-pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}
+pip --disable-pip-version-check install ${BUILD_PATH_JAXLIB}/*.whl
 
 # install jax
 if [[ "$JAXLIB_ONLY" == "0" ]]; then
