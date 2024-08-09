@@ -275,40 +275,39 @@ time python "${SRC_PATH_JAX}/build/build.py" \
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
+line="jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib"
 if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
     pushd "${SRC_PATH_JAX}"
     echo "${line}" >> build/requirements.in
-    for component in $(ls ${BUILD_PATH_JAXLIB}); do
-        component_name="$(echo $component | tr '_' '-')-cuda${TF_CUDA_MAJOR_VERSION}"
-        echo "${component_name} @ file://${BUILD_PATH_JAXLIB}/${component}" > /opt/pip-tools.d/requirements-jax.in;
-    done
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax_gpu_pjrt" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax_gpu_plugin" >> build/requirements.in
     PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
     #bazel run //build:requirements_dev.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
-    python "${SRC_PATH_JAX}/build/build.py" \
-        --requirements_update \
-        --python_version="${PYTHON_VERSION}"
+    python build/build.py --requirements_update --python_version=${PYTHON_VERSION}
     popd
 fi
-
 ## Install the built packages
 
 # Uninstall jaxlib in case this script was used before.
 if [[ "$JAXLIB_ONLY" == "0" ]]; then
-    pip uninstall -y jax jaxlib jax-gpu-pjrtjax-cuda${TF_CUDA_MAJOR_VERSION} jax-gpu-plugin-cuda${TF_CUDA_MAJOR_VERSION}
+    pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
 else
-    pip uninstall -y jaxlib jax-gpu-pjrtjax-cuda${TF_CUDA_MAJOR_VERSION} jax-gpu-plugin-cuda${TF_CUDA_MAJOR_VERSION}
+    pip uninstall -y jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
 fi
 
 # install jaxlib
-for component in $(ls ${BUILD_PATH_JAXLIB}); do
-    install_libs="$install_libs -e ${BUILD_PATH_JAXLIB}/${component}"
-done
-pip --disable-pip-version-check install ${install_libs}
-
+pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_gpu_pjrt -e ${BUILD_PATH_JAXLIB}/jax_gpu_plugin
 # install jax
 if [[ "$JAXLIB_ONLY" == "0" ]]; then
     pip --disable-pip-version-check install -e "${SRC_PATH_JAX}"
 fi
+
+# after installation (example)
+#  jax                     0.4.32.dev20240808+9c2caedab /opt/jax
+#  jax-cuda12-pjrt         0.4.32.dev20240808           /opt/jaxlibs/jax_gpu_pjrt
+#  jax-cuda12-plugin       0.4.32.dev20240808           /opt/jaxlibs/jax_gpu_plugin
+#  jaxlib                  0.4.32.dev20240808           /opt/jaxlibs/jaxlib
+pip list | grep jax
 
 ## Cleanup
 
