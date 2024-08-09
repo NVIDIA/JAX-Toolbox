@@ -25,9 +25,15 @@ def align_profiler_data_timestamps(
         corrected
       dictionary of information about the alignment process
     """
+    # Error if the communication frame doesn't exist at all, but not if it is empty.
+    # Calling this on a profile that does not contain any communication should
+    # gracefully yield empty results.
     assert (
         frames.communication is not None
     ), "align_profiler_data_timestamps requires a communication frame"
+    if not len(frames.communication):
+        # Nothing to be done, return an empty result
+        return frames, {}
     comm_df = frames.communication
     # Determine which collective size will be used for the alignment
     num_profiled_devices = len(comm_df.index.get_level_values("Device").unique())
@@ -68,7 +74,8 @@ def apply_warmup_heuristics(frames: ProfilerData) -> tuple[ProfilerData, Profile
     approach is to assume everything is steady state if compilation was not profiled,
     and if compilation *was* profiled then label the 0th execution as initialisation
     and the 2nd and later ones as steady state operation, discarding one execution in
-    between.
+    between. If there is no communication in the profile, that one in between is not
+    discarded.
 
     Returns a tuple of:
       ProfilerData dataclass, with only initialisation (and compile)
@@ -93,6 +100,9 @@ def apply_warmup_heuristics(frames: ProfilerData) -> tuple[ProfilerData, Profile
     # expected to launch closer to in lockstep across processes.
     init = ProfilerData(compile=frames.compile)
     steady = ProfilerData()
+    steady_state_threshold = (
+        1 if frames.communication is not None and len(frames.communication) else 0
+    )
     for k in ["communication", "thunk", "module"]:
         df = getattr(frames, k)
         if df is None:
@@ -100,13 +110,20 @@ def apply_warmup_heuristics(frames: ProfilerData) -> tuple[ProfilerData, Profile
         compile_mask = df.index.get_level_values("ProgramId").isin(compilation_ids_seen)
         prog_exec_values = df.index.get_level_values("ProgramExecution")
         init_mask = compile_mask & (prog_exec_values == 0)
-        steady_mask = ~compile_mask | (prog_exec_values > 1)
-        assert (
-            len(df) == 0 or steady_mask.any()
-        ), "No steady-state executions identified, profile collection may have been too short"
-        assert (prog_exec_values[~init_mask & ~steady_mask] == 1).all()
-        setattr(init, k, df[init_mask])
-        setattr(steady, k, df[steady_mask])
+        steady_mask = ~compile_mask | (prog_exec_values > steady_state_threshold)
+        if len(df) != 0 and not steady_mask.any():
+            print(
+                f"WARNING: heuristics could not identify steady-state execution in {k} frame, assuming EVERYTHING is steady-state. You may want to increase the number of profiled executions."
+            )
+            setattr(init, k, df[steady_mask])
+            setattr(steady, k, df[~steady_mask])
+        else:
+            assert (
+                steady_state_threshold == 0
+                or (prog_exec_values[~init_mask & ~steady_mask] == 1).all()
+            )
+            setattr(init, k, df[init_mask])
+            setattr(steady, k, df[steady_mask])
     return init, steady
 
 

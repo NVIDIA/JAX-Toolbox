@@ -116,6 +116,7 @@ for t in $*; do
 done
 
 COMMON_FLAGS=$(cat << EOF
+--@local_config_cuda//:enable_cuda
 --cache_test_results=${CACHE_TEST_RESULTS}
 --test_timeout=600
 --test_tag_filters=-multiaccelerator 

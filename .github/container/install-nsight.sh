@@ -12,7 +12,8 @@ export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 
 apt-get update
-apt-get install -y nsight-compute nsight-systems-cli
+# TODO: revert to nsight-systems-cli instead of explicitly pinning
+apt-get install -y nsight-compute nsight-systems-cli-2024.4.1
 apt-get clean
 
 rm -rf /var/lib/apt/lists/*
