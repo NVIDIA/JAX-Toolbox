@@ -51,7 +51,7 @@ usage() {
 
 # Set defaults
 BAZEL_CACHE=""
-BUILD_PATH_JAXLIB="/opt/jaxlib"
+BUILD_PATH_JAXLIB="/opt/jax/dist"
 BUILD_PARAM=""
 CLEAN=0
 CLEANONLY=0
@@ -133,7 +133,7 @@ while [ : ]; do
             ;;
         --)
             shift;
-            break 
+            break
             ;;
         *)
             echo "UNKNOWN OPTION $1"
@@ -164,6 +164,7 @@ export TF_NEED_TENSORRT=0
 export TF_CUDA_PATHS=/usr,/usr/local/cuda
 export TF_CUDNN_PATHS=/usr/lib/$(uname -p)-linux-gnu
 export TF_CUDA_VERSION=$(ls /usr/local/cuda/lib64/libcudart.so.*.*.* | cut -d . -f 3-4)
+export TF_CUDA_MAJOR_VERSION=$(ls /usr/local/cuda/lib64/libcudart.so.*.*.* | cut -d . -f 3)
 export TF_CUBLAS_VERSION=$(ls /usr/local/cuda/lib64/libcublas.so.*.*.* | cut -d . -f 3)
 export TF_CUDNN_VERSION=$(echo "${NV_CUDNN_VERSION}" | cut -d . -f 1)
 export TF_NCCL_VERSION=$(echo "${NCCL_VERSION}" | cut -d . -f 1)
@@ -217,6 +218,7 @@ print_var SRC_PATH_JAX
 print_var SRC_PATH_XLA
 
 print_var TF_CUDA_VERSION
+print_var TF_CUDA_MAJOR_VERSION
 print_var TF_CUDA_COMPUTE_CAPABILITIES
 print_var TF_CUBLAS_VERSION
 print_var TF_CUDNN_VERSION
@@ -258,6 +260,8 @@ time python "${SRC_PATH_JAX}/build/build.py" \
     --editable \
     --use_clang \
     --enable_cuda \
+    --build_gpu_plugin \
+    --gpu_plugin_cuda_version=$TF_CUDA_MAJOR_VERSION \
     --cuda_path=$TF_CUDA_PATHS \
     --cudnn_path=$TF_CUDNN_PATHS \
     --cuda_version=$TF_CUDA_VERSION \
@@ -271,31 +275,39 @@ time python "${SRC_PATH_JAX}/build/build.py" \
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
-line="jaxlib @ file://${BUILD_PATH_JAXLIB}"
+line="jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib"
 if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
     pushd "${SRC_PATH_JAX}"
     echo "${line}" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax_gpu_pjrt" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax_gpu_plugin" >> build/requirements.in
     PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
-    bazel run //build:requirements_dev.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
+    #bazel run //build:requirements_dev.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
+    python build/build.py --requirements_update --python_version=${PYTHON_VERSION}
     popd
 fi
-
 ## Install the built packages
 
 # Uninstall jaxlib in case this script was used before.
 if [[ "$JAXLIB_ONLY" == "0" ]]; then
-    pip uninstall -y jax jaxlib
+    pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
 else
-    pip uninstall -y jaxlib
+    pip uninstall -y jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
 fi
 
 # install jaxlib
-pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}
-
+pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_gpu_pjrt -e ${BUILD_PATH_JAXLIB}/jax_gpu_plugin
 # install jax
 if [[ "$JAXLIB_ONLY" == "0" ]]; then
     pip --disable-pip-version-check install -e "${SRC_PATH_JAX}"
 fi
+
+# after installation (example)
+#  jax                     0.4.32.dev20240808+9c2caedab /opt/jax
+#  jax-cuda12-pjrt         0.4.32.dev20240808           /opt/jax/dist/jax_gpu_pjrt
+#  jax-cuda12-plugin       0.4.32.dev20240808           /opt/jax/dist/jax_gpu_plugin
+#  jaxlib                  0.4.32.dev20240808           /opt/jax/dist/jaxlib
+pip list | grep jax
 
 ## Cleanup
 
