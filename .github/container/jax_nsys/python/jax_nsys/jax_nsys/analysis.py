@@ -140,8 +140,11 @@ def element_type_width(element_type: int) -> int:
         # https://github.com/openxla/xla/blob/664a36a2b5e5be9179c5841830da56799b6dfe60/xla/service/gpu/runtime/nccl_api.cc#L116-L118
         return 8
 
+    # There are several 8-bit floating point types of the form F8E{n}M{m}...
+    if enum_name.startswith("F8E"):
+        return 8
+
     # S32 is a 32-bit type and so on.
-    # FIXME: does not handle FP8 yet
     for prefix in ["BF", "C", "F", "S", "U"]:
         if enum_name.startswith(prefix):
             return int(enum_name[len(prefix) :])
@@ -202,11 +205,16 @@ def _get_message_size(
             replica_groups = comm_inst.collective_device_list.replica_groups
         except AttributeError:
             replica_groups = comm_inst.replica_groups
-        collective_sizes = set(len(group.replica_ids) for group in replica_groups)
-        assert (
-            len(collective_sizes) == 1
-        ), f"Heterogeneous collective {comm_inst} could not be interpreted"
-        collective_size = next(iter(collective_sizes))
+        if len(replica_groups) == 0:
+            # perhaps we have the newer format
+            iota_group_list = comm_inst.collective_device_list.iota_replica_group_list
+            collective_size = iota_group_list.num_devices_per_group
+        else:
+            collective_sizes = set(len(group.replica_ids) for group in replica_groups)
+            assert (
+                len(collective_sizes) == 1
+            ), f"Heterogeneous collective {comm_inst} could not be interpreted"
+            collective_size = next(iter(collective_sizes))
     total_msg_size = 0
     for operand_id in comm_inst.operand_ids:
         _, operand = module_proto.find_instruction_by_id(operand_id)
