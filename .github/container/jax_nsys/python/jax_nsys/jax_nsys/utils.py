@@ -58,13 +58,13 @@ def remove_autotuning_detail(
     - compile frame loses granular detail within autotuner compilation and measurement
     """
     # Ignore autotuning executions with ProgramId < 0
-    if module_frame and data.module is not None:
+    if module_frame and data.module is not None and len(data.module):
         assert data.module.index.names[0] == "ProgramId"
         data.module = data.module.loc[0:]
-    if thunk_frame and data.thunk is not None:
+    if thunk_frame and data.thunk is not None and len(data.thunk):
         assert data.thunk.index.names[0] == "ProgramId"
         data.thunk = data.thunk.loc[0:]
-    if measurement and data.compile is not None:
+    if measurement and data.compile is not None and len(data.compile):
         # Removing child ranges of XlaAutotunerMeasurement ranges. The GEMM fusion
         # autotuner creates small modules/thunks when measuring, which emit XlaModule
         # and XlaThunk ranges
@@ -72,7 +72,7 @@ def remove_autotuning_detail(
         # Erase the name of the op being autotuned
         data.compile.loc[mask, "Name"] = "XlaAutotunerMeasurement"
         data.compile = remove_child_ranges(data.compile, mask)
-    if compilation and data.compile is not None:
+    if compilation and data.compile is not None and len(data.compile):
         # Remove the detail of the constituent parts (EmitLlvmIr etc.) of autotuner
         # compilation
         data.compile = remove_child_ranges(
