@@ -275,32 +275,35 @@ time python "${SRC_PATH_JAX}/build/build.py" \
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
-pushd "${SRC_PATH_JAX}"
-for wheel in `ls ${BUILD_PATH_JAXLIB}/*.whl`; do
-    echo -e "\n$wheel" >> build/requirements.in
-done
-
-python "${SRC_PATH_JAX}/build/build.py" \
-    --requirements_update \
-    --python_version="${PYTHON_VERSION}"
-
-PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
-bazel run //build:requirements_dev.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
-popd
-
+if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
+    pushd "${SRC_PATH_JAX}"
+    echo "${line}" >> build/requirements.in
+    for component in $(ls ${BUILD_PATH_JAXLIB}); do
+        component_name="$(echo $component | tr '_' '-')-cuda${TF_CUDA_MAJOR_VERSION}"
+        echo "${component_name} @ file://${BUILD_PATH_JAXLIB}/${component}" > /opt/pip-tools.d/requirements-jax.in;
+    done
+    PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
+    #bazel run //build:requirements_dev.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
+    python "${SRC_PATH_JAX}/build/build.py" \
+        --requirements_update \
+        --python_version="${PYTHON_VERSION}"
+    popd
+fi
 
 ## Install the built packages
 
 # Uninstall jaxlib in case this script was used before.
 if [[ "$JAXLIB_ONLY" == "0" ]]; then
-    pip uninstall -y jax jaxlib
+    pip uninstall -y jax jaxlib jax-gpu-pjrtjax-cuda${TF_CUDA_MAJOR_VERSION} jax-gpu-plugin-cuda${TF_CUDA_MAJOR_VERSION}
 else
-    pip uninstall -y jaxlib
+    pip uninstall -y jaxlib jax-gpu-pjrtjax-cuda${TF_CUDA_MAJOR_VERSION} jax-gpu-plugin-cuda${TF_CUDA_MAJOR_VERSION}
 fi
 
 # install jaxlib
-for 
-pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/
+for component in $(ls ${BUILD_PATH_JAXLIB}); do
+    install_libs="$install_libs -e ${BUILD_PATH_JAXLIB}/${component}"
+done
+pip --disable-pip-version-check install ${install_libs}
 
 # install jax
 if [[ "$JAXLIB_ONLY" == "0" ]]; then
