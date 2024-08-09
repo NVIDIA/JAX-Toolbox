@@ -304,9 +304,9 @@ fi
 
 # after installation (example)
 #  jax                     0.4.32.dev20240808+9c2caedab /opt/jax
-#  jax-cuda12-pjrt         0.4.32.dev20240808           /opt/jaxlibs/jax_gpu_pjrt
-#  jax-cuda12-plugin       0.4.32.dev20240808           /opt/jaxlibs/jax_gpu_plugin
-#  jaxlib                  0.4.32.dev20240808           /opt/jaxlibs/jaxlib
+#  jax-cuda12-pjrt         0.4.32.dev20240808           /opt/jax/dist/jax_gpu_pjrt
+#  jax-cuda12-plugin       0.4.32.dev20240808           /opt/jax/dist/jax_gpu_plugin
+#  jaxlib                  0.4.32.dev20240808           /opt/jax/dist/jaxlib
 pip list | grep jax
 
 ## Cleanup
