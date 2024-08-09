@@ -100,7 +100,9 @@ def apply_warmup_heuristics(frames: ProfilerData) -> tuple[ProfilerData, Profile
     # expected to launch closer to in lockstep across processes.
     init = ProfilerData(compile=frames.compile)
     steady = ProfilerData()
-    steady_state_threshold = 1 if len(frames.communication) else 0
+    steady_state_threshold = (
+        1 if frames.communication is not None and len(frames.communication) else 0
+    )
     for k in ["communication", "thunk", "module"]:
         df = getattr(frames, k)
         if df is None:
