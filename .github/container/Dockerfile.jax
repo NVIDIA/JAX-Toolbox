@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:base
-ARG BUILD_PATH_JAXLIB=/opt/jax/dist
+ARG BUILD_PATH_JAXLIB=/opt/jaxlib
 ARG URLREF_JAX=https://github.com/google/jax.git#main
 ARG URLREF_XLA=https://github.com/openxla/xla.git#main
 ARG URLREF_FLAX=https://github.com/google/flax.git#main
