@@ -30,7 +30,7 @@ usage() {
     echo "    OPTIONS                        DESCRIPTION"
     echo "    --bazel-cache URI              Path for local bazel cache or URL of remote bazel cache"
     echo "    --build-param PARAM            Param passed to the jaxlib build command. Can be passed many times."
-    echo "    --build-path-jaxlib PATH       Editable install location for jaxlib"
+    echo "    --build-path-jaxlib PATH       Editable install prefix for jaxlib and plugins"
     echo "    --clean                        Delete local configuration and bazel cache"
     echo "    --clean-only                   Do not build, just cleanup"
     echo "    --cpu-arch                     Target CPU architecture, e.g. amd64, arm64, etc."
@@ -51,7 +51,7 @@ usage() {
 
 # Set defaults
 BAZEL_CACHE=""
-BUILD_PATH_JAXLIB="/opt/jaxlib"
+BUILD_PATH_JAXLIB="/opt/jaxlibs"
 BUILD_PARAM=""
 CLEAN=0
 CLEANONLY=0
@@ -304,9 +304,9 @@ fi
 
 # after installation (example)
 #  jax                     0.4.32.dev20240808+9c2caedab /opt/jax
-#  jax-cuda12-pjrt         0.4.32.dev20240808           /opt/jaxlib/jax_gpu_pjrt
-#  jax-cuda12-plugin       0.4.32.dev20240808           /opt/jaxlib/jax_gpu_plugin
-#  jaxlib                  0.4.32.dev20240808           /opt/jaxlib/jaxlib
+#  jax-cuda12-pjrt         0.4.32.dev20240808           /opt/jaxlibs/jax_gpu_pjrt
+#  jax-cuda12-plugin       0.4.32.dev20240808           /opt/jaxlibs/jax_gpu_plugin
+#  jaxlib                  0.4.32.dev20240808           /opt/jaxlibs/jaxlib
 pip list | grep jax
 
 ## Cleanup
