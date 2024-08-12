@@ -56,6 +56,8 @@ RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-
 RUN <<"EOF" bash -ex
 git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
 echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+# This is used if profiler=nsys is passed
+echo "gsutil" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
 
 ###############################################################################
