@@ -5,12 +5,11 @@ on:
 
 jobs:
   sandbox:
-    env:
-      IMAGE_NAME: ghcr.io/nvidia/jax-toolbox-internal:10352352914-maxtext-amd64
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: nsys-jax
       EXECUTE: |
+        IMAGE_NAME=ghcr.io/nvidia/jax-toolbox-internal:10352352914-maxtext-amd64
         # Test cases:
         # - 1 GPU, profiled from the beginning
         # - 1 GPU, with targeted collection that's too short
