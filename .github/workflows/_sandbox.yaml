@@ -9,25 +9,52 @@ jobs:
     with:
       TEST_NAME: nsys-jax
       EXECUTE: |
+        set -o pipefail
         IMAGE_NAME=ghcr.io/nvidia/jax-toolbox-internal:10352352914-maxtext-amd64
         # Test cases:
-        # - 1 GPU, profiled from the beginning
-        # - 1 GPU, with targeted collection that's too short
-        # - 1 GPU, with targeted collection that's sufficient
+        # - 1 node, profiled from the beginning
+        # - 1 node, with targeted collection that's too short
+        # - 1 node, with targeted collection that's sufficient
         # - multi-GPU
         # in principle all of them with/without analysis recipes,
         # but probably not worth actually doing that
-        NSYS_JAX="docker run --shm-size=1g --gpus all ${IMAGE_NAME} nsys-jax"
-        ${NSYS_JAX} --nsys-jax-analysis summary test-maxtext.sh |& tee full-execution.log
-        num_failures=$(($? != 0))
-        ${NSYS_JAX} --nsys-jax-analysis summary \
-          --capture-range=cudaProfilerApi \
-          --capture-range-end=stop -- \
-          --sample=none \
-          test-maxtext.sh \
-          --additional-args "profiler=nsys skip_first_n_steps_for_profiler=4 profiler_steps=5" \
-          --steps 10 |& tee partial-execution.log
-        num_failures=$((num_failures + ($? != 0)))
+        nvidia-smi
+        num_failures=0
+        for mode in single-gpu multi-gpu multi-gpu-multi-process; do
+          DOCKER="docker run --shm-size=1g -v ${PWD}:/opt/output"
+          if [[ "${mode}" != "single-gpu" ]]; then
+            DOCKER+=" --gpus all"
+          fi
+          DOCKER+=" ${IMAGE_NAME}"
+          if [[ "${mode}" == "multi-gpu-multi-process" ]]; then
+            INIT_ARGS=" --multiprocess"
+          fi
+          NSYS_JAX="nsys-jax --nsys-jax-analysis summary"
+          for collection in full partial; do
+            TEST_ARGS=""
+            if [[ "${collection}" == "partial" ]]; then
+              NSYS_JAX+=" --capture-range=cudaProfilerApi --capture-range-end=stop"
+              # nvbug/4801401
+              NSYS_JAX+=" --sample=none"
+              TEST_ARGS='--additional-args "profiler=nsys skip_first_n_steps_for_profiler=4 profiler_steps=5"'
+            fi
+            NSYS_JAX+=" --output=/opt/output/${mode}-${collection}-execution.zip"
+            COMMAND="${NSYS_JAX} -- test-maxtext.sh ${TEST_ARGS} ${INIT_ARGS}"
+            ${DOCKER} ${COMMAND} |& tee ${mode}-${collection}-execution.log
+            num_failures=$((num_failures + ($? != 0)))
+          done
+        done
+        exit $num_failures
+
+  """Jax distributed initialize for GPUs."""
+  if os.environ.get("JAX_COORDINATOR_IP") is not None:
+    coordinator_ip = str(os.getenv("JAX_COORDINATOR_IP"))
+    coordinator_port = str(os.getenv("JAX_COORDINATOR_PORT"))
+    jax.distributed.initialize(
+        coordinator_address=f"{coordinator_ip}:{coordinator_port}",
+        num_processes=int(os.getenv("NNODES")),
+        process_id=int(os.getenv("NODE_RANK")),
+
         ls -R .
         exit $num_failures
       STATISTICS_SCRIPT: |
