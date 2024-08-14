@@ -113,6 +113,9 @@ python setup.py bdist_wheel && rm -rf build
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl)" >> /opt/pip-tools.d/requirements-te.in
 EOF
 
+## Install a test script
+ADD jax-nccl-test.py /usr/local/bin/
+
 ###############################################################################
 ## Install primary packages and transitive dependencies
 ###############################################################################
