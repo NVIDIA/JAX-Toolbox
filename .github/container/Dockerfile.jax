@@ -60,7 +60,6 @@ RUN build-jax.sh \
 RUN <<"EOF" bash -ex -o pipefail
 pip install ninja && rm -rf ~/.cache/pip
 # TransformerEngine now needs JAX at build time
-pip install -e ${SRC_PATH_JAX}
 git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 pushd ${SRC_PATH_TRANSFORMER_ENGINE}
 python setup.py bdist_wheel && rm -rf build
