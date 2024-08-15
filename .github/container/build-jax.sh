@@ -260,7 +260,7 @@ popd
 
 ## Build jaxlib
 mkdir -p "${BUILD_PATH_JAXLIB}"
-clean
+ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
 time python "${SRC_PATH_JAX}/build/build.py" \
     --editable \
     --use_clang \
