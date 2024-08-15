@@ -260,8 +260,7 @@ popd
 
 ## Build jaxlib
 mkdir -p "${BUILD_PATH_JAXLIB}"
-python /opt/jax/build/build.py 
-
+clean
 time python "${SRC_PATH_JAX}/build/build.py" \
     --editable \
     --use_clang \
