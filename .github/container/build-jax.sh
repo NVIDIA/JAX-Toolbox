@@ -260,18 +260,25 @@ popd
 
 ## Build jaxlib
 mkdir -p "${BUILD_PATH_JAXLIB}"
-bazel clean --expunge || true
 python /opt/jax/build/build.py 
+
+time python "${SRC_PATH_JAX}/build/build.py" \
     --editable \
     --use_clang \
     --enable_cuda \
     --build_gpu_plugin \
-    --gpu_plugin_cuda_version=12 \
-    --bazel_options=--repo_env=LOCAL_CUDA_PATH="/usr/local/cuda" \
+    --gpu_plugin_cuda_version=$TF_CUDA_MAJOR_VERSION \
+    --cuda_version=$TF_CUDA_VERSION \
+    --cudnn_version=$TF_CUDNN_VERSION \
+    --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
+    --enable_nccl=true \
     --bazel_options=--linkopt=-fuse-ld=lld \
-    --output_path=/opt/jaxlibs \
+    --bazel_options=--repo_env=LOCAL_CUDA_PATH="/usr/local/cuda" \
+    --bazel_options=--override_repository=xla=$SRC_PATH_XLA \
     --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn" \
-    --bazel_options=--repo_env=LOCAL_NCCL_PATH="/usr/local/lib/python3.10/dist-packages/nvidia/nccl"
+    --bazel_options=--repo_env=LOCAL_NCCL_PATH="/usr/local/lib/python3.10/dist-packages/nvidia/nccl" \
+    --output_path=${BUILD_PATH_JAXLIB} \
+    $BUILD_PARAM
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
