@@ -168,9 +168,9 @@ export TF_CUDA_MAJOR_VERSION=$(ls /usr/local/cuda/lib64/libcudart.so.*.*.* | cut
 export TF_CUBLAS_VERSION=$(ls /usr/local/cuda/lib64/libcublas.so.*.*.* | cut -d . -f 3)
 export TF_NCCL_VERSION=$(echo "${NCCL_VERSION}" | cut -d . -f 1)
 
-TF_CUDNN_MAJOR_VERSION=$(grep "CUDNN_MAJOR" /usr/include/cudnn_version.h | awk '{print $3}')
-TF_CUDNN_MINOR_VERSION=$(grep "CUDNN_MINOR" /usr/include/cudnn_version.h | awk '{print $3}')
-TF_CUDNN_PATCHLEVEL_VERSION=$(grep "CUDNN_PATCHLEVEL" /usr/include/cudnn_version.h | awk '{print $3}')
+TF_CUDNN_MAJOR_VERSION=$(grep "#define CUDNN_MAJOR" /usr/include/cudnn_version.h | awk '{print $3}')
+TF_CUDNN_MINOR_VERSION=$(grep "#define CUDNN_MINOR" /usr/include/cudnn_version.h | awk '{print $3}')
+TF_CUDNN_PATCHLEVEL_VERSION=$(grep "#define CUDNN_PATCHLEVEL" /usr/include/cudnn_version.h | awk '{print $3}')
 export TF_CUDNN_VERSION="${TF_CUDNN_MAJOR_VERSION}.${TF_CUDNN_MINOR_VERSION}.${TF_CUDNN_PATCHLEVEL_VERSION}"
 
 case "${CPU_ARCH}" in
