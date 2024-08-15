@@ -274,8 +274,6 @@ time python "${SRC_PATH_JAX}/build/build.py" \
     --bazel_options=--override_repository=xla=$SRC_PATH_XLA \
     --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn" \
     --bazel_options=--repo_env=LOCAL_NCCL_PATH="/usr/local/lib/python3.10/dist-packages/nvidia/nccl" \
-    --bazel_options=--repo_env=HERMETIC_CUDA_VERSION=$TF_CUDA_VERSION \
-    --bazel_options=--repo_env=HERMETIC_CUDNN_VERSION=$TF_CUDNN_VERSION \
     --output_path=${BUILD_PATH_JAXLIB} \
     $BUILD_PARAM
 
