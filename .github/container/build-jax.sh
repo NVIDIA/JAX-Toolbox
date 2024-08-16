@@ -266,7 +266,7 @@ time python "${SRC_PATH_JAX}/build/build.py" \
     --enable_cuda \
     --build_gpu_plugin \
     --gpu_plugin_cuda_version=$TF_CUDA_MAJOR_VERSION \
-    --bazel_options=--repo_env=HERMETIC_CUDA_VERSION=$TF_CUDA_VERSION \
+    --bazel_options=--repo_env=HERMETIC_CUDA_VERSION=$CUDA_VERSION \
     --bazel_options=--repo_env=HERMETIC_CUDNN_VERSION=$TF_CUDNN_VERSION \
     --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
     --enable_nccl=true \
