@@ -48,6 +48,7 @@ RUN ARCH="$(dpkg --print-architecture)" && \
 # TODO: move this patch into the manifest
 ADD xla-arm64-neon.patch /opt
 RUN build-jax.sh \
+    --bazel-cache ${BAZEL_CACHE} \
     --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \

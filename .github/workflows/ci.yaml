@@ -33,7 +33,7 @@ on:
         description: |
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
           PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,paxml,praxis,maxtext,levanter,haliax,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
-        default: 'transformer-engine=https://github.com/phu0ngng/TransformerEngine#phu0ngng:fix_ffi_include'
+        default: ''
         required: false
 
 concurrency:
