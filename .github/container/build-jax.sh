@@ -260,7 +260,9 @@ popd
 
 ## Build jaxlib
 mkdir -p "${BUILD_PATH_JAXLIB}"
-ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
+if [[ ! -e "/usr/local/cuda/lib" ]]; then
+    ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
+fi
 time python "${SRC_PATH_JAX}/build/build.py" \
     --editable \
     --use_clang \
@@ -272,8 +274,8 @@ time python "${SRC_PATH_JAX}/build/build.py" \
     --bazel_options=--linkopt=-fuse-ld=lld \
     --bazel_options=--repo_env=LOCAL_CUDA_PATH="/usr/local/cuda" \
     --bazel_options=--override_repository=xla=$SRC_PATH_XLA \
-    --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn" \
-    --bazel_options=--repo_env=LOCAL_NCCL_PATH="/usr/local/lib/python3.10/dist-packages/nvidia/nccl" \
+    --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia-links/cudnn" \
+    --bazel_options=--repo_env=LOCAL_NCCL_PATH="/opt/nvidia-links/nccl" \
     --output_path=${BUILD_PATH_JAXLIB} \
     $BUILD_PARAM
 
