@@ -41,12 +41,13 @@ if [[ -d "${prefix}" ]]; then
   echo "Skipping link farm creation"
   exit 1
 fi
+arch=$(uname -m)-linux-gnu
 for nccl_file in $(dpkg -L libnccl2 libnccl-dev | sort -u); do
   # Real files and symlinks are linked into $prefix
   if [[ -f "${nccl_file}" || -h "${nccl_file}" ]]; then
     # Replace /usr with $prefix and remove arch-specific lib directories
     nosysprefix="${nccl_file#"/usr/"}"
-    noarchlib="${nosysprefix/#"lib/x86_64-linux-gnu"/lib}"
+    noarchlib="${nosysprefix/#"lib/${arch}"/lib}"
     link_name="${prefix}/${noarchlib}"
     link_dir=$(dirname "${link_name}")
     mkdir -p "${link_dir}"

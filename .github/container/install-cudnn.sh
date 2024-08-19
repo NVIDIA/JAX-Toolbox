@@ -50,17 +50,18 @@ if [[ -d "${prefix}" ]]; then
   echo "Skipping link farm creation"
   exit 1
 fi
+arch=$(uname -m)-linux-gnu
 for cudnn_file in $(dpkg -L ${libcudnn_name} ${libcudnn_dev_name} | sort -u); do
   # Real files and symlinks are linked into $prefix
   if [[ -f "${cudnn_file}" || -h "${cudnn_file}" ]]; then
     # Replace /usr with $prefix
     nosysprefix="${cudnn_file#"/usr/"}"
     # include/x86_64-linux-gpu -> include/
-    noarchinclude="${nosysprefix/#"include/x86_64-linux-gnu"/include}"
+    noarchinclude="${nosysprefix/#"include/${arch}"/include}"
     # cudnn_v9.h -> cudnn.h
     noverheader="${noarchinclude/%"_v${CUDNN_MAJOR_VERSION}.h"/.h}"
     # lib/x86_64-linux-gnu -> lib/
-    noarchlib="${noverheader/#"lib/x86_64-linux-gnu"/lib}"
+    noarchlib="${noverheader/#"lib/${arch}"/lib}"
     link_name="${prefix}/${noarchlib}"
     link_dir=$(dirname "${link_name}")
     mkdir -p "${link_dir}"
