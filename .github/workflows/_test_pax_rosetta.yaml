@@ -123,7 +123,8 @@ jobs:
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
-              --enable-te
+              --enable-te \
+              --enable-fmha 1
           EOF
           )
 
@@ -248,7 +249,7 @@ jobs:
           - TEST_NAME: 5B_fused_attn_1
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 2
-            ADDITIONAL_ARGS: "--model-type 5B"
+            ADDITIONAL_ARGS: "--model-type 5B --enable-fmha 1"
           - TEST_NAME: 5B_fused_attn_0
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 2
