@@ -7,6 +7,8 @@ export TZ=America/Los_Angeles
 
 CUDNN_MAJOR_VERSION=9
 
+apt-get update
+
 # Extract major CUDA version from `nvcc --version` output line
 # Input: "Cuda compilation tools, release X.Y, VX.Y.Z"
 # Output: X
@@ -34,7 +36,6 @@ if [[ -z "${libcudnn_version}" || -z "${libcudnn_dev_version}" ]]; then
     exit 1
 fi
 
-apt-get update
 apt-get install -y \
     ${libcudnn_name}=${libcudnn_version} \
     ${libcudnn_dev_name}=${libcudnn_dev_version}
