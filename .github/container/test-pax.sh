@@ -16,6 +16,7 @@ usage() {
     echo "  -b, --batch-per-gpu        Batch size per GPU, defaults to 4."
     echo "  --dtype                    Batch size, defaults to bfloat16."
     echo "  --enable-te                If set, will run with env var ENABLE_TE=1." 
+    echo "  --disable-fused-attn       Whether disable TE fused attention."
     echo "  --enable-dropout           If set, will set DROPOUT_PROB to 0.1."
     echo "  --model-type               One of 126M, 5B, LLaMA70BProxy. Defaults to 126M"
     echo "  --evaluate                 Whether to test evaluation rather than training."
@@ -57,7 +58,7 @@ NVTE_FUSED_ATTN=1
 DROPOUT=0
 EVALUATE=0
 ADDITIONAL_ARGS=""
-ENABLE_FMHA=${ENABLE_FMHA:-1}
+ENABLE_FMHA=${ENABLE_FMHA:-0}
 SAVE_HLO=${SAVE_HLO:-0}
 
 eval set -- "$args"
@@ -79,9 +80,12 @@ while [ : ]; do
             ENABLE_TE=1
             shift 1
             ;;
+        --disable-fused-attn)
+            NVTE_FUSED_ATTN=0
+            shift 1
+            ;;
         --enable-fmha)
             ENABLE_FMHA="$2"
-	    NVTE_FUSED_ATTN="$2"
             shift 2
             ;;
         --enable-dropout)
@@ -427,7 +431,7 @@ if [[ ${EVALUATE} -ne 0 ]]; then
     $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
 
   ## restore from initial checkpoint for eval
-  python -m paxml.main \
+  cmd="python -m paxml.main \
     --fdl_config=${CONFIG} \
     --job_log_dir=${OUTPUT} \
     --mode='eval' \
@@ -435,18 +439,22 @@ if [[ ${EVALUATE} -ne 0 ]]; then
     --alsologtostderr \
     --enable_checkpoint_saving=False \
     $ADDITIONAL_ARGS \
-    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
-
+    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)"
+  
 else
-  python -m paxml.main \
+ cmd="python -m paxml.main \
     --fdl_config=${CONFIG} \
     --job_log_dir=${OUTPUT} \
     --alsologtostderr \
     --fdl.MAX_STEPS=${STEPS} \
     --enable_checkpoint_saving=False \
     $ADDITIONAL_ARGS \
-    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)
+    $([[ $MULTIPROCESS != 0 ]] && echo --multiprocess_gpu)"
 fi
+
+$cmd 
+p1=$!
+wait $p1
 
 echo "Checking for FMHA instructions in HLO!"
 
