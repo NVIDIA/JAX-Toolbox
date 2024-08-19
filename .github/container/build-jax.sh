@@ -263,6 +263,15 @@ mkdir -p "${BUILD_PATH_JAXLIB}"
 if [[ ! -e "/usr/local/cuda/lib" ]]; then
     ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
 fi
+
+if ! grep 'try-import %workspace%/.local_cuda.bazelrc' "${SRC_PATH_JAX}/.bazelrc"; then
+  echo 'try-import %workspace%/.local_cuda.bazelrc' >> "${SRC_PATH_JAX}/.bazelrc"
+fi
+cat > "${SRC_PATH_JAX}/.local_cuda.bazelrc" << EOF
+build:cuda --repo_env=LOCAL_CUDA_PATH="/usr/local/cuda"
+build:cuda --repo_env=LOCAL_CUDNN_PATH="/opt/nvidia-links/cudnn"
+build:cuda --repo_env=LOCAL_NCCL_PATH="/opt/nvidia-links/nccl"
+EOF
 time python "${SRC_PATH_JAX}/build/build.py" \
     --editable \
     --use_clang \
@@ -272,10 +281,7 @@ time python "${SRC_PATH_JAX}/build/build.py" \
     --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
     --enable_nccl=true \
     --bazel_options=--linkopt=-fuse-ld=lld \
-    --bazel_options=--repo_env=LOCAL_CUDA_PATH="/usr/local/cuda" \
     --bazel_options=--override_repository=xla=$SRC_PATH_XLA \
-    --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia-links/cudnn" \
-    --bazel_options=--repo_env=LOCAL_NCCL_PATH="/opt/nvidia-links/nccl" \
     --output_path=${BUILD_PATH_JAXLIB} \
     $BUILD_PARAM
 
