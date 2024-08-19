@@ -36,7 +36,7 @@ fi
 # Create a prefix with include/ and lib/ directories containing symlinks to the NCCL
 # version installed at the system level; this is useful to pass to XLA to avoid it
 # fetching its own copy.
-prefix=/opt/nvidia-links/nccl
+prefix=/opt/nvidia/nccl
 if [[ -d "${prefix}" ]]; then
   echo "Skipping link farm creation"
   exit 1

@@ -269,8 +269,8 @@ if ! grep 'try-import %workspace%/.local_cuda.bazelrc' "${SRC_PATH_JAX}/.bazelrc
 fi
 cat > "${SRC_PATH_JAX}/.local_cuda.bazelrc" << EOF
 build:cuda --repo_env=LOCAL_CUDA_PATH="/usr/local/cuda"
-build:cuda --repo_env=LOCAL_CUDNN_PATH="/opt/nvidia-links/cudnn"
-build:cuda --repo_env=LOCAL_NCCL_PATH="/opt/nvidia-links/nccl"
+build:cuda --repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn"
+build:cuda --repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl"
 EOF
 time python "${SRC_PATH_JAX}/build/build.py" \
     --editable \

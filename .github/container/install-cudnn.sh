@@ -45,7 +45,7 @@ rm -rf /var/lib/apt/lists/*
 # Create a prefix with include/ and lib/ directories containing symlinks to the cuDNN
 # version that was just installed; this is useful to pass to XLA to avoid it fetching
 # its own copy of cuDNN.
-prefix=/opt/nvidia-links/cudnn
+prefix=/opt/nvidia/cudnn
 if [[ -d "${prefix}" ]]; then
   echo "Skipping link farm creation"
   exit 1
