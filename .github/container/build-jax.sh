@@ -260,14 +260,24 @@ popd
 
 ## Build jaxlib
 mkdir -p "${BUILD_PATH_JAXLIB}"
+if [[ ! -e "/usr/local/cuda/lib" ]]; then
+    ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
+fi
+
+if ! grep 'try-import %workspace%/.local_cuda.bazelrc' "${SRC_PATH_JAX}/.bazelrc"; then
+  echo 'try-import %workspace%/.local_cuda.bazelrc' >> "${SRC_PATH_JAX}/.bazelrc"
+fi
+cat > "${SRC_PATH_JAX}/.local_cuda.bazelrc" << EOF
+build:cuda --repo_env=LOCAL_CUDA_PATH="/usr/local/cuda"
+build:cuda --repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn"
+build:cuda --repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl"
+EOF
 time python "${SRC_PATH_JAX}/build/build.py" \
     --editable \
     --use_clang \
     --enable_cuda \
     --build_gpu_plugin \
     --gpu_plugin_cuda_version=$TF_CUDA_MAJOR_VERSION \
-    --bazel_options=--repo_env=HERMETIC_CUDA_VERSION=$CUDA_VERSION \
-    --bazel_options=--repo_env=HERMETIC_CUDNN_VERSION=$TF_CUDNN_VERSION \
     --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
     --enable_nccl=true \
     --bazel_options=--linkopt=-fuse-ld=lld \

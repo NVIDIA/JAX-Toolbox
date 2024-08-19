@@ -38,6 +38,7 @@ EOF
 RUN <<"EOF" bash -ex
 mkdir /opt/llvm-build
 pushd /opt/llvm-build
+pip install ninja && rm -rf ~/.cache/pip
 cmake -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_C_COMPILER=clang \
