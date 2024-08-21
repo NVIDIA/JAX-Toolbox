@@ -337,8 +337,8 @@ jobs:
               NSYS_JAX+=" --sample=none"
             fi
             set +e
-            ${DOCKER} jax-nccl-test-multiprocess.sh RANK ${PROCESS_COUNT} ${NSYS_JAX} \
-              -- jax-nccl-test.py ${ARGS} |& tee ${mode}-${collection}-execution.log
+            ${DOCKER} parallel-launch RANK ${PROCESS_COUNT} ${NSYS_JAX} \
+              -- jax-nccl-test ${ARGS} |& tee ${mode}-${collection}-execution.log
             num_failures=$((num_failures + ($? != 0)))
             set -e
             num_tests=$((num_tests + 1))
