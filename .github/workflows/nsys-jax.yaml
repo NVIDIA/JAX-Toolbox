@@ -43,7 +43,7 @@ jobs:
       - name: "Install jax / jax_nsys / mypy"
         run: pip install jax -e JAX-Toolbox/.github/container/jax_nsys/python/jax_nsys matplotlib mypy nbconvert types-protobuf
       - name: "Install protoc"
-        run: ./JAX-Toolbox/.github/container/jax_nsys/install-protoc /usr/local
+        run: ./JAX-Toolbox/.github/container/jax_nsys/install-protoc local_protoc
       - name: "Fetch XLA .proto files"
         uses: actions/checkout@v4
         with:
@@ -58,7 +58,7 @@ jobs:
           mkdir compiled_protos compiled_stubs protos
           mv -v xla/third_party/tsl/tsl protos/
           mv -v xla/xla protos/
-          ./venv/bin/python -c "from jax_nsys import compile_protos; compile_protos(proto_dir='protos', output_dir='compiled_protos', output_stub_dir='compiled_stubs')"
+          PATH=${PWD}/local_protoc/bin:$PATH ./venv/bin/python -c "from jax_nsys import compile_protos; compile_protos(proto_dir='protos', output_dir='compiled_protos', output_stub_dir='compiled_stubs')"
           touch compiled_stubs/py.typed
       - name: "Convert .ipynb to .py"
         shell: bash -x -e {0}
@@ -101,8 +101,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           pip install -e .github/container/jax_nsys/python/jax_nsys
-          python .github/container/jax_nsys/install-protoc /usr/local
-          .github/container/nsys-jax-combine \
+          python .github/container/jax_nsys/install-protoc local_protoc
+          PATH=${PWD}/local_protoc/bin:$PATH .github/container/nsys-jax-combine \
             --analysis summary \
             --analysis communication \
             -o pax_fsdp4_4proc.zip \
