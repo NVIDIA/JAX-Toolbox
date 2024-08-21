@@ -108,7 +108,9 @@ jobs:
         shell: bash -x -e {0}
         run: |
           pip install -r .github/container/requirements-nsys-jax.in
-          python .github/container/jax_nsys/install-protoc /usr/local/bin
+          echo $PATH
+          python .github/container/jax_nsys/install-protoc /usr/local
+          which protoc
           .github/container/nsys-jax-combine \
             --analysis summary \
             --analysis communication \
