@@ -178,21 +178,9 @@ if __name__ == "__main__":
                     if input.size < max_elements:
                         # TODO: make this sensitive to whether the permutation does or
                         # does not cross NVLink domain boundaries
-                        if False:
-                            node_size = 8
-                            permutation = [
-                                (
-                                    node_size * rank + local_device,
-                                    node_size * rank + (local_device + 1) % node_size,
-                                )
-                                for rank in range(n_devices // 8)
-                                for local_device in range(8)
-                            ]
-                        else:
-                            permutation = [
-                                (i, (i + 1) % n_devices) for i in range(n_devices)
-                            ]
-
+                        permutation = [
+                            (i, (i + 1) % n_devices) for i in range(n_devices)
+                        ]
                         result = jax.lax.ppermute(input, "i", permutation)
                         assert result.shape == (1, values_per_device), result.shape
                 else:
