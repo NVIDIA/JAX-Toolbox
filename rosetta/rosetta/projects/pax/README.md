@@ -138,11 +138,11 @@ The [GPU Performance document](../../../docs/GPU_performance.md) provides a deta
 For the the 126M model, we recommend setting `--xla_gpu_all_reduce_combine_threshold_bytes=33554432`, which is different from the value recommended in `paxml/contrib/gpu/scripts_gpu/run_pile_multinode.sh`. To overwrite the default XLA flags set in the script, set the `BASE_XLA_FLAGS` environment variable prior to running `run_pile_multinode` as follows:
 
 ```
-BASE_XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_triton_gemm=false
-                --xla_gpu_enable_async_all_gather=true
-                --xla_gpu_enable_async_reduce_scatter=true  --xla_gpu_enable_highest_priority_async_stream=true
-                --xla_gpu_enable_triton_softmax_fusion=false  --xla_gpu_all_reduce_combine_threshold_bytes=33554432
-                --xla_gpu_graph_level=0 --xla_gpu_enable_async_all_reduce=true" bash run_pile_multinode.sh ...
+BASE_XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
+                --xla_gpu_enable_highest_priority_async_stream=true
+                --xla_gpu_enable_triton_softmax_fusion=false
+                --xla_gpu_all_reduce_combine_threshold_bytes=33554432
+                --xla_gpu_graph_level=0" bash run_pile_multinode.sh ...
 ```
 
 # Configs

@@ -112,7 +112,6 @@ In addition to the suggested XLA flags mentioned in [this section](https://githu
 ```bash
 export XLA_FLAGS=" \
     --xla_gpu_enable_reduction_epilogue_fusion=false \
-    --xla_gpu_enable_triton_gemm=false \
     --xla_gpu_enable_cudnn_fmha=false \
     --xla_gpu_enable_cudnn_layer_norm=true \
     --xla_gpu_enable_cublaslt=true \
@@ -126,7 +125,7 @@ python -m paxml.main \
     ...
 ```
 
-Please ensure you include the first two flags, `--xla_gpu_enable_reduction_epilogue_fusion=false` and `--xla_gpu_enable_triton_gemm=false`, as they are essential for enabling the FP8 functionality. The additional flags primarily focus on performance enhancement and should also prove beneficial for non-FP8 executions.
+Please ensure you include the first flag, `--xla_gpu_enable_reduction_epilogue_fusion=false` as it is essential for enabling the FP8 functionality. The additional flags primarily focus on performance enhancement and should also prove beneficial for non-FP8 executions.
 
 
 ## Transformer Engine vs Native FP8 Support
