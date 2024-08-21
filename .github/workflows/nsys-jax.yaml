@@ -58,19 +58,19 @@ jobs:
           mkdir compiled_protos compiled_stubs protos
           mv -v xla/third_party/tsl/tsl protos/
           mv -v xla/xla protos/
-          PATH=${PWD}/local_protoc/bin:$PATH ./venv/bin/python -c "from jax_nsys import compile_protos; compile_protos(proto_dir='protos', output_dir='compiled_protos', output_stub_dir='compiled_stubs')"
+          PATH=${PWD}/local_protoc/bin:$PATH python -c "from jax_nsys import compile_protos; compile_protos(proto_dir='protos', output_dir='compiled_protos', output_stub_dir='compiled_stubs')"
           touch compiled_stubs/py.typed
       - name: "Convert .ipynb to .py"
         shell: bash -x -e {0}
         run: |
           for notebook in $(find ${NSYS_JAX_PYTHON_FILES} -name '*.ipynb'); do
-            ./venv/bin/jupyter nbconvert --to script ${notebook}
+            jupyter nbconvert --to script ${notebook}
           done
       - name: "Run mypy checks"
         shell: bash -x -e {0}
         run: |
           export MYPYPATH="${PWD}/compiled_stubs"
-          ./venv/bin/mypy --scripts-are-modules ${NSYS_JAX_PYTHON_FILES}
+          mypy --scripts-are-modules ${NSYS_JAX_PYTHON_FILES}
 
   # Test nsys-jax-combine and notebook execution; in future perhaps upload the rendered
   # notebook from here too. These input files were generated with something like
@@ -113,7 +113,9 @@ jobs:
           unzip -d combined/ pax_fsdp4_4proc.zip
       - name: Run the install script, but skip launching Jupyter Lab
         shell: bash -x -e {0}
-        run: NSYS_JAX_INSTALL_SKIP_LAUNCH=1 ./combined/install.sh
+        run: |
+          pip install virtualenv
+          NSYS_JAX_INSTALL_SKIP_LAUNCH=1 ./combined/install.sh
       - name: Test the Jupyter Lab installation and execute the notebook
         shell: bash -x -e {0}
         run: |
