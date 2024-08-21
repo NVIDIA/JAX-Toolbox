@@ -109,8 +109,8 @@ jobs:
         run: |
           pip install virtualenv
           virtualenv venv
-          ./venv/bin/pip install -r ./JAX-Toolbox/.github/container/requirements-nsys-jax.in
-          ./venv/bin/python ./JAX-Toolbox/.github/container/jax_nsys/install-protoc ./venv
+          ./venv/bin/pip install -r .github/container/requirements-nsys-jax.in
+          ./venv/bin/python .github/container/jax_nsys/install-protoc ./venv
           ./venv/bin/python .github/container/nsys-jax-combine \
             --analysis summary \
             --analysis communication \
