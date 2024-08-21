@@ -62,6 +62,7 @@ pip install ninja && rm -rf ~/.cache/pip
 # TransformerEngine now needs JAX at build time
 git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 pushd ${SRC_PATH_TRANSFORMER_ENGINE}
+export NVTE_BUILD_THREADS_PER_JOB=8
 python setup.py bdist_wheel && rm -rf build
 ls "${SRC_PATH_TRANSFORMER_ENGINE}/dist"
 EOF
