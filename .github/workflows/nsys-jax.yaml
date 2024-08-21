@@ -16,6 +16,7 @@ on:
   push:
     branches:
       - main
+      - olupton/tmp
 
 env:
   NSYS_JAX_PYTHON_FILES: |
@@ -96,6 +97,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Add modern jax_nsys/ files to .zip inputs
+        run: |
+          cd .github/container/jax_nsys
+          for zip in ../../workflows/nsys-jax/test_data/pax_fsdp4_4proc_proc*.zip; do
+            zip -ur "${zip}" .
+            zipinfo "${zip}"
+          done
       - name: Use nsys-jax-combine to merge profiles from multiple nsys processes
         shell: bash -x -e {0}
         run: |
