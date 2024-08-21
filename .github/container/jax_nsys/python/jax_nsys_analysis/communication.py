@@ -83,7 +83,7 @@ def main():
             return "-" * width
         return f"{data[collective]:>{width}S}"
 
-    for message_size in sorted(summary_data.keys):
+    for message_size in sorted(summary_data.keys()):
         data = summary_data[message_size]
         print(
             " | ".join(
