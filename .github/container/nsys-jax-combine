@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import virtualenv  # type: ignore
 import zipfile
 
 parser = argparse.ArgumentParser(
@@ -159,20 +158,6 @@ with zipfile.ZipFile(args.output, "w") as ofile:
                         write(dst_info)
     if len(args.analysis):
         assert mirror_dir is not None
-        venv_dir = mirror_dir / "venv"
-        virtualenv.cli_run(
-            [str(venv_dir), "--python", sys.executable, "--system-site-packages"]
-        )
-        subprocess.run(
-            [
-                venv_dir / "bin" / "pip",
-                "--disable-pip-version-check",
-                "install",
-                "-e",
-                mirror_dir / "python" / "jax_nsys",
-            ],
-            check=True,
-        )
         used_slugs = set()
         for analysis in args.analysis:
             # Execute post-processing recipes and add any outputs to `ofile`
@@ -185,9 +170,7 @@ with zipfile.ZipFile(args.output, "w") as ofile:
             candidates = list(filter(lambda p: p.exists(), search))
             assert len(candidates), f"Could not find analysis script, tried {search}"
             analysis_command = (
-                [venv_dir / "bin" / "python", candidates[0]]
-                + script_args
-                + [mirror_dir]
+                [sys.executable, candidates[0]] + script_args + [mirror_dir]
             )
             # Derive a unique name slug from the analysis script name
             slug = os.path.basename(candidates[0]).removesuffix(".py")

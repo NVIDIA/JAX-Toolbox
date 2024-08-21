@@ -39,20 +39,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - name: "Create virtual environment"
-        run: |
-          pip install virtualenv
-          virtualenv venv
-      - name: "Install google.protobuf and protoc"
-        run: |
-          ./venv/bin/pip install -r ./JAX-Toolbox/.github/container/requirements-nsys-jax.in
-          ./venv/bin/python ./JAX-Toolbox/.github/container/jax_nsys/install-protoc ./venv
-      - name: "Install jax_nsys Python package"
-        run: ./venv/bin/pip install -e JAX-Toolbox/.github/container/jax_nsys/python/jax_nsys
-      - name: "Install mypy"
-        run: ./venv/bin/pip install matplotlib mypy nbconvert types-protobuf
-      - name: "Install JAX for type-checking, this is a CPU-only build of the latest release"
-        run: ./venv/bin/pip install jax
+      # jax is just a CPU-only build of the latest release for type-checking purposes
+      - name: "Install jax / jax_nsys / mypy"
+        run: pip install jax -e JAX-Toolbox/.github/container/jax_nsys/python/jax_nsys matplotlib mypy nbconvert types-protobuf
+      - name: "Install protoc"
+        run: ./JAX-Toolbox/.github/container/jax_nsys/install-protoc /usr/local
       - name: "Fetch XLA .proto files"
         uses: actions/checkout@v4
         with:
@@ -97,6 +88,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      # TODO: a modern nsys-jax-combine with old .zip input should probably produce a
+      # .zip with a modern jax_nsys/
       - name: Add modern jax_nsys/ files to static .zip inputs
         run: |
           cd .github/container/jax_nsys
@@ -107,10 +100,8 @@ jobs:
       - name: Use nsys-jax-combine to merge profiles from multiple nsys processes
         shell: bash -x -e {0}
         run: |
-          pip install -r .github/container/requirements-nsys-jax.in
-          echo $PATH
+          pip install -e .github/container/jax_nsys/python/jax_nsys
           python .github/container/jax_nsys/install-protoc /usr/local
-          which protoc
           .github/container/nsys-jax-combine \
             --analysis summary \
             --analysis communication \

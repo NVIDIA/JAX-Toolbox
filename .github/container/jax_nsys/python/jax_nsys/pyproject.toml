@@ -5,6 +5,9 @@ dependencies = [
   "ipython",
   "numpy",
   "pandas",
+  "protobuf", # a compatible version of protoc needs to be installed out-of-band
   "pyarrow",
+  "requests", # for install-protoc
+  "uncertainties", # communication analysis recipe
 ]
 requires-python = ">= 3.10"
