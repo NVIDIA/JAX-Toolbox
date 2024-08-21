@@ -107,11 +107,9 @@ jobs:
       - name: Use nsys-jax-combine to merge profiles from multiple nsys processes
         shell: bash -x -e {0}
         run: |
-          pip install virtualenv
-          virtualenv venv
-          ./venv/bin/pip install -r .github/container/requirements-nsys-jax.in
-          ./venv/bin/python .github/container/jax_nsys/install-protoc ./venv
-          ./venv/bin/python .github/container/nsys-jax-combine \
+          pip install -r .github/container/requirements-nsys-jax.in
+          python .github/container/jax_nsys/install-protoc /usr/local/bin
+          .github/container/nsys-jax-combine \
             --analysis summary \
             --analysis communication \
             -o pax_fsdp4_4proc.zip \
