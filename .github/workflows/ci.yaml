@@ -18,11 +18,6 @@ on:
         description: Publish dated images and update the 'latest' tag?
         default: false
         required: false
-      CUDA_IMAGE:
-        type: string
-        description: CUDA image to use as base, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04
-        default: 'latest'
-        required: false
       BUMP_MANIFEST:
         type: boolean
         description: Bump git repos in manifest.yaml to head of tree?
@@ -32,6 +27,11 @@ on:
         type: boolean
         description: "(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch"
         default: false
+        required: false
+      CUDA_IMAGE:
+        type: string
+        description: CUDA image to use as base, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04
+        default: 'latest'
         required: false
       SOURCE_OVERRIDES:
         type: string
