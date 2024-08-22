@@ -18,6 +18,11 @@ on:
         description: Publish dated images and update the 'latest' tag?
         default: false
         required: false
+      CUDA_IMAGE:
+        type: string
+        description: CUDA image to use as base, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04
+        default: 'latest'
+        required: false
       BUMP_MANIFEST:
         type: boolean
         description: Bump git repos in manifest.yaml to head of tree?
@@ -177,6 +182,7 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CUDA_IMAGE: ${{ inputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
     secrets: inherit
@@ -187,6 +193,7 @@ jobs:
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CUDA_IMAGE: ${{ inputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
     secrets: inherit
