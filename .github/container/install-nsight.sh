@@ -12,24 +12,15 @@ export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 
 apt-get update
-# TODO: revert to nsight-systems-cli instead of explicitly pinning
-apt-get install -y nsight-compute nsight-systems-cli-2024.4.1
+apt-get install -y nsight-compute nsight-systems-cli
 apt-get clean
 
 rm -rf /var/lib/apt/lists/*
 
-# "Wrong event order has been detected when adding events to the collection"
-# workaround during nsys report post-processing with 2024.1.1 and CUDA 12.3
-NSYS202411=/opt/nvidia/nsight-systems-cli/2024.1.1
-if [[ "${UBUNTU_ARCH}" == "amd64" && -d "${NSYS202411}" ]]; then
-  LIBCUPTI123=/opt/nvidia/nsight-compute/2023.3.0/host/target-linux-x64/libcupti.so.12.3
-  if [[ ! -f "${LIBCUPTI123}" ]]; then
-    echo "2024.1.1 workaround expects to be running inside CUDA 12.3 container"
-    exit 1
-  fi
-  # Use libcupti.so.12.3 because this is a CUDA 12.3 container
-  ln -s "${LIBCUPTI123}" "${NSYS202411}/target-linux-x64/libcupti.so.12.3"
-  mv "${NSYS202411}/target-linux-x64/libcupti.so.12.4" "${NSYS202411}/target-linux-x64/_libcupti.so.12.4"
+NSYS202451=/opt/nvidia/nsight-systems-cli/2024.5.1
+if [[ -d "${NSYS202451}" ]]; then
+  # * can match at least sbsa-armv8 and x86
+  (cd ${NSYS202451}/target-linux-*/python/packages && git apply < /opt/nvidia/nsys-2024.5-tid-export.patch)
 fi
 
 # Install extra dependencies needed for `nsys recipe ...` commands. These are

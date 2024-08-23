@@ -58,6 +58,8 @@ def align_profiler_data_timestamps(
     # Apply these corrections to the device-side timestamps
     for k in ["communication", "module", "thunk"]:
         df = getattr(frames, k)
+        if df is None:
+            continue
         df["ProjStartMs"] -= median_device_skews
         setattr(frames, k, df)
     return frames, {
