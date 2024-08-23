@@ -72,6 +72,13 @@
         <picture>
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-pallas-unit-test-A100.json&logo=nvidia&label=Pallas A100">
         </picture>
+        <br>
+        <picture>
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-nsys-jax-unit-test-V100.json&logo=nvidia&label=nsys-jax V100">
+        </picture>
+        <picture>
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-nsys-jax-unit-test-A100.json&logo=nvidia&label=nsys-jax A100">
+        </picture>
       </td>
     </tr>
     <tr>
