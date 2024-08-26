@@ -9,7 +9,7 @@ jobs:
     with:
       TEST_NAME: levanter
       EXECUTE: |
-        docker run -i --gpus all --shm-size=1g --ulimit nofile 2048:8192\
+        docker run -i --gpus all --shm-size=1g --ulimit nofile=65536:65536 \
         ghcr.io/nvidia/jax-toolbox-internal:10557304831-levanter-amd64 \
         bash <<"EOF" |& tee test-levanter.log
           ulimit -n
