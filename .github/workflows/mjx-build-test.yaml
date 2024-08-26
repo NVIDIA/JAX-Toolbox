@@ -185,7 +185,7 @@ jobs:
         shell: bash -x -e {0}
         continue-on-error: true
         run: |
-          docker run --gpus=all --shm-size=1g ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }} bash -ec "mjx-testspeed --mjcf=humanoid/humanoid.xml --batch_size=8192 --unroll=4 --output=tsv" | tee -a test-mjx.log
+          docker run --gpus=all --ulimit nofile=65536:65536 --shm-size=1g ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }} bash -ec "mjx-testspeed --mjcf=humanoid/humanoid.xml --batch_size=8192 --unroll=4 --output=tsv" | tee -a test-mjx.log
       
       - name: Save perf to summary
         shell: bash -x -e {0}

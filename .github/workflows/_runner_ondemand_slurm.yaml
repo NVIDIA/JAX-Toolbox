@@ -91,6 +91,7 @@ jobs:
           time docker run \
             --network host \
             --gpus all \
+            --ulimit nofile=65536:65536 \
             --privileged \
             -v /runner \
             -e RUNNER_NAME="${{ steps.meta.outputs.JOB_NAME }}" \

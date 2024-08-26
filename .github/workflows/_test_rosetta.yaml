@@ -47,7 +47,7 @@ jobs:
           docker tag ${{ inputs.ROSETTA_IMAGE }} rosetta:latest
 
       - name: Run Rosetta tests w/ docker
-        shell: docker run --gpus all -v {0}:/cmd.sh -v /log:/log rosetta:latest bash -x -e /cmd.sh
+        shell: docker run --gpus all --ulimit nofile=65536:65536 -v {0}:/cmd.sh -v /log:/log rosetta:latest bash -x -e /cmd.sh
         run: |
           ROSETTA_PATH=$(dirname $(python -c "import rosetta; print(*rosetta.__path__)"))
           pip install "${ROSETTA_PATH}[test]" pytest-reportlog
