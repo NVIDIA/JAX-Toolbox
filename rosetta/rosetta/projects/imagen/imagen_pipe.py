@@ -19,6 +19,7 @@ import re
 import functools
 from typing import Mapping, Any, Optional, Callable, Sequence
 import logging
+import time
 
 import numpy as np
 import jax
@@ -37,6 +38,8 @@ from rosetta.projects.diffusion.mm_utils import expand_dims_like
 _DEFAULT_GIN_SEARCH_PATHS = [
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ]
+# This prevents issues where filenames go longer than the max length allowed in unix
+MAX_FILENAME_LENGTH = 150
 
 @dataclasses.dataclass
 class DiffusionModelSetupData:
@@ -194,8 +197,9 @@ def sample(
 
   sampled_ctr = 0
   rng = jax.random.PRNGKey(0)
+  start_time = time.time()
   for start_idx in range(resume_from, max_images, batch_size // gen_per_prompt):
-      if start_idx > prompt_ct:
+      if start_idx >= prompt_ct:
           break
       prompt_batch = prompts[start_idx: start_idx + (batch_size // gen_per_prompt)] * gen_per_prompt
       rng, rng_base, rng_sr, rng_sr2, rng_aug = jax.random.split(rng, 5)
@@ -213,7 +217,7 @@ def sample(
       base_batch = {'samples': base_img_inputs, 'text': encoded_text, 'text_mask': text_mask}
       base_out = base_fn(base_params, base_batch, rng_base)
       for i in range(base_out.shape[0]):
-          matimg.imsave(os.path.join(base_dir, sanitize_filename(f'{prompt_batch[i]}_{sampled_ctr + i}.png')), np.clip(base_out[i], a_min=0, a_max=1))
+          matimg.imsave(os.path.join(base_dir, sanitize_filename(f'{prompt_batch[i][:MAX_FILENAME_LENGTH]}_{sampled_ctr + i}.png')), np.clip(base_out[i], a_min=0, a_max=1))
 
       # Stage 2: Super Resolution (64-> 256)
       base_aug = (base_out * 2 - 1)
@@ -222,7 +226,7 @@ def sample(
       sr_out = sr256_fn(sr256_params, sr256_batch, rng_sr)
       sr_out = jnp.clip(sr_out, a_min = 0, a_max = 1)
       for i in range(sr_out.shape[0]):
-          matimg.imsave(os.path.join(sr_dir, sanitize_filename(f'{prompt_batch[i]}_{sampled_ctr + i}.png')), sr_out[i])
+          matimg.imsave(os.path.join(sr_dir, sanitize_filename(f'{prompt_batch[i][:MAX_FILENAME_LENGTH]}_{sampled_ctr + i}.png')), sr_out[i])
 
       # Stage 3: Super Resolution (256-> 1024)
       if sr1024_setupdata is not None:
@@ -232,9 +236,12 @@ def sample(
         sr_out = sr1024_fn(sr1024_params, sr1024_batch, rng_sr2)
         sr_out = jnp.clip(sr_out, a_min = 0, a_max = 1)
         for i in range(sr_out.shape[0]):
-            matimg.imsave(os.path.join(sr2_dir, sanitize_filename(f'{prompt_batch[i]}_{sampled_ctr + i}.png')), sr_out[i])
+            matimg.imsave(os.path.join(sr2_dir, sanitize_filename(f'{prompt_batch[i][:MAX_FILENAME_LENGTH]}_{sampled_ctr + i}.png')), sr_out[i])
 
       sampled_ctr += sr_out.shape[0]
+      print(f'total samples generated={sampled_ctr}')
+      print(f'batch sec/sample={(time.time() - start_time) / sr_out.shape[0]}')
+      start_time = time.time()
   
 
 if __name__ == '__main__':
