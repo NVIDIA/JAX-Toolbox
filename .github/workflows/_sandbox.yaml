@@ -11,10 +11,7 @@ jobs:
       EXECUTE: |
         docker run --gpus all --shm-size=1g --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         ghcr.io/nvidia/jax-mealkit:levanter \
-        bash <<"EOF" |& tee test-levanter.log
-          pip install flake8 pytest soundfile librosa
-          PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests
-        EOF
+        bash -ec "ulimit -a; pip install flake8 pytest soundfile librosa; PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests"
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-levanter.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
