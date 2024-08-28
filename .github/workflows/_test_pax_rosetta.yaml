@@ -231,7 +231,7 @@ jobs:
             ADDITIONAL_ARGS: ""
           - TEST_NAME: 8DP1FSDP1TP1PP_TE
             PARALLEL_CONFIG: [1, 8, 1, 1]
-            ADDITIONAL_ARGS: ""
+            ADDITIONAL_ARGS: "--enab;e-fmha 1"
             BATCH_SIZE: 4
           - TEST_NAME: 1DP8FSDP1TP1PP_TE
             PARALLEL_CONFIG: [1, 1, 8, 1]
@@ -543,6 +543,7 @@ jobs:
               --fsdp ${{ matrix.PARALLEL_CONFIG[2] }} \
               --tensor-parallel ${{ matrix.PARALLEL_CONFIG[3] }} \
               --nodes ${{ steps.meta.outputs.NODES }} \
+              --enable-fmha 1 \
               $([[ ${{ steps.meta.outputs.TOTAL_TASKS }} > 1 ]] && echo --multiprocess)
           EOF
           )
