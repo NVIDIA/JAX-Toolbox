@@ -128,6 +128,8 @@ Fine-grain control to improve performance by initializing a NCCL communicator to
 - --xla_gpu_enable_cudnn_fmha=false (enables XLA pattern matcher to detect multi-headed attention pattern in JAX)
 - --xla_disable_hlo_passes=<> (turns off specific HLO passes; can be used for debugging)
 
+## Previously used XLA Flags
 
-
+The following flags were used previously used but no longer required.
+- --xla_gpu_enable_triton_gemm=false (use cuBLAS instead of Trition GeMM kernels); starting from JAX 0.4.32 we don't need it.
 
