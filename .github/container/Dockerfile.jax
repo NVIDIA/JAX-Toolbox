@@ -105,6 +105,8 @@ for component in $(ls ${BUILD_PATH_JAXLIB}); do
 done
 echo "-e file://${SRC_PATH_JAX}" >> /opt/pip-tools.d/requirements-jax.in
 echo "numpy<2.0.0" >> /opt/pip-tools.d/requirements-jax.in
+find ${SRC_PATH_JAX} -type d -exec chmod +x {} \;
+chmod -R +r ${SRC_PATH_JAX}
 EOF
 
 ## Flax
