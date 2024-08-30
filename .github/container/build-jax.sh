@@ -316,6 +316,9 @@ pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUIL
 #  jaxlib                  0.4.32.dev20240808           /opt/jaxlibs/jaxlib
 pip list | grep jax
 
+# Ensure directories are readable by all for non-root users
+chmod 755 $BUILD_PATH_JAXLIB/*
+
 ## Cleanup
 
 pushd $SRC_PATH_JAX
