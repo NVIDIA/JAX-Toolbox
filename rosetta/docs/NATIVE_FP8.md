@@ -123,7 +123,7 @@ python -m paxml.main \
     ...
 ```
 
-Please not that disabling the triton gemm and pipelined collectives are essential for enabling the FP8 functionality and performance.
+Please not that disabling the triton gemm and pipelined collectives is essential for enabling the FP8 functionality and performance.
 
 ## Transformer Engine vs Native FP8 Support
 Native XLA-FP8 specifically targets matrix multiplication operations. In contrast, the Transformer Engine focuses on enhancing the overall performance of the entire transformer layer. This encompasses not only the FP8 matrix multiplication but also attention mechanisms, layer normalizations, and other components.
