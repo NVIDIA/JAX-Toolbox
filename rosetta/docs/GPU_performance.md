@@ -131,5 +131,7 @@ Fine-grain control to improve performance by initializing a NCCL communicator to
 ## Previously used XLA Flags
 
 The following flags were used previously used but no longer required.
-- --xla_gpu_enable_triton_gemm=false (use cuBLAS instead of Trition GeMM kernels); starting from JAX 0.4.32 we don't need it.
+- --xla_gpu_enable_async_reduce_scatter, --xla_gpu_enable_async_all_reduce, --xla_gpu_enable_async_all_gather ; Turned on by default, no longer needed
+- --xla_gpu_enable_highest_priority_async_stream ; Turned on by default
+- --xla_gpu_enable_triton_softmax_fusion ; Deprecated, no longer used
 

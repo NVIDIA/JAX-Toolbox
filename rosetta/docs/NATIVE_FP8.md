@@ -111,13 +111,11 @@ Enabling this feature is effortless. Users only need to include the option `--fd
 In addition to the suggested XLA flags mentioned in [this section](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/README.md#xla-flags), we also recommend setting these following XLA flags. The execution script should look like:
 ```bash
 export XLA_FLAGS=" \
-    --xla_gpu_enable_reduction_epilogue_fusion=false \
     --xla_gpu_enable_triton_gemm=false \
-    --xla_gpu_enable_cudnn_fmha=false \
-    --xla_gpu_enable_cudnn_layer_norm=true \
-    --xla_gpu_enable_cublaslt=true \
-    --xla_gpu_enable_latency_hiding_scheduler=true \
-    --xla_gpu_all_reduce_combine_threshold_bytes=51200 "
+    --xla_gpu_enable_pipelined_all_reduce=false \
+    --xla_gpu_enable_pipelined_all_gather=false \
+    --xla_gpu_enable_pipelined_reduce_scatter=false \
+"
 export ENABLE_TE=0
 python -m paxml.main \
     ...
@@ -125,7 +123,7 @@ python -m paxml.main \
     ...
 ```
 
-Please ensure you include the first two flags, `--xla_gpu_enable_reduction_epilogue_fusion=false` and `--xla_gpu_enable_triton_gemm=false`, as they are essential for enabling the FP8 functionality. The additional flags primarily focus on performance enhancement and should also prove beneficial for non-FP8 executions.
+Please not that disabling the triton gemm and pipelined collectives are essential for enabling the FP8 functionality and performance.
 
 ## Transformer Engine vs Native FP8 Support
 Native XLA-FP8 specifically targets matrix multiplication operations. In contrast, the Transformer Engine focuses on enhancing the overall performance of the entire transformer layer. This encompasses not only the FP8 matrix multiplication but also attention mechanisms, layer normalizations, and other components.

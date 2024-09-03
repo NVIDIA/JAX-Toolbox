@@ -223,7 +223,8 @@ export NVTE_FUSED_ATTN=${ENABLE_FUSED_ATTN}
 export XLA_PYTHON_CLIENT_MEM_FRACTION=${MEM_FRACTION}
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-export BASE_XLA_FLAGS=${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true 
+export BASE_XLA_FLAGS=${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true
+                --xla_gpu_enable_triton_gemm=false
                 --xla_gpu_graph_level=0 
                 --xla_gpu_all_reduce_combine_threshold_bytes=1073741824 
                 --xla_gpu_all_gather_combine_threshold_bytes=1073741824 

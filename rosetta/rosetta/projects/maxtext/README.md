@@ -67,7 +67,8 @@ In order to obtain the best performance, please set the appropriate XLA flags. W
 The [GPU Performance document](../../../docs/GPU_performance.md) provides a detailed description of the XLA flags that can be set to optimize performance. These are the recommended XLA flags to get good performance for MaxText.
 
 ```
-XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true 
+XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
+            --xla_gpu_enable_triton_gemm-false
             --xla_gpu_graph_level=0
             --xla_gpu_all_reduce_combine_threshold_bytes=1073741824 
             --xla_gpu_all_gather_combine_threshold_bytes=1073741824 
