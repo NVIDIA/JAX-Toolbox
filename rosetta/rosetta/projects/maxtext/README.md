@@ -67,13 +67,9 @@ In order to obtain the best performance, please set the appropriate XLA flags. W
 The [GPU Performance document](../../../docs/GPU_performance.md) provides a detailed description of the XLA flags that can be set to optimize performance. These are the recommended XLA flags to get good performance for MaxText.
 
 ```
-XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true 
-            --xla_gpu_enable_async_all_gather=true 
-            --xla_gpu_enable_async_reduce_scatter=true 
+XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
             --xla_gpu_enable_triton_gemm=false
-            --xla_gpu_graph_level=0 
-            --xla_gpu_enable_async_all_reduce=true 
-            --xla_gpu_enable_highest_priority_async_stream=true
+            --xla_gpu_graph_level=0
             --xla_gpu_all_reduce_combine_threshold_bytes=1073741824 
             --xla_gpu_all_gather_combine_threshold_bytes=1073741824 
             --xla_gpu_reduce_scatter_combine_threshold_bytes=134217728
@@ -81,7 +77,6 @@ XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
             --xla_gpu_enable_pipelined_reduce_scatter=true 
             --xla_gpu_enable_pipelined_all_reduce=true 
             --xla_gpu_enable_while_loop_double_buffering=true
-            --xla_gpu_enable_triton_softmax_fusion=false 
             --xla_gpu_enable_all_gather_combine_by_dim=false 
             --xla_gpu_enable_reduce_scatter_combine_by_dim=false 
             --xla_disable_hlo_passes=rematerialization"

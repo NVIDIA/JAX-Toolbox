@@ -139,6 +139,7 @@ COPY --from=tcpx-installer /var/lib/tcpx/lib64 ${TCPX_LIBRARY_PATH}
 ###############################################################################
 
 ADD install-nsight.sh /usr/local/bin
+ADD nsys-2024.5-tid-export.patch /opt/nvidia
 RUN install-nsight.sh
 
 ###############################################################################
@@ -180,6 +181,7 @@ ENV PATH=/opt/amazon/efa/bin:${PATH}
 ADD install-nccl-sanity-check.sh /usr/local/bin
 ADD nccl-sanity-check.cu /opt
 RUN install-nccl-sanity-check.sh
+ADD jax-nccl-test parallel-launch /usr/local/bin
 
 ###############################################################################
 ## Add the systemcheck to the entrypoint.
@@ -203,7 +205,7 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 
 ADD nsys-jax nsys-jax-combine /usr/local/bin/
 ADD jax_nsys/ /opt/jax_nsys
-ADD requirements-nsys-jax.in /opt/pip-tools.d/
+RUN echo "-e /opt/jax_nsys/python/jax_nsys" > /opt/pip-tools.d/requirements-nsys-jax.in
 RUN ln -s /opt/jax_nsys/install-protoc /usr/local/bin/
 
 ###############################################################################

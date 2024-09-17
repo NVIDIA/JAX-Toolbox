@@ -131,10 +131,13 @@ def _load_nvtx_gpu_proj_trace_single(
         "Children Count": "NumChild",
         "Range ID": "RangeId",
         "Parent ID": "ParentId",
+        "PID": "PID",
         "Range Stack": "RangeStack",
         "Stack Level": "Lvl",
+        "TID": "TID",
     }
     if set(df.columns) == alt_rename_map.keys():
+        tsl_prefix = ""
         df = df.rename(
             columns={k: v for k, v in alt_rename_map.items() if v is not None}
         )
@@ -145,12 +148,25 @@ def _load_nvtx_gpu_proj_trace_single(
         )
         # TODO: add OrigDurMs, OrigStartMs
     else:
+        tsl_prefix = "TSL:"
+        df = df.drop(columns=["Style"])
         df["OrigDurMs"] = 1e-6 * df.pop("Orig Duration")
         df["OrigStartMs"] = 1e-6 * df.pop("Orig Start")
         df["ProjDurMs"] = 1e-6 * df.pop("Projected Duration")
         df["ProjStartMs"] = 1e-6 * df.pop("Projected Start")
         df = df.dropna(subset=["RangeId"])
-    df = df.set_index(df.pop("RangeId").astype(np.int32), verify_integrity=True)
+    try:
+        df = df.set_index(df.pop("RangeId").astype(np.int32), verify_integrity=True)
+    except ValueError:
+        print(
+            "A duplicate key related error may indicate that you are using "
+            "Nsight Systems 2024.5 and have CUDA graphs enabled; as noted on "
+            "https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/profiling.md "
+            "you may want to disable CUDA graphs by adding "
+            "--xla_gpu_enable_command_buffer= to the XLA_FLAGS environment "
+            "variable."
+        )
+        raise
     # Due to idiosyncracies of how Nsight tracks CUDA graphs, and because
     # thunks can be nested, the NVTX hierarchy generally looks like:
     #  Iteration -> XlaModule:A [-> XlaModule:B] -> Thunk:C [-> Thunk:D ...]
@@ -160,16 +176,16 @@ def _load_nvtx_gpu_proj_trace_single(
     # Get all of the Thunks in the profile. Note that we want to discard some
     # of these, like Thunk:C in the example above, for not being the most
     # deeply nested.
-    thunk_prefix = "TSL:Thunk:#"
+    thunk_prefix = f"{tsl_prefix}Thunk:#"
     all_thunks = df["Name"].str.startswith(thunk_prefix)
 
     # If profile collection started while an XlaModule was executing, there may
     # be Thunk ranges without XlaModule parents. We treat those as edge effects
     # and ignore them.
-    module_prefix = "TSL:XlaModule:"
+    module_prefix = f"{tsl_prefix}XlaModule:"
     all_modules = df["Name"].str.startswith(module_prefix)
-    first_module_orig_time = df.loc[all_modules, "OrigStartMs"].min()
-    thunks_without_modules = all_thunks & (df["OrigStartMs"] < first_module_orig_time)
+    first_module_start_time = df.loc[all_modules, "ProjStartMs"].min()
+    thunks_without_modules = all_thunks & (df["ProjStartMs"] < first_module_start_time)
     if thunks_without_modules.sum():
         print(f"Ignoring {thunks_without_modules.sum()} thunks without modules")
     all_thunks &= ~thunks_without_modules
@@ -221,20 +237,23 @@ def _load_nvtx_gpu_proj_trace_single(
     # XlaModule calculate the mean and standard deviation of the number of GPU
     # operations in all but the last occurence, and see if the last occurence
     # is an outlier. TODO: if we processed the SQLite database directly, we
-    # would know if the current XlaModule range had actually been closed.
-    for mod_name, mod_name_df in df.loc[mod_ids, :].groupby("Name"):
-        gpu_ops = mod_name_df["NumGPUOps"].array
-        not_last, last = gpu_ops[:-1], gpu_ops[-1]
-        if last < np.mean(not_last) - np.std(not_last):
-            print(
-                "Skipping last occurence of {} because it only had {} GPU operations, compared to {} +/- {} before".format(
-                    mod_name, last, np.mean(not_last), np.std(not_last)
+    # would know if the current XlaModule range had actually been closed. TODO:
+    # provide an implementation that works with the 2024.5 output format.
+    if "NumGPUOps" in df.columns:
+        for mod_name, mod_name_df in df.loc[mod_ids, :].groupby("Name"):
+            gpu_ops = mod_name_df["NumGPUOps"].array
+            not_last, last = gpu_ops[:-1], gpu_ops[-1]
+            if last < np.mean(not_last) - np.std(not_last):
+                print(
+                    "Skipping last occurence of {} because it only had {} GPU operations, compared to {} +/- {} before".format(
+                        mod_name, last, np.mean(not_last), np.std(not_last)
+                    )
                 )
-            )
-            mod_id = mod_name_df.index[-1]
-            mod_ids.remove(mod_id)
-            # Also remove its thunks from all_thunks
-            all_thunks &= df["ModuleId"] != mod_id
+                mod_id = mod_name_df.index[-1]
+                mod_ids.remove(mod_id)
+                # Also remove its thunks from all_thunks
+                all_thunks &= df["ModuleId"] != mod_id
+        df = df.drop(columns=["NumGPUOps"])
 
     # Parse the numerical program ID out of the name of each XlaModule.
     # program_id is not set in all cases, although this could be fixed in XLA.
@@ -243,7 +262,11 @@ def _load_nvtx_gpu_proj_trace_single(
     # propagated to the GpuExecutable that emits the XlaModule annotation.
     # Those are probably not interesting, so setting the ProgramId to -1 in
     # such cases is acceptable.
-    module_re = r"^TSL:XlaModule:#(?:prefix=(.*?),|)hlo_module=([a-z0-9._-]+)(?:,program_id=(\d+)|)#$"
+    module_re = (
+        "^"
+        + tsl_prefix
+        + r"XlaModule:#(?:prefix=(.*?),|)hlo_module=([a-z0-9._-]+)(?:,program_id=(\d+)|)#$"
+    )
     mod_program_ids = (
         df.loc[mod_ids, "Name"]
         .str.replace(
@@ -307,11 +330,9 @@ def _load_nvtx_gpu_proj_trace_single(
                 "Lvl",
                 "ModuleId",
                 "NumChild",
-                "NumGPUOps",
                 "ParentId",
                 "PID",
                 "RangeStack",
-                "Style",
                 "TID",
             ]
         ).astype({"ProgramExecution": np.int32, "ProgramId": np.int32})
@@ -321,7 +342,7 @@ def _load_nvtx_gpu_proj_trace_single(
         # At this point there should be no need to look beyond the rows for individual thunks + the protobuf data, and we can further clean up the data
         thunk_df = clean_data_frame(df[all_thunks])
         thunk_df["Name"] = thunk_df["Name"].replace(
-            to_replace="^TSL:Thunk:#(?:name=(.*?),|)hlo_op=([a-z0-9._-]+)#$",
+            to_replace=f"^{tsl_prefix}Thunk:#(?:name=(.*?),|)hlo_op=([a-z0-9._-]+)#$",
             value=r"\2",
             regex=True,
         )
