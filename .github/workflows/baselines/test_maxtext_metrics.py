@@ -19,7 +19,7 @@ step_time_summary_name = "perf/step_time_seconds"
 def test_loss(baseline_filename):
     baseline_filepath = os.path.join(baselines_dir, baseline_filename)
     test_config = baseline_filename.split(".")[0]
-    event_file = os.path.join(results_dir, test_config, "logdir/tensorboard/events*")
+    event_file = os.path.join(results_dir, test_config, "logdir/tensorboard/logdir/events*")
     event_file = glob.glob(event_file)[0]
     with open(baseline_filepath, "r") as baseline_file:
         end_step = json.load(baseline_file)["end_step"]
@@ -31,7 +31,7 @@ def test_loss(baseline_filename):
 def test_step_time(baseline_filename):
     baseline_filepath = os.path.join(baselines_dir, baseline_filename)
     test_config = baseline_filename.split(".")[0]
-    event_file = os.path.join(results_dir, test_config, "logdir/tensorboard/events*")
+    event_file = os.path.join(results_dir, test_config, "logdir/tensorboard/logdir/events*")
     event_file = glob.glob(event_file)[0]
     with open(baseline_filepath, "r") as baseline_file:
         step_time_avg_expected = json.load(baseline_file)["step_time_avg"]

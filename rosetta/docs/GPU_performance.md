@@ -128,6 +128,10 @@ Fine-grain control to improve performance by initializing a NCCL communicator to
 - --xla_gpu_enable_cudnn_fmha=false (enables XLA pattern matcher to detect multi-headed attention pattern in JAX)
 - --xla_disable_hlo_passes=<> (turns off specific HLO passes; can be used for debugging)
 
+## Previously used XLA Flags
 
-
+The following flags were used previously used but no longer required.
+- --xla_gpu_enable_async_reduce_scatter, --xla_gpu_enable_async_all_reduce, --xla_gpu_enable_async_all_gather ; Turned on by default, no longer needed
+- --xla_gpu_enable_highest_priority_async_stream ; Turned on by default
+- --xla_gpu_enable_triton_softmax_fusion ; Deprecated, no longer used
 
