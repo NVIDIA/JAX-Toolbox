@@ -34,7 +34,7 @@ jobs:
       GPUS_PER_NODE: ${{ matrix.N_GPU }}
       NTASKS: 1
       NTASKS_PER_NODE: 1
-      TIME_LIMIT: '00:10:00'
+      TIME_LIMIT: '00:20:00'
       EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
       IMAGE: ${{ inputs.TE_IMAGE }}
       SRUN_PREAMBLE: |

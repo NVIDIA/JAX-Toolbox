@@ -26,7 +26,7 @@ jobs:
     with:
       NAME: "A100"
       LABELS: "A100,${{ github.run_id }}"
-      TIME: "01:00:00"
+      TIME: "02:00:00"
     secrets: inherit
 
   run-unit-test:

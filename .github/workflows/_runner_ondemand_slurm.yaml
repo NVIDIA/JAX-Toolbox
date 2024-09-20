@@ -14,7 +14,7 @@ on:
       TIME:
         type: string
         description: 'SLURM time limit'
-        default: '01:00:00'
+        default: '02:00:00'
         required: true
 
 jobs:
