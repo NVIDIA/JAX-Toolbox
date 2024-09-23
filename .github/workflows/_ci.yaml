@@ -581,3 +581,35 @@ jobs:
     with:
       MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+  
+  test-jetstream:
+    needs: build-maxtext
+    if: inputs.ARCHITECTURE == 'amd64' # no arm64 gpu runners
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: jetstream
+      EXECUTE: |
+        docker run --shm-size=1g --gpus all ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }} \
+        bash -ec \
+        "cd /opt/jetstream && " \
+        "pip install -r requirements.txt && " \
+        "export CUDA_VISIBLE_DEVICES=0 && " \
+        "python -m unittest -v jetstream.tests.core.test_orchestrator && " \
+        "python -m jetstream.engine.mock_engine_test && " \
+        "python -m jetstream.core.orchestrator_test && " \
+        "python -m jetstream.core.server_test" \
+        | tee test-jetstream.log
+      STATISTICS_SCRIPT: |
+        summary_line=$(tail -n1 test-jetstream.log)
+        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
+        total_tests=$((failed_tests + passed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-jetstream.log
+    secrets: inherit
+

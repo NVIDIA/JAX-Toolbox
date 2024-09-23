@@ -72,6 +72,17 @@ RUN cd "${SRC_PATH_MAXTEXT}" && patch -p1 < /opt/maxtext-mha.patch && git diff
 ADD test-maxtext.sh /usr/local/bin
 
 ###############################################################################
+## Add JetStream
+###############################################################################
+ARG URLREF_JETSTREAM
+ARG SRC_PATH_JETSTREAM
+
+RUN <<"EOF" bash -ex
+git-clone.sh ${URLREF_JETSTREAM} ${SRC_PATH_JETSTREAM}
+echo "-r ${SRC_PATH_JETSTREAM}/requirements.txt" >> /opt/pip-tools.d/requirements-jetstream.in
+EOF
+
+###############################################################################
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
