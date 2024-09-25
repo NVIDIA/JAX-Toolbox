@@ -5,8 +5,6 @@ on:
 
 jobs:
   test-jetstream:
-    needs: build-maxtext
-    if: inputs.ARCHITECTURE == 'amd64' # no arm64 gpu runners
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: jetstream
