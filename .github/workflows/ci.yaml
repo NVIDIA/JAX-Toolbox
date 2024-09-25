@@ -28,6 +28,11 @@ on:
         description: "(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch"
         default: false
         required: false
+      CUDA_IMAGE:
+        type: string
+        description: CUDA image to use as base, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04
+        default: 'latest'
+        required: false
       SOURCE_OVERRIDES:
         type: string
         description: |
@@ -60,6 +65,7 @@ jobs:
       MANIFEST_ARTIFACT_NAME: ${{ steps.manifest-branch.outputs.MANIFEST_ARTIFACT_NAME }}
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
+      CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
         id: cancel-if-draft
@@ -114,6 +120,17 @@ jobs:
             exit 1
           fi
       
+      - name: Determine CUDA image to use
+        id: cuda-image
+        shell: bash -x -e {0}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            CUDA_IMAGE="${{ inputs.CUDA_IMAGE }}"
+          else
+            CUDA_IMAGE="latest"
+          fi
+          echo "CUDA_IMAGE=${CUDA_IMAGE}" >> $GITHUB_OUTPUT
+
   bump-manifest:
     needs: metadata
     runs-on: ubuntu-22.04
@@ -177,6 +194,7 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
     secrets: inherit
@@ -187,6 +205,7 @@ jobs:
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
     secrets: inherit
