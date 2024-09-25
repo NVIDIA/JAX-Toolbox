@@ -11,6 +11,11 @@ on:
         description: 'Build date in YYYY-MM-DD format'
         required: false
         default: NOT SPECIFIED
+      CUDA_IMAGE:
+        type: string
+        description: CUDA image to use as base, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04
+        default: 'latest'
+        required: false
       MANIFEST_ARTIFACT_NAME:
         type: string
         description: 'Artifact name in current run w/ manifest/patches. Leaving empty uses manifest/patches in current branch'
@@ -37,6 +42,7 @@ jobs:
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
