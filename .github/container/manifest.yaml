@@ -177,3 +177,8 @@ orbax-checkpoint:
   tracking_ref: main
   latest_verified_commit: 16c2d409e365576284dbaf190ac002b24c1f927f
   mode: pip-vcs
+pathwaysutils:
+  url: https://github.com/google/pathways-utils.git
+  tracking_ref: main
+  latest_verified_commit: 359776d454940ffaa337c36d1df16308d44a95a9
+  mode: pip-vcs
