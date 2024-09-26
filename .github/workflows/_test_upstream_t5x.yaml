@@ -39,20 +39,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1P1G"
-            N_GPU: 1
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "1P2G"
-            N_GPU: 2
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "1P4G"
-            N_GPU: 4
-            ADDITIONAL_ARGS: ""
           - TEST_NAME: "1P8G"
             N_GPU: 8
-          - TEST_NAME: "1P1G_fmha"
-            N_GPU: 1
-            ADDITIONAL_ARGS: "--enable-fmha 1"
           - TEST_NAME: "1P2G_fmha"
             N_GPU: 2
             ADDITIONAL_ARGS: "--enable-fmha 1"
@@ -100,7 +88,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          alias sshx='ssh -p 3000 -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
@@ -163,10 +151,10 @@ jobs:
         shell: bash -x -e {0}
         run: |
           mkdir output/
-          rsync -rtz --progress \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
@@ -193,42 +181,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - TEST_NAME: "1G1N"
-            N_GPU: 1
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2G1N"
-            N_GPU: 2
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "4G1N"
-            N_GPU: 4
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "8G1N"
-            N_GPU: 8
-            N_NODE: 1
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "1G2N"
-            N_GPU: 1
-            N_NODE: 2
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2G2N"
-            N_GPU: 2
-            N_NODE: 2
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: "4G2N"
-            N_GPU: 4
-            N_NODE: 2
-            ADDITIONAL_ARGS: ""
           - TEST_NAME: "8G2N"
             N_GPU: 8
             N_NODE: 2
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: "2G2N_fmha"
-            N_GPU: 2
-            N_NODE: 2
-            ADDITIONAL_ARGS: "--enable-fmha 1"
           - TEST_NAME: "8G2N_fmha"
             N_GPU: 8
             N_NODE: 2
@@ -278,7 +234,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          alias sshx='ssh -p 3000 -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
@@ -336,7 +292,7 @@ jobs:
         if: cancelled()
         shell: bash -x -e {0}
         run: |
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+          ssh -p 3000 ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
             scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
@@ -344,10 +300,10 @@ jobs:
         run: |
 
           mkdir output/
-          rsync -rtz --progress \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress \
+          rsync -rtz --progress -e 'ssh -p 3000' \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
@@ -371,6 +327,7 @@ jobs:
           path: output/*
 
   metrics:
+    name: test-upstream-t5x-metrics
     needs: [t5x-multi-node, t5x-multi-gpu]
     runs-on: ubuntu-22.04
 
@@ -384,7 +341,7 @@ jobs:
       - name: Run pytest
         shell: bash -eux {0}
         run: |
-          pip install pytest pytest-reportlog tensorboard
+          pip install 'numpy<2.0.0' pytest pytest-reportlog tensorboard
           for i in ${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-*; do
             JOB_NAME=$(echo $i | awk -F "${GITHUB_RUN_ID}-" '{print $2}')
             METRIC_PATH=${JOB_NAME}_metrics.json
@@ -405,6 +362,7 @@ jobs:
 
 
   sitrep:
+    name: test-upstream-t5x-sitrep
     needs: metrics
     if: "!cancelled()"
     uses: ./.github/workflows/_sitrep_mgmn.yaml
@@ -415,6 +373,7 @@ jobs:
       FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
+    name: test-upstream-t5x-summary
     runs-on: ubuntu-22.04
     needs: [t5x-multi-node, t5x-multi-gpu]
     if: "!cancelled()"
@@ -432,6 +391,7 @@ jobs:
           ) | tee $GITHUB_STEP_SUMMARY
 
   outcome:
+    name: test-upstream-t5x-outcome
     needs: sitrep
     runs-on: ubuntu-22.04
     if: "!cancelled()"

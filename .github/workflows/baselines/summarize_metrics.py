@@ -64,7 +64,7 @@ def main():
         with open(args.output_json_path, "w") as f:
             json.dump(baseline, f, indent=2)
 
-    except KeyError as e:
+    except (KeyError, AssertionError) as e:
         print(e)
         print("Run might have failed, see", args.test_config)
 

@@ -15,14 +15,22 @@ for line in $(cat requirements.pre | egrep '^[^#].+ @ git\+' || true); do
   # VCS installs are of the form "PACKAGE @ git+..."
   PACKAGE=$(echo "$line" | awk '{print $1}')
   ref=$(yq e ".${PACKAGE}.latest_verified_commit" ${MANIFEST_FILE})
-  echo "${line}@${ref}"
+  if [[ "$line" == *"#subdirectory="* ]]; then
+    # This is required b/c git-refs/commits cannot come after
+    # the subdirectory fragment.
+    # An example of an install that is of this form is:
+    # 'orbax-checkpoint @ git+https://github.com/google/orbax/#subdirectory=checkpoint'
+    echo "${line}" | sed "s/#subdirectory=/@${ref}#subdirectory=/"
+  else
+    echo "${line}@${ref}"
+  fi
 done | tee requirements.vcs
 unset IFS
 
 # Second pip-compile includes one more requirements file that pins all vcs installs
 # Uses a special env var to let our custom pip impl know to treat the following as
 # equivalent:
-# 
+#
 # fiddle @ git+https://github.com/google/fiddle
 # fiddle @ git+https://github.com/google/fiddle@cd4497e4c09bdf95dcccaa1e138c2c125d32d39f
 #
@@ -42,3 +50,7 @@ fi
 pip-sync --pip-args '--no-deps --src /opt' requirements.txt
 
 rm -rf ~/.cache/*
+
+# protobuf will be installed at least as a dependency of jax_nsys in the base
+# image, but the installed version is likely to be influenced by other packages.
+install-protoc /usr/local

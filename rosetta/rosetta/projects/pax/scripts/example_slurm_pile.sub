@@ -29,7 +29,7 @@ set -eux
 # File system and volume glue code
 #-------------------------------------------------------------------------------
 # << CHANGE ! >>
-CONTAINER="${CONTAINER:-nvcr.io/nvidia/jax:23.10-paxml-py3}"
+CONTAINER="${CONTAINER:-nvcr.io/nvidia/jax:24.04-paxml-py3}"
 
 # << CHANGE ! >>
 BASE_WORKSPACE_DIR=${BASE_WORKSPACE_DIR} ## location to write logs and checkpoints to

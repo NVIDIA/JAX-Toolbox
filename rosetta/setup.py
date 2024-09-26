@@ -30,7 +30,7 @@ setuptools.setup(
         'nvidia-pytriton',
         'einops',
         'pillow',
-        'webdataset',
+        'webdataset>=0.1.10',  # Earlier versions require a pip-package that is not hosted on pypi anymore. This will lead to an exception in pip-compile.
         'matplotlib',
         'nvidia-dali-cuda120',
     ],

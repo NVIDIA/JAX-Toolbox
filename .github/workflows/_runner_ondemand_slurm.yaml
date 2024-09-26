@@ -58,7 +58,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           SLURM_JOB_ID_FILE=$(mktemp)
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} >${SLURM_JOB_ID_FILE} \
+          ssh -p 3000 ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} >${SLURM_JOB_ID_FILE} \
             sbatch --parsable \
           <<"EOF"
           #!/bin/bash
@@ -117,5 +117,5 @@ jobs:
         if: cancelled()
         shell: bash -x -e {0}
         run: |
-          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+          ssh -p 3000 ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
             scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}

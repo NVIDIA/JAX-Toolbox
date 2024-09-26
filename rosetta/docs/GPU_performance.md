@@ -42,16 +42,11 @@ To enable latency hiding optimizations with XLA, turn on the following flag:
 
 To enable asynchronous communication for all collectives, the following is recommended, and is set by default in XLA :
 
-- --xla_gpu_enable_async_collectives=true
 - --xla_gpu_enable_highest_priority_async_stream=true
 
 For more fine-grained control over which collectives should be asynchronous or not, please use: 
 
-- --xla_gpu_enable_async_all_reduce=<>
-- --xla_gpu_enable_async_all_gather=<>
-- --xla_gpu_enable_async_reduce_scatter=<> 
-- --xla_gpu_enable_async_collective_permute=<>
-
+- --xla_gpu_disable_async_collectives=allreduce,allgather,reducescatter,collectivebroadcast,alltoall,collectivepermute
 
 ### Flags to enable optimizations for FSDP communication 
 
@@ -133,6 +128,10 @@ Fine-grain control to improve performance by initializing a NCCL communicator to
 - --xla_gpu_enable_cudnn_fmha=false (enables XLA pattern matcher to detect multi-headed attention pattern in JAX)
 - --xla_disable_hlo_passes=<> (turns off specific HLO passes; can be used for debugging)
 
+## Previously used XLA Flags
 
-
+The following flags were used previously used but no longer required.
+- --xla_gpu_enable_async_reduce_scatter, --xla_gpu_enable_async_all_reduce, --xla_gpu_enable_async_all_gather ; Turned on by default, no longer needed
+- --xla_gpu_enable_highest_priority_async_stream ; Turned on by default
+- --xla_gpu_enable_triton_softmax_fusion ; Deprecated, no longer used
 

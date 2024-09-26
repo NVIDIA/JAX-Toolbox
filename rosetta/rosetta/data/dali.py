@@ -78,32 +78,9 @@ class BaseDALIPipeline(abc.ABC):
     self.prefetch = wds_config.prefetch
     self.training = training
 
-    ## set up the wds reader
-    self.pipe = self.get_wds_pipeline()
-    self.pipe.build()
+    ## dataset metadata will be stored here and set in the iterator
+    self.meta = None
 
-    ## dataset metadata
-    meta_dict = self.pipe.reader_meta()
-    assert(len(meta_dict) == 1), 'Pipeline has multiple readers but is expected to have only one'
-    self.meta = list(meta_dict.values())[0]
-
-  @abc.abstractmethod
-  def get_wds_pipeline(self):
-    """Returns the pipeline which loads the wds files.
-
-       Expected to have the following format:
-
-         @pipeline_def(batch_size=self.per_shard_batch_size, num_threads=1, device_id=None)
-         def wds_pipeline():
-           outputs = fn.readers.webdataset(
-             ...)
-           return outputs
-         return wds_pipeline()
-
-       See ViT's `dali_utils.py` for an example
-
-    """
-    pass
 
   @abc.abstractmethod
   def get_dali_pipeline(self):
@@ -144,6 +121,10 @@ class DALIIterator:
     self.wrapped_pipeline = dali_wrapped_pipeline
     self.pipeline = dali_wrapped_pipeline.get_dali_pipeline()
     self.pipeline.build()
+    
+    meta_dict = self.pipeline.reader_meta()
+    assert(len(meta_dict) == 1), 'Pipeline has multiple readers but is expected to have only one'
+    dali_wrapped_pipeline.meta = list(meta_dict.values())[0]
 
     self.training = dali_wrapped_pipeline.training
 

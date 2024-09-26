@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+import argparse
+import pathlib
+import shutil
+import zipfile
+
+parser = argparse.ArgumentParser(
+    description=(
+        "Given a real nsys-jax or nsys-jax-combine output archive, "
+        "prepare a slimmed-down version for the notebook CI pipeline."
+    )
+)
+parser.add_argument("input", help="Input archive")
+parser.add_argument("output", help="Output archive")
+args = parser.parse_args()
+jax_nsys = pathlib.Path(__file__).parent.parent.parent / "container" / "jax_nsys"
+assert jax_nsys.is_dir(), "Could not find .github/container/jax_nsys"
+with zipfile.ZipFile(args.input) as ifile, zipfile.ZipFile(
+    args.output,
+    "w",
+    compression=zipfile.ZIP_DEFLATED,
+    compresslevel=9,
+) as ofile:
+    for member in ifile.infolist():
+        # Don't need the original report; we only test things that use post-processed
+        # outputs
+        if member.filename.endswith(".nsys-rep"):
+            continue
+        # Don't include any of the source code that is copied into the archive via
+        # nsys-jax and Dockerfile.base; the CI pipeline uses the HEAD version of it
+        path = jax_nsys / member.filename
+        if path.is_file():
+            continue
+        # Don't include the output of any --nsys-jax-analysis scripts that were run
+        # when creating the input archive
+        if member.filename.startswith("analysis/"):
+            continue
+        assert member.filename not in set(ofile.namelist())
+        with ifile.open(member) as src, ofile.open(member, "w") as dst:
+            shutil.copyfileobj(src, dst)

@@ -39,6 +39,7 @@ paxml:
   mode: git-clone
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
+    pull/93/head: file://patches/paxml/PR-93.patch # exposes TE DPA argument in Grok to make it configurable from the command line
 praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
@@ -48,6 +49,7 @@ praxis:
   patches:
     pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
     pull/36/head: file://patches/praxis/PR-36.patch # adds Transformer Engine support
+    pull/84/head: file://patches/praxis/PR-84.patch # experimental support for using TE FMHA in GQA
 lingvo:
   # Used only in ARM pax builds
   url: https://github.com/tensorflow/lingvo.git
@@ -73,7 +75,7 @@ fiddle:
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: 3e13fd16038f3f376cddd289bd10eef53a4933f4
+  latest_verified_commit: cfca4a10de1491d76d2d00fcbd7142079837ca99
   mode: pip-vcs
 clu:
   url: https://github.com/google/CommonLoopUtils.git
@@ -100,12 +102,6 @@ seqio:
   tracking_ref: main
   latest_verified_commit: 11706e4a1e01a81ea6b3e02c5ad147028d5b94bb
   mode: pip-vcs
-# used by Pallas
-openxla-triton:
-  url: https://github.com/openxla/triton.git
-  tracking_ref: llvm-head
-  latest_verified_commit: cl612852008
-  mode: git-clone
 jax-triton:
   url: https://github.com/jax-ml/jax-triton.git
   tracking_ref: main
@@ -131,12 +127,6 @@ mujoco:
   tracking_ref: main
   latest_verified_commit: e95159b4f6d48d114b16a8dc13ad26b3e44bc3e2
   mode: git-clone
-grain:
-  # Used only in ARM t5x builds
-  url: https://github.com/google/grain.git
-  tracking_ref: main
-  latest_verified_commit: 10600a3f5510bcb696a90e72c6e6cb1ac2bb016f
-  mode: git-clone
 mujoco-mpc:
   url: https://github.com/google-deepmind/mujoco_mpc.git
   tracking_ref: main
@@ -152,13 +142,38 @@ mlperf-logging:
   tracking_ref: master
   latest_verified_commit: 99ba37ac267c870d7c6c17e1837aa9180a37cdc1
   mode: pip-vcs
+gemma:
+  url: https://github.com/google-deepmind/gemma.git
+  tracking_ref: main
+  latest_verified_commit: 036083ab16843e09369a0138630687dba96d4d23
+  mode: git-clone
 equinox:
   url: https://github.com/patrick-kidger/equinox.git
   tracking_ref: main
   latest_verified_commit: 1e601672d38d2c4d483535070a3572d8e8508a20
   mode: git-clone
-grok-1:
-  url: https://github.com/xai-org/grok-1.git
+big-vision:
+  url: https://github.com/google-research/big_vision.git
   tracking_ref: main
-  latest_verified_commit: 7207216386e07206b2083c5c0be88db1add8e631
+  latest_verified_commit: 70b22bb60c46023e50fd0f5d42e0f48f8dfe2fdb
   mode: git-clone
+common-loop-utils:
+  url: https://github.com/google/CommonLoopUtils.git
+  tracking_ref: main
+  latest_verified_commit: b172f5a21fbd6236ea9408ed94d0fc0b11bffe33
+  mode: git-clone
+flaxformer:
+  url: https://github.com/google/flaxformer.git
+  tracking_ref: main
+  latest_verified_commit: 399ea3a85e9807ada653fd0de1a9de627eb0acde
+  mode: git-clone
+panopticapi:
+  url: https://github.com/akolesnikoff/panopticapi.git
+  tracking_ref: mute
+  latest_verified_commit: a698a12deb21e4cf0f99ef0581b2c30c466bf355
+  mode: git-clone
+orbax-checkpoint:
+  url: https://github.com/google/orbax.git
+  tracking_ref: main
+  latest_verified_commit: 16c2d409e365576284dbaf190ac002b24c1f927f
+  mode: pip-vcs

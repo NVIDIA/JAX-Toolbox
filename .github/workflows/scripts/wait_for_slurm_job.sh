@@ -11,7 +11,7 @@ function wait_for_slurm_job() {
     check_every=${3:-15}
 
     while true; do
-        status=$(ssh $host squeue --job $job_id --noheader --format=%T 2>/dev/null || echo "SSH error: $?")
+        status=$(ssh -p 3000 $host squeue --job $job_id --noheader --format=%T 2>/dev/null || echo "SSH error: $?")
         echo "[$(date)] job $job_id: $status"
 
         if [ -z "$status" ]; then

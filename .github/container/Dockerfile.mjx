@@ -1,16 +1,21 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_MUJOCO=https://github.com/google-deepmind/mujoco.git#main
+ARG URLREF_MUJOCO_MPC=https://github.com/google-deepmind/mujoco_mpc.git#main
+ARG URLREF_L2R=https://github.com/google-deepmind/language_to_reward_2023.git#main
 ARG SRC_PATH_MUJOCO=/opt/mujoco
 ARG SRC_PATH_MUJOCO_MPC=/opt/mujoco-mpc
 ARG SRC_PATH_L2R=/opt/language-to-reward-2023
-
 
 ###############################################################################
 ## Download source and add auxiliary scripts
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_MUJOCO
+ARG URLREF_MUJOCO_MPC
+ARG URLREF_L2R
 ARG SRC_PATH_MUJOCO
 ARG SRC_PATH_MUJOCO_MPC
 ARG SRC_PATH_L2R
@@ -31,15 +36,14 @@ EOF
 
 # Specify installation targets
 RUN <<"EOF" bash -ex
-get-source.sh -l mujoco -m ${MANIFEST_FILE} -b $(dirname ${SRC_PATH_MUJOCO})
-get-source.sh -l mujoco-mpc -m ${MANIFEST_FILE}
-get-source.sh -l language-to-reward-2023 -m ${MANIFEST_FILE}
+git-clone.sh ${URLREF_MUJOCO} ${SRC_PATH_MUJOCO}
+git-clone.sh ${URLREF_MUJOCO_MPC} ${SRC_PATH_MUJOCO_MPC}
+git-clone.sh ${URLREF_L2R} ${SRC_PATH_L2R}
 echo "-f https://py.mujoco.org/" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MUJOCO}/mjx" >> /opt/pip-tools.d/requirements-mjx.in
 echo "-e file://${SRC_PATH_MUJOCO_MPC}/python" >> /opt/pip-tools.d/requirements-l2r.in
 echo "-e file://${SRC_PATH_L2R}" >> /opt/pip-tools.d/requirements-l2r.in
 EOF
-
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
