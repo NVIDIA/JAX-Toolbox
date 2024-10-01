@@ -6,7 +6,7 @@ import pandas as pd  # type: ignore
 import pathlib
 from typing import Any
 
-from .protobuf import HloInstruction, HloProto, _host_memory_space, xla_module_metadata
+from .protobuf import HloProto, _host_memory_space, xla_module_metadata
 from .utils import make_child_mask, ProfilerData
 
 pd.options.mode.copy_on_write = True
@@ -204,7 +204,7 @@ def _get_message_size(
         }
     ), f"{instruction}: message size calculation for {comm_inst.opcode} has not yet been validated"
 
-    def _byte_size(inst: HloInstruction) -> int:
+    def _byte_size(inst) -> int:
         size_bits = math.prod(
             inst.shape.dimensions,
             start=element_type_width(inst.shape.element_type),
