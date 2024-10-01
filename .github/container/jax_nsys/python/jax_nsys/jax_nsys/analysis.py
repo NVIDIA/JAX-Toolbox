@@ -6,7 +6,7 @@ import pandas as pd  # type: ignore
 import pathlib
 from typing import Any
 
-from .protobuf import HloProto, xla_module_metadata
+from .protobuf import HloInstruction, HloProto, _host_memory_space, xla_module_metadata
 from .utils import make_child_mask, ProfilerData
 
 pd.options.mode.copy_on_write = True
@@ -38,6 +38,11 @@ def align_profiler_data_timestamps(
     # Determine which collective size will be used for the alignment
     num_profiled_devices = len(comm_df.index.get_level_values("Device").unique())
     max_collective_size = comm_df["CollectiveSize"].max()
+    if max_collective_size == 1:
+        print(
+            f"WARNING: cannot align {num_profiled_devices} devices because max collective size is 1"
+        )
+        return frames, {}
     assert (
         num_profiled_devices == max_collective_size
     ), f"Aligning {num_profiled_devices} using collectives of size {max_collective_size} is not implemented"
@@ -193,13 +198,51 @@ def _get_message_size(
             "all-to-all",
             "collective-broadcast",
             "collective-permute-start",
+            "dynamic-slice",
+            "dynamic-update-slice",
             "reduce-scatter",
         }
     ), f"{instruction}: message size calculation for {comm_inst.opcode} has not yet been validated"
+
+    def _byte_size(inst: HloInstruction) -> int:
+        size_bits = math.prod(
+            inst.shape.dimensions,
+            start=element_type_width(inst.shape.element_type),
+        )
+        size_bytes, rem = divmod(size_bits, 8)
+        assert rem == 0
+        return size_bytes
+
     if comm_inst.opcode == "collective-permute-start":
         # See https://openxla.org/xla/operation_semantics#collectivepermute, which
         # generates pair-wise send+recv between devices
         collective_size = 2
+    elif comm_inst.opcode in {"dynamic-slice", "dynamic-update-slice"}:
+        # Label host-device transfers orchestrated by dynamic[-update]-slice as single
+        # device collectives.
+        collective_size = 1
+        if comm_inst.opcode == "dynamic-update-slice":
+            # For dynamic-update-slice the second operand is the one being copied
+            _, src_inst = module_proto.find_instruction_by_id(comm_inst.operand_ids[1])
+            transfer_size = _byte_size(src_inst.proto())
+        else:
+            # For dynamic-slice the return type size is the transfer size
+            assert comm_inst.opcode == "dynamic-slice"
+            _, src_inst = module_proto.find_instruction_by_id(comm_inst.operand_ids[0])
+            transfer_size = _byte_size(comm_inst)
+        dest_on_host = _host_memory_space(comm_inst)
+        src_on_host = _host_memory_space(src_inst.proto())
+        assert src_on_host != dest_on_host, (
+            'dynamic[-update]-slice is only considered is only "communication" if it '
+            "represents a host-device transfer"
+        )
+        return (
+            transfer_size,
+            "device-to-host" if dest_on_host else "host-to-device",
+            1,  # collective size
+            1.0,  # bw_correction
+            1.0,  # bus_correction
+        )
     else:
         # replica_groups is something like {{0,1},{4,5},{2,3},{6,7}}, if there are 8
         # devices that are doing pair-wise collectives
@@ -220,17 +263,12 @@ def _get_message_size(
     total_msg_size = 0
     for operand_id in comm_inst.operand_ids:
         _, operand = module_proto.find_instruction_by_id(operand_id)
-        msg_size_bits = math.prod(
-            operand.proto().shape.dimensions,
-            start=element_type_width(operand.proto().shape.element_type),
-        )
+        msg_size_bytes = _byte_size(operand.proto())
         if comm_inst.opcode == "reduce-scatter":
             # NCCL's convention is that the message size of a reduce-scatter is the size of output buffer:
             # https://github.com/NVIDIA/nccl/blob/ab2b89c4c339bd7f816fbc114a4b05d386b66290/src/collectives.cc#L122
-            msg_size_bits, rem = divmod(msg_size_bits, collective_size)
+            msg_size_bytes, rem = divmod(msg_size_bytes, collective_size)
             assert rem == 0
-        msg_size_bytes, rem = divmod(msg_size_bits, 8)
-        assert rem == 0
         total_msg_size += msg_size_bytes
 
     collective = comm_inst.opcode.removesuffix("-start")

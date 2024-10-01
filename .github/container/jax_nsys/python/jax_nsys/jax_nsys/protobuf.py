@@ -1,8 +1,11 @@
-from collections import defaultdict
 import functools
 import lzma
 import pathlib
 import typing
+
+
+def _host_memory_space(inst):
+    return inst.shape.layout.memory_space == 5
 
 
 class StackFrame(typing.NamedTuple):
@@ -25,6 +28,35 @@ class HloInstruction:
         # proto representing the actual collective, which will be different if the
         # async launch is handled by an async-start op
         # TODO: can any of copy-start, custom-call, recv, send represent communication?
+        # This also aims to identify, and (for now) flag as communication, kernels that
+        # implement device-to-host and host-to-device copies for memory offloading.
+        # For example, a device-to-host offload might look like
+        #   computation {
+        #     ...
+        #     ROOT r1 = bf16[2,8,128,2048]{3,2,1,0:S(5)} dynamic-update-slice(...)
+        #   }
+        #   async_computation {
+        #     ...
+        #     ROOT r2 = bf16[2,8,128,2048]{3,2,1,0:S(5)} fusion(...), calls=computation
+        #   }
+        #   start = (...) async-start(...), calls=async_computation
+        # where the :S(5) annotation shows that a buffer is in host memory.
+        # A host-to-device load might look like
+        #   computation {
+        #     param_0 = bf16[2,8,128,2048]{3,2,1,0:S(5)} parameter(0)
+        #     ...
+        #     ROOT r1 = bf16[2,8,128,2048]{3,2,1,0} dynamic-slice(param_0, ...)
+        #   }
+        #   async_computation {
+        #     param_0 = bf16[2,8,128,2048]{3,2,1,0:S(5)} parameter(0)
+        #     ...
+        #     ROOT r2 = bf16[2,8,128,2048]{3,2,1,0} fusion(param_0, ...), calls=computation
+        #   }
+        #   start = (...) async-start(...), calls=async_computation
+        # where the :S(5) memory space annotation is in a parameter instead of in the
+        # return value.
+        # For now, handling host-device kernels as single-device "collective"
+        # communication should be sufficient.
         self._comm_proto = None
         comm_opcodes = {
             "all-gather",
@@ -39,25 +71,50 @@ class HloInstruction:
             "all-reduce-start",
             "collective-permute-start",
         }
+
+        def _is_offloading_instruction(inst):
+            host_dest = _host_memory_space(inst)
+
+            def _host_operand(i):
+                _, op = wrapped_hlo_proto.find_instruction_by_id(inst.operand_ids[i])
+                return _host_memory_space(op.proto())
+
+            if inst.opcode == "dynamic-slice" and host_dest != _host_operand(0):
+                return True
+            elif (
+                inst.opcode == "dynamic-update-slice"
+                and host_dest == _host_operand(0)
+                and host_dest != _host_operand(1)
+            ):
+                return True
+            return False
+
         if self._proto.opcode in comm_opcodes | comm_start_opcodes:
             self._comm_proto = self._proto
-        elif self._proto.opcode == "async-start":
+        elif self._proto.opcode in {"async-start", "fusion"}:
+            # fusion example:
+            #   computation {
+            #     param_0 = f32[...]{...:S(5)} parameter(0)
+            #     ...
+            #     ROOT dus = f32[...]{...:S(5)} dynamic-update-slice(param_0, ...)
+            #   }
+            #   inst = f32[256,128,128]{2,1,0:S(5)} fusion(...), calls=computation
             # This might be thinly wrapping an opcode in `comm_opcodes`
-            other_opcodes = defaultdict(int)
-            for called_id in self._proto.called_computation_ids:
-                for called_inst in wrapped_hlo_proto.find_computation(
-                    called_id
-                ).instructions:
-                    if called_inst.opcode in comm_opcodes:
+            def _visit_computation(computation_id):
+                computation = wrapped_hlo_proto.find_computation(computation_id)
+                for called_inst in computation.instructions:
+                    for called_id in called_inst.called_computation_ids:
+                        _visit_computation(called_id)
+                    if called_inst.opcode in comm_opcodes or _is_offloading_instruction(
+                        called_inst
+                    ):
                         assert (
                             self._comm_proto is None
                         ), f"Found {called_inst.opcode} child having already found {self._comm_proto.opcode}"
                         self._comm_proto = called_inst
-                    else:
-                        other_opcodes[called_inst.opcode] += 1
-            assert (
-                other_opcodes.keys() == {"parameter"}
-            ), f"async-start op {self._proto.name} wrapped too many opcode types ({dict(other_opcodes)}) in addition to {self._comm_proto}"
+
+            for called_id in self._proto.called_computation_ids:
+                _visit_computation(called_id)
 
     def communication_proto(self):
         return self._comm_proto
@@ -68,12 +125,7 @@ class HloInstruction:
         a little more complicated than you might hope, because async communications are
         not handled uniformly.
         """
-        if self._comm_proto is None:
-            return False
-        assert (
-            self._comm_proto.channel_id != 0
-        ), f"Got channel_id={self._comm_proto.channel_id} for {self._comm_proto.name}"
-        return True
+        return self._comm_proto is not None
 
     def proto(self):
         """
