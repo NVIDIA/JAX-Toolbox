@@ -103,6 +103,9 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
     return _calculate_overlap(thunk_df)
 
 
+compile_prefix = "XlaCompile:#module="
+
+
 def _load_nvtx_gpu_proj_trace_single(
     prefix: pathlib.Path,
     file: pathlib.Path,
@@ -305,10 +308,21 @@ def _load_nvtx_gpu_proj_trace_single(
         unique_pid_tid_pairs = module_df.loc[:, ("PID", "TID")].drop_duplicates()
         if len(unique_pid_tid_pairs) == 1:
             main_pid_tid_candidates.add(tuple(unique_pid_tid_pairs.iloc[0]))
+    # If the profile only includes N>1 modules, we may still be able to identify the
+    # main thread as the one responsible for XlaCompile ranges projected onto the GPU
+    # timeline
+    compile_ranges = df.loc[~all_thunks, "Name"].str.startswith(
+        tsl_prefix + compile_prefix
+    )
+    compile_range_ids = compile_ranges[compile_ranges].index
+    unique_pid_tid_pairs = df.loc[compile_range_ids, ("PID", "TID")].drop_duplicates()
+    if len(unique_pid_tid_pairs) == 1:
+        main_pid_tid_candidates.add(tuple(unique_pid_tid_pairs.iloc[0]))
     assert len(main_pid_tid_candidates) < 2
     if len(main_pid_tid_candidates) == 1:
         # Possibly not correct if len(device_by_pid_tid) > 1
         assert len(device_by_pid_tid) > 0
+        # Associate the main thread with the 0th device in device_by_pid_tid
         main_thread_df = device_by_pid_tid.iloc[:1]
         main_thread_df.index = pd.MultiIndex.from_tuples(
             main_pid_tid_candidates, names=["PID", "TID"]
@@ -425,16 +439,13 @@ def _load_nvtx_gpu_proj_trace(
     return output
 
 
-compile_prefix = "TSL:XlaCompile:#module="
-
-
 def _splice_parallel_ranges(compile_df: pd.DataFrame) -> pd.DataFrame:
     # When parallel compilation is enabled, we end up with worker threads that
     # emit NVTX ranges but which are not accounted for in the RangeStack tree.
     # Splice these in under the relevant XlaCompile ranges in the RangeStack tree and
     # drop everything else.
     retain_mask = pd.Series(False, index=compile_df.index)
-    compile_mask = compile_df["Name"].str.startswith(compile_prefix)
+    compile_mask = compile_df["Name"].str.startswith("TSL:" + compile_prefix)
     for compile_range in compile_df[compile_mask].itertuples():
         # Identify the slice of `compile_df` that overlaps in time with this XlaCompile
         # range
