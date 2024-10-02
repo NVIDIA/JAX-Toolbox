@@ -109,9 +109,6 @@ else
 fi
 
 for t in $*; do
-    if [[ "$t" != "//tests:"* ]]; then
-        t="//tests:${t}"
-    fi
     BAZEL_TARGET="${BAZEL_TARGET} $t"
 done
 
