@@ -72,6 +72,12 @@ if __name__ == "__main__":
         ),
         type=int_or_env,
     )
+    parser.add_argument(
+        "--max-size-power",
+        default=30,
+        help="Power of 2 guiding the maximum collective size",
+        type=int,
+    )
     args = parser.parse_args()
 
     assert (
@@ -136,7 +142,6 @@ if __name__ == "__main__":
     )
     mesh = Mesh(jax.devices(), axis_names=("i",))
     min_size_power = 0
-    max_size_power = 30
     max_elements = 2**32
     sharding = partial(
         shard_map,
@@ -152,8 +157,8 @@ if __name__ == "__main__":
         with jax.named_scope(collective):
             output = 1.0
             big_input = big_input * jax.lax.psum(sync, "i")
-            assert big_input.shape == (1, 2**max_size_power), big_input.shape
-            for size in range(max_size_power + 1):
+            assert big_input.shape == (1, 2**args.max_size_power), big_input.shape
+            for size in range(args.max_size_power + 1):
                 values_per_device = 2**size
                 input = output * jax.lax.slice(
                     big_input, (0, 0), (1, values_per_device)
@@ -224,9 +229,11 @@ if __name__ == "__main__":
         device_put_local(jnp.ones((1,))),
     )
     input = jax.make_array_from_single_device_arrays(
-        (n_devices, 2**max_size_power),
+        (n_devices, 2**args.max_size_power),
         NamedSharding(mesh, P("i")),
-        device_put_local(jax.random.normal(jax.random.key(1), (1, 2**max_size_power))),
+        device_put_local(
+            jax.random.normal(jax.random.key(1), (1, 2**args.max_size_power))
+        ),
     )
     if jax.process_index() == 0:
         print(f"Data for pre-measurement synchronisation {sync.shape}")
