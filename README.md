@@ -40,9 +40,9 @@ We support and test the following JAX frameworks and model architectures. More d
   <tbody>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.base">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=base%3D%7BCUDA%2CcuDNN%2CNCCL%2COFED%2CEFA%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:base</code>
@@ -55,9 +55,9 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.jax">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=core%3D%7Bbase%2CJAX%2CFlax%2CTE%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:jax</code>
@@ -101,9 +101,9 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.levanter">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Levanter%3D%7Bcore%2CLevanter%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:levanter</code>
@@ -123,9 +123,9 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.equinox">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Equinox%3D%7Bcore%2CEquinox%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:equinox</code>
@@ -141,9 +141,9 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.triton">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Triton%3D%7Bcore%2CJAX-Triton%2CTriton%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:triton</code>
@@ -163,9 +163,9 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.t5x.amd64">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Upstream%20T5X%3D%7Bcore%2CT5X%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:upstream-t5x</code>
@@ -182,9 +182,9 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/Dockerfile.t5x">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Rosetta%20T5X%3D%7Bcore%2CT5X%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:t5x</code>
@@ -201,9 +201,9 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.pax.amd64">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Upstream%20PAX%3D%7Bcore%2Cpaxml%2Cpraxis%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:upstream-pax</code>
@@ -220,9 +220,9 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/Dockerfile.pax">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Rosetta%20PAX%3D%7Bcore%2Cpaxml%2Cpraxis%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:pax</code>
@@ -239,9 +239,9 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.maxtext.amd64">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=MaxText%3D%7Bcore%2CMaxText%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:maxtext</code>
@@ -258,9 +258,9 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <picture>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/Dockerfile.gemma">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Gemma%3D%7Bcore%2CGemma%2CPaliGemma%7D">
-        </picture>
+        </a>
       </td>
       <td>
         <code>ghcr.io/nvidia/jax:gemma</code>
