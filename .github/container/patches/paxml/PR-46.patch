@@ -1,4 +1,4 @@
-From b2de6bbc35272ba74fddc30676835026e9c0e8c2 Mon Sep 17 00:00:00 2001
+From d427a9b8b057c98bd224e3b77fcd418f0e128b14 Mon Sep 17 00:00:00 2001
 From: ashors1 <ashors@nvidia.com>
 Date: Tue, 18 Jul 2023 10:27:03 -0700
 Subject: [PATCH 01/11] add TE support
@@ -6,10 +6,10 @@ Subject: [PATCH 01/11] add TE support
 ---
  paxml/contrib/gpu/scripts_gpu/configs.py   |  22 +-
  paxml/contrib/gpu/scripts_gpu/te_helper.py | 324 +++++++++++++++++++++
- paxml/main.py                              |  67 +++--
+ paxml/main.py                              |  61 ++--
  paxml/tasks_lib.py                         |   3 +-
  paxml/trainer_lib.py                       |  36 ++-
- 5 files changed, 400 insertions(+), 52 deletions(-)
+ 5 files changed, 396 insertions(+), 50 deletions(-)
  create mode 100644 paxml/contrib/gpu/scripts_gpu/te_helper.py
 
 diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
@@ -398,20 +398,20 @@ index 0000000..d44ca67
 +        finally:
 +            pass
 diff --git a/paxml/main.py b/paxml/main.py
-index ff3d89d..c6368d4 100644
+index f03e2d4..f087f27 100644
 --- a/paxml/main.py
 +++ b/paxml/main.py
-@@ -51,6 +51,7 @@ from paxml import tf_data_service_lib
- from paxml import train
+@@ -52,6 +52,7 @@ from paxml import train
  from paxml import trainer_lib
  from paxml import tuning_lib
+ from paxml import ml_monitoring
 +from paxml.contrib.gpu.scripts_gpu.te_helper import TransformerEngineHelper
  from praxis import pax_fiddle
  from praxis import py_utils
  
-@@ -512,39 +513,41 @@ def _main(argv: Sequence[str]) -> None:
-                                                       FLAGS.host_idx)
-                      )
+@@ -519,35 +520,36 @@ def create_experiment_config():
+       ),
+   )
  
 -  if FLAGS.exp is not None:
 -    experiment_config = get_experiment(FLAGS.exp)()
@@ -472,19 +472,19 @@ index ff3d89d..c6368d4 100644
 +          'No experiment provided. At least one of --exp, --fdl,'
 +          ' --fdl_config, or --fdl_config_file is required.'
 +      )
-+
  
--  experiment_config.validate()
--  run(experiment_config=experiment_config,
--      enable_checkpoint_saving=FLAGS.enable_checkpoint_saving)
-+    experiment_config.validate()
-+    run(experiment_config=experiment_config,
-+        enable_checkpoint_saving=FLAGS.enable_checkpoint_saving)
+   experiment_config.validate()
+   return experiment_config
+@@ -571,7 +573,6 @@ def _main(argv: Sequence[str]) -> None:
+       startup_random_jitter_max_secs=FLAGS.startup_random_jitter_max_secs,
+   )
  
- 
+-
  _TASK_HANDLE_RE = re.compile(r'(?:logs\.)?(\d+)\.(.*)\.([^.]+)\.\d+')
+ 
+ if __name__ == '__main__':
 diff --git a/paxml/tasks_lib.py b/paxml/tasks_lib.py
-index cfdc402..e475099 100644
+index 010998d..4b90282 100644
 --- a/paxml/tasks_lib.py
 +++ b/paxml/tasks_lib.py
 @@ -43,6 +43,7 @@ from paxml import checkpoint_types
@@ -654,10 +654,10 @@ index 6ec25e8..0342328 100644
  
    train_state_partition_specs = (
 -- 
-2.34.1
+2.46.1
 
 
-From 33989ab49072915eaf70a127357ad87a2ab0185f Mon Sep 17 00:00:00 2001
+From 3a37cdae1ab420890284647bda008615c9069ab2 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 27 Sep 2023 10:46:53 +0800
 Subject: [PATCH 02/11] Adding dropout support when enabling TE.
@@ -688,10 +688,10 @@ index d44ca67..2b9dba4 100644
          assert self.packed_input == False
          assert len(self.moe_layers) == 0
 -- 
-2.34.1
+2.46.1
 
 
-From 1993f5edd38a6523b12e56e533d22284a17ecc5a Mon Sep 17 00:00:00 2001
+From 9fc82c91ac28cc4e7fe6b6b071631c07cbbdef22 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 24 Oct 2023 10:30:27 +0800
 Subject: [PATCH 03/11] Set deterministic=True for inference.
@@ -715,10 +715,10 @@ index 2b9dba4..ef20305 100644
      return x_out
  
 -- 
-2.34.1
+2.46.1
 
 
-From 7edb0214176ec4169f2aa8b9aef2c89f41f1d0c4 Mon Sep 17 00:00:00 2001
+From ea6dd6c65b4dcf965f2c1c5e2b502f80a9142ed1 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Thu, 2 Nov 2023 22:04:58 -0700
 Subject: [PATCH 04/11] Fix the excluded list for excluded_for_learner
@@ -742,10 +742,10 @@ index 0342328..2e9bfd6 100644
      vars_with_opt = tasks_lib.filter_vars_for_grad_or_opt(
          mdl_vars, excluded_for_learner
 -- 
-2.34.1
+2.46.1
 
 
-From b76901e24b0f4bf1add943def4b5b590253527d7 Mon Sep 17 00:00:00 2001
+From f740f17fbb13b4262238736c7d678dc8bcea1f1f Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 7 Nov 2023 11:21:53 +0800
 Subject: [PATCH 05/11] Adapting to TE/JAX/Custom_partitioning.
@@ -779,10 +779,10 @@ index ef20305..fed1601 100644
          finally:
              pass
 -- 
-2.34.1
+2.46.1
 
 
-From 3d6ff0f9bb38217a7b04f48c36ee6892fa3c5b26 Mon Sep 17 00:00:00 2001
+From 03ef6221821896155b78b8a193df2091b096252d Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Tue, 7 Nov 2023 15:14:25 +0800
 Subject: [PATCH 06/11] Adding TE-compatiable PipelinedTransformer
@@ -946,10 +946,10 @@ index fed1601..5914e54 100644
      def update_fp8_metas_if_needed(mdl_vars, grads):
          return TransformerEngineHelper.get_helper().update_fp8_metas_if_needed(mdl_vars, grads)
 -- 
-2.34.1
+2.46.1
 
 
-From b289c455efd107076001029f78e1215409dcbeda Mon Sep 17 00:00:00 2001
+From 2e2081ec97e73d9c212dcfb83713a87eea374396 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 8 Nov 2023 10:06:49 +0800
 Subject: [PATCH 07/11] Apply OWG to TE's FP8 meta
@@ -1107,10 +1107,10 @@ index 2e9bfd6..270fb3d 100644
          grads, states.opt_states[0], vars_with_opt, wps_with_opt
      )
 -- 
-2.34.1
+2.46.1
 
 
-From c91d86651daec782c4092898c7b9d01b45b76b56 Mon Sep 17 00:00:00 2001
+From 9df77b4399f983e71d276ddf487abe588a13191b Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 14:43:17 +0800
 Subject: [PATCH 08/11] Remove Praxis related setup (Moving to Praxis TE/Patch)
@@ -1499,10 +1499,10 @@ index fd482df..b271258 100644
      @contextmanager
      def fp8_autocast(dp_mesh_axis="replica", tp_mesh_axis="mdl", fsdp_mesh_axis="data"):
 -- 
-2.34.1
+2.46.1
 
 
-From b6add3ccf50bffcfa87052830f1dbc52bdccf525 Mon Sep 17 00:00:00 2001
+From 3297966c11624d3f692f3450f4eb1acd28b3964e Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 14:51:14 +0800
 Subject: [PATCH 09/11] Fix missing DEFAULT_INIT_MUTABLE_LIST
@@ -1534,10 +1534,10 @@ index b271258..cbac7cf 100644
  
  class TransformerEngineHelperBase:
 -- 
-2.34.1
+2.46.1
 
 
-From 12adf91f75fcbc5055ddaf93a25ed43ee99918ac Mon Sep 17 00:00:00 2001
+From 65b00553378aead4b083e7154540b6fd0a3a8f4e Mon Sep 17 00:00:00 2001
 From: Hemil Desai <hemild@nvidia.com>
 Date: Mon, 12 Feb 2024 10:22:15 -0800
 Subject: [PATCH 10/11] Revert mutable kwarg in abstract_init_with_metadata in
@@ -1548,7 +1548,7 @@ Subject: [PATCH 10/11] Revert mutable kwarg in abstract_init_with_metadata in
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/paxml/tasks_lib.py b/paxml/tasks_lib.py
-index e475099..43e090c 100644
+index 4b90282..e210d63 100644
 --- a/paxml/tasks_lib.py
 +++ b/paxml/tasks_lib.py
 @@ -1787,7 +1787,7 @@ class SingleTask(base_task.BaseTask):
@@ -1561,10 +1561,10 @@ index e475099..43e090c 100644
          var_weight_hparams)
      train_state_pspecs = ckpt_task.create_train_state_partition_specs(
 -- 
-2.34.1
+2.46.1
 
 
-From 953dcab6098054d70505ca0bb1b3e29eac819519 Mon Sep 17 00:00:00 2001
+From 4516dbb067a28677ceae31411f8003d021b9e8e3 Mon Sep 17 00:00:00 2001
 From: Ming Huang <mingh@nvidia.com>
 Date: Fri, 12 Apr 2024 20:14:01 +0000
 Subject: [PATCH 11/11] Support FM32 to OWG parameters.
@@ -1627,5 +1627,5 @@ index 270fb3d..a9afc9e 100644
        k1, k2, k3 = jax.random.split(prng_key, 3)
        (metrics, per_example_output), updated_vars = apply_fn(
 -- 
-2.34.1
+2.46.1
 
