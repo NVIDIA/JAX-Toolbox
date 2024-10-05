@@ -34,5 +34,5 @@ index a35ce8b..52886bc 100644
        self.add_summary('attention_mask', atten_mask)
      if self.attention_extra_logit is None:
 -- 
-2.34.1
+2.46.1
 

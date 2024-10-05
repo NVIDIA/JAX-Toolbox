@@ -1,20 +1,20 @@
-From 41488517eb6d95eb7943681e706c8804e6102c41 Mon Sep 17 00:00:00 2001
+From e46ee191d7aad9aeb7239fe423e54ccb93f65537 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 15 Nov 2023 11:38:27 +0800
 Subject: [PATCH 01/15] Adding TE support
 
 ---
- praxis/contrib/gpu/scripts_gpu/te_helper.py | 176 ++++++++++++++++++++
- praxis/layers/transformers.py               |  22 +--
- 2 files changed, 181 insertions(+), 17 deletions(-)
+ praxis/contrib/gpu/scripts_gpu/te_helper.py | 182 ++++++++++++++++++++
+ praxis/layers/transformers.py               |  27 +--
+ 2 files changed, 187 insertions(+), 22 deletions(-)
  create mode 100644 praxis/contrib/gpu/scripts_gpu/te_helper.py
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
 new file mode 100644
-index 0000000..2d5277e
+index 0000000..14a0309
 --- /dev/null
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-@@ -0,0 +1,176 @@
+@@ -0,0 +1,182 @@
 +import os
 +
 +from praxis import base_layer
@@ -75,6 +75,11 @@ index 0000000..2d5277e
 +        )
 +        layer_p.relu_dropout_prob = stacked_transformer_obj.relu_dropout_prob or stacked_transformer_obj.dropout_prob
 +        layer_p.hidden_dims = stacked_transformer_obj.hidden_dims
++        if stacked_transformer_obj.local_window_size is not None:
++            if isinstance(stacked_transformer_obj.local_window_size[0], tuple):
++                p_i.tr_atten_tpl.local_window_size = stacked_transformer_obj.local_window_size[i]
++            else:
++                p_i.tr_atten_tpl.local_window_size = stacked_transformer_obj.local_window_size
 +
 +        if stacked_transformer_obj.residual_droppath_prob > 0.0:
 +            layer_p.residual_droppath_prob = (
@@ -147,6 +152,7 @@ index 0000000..2d5277e
 +        assert stacked_transformer_obj.packed_input == False
 +        assert len(stacked_transformer_obj.moe_layers) == 0
 +        assert stacked_transformer_obj.ngrammer_tpls is None
++        assert stacked_transformer_obj.local_window_size is None
 +
 +        return te_transformer_tpl
 +
@@ -192,10 +198,10 @@ index 0000000..2d5277e
 +
 +
 diff --git a/praxis/layers/transformers.py b/praxis/layers/transformers.py
-index ab6cff3..c79dac9 100644
+index fde2446..a40c395 100644
 --- a/praxis/layers/transformers.py
 +++ b/praxis/layers/transformers.py
-@@ -39,6 +39,7 @@ from praxis.layers import pipeline
+@@ -40,6 +40,7 @@ from praxis.layers import pipeline
  from praxis.layers import repeats
  from praxis.layers import stats
  from praxis.layers import stochastics
@@ -203,7 +209,7 @@ index ab6cff3..c79dac9 100644
  
  NestedMap = py_utils.NestedMap
  WeightInit = base_layer.WeightInit
-@@ -1655,23 +1656,8 @@ class StackedTransformer(base_layer.BaseLayer):
+@@ -1738,28 +1739,8 @@ class StackedTransformer(base_layer.BaseLayer):
          p_i = self._clone_layer_params(self.transformer_layer_params_tpl[ii])
        else:
          p_i = self._clone_layer_params(self.transformer_layer_params_tpl)
@@ -219,6 +225,11 @@ index ab6cff3..c79dac9 100644
 -      )
 -      p_i.relu_dropout_prob = self.relu_dropout_prob or self.dropout_prob
 -      p_i.hidden_dims = self.hidden_dims
+-      if self.local_window_size is not None:
+-        if isinstance(self.local_window_size[0], tuple):
+-          p_i.tr_atten_tpl.local_window_size = self.local_window_size[i]
+-        else:
+-          p_i.tr_atten_tpl.local_window_size = self.local_window_size
  
 -      if self.residual_droppath_prob > 0.0:
 -        p_i.residual_droppath_prob = (
@@ -228,7 +239,7 @@ index ab6cff3..c79dac9 100644
  
        if self.moe_layers and i in self.moe_layers:
          assert self.num_experts > 0
-@@ -1790,6 +1776,8 @@ class StackedTransformer(base_layer.BaseLayer):
+@@ -1878,6 +1859,8 @@ class StackedTransformer(base_layer.BaseLayer):
        )
        return x_out
  
@@ -237,7 +248,7 @@ index ab6cff3..c79dac9 100644
      fprop = _fprop
      if self.remat:
        fprop = nn.remat(
-@@ -2255,7 +2243,7 @@ class PipelinedTransformer(base_layer.BaseLayer):
+@@ -2347,7 +2330,7 @@ class PipelinedTransformer(base_layer.BaseLayer):
      else:
        assert self.pipeline_stage.cls == StackedTransformerRepeated
        xformer_layer_p = self.pipeline_stage.block.transformer_layer_params_tpl
@@ -247,10 +258,10 @@ index ab6cff3..c79dac9 100644
        # Annotate the inputs before the pipeline to prevent unexpected
        # propagation from earlier layers.
 -- 
-2.34.1
+2.46.1
 
 
-From ff1745796009cf1ec59f463f8e776c66f1286938 Mon Sep 17 00:00:00 2001
+From 7346aafe7c576ba24bf97c8a050a350e6573634c Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 17 Nov 2023 15:21:06 +0800
 Subject: [PATCH 02/15] Fix missing vars wiht PP.
@@ -261,7 +272,7 @@ Subject: [PATCH 02/15] Fix missing vars wiht PP.
  2 files changed, 25 insertions(+), 16 deletions(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index 2d5277e..050d441 100644
+index 14a0309..5787504 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
 @@ -5,18 +5,25 @@ from praxis import pax_fiddle
@@ -300,7 +311,7 @@ index 2d5277e..050d441 100644
  
  LayerTpl = pax_fiddle.Config[base_layer.BaseLayer]
  JTensor = pytypes.JTensor
-@@ -136,8 +143,9 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -142,8 +149,9 @@ class TEInstalledHelper(TransformerEngineHelperBase):
      @staticmethod
      def get_bld_mapping_for_pipelined_transformer(_):
          rules = te_flax.extend_logical_axis_rules(tuple())
@@ -312,14 +323,14 @@ index 2d5277e..050d441 100644
          # [Batch, Seqlen, Hidden]
          bld_mapping = [batch_mapping, None, hidden_tp_mapping]
          return bld_mapping
-@@ -172,5 +180,3 @@ class TransformerEngineHelper(TransformerEngineHelperBase):
+@@ -178,5 +186,3 @@ class TransformerEngineHelper(TransformerEngineHelperBase):
      def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
          return TransformerEngineHelper.get_helper().get_bld_mapping_for_pipelined_transformer(
                      xformer_layer_p)
 -
 -
 diff --git a/praxis/layers/pipeline.py b/praxis/layers/pipeline.py
-index e3b2f7c..b31526e 100644
+index 62b6505..24a0995 100644
 --- a/praxis/layers/pipeline.py
 +++ b/praxis/layers/pipeline.py
 @@ -28,6 +28,8 @@ from praxis import pax_fiddle
@@ -331,7 +342,7 @@ index e3b2f7c..b31526e 100644
  
  NestedMap = py_utils.NestedMap
  JTensor = pytypes.JTensor
-@@ -414,6 +416,7 @@ class LayerwiseShardablePipelined(base_layer.BaseLayer):
+@@ -423,6 +425,7 @@ class LayerwiseShardablePipelined(base_layer.BaseLayer):
              NON_TRAINABLE: 0,
              INTERMEDIATES: 0,
              HYPER_PARAMS: 0,
@@ -339,7 +350,7 @@ index e3b2f7c..b31526e 100644
          },
          split_rngs={PARAMS: self.is_initializing(), RANDOM: True},
          metadata_params={
-@@ -798,7 +801,7 @@ class LayerwiseShardablePipelined(base_layer.BaseLayer):
+@@ -846,7 +849,7 @@ class LayerwiseShardablePipelined(base_layer.BaseLayer):
      #
      # Note that fprop should not use PARAMS rng because there is no var init.
      variable_carry = []
@@ -348,7 +359,7 @@ index e3b2f7c..b31526e 100644
      if self.is_mutable_collection(NON_TRAINABLE):
        variable_carry.append(NON_TRAINABLE)
      else:
-@@ -821,7 +824,7 @@ class LayerwiseShardablePipelined(base_layer.BaseLayer):
+@@ -869,7 +872,7 @@ class LayerwiseShardablePipelined(base_layer.BaseLayer):
      if bf16_vars_to_convert is not None:
        scan_fn = nn.map_variables(
            scan_fn,
@@ -358,10 +369,10 @@ index e3b2f7c..b31526e 100644
            trans_in_fn=_get_to_f32_converter(bf16_vars_to_convert),
            trans_out_fn=_get_to_bf16_converter(bf16_vars_to_convert),
 -- 
-2.34.1
+2.46.1
 
 
-From 99e26aaf14131ca73501f08162be628b55c86a88 Mon Sep 17 00:00:00 2001
+From a6fb78ed1808743cd8563fb1bbd428a3dac20414 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Wed, 17 Jan 2024 02:36:31 -0800
 Subject: [PATCH 03/15] Add checkpoint_policy checker for fused attn + dropout
@@ -373,7 +384,7 @@ Signed-off-by: Reese Wang <rewang@nvidia.com>
  2 files changed, 48 insertions(+), 1 deletion(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index 050d441..290b74c 100644
+index 5787504..a26f8ed 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
 @@ -3,6 +3,8 @@ import os
@@ -395,7 +406,7 @@ index 050d441..290b74c 100644
  
  
  class TENotInstalledHelper(TransformerEngineHelperBase):
-@@ -76,6 +81,11 @@ class TENotInstalledHelper(TransformerEngineHelperBase):
+@@ -81,6 +86,11 @@ class TENotInstalledHelper(TransformerEngineHelperBase):
      def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
          return xformer_layer_p.tr_atten_tpl.activation_split_dims_mapping.bld
  
@@ -407,7 +418,7 @@ index 050d441..290b74c 100644
  
  class TEInstalledHelper(TransformerEngineHelperBase):
  
-@@ -150,7 +160,36 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -156,7 +166,36 @@ class TEInstalledHelper(TransformerEngineHelperBase):
          bld_mapping = [batch_mapping, None, hidden_tp_mapping]
          return bld_mapping
  
@@ -445,7 +456,7 @@ index 050d441..290b74c 100644
  
  
  class TransformerEngineHelper(TransformerEngineHelperBase):
-@@ -180,3 +219,7 @@ class TransformerEngineHelper(TransformerEngineHelperBase):
+@@ -186,3 +225,7 @@ class TransformerEngineHelper(TransformerEngineHelperBase):
      def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
          return TransformerEngineHelper.get_helper().get_bld_mapping_for_pipelined_transformer(
                      xformer_layer_p)
@@ -454,10 +465,10 @@ index 050d441..290b74c 100644
 +    def check_checkpoint_policy(tpl):
 +        return TransformerEngineHelper.get_helper().check_checkpoint_policy(tpl)
 diff --git a/praxis/layers/transformers.py b/praxis/layers/transformers.py
-index c79dac9..e076530 100644
+index a40c395..69ebba0 100644
 --- a/praxis/layers/transformers.py
 +++ b/praxis/layers/transformers.py
-@@ -1657,6 +1657,8 @@ class StackedTransformer(base_layer.BaseLayer):
+@@ -1740,6 +1740,8 @@ class StackedTransformer(base_layer.BaseLayer):
        else:
          p_i = self._clone_layer_params(self.transformer_layer_params_tpl)
  
@@ -466,7 +477,7 @@ index c79dac9..e076530 100644
        p_i = TransformerEngineHelper.set_layer_params_to_stack_transformer(self, p_i, i)
  
        if self.moe_layers and i in self.moe_layers:
-@@ -1967,6 +1969,8 @@ class StackedTransformerRepeated(base_layer.BaseLayer):
+@@ -2053,6 +2055,8 @@ class StackedTransformerRepeated(base_layer.BaseLayer):
    def setup(self) -> None:
      wp = self.weight_split_dims_mapping
  
@@ -476,10 +487,10 @@ index c79dac9..e076530 100644
          repeats.Repeat,
          sub_tpl=self.block,
 -- 
-2.34.1
+2.46.1
 
 
-From ab12f857404d84ed423e095d59e0bd336b94f151 Mon Sep 17 00:00:00 2001
+From 9bf1d5ae5273b58f3db2fe0c6625f9ae3d3cb6ed Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Mon, 15 Jan 2024 08:25:59 -0800
 Subject: [PATCH 04/15] Support more TE configurations
@@ -490,7 +501,7 @@ Signed-off-by: Reese Wang <rewang@nvidia.com>
  1 file changed, 76 insertions(+), 8 deletions(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index 290b74c..9defcbd 100644
+index a26f8ed..889a1ce 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
 @@ -5,6 +5,9 @@ from praxis import pax_fiddle
@@ -503,7 +514,7 @@ index 290b74c..9defcbd 100644
  
  try:
      import transformer_engine.jax as te
-@@ -112,19 +115,85 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -117,19 +120,85 @@ class TEInstalledHelper(TransformerEngineHelperBase):
  
      @staticmethod
      def set_layer_params_to_stack_transformer(stacked_transformer_obj, _, layer_id):
@@ -596,7 +607,7 @@ index 290b74c..9defcbd 100644
          te_transformer_tpl.logical_axes_rules = te_flax.extend_logical_axis_rules(tuple())
          te_transformer_tpl.params_init = stacked_transformer_obj.params_init
          te_transformer_tpl.dtype = stacked_transformer_obj.fprop_dtype
-@@ -133,7 +202,6 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -138,7 +207,6 @@ class TEInstalledHelper(TransformerEngineHelperBase):
          te_transformer_tpl.num_attention_heads = stacked_transformer_obj.num_heads
          te_transformer_tpl.hidden_size = stacked_transformer_obj.model_dims
          te_transformer_tpl.mlp_hidden_size = stacked_transformer_obj.hidden_dims
@@ -605,10 +616,10 @@ index 290b74c..9defcbd 100644
          te_transformer_tpl.attention_dropout = stacked_transformer_obj.atten_dropout_prob or stacked_transformer_obj.dropout_prob
          te_transformer_tpl.hidden_dropout = stacked_transformer_obj.residual_dropout_prob or stacked_transformer_obj.dropout_prob
 -- 
-2.34.1
+2.46.1
 
 
-From dc632f0b2bf8da8724e4959360da034b3a7b4075 Mon Sep 17 00:00:00 2001
+From 2b7dc68c18316f8527d33739d2d3110f6d9cbe3b Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Sun, 18 Feb 2024 01:14:41 -0800
 Subject: [PATCH 05/15] Change the gated activations orders
@@ -619,10 +630,10 @@ Signed-off-by: Reese Wang <rewang@nvidia.com>
  1 file changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index 9defcbd..1f8f6d6 100644
+index 889a1ce..861003d 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-@@ -140,12 +140,15 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -145,12 +145,15 @@ class TEInstalledHelper(TransformerEngineHelperBase):
              return te_tpl
  
          def update_ff_te_tpl(te_tpl, ff_layer_tpl):
@@ -643,10 +654,10 @@ index 9defcbd..1f8f6d6 100644
              return te_tpl
  
 -- 
-2.34.1
+2.46.1
 
 
-From f2e8560e6861a6dea981209b402b27dc6bc92022 Mon Sep 17 00:00:00 2001
+From ae4980cb430dbe5983be139453f59bb319938d20 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Wed, 28 Feb 2024 22:37:46 -0800
 Subject: [PATCH 06/15] Remove RoPE restriction from DPA module
@@ -657,10 +668,10 @@ Signed-off-by: Reese Wang <rewang@nvidia.com>
  1 file changed, 2 deletions(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index 1f8f6d6..7d83c08 100644
+index 861003d..babc1f8 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-@@ -153,7 +153,6 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -158,7 +158,6 @@ class TEInstalledHelper(TransformerEngineHelperBase):
              return te_tpl
  
          def update_attn_te_tpl(te_tpl, attn_tpl):
@@ -668,7 +679,7 @@ index 1f8f6d6..7d83c08 100644
              if issubclass(attn_tpl.cls, attentions.DotProductAttention):
                  # Check the DotProductAttention parameters are aligned to TE's attention
                  assert attn_tpl.internal_enable_query_scale or attn_tpl.scale_logits_by_head_dims
-@@ -162,7 +161,6 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -167,7 +166,6 @@ class TEInstalledHelper(TransformerEngineHelperBase):
                  assert not attn_tpl.scale_query_by_dim_per_head
                  assert not attn_tpl.dconv_qkv
                  assert not attn_tpl.internal_gshard_gaussian_init
@@ -677,10 +688,10 @@ index 1f8f6d6..7d83c08 100644
                  assert attn_tpl.attention_extra_logit is None
                  assert attn_tpl.ngrammer_tpl is None
 -- 
-2.34.1
+2.46.1
 
 
-From 3d6b5c34a64939dadcc751cf2e989cec1affc648 Mon Sep 17 00:00:00 2001
+From a92fa1ce3b78249703a741d309bdd12f5ff52504 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Wed, 28 Feb 2024 22:56:44 -0800
 Subject: [PATCH 07/15] Add rotary_pos_emb_group dispatch
@@ -691,7 +702,7 @@ Signed-off-by: Reese Wang <rewang@nvidia.com>
  1 file changed, 5 insertions(+)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index 7d83c08..d187ba1 100644
+index babc1f8..b42f8b9 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
 @@ -7,6 +7,7 @@ from praxis import layers
@@ -702,7 +713,7 @@ index 7d83c08..d187ba1 100644
  from praxis.layers import normalizations
  
  try:
-@@ -165,6 +166,8 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -170,6 +171,8 @@ class TEInstalledHelper(TransformerEngineHelperBase):
                  assert attn_tpl.attention_extra_logit is None
                  assert attn_tpl.ngrammer_tpl is None
                  te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
@@ -711,7 +722,7 @@ index 7d83c08..d187ba1 100644
              elif issubclass(attn_tpl.cls, grouped_query_attention.GroupedQueryAttention):
                  te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
                  if attn_tpl.rope_min_max_timescales is not None:
-@@ -174,6 +177,8 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -179,6 +182,8 @@ class TEInstalledHelper(TransformerEngineHelperBase):
              elif issubclass(attn_tpl.cls, multi_query_attention.MultiQueryDotProductAttention):
                  te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
                  te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
@@ -721,10 +732,10 @@ index 7d83c08..d187ba1 100644
                  raise ValueError(f'Unsupported {attn_tpl.cls=}')
              assert attn_tpl.atten_logit_cap <= 0., 'atten_logit_cap > 0. is not supported in TE'
 -- 
-2.34.1
+2.46.1
 
 
-From 454f760a095562d995e7e9102f97c05158415312 Mon Sep 17 00:00:00 2001
+From 08be555f30ff7d5c34f1cb96b345b0fbff168ae1 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Sun, 3 Mar 2024 01:16:46 -0800
 Subject: [PATCH 08/15] Fix the missing .cls
@@ -735,10 +746,10 @@ Signed-off-by: Reese Wang <rewang@nvidia.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index d187ba1..733e9bf 100644
+index b42f8b9..1e24fc0 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-@@ -166,7 +166,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -171,7 +171,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
                  assert attn_tpl.attention_extra_logit is None
                  assert attn_tpl.ngrammer_tpl is None
                  te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
@@ -747,7 +758,7 @@ index d187ba1..733e9bf 100644
                      te_tpl.rotary_pos_emb_group_method = 'alternate'
              elif issubclass(attn_tpl.cls, grouped_query_attention.GroupedQueryAttention):
                  te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
-@@ -177,7 +177,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -182,7 +182,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
              elif issubclass(attn_tpl.cls, multi_query_attention.MultiQueryDotProductAttention):
                  te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
                  te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
@@ -757,10 +768,10 @@ index d187ba1..733e9bf 100644
              else:
                  raise ValueError(f'Unsupported {attn_tpl.cls=}')
 -- 
-2.34.1
+2.46.1
 
 
-From 0bd4a531a3d8e4ddafb5ed680092fd5636aa9f8e Mon Sep 17 00:00:00 2001
+From be2bd3ffd4fa7eb925ef6ffad5a45e0f72280d32 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Fri, 2 Feb 2024 10:58:40 +0800
 Subject: [PATCH 09/15] Fixed the unexpected input sharding pattern when TE
@@ -773,7 +784,7 @@ Signed-off-by: Ming-Xu Huang <mingh@nvidia.com>
  2 files changed, 26 insertions(+), 2 deletions(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index 733e9bf..ee0fc84 100644
+index 1e24fc0..d86dba1 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
 @@ -26,10 +26,13 @@ try:
@@ -801,7 +812,7 @@ index 733e9bf..ee0fc84 100644
      @staticmethod
      def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
          raise NotImplementedError
-@@ -81,6 +88,10 @@ class TENotInstalledHelper(TransformerEngineHelperBase):
+@@ -86,6 +93,10 @@ class TENotInstalledHelper(TransformerEngineHelperBase):
              )
          return layer_p
  
@@ -812,7 +823,7 @@ index 733e9bf..ee0fc84 100644
      @staticmethod
      def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
          return xformer_layer_p.tr_atten_tpl.activation_split_dims_mapping.bld
-@@ -116,11 +127,10 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -121,11 +132,10 @@ class TEInstalledHelper(TransformerEngineHelperBase):
  
      @staticmethod
      def set_layer_params_to_stack_transformer(stacked_transformer_obj, _, layer_id):
@@ -825,7 +836,7 @@ index 733e9bf..ee0fc84 100644
              transpose_batch_sequence=False
          )
  
-@@ -224,6 +234,12 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -230,6 +240,12 @@ class TEInstalledHelper(TransformerEngineHelperBase):
  
          return te_transformer_tpl
  
@@ -838,7 +849,7 @@ index 733e9bf..ee0fc84 100644
      @staticmethod
      def get_bld_mapping_for_pipelined_transformer(_):
          rules = te_flax.extend_logical_axis_rules(tuple())
-@@ -289,6 +305,11 @@ class TransformerEngineHelper(TransformerEngineHelperBase):
+@@ -295,6 +311,11 @@ class TransformerEngineHelper(TransformerEngineHelperBase):
          return TransformerEngineHelper.get_helper().set_layer_params_to_stack_transformer(
                      stacked_transformer_obj, layer_p, layer_id)
  
@@ -851,7 +862,7 @@ index 733e9bf..ee0fc84 100644
      def get_bld_mapping_for_pipelined_transformer(xformer_layer_p):
          return TransformerEngineHelper.get_helper().get_bld_mapping_for_pipelined_transformer(
 diff --git a/praxis/layers/transformer_models.py b/praxis/layers/transformer_models.py
-index d8720ae..235d63e 100644
+index 8709b27..36ad3f6 100644
 --- a/praxis/layers/transformer_models.py
 +++ b/praxis/layers/transformer_models.py
 @@ -33,6 +33,7 @@ from praxis.layers import embedding_softmax
@@ -862,7 +873,7 @@ index d8720ae..235d63e 100644
  
  NestedMap = py_utils.NestedMap
  JTensor = pytypes.JTensor
-@@ -323,6 +324,8 @@ class TransformerLm(base_layer.BaseLayer):
+@@ -539,6 +540,8 @@ class TransformerLm(base_layer.BaseLayer):
          if training_optimized
          else [batch_axes, None, None]
      )
@@ -872,10 +883,10 @@ index d8720ae..235d63e 100644
          [data_axis, None, None, mdl_axis]
          if training_optimized
 -- 
-2.34.1
+2.46.1
 
 
-From e3e785cfedb4f350cfcb2c43b093f94288dbc846 Mon Sep 17 00:00:00 2001
+From cd73548be75c59a7b6ef16ec6b4f4a21986c0521 Mon Sep 17 00:00:00 2001
 From: Ming-Xu Huang <mingh@nvidia.com>
 Date: Wed, 7 Feb 2024 12:34:01 +0800
 Subject: [PATCH 10/15] Addind a comment to get_input_bld
@@ -886,7 +897,7 @@ Signed-off-by: Ming-Xu Huang <mingh@nvidia.com>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index ee0fc84..d0afc1a 100644
+index d86dba1..4117fa3 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
 @@ -50,6 +50,7 @@ class TransformerEngineHelperBase:
@@ -897,7 +908,7 @@ index ee0fc84..d0afc1a 100644
          raise NotImplementedError
  
      @staticmethod
-@@ -89,7 +90,7 @@ class TENotInstalledHelper(TransformerEngineHelperBase):
+@@ -94,7 +95,7 @@ class TENotInstalledHelper(TransformerEngineHelperBase):
          return layer_p
  
      @staticmethod
@@ -907,10 +918,10 @@ index ee0fc84..d0afc1a 100644
  
      @staticmethod
 -- 
-2.34.1
+2.46.1
 
 
-From c45ae5b62a72cfce80f5c79b9f6f22ffb0dbfad1 Mon Sep 17 00:00:00 2001
+From 74078babd8ff358a01820400ce03c13151d35d31 Mon Sep 17 00:00:00 2001
 From: Ming Huang <mingh@nvidia.com>
 Date: Thu, 14 Mar 2024 20:33:36 -0700
 Subject: [PATCH 11/15] Leverage the origianl input bld when ENABLE_SP=False
@@ -921,10 +932,10 @@ Signed-off-by: Ming Huang <mingh@nvidia.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index d0afc1a..fa0375f 100644
+index 4117fa3..4948483 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-@@ -236,10 +236,10 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -242,10 +242,10 @@ class TEInstalledHelper(TransformerEngineHelperBase):
          return te_transformer_tpl
  
      @staticmethod
@@ -938,10 +949,10 @@ index d0afc1a..fa0375f 100644
      @staticmethod
      def get_bld_mapping_for_pipelined_transformer(_):
 -- 
-2.34.1
+2.46.1
 
 
-From 6a8bfddccb1916389b9a3206e6b3f9e142c30792 Mon Sep 17 00:00:00 2001
+From e22e36f1d9853eef8277fc33924d13e1afd49cc5 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Mon, 11 Mar 2024 07:20:08 -0700
 Subject: [PATCH 12/15] Use causal_padding instead of padding
@@ -952,10 +963,10 @@ Signed-off-by: Reese Wang <rewang@nvidia.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index fa0375f..e0f9fd1 100644
+index 4948483..4f16ecb 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-@@ -208,7 +208,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -213,7 +213,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
          assert (transformer_layer_tpl.tr_fflayer_tpl.has_bias ==
              transformer_layer_tpl.tr_atten_tpl.use_bias), "TE only allows same bias settings."
          te_transformer_tpl.use_bias = transformer_layer_tpl.tr_fflayer_tpl.has_bias
@@ -965,10 +976,10 @@ index fa0375f..e0f9fd1 100644
  
          te_transformer_tpl.logical_axes_rules = te_flax.extend_logical_axis_rules(tuple())
 -- 
-2.34.1
+2.46.1
 
 
-From 9c26058d7e285700a314c1306a9567ec497a9603 Mon Sep 17 00:00:00 2001
+From 3f23d159d8e287efa4609f38fc4dd6a13a7441b3 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Mon, 1 Apr 2024 01:07:12 -0700
 Subject: [PATCH 13/15] Fix rope convert
@@ -979,10 +990,10 @@ Signed-off-by: Reese Wang <rewang@nvidia.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index e0f9fd1..df6b9b8 100644
+index 4f16ecb..14e056c 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-@@ -177,7 +177,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -182,7 +182,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
                  assert attn_tpl.attention_extra_logit is None
                  assert attn_tpl.ngrammer_tpl is None
                  te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
@@ -991,7 +1002,7 @@ index e0f9fd1..df6b9b8 100644
                      te_tpl.rotary_pos_emb_group_method = 'alternate'
              elif issubclass(attn_tpl.cls, grouped_query_attention.GroupedQueryAttention):
                  te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
-@@ -188,7 +188,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
+@@ -193,7 +193,7 @@ class TEInstalledHelper(TransformerEngineHelperBase):
              elif issubclass(attn_tpl.cls, multi_query_attention.MultiQueryDotProductAttention):
                  te_tpl.num_gqa_groups = attn_tpl.num_kv_heads
                  te_tpl.enable_rotary_pos_emb = attn_tpl.use_rotary_position_emb
@@ -1001,10 +1012,10 @@ index e0f9fd1..df6b9b8 100644
              else:
                  raise ValueError(f'Unsupported {attn_tpl.cls=}')
 -- 
-2.34.1
+2.46.1
 
 
-From bc21964acbddf8e6a9c5e1c09a17cbcdf24b6a50 Mon Sep 17 00:00:00 2001
+From afc4dc02ca5b9a31d10eefb340b995da6c1cc240 Mon Sep 17 00:00:00 2001
 From: Reese Wang <rewang@nvidia.com>
 Date: Mon, 1 Apr 2024 01:08:52 -0700
 Subject: [PATCH 14/15] Add test_te_helper.py
@@ -1108,10 +1119,10 @@ index 0000000..c65a25d
 +        assert te_cls.scale_attn_logits == True
 +        assert te_cls.scaled_query_init == False
 -- 
-2.34.1
+2.46.1
 
 
-From 4c2f09318b642918adc655bdeb348550a41e2ae3 Mon Sep 17 00:00:00 2001
+From 29a8bbac361c9c654bb6efe27c383790d8a3a651 Mon Sep 17 00:00:00 2001
 From: Hemil Desai <hemil.desai10@gmail.com>
 Date: Thu, 23 May 2024 12:15:21 -0700
 Subject: [PATCH 15/15] Add LoRA support in TE (#11)
@@ -1121,7 +1132,7 @@ Subject: [PATCH 15/15] Add LoRA support in TE (#11)
  1 file changed, 75 insertions(+)
 
 diff --git a/praxis/contrib/gpu/scripts_gpu/te_helper.py b/praxis/contrib/gpu/scripts_gpu/te_helper.py
-index df6b9b8..d53b4e2 100644
+index 14e056c..6078ab6 100644
 --- a/praxis/contrib/gpu/scripts_gpu/te_helper.py
 +++ b/praxis/contrib/gpu/scripts_gpu/te_helper.py
 @@ -1,5 +1,7 @@
@@ -1144,9 +1155,9 @@ index df6b9b8..d53b4e2 100644
  
  try:
      import transformer_engine.jax as te
-@@ -233,6 +240,74 @@ class TEInstalledHelper(TransformerEngineHelperBase):
-         assert len(stacked_transformer_obj.moe_layers) == 0
+@@ -239,6 +246,74 @@ class TEInstalledHelper(TransformerEngineHelperBase):
          assert stacked_transformer_obj.ngrammer_tpls is None
+         assert stacked_transformer_obj.local_window_size is None
  
 +        def update_lora_te_tpl(te_tpl, transformer_layer_tpl):
 +            lora_enabled = False
@@ -1220,5 +1231,5 @@ index df6b9b8..d53b4e2 100644
  
      @staticmethod
 -- 
-2.34.1
+2.46.1
 
