@@ -22,7 +22,7 @@ on:
       TIMEOUT_MINUTES:
         type: number
         description: 'Maximum test runtime, in minutes'
-        default: "60"
+        default: 60
 
 jobs:
   runner:
