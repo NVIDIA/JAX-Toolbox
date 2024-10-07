@@ -19,6 +19,10 @@ on:
         type: string
         description: 'Test artifacts to collect'
         required: false
+      TIMEOUT_MINUTES:
+        type: number
+        description: 'Maximum test runtime, in minutes'
+        default: "60"
 
 jobs:
   runner:
@@ -26,7 +30,7 @@ jobs:
     with:
       NAME: "A100"
       LABELS: "A100,${{ github.run_id }}"
-      TIME: "01:00:00"
+      TIME: "${{ inputs.TIMEOUT_MINUTES }}:00"
     secrets: inherit
 
   run-unit-test:
@@ -67,6 +71,7 @@ jobs:
       - name: Run tests
         shell: bash -x -e {0}
         continue-on-error: true
+        timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
         run: |
           ${{ inputs.EXECUTE }}
 
