@@ -29,6 +29,9 @@ for src in ${SRC_PATH_PAXML} ${SRC_PATH_PRAXIS}; do
   pushd ${src}
   sed -i "s| @ git+https://github.com/google/flax||g" requirements.in
   sed -i "s| @ git+https://github.com/google/jax||g" requirements.in
+  ## we pin etils because newer etils versions are not compatible with the
+  ## version of TFDS required by Pax
+  sed -i "s/etils/etils==1.7.0/g" requirements.in
   if git diff --quiet; then
       echo "URL specs no longer present in select dependencies for ${src}"
       exit 1
