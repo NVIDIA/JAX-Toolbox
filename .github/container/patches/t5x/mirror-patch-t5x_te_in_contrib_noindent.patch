@@ -662,7 +662,7 @@ index 89974dd..388d2ec 100755
  # If true, this will duplicate the last checkpoint in MODEL_DIR and add a date/time string. It will finetune on this directory. Useful if running many experiments on the same pretrained checkpoint.
  MAKE_FT_DIR=${9:-false} # 'true' or 'false'. 
  
--export XLA_FLAGS="--xla_gpu_all_reduce_combine_threshold_bytes=136314880 ${XLA_FLAGS}"
+-export XLA_FLAGS="--xla_gpu_simplify_all_fp_conversions --xla_gpu_all_reduce_combine_threshold_bytes=136314880 ${XLA_FLAGS}"
 +: ${WITH_NSYS:=0}
  
  case $MAKE_FT_DIR in
@@ -771,7 +771,7 @@ index 18bb722..f807105 100755
 +CHECKPOINT_DISABLE=${CHECKPOINT_DISABLE:=0}
  
 -# Setting XLA flags
--export XLA_FLAGS="--xla_gpu_all_reduce_combine_threshold_bytes=136314880 ${XLA_FLAGS}"
+-export XLA_FLAGS="--xla_gpu_simplify_all_fp_conversions --xla_gpu_all_reduce_combine_threshold_bytes=136314880 ${XLA_FLAGS}"
 +MODEL_DIR_LOCAL=${MODEL_DIR:=model_dir}
 +MODEL_DIR=${T5X_WORKSPACE_DIR}/${MODEL_DIR_LOCAL}
  
@@ -2465,7 +2465,7 @@ index 965bd09..cebb815 100644
    metrics["learning_rate"] = clu.metrics.Average.from_model_output(
        jnp.asarray([learning_rate])
 -- 
-2.34.1
+2.46.1
 
 
 From dcbbb37dea8cef5b0c2d798b57cdfd2d8600013d Mon Sep 17 00:00:00 2001
@@ -2500,7 +2500,7 @@ index 388d2ec..135ecf6 100755
  # Global batch size
  BSIZE=$(( GPUS_PER_NODE * BSIZE_PER_GPU * SLURM_JOB_NUM_NODES / TP_SIZE))
 -- 
-2.34.1
+2.46.1
 
 
 From db6fc5519e240eb74ce39668047327da323f323a Mon Sep 17 00:00:00 2001
@@ -2528,7 +2528,7 @@ index e70bcfb..0e11482 100644
    # Start warming up the input pipeline in the background. This must happen
    # after input pipeline checkpoints were restored.
 -- 
-2.34.1
+2.46.1
 
 
 From a39a08ec58e47976facda6ff8e340d5d1cec1f97 Mon Sep 17 00:00:00 2001
@@ -2565,7 +2565,7 @@ index def1a1a..0d12f30 100755
 +  2>&1 | tee \
    ${LOG_DIR}/${T5_SIZE}_gpu_${NUM_GPUS}_${PREC}_gbs_${BSIZE}_fp8_${ENABLE_FP8}_fuseqkv_${FUSE_QKV}_transbs_${TRANSPOSE_BS}.log
 -- 
-2.34.1
+2.46.1
 
 
 From 39e637f3bb12dbe75dada4383f1d30805b946dc4 Mon Sep 17 00:00:00 2001
@@ -2606,7 +2606,7 @@ index fb5f48f..f3750ca 100644
  
  class TransformerEngineHelper(TransformerEngineHelperBase):
 -- 
-2.34.1
+2.46.1
 
 
 From d016f83835aabd2966a50f37126138c885b5a3b0 Mon Sep 17 00:00:00 2001
@@ -2633,7 +2633,7 @@ index f3750ca..f585752 100644
          "Transformer Engine does not support dataset.packing, please turn it off."
  
 -- 
-2.34.1
+2.46.1
 
 
 From 83a2b20dfc6e6df59887cd44000c5f84608d0400 Mon Sep 17 00:00:00 2001
@@ -2660,7 +2660,7 @@ index a9974e1..660df3a 100644
  | [T5-v1.1-xl](../t5/t5_1_1/xl.gin)       | A100 80G SXM     | bf16      | 256   | 1     | 8        | ~4322         | 16.9        | 5.5 days      | 1,408   | 91.15%             | 89.36 / 95.29      | [log](https://tensorboard.dev/experiment/vuRoEYgkRgWiEtbvgxlOqw/#scalars&_smoothingWeight=0) |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
  | [T5-v1.1-xxl](../t5/t5_1_1/xxl.gin)     | A100 80G SXM     | bf16      | 512   | 8     | 36       | ~1887         | 3.69        | 12.6 days     | 6,431  |N/A(partial run)   | N/A(partial run)   |                  |[pile](../t5/t5_1_1/examples/xxl_pile_pretrain.gin)
 -- 
-2.34.1
+2.46.1
 
 
 From 5944f07c1924783a90e1a61915a9d8f2ea7b2215 Mon Sep 17 00:00:00 2001
@@ -2686,7 +2686,7 @@ index 660df3a..c31094d 100644
  | [T5-v1.1-xl](../t5/t5_1_1/xl.gin)       | **H100 80G SXM** | TE-fp8    | 256   | 1     | 8        | ~9688         | **37.8**    | **2.4 days**  | **614** | N/A (perf test)    | N/A (perf test)    |                 |[pile](../t5/t5_1_1/examples/xl_pile_pretrain.gin)
  
 -- 
-2.34.1
+2.46.1
 
 
 From 2d2fbe8e857990a336f9d949ad7e8d82351b1633 Mon Sep 17 00:00:00 2001
@@ -2712,7 +2712,7 @@ index 5891c08..e13b810 100644
          enable_dropout=False,
          method=self.module.encode,
 -- 
-2.34.1
+2.46.1
 
 
 From 4a86f76013173545d1299feaeb0e3383e890bee9 Mon Sep 17 00:00:00 2001
@@ -2753,7 +2753,7 @@ index e13b810..cc3348f 100644
      # `decoder_input_tokens`. The EOS is stripped to avoid decoding to stop
      # after the prompt by matching to `output_vocabulary.eos_id`.
 -- 
-2.34.1
+2.46.1
 
 
 From 7b878db04ad1e424bf6ca330c3e6fc8f9e0c1c3b Mon Sep 17 00:00:00 2001
@@ -2805,7 +2805,7 @@ index f585752..568f596 100644
          name=name)
  
 -- 
-2.34.1
+2.46.1
 
 
 From 4c604770bf02d3ff5fab6b1e795c5b6074032c7e Mon Sep 17 00:00:00 2001
@@ -2833,7 +2833,7 @@ index 568f596..05c5f6b 100644
    @staticmethod
    def update_fp8_metas(grad_accum, flax_mutables):
 -- 
-2.34.1
+2.46.1
 
 
 From a3f2ab9fdf0681e10ffbcb2588274941e52700ba Mon Sep 17 00:00:00 2001
@@ -2996,7 +2996,7 @@ index 05c5f6b..7657c52 100644
      return TENotInstalledHelper
  
 -- 
-2.34.1
+2.46.1
 
 
 From 4abe3e591574b0b2e5bbcdcd5e96df4f8d4367de Mon Sep 17 00:00:00 2001
@@ -3032,7 +3032,7 @@ index 7657c52..b064d2b 100644
  
    @staticmethod
 -- 
-2.34.1
+2.46.1
 
 
 From bfa6313ce0bc9b67f6d1b48fca460e1bfea16670 Mon Sep 17 00:00:00 2001
@@ -3072,7 +3072,7 @@ index 847dc24..63873cf 100644
  
  class PjitPartitioner(BasePjitPartitioner):
 -- 
-2.34.1
+2.46.1
 
 
 From b4dbfdea8313b0f098d7583d80dee4eea6180cdb Mon Sep 17 00:00:00 2001
@@ -3549,7 +3549,7 @@ index d083540..56919a5 100755
 -set +x
 +echo Finished
 -- 
-2.34.1
+2.46.1
 
 
 From 189868b45483c3796035ebdd23a173feabe2a4ce Mon Sep 17 00:00:00 2001
@@ -3575,7 +3575,7 @@ index cebb815..8910ce8 100644
  
    if num_microbatches is None or num_microbatches <= 1:
 -- 
-2.34.1
+2.46.1
 
 
 From 06be7c2e50535630bebe023f6bca922ccfe93448 Mon Sep 17 00:00:00 2001
@@ -3601,7 +3601,7 @@ index cc3348f..eb7bd37 100644
      """Predicts a batch of outputs from the model.
  
 -- 
-2.34.1
+2.46.1
 
 
 From 339b03461fce0caca5e838139289888086c46d15 Mon Sep 17 00:00:00 2001
@@ -3628,5 +3628,5 @@ index b064d2b..9410aa4 100644
  
  
 -- 
-2.34.1
+2.46.1
 
