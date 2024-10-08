@@ -16,7 +16,6 @@ on:
   push:
     branches:
       - main
-      - olupton/triage # FIXME: remove
 
 env:
   TRIAGE_PYTHON_FILES: .github/triage
@@ -40,11 +39,10 @@ jobs:
         run: |
           mypy .github/triage
   pytest:
-    # Sticking on 22.04 keeps python 3.7 available
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        PYTHON_VERSION: ["3.7", "3.12"]
+        PYTHON_VERSION: ["3.8", "3.12"]
       fail-fast: false
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}

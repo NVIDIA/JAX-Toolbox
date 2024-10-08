@@ -164,19 +164,17 @@ def container_search(
     return range_start, range_end
 
 
-if typing.TYPE_CHECKING:
-
-    class BuildAndTest(typing.Protocol):
-        def __call__(
-            self, *, jax_commit: str, xla_commit: str
-        ) -> typing.Tuple[bool, str, str]: ...
+class BuildAndTest(typing.Protocol):
+    def __call__(
+        self, *, jax_commit: str, xla_commit: str
+    ) -> typing.Tuple[bool, str, str]: ...
 
 
 def commit_search(
     *,
     jax_commits: typing.Sequence[typing.Tuple[str, datetime.datetime]],
     xla_commits: typing.Sequence[typing.Tuple[str, datetime.datetime]],
-    build_and_test: "BuildAndTest",
+    build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
 ):

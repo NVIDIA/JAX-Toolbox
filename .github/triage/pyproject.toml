@@ -2,8 +2,7 @@
 name = "jax-toolbox-triage"
 dynamic = ["version"]
 # Because this script needs to run on compute clusters *outside* the containers that it
-# orchestrates, it tries to tolerate extremely old Python versions. 3.6 was tested once
-# but the CI can only reach 3.7
-requires-python = ">= 3.7"
+# orchestrates, it tries to tolerate old Python versions
+requires-python = ">= 3.8"
 [project.scripts]
 jax-toolbox-triage = "jax_toolbox_triage:main"
