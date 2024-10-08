@@ -4,7 +4,7 @@ import functools
 import json
 import logging
 import time
-from typing import Tuple
+import typing
 
 from .args import parse_args
 from .docker import DockerContainer
@@ -54,7 +54,7 @@ def main():
         with open(summary_filename, "w") as ofile:
             json.dump(data, ofile)
 
-    def get_commit(container: DockerContainer, repo: str) -> Tuple[str, str]:
+    def get_commit(container: DockerContainer, repo: str) -> typing.Tuple[str, str]:
         """
         Get the commit of the given repository that was used in the given nightly container
 
@@ -167,7 +167,9 @@ def main():
         assert end_jax_commit == jax_commits[-1][0]
         assert end_xla_commit == xla_commits[-1][0]
 
-        def build_and_test(jax_commit: str, xla_commit: str) -> tuple[bool, str, str]:
+        def build_and_test(
+            jax_commit: str, xla_commit: str
+        ) -> typing.Tuple[bool, str, str]:
             """
             The main body of the bisection loop. Update the JAX/XLA commits, build XLA and
             jaxlib, and run the test command. Throws on error when checking out or
