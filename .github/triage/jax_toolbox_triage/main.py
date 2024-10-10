@@ -175,6 +175,8 @@ def main():
             jaxlib, and run the test command. Throws on error when checking out or
             building, and returns the status of the test command.
             """
+            worker.check_exec(["git", "stash"], workdir=xla_dir)
+            worker.check_exec(["git", "stash"], workdir=jax_dir)
             worker.check_exec(["git", "checkout", xla_commit], workdir=xla_dir)
             worker.check_exec(["git", "checkout", jax_commit], workdir=jax_dir)
             logger.info(f"Checking out XLA {xla_commit} JAX {jax_commit}")
