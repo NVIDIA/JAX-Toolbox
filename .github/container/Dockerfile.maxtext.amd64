@@ -21,7 +21,8 @@ EOF
 ## Add test script to the path
 ###############################################################################
 
-ADD test-maxtext.sh /usr/local/bin
+ADD .github/container/test-maxtext.sh /usr/local/bin
+ADD rosetta /opt/rosetta
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage

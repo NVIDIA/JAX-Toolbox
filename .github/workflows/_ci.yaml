@@ -108,6 +108,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: maxtext
       DOCKERFILE: .github/container/Dockerfile.maxtext.${{ inputs.ARCHITECTURE }}
+      DOCKER_CONTEXT: .
       EXTRA_BUILD_ARGS: |
         URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
     secrets: inherit
