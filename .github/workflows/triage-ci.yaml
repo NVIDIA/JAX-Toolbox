@@ -1,0 +1,84 @@
+name: jax-toolbox-triage pure-Python CI
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+    paths-ignore:
+      - '**.md'
+  push:
+    branches:
+      - main
+
+env:
+  TRIAGE_PYTHON_FILES: .github/triage
+
+jobs:
+  mypy:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/triage
+      - name: "Setup Python 3.12"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: "Install mypy"
+        run: pip install mypy pytest
+      - name: "Run mypy checks"
+        shell: bash -x -e {0}
+        run: |
+          mypy .github/triage
+  pytest:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        PYTHON_VERSION: ["3.8", "3.12"]
+      fail-fast: false
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/triage
+      - name: "Setup Python ${{ matrix.PYTHON_VERSION}}"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.PYTHON_VERSION }}'
+      - name: "Install jax-toolbox-triage"
+        run: pip install pytest .github/triage
+      - name: "Run tests"
+        shell: bash -x -e {0}
+        run: |
+          pytest .github/triage/tests
+  ruff:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/triage
+      - name: "Setup Python 3.12"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: "Install ruff"
+        run: pip install ruff
+      - name: "Run ruff checks"
+        shell: bash -x {0}
+        run: |
+          ruff check .github/triage
+          check_status=$?
+          ruff format --check .github/triage
+          format_status=$?
+          if [[ $format_status != 0 || $check_status != 0 ]]; then
+            exit 1
+          fi
