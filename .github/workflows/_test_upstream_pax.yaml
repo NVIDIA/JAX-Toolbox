@@ -32,14 +32,13 @@ jobs:
 
   single-process-multi-device:
     strategy:
+      max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
         - [1, 8, 1, 1]
         - [1, 1, 2, 4]
       fail-fast: false
-
     runs-on: jumpbox
-
     steps:
       - name: Print environment variables
         run: env
@@ -176,6 +175,7 @@ jobs:
 
   pax-multi-node:
     strategy:
+      max-parallel: 1
       matrix:
         include:
           - TEST_NAME: 1DP1FSDP1TP1PP
@@ -211,9 +211,7 @@ jobs:
             EVALUATE: true
             ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
       fail-fast: false
-
     runs-on: jumpbox
-
     steps:
       - name: Print environment variables
         run: env
@@ -356,13 +354,12 @@ jobs:
 
   single-process-evaluation:
     strategy:
+      max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
         - [1, 8, 1, 1]
       fail-fast: false
-
     runs-on: jumpbox
-
     steps:
       - name: Print environment variables
         run: env

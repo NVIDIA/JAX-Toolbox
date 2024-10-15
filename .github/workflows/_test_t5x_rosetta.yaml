@@ -36,6 +36,7 @@ jobs:
 
   single-process-multi-device:
     strategy:
+      max-parallel: 1
       matrix:
         include:
           - TEST_NAME: "1P1G_te-0"
@@ -47,7 +48,6 @@ jobs:
             ADDITIONAL_ARGS: ""
             EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
       fail-fast: false
-
     runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-t5x-single-process-multi-device
@@ -228,6 +228,7 @@ jobs:
 
   multi-gpu-multi-node:
     strategy:
+      max-parallel: 1
       matrix:
         include:
           - TEST_NAME: "2N8G-te-1"
@@ -241,7 +242,6 @@ jobs:
             ADDITIONAL_ARGS: "--enable-te 0"
             EXTRA_GIN_ARGS: ""
       fail-fast: false
-
     runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-t5x-multi-gpu-multi-node
@@ -424,10 +424,10 @@ jobs:
 
   vit-single-process-multi-device:
     strategy:
+      max-parallel: 1
       matrix:
         N_GPU: [8]
       fail-fast: false
-
     runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-t5x-vit-single-process-multi-device
@@ -593,11 +593,11 @@ jobs:
 
   vit-multi-gpu-multi-node:
     strategy:
+      max-parallel: 1
       matrix:
         N_GPU: [1, 8]
         N_NODE: [1, 2]
       fail-fast: false
-
     runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-t5x-vit-multi-gpu-multi-node

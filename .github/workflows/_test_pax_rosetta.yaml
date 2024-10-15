@@ -32,17 +32,15 @@ jobs:
 
   single-process-multi-device-te:
     strategy:
+      max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
         - [1, 8, 1, 1]
         - [1, 1, 2, 4]
       fail-fast: false
-
     runs-on: jumpbox
-
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-pax-single-process-multi-device-te
-
     steps:
       - name: Print environment variables
         run: env
@@ -223,6 +221,7 @@ jobs:
   
   rosetta-pax-multi-node-te:
     strategy:
+      max-parallel: 1
       matrix:
         include:
           - TEST_NAME: 1DP1FSDP1TP1PP_TE
@@ -259,7 +258,6 @@ jobs:
             EVALUATE: true
             ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
       fail-fast: false
-
     runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-pax-multi-node-te
@@ -450,6 +448,7 @@ jobs:
 
   rosetta-pax-multi-node:
     strategy:
+      max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
         - [1, 8, 1, 1]
@@ -457,7 +456,6 @@ jobs:
         - [4, 2, 1, 1]
         - [4, 2, 1, 2]
       fail-fast: false
-
     runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-pax-multi-node
@@ -645,11 +643,11 @@ jobs:
 
   rosetta-pax-single-node-dropout-te:
     strategy:
+      max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
         - [1, 8, 1, 1]
       fail-fast: false
-
     runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-pax-single-node-dropout-te
@@ -839,11 +837,11 @@ jobs:
 
   single-process-evaluation-te:
     strategy:
+      max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
         - [1, 8, 1, 1]
       fail-fast: false
-
     runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-pax-single-process-evaluation-te

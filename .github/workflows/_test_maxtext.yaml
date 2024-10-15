@@ -37,14 +37,13 @@ jobs:
 
   single-process-multi-device:
     strategy:
+      max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
         - [1, 1, 2, 4]
         # - [1, 1, 1, 8] # PP, DP, FSDP, TP
       fail-fast: false
-
     runs-on: jumpbox
-
     steps:
       - name: Print environment variables
         run: env
@@ -184,6 +183,7 @@ jobs:
 
   maxtext-multinode:
     strategy:
+      max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
         - [1, 1, 1, 1]
@@ -193,9 +193,7 @@ jobs:
         - [1, 2, 2, 2]
         - [1, 4, 2, 2]
       fail-fast: false
-
     runs-on: jumpbox
-
     steps:
       - name: Print environment variables
         run: env
