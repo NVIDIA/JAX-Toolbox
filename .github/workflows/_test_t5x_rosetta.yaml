@@ -48,7 +48,7 @@ jobs:
             EXTRA_GIN_ARGS: "--gin.train/utils.DatasetConfig.pack=False --gin.train_eval/utils.DatasetConfig.pack=False"
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-t5x-single-process-multi-device
     steps:
@@ -242,7 +242,7 @@ jobs:
             EXTRA_GIN_ARGS: ""
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-t5x-multi-gpu-multi-node
     steps:
@@ -428,7 +428,7 @@ jobs:
         N_GPU: [8]
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-t5x-vit-single-process-multi-device
     steps:
@@ -598,7 +598,7 @@ jobs:
         N_NODE: [1, 2]
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-t5x-vit-multi-gpu-multi-node
     steps:

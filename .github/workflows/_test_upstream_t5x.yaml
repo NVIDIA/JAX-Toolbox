@@ -46,7 +46,7 @@ jobs:
             ADDITIONAL_ARGS: "--enable-fmha 1"
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
 
     steps:
       - name: Print environment variables
@@ -191,7 +191,7 @@ jobs:
             ADDITIONAL_ARGS: "--enable-fmha 1"
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
 
     steps:
       - name: Print environment variables

@@ -20,7 +20,7 @@ on:
 jobs:
 
   launch-slurm-runner:
-    runs-on: ubuntu-latest
+    runs-on: jumpbox
     steps:
       - name: Print environment variables
         run: env

@@ -38,7 +38,7 @@ jobs:
         - [1, 1, 2, 4]
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
 
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-pax-single-process-multi-device-te
@@ -260,7 +260,7 @@ jobs:
             ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-pax-multi-node-te
     steps:
@@ -458,7 +458,7 @@ jobs:
         - [4, 2, 1, 2]
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-pax-multi-node
     steps:
@@ -650,7 +650,7 @@ jobs:
         - [1, 8, 1, 1]
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-pax-single-node-dropout-te
     steps:
@@ -844,7 +844,7 @@ jobs:
         - [1, 8, 1, 1]
       fail-fast: false
 
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
     env:
       BADGE_FILENAME_PREFIX: badge-rosetta-pax-single-process-evaluation-te
     steps:

@@ -81,7 +81,7 @@ jobs:
 
   run-test:
     name: ${{ inputs.NAME }}
-    runs-on: ubuntu-22.04
+    runs-on: jumpbox
     outputs:
       SLURM_JOB_ID: ${{ steps.submit.outputs.SLURM_JOB_ID }}
       SLURM_STATE: ${{ steps.exit-info.outputs.SLURM_STATE }}
