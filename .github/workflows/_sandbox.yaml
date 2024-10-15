@@ -6,7 +6,6 @@ on:
 jobs:
 
   test-maxtext:
-    needs: build-maxtext
     uses: ./.github/workflows/_test_maxtext.yaml
     with:
       MAXTEXT_IMAGE: ghcr.io/nvidia/jax:maxtext
