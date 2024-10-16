@@ -1,26 +1,26 @@
-From c003e294e8767c57d2c2839a03f9d2597568814a Mon Sep 17 00:00:00 2001
+From cf2ce0726ef59aebb0181444cf7f9a5c6fd8542f Mon Sep 17 00:00:00 2001
 From: Haixin Liu <haixinl@nvidia.com>
-Date: Fri, 7 Jun 2024 09:28:56 -0700
-Subject: [PATCH 1/3] use te dpa for grok mqa
+Date: Tue, 20 Aug 2024 12:27:35 -0700
+Subject: [PATCH] Use TE dpa for grok mqa
 
 ---
  praxis/layers/grok.py                  |  4 ++
- praxis/layers/multi_query_attention.py | 65 +++++++++++++++++---------
- 2 files changed, 46 insertions(+), 23 deletions(-)
+ praxis/layers/multi_query_attention.py | 70 +++++++++++++++++---------
+ 2 files changed, 50 insertions(+), 24 deletions(-)
 
 diff --git a/praxis/layers/grok.py b/praxis/layers/grok.py
-index 265a313..ad1ff5f 100644
+index f66d143..d1effc4 100644
 --- a/praxis/layers/grok.py
 +++ b/praxis/layers/grok.py
 @@ -59,6 +59,7 @@ def GrokStackedTransformerHParams(
      combine_qkv=False,
      bidirectional=False,
      use_fp8=False,
-+    use_te_dpa=True,
++    use_te_dpa=False,
  ) -> pax_fiddle.Config[transformers.StackedTransformer]:
    """Common setup for Grok-1 Transformer layers.
  
-@@ -169,6 +170,7 @@ def GrokStackedTransformerHParams(
+@@ -168,6 +169,7 @@ def GrokStackedTransformerHParams(
    p.transformer_layer_params_tpl.tr_atten_tpl = pax_fiddle.Config(
        multi_query_attention.MultiQueryDotProductAttention,
        num_kv_heads=attention_num_groups,
@@ -28,15 +28,15 @@ index 265a313..ad1ff5f 100644
    )
    tr_atten_tpl = p.transformer_layer_params_tpl.tr_atten_tpl
    tr_atten_tpl.combine_qkv = False
-@@ -228,6 +230,7 @@ def GrokUniTransformerLmHParams(
+@@ -225,6 +227,7 @@ def GrokUniTransformerLmHParams(
      model_type=LanguageModelType.CAUSAL,
      checkpoint_policy=AutodiffCheckpointType.SAVE_NOTHING,
      use_fp8=False,
-+    use_te_dpa=True,
++    use_te_dpa=False,
  ) -> pax_fiddle.Config[transformer_models.TransformerLm]:
    """Common setup for Grok-1 Decoder-only Transformer Model.
  
-@@ -331,6 +334,7 @@ def GrokUniTransformerLmHParams(
+@@ -328,6 +331,7 @@ def GrokUniTransformerLmHParams(
        bidirectional=bidirectional,
        moe_gating_embedding_level=moe_gating_embedding_level,
        use_fp8=use_fp8,
@@ -45,9 +45,18 @@ index 265a313..ad1ff5f 100644
    num_blocks = num_transformer_layers
  
 diff --git a/praxis/layers/multi_query_attention.py b/praxis/layers/multi_query_attention.py
-index acd6959..33b7ab1 100644
+index 23a074b..ab08f28 100644
 --- a/praxis/layers/multi_query_attention.py
 +++ b/praxis/layers/multi_query_attention.py
+@@ -17,7 +17,7 @@
+ 
+ import math
+ from typing import Any, Callable, Mapping, Sequence
+-
++from absl import logging
+ from flax import linen as nn
+ import jax
+ from jax import numpy as jnp
 @@ -31,7 +31,7 @@ from praxis.layers import attentions
  from praxis.layers import base_ops
  from praxis.layers import embedding_softmax
@@ -57,15 +66,15 @@ index acd6959..33b7ab1 100644
  
  WeightInit = base_layer.WeightInit
  WeightHParams = base_layer.WeightHParams
-@@ -209,6 +209,7 @@ class MultiQueryDotProductAttention(base_layer.BaseLayer):
-   pv_einsum_tpl: LayerTpl = template_field(base_ops.EinsumOp)
+@@ -215,6 +215,7 @@ class MultiQueryDotProductAttention(base_layer.BaseLayer):
    scale_query_by_dim_per_head: bool = False
    chunked_attn_num_seq_split: int = 1
-+  use_te_dpa: bool = False
+   local_window_size: tuple[int, int] | None = None
++  use_te_dpa: bool = False  # Experimental way to use TE flash attention when can't use standard TE
  
    # SPMD partition related params.
    #
-@@ -347,6 +348,20 @@ class MultiQueryDotProductAttention(base_layer.BaseLayer):
+@@ -353,6 +354,20 @@ class MultiQueryDotProductAttention(base_layer.BaseLayer):
      self.create_child('post', post_proj_p)
      self.create_child('qk_einsum', self.qk_einsum_tpl.clone())
      self.create_child('pv_einsum', self.pv_einsum_tpl.clone())
@@ -86,7 +95,7 @@ index acd6959..33b7ab1 100644
  
    def _shard_bnh(self, x: JTensor) -> JTensor:
      """Shards tensors of shape [b, n, h].
-@@ -828,29 +843,33 @@ class MultiQueryDotProductAttention(base_layer.BaseLayer):
+@@ -889,29 +904,36 @@ class MultiQueryDotProductAttention(base_layer.BaseLayer):
      else:
        key_proj = self._shard_blnh(key_proj)
        value_proj = self._shard_blnh(value_proj)
@@ -96,10 +105,7 @@ index acd6959..33b7ab1 100644
 -      v_q = jnp.reshape(query_proj, (b, t, nk, n // nk, h))
 -      if relative_bias is not None:
 -        v_rb = jnp.reshape(relative_bias, (b, nk, n // nk, t, s))
-+      if self.use_te_dpa:
-+        atten_probs = None
-+        encoded = self.dpa_layer(query_proj, key_proj, value_proj)
-       else:
+-      else:
 -        v_rb = None
 -      with self._context_for_kv_vmap():
 -        encoded, atten_probs = jax.vmap(
@@ -112,10 +118,16 @@ index acd6959..33b7ab1 100644
 -            value_proj,
 -            atten_mask,
 -            v_rb,
--        )
++      if self.use_te_dpa:
++        logging.warning(
++            'use_te_dpa is set to True, so TE dpa is used as an experimental way to use TE flash attention.'
+         )
 -      encoded = self._shard_blnh(jnp.reshape(encoded, (b, t, n, h)))
 -      if atten_probs is not None:
 -        atten_probs = jnp.reshape(atten_probs, (b, t, n, s))
++        atten_probs = None
++        encoded = self.dpa_layer(query_proj, key_proj, value_proj)
++      else:
 +        b, t, n, h = query_proj.shape
 +        _, s, nk, _ = key_proj.shape
 +        assert n % nk == 0
@@ -143,85 +155,5 @@ index acd6959..33b7ab1 100644
      # Post projection
      encoded = self.post(encoded)
 -- 
-2.34.1
-
-
-From 99bff322268ccd38d8b18d031eba66605d342172 Mon Sep 17 00:00:00 2001
-From: Haixin Liu <haixinl@nvidia.com>
-Date: Fri, 7 Jun 2024 10:37:20 -0700
-Subject: [PATCH 2/3] add doc string and warning
-
----
- praxis/layers/multi_query_attention.py | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/praxis/layers/multi_query_attention.py b/praxis/layers/multi_query_attention.py
-index 33b7ab1..c11ffac 100644
---- a/praxis/layers/multi_query_attention.py
-+++ b/praxis/layers/multi_query_attention.py
-@@ -17,7 +17,7 @@
- 
- import math
- from typing import Callable, Mapping, Sequence
--
-+from absl import logging
- from flax import linen as nn
- import jax
- from jax import numpy as jnp
-@@ -209,7 +209,7 @@ class MultiQueryDotProductAttention(base_layer.BaseLayer):
-   pv_einsum_tpl: LayerTpl = template_field(base_ops.EinsumOp)
-   scale_query_by_dim_per_head: bool = False
-   chunked_attn_num_seq_split: int = 1
--  use_te_dpa: bool = False
-+  use_te_dpa: bool = False  # Experimental way to use TE flash attention when can't use standard TE
- 
-   # SPMD partition related params.
-   #
-@@ -844,6 +844,9 @@ class MultiQueryDotProductAttention(base_layer.BaseLayer):
-       key_proj = self._shard_blnh(key_proj)
-       value_proj = self._shard_blnh(value_proj)
-       if self.use_te_dpa:
-+        logging.warning(
-+            'use_te_dpa is set to True, so TE dpa is used as an experimental way to use TE flash attention.'
-+        )
-         atten_probs = None
-         encoded = self.dpa_layer(query_proj, key_proj, value_proj)
-       else:
--- 
-2.34.1
-
-
-From 4eece5a90da2317994432c530ff37df42d6e617b Mon Sep 17 00:00:00 2001
-From: Haixin Liu <haixinl@nvidia.com>
-Date: Fri, 7 Jun 2024 16:47:13 -0700
-Subject: [PATCH 3/3] default to not use dpa in grok
-
----
- praxis/layers/grok.py | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/praxis/layers/grok.py b/praxis/layers/grok.py
-index ad1ff5f..2c1fd72 100644
---- a/praxis/layers/grok.py
-+++ b/praxis/layers/grok.py
-@@ -59,7 +59,7 @@ def GrokStackedTransformerHParams(
-     combine_qkv=False,
-     bidirectional=False,
-     use_fp8=False,
--    use_te_dpa=True,
-+    use_te_dpa=False,
- ) -> pax_fiddle.Config[transformers.StackedTransformer]:
-   """Common setup for Grok-1 Transformer layers.
- 
-@@ -230,7 +230,7 @@ def GrokUniTransformerLmHParams(
-     model_type=LanguageModelType.CAUSAL,
-     checkpoint_policy=AutodiffCheckpointType.SAVE_NOTHING,
-     use_fp8=False,
--    use_te_dpa=True,
-+    use_te_dpa=False,
- ) -> pax_fiddle.Config[transformer_models.TransformerLm]:
-   """Common setup for Grok-1 Decoder-only Transformer Model.
- 
--- 
-2.34.1
+2.46.2
 
