@@ -96,8 +96,8 @@ inside that container will be skipped.
 ## Example
 
 Here is an example execution for a JAX unit test failure, with some annotation:
-```
-jax-toolbox-triage --container jax test-jax.sh //tests:nn_test_gpu
+```console
+$ jax-toolbox-triage --container jax test-jax.sh //tests:nn_test_gpu
 ```
 `--end-date` was not passed, and 2024-10-15 is the most recent available container
 at the time of execution
