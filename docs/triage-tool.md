@@ -95,65 +95,92 @@ inside that container will be skipped.
 
 ## Example
 
-Here is an example execution for a JAX unit test failure, with some annotation in
-`# comments`:
-
-    `jax-toolbox-triage --container jax test-jax.sh //tests:nn_test_gpu`
-    `--end-date` was not passed, and 2024-10-15 is the most recent available container at the time of execution
-    [INFO] 2024-10-16 00:31:41 Checking end-of-range failure in 2024-10-15
-    `--skip-precondition-checks` was not passed, so the tool checks that the test does, in fact, fail in the 2024-10-15 container
-    [INFO] 2024-10-16 00:33:36 Ran test case in 2024-10-15 in 114.8s, pass=False
-
-
-# --start-date was not passed, so the first (backwards search) stage of the triage
-# process starts with the container 1 day before the end of the range, i.e. 2024-10-14
+Here is an example execution for a JAX unit test failure, with some annotation:
+```
+jax-toolbox-triage --container jax test-jax.sh //tests:nn_test_gpu
+```
+`--end-date` was not passed, and 2024-10-15 is the most recent available container
+at the time of execution
+```
+[INFO] 2024-10-16 00:31:41 Checking end-of-range failure in 2024-10-15
+```
+`--skip-precondition-checks` was not passed, so the tool checks that the test does, in
+fact, fail in the 2024-10-15 container
+```
+[INFO] 2024-10-16 00:33:36 Ran test case in 2024-10-15 in 114.8s, pass=False
+```
+`--start-date` was not passed, so the first (backwards search) stage of the triage
+process starts with the container 1 day before the end of the range, *i.e.* 2024-10-14
+```
 [INFO] 2024-10-16 00:33:37 Starting coarse search with 2024-10-14 based on end_date=2024-10-15
 [INFO] 2024-10-16 00:35:35 Ran test case in 2024-10-14 in 118.1s, pass=False
-# end_date - 2 * (end_date - search_date) = 2024-10-15 - 2 days = 2024-10-13
+```
+`end_date - 2 * (end_date - search_date)` = `2024-10-15 - 2 days` = `2024-10-13`
+```
 [INFO] 2024-10-16 00:38:11 Ran test case in 2024-10-13 in 122.4s, pass=False
-# In principle this would be 4 days before the end date, but the 2024-10-11 container
-# does not exist, so the tool chooses a nearby container that does exist and is older
-# than 2024-10-13
+```
+In principle this would be 4 days before the end date, but the 2024-10-11 container
+does not exist, so the tool chooses a nearby container that does exist and is older
+than 2024-10-13
+```
 [INFO] 2024-10-16 00:40:53 Ran test case in 2024-10-12 in 127.7s, pass=False
-# Steps in date start to increase significantly
+```
+Steps in date start to increase significantly
+```
 [INFO] 2024-10-16 00:43:28 Ran test case in 2024-10-09 in 119.3s, pass=False
 [INFO] 2024-10-16 00:45:29 Ran test case in 2024-10-03 in 120.7s, pass=False
 [INFO] 2024-10-16 00:47:27 Ran test case in 2024-09-21 in 116.3s, pass=False
-# The first stage of the triage process successfully identifies an old container where
-# this test passed
+```
+The first stage of the triage process successfully identifies an old container where
+this test passed
+```
 [INFO] 2024-10-16 00:51:22 Ran test case in 2024-08-28 in 194.0s, pass=True
 [INFO] 2024-10-16 00:51:22 Coarse container-level search yielded [2024-08-28, 2024-09-21]...
-# The second stage of the triage process refines the container-level range by bisection
+```
+The second stage of the triage process refines the container-level range by bisection
+```
 [INFO] 2024-10-16 00:53:19 Ran test case in 2024-09-09 in 115.5s, pass=True
 [INFO] 2024-10-16 00:53:19 Refined container-level range to [2024-09-09, 2024-09-21]
 [INFO] 2024-10-16 00:56:03 Ran test case in 2024-09-15 in 125.4s, pass=True
 [INFO] 2024-10-16 00:56:03 Refined container-level range to [2024-09-15, 2024-09-21]
 [INFO] 2024-10-16 00:58:07 Ran test case in 2024-09-18 in 122.9s, pass=True
 [INFO] 2024-10-16 00:58:07 Refined container-level range to [2024-09-18, 2024-09-21]
-# The second stage of the triage process converges
+```
+The second stage of the triage process converges
+```
 [INFO] 2024-10-16 01:00:09 Ran test case in 2024-09-19 in 121.2s, pass=False
 [INFO] 2024-10-16 01:00:09 Refined container-level range to [2024-09-18, 2024-09-19]
-# The third stage of the triage process begins, using:
-# - the first-known-bad container 2024-09-19
-# - first-known-bad commits (JAX 9d2e9... and XLA 42b04...)
-# - last-known-good commits (JAX 988ed... and XLA 88935...)
+```
+The third stage of the triage process begins, using:
+ - the first-known-bad container 2024-09-19
+ - first-known-bad commits (JAX 9d2e9... and XLA 42b04...)
+ - last-known-good commits (JAX 988ed... and XLA 88935...)
+```
 [INFO] 2024-10-16 01:00:10 Bisecting JAX [988ed2bd75df5fe25b74eaf38075aadff19be207, 9d2e9c688c4e8b733e68467d713091436a672ac0] and XLA [8893550a604fe39aae2eeae49a836e92eed497d1, 42b04a6739dc648a80dd4f3b4e1322f1b2c7f3a7] using ghcr.io/nvidia/jax:jax-2024-09-19
 [INFO] 2024-10-16 01:00:10 Building in the range-ending container...
-# Sanity check that re-building the first-known-bad commits in the first-known-bad
-# container reproduces the failure
+```
+Sanity check that re-building the first-known-bad commits in the first-known-bad
+container reproduces the failure
+```
 [INFO] 2024-10-16 01:00:12 Checking out XLA 42b04a6739dc648a80dd4f3b4e1322f1b2c7f3a7 JAX 9d2e9c688c4e8b733e68467d713091436a672ac0
-# No Bazel cache was passed, and this is the first build in the triage session, so it
-# is slow -- a full rebuild of JAX and XLA was needed
+```
+No Bazel cache was passed, and this is the first build in the triage session, so it is
+slow -- a full rebuild of JAX and XLA was needed
+```
 [INFO] 2024-10-16 01:13:56 Build completed in 824.9s
 [INFO] 2024-10-16 01:15:25 Test completed in 88.5s
 [INFO] 2024-10-16 01:15:25 Verified test failure after vanilla rebuild
-# Verification that the last-known-good commits still pass when rebuilt in the
-# first-known-bad container; this is a bit faster because the Bazel cache is warmer
+```
+Verification that the last-known-good commits still pass when rebuilt in the
+first-known-bad container; this is a bit faster because the Bazel cache is warmer
+```
 [INFO] 2024-10-16 01:15:25 Checking out XLA 8893550a604fe39aae2eeae49a836e92eed497d1 JAX 988ed2bd75df5fe25b74eaf38075aadff19be207
 [INFO] 2024-10-16 01:26:43 Build completed in 677.5s
 [INFO] 2024-10-16 01:27:36 Test completed in 53.7s
 [INFO] 2024-10-16 01:27:36 Test passed after rebuilding commits from start container in end container
-# Binary search in commits continues, with progressively faster build times
+```
+Binary search in commits continues, with progressively faster build times
+```
 [INFO] 2024-10-16 01:27:37 Checking out XLA b976dd94f11ab130c5f718b360fcfb5ac6d6b875 JAX b51c65357f0ae9659e58e2ff0df871542124cddf
 [INFO] 2024-10-16 01:32:24 Build completed in 287.7s
 [INFO] 2024-10-16 01:33:19 Test completed in 54.4s
@@ -172,9 +199,11 @@ Here is an example execution for a JAX unit test failure, with some annotation i
 [INFO] 2024-10-16 01:41:17 Checking out XLA 662eb45a17c76df93e5a386929653ae4c1f593da JAX 016c49951f670256ce4750cdfea182e3a2a15325
 [INFO] 2024-10-16 01:42:08 Build completed in 50.9s
 [INFO] 2024-10-16 01:43:12 Test completed in 64.2s
-# The XLA commit has stopped changing; the initial bisection is XLA-centric (with JAX
-# kept roughly in sync), but when this converges on a single XLA commit, the tool will
-# run extra tests to decide whether to blame that XLA commit or a nearby JAX commit
+```
+The XLA commit has stopped changing; the initial bisection is XLA-centric (with JAX
+kept roughly in sync), but when this converges on a single XLA commit, the tool will
+run extra tests to decide whether to blame that XLA commit or a nearby JAX commit
+```
 [INFO] 2024-10-16 01:43:13 Checking out XLA 662eb45a17c76df93e5a386929653ae4c1f593da JAX b164d67d4a9bd094426ff450fe1f1335d3071d03
 [INFO] 2024-10-16 01:44:01 Build completed in 48.8s
 [INFO] 2024-10-16 01:45:02 Test completed in 60.8s
@@ -182,6 +211,7 @@ Here is an example execution for a JAX unit test failure, with some annotation i
 [INFO] 2024-10-16 01:45:52 Build completed in 49.4s
 [INFO] 2024-10-16 01:46:53 Test completed in 60.7s
 [INFO] 2024-10-16 01:46:53 Bisected failure to JAX cd04d0f32e854aa754e37e4b676725655a94e731..b164d67d4a9bd094426ff450fe1f1335d3071d03 with XLA 662eb45a17c76df93e5a386929653ae4c1f593da
+```
 
 Where the final result should be read as saying that the test passes with
 [xla@662eb](https://github.com/openxla/xla/commit/662eb45a17c76df93e5a386929653ae4c1f593da)
