@@ -248,6 +248,7 @@ if [ -z "$DECODER_BLOCK" ]; then
     RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME} model_name=${MODEL}\
         steps=$STEPS per_device_batch_size=${BATCH_PER_GPU} remat_policy=${REMAT_POLICY} enable_checkpointing=false\
         base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE\
+        enable_goodput_recording=false monitor_goodput=false\
         dcn_fsdp_parallelism=$dcn_FSDP ici_fsdp_parallelism=$ici_FSDP\
         ici_data_parallelism=$ici_DP dcn_data_parallelism=$dcn_DP\
         ici_tensor_parallelism=$ici_TP dcn_tensor_parallelism=1 ${ADDITIONAL_ARGS}"
@@ -258,6 +259,7 @@ else
         steps=$STEPS per_device_batch_size=${BATCH_PER_GPU} base_emb_dim=2560 base_mlp_dim=8192 remat_policy=${REMAT_POLICY} attention=${ATTN_TYPE}\
         base_num_query_heads=8 base_num_kv_heads=8 base_num_decoder_layers=8 head_dim=128 enable_checkpointing=false\
         base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE\
+        enable_goodput_recording=false monitor_goodput=false\
         dcn_fsdp_parallelism=$dcn_FSDP ici_fsdp_parallelism=$ici_FSDP\
         ici_data_parallelism=$ici_DP dcn_data_parallelism=$dcn_DP\
         ici_tensor_parallelism=$ici_TP dcn_tensor_parallelism=1 ${ADDITIONAL_ARGS}"
