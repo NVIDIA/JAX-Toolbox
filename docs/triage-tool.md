@@ -97,14 +97,14 @@ inside that container will be skipped.
 
 Here is an example execution for a JAX unit test failure, with some annotation in
 `# comments`:
-```console
-user@gpu-machine:~$ jax-toolbox-triage --container jax test-jax.sh //tests:nn_test_gpu
-# --end-date was not passed, and 2024-10-15 is the most recent available container at
-# the time of execution
-[INFO] 2024-10-16 00:31:41 Checking end-of-range failure in 2024-10-15
-# --skip-precondition-checks was not passed, so the tool checks that the test does, in
-# fact, fail in the 2024-10-15 container
-[INFO] 2024-10-16 00:33:36 Ran test case in 2024-10-15 in 114.8s, pass=False
+
+    `jax-toolbox-triage --container jax test-jax.sh //tests:nn_test_gpu`
+    `--end-date` was not passed, and 2024-10-15 is the most recent available container at the time of execution
+    [INFO] 2024-10-16 00:31:41 Checking end-of-range failure in 2024-10-15
+    `--skip-precondition-checks` was not passed, so the tool checks that the test does, in fact, fail in the 2024-10-15 container
+    [INFO] 2024-10-16 00:33:36 Ran test case in 2024-10-15 in 114.8s, pass=False
+
+
 # --start-date was not passed, so the first (backwards search) stage of the triage
 # process starts with the container 1 day before the end of the range, i.e. 2024-10-14
 [INFO] 2024-10-16 00:33:37 Starting coarse search with 2024-10-14 based on end_date=2024-10-15
@@ -182,7 +182,7 @@ user@gpu-machine:~$ jax-toolbox-triage --container jax test-jax.sh //tests:nn_te
 [INFO] 2024-10-16 01:45:52 Build completed in 49.4s
 [INFO] 2024-10-16 01:46:53 Test completed in 60.7s
 [INFO] 2024-10-16 01:46:53 Bisected failure to JAX cd04d0f32e854aa754e37e4b676725655a94e731..b164d67d4a9bd094426ff450fe1f1335d3071d03 with XLA 662eb45a17c76df93e5a386929653ae4c1f593da
-```
+
 Where the final result should be read as saying that the test passes with
 [xla@662eb](https://github.com/openxla/xla/commit/662eb45a17c76df93e5a386929653ae4c1f593da)
 and
