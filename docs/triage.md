@@ -4,12 +4,11 @@ There is a Github Action Workflow called [_triage.yaml](../.github/workflows/_tr
 be used to help determine if a test failure was due to a change in (t5x or pax) or further-up, e.g., in (Jax or CUDA). This workflow is not the end-all, and further investigation is usually needed, 
 but this automates the investigation of questions like "what state of library X works with Jax at state Y?"
 
-__Note__: There is also a utility, [triage](../.github/triage/triage), which can be
-used for more granular bisection of failures in specific tests. Run it with `--help`
-for usage instructions. Given a test expression that can be run inside the nightly
-containers (*e.g.* `test-jax.sh jet_test_gpu`), it first identifies the nightly
-container where the failure first appeared, and second attributes the failure to a
-specific commit of JAX or XLA.
+__Note__: There is also a [triage tool](triage-tool.md), which can be used for
+more granular bisection of failures in specific tests. Given a test expression that can
+be run inside the nightl containers (*e.g.* `test-jax.sh jet_test_gpu`), it first
+identifies the nightl container where the failure first appeared, and second attributes
+the failure to a specific commit of JAX or XLA.
 
 ## Algorithm
 The pseudocode for the triaging algorithm is as follows:
