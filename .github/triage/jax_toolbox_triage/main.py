@@ -86,9 +86,10 @@ def main():
             jax_commit = get_commit(worker, "jax")
             xla_commit = get_commit(worker, "xla")
 
-        logger.debug(result.stdout)
-        logger.info(f"Ran test case in {date} in {test_time:.1f}s")
         test_pass = result.returncode == 0
+        logger.info(f"Ran test case in {date} in {test_time:.1f}s, pass={test_pass}")
+        logger.debug(result.stdout)
+        logger.debug(result.stderr)
         add_summary_record(
             "container",
             {
