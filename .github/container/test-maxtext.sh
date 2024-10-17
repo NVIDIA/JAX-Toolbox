@@ -247,7 +247,7 @@ if [ -z "$DECODER_BLOCK" ]; then
     # this part could be used to test different model ootb
     RUN_SETTINGS="MaxText/train.py \
         MaxText/configs/base.yml \
-        run_name=${RUN_NAME} \ 
+        run_name=${RUN_NAME} \
         model_name=${MODEL} \
         steps=${STEPS} \
         per_device_batch_size=${BATCH_PER_GPU} \
