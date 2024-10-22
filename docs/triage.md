@@ -6,8 +6,8 @@ but this automates the investigation of questions like "what state of library X 
 
 __Note__: There is also a [triage tool](triage-tool.md), which can be used for
 more granular bisection of failures in specific tests. Given a test expression that can
-be run inside the nightl containers (*e.g.* `test-jax.sh jet_test_gpu`), it first
-identifies the nightl container where the failure first appeared, and second attributes
+be run inside the nightly containers (*e.g.* `test-jax.sh jet_test_gpu`), it first
+identifies the nightly container where the failure first appeared, and second attributes
 the failure to a specific commit of JAX or XLA.
 
 ## Algorithm

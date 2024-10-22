@@ -4,6 +4,8 @@
 individual commit of JAX or XLA.
 It takes as input a command that returns an error (non-zero) code when run in "recent"
 containers, but which returns a success (zero) code when run in some "older" container.
+The command must be executable within the containers, *i.e.* it cannot refer to files
+that only exist on the host system.
 
 The tool follows a three-step process:
   1. A container-level search backwards from the "recent" container where the test is
@@ -220,7 +222,7 @@ and
 but that if JAX is moved forward to include
 [jax@b164d](https://github.com/jax-ml/jax/commit/b164d67d4a9bd094426ff450fe1f1335d3071d03)
 then the test fails.
-This failure is fixed in XXX.
+This failure is fixed in [jax#24427](https://github.com/jax-ml/jax/pull/24427).
 
 ## Limitations
 
@@ -238,6 +240,9 @@ container.
 Other limitations include that only `docker` is supported as a container runtime, which
 also implies that it is not currently possible to triage a test that requires a
 multi-node or multi-process test.
+
+The tool also does not currently handle skipping commits that do not compile, or test
+cases that require copying files (*e.g.* script files) into the container.
 
 If you run into these limitations in real-world usage of this tool, please file a bug
 against JAX-Toolbox including details of manual steps you took to root-case the test
