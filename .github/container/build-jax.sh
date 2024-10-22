@@ -265,7 +265,7 @@ if [[ ! -e "/usr/local/cuda/lib" ]]; then
 fi
 
 if ! grep 'try-import %workspace%/.local_cuda.bazelrc' "${SRC_PATH_JAX}/.bazelrc"; then
-  echo 'try-import %workspace%/.local_cuda.bazelrc' >> "${SRC_PATH_JAX}/.bazelrc"
+  echo -e '\ntry-import %workspace%/.local_cuda.bazelrc' >> "${SRC_PATH_JAX}/.bazelrc"
 fi
 cat > "${SRC_PATH_JAX}/.local_cuda.bazelrc" << EOF
 build:cuda --repo_env=LOCAL_CUDA_PATH="/usr/local/cuda"
