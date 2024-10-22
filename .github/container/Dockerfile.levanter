@@ -24,6 +24,8 @@ echo "-e file://${SRC_PATH_LEVANTER}" >> /opt/pip-tools.d/requirements-levanter.
 echo "-e file://${SRC_PATH_HALIAX}" >> /opt/pip-tools.d/requirements-levanter.in
 EOF
 
+ENV PYTHONPATH="${PYTHONPATH}:/opt/levanter/src"
+
 ###############################################################################
 ## Add warning for the shared data cache mechanism
 ###############################################################################
