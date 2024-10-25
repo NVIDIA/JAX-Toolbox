@@ -4,38 +4,107 @@ on:
   workflow_dispatch:
 
 jobs:
-  sandbox:
-    runs-on: ubuntu-22.04
+  te-multi-gpu:
+    uses: ./.github/workflows/_test_slurm_pyxis.yaml
+    strategy:
+      matrix:
+        N_GPU: [8]
+      fail-fast: false
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.AWS_PRIVATE_KEY }}
+      SLURM_LOGIN_USER: ${{ secrets.AWS_LOGIN_USER }}
+      CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
+    with:
+      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
+      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
+      OUTPUT_BASEDIR: /home/${{ secrets.AWS_LOGIN_USER }}
+      OUTPUT_MOUNTPOINT: /output
+      NODES: 1
+      GPUS_PER_NODE: ${{ matrix.N_GPU }}
+      NTASKS: 1
+      NTASKS_PER_NODE: 1
+      TIME_LIMIT: '00:10:00'
+      EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
+      IMAGE: ghcr.io/nvidia/jax:jax-2024-10-25
+      SRUN_PREAMBLE: |
+        nvidia-smi
+        pip install \
+          pytest \
+          pytest-reportlog \
+          cuda-python \
+          -r ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder/requirements.txt
+      SRUN_SCRIPT: |
+        set -ex
+        cd ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder
+        pytest --report-log=/output/pytest-report.jsonl \
+          test_single_gpu_encoder.py \
+          test_multigpu_encoder.py \
+          test_model_parallel_encoder.py
+
+  sitrep:
+    needs: te-multi-gpu
+    if: success() || failure()
+    runs-on: ubuntu-latest
+    env:
+      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_PREFIX }}-multigpu-test
+      BADGE_FILENAME_FULL: badge-${{ inputs.ARTIFACT_PREFIX }}-multigpu-test.json
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          pattern: |
+            ${{ inputs.ARTIFACT_PREFIX }}-*
+          merge-multiple: true
 
-      - name: Print usage
+      - name: Generate sitrep
+        shell: bash -x -e {0}
         run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
+          # bring in utility functions
+          source .github/workflows/scripts/to_json.sh
 
-          Usage:
+          test_outcome_files=$(find -name pytest-report.jsonl)
+
+          badge_label='TE Multi GPU tests'
+          passed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)
+          failed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "failed") | .outcome' | wc -l)
+          total_tests=$((failed_tests + passed_tests))
           
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+          if [[ ${total_tests} == 0 ]]; then
+            badge_message='error'
+            badge_color=red
+            summary='TE multi GPU tests did not complete due to errors.'
+          else
+            badge_message="${passed_tests}/${total_tests} passed"
+            if [[ ${failed_tests} == 0 ]]; then
+              badge_color=brightgreen
+            else
+              badge_color=yellow
+            fi
+            summary="TE multi GPU tests : $badge_message"
+          fi
+
+          run_id=${{ github.run_id }} \
+          to_json \
+            run_id \
+            summary \
+            total_tests passed_tests failed_tests \
+            badge_label badge_color badge_message \
+          > sitrep.json
+
+          schemaVersion=1 \
+          label="${badge_label}" \
+          message="${badge_message}" \
+          color="${badge_color}" \
+          to_json schemaVersion label message color \
+          > ${{ env.BADGE_FILENAME_FULL }}
+
+      - name: Upload training logs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME_FULL }}
+          path: |
+            sitrep.json
+            ${{ env.BADGE_FILENAME_FULL }}
