@@ -2,28 +2,10 @@ name: ~test multi-node jobs via SLURM+Pyxis
 
 on:
   workflow_call:
-    secrets:
-      SSH_PRIVATE_KEY:
-        required: true
-        description: SSH private key for accessing the SLURM login node
-      SLURM_LOGIN_USER:
-        required: true
-        description: Username for the SLURM login node
-      CONTAINER_REGISTRY_TOKEN:
-        required: true
-        description: Token for accessing the container registry
     inputs:
       NAME:
         type: string
         description: Name of the test case and output artifact tarball
-        required: true
-      SLURM_LOGIN_HOSTNAME:
-        type: string
-        description: Hostname of the SLURM login node
-        required: true
-      OUTPUT_BASEDIR:
-        type: string
-        description: Base directory for the SLURM scratch space
         required: true
       OUTPUT_MOUNTPOINT:
         type: string
@@ -32,6 +14,14 @@ on:
       NODES:
         type: number
         description: Number of nodes to request
+        required: true
+      EXCLUSIVE:
+        type: boolean
+        default: false
+        description: Whether to request exclusive use of the nodes
+      GPU_TYPE:
+        type: string
+        description: Type of GPU to request; A100 and H100 are supported.
         required: true
       GPUS_PER_NODE:
         type: number
@@ -78,15 +68,21 @@ on:
         value: ${{ jobs.run-test.outputs.SLURM_EXITCODE }}
 
 jobs:
-
   run-test:
     name: ${{ inputs.NAME }}
     runs-on: jumpbox
+    env:
+      OUTPUT_BASEDIR: /nfs/cluster
+      SLURM_CLUSTER: ${{ inputs.GPU_TYPE == 'A100' && secrets.CLUSTER_LOGIN_USER || secrets.AWS_LOGIN_USER }}@${{ inputs.GPU_TYPE == 'A100' && vars.HOSTNAME_SLURM_LOGIN || vars.HOSTNAME_AWS_SLURM }}
     outputs:
       SLURM_JOB_ID: ${{ steps.submit.outputs.SLURM_JOB_ID }}
       SLURM_STATE: ${{ steps.exit-info.outputs.SLURM_STATE }}
       SLURM_EXITCODE: ${{ steps.exit-info.outputs.SLURM_EXITCODE }}
     steps:
+      - name: Validate inputs
+        run: |
+          [[ "${{ inputs.GPU_TYPE }}" == "A100" || "${{ inputs.GPU_TYPE }}" == "H100" ]]
+
       - name: Print environment variables
         run: env
 
@@ -96,7 +92,7 @@ jobs:
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ inputs.GPU_TYPE == 'A100' && secrets.SSH_PRIVATE_KEY || secrets.AWS_PRIVATE_KEY }}
 
       - name: Setup SSH known hosts
         id: ssh-known-hosts
@@ -113,8 +109,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.IMAGE}} | sed 's/\//#/')"
-          OUTPUT_PATH=${{ inputs.OUTPUT_BASEDIR }}/${{ github.run_id }}/${{ inputs.NAME }}
-          LOG_FILE=${{ inputs.OUTPUT_BASEDIR }}/${{ github.run_id }}/${{ inputs.NAME }}.log
+          OUTPUT_PATH=${OUTPUT_BASEDIR}/${{ github.run_id }}/${{ inputs.NAME }}
+          LOG_FILE=${OUTPUT_BASEDIR}/${{ github.run_id }}/${{ inputs.NAME }}.log
           for var in IMAGE LOG_FILE OUTPUT_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
@@ -123,17 +119,17 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias SSH='ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}'
+          alias SSH='ssh ${SLURM_CLUSTER}'
           SSH mkdir -p ${{ steps.meta.outputs.OUTPUT_PATH }}
           SLURM_JOB_ID=$(SSH sbatch --parsable <<"EOF"
           #!/bin/bash
           #SBATCH --job-name=${{ github.run_id }}-${{ inputs.NAME }}
-          #SBATCH --exclusive
           #SBATCH --nodes=${{ inputs.NODES }}
           #SBATCH --gpus-per-node=${{ inputs.GPUS_PER_NODE }}
           #SBATCH --time=${{ inputs.TIME_LIMIT }}
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="${{ inputs.EXTRA_EXPORTS }},ENROOT_PASSWORD=${{ secrets.CONTAINER_REGISTRY_TOKEN }}"
+          #SBATCH --export="${{ inputs.EXTRA_EXPORTS }},ENROOT_PASSWORD=${{ secrets.github_token }}"
+          #SBATCH ${{ inputs.EXCLUSIVE && '--exclusive' || ( inputs.GPU_TYPE == 'A100' && '--cpus-per-gpu=16' || '--cpus-per-gpu=24' ) }}
 
           # preload enroot container using one task per node
           time srun \
@@ -172,14 +168,14 @@ jobs:
         run: |
           . .github/workflows/scripts/wait_for_slurm_job.sh
 
-          wait_for_slurm_job ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} ${{ steps.submit.outputs.SLURM_JOB_ID }}
+          wait_for_slurm_job ${SLURM_CLUSTER} ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Query for job exit info
         id: exit-info
         shell: bash -exu -o pipefail {0}
         run: |
           JOB_INFO=$(
-            ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
+            ssh ${SLURM_CLUSTER} \
             sacct -j ${{ steps.submit.outputs.SLURM_JOB_ID }} --format=JobID,JobName,State,Exitcode --parsable2 --noheader |\
             grep -E '^[0-9]+\|'
           )
@@ -196,7 +192,7 @@ jobs:
           echo "******************** TAIL OF SLURM LOG BEG ********************"
           echo "***************************************************************"
           echo "***************************************************************"
-          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} tail -n 200 ${{ steps.meta.outputs.LOG_FILE }}
+          ssh ${SLURM_CLUSTER} tail -n 200 ${{ steps.meta.outputs.LOG_FILE }}
           echo "***************************************************************"
           echo "***************************************************************"
           echo "******************** TAIL OF SLURM LOG END ********************"
@@ -212,7 +208,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           function rsync-down() {
-            rsync -rtz --progress ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}:$1 $2
+            rsync -rtz --progress ${SLURM_CLUSTER}:$1 $2
           }
           mkdir -p artifacts/
           rsync-down ${{ steps.meta.outputs.LOG_FILE }} artifacts/
@@ -243,5 +239,4 @@ jobs:
         if: always() && steps.exit-info.outputs.SLURM_EXITCODE != 0
         shell: bash -x -e {0}
         run: |
-          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
-            scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
+          ssh ${SLURM_CLUSTER} scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
