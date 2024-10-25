@@ -16,7 +16,7 @@ jobs:
       CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
     with:
       NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
-      SLURM_LOGIN_HOSTNAME: ${{ secrets.AWS_HOSTNAME }}
+      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_AWS_SLURM }}
       OUTPUT_BASEDIR: /home/${SLURM_LOGIN_USER}}
       OUTPUT_MOUNTPOINT: /output
       NODES: 1
