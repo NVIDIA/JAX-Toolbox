@@ -11,12 +11,13 @@ jobs:
         N_GPU: [8]
       fail-fast: false
     secrets:
+      HOSTNAME_SLURM_LOGIN: ${{ secrets.AWS_HOSTNAME }}
       SSH_PRIVATE_KEY: ${{ secrets.AWS_PRIVATE_KEY }}
       SLURM_LOGIN_USER: ${{ secrets.AWS_LOGIN_USER }}
       CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
     with:
       NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
-      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
+      SLURM_LOGIN_HOSTNAME: ${HOSTNAME_SLURM_LOGIN}
       OUTPUT_BASEDIR: /home/${SLURM_LOGIN_USER}}
       OUTPUT_MOUNTPOINT: /output
       NODES: 1
