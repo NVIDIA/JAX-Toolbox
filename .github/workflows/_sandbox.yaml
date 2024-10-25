@@ -17,7 +17,7 @@ jobs:
     with:
       NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_AWS_SLURM }}
-      OUTPUT_BASEDIR: /home/${SLURM_LOGIN_USER}}
+      OUTPUT_BASEDIR: /home/ubuntu
       OUTPUT_MOUNTPOINT: /output
       NODES: 1
       GPUS_PER_NODE: ${{ matrix.N_GPU }}
