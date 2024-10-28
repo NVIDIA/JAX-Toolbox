@@ -8,17 +8,17 @@ ARG CLANG_VERSION=18
 ## Obtain GCP's NCCL TCPx plugin
 ###############################################################################
 
-FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.10 as tcpx-installer-amd64
+FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.10 AS tcpx-installer-amd64
 
 # make a stub arm64 container because GCP does not provide an arm64 version of the plugin
-FROM ubuntu as tcpx-installer-arm64
+FROM ubuntu AS tcpx-installer-arm64
 RUN <<"OUTEREOF" bash -ex
 mkdir -p /scripts /var/lib/tcpx/lib64
 echo '#!/bin/bash' > /scripts/container_entry.sh
 chmod +x /scripts/container_entry.sh
 OUTEREOF
 
-FROM tcpx-installer-${TARGETARCH} as tcpx-installer
+FROM tcpx-installer-${TARGETARCH} AS tcpx-installer
 RUN /scripts/container_entry.sh install
 
 ###############################################################################
@@ -51,14 +51,16 @@ apt_packages=(
   liblzma-dev
   python-is-python3
   python3-pip
+  python3-venv
   rsync
   vim
   wget
   jq
   # llvm.sh
-  lsb-release software-properties-common
+  lsb-release
+  software-properties-common
   # GCP autoconfig
-  pciutils hwloc bind9-host
+  # pciutils hwloc bind9-host
 )
 if [[ $(dpkg --print-architecture) == arm64 ]]; then
   # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
@@ -125,7 +127,10 @@ git apply </opt/pip/pip-vcs-equivalency.patch
 git add -u
 git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github VCS installs for a package as equivalent. The spec of the last encountered version will be used'
 EOF
-RUN pip install --upgrade --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
+# Create a system-wide venv for the pip-installed world inside the containers
+RUN python -m venv --prompt jax /opt/venv && /opt/venv/bin/pip install --no-cache-dir -e /opt/pip pip-tools
+# Make sure `python` refers to the venv version
+ENV PATH=/opt/venv/bin:${PATH}
 
 ###############################################################################
 ## Install TCPx
