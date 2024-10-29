@@ -8,7 +8,7 @@ import typing
 
 from .args import parse_args
 from .docker import DockerContainer
-from .logic import commit_search, container_search
+from .logic import commit_search, container_search, TestResult
 from .utils import (
     container_exists as container_exists_base,
     container_url as container_url_base,
@@ -21,6 +21,10 @@ def main():
     args = parse_args()
     bazel_cache_mounts = prepare_bazel_cache_mounts(args.bazel_cache)
     logger = get_logger(args.output_prefix)
+    logger.info(
+        "Verbose output, including stdout/err of triage commands, will be written to "
+        f'{(args.output_prefix / "debug.log").resolve()}'
+    )
     container_url = functools.partial(container_url_base, container=args.container)
     container_exists = functools.partial(
         container_exists_base, container=args.container, logger=logger
@@ -75,7 +79,7 @@ def main():
             f"Could not extract commit of {repo} from {args.container} container {container}"
         )
 
-    def check_container(date: datetime.date) -> bool:
+    def check_container(date: datetime.date) -> TestResult:
         """
         See if the test passes in the given container.
         """
@@ -100,7 +104,7 @@ def main():
                 "xla": xla_commit,
             },
         )
-        return test_pass
+        return TestResult(result=test_pass, stdout=result.stdout, stderr=result.stderr)
 
     # Search through the published containers, narrowing down to a pair of dates with
     # the property that the test passed on `range_start` and fails on `range_end`.

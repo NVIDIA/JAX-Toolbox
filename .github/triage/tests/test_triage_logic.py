@@ -3,7 +3,7 @@ import itertools
 import logging
 import pytest
 import random
-from jax_toolbox_triage.logic import commit_search, container_search
+from jax_toolbox_triage.logic import commit_search, container_search, TestResult
 
 
 def wrap(b):
@@ -306,7 +306,7 @@ def test_container_search_limits(
     with pytest.raises(Exception, match=match_string):
         container_search(
             container_exists=lambda dt: dt in dates_that_exist,
-            container_passes=lambda dt: False,
+            container_passes=lambda dt: TestResult(result=False),
             start_date=start_date,
             end_date=end_date,
             logger=logger,
@@ -353,7 +353,7 @@ def test_container_search_checks(
     with pytest.raises(Exception, match=match_string):
         container_search(
             container_exists=lambda dt: True,
-            container_passes=lambda dt: dt in dates_that_pass,
+            container_passes=lambda dt: TestResult(result=dt in dates_that_pass),
             start_date=start_date,
             end_date=end_date,
             logger=logger,
@@ -374,7 +374,7 @@ def test_container_search(logger, start_date, days_of_failure, threshold_days):
     assert start_date is None or threshold_date >= start_date
     good_date, bad_date = container_search(
         container_exists=lambda dt: True,
-        container_passes=lambda dt: dt < threshold_date,
+        container_passes=lambda dt: TestResult(result=dt < threshold_date),
         start_date=start_date,
         end_date=end_date,
         logger=logger,
