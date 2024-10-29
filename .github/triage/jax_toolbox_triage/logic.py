@@ -1,7 +1,20 @@
+from dataclasses import dataclass
 import datetime
 import functools
 import logging
 import typing
+
+
+@dataclass
+class TestResult:
+    """
+    Hold the result/stdout/stderr of a test execution
+    """
+
+    __test__ = False  # stop pytest gathering this
+    result: bool
+    stdout: typing.Optional[str] = None
+    stderr: typing.Optional[str] = None
 
 
 def as_datetime(date: datetime.date) -> datetime.datetime:
@@ -59,7 +72,7 @@ def adjust_date(
 def container_search(
     *,
     container_exists: typing.Callable[[datetime.date], bool],
-    container_passes: typing.Callable[[datetime.date], bool],
+    container_passes: typing.Callable[[datetime.date], TestResult],
     start_date: typing.Optional[datetime.date],
     end_date: typing.Optional[datetime.date],
     logger: logging.Logger,
@@ -88,8 +101,17 @@ def container_search(
         logger.info(f"Skipping check for end-of-range failure in {end_date}")
     else:
         logger.info(f"Checking end-of-range failure in {end_date}")
-        if container_passes(end_date):
+        test_end_date = container_passes(end_date)
+        logger.info(f"stdout: {test_end_date.stdout}")
+        logger.info(f"stderr: {test_end_date.stderr}")
+        if test_end_date.result:
             raise Exception(f"Could not reproduce failure in {end_date}")
+        logger.info(
+            "IMPORTANT: you should check that the test output above shows the "
+            f"*expected* failure of your test case in the {end_date} container. It is "
+            "very easy to accidentally provide a test case that fails for the wrong "
+            "reason, which will not triage the correct issue!"
+        )
 
     # Start the coarse, container-level, search for a starting point to the bisection range
     earliest_failure = end_date
@@ -127,7 +149,7 @@ def container_search(
         logger.info(f"Skipping check that the test passes on start_date={start_date}")
     else:
         # While condition prints an info message
-        while not container_passes(search_date):
+        while not container_passes(search_date).result:
             # Test failed on `search_date`, go further into the past
             earliest_failure = search_date
             new_search_date = adjust(
@@ -155,7 +177,7 @@ def container_search(
         if range_mid is None:
             # It wasn't possible to refine further.
             break
-        result = container_passes(range_mid)
+        result = container_passes(range_mid).result
         if result:
             range_start = range_mid
         else:

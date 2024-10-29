@@ -20,6 +20,14 @@ The tool follows a three-step process:
      failing, and a reference commit of XLA (JAX) that can be used to reproduce the
      regression.
 
+The third step can also be used on its own, via the `--passing-container` and
+`--failing-container` options, which allows it to be used between private container
+tags, without the dependency on the `ghcr.io/nvidia/jax` registry. This assumes that
+the given containers are closely related to those from JAX-Toolbox
+(`ghcr.io/nvidia/jax:XXX`):
+* JAX and XLA sources at `/opt/{jax,xla}[-source]`
+* `build-jax.sh` script from JAX-Toolbox available in the container
+
 ## Installation
 
 The triage tool can be installed using `pip`:
@@ -27,26 +35,50 @@ The triage tool can be installed using `pip`:
 pip install git+https://github.com/NVIDIA/JAX-Toolbox.git#subdirectory=.github/triage
 ```
 or directly from a checkout of the JAX-Toolbox repository.
+
+You should make sure `pip` is up to date, for example with `pip install -U pip`. The
+versions of `pip` installed on cluster head/compute nodes can be quite old. The
+recommended installation method, using `virtualenv`, should take care of this for you.
+
 Because the tool needs to orchestrate running commands in multiple containers, it is
 most convenient to install it in a virtual environment on the host system, rather than
 attempting to install it inside a container.
+
+The recommended installation method is to install `virtualenv` natively on the host
+system, and then use that to create an isolated environment on the host system for the
+triage tool, *i.e.*:
+```bash
+virtualenv triage-venv
+./triage-venv/bin/pip install git+https://github.com/NVIDIA/JAX-Toolbox.git#subdirectory=.github/triage
+./triage-venv/bin/jax-toolbox-triage ...
+```
 
 The tool should be invoked on a machine with `docker` available and whatever GPUs are
 needed to execute the test case.
 
 ## Usage
 
-To use the tool, there are two compulsory arguments:
-   * `--container`: which of the `ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD` container
-     families to execute the test command in. Example: `jax` for a JAX unit test
-     failure, `maxtext` for a MaxText model execution failure
+To use the tool, there are two compulsory inputs:
    * A test command to triage.
+   * A specification of which containers to triage in. There are two choices here:
+     * `--container`: which of the `ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD` container
+       families to execute the test command in. Example: `jax` for a JAX unit test
+       failure, `maxtext` for a MaxText model execution failure. The `--start-date` and
+       `--end-date` options can be combined with `--container` to tune the search; see
+       below for more details.
+     * `--passing-container` and `--failing-container`: a pair of URLs to containers to
+       use in the commit-level search; if these are passed then no container-level
+       search is performed.
 
 The test command will be executed directly in the container, not inside a shell, so be
 sure not to add excessive quotation marks (*i.e.* run
 `jax-toolbox-triage --container=jax test-jax.sh foo` not
 `jax-toolbox-triage --container=jax "test-jax.sh foo"`), and you should aim to make it
 as fast and targeted as possible.
+
+If you want to run multiple commands, you might want to use something like
+`jax-toolbox-triage --container=jax sh -c "command1 && command2"`.
+
 The expectation is that the test case will be executed successfully several times as
 part of the triage, so you may want to tune some parameters to reduce the execution
 time in the successful case.
@@ -55,6 +87,28 @@ probably reduce `--steps` to optimise execution time in the successful case.
 
 A JSON status file and both info-level and debug-level logfiles are written to the
 directory given by `--output-prefix`.
+Info-level output is also written to the console, and includes the path to the debug
+log file.
+
+You should pay attention to the first execution of your test case, to make sure it is
+failing for the correct reason. For example:
+```console
+$ jax-toolbox-triage --container jax command-you-forgot-to-install
+```
+will not immediately abort, because the tool is **expecting** the command to fail in
+the early stages of the triage:
+```
+[INFO] 2024-10-29 01:49:01 Verbose output, including stdout/err of triage commands, will be written to /home/olupton/JAX-Toolbox/triage-2024-10-29-01-49-01/debug.log
+[INFO] 2024-10-29 01:49:05 Checking end-of-range failure in 2024-10-27
+[INFO] 2024-10-29 01:49:05 Ran test case in 2024-10-27 in 0.4s, pass=False
+[INFO] 2024-10-29 01:49:05 stdout: OCI runtime exec failed: exec failed: unable to start container process: exec: "command-you-forgot-to-install": executable file not found in $PATH: unknown
+
+[INFO] 2024-10-29 01:49:05 stderr:
+[INFO] 2024-10-29 01:49:05 IMPORTANT: you should check that the test output above shows the *expected* failure of your test case in the 2024-10-27 container. It is very easy to accidentally provide a test case that fails for the wrong reason, which will not triage the correct issue!
+[INFO] 2024-10-29 01:49:06 Starting coarse search with 2024-10-26 based on end_date=2024-10-27
+[INFO] 2024-10-29 01:49:06 Ran test case in 2024-10-26 in 0.4s, pass=False
+```
+where, notably, the triage search is continuing.
 
 ### Optimising container-level search performance
 
