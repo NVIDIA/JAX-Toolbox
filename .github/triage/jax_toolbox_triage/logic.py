@@ -11,6 +11,7 @@ class TestResult:
     Hold the result/stdout/stderr of a test execution
     """
 
+    __test__ = False  # stop pytest gathering this
     result: bool
     stdout: typing.Optional[str] = None
     stderr: typing.Optional[str] = None

@@ -6,7 +6,7 @@ import pathlib
 import tempfile
 
 
-def parse_args():
+def parse_args(args=None):
     parser = argparse.ArgumentParser(
         description="""
             Triage failures in JAX/XLA-related tests. The expectation is that the given
@@ -37,7 +37,6 @@ def parse_args():
         help="""
             Container to use. Example: jax, pax, triton. Used to construct the URLs of
             nightly containers, like ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD.""",
-        required=True,
     )
     parser.add_argument(
         "--output-prefix",
@@ -68,6 +67,15 @@ def parse_args():
             possible.""",
     )
     container_search_args.add_argument(
+        "--end-container",
+        help="""
+            Skip the container-level search and pass this container to the commit-level
+            search. If this is passed, --start-container must be too, but --container
+            is not required. This can be used to apply the commit-level bisection
+            search to containers not from the ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD
+            series, although they must have a similar structure.""",
+    )
+    container_search_args.add_argument(
         "--end-date",
         help="""
             Initial estimate of the earliest nightly container date where the test case
@@ -75,6 +83,15 @@ def parse_args():
             --skip-precondition-checks are both set then it will not be verified that the
             test case fails on this date.""",
         type=lambda s: datetime.date.fromisoformat(s),
+    )
+    container_search_args.add_argument(
+        "--start-container",
+        help="""
+            Skip the container-level search and pass this container to the commit-level
+            search. If this is passed, --end-container must be too, but --container is
+            not required. This can be used to apply the commit-level bisection search
+            to containers not from the ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD series,
+            although they must have a similar structure.""",
     )
     container_search_args.add_argument(
         "--start-date",
@@ -109,4 +126,30 @@ def parse_args():
             significantly speed up the commit-level search. By default, uses a temporary
             directory including the name of the current user.""",
     )
-    return parser.parse_args()
+    args = parser.parse_args(args=args)
+    num_explicit_containers = (args.start_container is not None) + (
+        args.end_container is not None
+    )
+    if num_explicit_containers == 1:
+        raise Exception(
+            "--start-container and --end-container must both be passed if either is"
+        )
+    if num_explicit_containers == 2:
+        # Explicit mode, --container, --start-date and --end-date are all ignored
+        if args.container:
+            raise Exception(
+                "--container must not be passed if --start-container and --end-container are"
+            )
+        if args.start_date:
+            raise Exception(
+                "--start-date must not be passed if --start-container and --end-container are"
+            )
+        if args.end_date:
+            raise Exception(
+                "--end-date must not be passed if --start-container and --end-container are"
+            )
+    elif num_explicit_containers == 0 and args.container is None:
+        raise Exception(
+            "--container must be passed if --start-container and --end-container are not"
+        )
+    return args

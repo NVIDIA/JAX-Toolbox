@@ -106,35 +106,43 @@ def main():
         )
         return TestResult(result=test_pass, stdout=result.stdout, stderr=result.stderr)
 
-    # Search through the published containers, narrowing down to a pair of dates with
-    # the property that the test passed on `range_start` and fails on `range_end`.
-    range_start, range_end = container_search(
-        container_exists=container_exists,
-        container_passes=check_container,
-        start_date=args.start_date,
-        end_date=args.end_date,
-        logger=logger,
-        skip_precondition_checks=args.skip_precondition_checks,
-        threshold_days=args.threshold_days,
-    )
+    if args.start_container is not None:
+        assert args.end_container is not None
+        # Skip the container-level search because explicit end points were given
+        start_url = args.start_container
+        end_url = args.end_container
+    else:
+        # Search through the published containers, narrowing down to a pair of dates with
+        # the property that the test passed on `range_start` and fails on `range_end`.
+        range_start, range_end = container_search(
+            container_exists=container_exists,
+            container_passes=check_container,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            logger=logger,
+            skip_precondition_checks=args.skip_precondition_checks,
+            threshold_days=args.threshold_days,
+        )
+        start_url = container_url(range_start)
+        end_url = container_url(range_end)
 
     # Container-level search is now complete. Triage proceeds inside the `range_end``
     # container. First, we check that rewinding JAX and XLA inside the `range_end``
     # container to the commits used in the `range_start` container passes, whereas
     # using the `range_end` commits reproduces the failure.
 
-    with Container(container_url(range_start)) as worker:
+    with Container(start_url) as worker:
         start_jax_commit, _ = get_commit(worker, "jax")
         start_xla_commit, _ = get_commit(worker, "xla")
 
     # Fire up the container that will be used for the fine search.
-    with Container(container_url(range_end)) as worker:
+    with Container(end_url) as worker:
         end_jax_commit, jax_dir = get_commit(worker, "jax")
         end_xla_commit, xla_dir = get_commit(worker, "xla")
         logger.info(
             (
                 f"Bisecting JAX [{start_jax_commit}, {end_jax_commit}] and "
-                f"XLA [{start_xla_commit}, {end_xla_commit}] using {container_url(range_end)}"
+                f"XLA [{start_xla_commit}, {end_xla_commit}] using {end_url}"
             )
         )
 

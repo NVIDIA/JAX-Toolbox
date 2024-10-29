@@ -20,6 +20,10 @@ The tool follows a three-step process:
      failing, and a reference commit of XLA (JAX) that can be used to reproduce the
      regression.
 
+The third step can also be used on its own, via the `--start-container` and
+`--end-container` options, which allows it to be used between private container tags,
+without the dependency on the `ghcr.io/nvidia/jax` registry.
+
 ## Installation
 
 The triage tool can be installed using `pip`:
@@ -46,11 +50,15 @@ needed to execute the test case.
 
 ## Usage
 
-To use the tool, there are two compulsory arguments:
-   * `--container`: which of the `ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD` container
-     families to execute the test command in. Example: `jax` for a JAX unit test
-     failure, `maxtext` for a MaxText model execution failure
+To use the tool, there are two compulsory inputs:
    * A test command to triage.
+   * A specification of which containers to triage in:
+     * `--container`: which of the `ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD` container
+       families to execute the test command in. Example: `jax` for a JAX unit test
+       failure, `maxtext` for a MaxText model execution failure.
+     * `--start-container` and `--end-container`: a pair of URLs to containers to use
+       in the commit-level search; if these are passed then no container-level search
+       is performed.
 
 The test command will be executed directly in the container, not inside a shell, so be
 sure not to add excessive quotation marks (*i.e.* run
