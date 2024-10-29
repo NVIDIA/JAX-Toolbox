@@ -20,9 +20,13 @@ The tool follows a three-step process:
      failing, and a reference commit of XLA (JAX) that can be used to reproduce the
      regression.
 
-The third step can also be used on its own, via the `--start-container` and
-`--end-container` options, which allows it to be used between private container tags,
-without the dependency on the `ghcr.io/nvidia/jax` registry.
+The third step can also be used on its own, via the `--passing-container` and
+`--failing-container` options, which allows it to be used between private container
+tags, without the dependency on the `ghcr.io/nvidia/jax` registry. This assumes that
+the given containers are closely related to those from JAX-Toolbox
+(`ghcr.io/nvidia/jax:XXX`):
+* JAX and XLA sources at `/opt/{jax,xla}[-source]`
+* `build-jax.sh` script from JAX-Toolbox available in the container
 
 ## Installation
 
@@ -56,13 +60,15 @@ needed to execute the test case.
 
 To use the tool, there are two compulsory inputs:
    * A test command to triage.
-   * A specification of which containers to triage in:
+   * A specification of which containers to triage in. There are two choices here:
      * `--container`: which of the `ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD` container
        families to execute the test command in. Example: `jax` for a JAX unit test
-       failure, `maxtext` for a MaxText model execution failure.
-     * `--start-container` and `--end-container`: a pair of URLs to containers to use
-       in the commit-level search; if these are passed then no container-level search
-       is performed.
+       failure, `maxtext` for a MaxText model execution failure. The `--start-date` and
+       `--end-date` options can be combined with `--container` to tune the search; see
+       below for more details.
+     * `--passing-container` and `--failing-container`: a pair of URLs to containers to
+       use in the commit-level search; if these are passed then no container-level
+       search is performed.
 
 The test command will be executed directly in the container, not inside a shell, so be
 sure not to add excessive quotation marks (*i.e.* run

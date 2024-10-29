@@ -106,11 +106,11 @@ def main():
         )
         return TestResult(result=test_pass, stdout=result.stdout, stderr=result.stderr)
 
-    if args.start_container is not None:
-        assert args.end_container is not None
+    if args.passing_container is not None:
+        assert args.failing_container is not None
         # Skip the container-level search because explicit end points were given
-        start_url = args.start_container
-        end_url = args.end_container
+        passing_url = args.passing_container
+        failing_url = args.failing_container
     else:
         # Search through the published containers, narrowing down to a pair of dates with
         # the property that the test passed on `range_start` and fails on `range_end`.
@@ -123,20 +123,20 @@ def main():
             skip_precondition_checks=args.skip_precondition_checks,
             threshold_days=args.threshold_days,
         )
-        start_url = container_url(range_start)
-        end_url = container_url(range_end)
+        passing_url = container_url(range_start)
+        failing_url = container_url(range_end)
 
     # Container-level search is now complete. Triage proceeds inside the `range_end``
     # container. First, we check that rewinding JAX and XLA inside the `range_end``
     # container to the commits used in the `range_start` container passes, whereas
     # using the `range_end` commits reproduces the failure.
 
-    with Container(start_url) as worker:
+    with Container(passing_url) as worker:
         start_jax_commit, _ = get_commit(worker, "jax")
         start_xla_commit, _ = get_commit(worker, "xla")
 
     # Fire up the container that will be used for the fine search.
-    with Container(end_url) as worker:
+    with Container(failing_url) as worker:
         end_jax_commit, jax_dir = get_commit(worker, "jax")
         end_xla_commit, xla_dir = get_commit(worker, "xla")
         logger.info(

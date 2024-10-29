@@ -67,10 +67,10 @@ def parse_args(args=None):
             possible.""",
     )
     container_search_args.add_argument(
-        "--end-container",
+        "--failing-container",
         help="""
             Skip the container-level search and pass this container to the commit-level
-            search. If this is passed, --start-container must be too, but --container
+            search. If this is passed, --passing-container must be too, but --container
             is not required. This can be used to apply the commit-level bisection
             search to containers not from the ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD
             series, although they must have a similar structure.""",
@@ -85,10 +85,10 @@ def parse_args(args=None):
         type=lambda s: datetime.date.fromisoformat(s),
     )
     container_search_args.add_argument(
-        "--start-container",
+        "--passing-container",
         help="""
             Skip the container-level search and pass this container to the commit-level
-            search. If this is passed, --end-container must be too, but --container is
+            search. If this is passed, --failing-container must be too, but --container is
             not required. This can be used to apply the commit-level bisection search
             to containers not from the ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD series,
             although they must have a similar structure.""",
@@ -127,29 +127,29 @@ def parse_args(args=None):
             directory including the name of the current user.""",
     )
     args = parser.parse_args(args=args)
-    num_explicit_containers = (args.start_container is not None) + (
-        args.end_container is not None
+    num_explicit_containers = (args.passing_container is not None) + (
+        args.failing_container is not None
     )
     if num_explicit_containers == 1:
         raise Exception(
-            "--start-container and --end-container must both be passed if either is"
+            "--passing-container and --failing-container must both be passed if either is"
         )
     if num_explicit_containers == 2:
         # Explicit mode, --container, --start-date and --end-date are all ignored
         if args.container:
             raise Exception(
-                "--container must not be passed if --start-container and --end-container are"
+                "--container must not be passed if --passing-container and --failing-container are"
             )
         if args.start_date:
             raise Exception(
-                "--start-date must not be passed if --start-container and --end-container are"
+                "--start-date must not be passed if --passing-container and --failing-container are"
             )
         if args.end_date:
             raise Exception(
-                "--end-date must not be passed if --start-container and --end-container are"
+                "--end-date must not be passed if --passing-container and --failing-container are"
             )
     elif num_explicit_containers == 0 and args.container is None:
         raise Exception(
-            "--container must be passed if --start-container and --end-container are not"
+            "--container must be passed if --passing-container and --failing-container are not"
         )
     return args
