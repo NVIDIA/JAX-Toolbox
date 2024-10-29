@@ -333,9 +333,9 @@ We support and test the following JAX frameworks and model architectures. More d
   </tbody>
 </table>
 
-In all of the above cases, `ghcr.io/nvidia/jax:XXX` points to the most recent
-nightly build of the container for `XXX`. These containers are also tagged as
-`ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`, if a stable reference is required.
+In all cases, `ghcr.io/nvidia/jax:XXX` points to latest nightly build of the container for `XXX`. For a stable reference, use `ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`. 
+
+In addition to the public CI, we also run internal CI tests on H100 SXM 80GB and A100 SXM 80GB. 
 
 ## Environment Variables
 
@@ -404,7 +404,14 @@ Docker has traditionally used Docker Schema V2.2 for multi-arch manifest lists b
     * [Running a deep learning workload with JAX on multinode multi-GPU clusters on OCI](https://blogs.oracle.com/cloud-infrastructure/post/running-multinode-jax-clusters-on-oci-gpu-cloud)
 
 ## Resources
-* [What's New in JAX | GTC Spring 2023](https://www.nvidia.com/en-us/on-demand/session/gtcspring23-s51956/)
+* [JAX | NVIDIA NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax)
 * [Slurm and OpenMPI zero config integration](https://jax.readthedocs.io/en/latest/_autosummary/jax.distributed.initialize.html)
 * [Adding custom GPU ops](https://jax.readthedocs.io/en/latest/Custom_Operation_for_GPUs.html)
 * [Triaging regressions](docs/triage-tool.md)
+
+## Videos
+* [Equinox for JAX: The Foundation of an Ecosystem for Science and Machine Learning](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62668/)
+* [Scaling Grok with JAX and H100](https://www.nvidia.com/en-us/on-demand/session/gtc24-s63257/)
+* [JAX Supercharged on GPUs: High Performance LLMs with JAX and OpenXLA](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62246/)
+* [What's New in JAX | GTC Spring 2024](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62659/)
+* [What's New in JAX | GTC Spring 2023](https://www.nvidia.com/en-us/on-demand/session/gtcspring23-s51956/)
