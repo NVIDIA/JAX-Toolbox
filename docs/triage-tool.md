@@ -32,6 +32,10 @@ pip install git+https://github.com/NVIDIA/JAX-Toolbox.git#subdirectory=.github/t
 ```
 or directly from a checkout of the JAX-Toolbox repository.
 
+You should make sure `pip` is up to date, for example with `pip install -U pip`. The
+versions of `pip` installed on cluster head/compute nodes can be quite old. The
+recommended installation method, using `virtualenv`, should take care of this for you.
+
 Because the tool needs to orchestrate running commands in multiple containers, it is
 most convenient to install it in a virtual environment on the host system, rather than
 attempting to install it inside a container.
