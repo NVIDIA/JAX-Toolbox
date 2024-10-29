@@ -142,7 +142,7 @@ def main():
         logger.info(
             (
                 f"Bisecting JAX [{start_jax_commit}, {end_jax_commit}] and "
-                f"XLA [{start_xla_commit}, {end_xla_commit}] using {end_url}"
+                f"XLA [{start_xla_commit}, {end_xla_commit}] using {failing_url}"
             )
         )
 
