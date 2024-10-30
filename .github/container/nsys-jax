@@ -43,8 +43,9 @@ parser = argparse.ArgumentParser(
     usage=(
         "nsys-jax [-h] [--nsys-jax-condition EXPRESSION] [--nsys-jax-analysis A1 "
         "[--nsys-jax-analysis-arg=A1_ARG1 [--nsys-jax-analysis-arg=A1_ARG2 ...]] "
-        "[--nsys-jax-analysis A2 [--nsys-jax-analysis-arg=A2_ARG1 ...]] [nsys profile "
-        "arguments ...] [--] executable [executable arguments ...]"
+        "[--nsys-jax-analysis A2 [--nsys-jax-analysis-arg=A2_ARG1 ...]] [-o OUTPUT | "
+        "--output OUTPUT] [-f | --force-overwrite] [nsys profile arguments ...] [--] "
+        "executable [executable arguments ...]"
     ),
     description=(
         "`nsys-jax` is a wrapper for `nsys profile` that collects additional metadata "
@@ -84,6 +85,21 @@ parser.add_argument(
         "of nsys-jax should actually launch nsys. Example: "
         "--nsys-jax-condition='$SLURM_LOCALID == 0' to only profile the first "
         "process on each node. The expression is evaluated inside [[ ... ]]."
+    ),
+)
+parser.add_argument(
+    "-f",
+    "--force-overwrite",
+    action="store_true",
+    help="This must be passed for nsys-jax to overwrite an existing output archive.",
+)
+parser.add_argument(
+    "-o",
+    "--output",
+    help=(
+        "Output filename, if this has an .nsys-rep or .zip suffix it will be removed "
+        "to yield ROOT, and the output archive will be ROOT.zip, which will contain a "
+        "ROOT.nsys-rep."
     ),
 )
 
@@ -142,31 +158,7 @@ if nsys_jax_flags.nsys_jax_condition is not None:
         == 0
     )
 
-# See if an output location was already passed to nsys. There are four known
-# syntaxes for this: -o XXX, -oXXX, --output=XXX, and --output XXX. Here we
-# extract XXX *and* remove the relevant arguments from the list. This is
-# because we write the report initially to a temporary directory.
-nsys_output = None
-for n, flag in enumerate(nsys_flags):
-    if flag in {"-o", "--output"}:
-        nsys_output = nsys_flags[n + 1]
-        del nsys_flags[n : n + 2]
-        break
-    elif flag.startswith("-o"):
-        nsys_output = flag[2:]
-        del nsys_flags[n]
-        break
-    elif flag.startswith("--output="):
-        nsys_output = flag[9:]
-        del nsys_flags[n]
-        break
-if nsys_output is not None:
-    # --output=test and --output=test.nsys-rep result in the same thing
-    nsys_output = expand(nsys_output.removesuffix(".nsys-rep"))
-    if not osp.isabs(nsys_output):
-        nsys_output = osp.join(os.getcwd(), nsys_output)
-    archive_name = nsys_output + ".zip"
-elif enable_profiling:
+if nsys_jax_flags.output is None:
     # There was not an explicit output location; generate one. There may be
     # multiple processes racing to do this.
     archive_handle, archive_name = tempfile.mkstemp(
@@ -174,13 +166,25 @@ elif enable_profiling:
     )
     # Re-open it based on name later, mkstemp is just a way of avoiding races
     os.close(archive_handle)
+    # No -f / --force-overwrite needed in this case
+    archive_name_can_be_overwritten = True
+else:
+    # Explicit output location was given in `nsys_jax_flags.output`, transform that
+    # into the .zip-suffixed verison of it.
+    archive_name = (
+        expand(nsys_jax_flags.output.removesuffix(".nsys-rep").removesuffix(".zip"))
+        + ".zip"
+    )
+    if not osp.isabs(archive_name):
+        nsys_output = osp.join(os.getcwd(), archive_name)
+    archive_name_can_be_overwritten = nsys_jax_flags.force_overwrite
 
 # We will write /final/output/path/name.zip, and it will contain name.nsys-rep,
 # but we do not instruct nsys to write that to /final/output/path/name.nsys-rep
 # so that more of the processing can happen on a faster, more local filesystem.
-# TODO: clean this up?
+report_name = osp.basename(archive_name).removesuffix(".zip") + ".nsys-rep"
 tmp_dir = tempfile.mkdtemp()
-tmp_rep = osp.join(tmp_dir, "report.nsys-rep")
+tmp_rep = osp.join(tmp_dir, report_name)
 nsys_flags += ["--output", tmp_rep]
 
 # If --nsys-jax-analysis is used, we also construct a local directory mirroring
@@ -200,23 +204,6 @@ override_nsys_default("cpuctxsw", "none")
 override_nsys_default("python-sampling", "true")
 # TODO: consider dropping osrt from here
 override_nsys_default("trace", "cublas,cuda,cudnn,cusolver,nvtx,osrt")
-
-# Extract --force-overwrite=X (or variants: --force-overwrite X, -f X, -fX)
-# from arguments; need to propagate this to nsys recipe below.
-for n, flag in enumerate(nsys_flags):
-    if flag in {"-f", "--force-overwrite"}:
-        nsys_force_overwrite_str = nsys_flags[n + 1]
-        break
-    elif flag.startswith("-f"):
-        nsys_force_overwrite_str = flag[2:]
-        break
-    elif flag.startswith("--force-overwrite="):
-        nsys_force_overwrite_str = flag[18:]
-        break
-else:
-    nsys_force_overwrite_str = "false"
-assert nsys_force_overwrite_str in {"true", "false"}
-nsys_force_overwrite = nsys_force_overwrite_str == "true"
 
 # Modified environment in which to run the application
 env = os.environ.copy()
@@ -340,8 +327,7 @@ def run_nsys_recipe(recipe, report_file, tmp_dir, output_queue):
             report_file,
             "--output",
             recipe_output,
-        ]
-        + (["--force-overwrite"] if nsys_force_overwrite else []),
+        ],
         check=True,
     )
     for ofile in iglob(recipe + "/**", recursive=True, root_dir=tmp_dir):
@@ -380,8 +366,7 @@ def run_nsys_stats_report(report, report_file, tmp_dir, output_queue):
             osp.splitext(report_file)[0] + "-" + report + ".sqlite",
             "--output",
             osp.join(tmp_dir, "report"),
-        ]
-        + (["--force-overwrite"] if nsys_force_overwrite else []),
+        ],
         check=True,
     )
     for ofile in iglob("report_" + report + ".csv", root_dir=tmp_dir):
@@ -589,15 +574,17 @@ def execute_analysis_scripts(mirror_dir, analysis_scripts):
     return output, exit_code
 
 
-def write_output_file(to_process, output_file, mirror_dir, analysis_scripts):
+def write_output_file(to_process, mirror_dir, analysis_scripts):
     """
-    Write the output archive (`output_file`) by consuming entries from the
+    Write the output archive (`archive_name`) by consuming entries from the
     queue until a `None` sentinel value is seen. If `mirror_dir` is not None
     then populate it with symlinks/files as necessary to create a structure
     equivalent to the output archive.
     """
     start = time.time()
-    with zipfile.ZipFile(output_file, "w") as archive:
+    with zipfile.ZipFile(
+        archive_name, "w" if archive_name_can_be_overwritten else "x"
+    ) as archive:
         while True:
             timeout = 30
             try:
@@ -630,7 +617,7 @@ def write_output_file(to_process, output_file, mirror_dir, analysis_scripts):
         )
         for path_in_archive, local_path in analysis_outputs:
             archive.write(filename=local_path, arcname=path_in_archive)
-    os.chmod(output_file, 0o644)
+    os.chmod(archive_name, 0o644)
     print(f"{archive_name}: wrote in {time.time()-start:.2f}s")
     if exit_code != 0:
         print("Exiting due to analysis script errors")
@@ -714,7 +701,6 @@ def output_thread(executor: ThreadPoolExecutor):
         future = executor.submit(
             write_output_file,
             files_to_archive,
-            archive_name,
             mirror_dir,
             nsys_jax_flags.analysis,
         )
@@ -733,7 +719,7 @@ with ThreadPoolExecutor() as executor, output_thread(executor):
     # Queue the .nsys-rep for compression
     files_to_archive.put(
         (
-            osp.basename(archive_name).removesuffix(".zip") + ".nsys-rep",
+            report_name,
             tmp_rep,
             compress_deflate,
         )
