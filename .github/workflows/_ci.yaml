@@ -319,7 +319,7 @@ jobs:
         docker run --shm-size=1g --gpus all \
           -v $PWD:/opt/output \
           ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-          bash <<"EOF" |& tee test-nsys-jax.log
+          bash -i <<"EOF" |& tee test-nsys-jax.log
             pip install pytest-reportlog -e /opt/jax_nsys/python/jax_nsys[test]
             pytest --report-log=/opt/output/pytest-report.jsonl /opt/jax_nsys_tests
         EOF
