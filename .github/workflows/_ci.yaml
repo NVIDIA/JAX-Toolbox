@@ -322,7 +322,7 @@ jobs:
           bash <<"EOF" |& tee test-nsys-jax.log
             pip install pytest-reportlog -e /opt/jax_nsys/python/jax_nsys[test]
             pytest --report-log=/opt/output/pytest-report.jsonl /opt/jax_nsys_tests
-          EOF
+        EOF
         GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
         for mode in 1-process 2-process process-per-gpu; do
           DOCKER="docker run --shm-size=1g --gpus all --env XLA_FLAGS=--xla_gpu_enable_command_buffer= --env XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 -v ${PWD}:/opt/output ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"
