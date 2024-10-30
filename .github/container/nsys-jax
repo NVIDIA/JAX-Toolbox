@@ -465,6 +465,10 @@ def copy_jax_nsys_files(input_dir, output_queue):
         full_path = osp.join(input_dir, file)
         if osp.isdir(full_path):
             continue
+        if file.startswith("python/jax_nsys/jax_nsys/__pycache__") or file.startswith(
+            "python/jax_nsys/jax_nsys.egg-info"
+        ):
+            continue
         output_queue.put((file, full_path, compress_deflate))
 
 
