@@ -517,6 +517,9 @@ def gather_source_files(
         raise Exception("No source files were gathered")
     # Copy these files into the output archive.
     for src_file in src_files:
+        if src_file == "<string>":
+            # This can appear due to python -c "...", for example.
+            continue
         assert osp.isabs(src_file), f"{src_file} is not absolute"
         output_queue.put(("sources" + src_file, src_file, compress_deflate))
     print(f"{archive_name}: gathered source code in {time.time()-start:.2f}s")
