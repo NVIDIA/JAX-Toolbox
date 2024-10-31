@@ -76,8 +76,8 @@ jobs:
           test_outcome_files=$(find -name pytest-report.jsonl)
 
           badge_label='TE Multi GPU tests'
-          passed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)
-          failed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "failed") | .outcome' | wc -l)
+          passed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "TestReport" and .outcome == "passed") | .outcome' | wc -l)
+          failed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "TestReport" and .outcome == "failed") | .outcome' | wc -l)
           total_tests=$((failed_tests + passed_tests))
           
           if [[ ${total_tests} == 0 ]]; then
