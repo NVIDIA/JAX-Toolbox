@@ -105,8 +105,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           IMAGE="$(echo ${{inputs.IMAGE}} | sed 's/\//#/')"
-          OUTPUT_PATH=${{ inputs.OUTPUT_BASEDIR }}/${{ github.run_id }}/${{ inputs.NAME }}
-          LOG_FILE=${{ inputs.OUTPUT_BASEDIR }}/${{ github.run_id }}/${{ inputs.NAME }}.log
+          OUTPUT_PATH=${OUTPUT_BASEDIR}/${{ github.run_id }}/${{ inputs.NAME }}
+          LOG_FILE=${OUTPUT_BASEDIR}/${{ github.run_id }}/${{ inputs.NAME }}.log
           for var in IMAGE LOG_FILE OUTPUT_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
