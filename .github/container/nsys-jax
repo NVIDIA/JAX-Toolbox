@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 import zipfile
 
 
@@ -332,7 +333,8 @@ def run_nsys_recipe(recipe, report_file, tmp_dir, output_queue):
     )
     for ofile in iglob(recipe + "/**", recursive=True, root_dir=tmp_dir):
         full_path = osp.join(tmp_dir, ofile)
-        if osp.isdir(full_path):
+        # glob("/does-not-exist/**", recursive=True) == ['/does-not-exist/']
+        if osp.isdir(full_path) or not osp.exists(full_path):
             continue
         output_queue.put((ofile, full_path, compress_none))
     print(f"{archive_name}: post-processing finished in {time.time()-start:.2f}s")
@@ -430,29 +432,39 @@ def save_device_stream_thread_names(tmp_dir, report, output_queue):
         "nameEnum",
         "system-metadata.parquet",
     )
-    # Extract {device_id: metadata_and_name} map, making sure to pick up the name that
-    # XLA assigns via NVTX
-    TARGET_INFO_GPU_columns = [
-        ("TARGET_INFO_GPU", x[0])
-        for x in cur.execute("SELECT * FROM TARGET_INFO_GPU LIMIT 1").description
-    ]
-    TARGET_INFO_NVTX_CUDA_DEVICE_columns = [
-        ("TARGET_INFO_NVTX_CUDA_DEVICE", x[0])
-        for x in cur.execute(
-            "SELECT * FROM TARGET_INFO_NVTX_CUDA_DEVICE LIMIT 1"
-        ).description
-    ]
-    table_to_parquet(
-        """
-        SELECT * FROM TARGET_INFO_GPU
-        INNER JOIN TARGET_INFO_NVTX_CUDA_DEVICE ON TARGET_INFO_GPU.cuDevice = TARGET_INFO_NVTX_CUDA_DEVICE.deviceId""",
-        ("TARGET_INFO_GPU", "cuDevice"),
-        "device-metadata.parquet",
-        columns=pd.MultiIndex.from_tuples(
-            TARGET_INFO_GPU_columns + TARGET_INFO_NVTX_CUDA_DEVICE_columns
-        ),
-        index_name="cuDevice",
-    )
+
+    def table_exists(table_name):
+        return (
+            cur.execute(
+                f"SELECT 1 FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+            ).fetchall()
+            != []
+        )
+
+    # Cannot write device-metadata.parquet if no device activity was profiled.
+    if table_exists("TARGET_INFO_GPU") and table_exists("TARGET_INFO_NVTX_CUDA_DEVICE"):
+        # Extract {device_id: metadata_and_name} map, making sure to pick up the name that
+        # XLA assigns via NVTX
+        def table_columns(table_name):
+            return [
+                (table_name, x[0])
+                for x in cur.execute(f"SELECT * FROM {table_name} LIMIT 1").description
+            ]
+
+        table_to_parquet(
+            """
+            SELECT * FROM TARGET_INFO_GPU
+            INNER JOIN TARGET_INFO_NVTX_CUDA_DEVICE ON TARGET_INFO_GPU.cuDevice = TARGET_INFO_NVTX_CUDA_DEVICE.deviceId""",
+            ("TARGET_INFO_GPU", "cuDevice"),
+            "device-metadata.parquet",
+            columns=pd.MultiIndex.from_tuples(
+                table_columns("TARGET_INFO_GPU")
+                + table_columns("TARGET_INFO_NVTX_CUDA_DEVICE")
+            ),
+            index_name="cuDevice",
+        )
+    else:
+        print("WARNING: NOT writing device metadata, no device activity profiled?")
     print(f"{archive_name}: extracted device/thread names in {time.time()-start:.2f}s")
 
 
@@ -514,7 +526,7 @@ def gather_source_files(
             src_files |= set(hlo.hlo_module.stack_frame_index.file_names)
         sys.path.remove(tmp_dir)
     if len(src_files) == 0:
-        raise Exception("No source files were gathered")
+        print("WARNING: no source files were gathered")
     # Copy these files into the output archive.
     for src_file in src_files:
         if src_file == "<string>":
@@ -793,7 +805,7 @@ with ThreadPoolExecutor() as executor, output_thread(executor):
             futures.remove(future)
             if future.exception() is not None:
                 exit_code = 1
-                print("Exception:", future.exception())
+                traceback.print_exception(future.exception())
         pending = len(futures)
         if pending == 0:
             break
