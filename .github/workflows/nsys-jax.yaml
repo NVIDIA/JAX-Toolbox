@@ -22,6 +22,7 @@ env:
     JAX-Toolbox/.github/container/nsys-jax
     JAX-Toolbox/.github/container/nsys-jax-combine
     JAX-Toolbox/.github/container/jax_nsys
+    JAX-Toolbox/.github/container/jax_nsys_tests
     JAX-Toolbox/.github/container/jax-nccl-test
 
 jobs:

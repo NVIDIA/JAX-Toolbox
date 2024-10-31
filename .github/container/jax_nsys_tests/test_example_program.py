@@ -52,4 +52,16 @@ def test_comms(profiler_data):
 
 
 def test_modules(profiler_data):
-    assert sum(profiler_data.module["Name"] == "jit_distinctively_named_function") == 5
+    test_func_mask = profiler_data.module["Name"] == "jit_distinctively_named_function"
+    assert sum(test_func_mask) == 5
+    test_func_data = profiler_data.module[test_func_mask]
+    assert test_func_data.index.names == ["ProgramId", "ProgramExecution", "Device"]
+    # All executions should have the same program id
+    program_ids = test_func_data.index.get_level_values("ProgramId")
+    assert all(program_ids == program_ids[0])
+    # All executions should be on device 0
+    execution_devices = test_func_data.index.get_level_values("Device")
+    assert all(execution_devices == 0)
+    # Execution indices should count from 0..n-1
+    execution_indices = test_func_data.index.get_level_values("ProgramExecution")
+    assert all(execution_indices == range(len(test_func_data)))
