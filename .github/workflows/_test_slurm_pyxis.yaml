@@ -15,6 +15,10 @@ on:
         type: number
         description: Number of nodes to request
         required: true
+      EXCLUSIVE:
+        type: bool
+        default: false
+        description: Whether to request exclusive use of the nodes
       GPU_TYPE:
         type: string
         description: Type of GPU to request; A100 and H100 are supported.
@@ -120,12 +124,12 @@ jobs:
           SLURM_JOB_ID=$(SSH sbatch --parsable <<"EOF"
           #!/bin/bash
           #SBATCH --job-name=${{ github.run_id }}-${{ inputs.NAME }}
-          #SBATCH --exclusive
           #SBATCH --nodes=${{ inputs.NODES }}
           #SBATCH --gpus-per-node=${{ inputs.GPUS_PER_NODE }}
           #SBATCH --time=${{ inputs.TIME_LIMIT }}
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="${{ inputs.EXTRA_EXPORTS }},ENROOT_PASSWORD=${{ secrets.github_token }}"
+          ${{ inputs.EXCLUSIVE && '#SBATCH --exclusive' || '' }}
 
           # preload enroot container using one task per node
           time srun \
