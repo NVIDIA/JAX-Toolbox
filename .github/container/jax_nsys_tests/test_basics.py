@@ -1,21 +1,20 @@
-import filecmp
 import os
 import subprocess
 import sys
 import tempfile
 import zipfile
 
+helper_dir = os.path.join(os.path.dirname(__file__), "jax_nsys_test_helpers")
+if helper_dir not in sys.path:
+    sys.path.insert(0, helper_dir)
+from jax_nsys_test_helpers import nsys_jax
 
-def nsys_jax(command):
+
+def test_program_without_gpu_activity():
     """
-    Helper to run nsys-jax with a unique output file that will be automatically
-    cleaned up on destruction.
+    Profiling a program that doesn't do anything should succeed.
     """
-    output = tempfile.NamedTemporaryFile(suffix=".zip")
-    subprocess.run(
-        ["nsys-jax", "--force-overwrite", "--output", output.name] + command, check=True
-    )
-    return output
+    nsys_jax([sys.executable, "-c", "print('Hello world!')"])
 
 
 def test_stacktrace_entry_with_file():
@@ -26,7 +25,7 @@ def test_stacktrace_entry_with_file():
     with tempfile.TemporaryDirectory() as tmpdir:
         archive = f"{tmpdir}/out.zip"
         src_file = f"{tmpdir}/test.py"
-        assert os.path.isabs(src_file)
+        assert os.path.isabs(src_file), src_file
         src_code = "import jax\njax.jit(lambda x: x*2)(4)\n"
         with open(src_file, "w") as f:
             f.write(src_code)
