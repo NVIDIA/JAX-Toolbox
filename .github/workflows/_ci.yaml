@@ -26,6 +26,11 @@ on:
         description: 'A JSON object containing git url+refs for softwares to be built'
         required: false
         default: '{}'
+      JAX_LIBNCCL_PACKAGE:
+        type: string
+        description: NCCL version to be installed (for example, `2.20.3-1+cuda12.4`)
+        default: ''
+        required: false
     outputs:
       DOCKER_TAGS:
         description: 'JSON object containing tags of all docker images built'
@@ -45,6 +50,7 @@ jobs:
       BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
+      JAX_LIBNCCL_PACKAGE: ${{ inputs.JAX_LIBNCCL_PACKAGE }}
     secrets: inherit
 
   build-jax:

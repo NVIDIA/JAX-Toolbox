@@ -40,6 +40,11 @@ on:
           PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,paxml,praxis,maxtext,levanter,haliax,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
         default: ''
         required: false
+      JAX_LIBNCCL_PACKAGE:
+        type: string
+        description: NCCL version to be installed (for example, 2.20.3-1+cuda12.4)
+        default: ''
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -197,6 +202,7 @@ jobs:
       CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
+      JAX_LIBNCCL_PACKAGE: ${{ inputs.JAX_LIBNCCL_PACKAGE }}
     secrets: inherit
 
   arm64:
@@ -208,6 +214,7 @@ jobs:
       CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
+      JAX_LIBNCCL_PACKAGE: ${{ inputs.JAX_LIBNCCL_PACKAGE }}
     secrets: inherit
 
   # Only merge if everything succeeds
