@@ -379,9 +379,10 @@ jobs:
         num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
         passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
         failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+        total_tests=$(( NSYS_JAX_TEST_COUNT + passed_tests + failed_tests ))
         num_passed=$(( passed_tests + NSYS_JAX_TEST_COUNT - NSYS_JAX_FAIL_COUNT ))
         num_failed=$(( failed_tests + NSYS_JAX_FAIL_COUNT ))
-        echo "TOTAL_TESTS=${NSYS_JAX_TEST_COUNT}" >> $GITHUB_OUTPUT
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
         echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
         echo "PASSED_TESTS=${num_passed}" >> $GITHUB_OUTPUT
         echo "FAILED_TESTS=${num_failed}" >> $GITHUB_OUTPUT
