@@ -25,7 +25,6 @@ jobs:
     with:
       NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-      OUTPUT_BASEDIR: /nfs/cluster
       OUTPUT_MOUNTPOINT: /output
       NODES: 1
       GPUS_PER_NODE: ${{ matrix.N_GPU }}

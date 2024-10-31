@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
     secrets: inherit
     with:
-      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
+      NAME: ${{ matrix.N_GPU }}x${{ matrix.GPU }}
       OUTPUT_MOUNTPOINT: /output
       NODES: 1
       GPU_TYPE: ${{ matrix.GPU }}
