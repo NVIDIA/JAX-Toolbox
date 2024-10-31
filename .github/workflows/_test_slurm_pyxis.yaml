@@ -11,7 +11,6 @@ on:
         type: string
         default: /nfs/cluster
         description: Base directory for the SLURM scratch space
-        required: true
       OUTPUT_MOUNTPOINT:
         type: string
         description: Mountpoint for the SLURM scratch space in the enroot container
