@@ -129,7 +129,7 @@ jobs:
           #SBATCH --time=${{ inputs.TIME_LIMIT }}
           #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
           #SBATCH --export="${{ inputs.EXTRA_EXPORTS }},ENROOT_PASSWORD=${{ secrets.github_token }}"
-          ${{ inputs.EXCLUSIVE && '#SBATCH --exclusive' || '' }}
+          #SBATCH ${{ inputs.EXCLUSIVE && '--exclusive' || ( inputs.GPU_TYPE == 'A100' && '--cpus-per-gpu=16' || '--cpus-per-gpu=24' ) }}
 
           # preload enroot container using one task per node
           time srun \
