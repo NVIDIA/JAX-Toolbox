@@ -29,6 +29,7 @@ usage() {
     echo ""
     echo "    OPTIONS                        DESCRIPTION"
     echo "    --bazel-cache URI              Path for local bazel cache or URL of remote bazel cache"
+    echo "    --bazel-cache-namespace NAME   Namespace for bazel cache content"
     echo "    --build-param PARAM            Param passed to the jaxlib build command. Can be passed many times."
     echo "    --build-path-jaxlib PATH       Editable install prefix for jaxlib and plugins"
     echo "    --clean                        Delete local configuration and bazel cache"
@@ -51,6 +52,7 @@ usage() {
 
 # Set defaults
 BAZEL_CACHE=""
+BAZEL_CACHE_NAMESPACE="jax${CUDA_BASE_IMAGE:+:}${CUDA_BASE_IMAGE}"
 BUILD_PATH_JAXLIB="/opt/jaxlibs"
 BUILD_PARAM=""
 CLEAN=0
@@ -64,7 +66,7 @@ SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 XLA_ARM64_PATCH_LIST=""
 
-args=$(getopt -o h --long bazel-cache:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
+args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -74,6 +76,10 @@ while [ : ]; do
     case "$1" in
         --bazel-cache)
             BAZEL_CACHE=$2
+            shift 2
+            ;;
+        --bazel-cache-namespace)
+            BAZEL_CACHE_NAMESPACE=$2
             shift 2
             ;;
         --build-param)
@@ -196,6 +202,9 @@ fi
 if [[ "${BAZEL_CACHE}" == http://* ]] || \
    [[ "${BAZEL_CACHE}" == grpc://* ]]; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_cache=${BAZEL_CACHE}"
+    if [[ -n "${BAZEL_CACHE_NAMESPACE}" ]]; then
+        BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_instance_name=${BAZEL_CACHE_NAMESPACE}"
+    fi
 elif [[ ! -z "${BAZEL_CACHE}" ]] ; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=${BAZEL_CACHE}"
 fi
