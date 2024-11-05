@@ -52,7 +52,7 @@ usage() {
 
 # Set defaults
 BAZEL_CACHE=""
-BAZEL_CACHE_NAMESPACE=""
+BAZEL_CACHE_NAMESPACE="jax${CUDA_BASE_IMAGE:+:}${CUDA_BASE_IMAGE}"
 BUILD_PATH_JAXLIB="/opt/jaxlibs"
 BUILD_PARAM=""
 CLEAN=0
@@ -202,12 +202,11 @@ fi
 if [[ "${BAZEL_CACHE}" == http://* ]] || \
    [[ "${BAZEL_CACHE}" == grpc://* ]]; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_cache=${BAZEL_CACHE}"
+    if [[ -n "${BAZEL_CACHE_NAMESPACE}" ]]; then
+        BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_instance_name=${BAZEL_CACHE_NAMESPACE}"
+    fi
 elif [[ ! -z "${BAZEL_CACHE}" ]] ; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=${BAZEL_CACHE}"
-fi
-
-if [[ -n "${BAZEL_CACHE_NAMESPACE}" ]]; then
-    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_instance_name=${BAZEL_CACHE_NAMESPACE}"
 fi
 
 if [[ "$DEBUG" == "1" ]]; then
