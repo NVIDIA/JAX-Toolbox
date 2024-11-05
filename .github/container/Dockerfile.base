@@ -29,6 +29,7 @@ FROM ${BASE_IMAGE}
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
 ARG CLANG_VERSION
+ENV CUDA_BASE_IMAGE=${BASE_IMAGE}
 
 ###############################################################################
 ## Install Python and essential tools

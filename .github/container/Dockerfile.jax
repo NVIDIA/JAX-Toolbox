@@ -49,6 +49,7 @@ RUN ARCH="$(dpkg --print-architecture)" && \
 ADD xla-arm64-neon.patch /opt
 RUN build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
+    --bazel-cache-namespace "${CUDA_BASE_IMAGE:-jax}" \
     --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
