@@ -355,6 +355,18 @@ There are various other XLA flags users can set to improve performance. For a de
 
 For a list of previously used XLA flags that are no longer needed, please also refer to the [GPU performance](./rosetta/docs/GPU_performance.md#previously-used-xla-flags) page.
 
+## Versions
+
+
+The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is embedded with the following flags and environment variables for performance tuning of XLA and NCCL:
+
+| First nightly with new base container | Base container |
+| ------------------------------------- | -------------- |
+| 2024-11-05 | nvidia/cuda:12.6.2-devel-ubuntu22.04 |
+| 2024-09-25 | nvidia/cuda:12.6.1-devel-ubuntu22.04 |
+| 2024-07-24 | nvidia/cuda:12.5.0-devel-ubuntu22.04 |
+
+
 ## Profiling
 See [this page](./docs/profiling.md) for more information about how to profile JAX programs on GPU.
 
