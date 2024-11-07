@@ -357,9 +357,6 @@ For a list of previously used XLA flags that are no longer needed, please also r
 
 ## Versions
 
-
-The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is embedded with the following flags and environment variables for performance tuning of XLA and NCCL:
-
 | First nightly with new base container | Base container |
 | ------------------------------------- | -------------- |
 | 2024-11-05 | nvidia/cuda:12.6.2-devel-ubuntu22.04 |
