@@ -447,6 +447,8 @@ jobs:
                 volumeMounts:
                 - mountPath: /opt/output
                   name: output
+              imagePullSecrets:
+              - name: ${{ github.run_id }}-${{ github.run_attempt }}-token
               volumes:
               - name: output
                 emptyDir: {}
@@ -520,6 +522,8 @@ jobs:
                 volumeMounts:
                 - mountPath: /opt/output
                   name: output
+              imagePullSecrets:
+              - name: ${{ github.run_id }}-${{ github.run_attempt }}-token
               volumes:
               - name: output
                 emptyDir: {}
@@ -528,6 +532,18 @@ jobs:
                   medium: Memory
                   sizeLimit: 8Gi
     steps:
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Store GitHub Container Registry token as Kubernetes secret
+      run: |
+        kubectl create secret generic \
+          ${{ github.run_id }}-${{ github.run_attempt }}-token \
+          --from-file=.dockerconfigjson=$HOME/.docker/config.json \
+          --type=kubernetes.io/dockerconfigjson
     - name: Submit Kubernetes job
       run: kubectl apply -f - <<< "${JOB_DESCRIPTION}"
     - name: Wait for Kubernetes job to start
@@ -554,6 +570,9 @@ jobs:
     - name: Delete post-processing Kubernetes job
       if: always()
       run: kubectl delete job ${{ github.run_id }}-${{ github.run_attempt }}-postprocess
+    - name: Delete GitHub Container Registry token
+      if: always()
+      run: kubectl delete secret ${{ github.run_id }}-${{ github.run_attempt }}-token
 
   # test-equinox:
   #   needs: build-equinox
