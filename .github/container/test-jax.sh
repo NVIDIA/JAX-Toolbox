@@ -113,8 +113,6 @@ for t in $*; do
 done
 
 TEST_TAG_FILTER_ARRAY=()
-TEST_TAG_FILTER_ARRAY+=('-multiaccelerator')
-
 COMMON_FLAGS=$(cat << EOF
 --@local_config_cuda//:enable_cuda
 --cache_test_results=${CACHE_TEST_RESULTS}
