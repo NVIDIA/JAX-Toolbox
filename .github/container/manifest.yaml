@@ -40,6 +40,9 @@ paxml:
   patches:
     pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
     pull/93/head: file://patches/paxml/PR-93.patch # exposes TE DPA argument in Grok to make it configurable from the command line
+    mirror/patch/validation-configs: file://patches/paxml/mirror-patch-validation-configs.patch # adds additional configs for testing
+    mirror/patch/log-avg-loss: file://patches/paxml/mirror-patch-log-avg-loss.patch # logs average loss over last `n` steps
+    mirror/patch/status-logging: file://patches/paxml/mirror-patch-status-logging.patch # sets log level of task status lines to warning
 praxis:
   url: https://github.com/google/praxis.git
   mirror_url: https://github.com/nvjax-svc-0/praxis.git
