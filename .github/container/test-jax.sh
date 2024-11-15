@@ -161,7 +161,10 @@ case "${BATTERY}" in
         ;;
 esac
 
-TEST_TAG_FILTERS=$(IFS=, ; echo "--test_tag_filters=${TEST_TAG_FILTER_ARRAY[*]}")
+TEST_TAG_FILTERS=""
+if [[ ${#TEST_TAG_FILTER_ARRAY[@]} > 0 ]]; then
+    TEST_TAG_FILTERS=$(IFS=, ; echo "--test_tag_filters=${TEST_TAG_FILTER_ARRAY[*]}")
+fi
 
 print_var NCPUS
 print_var NGPUS
