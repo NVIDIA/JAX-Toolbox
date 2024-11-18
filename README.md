@@ -333,9 +333,9 @@ We support and test the following JAX frameworks and model architectures. More d
   </tbody>
 </table>
 
-In all of the above cases, `ghcr.io/nvidia/jax:XXX` points to the most recent
-nightly build of the container for `XXX`. These containers are also tagged as
-`ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`, if a stable reference is required.
+In all cases, `ghcr.io/nvidia/jax:XXX` points to latest nightly build of the container for `XXX`. For a stable reference, use `ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`. 
+
+In addition to the public CI, we also run internal CI tests on H100 SXM 80GB and A100 SXM 80GB. 
 
 ## Environment Variables
 
@@ -354,6 +354,15 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 There are various other XLA flags users can set to improve performance. For a detailed explanation of these flags, please refer to the [GPU performance](./rosetta/docs/GPU_performance.md) doc. XLA flags can be tuned per workflow. For example, each script in [contrib/gpu/scripts_gpu](https://github.com/google/paxml/tree/main/paxml/contrib/gpu/scripts_gpu) sets its own [XLA flags](https://github.com/google/paxml/blob/93fbc8010dca95af59ab615c366d912136b7429c/paxml/contrib/gpu/scripts_gpu/benchmark_gpt_multinode.sh#L30-L33).
 
 For a list of previously used XLA flags that are no longer needed, please also refer to the [GPU performance](./rosetta/docs/GPU_performance.md#previously-used-xla-flags) page.
+
+## Versions
+
+| First nightly with new base container | Base container |
+| ------------------------------------- | -------------- |
+| 2024-11-06 | nvidia/cuda:12.6.2-devel-ubuntu22.04 |
+| 2024-09-25 | nvidia/cuda:12.6.1-devel-ubuntu22.04 |
+| 2024-07-24 | nvidia/cuda:12.5.0-devel-ubuntu22.04 |
+
 
 ## Profiling
 See [this page](./docs/profiling.md) for more information about how to profile JAX programs on GPU.
@@ -404,6 +413,14 @@ Docker has traditionally used Docker Schema V2.2 for multi-arch manifest lists b
     * [Running a deep learning workload with JAX on multinode multi-GPU clusters on OCI](https://blogs.oracle.com/cloud-infrastructure/post/running-multinode-jax-clusters-on-oci-gpu-cloud)
 
 ## Resources
-* [What's New in JAX | GTC Spring 2023](https://www.nvidia.com/en-us/on-demand/session/gtcspring23-s51956/)
+* [JAX | NVIDIA NGC Container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax)
 * [Slurm and OpenMPI zero config integration](https://jax.readthedocs.io/en/latest/_autosummary/jax.distributed.initialize.html)
 * [Adding custom GPU ops](https://jax.readthedocs.io/en/latest/Custom_Operation_for_GPUs.html)
+* [Triaging regressions](docs/triage-tool.md)
+
+## Videos
+* [Equinox for JAX: The Foundation of an Ecosystem for Science and Machine Learning](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62668/)
+* [Scaling Grok with JAX and H100](https://www.nvidia.com/en-us/on-demand/session/gtc24-s63257/)
+* [JAX Supercharged on GPUs: High Performance LLMs with JAX and OpenXLA](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62246/)
+* [What's New in JAX | GTC Spring 2024](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62659/)
+* [What's New in JAX | GTC Spring 2023](https://www.nvidia.com/en-us/on-demand/session/gtcspring23-s51956/)

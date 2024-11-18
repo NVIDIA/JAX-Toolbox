@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=nvidia/cuda:12.6.1-devel-ubuntu22.04
+ARG BASE_IMAGE=nvidia/cuda:12.6.2-devel-ubuntu22.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG CLANG_VERSION=18
@@ -8,17 +8,17 @@ ARG CLANG_VERSION=18
 ## Obtain GCP's NCCL TCPx plugin
 ###############################################################################
 
-FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.10 as tcpx-installer-amd64
+FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.10 AS tcpx-installer-amd64
 
 # make a stub arm64 container because GCP does not provide an arm64 version of the plugin
-FROM ubuntu as tcpx-installer-arm64
+FROM ubuntu AS tcpx-installer-arm64
 RUN <<"OUTEREOF" bash -ex
 mkdir -p /scripts /var/lib/tcpx/lib64
 echo '#!/bin/bash' > /scripts/container_entry.sh
 chmod +x /scripts/container_entry.sh
 OUTEREOF
 
-FROM tcpx-installer-${TARGETARCH} as tcpx-installer
+FROM tcpx-installer-${TARGETARCH} AS tcpx-installer
 RUN /scripts/container_entry.sh install
 
 ###############################################################################
@@ -26,9 +26,11 @@ RUN /scripts/container_entry.sh install
 ###############################################################################
 
 FROM ${BASE_IMAGE}
+ARG BASE_IMAGE
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
 ARG CLANG_VERSION
+ENV CUDA_BASE_IMAGE=${BASE_IMAGE}
 
 ###############################################################################
 ## Install Python and essential tools
@@ -200,13 +202,20 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ## Add helper scripts for profiling with Nsight Systems
 ##
 ## The scripts saved to /opt/jax_nsys are embedded in the output archives
-## written by nsys-jax, while the nsys-jax wrapper is used inside the container.
+## written by nsys-jax, while the nsys-jax and nsys-jax-combine scripts are
+## only used inside the containers.
 ###############################################################################
-
 ADD nsys-jax nsys-jax-combine /usr/local/bin/
 ADD jax_nsys/ /opt/jax_nsys
+# The jax_nsys package should be installed inside the containers, so nsys-jax
+# can eagerly execute analysis recipes (--nsys-jax-analysis) in the container
+# environment, without an extra layer of virtual environment indirection.
 RUN echo "-e /opt/jax_nsys/python/jax_nsys" > /opt/pip-tools.d/requirements-nsys-jax.in
+# This should be embedded in output archives and be runnable inside containers
 RUN ln -s /opt/jax_nsys/install-protoc /usr/local/bin/
+# Should be available for execution inside the containers, should not be
+# embedded in the output archives.
+ADD jax_nsys_tests/ /opt/jax_nsys_tests
 
 ###############################################################################
 ## Copy manifest file to the container

@@ -56,6 +56,9 @@ EOF
 RUN <<"EOF" bash -ex
 pushd /opt/checkout/external/triton
 mkdir dist
+# Make sure the wheel is labelled as 3.1 (it is ~HEAD), not 3.0. The upstream branch
+# structure seems to have a 3.1 release branch that has not been merged back to main.
+sed -i -e 's|version="3\.0\.0"|version="3.1.0"|g' python/setup.py
 # Do not compile with -Werror
 sed -i -e 's|-Werror||g' CMakeLists.txt
 # The LLVM build above does not enable these libraries

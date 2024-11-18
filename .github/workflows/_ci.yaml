@@ -315,6 +315,14 @@ jobs:
         set -o pipefail
         num_tests=0
         num_failures=0
+        # Run the pytest-driven tests
+        docker run -i --shm-size=1g --gpus all \
+          -v $PWD:/opt/output \
+          ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+          bash <<"EOF" |& tee test-nsys-jax.log
+            pip install pytest-reportlog -e /opt/jax_nsys/python/jax_nsys[test]
+            pytest --report-log=/opt/output/pytest-report.jsonl /opt/jax_nsys_tests
+        EOF
         GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
         for mode in 1-process 2-process process-per-gpu; do
           DOCKER="docker run --shm-size=1g --gpus all --env XLA_FLAGS=--xla_gpu_enable_command_buffer= --env XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 -v ${PWD}:/opt/output ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"
@@ -367,13 +375,21 @@ jobs:
         echo "NSYS_JAX_FAIL_COUNT=${num_failures}" >> $GITHUB_ENV
         exit $num_failures
       STATISTICS_SCRIPT: |
-        num_passed=$(( NSYS_JAX_TEST_COUNT - NSYS_JAX_FAIL_COUNT ))
-        num_errors=0
-        echo "TOTAL_TESTS=${NSYS_JAX_TEST_COUNT}" >> $GITHUB_OUTPUT
-        echo "ERRORS=0" >> $GITHUB_OUTPUT
+        summary_line=$(tail -n1 test-nsys-jax.log)
+        num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
+        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+        total_tests=$(( NSYS_JAX_TEST_COUNT + passed_tests + failed_tests ))
+        num_passed=$(( passed_tests + NSYS_JAX_TEST_COUNT - NSYS_JAX_FAIL_COUNT ))
+        num_failed=$(( failed_tests + NSYS_JAX_FAIL_COUNT ))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
         echo "PASSED_TESTS=${num_passed}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${NSYS_JAX_FAIL_COUNT}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${num_failed}" >> $GITHUB_OUTPUT
       ARTIFACTS: |
+        # pytest-driven part
+        test-nsys-jax.log
+        pytest-report.jsonl
         # nsys-jax logfiles
         *process-*-execution.log
         # nsys-jax output for the case that doesn't use nsys-jax-combine
