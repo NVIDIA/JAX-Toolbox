@@ -15,3 +15,8 @@ requires-python = ">= 3.10"
 test = [
   "pytest"
 ]
+[project.scripts]
+install-protoc      = "jax_nsys.scripts.install_protoc:main"
+nsys-jax            = "jax_nsys.scripts.nsys_jax:main_profile"
+nsys-jax-combine    = "jax_nsys.scripts.nsys_jax:main_combine"
+nsys-jax-patch-nsys = "jax_nsys.scripts.patch_nsys:main"
