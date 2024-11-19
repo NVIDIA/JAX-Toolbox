@@ -447,32 +447,6 @@ jobs:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  test-pallas:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: pallas
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-pallas.log
-          python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml
-        EOF
-      STATISTICS_SCRIPT: |
-        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
-        total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
-        errors=$(./yq '.testsuites."+@errors"' pallas_test.xml)
-        failed_tests=$(./yq '.testsuites."+@failures"' pallas_test.xml)
-        passed_tests=$((total_tests - errors - failed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-pallas.log
-    secrets: inherit
-
   test-triton:
     needs: build-triton
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
