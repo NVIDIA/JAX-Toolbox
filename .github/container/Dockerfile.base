@@ -211,8 +211,6 @@ ADD jax_nsys/ /opt/jax_nsys
 # can eagerly execute analysis recipes (--nsys-jax-analysis) in the container
 # environment, without an extra layer of virtual environment indirection.
 RUN echo "-e /opt/jax_nsys/python/jax_nsys" > /opt/pip-tools.d/requirements-nsys-jax.in
-# This should be embedded in output archives and be runnable inside containers
-RUN ln -s /opt/jax_nsys/install-protoc /usr/local/bin/
 # Should be available for execution inside the containers, should not be
 # embedded in the output archives.
 ADD jax_nsys_tests/ /opt/jax_nsys_tests

@@ -43,7 +43,8 @@ jobs:
       - name: "Install jax / jax_nsys / mypy"
         run: pip install jax -e JAX-Toolbox/.github/container/jax_nsys/python/jax_nsys matplotlib mypy nbconvert types-protobuf
       - name: "Install protoc"
-        run: ./JAX-Toolbox/.github/container/jax_nsys/install-protoc local_protoc
+        # TODO: this could install into the pip prefix as a default
+        run: install-protoc local_protoc
       - name: "Fetch XLA .proto files"
         uses: actions/checkout@v4
         with:
@@ -101,7 +102,8 @@ jobs:
         shell: bash -x -e {0}
         run: |
           pip install -e .github/container/jax_nsys/python/jax_nsys
-          python .github/container/jax_nsys/install-protoc local_protoc
+          # TODO: this could install into the pip prefix as a default
+          install-protoc local_protoc
           PATH=${PWD}/local_protoc/bin:$PATH .github/container/nsys-jax-combine \
             --analysis summary \
             --analysis communication \
