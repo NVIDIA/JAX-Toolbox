@@ -18,6 +18,8 @@ import time
 import traceback
 import zipfile
 
+from .utils import shuffle_analysis_arg
+
 # Expand %q{ENV_VAR} if the variable is defined.
 def expand(string: str, skip_missing=True) -> str:
     missing = set()
@@ -34,23 +36,6 @@ def expand(string: str, skip_missing=True) -> str:
     if not skip_missing and missing:
         raise Exception(f"{missing} not defined when expanding '{string}'")
     return expanded
-
-def shuffle_analysis_arg(analysis):
-    if analysis is None:
-        return []
-    # [Script(A), Arg(A1), Arg(A2), Script(B), Arg(B1)] becomes [[A, A1, A2], [B, B1]]
-    out, current = [], []
-    for t, x in analysis:
-        if t == "script":
-            if len(current):
-                out.append(current)
-            current = [x]
-        else:
-            assert t == "arg" and len(current)
-            current.append(x)
-    if len(current):
-        out.append(current)
-    return out
 
 def main():
     """

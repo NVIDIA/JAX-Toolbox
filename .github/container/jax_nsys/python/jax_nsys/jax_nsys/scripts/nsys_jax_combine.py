@@ -10,6 +10,8 @@ import sys
 import tempfile
 import zipfile
 
+from .utils import shuffle_analysis_arg
+
 def main():
     """
     Entrypoint for nsys-jax-combine
@@ -41,26 +43,6 @@ def main():
         help="Extra arguments to pass to analysis scripts specified via --analysis",
         type=lambda x: ("arg", x),
     )
-
-
-    def shuffle_analysis_arg(analysis):
-        if analysis is None:
-            return []
-        # [Script(A), Arg(A1), Arg(A2), Script(B), Arg(B1)] becomes [[A, A1, A2], [B, B1]]
-        out, current = [], []
-        for t, x in analysis:
-            if t == "script":
-                if len(current):
-                    out.append(current)
-                current = [x]
-            else:
-                assert t == "arg" and len(current)
-                current.append(x)
-        if len(current):
-            out.append(current)
-        return out
-
-
     parser.add_argument(
         "-f",
         "--force-overwrite",
