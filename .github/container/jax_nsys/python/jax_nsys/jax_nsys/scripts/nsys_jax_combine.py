@@ -1,5 +1,5 @@
 def main():
     """
-    Entrypoint for nsys-jax
+    Entrypoint for nsys-jax-combine
     """
     pass
