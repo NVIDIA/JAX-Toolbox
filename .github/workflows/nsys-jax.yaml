@@ -19,10 +19,7 @@ on:
 
 env:
   NSYS_JAX_PYTHON_FILES: |
-    JAX-Toolbox/.github/container/nsys-jax
-    JAX-Toolbox/.github/container/nsys-jax-combine
     JAX-Toolbox/.github/container/jax_nsys
-    JAX-Toolbox/.github/container/jax_nsys_tests
     JAX-Toolbox/.github/container/jax-nccl-test
 
 jobs:
@@ -41,7 +38,7 @@ jobs:
           python-version: '3.10'
       # jax is just a CPU-only build of the latest release for type-checking purposes
       - name: "Install jax / jax_nsys / mypy"
-        run: pip install jax -e JAX-Toolbox/.github/container/jax_nsys/python/jax_nsys matplotlib mypy nbconvert types-protobuf
+        run: pip install jax -e JAX-Toolbox/.github/container/jax_nsys matplotlib mypy nbconvert types-protobuf
       - name: "Install protoc"
         # TODO: this could install into the pip prefix as a default
         run: install-protoc local_protoc
@@ -101,7 +98,7 @@ jobs:
       - name: Use nsys-jax-combine to merge profiles from multiple nsys processes
         shell: bash -x -e {0}
         run: |
-          pip install -e .github/container/jax_nsys/python/jax_nsys
+          pip install -e .github/container/jax_nsys
           # TODO: this could install into the pip prefix as a default
           install-protoc local_protoc
           PATH=${PWD}/local_protoc/bin:$PATH .github/container/nsys-jax-combine \
