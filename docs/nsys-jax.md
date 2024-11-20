@@ -32,7 +32,7 @@ containers.
 ### Manual installation
 The main installation step is simply
 ```console
-$ pip install git+https://github.com/NVIDIA/JAX-Toolbox.git@main#subdirectory=.github/container/jax_nsys/python/jax_nsys
+$ pip install git+https://github.com/NVIDIA/JAX-Toolbox.git@main#subdirectory=.github/container/jax_nsys
 ```
 You may want to include this in a global `pip-compile`-based dependency resolution (as is done in the containers built
 from this repository), rather than running too many ad-hoc `pip install` commands.
@@ -51,7 +51,8 @@ This will install all of the components mentioned so far, but does not currently
   installation. If the relevant XLA source tree is not checked out at `/opt/xla`, the environment variable XXX should
   be set to point to it.
 - A small patch to some Python files included in the installations of Nsight Systems versions 2024.5 and 2024.6 is
-  needed for compatibility with `nsys-jax`, this can be applied by running the `nsys-jax-patch-nsys` command.
+  needed for compatibility with `nsys-jax`, this can be applied by running the `nsys-jax-patch-nsys` command and will
+  not be required in other versions of Nsight Systems.
 
 Only `protoc` is always needed, the remaining dependencies are only required when actually collecting profile data with
 the `nsys-jax` command, but not when merging collected profile data with `nsys-jax-combine` or running local analyses

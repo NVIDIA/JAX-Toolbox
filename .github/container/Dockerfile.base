@@ -200,20 +200,14 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 
 ###############################################################################
 ## Add helper scripts for profiling with Nsight Systems
-##
-## The scripts saved to /opt/jax_nsys are embedded in the output archives
-## written by nsys-jax, while the nsys-jax and nsys-jax-combine scripts are
-## only used inside the containers.
 ###############################################################################
-ADD nsys-jax nsys-jax-combine /usr/local/bin/
+# TODO: the installation script bundled in output archives should know which
+#       commit of JAX-Toolbox to install jax_nsys from for consistency
 ADD jax_nsys/ /opt/jax_nsys
-# The jax_nsys package should be installed inside the containers, so nsys-jax
-# can eagerly execute analysis recipes (--nsys-jax-analysis) in the container
-# environment, without an extra layer of virtual environment indirection.
-RUN echo "-e /opt/jax_nsys/python/jax_nsys" > /opt/pip-tools.d/requirements-nsys-jax.in
-# Should be available for execution inside the containers, should not be
-# embedded in the output archives.
-ADD jax_nsys_tests/ /opt/jax_nsys_tests
+# The jax_nsys package should be installed inside the containers so nsys-jax,
+# nsys-jax-combine, install-protoc and nsys-jax-patch-nsys are available, and
+# the jax_nsys package can be used.
+RUN echo "-e /opt/jax_nsys" > /opt/pip-tools.d/requirements-nsys-jax.in
 
 ###############################################################################
 ## Copy manifest file to the container
