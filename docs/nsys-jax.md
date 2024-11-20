@@ -9,7 +9,7 @@ There are two command-line tools:
   consistency checks.
 
 Behind the scenes, there is a small Python library (`jax_nsys`) for loading and analysing the output of `nsys-jax` and
-`nsys-jax-combine`, which allows the use of standard data science tools like `numpy`, `pandas` and `matplotlib` to
+`nsys-jax-combine`, which allows the use of standard data science packages like `numpy`, `pandas` and `matplotlib` to
 explore profile data.
 
 There are three convenient ways of running profile data analyses:
@@ -32,23 +32,46 @@ containers.
 ### Manual installation
 The main installation step is simply
 ```console
-$ pip install git+https://github.com/NVIDIA/JAX-Toolbox.git#subdirectory=.github/container/jax_nsys/python/jax_nsys      
-``` 
+$ pip install git+https://github.com/NVIDIA/JAX-Toolbox.git@main#subdirectory=.github/container/jax_nsys/python/jax_nsys
+```
+You may want to include this in a global `pip-compile`-based dependency resolution (as is done in the containers built
+from this repository), rather than running too many ad-hoc `pip install` commands.
 
-The
+This will install all of the components mentioned so far, but does not currently include all (implicit) dependencies:
+- `protoc` must be installed at a version compatible with the `google.protobuf` runtime library; `nsys-jax` includes a
+  helper script that can be run after `pip install`, e.g. to install `/usr/local/bin/protoc`, run
+  `install-protoc /usr/local`.
+- Nsight Systems's multi-report analysis system is used by `nsys-jax` internally and has some additional dependencies
+  that are not bundled in the Nsight Systems installation
+  ([doc](https://docs.nvidia.com/nsight-systems/InstallationGuide/index.html#installing-multi-report-analysis-system)),
+  these are listed in `<nsys_install_dir>/target-linux-x64/python/packages/nsys_recipe/requirements/common.txt` and can
+  be installed with `pip install -r /path/to/common.txt` or by including it in your global `pip-compile`-based
+  dependency resolution.
+- To interpret metadata dumped from XLA, `nsys-jax` needs `.proto` files from XLA that are not included in the JAX
+  installation. If the relevant XLA source tree is not checked out at `/opt/xla`, the environment variable XXX should
+  be set to point to it.
+- A small patch to some Python files included in the installations of Nsight Systems versions 2024.5 and 2024.6 is
+  needed for compatibility with `nsys-jax`, this can be applied by running the `nsys-jax-patch-nsys` command.
 
-Loosely this corresponds to `nsys profile` above, i.e. simply run `nsys-jax python my_program.py`. If you want to pass
-additional options to `nsys profile`, the syntax is `nsys-jax [nsys profile options] -- python my_program.py`; the `--`
-is compulsory.
+Only `protoc` is always needed, the remaining dependencies are only required when actually collecting profile data with
+the `nsys-jax` command, but not when merging collected profile data with `nsys-jax-combine` or running local analyses
+of profile data.
+
+## Collecting profile data
+
+The `nsys-jax` command loosely corresponds to `nsys profile`, as introduced in
+[the generic profiling documentation](./profiling.md).
+Simply run `nsys-jax python my_program.py`.
+If you want to pass additional options to `nsys profile`, the syntax is
+`nsys-jax [nsys profile options] -- python my_program.py`; the `--` is compulsory.
 
 `nsys-jax` collects additional JAX/XLA metadata from the program being profiled and automatically performs some
 post-processing of the profile data to faciliate programmatic analysis.
 
-It is documented in more detail [on this page](./nsys-jax.md).
-
-It is usually a good idea to set the profile names to something meaningful using `nsys profile`'s `--output=..` option.
-`nsys-jax` will read the value of this option and save extra metadata under the same prefix, with the restriction that
-only `%q{ENV_VAR}` expansions are supported. An example when using the Slurm job orchestrator is:
+It is usually a good idea to set the profile names to something meaningful using the `--output` (`-o`) option.
+The syntax supported by `nsys-jax` is slightly more restricted than what `nsys` supports; only `%q{ENV_VAR}` expansions
+are supported.
+An example when using the Slurm job orchestrator is:
 `nsys-jax -o /out/job%q{SLURM_JOB_ID}/step%q{SLURM_STEP_ID}/rank%q{SLURM_PROCID} -- python my_program.py`
 which will result in an output archive `/out/job42/step7/rank0.zip` that contains `rank0.nsys-rep` and other metadata.
 
