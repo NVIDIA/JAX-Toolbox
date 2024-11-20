@@ -183,7 +183,7 @@ ENV PATH=/opt/amazon/efa/bin:${PATH}
 ADD install-nccl-sanity-check.sh /usr/local/bin
 ADD nccl-sanity-check.cu /opt
 RUN install-nccl-sanity-check.sh
-ADD jax-nccl-test parallel-launch /usr/local/bin
+ADD jax-nccl-test parallel-launch /usr/local/bin/
 
 ###############################################################################
 ## Add the systemcheck to the entrypoint.

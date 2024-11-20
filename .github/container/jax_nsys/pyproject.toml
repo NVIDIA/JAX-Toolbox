@@ -11,6 +11,9 @@ dependencies = [
   "uncertainties", # communication analysis recipe
 ]
 requires-python = ">= 3.10"
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
 [project.optional-dependencies]
 test = [
   "pytest"
@@ -20,3 +23,13 @@ install-protoc      = "jax_nsys.scripts.install_protoc:main"
 nsys-jax            = "jax_nsys.scripts.nsys_jax:main"
 nsys-jax-combine    = "jax_nsys.scripts.nsys_jax_combine:main"
 nsys-jax-patch-nsys = "jax_nsys.scripts.patch_nsys:main"
+[tool.setuptools_scm]
+root = "../../.." # .github/container/jax_nsys
+# written into the git checkout in case of an editable installation
+version_file = "jax_nsys/version.py"
+# __sha__ is not written by default
+version_file_template = """\
+__version__ = version = {version!r}
+__version_tuple__ = version_tuple = {version_tuple!r}
+__sha__ = {scm_version.node!r}
+"""
