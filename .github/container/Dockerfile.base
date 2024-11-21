@@ -112,7 +112,7 @@ RUN <<"EOF" bash -ex
 git config --global user.name "${GIT_USER_NAME}"
 git config --global user.email "${GIT_USER_EMAIL}"
 EOF
-RUN mkdir -p /opt/pip-tools.d
+RUN mkdir -p /opt/pip-tools.d /opt/pip-tools-post-install.d
 ADD --chmod=777 \
   git-clone.sh \
   pip-finalize.sh \
@@ -150,8 +150,7 @@ RUN install-nsight.sh
 ###############################################################################
 
 ADD install-nsys-jax.sh /usr/local/bin
-RUN --mount=source=jax_nsys/jax_nsys/scripts/patch_nsys.py,target=/opt/patch_nsys.py \
-  install-nsys-jax.sh ${JAX_TOOLBOX_SHA} /opt/patch_nsys.py
+RUN install-nsys-jax.sh ${JAX_TOOLBOX_SHA}
 
 ###############################################################################
 ## Install cuDNN

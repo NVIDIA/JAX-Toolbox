@@ -51,6 +51,9 @@ pip-sync --pip-args '--no-deps --src /opt' requirements.txt
 
 rm -rf ~/.cache/*
 
-# protobuf will be installed at least as a dependency of jax_nsys in the base
-# image, but the installed version is likely to be influenced by other packages.
-install-protoc /usr/local
+# Execute post-install hooks
+for post_install in $(ls /opt/pip-tools-post-install.d/*); do
+  if [[ -x "${post_install}" ]]; then
+    "${post_install}"
+  fi
+done
