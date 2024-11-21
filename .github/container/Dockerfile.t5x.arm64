@@ -16,7 +16,7 @@ ARG SRC_PATH_T5X=/opt/t5x
 # build tensorflow-text from source
 #------------------------------------------------------------------------------
 
-FROM ${BASE_IMAGE} as tftext-builder
+FROM ${BASE_IMAGE} AS tftext-builder
 ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
@@ -42,7 +42,7 @@ EOF
 ## T5X for AArch64
 ###############################################################################
 
-FROM ${BASE_IMAGE} as mealkit
+FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_T5X
 ARG SRC_PATH_TFTEXT
 ARG SRC_PATH_T5X
@@ -90,6 +90,6 @@ ADD test-t5x.sh /usr/local/bin
 ## Install accumulated packages from the base image and the previous[] stage
 ###############################################################################
 
-FROM mealkit as final
+FROM mealkit AS final
 
 RUN pip-finalize.sh

@@ -11,13 +11,13 @@ ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 ###############################################################################
 
 ARG BASE_IMAGE
-FROM ${BASE_IMAGE} as wheel-builder
+FROM ${BASE_IMAGE} AS wheel-builder
 
 #------------------------------------------------------------------------------
 # build tensorflow-text from source
 #------------------------------------------------------------------------------
 
-FROM wheel-builder as tftext-builder
+FROM wheel-builder AS tftext-builder
 ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
 RUN <<"EOF" bash -exu -o pipefail
@@ -43,7 +43,7 @@ EOF
 ## Download source and add auxiliary scripts
 ###############################################################################
 
-FROM ${BASE_IMAGE} as mealkit
+FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_MAXTEXT
 ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#v2.13.0
 ARG SRC_PATH_MAXTEXT
@@ -68,7 +68,7 @@ ADD test-maxtext.sh /usr/local/bin
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
-FROM mealkit as final
+FROM mealkit AS final
 
 RUN pip-finalize.sh
 

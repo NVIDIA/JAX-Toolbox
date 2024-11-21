@@ -8,7 +8,7 @@ ARG SRC_PATH_MAXTEXT=/opt/maxtext
 ## Download source and add auxiliary scripts
 ###############################################################################
 
-FROM ${BASE_IMAGE} as mealkit
+FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_MAXTEXT
 ARG SRC_PATH_MAXTEXT
 
@@ -27,7 +27,7 @@ ADD test-maxtext.sh /usr/local/bin
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
-FROM mealkit as final
+FROM mealkit AS final
 
 RUN pip-finalize.sh
 
