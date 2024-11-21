@@ -22,10 +22,8 @@ if [[ ! -d "${VIRTUALENV}" ]]; then
   python -m pip install jupyterlab matplotlib
   # FIXME: install from JAX-Toolbox GitHub? include [jupyter] variant?
   python -m pip install -e "${SCRIPT_DIR}/python/jax_nsys"
+  install-flamegraph "${VIRTUALENV}"
   install-protoc "${VIRTUALENV}"
-  # TODO: include this in the main installation so it can be used in --analysis scripts?
-  curl -o "${VIRTUALENV}/bin/flamegraph.pl" https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl
-  chmod 755 "${VIRTUALENV}/bin/flamegraph.pl"
 else
   echo "Virtual environment already exists, not installing anything..."
 fi

@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# This script should be executable standalone, but it is also installed by pip as nsys-jax-patch-nsys.
 import os
 import re
 import shutil
@@ -35,7 +33,6 @@ index cd60bf4..37e0d0d 100644
 def main():
     """
     Entrypoint for nsys-jax-patch-nsys.
-    TODO: see if the installed nsys's nvtx_gpu_proj_trace recipe needs to be patched to include TID in the output
     """
     nsys = shutil.which("nsys")
     assert nsys is not None, "nsys-jax-patch-nsys expects nsys to be installed"
@@ -55,7 +52,3 @@ def main():
             check=True,
             text=True,
         )
-
-
-if __name__ == "__main__":
-    main()
