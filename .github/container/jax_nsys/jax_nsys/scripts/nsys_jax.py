@@ -37,7 +37,7 @@ def expand(string: str, skip_missing=True) -> str:
         raise Exception(f"{missing} not defined when expanding '{string}'")
     return expanded
 
-def main():
+def main() -> None:
     """
     Entrypoint for nsys-jax
     """
