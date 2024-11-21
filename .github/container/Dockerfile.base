@@ -151,7 +151,7 @@ RUN install-nsight.sh
 
 ADD install-nsys-jax.sh /usr/local/bin
 RUN --mount=source=jax_nsys/jax_nsys/scripts/patch_nsys.py,target=/opt/patch_nsys.py \
-  install-nsys-jax.sh ${JAX_TOOLBOX_SHA}
+  install-nsys-jax.sh ${JAX_TOOLBOX_SHA} /opt/patch_nsys.py
 
 ###############################################################################
 ## Install cuDNN
