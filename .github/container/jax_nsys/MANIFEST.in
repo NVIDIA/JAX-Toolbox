@@ -1,1 +1,1 @@
-include jax_nsys/analysis/*.ipynb
+include nsys_jax/analysis/*.ipynb

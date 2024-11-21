@@ -321,8 +321,8 @@ jobs:
           -v $PWD:/opt/output \
           ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
           bash <<"EOF" |& tee test-nsys-jax.log
-            pip install pytest-reportlog -e /opt/jax_nsys[test]
-            pytest --report-log=/opt/output/pytest-report.jsonl /opt/jax_nsys/tests
+            pip install pytest-reportlog -e /opt/nsys_jax[test]
+            pytest --report-log=/opt/output/pytest-report.jsonl /opt/nsys_jax/tests
         EOF
         GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
         for mode in 1-process 2-process process-per-gpu; do

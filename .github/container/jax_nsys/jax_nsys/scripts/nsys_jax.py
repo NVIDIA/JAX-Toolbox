@@ -63,14 +63,14 @@ if [[ ! -d "${VIRTUALENV}" ]]; then
   . "${VIRTUALENV}/bin/activate"
   python -m pip install -U pip
   # FIXME: install from JAX-Toolbox GitHub? include [jupyter] variant?
-  python -m pip install -e "${SCRIPT_DIR}/python/jax_nsys[jupyter]"
+  python -m pip install -e "${SCRIPT_DIR}/python/nsys_jax[jupyter]"
   install-flamegraph "${VIRTUALENV}"
   install-protoc "${VIRTUALENV}"
 else
   echo "Virtual environment already exists, not installing anything..."
 fi
 if [ -z ${NSYS_JAX_INSTALL_SKIP_LAUNCH+x} ]; then
-  # TODO: point to jax_nsys/analysis/Analysis.ipynb
+  # TODO: point to nsys_jax/analysis/Analysis.ipynb
   echo "Launching: cd ${SCRIPT_DIR} && ${VIRTUALENV}/bin/python -m jupyterlab Analysis.ipynb"
   cd "${SCRIPT_DIR}" && "${VIRTUALENV}/bin/python" -m jupyterlab Analysis.ipynb
 else
@@ -569,7 +569,7 @@ def main() -> None:
                 osp.join(
                     mirror_dir,
                     "python",
-                    "jax_nsys_analysis",
+                    "nsys_jax_analysis",
                     script + ".py",
                 ),
                 script,
@@ -714,7 +714,7 @@ def main() -> None:
     # - post-process the .nsys-rep
     #   - convert .nsys-rep -> .parquet in the temp dir with nsys recipe
     #   - save the .parquet file to the output archive w/out extra compression
-    # - copy the contents of /opt/jax_nsys into the output archive
+    # - copy the contents of /opt/nsys_jax into the output archive
 
     # Element format: (path_in_archive, Path or bytes, ZipFile.write* kwargs)
     files_to_archive: queue.Queue = queue.Queue()
