@@ -52,8 +52,8 @@ This will install all of the components mentioned so far, but does not currently
   be installed with `pip install -r /path/to/common.txt` or by including it in your global `pip-compile`-based
   dependency resolution.
 - To interpret metadata dumped from XLA, `nsys-jax` needs `.proto` files from XLA that are not included in the JAX
-  installation. If the relevant XLA source tree is not checked out at `/opt/xla`, the environment variable XXX should
-  be set to point to it.
+  installation. If the relevant XLA source tree is not checked out at `/opt/xla`, the environment variable
+  `SRC_PATH_XLA` should be set to point to it.
 - A small patch to some Python files included in the installations of Nsight Systems versions 2024.5 and 2024.6 is
   needed for compatibility with `nsys-jax`, this can be applied by running the `nsys-jax-patch-nsys` command and will
   not be required in other versions of Nsight Systems.

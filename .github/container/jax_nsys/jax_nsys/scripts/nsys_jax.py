@@ -271,7 +271,7 @@ def main():
     compress_none: dict[str, int] = {}
 
 
-    def copy_proto_files_to_tmp(tmp_dir, xla_dir="/opt/xla"):
+    def copy_proto_files_to_tmp(tmp_dir, xla_dir=os.environ.get("SRC_PATH_XLA", "/opt/xla")):
         """
         Copy .proto files from XLA into a temporary directory under `tmp_dir`.
 
