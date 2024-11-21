@@ -19,6 +19,7 @@ import traceback
 import zipfile
 
 from .utils import shuffle_analysis_arg
+from ..version import __sha__ as jax_toolbox_sha_with_prefix
 
 # Expand %q{ENV_VAR} if the variable is defined.
 def expand(string: str, skip_missing=True) -> str:
@@ -60,12 +61,10 @@ VIRTUALENV="${SCRIPT_DIR}/nsys_jax_venv"
 if [[ ! -d "${VIRTUALENV}" ]]; then
   # Let `virtualenv` find/choose a Python. Currently >=3.10 is supported.
   virtualenv -p 3.13 -p 3.12 -p 3.11 -p 3.10 "$@" "${VIRTUALENV}"
-  . "${VIRTUALENV}/bin/activate"
-  python -m pip install -U pip
-  # FIXME: install from JAX-Toolbox GitHub? include [jupyter] variant?
-  python -m pip install -e "${SCRIPT_DIR}/python/nsys_jax[jupyter]"
-  install-flamegraph "${VIRTUALENV}"
-  install-protoc "${VIRTUALENV}"
+  "${VIRTUALENV}/bin/pip" install -U pip
+  "${VIRTUALENV}/bin/pip" install 'nsys-jax[jupyter] @ git+https://github.com/NVIDIA/JAX-Toolbox.git@{jax_toolbox_commit}#subdirectory=.github/container/nsys_jax'
+  "${VIRTUALENV}/bin/install-flamegraph" "${VIRTUALENV}"
+  "${VIRTUALENV}/bin/install-protoc" "${VIRTUALENV}"
 else
   echo "Virtual environment already exists, not installing anything..."
 fi
@@ -83,9 +82,9 @@ def create_install_script(output_queue):
     Write an install.sh to the output archive that installs nsys-jax at the same
     version/commit that the current execution is using.
     """
-    # TODO: substitute the right commit hash
-    install_script = install_script_template.format()
-    output_queue.put((install_script.encode(), "install.sh", COMPRESS_DEFLATE))
+    jax_toolbox_sha = jax_toolbox_sha_with_prefix[1:]
+    install_script = install_script_template.format(jax_toolbox_commit=jax_toolbox_sha)
+    output_queue.put(("install.sh", install_script.encode(), COMPRESS_DEFLATE))
 
 def main() -> None:
     """
@@ -714,7 +713,6 @@ def main() -> None:
     # - post-process the .nsys-rep
     #   - convert .nsys-rep -> .parquet in the temp dir with nsys recipe
     #   - save the .parquet file to the output archive w/out extra compression
-    # - copy the contents of /opt/nsys_jax into the output archive
 
     # Element format: (path_in_archive, Path or bytes, ZipFile.write* kwargs)
     files_to_archive: queue.Queue = queue.Queue()
