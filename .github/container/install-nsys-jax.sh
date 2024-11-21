@@ -2,14 +2,15 @@
 set -exo pipefail
 
 SHA="$1"
-if [[ ! $SHA =~ ^[0-9a-f]{40}$ ]]; then
-  echo "$0: <SHA of JAX-Toolbox>"
+PATCH_SCRIPT="$2"
+if [[ ! $SHA =~ ^[0-9a-f]{40}$ || ! -f "${PATCH_SCRIPT}" ]]; then
+  echo "$0: <SHA of JAX-Toolbox> /path/to/patch_nsys.py"
   exit 1
 fi
 
 # This script gets installed via pip-finalize.sh eventually as nsys-jax-patch-nsys, but
 # it's cleaner to include the result in the base image, so run it eagerly here.
-python /opt/patch_nsys.py
+python "${PATCH_SCRIPT}"
 
 # Install extra dependencies needed for `nsys recipe ...` commands. These are
 # used by the nsys-jax wrapper script.
