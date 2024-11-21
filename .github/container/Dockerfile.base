@@ -3,6 +3,7 @@ ARG BASE_IMAGE=nvidia/cuda:12.6.2-devel-ubuntu22.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG CLANG_VERSION=18
+ARG JAX_TOOLBOX_SHA
 
 ###############################################################################
 ## Obtain GCP's NCCL TCPx plugin
@@ -30,6 +31,7 @@ ARG BASE_IMAGE
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
 ARG CLANG_VERSION
+ARG JAX_TOOLBOX_SHA
 ENV CUDA_BASE_IMAGE=${BASE_IMAGE}
 
 ###############################################################################
@@ -203,11 +205,12 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ###############################################################################
 # TODO: the installation script bundled in output archives should know which
 #       commit of JAX-Toolbox to install jax_nsys from for consistency
-ADD jax_nsys/ /opt/jax_nsys
+#ADD jax_nsys/ /opt/jax_nsys
 # The jax_nsys package should be installed inside the containers so nsys-jax,
 # nsys-jax-combine, install-protoc and nsys-jax-patch-nsys are available, and
 # the jax_nsys package can be used.
-RUN echo "-e /opt/jax_nsys" > /opt/pip-tools.d/requirements-nsys-jax.in
+#RUN echo "-e /opt/jax_nsys" > /opt/pip-tools.d/requirements-nsys-jax.in
+RUN echo "-e 'git+https://github.com/NVIDIA/JAX-Toolbox.git@${JAX_TOOLBOX_SHA}#subdirectory=.github/container/jax_nsys&egg=jax-nsys' --src /opt/editable_vcs" > /opt/pip-tools.d/requirements-nsys-jax.in
 
 ###############################################################################
 ## Copy manifest file to the container

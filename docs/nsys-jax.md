@@ -32,7 +32,11 @@ containers.
 ### Manual installation
 The main installation step is simply
 ```console
-$ pip install git+https://github.com/NVIDIA/JAX-Toolbox.git@main#subdirectory=.github/container/jax_nsys
+$ pip install git+https://github.com/NVIDIA/JAX-Toolbox.git#subdirectory=.github/container/jax_nsys
+```
+or, for an editable install from a specific branch/tag/commit:
+```console
+$ pip install --src /checkout-dir -e 'git+https://github.com/NVIDIA/JAX-Toolbox.git@main#subdirectory=.github/container/jax_nsys&egg=jax-nsys'
 ```
 You may want to include this in a global `pip-compile`-based dependency resolution (as is done in the containers built
 from this repository), rather than running too many ad-hoc `pip install` commands.
