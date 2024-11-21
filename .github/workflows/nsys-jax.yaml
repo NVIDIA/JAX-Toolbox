@@ -38,7 +38,7 @@ jobs:
           python-version: '3.10'
       # jax is just a CPU-only build of the latest release for type-checking purposes
       - name: "Install jax / jax_nsys / mypy"
-        run: pip install jax -e JAX-Toolbox/.github/container/jax_nsys matplotlib mypy nbconvert types-protobuf
+        run: pip install jax -e JAX-Toolbox/.github/container/jax_nsys matplotlib mypy nbconvert types-protobuf types-requests
       - name: "Install protoc"
         # TODO: this could install into the pip prefix as a default
         run: install-protoc local_protoc

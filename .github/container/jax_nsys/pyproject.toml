@@ -17,6 +17,10 @@ requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
+jupyter = [
+  "jupyterlab",
+  "matplotlib"
+]
 test = [
   "pytest"
 ]
