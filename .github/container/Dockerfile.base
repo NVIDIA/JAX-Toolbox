@@ -146,13 +146,6 @@ ADD install-nsight.sh /usr/local/bin
 RUN install-nsight.sh
 
 ###############################################################################
-## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
-###############################################################################
-
-ADD install-nsys-jax.sh /usr/local/bin
-RUN install-nsys-jax.sh ${JAX_TOOLBOX_SHA}
-
-###############################################################################
 ## Install cuDNN
 ###############################################################################
 
@@ -205,6 +198,13 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 
 # TODO(chaserileyroberts): Reenable once fully tested on GCP.
 # COPY gcp-autoconfig.sh /opt/nvidia/entrypoint.d/
+
+###############################################################################
+## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
+###############################################################################
+
+ADD install-nsys-jax.sh /usr/local/bin
+RUN install-nsys-jax.sh ${JAX_TOOLBOX_SHA}
 
 ###############################################################################
 ## Copy manifest file to the container
