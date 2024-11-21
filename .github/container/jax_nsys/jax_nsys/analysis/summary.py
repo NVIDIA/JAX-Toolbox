@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import argparse
-from jax_nsys import (
+from nsys_jax import (
     apply_warmup_heuristics,
     ensure_compiled_protos_are_importable,
     generate_compilation_statistics,

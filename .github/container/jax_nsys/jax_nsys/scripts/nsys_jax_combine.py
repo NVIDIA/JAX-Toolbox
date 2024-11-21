@@ -149,7 +149,7 @@ def main():
                 script, script_args = analysis[0], analysis[1:]
                 # If --analysis is the name of a bundled analysis script, use that. Otherwise it should be a file that exists.
                 search = [
-                    mirror_dir / "python" / "jax_nsys_analysis" / (script + ".py"),
+                    mirror_dir / "python" / "nsys_jax_analysis" / (script + ".py"),
                     pathlib.Path(script),
                 ]
                 candidates = list(filter(lambda p: p.exists(), search))

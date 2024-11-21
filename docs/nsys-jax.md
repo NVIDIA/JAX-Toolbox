@@ -8,7 +8,7 @@ There are two command-line tools:
   in the same multi-process/multi-node distributed JAX program) into a single output file, with de-duplication and
   consistency checks.
 
-Behind the scenes, there is a small Python library (`jax_nsys`) for loading and analysing the output of `nsys-jax` and
+Behind the scenes, there is a small Python library (`nsys_jax`) for loading and analysing the output of `nsys-jax` and
 `nsys-jax-combine`, which allows the use of standard data science packages like `numpy`, `pandas` and `matplotlib` to
 explore profile data.
 
@@ -20,7 +20,7 @@ There are three convenient ways of running profile data analyses:
   be executed on the merged output; results will be printed to the terminal and output data files will be embedded in
   the output archive (*e.g.* execution somewhere inside the compute cluster that has access to all processes' outputs)
 - Manual execution; the output files of both `nsys-jax` and `nsys-jax-combine` include an installation script that sets
-  up a local Python virtual environment including the `jax_nsys` library, Jupyter Lab, and an example notebook for
+  up a local Python virtual environment including the `nsys_jax` library, Jupyter Lab, and an example notebook for
   Jupyter-based exploration of profile data (*e.g.* run this on your laptop and explore your profile data in a Jupyter
   notebook)
 
@@ -32,11 +32,11 @@ containers.
 ### Manual installation
 The main installation step is simply
 ```console
-$ pip install git+https://github.com/NVIDIA/JAX-Toolbox.git#subdirectory=.github/container/jax_nsys
+$ pip install git+https://github.com/NVIDIA/JAX-Toolbox.git#subdirectory=.github/container/nsys_jax
 ```
 or, for an editable install from a specific branch/tag/commit:
 ```console
-$ pip install --src /checkout-dir -e 'git+https://github.com/NVIDIA/JAX-Toolbox.git@main#subdirectory=.github/container/jax_nsys&egg=jax-nsys'
+$ pip install --src /checkout-dir -e 'git+https://github.com/NVIDIA/JAX-Toolbox.git@main#subdirectory=.github/container/nsys_jax&egg=nsys-jax'
 ```
 You may want to include this in a global `pip-compile`-based dependency resolution (as is done in the containers built
 from this repository), rather than running too many ad-hoc `pip install` commands.

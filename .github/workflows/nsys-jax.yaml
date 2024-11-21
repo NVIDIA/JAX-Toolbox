@@ -19,7 +19,7 @@ on:
 
 env:
   NSYS_JAX_PYTHON_FILES: |
-    JAX-Toolbox/.github/container/jax_nsys
+    JAX-Toolbox/.github/container/nsys_jax
     JAX-Toolbox/.github/container/jax-nccl-test
 
 jobs:
@@ -37,8 +37,8 @@ jobs:
         with:
           python-version: '3.10'
       # jax is just a CPU-only build of the latest release for type-checking purposes
-      - name: "Install jax / jax_nsys / mypy"
-        run: pip install jax -e JAX-Toolbox/.github/container/jax_nsys matplotlib mypy nbconvert types-protobuf types-requests
+      - name: "Install jax / nsys_jax / mypy"
+        run: pip install jax -e JAX-Toolbox/.github/container/nsys_jax matplotlib mypy nbconvert types-protobuf types-requests
       - name: "Install protoc"
         # TODO: this could install into the pip prefix as a default
         run: install-protoc local_protoc
@@ -56,7 +56,7 @@ jobs:
           mkdir compiled_protos compiled_stubs protos
           mv -v xla/third_party/tsl/tsl protos/
           mv -v xla/xla protos/
-          PATH=${PWD}/local_protoc/bin:$PATH python -c "from jax_nsys import compile_protos; compile_protos(proto_dir='protos', output_dir='compiled_protos', output_stub_dir='compiled_stubs')"
+          PATH=${PWD}/local_protoc/bin:$PATH python -c "from nsys_jax import compile_protos; compile_protos(proto_dir='protos', output_dir='compiled_protos', output_stub_dir='compiled_stubs')"
           touch compiled_stubs/py.typed
       - name: "Convert .ipynb to .py"
         shell: bash -x -e {0}
@@ -87,10 +87,10 @@ jobs:
         with:
           python-version: '3.12'
       # TODO: a modern nsys-jax-combine with old .zip input should probably produce a
-      # .zip with a modern jax_nsys/
-      - name: Add modern jax_nsys/ files to static .zip inputs
+      # .zip with a modern nsys_jax/
+      - name: Add modern nsys_jax/ files to static .zip inputs
         run: |
-          cd .github/container/jax_nsys
+          cd .github/container/nsys_jax
           for zip in ../../workflows/nsys-jax/test_data/pax_fsdp4_4proc_proc*.zip; do
             zip -ur "${zip}" .
             zipinfo "${zip}"
@@ -98,7 +98,7 @@ jobs:
       - name: Use nsys-jax-combine to merge profiles from multiple nsys processes
         shell: bash -x -e {0}
         run: |
-          pip install -e .github/container/jax_nsys
+          pip install -e .github/container/nsys_jax
           # TODO: this could install into the pip prefix as a default
           install-protoc local_protoc
           PATH=${PWD}/local_protoc/bin:$PATH .github/container/nsys-jax-combine \
@@ -143,7 +143,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           # Get the actual test data from a real archive, minus the .nsys-rep file
-          unzip -d .github/container/jax_nsys/ .github/workflows/nsys-jax/test_data/pax_fsdp4_1proc.zip
+          unzip -d .github/container/nsys_jax/ .github/workflows/nsys-jax/test_data/pax_fsdp4_1proc.zip
       - name: "Setup Python 3.10"
         uses: actions/setup-python@v5
         with:
@@ -152,11 +152,11 @@ jobs:
         shell: bash -x -e {0}
         run: |
           pip install virtualenv
-          NSYS_JAX_INSTALL_SKIP_LAUNCH=1 ./.github/container/jax_nsys/install.sh
+          NSYS_JAX_INSTALL_SKIP_LAUNCH=1 ./.github/container/nsys_jax/install.sh
       - name: Test the Jupyter Lab installation and execute the notebook
         shell: bash -x -e {0}
         run: |
-          pushd .github/container/jax_nsys
+          pushd .github/container/nsys_jax
           ./nsys_jax_venv/bin/python -m jupyterlab --version
           # Run with ipython for the sake of getting a clear error message
           ./nsys_jax_venv/bin/ipython Analysis.ipynb # FIXME
@@ -164,7 +164,7 @@ jobs:
         id: render
         shell: bash -x -e {0}
         run: |
-          pushd .github/container/jax_nsys
+          pushd .github/container/nsys_jax
           workdir=$(mktemp -d)
           ./nsys_jax_venv/bin/jupyter nbconvert --execute --inplace Analysis.ipynb # FIXME
           cp *.ipynb *.svg "${workdir}"
