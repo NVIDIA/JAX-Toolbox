@@ -2,6 +2,7 @@ import argparse
 from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from glob import glob, iglob
+import importlib.resources
 import lzma
 import os
 import os.path as osp
@@ -58,20 +59,22 @@ install_script_template = r"""#!/bin/bash
 set -ex
 SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 VIRTUALENV="${SCRIPT_DIR}/nsys_jax_venv"
+BIN="${VIRTUALENV}/bin"
 if [[ ! -d "${VIRTUALENV}" ]]; then
   # Let `virtualenv` find/choose a Python. Currently >=3.10 is supported.
   virtualenv -p 3.13 -p 3.12 -p 3.11 -p 3.10 "$@" "${VIRTUALENV}"
-  "${VIRTUALENV}/bin/pip" install -U pip
-  "${VIRTUALENV}/bin/pip" install 'nsys-jax[jupyter] @ git+https://github.com/NVIDIA/JAX-Toolbox.git@{jax_toolbox_commit}#subdirectory=.github/container/nsys_jax'
-  "${VIRTUALENV}/bin/install-flamegraph" "${VIRTUALENV}"
-  "${VIRTUALENV}/bin/install-protoc" "${VIRTUALENV}"
+  "${BIN}/pip" install -U pip
+  "${BIN}/pip" install 'nsys-jax[jupyter] @ git+https://github.com/NVIDIA/JAX-Toolbox.git@{jax_toolbox_commit}#subdirectory=.github/container/nsys_jax'
+  "${BIN}/install-flamegraph" "${VIRTUALENV}"
+  "${BIN}/install-protoc" "${VIRTUALENV}"
 else
   echo "Virtual environment already exists, not installing anything..."
 fi
 if [ -z ${NSYS_JAX_INSTALL_SKIP_LAUNCH+x} ]; then
-  # TODO: point to nsys_jax/analysis/Analysis.ipynb
-  echo "Launching: cd ${SCRIPT_DIR} && ${VIRTUALENV}/bin/python -m jupyterlab Analysis.ipynb"
-  cd "${SCRIPT_DIR}" && "${VIRTUALENV}/bin/python" -m jupyterlab Analysis.ipynb
+  # https://setuptools.pypa.io/en/latest/userguide/datafiles.html#accessing-data-files-at-runtime
+  NOTEBOOK=$("${BIN}/python" -c 'from importlib.resources import files; print(files("nsys_jax") / "analysis" / "Analysis.ipynb")')
+  echo "Launching: cd ${SCRIPT_DIR} && ${BIN}/jupyterlab ${NOTEBOOK}"
+  cd "${SCRIPT_DIR}" && "${BIN}/jupyterlab" "${NOTEBOOK}"
 else
   echo "Skipping launch of jupyterlab due to NSYS_JAX_INSTALL_SKIP_LAUNCH"
 fi
@@ -562,8 +565,23 @@ def main() -> None:
         exit_code = 0
         used_slugs = set()
         for analysis in analysis_scripts:
+            # FIXME:
             script, args = analysis[0], analysis[1:]
+            args.append(mirror_dir)
             # If --nsys-jax-analysis is the name of a bundled analysis script, use that. Otherwise it should be a file that exists.
+            builtin_script = importlib.resources.files("nsys_jax").joinpath("analyses", script)
+            
+            try:
+                recipe = importlib.import_module(f"..analysis.{script}")
+            except ModuleNotFoundError:
+                # `script` will be the name of an executable script.
+                pass
+            else:
+                # Seems it was an importable bundled recipe
+                try:
+                    recipe.main(args)
+                except ...:
+                    pass
             search = [
                 osp.join(
                     mirror_dir,
@@ -575,7 +593,6 @@ def main() -> None:
             ]
             candidates = list(filter(osp.exists, search))
             assert len(candidates), f"Could not find analysis script, tried {search}"
-            args.append(mirror_dir)
             analysis_command = [sys.executable, candidates[0]] + args
             # Derive a unique name slug from the analysis script name
             slug = osp.basename(candidates[0]).removesuffix(".py")
