@@ -37,6 +37,56 @@ def expand(string: str, skip_missing=True) -> str:
         raise Exception(f"{missing} not defined when expanding '{string}'")
     return expanded
 
+# Use deflate compression
+COMPRESS_DEFLATE = {"compress_type": zipfile.ZIP_DEFLATED}
+# Do not compress (if the file is already compressed)
+COMPRESS_NONE: dict[str, int] = {}
+
+install_script_template = r"""#!/bin/bash
+#
+# Usage: ./install.sh [optional arguments to virtualenv]
+#
+# If it doesn't already exist, this creates a virtual environment named
+# `nsys_jax_env` in the current directory and installs Jupyter Lab and the
+# dependencies of the Analysis.ipynb notebook that is shipped alongside this
+# script inside the output archives of the `nsys-jax` wrapper.
+#
+# The expectation is that those archives will be copied and extracted on a
+# laptop or workstation, and this installation script will be run there, while
+# the `nsys-jax` wrapper is executed on a remote GPU cluster.
+set -ex
+SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
+VIRTUALENV="${SCRIPT_DIR}/nsys_jax_venv"
+if [[ ! -d "${VIRTUALENV}" ]]; then
+  # Let `virtualenv` find/choose a Python. Currently >=3.10 is supported.
+  virtualenv -p 3.13 -p 3.12 -p 3.11 -p 3.10 "$@" "${VIRTUALENV}"
+  . "${VIRTUALENV}/bin/activate"
+  python -m pip install -U pip
+  # FIXME: install from JAX-Toolbox GitHub? include [jupyter] variant?
+  python -m pip install -e "${SCRIPT_DIR}/python/jax_nsys[jupyter]"
+  install-flamegraph "${VIRTUALENV}"
+  install-protoc "${VIRTUALENV}"
+else
+  echo "Virtual environment already exists, not installing anything..."
+fi
+if [ -z ${NSYS_JAX_INSTALL_SKIP_LAUNCH+x} ]; then
+  # TODO: point to jax_nsys/analysis/Analysis.ipynb
+  echo "Launching: cd ${SCRIPT_DIR} && ${VIRTUALENV}/bin/python -m jupyterlab Analysis.ipynb"
+  cd "${SCRIPT_DIR}" && "${VIRTUALENV}/bin/python" -m jupyterlab Analysis.ipynb
+else
+  echo "Skipping launch of jupyterlab due to NSYS_JAX_INSTALL_SKIP_LAUNCH"
+fi
+"""
+
+def create_install_script(output_queue):
+    """
+    Write an install.sh to the output archive that installs nsys-jax at the same
+    version/commit that the current execution is using.
+    """
+    # TODO: substitute the right commit hash
+    install_script = install_script_template.format()
+    output_queue.put((install_script.encode(), "install.sh", COMPRESS_DEFLATE))
+
 def main() -> None:
     """
     Entrypoint for nsys-jax
@@ -265,12 +315,6 @@ def main() -> None:
         raise Exception(f"Could not find output file: {tmp_rep}")
 
 
-    # Use deflate compression
-    compress_deflate = {"compress_type": zipfile.ZIP_DEFLATED}
-    # Do not compress (if the file is already compressed)
-    compress_none: dict[str, int] = {}
-
-
     def copy_proto_files_to_tmp(tmp_dir, xla_dir=os.environ.get("SRC_PATH_XLA", "/opt/xla")):
         """
         Copy .proto files from XLA into a temporary directory under `tmp_dir`.
@@ -320,7 +364,7 @@ def main() -> None:
             # glob("/does-not-exist/**", recursive=True) == ['/does-not-exist/']
             if osp.isdir(full_path) or not osp.exists(full_path):
                 continue
-            output_queue.put((ofile, full_path, compress_none))
+            output_queue.put((ofile, full_path, COMPRESS_NONE))
         print(f"{archive_name}: post-processing finished in {time.time()-start:.2f}s")
 
 
@@ -330,7 +374,7 @@ def main() -> None:
         without further compression.
         """
         with open(osp.join(prefix, file), "rb") as ifile:
-            output_queue.put((file + ".xz", lzma.compress(ifile.read()), compress_none))
+            output_queue.put((file + ".xz", lzma.compress(ifile.read()), COMPRESS_NONE))
 
 
     def run_nsys_stats_report(report, report_file, tmp_dir, output_queue):
@@ -394,7 +438,7 @@ def main() -> None:
             if index_name is not None:
                 df.index.name = index_name
             df.to_parquet(osp.join(tmp_dir, filename))
-            output_queue.put((filename, osp.join(tmp_dir, filename), compress_none))
+            output_queue.put((filename, osp.join(tmp_dir, filename), COMPRESS_NONE))
 
         # Extract {(pid, tid): (name, priority)} map; PID/TID arithmetic comes from
         # https://docs.nvidia.com/nsight-systems/UserGuide/index.html#common-sqlite-examples
@@ -452,22 +496,6 @@ def main() -> None:
         print(f"{archive_name}: extracted device/thread names in {time.time()-start:.2f}s")
 
 
-    def copy_jax_nsys_files(input_dir, output_queue):
-        """
-        Gather files from `input_dir` and queue them for archival.
-        """
-        # Gather the files from /opt/jax_nsys that should be bundled into the archive.
-        for file in iglob("**", recursive=True, root_dir=input_dir):
-            full_path = osp.join(input_dir, file)
-            if osp.isdir(full_path):
-                continue
-            if file.startswith("python/jax_nsys/jax_nsys/__pycache__") or file.startswith(
-                "python/jax_nsys/jax_nsys.egg-info"
-            ):
-                continue
-            output_queue.put((file, full_path, compress_deflate))
-
-
     def find_pb_files_in_tmp(tmp_dir):
         """
         Return a prefix + list of relative paths to Protobuf files dumped by XLA.
@@ -517,7 +545,7 @@ def main() -> None:
                 # This can appear due to python -c "...", for example.
                 continue
             assert osp.isabs(src_file), f"{src_file} is not absolute"
-            output_queue.put(("sources" + src_file, src_file, compress_deflate))
+            output_queue.put(("sources" + src_file, src_file, COMPRESS_DEFLATE))
         print(f"{archive_name}: gathered source code in {time.time()-start:.2f}s")
 
 
@@ -653,7 +681,7 @@ def main() -> None:
                 (
                     osp.join("protos", proto_file),
                     osp.join(proto_dir, proto_file),
-                    compress_deflate,
+                    COMPRESS_DEFLATE,
                 )
             )
         # Wait to have pb files too
@@ -724,7 +752,7 @@ def main() -> None:
             (
                 report_name,
                 tmp_rep,
-                compress_deflate,
+                COMPRESS_DEFLATE,
             )
         )
         # Convert .nsys-rep -> .parquet and queue the latter for archival
@@ -737,10 +765,8 @@ def main() -> None:
                 files_to_archive,
             )
         )
-        # Copy /opt/jax_nsys into the archive
-        futures.append(
-            executor.submit(copy_jax_nsys_files, "/opt/jax_nsys", files_to_archive)
-        )
+        # Write an installation script into the archive
+        futures.append(executor.submit(create_install_script, files_to_archive))
         # Gather the list of .proto files
         proto_future = executor.submit(copy_proto_files_to_tmp, tmp_dir)
         # Gather the list of .pb[txt] files
