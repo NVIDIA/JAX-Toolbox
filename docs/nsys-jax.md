@@ -45,6 +45,8 @@ This will install all of the components mentioned so far, but does not currently
 - `protoc` must be installed at a version compatible with the `google.protobuf` runtime library; `nsys-jax` includes a
   helper script that can be run after `pip install`, e.g. to install `/usr/local/bin/protoc`, run
   `install-protoc /usr/local`.
+- https://github.com/brendangregg/FlameGraph/blob/master/flamegraph.pl must be installed and executable if you want to
+  generate flame graph visualisations; `nsys-jax` includes a helper script here too, e.g. `install-flamegraph /usr/local`.
 - Nsight Systems's multi-report analysis system is used by `nsys-jax` internally and has some additional dependencies
   that are not bundled in the Nsight Systems installation
   ([doc](https://docs.nvidia.com/nsight-systems/InstallationGuide/index.html#installing-multi-report-analysis-system)),
@@ -58,9 +60,9 @@ This will install all of the components mentioned so far, but does not currently
   needed for compatibility with `nsys-jax`, this can be applied by running the `nsys-jax-patch-nsys` command and will
   not be required in other versions of Nsight Systems.
 
-Only `protoc` is always needed, the remaining dependencies are only required when actually collecting profile data with
-the `nsys-jax` command, but not when merging collected profile data with `nsys-jax-combine` or running local analyses
-of profile data.
+Only `protoc` is always needed, `flamegraph.pl` is an optional dependency, and the remaining dependencies are only
+required when actually collecting profile data with the `nsys-jax` command, but not when merging collected profile data
+with `nsys-jax-combine` or running local analyses of profile data.
 
 ## Collecting profile data
 
