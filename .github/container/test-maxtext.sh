@@ -259,6 +259,7 @@ if [ -z "$DECODER_BLOCK" ]; then
         hardware=${HARDWARE} \
         enable_goodput_recording=false \
         monitor_goodput=false \
+        enable_checkpoint_cloud_logger=false \
         dcn_fsdp_parallelism=${dcn_FSDP} \
         ici_fsdp_parallelism=${ici_FSDP} \
         ici_data_parallelism=${ici_DP} \
@@ -284,6 +285,7 @@ else
         head_dim=128 \
         logits_via_embedding=true \
         enable_checkpointing=false \
+        enable_checkpoint_cloud_logger=false \
         base_output_directory=${OUTPUT} \
         dataset_path=local \
         dataset_type=synthetic \
