@@ -18,10 +18,8 @@ if [[ ! -d "${VIRTUALENV}" ]]; then
   virtualenv -p 3.13 -p 3.12 -p 3.11 -p 3.10 "$@" "${VIRTUALENV}"
   . "${VIRTUALENV}/bin/activate"
   python -m pip install -U pip
-  # matplotlib is a dependency of Analysis.ipynb
-  python -m pip install jupyterlab matplotlib
   # FIXME: install from JAX-Toolbox GitHub? include [jupyter] variant?
-  python -m pip install -e "${SCRIPT_DIR}/python/jax_nsys"
+  python -m pip install -e "${SCRIPT_DIR}/python/jax_nsys[jupyter]"
   install-flamegraph "${VIRTUALENV}"
   install-protoc "${VIRTUALENV}"
 else
