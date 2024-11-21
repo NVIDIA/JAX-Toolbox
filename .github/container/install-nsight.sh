@@ -16,14 +16,3 @@ apt-get install -y nsight-compute nsight-systems-cli-2024.6.1
 apt-get clean
 
 rm -rf /var/lib/apt/lists/*
-
-for NSYS in /opt/nvidia/nsight-systems-cli/2024.5.1 /opt/nvidia/nsight-systems-cli/2024.6.1; do
-  if [[ -d "${NSYS}" ]]; then
-    # * can match at least sbsa-armv8 and x86
-    (cd ${NSYS}/target-linux-*/python/packages && git apply < /opt/nvidia/nsys-2024.5-tid-export.patch)
-  fi
-done
-
-# Install extra dependencies needed for `nsys recipe ...` commands. These are
-# used by the nsys-jax wrapper script.
-ln -s $(dirname $(realpath $(command -v nsys)))/python/packages/nsys_recipe/requirements/common.txt /opt/pip-tools.d/requirements-nsys-recipe.in

@@ -143,8 +143,15 @@ COPY --from=tcpx-installer /var/lib/tcpx/lib64 ${TCPX_LIBRARY_PATH}
 ###############################################################################
 
 ADD install-nsight.sh /usr/local/bin
-ADD nsys-2024.5-tid-export.patch /opt/nvidia
 RUN install-nsight.sh
+
+###############################################################################
+## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
+###############################################################################
+
+ADD install-nsys-jax.sh /usr/local/bin
+RUN --mount=source=jax_nsys/jax_nsys/scripts/patch_nsys.py,target=/opt/patch_nsys.py \
+  install-nsys-jax.sh ${JAX_TOOLBOX_SHA}
 
 ###############################################################################
 ## Install cuDNN
@@ -199,18 +206,6 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 
 # TODO(chaserileyroberts): Reenable once fully tested on GCP.
 # COPY gcp-autoconfig.sh /opt/nvidia/entrypoint.d/
-
-###############################################################################
-## Add helper scripts for profiling with Nsight Systems
-###############################################################################
-# TODO: the installation script bundled in output archives should know which
-#       commit of JAX-Toolbox to install jax_nsys from for consistency
-#ADD jax_nsys/ /opt/jax_nsys
-# The jax_nsys package should be installed inside the containers so nsys-jax,
-# nsys-jax-combine, install-protoc and nsys-jax-patch-nsys are available, and
-# the jax_nsys package can be used.
-#RUN echo "-e /opt/jax_nsys" > /opt/pip-tools.d/requirements-nsys-jax.in
-RUN echo "-e 'git+https://github.com/NVIDIA/JAX-Toolbox.git@${JAX_TOOLBOX_SHA}#subdirectory=.github/container/jax_nsys&egg=jax-nsys' --src /opt/editable_vcs" > /opt/pip-tools.d/requirements-nsys-jax.in
 
 ###############################################################################
 ## Copy manifest file to the container
