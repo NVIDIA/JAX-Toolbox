@@ -192,8 +192,9 @@ with zipfile.ZipFile(args.output, "w") as ofile:
             )
             # Gather output files of the scrpt
             for path in working_dir.rglob("*"):
-                with open(working_dir / path, "rb") as src, ofile.open(
-                    str(path.relative_to(mirror_dir)), "w"
-                ) as dst:
+                with (
+                    open(working_dir / path, "rb") as src,
+                    ofile.open(str(path.relative_to(mirror_dir)), "w") as dst,
+                ):
                     # https://github.com/python/mypy/issues/15031 ?
                     shutil.copyfileobj(src, dst)  # type: ignore
