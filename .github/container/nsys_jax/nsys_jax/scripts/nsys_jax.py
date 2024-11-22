@@ -6,6 +6,7 @@ import lzma
 import os
 import os.path as osp
 import pandas as pd  # type: ignore
+import pathlib
 import queue
 import re
 import shlex
@@ -18,7 +19,7 @@ import time
 import traceback
 import zipfile
 
-from .utils import execute_analysis_recipe, shuffle_analysis_arg
+from .utils import execute_analysis_script, shuffle_analysis_arg
 from ..version import __sha__ as jax_toolbox_sha_with_prefix
 
 
@@ -72,12 +73,14 @@ else
   echo "Virtual environment already exists, not installing anything..."
 fi
 if [ -z ${{NSYS_JAX_INSTALL_SKIP_LAUNCH+x}} ]; then
+  # Pick up the current profile data by default
+  export NSYS_JAX_DEFAULT_PREFIX="${{PWD}}"
   # https://setuptools.pypa.io/en/latest/userguide/datafiles.html#accessing-data-files-at-runtime
-  NOTEBOOK=$("${{BIN}}/python" -c 'from importlib.resources import files; print(files("nsys_jax") / "analysis" / "Analysis.ipynb")')
-  echo "Launching: cd ${{SCRIPT_DIR}} && ${{BIN}}/jupyterlab ${{NOTEBOOK}}"
-  cd "${{SCRIPT_DIR}}" && "${{BIN}}/jupyterlab" "${{NOTEBOOK}}"
+  NOTEBOOK=$("${{BIN}}/python" -c 'from importlib.resources import files; print(files("nsys_jax") / "analyses" / "Analysis.ipynb")')
+  echo "Launching: cd ${{SCRIPT_DIR}} && ${{BIN}}/jupyter-lab ${{NOTEBOOK}}"
+  cd "${{SCRIPT_DIR}}" && "${{BIN}}/jupyter-lab" "${{NOTEBOOK}}"
 else
-  echo "Skipping launch of jupyterlab due to NSYS_JAX_INSTALL_SKIP_LAUNCH"
+  echo "Skipping launch of Jupyter Lab due to NSYS_JAX_INSTALL_SKIP_LAUNCH"
 fi
 """
 
@@ -215,8 +218,6 @@ def main() -> None:
             expand(nsys_jax_flags.output.removesuffix(".nsys-rep").removesuffix(".zip"))
             + ".zip"
         )
-        if not osp.isabs(archive_name):
-            nsys_output = osp.join(os.getcwd(), archive_name)
         archive_name_can_be_overwritten = nsys_jax_flags.force_overwrite
 
     # We will write /final/output/path/name.zip, and it will contain name.nsys-rep,
@@ -564,8 +565,9 @@ def main() -> None:
         assert mirror_dir is not None
         output = []
         exit_code = 0
+        mirror_dir = pathlib.Path(mirror_dir)
         for analysis in analysis_scripts:
-            result, output_prefix = execute_analysis_recipe(
+            result, output_prefix = execute_analysis_script(
                 data=mirror_dir, script=analysis[0], args=analysis[1:]
             )
             if result.returncode != 0:

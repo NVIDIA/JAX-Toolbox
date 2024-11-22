@@ -46,7 +46,7 @@ def analysis_recipe_path(script):
     return contextlib.nullcontext(pathlib.Path(script))
 
 
-def execute_analysis_recipe(
+def execute_analysis_script(
     *, data: pathlib.Path, script: str, args: list[str]
 ) -> tuple[subprocess.CompletedProcess, pathlib.Path]:
     """

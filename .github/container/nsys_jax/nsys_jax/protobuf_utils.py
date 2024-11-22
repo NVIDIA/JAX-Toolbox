@@ -9,6 +9,7 @@ import sys
 import tempfile
 from typing import Optional
 
+from .utils import default_data_prefix
 
 def which(executable: str) -> pathlib.Path:
     """
@@ -55,7 +56,7 @@ def compile_protos(
     subprocess.run(args, check=True)
 
 
-def ensure_compiled_protos_are_importable(*, prefix: pathlib.Path = pathlib.Path(".")):
+def ensure_compiled_protos_are_importable(*, prefix: pathlib.Path = default_data_prefix()):
     """
     See if the Python bindings generated from .proto are importable, and if not then
     generate them in a temporary directory and prepend it to sys.path.
