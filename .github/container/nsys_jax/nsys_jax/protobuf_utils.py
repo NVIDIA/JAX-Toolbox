@@ -11,6 +11,7 @@ from typing import Optional
 
 from .utils import default_data_prefix
 
+
 def which(executable: str) -> pathlib.Path:
     """
     Wrap shutil.which, making sure that if we are inside a virtual environment
@@ -56,7 +57,9 @@ def compile_protos(
     subprocess.run(args, check=True)
 
 
-def ensure_compiled_protos_are_importable(*, prefix: pathlib.Path = default_data_prefix()):
+def ensure_compiled_protos_are_importable(
+    *, prefix: pathlib.Path = default_data_prefix()
+):
     """
     See if the Python bindings generated from .proto are importable, and if not then
     generate them in a temporary directory and prepend it to sys.path.

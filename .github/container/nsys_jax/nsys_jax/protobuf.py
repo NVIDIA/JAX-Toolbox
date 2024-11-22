@@ -5,6 +5,7 @@ import typing
 
 from .utils import default_data_prefix
 
+
 def _host_memory_space(inst):
     return inst.shape.layout.memory_space == 5
 
@@ -248,7 +249,7 @@ def xla_module_metadata(
 def xla_module_metadata(
     program_id: int,
     policy: typing.Literal["all"],
-    prefix: pathlib.Path = default_data_prefix()
+    prefix: pathlib.Path = default_data_prefix(),
 ) -> HloProtoSet: ...
 
 

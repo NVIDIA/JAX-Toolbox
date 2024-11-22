@@ -147,8 +147,9 @@ def main():
                 result.check_returncode()
                 # Gather output files of the scrpt
                 for path in (mirror_dir / output_prefix).rglob("*"):
-                    with open(
-                        mirror_dir / output_prefix / path, "rb"
-                    ) as src, ofile.open(str(path.relative_to(mirror_dir)), "w") as dst:
+                    with (
+                        open(mirror_dir / output_prefix / path, "rb") as src,
+                        ofile.open(str(path.relative_to(mirror_dir)), "w") as dst,
+                    ):
                         # https://github.com/python/mypy/issues/15031 ?
                         shutil.copyfileobj(src, dst)  # type: ignore
