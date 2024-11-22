@@ -6,6 +6,7 @@ import platform
 import requests
 import zipfile
 
+
 def main():
     # TODO: add a default to (with confirmation) install in the same prefix as this script is installed to
     parser = argparse.ArgumentParser(
