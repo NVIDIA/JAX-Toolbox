@@ -11,6 +11,8 @@ ARG URLREF_FLAXFORMER=https://github.com/google/flaxformer.git#main
 ARG SRC_PATH_FLAXFORMER=/opt/flaxformer
 ARG URLREF_PANOPTICAPI=https://github.com/akolesnikoff/panopticapi.git#mute
 ARG SRC_PATH_PANOPTICAPI=/opt/panopticapi
+ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#master
+ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 
 ###############################################################################
 ## Build several packages which do not have working amd64/arm64 pip wheels
