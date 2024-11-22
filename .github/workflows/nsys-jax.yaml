@@ -45,7 +45,9 @@ jobs:
         run: pip install jax -e JAX-Toolbox/.github/container/nsys_jax matplotlib mypy nbconvert types-protobuf types-requests
       - name: "Install protoc"
         # TODO: this could install into the pip prefix as a default
-        run: install-protoc /usr/local
+        run: |
+          install-protoc local/
+          echo "$PWD/local/bin" >> "${GITHUB_PATH}"
       - name: "Fetch XLA .proto files"
         uses: actions/checkout@v4
         with:
@@ -87,13 +89,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Use nsys-jax-combine to merge profiles from multiple nsys processes
+      - name: Install nsys-jax and dependencies
         run: |
           # Installs nsys-jax-combine; use an editable install here for better coverage
           pip install -e .github/container/nsys_jax[jupyter]
           # TODO: this could install into the pip prefix as a default
-          install-flamegraph /usr/local
-          install-protoc /usr/local
+          install-flamegraph local/
+          install-protoc local/
+          echo "$PWD/local/bin" >> "${GITHUB_PATH}"
+      - name: Use nsys-jax-combine to merge profiles from multiple nsys processes
+        run: |
           nsys-jax-combine \
             --analysis summary \
             --analysis communication \
@@ -138,13 +143,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - name: Install nsys-jax
+      - name: Install nsys-jax and dependencies
         run: |
           # Do *not* use an editable install (covered above) for better coverage
           pip install .github/container/nsys_jax[jupyter]
           # TODO: this could install into the pip prefix as a default
-          install-flamegraph /usr/local
-          install-protoc /usr/local
+          install-flamegraph local/
+          install-protoc local/
+          echo "$PWD/local/bin" >> "${GITHUB_PATH}"
       - name: Execute the notebook
         id: exec
         run: |
