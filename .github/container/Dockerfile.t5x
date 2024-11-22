@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 # Example command to build manually:
-#   docker buildx build -f Dockerfile.t5x.arm64 --tag t5x --build-arg BASE_IMAGE=ghcr.io/nvidia/jax:mealkit-2024-01-22 .
+#   docker buildx build -f Dockerfile.t5x --tag t5x --build-arg BASE_IMAGE=ghcr.io/nvidia/jax:mealkit-2024-01-22 .
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#v2.13.0
@@ -15,20 +15,20 @@ ARG SRC_PATH_T5X=/opt/t5x
 #------------------------------------------------------------------------------
 # build tensorflow-text from source
 #------------------------------------------------------------------------------
-
-FROM ${BASE_IMAGE} AS tftext-builder
+FROM wheel-builder as tftext-builder
 ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
-RUN <<"EOF" bash -exu -o pipefail
-pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
-cd ${SRC_PATH_TFTEXT}
 
+RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.18.0
+RUN git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
+RUN <<"EOF" bash -exu -o pipefail
+cd ${SRC_PATH_TFTEXT}
+    
 # The tftext build script queries GitHub, but these requests are sometimes
 # throttled by GH, resulting in a corrupted uri for tensorflow in WORKSPACE.
 # A workaround (needs to be updated when the tensorflow version changes):
-sed -i "s/# Update TF dependency to installed tensorflow/commit_sha=1cb1a030a62b169d90d34c747ab9b09f332bf905/" oss_scripts/prepare_tf_dep.sh
-
+sed -i "s/# Update TF dependency to installed tensorflow./commit_slug=6550e4bd80223cdb8be6c3afd1f81e86a4d433c3/" oss_scripts/prepare_tf_dep.sh
+    
 # Newer versions of LLVM make lld's --undefined-version check of lld is strict
 # by default (https://reviews.llvm.org/D135402), but the tftext build seems to
 # rely on this behavior.
@@ -67,14 +67,15 @@ pushd ${SRC_PATH_T5X}
 sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
 
 # for ARM64 build
-sed -i "s/'tensorflow/#'tensorflow/" setup.py
+if [[ "$(dpkg --print-architecture)" == "arm64" ]]; then
+    sed -i "s/'tensorflow/#'tensorflow/" setup.py
 
-sed -i "s/f'jax/#f'jax/" setup.py
-sed -i "s/'tpu/#'tpu/" setup.py
+    sed -i "s/f'jax/#f'jax/" setup.py
+    sed -i "s/'tpu/#'tpu/" setup.py
 
-sed -i "s/'protobuf/#'protobuf/" setup.py
-sed -i "s/'numpy/#'numpy/" setup.py
-
+    sed -i "s/'protobuf/#'protobuf/" setup.py
+    sed -i "s/'numpy/#'numpy/" setup.py
+fi
 if git diff --quiet; then
     echo "URL specs no longer present in select dependencies of t5x"
     exit 1

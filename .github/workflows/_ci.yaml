@@ -107,7 +107,7 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: maxtext
-      DOCKERFILE: .github/container/Dockerfile.maxtext.${{ inputs.ARCHITECTURE }}
+      DOCKERFILE: .github/container/Dockerfile.maxtext
       EXTRA_BUILD_ARGS: |
         URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
     secrets: inherit
@@ -138,7 +138,7 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
-      DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
+      DOCKERFILE: .github/container/Dockerfile.t5x
       EXTRA_BUILD_ARGS: |
         URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
     secrets: inherit
@@ -153,7 +153,7 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-pax
-      DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+      DOCKERFILE: .github/container/Dockerfile.pax
       EXTRA_BUILD_ARGS: |
         URLREF_PAXML=${{ fromJson(inputs.SOURCE_URLREFS).PAXML }}
         URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}

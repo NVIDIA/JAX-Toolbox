@@ -34,6 +34,6 @@ COPY levanter-cache-warn.sh /opt/nvidia/entrypoint.d/
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
-FROM mealkit as final
+FROM mealkit AS final
 
 RUN pip-finalize.sh
