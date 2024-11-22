@@ -10,7 +10,8 @@ import sys
 import tempfile
 import zipfile
 
-from .utils import shuffle_analysis_arg
+from .utils import execute_analysis_recipe, shuffle_analysis_arg
+
 
 def main():
     """
@@ -56,11 +57,9 @@ def main():
         help="Input .zip archives produced by `nsys-jax`",
     )
 
-
     def check_keep_nsys_rep(raw):
         assert raw in {"all", "first", "none"}
         return raw
-
 
     parser.add_argument(
         "--keep-nsys-rep",
@@ -143,42 +142,16 @@ def main():
                             write(dst_info)
         if len(args.analysis):
             assert mirror_dir is not None
-            used_slugs = set()
+            # Execute post-processing recipes and add any outputs to `ofile`
             for analysis in args.analysis:
-                # Execute post-processing recipes and add any outputs to `ofile`
-                script, script_args = analysis[0], analysis[1:]
-                # If --analysis is the name of a bundled analysis script, use that. Otherwise it should be a file that exists.
-                search = [
-                    mirror_dir / "python" / "nsys_jax_analysis" / (script + ".py"),
-                    pathlib.Path(script),
-                ]
-                candidates = list(filter(lambda p: p.exists(), search))
-                assert len(candidates), f"Could not find analysis script, tried {search}"
-                analysis_command = (
-                    [sys.executable, candidates[0]] + script_args + [mirror_dir]
+                result, output_prefix = execute_analysis_recipe(
+                    data=mirror_dir, script=analysis[0], args=analysis[1:]
                 )
-                # Derive a unique name slug from the analysis script name
-                slug = os.path.basename(candidates[0]).removesuffix(".py")
-                n, suffix = 1, ""
-                while slug + suffix in used_slugs:
-                    suffix = f"-{n}"
-                    n += 1
-                slug += suffix
-                used_slugs.add(slug)
-                working_dir = mirror_dir / "analysis" / slug
-                os.makedirs(working_dir, exist_ok=True)
-                print(
-                    f"Running analysis script: {shlex.join(map(str, analysis_command))} in {working_dir}"
-                )
-                subprocess.run(
-                    analysis_command,
-                    check=True,
-                    cwd=working_dir,
-                )
+                result.check_returncode()
                 # Gather output files of the scrpt
-                for path in working_dir.rglob("*"):
-                    with open(working_dir / path, "rb") as src, ofile.open(
-                        str(path.relative_to(mirror_dir)), "w"
-                    ) as dst:
+                for path in (mirror_dir / output_prefix).rglob("*"):
+                    with open(
+                        mirror_dir / output_prefix / path, "rb"
+                    ) as src, ofile.open(str(path.relative_to(mirror_dir)), "w") as dst:
                         # https://github.com/python/mypy/issues/15031 ?
                         shutil.copyfileobj(src, dst)  # type: ignore
