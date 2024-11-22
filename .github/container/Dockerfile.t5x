@@ -3,7 +3,7 @@
 #   docker buildx build -f Dockerfile.t5x --tag t5x --build-arg BASE_IMAGE=ghcr.io/nvidia/jax:mealkit-2024-01-22 .
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
-ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#v2.13.0
+ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#master
 ARG URLREF_T5X=https://github.com/google-research/t5x.git#main
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 ARG SRC_PATH_T5X=/opt/t5x

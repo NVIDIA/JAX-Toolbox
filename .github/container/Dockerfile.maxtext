@@ -45,7 +45,7 @@ EOF
 
 FROM ${BASE_IMAGE} as mealkit
 ARG URLREF_MAXTEXT
-ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#v2.18.0
+ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#master
 ARG SRC_PATH_MAXTEXT
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 
