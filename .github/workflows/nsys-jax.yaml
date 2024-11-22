@@ -166,8 +166,7 @@ jobs:
           workdir=$(mktemp -d)
           export NSYS_JAX_DEFAULT_PREFIX="${PWD}/profile_data"
           jupyter nbconvert --execute --inplace '${{ steps.exec.outputs.NOTEBOOK }}'
-          # TODO: verify the .svg is still written to *this* directory
-          cp *.ipynb *.svg "${workdir}"
+          cp '${{ steps.exec.outputs.NOTEBOOK }}' *.svg "${workdir}"
           echo "WORKDIR=${workdir}" >> $GITHUB_OUTPUT
       - name: Upload rendered notebook to Gist
         id: upload
