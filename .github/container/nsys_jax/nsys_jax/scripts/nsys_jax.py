@@ -1,13 +1,11 @@
 import argparse
 from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from glob import glob, iglob
-import importlib.resources
 import lzma
 import os
 import os.path as osp
 import pandas as pd  # type: ignore
-import pathlib
 import queue
 import re
 import shlex
@@ -20,7 +18,7 @@ import time
 import traceback
 import zipfile
 
-from .utils import shuffle_analysis_arg
+from .utils import execute_analysis_recipe, shuffle_analysis_arg
 from ..version import __sha__ as jax_toolbox_sha_with_prefix
 
 
@@ -566,46 +564,23 @@ def main() -> None:
         assert mirror_dir is not None
         output = []
         exit_code = 0
-        used_slugs = set()
         for analysis in analysis_scripts:
-            script, args = analysis[0], analysis[1:]
-            args.append(mirror_dir)
-            # If --nsys-jax-analysis is the name of a bundled analysis script, use that. Otherwise it should be a file that exists.
-            script_file = importlib.resources.files("nsys_jax").joinpath(
-                "analyses", script + ".py"
+            result, output_prefix = execute_analysis_recipe(
+                data=mirror_dir, script=analysis[0], args=analysis[1:]
             )
-            if not script_file.is_file():
-                assert os.path.exists(
-                    script
-                ), f"{script} does not exist and is not the name of a built-in analysis script"
-                script_file = nullcontext(pathlib.Path(script))
-            with script_file as script_path:
-                analysis_command = [sys.executable, str(script_path)] + args
-                # Derive a unique name slug from the analysis script name
-                slug = osp.basename(script_path).removesuffix(".py")
-                n, suffix = 1, ""
-                while slug + suffix in used_slugs:
-                    suffix = f"-{n}"
-                    n += 1
-                slug += suffix
-                used_slugs.add(slug)
-                working_dir = osp.join(mirror_dir, "analysis", slug)
-                os.makedirs(working_dir, exist_ok=True)
-                print(analysis_command)
-                print(
-                    f"Running analysis script: {shlex.join(analysis_command)} in {working_dir}"
-                )
-                result = subprocess.run(
-                    analysis_command,
-                    cwd=working_dir,
-                )
-                if result.returncode != 0:
-                    exit_code = result.returncode
-                # Gather output files of the scrpt
-                for path in iglob("**", recursive=True, root_dir=working_dir):
-                    output.append(
-                        (osp.join("analysis", slug, path), osp.join(working_dir, path))
+            if result.returncode != 0:
+                exit_code = result.returncode
+            # Gather output files of the scrpt
+            for path in iglob(
+                "**", recursive=True, root_dir=osp.join(mirror_dir, output_prefix)
+            ):
+                output.append(
+                    (
+                        osp.join(output_prefix, path),
+                        osp.join(mirror_dir, output_prefix, path),
                     )
+                )
+
         return output, exit_code
 
     def write_output_file(to_process, mirror_dir, analysis_scripts):
