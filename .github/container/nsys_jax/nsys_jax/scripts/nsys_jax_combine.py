@@ -3,14 +3,11 @@ from collections import defaultdict
 import copy
 import os
 import pathlib
-import shlex
 import shutil
-import subprocess
-import sys
 import tempfile
 import zipfile
 
-from .utils import execute_analysis_recipe, shuffle_analysis_arg
+from .utils import execute_analysis_script, shuffle_analysis_arg
 
 
 def main():
@@ -144,7 +141,7 @@ def main():
             assert mirror_dir is not None
             # Execute post-processing recipes and add any outputs to `ofile`
             for analysis in args.analysis:
-                result, output_prefix = execute_analysis_recipe(
+                result, output_prefix = execute_analysis_script(
                     data=mirror_dir, script=analysis[0], args=analysis[1:]
                 )
                 result.check_returncode()
