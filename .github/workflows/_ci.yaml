@@ -321,8 +321,11 @@ jobs:
           -v $PWD:/opt/output \
           ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
           bash <<"EOF" |& tee test-nsys-jax.log
-            pip install pytest-reportlog -e /opt/nsys_jax[test]
-            pytest --report-log=/opt/output/pytest-report.jsonl /opt/nsys_jax/tests
+            # nsys-jax is already installed, this is just adding the test dependencies
+            pip install pytest-reportlog nsys-jax[test]
+            # abuse knowledge that nsys-jax is installed editable, so the tests exist
+            test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
+            pytest --report-log=/opt/output/pytest-report.jsonl "${test_path}"
         EOF
         GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
         for mode in 1-process 2-process process-per-gpu; do
