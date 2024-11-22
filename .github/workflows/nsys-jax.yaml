@@ -108,7 +108,7 @@ jobs:
           # Point to the extracted nsys-jax-combine output
           export NSYS_JAX_DEFAULT_PREFIX="${PWD}/combined"
           # Run with ipython for the sake of getting a clear error message
-          ipython "${NOTEBOOK}"
+          PATH=${PWD}/local_protoc/bin:$PATH ipython "${NOTEBOOK}"
 
   # TODO: add a test that generates + runs install.sh
 
@@ -141,6 +141,8 @@ jobs:
         run: |
           # Do *not* use an editable install (covered above) for better coverage
           pip install .github/container/nsys_jax[jupyter]
+          # TODO: this could install into the pip prefix as a default
+          install-protoc local_protoc
       - name: Execute the notebook
         id: exec
         run: |
@@ -148,7 +150,7 @@ jobs:
           # Point to the extracted profile data
           export NSYS_JAX_DEFAULT_PREFIX="${PWD}/profile_data"
           # Run with ipython for the sake of getting a clear error message
-          ipython "${NOTEBOOK}"
+          PATH=${PWD}/local_protoc/bin:$PATH ipython "${NOTEBOOK}"
           echo "NOTEBOOK=${NOTEBOOK}" >> $GITHUB_OUTPUT
       - name: Render the notebook
         id: render
@@ -156,7 +158,7 @@ jobs:
           workdir=$(mktemp -d)
           export NSYS_JAX_DEFAULT_PREFIX="${PWD}/profile_data"
           jupyter nbconvert --execute --inplace '${{ steps.exec.outputs.NOTEBOOK }}'
-          # TODO: verifu the .svg is still written to *this* directory
+          # TODO: verify the .svg is still written to *this* directory
           cp *.ipynb *.svg "${workdir}"
           echo "WORKDIR=${workdir}" >> $GITHUB_OUTPUT
       - name: Upload rendered notebook to Gist
