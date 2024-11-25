@@ -4,38 +4,127 @@ on:
   workflow_dispatch:
 
 jobs:
-  sandbox:
-    runs-on: ubuntu-22.04
+  test-nsys-jax:
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: nsys-jax
+      EXECUTE: |
+        set -o pipefail
+        num_tests=0
+        num_failures=0
+        # Run the pytest-driven tests
+        docker run -i --shm-size=1g --gpus all \
+          -v $PWD:/opt/output \
+          ghcr.io/nvidia/jax-toolbox-internal:12008367805-jax-amd64 \
+          bash <<"EOF" |& tee test-nsys-jax.log
+            # nsys-jax is already installed, this is just adding the test dependencies
+            pip install pytest-reportlog nsys-jax[test]
+            # abuse knowledge that nsys-jax is installed editable, so the tests exist
+            test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
+            pytest --report-log=/opt/output/pytest-report.jsonl "${test_path}"
+        EOF
+        GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
+        for mode in 1-process 2-process process-per-gpu; do
+          DOCKER="docker run --shm-size=1g --gpus all --env XLA_FLAGS=--xla_gpu_enable_command_buffer= --env XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 -v ${PWD}:/opt/output ghcr.io/nvidia/jax-toolbox-internal:12008367805-jax-amd64"
+          if [[ "${mode}" == "1-process" ]]; then
+            PROCESS_COUNT=1
+            ARGS=""
+          elif [[ "${mode}" == "2-process" ]]; then
+            # Use two processes with GPUS_PER_NODE/2 GPUs per process in the hope that
+            # this will flush out more bugs than process-per-node or process-per-GPU.
+            PROCESS_COUNT=2
+            ARGS="--process-id RANK --process-count ${PROCESS_COUNT} --coordinator-address 127.0.0.1:12345 --gpus-per-process $((GPUS_PER_NODE/2)) --distributed"
+          else
+            PROCESS_COUNT=${GPUS_PER_NODE}
+            ARGS="--process-id RANK --process-count ${PROCESS_COUNT} --coordinator-address 127.0.0.1:12345 --gpus-per-process 1 --distributed"
+          fi
+          for collection in full partial; do
+            NSYS_JAX="nsys-jax"
+            if [[ "${mode}" == "1-process" ]]; then
+              # We will not run nsys-jax-combine, so run analyses eagerly
+              NSYS_JAX+=" --nsys-jax-analysis communication --nsys-jax-analysis summary"
+            fi
+            NSYS_JAX+=" --output=/opt/output/${mode}-${collection}-execution-%q{RANK}"
+            if [[ "${collection}" == "partial" ]]; then
+              NSYS_JAX+=" --capture-range=cudaProfilerApi --capture-range-end=stop"
+              # nvbug/4801401
+              NSYS_JAX+=" --sample=none"
+            fi
+            set +e
+            ${DOCKER} parallel-launch RANK ${PROCESS_COUNT} ${NSYS_JAX} \
+              -- jax-nccl-test ${ARGS} |& tee ${mode}-${collection}-execution.log
+            num_failures=$((num_failures + ($? != 0)))
+            set -e
+            num_tests=$((num_tests + 1))
+          done
+          if [[ "${mode}" != "1-process" ]]; then
+            # Run nsys-jax-combine
+            NSYS_JAX_COMBINE="nsys-jax-combine --analysis communication --analysis summary --output=/opt/output/${mode}-${collection}-execution.zip"
+            for (( i=0; i<PROCESS_COUNT; i++ )); do
+              NSYS_JAX_COMBINE+=" /opt/output/${mode}-${collection}-execution-${i}.zip"
+            done
+            set +e
+            ${DOCKER} ${NSYS_JAX_COMBINE} |& tee ${mode}-${collection}-execution-combine.log
+            num_failures=$((num_failures + ($? != 0)))
+            set -e
+            num_tests=$((num_tests + 1))
+          fi
+        done
+        ls -R .
+        echo "NSYS_JAX_TEST_COUNT=${num_tests}" >> $GITHUB_ENV
+        echo "NSYS_JAX_FAIL_COUNT=${num_failures}" >> $GITHUB_ENV
+        exit $num_failures
+      STATISTICS_SCRIPT: |
+        summary_line=$(tail -n1 test-nsys-jax.log)
+        num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
+        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+        total_tests=$(( NSYS_JAX_TEST_COUNT + passed_tests + failed_tests ))
+        num_passed=$(( passed_tests + NSYS_JAX_TEST_COUNT - NSYS_JAX_FAIL_COUNT ))
+        num_failed=$(( failed_tests + NSYS_JAX_FAIL_COUNT ))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${num_passed}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${num_failed}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        # pytest-driven part
+        test-nsys-jax.log
+        pytest-report.jsonl
+        # nsys-jax logfiles
+        *process-*-execution.log
+        # nsys-jax output for the case that doesn't use nsys-jax-combine
+        1-process-*-execution-0.zip
+        # nsys-jax-combine output/logfiles
+        *process*-*-execution.zip
+        *-execution-combine.log
+    secrets: inherit
+
+  # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
+  # runs on a regular GitHub Actions runner and checks that offline post-processing works in an environment that does
+  # not already have nsys-jax installed
+  test-nsys-jax-archive:
+    needs: test-nsys-jax
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print usage
-        run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
-
-          Usage:
-          
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+    - name: Download nsys-jax output .zip files
+      uses: actions/download-artifact@v4
+      with:
+        name: nsys-jax-unit-test-A100
+    - name: Extract archives and execute install scripts
+      run: |
+        pip install virtualenv # for install.sh
+        for zip in $(ls *.zip); do
+          ZIP="${PWD}/${zip}"
+          pushd $(mktemp -d)
+          unzip "${ZIP}"
+          ls -l
+          # TODO: verify this isn't needed, or make sure it isn't needed
+          chmod 755 install.sh
+          # Run the notebook with IPython, not Jupyter Lab, so it exits and prints something informative to stdout
+          # Skip executing Jupyter lab
+          NSYS_JAX_IPYTHON_NOT_JUPYTER_LAB=1 ./install.sh
+          popd
+        done
