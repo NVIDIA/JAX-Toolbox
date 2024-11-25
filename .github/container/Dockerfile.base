@@ -130,7 +130,7 @@ git add -u
 git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github VCS installs for a package as equivalent. The spec of the last encountered version will be used'
 EOF
 # Create a system-wide venv for the pip-installed world inside the containers
-RUN python -m venv --prompt jax /opt/venv && /opt/venv/bin/pip install --ignore-installed --no-cache-dir -e /opt/pip pip-tools
+RUN python -m venv --prompt jax /opt/venv && /opt/venv/bin/pip install --no-cache-dir -e /opt/pip pip-tools
 # Make sure `python` refers to the venv version
 ENV PATH=/opt/venv/bin:${PATH}
 

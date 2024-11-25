@@ -85,6 +85,8 @@ if git diff --quiet; then
 else
     git commit -a -m "remove URL specs from select dependencies of t5x"
 fi
+sed -i 's/pysimdjson==[0-9.]*/pysimdjson/' setup.py
+sed -i 's/fasttext==[0-9.]*/fasttext/' setup.py
 popd
 EOF
 
