@@ -403,6 +403,36 @@ jobs:
         *-execution-combine.log
     secrets: inherit
 
+  # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
+  # runs on a regular GitHub Actions runner and checks that offline post-processing works in an environment that does
+  # not already have nsys-jax installed
+  test-nsys-jax-archive:
+    needs: test-nsys-jax
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Download nsys-jax output .zip files
+      uses: actions/download-artifact@v4
+      with:
+        name: nsys-jax-unit-test-A100
+    - name: Extract archives and execute install scripts
+      run: |
+        for zip in $(ls *.zip); do
+          ZIP="${PWD}/${zip}"
+          pushd $(mktemp -d)
+          unzip "${ZIP}"
+          ls -l
+          # TODO: verify this isn't needed, or make sure it isn't needed
+          chmod 755 install.sh
+          # Run the notebook with IPython, not Jupyter Lab, so it exits and prints something informative to stdout
+          # Skip executing Jupyter lab
+          NSYS_JAX_IPYTHON_NOT_JUPYTER_LAB=1 ./install.sh
+          popd
+        done
+
   # test-equinox:
   #   needs: build-equinox
   #   if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
