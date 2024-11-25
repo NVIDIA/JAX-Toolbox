@@ -113,8 +113,6 @@ for t in $*; do
 done
 
 TEST_TAG_FILTER_ARRAY=()
-TEST_TAG_FILTER_ARRAY+=('-multiaccelerator')
-
 COMMON_FLAGS=$(cat << EOF
 --@local_config_cuda//:enable_cuda
 --cache_test_results=${CACHE_TEST_RESULTS}
@@ -163,7 +161,10 @@ case "${BATTERY}" in
         ;;
 esac
 
-TEST_TAG_FILTERS=$(IFS=, ; echo "--test_tag_filters=${TEST_TAG_FILTER_ARRAY[*]}")
+TEST_TAG_FILTERS=""
+if [[ ${#TEST_TAG_FILTER_ARRAY[@]} > 0 ]]; then
+    TEST_TAG_FILTERS=$(IFS=, ; echo "--test_tag_filters=${TEST_TAG_FILTER_ARRAY[*]}")
+fi
 
 print_var NCPUS
 print_var NGPUS
