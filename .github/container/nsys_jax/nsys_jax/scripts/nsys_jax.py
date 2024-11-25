@@ -72,16 +72,17 @@ if [[ ! -d "${{VIRTUALENV}}" ]]; then
 else
   echo "Virtual environment already exists, not installing anything..."
 fi
-if [ -z ${{NSYS_JAX_INSTALL_SKIP_LAUNCH+x}} ]; then
-  # Pick up the current profile data by default
-  export NSYS_JAX_DEFAULT_PREFIX="${{PWD}}"
-  # https://setuptools.pypa.io/en/latest/userguide/datafiles.html#accessing-data-files-at-runtime
-  NOTEBOOK=$("${{BIN}}/python" -c 'from importlib.resources import files; print(files("nsys_jax") / "analyses" / "Analysis.ipynb")')
-  echo "Launching: cd ${{SCRIPT_DIR}} && ${{BIN}}/jupyter-lab ${{NOTEBOOK}}"
-  cd "${{SCRIPT_DIR}}" && "${{BIN}}/jupyter-lab" "${{NOTEBOOK}}"
+# Pick up the current profile data by default
+export NSYS_JAX_DEFAULT_PREFIX="${{PWD}}"
+# https://setuptools.pypa.io/en/latest/userguide/datafiles.html#accessing-data-files-at-runtime
+NOTEBOOK=$("${{BIN}}/python" -c 'from importlib.resources import files; print(files("nsys_jax") / "analyses" / "Analysis.ipynb")')
+if [ -z ${{NSYS_JAX_IPYTHON_NOT_JUPYTER_LAB+x}} ]; then
+  CMD="${{BIN}}/jupyter-lab"
 else
-  echo "Skipping launch of Jupyter Lab due to NSYS_JAX_INSTALL_SKIP_LAUNCH"
+  CMD="${{BIN}}/ipython"
 fi
+echo "Launching: cd ${{SCRIPT_DIR}} && ${{CMD}} ${{NOTEBOOK}}"
+cd "${{SCRIPT_DIR}}" && "${{CMD}}" "${{NOTEBOOK}}"
 """
 
 
