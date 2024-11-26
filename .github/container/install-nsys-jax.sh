@@ -1,9 +1,9 @@
 #!/bin/bash
 set -exo pipefail
 
-SHA="$1"
-if [[ ! $SHA =~ ^[0-9a-f]{40}$ ]]; then
-  echo "$0: <SHA of JAX-Toolbox>"
+REF="$1"
+if [[ -z "${REF}" ]]; then
+  echo "$0: <git ref of JAX-Toolbox>"
   exit 1
 fi
 
@@ -15,7 +15,7 @@ ln -s ${NSYS_DIR}/python/packages/nsys_recipe/requirements/common.txt /opt/pip-t
 # Install the nsys-jax package, which includes nsys-jax, nsys-jax-combine,
 # install-protoc (called from pip-finalize.sh), and nsys-jax-patch-nsys as well as the
 # nsys_jax Python library.
-URL="git+https://github.com/NVIDIA/JAX-Toolbox.git@${SHA}#subdirectory=.github/container/nsys_jax&egg=nsys-jax"
+URL="git+https://github.com/NVIDIA/JAX-Toolbox.git@${REF}#subdirectory=.github/container/nsys_jax&egg=nsys-jax"
 echo "-e '${URL}'" > /opt/pip-tools.d/requirements-nsys-jax.in
 
 # protobuf will be installed at least as a dependency of nsys_jax in the base
