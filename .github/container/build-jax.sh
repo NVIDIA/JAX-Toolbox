@@ -273,22 +273,23 @@ if [[ ! -e "/usr/local/cuda/lib" ]]; then
     ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
 fi
 
-pushd ${SRC_PATH_JAX}
-
+if ! grep 'try-import %workspace%/.local_cuda.bazelrc' "${SRC_PATH_JAX}/.bazelrc"; then
+    echo -e '\ntry-import %workspace%/.local_cuda.bazelrc' >> "${SRC_PATH_JAX}/.bazelrc"
+fi
+cat > "${SRC_PATH_JAX}/.local_cuda.bazelrc" << EOF
+build --repo_env=LOCAL_CUDA_PATH="/usr/local/cuda"
+build --repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn"
+build --repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl"
+EOF
 time python "${SRC_PATH_JAX}/build/build.py" build \
-    --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
     --editable \
     --use_clang \
-    --bazel_options=--repo_env=LOCAL_CUDA_PATH="/usr/local/cuda" \
-    --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn" \
-    --bazel_options=--repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl" \
-    --cuda_compute_capabilities=${TF_CUDA_COMPUTE_CAPABILITIES} \
+    --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
+    --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
     --bazel_options=--linkopt=-fuse-ld=lld \
-    --local_xla_path=${SRC_PATH_XLA} \
+    --local_xla_path=$SRC_PATH_XLA \
     --output_path=${BUILD_PATH_JAXLIB} \
     $BUILD_PARAM
-
-popd
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
 line="jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib"
