@@ -295,8 +295,8 @@ line="jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib"
 if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
     pushd "${SRC_PATH_JAX}"
     echo "${line}" >> build/requirements.in
-    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax-gpu-pjrt" >> build/requirements.in
-    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax-gpu-plugin" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax-cuda-pjrt" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax-cuda-plugin" >> build/requirements.in
     PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
     bazel run --verbose_failures=true //build:requirements.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
     popd
@@ -311,13 +311,13 @@ else
 fi
 
 # install jax and jaxlib
-pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax-gpu-pjrt -e ${BUILD_PATH_JAXLIB}/jax-gpu-plugin -e "${SRC_PATH_JAX}"
+pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax-cuda-pjrt -e ${BUILD_PATH_JAXLIB}/jax-cuda-plugin -e "${SRC_PATH_JAX}"
 
-# after installation (example)
-#  jax                     0.4.32.dev20240808+9c2caedab /opt/jax
-#  jax-cuda12-pjrt         0.4.32.dev20240808           /opt/jaxlibs/jax-gpu-pjrt
-#  jax-cuda12-plugin       0.4.32.dev20240808           /opt/jaxlibs/jax-gpu-plugin
-#  jaxlib                  0.4.32.dev20240808           /opt/jaxlibs/jaxlib
+## after installation (example)
+# jax               0.4.36.dev20241125+f828f2d7d /opt/jax
+# jax-cuda12-pjrt   0.4.36.dev20241125           /opt/jaxlibs/jax-cuda-pjrt
+# jax-cuda12-plugin 0.4.36.dev20241125           /opt/jaxlibs/jax-cuda-plugin
+# jaxlib            0.4.36.dev20241125           /opt/jaxlibs/jaxlib
 pip list | grep jax
 
 # Ensure directories are readable by all for non-root users
