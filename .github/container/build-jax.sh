@@ -287,7 +287,7 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --local_xla_path=${SRC_PATH_XLA} \
     --output_path=${BUILD_PATH_JAXLIB} \
     $BUILD_PARAM
-    
+
 popd
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
@@ -295,8 +295,8 @@ line="jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib"
 if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
     pushd "${SRC_PATH_JAX}"
     echo "${line}" >> build/requirements.in
-    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax_gpu_pjrt" >> build/requirements.in
-    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax_gpu_plugin" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax-gpu-pjrt" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax-gpu-plugin" >> build/requirements.in
     PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
     bazel run --verbose_failures=true //build:requirements.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
     popd
@@ -315,8 +315,8 @@ pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUIL
 
 # after installation (example)
 #  jax                     0.4.32.dev20240808+9c2caedab /opt/jax
-#  jax-cuda12-pjrt         0.4.32.dev20240808           /opt/jaxlibs/jax_gpu_pjrt
-#  jax-cuda12-plugin       0.4.32.dev20240808           /opt/jaxlibs/jax_gpu_plugin
+#  jax-cuda12-pjrt         0.4.32.dev20240808           /opt/jaxlibs/jax-gpu-pjrt
+#  jax-cuda12-plugin       0.4.32.dev20240808           /opt/jaxlibs/jax-gpu-plugin
 #  jaxlib                  0.4.32.dev20240808           /opt/jaxlibs/jaxlib
 pip list | grep jax
 
