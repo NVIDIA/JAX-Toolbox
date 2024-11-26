@@ -273,6 +273,8 @@ if [[ ! -e "/usr/local/cuda/lib" ]]; then
     ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
 fi
 
+pushd ${SRC_PATH_JAX}
+
 time python "${SRC_PATH_JAX}/build/build.py" build \
     --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
     --editable \
@@ -285,7 +287,8 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --local_xla_path=${SRC_PATH_XLA} \
     --output_path=${BUILD_PATH_JAXLIB} \
     $BUILD_PARAM
-
+    
+popd
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
 line="jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib"
