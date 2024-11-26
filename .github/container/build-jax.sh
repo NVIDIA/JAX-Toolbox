@@ -273,24 +273,16 @@ if [[ ! -e "/usr/local/cuda/lib" ]]; then
     ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
 fi
 
-if ! grep 'try-import %workspace%/.local_cuda.bazelrc' "${SRC_PATH_JAX}/.bazelrc"; then
-  echo -e '\ntry-import %workspace%/.local_cuda.bazelrc' >> "${SRC_PATH_JAX}/.bazelrc"
-fi
-cat > "${SRC_PATH_JAX}/.local_cuda.bazelrc" << EOF
-build:cuda --repo_env=LOCAL_CUDA_PATH="/usr/local/cuda"
-build:cuda --repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn"
-build:cuda --repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl"
-EOF
-time python "${SRC_PATH_JAX}/build/build.py" \
+time python "${SRC_PATH_JAX}/build/build.py" build \
+    --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
     --editable \
     --use_clang \
-    --enable_cuda \
-    --build_gpu_plugin \
-    --gpu_plugin_cuda_version=$TF_CUDA_MAJOR_VERSION \
-    --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
-    --enable_nccl=true \
+    --bazel_options=--repo_env=LOCAL_CUDA_PATH="/usr/local/cuda" \
+    --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn" \
+    --bazel_options=--repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl" \
+    --cuda_compute_capabilities=${TF_CUDA_COMPUTE_CAPABILITIES} \
     --bazel_options=--linkopt=-fuse-ld=lld \
-    --bazel_options=--override_repository=xla=$SRC_PATH_XLA \
+    --local_xla_path=${SRC_PATH_XLA} \
     --output_path=${BUILD_PATH_JAXLIB} \
     $BUILD_PARAM
 
@@ -316,7 +308,7 @@ else
 fi
 
 # install jax and jaxlib
-pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_gpu_pjrt -e ${BUILD_PATH_JAXLIB}/jax_gpu_plugin -e "${SRC_PATH_JAX}"
+pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax-gpu-pjrt -e ${BUILD_PATH_JAXLIB}/jax-gpu-plugin -e "${SRC_PATH_JAX}"
 
 # after installation (example)
 #  jax                     0.4.32.dev20240808+9c2caedab /opt/jax
