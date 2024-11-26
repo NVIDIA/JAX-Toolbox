@@ -3,7 +3,7 @@ ARG BASE_IMAGE=nvidia/cuda:12.6.2-devel-ubuntu22.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG CLANG_VERSION=18
-ARG JAX_TOOLBOX_SHA
+ARG JAX_TOOLBOX_REF
 
 ###############################################################################
 ## Obtain GCP's NCCL TCPx plugin
@@ -31,7 +31,7 @@ ARG BASE_IMAGE
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
 ARG CLANG_VERSION
-ARG JAX_TOOLBOX_SHA
+ARG JAX_TOOLBOX_REF
 ENV CUDA_BASE_IMAGE=${BASE_IMAGE}
 
 ###############################################################################
@@ -204,7 +204,7 @@ COPY check-shm.sh /opt/nvidia/entrypoint.d/
 ###############################################################################
 
 ADD install-nsys-jax.sh /usr/local/bin
-RUN install-nsys-jax.sh ${JAX_TOOLBOX_SHA}
+RUN install-nsys-jax.sh ${JAX_TOOLBOX_REF}
 
 ###############################################################################
 ## Copy manifest file to the container
