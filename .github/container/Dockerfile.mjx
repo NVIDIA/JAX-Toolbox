@@ -12,7 +12,7 @@ ARG SRC_PATH_L2R=/opt/language-to-reward-2023
 ## Download source and add auxiliary scripts
 ###############################################################################
 
-FROM ${BASE_IMAGE} AS mealkit
+FROM ${BASE_IMAGE} as mealkit
 ARG URLREF_MUJOCO
 ARG URLREF_MUJOCO_MPC
 ARG URLREF_L2R
@@ -49,6 +49,6 @@ EOF
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
-FROM mealkit AS final
+FROM mealkit as final
 
 RUN pip-finalize.sh

@@ -17,6 +17,7 @@ FROM ${BASE_IMAGE} as wheel-builder
 # build tensorflow-text from source
 #------------------------------------------------------------------------------
 
+# Remove TFTEXT build from source when it has py-3.12 wheels for x86/arm64
 FROM wheel-builder as tftext-builder
 ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT

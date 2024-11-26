@@ -10,7 +10,7 @@ ARG SRC_PATH_HALIAX=/opt/haliax
 ## Download source and add auxiliary scripts
 ###############################################################################
 
-FROM ${BASE_IMAGE} AS mealkit
+FROM ${BASE_IMAGE} as mealkit
 ARG URLREF_LEVANTER
 ARG URLREF_HALIAX
 ARG SRC_PATH_LEVANTER
@@ -34,6 +34,6 @@ COPY levanter-cache-warn.sh /opt/nvidia/entrypoint.d/
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
-FROM mealkit AS final
+FROM mealkit as final
 
 RUN pip-finalize.sh
