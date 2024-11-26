@@ -281,6 +281,8 @@ build --repo_env=LOCAL_CUDA_PATH="/usr/local/cuda"
 build --repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn"
 build --repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl"
 EOF
+
+pushd ${SRC_PATH_JAX}
 time python "${SRC_PATH_JAX}/build/build.py" build \
     --editable \
     --use_clang \
@@ -290,6 +292,8 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --local_xla_path=$SRC_PATH_XLA \
     --output_path=${BUILD_PATH_JAXLIB} \
     $BUILD_PARAM
+popd
+
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
 line="jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib"
