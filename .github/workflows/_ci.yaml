@@ -420,6 +420,7 @@ jobs:
         name: nsys-jax-unit-test-A100
     - name: Extract archives and execute install scripts
       run: |
+        pip install virtualenv # for install.sh
         for zip in $(ls *.zip); do
           ZIP="${PWD}/${zip}"
           pushd $(mktemp -d)

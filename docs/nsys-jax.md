@@ -22,7 +22,7 @@ There are three convenient ways of running profile data analyses:
 - Manual execution; the output files of both `nsys-jax` and `nsys-jax-combine` include an installation script that sets
   up a local Python virtual environment including the `nsys_jax` library, Jupyter Lab, and an example notebook for
   Jupyter-based exploration of profile data (*e.g.* run this on your laptop and explore your profile data in a Jupyter
-  notebook)
+  notebook). This installation script depends on the `virtualenv` command.
 
 ## Installation
 The containers published from this repository (`ghcr.io/nvidia/jax:XXX`) have `nsys-jax` pre-installed; the recipes for
