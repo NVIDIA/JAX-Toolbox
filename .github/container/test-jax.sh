@@ -26,7 +26,7 @@ jax_source_dir() {
 
 query_tests() {
     cd `jax_source_dir`
-    python build/build.py --configure_only
+    python build/build.py build --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
     bazel query tests/... 2>&1 | grep -F '//tests:'
     exit
 }
@@ -113,8 +113,6 @@ for t in $*; do
 done
 
 TEST_TAG_FILTER_ARRAY=()
-TEST_TAG_FILTER_ARRAY+=('-multiaccelerator')
-
 COMMON_FLAGS=$(cat << EOF
 --@local_config_cuda//:enable_cuda
 --cache_test_results=${CACHE_TEST_RESULTS}
@@ -163,7 +161,10 @@ case "${BATTERY}" in
         ;;
 esac
 
-TEST_TAG_FILTERS=$(IFS=, ; echo "--test_tag_filters=${TEST_TAG_FILTER_ARRAY[*]}")
+TEST_TAG_FILTERS=""
+if [[ ${#TEST_TAG_FILTER_ARRAY[@]} > 0 ]]; then
+    TEST_TAG_FILTERS=$(IFS=, ; echo "--test_tag_filters=${TEST_TAG_FILTER_ARRAY[*]}")
+fi
 
 print_var NCPUS
 print_var NGPUS
@@ -190,5 +191,5 @@ pip install matplotlib
 ## Run tests
 
 cd `jax_source_dir`
-python build/build.py --configure_only
+python build/build.py build --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
 bazel test ${BAZEL_TARGET} ${TEST_TAG_FILTERS} ${COMMON_FLAGS} ${EXTRA_FLAGS}

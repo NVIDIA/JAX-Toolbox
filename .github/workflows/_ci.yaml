@@ -295,6 +295,7 @@ jobs:
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee tee test-gpu.log
+          nvidia-cuda-mps-control -d
           test-jax.sh -b gpu
         EOF
       STATISTICS_SCRIPT: |
@@ -463,8 +464,9 @@ jobs:
         docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
         ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-triton.log
-          # autotuner tests from jax-triton now hit a triton code path that uses utilities from pytorch...
-          pip install --no-deps torch --index-url https://download.pytorch.org/whl/cpu
+          # autotuner tests from jax-triton now hit a triton code path that uses utilities from pytorch; this relies on
+          # actually having a CUDA backend for pytoch
+          pip install --no-deps torch
           python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
         EOF
       STATISTICS_SCRIPT: |
