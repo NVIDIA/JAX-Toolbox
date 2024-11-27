@@ -144,6 +144,7 @@ jobs:
       EXTRA_BUILD_ARGS: |
         URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
         URLREF_TFTEXT=${{ fromJson(inputs.SOURCE_URLREFS).TENSORFLOW_TEXT }}
+        URLREF_AIRIO=${{ fromJson(inputs.SOURCE_URLREFS).AIRIO }}
     secrets: inherit
 
   build-upstream-pax:

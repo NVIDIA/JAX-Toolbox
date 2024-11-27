@@ -78,8 +78,8 @@ fiddle:
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: cfca4a10de1491d76d2d00fcbd7142079837ca99
-  mode: pip-vcs
+  latest_verified_commit: 37109ff0d1059f885b9b11ef9058eca5d219d7cb
+  mode: git-clone
 clu:
   url: https://github.com/google/CommonLoopUtils.git
   tracking_ref: main

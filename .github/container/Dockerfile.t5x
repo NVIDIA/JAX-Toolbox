@@ -5,8 +5,11 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#master
 ARG URLREF_T5X=https://github.com/google-research/t5x.git#main
+ARG URLREF_AIRIO=https://github.com/google/airio.git#main
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 ARG SRC_PATH_T5X=/opt/t5x
+ARG SRC_PATH_AIRIO=/opt/airio
+
 
 ###############################################################################
 ## build several packages which do not have working arm64 pip wheels
@@ -23,8 +26,8 @@ ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
 
 RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.18.0
-RUN git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
 RUN <<"EOF" bash -exu -o pipefail
+git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
 cd ${SRC_PATH_TFTEXT}
     
 # The tftext build script queries GitHub, but these requests are sometimes
@@ -45,14 +48,16 @@ EOF
 ## T5X
 ###############################################################################
 
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_T5X
+ARG URLREF_AIRIO
 ARG SRC_PATH_TFTEXT
 ARG SRC_PATH_T5X
+ARG SRC_PATH_AIRIO
 
 # Preserve version information of tensorflow-text
 COPY --from=tftext-builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
-
 COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
 
@@ -78,6 +83,14 @@ if [[ "$(dpkg --print-architecture)" == "arm64" ]]; then
 
     sed -i "s/'protobuf/#'protobuf/" setup.py
     sed -i "s/'numpy/#'numpy/" setup.py
+
+    
+    # airio pins grain==0.2.0, but the later does not have arm64 wheel.
+    # Need to bump grain to 0.2.2 to resolve the issue (https://github.com/google/airio/issues/257)
+    git-clone.sh ${URLREF_AIRIO} ${SRC_PATH_AIRIO}
+    sed -i "s/grain==0.2.0/grain/g" ${SRC_PATH_AIRIO}/setup.py
+    sed -i "s/'airio/#'airio/g" setup.py
+    echo "-e file://${SRC_PATH_AIRIO}" >> /opt/pip-tools.d/requirements-t5x.in
 fi
 if git diff --quiet; then
     echo "URL specs no longer present in select dependencies of t5x"
