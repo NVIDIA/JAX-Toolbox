@@ -65,6 +65,8 @@ sed -i -e 's|-Werror||g' CMakeLists.txt
 sed -i -e 's|\(LLVMAMDGPU.*\)|# \1|g' CMakeLists.txt
 # Do not build tests
 sed -i -e 's|^\s*add_subdirectory(unittest)|# unit tests disabled|' CMakeLists.txt
+# Avoid building GPUHello.cpp, which does not compile with cl693214397 of OpenXLA Triton
+sed -i -e 's|^add_subdirectory(Instrumentation)|# Instrumentation test disabled|' test/lib/CMakeLists.txt
 # Avoid error due to forward declaration of Module
 sed -i -e '/#include "llvm\/IR\/IRBuilder.h"/a #include "llvm/IR/Module.h"' test/lib/Instrumentation/GPUHello.cpp
 # Google has patches that mess with include paths in source files
