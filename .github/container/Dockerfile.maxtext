@@ -57,12 +57,13 @@ RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-
 RUN <<"EOF" bash -ex
 git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
 echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+
+# specify some restrictions to speed up the build and
+# avoid pip to download and check all available versions of packages
 for pattern in \
-    "s|@git+https://github.com/mlperf/logging.git||g" \
-    "s|absl-py|absl-py==2.1.0|g" \
+    "s|absl-py|absl-py>=2.1.0|g" \
     "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
     "s|tensorflow-datasets|tensorflow-datasets>=4.8.0|g" \
-    "s|@git+https://github.com/google/pathways-utils.git||g" \
   ; do
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt;
 done
