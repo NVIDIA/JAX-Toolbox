@@ -141,17 +141,23 @@ def _load_nvtx_gpu_proj_trace_single(
         "Stack Level": "Lvl",
         "TID": "TID",
     }
-    if set(df.columns) == alt_rename_map.keys():
-        tsl_prefix = ""
-        df = df.rename(
-            columns={k: v for k, v in alt_rename_map.items() if v is not None}
-        )
-        df["ProjDurMs"] = 1e-6 * (df.pop("End") - df["Start"])
-        df["ProjStartMs"] = 1e-6 * df.pop("Start")
-        df["RangeStack"] = df["RangeStack"].map(
-            lambda stack: ":" + ":".join(map(str, stack))
-        )
-        # TODO: add OrigDurMs, OrigStartMs
+    alt_rename_map_2024_7 = alt_rename_map | {
+        "Device ID": "DeviceId",
+        "Stream ID": "StreamId",
+    }
+    for rename_map in [alt_rename_map, alt_rename_map_2024_7]:
+        if set(df.columns) == rename_map.keys():
+            tsl_prefix = ""
+            df = df.rename(
+                columns={k: v for k, v in rename_map.items() if v is not None}
+            )
+            df["ProjDurMs"] = 1e-6 * (df.pop("End") - df["Start"])
+            df["ProjStartMs"] = 1e-6 * df.pop("Start")
+            df["RangeStack"] = df["RangeStack"].map(
+                lambda stack: ":" + ":".join(map(str, stack))
+            )
+            # TODO: add OrigDurMs, OrigStartMs
+            break
     else:
         tsl_prefix = "TSL:"
         df = df.drop(columns=["Style"])
