@@ -432,10 +432,10 @@ jobs:
           | .[1].spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
           | .[1].spec.template.spec.containers[0].image = strenv(JAX_DOCKER_IMAGE)
           | .[1].spec.template.spec.containers[0].env[0].value = strenv(JOB_NAME)'
-          .github/workflows/eks-job.yml
-        git diff .github/workflows/eks-job.yml
+          .github/eks-workflow-files/job.yml
+        git diff .github/eks-workflow-files/job.yml
     - name: Submit Kubernetes job
-      run: kubectl apply -f .github/workflows/eks-job.yml
+      run: kubectl apply -f .github/eks-workflow-files/job.yml
     - name: Wait for Kubernetes job to start
       run: |
         while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-jax --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
@@ -454,10 +454,10 @@ jobs:
           | .spec.template.spec.containers[].image = strenv(JAX_DOCKER_IMAGE)
           | .spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
           | .spec.template.spec.initContainers[].command[7] = strenv(JOB_OUTPUT_PATTERN)'
-          .github/workflows/eks-post-process-job.yml
-        git diff .github/workflows/eks-post-process-job.yml
+          .github/eks-workflow-files/post-process-job.yml
+        git diff .github/eks-workflow-files/post-process-job.yml
     - name: Submit post-processing Kubernetes job
-      run: kubectl apply -f .github/workflows/eks-post-process-job.yml
+      run: kubectl apply -f .github/eks-workflow-files/post-process-job.yml
     - name: Wait for post-processing Kubernetes job to start
       run: |
         while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-postprocess --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
