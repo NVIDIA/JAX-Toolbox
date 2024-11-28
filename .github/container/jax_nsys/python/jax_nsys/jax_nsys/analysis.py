@@ -353,8 +353,22 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
     statistics.
     """
     # Aggregate compilation stats in here
-    compile_time_ms: dict[str, np.ndarray] = defaultdict(lambda: np.zeros(2))
+    compile_time_ms = []
     for profile_name, profile_df in compile_df.groupby("ProfileName"):
+
+        def append_record(row, non_child_ms, child_ms):
+            compile_time_ms.append(
+                (
+                    profile_name,
+                    int(row.RangeStack.split(":")[1]),
+                    row.ProgramId,
+                    row.ProgramName,
+                    row.Name,
+                    non_child_ms,
+                    child_ms,
+                )
+            )
+
         # Identify the main thread
         main_thread = profile_df.loc[compile_df["Name"] == "XlaCompile", "TID"].unique()
         assert len(main_thread) == 1
@@ -398,7 +412,8 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
             total_worker_time = child_df.loc[~is_main, "DurNonChildMs"].sum()
 
             def attribute_parallel_time(row):
-                compile_time_ms[row.Name] += (
+                append_record(
+                    row,
                     parallel_dur * row.DurNonChildMs / total_worker_time,
                     parallel_dur * row.DurChildMs / total_worker_time,
                 )
@@ -416,8 +431,34 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
         # `compile_time_ms` now accounts for parallel compilation worker threads, but not
         # the work from the main thread. Add that too.
         for row in compile_df[compile_df["TID"] == main_thread].itertuples():
-            compile_time_ms[row.Name] += (row.DurNonChildMs, row.DurChildMs)
+            append_record(row, row.DurNonChildMs, row.DurChildMs)
 
-    return pd.DataFrame.from_dict(
-        compile_time_ms, columns=["DurNonChildMs", "DurChildMs"], orient="index"
-    ).sort_values(by=["DurNonChildMs"], ascending=False)
+    df = pd.DataFrame.from_records(
+        compile_time_ms,
+        columns=[
+            "ProfileName",
+            "CompileRangeId",
+            "ProgramId",
+            "ProgramName",
+            "Name",
+            "DurNonChildMs",
+            "DurChildMs",
+        ],
+    )
+    # Sum over repeated entries (e.g. multiple XlaAutotunerCompilation within the same XlaCompile)
+    df = df.groupby(["ProgramId", "Name", "ProfileName", "CompileRangeId"]).agg(
+        {
+            "ProgramName": "first",
+            "DurNonChildMs": "sum",
+            "DurChildMs": "sum",
+        }
+    )
+    # Average over different compilations of the same module
+    df = df.groupby(level=[0, 1]).agg(
+        {
+            "ProgramName": "first",
+            "DurNonChildMs": ("mean", "std"),
+            "DurChildMs": ("mean", "std"),
+        }
+    )
+    return df.sort_values(by=("DurNonChildMs", "mean"), ascending=False)

@@ -54,14 +54,55 @@ def main():
 
     compilation_stats = generate_compilation_statistics(init.compile)
     if len(compilation_stats):
+        # Summarise compilation time by module before aggregating over modules
+        assert compilation_stats.index.names == ["ProgramId", "Name"]
+        compilation_time_by_module = (
+            compilation_stats.loc[(slice(None), "XlaCompile"), :]
+            .drop(
+                columns=[
+                    ("DurNonChildMs", "mean"),
+                    ("DurNonChildMs", "std"),
+                    ("DurChildMs", "std"),
+                ]
+            )
+            .droplevel("Name")  # drop the XlaCompile part of the index
+            .droplevel(axis="columns", level=1)  # drop the mean/std/first part
+            .rename(columns={"DurChildMs": "TotalMs"})
+            .sort_values(by="TotalMs", ascending=False)
+        )
+        total_compile_time = compilation_time_by_module["TotalMs"].sum()
+        compilation_time_by_module["TotalPercent"] = (
+            100 * compilation_time_by_module["TotalMs"] / total_compile_time
+        )
+
+        dump("compilation-modules", compilation_time_by_module)
+        top_n = 10
+        print(
+            f" === COMPILATION TIME -- TOP {top_n} MODULES ===\n{compilation_time_by_module.iloc[:top_n]}"
+        )
+
+        # Show the top few passes in a module-specific way
+        dump("compilation-ranges", compilation_stats)
+        print(
+            f" === COMPILATION TIME -- TOP {top_n} RANGES BEFORE AGGREGATION OVER MODULES ===\n{compilation_stats.iloc[:top_n]}"
+        )
+
+        # Sum over modules, drop the columns representing the standard deviation over different instances (across processes) of the same (module, compilation_range) pair
+        compilation_stats = (
+            compilation_stats.drop(
+                columns=[("DurNonChildMs", "std"), ("DurChildMs", "std"), "ProgramName"]
+            )
+            .droplevel(axis="columns", level=1)
+            .groupby(level=1)
+            .agg("sum")
+            .sort_values("DurNonChildMs", ascending=False)
+        )
+
         total_compile_time = compilation_stats["DurNonChildMs"].sum()
         compilation_stats["DurNonChildPercent"] = (
             100 * compilation_stats["DurNonChildMs"] / total_compile_time
         )
-        # Dump before dropping
-        dump("compilation-ranges", compilation_stats)
         compilation_stats = compilation_stats.drop(columns=["DurChildMs"])
-        top_n = 10
         top_n_ranges = compilation_stats.iloc[:top_n]
 
         # All XlaPass ranges combined into a single XlaPasses range, XlaPassPipeline ranges ignored
