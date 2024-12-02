@@ -75,13 +75,10 @@ apt-get install -y ${apt_packages[@]}
 # package manager (the run of `apt-get install` above) and can not be uninstall
 # using pip (in pip-finalize.sh script) during JAX installation. Remove then in
 # advance to avoid JAX installation issue.
-uninstall_packages=(
-  python-gobject
-  python-yaml
-  python-markdown
-  python-pygments
+remove_packages=(
+  python3-gi
 )
-apt-get remove -y ${uninstall_packages[@]}
+apt-get remove -y ${remove_packages[@]}
 
 # Install LLVM/Clang
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
