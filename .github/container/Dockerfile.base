@@ -76,10 +76,10 @@ apt-get install -y ${apt_packages[@]}
 # using pip (in pip-finalize.sh script) during JAX installation. Remove then in
 # advance to avoid JAX installation issue.
 uninstall_packages=(
-  python3-gobject
-  python3-yaml
-  python3-markdown
-  python3-pygments
+  python-gobject
+  python-yaml
+  python-markdown
+  python-pygments
 )
 apt-get remove -y ${uninstall_packages[@]}
 
