@@ -53,7 +53,6 @@ apt_packages=(
   liblzma-dev
   python-is-python3
   python3-pip
-  python3-venv
   rsync
   vim
   wget
@@ -71,6 +70,18 @@ if [[ $(dpkg --print-architecture) == arm64 ]]; then
   apt_packages+=(pkg-config libhdf5-dev)
 fi
 apt-get install -y ${apt_packages[@]}
+
+# There are several python packages (in the list below) that are installed with OS 
+# package manager (the run of `apt-get install` above) and can not be uninstall
+# using pip (in pip-finalize.sh script) during JAX installation. Remove then in
+# advance to avoid JAX installation issue.
+uninstall_packages=(
+  python3-gobject
+  python3-yaml
+  python3-markdown
+  python3-pygments
+)
+apt-get remove -y ${uninstall_packages[@]}
 
 # Install LLVM/Clang
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
@@ -129,10 +140,10 @@ git apply </opt/pip/pip-vcs-equivalency.patch
 git add -u
 git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github VCS installs for a package as equivalent. The spec of the last encountered version will be used'
 EOF
-# Create a system-wide venv for the pip-installed world inside the containers
-RUN python -m venv --prompt jax /opt/venv && /opt/venv/bin/pip install --no-cache-dir -e /opt/pip pip-tools
-# Make sure `python` refers to the venv version
-ENV PATH=/opt/venv/bin:${PATH}
+
+# install all python packages system-wide.
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+RUN pip install --upgrade --ignore-installed --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
 
 
 ###############################################################################
