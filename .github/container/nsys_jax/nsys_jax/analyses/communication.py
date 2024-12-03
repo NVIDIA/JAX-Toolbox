@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import argparse
 from collections import defaultdict
-from jax_nsys import (
+from nsys_jax import (
     align_profiler_data_timestamps,
     apply_warmup_heuristics,
     ensure_compiled_protos_are_importable,

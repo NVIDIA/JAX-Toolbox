@@ -1,8 +1,18 @@
 from dataclasses import dataclass
+import os
 import pandas as pd  # type: ignore
+import pathlib
 from typing import Optional
 
 pd.options.mode.copy_on_write = True
+
+
+def default_data_prefix() -> pathlib.Path:
+    """
+    Default path for profiler data. This is particularly useful for Jupyter notebooks,
+    which make it awkward to arrange for a sensible default working directory.
+    """
+    return pathlib.Path(os.environ.get("NSYS_JAX_DEFAULT_PREFIX", "."))
 
 
 @dataclass
