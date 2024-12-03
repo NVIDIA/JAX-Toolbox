@@ -13,8 +13,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument("input", help="Input archive")
 parser.add_argument("output", help="Output archive")
 args = parser.parse_args()
-jax_nsys = pathlib.Path(__file__).parent.parent.parent / "container" / "jax_nsys"
-assert jax_nsys.is_dir(), "Could not find .github/container/jax_nsys"
+nsys_jax = pathlib.Path(__file__).parent.parent.parent / "container" / "nsys_jax"
+assert nsys_jax.is_dir(), "Could not find .github/container/nsys_jax"
 with zipfile.ZipFile(args.input) as ifile, zipfile.ZipFile(
     args.output,
     "w",
@@ -28,7 +28,7 @@ with zipfile.ZipFile(args.input) as ifile, zipfile.ZipFile(
             continue
         # Don't include any of the source code that is copied into the archive via
         # nsys-jax and Dockerfile.base; the CI pipeline uses the HEAD version of it
-        path = jax_nsys / member.filename
+        path = nsys_jax / member.filename
         if path.is_file():
             continue
         # Don't include the output of any --nsys-jax-analysis scripts that were run

@@ -1,0 +1,44 @@
+[project]
+name = "nsys-jax"
+dynamic = ["version"]
+dependencies = [
+  "ipython",
+  "numpy",
+  "pandas",
+  "protobuf", # a compatible version of protoc needs to be installed out-of-band
+  "pyarrow",
+  "requests", # for install-protoc
+  "uncertainties", # communication analysis recipe
+]
+requires-python = ">= 3.10"
+
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+jupyter = [
+  "jupyterlab",
+  "matplotlib"
+]
+test = [
+  "pytest"
+]
+
+[project.scripts]
+install-flamegraph  = "nsys_jax.scripts.install_flamegraph:main"
+install-protoc      = "nsys_jax.scripts.install_protoc:main"
+nsys-jax            = "nsys_jax.scripts.nsys_jax:main"
+nsys-jax-combine    = "nsys_jax.scripts.nsys_jax_combine:main"
+nsys-jax-patch-nsys = "nsys_jax.scripts.patch_nsys:main"
+
+[tool.setuptools_scm]
+root = "../../.." # .github/container/nsys_jax
+# written into the git checkout in case of an editable installation
+version_file = "nsys_jax/version.py"
+# __sha__ is not written by default
+version_file_template = """\
+__version__ = version = {version!r}
+__version_tuple__ = version_tuple = {version_tuple!r}
+__sha__ = {scm_version.node!r}
+"""
