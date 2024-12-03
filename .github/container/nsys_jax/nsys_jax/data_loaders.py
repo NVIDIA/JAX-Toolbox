@@ -11,7 +11,7 @@ import re
 
 from .analysis import calculate_collective_metrics
 from .protobuf import xla_module_metadata
-from .utils import make_child_mask, ProfilerData
+from .utils import default_data_prefix, make_child_mask, ProfilerData
 
 pd.options.mode.copy_on_write = True
 
@@ -629,7 +629,7 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
 
 
 def load_profiler_data(
-    prefix: pathlib.Path = pathlib.Path("."),
+    prefix: pathlib.Path = default_data_prefix(),
     frames: set[str] = {"communication", "compile", "module", "thunk"},
 ) -> ProfilerData:
     """

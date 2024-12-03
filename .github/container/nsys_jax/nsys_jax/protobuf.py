@@ -3,6 +3,8 @@ import lzma
 import pathlib
 import typing
 
+from .utils import default_data_prefix
+
 
 def _host_memory_space(inst):
     return inst.shape.layout.memory_space == 5
@@ -239,7 +241,7 @@ class HloProtoSet:
 def xla_module_metadata(
     program_id: int,
     policy: typing.Literal["consistent"],
-    prefix: pathlib.Path = pathlib.Path("."),
+    prefix: pathlib.Path = default_data_prefix(),
 ) -> HloProto: ...
 
 
@@ -247,7 +249,7 @@ def xla_module_metadata(
 def xla_module_metadata(
     program_id: int,
     policy: typing.Literal["all"],
-    prefix: pathlib.Path = pathlib.Path("."),
+    prefix: pathlib.Path = default_data_prefix(),
 ) -> HloProtoSet: ...
 
 
@@ -255,7 +257,7 @@ def xla_module_metadata(
 def xla_module_metadata(
     program_id: int,
     policy: str = "consistent",
-    prefix: pathlib.Path = pathlib.Path("."),
+    prefix: pathlib.Path = default_data_prefix(),
 ) -> typing.Union[HloProto, HloProtoSet]:
     """
     Load the protobuf metadata for module `program_id`. If given, `prefix` is the
