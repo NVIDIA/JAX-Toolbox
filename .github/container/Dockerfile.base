@@ -71,19 +71,8 @@ if [[ $(dpkg --print-architecture) == arm64 ]]; then
 fi
 apt-get install -y ${apt_packages[@]}
 
-# There are several python packages (in the list below) that are installed with OS 
-# package manager (the run of `apt-get install` above) and can not be uninstall
-# using pip (in pip-finalize.sh script) during JAX installation. Remove then in
-# advance to avoid JAX installation issue.
-remove_packages=(
-  python3-gi
-)
-apt-get remove -y ${remove_packages[@]}
-
 # Install LLVM/Clang
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
-apt-get remove -y software-properties-common lsb-release
-apt-get autoremove -y  # removes python3-blinker which conflicts with pip-compile in JAX
 
 # Make sure that clang and clang++ point to the new version. This list is based
 # on the symlinks installed by the `clang` (as opposed to `clang-14`) and `lld`
@@ -114,6 +103,18 @@ EOL
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
+
+# There are several python packages (in the list below) that are installed with OS 
+# package manager (the run of `apt-get install` above) and can not be uninstall
+# using pip (in pip-finalize.sh script) during JAX installation. Remove then in
+# advance to avoid JAX installation issue.
+remove_packages=(
+  python3-gi
+  software-properties-common
+  lsb-release
+)
+apt-get remove -y ${remove_packages[@]}
+apt-get autoremove -y  # removes python3-blinker which conflicts with pip-compile in JAX
 EOF
 
 RUN <<"EOF" bash -ex
