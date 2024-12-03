@@ -91,6 +91,7 @@ def create_install_script(output_queue):
     Write an install.sh to the output archive that installs nsys-jax at the same
     version/commit that the current execution is using.
     """
+    # setuptools_scm produces a shortened sha with a `g` prefix (for git)
     jax_toolbox_sha = jax_toolbox_sha_with_prefix[1:]
     install_script = install_script_template.format(jax_toolbox_commit=jax_toolbox_sha)
     output_queue.put(("install.sh", install_script.encode(), COMPRESS_DEFLATE))

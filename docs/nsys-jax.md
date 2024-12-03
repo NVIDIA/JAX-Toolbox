@@ -41,7 +41,8 @@ $ pip install --src /checkout-dir -e 'git+https://github.com/NVIDIA/JAX-Toolbox.
 You may want to include this in a global `pip-compile`-based dependency resolution (as is done in the containers built
 from this repository), rather than running too many ad-hoc `pip install` commands.
 
-This will install all of the components mentioned so far, but does not currently include all (implicit) dependencies:
+This will install all of the components mentioned so far, but does not currently include the following implicit
+dependencies:
 - `protoc` must be installed at a version compatible with the `google.protobuf` runtime library; `nsys-jax` includes a
   helper script that can be run after `pip install`, e.g. to install `/usr/local/bin/protoc`, run
   `install-protoc /usr/local`.

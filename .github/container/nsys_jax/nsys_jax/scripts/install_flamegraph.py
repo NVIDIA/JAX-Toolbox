@@ -12,7 +12,7 @@ def main():
     # TODO: add a default to (with confirmation) install in the same prefix as this script is installed to
     parser = argparse.ArgumentParser("Fetch the flamegraph.pl script")
     parser.add_argument(
-        "prefix", help="Output prefix under which to install protoc", type=str
+        "prefix", help="Output prefix under which to install flamegraph.pl", type=str
     )
     args = parser.parse_args()
     install_dir = os.path.join(args.prefix, "bin")
