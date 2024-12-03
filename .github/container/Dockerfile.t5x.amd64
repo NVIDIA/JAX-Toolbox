@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_T5X=https://github.com/google-research/t5x.git#main
+ARG SRC_PATH_T5X=/opt/t5x
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_T5X
+ARG SRC_PATH_T5X
+
+RUN <<"EOF" bash -ex
+git-clone.sh ${URLREF_T5X} ${SRC_PATH_T5X}
+echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
+# This is required because pip can sometimes try to pull every version of seqio-nightly during
+# resolution which leads to a ResolutionTooDeep error. The latest nightlies appear to work
+# so setting the lower-bound to something recent
+echo "seqio-nightly>=0.0.18.dev20240714" >> /opt/pip-tools.d/requirements-t5x.in
+
+# remove head-of-tree specs from select dependencies
+pushd ${SRC_PATH_T5X}
+sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
+if git diff --quiet; then
+    echo "URL specs no longer present in select dependencies of t5x"
+    exit 1
+else
+    git commit -a -m "remove URL specs from select dependencies of t5x"
+fi
+popd
+EOF
+
+ADD test-t5x.sh /usr/local/bin
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN pip-finalize.sh
