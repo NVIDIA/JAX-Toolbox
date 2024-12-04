@@ -624,19 +624,19 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
     # Because the ProgramId and ProgramName ranges provide the same information,
     # remove those fields from the compilation range names.
     def remove_program_id_and_name(row):
-        row.Name = (
+        return (
             row.Name.removeprefix("TSL:")
             .replace(f",program_id={row.ProgramId}", "")
             .replace(f",module={row.ProgramName}", "")
             .replace(f":#module={row.ProgramName}#", "")
         )
-        return row
 
-    return (
-        compile_df.drop(columns=["EndMs"])
-        .astype({"ProgramId": np.int32})
-        .transform(remove_program_id_and_name, axis="columns")
-    )
+    compile_df = compile_df.drop(columns=["EndMs"]).astype({"ProgramId": np.int32})
+    if len(compile_df):
+        compile_df["Name"] = compile_df.apply(
+            remove_program_id_and_name, axis="columns"
+        )
+    return compile_df
 
 
 def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataFrame:
