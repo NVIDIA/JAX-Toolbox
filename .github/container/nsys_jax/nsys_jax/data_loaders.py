@@ -101,21 +101,17 @@ def _calculate_overlap(thunk_df: pd.DataFrame) -> pd.DataFrame:
 def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFrame:
     # Classify each thunk as either communication or computation, as we only
     # want to attribute non-overlapped communication time to those operations.
-    # Use HloInstructionProto.channel_id as a proxy for whether an operation is
-    # communication.
-    def is_communication(row):
-        assert thunk_df.index.names == [
-            "ProgramId",
-            "ProgramExecution",
-            "ThunkIndex",
-            "Device",
-        ]
+    assert thunk_df.index.names[0] == "ProgramId"
+
+    def is_communication(tup):
+        idx, name = tup
         return _is_communication(
-            program_id=row.name[0], prefix=prefix, instruction_name=row["Name"]
+            program_id=idx[0], prefix=prefix, instruction_name=name
         )
 
-    thunk_df["Communication"] = thunk_df.loc[:, ("Name",)].apply(
-        is_communication, axis=1
+    thunk_df["Communication"] = pd.Series(
+        data=map(is_communication, thunk_df["Name"].items()),
+        index=thunk_df.index,
     )
     return _calculate_overlap(thunk_df)
 
