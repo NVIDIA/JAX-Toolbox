@@ -181,8 +181,8 @@ def _load_nvtx_gpu_proj_trace_single(
     except ValueError:
         print(
             "A duplicate key related error may indicate that you are using "
-            "Nsight Systems 2024.5 and have CUDA graphs enabled; as noted on "
-            "https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/profiling.md "
+            "Nsight Systems 2024.5 or 2024.6 and have CUDA graphs enabled; as noted "
+            "on https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/profiling.md "
             "you may want to disable CUDA graphs by adding "
             "--xla_gpu_enable_command_buffer= to the XLA_FLAGS environment "
             "variable."
