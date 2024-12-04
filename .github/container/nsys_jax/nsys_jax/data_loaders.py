@@ -129,7 +129,7 @@ def _load_nvtx_gpu_proj_trace_single(
     file: pathlib.Path,
     meta_file: pathlib.Path,
     frames: set[str],
-):
+) -> dict[str, pd.DataFrame]:
     # Load the thread metadata used to map module/thunk executions to global device IDs
     meta_df = _load_parquet_file(meta_file)
     # Match XLA's launcher thread name. These threads launch work if >1 GPU is being
@@ -440,22 +440,28 @@ def _load_nvtx_gpu_proj_trace(
         filenames = [path]
         meta_filenames = [meta_path]
 
-    tmp = defaultdict(list)
-    with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
-        for single_trace in pool.starmap(
-            _load_nvtx_gpu_proj_trace_single,
-            zip(
-                itertools.repeat(prefix),
-                filenames,
-                meta_filenames,
-                itertools.repeat(frames),
-            ),
-        ):
-            for k, v in single_trace.items():
-                tmp[k].append(v)
-    output = {}
-    for k, v in tmp.items():
-        output[k] = pd.concat(v, verify_integrity=True).sort_index()
+    if len(filenames) > 1:
+        tmp = defaultdict(list)
+        with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
+            for single_trace in pool.starmap(
+                _load_nvtx_gpu_proj_trace_single,
+                zip(
+                    itertools.repeat(prefix),
+                    filenames,
+                    meta_filenames,
+                    itertools.repeat(frames),
+                ),
+            ):
+                for k, v in single_trace.items():
+                    tmp[k].append(v)
+        output = {}
+        for k, v in tmp.items():
+            output[k] = pd.concat(v, verify_integrity=True).sort_index()
+    else:
+        output = _load_nvtx_gpu_proj_trace_single(
+            prefix, filenames[0], meta_filenames[0], frames
+        )
+        output = {k: v.sort_index() for k, v in output.items()}
     return output
 
 
@@ -644,12 +650,16 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
         filenames = [path]
         keys = [prefix.name]
 
-    with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
-        return pd.concat(
-            pool.map(_load_nvtx_pushpop_trace_single, filenames),
-            keys=keys,
-            names=["ProfileName", "RangeId"],
-        )
+    if len(filenames) > 1:
+        with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
+            chunks = pool.map(_load_nvtx_pushpop_trace_single, filenames)
+    else:
+        chunks = [_load_nvtx_pushpop_trace_single(filenames[0])]
+    return pd.concat(
+        chunks,
+        keys=keys,
+        names=["ProfileName", "RangeId"],
+    )
 
 
 def load_profiler_data(
