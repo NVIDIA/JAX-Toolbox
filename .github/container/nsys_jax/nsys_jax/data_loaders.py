@@ -35,51 +35,66 @@ def _is_communication(
         raise
 
 
+def _find_overlapped(start: pd.Series, end: pd.Series) -> pd.Index:
+    """
+    Given a start/end series representing a set of possibly-overlapping ranges
+      start = [s0, s1, ...]
+      end   = [e0, e1, ...]
+    which might overlap like:
+      [s0 e0]
+              [s1 e1]
+                  [s2 e2]
+                      [s3 e3]
+                              [s4 e4]
+    return the index values of ranges that overlap with other ranges, i.e. in the
+    example (1, 2, 3) but not (0, 4).
+    """
+    n = len(start)
+    assert n == len(end), (n, len(end))
+    # Earliest start value of a later row, +inf for the last entry (which doesn't have any later rows)
+    next_start = np.full((n,), float("+inf"))
+    next_start[:-1] = start[::-1].cummin()[-2::-1]  # reverse + drop 0th
+    # Latest end value of an earlier thunk, -inf for the first entry
+    prev_end = np.full((n,), float("-inf"))
+    prev_end[1:] = end.cummax()[:-1]
+    # Find rows that have overlap
+    mask = (next_start < end) | (prev_end > start)
+    return mask[mask].index
+
+
 def _calculate_overlap(thunk_df: pd.DataFrame) -> pd.DataFrame:
     thunk_df["ProjDurHiddenMs"] = 0.0
     # For convenience when calculating unhidden comms
     thunk_df["ProjEndMs"] = thunk_df["ProjStartMs"] + thunk_df["ProjDurMs"]
-    for (program_id, device), module_exec_df in thunk_df.groupby(
-        ["ProgramId", "Device"]
-    ):
-        # If *everything* is serialised, communication *and* computation, there's no
-        # work to be done
-        serial_mask = (
-            module_exec_df["ProjStartMs"].array[1:]
-            >= module_exec_df["ProjEndMs"].array[:-1]
+    for _, module_exec_df in thunk_df.groupby(["ProgramId", "Device"]):
+        # Identify overlap points that need more investigation
+        overlap_ids = _find_overlapped(
+            module_exec_df["ProjStartMs"], module_exec_df["ProjEndMs"]
         )
-        if serial_mask.all():
+        if len(overlap_ids) == 0:
             continue
-        # At least expect all computation to be serialized
-        comm_df = module_exec_df[module_exec_df["Communication"]]
-        compute_df = module_exec_df[~module_exec_df["Communication"]]
-        serial_mask = (
-            compute_df["ProjStartMs"].array[1:] >= compute_df["ProjEndMs"].array[:-1]
-        )
-        assert serial_mask.all(), (
-            f"Only {serial_mask.sum()}/{len(serial_mask)} compute kernel pairs failed to overlap on device {device} and program #{program_id}"
-        )
-        # Update the projected duration of each communication kernel to only
-        # include the non-overlapped time
-        for comm_thunk in comm_df.itertuples():
-            # This is a range annotating a communication operation, i.e. NCCL kernel
-            # That kernel was active from comm_thunk.ProjStartMs until comm_thunk.ProjEndMs
-            # but during that time then other computation was going on. We want to
-            # find how much of the time did not overlap with other computation.
-            overlap_df = compute_df.loc[
+        # All overlapping thunks in `module_exec_df`
+        overlap_df = module_exec_df.loc[
+            overlap_ids, ("Communication", "ProjStartMs", "ProjEndMs")
+        ]
+        # Just the subset that are communication
+        compute_df = overlap_df[~overlap_df["Communication"]]
+        # Narrow down to overlapped communication thunks
+        for comm_thunk in overlap_df.loc[
+            overlap_df["Communication"], ("ProjStartMs", "ProjEndMs")
+        ].itertuples():
+            local_df = compute_df.loc[
                 (compute_df["ProjEndMs"] > comm_thunk.ProjStartMs)
-                & (compute_df["ProjStartMs"] < comm_thunk.ProjEndMs),
-                ("ProjStartMs", "ProjEndMs"),
+                & (compute_df["ProjStartMs"] < comm_thunk.ProjEndMs)
             ]
             compute_time = np.sum(
-                np.minimum(overlap_df["ProjEndMs"], comm_thunk.ProjEndMs)
-                - np.maximum(overlap_df["ProjStartMs"], comm_thunk.ProjStartMs)
+                np.minimum(local_df["ProjEndMs"], comm_thunk.ProjEndMs)
+                - np.maximum(local_df["ProjStartMs"], comm_thunk.ProjStartMs)
             )
             # Update the projected duration of communication kernels to just be the
             # time that is not hidden.
             thunk_df.loc[comm_thunk.Index, "ProjDurMs"] -= compute_time
             thunk_df.loc[comm_thunk.Index, "ProjDurHiddenMs"] = compute_time
-
     return thunk_df.drop(columns=["ProjEndMs"])
 
 
