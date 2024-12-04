@@ -1,12 +1,18 @@
 #!/usr/bin/env python
 import argparse
+from collections import defaultdict, OrderedDict
 from ctypes import byref, cdll, c_int, POINTER
 from functools import partial
+import itertools
 import jax
-from jax.experimental.multihost_utils import sync_global_devices
+from jax.experimental.mesh_utils import create_hybrid_device_mesh
+from jax.experimental.multihost_utils import process_allgather, sync_global_devices
+
 from jax.experimental.shard_map import shard_map
 import jax.numpy as jnp
 from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
+import math
+import nvtx
 import os
 import time
 
@@ -28,11 +34,210 @@ def visible_device_count() -> int:
     return count.value
 
 
-def int_or_env(value) -> int:
+def int_or_env(value: str) -> int:
     try:
         return int(value)
     except ValueError:
         return int(os.environ[value])
+
+
+def measure_single_op(
+    op_name,
+    op_module,
+    axis_names,
+    collective_size,
+    warmup_executions,
+    module_executions,
+    reps_within_module,
+    sync,
+    input,
+):
+    with nvtx.annotate(f"{op_name} {axis_names}"):
+        # compile, warmup, get all the devices in lockstep
+        with nvtx.annotate("warmup"):
+            for _ in range(warmup_executions):
+                sync, input = op_module(
+                    sync, input, axis_names, reps_within_module, collective_size
+                )
+            input.block_until_ready()
+        with nvtx.annotate("launch"):
+            start = time.perf_counter()
+            for _ in range(module_executions):
+                sync, input = op_module(
+                    sync, input, axis_names, reps_within_module, collective_size
+                )
+            launch_finished = time.perf_counter()
+        with nvtx.annotate("wait for completion"):
+            input.block_until_ready()
+            execution_completed = time.perf_counter()
+        # Estimate whether we managed to submit work to the GPU faster than it could execute it
+        blocking_time = execution_completed - launch_finished
+        # This is a crude way of estimating device-side timings; it will always make things look slower
+        # than they really are. The goal here is to give some rough feedback to stdout, which is more
+        # immediate than the accurate results based on profile data.
+        measured_time = execution_completed - start
+    return sync, input, blocking_time, measured_time
+
+
+def collective_correction(kind: str, size: int) -> tuple[float, float]:
+    """
+    Calculate the correction factor from algorithm bandwidth to bus bandwidth, see:
+    https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bus-bandwidth
+    """
+    match kind:
+        # For AllGather the size in the bandwidth calculation is the total/output size
+        # https://github.com/NVIDIA/nccl-tests/blob/c6afef0b6f76ffc55d4172d971be6cf5a08a73a4/doc/PERFORMANCE.md#allgather
+        case "all-gather":
+            return (size, (size - 1) / size)
+        case "all-reduce":
+            return (1, 2 * (size - 1) / size)
+        case "permute":
+            return (1, 1)
+        # For ReduceScatter the size in the bandwidth calculation is the total size
+        # https://github.com/NVIDIA/nccl-tests/blob/c6afef0b6f76ffc55d4172d971be6cf5a08a73a4/doc/PERFORMANCE.md#reducescatter
+        case "reduce-scatter":
+            return (1, (size - 1) / size)
+        case _:
+            assert False, f"Unknown collective kind {kind}"
+
+
+def measure_collective_kernel(sync, input, axis_names, collective_reps, body):
+    sync = jax.lax.psum(sync, axis_names)
+    sync, input = jax.lax.optimization_barrier((sync, input))
+    result, out = jax.lax.scan(body, input, length=collective_reps, unroll=10)
+    if out is not None:
+        sync = sync * jnp.sum(out)
+    return sync, result
+
+
+def measure_all_gather(sync, input, axis_names, collective_reps, collective_size):
+    def body(input, _):
+        result = jax.lax.all_gather(input, axis_names)
+        assert result.shape == (
+            collective_size,
+            *input.shape,
+        ), result.shape
+        result = jax.lax.optimization_barrier(result)
+        # slice it back to being the old size, so we can stack up all-gather executions within the module
+        result = result[0, :]
+        assert result.shape == input.shape, result.shape
+        return jax.lax.optimization_barrier(result), None
+
+    return measure_collective_kernel(sync, input, axis_names, collective_reps, body)
+
+
+def measure_all_reduce(sync, input, axis_names, collective_reps, collective_size):
+    def body(input, _):
+        result = jax.lax.psum(input, axis_names)
+        assert result.shape == input.shape, result.shape
+        return jax.lax.optimization_barrier(result), None
+
+    return measure_collective_kernel(sync, input, axis_names, collective_reps, body)
+
+
+def measure_broadcast(sync, input, axis_names, collective_reps, collective_size):
+    def body(input, _):
+        print(axis_names)
+        result = jax.lax.pbroadcast(
+            input, axis_names if isinstance(axis_names, tuple) else (axis_names,), 0
+        )
+        assert result.shape == input.shape, result.shape
+        return jax.lax.optimization_barrier(result), None
+
+    return measure_collective_kernel(sync, input, axis_names, collective_reps, body)
+
+
+def measure_permute(sync, input, axis_names, collective_reps, collective_size):
+    def body(input, _):
+        permutation = [(i, (i + 1) % collective_size) for i in range(collective_size)]
+        result = jax.lax.ppermute(input, axis_names, permutation)
+        assert result.shape == input.shape, result.shape
+        return jax.lax.optimization_barrier(result), None
+
+    return measure_collective_kernel(sync, input, axis_names, collective_reps, body)
+
+
+def measure_reduce_scatter(sync, input, axis_names, collective_reps, collective_size):
+    def body(input, _):
+        # Need to be able to scatter at least 1 value of the result on each device.
+        dynamic_dim_index = 2
+        dynamic_dim = input.shape[dynamic_dim_index]
+        assert dynamic_dim >= collective_size and dynamic_dim % collective_size == 0, (
+            input.shape,
+            axis_names,
+            collective_size,
+        )
+        result = jax.lax.psum_scatter(
+            input, axis_names, scatter_dimension=dynamic_dim_index, tiled=True
+        )
+        assert result.shape == (
+            *input.shape[:dynamic_dim_index],
+            dynamic_dim // collective_size,
+            input.shape[-1],
+        ), result.shape
+        input, result = jax.lax.optimization_barrier((input, result))
+        return input, result[0, 0, 0, 0]
+
+    return measure_collective_kernel(sync, input, axis_names, collective_reps, body)
+
+
+class BandwidthTable:
+    def __init__(self, op_names, submesh_sizes, max_size):
+        self._column_widths = [
+            len(f"{max_size:,}"),
+        ]
+        self._op_names = op_names
+        self._submesh_sizes = submesh_sizes
+        self._submesh_names = OrderedDict()
+        for axis_names in submesh_sizes.keys():
+            self._submesh_names[axis_names] = " ".join(
+                map(
+                    lambda dim: f"{dim.upper()}={submesh_sizes[dim]}",
+                    axis_names if isinstance(axis_names, tuple) else (axis_names,),
+                )
+            )
+        submesh_headings = []
+        op_headings = []
+        for axis_names, op in itertools.product(self._submesh_names, op_names):
+            submesh_headings.append(self._submesh_names[axis_names])
+            op_headings.append(op)
+            self._column_widths.append(
+                max(
+                    len(submesh_headings[-1]),
+                    6,  # # 100s of GB/s with 2 decimal places
+                    len(op),
+                )
+            )
+        self._print_aligned("", "Bus bandwidth [GB/s]")
+        self._print_aligned("", *submesh_headings)
+        self._print_aligned("Size [B]", *op_headings)
+
+    def _print_aligned(self, *bits):
+        print(
+            " | ".join(
+                f"{bit:<{self._column_widths[n]}}" for n, bit in enumerate(bits)
+            ),
+            flush=True,
+        )
+
+    def print_row(self, size, results):
+        bits = []
+        for n, (axis_names, op) in enumerate(
+            itertools.product(self._submesh_names, self._op_names)
+        ):
+            coll_time = results.get((op, axis_names), None)
+            if coll_time is not None:
+                # How many devices are participating in the collective
+                coll_size = self._submesh_sizes[axis_names]
+                # Correction factors to match NCCL conventions
+                bw_corr, bus_corr = collective_correction(op, coll_size)
+                # Bandwidths are conventionally in GB/s not GiB/s
+                coll_bw = bw_corr * size / (1000**3 * coll_time)
+                bus_bw = coll_bw * bus_corr
+                bits.append(f"{bus_bw:.2f}")
+            else:
+                bits.append("-" * self._column_widths[n + 1])
+        self._print_aligned(f"{size:,}", *bits)
 
 
 if __name__ == "__main__":
@@ -67,10 +272,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "--process-id",
         help=(
-            "When --distributed is passed this gives the global index of this process."
+            "When --distributed is passed this gives the global index of this process. "
             "This can either be an integer or the name of an environment variable."
         ),
         type=int_or_env,
+    )
+    parser.add_argument(
+        "--ici-to-dcn-factor",
+        help=(
+            "Convert a 'real' (dcn, ici) = (n, m) mesh into (n*f, m/f), where f is "
+            "this argument. This is useful for script development on a single node "
+            "and probably not otherwise."
+        ),
+        default=1,
+        type=int,
     )
     args = parser.parse_args()
 
@@ -124,9 +339,11 @@ if __name__ == "__main__":
             ",".join(str(x) for x in range(args.gpus_per_process)),
         )
 
-    if jax.process_index() == 0:
-        print(f"JAX devices: {jax.devices()}")
+    # This doesn't help and produces a lot of spammy warnings
+    jax.config.update("jax_compiler_enable_remat_pass", False)
     n_devices = jax.device_count()
+    if jax.process_index() == 0:
+        print(f"JAX initialised with {n_devices} global devices")
     assert (
         args.gpus_per_process is None
         or jax.local_device_count() == args.gpus_per_process
@@ -134,83 +351,77 @@ if __name__ == "__main__":
         f"Got {jax.local_device_count()} local devices despite "
         f"--gpus-per-process={args.gpus_per_process}"
     )
-    mesh = Mesh(jax.devices(), axis_names=("i",))
-    min_size_power = 0
-    max_size_power = 30
-    max_elements = 2**32
-    sharding = partial(
-        shard_map,
-        mesh=mesh,
-        in_specs=(P("i"), P("i", None), None),
-        check_rep=False,
-        out_specs=P("i"),
+
+    def smallest_device_memory_limit() -> int:
+        """
+        This is the minimum across all devices of the amount pre-allocated for the BFC
+        allocator; min(d.memory_stats()["bytes_limit"] for d in jax.devices()).
+        Use 32-bit communication to avoid requiring that JAX is in 64-bit mode.
+        """
+        DIVISOR = 2**32
+        local_limits = [
+            tuple(divmod(d.memory_stats()["bytes_limit"], DIVISOR))
+            for d in jax.local_devices()
+        ]
+        mul, rem = jnp.min(
+            process_allgather(jnp.array(local_limits, dtype=jnp.uint32), tiled=True),
+            axis=0,
+        )
+        return int(mul) * DIVISOR + int(rem)
+
+    start = time.time()
+    device_memory = smallest_device_memory_limit()
+    device_memory_time = time.time() - start
+    if jax.process_index() == 0:
+        print(f"Memory limit exchange time (NCCL init): {device_memory_time:.2f}s")
+        print(f"Smallest device memory: {device_memory/1024**3:.1f} GiB")
+
+    # Construct a 2D mesh for the inter- (DCN) and intra- (ICI) device axes
+    num_slices = len({d.slice_index for d in jax.devices()})
+    devices_per_slice, rem = divmod(n_devices, num_slices)
+    assert rem == 0, (n_devices, num_slices)
+    mesh = Mesh(
+        create_hybrid_device_mesh(
+            mesh_shape=(
+                1,
+                devices_per_slice,
+            ),
+            dcn_mesh_shape=(num_slices, 1),
+        ),
+        axis_names=("dcn", "ici"),
     )
+    if args.ici_to_dcn_factor != 1:
+        devices_per_slice, rem = divmod(devices_per_slice, args.ici_to_dcn_factor)
+        assert rem == 0, (n_devices // num_slices, args.ici_to_dcn_factor)
+        num_slices = num_slices * args.ici_to_dcn_factor
+        mesh = Mesh(
+            devices=mesh.devices.reshape((num_slices, devices_per_slice)),
+            axis_names=mesh.axis_names,
+        )
+    submesh_sizes = {}
+    if num_slices > 1:
+        submesh_sizes["dcn"] = num_slices
+    if devices_per_slice > 1:
+        submesh_sizes["ici"] = devices_per_slice
+    if num_slices > 1 and devices_per_slice > 1:
+        submesh_sizes[("dcn", "ici")] = n_devices
 
-    @partial(jax.jit, static_argnames="collective")
-    @sharding
-    def measure_collective(sync, big_input, collective):
-        with jax.named_scope(collective):
-            output = 1.0
-            big_input = big_input * jax.lax.psum(sync, "i")
-            assert big_input.shape == (1, 2**max_size_power), big_input.shape
-            for size in range(max_size_power + 1):
-                values_per_device = 2**size
-                input = output * jax.lax.slice(
-                    big_input, (0, 0), (1, values_per_device)
-                )
-                assert input.shape == (1, values_per_device), input.shape
-                result = None
-                # Trigger the collective we want to measure
-                if collective == "all_gather":
-                    if input.size * n_devices < max_elements:
-                        result = jax.lax.all_gather(input, "i")
-                        assert result.shape == (n_devices, *input.shape), result.shape
-                elif collective == "all_reduce":
-                    if input.size < max_elements:
-                        result = jax.lax.psum(input, "i")
-                        assert result.shape == (1, values_per_device), result.shape
-                elif collective == "broadcast":
-                    if input.size < max_elements:
-                        # FIXME: need https://github.com/google/jax/pull/20705 re-land
-                        result = jax.lax.pbroadcast(input, "i", 0)
-                        assert result.shape == (1, values_per_device), result.shape
-                elif collective == "permute":
-                    if input.size < max_elements:
-                        # TODO: make this sensitive to whether the permutation does or
-                        # does not cross NVLink domain boundaries
-                        permutation = [
-                            (i, (i + 1) % n_devices) for i in range(n_devices)
-                        ]
-                        result = jax.lax.ppermute(input, "i", permutation)
-                        assert result.shape == (1, values_per_device), result.shape
-                else:
-                    assert collective == "reduce_scatter", collective
-                    if values_per_device >= n_devices:
-                        # Need to be able to scatter at least 1 value of the result on
-                        # each device. This results in the largest message size (NCCL
-                        # convention) for reduce-scatter being a factor `n_devices`
-                        # smaller than the other collectives
-                        result = jax.lax.psum_scatter(
-                            input, "i", scatter_dimension=1, tiled=True
-                        )
-                        assert result.shape == (
-                            1,
-                            values_per_device // n_devices,
-                        ), result.shape
-                # Do something with the results to stop them getting combined/removed
-                if result is not None:
-                    output *= 1.5 + jnp.tanh(jnp.mean(result))  # scale by [0.5, 1.5]
-            return jnp.array([output])
+    if jax.process_index() == 0:
+        print(f"Mesh shape: {mesh}")
 
-    def measure(sync, input, host_timer=False):
-        for op in ["all_gather", "all_reduce", "permute", "reduce_scatter"]:
-            start = time.time()
-            result = measure_collective(sync, input, op)
-            if host_timer:
-                result.block_until_ready()
-                if jax.process_index() == 0:
-                    print(f"First {op} duration {time.time()-start:.2f}s")
-        return result
+    # Max output size per GPU is num_gpus times larger (AllGather)
+    # Min output size per GPU is num_gpus times smaller (ReduceScatter)
+    # Output + Input needs to fit in GPU memory (with some margin)
+    # For simplicity, choose based on the cases where input == output and accept that
+    # this means we do not probe the maximum AllGather and ReduceScatter sizes
+    element_size = 4
+    # To avoid single dimensions that don't fit in 32 bits
+    constant_dim = 32
+    min_input_elements_power = 18
+    max_input_elements_power = min(
+        32, int(math.floor(math.log2(device_memory / (2 * element_size))))
+    )
+    max_input_elements = max_output_elements = 2**max_input_elements_power
 
     def device_put_local(x: jax.Array):
         return [jax.device_put(x, d) for d in jax.local_devices()]
@@ -219,33 +430,156 @@ if __name__ == "__main__":
     # to improve measurement quality. It's always the same and is sharded with one
     # value per device.
     sync = jax.make_array_from_single_device_arrays(
-        (n_devices,),
-        NamedSharding(mesh, P("i")),
-        device_put_local(jnp.ones((1,))),
-    )
-    input = jax.make_array_from_single_device_arrays(
-        (n_devices, 2**max_size_power),
-        NamedSharding(mesh, P("i")),
-        device_put_local(jax.random.normal(jax.random.key(1), (1, 2**max_size_power))),
+        (num_slices, devices_per_slice),
+        NamedSharding(mesh, P("dcn", "ici")),
+        device_put_local(jnp.ones((1, 1), dtype=jnp.int8)),
     )
     if jax.process_index() == 0:
-        print(f"Data for pre-measurement synchronisation {sync.shape}")
-        jax.debug.visualize_array_sharding(sync)
-        print(f"Data for collective measurements {input.shape}")
-        jax.debug.visualize_array_sharding(input)
+        print(
+            f"Input data per device: {max_input_elements*element_size/1024**3:.1f}GiB"
+        )
+
+    def jit(f):
+        return jax.jit(
+            shard_map(
+                f,
+                mesh=mesh,
+                in_specs=(
+                    P("dcn", "ici"),  # sync
+                    P("dcn", "ici", None, None),  # input
+                    None,  # axis_names
+                    None,  # collective_size
+                    None,  # collective_reps
+                ),
+                out_specs=(
+                    P("dcn", "ici"),  # sync
+                    P("dcn", "ici", None, None),  # input
+                ),
+            ),
+            donate_argnames=("sync", "input"),
+            static_argnames=("axis_names", "collective_size", "collective_reps"),
+        )
+
+    ops = {
+        "all-gather": jit(measure_all_gather),
+        "all-reduce": jit(measure_all_reduce),
+        # "broadcast": jit(measure_broadcast),
+        "permute": jit(measure_permute),
+        "reduce-scatter": jit(measure_reduce_scatter),
+    }
+
+    def measure(
+        ops,
+        sync,
+        module_executions,
+        warmup_executions=2,
+        repetitions_per_module={},
+        target_module_time=0.01,  # 10ms
+        blocking_time_threshold=0.001,  # 1ms
+    ):
+        """ """
+        op_names = sorted(ops.keys())
+        table = BandwidthTable(
+            op_names, submesh_sizes, element_size * 2**max_input_elements_power
+        )
+        # Default is used for small message sizes; it gets refined for larger oness
+        estimated_repetitions_per_module = defaultdict(lambda: 100)
+        for size_power in range(min_input_elements_power, max_input_elements_power + 1):
+            size = 2**size_power
+            assert size % constant_dim == 0
+            size_results = {}
+            with nvtx.annotate(f"size={size:,}"):
+                with nvtx.annotate("create_input"):
+                    input = jax.make_array_from_single_device_arrays(
+                        (
+                            num_slices,
+                            devices_per_slice,
+                            size // constant_dim,
+                            constant_dim,
+                        ),
+                        NamedSharding(mesh, P("dcn", "ici")),
+                        device_put_local(
+                            jax.random.normal(
+                                jax.random.key(1),
+                                (1, 1, size // constant_dim, constant_dim),
+                            )
+                        ),
+                    )
+                for op, measure_op in ops.items():
+                    for axis_names, collective_size in submesh_sizes.items():
+                        # Skip op + mesh + size combinations that would OOM
+                        min_power = min_input_elements_power
+                        # TODO: increase min_power for reduce-scatter
+                        if size_power < min_power:
+                            continue
+                        max_power = max_input_elements_power
+                        if op == "all-gather":
+                            # max needs to be reduced by the number of devices in the collective
+                            max_power = max_power - int(math.log2(collective_size))
+                        if size_power > max_power:
+                            continue
+
+                        # Look up how many times to repeat each collective within a single module (JITed) JAX function
+                        key = (op, axis_names, size)
+                        if key not in repetitions_per_module:
+                            repetitions_per_module[key] = (
+                                estimated_repetitions_per_module[(op, axis_names)]
+                            )
+                        reps_within_module = repetitions_per_module[key]
+
+                        # Measure the approximate runtime of the collectives
+                        sync, input, blocking_time, elapsed = measure_single_op(
+                            op,
+                            measure_op,
+                            axis_names,
+                            submesh_sizes[axis_names],
+                            warmup_executions,
+                            module_executions,
+                            reps_within_module,
+                            sync,
+                            input,
+                        )
+
+                        # If we are keeping the GPU busy, we may want to scale down the
+                        # number of reps per module for later (larger) sizes to keep
+                        # the overall benchmark runtime under control.
+                        if blocking_time > blocking_time_threshold:
+                            measured_module_time = elapsed / module_executions
+                            ratio = measured_module_time / target_module_time
+                            if ratio > 1.0:
+                                # Decrease the number of repetitions per module that
+                                # will be used for the next size
+                                new_reps = int(
+                                    estimated_repetitions_per_module[(op, axis_names)]
+                                    / ratio
+                                )
+                                # XLA does not seem able to generate a module with a
+                                # single permute without adding a copy at the output;
+                                # we get a better measurement by including at least 2
+                                # permutes
+                                estimated_repetitions_per_module[(op, axis_names)] = (
+                                    max(2 if op == "permute" else 1, new_reps)
+                                )
+                        # Save the time/collective
+                        size_results[(op, axis_names)] = elapsed / (
+                            module_executions * reps_within_module
+                        )
+            table.print_row(element_size * size, size_results)
+        return sync, repetitions_per_module
 
     start = time.time()
-    sync_global_devices("init")
-    sync_time = time.time() - start
+    # Attempt to make all the compilation happen before cudaProfilerStart
+    print("These bandwidths are VERY approximate (3rd-best!)")
+    print("2nd-best results are printed below, nsys-jax is more precise")
+    sync, reps_per_module = measure(ops, sync, module_executions=1)
     if jax.process_index() == 0:
-        print(f"Barrier time (NCCL init): {sync_time:.2f}s")
-
-    measure(sync, input, host_timer=True)
-    sync_global_devices("warmup_done")
+        print(f"Warmup done in {time.time()-start:.2f}s", flush=True)
     cudaProfilerStart()
     sync_global_devices("profiling_started")
-    for _ in range(10):
-        measure(sync, input)
+    # Use the same reps/module values so as to avoid triggering any recompilation
+    print("The following bandwidths are only approximate, based on host-side timings!")
+    print("Using the nsys-jax communication recipe will give more precise results.")
+    measure(ops, sync, repetitions_per_module=reps_per_module, module_executions=3)
     sync_global_devices("measurements_completed")
     cudaProfilerStop()
     sync_global_devices("profiling_ended")
