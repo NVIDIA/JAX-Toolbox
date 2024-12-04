@@ -112,3 +112,6 @@ ADD test-t5x.sh /usr/local/bin
 FROM mealkit AS final
 
 RUN pip-finalize.sh
+
+# When tftext and lingvo wheels are published on pypi.org, revert this
+# Dockerfile to 5c4b687b918e6569bca43758c346ad8e67460154
