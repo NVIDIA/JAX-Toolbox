@@ -119,6 +119,11 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
 compile_prefix = "XlaCompile:#module="
 
 
+def _load_parquet_file(file: pathlib.Path) -> pd.DataFrame:
+    # Separate function to make profiles of this Python code easier to read
+    return pd.read_parquet(file)
+
+
 def _load_nvtx_gpu_proj_trace_single(
     prefix: pathlib.Path,
     file: pathlib.Path,
@@ -126,7 +131,7 @@ def _load_nvtx_gpu_proj_trace_single(
     frames: set[str],
 ):
     # Load the thread metadata used to map module/thunk executions to global device IDs
-    meta_df = pd.read_parquet(meta_file)
+    meta_df = _load_parquet_file(meta_file)
     # Match XLA's launcher thread name. These threads launch work if >1 GPU is being
     # driven by the process.
     device_by_pid_tid = (
@@ -138,7 +143,7 @@ def _load_nvtx_gpu_proj_trace_single(
         .astype(np.int32)
     )
     # Load input data; rename some columns for convenience with `.itertuples()`; use RangeId as the index
-    df = pd.read_parquet(file).drop(columns=["Rank"])
+    df = _load_parquet_file(file).drop(columns=["Rank"])
     # Alternative trace.parquet format
     alt_rename_map = {
         "Text": "Name",
@@ -579,16 +584,20 @@ def _drop_non_tsl(compile_df: pd.DataFrame) -> pd.DataFrame:
     return compile_df[tsl_mask]
 
 
-def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
+def _read_nvtx_pushpop_trace_file(file: pathlib.Path) -> pd.DataFrame:
     def keep_column(name):
         return name not in {"PID", "Lvl", "NameTree"}
 
-    compile_df = pd.read_csv(
-        lzma.open(name, "rt", newline=""),
+    return pd.read_csv(
+        lzma.open(file, "rt", newline=""),
         dtype={"RangeId": np.int32},
         index_col="RangeId",
         usecols=keep_column,
     )
+
+
+def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
+    compile_df = _read_nvtx_pushpop_trace_file(name)
     compile_df["StartMs"] = 1e-6 * compile_df.pop("Start (ns)")
     compile_df["EndMs"] = 1e-6 * compile_df.pop("End (ns)")
     compile_df["DurMs"] = 1e-6 * compile_df.pop("Duration (ns)")
