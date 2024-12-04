@@ -3,6 +3,7 @@ from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from glob import glob, iglob
 import lzma
+import numpy as np
 import os
 import os.path as osp
 import pandas as pd  # type: ignore
@@ -369,7 +370,9 @@ def main() -> None:
             if osp.isdir(full_path) or not osp.exists(full_path):
                 continue
             output_queue.put((ofile, full_path, COMPRESS_NONE))
-        print(f"{archive_name}: post-processing finished in {time.time() - start:.2f}s")
+        print(
+            f"{archive_name}: recipe post-processing finished in {time.time()-start:.2f}s"
+        )
 
     def compress_and_archive(prefix, file, output_queue):
         """
@@ -401,9 +404,29 @@ def main() -> None:
             ],
             check=True,
         )
-        for ofile in iglob("report_" + report + ".csv", root_dir=tmp_dir):
-            compress_and_archive(tmp_dir, ofile, output_queue)
-        print(f"{archive_name}: post-processing finished in {time.time() - start:.2f}s")
+        output_path = osp.join(tmp_dir, f"report_{report}.csv")
+
+        # TODO: avoid the .csv indirection
+        def keep_column(name):
+            return name not in {"PID", "Lvl", "NameTree"}
+
+        try:
+            df = pd.read_csv(
+                output_path,
+                dtype={"RangeId": np.int32},
+                index_col="RangeId",
+                usecols=keep_column,
+            )
+            parquet_name = f"report_{report}.parquet"
+            parquet_path = osp.join(tmp_dir, parquet_name)
+            df.to_parquet(parquet_path)
+            output_queue.put((parquet_name, parquet_path, COMPRESS_NONE))
+        except pd.errors.EmptyDataError:
+            # If there's no data, don't write a file to the output at all
+            pass
+        print(
+            f"{archive_name}: stats post-processing finished in {time.time()-start:.2f}s"
+        )
 
     def save_device_stream_thread_names(tmp_dir, report, output_queue):
         """

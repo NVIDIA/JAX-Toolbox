@@ -593,15 +593,25 @@ def _drop_non_tsl(compile_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _read_nvtx_pushpop_trace_file(file: pathlib.Path) -> pd.DataFrame:
-    def keep_column(name):
-        return name not in {"PID", "Lvl", "NameTree"}
+    # `file` follows one of two patterns, depending on whether we are loading the
+    # results from a single profile or from multiple merged profiles:
+    # - nsys-jax: /path/to/report_nvtx_pushpop_trace.parquet
+    # - nsys-jax-combine: /path/to/report_nvtx_pushpop_trace.parquet/rank5
+    new_name = "report_nvtx_pushpop_trace.parquet"
+    if file.name == new_name or file.parent.name == new_name:
+        # New mode; the .csv to .parquet conversion is done in nsys-jax
+        return pd.read_parquet(file)
+    else:
 
-    return pd.read_csv(
-        lzma.open(file, "rt", newline=""),
-        dtype={"RangeId": np.int32},
-        index_col="RangeId",
-        usecols=keep_column,
-    )
+        def keep_column(name):
+            return name not in {"PID", "Lvl", "NameTree"}
+
+        return pd.read_csv(
+            lzma.open(file, "rt", newline=""),
+            dtype={"RangeId": np.int32},
+            index_col="RangeId",
+            usecols=keep_column,
+        )
 
 
 def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
@@ -640,7 +650,9 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
 
 
 def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataFrame:
-    path = prefix / "report_nvtx_pushpop_trace.csv.xz"
+    new_path = prefix / "report_nvtx_pushpop_trace.parquet"
+    legacy_path = prefix / "report_nvtx_pushpop_trace.csv.xz"
+    path = new_path if new_path.exists() else legacy_path
     if path.is_dir():
         # We're looking at the output of nsys-jax-combine
         filenames = sorted(path.iterdir())
