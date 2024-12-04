@@ -287,17 +287,8 @@ def get_message_size(
     of the semantics. This implementation aims to follow the same conventions that NCCL
     uses in its NVTX payloads and tests.
     """
-    return pd.Series(
-        xla_module_metadata(program_id, prefix=prefix, policy="all").unique_result(
-            lambda proto: _get_message_size(proto, instruction)
-        ),
-        index=[
-            "MessageSize",
-            "Collective",
-            "CollectiveSize",
-            "BandwidthCorrection",
-            "BusBandwidthCorrection",
-        ],
+    return xla_module_metadata(program_id, prefix=prefix, policy="all").unique_result(
+        lambda proto: _get_message_size(proto, instruction)
     )
 
 
@@ -312,13 +303,26 @@ def calculate_collective_metrics(
     comm_df = thunk_df[thunk_df["Communication"]].drop(columns=["Communication"])
     if len(comm_df) == 0:
         return comm_df
+
+    def body(tup):
+        idx, name = tup
+        return get_message_size(idx[0], name, prefix=prefix)
+
+    metrics_df = pd.DataFrame.from_records(
+        map(body, comm_df["Name"].items()),
+        columns=[
+            "MessageSize",
+            "Collective",
+            "CollectiveSize",
+            "BandwidthCorrection",
+            "BusBandwidthCorrection",
+        ],
+        index=comm_df.index,
+    )
     comm_df = pd.concat(
         [
             comm_df,
-            comm_df.apply(
-                lambda row: get_message_size(row.name[0], row.Name, prefix=prefix),
-                axis=1,
-            ),
+            metrics_df,
         ],
         axis=1,
     )
