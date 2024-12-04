@@ -233,13 +233,13 @@ def _get_message_size(
         dest_on_host = _host_memory_space(comm_inst)
         src_on_host = _host_memory_space(src_inst.proto())
         assert src_on_host != dest_on_host, (
-            'dynamic[-update]-slice is only considered is only "communication" if it '
+            'dynamic[-update]-slice is only considered "communication" if it '
             "represents a host-device transfer"
         )
         return (
             transfer_size,
             "device-to-host" if dest_on_host else "host-to-device",
-            1,  # collective size
+            collective_size,
             1.0,  # bw_correction
             1.0,  # bus_correction
         )

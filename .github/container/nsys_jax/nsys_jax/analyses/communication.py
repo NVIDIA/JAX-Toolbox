@@ -35,10 +35,11 @@ def main():
     )
     collective_types = set()
     summary_data = defaultdict(dict)
-    for (collective, message_size), df in steady_state.communication.groupby(
-        ["Collective", "MessageSize"]
+    for (collective, collective_size, message_size), df in steady_state.communication.groupby(
+        ["Collective", "CollectiveSize", "MessageSize"]
     ):
-        collective_types.add(collective)
+        collective_type = f"{collective} ({collective_size})"
+        collective_types.add(collective_type)
         # This grouped data frame will have a row for each device that is participating
         # in this instance of the collective.
         devices = df.groupby(["ProgramId", "ProgramExecution", "ThunkIndex"])
@@ -49,7 +50,7 @@ def main():
         # not contain a wait time component. The .mean() is over the different
         # (ProgramId, ProgramExecution, ThunkIndex) values.
         bandwidth = devices["BusBandwidthGBPerSec"].agg("max")
-        summary_data[message_size][collective] = ufloat(
+        summary_data[message_size][collective_type] = ufloat(
             bandwidth.mean(), bandwidth.std() / sqrt(len(bandwidth))
         )
     collective_types = sorted(collective_types)
