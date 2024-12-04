@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=nvidia/cuda:12.6.2-devel-ubuntu22.04
+ARG BASE_IMAGE=nvidia/cuda:12.6.2-devel-ubuntu24.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG CLANG_VERSION=18
@@ -60,7 +60,8 @@ apt_packages=(
   wget
   jq
   # llvm.sh
-  lsb-release software-properties-common
+  lsb-release 
+  software-properties-common
   # GCP autoconfig
   pciutils hwloc bind9-host
 )
@@ -74,8 +75,6 @@ apt-get install -y ${apt_packages[@]}
 
 # Install LLVM/Clang
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
-apt-get remove -y software-properties-common lsb-release
-apt-get autoremove -y  # removes python3-blinker which conflicts with pip-compile in JAX
 
 # Make sure that clang and clang++ point to the new version. This list is based
 # on the symlinks installed by the `clang` (as opposed to `clang-14`) and `lld`
@@ -106,6 +105,21 @@ EOL
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
+
+# There are several python packages (in the list below) that are installed with OS 
+# package manager (the run of `apt-get install` above) and can not be uninstall
+# using pip (in pip-finalize.sh script) during JAX installation. Remove then in
+# advance to avoid JAX installation issue.
+remove_packages=(
+  python3-gi
+  software-properties-common
+  lsb-release
+  python3-yaml
+  python3-pygments
+)
+
+apt-get remove -y ${remove_packages[@]}
+apt-get autoremove -y  # removes python3-blinker which conflicts with pip-compile in JAX
 EOF
 
 RUN <<"EOF" bash -ex
@@ -129,7 +143,14 @@ git apply </opt/pip/pip-vcs-equivalency.patch
 git add -u
 git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github VCS installs for a package as equivalent. The spec of the last encountered version will be used'
 EOF
-RUN pip install --upgrade --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
+
+# install all python packages system-wide.
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+# An extra flag `--ignore-installed` is added below, because of the following reason: 
+# after upgrading to ver 23.3.1 (from /opt/pip) `pip` tries to uninstall itself (default pip-24.0) 
+# and fails due to pip-24.0 has been installed with system tool `apt` but not `python`. So we keep 
+# both pip-24.0 and pip-23.3.1 in the system, but use 23.3.1 with equivalency patch (see above).
+RUN pip install --upgrade --ignore-installed --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
 
 ###############################################################################
 ## Install TCPx

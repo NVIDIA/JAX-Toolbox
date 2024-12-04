@@ -79,7 +79,8 @@ jobs:
       CONTAINER_NAME: triton
       DOCKERFILE: .github/container/Dockerfile.triton
       RUNNER_SIZE: large
-      EXTRA_BUILD_ARGS: URLREF_JAX_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
+      EXTRA_BUILD_ARGS: |
+        URLREF_JAX_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
     secrets: inherit
 
   build-equinox:
@@ -107,9 +108,10 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: maxtext
-      DOCKERFILE: .github/container/Dockerfile.maxtext.${{ inputs.ARCHITECTURE }}
+      DOCKERFILE: .github/container/Dockerfile.maxtext
       EXTRA_BUILD_ARGS: |
         URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
+        URLREF_TFTEXT=${{ fromJson(inputs.SOURCE_URLREFS).TENSORFLOW_TEXT }}
     secrets: inherit
 
   build-levanter:
@@ -138,9 +140,11 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
-      DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
+      DOCKERFILE: .github/container/Dockerfile.t5x
       EXTRA_BUILD_ARGS: |
         URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
+        URLREF_TFTEXT=${{ fromJson(inputs.SOURCE_URLREFS).TENSORFLOW_TEXT }}
+        URLREF_AIRIO=${{ fromJson(inputs.SOURCE_URLREFS).AIRIO }}
     secrets: inherit
 
   build-upstream-pax:
@@ -153,10 +157,12 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-pax
-      DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+      DOCKERFILE: .github/container/Dockerfile.pax
       EXTRA_BUILD_ARGS: |
         URLREF_PAXML=${{ fromJson(inputs.SOURCE_URLREFS).PAXML }}
         URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
+        URLREF_TFTEXT=${{ fromJson(inputs.SOURCE_URLREFS).TENSORFLOW_TEXT }}
+        URLREF_LINGVO=${{ fromJson(inputs.SOURCE_URLREFS).LINGVO }}
     secrets: inherit
 
   build-rosetta-t5x:
@@ -193,11 +199,11 @@ jobs:
       DOCKERFILE: rosetta/Dockerfile.gemma
       DOCKER_CONTEXT: .
       EXTRA_BUILD_ARGS: |
-        URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
-        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
-        URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).common_loop_utils }}
-        URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).flaxformer }}
-        URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).panopticapi }}
+        URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).GEMMA }}
+        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).BIG_VISION }}
+        URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).COMMON_LOOP_UTILS }}
+        URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).FLAXFORMER }}
+        URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).PANOPTICAPI }}
     secrets: inherit
 
   collect-docker-tags:

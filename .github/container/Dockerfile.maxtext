@@ -2,7 +2,7 @@
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG URLREF_MAXTEXT=https://github.com/google/maxtext.git#main
-ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#v2.13.0
+ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#master
 ARG SRC_PATH_MAXTEXT=/opt/maxtext
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 
@@ -17,18 +17,20 @@ FROM ${BASE_IMAGE} as wheel-builder
 # build tensorflow-text from source
 #------------------------------------------------------------------------------
 
+# Remove TFTEXT build from source when it has py-3.12 wheels for x86/arm64
 FROM wheel-builder as tftext-builder
 ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
+
+RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.18.0
+RUN git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
 RUN <<"EOF" bash -exu -o pipefail
-pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.13.0
-git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
 cd ${SRC_PATH_TFTEXT}
 
 # The tftext build script queries GitHub, but these requests are sometimes
 # throttled by GH, resulting in a corrupted uri for tensorflow in WORKSPACE.
 # A workaround (needs to be updated when the tensorflow version changes):
-sed -i "s/# Update TF dependency to installed tensorflow/commit_sha=1cb1a030a62b169d90d34c747ab9b09f332bf905/" oss_scripts/prepare_tf_dep.sh
+sed -i "s/# Update TF dependency to installed tensorflow./commit_slug=6550e4bd80223cdb8be6c3afd1f81e86a4d433c3/" oss_scripts/prepare_tf_dep.sh
 
 # Newer versions of LLVM make lld's --undefined-version check of lld is strict
 # by default (https://reviews.llvm.org/D135402), but the tftext build seems to
@@ -38,14 +40,13 @@ echo "write_to_bazelrc \"build --linkopt='-Wl,--undefined-version'\"" >> oss_scr
 ./oss_scripts/run_build.sh
 EOF
 
-
 ###############################################################################
 ## Download source and add auxiliary scripts
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
 ARG URLREF_MAXTEXT
-ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#v2.13.0
+ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#master
 ARG SRC_PATH_MAXTEXT
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 
@@ -56,6 +57,17 @@ RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-
 RUN <<"EOF" bash -ex
 git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
 echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+
+# specify some restrictions to speed up the build and
+# avoid pip to download and check all available versions of packages
+for pattern in \
+    "s|absl-py|absl-py>=2.1.0|g" \
+    "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
+    "s|tensorflow-datasets|tensorflow-datasets>=4.8.0|g" \
+  ; do
+    sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt;
+done
+echo "tensorflow-metadata>=1.15.0" >> ${SRC_PATH_MAXTEXT}/requirements.txt
 EOF
 
 ###############################################################################
@@ -73,3 +85,6 @@ FROM mealkit as final
 RUN pip-finalize.sh
 
 WORKDIR ${SRC_PATH_MAXTEXT}
+
+# When tftext and lingvo wheels are published on pypi.org, revert this
+# Dockerfile to 5c4b687b918e6569bca43758c346ad8e67460154
