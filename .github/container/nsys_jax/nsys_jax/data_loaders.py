@@ -371,14 +371,17 @@ def _load_nvtx_gpu_proj_trace_single(
 
     output = {}
     if "thunk" in frames:
-        # At this point there should be no need to look beyond the rows for individual thunks + the protobuf data, and we can further clean up the data
+        # At this point there should be no need to look beyond the rows for individual
+        # thunks + the protobuf data, and we can further clean up the data.
         thunk_df = clean_data_frame(df[all_thunks])
-        thunk_df["Name"] = thunk_df["Name"].replace(
-            to_replace=f"^{tsl_prefix}Thunk:#(?:name=(.*?),|)hlo_op=([a-z0-9._-]+)#$",
-            value=r"\2",
+        thunk_df["Name"] = thunk_df["Name"].str.replace(
+            pat=f"^{tsl_prefix}Thunk:#(?:name=.*?,|)hlo_op=([a-z0-9._-]+)#$",
+            n=1,
+            repl=lambda m: m.group(1),
             regex=True,
         )
         # Add an index of the thunk within the module
+        # TODO: the ordering is potentially inconsistent across module executions in case of multiple streams/overlap
         thunk_df["ThunkIndex"] = thunk_df.groupby(
             ["ProgramId", "ProgramExecution", "Device"]
         ).cumcount()
@@ -391,7 +394,6 @@ def _load_nvtx_gpu_proj_trace_single(
         ).cumcount()
 
         # Classify thunks as communication/computation and save to output
-        # TODO: instead of using this sorting here, use a sort bucketed by execution time to speed up overlap detection?
         output["thunk"] = _classify_comms(
             thunk_df.set_index(
                 ["ProgramId", "ProgramExecution", "ThunkIndex", "Device"]
