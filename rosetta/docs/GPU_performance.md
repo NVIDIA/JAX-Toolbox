@@ -111,6 +111,11 @@ The following flag removes extra copies introduced by DUS (dynamic update slice)
 Enable user-buffers in NCCL for zero-copy collectives and send/recv. Needs NCCL_NVLS_ENABLE=1 for AG, AR, RS.
 - --xla_gpu_enable_nccl_user_buffers=true
 
+When user-buffers is enabled, a separate memory pool is created for user-buffer registered memory. Environment variable `XLA_PYTHON_CLIENT_COLLECTIVE_MEM_SIZE_MB` can be used to configure this memory pool. It may also be necessary to reduce `XLA_PYTHON_CLIENT_MEM_FRACTION` to ensure there is enough memory for the user buffer pool.
+- `XLA_PYTHON_CLIENT_COLLECTIVE_MEM_SIZE_MB=0` (default value) - The user buffer pool will start empty, but will grow during execution as more collective memory is required. This setting can result in extra fragmentation and inefficient memory use.
+- `XLA_PYTHON_CLIENT_COLLECTIVE_MEM_SIZE_MB=<amount of MiB to preallocate>` - The user buffer pool will preallocate this amount of memory at the begining. The number should be high enough to cover peak collective memory usage.
+
+
 Flags to reduce memory consumed by NCCL.
 - --xla_gpu_enable_nccl_comm_splitting=true  
 - --xla_gpu_enable_nccl_per_stream_comms=false [https://github.com/openxla/xla/pull/9845](https://github.com/openxla/xla/pull/9845)
