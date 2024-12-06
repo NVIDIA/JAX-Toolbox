@@ -440,6 +440,84 @@ jobs:
           popd
         done
 
+  test-nsys-jax-eks:
+    needs: build-jax
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    runs-on: eks
+    env:
+      JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+      JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-jax
+      POSTPROCESS_JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-postprocess
+      TOKEN_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-token
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v4
+    - name: Install yq
+      run: |
+        mkdir local_bin/
+        curl -L -o ./local_bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture)
+        chmod 777 ./local_bin/yq
+        echo "${PWD}/local_bin" >> "${GITHUB_PATH}"
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Store GitHub Container Registry token as Kubernetes secret
+      run: |
+        kubectl create secret generic \
+          ${{ github.run_id }}-${{ github.run_attempt }}-token \
+          --from-file=.dockerconfigjson=$HOME/.docker/config.json \
+          --type=kubernetes.io/dockerconfigjson
+    - name: Configure Kubernetes job
+      run: |
+        yq -i ea 'select(di == 0).spec.selector.job-name = strenv(JOB_NAME)
+          | select(di == 1).metadata.name = strenv(JOB_NAME)
+          | select(di == 1).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
+          | select(di == 1).spec.template.spec.containers[0].image = strenv(JAX_DOCKER_IMAGE)
+          | select(di == 1).spec.template.spec.containers[0].env[0].value = strenv(JOB_NAME)' \
+          .github/eks-workflow-files/job.yml
+        git diff .github/eks-workflow-files/job.yml
+    - name: Submit Kubernetes job
+      run: kubectl apply -f .github/eks-workflow-files/job.yml
+    - name: Wait for Kubernetes job to start
+      run: |
+        while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-jax --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+          sleep 2
+        done
+    - name: Stream Kubernetes job output
+      run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ github.run_id }}-${{ github.run_attempt }}-jax
+    # Clean up in case of errors as well as success
+    - name: Delete Kubernetes job
+      if: always()
+      run: kubectl delete job ${{ github.run_id }}-${{ github.run_attempt }}-jax
+    - name: Configure post-processing job
+      run: |
+        export JOB_OUTPUT_PATTERN="${JOB_NAME}-rank*.zip"
+        yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
+          | .spec.template.spec.containers[].image = strenv(JAX_DOCKER_IMAGE)
+          | .spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
+          | .spec.template.spec.initContainers[].command[7] = strenv(JOB_OUTPUT_PATTERN)' \
+          .github/eks-workflow-files/post-process-job.yml
+        git diff .github/eks-workflow-files/post-process-job.yml
+    - name: Submit post-processing Kubernetes job
+      run: kubectl apply -f .github/eks-workflow-files/post-process-job.yml
+    - name: Wait for post-processing Kubernetes job to start
+      run: |
+        while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-postprocess --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+          sleep 2
+        done
+    - name: Stream post-processing Kubernetes job output
+      run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ github.run_id }}-${{ github.run_attempt }}-postprocess
+    # Clean up in case of errors as well as success
+    - name: Delete post-processing Kubernetes job
+      if: always()
+      run: kubectl delete job ${{ github.run_id }}-${{ github.run_attempt }}-postprocess
+    - name: Delete GitHub Container Registry token
+      if: always()
+      run: kubectl delete secret ${{ github.run_id }}-${{ github.run_attempt }}-token
+
   # test-equinox:
   #   needs: build-equinox
   #   if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
