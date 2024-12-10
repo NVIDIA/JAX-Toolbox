@@ -222,7 +222,7 @@ class MACEModel(flax.linen.Module):
         graph_index: jax.Array,  # [num_nodes]
         num_graphs: int,
     ) -> tuple[jax.Array, jax.Array]:
-        def model(vecs, node_species, senders, receivers):
+        def model(vecs):
             with cue.assume(cue.O3, cue.ir_mul):
                 w = self.param(
                     "linear_embedding",
@@ -231,7 +231,7 @@ class MACEModel(flax.linen.Module):
                     vecs.dtype,
                 )
                 node_feats = cuex.as_irreps_array(
-                    w[node_species] / jnp.sqrt(self.num_species)
+                    w[species] / jnp.sqrt(self.num_species)
                 )
 
                 radial_embeddings = jax.vmap(
@@ -256,25 +256,24 @@ class MACEModel(flax.linen.Module):
                         correlation=self.correlation,
                         output_irreps=cue.Irreps(cue.O3, "1x0e"),
                         readout_mlp_irreps=cue.Irreps(cue.O3, "16x0e"),
-                    )(
-                        vecs,
-                        node_feats,
-                        node_species,
-                        radial_embeddings,
-                        senders,
-                        receivers,
-                    )
+                    )(vecs, node_feats, species, radial_embeddings, senders, receivers)
                     Es += jnp.squeeze(output.array, 1)
                 return jnp.sum(Es), Es
 
-        Fterms, Ei = jax.grad(model, has_aux=True)(vecs, species, senders, receivers)
+        Fterms, Ei = jax.grad(model, has_aux=True)(vecs)
         offsets = jnp.asarray(self.offsets, dtype=Ei.dtype)
         Ei = Ei + offsets[species]
 
-        E = jnp.zeros((num_graphs,)).at[graph_index].add(Ei)
+        E = jnp.zeros((num_graphs,), Ei.dtype).at[graph_index].add(Ei)
 
         nats = jnp.shape(species)[0]
-        F = jnp.zeros((nats, 3)).at[senders].add(Fterms).at[receivers].add(-Fterms)
+        F = (
+            jnp.zeros((nats, 3), Ei.dtype)
+            .at[senders]
+            .add(Fterms)
+            .at[receivers]
+            .add(-Fterms)
+        )
 
         return E, F
 
