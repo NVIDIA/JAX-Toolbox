@@ -1,0 +1,12 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} as mealkit
+FROM mealkit as final
+RUN apt-get update \
+    && apt install -y openssh-server \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir /run/sshd
+# https://github.com/kubeflow/mpi-operator/blob/c738a83b185b4bf3bf7e6eca9d4503653294c995/build/base/Dockerfile#L16
+RUN sed -i "s/[ #]\(.*StrictHostKeyChecking \).*/ \1no/g" /etc/ssh/ssh_config \
+    && echo "    UserKnownHostsFile /dev/null" >> /etc/ssh/ssh_config \
+    && sed -i "s/#\(StrictModes \).*/\1no/g" /etc/ssh/sshd_config
