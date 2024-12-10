@@ -1,0 +1,3 @@
+cuequivariance-jax
+flax
+optax
