@@ -1,3 +1,4 @@
+import time
 from typing import Callable
 
 import cuequivariance as cue
@@ -7,9 +8,9 @@ import flax.linen
 import jax
 import jax.numpy as jnp
 import numpy as np
+import optax
 from cuequivariance.experimental.mace import symmetric_contraction
 from cuequivariance_jax.experimental.utils import MultiLayerPerceptron, gather
-import optax
 
 
 class MACELayer(flax.linen.Module):
@@ -31,12 +32,12 @@ class MACELayer(flax.linen.Module):
     @flax.linen.compact
     def __call__(
         self,
-        vectors: cuex.IrrepsArray,  # [n_edges, 3]
-        node_feats: cuex.IrrepsArray,  # [n_nodes, irreps]
-        node_species: jax.Array,  # [n_nodes] int between 0 and num_species-1
-        radial_embeddings: jax.Array,  # [n_edges, radial_embedding_dim]
-        senders: jax.Array,  # [n_edges]
-        receivers: jax.Array,  # [n_edges]
+        vectors: cuex.IrrepsArray,  # [num_edges, 3]
+        node_feats: cuex.IrrepsArray,  # [num_nodes, irreps]
+        node_species: jax.Array,  # [num_nodes] int between 0 and num_species-1
+        radial_embeddings: jax.Array,  # [num_edges, radial_embedding_dim]
+        senders: jax.Array,  # [num_edges]
+        receivers: jax.Array,  # [num_edges]
     ):
         dtype = node_feats.dtype
 
@@ -93,11 +94,8 @@ class MACELayer(flax.linen.Module):
             [64, 64, 64, e.inputs[0].irreps.dim],
             self.activation,
             output_activation=False,
-            with_bias=False,  # biases would break smoothness
-        )(
-            # embeddings are smooth at cutoff
-            radial_embeddings
-        )
+            with_bias=False,
+        )(radial_embeddings)
 
         messages = cuex.equivariant_tensor_product(
             e,
@@ -133,10 +131,6 @@ class MACELayer(flax.linen.Module):
             self.num_features * hidden_out,
             range(1, self.correlation + 1),
         )
-        # The largest STP has 1076 paths.
-        # Maybe set CUEQUIVARIANCE_MAX_PATH_UNROLL to something larger.
-        # os.environ["CUEQUIVARIANCE_MAX_PATH_UNROLL"] = "2000"
-
         n = projection.shape[0 if self.replicate_original_mace_sc else 1]
         w = self.param(
             "symmetric_contraction",
@@ -149,15 +143,16 @@ class MACELayer(flax.linen.Module):
         w = jnp.reshape(w, (self.num_species, -1))
 
         node_feats = cuex.equivariant_tensor_product(
-            e, w[node_species], node_feats, algorithm="sliced"
+            e,
+            w[node_species],
+            node_feats,
+            algorithm="compact_stacked" if e.all_same_segment_shape() else "sliced",
         )
 
         node_feats = lin(self.num_features * hidden_out, node_feats, "linear_post_sc")
 
         if self_connection is not None:
-            node_feats = (
-                node_feats + self_connection
-            )  # [n_nodes, feature * hidden_irreps]
+            node_feats = node_feats + self_connection
 
         node_outputs = node_feats
         if self.last:  # Non linear readout for last layer
@@ -172,7 +167,6 @@ class MACELayer(flax.linen.Module):
         return node_outputs, node_feats
 
 
-# Just Bessel for now
 class radial_basis(flax.linen.Module):
     r_max: float
     num_radial_basis: int
@@ -216,6 +210,7 @@ class MACEModel(flax.linen.Module):
     hidden_irreps: cue.Irreps
     offsets: np.ndarray
     cutoff: float
+    epsilon: float
 
     @flax.linen.compact
     def __call__(
@@ -229,21 +224,16 @@ class MACEModel(flax.linen.Module):
     ) -> tuple[jax.Array, jax.Array]:
         def model(vecs, node_species, senders, receivers):
             with cue.assume(cue.O3, cue.ir_mul):
-                node_attrs = cuex.as_irreps_array(
-                    jax.nn.one_hot(node_species, self.num_species)
-                )
-                e = cue.descriptors.linear(
-                    node_attrs.irreps(), cue.Irreps(f"{self.num_features}x0e")
-                )
                 w = self.param(
                     "linear_embedding",
                     jax.random.normal,
-                    (e.inputs[0].irreps.dim,),
+                    (self.num_species, self.num_features),
                     vecs.dtype,
                 )
-                node_feats = cuex.equivariant_tensor_product(
-                    e, w, node_attrs, precision="HIGH"
+                node_feats = cuex.as_irreps_array(
+                    w[node_species] / jnp.sqrt(self.num_species)
                 )
+
                 radial_embeddings = jax.vmap(
                     radial_basis(self.cutoff, self.num_radial_basis)
                 )(jnp.linalg.norm(vecs, axis=1))
@@ -261,7 +251,7 @@ class MACEModel(flax.linen.Module):
                         interaction_irreps=self.interaction_irreps,
                         hidden_irreps=self.hidden_irreps,
                         activation=jax.nn.silu,
-                        epsilon=0.05,
+                        epsilon=self.epsilon,
                         max_ell=self.max_ell,
                         correlation=self.correlation,
                         output_irreps=cue.Irreps(cue.O3, "1x0e"),
@@ -290,25 +280,29 @@ class MACEModel(flax.linen.Module):
 
 
 def main():
+    # Dataset specifications
     num_species = 50
+    num_graphs = 100
+    num_atoms = 4_000
+    num_edges = 70_000
+    avg_num_neighbors = 20
 
+    # Model specifications
     model = MACEModel(
-        offsets=np.zeros(num_species),
-        cutoff=5.0,
         num_layers=2,
-        num_features=192,
+        num_features=128,
         num_species=num_species,
-        interaction_irreps=cue.Irreps(cue.O3, "0e+1o+2e+3o"),
-        hidden_irreps=cue.Irreps(cue.O3, "0e+1o+2e"),
         max_ell=3,
         correlation=3,
         num_radial_basis=8,
+        interaction_irreps=cue.Irreps(cue.O3, "0e+1o+2e+3o"),
+        hidden_irreps=cue.Irreps(cue.O3, "0e+1o"),
+        offsets=np.zeros(num_species),
+        cutoff=5.0,
+        epsilon=1 / avg_num_neighbors,
     )
 
-    num_graphs = 128
-    num_atoms = 4_000
-    num_edges = 70_000
-
+    # Dummy data
     vecs = jax.random.normal(jax.random.key(0), (num_edges, 3))
     species = jax.random.randint(jax.random.key(0), (num_atoms,), 0, num_species)
     senders, receivers = jax.random.randint(
@@ -316,20 +310,32 @@ def main():
     )
     graph_index = jax.random.randint(jax.random.key(0), (num_atoms,), 0, num_graphs)
     graph_index = jnp.sort(graph_index)
+    target_E = jax.random.normal(jax.random.key(0), (num_graphs,))
+    target_F = jax.random.normal(jax.random.key(0), (num_atoms, 3))
 
+    # Initialization
     w = jax.jit(model.init, static_argnums=(6,))(
         jax.random.key(0), vecs, species, senders, receivers, graph_index, num_graphs
     )
     opt = optax.adam(1e-2)
     opt_state = opt.init(w)
 
+    # Training
     @jax.jit
     def step(
-        w, opt_state, vecs, species, senders, receivers, graph_index, target_E, target_F
+        w,
+        opt_state,
+        vecs: jax.Array,
+        species: jax.Array,
+        senders: jax.Array,
+        receivers: jax.Array,
+        graph_index: jax.Array,
+        target_E: jax.Array,
+        target_F: jax.Array,
     ):
         def loss_fn(w):
             E, F = model.apply(
-                w, vecs, species, senders, receivers, graph_index, num_graphs
+                w, vecs, species, senders, receivers, graph_index, target_E.shape[0]
             )
             return jnp.mean((E - target_E) ** 2) + jnp.mean((F - target_F) ** 2)
 
@@ -338,17 +344,25 @@ def main():
         w = optax.apply_updates(w, updates)
         return w, opt_state
 
-    w, opt_state = step(
-        w,
-        opt_state,
-        vecs,
-        species,
-        senders,
-        receivers,
-        graph_index,
-        jax.random.normal(jax.random.key(0), (num_graphs,)),
-        jax.random.normal(jax.random.key(0), (num_atoms, 3)),
-    )
+    for i in range(100):
+        t0 = time.perf_counter()
+        w, opt_state = step(
+            w,
+            opt_state,
+            vecs,
+            species,
+            senders,
+            receivers,
+            graph_index,
+            target_E,
+            target_F,
+        )
+
+        jax.block_until_ready(w)
+        t1 = time.perf_counter()
+        print(f"{i:04}: {t1-t0:.3}s")
+
+        break
 
 
 if __name__ == "__main__":
