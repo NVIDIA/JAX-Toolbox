@@ -76,10 +76,10 @@ fi
 export NSYS_JAX_DEFAULT_PREFIX="${{PWD}}"
 # https://setuptools.pypa.io/en/latest/userguide/datafiles.html#accessing-data-files-at-runtime
 NOTEBOOK=$("${{BIN}}/python" -c 'from importlib.resources import files; print(files("nsys_jax") / "analyses" / "Analysis.ipynb")')
-if [ -z ${{NSYS_JAX_IPYTHON_NOT_JUPYTER_LAB+x}} ]; then
+if [ -z ${{NSYS_JAX_JUPYTER_EXECUTE_NOT_LAB+x}} ]; then
   CMD="${{BIN}}/jupyter-lab"
 else
-  CMD="${{BIN}}/ipython"
+  CMD="${{BIN}}/jupyter-execute"
 fi
 echo "Launching: cd ${{SCRIPT_DIR}} && ${{CMD}} ${{NOTEBOOK}}"
 cd "${{SCRIPT_DIR}}" && "${{CMD}}" "${{NOTEBOOK}}"

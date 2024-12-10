@@ -436,7 +436,7 @@ jobs:
           chmod 755 install.sh
           # Run the notebook with IPython, not Jupyter Lab, so it exits and prints something informative to stdout
           # Skip executing Jupyter lab
-          NSYS_JAX_IPYTHON_NOT_JUPYTER_LAB=1 ./install.sh
+          NSYS_JAX_JUPYTER_EXECUTE_NOT_LAB=1 ./install.sh
           popd
         done
 
