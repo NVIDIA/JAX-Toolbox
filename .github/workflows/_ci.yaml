@@ -452,12 +452,6 @@ jobs:
     steps:
     - name: Check out the repository
       uses: actions/checkout@v4
-    - name: Install yq
-      run: |
-        mkdir local_bin/
-        curl -L -o ./local_bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture)
-        chmod 777 ./local_bin/yq
-        echo "${PWD}/local_bin" >> "${GITHUB_PATH}"
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v3
       with:
