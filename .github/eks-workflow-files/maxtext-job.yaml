@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: PLACEHOLDER
+spec:
+  clusterIP: None # clusterIP must be None to create a headless service
+  selector:
+    job-name: PLACEHOLDER # must match Job name
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: PLACEHOLDER
+  labels:
+    kueue.x-k8s.io/queue-name: p5-queue
+spec:
+  completions: 2 # number of nodes
+  parallelism: 2 # number of nodes
+  completionMode: Indexed
+  backoffLimitPerIndex: 0 # max failures per index
+  maxFailedIndexes:     0 # all indices must succeed
+  template:
+    spec:
+      subdomain: PLACEHOLDER # has to match Service name
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: PLACEHOLDER
+      containers:
+        - name: maxtext
+          image: PLACEHOLDER
+          ports:
+            - containerPort: 3389
+          command:
+            - bash
+            - -c
+            # The logging logic: stream stdout/stderr from the 0th process inside this pod,
+            # record all of the processes' stdout/stderr + the INFO-level NCCL logs to file
+            - |
+              export SERVICE_NAME=$0
+              export JOB_NAME=$1
+              cat >each-process.sh <<'EOL'
+              export JAX_COORDINATOR_IP=${JOB_NAME}-0.${SERVICE_NAME}
+              export JAX_COORDINATOR_PORT=3389
+              export NNODES=16 # actually #processes == #GPUs
+              export NODE_RANK=$((JOB_COMPLETION_INDEX*8 + LOCAL_RANK))
+              export JAX_LOCAL_DEVICE_IDS=$LOCAL_RANK
+              export NCCL_DEBUG=INFO
+              export NCCL_DEBUG_FILE=/opt/output/nccl.$NODE_RANK.log
+              [[ $LOCAL_RANK == 0 ]] && console="/dev/stdout" || console="/dev/null"
+              nsys-jax \
+                --capture-range=cudaProfilerApi \
+                --capture-range-end=stop \
+                -o /opt/output/profile.$NODE_RANK.zip \
+                -- \
+                test-maxtext.sh \
+                -n 2 \
+                -b 2 \
+                --model-name=llama2-7b \
+                --attn-type=cudnn_flash_te \
+                --remat-policy=minimal_flash \
+                --steps=20 \
+                --fsdp=16 \
+                -a "scan_layers=false \
+                    max_target_length=4096 \
+                    use_iota_embed=true \
+                    logits_dot_in_fp32=false \
+                    profiler=nsys \
+                    skip_first_n_steps_for_profiler=3 \
+                    profiler_steps=8" \
+                |& tee /opt/output/output.$NODE_RANK.log >"${console}"
+              code=$?
+              # Should run even on failure
+              cat /opt/output/nccl.$NODE_RANK.log >"${console}"
+              exit $code
+              EOL
+              # install-efa.sh # FIXME: when the CUDA DL base is used, remove this
+              # TODO: upgrade parallel-launch to return a failure code as soon as any
+              #       of its children do (it already does this eventually, but it could
+              #       be slow)
+              parallel-launch LOCAL_RANK 8 bash each-process.sh
+              code=$?
+              # Should run even on failure
+              touch /opt/output/.done
+              exit $code
+            - PLACEHOLDER
+            - PLACEHOLDER
+          resources:
+            limits:
+              nvidia.com/gpu: 8
+              vpc.amazonaws.com/efa: 32
+          volumeMounts:
+            - mountPath: /dev/shm
+              name: shmem
+            - mountPath: /opt/output
+              name: output
+        - name: upload
+          image: amazon/aws-cli
+          command:
+            - bash
+            - -c
+            - |
+              JOB_NAME="$0"
+              while [[ ! -f /opt/output/.done ]]; do
+                sleep 1
+              done
+              rm /opt/output/.done
+              aws s3 cp \
+                --recursive \
+                /opt/output \
+                "s3://jax-toolbox-eks-output/${JOB_NAME}/"
+            - PLACEHOLDER
+          volumeMounts:
+            - mountPath: /opt/output
+              name: output
+      volumes:
+        - name: output
+          emptyDir: {}
+        - name: shmem
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
