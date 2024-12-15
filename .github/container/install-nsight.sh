@@ -12,7 +12,7 @@ export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 
 apt-get update
-apt-get install -y nsight-compute nsight-systems-cli-2024.6.1
+apt-get install -y nsight-compute nsight-systems-cli
 apt-get clean
 
 rm -rf /var/lib/apt/lists/*
