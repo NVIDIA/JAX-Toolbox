@@ -53,12 +53,6 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
-      - name: Install yq
-        run: |
-          mkdir local_bin/
-          curl -L -o ./local_bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture)
-          chmod 777 ./local_bin/yq
-          echo "${PWD}/local_bin" >> "${GITHUB_PATH}"
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -86,7 +80,7 @@ jobs:
             | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].image = strenv(BASE_IMAGE)
             | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].name = strenv(LAUNCHER_NAME)
             | .spec.mpiReplicaSpecs.Launcher.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
-            | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].command[6] = strenv(TEST_NAME)
+            | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].command[3] = strenv(TEST_NAME)
             | .spec.mpiReplicaSpecs.Worker.template.spec.containers[].image = strenv(BASE_IMAGE)
             | .spec.mpiReplicaSpecs.Worker.template.spec.containers[].name = strenv(WORKER_NAME)
             | .spec.mpiReplicaSpecs.Worker.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
@@ -97,19 +91,21 @@ jobs:
       - name: Wait for Kubernetes job to start
         # Note that this is *not* using JOB_NAME
         run: |
-          # Launcher job is only created once the workers are ready; wait for its
-          # creation. This is where we block if the cluster is busy executing other jobs,
-          # but it might be better to impose more of a parallelism limit at the GitHub
-          # Actions level to keep the Kubernetes queue length modest
-          kubectl wait --for=create job/${LAUNCHER_NAME} --timeout=3600s
+          # Launcher job is created eagerly, but suspended. Kueue un-suspends it when
+          # resources are available, but that is where there can be a long wait if the
+          # cluster is busy executing other jobs.
+          kubectl wait --for=create job/${LAUNCHER_NAME}
+          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${LAUNCHER_NAME} --timeout=3600s
+      - name: Stream Kubernetes job output
+        # Note that this is *not* JOB_NAME
+        run: |
           # Streaming logs will fail if the container/pod is still pending
           while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
             sleep 1
           done
-      - name: Stream Kubernetes job output
-        # Note that this is *not* JOB_NAME
-        # TODO: --all-containers=true --all-pods=true could make sense here
-        run: kubectl logs --follow job/${LAUNCHER_NAME}
+          # TODO: --all-containers=true --all-pods=true could make sense here, but it
+          # prefixes lines with a rather verbose tag
+          kubectl logs --follow job/${LAUNCHER_NAME}
       - name: Retrieve Kubernetes job status
         shell: bash -exo pipefail {0}
         run: |
@@ -135,7 +131,7 @@ jobs:
         run: |
           # Provide better debug in case of launch failures that will not produce log output
           pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} -o name)
-          if [[ -n "${powd}" ]]; then
+          if [[ -n "${pods}" ]]; then
             kubectl describe ${pods}
           fi
       # Clean up in case of errors as well as success
