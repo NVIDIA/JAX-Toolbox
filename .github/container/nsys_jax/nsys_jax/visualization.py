@@ -1,6 +1,5 @@
-from IPython.display import display, IFrame
+from typing import Any, Iterable
 import subprocess
-from typing import Iterable
 import xml.etree.ElementTree
 
 from .protobuf_utils import which
@@ -8,7 +7,7 @@ from .protobuf_utils import which
 
 def create_flamegraph(
     data: dict[Iterable[str], float], title: str, filename: str, width: int = 1200
-) -> tuple[str, IFrame]:
+) -> tuple[str, Any]:
     """
     Given a data structure of the form
       {
@@ -26,6 +25,8 @@ def create_flamegraph(
     Returns a tuple (svg_data, InlineIFrame), where the latter can be passed to
     IPython.display.display(...) to be rendered inline in a Jupyter notebook.
     """
+    from IPython.display import IFrame
+
     flat_data = ""
     for loc, value in data.items():
         assert not any(";" in x for x in loc)
@@ -50,5 +51,7 @@ def create_flamegraph(
 
 
 def display_flamegraph(**kwargs):
+    from IPython.display import display
+
     svg, iframe = create_flamegraph(**kwargs)
     display(iframe)
