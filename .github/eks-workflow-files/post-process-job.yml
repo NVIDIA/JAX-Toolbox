@@ -32,10 +32,6 @@ spec:
             - pipefail
             - -c
             - nsys-jax-combine -o /opt/output/combined.zip /opt/output/*.zip --analysis communication
-          # FIXME: GPU not actually needed, but the test cluster doesn't have appropriate non-GPU nodes
-          resources:
-            limits:
-              nvidia.com/gpu: 1
           volumeMounts:
             - mountPath: /opt/output
               name: output
