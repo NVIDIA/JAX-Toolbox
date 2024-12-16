@@ -351,6 +351,7 @@ For a list of previously used XLA flags that are no longer needed, please also r
 
 | First nightly with new base container | Base container |
 | ------------------------------------- | -------------- |
+| 2024-12-07 | nvidia/cuda:12.6.3-devel-ubuntu22.04 |
 | 2024-11-06 | nvidia/cuda:12.6.2-devel-ubuntu22.04 |
 | 2024-09-25 | nvidia/cuda:12.6.1-devel-ubuntu22.04 |
 | 2024-07-24 | nvidia/cuda:12.5.0-devel-ubuntu22.04 |
