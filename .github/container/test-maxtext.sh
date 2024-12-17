@@ -174,6 +174,9 @@ if [ $DTYPE == "fp8" ]; then
 fi
 
 GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
+if [ "$CUDA_VISIBLE_DEVICES" != "" ]; then
+  GPUS_PER_NODE=`python -c 'import os; x=os.environ.get("CUDA_VISIBLE_DEVICES", ""); print(len(x.split(",")))'`
+fi
 NGPUS=$((GPUS_PER_NODE * NODES))
 
 # Heuristic to figure out ici and dcn of DP
