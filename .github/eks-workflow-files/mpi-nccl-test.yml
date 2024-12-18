@@ -2,16 +2,15 @@ apiVersion: kubeflow.org/v2beta1
 kind: MPIJob
 metadata:
   name: PLACEHOLDER
+  labels:
+    kueue.x-k8s.io/queue-name: p5-queue
 spec:
-  # Without this then the first few attempts to run the launcher will result in errors
-  # due to failed DNS resolution of the worker names. It works eventually, given a big
-  # enough backoffLimit, but it makes it harder to handle log-streaming and identifying
-  # the "real" exit code of the job.
-  launcherCreationPolicy: WaitForWorkersReady
   runPolicy:
     cleanPodPolicy: Running
-    # surface errors direct to GitHub Actions without internal retries
+    # surface errors direct to GitHub Actions without Kubernetes-internal retries
     backoffLimit: 0
+    # start suspended, let kueue unblock
+    suspend: true
   # 1 MPI rank per GPU
   slotsPerWorker: 8
   mpiReplicaSpecs:
@@ -27,25 +26,31 @@ spec:
               imagePullPolicy: IfNotPresent
               name: PLACEHOLDER
               command:
-                - mpirun
-                - --allow-run-as-root
-                - -np
-                - "16"
-                - -N
-                - "8"
-                - PLACEHOLDER
-                - -b
-                - "8"
-                - -e
-                - "16G"
-                - -f
-                - "2"
-                - -g
-                - "1"
+                - bash
                 - -c
-                - "1"
-                - -n
-                - "100"
+                - |
+                  # kueue breaks the WaitForWorkersReady policy that mpi-operator
+                  # nominally supports, so manually wait a while for a basic mpirun to
+                  # start working (i.e. for the workers to be ready) before doing
+                  # anything interesting, instead of relying on mpi-operator not to
+                  # start the launcher before it is expected to succeed. This issue
+                  # seems related: https://github.com/kubeflow/mpi-operator/pull/617
+                  limit=5m
+                  if ! timeout ${limit} sh -c "while ! mpirun --allow-run-as-root -N 1 hostname; do sleep 5; done"; then
+                    echo "Workers were still not reachable after ${limit}, exiting"
+                    exit 1
+                  fi
+                  mpirun --allow-run-as-root -np 16 -N 8 $0 \
+                    -b 8 \
+                    -e 16G \
+                    -f 2 \
+                    -g 1 \
+                    -c 1 \
+                    -n 100
+                - PLACEHOLDER
+              resources:
+                limits:
+                  cpu: 1
           imagePullSecrets:
             - name: PLACEHOLDER
     Worker:

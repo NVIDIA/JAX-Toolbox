@@ -185,6 +185,8 @@ case "${CPU_ARCH}" in
         ;;
     "arm64")
         export CC_OPT_FLAGS="-march=armv8-a"
+        # ARM ACL build issue introduced in PR#23225
+        BUILD_PARAM="${BUILD_PARAM} --disable_mkl_dnn"
         ;;
 esac
 
