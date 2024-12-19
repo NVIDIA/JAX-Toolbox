@@ -56,7 +56,7 @@ EOFINNER
 
 fi
 
-pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.18.0 /opt/tensorflow_text*.whl
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.18.0
 for pattern in \
     "s|tensorflow=|#tensorflow=|g" \
     "s|dataclasses=|#dataclasses=|g" \
