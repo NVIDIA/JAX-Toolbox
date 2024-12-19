@@ -63,7 +63,7 @@ tensorflow-text:
   # Used only in ARM pax and t5x builds
   url: https://github.com/tensorflow/text.git
   tracking_ref: master
-  latest_verified_commit: 1779b3ae16f7bd287c4edcf66d62208dc63256f3
+  latest_verified_commit: d605a8d44b4a26d3426fe251ef028444f932b9a2
   mode: git-clone
 pydantic:
   version: X.Y.Z
