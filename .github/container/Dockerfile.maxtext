@@ -8,7 +8,6 @@ ARG SRC_PATH_MAXTEXT=/opt/maxtext
 ## Download source and add auxiliary scripts
 ###############################################################################
 
-ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
 ARG URLREF_MAXTEXT
 ARG SRC_PATH_MAXTEXT
