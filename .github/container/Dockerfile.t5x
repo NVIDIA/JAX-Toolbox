@@ -25,7 +25,7 @@ FROM wheel-builder as tftext-builder
 ARG URLREF_TFTEXT
 ARG SRC_PATH_TFTEXT
 
-RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.18.0
+RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.18.0 grain
 RUN <<"EOF" bash -exu -o pipefail
 git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
 cd ${SRC_PATH_TFTEXT}
