@@ -11,7 +11,7 @@ xla:
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
-  tracking_ref: v.0.10.2
+  tracking_ref: main
   latest_verified_commit: d89c955d1faac9dd2162a0c674f7897f2c53f54d
   mode: git-clone
   patches:
