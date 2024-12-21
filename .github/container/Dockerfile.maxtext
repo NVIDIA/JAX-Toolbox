@@ -5,6 +5,8 @@ ARG URLREF_MAXTEXT=https://github.com/google/maxtext.git#main
 ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#master
 ARG SRC_PATH_MAXTEXT=/opt/maxtext
 ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
+ARG URLREF_JETSTREAM=https://github.com/google/jetstream.git#main
+ARG SRC_PATH_JETSTREAM=/opt/jetstream
 
 ###############################################################################
 ## build tensorflow-text and lingvo, which do not have working arm64 pip wheels
@@ -56,6 +58,7 @@ RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-
 
 RUN <<"EOF" bash -ex
 git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
+sed -i '/google-jetstream/d' ${SRC_PATH_MAXTEXT}/requirements.txt
 echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 
 # specify some restrictions to speed up the build and
@@ -75,6 +78,18 @@ EOF
 ###############################################################################
 
 ADD test-maxtext.sh /usr/local/bin
+
+###############################################################################
+## Add JetStream
+###############################################################################
+
+ARG URLREF_JETSTREAM
+ARG SRC_PATH_JETSTREAM
+
+RUN <<"EOF" bash -ex
+git-clone.sh ${URLREF_JETSTREAM} ${SRC_PATH_JETSTREAM}
+echo "-e file://${SRC_PATH_JETSTREAM}" >> /opt/pip-tools.d/requirements-jetstream.in
+EOF
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
