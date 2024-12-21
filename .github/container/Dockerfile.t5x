@@ -73,6 +73,7 @@ echo "seqio-nightly>=0.0.18.dev20240714" >> /opt/pip-tools.d/requirements-t5x.in
 # 2. Remove head-of-tree specs from select dependencies
 pushd ${SRC_PATH_T5X}
 sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
+sed -i "s| @ git+https://github.com/deepmind/optax#egg=optax||g" setup.py
 
 # for ARM64 build
 if [[ "$(dpkg --print-architecture)" == "arm64" ]]; then

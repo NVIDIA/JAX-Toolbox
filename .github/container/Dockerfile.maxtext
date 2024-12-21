@@ -67,6 +67,7 @@ for pattern in \
     "s|absl-py|absl-py>=2.1.0|g" \
     "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
     "s|tensorflow-datasets|tensorflow-datasets>=4.8.0|g" \
+    "s|grain-nightly|grain|g" \
   ; do
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt;
 done
