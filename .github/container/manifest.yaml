@@ -12,7 +12,7 @@ flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
-  latest_verified_commit: 718aa8ccb12c3fdefcf3d196874e4fc667b3ade5
+  latest_verified_commit: d89c955d1faac9dd2162a0c674f7897f2c53f54d
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
@@ -177,8 +177,8 @@ panopticapi:
   mode: git-clone
 orbax-checkpoint:
   url: https://github.com/google/orbax.git
-  tracking_ref: main
-  latest_verified_commit: 16c2d409e365576284dbaf190ac002b24c1f927f
+  tracking_ref: v0.10.2
+  latest_verified_commit: d6101bad9ec5ddee8ee8b8c10e1d27d6c57f0963
   mode: pip-vcs
 pathwaysutils:
   url: https://github.com/google/pathways-utils.git

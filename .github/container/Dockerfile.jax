@@ -99,12 +99,21 @@ ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
 RUN mkdir -p /opt/pip-tools.d
 
 ## Editable installations of jax and jaxlib
+## For 25.01 release we also pin several packages obtained
+## from https://github.com/jax-ml/jax-ai-stack
 RUN <<"EOF" bash -ex
 for component in $(ls ${BUILD_PATH_JAXLIB}); do
     echo "-e file://${BUILD_PATH_JAXLIB}/${component}" >> /opt/pip-tools.d/requirements-jax.in;
 done
 echo "-e file://${SRC_PATH_JAX}" >> /opt/pip-tools.d/requirements-jax.in
-echo "numpy<2.0.0" >> /opt/pip-tools.d/requirements-jax.in
+for pkg in \
+    "ml_dtypes==0.4.0" \
+    "optax==0.2.4" \
+    "orbax-checkpoint==0.10.2" \
+    "orbax-export==0.0.6" \
+; do
+    echo "$pkg" >> /opt/pip-tools.d/requirements-jax.in
+done
 EOF
 
 ## Flax
