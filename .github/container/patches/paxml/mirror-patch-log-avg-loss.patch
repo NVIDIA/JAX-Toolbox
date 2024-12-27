@@ -1,0 +1,204 @@
+From dfca04a9cbb33254420aa7b098f82abc3dd7b78a Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Fri, 8 Sep 2023 11:47:51 -0700
+Subject: [PATCH 1/5] Log average loss for last n steps
+
+fix syntax
+
+add missing import
+
+make num steps to average over configurable
+
+change average loss log level to accomodate reduced verbosity
+---
+ paxml/contrib/gpu/scripts_gpu/configs.py |  1 +
+ paxml/executors.py                       | 12 ++++++++++++
+ paxml/tasks_lib.py                       |  2 ++
+ 3 files changed, 15 insertions(+)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
+index cb5ad52..04102de 100644
+--- a/paxml/contrib/gpu/scripts_gpu/configs.py
++++ b/paxml/contrib/gpu/scripts_gpu/configs.py
+@@ -160,6 +160,7 @@ class GPT126MBase(TransformerLmSpmdAdam):
+     task_p.train.compute_steps_per_sec_interval_steps = (
+         self.SUMMARY_INTERVAL_STEPS
+     )
++    task_p.train.num_losses_to_average = 10
+ 
+     model_p = task_p.model
+ 
+diff --git a/paxml/executors.py b/paxml/executors.py
+index ec4ca23..654b618 100644
+--- a/paxml/executors.py
++++ b/paxml/executors.py
+@@ -23,6 +23,7 @@ from typing import Any, Sequence
+ from absl import logging
+ from etils import epath
+ import jax
++import numpy as np
+ from paxml import base_executor
+ from paxml import base_metrics
+ from paxml import decode_programs as decode_programs_lib
+@@ -409,6 +410,10 @@ def _train_loop(
+     step_i,
+     train_p,
+ ):
++
++  num_losses_to_average = task.train.num_losses_to_average
++  last_n_losses = [] if num_losses_to_average else None
++
+   while True:
+     logging.log_first_n(INFO, '[PAX STATUS]: Beginning step `%d`.', 5, step_i)
+     checkpointer.save_if_needed(
+@@ -433,6 +438,8 @@ def _train_loop(
+           step_i,
+           train_p.num_train_steps,
+       )
++
++      logging.warning(f'Average loss for last {len(last_n_losses)} steps: {np.mean(last_n_losses)}')
+       break
+     with ml_monitoring.ml_event_logger(ml_monitoring.MlEvent.TRAIN_STEP):
+       partitioned_train_state = train_program.update_state(
+@@ -440,6 +447,11 @@ def _train_loop(
+       )
+       program_output = train_program.run(partitioned_train_state, step_i)
+ 
++      loss = program_output.loss
++      last_n_losses.append(loss)
++      if num_losses_to_average and len(last_n_losses) > num_losses_to_average:
++          last_n_losses = last_n_losses[-num_losses_to_average:]
++
+     partitioned_train_state = program_output.state
+     train_weighted_scalars = program_output.weighted_scalars
+     steps_per_sec = program_output.steps_per_sec
+diff --git a/paxml/tasks_lib.py b/paxml/tasks_lib.py
+index 010998d..eb706d7 100644
+--- a/paxml/tasks_lib.py
++++ b/paxml/tasks_lib.py
+@@ -1279,6 +1279,7 @@ class SingleTask(base_task.BaseTask):
+         loading the checkpoint.
+       report_progress_hook: Whether to use clu's ReportProgress hook to report
+         the progress of the experiment.
++      num_losses_to_average: An optional integer indicating the number of steps over which to average when logging final loss.
+     """
+ 
+     learner: pax_fiddle.Config[learners_lib.Learner] = (
+@@ -1323,6 +1324,7 @@ class SingleTask(base_task.BaseTask):
+     external_checkpoint_path: epath.Path | None = None
+     external_checkpoint_handler: ocp.CheckpointHandler | None = None
+     report_progress_hook: bool = False
++    num_losses_to_average: int | None = None
+ 
+   TrainHParams = base_hyperparams.FiddleHParamsClassStub(Train)  # pylint: disable=invalid-name
+ 
+-- 
+2.47.1
+
+
+From df16cac746a7b026d0a8deaecd683447bc56990a Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Mon, 15 Apr 2024 07:39:33 -0700
+Subject: [PATCH 2/5] add num_losses_to_average for llama
+
+---
+ paxml/contrib/gpu/scripts_gpu/llama_utils.py | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/llama_utils.py b/paxml/contrib/gpu/scripts_gpu/llama_utils.py
+index be3c998..b674170 100644
+--- a/paxml/contrib/gpu/scripts_gpu/llama_utils.py
++++ b/paxml/contrib/gpu/scripts_gpu/llama_utils.py
+@@ -72,6 +72,7 @@ class BaseLLaMA(TransformerLmSpmdAdam):
+     task_p = super().task()
+ 
+     task_p.train.num_train_steps = self.MAX_STEPS
++    task_p.train.num_losses_to_average = 10
+ 
+     model_p = task_p.model
+ 
+-- 
+2.47.1
+
+
+From d6f830de4e75c5260fe13c33948bd1cdaf932bf3 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Tue, 28 May 2024 09:09:27 -0700
+Subject: [PATCH 3/5] add num_losses_to_average for grok
+
+---
+ paxml/tasks/lm/params/nvidia.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/paxml/tasks/lm/params/nvidia.py b/paxml/tasks/lm/params/nvidia.py
+index 21253f1..edb46e9 100644
+--- a/paxml/tasks/lm/params/nvidia.py
++++ b/paxml/tasks/lm/params/nvidia.py
+@@ -840,6 +840,8 @@ class Grok(NVIDIA1_3B):
+     if self.USE_ROPE:
+       transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
+       task_p.model.lm_tpl.position_emb_tpl = None
++    
++    task_p.train.num_losses_to_average = 10
+ 
+     return task_p
+ 
+-- 
+2.47.1
+
+
+From 5cb025af745f4826efc49107c6e46021c9180797 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Tue, 28 May 2024 19:51:56 -0700
+Subject: [PATCH 4/5] add num_losses_to_average to grok proxy
+
+---
+ paxml/tasks/lm/params/nvidia.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/paxml/tasks/lm/params/nvidia.py b/paxml/tasks/lm/params/nvidia.py
+index edb46e9..d716452 100644
+--- a/paxml/tasks/lm/params/nvidia.py
++++ b/paxml/tasks/lm/params/nvidia.py
+@@ -930,6 +930,8 @@ class Grok_Proxy(NVIDIA1_3B):
+       transformer_layer_p.tr_atten_tpl.use_rotary_position_emb = True
+       task_p.model.lm_tpl.position_emb_tpl = None
+ 
++    task_p.train.num_losses_to_average = 10
++
+     return task_p
+ 
+ 
+-- 
+2.47.1
+
+
+From 84f8ec36147e8c93f944fa9d46625ef79d756d0a Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Mon, 2 Dec 2024 15:34:10 -0800
+Subject: [PATCH 5/5] fix bug when num_losses_to_average is not set
+
+Signed-off-by: ashors1 <ashors@nvidia.com>
+---
+ paxml/executors.py | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/paxml/executors.py b/paxml/executors.py
+index 654b618..fda213a 100644
+--- a/paxml/executors.py
++++ b/paxml/executors.py
+@@ -448,8 +448,9 @@ def _train_loop(
+       program_output = train_program.run(partitioned_train_state, step_i)
+ 
+       loss = program_output.loss
+-      last_n_losses.append(loss)
+-      if num_losses_to_average and len(last_n_losses) > num_losses_to_average:
++      if num_losses_to_average:
++        last_n_losses.append(loss)
++        if len(last_n_losses) > num_losses_to_average:
+           last_n_losses = last_n_losses[-num_losses_to_average:]
+ 
+     partitioned_train_state = program_output.state
+-- 
+2.47.1
+
