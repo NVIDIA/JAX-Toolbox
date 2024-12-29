@@ -1,0 +1,37 @@
+From f31f92058a06f81f1edfa71ae4a7c169e3d5c6f9 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Mon, 5 Feb 2024 11:32:15 -0800
+Subject: [PATCH] make set_task_status log as a warning so it's printed even
+ when verbosity is reduced
+
+---
+ paxml/summary_utils.py | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/paxml/summary_utils.py b/paxml/summary_utils.py
+index 7330842..8c6876d 100644
+--- a/paxml/summary_utils.py
++++ b/paxml/summary_utils.py
+@@ -90,6 +90,10 @@ _VALUES_TO_SUMMARY_TYPE = {
+     clu_values.Audio: SummaryType.AUDIO,
+ }
+ 
++def set_task_status(msg: str):
++    """Sets the status string for this task."""
++    logging.warning("Setting task status: %s", msg)
++
+ 
+ def _get_summary_type(
+     metric_value: SummaryValueTypes,
+@@ -619,7 +623,7 @@ def write_summary_entry(
+ 
+     compute_and_write_clu_metric_summaries(clu_metrics, step_i)
+ 
+-    work_unit.set_task_status(status_msg)
++    set_task_status(status_msg)
+     summaries = flatten_summary_dict(summary_tensors)
+     for key, tensors in summaries:
+       summary_type = base_layer.get_summary_type_from_key(key)
+-- 
+2.47.1
+
