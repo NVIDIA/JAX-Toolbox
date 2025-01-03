@@ -69,6 +69,7 @@ for pattern in \
     "s|tensorflow-datasets|tensorflow-datasets>=4.8.0|g" \
     "s|grain-nightly|grain|g" \
     "s|tensorboardx|tensorboardx>=2.6.2|g" \
+    "s|sentencepiece==0.1.97|sentencepiece>=0.2|g" \
   ; do
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt;
 done
