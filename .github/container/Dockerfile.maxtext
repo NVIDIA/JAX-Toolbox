@@ -68,12 +68,13 @@ for pattern in \
     "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
     "s|tensorflow-datasets|tensorflow-datasets>=4.8.0|g" \
     "s|grain-nightly|grain|g" \
+    "s|tensorboardX|tensorboardX>=2.6.2|g" \
   ; do
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt;
 done
 for requirement in \
     "tensorflow-metadata>=1.15.0" \
-    "seqio>=0.0.17" \
+    "seqio>=0.0.19" \
   ; do
     echo "${requirement}" >> ${SRC_PATH_MAXTEXT}/requirements.txt
 done
