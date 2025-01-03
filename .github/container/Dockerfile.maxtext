@@ -73,7 +73,7 @@ for pattern in \
 done
 for requirement in \
     "tensorflow-metadata>=1.15.0" \
-    "seqio>=0.0.19" \
+    "seqio>=0.0.17" \
   ; do
     echo "${requirement}" >> ${SRC_PATH_MAXTEXT}/requirements.txt
 done
