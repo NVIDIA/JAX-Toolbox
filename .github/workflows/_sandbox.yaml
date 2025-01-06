@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  nccl-test:
+  maxtext:
     runs-on: eks
     env:
-      CONTAINER_IMAGE: "ghcr.io/nvidia/jax-toolbox-internal:dl-dgx-jax-21351985-maxtext-final-amd64"
+      CONTAINER_IMAGE: "ghcr.io/nvidia/jax-toolbox-internal:22155818-maxtext-py3"
       JOB_NAME: "maxtext-${{ github.run_id }}-${{ github.run_attempt }}"
     steps:
       - name: Check out the repository
