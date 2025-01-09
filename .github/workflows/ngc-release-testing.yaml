@@ -3,7 +3,7 @@ name: ~NGC release testing
 on:
   workflow_dispatch:
     inputs:
-      JAX_IMAGE: 
+      JAX_IMAGE:
         type: string
         description: "JAX image to run tests on"
         required: false
@@ -26,9 +26,16 @@ concurrency:
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
-  packages: read # to upload container
+  packages: write # to upload container
 
 jobs:
+  test-nccl:
+    if: inputs.JAX_IMAGE != ''
+    uses: ./.github/workflows/_test_nccl.yaml
+    with:
+      CONTAINER: ${{ inputs.JAX_IMAGE }}
+    secrets: inherit
+
   test-jax:
     if: inputs.JAX_IMAGE != ''
     uses: ./.github/workflows/_test_unit.yaml
@@ -65,7 +72,7 @@ jobs:
     with:
       PAX_IMAGE: ${{ inputs.PAX_IMAGE }}
     secrets: inherit
-    
+
   test-maxtext:
     if: inputs.MAXTEXT_IMAGE != ''
     uses: ./.github/workflows/_test_maxtext.yaml
