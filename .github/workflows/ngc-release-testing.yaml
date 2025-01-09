@@ -81,7 +81,7 @@ jobs:
     secrets: inherit
 
   finalize:
-    needs: [ test-jax, test-rosetta-pax, test-maxtext ]
+    needs: [ test-nccl, test-jax, test-rosetta-pax, test-maxtext ]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
