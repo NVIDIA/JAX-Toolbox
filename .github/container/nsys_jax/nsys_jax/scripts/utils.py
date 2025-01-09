@@ -40,9 +40,9 @@ def analysis_recipe_path(script):
     )
     if script_file.is_file():
         return script_file
-    assert os.path.exists(
-        script
-    ), f"{script} does not exist and is not the name of a built-in analysis script"
+    assert os.path.exists(script), (
+        f"{script} does not exist and is not the name of a built-in analysis script"
+    )
     return contextlib.nullcontext(pathlib.Path(script))
 
 

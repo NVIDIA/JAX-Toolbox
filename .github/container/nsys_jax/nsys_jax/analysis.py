@@ -28,9 +28,9 @@ def align_profiler_data_timestamps(
     # Error if the communication frame doesn't exist at all, but not if it is empty.
     # Calling this on a profile that does not contain any communication should
     # gracefully yield empty results.
-    assert (
-        frames.communication is not None
-    ), "align_profiler_data_timestamps requires a communication frame"
+    assert frames.communication is not None, (
+        "align_profiler_data_timestamps requires a communication frame"
+    )
     if not len(frames.communication):
         # Nothing to be done, return an empty result
         return frames, {}
@@ -43,9 +43,9 @@ def align_profiler_data_timestamps(
             f"WARNING: cannot align {num_profiled_devices} devices because max collective size is 1"
         )
         return frames, {}
-    assert (
-        num_profiled_devices == max_collective_size
-    ), f"Aligning {num_profiled_devices} using collectives of size {max_collective_size} is not implemented"
+    assert num_profiled_devices == max_collective_size, (
+        f"Aligning {num_profiled_devices} using collectives of size {max_collective_size} is not implemented"
+    )
     # Find the collectives that will be used
     align_df = comm_df[comm_df["CollectiveSize"] == max_collective_size]
     # Calculate the collectives' end times
@@ -190,19 +190,18 @@ def _get_message_size(
 ) -> tuple[int, str, int, float, float]:
     _, inst = module_proto.find_instruction(instruction)
     comm_inst = inst.communication_proto()
-    assert (
-        comm_inst.opcode
-        in {
-            "all-gather-start",
-            "all-reduce-start",
-            "all-to-all",
-            "collective-broadcast",
-            "collective-permute-start",
-            "dynamic-slice",
-            "dynamic-update-slice",
-            "reduce-scatter",
-        }
-    ), f"{instruction}: message size calculation for {comm_inst.opcode} has not yet been validated"
+    assert comm_inst.opcode in {
+        "all-gather-start",
+        "all-reduce-start",
+        "all-to-all",
+        "collective-broadcast",
+        "collective-permute-start",
+        "dynamic-slice",
+        "dynamic-update-slice",
+        "reduce-scatter",
+    }, (
+        f"{instruction}: message size calculation for {comm_inst.opcode} has not yet been validated"
+    )
 
     def _byte_size(inst) -> int:
         size_bits = math.prod(
@@ -256,9 +255,9 @@ def _get_message_size(
             collective_size = iota_group_list.num_devices_per_group
         else:
             collective_sizes = set(len(group.replica_ids) for group in replica_groups)
-            assert (
-                len(collective_sizes) == 1
-            ), f"Heterogeneous collective {comm_inst} could not be interpreted"
+            assert len(collective_sizes) == 1, (
+                f"Heterogeneous collective {comm_inst} could not be interpreted"
+            )
             collective_size = next(iter(collective_sizes))
     total_msg_size = 0
     for operand_id in comm_inst.operand_ids:

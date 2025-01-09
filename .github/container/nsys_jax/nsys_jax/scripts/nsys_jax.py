@@ -341,7 +341,7 @@ def main() -> None:
                 if not osp.isdir(dst_dir):
                     os.makedirs(dst_dir)
                 shutil.copy(osp.join(root, proto), osp.join(proto_dir, proto))
-        print(f"{archive_name}: gathered .proto files in {time.time()-start:.2f}s")
+        print(f"{archive_name}: gathered .proto files in {time.time() - start:.2f}s")
         return proto_dir, proto_files
 
     def run_nsys_recipe(recipe, report_file, tmp_dir, output_queue):
@@ -369,7 +369,7 @@ def main() -> None:
             if osp.isdir(full_path) or not osp.exists(full_path):
                 continue
             output_queue.put((ofile, full_path, COMPRESS_NONE))
-        print(f"{archive_name}: post-processing finished in {time.time()-start:.2f}s")
+        print(f"{archive_name}: post-processing finished in {time.time() - start:.2f}s")
 
     def compress_and_archive(prefix, file, output_queue):
         """
@@ -403,7 +403,7 @@ def main() -> None:
         )
         for ofile in iglob("report_" + report + ".csv", root_dir=tmp_dir):
             compress_and_archive(tmp_dir, ofile, output_queue)
-        print(f"{archive_name}: post-processing finished in {time.time()-start:.2f}s")
+        print(f"{archive_name}: post-processing finished in {time.time() - start:.2f}s")
 
     def save_device_stream_thread_names(tmp_dir, report, output_queue):
         """
@@ -501,7 +501,7 @@ def main() -> None:
         else:
             print("WARNING: NOT writing device metadata, no device activity profiled?")
         print(
-            f"{archive_name}: extracted device/thread names in {time.time()-start:.2f}s"
+            f"{archive_name}: extracted device/thread names in {time.time() - start:.2f}s"
         )
 
     def find_pb_files_in_tmp(tmp_dir):
@@ -553,7 +553,7 @@ def main() -> None:
                 continue
             assert osp.isabs(src_file), f"{src_file} is not absolute"
             output_queue.put(("sources" + src_file, src_file, COMPRESS_DEFLATE))
-        print(f"{archive_name}: gathered source code in {time.time()-start:.2f}s")
+        print(f"{archive_name}: gathered source code in {time.time() - start:.2f}s")
 
     def execute_analysis_scripts(mirror_dir, analysis_scripts):
         """
@@ -631,7 +631,7 @@ def main() -> None:
             for path_in_archive, local_path in analysis_outputs:
                 archive.write(filename=local_path, arcname=path_in_archive)
         os.chmod(archive_name, 0o644)
-        print(f"{archive_name}: wrote in {time.time()-start:.2f}s")
+        print(f"{archive_name}: wrote in {time.time() - start:.2f}s")
         if exit_code != 0:
             print("Exiting due to analysis script errors")
             sys.exit(exit_code)

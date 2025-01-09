@@ -23,7 +23,7 @@ def main():
     logger = get_logger(args.output_prefix)
     logger.info(
         "Verbose output, including stdout/err of triage commands, will be written to "
-        f'{(args.output_prefix / "debug.log").resolve()}'
+        f"{(args.output_prefix / 'debug.log').resolve()}"
     )
     container_url = functools.partial(container_url_base, container=args.container)
     container_exists = functools.partial(
