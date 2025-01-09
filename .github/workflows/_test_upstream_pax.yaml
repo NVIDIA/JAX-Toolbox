@@ -32,14 +32,13 @@ jobs:
 
   single-process-multi-device:
     strategy:
+      max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
         - [1, 8, 1, 1]
         - [1, 1, 2, 4]
       fail-fast: false
-
-    runs-on: ubuntu-22.04
-
+    runs-on: jumpbox
     steps:
       - name: Print environment variables
         run: env
@@ -82,7 +81,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias sshx='ssh -p 3000 -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
@@ -141,17 +140,17 @@ jobs:
         if: cancelled()
         shell: bash -x -e {0}
         run: |
-          ssh -p 3000 ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
             scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
           mkdir output/
-          rsync -rtz --progress -e 'ssh -p 3000' \
+          rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress -e 'ssh -p 3000' \
+          rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
@@ -176,6 +175,7 @@ jobs:
 
   pax-multi-node:
     strategy:
+      max-parallel: 1
       matrix:
         include:
           - TEST_NAME: 1DP1FSDP1TP1PP
@@ -211,9 +211,7 @@ jobs:
             EVALUATE: true
             ADDITIONAL_ARGS: "--model-type LLaMA70BProxy --evaluate"
       fail-fast: false
-
-    runs-on: ubuntu-22.04
-
+    runs-on: jumpbox
     steps:
       - name: Print environment variables
         run: env
@@ -258,7 +256,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias sshx='ssh -p 3000 -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
@@ -320,17 +318,17 @@ jobs:
         if: cancelled()
         shell: bash -x -e {0}
         run: |
-          ssh -p 3000 ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
             scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
           mkdir output/
-          rsync -rtz --progress -e 'ssh -p 3000' \
+          rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress -e 'ssh -p 3000' \
+          rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \
@@ -356,13 +354,12 @@ jobs:
 
   single-process-evaluation:
     strategy:
+      max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
         - [1, 8, 1, 1]
       fail-fast: false
-
-    runs-on: ubuntu-22.04
-
+    runs-on: jumpbox
     steps:
       - name: Print environment variables
         run: env
@@ -406,7 +403,7 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-          alias sshx='ssh -p 3000 -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+          alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
           sshx "date && hostname && sinfo"
           sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
           JOB=$(sshx sbatch --parsable << EOF
@@ -468,17 +465,17 @@ jobs:
         if: cancelled()
         shell: bash -x -e {0}
         run: |
-          ssh -p 3000 ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
+          ssh ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} \
             scancel ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Retrieve training logs and upload to TensorBoard server
         shell: bash -x -e {0}
         run: |
           mkdir output/
-          rsync -rtz --progress -e 'ssh -p 3000' \
+          rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.LOG_FILE }} \
             output/${{ steps.meta.outputs.TEST_CASE_NAME }}.log || true
-          rsync -rtz --progress -e 'ssh -p 3000' \
+          rsync -rtz --progress \
             ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}:${{ steps.meta.outputs.MODEL_PATH }}/* \
             output/ || true
           rsync -rtz --progress \

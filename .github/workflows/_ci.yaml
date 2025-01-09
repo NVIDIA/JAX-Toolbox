@@ -79,7 +79,8 @@ jobs:
       CONTAINER_NAME: triton
       DOCKERFILE: .github/container/Dockerfile.triton
       RUNNER_SIZE: large
-      EXTRA_BUILD_ARGS: URLREF_JAX_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
+      EXTRA_BUILD_ARGS: |
+        URLREF_JAX_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
     secrets: inherit
 
   build-equinox:
@@ -107,9 +108,10 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: maxtext
-      DOCKERFILE: .github/container/Dockerfile.maxtext.${{ inputs.ARCHITECTURE }}
+      DOCKERFILE: .github/container/Dockerfile.maxtext
       EXTRA_BUILD_ARGS: |
         URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
+        URLREF_TFTEXT=${{ fromJson(inputs.SOURCE_URLREFS).TENSORFLOW_TEXT }}
     secrets: inherit
 
   build-levanter:
@@ -138,9 +140,11 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-t5x
-      DOCKERFILE: .github/container/Dockerfile.t5x.${{ inputs.ARCHITECTURE }}
+      DOCKERFILE: .github/container/Dockerfile.t5x
       EXTRA_BUILD_ARGS: |
         URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
+        URLREF_TFTEXT=${{ fromJson(inputs.SOURCE_URLREFS).TENSORFLOW_TEXT }}
+        URLREF_AIRIO=${{ fromJson(inputs.SOURCE_URLREFS).AIRIO }}
     secrets: inherit
 
   build-upstream-pax:
@@ -153,10 +157,12 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: upstream-pax
-      DOCKERFILE: .github/container/Dockerfile.pax.${{ inputs.ARCHITECTURE }}
+      DOCKERFILE: .github/container/Dockerfile.pax
       EXTRA_BUILD_ARGS: |
         URLREF_PAXML=${{ fromJson(inputs.SOURCE_URLREFS).PAXML }}
         URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
+        URLREF_TFTEXT=${{ fromJson(inputs.SOURCE_URLREFS).TENSORFLOW_TEXT }}
+        URLREF_LINGVO=${{ fromJson(inputs.SOURCE_URLREFS).LINGVO }}
     secrets: inherit
 
   build-rosetta-t5x:
@@ -193,11 +199,11 @@ jobs:
       DOCKERFILE: rosetta/Dockerfile.gemma
       DOCKER_CONTEXT: .
       EXTRA_BUILD_ARGS: |
-        URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).gemma }}
-        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).big_vision }}
-        URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).common_loop_utils }}
-        URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).flaxformer }}
-        URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).panopticapi }}
+        URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).GEMMA }}
+        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).BIG_VISION }}
+        URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).COMMON_LOOP_UTILS }}
+        URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).FLAXFORMER }}
+        URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).PANOPTICAPI }}
     secrets: inherit
 
   collect-docker-tags:
@@ -289,6 +295,7 @@ jobs:
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee tee test-gpu.log
+          nvidia-cuda-mps-control -d
           test-jax.sh -b gpu
         EOF
       STATISTICS_SCRIPT: |
@@ -315,6 +322,17 @@ jobs:
         set -o pipefail
         num_tests=0
         num_failures=0
+        # Run the pytest-driven tests
+        docker run -i --shm-size=1g --gpus all \
+          -v $PWD:/opt/output \
+          ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+          bash <<"EOF" |& tee test-nsys-jax.log
+            # nsys-jax is already installed, this is just adding the test dependencies
+            pip install pytest-reportlog nsys-jax[test]
+            # abuse knowledge that nsys-jax is installed editable, so the tests exist
+            test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
+            pytest --report-log=/opt/output/pytest-report.jsonl "${test_path}"
+        EOF
         GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
         for mode in 1-process 2-process process-per-gpu; do
           DOCKER="docker run --shm-size=1g --gpus all --env XLA_FLAGS=--xla_gpu_enable_command_buffer= --env XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 -v ${PWD}:/opt/output ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"
@@ -367,13 +385,21 @@ jobs:
         echo "NSYS_JAX_FAIL_COUNT=${num_failures}" >> $GITHUB_ENV
         exit $num_failures
       STATISTICS_SCRIPT: |
-        num_passed=$(( NSYS_JAX_TEST_COUNT - NSYS_JAX_FAIL_COUNT ))
-        num_errors=0
-        echo "TOTAL_TESTS=${NSYS_JAX_TEST_COUNT}" >> $GITHUB_OUTPUT
-        echo "ERRORS=0" >> $GITHUB_OUTPUT
+        summary_line=$(tail -n1 test-nsys-jax.log)
+        num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
+        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+        total_tests=$(( NSYS_JAX_TEST_COUNT + passed_tests + failed_tests ))
+        num_passed=$(( passed_tests + NSYS_JAX_TEST_COUNT - NSYS_JAX_FAIL_COUNT ))
+        num_failed=$(( failed_tests + NSYS_JAX_FAIL_COUNT ))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
         echo "PASSED_TESTS=${num_passed}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${NSYS_JAX_FAIL_COUNT}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${num_failed}" >> $GITHUB_OUTPUT
       ARTIFACTS: |
+        # pytest-driven part
+        test-nsys-jax.log
+        pytest-report.jsonl
         # nsys-jax logfiles
         *process-*-execution.log
         # nsys-jax output for the case that doesn't use nsys-jax-combine
@@ -382,6 +408,109 @@ jobs:
         *process*-*-execution.zip
         *-execution-combine.log
     secrets: inherit
+
+  # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
+  # runs on a regular GitHub Actions runner and checks that offline post-processing works in an environment that does
+  # not already have nsys-jax installed
+  test-nsys-jax-archive:
+    needs: test-nsys-jax
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Download nsys-jax output .zip files
+      uses: actions/download-artifact@v4
+      with:
+        name: nsys-jax-unit-test-A100
+    - name: Extract archives and execute install scripts
+      run: |
+        pip install virtualenv # for install.sh
+        for zip in $(ls *.zip); do
+          ZIP="${PWD}/${zip}"
+          pushd $(mktemp -d)
+          unzip "${ZIP}"
+          ls -l
+          # TODO: verify this isn't needed, or make sure it isn't needed
+          chmod 755 install.sh
+          # Run the notebook with IPython, not Jupyter Lab, so it exits and prints something informative to stdout
+          # Skip executing Jupyter lab
+          NSYS_JAX_JUPYTER_EXECUTE_NOT_LAB=1 ./install.sh
+          popd
+        done
+
+  test-nsys-jax-eks:
+    needs: build-jax
+    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    runs-on: eks
+    env:
+      JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+      JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-jax
+      POSTPROCESS_JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-postprocess
+      TOKEN_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-token
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v4
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Store GitHub Container Registry token as Kubernetes secret
+      run: |
+        kubectl create secret generic \
+          ${{ github.run_id }}-${{ github.run_attempt }}-token \
+          --from-file=.dockerconfigjson=$HOME/.docker/config.json \
+          --type=kubernetes.io/dockerconfigjson
+    - name: Configure Kubernetes job
+      run: |
+        yq -i ea 'select(di == 0).spec.selector.job-name = strenv(JOB_NAME)
+          | select(di == 1).metadata.name = strenv(JOB_NAME)
+          | select(di == 1).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
+          | select(di == 1).spec.template.spec.containers[0].image = strenv(JAX_DOCKER_IMAGE)
+          | select(di == 1).spec.template.spec.containers[0].env[0].value = strenv(JOB_NAME)' \
+          .github/eks-workflow-files/job.yml
+        git diff .github/eks-workflow-files/job.yml
+    - name: Submit Kubernetes job
+      run: kubectl apply -f .github/eks-workflow-files/job.yml
+    - name: Wait for Kubernetes job to start
+      run: |
+        while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-jax --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+          sleep 2
+        done
+    - name: Stream Kubernetes job output
+      run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ github.run_id }}-${{ github.run_attempt }}-jax
+    # Clean up in case of errors as well as success
+    - name: Delete Kubernetes job
+      if: always()
+      run: kubectl delete job ${{ github.run_id }}-${{ github.run_attempt }}-jax
+    - name: Configure post-processing job
+      run: |
+        export JOB_OUTPUT_PATTERN="${JOB_NAME}-rank*.zip"
+        yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
+          | .spec.template.spec.containers[].image = strenv(JAX_DOCKER_IMAGE)
+          | .spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
+          | .spec.template.spec.initContainers[].command[7] = strenv(JOB_OUTPUT_PATTERN)' \
+          .github/eks-workflow-files/post-process-job.yml
+        git diff .github/eks-workflow-files/post-process-job.yml
+    - name: Submit post-processing Kubernetes job
+      run: kubectl apply -f .github/eks-workflow-files/post-process-job.yml
+    - name: Wait for post-processing Kubernetes job to start
+      run: |
+        while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-postprocess --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+          sleep 2
+        done
+    - name: Stream post-processing Kubernetes job output
+      run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ github.run_id }}-${{ github.run_attempt }}-postprocess
+    # Clean up in case of errors as well as success
+    - name: Delete post-processing Kubernetes job
+      if: always()
+      run: kubectl delete job ${{ github.run_id }}-${{ github.run_attempt }}-postprocess
+    - name: Delete GitHub Container Registry token
+      if: always()
+      run: kubectl delete secret ${{ github.run_id }}-${{ github.run_attempt }}-token
 
   # test-equinox:
   #   needs: build-equinox
@@ -431,32 +560,6 @@ jobs:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  test-pallas:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: pallas
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-pallas.log
-          python /opt/jax/tests/pallas/pallas_test.py --xml_output_file /output/pallas_test.xml
-        EOF
-      STATISTICS_SCRIPT: |
-        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
-        total_tests=$(./yq '.testsuites."+@tests"' pallas_test.xml)
-        errors=$(./yq '.testsuites."+@errors"' pallas_test.xml)
-        failed_tests=$(./yq '.testsuites."+@failures"' pallas_test.xml)
-        passed_tests=$((total_tests - errors - failed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-pallas.log
-    secrets: inherit
-
   test-triton:
     needs: build-triton
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
@@ -467,8 +570,9 @@ jobs:
         docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
         ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-triton.log
-          # autotuner tests from jax-triton now hit a triton code path that uses utilities from pytorch...
-          pip install --no-deps torch --index-url https://download.pytorch.org/whl/cpu
+          # autotuner tests from jax-triton now hit a triton code path that uses utilities from pytorch; this relies on
+          # actually having a CUDA backend for pytoch
+          pip install --no-deps torch
           python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
         EOF
       STATISTICS_SCRIPT: |
@@ -496,7 +600,7 @@ jobs:
         ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-levanter.log
           pip install flake8 pytest soundfile librosa
-          PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests
+          PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests -m "not entry and not slow and not ray"
         EOF
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-levanter.log)
@@ -566,7 +670,7 @@ jobs:
       EXECUTE: |
         docker run --shm-size=1g --gpus all ${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }} \
         bash -ec \
-        "cd /opt/gemma && pip install -e .[test] && pytest ." | tee test-gemma.log
+        "cd /opt/gemma && pip install -e .[dev] && pytest ." | tee test-gemma.log
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-gemma.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')

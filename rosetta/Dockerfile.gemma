@@ -11,11 +11,46 @@ ARG URLREF_FLAXFORMER=https://github.com/google/flaxformer.git#main
 ARG SRC_PATH_FLAXFORMER=/opt/flaxformer
 ARG URLREF_PANOPTICAPI=https://github.com/akolesnikoff/panopticapi.git#mute
 ARG SRC_PATH_PANOPTICAPI=/opt/panopticapi
+ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#master
+ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
+
+###############################################################################
+## Build several packages which do not have working amd64/arm64 pip wheels
+###############################################################################
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} as wheel-builder
+
+#------------------------------------------------------------------------------
+# build tensorflow-text from source
+#------------------------------------------------------------------------------
+FROM wheel-builder as tftext-builder
+ARG URLREF_TFTEXT
+ARG SRC_PATH_TFTEXT
+
+RUN <<"EOF" bash -exu -o pipefail
+pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.18.0
+git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
+cd ${SRC_PATH_TFTEXT}
+    
+# The tftext build script queries GitHub, but these requests are sometimes
+# throttled by GH, resulting in a corrupted uri for tensorflow in WORKSPACE.
+# A workaround (needs to be updated when the tensorflow version changes):
+sed -i "s/# Update TF dependency to installed tensorflow./commit_slug=6550e4bd80223cdb8be6c3afd1f81e86a4d433c3/" oss_scripts/prepare_tf_dep.sh
+
+# Newer versions of LLVM make lld's --undefined-version check of lld is strict
+# by default (https://reviews.llvm.org/D135402), but the tftext build seems to
+# rely on this behavior.
+echo "write_to_bazelrc \"build --linkopt='-Wl,--undefined-version'\"" >> oss_scripts/configure.sh
+
+./oss_scripts/run_build.sh
+EOF
 
 ###############################################################################
 ## Download source and add auxiliary scripts
 ###############################################################################
 
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as mealkit
 ARG URLREF_GEMMA
 ARG SRC_PATH_GEMMA
@@ -27,7 +62,11 @@ ARG URLREF_FLAXFORMER
 ARG SRC_PATH_FLAXFORMER
 ARG URLREF_PANOPTICAPI
 ARG SRC_PATH_PANOPTICAPI
+ARG URLREF_TFTEXT
+ARG SRC_PATH_TFTEXT
 
+COPY --from=tftext-builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
+COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
 
 RUN <<"EOF" bash -ex
 git-clone.sh ${URLREF_GEMMA} ${SRC_PATH_GEMMA}
@@ -35,11 +74,12 @@ git-clone.sh ${URLREF_BIG_VISION} ${SRC_PATH_BIG_VISION}
 git-clone.sh ${URLREF_COMMON_LOOP_UTILS} ${SRC_PATH_COMMON_LOOP_UTILS}
 git-clone.sh ${URLREF_FLAXFORMER} ${SRC_PATH_FLAXFORMER}
 git-clone.sh ${URLREF_PANOPTICAPI} ${SRC_PATH_PANOPTICAPI}
-echo "-e file://${SRC_PATH_GEMMA}" >> /opt/pip-tools.d/requirements-gemma.in
-echo "-e file://${SRC_PATH_COMMON_LOOP_UTILS}" >> /opt/pip-tools.d/requirements-gemma.in
-echo "-e file://${SRC_PATH_FLAXFORMER}" >> /opt/pip-tools.d/requirements-gemma.in
-echo "-e file://${SRC_PATH_PANOPTICAPI}" >> /opt/pip-tools.d/requirements-gemma.in
-echo "ipython==8.2
+echo "
+-e file://${SRC_PATH_GEMMA}
+-e file://${SRC_PATH_COMMON_LOOP_UTILS}
+-e file://${SRC_PATH_FLAXFORMER}
+-e file://${SRC_PATH_PANOPTICAPI}
+ipython==8.2
 jupyterlab
 gcloud
 overrides
@@ -53,12 +93,12 @@ optax
 protobuf
 tfds-nightly
 tensorflow
-tensorflow-text
+tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)
 tensorflow-gan
 " >> /opt/pip-tools.d/requirements-gemma.in
 EOF
 
-ENV PYTHONPATH "${SRC_PATH_BIG_VISION}:${PYTHONPATH}"
+ENV PYTHONPATH="${SRC_PATH_BIG_VISION}:${PYTHONPATH}"
 
 ADD ./rosetta/rosetta/projects/paligemma/Finetune_PaliGemma.ipynb ${SRC_PATH_GEMMA}/examples/Finetune_PaliGemma.ipynb
 ADD ./rosetta/rosetta/projects/paligemma/test_gemma.py ${SRC_PATH_GEMMA}/tests/test_gemma.py

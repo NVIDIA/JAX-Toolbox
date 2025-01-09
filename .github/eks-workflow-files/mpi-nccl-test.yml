@@ -1,0 +1,80 @@
+apiVersion: kubeflow.org/v2beta1
+kind: MPIJob
+metadata:
+  name: PLACEHOLDER
+  labels:
+    kueue.x-k8s.io/queue-name: p5-queue
+spec:
+  runPolicy:
+    cleanPodPolicy: Running
+    # surface errors direct to GitHub Actions without Kubernetes-internal retries
+    backoffLimit: 0
+    # start suspended, let kueue unblock
+    suspend: true
+  # 1 MPI rank per GPU
+  slotsPerWorker: 8
+  mpiReplicaSpecs:
+    Launcher:
+      replicas: 1
+      # Without this the launcher pod will be deleted on failure, which makes it hard
+      # to provide useful diagnostics
+      restartPolicy: Never
+      template:
+        spec:
+          containers:
+            - image: PLACEHOLDER
+              imagePullPolicy: IfNotPresent
+              name: PLACEHOLDER
+              command:
+                - bash
+                - -c
+                - |
+                  # kueue breaks the WaitForWorkersReady policy that mpi-operator
+                  # nominally supports, so manually wait a while for a basic mpirun to
+                  # start working (i.e. for the workers to be ready) before doing
+                  # anything interesting, instead of relying on mpi-operator not to
+                  # start the launcher before it is expected to succeed. This issue
+                  # seems related: https://github.com/kubeflow/mpi-operator/pull/617
+                  limit=5m
+                  if ! timeout ${limit} sh -c "while ! mpirun --allow-run-as-root -N 1 hostname; do sleep 5; done"; then
+                    echo "Workers were still not reachable after ${limit}, exiting"
+                    exit 1
+                  fi
+                  mpirun --allow-run-as-root -np 16 -N 8 $0 \
+                    -b 8 \
+                    -e 16G \
+                    -f 2 \
+                    -g 1 \
+                    -c 1 \
+                    -n 100
+                - PLACEHOLDER
+              resources:
+                limits:
+                  cpu: 1
+          imagePullSecrets:
+            - name: PLACEHOLDER
+    Worker:
+      replicas: 2
+      template:
+        spec:
+          nodeSelector:
+            node.kubernetes.io/instance-type: "p5.48xlarge"
+          containers:
+            - image: PLACEHOLDER
+              imagePullPolicy: IfNotPresent
+              name: PLACEHOLDER
+              volumeMounts:
+                - name: shmem
+                  mountPath: /dev/shm
+              resources:
+                limits:
+                  nvidia.com/gpu: 8
+                  hugepages-2Mi: 5120Mi
+                  vpc.amazonaws.com/efa: 32
+                  memory: 32000Mi
+          imagePullSecrets:
+            - name: PLACEHOLDER
+          volumes:
+            - name: shmem
+              hostPath:
+                path: /dev/shm

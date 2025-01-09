@@ -13,7 +13,7 @@ usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "  OPTIONS                    DESCRIPTION"
-    echo "  -a, --additional-args      Additional args to pass to MaxText/train.py"
+    echo "  -a, --additional-args      Additional args to pass to MaxText/train.py. Can be passed many times."
     echo "  --mem-fraction             Specify the percentage of memory to preallocate for XLA. Example: 0.90, 0.85, 0.65". Default to 0.90, contradicting JAX default of 0.75.
     echo "  --model-name               Specify the model names to run [Preferred]. If you specify model name then you do not need to specify decoder-block. Currently supported ootb models: 
                                        gemma-2b, gemma-7b, gpt3-175b, gpt3-22b, gpt3-52k, gpt3-6b, llama2-13b, llama2-70b, llama2-7b, llama3-70b, llama3-8b, mistral-7b, mixtral-8x7b" 
@@ -34,7 +34,7 @@ usage() {
                                        1. test-maxtext.sh -b 2 --model-name=gpt3-52k
                                        2. test-maxtext.sh -b 2 --model-name=gemma-2b --dtype=fp8
                                        3. test-maxtext.sh -n 1 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --fsdp=8 --output train_output --multiprocess
-                                       4. test-maxtext.sh -n 1 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --fsdp=8 --output train_output --multiprocess -a scan_layers=false max_target_length=4096 use_iota_embed=true logits_dot_in_fp32=false
+                                       4. test-maxtext.sh -n 1 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --fsdp=8 --output train_output --multiprocess -a "scan_layers=false max_target_length=4096 use_iota_embed=true logits_dot_in_fp32=false"
                                        5. test-maxtext.sh -n 1 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --dtype=fp8 --steps=10 --fsdp=8 --output train_output --multiprocess
                                        6. test-maxtext.sh -n 8 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --output train_output --fsdp=8 --data-parallel=8 --multiprocess
                                        7. test-maxtext.sh -n 8 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --output train_output --fsdp=4 --tensor-parallel=2 --data-parallel=8 --multiprocess
@@ -76,7 +76,7 @@ eval set -- "$args"
 while [ : ]; do
     case "$1" in
     -a | --additional-args)
-        ADDITIONAL_ARGS="$2"
+        ADDITIONAL_ARGS="$ADDITIONAL_ARGS $2"
         shift 2
         ;;
     --mem-fraction)
@@ -174,6 +174,9 @@ if [ $DTYPE == "fp8" ]; then
 fi
 
 GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
+if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then
+  GPUS_PER_NODE=`python -c 'import os; x=os.environ.get("CUDA_VISIBLE_DEVICES", ""); print(len(x.split(",")))'`
+fi
 NGPUS=$((GPUS_PER_NODE * NODES))
 
 # Heuristic to figure out ici and dcn of DP
@@ -245,22 +248,60 @@ RUN_NAME="logdir" ## the RUN_NAME cannot be changed
 if [ -z "$DECODER_BLOCK" ]; then
 
     # this part could be used to test different model ootb
-    RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME} model_name=${MODEL}\
-        steps=$STEPS per_device_batch_size=${BATCH_PER_GPU} remat_policy=${REMAT_POLICY} enable_checkpointing=false\
-        base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE\
-        dcn_fsdp_parallelism=$dcn_FSDP ici_fsdp_parallelism=$ici_FSDP\
-        ici_data_parallelism=$ici_DP dcn_data_parallelism=$dcn_DP\
-        ici_tensor_parallelism=$ici_TP dcn_tensor_parallelism=1 ${ADDITIONAL_ARGS}"
-
+    RUN_SETTINGS="MaxText/train.py \
+        MaxText/configs/base.yml \
+        run_name=${RUN_NAME} \
+        model_name=${MODEL} \
+        steps=${STEPS} \
+        per_device_batch_size=${BATCH_PER_GPU} \
+        remat_policy=${REMAT_POLICY} \
+        enable_checkpointing=false\
+        base_output_directory=${OUTPUT} \
+        dataset_path=local \
+        dataset_type=synthetic \
+        hardware=${HARDWARE} \
+        enable_goodput_recording=false \
+        monitor_goodput=false \
+        enable_checkpoint_cloud_logger=false \
+        dcn_fsdp_parallelism=${dcn_FSDP} \
+        ici_fsdp_parallelism=${ici_FSDP} \
+        ici_data_parallelism=${ici_DP} \
+        dcn_data_parallelism=${dcn_DP} \
+        ici_tensor_parallelism=${ici_TP} \
+        dcn_tensor_parallelism=1 \
+        ${ADDITIONAL_ARGS}"
 else
     # this is essentially used for CI run
-    RUN_SETTINGS="MaxText/train.py MaxText/configs/base.yml run_name=${RUN_NAME} logits_via_embedding=true decoder_block=${DECODER_BLOCK} \
-        steps=$STEPS per_device_batch_size=${BATCH_PER_GPU} base_emb_dim=2560 base_mlp_dim=8192 remat_policy=${REMAT_POLICY} attention=${ATTN_TYPE}\
-        base_num_query_heads=8 base_num_kv_heads=8 base_num_decoder_layers=8 head_dim=128 enable_checkpointing=false\
-        base_output_directory=$OUTPUT dataset_path=local dataset_type=synthetic hardware=$HARDWARE\
-        dcn_fsdp_parallelism=$dcn_FSDP ici_fsdp_parallelism=$ici_FSDP\
-        ici_data_parallelism=$ici_DP dcn_data_parallelism=$dcn_DP\
-        ici_tensor_parallelism=$ici_TP dcn_tensor_parallelism=1 ${ADDITIONAL_ARGS}"
+    RUN_SETTINGS="MaxText/train.py \
+        MaxText/configs/base.yml \
+        run_name=${RUN_NAME} \
+        decoder_block=${DECODER_BLOCK} \
+        steps=$STEPS \
+        per_device_batch_size=${BATCH_PER_GPU} \
+        base_emb_dim=2560 \
+        base_mlp_dim=8192 \
+        remat_policy=${REMAT_POLICY} \
+        attention=${ATTN_TYPE} \
+        base_num_query_heads=8 \
+        base_num_kv_heads=8 \
+        base_num_decoder_layers=8 \
+        head_dim=128 \
+        logits_via_embedding=true \
+        enable_checkpointing=false \
+        enable_checkpoint_cloud_logger=false \
+        base_output_directory=${OUTPUT} \
+        dataset_path=local \
+        dataset_type=synthetic \
+        hardware=${HARDWARE} \
+        enable_goodput_recording=false \
+        monitor_goodput=false \
+        dcn_fsdp_parallelism=${dcn_FSDP} \
+        ici_fsdp_parallelism=${ici_FSDP} \
+        ici_data_parallelism=${ici_DP} \
+        dcn_data_parallelism=${dcn_DP} \
+        ici_tensor_parallelism=${ici_TP} \
+        dcn_tensor_parallelism=1 \
+        ${ADDITIONAL_ARGS}"
 fi
 
 echo "Command: python3 $RUN_SETTINGS"

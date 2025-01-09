@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jax-headless-svc
+spec:
+  clusterIP: None # clusterIP must be None to create a headless service
+  selector:
+    job-name: PLACEHOLDER # must match Job name
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: PLACEHOLDER
+  labels:
+    kueue.x-k8s.io/queue-name: p5-queue
+spec:
+  completions: 2 # number of nodes
+  parallelism: 2 # number of nodes
+  completionMode: Indexed
+  template:
+    spec:
+      subdomain: jax-headless-svc # has to match Service name
+      restartPolicy: Never
+      containers:
+        - name: jax
+          image: PLACEHOLDER
+          ports:
+            - containerPort: 3389
+          command:
+            - sh
+            - -c
+            - |
+              install-efa.sh
+              nsys-jax \
+              --output=/opt/output/${JOB_NAME}-rank%q{JOB_COMPLETION_INDEX}.zip \
+              -- \
+              jax-nccl-test \
+              --coordinator-address \
+              ${JOB_NAME}-0.jax-headless-svc:3389 \
+              --distributed \
+              --gpus-per-process=8 \
+              --process-count=2 \
+              --process-id=$JOB_COMPLETION_INDEX
+              touch /opt/output/.done
+          env:
+            - name: JOB_NAME
+              value: PLACEHOLDER
+            - name: XLA_FLAGS
+              value: --xla_gpu_enable_command_buffer=
+          resources:
+            limits:
+              nvidia.com/gpu: 8
+              vpc.amazonaws.com/efa: 32
+          volumeMounts:
+            - mountPath: /dev/shm
+              name: shmem
+            - mountPath: /opt/output
+              name: output
+        - name: upload
+          image: amazon/aws-cli
+          command:
+            - sh
+            - -c
+            - |
+              while [[ ! -f /opt/output/.done ]]; do
+                sleep 1
+              done
+              aws s3 cp \
+                /opt/output/*rank${JOB_COMPLETION_INDEX}.zip \
+                s3://jax-toolbox-eks-output/
+          volumeMounts:
+            - mountPath: /opt/output
+              name: output
+      imagePullSecrets:
+        - name: PLACEHOLDER
+      volumes:
+        - name: output
+          emptyDir: {}
+        - name: shmem
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi

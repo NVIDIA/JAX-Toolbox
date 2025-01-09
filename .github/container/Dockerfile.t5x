@@ -1,0 +1,117 @@
+# syntax=docker/dockerfile:1-labs
+# Example command to build manually:
+#   docker buildx build -f Dockerfile.t5x --tag t5x --build-arg BASE_IMAGE=ghcr.io/nvidia/jax:mealkit-2024-01-22 .
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#master
+ARG URLREF_T5X=https://github.com/google-research/t5x.git#main
+ARG URLREF_AIRIO=https://github.com/google/airio.git#main
+ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
+ARG SRC_PATH_T5X=/opt/t5x
+ARG SRC_PATH_AIRIO=/opt/airio
+
+
+###############################################################################
+## build several packages which do not have working arm64 pip wheels
+###############################################################################
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} as wheel-builder
+
+#------------------------------------------------------------------------------
+# build tensorflow-text from source
+#------------------------------------------------------------------------------
+FROM wheel-builder as tftext-builder
+ARG URLREF_TFTEXT
+ARG SRC_PATH_TFTEXT
+
+RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.18.0
+RUN <<"EOF" bash -exu -o pipefail
+git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
+cd ${SRC_PATH_TFTEXT}
+    
+# The tftext build script queries GitHub, but these requests are sometimes
+# throttled by GH, resulting in a corrupted uri for tensorflow in WORKSPACE.
+# A workaround (needs to be updated when the tensorflow version changes):
+sed -i "s/# Update TF dependency to installed tensorflow./commit_slug=6550e4bd80223cdb8be6c3afd1f81e86a4d433c3/" oss_scripts/prepare_tf_dep.sh
+    
+# Newer versions of LLVM make lld's --undefined-version check of lld is strict
+# by default (https://reviews.llvm.org/D135402), but the tftext build seems to
+# rely on this behavior.
+echo "write_to_bazelrc \"build --linkopt='-Wl,--undefined-version'\"" >> oss_scripts/configure.sh
+
+./oss_scripts/run_build.sh
+EOF
+
+
+###############################################################################
+## T5X
+###############################################################################
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} AS mealkit
+ARG URLREF_T5X
+ARG URLREF_AIRIO
+ARG SRC_PATH_TFTEXT
+ARG SRC_PATH_T5X
+ARG SRC_PATH_AIRIO
+
+# Preserve version information of tensorflow-text
+COPY --from=tftext-builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
+COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
+RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
+
+RUN <<"EOF" bash -ex
+# 1. Fetch T5X
+git-clone.sh "${URLREF_T5X}" "${SRC_PATH_T5X}"
+echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
+# This is required because pip can sometimes try to pull every version of seqio-nightly during
+# resolution which leads to a ResolutionTooDeep error. The latest nightlies appear to work
+# so setting the lower-bound to something recent
+echo "seqio-nightly>=0.0.18.dev20240714" >> /opt/pip-tools.d/requirements-t5x.in
+
+# 2. Remove head-of-tree specs from select dependencies
+pushd ${SRC_PATH_T5X}
+sed -i "s| @ git+https://github.com/google/flax#egg=flax||g" setup.py
+
+# for ARM64 build
+if [[ "$(dpkg --print-architecture)" == "arm64" ]]; then
+    sed -i "s/'tensorflow/#'tensorflow/" setup.py
+
+    sed -i "s/f'jax/#f'jax/" setup.py
+    sed -i "s/'tpu/#'tpu/" setup.py
+
+    sed -i "s/'protobuf/#'protobuf/" setup.py
+    sed -i "s/'numpy/#'numpy/" setup.py
+
+    
+    # airio pins grain==0.2.0, but the later does not have arm64 wheel.
+    # Need to bump grain to 0.2.2 to resolve the issue (https://github.com/google/airio/issues/257)
+    git-clone.sh ${URLREF_AIRIO} ${SRC_PATH_AIRIO}
+    sed -i "s/grain==0.2.0/grain/g" ${SRC_PATH_AIRIO}/setup.py
+    sed -i "s/'airio/#'airio/g" setup.py
+    echo "-e file://${SRC_PATH_AIRIO}" >> /opt/pip-tools.d/requirements-t5x.in
+fi
+if git diff --quiet; then
+    echo "URL specs no longer present in select dependencies of t5x"
+    exit 1
+else
+    git commit -a -m "remove URL specs from select dependencies of t5x"
+fi
+sed -i 's/pysimdjson==[0-9.]*/pysimdjson/' setup.py
+sed -i 's/fasttext==[0-9.]*/fasttext/' setup.py
+popd
+EOF
+
+ADD test-t5x.sh /usr/local/bin
+
+###############################################################################
+## Install accumulated packages from the base image and the previous[] stage
+###############################################################################
+
+FROM mealkit AS final
+
+RUN pip-finalize.sh
+
+# When tftext and lingvo wheels are published on pypi.org, revert this
+# Dockerfile to 5c4b687b918e6569bca43758c346ad8e67460154

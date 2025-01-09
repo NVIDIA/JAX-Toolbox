@@ -31,7 +31,7 @@ on:
         required: true
       DOCKERFILE:
         type: string
-        description: "Dockerfile to use, e.g. .github/container/Dockerfile.t5x.amd64"
+        description: "Dockerfile to use, e.g. .github/container/Dockerfile.t5x"
         required: true
       DOCKER_CONTEXT:
         type: string

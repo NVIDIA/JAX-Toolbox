@@ -56,12 +56,17 @@ EOF
 RUN <<"EOF" bash -ex
 pushd /opt/checkout/external/triton
 mkdir dist
+# Make sure the wheel is labelled as 3.1 (it is ~HEAD), not 3.0. The upstream branch
+# structure seems to have a 3.1 release branch that has not been merged back to main.
+sed -i -e 's|version="3\.0\.0"|version="3.1.0"|g' python/setup.py
 # Do not compile with -Werror
 sed -i -e 's|-Werror||g' CMakeLists.txt
 # The LLVM build above does not enable these libraries
 sed -i -e 's|\(LLVMAMDGPU.*\)|# \1|g' CMakeLists.txt
 # Do not build tests
 sed -i -e 's|^\s*add_subdirectory(unittest)|# unit tests disabled|' CMakeLists.txt
+# Avoid building GPUHello.cpp, which does not compile with cl693214397 of OpenXLA Triton
+sed -i -e 's|^add_subdirectory(Instrumentation)|# Instrumentation test disabled|' test/lib/CMakeLists.txt
 # Avoid error due to forward declaration of Module
 sed -i -e '/#include "llvm\/IR\/IRBuilder.h"/a #include "llvm/IR/Module.h"' test/lib/Instrumentation/GPUHello.cpp
 # Google has patches that mess with include paths in source files

@@ -29,6 +29,7 @@ usage() {
     echo ""
     echo "    OPTIONS                        DESCRIPTION"
     echo "    --bazel-cache URI              Path for local bazel cache or URL of remote bazel cache"
+    echo "    --bazel-cache-namespace NAME   Namespace for bazel cache content"
     echo "    --build-param PARAM            Param passed to the jaxlib build command. Can be passed many times."
     echo "    --build-path-jaxlib PATH       Editable install prefix for jaxlib and plugins"
     echo "    --clean                        Delete local configuration and bazel cache"
@@ -51,6 +52,7 @@ usage() {
 
 # Set defaults
 BAZEL_CACHE=""
+BAZEL_CACHE_NAMESPACE="jax${CUDA_BASE_IMAGE:+:}${CUDA_BASE_IMAGE}"
 BUILD_PATH_JAXLIB="/opt/jaxlibs"
 BUILD_PARAM=""
 CLEAN=0
@@ -64,7 +66,7 @@ SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 XLA_ARM64_PATCH_LIST=""
 
-args=$(getopt -o h --long bazel-cache:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
+args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -74,6 +76,10 @@ while [ : ]; do
     case "$1" in
         --bazel-cache)
             BAZEL_CACHE=$2
+            shift 2
+            ;;
+        --bazel-cache-namespace)
+            BAZEL_CACHE_NAMESPACE=$2
             shift 2
             ;;
         --build-param)
@@ -179,6 +185,8 @@ case "${CPU_ARCH}" in
         ;;
     "arm64")
         export CC_OPT_FLAGS="-march=armv8-a"
+        # ARM ACL build issue introduced in PR#23225
+        BUILD_PARAM="${BUILD_PARAM} --disable_mkl_dnn"
         ;;
 esac
 
@@ -196,6 +204,9 @@ fi
 if [[ "${BAZEL_CACHE}" == http://* ]] || \
    [[ "${BAZEL_CACHE}" == grpc://* ]]; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_cache=${BAZEL_CACHE}"
+    if [[ -n "${BAZEL_CACHE_NAMESPACE}" ]]; then
+        BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_instance_name=${BAZEL_CACHE_NAMESPACE}"
+    fi
 elif [[ ! -z "${BAZEL_CACHE}" ]] ; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=${BAZEL_CACHE}"
 fi
@@ -265,25 +276,25 @@ if [[ ! -e "/usr/local/cuda/lib" ]]; then
 fi
 
 if ! grep 'try-import %workspace%/.local_cuda.bazelrc' "${SRC_PATH_JAX}/.bazelrc"; then
-  echo 'try-import %workspace%/.local_cuda.bazelrc' >> "${SRC_PATH_JAX}/.bazelrc"
+    echo -e '\ntry-import %workspace%/.local_cuda.bazelrc' >> "${SRC_PATH_JAX}/.bazelrc"
 fi
 cat > "${SRC_PATH_JAX}/.local_cuda.bazelrc" << EOF
-build:cuda --repo_env=LOCAL_CUDA_PATH="/usr/local/cuda"
-build:cuda --repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn"
-build:cuda --repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl"
+build --repo_env=LOCAL_CUDA_PATH="/usr/local/cuda"
+build --repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn"
+build --repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl"
 EOF
-time python "${SRC_PATH_JAX}/build/build.py" \
+
+pushd ${SRC_PATH_JAX}
+time python "${SRC_PATH_JAX}/build/build.py" build \
     --editable \
     --use_clang \
-    --enable_cuda \
-    --build_gpu_plugin \
-    --gpu_plugin_cuda_version=$TF_CUDA_MAJOR_VERSION \
+    --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
     --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
-    --enable_nccl=true \
     --bazel_options=--linkopt=-fuse-ld=lld \
-    --bazel_options=--override_repository=xla=$SRC_PATH_XLA \
+    --local_xla_path=$SRC_PATH_XLA \
     --output_path=${BUILD_PATH_JAXLIB} \
     $BUILD_PARAM
+popd
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
@@ -291,8 +302,8 @@ line="jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib"
 if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
     pushd "${SRC_PATH_JAX}"
     echo "${line}" >> build/requirements.in
-    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax_gpu_pjrt" >> build/requirements.in
-    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax_gpu_plugin" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax-cuda-pjrt" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax-cuda-plugin" >> build/requirements.in
     PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
     bazel run --verbose_failures=true //build:requirements.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
     popd
@@ -307,13 +318,13 @@ else
 fi
 
 # install jax and jaxlib
-pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_gpu_pjrt -e ${BUILD_PATH_JAXLIB}/jax_gpu_plugin -e "${SRC_PATH_JAX}"
+pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax-cuda-pjrt -e ${BUILD_PATH_JAXLIB}/jax-cuda-plugin -e "${SRC_PATH_JAX}"
 
-# after installation (example)
-#  jax                     0.4.32.dev20240808+9c2caedab /opt/jax
-#  jax-cuda12-pjrt         0.4.32.dev20240808           /opt/jaxlibs/jax_gpu_pjrt
-#  jax-cuda12-plugin       0.4.32.dev20240808           /opt/jaxlibs/jax_gpu_plugin
-#  jaxlib                  0.4.32.dev20240808           /opt/jaxlibs/jaxlib
+## after installation (example)
+# jax               0.4.36.dev20241125+f828f2d7d /opt/jax
+# jax-cuda12-pjrt   0.4.36.dev20241125           /opt/jaxlibs/jax-cuda-pjrt
+# jax-cuda12-plugin 0.4.36.dev20241125           /opt/jaxlibs/jax-cuda-plugin
+# jaxlib            0.4.36.dev20241125           /opt/jaxlibs/jaxlib
 pip list | grep jax
 
 # Ensure directories are readable by all for non-root users
