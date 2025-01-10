@@ -93,7 +93,7 @@ We have run some intial performance and functionality tests with [LLaMA2-7B](htt
 Please refer to the [example run script](scripts/example_slurm.sub) for more details. We will continue to add more models and associated performance metrics.
 
 # Notes
-1. The only changes we need to support multiprocessing is to pin tensorflow and tensorflow-text to 2.13.0 version.
+1. The only changes we need to support multiprocessing is to pin tensorflow and tensorflow-text to 2.18.0 version or higher.
 2. In order to remove extra copies introduced by DUS (dynamic update slice) when used in conjunction with custom NVIDIA kernels (like cuBLAS for GEMMs), the `--xla_gpu_enable_custom_fusions` and `--xla_gpu_enable_address_computation_fusion` flags were introduced. However, the current XLA has some limitation and sometimes using these flags lead to error. So, in this release, it is advised to turn off these two flags:
     - --xla_gpu_enable_custom_fusions=false
     - --xla_gpu_enable_address_computation_fusion=false

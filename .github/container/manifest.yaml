@@ -59,12 +59,6 @@ lingvo:
   tracking_ref: master
   latest_verified_commit: 05a076b0783a8bbf4a770095966c472bb37bbf65
   mode: git-clone
-tensorflow-text:
-  # Used only in ARM pax and t5x builds
-  url: https://github.com/tensorflow/text.git
-  tracking_ref: master
-  latest_verified_commit: 1779b3ae16f7bd287c4edcf66d62208dc63256f3
-  mode: git-clone
 pydantic:
   version: X.Y.Z
   mode: pip-constraint
