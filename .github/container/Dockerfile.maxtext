@@ -3,7 +3,7 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG URLREF_MAXTEXT=https://github.com/google/maxtext.git#main
 ARG SRC_PATH_MAXTEXT=/opt/maxtext
-ARG URLREF_JETSTREAM=https://github.com/google/jetstream.git#main
+ARG URLREF_JETSTREAM=https://github.com/AI-Hypercomputer/JetStream.git#main
 ARG SRC_PATH_JETSTREAM=/opt/jetstream
 
 ###############################################################################
