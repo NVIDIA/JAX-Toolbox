@@ -43,6 +43,3 @@ FROM mealkit as final
 RUN pip-finalize.sh
 
 WORKDIR ${SRC_PATH_MAXTEXT}
-
-# When tftext wheels are published on pypi.org, revert this
-# Dockerfile to 5c4b687b918e6569bca43758c346ad8e67460154
