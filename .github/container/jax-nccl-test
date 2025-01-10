@@ -74,9 +74,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    assert (
-        args.process_id is None or args.distributed
-    ), "--process-id is only relevant with --distributed"
+    assert args.process_id is None or args.distributed, (
+        "--process-id is only relevant with --distributed"
+    )
     if args.distributed:
         null_args = {
             args.coordinator_address is None,
@@ -108,7 +108,7 @@ if __name__ == "__main__":
                 f"Rank {args.process_id} has local rank {local_process_id} and "
                 f"devices {local_device_ids} from a total of {visible_devices} "
                 f"visible on this node, {args.process_count} processes and "
-                f"{args.process_count*args.gpus_per_process} total devices.",
+                f"{args.process_count * args.gpus_per_process} total devices.",
                 flush=True,
             )
             jax.distributed.initialize(
@@ -209,7 +209,7 @@ if __name__ == "__main__":
             if host_timer:
                 result.block_until_ready()
                 if jax.process_index() == 0:
-                    print(f"First {op} duration {time.time()-start:.2f}s")
+                    print(f"First {op} duration {time.time() - start:.2f}s")
         return result
 
     def device_put_local(x: jax.Array):

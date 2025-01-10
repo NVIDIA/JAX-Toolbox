@@ -110,9 +110,9 @@ class HloInstruction:
                     if called_inst.opcode in comm_opcodes or _is_offloading_instruction(
                         called_inst
                     ):
-                        assert (
-                            self._comm_proto is None
-                        ), f"Found {called_inst.opcode} child having already found {self._comm_proto.opcode}"
+                        assert self._comm_proto is None, (
+                            f"Found {called_inst.opcode} child having already found {self._comm_proto.opcode}"
+                        )
                         self._comm_proto = called_inst
 
             for called_id in self._proto.called_computation_ids:
