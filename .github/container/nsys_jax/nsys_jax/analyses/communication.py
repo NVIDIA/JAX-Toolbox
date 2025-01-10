@@ -8,6 +8,7 @@ from nsys_jax import (
     load_profiler_data,
 )
 from math import sqrt
+from statistics import mean
 import pathlib
 from uncertainties import ufloat  # type: ignore
 
@@ -95,6 +96,33 @@ def main():
             )
         )
 
+    collective_types = set()
+    summary_data = defaultdict(dict)
+    for collective, df in steady_state.communication.groupby(
+        ["Collective"]
+    ):
+        collective_types.add(collective)
+        summary_data[collective] = df["DurHiddenMsToDurMs"].mean()
+
+    collective_width = max(len("Collective"), max(len(f"{collective}") for collective in collective_types))
+    ratio_width = len("Mean HiddenToTotalMs")
+
+    print()
+    print(f"{'Collective':<{collective_width}} | {'Mean HiddenToTotalMs':<{ratio_width}}")
+    print(f"{'-' * collective_width} | {'-' * ratio_width}")
+
+    for collective in collective_types:
+        mean_value = summary_data[collective]
+        collective_str = str(collective[0])
+        print(f"{collective_str:<{collective_width}} | {mean_value:>{ratio_width}}")
+
+    overall_hidden_ms_to_total_ms = (
+        steady_state.communication["ProjDurHiddenMs"].sum() /
+            (steady_state.communication["ProjDurMs"] + steady_state.communication["ProjDurHiddenMs"]).sum()
+        )
+
+    print()
+    print(f"Overall HiddenMs to TotalMs: {overall_hidden_ms_to_total_ms:>{ratio_width}}")
 
 if __name__ == "__main__":
     main()

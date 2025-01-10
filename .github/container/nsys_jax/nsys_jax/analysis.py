@@ -331,6 +331,9 @@ def calculate_collective_metrics(
     comm_df["BusBandwidthGBPerSec"] = (
         comm_df["AlgorithmBandwidthGBPerSec"] * comm_df["BusBandwidthCorrection"]
     )
+    comm_df["DurHiddenMsToDurMs"] = (
+        comm_df["ProjDurHiddenMs"] / (comm_df["ProjDurMs"] + comm_df["ProjDurHiddenMs"])
+    )
     return comm_df.drop(columns=["BandwidthCorrection", "BusBandwidthCorrection"])
 
 
