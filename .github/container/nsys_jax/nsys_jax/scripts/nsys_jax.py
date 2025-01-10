@@ -371,7 +371,7 @@ def main() -> None:
                 continue
             output_queue.put((ofile, full_path, COMPRESS_NONE))
         print(
-            f"{archive_name}: recipe post-processing finished in {time.time()-start:.2f}s"
+            f"{archive_name}: recipe post-processing finished in {time.time() - start:.2f}s"
         )
 
     def compress_and_archive(prefix, file, output_queue):
@@ -425,7 +425,7 @@ def main() -> None:
             # If there's no data, don't write a file to the output at all
             pass
         print(
-            f"{archive_name}: stats post-processing finished in {time.time()-start:.2f}s"
+            f"{archive_name}: stats post-processing finished in {time.time() - start:.2f}s"
         )
 
     def save_device_stream_thread_names(tmp_dir, report, output_queue):
