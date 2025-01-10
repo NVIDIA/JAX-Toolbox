@@ -59,12 +59,6 @@ lingvo:
   tracking_ref: master
   latest_verified_commit: 05a076b0783a8bbf4a770095966c472bb37bbf65
   mode: git-clone
-tensorflow-text:
-  # Used only in ARM pax and t5x builds
-  url: https://github.com/tensorflow/text.git
-  tracking_ref: master
-  latest_verified_commit: d605a8d44b4a26d3426fe251ef028444f932b9a2
-  mode: git-clone
 pydantic:
   version: X.Y.Z
   mode: pip-constraint
@@ -114,11 +108,6 @@ maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
   latest_verified_commit: 78daad198544def8274dbd656d122fbe6a0e1129
-  mode: git-clone
-jetstream:
-  url: https://github.com/google/maxtext.git
-  tracking_ref: main
-  latest_verified_commit: d01c2aa8b5e708657340f080835fdd7e2c0d05ce
   mode: git-clone
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
