@@ -62,7 +62,7 @@ In order to get the best performance with PGLE, here is a list of all recommende
 ```
 export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
 --xla_gpu_enable_triton_gemm=false
---xla_gpu_graph_level=0
+--xla_gpu_enable_command_buffer=
 --xla_gpu_all_reduce_combine_threshold_bytes=1073741824
 --xla_gpu_all_gather_combine_threshold_bytes=1073741824
 --xla_gpu_reduce_scatter_combine_threshold_bytes=1073741824
