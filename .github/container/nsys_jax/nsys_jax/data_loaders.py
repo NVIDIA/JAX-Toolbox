@@ -56,7 +56,9 @@ def _calculate_overlap(thunk_df: pd.DataFrame) -> pd.DataFrame:
         serial_mask = (
             compute_df["ProjStartMs"].array[1:] >= compute_df["ProjEndMs"].array[:-1]
         )
-        assert serial_mask.all(), f"Only {serial_mask.sum()}/{len(serial_mask)} compute kernel pairs failed to overlap on device {device} and program #{program_id}"
+        assert serial_mask.all(), (
+            f"Only {serial_mask.sum()}/{len(serial_mask)} compute kernel pairs failed to overlap on device {device} and program #{program_id}"
+        )
         # Update the projected duration of each communication kernel to only
         # include the non-overlapped time
         for comm_thunk in comm_df.itertuples():

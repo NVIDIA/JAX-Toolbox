@@ -31,6 +31,7 @@ t5x:
     mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
     mirror/patch/dali-support: file://patches/t5x/mirror-patch-dali-support.patch # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
     mirror/patch/t5x_te_in_contrib_noindent: file://patches/t5x/mirror-patch-t5x_te_in_contrib_noindent.patch # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
+    mirror/patch/fix-default-vocab: file://patches/t5x/mirror-patch-fix-default-vocab.patch # pull/1609/head  # https://github.com/google-research/t5x/pull/1609: Fixes seqio vocab mismatch
 paxml:
   url: https://github.com/google/paxml.git
   mirror_url: https://github.com/nvjax-svc-0/paxml.git
@@ -58,12 +59,6 @@ lingvo:
   url: https://github.com/tensorflow/lingvo.git
   tracking_ref: master
   latest_verified_commit: 05a076b0783a8bbf4a770095966c472bb37bbf65
-  mode: git-clone
-tensorflow-text:
-  # Used only in ARM pax and t5x builds
-  url: https://github.com/tensorflow/text.git
-  tracking_ref: master
-  latest_verified_commit: 1779b3ae16f7bd287c4edcf66d62208dc63256f3
   mode: git-clone
 pydantic:
   version: X.Y.Z

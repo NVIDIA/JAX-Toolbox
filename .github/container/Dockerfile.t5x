@@ -3,63 +3,17 @@
 #   docker buildx build -f Dockerfile.t5x --tag t5x --build-arg BASE_IMAGE=ghcr.io/nvidia/jax:mealkit-2024-01-22 .
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
-ARG URLREF_TFTEXT=https://github.com/tensorflow/text.git#master
 ARG URLREF_T5X=https://github.com/google-research/t5x.git#main
 ARG URLREF_AIRIO=https://github.com/google/airio.git#main
-ARG SRC_PATH_TFTEXT=/opt/tensorflow-text
 ARG SRC_PATH_T5X=/opt/t5x
 ARG SRC_PATH_AIRIO=/opt/airio
-
-
-###############################################################################
-## build several packages which do not have working arm64 pip wheels
-###############################################################################
-
-ARG BASE_IMAGE
-FROM ${BASE_IMAGE} as wheel-builder
-
-#------------------------------------------------------------------------------
-# build tensorflow-text from source
-#------------------------------------------------------------------------------
-FROM wheel-builder as tftext-builder
-ARG URLREF_TFTEXT
-ARG SRC_PATH_TFTEXT
-
-RUN pip install tensorflow_datasets==4.9.2 auditwheel tensorflow==2.18.0
-RUN <<"EOF" bash -exu -o pipefail
-git-clone.sh ${URLREF_TFTEXT} ${SRC_PATH_TFTEXT}
-cd ${SRC_PATH_TFTEXT}
-    
-# The tftext build script queries GitHub, but these requests are sometimes
-# throttled by GH, resulting in a corrupted uri for tensorflow in WORKSPACE.
-# A workaround (needs to be updated when the tensorflow version changes):
-sed -i "s/# Update TF dependency to installed tensorflow./commit_slug=6550e4bd80223cdb8be6c3afd1f81e86a4d433c3/" oss_scripts/prepare_tf_dep.sh
-    
-# Newer versions of LLVM make lld's --undefined-version check of lld is strict
-# by default (https://reviews.llvm.org/D135402), but the tftext build seems to
-# rely on this behavior.
-echo "write_to_bazelrc \"build --linkopt='-Wl,--undefined-version'\"" >> oss_scripts/configure.sh
-
-./oss_scripts/run_build.sh
-EOF
-
-
-###############################################################################
-## T5X
-###############################################################################
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_T5X
 ARG URLREF_AIRIO
-ARG SRC_PATH_TFTEXT
 ARG SRC_PATH_T5X
 ARG SRC_PATH_AIRIO
-
-# Preserve version information of tensorflow-text
-COPY --from=tftext-builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
-COPY --from=tftext-builder ${SRC_PATH_TFTEXT}/tensorflow_text*.whl /opt/
-RUN echo "tensorflow-text @ file://$(ls /opt/tensorflow_text*.whl)" >> /opt/pip-tools.d/requirements-t5x.in
 
 RUN <<"EOF" bash -ex
 # 1. Fetch T5X
