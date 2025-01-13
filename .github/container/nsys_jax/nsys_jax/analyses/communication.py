@@ -9,7 +9,6 @@ from nsys_jax import (
 )
 from math import sqrt
 from prettytable import PrettyTable
-from statistics import mean
 import pathlib
 from uncertainties import ufloat  # type: ignore
 
