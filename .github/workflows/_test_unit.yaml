@@ -34,14 +34,23 @@ jobs:
     secrets: inherit
 
   run-unit-test:
-    name: ${{ inputs.TEST_NAME }}-A100-unit-test
+    strategy:
+      fail-fast: false
+      matrix:
+        GPU_ARCH: [A100]
+        include:
+          - EXTRA_LABEL: "self-hosted"
+          # ensures A100 job lands on dedicated runner for this particular job
+          - GPU_ARCH: A100
+            EXTRA_LABEL: "${{ github.run_id }}"
+    name: ${{ inputs.TEST_NAME }}-${{ matrix.GPU_ARCH }}-unit-test
     runs-on: 
       - self-hosted
-      - A100
-      - "${{ github.run_id }}"
+      - "${{ matrix.GPU_ARCH }}"
+      - "${{ matrix.EXTRA_LABEL }}"
     env:
-      ARTIFACT_NAME_FULL: ${{ inputs.TEST_NAME }}-unit-test-A100
-      BADGE_FILENAME_FULL: badge-${{ inputs.TEST_NAME }}-unit-test-A100.json
+      ARTIFACT_NAME_FULL: ${{ inputs.TEST_NAME }}-unit-test-${{ matrix.GPU_ARCH }}
+      BADGE_FILENAME_FULL: badge-${{ inputs.TEST_NAME }}-unit-test-${{ matrix.GPU_ARCH }}.json
     steps:
       - name: Print environment variables
         run: env
@@ -85,7 +94,7 @@ jobs:
           if [[ ${errors} > 0 ]] || [[ ${total_tests} == 0 ]]; then
             echo "badge_color=red" >> $GITHUB_OUTPUT
             echo "badge_message=error" >> $GITHUB_OUTPUT
-            echo "summary=${{ inputs.TEST_NAME }} unit test on A100 did not complete due to errors." >> $GITHUB_OUTPUT
+            echo "summary=${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }} did not complete due to errors." >> $GITHUB_OUTPUT
             exit 1
           else
             if [[ ${failed_tests} == 0 ]]; then
@@ -94,7 +103,7 @@ jobs:
               echo "badge_color=yellow" >> $GITHUB_OUTPUT
             fi
             echo "badge_message=${passed_tests}/${total_tests} passed" >> $GITHUB_OUTPUT
-            echo "summary=${{ inputs.TEST_NAME }} unit test on A100: ${total_tests} total tests, ${errors} errors, ${passed_tests} passed, ${failed_tests} failed." >> $GITHUB_OUTPUT
+            echo "summary=${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: ${total_tests} total tests, ${errors} errors, ${passed_tests} passed, ${failed_tests} failed." >> $GITHUB_OUTPUT
           fi
 
       - name: Generate sitrep
@@ -105,7 +114,7 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='${{ inputs.TEST_NAME }} A100 Unit'
+          badge_label='${{ inputs.TEST_NAME }} ${{ matrix.GPU_ARCH }} Unit'
 
           total_tests=${{ steps.test-stats.outputs.TOTAL_TESTS }} \
           errors=${{ steps.test-stats.outputs.ERRORS }} \
