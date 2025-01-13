@@ -98,9 +98,7 @@ def main():
 
     collective_types = set()
     summary_data = defaultdict(dict)
-    for collective, df in steady_state.communication.groupby(
-        ["Collective"]
-    ):
+    for collective, df in steady_state.communication.groupby(["Collective"]):
         collective_types.add(collective)
         summary_data[collective] = df["DurHiddenMsToDurMs"].mean()
 
@@ -113,9 +111,12 @@ def main():
     print(table)
 
     overall_hidden_ms_to_total_ms = (
-        steady_state.communication["ProjDurHiddenMs"].sum() /
-            (steady_state.communication["ProjDurMs"] + steady_state.communication["ProjDurHiddenMs"]).sum()
-        )
+        steady_state.communication["ProjDurHiddenMs"].sum()
+        / (
+            steady_state.communication["ProjDurMs"]
+            + steady_state.communication["ProjDurHiddenMs"]
+        ).sum()
+    )
     print(f"Overall HiddenMs to TotalMs: {overall_hidden_ms_to_total_ms}")
 
 if __name__ == "__main__":
