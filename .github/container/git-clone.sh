@@ -77,6 +77,9 @@ pushd ${DESTINATION}
 git checkout ${GIT_REF}
 COMMIT_SHA=$(git rev-parse HEAD)
 git submodule update --init --recursive
+if [[ "${GIT_REPO}" == *"gitlab"* ]]; then
+  git remote remove origin
+fi
 popd
 
 ## update the manifest file
