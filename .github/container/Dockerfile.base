@@ -6,23 +6,6 @@ ARG CLANG_VERSION=18
 ARG JAX_TOOLBOX_REF
 
 ###############################################################################
-## Obtain GCP's NCCL TCPx plugin
-###############################################################################
-
-FROM us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx:v3.1.10 AS tcpx-installer-amd64
-
-# make a stub arm64 container because GCP does not provide an arm64 version of the plugin
-FROM ubuntu AS tcpx-installer-arm64
-RUN <<"OUTEREOF" bash -ex
-mkdir -p /scripts /var/lib/tcpx/lib64
-echo '#!/bin/bash' > /scripts/container_entry.sh
-chmod +x /scripts/container_entry.sh
-OUTEREOF
-
-FROM tcpx-installer-${TARGETARCH} AS tcpx-installer
-RUN /scripts/container_entry.sh install
-
-###############################################################################
 ## Build base image
 ###############################################################################
 
@@ -152,73 +135,6 @@ ENV PIP_BREAK_SYSTEM_PACKAGES=1
 # both pip-24.0 and pip-23.3.1 in the system, but use 23.3.1 with equivalency patch (see above).
 RUN pip install --upgrade --ignore-installed --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
 
-###############################################################################
-## Install TCPx
-###############################################################################
-
-ENV TCPX_LIBRARY_PATH=/usr/local/tcpx/lib64
-COPY --from=tcpx-installer /var/lib/tcpx/lib64 ${TCPX_LIBRARY_PATH}
-
-###############################################################################
-## Install the latest versions of Nsight Systems and Nsight Compute
-###############################################################################
-
-ADD install-nsight.sh /usr/local/bin
-RUN install-nsight.sh
-
-###############################################################################
-## Install cuDNN
-###############################################################################
-
-ADD install-cudnn.sh /usr/local/bin
-RUN install-cudnn.sh
-
-###############################################################################
-## Install NCCL
-###############################################################################
-
-ADD install-nccl.sh /usr/local/bin
-RUN install-nccl.sh
-
-###############################################################################
-## RoCE and InfiniteBand support
-###############################################################################
-
-ADD install-ofed.sh /usr/local/bin
-RUN install-ofed.sh
-
-##############################################################################
-## Amazon EFA support (need to run it inside container separately)
-##############################################################################
-
-ADD --chmod=777 \
-  install-efa.sh \
-  test-aws-efa.sh \
-  /usr/local/bin/
-ENV LD_LIBRARY_PATH=/opt/amazon/efa/lib:${LD_LIBRARY_PATH}
-ENV PATH=/opt/amazon/efa/bin:${PATH}
-
-##############################################################################
-## NCCL sanity check utility
-##############################################################################
-
-ADD install-nccl-sanity-check.sh /usr/local/bin
-ADD nccl-sanity-check.cu /opt
-RUN install-nccl-sanity-check.sh
-ADD jax-nccl-test parallel-launch /usr/local/bin/
-
-###############################################################################
-## Add the systemcheck to the entrypoint.
-###############################################################################
-
-COPY check-shm.sh /opt/nvidia/entrypoint.d/
-
-###############################################################################
-## Add the GCP - TCPX check to the entrypoint.
-###############################################################################
-
-# TODO(chaserileyroberts): Reenable once fully tested on GCP.
-# COPY gcp-autoconfig.sh /opt/nvidia/entrypoint.d/
 
 ###############################################################################
 ## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
