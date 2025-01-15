@@ -136,14 +136,6 @@ ENV PIP_BREAK_SYSTEM_PACKAGES=1
 RUN pip install --upgrade --ignore-installed --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
 
 ###############################################################################
-## Install TCPx
-###############################################################################
-
-ENV TCPX_LIBRARY_PATH=/usr/local/tcpx/lib64
-COPY --from=tcpx-installer /var/lib/tcpx/lib64 ${TCPX_LIBRARY_PATH}
-
-
-###############################################################################
 ## Symlink for cuDNN
 ###############################################################################
 
