@@ -35,8 +35,8 @@ ARG GIT_USER_EMAIL
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
-    git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX} && rm -rf ${SRC_PATH_JAX}/.git
-    git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA} && rm -rf ${SRC_PATH_XLA}/.git
+    git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX}
+    git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
@@ -59,7 +59,7 @@ RUN build-jax.sh \
 RUN <<"EOF" bash -ex -o pipefail
 pip install ninja && rm -rf ~/.cache/pip
 # TransformerEngine now needs JAX at build time
-git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE} && rm -rf ${SRC_PATH_TRANSFORMER_ENGINE}/.git
+git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 pushd ${SRC_PATH_TRANSFORMER_ENGINE}
 export NVTE_BUILD_THREADS_PER_JOB=8
 python setup.py bdist_wheel && rm -rf build
