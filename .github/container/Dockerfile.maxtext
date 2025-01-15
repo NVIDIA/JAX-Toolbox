@@ -107,6 +107,8 @@ FROM mealkit as final
 
 RUN pip-finalize.sh
 
+RUN pip install "ml_dtypes>=0.5.0"
+
 WORKDIR ${SRC_PATH_MAXTEXT}
 
 # When tftext and lingvo wheels are published on pypi.org, revert this

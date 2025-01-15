@@ -136,3 +136,5 @@ EOF
 
 FROM mealkit AS final
 RUN pip-finalize.sh
+
+RUN pip install "ml_dtypes>=0.5.0"
