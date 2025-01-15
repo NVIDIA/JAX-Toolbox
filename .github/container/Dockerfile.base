@@ -135,6 +135,29 @@ ENV PIP_BREAK_SYSTEM_PACKAGES=1
 # both pip-24.0 and pip-23.3.1 in the system, but use 23.3.1 with equivalency patch (see above).
 RUN pip install --upgrade --ignore-installed --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
 
+###############################################################################
+## Install TCPx
+###############################################################################
+
+ENV TCPX_LIBRARY_PATH=/usr/local/tcpx/lib64
+COPY --from=tcpx-installer /var/lib/tcpx/lib64 ${TCPX_LIBRARY_PATH}
+
+
+###############################################################################
+## Symlink for cuDNN
+###############################################################################
+
+ADD install-cudnn.sh /usr/local/bin
+RUN install-cudnn.sh
+
+###############################################################################
+## Symlink for NCCL
+###############################################################################
+
+# same fro this 
+ADD install-nccl.sh /usr/local/bin
+RUN install-nccl.sh
+
 
 ###############################################################################
 ## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
