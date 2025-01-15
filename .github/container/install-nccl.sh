@@ -18,7 +18,6 @@ if [[ -z "${nccl_packages}" ]]; then
   exit 1
 fi
 
-
 for nccl_file in $(dpkg -L ${nccl_packages} | sort -u); do
   # Real files and symlinks are linked into $prefix
   if [[ -f "${nccl_file}" || -h "${nccl_file}" ]]; then
