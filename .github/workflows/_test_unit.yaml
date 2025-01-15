@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        GPU_ARCH: [V100, A100]
+        GPU_ARCH: [A100]
         include:
           - EXTRA_LABEL: "self-hosted"
           # ensures A100 job lands on dedicated runner for this particular job

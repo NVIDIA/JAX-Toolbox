@@ -8,6 +8,10 @@ on:
         description: 'Rosetta image build by NVIDIA/JAX-Toolbox'
         required: true
         default: 'ghcr.io/nvidia/t5x:latest'
+      TIMEOUT_MINUTES:
+        type: number
+        description: 'Maximum test runtime, in minutes'
+        default: 60
     outputs:
       TEST_ARTIFACT_NAME:
         description: 'Name of the unit test artifact for downstream workflows'
@@ -21,8 +25,19 @@ env:
   TEST_LOG_LOCAL_PATH: /log/unit-report.jsonl
 
 jobs:
+  runner:
+    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+    with:
+      NAME: "A100"
+      LABELS: "A100,${{ github.run_id }}"
+      TIME: "${{ inputs.TIMEOUT_MINUTES }}:00"
+    secrets: inherit
+
   rosetta-unit-tests:
-    runs-on: [self-hosted, V100]
+    runs-on:
+      - self-hosted
+      - A100
+      - "${{ github.run_id }}"
     outputs:
       TEST_ARTIFACT_NAME: ${{ env.TEST_ARTIFACT_NAME }}
     steps:
@@ -92,6 +107,6 @@ jobs:
               BADGE_COLOR=yellow
             fi
           fi
-          echo "LABEL='V100 Unit'" >> $GITHUB_OUTPUT
+          echo "LABEL='A100 Unit'" >> $GITHUB_OUTPUT
           echo "MESSAGE='${PASSED_TESTS}/${SKIPPED_TESTS}/${FAILED_TESTS} pass/skip/fail'" >> $GITHUB_OUTPUT
           echo "COLOR='${BADGE_COLOR}'" >> $GITHUB_OUTPUT
