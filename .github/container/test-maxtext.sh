@@ -224,7 +224,12 @@ pushd ${MAXTEXT_DIR}
 
 export NVTE_FUSED_ATTN=${ENABLE_FUSED_ATTN}
 export XLA_PYTHON_CLIENT_MEM_FRACTION=${MEM_FRACTION}
-export CUDA_DEVICE_MAX_CONNECTIONS=1
+
+local_arch=$(local_cuda_arch)
+if [[ "${local_arch}" == "9.0" ]]; then
+  echo "Setting CUDA_DEVICE_MAX_CONNECTIONS=1 for cc${local_arch} devices"
+  export CUDA_DEVICE_MAX_CONNECTIONS=1
+fi
 
 export BASE_XLA_FLAGS=${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true
                 --xla_gpu_enable_triton_gemm=false
