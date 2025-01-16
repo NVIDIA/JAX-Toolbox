@@ -7,7 +7,7 @@ from .analysis import (
 from .data_loaders import load_profiler_data
 from .protobuf import xla_module_metadata
 from .protobuf_utils import compile_protos, ensure_compiled_protos_are_importable
-from .utils import remove_autotuning_detail, remove_child_ranges
+from .utils import default_data_prefix, remove_autotuning_detail, remove_child_ranges
 from .visualization import create_flamegraph, display_flamegraph
 
 __all__ = [
@@ -16,6 +16,7 @@ __all__ = [
     "calculate_collective_metrics",
     "compile_protos",
     "create_flamegraph",
+    "default_data_prefix",
     "display_flamegraph",
     "ensure_compiled_protos_are_importable",
     "generate_compilation_statistics",

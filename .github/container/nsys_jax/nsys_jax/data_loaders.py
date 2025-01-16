@@ -35,72 +35,83 @@ def _is_communication(
         raise
 
 
+def _find_overlapped(start: pd.Series, end: pd.Series) -> pd.Index:
+    """
+    Given a start/end series representing a set of possibly-overlapping ranges
+      start = [s0, s1, ...]
+      end   = [e0, e1, ...]
+    which might overlap like:
+      [s0 e0]
+              [s1 e1]
+                  [s2 e2]
+                      [s3 e3]
+                              [s4 e4]
+    return the index values of ranges that overlap with other ranges, i.e. in the
+    example (1, 2, 3) but not (0, 4).
+    """
+    n = len(start)
+    assert n == len(end), (n, len(end))
+    # Earliest start value of a later row, +inf for the last entry (which doesn't have any later rows)
+    next_start = np.full((n,), float("+inf"))
+    next_start[:-1] = start[::-1].cummin()[-2::-1]  # reverse + drop 0th
+    # Latest end value of an earlier thunk, -inf for the first entry
+    prev_end = np.full((n,), float("-inf"))
+    prev_end[1:] = end.cummax()[:-1]
+    # Find rows that have overlap
+    mask = (next_start < end) | (prev_end > start)
+    return mask[mask].index
+
+
 def _calculate_overlap(thunk_df: pd.DataFrame) -> pd.DataFrame:
     thunk_df["ProjDurHiddenMs"] = 0.0
     # For convenience when calculating unhidden comms
     thunk_df["ProjEndMs"] = thunk_df["ProjStartMs"] + thunk_df["ProjDurMs"]
-    for (program_id, device), module_exec_df in thunk_df.groupby(
-        ["ProgramId", "Device"]
-    ):
-        # If *everything* is serialised, communication *and* computation, there's no
-        # work to be done
-        serial_mask = (
-            module_exec_df["ProjStartMs"].array[1:]
-            >= module_exec_df["ProjEndMs"].array[:-1]
+    for _, module_exec_df in thunk_df.groupby(["ProgramId", "Device"]):
+        # Identify overlap points that need more investigation
+        overlap_ids = _find_overlapped(
+            module_exec_df["ProjStartMs"], module_exec_df["ProjEndMs"]
         )
-        if serial_mask.all():
+        if len(overlap_ids) == 0:
             continue
-        # At least expect all computation to be serialized
-        comm_df = module_exec_df[module_exec_df["Communication"]]
-        compute_df = module_exec_df[~module_exec_df["Communication"]]
-        serial_mask = (
-            compute_df["ProjStartMs"].array[1:] >= compute_df["ProjEndMs"].array[:-1]
-        )
-        assert serial_mask.all(), (
-            f"Only {serial_mask.sum()}/{len(serial_mask)} compute kernel pairs failed to overlap on device {device} and program #{program_id}"
-        )
-        # Update the projected duration of each communication kernel to only
-        # include the non-overlapped time
-        for comm_thunk in comm_df.itertuples():
-            # This is a range annotating a communication operation, i.e. NCCL kernel
-            # That kernel was active from comm_thunk.ProjStartMs until comm_thunk.ProjEndMs
-            # but during that time then other computation was going on. We want to
-            # find how much of the time did not overlap with other computation.
-            overlap_df = compute_df.loc[
+        # All overlapping thunks in `module_exec_df`
+        overlap_df = module_exec_df.loc[
+            overlap_ids, ("Communication", "ProjStartMs", "ProjEndMs")
+        ]
+        # Just the subset that are communication
+        compute_df = overlap_df[~overlap_df["Communication"]]
+        # Narrow down to overlapped communication thunks
+        for comm_thunk in overlap_df.loc[
+            overlap_df["Communication"], ("ProjStartMs", "ProjEndMs")
+        ].itertuples():
+            local_df = compute_df.loc[
                 (compute_df["ProjEndMs"] > comm_thunk.ProjStartMs)
-                & (compute_df["ProjStartMs"] < comm_thunk.ProjEndMs),
-                ("ProjStartMs", "ProjEndMs"),
+                & (compute_df["ProjStartMs"] < comm_thunk.ProjEndMs)
             ]
             compute_time = np.sum(
-                np.minimum(overlap_df["ProjEndMs"], comm_thunk.ProjEndMs)
-                - np.maximum(overlap_df["ProjStartMs"], comm_thunk.ProjStartMs)
+                np.minimum(local_df["ProjEndMs"], comm_thunk.ProjEndMs)
+                - np.maximum(local_df["ProjStartMs"], comm_thunk.ProjStartMs)
             )
             # Update the projected duration of communication kernels to just be the
             # time that is not hidden.
             thunk_df.loc[comm_thunk.Index, "ProjDurMs"] -= compute_time
             thunk_df.loc[comm_thunk.Index, "ProjDurHiddenMs"] = compute_time
-
     return thunk_df.drop(columns=["ProjEndMs"])
 
 
 def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFrame:
     # Classify each thunk as either communication or computation, as we only
     # want to attribute non-overlapped communication time to those operations.
-    # Use HloInstructionProto.channel_id as a proxy for whether an operation is
-    # communication.
-    def is_communication(row):
-        assert thunk_df.index.names == [
-            "ProgramId",
-            "ProgramExecution",
-            "ThunkIndex",
-            "Device",
-        ]
+    assert thunk_df.index.names[0] == "ProgramId"
+
+    def is_communication(tup):
+        idx, name = tup
         return _is_communication(
-            program_id=row.name[0], prefix=prefix, instruction_name=row["Name"]
+            program_id=idx[0], prefix=prefix, instruction_name=name
         )
 
-    thunk_df["Communication"] = thunk_df.loc[:, ("Name",)].apply(
-        is_communication, axis=1
+    thunk_df["Communication"] = pd.Series(
+        data=map(is_communication, thunk_df["Name"].items()),
+        index=thunk_df.index,
     )
     return _calculate_overlap(thunk_df)
 
@@ -108,14 +119,19 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
 compile_prefix = "XlaCompile:#module="
 
 
+def _load_parquet_file(file: pathlib.Path) -> pd.DataFrame:
+    # Separate function to make profiles of this Python code easier to read
+    return pd.read_parquet(file)
+
+
 def _load_nvtx_gpu_proj_trace_single(
     prefix: pathlib.Path,
     file: pathlib.Path,
     meta_file: pathlib.Path,
     frames: set[str],
-):
+) -> dict[str, pd.DataFrame]:
     # Load the thread metadata used to map module/thunk executions to global device IDs
-    meta_df = pd.read_parquet(meta_file)
+    meta_df = _load_parquet_file(meta_file)
     # Match XLA's launcher thread name. These threads launch work if >1 GPU is being
     # driven by the process.
     device_by_pid_tid = (
@@ -127,7 +143,7 @@ def _load_nvtx_gpu_proj_trace_single(
         .astype(np.int32)
     )
     # Load input data; rename some columns for convenience with `.itertuples()`; use RangeId as the index
-    df = pd.read_parquet(file).drop(columns=["Rank"])
+    df = _load_parquet_file(file).drop(columns=["Rank"])
     # Alternative trace.parquet format
     alt_rename_map = {
         "Text": "Name",
@@ -165,8 +181,8 @@ def _load_nvtx_gpu_proj_trace_single(
     except ValueError:
         print(
             "A duplicate key related error may indicate that you are using "
-            "Nsight Systems 2024.5 and have CUDA graphs enabled; as noted on "
-            "https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/profiling.md "
+            "Nsight Systems 2024.5 or 2024.6 and have CUDA graphs enabled; as noted "
+            "on https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/profiling.md "
             "you may want to disable CUDA graphs by adding "
             "--xla_gpu_enable_command_buffer= to the XLA_FLAGS environment "
             "variable."
@@ -355,14 +371,17 @@ def _load_nvtx_gpu_proj_trace_single(
 
     output = {}
     if "thunk" in frames:
-        # At this point there should be no need to look beyond the rows for individual thunks + the protobuf data, and we can further clean up the data
+        # At this point there should be no need to look beyond the rows for individual
+        # thunks + the protobuf data, and we can further clean up the data.
         thunk_df = clean_data_frame(df[all_thunks])
-        thunk_df["Name"] = thunk_df["Name"].replace(
-            to_replace=f"^{tsl_prefix}Thunk:#(?:name=(.*?),|)hlo_op=([a-z0-9._-]+)#$",
-            value=r"\2",
+        thunk_df["Name"] = thunk_df["Name"].str.replace(
+            pat=f"^{tsl_prefix}Thunk:#(?:name=.*?,|)hlo_op=([a-z0-9._-]+)#$",
+            n=1,
+            repl=lambda m: m.group(1),
             regex=True,
         )
         # Add an index of the thunk within the module
+        # TODO: the ordering is potentially inconsistent across module executions in case of multiple streams/overlap
         thunk_df["ThunkIndex"] = thunk_df.groupby(
             ["ProgramId", "ProgramExecution", "Device"]
         ).cumcount()
@@ -375,7 +394,6 @@ def _load_nvtx_gpu_proj_trace_single(
         ).cumcount()
 
         # Classify thunks as communication/computation and save to output
-        # TODO: instead of using this sorting here, use a sort bucketed by execution time to speed up overlap detection?
         output["thunk"] = _classify_comms(
             thunk_df.set_index(
                 ["ProgramId", "ProgramExecution", "ThunkIndex", "Device"]
@@ -422,22 +440,28 @@ def _load_nvtx_gpu_proj_trace(
         filenames = [path]
         meta_filenames = [meta_path]
 
-    tmp = defaultdict(list)
-    with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
-        for single_trace in pool.starmap(
-            _load_nvtx_gpu_proj_trace_single,
-            zip(
-                itertools.repeat(prefix),
-                filenames,
-                meta_filenames,
-                itertools.repeat(frames),
-            ),
-        ):
-            for k, v in single_trace.items():
-                tmp[k].append(v)
-    output = {}
-    for k, v in tmp.items():
-        output[k] = pd.concat(v, verify_integrity=True).sort_index()
+    if len(filenames) > 1:
+        tmp = defaultdict(list)
+        with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
+            for single_trace in pool.starmap(
+                _load_nvtx_gpu_proj_trace_single,
+                zip(
+                    itertools.repeat(prefix),
+                    filenames,
+                    meta_filenames,
+                    itertools.repeat(frames),
+                ),
+            ):
+                for k, v in single_trace.items():
+                    tmp[k].append(v)
+        output = {}
+        for k, v in tmp.items():
+            output[k] = pd.concat(v, verify_integrity=True).sort_index()
+    else:
+        output = _load_nvtx_gpu_proj_trace_single(
+            prefix, filenames[0], meta_filenames[0], frames
+        )
+        output = {k: v.sort_index() for k, v in output.items()}
     return output
 
 
@@ -568,16 +592,30 @@ def _drop_non_tsl(compile_df: pd.DataFrame) -> pd.DataFrame:
     return compile_df[tsl_mask]
 
 
-def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
-    def keep_column(name):
-        return name not in {"PID", "Lvl", "NameTree"}
+def _read_nvtx_pushpop_trace_file(file: pathlib.Path) -> pd.DataFrame:
+    # `file` follows one of two patterns, depending on whether we are loading the
+    # results from a single profile or from multiple merged profiles:
+    # - nsys-jax: /path/to/report_nvtx_pushpop_trace.parquet
+    # - nsys-jax-combine: /path/to/report_nvtx_pushpop_trace.parquet/rank5
+    new_name = "report_nvtx_pushpop_trace.parquet"
+    if file.name == new_name or file.parent.name == new_name:
+        # New mode; the .csv to .parquet conversion is done in nsys-jax
+        return pd.read_parquet(file)
+    else:
 
-    compile_df = pd.read_csv(
-        lzma.open(name, "rt", newline=""),
-        dtype={"RangeId": np.int32},
-        index_col="RangeId",
-        usecols=keep_column,
-    )
+        def keep_column(name):
+            return name not in {"PID", "Lvl", "NameTree"}
+
+        return pd.read_csv(
+            lzma.open(file, "rt", newline=""),
+            dtype={"RangeId": np.int32},
+            index_col="RangeId",
+            usecols=keep_column,
+        )
+
+
+def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
+    compile_df = _read_nvtx_pushpop_trace_file(name)
     compile_df["StartMs"] = 1e-6 * compile_df.pop("Start (ns)")
     compile_df["EndMs"] = 1e-6 * compile_df.pop("End (ns)")
     compile_df["DurMs"] = 1e-6 * compile_df.pop("Duration (ns)")
@@ -596,23 +634,25 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
     # Because the ProgramId and ProgramName ranges provide the same information,
     # remove those fields from the compilation range names.
     def remove_program_id_and_name(row):
-        row.Name = (
+        return (
             row.Name.removeprefix("TSL:")
             .replace(f",program_id={row.ProgramId}", "")
             .replace(f",module={row.ProgramName}", "")
             .replace(f":#module={row.ProgramName}#", "")
         )
-        return row
 
-    return (
-        compile_df.drop(columns=["EndMs"])
-        .astype({"ProgramId": np.int32})
-        .transform(remove_program_id_and_name, axis="columns")
-    )
+    compile_df = compile_df.drop(columns=["EndMs"]).astype({"ProgramId": np.int32})
+    if len(compile_df):
+        compile_df["Name"] = compile_df.apply(
+            remove_program_id_and_name, axis="columns"
+        )
+    return compile_df
 
 
 def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataFrame:
-    path = prefix / "report_nvtx_pushpop_trace.csv.xz"
+    new_path = prefix / "report_nvtx_pushpop_trace.parquet"
+    legacy_path = prefix / "report_nvtx_pushpop_trace.csv.xz"
+    path = new_path if new_path.exists() else legacy_path
     if path.is_dir():
         # We're looking at the output of nsys-jax-combine
         filenames = sorted(path.iterdir())
@@ -622,12 +662,16 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
         filenames = [path]
         keys = [prefix.name]
 
-    with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
-        return pd.concat(
-            pool.map(_load_nvtx_pushpop_trace_single, filenames),
-            keys=keys,
-            names=["ProfileName", "RangeId"],
-        )
+    if len(filenames) > 1:
+        with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
+            chunks = pool.map(_load_nvtx_pushpop_trace_single, filenames)
+    else:
+        chunks = [_load_nvtx_pushpop_trace_single(filenames[0])]
+    return pd.concat(
+        chunks,
+        keys=keys,
+        names=["ProfileName", "RangeId"],
+    )
 
 
 def load_profiler_data(

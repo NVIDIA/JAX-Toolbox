@@ -9,6 +9,7 @@ dependencies = [
   "pyarrow",
   "requests", # for install-protoc
   "uncertainties", # communication analysis recipe
+  "prettytable",
 ]
 requires-python = ">= 3.10"
 
