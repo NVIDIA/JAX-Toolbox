@@ -45,7 +45,7 @@ jobs:
         docker run -i --shm-size=1g --gpus all \
         ${{ inputs.JAX_IMAGE }} \
         bash <<"EOF" |& tee test-backend-independent.log
-          test-jax.sh -b backend-independent 
+          test-jax.sh -b backend-independent
         EOF
         docker run -i --shm-size=1g --gpus all \
         ${{ inputs.JAX_IMAGE }} \
@@ -80,8 +80,15 @@ jobs:
       MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
     secrets: inherit
 
+  test-maxtext-eks:
+    if: inputs.MAXTEXT_IMAGE != ''
+    uses: ./.github/workflows/_test_maxtext_k8s.yaml
+    with:
+      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+    secrets: inherit
+
   finalize:
-    needs: [ test-nccl, test-jax, test-rosetta-pax, test-maxtext ]
+    needs: [ test-nccl, test-jax, test-rosetta-pax, test-maxtext, test-maxtext-eks ]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
