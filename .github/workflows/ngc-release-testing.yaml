@@ -14,7 +14,6 @@ on:
         required: false
         default: ''
 
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
 
@@ -41,6 +40,13 @@ jobs:
   test-maxtext-gke:
     if: inputs.MAXTEXT_IMAGE != ''
     uses: ./.github/workflows/_test_maxtext_gke_xpk.yaml
+    with:
+      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+    secrets: inherit
+
+  test-maxtext-eks:
+    if: inputs.MAXTEXT_IMAGE != ''
+    uses: ./.github/workflows/_test_maxtext_k8s.yaml
     with:
       MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
     secrets: inherit
