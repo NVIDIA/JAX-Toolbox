@@ -698,11 +698,9 @@ jobs:
     with:
       TEST_NAME: jetstream
       EXECUTE: |
-        docker run --shm-size=1g --gpus all ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }} \
+        docker run --shm-size=1g ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-jetstream.log
           cd /opt/jetstream
-          pip install -r requirements.txt
-          export CUDA_VISIBLE_DEVICES=0
           python -m unittest -v jetstream.tests.core.test_orchestrator
           python -m jetstream.engine.mock_engine_test
           python -m jetstream.core.orchestrator_test
