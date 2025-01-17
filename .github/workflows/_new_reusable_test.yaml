@@ -1,0 +1,62 @@
+# .github/workflows/_reusable_test.yaml
+name: Reusable Test Workflow
+
+on:
+  workflow_call:
+    inputs:
+      test_name:
+        type: string
+        required: true
+      architecture:
+        type: string
+        required: true
+      image:
+        type: string
+        required: true
+      execute_script:
+        type: string
+        required: true
+      artifacts:
+        type: string
+        required: false
+        default: ''
+      timeout_minutes:
+        type: number
+        required: false
+        default: 60
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+
+jobs:
+  test:
+    name: Test ${{ inputs.test_name }} on ${{ inputs.architecture }}
+    runs-on: [self-hosted, ${{ inputs.architecture }}, large]
+    steps:
+      - name: Print environment variables
+        run: env
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run tests
+        timeout-minutes: ${{ inputs.timeout_minutes }}
+        run: |
+          #!/bin/bash
+          set -ex
+          eval "${{ inputs.execute_script }}"
+
+      - name: Upload artifacts
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-${{ inputs.test_name }}-test-${{ inputs.architecture }}
+          path: |
+            ${{ inputs.artifacts }}
