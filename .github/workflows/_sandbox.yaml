@@ -5,7 +5,7 @@ on:
 
 jobs:
   sandbox:
-    runs-on: jumpbox-gcp
+    runs-on: gcp-jumpbox
     steps:
       - name: Print usage
         run: |
