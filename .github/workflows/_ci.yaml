@@ -295,15 +295,8 @@ jobs:
           nvidia-cuda-mps-control -d
           test-jax.sh -b gpu
         EOF
-      STATISTICS_SCRIPT: |
-        errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-        failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-        passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      STATISTICS_SCRIPT: | # TODO make sure we can read and parse from multiple files
+        python3 ./scripts/parse_test_results.py test-*.log
       ARTIFACTS: |
         test-backend-independent.log
         test-gpu.log
@@ -385,17 +378,7 @@ jobs:
         echo "NSYS_JAX_FAIL_COUNT=${num_failures}" >> $GITHUB_ENV
         exit $num_failures
       STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-nsys-jax.log)
-        num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-        total_tests=$(( NSYS_JAX_TEST_COUNT + passed_tests + failed_tests ))
-        num_passed=$(( passed_tests + NSYS_JAX_TEST_COUNT - NSYS_JAX_FAIL_COUNT ))
-        num_failed=$(( failed_tests + NSYS_JAX_FAIL_COUNT ))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${num_passed}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${num_failed}" >> $GITHUB_OUTPUT
+        python3 ./scripts/parse_test_results.py test-nsys-jax.log
       ARTIFACTS: |
         # pytest-driven part
         test-nsys-jax.log
@@ -575,7 +558,7 @@ jobs:
           pip install --no-deps torch
           python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
         EOF
-      STATISTICS_SCRIPT: |
+      STATISTICS_SCRIPT: | # TODO OPTIMIZE THIS
         curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
         total_tests=$(./yq '.testsuites."+@tests"' triton_test.xml)
         errors=$(./yq '.testsuites."+@errors"' triton_test.xml)
@@ -603,15 +586,8 @@ jobs:
           PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests -m "not entry and not slow and not ray"
         EOF
       STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-levanter.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+        python3 ./scripts/parse_test_results.py test-levanter.log
+
       ARTIFACTS: |
         test-levanter.log
     secrets: inherit
@@ -630,15 +606,7 @@ jobs:
           pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TRANSFORMER_ENGINE}/tests/jax
         EOF
       STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-te.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+        python3 ./scripts/parse_test_results.py test-te.log
       TIMEOUT_MINUTES: 120
       ARTIFACTS: |
         test-te.log
@@ -672,15 +640,7 @@ jobs:
         bash -ec \
         "cd /opt/gemma && pip install -e .[dev] && pytest ." | tee test-gemma.log
       STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-gemma.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+        python3 ./scripts/parse_test_results.py test-gemma.log
       ARTIFACTS: |
         test-gemma.log
     secrets: inherit

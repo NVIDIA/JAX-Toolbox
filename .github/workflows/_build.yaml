@@ -77,20 +77,11 @@ jobs:
       - name: Print environment variables
         run: env
 
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
+      - name: Setup SSH
+        uses: ./.github/actions/setup-ssh
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Setup SSH known hosts
-        id: ssh-known-hosts
-        run: |
-          mkdir -p ~/.ssh
-          cat >> ~/.ssh/known_hosts << EOF
-          ${{ vars.SSH_KNOWN_HOSTS }}
-          EOF
-          chmod 600 ~/.ssh/known_hosts
-          echo "FILE=$(realpath ~/.ssh/known_hosts)" >> $GITHUB_OUTPUT
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
@@ -178,35 +169,12 @@ jobs:
         if: "!cancelled()"
         shell: bash -x -e {0}
         run: |
-          # bring in utility functions
-          source .github/workflows/scripts/to_json.sh
-
-          badge_label='${{ inputs.CONTAINER_NAME }} ${{ inputs.ARCHITECTURE }} build'
-          tags="${{ steps.final-metadata.outputs.tags }}"
-          digest="${{ steps.final-build.outputs.digest }}"
-          outcome="${{ steps.final-build.outcome }}"
-
-          if [[ ${outcome} == "success" ]]; then
-            badge_message="pass"
-            badge_color=brightgreen
-            summary="${{ inputs.CONTAINER_NAME }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
-          else
-            badge_message="fail"
-            badge_color=red
-            summary="${{ inputs.CONTAINER_NAME }} build on ${{ inputs.ARCHITECTURE }}: $badge_message"
-          fi
-
-          to_json \
-            summary \
-            badge_label tags digest outcome \
-          > sitrep.json
-
-          schemaVersion=1 \
-          label="${badge_label}" \
-          message="${badge_message}" \
-          color="${badge_color}" \
-          to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
+          python3 ./scripts/generate_sitrep.py \
+            --badge-label "${{ inputs.CONTAINER_NAME }} ${{ inputs.ARCHITECTURE }} build" \
+            --tags "${{ steps.final-metadata.outputs.tags }}" \
+            --digest "${{ steps.final-build.outputs.digest }}" \
+            --outcome "${{ steps.final-build.outcome }}" \
+            --badge-filename-full "${{ env.BADGE_FILENAME_FULL }}"
 
       - name: Upload sitrep and badge
         if: "!cancelled()"

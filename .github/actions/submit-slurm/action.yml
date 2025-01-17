@@ -1,0 +1,44 @@
+name: Run on SLURM Cluster
+
+on:
+  workflow_call:
+    inputs:
+      IMAGE:
+        type: string
+        description: 'Docker image to use'
+        required: true
+      JOB_NAME:
+        type: string
+        description: 'Name of the SLURM job'
+        required: true
+      SLURM_SCRIPT:
+        type: string
+        description: 'SLURM script to execute'
+        required: true
+      OUTPUT_PATH:
+        type: string
+        description: 'Path to store output artifacts'
+        required: true
+    secrets:
+      SSH_PRIVATE_KEY:
+        required: true
+      SLURM_LOGIN_USER:
+        required: true
+
+jobs:
+  run-slurm-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        uses: ./.github/actions/setup-ssh
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+
+      - name: Submit SLURM job over SSH
+        id: submit
+        shell: bash
+        run: |
+          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} "echo '${{ inputs.SLURM_SCRIPT }}' | sbatch --job-name=${{ inputs.JOB_NAME }}"
+
+    # TODO MONITOR AND RETRIEVAL PROCESSES

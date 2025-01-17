@@ -72,7 +72,7 @@ jobs:
 
       - name: Generate sitrep
         shell: bash -x -e {0}
-        run: |
+        run: | # TODO
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
