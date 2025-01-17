@@ -161,12 +161,17 @@ RUN install-nccl-sanity-check.sh
 ADD jax-nccl-test parallel-launch /usr/local/bin/
 
 ###############################################################################
+## Add the systemcheck to the entrypoint.
+###############################################################################
+
+COPY check-shm.sh /opt/nvidia/entrypoint.d/
+
+###############################################################################
 ## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
 ###############################################################################
 
 ADD install-nsys-jax.sh /usr/local/bin
 RUN install-nsys-jax.sh ${JAX_TOOLBOX_REF}
-
 
 ###############################################################################
 ## Copy manifest file to the container
