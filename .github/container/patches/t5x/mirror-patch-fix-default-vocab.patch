@@ -1,0 +1,66 @@
+From 9cc0d6feff1164cbf4a30e8997eac8846d76613d Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Thu, 19 Dec 2024 11:14:06 -0800
+Subject: [PATCH] fix default output features
+
+Signed-off-by: ashors1 <ashors@nvidia.com>
+---
+ .../dummy_wikipedia_seqio.py                    | 10 ++++++++--
+ t5x/contrib/gpu/scripts_gpu/seqio_tasks.py      | 17 +++++++++++++----
+ 2 files changed, 21 insertions(+), 6 deletions(-)
+
+diff --git a/t5x/contrib/gpu/scripts_gpu/dummy_wikipedia_config/dummy_wikipedia_seqio.py b/t5x/contrib/gpu/scripts_gpu/dummy_wikipedia_config/dummy_wikipedia_seqio.py
+index 928890f..da67767 100644
+--- a/t5x/contrib/gpu/scripts_gpu/dummy_wikipedia_config/dummy_wikipedia_seqio.py
++++ b/t5x/contrib/gpu/scripts_gpu/dummy_wikipedia_config/dummy_wikipedia_seqio.py
+@@ -22,10 +22,16 @@ TaskRegistry = seqio.TaskRegistry
+ 
+ DEFAULT_OUTPUT_FEATURES = {
+     "inputs": seqio.Feature(
+-        vocabulary=t5.data.get_default_vocabulary(), add_eos=True,
++        vocabulary=seqio.SentencePieceVocabulary(
++            sentencepiece_model_file="gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model",
++        ),
++        add_eos=True,
+         required=False),
+     "targets": seqio.Feature(
+-        vocabulary=t5.data.get_default_vocabulary(), add_eos=True)
++        vocabulary=seqio.SentencePieceVocabulary(
++            sentencepiece_model_file="gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model",
++        ),
++        add_eos=True)
+ }
+ 
+ # ================================ Wikipedia ===================================
+diff --git a/t5x/contrib/gpu/scripts_gpu/seqio_tasks.py b/t5x/contrib/gpu/scripts_gpu/seqio_tasks.py
+index e38bb80..7aae93e 100644
+--- a/t5x/contrib/gpu/scripts_gpu/seqio_tasks.py
++++ b/t5x/contrib/gpu/scripts_gpu/seqio_tasks.py
+@@ -34,11 +34,20 @@ TaskRegistry = seqio.TaskRegistry
+ 
+ DEFAULT_OUTPUT_FEATURES = {
+     "inputs":
+-        seqio.Feature(vocabulary=t5.data.get_default_vocabulary(),
+-                      add_eos=True,
+-                      required=False),
++        seqio.Feature(
++            vocabulary=seqio.SentencePieceVocabulary(
++                sentencepiece_model_file="gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model",
++            ),
++            add_eos=True,
++            required=False
++        ),
+     "targets":
+-        seqio.Feature(vocabulary=t5.data.get_default_vocabulary(), add_eos=True)
++        seqio.Feature(
++            vocabulary=seqio.SentencePieceVocabulary(
++                sentencepiece_model_file="gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model",
++            ),
++            add_eos=True
++        )
+ }
+ 
+ # ================================== The Pile ====================================
+-- 
+2.47.1
+
