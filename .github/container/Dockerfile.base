@@ -139,16 +139,24 @@ RUN pip install --upgrade --ignore-installed --no-cache-dir -e /opt/pip pip-tool
 ## Symlink for cuDNN
 ###############################################################################
 
-ADD install-cudnn.sh /usr/local/bin
-RUN install-cudnn.sh
+ADD symlnk-cudnn.sh /usr/local/bin
+RUN symlnk-cudnn.sh
 
 ###############################################################################
 ## Symlink for NCCL
 ###############################################################################
 
-# same fro this 
-ADD install-nccl.sh /usr/local/bin
-RUN install-nccl.sh
+ADD symlnk-nccl.sh /usr/local/bin
+RUN symlnk-nccl.sh
+
+##############################################################################
+## Add Amazon EFA 
+##############################################################################
+
+ADD --chmod=777 \
+  install-efa.sh \
+  test-aws-efa.sh \
+  /usr/local/bin/
 
 
 ##############################################################################
@@ -160,11 +168,6 @@ ADD nccl-sanity-check.cu /opt
 RUN install-nccl-sanity-check.sh
 ADD jax-nccl-test parallel-launch /usr/local/bin/
 
-###############################################################################
-## Add the systemcheck to the entrypoint.
-###############################################################################
-
-COPY check-shm.sh /opt/nvidia/entrypoint.d/
 
 ###############################################################################
 ## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
