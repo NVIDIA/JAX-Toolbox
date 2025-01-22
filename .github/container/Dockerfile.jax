@@ -127,3 +127,6 @@ EOF
 
 FROM mealkit AS final
 RUN pip-finalize.sh
+
+# Bazelrc file configuration 
+RUN python ${SRC_PATH_XLA}/configure.py --backend cuda --cuda_compiler clang
