@@ -28,15 +28,6 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
 
-      - name: Setup SSH config
-        id: ssh-config
-        run: |
-          mkdir -p ~/.ssh
-          cat >> ~/.ssh/config << EOF
-          ${{ vars.SSH_CONFIG }}
-          EOF
-          chmod 600 ~/.ssh/config
-
       - name: Create dated folder and generate TensorBoard query URL
         id: mkdir
         shell: bash -x -e {0}

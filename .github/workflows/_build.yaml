@@ -77,14 +77,14 @@ jobs:
       - name: Print environment variables
         run: env
 
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v4
+
       - name: Setup SSH
         uses: ./.github/actions/setup-ssh
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
