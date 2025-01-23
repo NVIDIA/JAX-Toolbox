@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Setup SSH
+        id: setup-ssh
         uses: ./.github/actions/setup-ssh
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}

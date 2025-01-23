@@ -12,6 +12,7 @@ inputs:
 outputs:
   known-hosts-file:
     description: 'Path to the SSH known hosts file'
+    value: ${{ steps.ssh-known-hosts.outputs.known_hosts_file }}
 
 runs:
   using: 'composite'
