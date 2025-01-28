@@ -51,7 +51,7 @@ def process_communication_data(steady_state):
         mean_bandwidth = max_bandwidth_per_device.mean()
         stderr_bandwidth = max_bandwidth_per_device.std(ddof=0) / sqrt(len(max_bandwidth_per_device))
 
-        summary_data[message_size][collective] = ufloat( mean_bandwidth / stderr_bandwidth )
+        summary_data[message_size][collective] = ufloat( mean_bandwidth, stderr_bandwidth )
 
     return sorted(collective_types), summary_data
 
