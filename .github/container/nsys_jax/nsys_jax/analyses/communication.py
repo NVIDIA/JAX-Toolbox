@@ -119,7 +119,7 @@ def print_bandwidth_table(collective_types, summary_data):
 
 def process_hidden_ms_to_total_ms(steady_state):
     """
-    Function to compute the hidden milliseconds to total milliseconds in communication data
+    Function to compute the fraction of communication time that is hidden behind computations.
 
     Args:
         steady_state: The steady state data
