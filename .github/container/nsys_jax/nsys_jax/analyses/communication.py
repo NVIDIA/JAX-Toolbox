@@ -15,7 +15,6 @@ from prettytable import PrettyTable
 from uncertainties import ufloat  # type: ignore
 
 
-
 def process_communication_data(steady_state):
     """
     Process communication data from a steady state, to compute bandwith summaries.
@@ -161,9 +160,7 @@ def print_hidden_ms_to_total_ms_table(
 
     print(table)
     if overall_hidden_ms_to_total_ms is not None:
-        print(
-            f"Overall HiddenMs to TotalMs: {overall_hidden_ms_to_total_ms:.4f}"
-        )
+        print(f"Overall HiddenMs to TotalMs: {overall_hidden_ms_to_total_ms:.4f}")
 
 
 def calculate_overall_hidden_ms_to_total_ms(steady_state):
