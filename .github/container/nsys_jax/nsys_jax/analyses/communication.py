@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import csv
-import logging
 import pathlib
 from collections import defaultdict
 from math import sqrt
@@ -15,8 +14,6 @@ from nsys_jax import (
 from prettytable import PrettyTable
 from uncertainties import ufloat  # type: ignore
 
-
-logging.basicConfig(level=logging.INFO)
 
 
 def process_communication_data(steady_state):
@@ -49,10 +46,10 @@ def process_communication_data(steady_state):
         # therefore the last one to join the collective and its bandwidth estimate does
         # not contain a wait time component. The .mean() is over the different
         # (ProgramId, ProgramExecution, ThunkIndex) values.
-        max_bandwidth_per_device = devices["BusBandwidthGBPerSec"].agg("max")
-        mean_bandwidth = max_bandwidth_per_device.mean()
-        stderr_bandwidth = max_bandwidth_per_device.std(ddof=0) / sqrt(
-            len(max_bandwidth_per_device)
+        bandwidth_of_fastest_device = devices["BusBandwidthGBPerSec"].agg("max")
+        mean_bandwidth = bandwidth_of_fastest_device.mean()
+        stderr_bandwidth = bandwidth_of_fastest_device.std() / sqrt(
+            len(bandwidth_of_fastest_device)
         )
 
         summary_data[message_size][collective] = ufloat(
@@ -101,12 +98,12 @@ def print_bandwidth_table(collective_types, summary_data):
     size_width = max(len(size_heading), max(len(f"{s:,}") for s in summary_data.keys()))
 
     header_log = f"{'':<{size_width}} | Bus bandwidth [GB/s]"
-    logging.info(header_log)
+    print(header_log)
     log_specs = " | ".join(
         [f"{size_heading:<{size_width}}"]
         + [f"{coll:<{collective_widths[coll]}}" for coll in collective_types]
     )
-    logging.info(log_specs)
+    print(log_specs)
 
     for message_size in sorted(summary_data.keys()):
         data = summary_data[message_size]
@@ -114,7 +111,7 @@ def print_bandwidth_table(collective_types, summary_data):
             [format_message_size(message_size)]
             + [format_bandwidth(data, collective) for collective in collective_types]
         )
-        logging.info(log_row)
+        print(log_row)
 
 
 def process_hidden_ms_to_total_ms(steady_state):
@@ -162,9 +159,9 @@ def print_hidden_ms_to_total_ms_table(
         mean_value = summary_data[collective]
         table.add_row([collective[0], mean_value])
 
-    logging.info(table)
+    print(table)
     if overall_hidden_ms_to_total_ms is not None:
-        logging.info(
+        print(
             f"Overall HiddenMs to TotalMs: {overall_hidden_ms_to_total_ms:.4f}"
         )
 
@@ -260,12 +257,12 @@ def main():
     all_data = load_profiler_data(args.prefix, frames={"communication", "compile"})
     # Align timestamps
     all_data, alignment_metadata = align_profiler_data_timestamps(all_data)
-    logging.debug(f"Alignment metadata: {alignment_metadata}")
+    print(f"Alignment metadata: {alignment_metadata}")
     # Partition the profile data into initialisation and steady-state running
     _, steady_state = apply_warmup_heuristics(all_data)
 
     if len(steady_state.communication) == 0:
-        logging.error(
+        print(
             "Communication summary was requested but no steady-state communication was identified."
         )
         return
