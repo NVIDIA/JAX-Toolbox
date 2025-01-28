@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import csv
-import logging 
+import logging
 import pathlib
 from collections import defaultdict
 from math import sqrt
@@ -21,12 +21,12 @@ logging.basicConfig(level=logging.INFO)
 
 def process_communication_data(steady_state):
     """
-    Process communication data from a steady state, to compute bandwith summaries. 
+    Process communication data from a steady state, to compute bandwith summaries.
 
-    Args: 
+    Args:
         steady_state: A steady state data frame.
 
-    Return: 
+    Return:
         A tuple of (collective_types, summary_data), where:
             collective_types (List[str]): sorted list of collective operation types
             summary_data (Dict[int, Dict[str, ufloat]]): Dictionary wiht summaries for bandwith data
@@ -34,7 +34,9 @@ def process_communication_data(steady_state):
     collective_types = set()
     summary_data = defaultdict(dict)
 
-    communication_grouped_by = steady_state.communication.groupby(["Collective", "MessageSize"])
+    communication_grouped_by = steady_state.communication.groupby(
+        ["Collective", "MessageSize"]
+    )
 
     for (collective, message_size), df in communication_grouped_by:
         collective_types.add(collective)
@@ -49,9 +51,13 @@ def process_communication_data(steady_state):
         # (ProgramId, ProgramExecution, ThunkIndex) values.
         max_bandwidth_per_device = devices["BusBandwidthGBPerSec"].agg("max")
         mean_bandwidth = max_bandwidth_per_device.mean()
-        stderr_bandwidth = max_bandwidth_per_device.std(ddof=0) / sqrt(len(max_bandwidth_per_device))
+        stderr_bandwidth = max_bandwidth_per_device.std(ddof=0) / sqrt(
+            len(max_bandwidth_per_device)
+        )
 
-        summary_data[message_size][collective] = ufloat( mean_bandwidth, stderr_bandwidth )
+        summary_data[message_size][collective] = ufloat(
+            mean_bandwidth, stderr_bandwidth
+        )
 
     return sorted(collective_types), summary_data
 
@@ -64,6 +70,7 @@ def print_bandwidth_table(collective_types, summary_data):
         collective_types (List[str]): sorted list of collective operation types
         summary_data (Dict[int, Dict[str, ufloat]]): Dictionary wiht summaries for bandwith data
     """
+
     def format_message_size(message_size):
         """
         Function to format the message size
@@ -72,13 +79,12 @@ def print_bandwidth_table(collective_types, summary_data):
 
     def format_bandwidth(data, collective):
         """
-        Function to format the bandwidth 
+        Function to format the bandwidth
         """
         width = collective_widths[collective]
         if collective not in data:
             return "-" * width
         return f"{data[collective]:>{width}S}"
-
 
     collective_widths = {
         collective: max(
@@ -97,31 +103,28 @@ def print_bandwidth_table(collective_types, summary_data):
     header_log = f"{'':<{size_width}} | Bus bandwidth [GB/s]"
     logging.info(header_log)
     log_specs = " | ".join(
-            [f"{size_heading:<{size_width}}"]
-            + [f"{coll:<{collective_widths[coll]}}" for coll in collective_types]
-        )
+        [f"{size_heading:<{size_width}}"]
+        + [f"{coll:<{collective_widths[coll]}}" for coll in collective_types]
+    )
     logging.info(log_specs)
 
     for message_size in sorted(summary_data.keys()):
         data = summary_data[message_size]
         log_row = " | ".join(
-                [format_message_size(message_size)]
-                + [
-                    format_bandwidth(data, collective)
-                    for collective in collective_types
-                ]
-            )
+            [format_message_size(message_size)]
+            + [format_bandwidth(data, collective) for collective in collective_types]
+        )
         logging.info(log_row)
 
 
 def process_hidden_ms_to_total_ms(steady_state):
     """
-    Function to compute the hidden milliseconds to total milliseconds in communication data 
-    
-    Args: 
-        steady_state: The steady state data 
-    
-    Returns: 
+    Function to compute the hidden milliseconds to total milliseconds in communication data
+
+    Args:
+        steady_state: The steady state data
+
+    Returns:
         collective_types (Set[str]): set of collective operation types
         summary_data (Dict[str, float]): dictionary with mean hidden-to-total milliseconds ratio
     """
@@ -134,10 +137,8 @@ def process_hidden_ms_to_total_ms(steady_state):
 
     for collective, df in grouped_data:
         collective_types.add(collective)
-        total_ms = (df["ProjDurMs"] + df["ProjDurHiddenMs"])
-        mean_dur_hidden_ms_to_total_ms = (
-            df["ProjDurHiddenMs"] / total_ms
-        ).mean()
+        total_ms = df["ProjDurMs"] + df["ProjDurHiddenMs"]
+        mean_dur_hidden_ms_to_total_ms = (df["ProjDurHiddenMs"] / total_ms).mean()
         summary_data[collective] = mean_dur_hidden_ms_to_total_ms
 
     return collective_types, summary_data
@@ -147,9 +148,9 @@ def print_hidden_ms_to_total_ms_table(
     collective_types, summary_data, overall_hidden_ms_to_total_ms
 ):
     """
-    Print the hidden ms to total ms 
-    
-    Args: 
+    Print the hidden ms to total ms
+
+    Args:
         collective_types (Set[str]): set of collective operation types
         summary_data (Dict[str, float]): mean hidden-to-total milliseconds ratio
         overall_ratio (float): overall hidden-to-total milliseconds ratio
@@ -162,31 +163,33 @@ def print_hidden_ms_to_total_ms_table(
         table.add_row([collective[0], mean_value])
 
     logging.info(table)
-    if overall_hidden_ms_to_total_ms is not None: 
-        logging.info(f"Overall HiddenMs to TotalMs: {overall_hidden_ms_to_total_ms:.4f}")
+    if overall_hidden_ms_to_total_ms is not None:
+        logging.info(
+            f"Overall HiddenMs to TotalMs: {overall_hidden_ms_to_total_ms:.4f}"
+        )
 
 
 def calculate_overall_hidden_ms_to_total_ms(steady_state):
     """
     Function to calculate the overall hidden milliseconds to total milliseconds
-    
+
     Args:
-      steady_state: the steady-state data extracted from the profiler 
-    
-    Returns: 
+      steady_state: the steady-state data extracted from the profiler
+
+    Returns:
       overall_hidden_ms_to_total_ms (float): overall hidden milliseconds to total milliseconds ratio
     """
     total_hidden_ms = steady_state.communication["ProjDurHiddenMs"].sum()
     if total_hidden_ms == 0:
         return None
-    
-    total_ms = (
-            steady_state.communication["ProjDurMs"]
-            + steady_state.communication["ProjDurHiddenMs"]
-        ).sum()
 
-    overall_hidden_ms_to_total_ms = (total_hidden_ms / total_ms)
-    
+    total_ms = (
+        steady_state.communication["ProjDurMs"]
+        + steady_state.communication["ProjDurHiddenMs"]
+    ).sum()
+
+    overall_hidden_ms_to_total_ms = total_hidden_ms / total_ms
+
     return overall_hidden_ms_to_total_ms
 
 
@@ -198,15 +201,15 @@ def write_to_csv(
     output_file,
 ):
     """
-    Function to write the summaries to a csv file 
-    
-    Args: 
+    Function to write the summaries to a csv file
+
+    Args:
         collective_types (List[str]): list of collective operation types
         bandwidth_summary (Dict[int, Dict[str, ufloat]]): bandwidth summary data
         hidden_to_total_summary (Dict[str, float]): hidden-to-total milliseconds ratio summary
         overall_hidden_ms_to_total_ms (float): overall hidden-to-total milliseconds ratio
         output_file (str): output CSV file path
-    
+
     """
     with open(output_file, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
@@ -261,9 +264,10 @@ def main():
     # Partition the profile data into initialisation and steady-state running
     _, steady_state = apply_warmup_heuristics(all_data)
 
-    if len(steady_state.communication) == 0: 
-        logging.error("Communication summary was requested but no steady-state communication was identified."
-    )
+    if len(steady_state.communication) == 0:
+        logging.error(
+            "Communication summary was requested but no steady-state communication was identified."
+        )
         return
 
     collective_types, bandwidth_summary = process_communication_data(steady_state)
@@ -273,7 +277,7 @@ def main():
         process_hidden_ms_to_total_ms(steady_state)
     )
 
-    # initailise overall_hidden_ms_to_total_ms 
+    # initailise overall_hidden_ms_to_total_ms
     overall_hidden_ms_to_total_ms = None
 
     if hidden_to_total_summary is not None:
