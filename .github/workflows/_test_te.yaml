@@ -68,14 +68,13 @@ jobs:
         with:
           pattern: |
             ${{ inputs.ARTIFACT_PREFIX }}-*
-          merge-multiple: true
+          merge-multiple: true'ROSETTA T5X MULTI GPU MULTI NODE ${{ steps.meta.outputs.TEST_CASE_NAME }}'
 
       - name: Generate sitrep
         if: success() || failure()
         uses: ./.github/actions/generate-sitrep 
         with:
           --badge_label: "TE Multi GPU tests" 
-          --metrics_log: "path/to/pytest-report.jsonl" 
           --badge_filename: "${{ env.BADGE_FILENAME_FULL }}" 
           --sitrep_filename: "sitrep.json"
 
