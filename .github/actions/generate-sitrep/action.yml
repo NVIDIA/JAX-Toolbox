@@ -6,12 +6,6 @@ inputs:
   badge_label:
     description: 'Label for the badge'
     required: true
-  exit_status_pattern:
-    description: 'Glob pattern for exit status files'
-    required: false
-  metrics_log:
-    description: 'Metrics log file'
-    required: false
   badge_filename:
     description: 'Output badge filename'
     required: true
@@ -19,20 +13,17 @@ inputs:
     description: 'Output sitrep filename'
     required: false
     default: 'sitrep.json'
+  exit_status_patterns:
+    description: 'Glob pattern for exit status files'
+    required: false
+  metrics_logs:
+    description: 'Metrics log file'
+    required: false
   exit_status_summary_file:
     description: 'Summary message (overrides default)'
     required: false
-  full_result_markdown:
-    description: 'File(s) containing full result markdown'
-    required: false
-  total_tests:
-    description: 'Total number of tests'
-    required: false
-  passed_tests:
-    description: 'Number of passed tests'
-    required: false
-  failed_tests:
-    description: 'Number of failed tests'
+  metrics_summary_file:
+    description: 'File containing metrics summary markdown'
     required: false
   badge_message:
     description: 'Badge message (overrides default)'
@@ -40,32 +31,39 @@ inputs:
   badge_color:
     description: 'Badge color (overrides default)'
     required: false
+  tags:
+    description: 'Tags from the build'
+    required: false
+  digest:
+    description: 'Digest from the build'
+    required: false
+  outcome:
+    description: 'Outcome of the build'
+    required: false
 outputs:
   STATUS:
     description: 'The status of the tests (success or failure)'
-    value: ${{ steps.set-status.outputs.STATUS }}
-  TOTAL_TESTS:
-    description: 'Total number of tests'
-    value: ${{ steps.set-status.outputs.TOTAL_TESTS}}
+    value: ${{ steps.python-sitrep.outputs.STATUS }}
 
 runs:
   using: 'composite'
   steps:
     - name: Run generate_sitrep.py
+      id: python-sitrep
       shell: bash
       run: |
         python3 "$(dirname "$0")/generate_sitrep.py" \
           --badge_label "${{ inputs.badge_label }}" \
-          ${{ inputs.exit_status_pattern && '--exit_status_pattern "' + inputs.exit_status_pattern + '"' || '' }} \
-          ${{ inputs.metrics_log && '--metrics_log "' + inputs.metrics_log + '"' || '' }} \
           --badge_filename "${{ inputs.badge_filename }}" \
           --sitrep_filename "${{ inputs.sitrep_filename }}" \
-          ${{ inputs.exit_status_summary_file && '--exit_status_summary_file "' + inputs.summary + '"' || '' }} \
-          ${{ inputs.full_result_markdown && '--full_result_markdown "' + inputs.full_result_markdown + '"' || '' }} \
-          ${{ inputs.total_tests && '--total_tests ' + inputs.total_tests || '' }} \
-          ${{ inputs.passed_tests && '--passed_tests ' + inputs.passed_tests || '' }} \
-          ${{ inputs.failed_tests && '--failed_tests ' + inputs.failed_tests || '' }} \
+          ${{ inputs.exit_status_patterns && '--exit_status_patterns ' + inputs.exit_status_patterns || '' }} \
+          ${{ inputs.exit_status_summary_file && '--exit_status_summary_file "' + inputs.exit_status_summary_file + '"' || '' }} \
+          ${{ inputs.metrics_logs && '--metrics_logs "' + inputs.metrics_logs + '"' || '' }} \
+          ${{ inputs.metrics_summary_file && '--metrics_summary_file "' + inputs.metrics_summary_file + '"' || '' }} \
           ${{ inputs.badge_message && '--badge_message "' + inputs.badge_message + '"' || '' }} \
-          ${{ inputs.badge_color && '--badge_color "' + inputs.badge_color + '"' || '' }}
+          ${{ inputs.badge_color && '--badge_color "' + inputs.badge_color + '"' || '' }} \
+          ${{ inputs.tags && '--tags "' + inputs.tags + '"' || '' }} \
+          ${{ inputs.digest && '--digest "' + inputs.digest + '"' || '' }} \
+          ${{ inputs.outcome && '--outcome "' + inputs.outcome + '"' || '' }}
       env:
         GITHUB_RUN_ID: ${{ github.run_id }}

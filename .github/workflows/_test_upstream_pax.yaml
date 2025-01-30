@@ -525,21 +525,15 @@ jobs:
             *_metrics.json
 
   sitrep:
+    name: test-upstream-pax-sitrep
     needs: metrics
     if: "!cancelled()"
-    runs-on: ubuntu-22.04
-    env:
-      FW_NAME: ${{ env.FW_NAME }}
-      BADGE_FILENAME: ${{ env.BADGE_FILENAME }}
-    steps:
-      - name: test-maxtext-sitrep
-        id: run-sitrep 
-        uses: ./.github/actions/generate-sitrep
-        with: 
-          badge_label: "${{ inputs.FW_NAME }} MGMN Test"
-          exit_status_patterns: "${{ inputs.FW_NAME }}*-${{ github.run_id }}-*/output/*-status.json"
-          badge_filename: "${{ inputs.BADGE_FILENAME }}"
-          sitrep_filename: "sitrep.json"
+    uses: ./.github/workflows/_sitrep_mgmn.yaml
+    secrets: inherit
+    with:
+      BADGE_FILENAME: ${{ inputs.BADGE_FILENAME }}
+      ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
+      FW_NAME: ${{ inputs.FW_NAME }}
 
   summary:
     name: test-upstream-pax-summary

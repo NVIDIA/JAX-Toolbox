@@ -38,9 +38,8 @@ jobs:
         with:
           badge_label: "${{ inputs.FW_NAME }} Tests"
           badge_filename: "${{ inputs.BADGE_FILENAME }}"
-          sitrep_filename: "sitrep.json"
           exit_status_pattern: "${{ inputs.FW_NAME }}*-${{ github.run_id }}-*/*-status.json"
-          metrics_log: "${{ inputs.FW_NAME }}-metrics-test-log/report.jsonl"
+          metrics_logs: "${{ inputs.FW_NAME }}-metrics-test-log/report.jsonl"
           exit_status_summary_file: "exit_status_summary.md"
           metrics_summary_file: "metrics_summary.md"
 

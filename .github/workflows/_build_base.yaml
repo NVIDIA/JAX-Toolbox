@@ -139,37 +139,17 @@ jobs:
         
       - name: Generate sitrep
         if: "!cancelled()"
-        shell: bash -x -e {0}
-        run: |
-          # bring in utility functions
-          source .github/workflows/scripts/to_json.sh
-
-          badge_label='Base image ${{ inputs.ARCHITECTURE }} build'
-          tags="${{ steps.meta.outputs.tags }}"
-          digest="${{ steps.build.outputs.digest }}"
-          outcome="${{ steps.build.outcome }}"
-
-          if [[ ${outcome} == "success" ]]; then
-            badge_message="pass"
-            badge_color=brightgreen
-            summary="Base image build on ${{ inputs.ARCHITECTURE }}: $badge_message"
-          else
-            badge_message="fail"
-            badge_color=red
-            summary="Base image build on ${{ inputs.ARCHITECTURE }}: $badge_message"
-          fi
-
-          to_json \
-            summary \
-            badge_label tags digest outcome \
-          > sitrep.json
-
-          schemaVersion=1 \
-          label="${badge_label}" \
-          message="${badge_message}" \
-          color="${badge_color}" \
-          to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
+        id: generate-sitrep
+        uses: ./.github/actions/generate-sitrep
+        with:
+          badge_label: "Base image built on ${{ inputs.ARCHITECTURE }}: ${{ steps.build.outcome }}"
+          badge_filename: "${{ env.BADGE_FILENAME_FULL }}"
+          sitrep_filename: "sitrep.json"
+          tags: "${{ steps.meta.outputs.tags }}"
+          digest: "${{ steps.build.outputs.digest }}"
+          outcome: "${{ steps.build.outcome }}"
+          badge_message: ${{ (steps.build.outcome == 'success') && 'pass' || 'fail' }}
+          badge_color: ${{ (steps.build.outcome == 'success') && 'brightgreen' || 'red' }}
 
       - name: Upload sitrep and badge
         if: "!cancelled()"

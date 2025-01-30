@@ -4,19 +4,21 @@ import json
 import os
 from pathlib import Path
 
-def count_tests_from_exit_status_files(exit_status_patterns) -> tuple:
+
+def count_tests_from_exit_status_files(exit_status_files) -> tuple:
     """
     Counts the number of passed and failed tests from exit status files.
 
     Args:
-    exit_status_patterns (list): List of file patterns containing exit status.
+        exit_status_files (list): List of file patterns containing exit status.
 
     Returns:
-    tuple: (passed_tests, failed_tests, total_tests)
+        tuple: (passed_tests, failed_tests, total_tests)
     """
     passed_tests = 0
     failed_tests = 0
-    for status_file in exit_status_patterns:
+    total_tests = len(exit_status_files)
+    for status_file in exit_status_files:
         with open(status_file) as f:
             status_data = json.load(f)
             state = status_data.get('state')
@@ -25,7 +27,6 @@ def count_tests_from_exit_status_files(exit_status_patterns) -> tuple:
                 passed_tests += 1
             else:
                 failed_tests += 1
-    total_tests = len(exit_status_patterns)
     return passed_tests, failed_tests, total_tests
 
 
@@ -87,86 +88,32 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser(description='Generate sitrep and badge JSON files.')
     parser.add_argument('--badge_label', required=True, help='Label for the badge')
-    parser.add_argument('--exit_status_patterns', help='Tests with error output')
-    parser.add_argument('--metrics_log', action='append', help='Metrics log file(s)')
     parser.add_argument('--badge_filename', required=True, help='Output badge filename')
     parser.add_argument('--sitrep_filename', default='sitrep.json', help='Output sitrep filename')
-    parser.add_argument('--full_result_markdown', help='File containing full result markdown')
-    parser.add_argument('--total_tests', type=int, help='Total number of tests')
-    parser.add_argument('--passed_tests', type=int, help='Number of passed tests')
-    parser.add_argument('--failed_tests', type=int, help='Number of failed tests')
+    parser.add_argument('--exit_status_patterns', nargs='*', default=['**/*-status.json'], help='Tests with error output')
+    parser.add_argument('--metrics_logs', nargs='*', default=['metrics-*/*.log'], help='Metrics log file(s)')
     parser.add_argument('--badge_message', help='Badge message (overrides default)')
     parser.add_argument('--badge_color', help='Badge color (overrides default)')
     parser.add_argument('--exit_status_summary_file', help='Output exit status summary markdown file')
     parser.add_argument('--metrics_summary_file', help='Output metrics summary markdown file')
+    parser.add_argument('--tags', help='Tags from the build')
+    parser.add_argument('--digest', help='Digest from the build')
+    parser.add_argument('--outcome', help='Outcome of the build')
 
     args = parser.parse_args()
 
     # Count exit status tests
-    exit_status_tests = []
-    if args.exit_status_patterns:
-        for pattern in args.exit_status_patterns.split(','):
-            exit_status_tests.extend(glob.glob(pattern))
+    exit_status_files = []
+    for pattern in args.exit_status_patterns:
+        exit_status_files.extend(glob.glob(pattern, recursive=True))
 
     # Count metrics tests
-    metrics_tests = []
-    if args.metrics_log:
-        metrics_tests = args.metrics_log
+    metrics_logs = []
+    for pattern in args.metrics_logs:
+        metrics_logs.extend(glob.glob(pattern, recursive=True))
 
-    # Initialize test counts
-    passed_tests = 0
-    failed_tests = 0
-    total_tests = 0
-    pytest_passed_tests = 0
-    pytest_failed_tests = 0
-    pytest_total_tests = 0
-
-    # Count exit status tests
-    if exit_status_tests:
-        passed_tests, failed_tests, total_tests = count_tests_from_exit_status_files(exit_status_tests)
-
-    # Count metrics tests
-    if metrics_tests:
-        pytest_passed_tests, pytest_failed_tests, pytest_total_tests = count_tests_from_metrics_logs(metrics_tests)
-
-        # Generate metrics summary markdown
-        if args.metrics_summary_file:
-            with open(args.metrics_summary_file, 'w') as f:
-                f.write(f"## {args.badge_label} MGMN Test Metrics\n")
-                # Assuming you have metrics JSON files to summarize
-                metrics_files_pattern = f"{args.badge_label}-metrics-test-log/*_metrics.json"
-                metrics_files = glob.glob(metrics_files_pattern)
-                if metrics_files:
-                    all_metrics = []
-                    header = None
-                    f.write("| Job Name | Metrics |\n")
-                    f.write("| --- | --- |\n")
-                    for path in metrics_files:
-                        with open(path) as mf:
-                            obj = json.load(mf)
-                            all_metrics.append(obj)
-                            job_name = Path(path).stem.replace('_metrics', '')
-                            if not header:
-                                header = obj.keys()
-                                f.write("| Job Name | " + " | ".join(header) + " |\n")
-                                f.write("| --- " * (len(header) + 1) + "|\n")
-                            f.write(f"| {job_name} | " + " | ".join(str(obj[h]) for h in header) + " |\n")
-                else:
-                    f.write("No metrics files found.\n")
-
-    # Generate exit status summary markdown
-    if args.exit_status_summary_file:
-        with open(args.exit_status_summary_file, 'w') as f:
-            f.write(f"\n\n## {args.badge_label} MGMN+SPMD Test Status\n")
-            f.write("| Test Case | State | Exit Code |\n")
-            f.write("| --- | --- | --- |\n")
-            for status_file in exit_status_tests:
-                test_case = Path(status_file).stem.replace('-status', '')
-                with open(status_file) as f_status:
-                    status_data = json.load(f_status)
-                    state = status_data.get('state')
-                    exitcode = status_data.get('exitcode')
-                    f.write(f"| {test_case} | {state} | {exitcode} |\n")
+    passed_tests, failed_tests, total_tests = count_tests_from_exit_status_files(exit_status_files)
+    pytest_passed_tests, pytest_failed_tests, pytest_total_tests = count_tests_from_metrics_logs(metrics_logs)
 
     badge_color, status = determine_badge_color(
         passed_tests, failed_tests, total_tests,
@@ -190,9 +137,12 @@ def main() -> None:
         'passed_tests': passed_tests,
         'failed_tests': failed_tests,
         'badge_label': args.badge_label,
-        'badge_color': badge_color,
+        'badge_color': args.badge_color or badge_color,
         'badge_message': badge_message,
         'full_result_markdown': full_result_markdown,
+        'tags': args.tags,
+        'digest': args.digest,
+        'outcome': args.outcome,
     }
 
     with open(args.sitrep_filename, 'w') as f:
@@ -202,7 +152,7 @@ def main() -> None:
         'schemaVersion': 1,
         'label': args.badge_label,
         'message': badge_message,
-        'color': badge_color
+        'color': args.badge_color or badge_color
     }
 
     with open(args.badge_filename, 'w') as f:
@@ -212,7 +162,6 @@ def main() -> None:
     if github_output:
         with open(github_output, 'a') as fh:
             print(f'STATUS={status}', file=fh)
-            print(f'TOTAL_TESTS={total_tests}', file=fh)
 
 
 if __name__ == "__main__":

@@ -106,19 +106,21 @@ jobs:
             echo "summary=${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: ${total_tests} total tests, ${errors} errors, ${passed_tests} passed, ${failed_tests} failed." >> $GITHUB_OUTPUT
           fi
 
+      - name: Write summary to file
+        run: |
+          echo "${{ steps.summary.outputs.summary }}" > summary.md
+
       - name: Generate sitrep
         id: sitrep
         if: "!cancelled()"
         uses: ./.github/actions/generate-sitrep
         with:
           badge_label: '${{ inputs.TEST_NAME }} ${{ matrix.GPU_ARCH }} Unit'
-          total_tests: ${{ steps.test-stats.outputs.TOTAL_TESTS }} 
-          exit_status_patterns: ${{ steps.test-stats.outputs.ERRORS }} 
-          failed_tests: ${{ steps.test-stats.outputs.FAILED_TESTS }} 
-          passed_tests: ${{ steps.test-stats.outputs.PASSED_TESTS }} 
-          exit_status_summary_file: "${{ steps.summary.outputs.summary }}" 
-          badge_message: "${{ steps.summary.outputs.badge_message }}" 
-          badge_color: ${{ steps.summary.outputs.badge_color }}" 
+          badge_filename: ${{ env.BADGE_FILENAME_FULL }}
+          sitrep_filename: 'sitrep.json'
+          exit_status_summary_file: "summary.md" 
+          badge_message: "${{ steps.summary.outputs.badge_message }}"
+          badge_color: ${{ steps.summary.outputs.badge_color }}
 
       - name: Upload artifacts
         if: "!cancelled()"
