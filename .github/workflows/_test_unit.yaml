@@ -109,32 +109,16 @@ jobs:
       - name: Generate sitrep
         id: sitrep
         if: "!cancelled()"
-        shell: bash -x -e {0}
-        run: |
-          # bring in utility functions
-          source .github/workflows/scripts/to_json.sh
-
-          badge_label='${{ inputs.TEST_NAME }} ${{ matrix.GPU_ARCH }} Unit'
-
-          total_tests=${{ steps.test-stats.outputs.TOTAL_TESTS }} \
-          errors=${{ steps.test-stats.outputs.ERRORS }} \
-          failed_tests=${{ steps.test-stats.outputs.FAILED_TESTS }} \
-          passed_tests=${{ steps.test-stats.outputs.PASSED_TESTS }} \
-          summary="${{ steps.summary.outputs.summary }}" \
-          badge_message="${{ steps.summary.outputs.badge_message }}" \
-          badge_color="${{ steps.summary.outputs.badge_color }}" \
-          to_json \
-            summary \
-            errors total_tests passed_tests failed_tests \
-            badge_label badge_color badge_message \
-          > sitrep.json
-
-          schemaVersion=1 \
-          label="${badge_label}" \
-          message="${{ steps.summary.outputs.badge_message }}" \
-          color="${{ steps.summary.outputs.badge_color }}" \
-          to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
+        uses: ./.github/actions/generate-sitrep
+        with:
+          badge_label: '${{ inputs.TEST_NAME }} ${{ matrix.GPU_ARCH }} Unit'
+          total_tests: ${{ steps.test-stats.outputs.TOTAL_TESTS }} 
+          exit_status_patterns: ${{ steps.test-stats.outputs.ERRORS }} 
+          failed_tests: ${{ steps.test-stats.outputs.FAILED_TESTS }} 
+          passed_tests: ${{ steps.test-stats.outputs.PASSED_TESTS }} 
+          exit_status_summary_file: "${{ steps.summary.outputs.summary }}" 
+          badge_message: "${{ steps.summary.outputs.badge_message }}" 
+          badge_color: ${{ steps.summary.outputs.badge_color }}" 
 
       - name: Upload artifacts
         if: "!cancelled()"
