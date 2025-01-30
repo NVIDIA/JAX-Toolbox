@@ -52,7 +52,7 @@ runs:
       id: python-sitrep
       shell: bash
       run: |
-        python3 "$(dirname "$0")/generate_sitrep.py" \
+        python3 "${{ github.action_path }}/generate_sitrep.py" \
           --badge_label "${{ inputs.badge_label }}" \
           --badge_filename "${{ inputs.badge_filename }}" \
           --sitrep_filename "${{ inputs.sitrep_filename }}" \
