@@ -30,7 +30,7 @@ on:
         required: false
       CUDA_IMAGE:
         type: string
-        description: CUDA image to use as base, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04
+        description: CUDA image to use as base, e.g. nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04
         default: 'latest'
         required: false
       SOURCE_OVERRIDES:
