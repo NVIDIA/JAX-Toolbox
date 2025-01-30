@@ -56,14 +56,14 @@ runs:
           --badge_label "${{ inputs.badge_label }}" \
           --badge_filename "${{ inputs.badge_filename }}" \
           --sitrep_filename "${{ inputs.sitrep_filename }}" \
-          ${{ inputs.exit_status_patterns && '--exit_status_patterns ' + inputs.exit_status_patterns || '' }} \
-          ${{ inputs.exit_status_summary_file && '--exit_status_summary_file "' + inputs.exit_status_summary_file + '"' || '' }} \
-          ${{ inputs.metrics_logs && '--metrics_logs "' + inputs.metrics_logs + '"' || '' }} \
-          ${{ inputs.metrics_summary_file && '--metrics_summary_file "' + inputs.metrics_summary_file + '"' || '' }} \
-          ${{ inputs.badge_message && '--badge_message "' + inputs.badge_message + '"' || '' }} \
-          ${{ inputs.badge_color && '--badge_color "' + inputs.badge_color + '"' || '' }} \
-          ${{ inputs.tags && '--tags "' + inputs.tags + '"' || '' }} \
-          ${{ inputs.digest && '--digest "' + inputs.digest + '"' || '' }} \
-          ${{ inputs.outcome && '--outcome "' + inputs.outcome + '"' || '' }}
+          ${{ inputs.exit_status_patterns && format('--exit_status_patterns {0}', inputs.exit_status_patterns) || '' }} \
+          ${{ inputs.exit_status_summary_file && format('--exit_status_summary_file "{0}"', inputs.exit_status_summary_file) || '' }} \
+          ${{ inputs.metrics_logs && format('--metrics_logs "{0}"', inputs.metrics_logs) || '' }} \
+          ${{ inputs.metrics_summary_file && format('--metrics_summary_file "{0}"', inputs.metrics_summary_file) || '' }} \
+          ${{ inputs.badge_message && format('--badge_message "{0}"', inputs.badge_message) || '' }} \
+          ${{ inputs.badge_color && format('--badge_color "{0}"', inputs.badge_color) || '' }} \
+          ${{ inputs.tags && format('--tags "{0}"', inputs.tags) || '' }} \
+          ${{ inputs.digest && format('--digest "{0}"', inputs.digest) || '' }} \
+          ${{ inputs.outcome && format('--outcome "{0}"', inputs.outcome) || '' }}
       env:
         GITHUB_RUN_ID: ${{ github.run_id }}
