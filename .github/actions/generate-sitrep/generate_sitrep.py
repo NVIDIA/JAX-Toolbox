@@ -196,9 +196,7 @@ def main() -> None:
     if not args.exit_status_patterns:
         args.exit_status_patterns = [f"{args.badge_label}*-{args.github_run_id}-*/*-status.json"]
     if not args.metrics_logs:
-        args.metrics_logs = [f"{args.badge_label}-metrics-test-log/report.jsonl"]
-    if not args.metrics_json_patterns:
-        args.metrics_json_patterns = [f"{args.badge_label}-metrics-test-log/*_metrics.json"]
+        args.metrics_logs = [f"{args.badge_label}-metrics-test-log/*_metrics.json"]
 
     # if we have outcome, then we can produce the badge immediately 
     if args.outcome: 
