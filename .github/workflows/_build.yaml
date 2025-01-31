@@ -172,10 +172,11 @@ jobs:
         uses: ./.github/actions/generate-sitrep
         with:
           badge_label: '${{ inputs.CONTAINER_NAME }} ${{ inputs.ARCHITECTURE }} build'
+          tags: '${{ steps.final-metadata.outputs.tags }}'
+          digest: '${{ steps.final-build.outputs.digest }}'
+          outcome: '${{ steps.final-build.outcome }}'
           badge_filename: ${{ env.BADGE_FILENAME_FULL }}
           sitrep_filename: 'sitrep.json'
-          badge_message: "${{ steps.summary.outputs.badge_message }}"
-          badge_color: ${{ steps.summary.outputs.badge_color }}
 
       - name: Upload sitrep and badge
         if: "!cancelled()"

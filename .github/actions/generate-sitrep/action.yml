@@ -40,6 +40,27 @@ inputs:
   outcome:
     description: 'Outcome of the build'
     required: false
+  github_run_id:
+    description: 'ID of the GH run'
+    required: false
+  github_output_file:
+    description: 'Github output file from actions'
+    required: false
+  github_step_summary:
+    description: 'Github tests summary file'
+    required: false
+  total_tests:
+    description: 'Total number of tests'
+    required: false
+  errors:
+    description: 'Total number of errors'
+    required: false
+  failed_tests:
+    description: 'Number of failed tests'
+    required: false
+  passed_tests:
+    description: 'Number of passed tests'
+    required: false
 outputs:
   STATUS:
     description: 'The status of the tests (success or failure)'
@@ -64,6 +85,13 @@ runs:
           ${{ inputs.badge_color && format('--badge_color "{0}"', inputs.badge_color) || '' }} \
           ${{ inputs.tags && format('--tags "{0}"', inputs.tags) || '' }} \
           ${{ inputs.digest && format('--digest "{0}"', inputs.digest) || '' }} \
-          ${{ inputs.outcome && format('--outcome "{0}"', inputs.outcome) || '' }}
+          ${{ inputs.outcome && format('--outcome "{0}"', inputs.outcome) || '' }} \
+          ${{ inputs.github_run_id && format('--github_run_id "{0}"', inputs.github_run_id) || '' }} \
+          ${{ inputs.github_output_file && format('--github_output_file "{0}"', inputs.github_output_file) || '' }} \
+          ${{ inputs.github_step_summary && format('--github_step_summary "{0}"', inputs.github_step_summary) || '' }} \
+          ${{ inputs.total_tests && format('--total_tests "{0}"', inputs.total_tests) || '' }} \
+          ${{ inputs.errors && format('--errors "{0}"', inputs.errors) || '' }} \
+          ${{ inputs.failed_tests && format('--failed_tests "{0}"', inputs.failed_tests) || '' }} \
+          ${{ inputs.passed_tests && format('--passed_tests "{0}"', inputs.passed_tests) || '' }} \
       env:
         GITHUB_RUN_ID: ${{ github.run_id }}

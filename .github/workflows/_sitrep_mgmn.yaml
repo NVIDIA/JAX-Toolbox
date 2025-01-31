@@ -32,17 +32,33 @@ jobs:
       - name: Download all artifacts from the previous jobs
         uses: actions/download-artifact@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
       - name: Generate sitrep
         id: generate-sitrep
+        env:
+          GITHUB_OUTPUT: ${{ runner.temp }}/github_output.txt
+          GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
         uses: ./.github/actions/generate-sitrep  # Path to your composite action
         with:
           badge_label: "${{ inputs.FW_NAME }} Tests"
           badge_filename: "${{ inputs.BADGE_FILENAME }}"
           exit_status_pattern: "${{ inputs.FW_NAME }}*-${{ github.run_id }}-*/*-status.json"
           metrics_logs: "${{ inputs.FW_NAME }}-metrics-test-log/report.jsonl"
+          metrics_json_patterns: "${{ inputs.FW_NAME }}-metrics-test-log/*_metrics.json"
           exit_status_summary_file: "exit_status_summary.md"
           metrics_summary_file: "metrics_summary.md"
+          github_run_id: "${{ github.run_id }}"
+          github_output_file: "${{ env.GITHUB_OUTPUT }}"
+          github_step_summary: "${{ env.GITHUB_STEP_SUMMARY }}"
 
+      - name: Read STATUS Output
+        id: read-status
+        run: |
+          echo "STATUS=$(grep '^STATUS=' '${{ runner.temp }}/github_output.txt' | cut -d'=' -f2-)" >> $GITHUB_OUTPUT
 
       - name: Check and display metrics summary
         run: |

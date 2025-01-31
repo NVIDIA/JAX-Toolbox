@@ -138,18 +138,16 @@ jobs:
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) || '' }}
         
       - name: Generate sitrep
+        id: sitrep
         if: "!cancelled()"
-        id: generate-sitrep
         uses: ./.github/actions/generate-sitrep
         with:
-          badge_label: "Base image built on ${{ inputs.ARCHITECTURE }}: ${{ steps.build.outcome }}"
-          badge_filename: "${{ env.BADGE_FILENAME_FULL }}"
-          sitrep_filename: "sitrep.json"
-          tags: "${{ steps.meta.outputs.tags }}"
-          digest: "${{ steps.build.outputs.digest }}"
-          outcome: "${{ steps.build.outcome }}"
-          badge_message: ${{ (steps.build.outcome == 'success') && 'pass' || 'fail' }}
-          badge_color: ${{ (steps.build.outcome == 'success') && 'brightgreen' || 'red' }}
+          badge_label: 'Base image ${{ inputs.ARCHITECTURE }} build'
+          tags: '${{ steps.meta.outputs.tags }}'
+          digest: '${{ steps.build.outputs.digest }}'
+          outcome: '${{ steps.build.outcome }}'
+          badge_filename: ${{ env.BADGE_FILENAME_FULL }}
+          sitrep_filename: 'sitrep.json'
 
       - name: Upload sitrep and badge
         if: "!cancelled()"

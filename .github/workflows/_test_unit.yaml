@@ -110,6 +110,7 @@ jobs:
         run: |
           echo "${{ steps.summary.outputs.summary }}" > summary.md
 
+      # TODO here we'll have to fix the statistics_script so this is all handled in python
       - name: Generate sitrep
         id: sitrep
         if: "!cancelled()"
