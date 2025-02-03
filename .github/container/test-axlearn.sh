@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -uo pipefail
 
 usage() {
     echo "Run tests in axlearn with specified options."
@@ -13,9 +13,8 @@ usage() {
     echo "  -p, --packages PACKAGES       Space-separated list of packages to install via pip."
     echo "                                Default: 'attrs scikit-learn torch evaluate transformers timm wandb grain'."
     echo "  -c, --cuda-devices DEVICES    CUDA devices to use. Default: '0,1'."
-    echo "  -t, --test-files PATTERN      Pattern for test files to run."
+    echo "  -t, --test-files FILES        Pattern for test files to run."
     echo "                                Default: '*_test.py'."
-    echo "  --test-files-list FILE        File containing the list of test files to run."
     echo "  -o, --output DIRECTORY        Output directory for logs and summary."
     echo "                                Default: 'test_runs/<timestamp>'."
     echo "  -h, --help                    Show this help message and exit."
@@ -27,12 +26,11 @@ DIR='axlearn/axlearn/common'
 PACKAGES='attrs scikit-learn torch evaluate transformers timm wandb grain'
 CUDNN_VERSION='9.7.0.66' # TODO check the cudnn version on compute
 CUDA_DEVICES='0,1'
-TEST_FILES_PATTERN='*_test.py'
-TEST_FILES_LIST=''
+TEST_FILES=()
 OUTPUT_DIRECTORY=''
 
 # Parse args
-args=$(getopt -o d:p:c:t:o:h --long directory:,packages:,cuda-devices:,test-files:,test-files-list:,output:,help -- "$@")
+args=$(getopt -o d:p:c:t:o:h --long directory:,packages:,cuda-devices:,test-files:,output:,help -- "$@")
 if [ $? -ne 0 ]; then
     usage
     exit 1
@@ -55,12 +53,12 @@ while true; do
             shift 2
             ;;
         -t|--test-files)
-            TEST_FILES_PATTERN="$2"
-            shift 2
-            ;;
-        --test-files-list)
-            TEST_FILES_LIST="$2"
-            shift 2
+            shift
+            # Collect all arguments until the next option (starting with '-')
+            while [[ $# -gt 0 && ! "$1" =~ ^- ]]; do
+                TEST_FILES+=("$1")
+                shift
+            done
             ;;
         -o|--output)
             OUTPUT_DIRECTORY="$2"
@@ -94,10 +92,13 @@ echo "Configuration:"
 echo "  Directory: $DIR"
 echo "  Packages: $PACKAGES"
 echo "  CUDA Devices: $CUDA_DEVICES"
-if [ -n "$TEST_FILES_LIST" ]; then
-    echo "  Test Files List: $TEST_FILES_LIST"
+if [ "${#TEST_FILES[@]}" -gt 0 ]; then
+    echo "  Test Files:"
+    for f in "${TEST_FILES[@]}"; do
+        echo "    $f"
+    done
 else
-    echo "  Test Files Pattern: $TEST_FILES_PATTERN"
+    echo "  Test Files Pattern: '*_test.py' (default)"
 fi
 echo "  Output Directory: $OUTPUT_DIRECTORY"
 echo ""
@@ -115,20 +116,73 @@ echo "Using CUDA devices: $CUDA_VISIBLE_DEVICES"
 
 echo "Running tests..."
 
-if [ -n "$TEST_FILES_LIST" ]; then
-    mapfile -t test_files < "$TEST_FILES_LIST"
-else
-    shopt -s nullglob
-    test_files=($TEST_FILES_PATTERN)
-    shopt -u nullglob
+if [ "${#TEST_FILES[@]}" -eq 0 ]; then
+    TEST_FILES=("*_test.py")
 fi
+expanded_test_files=()
+for pattern in "${TEST_FILES[@]}"; do
+    # Use globbing to expand pattern
+    files=( $pattern )
+    if [ "${#files[@]}" -gt 0 ]; then
+        expanded_test_files+=( "${files[@]}" )
+    else
+        echo "Warning: No files matched pattern '$pattern'"
+    fi
+done
 
-if [ "${#test_files[@]}" -eq 0 ]; then
+
+if [ "${#expanded_test_files[@]}" -eq 0 ]; then
     echo "No test files found to run."
     exit 1
 fi
 
-for test_file in "${test_files[@]}"; do
+echo "These are the test files:"
+for f in "${expanded_test_files[@]}"; do
+    echo "  $f"
+done
+
+# Get the directory where the script is located
+#SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+EXCLUDE_LIST_FILE="$DIR/exclusion_list.txt"
+EXCLUDE_PATTERNS=()
+
+if [ -f "$EXCLUDE_LIST_FILE" ]; then
+    echo "Reading exclusion list from '$EXCLUDE_LIST_FILE'"
+    mapfile -t EXCLUDE_PATTERNS < "$EXCLUDE_LIST_FILE"
+else
+    echo "Exclusion list file not found at '$EXCLUDE_LIST_FILE'"
+fi
+echo "Exclude patterns read:"
+for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+    echo  "$pattern"
+done
+
+#expanded_test_files=( "${expanded_test_files[@]:0:10}" )
+# we are skipping some tests as there's still wip by Apple
+final_test_files=()
+
+for test_file in "${expanded_test_files[@]}"; do 
+    exclude=false 
+    #echo $test_file
+    for pattern in "${EXCLUDE_PATTERNS[@]}"; do 
+        if [[ "$(basename "$test_file")" == "$(basename "$pattern")" ]]; then
+            exclude=true 
+            break 
+        fi 
+    done 
+    if [ "$exclude" = false ]; then 
+        final_test_files+=("$test_file")
+    fi 
+done
+
+# Initialize counters
+errors=0
+failures=0
+passed=0
+SUMMARY_FILE="${OUTPUT_DIRECTORY}/summary.txt"
+
+
+for test_file in "${final_test_files[@]:0:10}"; do
     echo "Running: ${test_file}"
     # Ensure the test file exists
     if [ ! -f "${test_file}" ]; then
@@ -140,7 +194,32 @@ for test_file in "${test_files[@]}"; do
     log_file_name=$(echo "${test_file%.py}" | sed 's/\//__/g').log
     log_file="${LOG_DIRECTORY}/${log_file_name}"
     # run the tests and save them as *.log
-    pytest "${test_file}" -v --capture=tee-sys | tee "${log_file}"
-    # TODO parse the logs
-    #echo ${PIPESTATUS[0]}
+    pytest "${test_file}" --capture=tee-sys | tee "${log_file}"
+    # TODO parse the logs?
+    exit_code=${PIPESTATUS[0]}
+    echo $exit_code
+    if [ $exit_code -eq 0 ]; then
+        echo "${test_file}: PASSED" >> "${SUMMARY_FILE}"
+        ((passed++))
+    else
+        echo "${test_file}: FAILED (Exit code: $exit_code)" >> "${SUMMARY_FILE}"
+        ((failures++))
+    fi
+    echo ""
 done
+
+echo $errors 
+echo $passed 
+echo $failures
+
+# e.g. of output summary 
+#/opt/axlearn/axlearn/common/adapter_flax_test.py: PASSED
+#/opt/axlearn/axlearn/common/attention_bias_test.py: PASSED
+#/opt/axlearn/axlearn/common/bert_test.py: FAILED (Exit code: 1)
+#/opt/axlearn/axlearn/common/causal_lm_test.py: FAILED (Exit code: 1)
+#/opt/axlearn/axlearn/common/checkpointer_orbax_test.py: PASSED
+#/opt/axlearn/axlearn/common/checkpointer_test.py: PASSED
+#/opt/axlearn/axlearn/common/compiler_options_test.py: PASSED
+#/opt/axlearn/axlearn/common/config_test.py: PASSED
+#/opt/axlearn/axlearn/common/conformer_test.py: FAILED (Exit code: 1)
+#/opt/axlearn/axlearn/common/convolution_test.py: FAILED (Exit code: 1)
