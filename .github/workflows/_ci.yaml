@@ -710,3 +710,21 @@ jobs:
     with:
       MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
+
+  test-axlearn:
+    needs: build-axlearn
+    if: inputs.ARCHITECTURE == 'amd64' # no arm64 gpu runners
+    uses: ./.github/workflows/_test_unit.yaml
+    with: # fix the arguments below
+      TEST_NAME: axlearn
+      EXECUTE: |
+        docker run -i --shm-size=1g --gpus all \
+        ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-backend-independent.log
+          test-axlearn.sh --directory $pwd --output /opt/output/output.log --test-files /opt/axlearn/axlearn/common/*_test.py 
+        EOF
+      STATISTICS_SCRIPT: |
+        echo "Todo"
+      ARTIFACTS: |
+        test-backend-independent.log
+    secrets: inherit
