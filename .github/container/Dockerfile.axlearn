@@ -31,8 +31,23 @@ tensorflow-metadata==1.13.1
 tensorflow-probability==0.24.0
 tensorflow-text==2.18.1
 pytest>=7.4.3
+scikit-learn 
+torch 
+evaluate 
+transformers 
+timm 
+wandb 
+grain
+nvidia-cudnn-cu12==9.7.0.66
 REQUIREMENTS
 EOF
+
+
+###############################################################################
+## Add test script to the path
+###############################################################################
+
+ADD test-axlearn.sh /usr/local/bin
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage

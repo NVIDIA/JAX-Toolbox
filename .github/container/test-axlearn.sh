@@ -12,7 +12,7 @@ usage() {
     echo "                                Default: 'axlearn/axlearn/common'."
     echo "  -p, --packages PACKAGES       Space-separated list of packages to install via pip."
     echo "                                Default: 'attrs scikit-learn torch evaluate transformers timm wandb grain'."
-    echo "  -c, --cuda-devices DEVICES    CUDA devices to use. Default: '0,1'."
+    echo "  -c, --cuda-devices DEVICES    CUDA devices to use. Default: '0,1,2,3,4,5,6,7'."
     echo "  -t, --test-files FILES        Pattern for test files to run."
     echo "                                Default: '*_test.py'."
     echo "  -o, --output DIRECTORY        Output directory for logs and summary."
@@ -23,9 +23,7 @@ usage() {
 
 # Default values
 DIR='axlearn/axlearn/common'
-PACKAGES='attrs scikit-learn torch evaluate transformers timm wandb grain'
-CUDNN_VERSION='9.7.0.66' # TODO check the cudnn version on compute
-CUDA_DEVICES='0,1'
+CUDA_DEVICES='0,1,2,3,4,5,6,7'
 TEST_FILES=()
 OUTPUT_DIRECTORY=''
 
@@ -105,10 +103,6 @@ echo ""
 
 
 cd "$DIR" || exit 1
-
-# Install all the neeeded packages
-echo "Installing packages..."
-pip install $PACKAGES
 
 # Set CUDA devices
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}"
