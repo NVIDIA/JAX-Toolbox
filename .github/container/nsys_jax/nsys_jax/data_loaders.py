@@ -230,8 +230,9 @@ def _load_nvtx_gpu_proj_trace_single(
         mod_id_names = df.loc[mod_ids, "Name"]
         assert mod_ids.shape == mod_id_names.shape
         # Get a mask in mod_id_names of entries where ModuleId in the original
-        # Thunk is not referring to a Module. If it's not a module, it should
-        # be a thunk.
+        # Thunk is not referring to a Module yet. Intermediate levels of the
+        # hierarchy can be other thunks (e.g. an individual graph node may
+        # have a thunk representing the whole graph as a parent).
         mask = ~mod_id_names.str.startswith(module_prefix)
         assert (mask == mod_id_names.str.startswith(thunk_prefix)).all()
         assert mask.shape == mod_ids.shape
