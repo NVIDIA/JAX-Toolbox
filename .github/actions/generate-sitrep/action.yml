@@ -1,0 +1,97 @@
+name: 'Generate Sitrep'
+
+description: 'Generates sitrep and badge JSON files using a Python script'
+
+inputs:
+  badge_label:
+    description: 'Label for the badge'
+    required: true
+  badge_filename:
+    description: 'Output badge filename'
+    required: true
+  sitrep_filename:
+    description: 'Output sitrep filename'
+    required: false
+    default: 'sitrep.json'
+  exit_status_patterns:
+    description: 'Glob pattern for exit status files'
+    required: false
+  metrics_logs:
+    description: 'Metrics log file'
+    required: false
+  exit_status_summary_file:
+    description: 'Summary message (overrides default)'
+    required: false
+  metrics_summary_file:
+    description: 'File containing metrics summary markdown'
+    required: false
+  badge_message:
+    description: 'Badge message (overrides default)'
+    required: false
+  badge_color:
+    description: 'Badge color (overrides default)'
+    required: false
+  tags:
+    description: 'Tags from the build'
+    required: false
+  digest:
+    description: 'Digest from the build'
+    required: false
+  outcome:
+    description: 'Outcome of the build'
+    required: false
+  github_run_id:
+    description: 'ID of the GH run'
+    required: false
+  github_output_file:
+    description: 'Github output file from actions'
+    required: false
+  github_step_summary:
+    description: 'Github tests summary file'
+    required: false
+  total_tests:
+    description: 'Total number of tests'
+    required: false
+  errors:
+    description: 'Total number of errors'
+    required: false
+  failed_tests:
+    description: 'Number of failed tests'
+    required: false
+  passed_tests:
+    description: 'Number of passed tests'
+    required: false
+outputs:
+  STATUS:
+    description: 'The status of the tests (success or failure)'
+    value: ${{ steps.python-sitrep.outputs.STATUS }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run generate_sitrep.py
+      id: python-sitrep
+      shell: bash
+      run: |
+        python3 "${{ github.action_path }}/generate_sitrep.py" \
+          --badge_label "${{ inputs.badge_label }}" \
+          --badge_filename "${{ inputs.badge_filename }}" \
+          --sitrep_filename "${{ inputs.sitrep_filename }}" \
+          ${{ inputs.exit_status_patterns && format('--exit_status_patterns {0}', inputs.exit_status_patterns) || '' }} \
+          ${{ inputs.exit_status_summary_file && format('--exit_status_summary_file "{0}"', inputs.exit_status_summary_file) || '' }} \
+          ${{ inputs.metrics_logs && format('--metrics_logs "{0}"', inputs.metrics_logs) || '' }} \
+          ${{ inputs.metrics_summary_file && format('--metrics_summary_file "{0}"', inputs.metrics_summary_file) || '' }} \
+          ${{ inputs.badge_message && format('--badge_message "{0}"', inputs.badge_message) || '' }} \
+          ${{ inputs.badge_color && format('--badge_color "{0}"', inputs.badge_color) || '' }} \
+          ${{ inputs.tags && format('--tags "{0}"', inputs.tags) || '' }} \
+          ${{ inputs.digest && format('--digest "{0}"', inputs.digest) || '' }} \
+          ${{ inputs.outcome && format('--outcome "{0}"', inputs.outcome) || '' }} \
+          ${{ inputs.github_run_id && format('--github_run_id "{0}"', inputs.github_run_id) || '' }} \
+          ${{ inputs.github_output_file && format('--github_output_file "{0}"', inputs.github_output_file) || '' }} \
+          ${{ inputs.github_step_summary && format('--github_step_summary "{0}"', inputs.github_step_summary) || '' }} \
+          ${{ inputs.total_tests && format('--total_tests "{0}"', inputs.total_tests) || '' }} \
+          ${{ inputs.errors && format('--errors "{0}"', inputs.errors) || '' }} \
+          ${{ inputs.failed_tests && format('--failed_tests "{0}"', inputs.failed_tests) || '' }} \
+          ${{ inputs.passed_tests && format('--passed_tests "{0}"', inputs.passed_tests) || '' }} \
+      env:
+        GITHUB_RUN_ID: ${{ github.run_id }}
