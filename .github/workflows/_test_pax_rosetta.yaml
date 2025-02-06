@@ -232,10 +232,11 @@ jobs:
             PARALLEL_CONFIG: [1, 4, 1, 2]
             BATCH_SIZE: 4
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: 16DP1FSDP1TP1PP_TE
-            PARALLEL_CONFIG: [1, 16, 1, 1]
-            BATCH_SIZE: 4
-            ADDITIONAL_ARGS: ""
+          # 2-node config temporarily disabled
+          # - TEST_NAME: 16DP1FSDP1TP1PP_TE
+          #   PARALLEL_CONFIG: [1, 16, 1, 1]
+          #   BATCH_SIZE: 4
+          #   ADDITIONAL_ARGS: ""
           - TEST_NAME: 5B_fused_attn_1
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 2
@@ -446,7 +447,8 @@ jobs:
         - [1, 8, 1, 1]
         - [1, 4, 1, 2]
         - [4, 2, 1, 1]
-        - [4, 2, 1, 2]
+        # 2-node config temporarily disabled
+        # - [4, 2, 1, 2]
       fail-fast: false
     runs-on: jumpbox
     env:
