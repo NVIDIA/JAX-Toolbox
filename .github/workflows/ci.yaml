@@ -187,23 +187,17 @@ jobs:
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
           done
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
-
-  amd64:
+   
+  build-amd64-arm64: 
     needs: [metadata, bump-manifest]
+    strategy: 
+        matrix:
+          include: 
+            - { architecture: amd64 }
+            - { architecture: arm64 }
     uses: ./.github/workflows/_ci.yaml
     with:
-      ARCHITECTURE: amd64
-      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
-      MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
-      SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
-    secrets: inherit
-
-  arm64:
-    needs: [metadata, bump-manifest]
-    uses: ./.github/workflows/_ci.yaml
-    with:
-      ARCHITECTURE: arm64
+      ARCHITECTURE: ${{ matrix.architecture }}
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
       CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
@@ -216,8 +210,7 @@ jobs:
     if: ${{ !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
     needs:
       - metadata
-      - amd64
-      - arm64
+      - build-amd64-arm64
     steps:
       - name: "Tests Succeeded: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}"
         id: test_result
@@ -330,8 +323,7 @@ jobs:
       FINAL_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax' || 'mock-jax' }}
     needs:
       - metadata
-      - amd64
-      - arm64
+      - build-amd64-arm64
     outputs:
       PUBLISH_CONFIGS: ${{ steps.generate-configs.outputs.PUBLISH_CONFIGS }}
     steps:
