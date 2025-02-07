@@ -1,7 +1,6 @@
 # Development
 Rosetta builds upon other base libraries like [t5x](https://github.com/google-research/t5x)
-and [paxml](https://github.com/google/paxml) and patches it with features
-that are necessary to train the models defined in this repo.
+and patches it with features that are necessary to train the models defined in this repo.
 
 This project follows the [distribution model](https://opensource.com/article/18/7/forks-vs-distributions). This means
 we cherry-pick the necessary changes onto the tip of upstream's `main` branch. These changes are typically available as PRs
@@ -21,7 +20,6 @@ For all other changes like adding a new model or a new data pipeline library tha
 the base library: we can add that to this repo.
 
 ## Changes that need to keep up with upstream
-**Note**: Here we use [t5x](https://github.com/google-research/t5x) as an example, but the same applies to [paxml](https://github.com/google/paxml).
 
 The workflow to create a feature that we'll cherry-pick into the t5x distribution is:
 
