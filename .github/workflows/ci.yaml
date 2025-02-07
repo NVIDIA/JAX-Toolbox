@@ -351,8 +351,8 @@ jobs:
           ## create JSON specs for a 1D matrix of container publication jobs
 
           ALL_TAGS=$(
-            echo '${{ needs.amd64.outputs.DOCKER_TAGS }}' \
-                 '${{ needs.arm64.outputs.DOCKER_TAGS }}' |\
+            echo '${{ fromJson(needs.build.outputs['0'].DOCKER_TAGS) }}' \
+                 '${{ fromJson(needs.build.outputs['1'].DOCKER_TAGS) }}' |\
             jq -s 'add'
           )
           PUBLISH_CONFIGS='[]'
@@ -425,7 +425,7 @@ jobs:
         type=raw,value=${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
 
   finalize:
-    needs: [metadata, amd64, arm64, publish-containers]
+    needs: [metadata, build-amd64-arm64, publish-containers]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     with:
