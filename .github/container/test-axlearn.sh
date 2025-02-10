@@ -10,8 +10,6 @@ usage() {
     echo "  OPTIONS                       DESCRIPTION"
     echo "  -d, --directory DIR           Directory to run tests in."
     echo "                                Default: 'axlearn/axlearn/common'."
-    echo "  -p, --packages PACKAGES       Space-separated list of packages to install via pip."
-    echo "                                Default: 'attrs scikit-learn torch evaluate transformers timm wandb grain'."
     echo "  -c, --cuda-devices DEVICES    CUDA devices to use. Default: '0,1,2,3,4,5,6,7'."
     echo "  -t, --test-files FILES        Pattern for test files to run."
     echo "                                Default: '*_test.py'."
@@ -28,7 +26,7 @@ TEST_FILES=()
 OUTPUT_DIRECTORY=''
 
 # Parse args
-args=$(getopt -o d:p:c:t:o:h --long directory:,packages:,cuda-devices:,test-files:,output:,help -- "$@")
+args=$(getopt -o d:p:c:t:o:h --long directory:,cuda-devices:,test-files:,output:,help -- "$@")
 if [ $? -ne 0 ]; then
     usage
     exit 1
@@ -40,10 +38,6 @@ while true; do
     case "$1" in
         -d|--directory)
             DIR="$2"
-            shift 2
-            ;;
-        -p|--packages)
-            PACKAGES="$2"
             shift 2
             ;;
         -c|--cuda-devices)
@@ -88,7 +82,6 @@ mkdir -p "${LOG_DIRECTORY}"
 # Print out config for sanity check
 echo "Configuration:"
 echo "  Directory: $DIR"
-echo "  Packages: $PACKAGES"
 echo "  CUDA Devices: $CUDA_DEVICES"
 if [ "${#TEST_FILES[@]}" -gt 0 ]; then
     echo "  Test Files:"
@@ -99,8 +92,7 @@ else
     echo "  Test Files Pattern: '*_test.py' (default)"
 fi
 echo "  Output Directory: $OUTPUT_DIRECTORY"
-echo ""
-
+echo "" 
 
 cd "$DIR" || exit 1
 
