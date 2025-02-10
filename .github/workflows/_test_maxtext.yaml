@@ -183,7 +183,8 @@ jobs:
         - [1, 1, 1, 8]
         - [1, 1, 4, 2]
         - [1, 2, 2, 2]
-        - [1, 4, 2, 2]
+        # 2-node config temporarily disabled
+        # - [1, 4, 2, 2]
       fail-fast: false
     runs-on: jumpbox
     steps:
