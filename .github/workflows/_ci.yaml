@@ -703,7 +703,7 @@ jobs:
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-backend-independent.log
-          test-axlearn.sh --directory $pwd --output /opt/output/output.log --test-files /opt/axlearn/axlearn/common/*_test.py 
+          test-axlearn.sh --directory "." --output "/opt/output/" --test-files "/opt/axlearn/axlearn/common/*_test.py" 
         EOF
       STATISTICS_SCRIPT: |
         echo "Todo"
