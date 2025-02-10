@@ -1,0 +1,39 @@
+name: "Query SLURM Job"
+
+description: "Reusable action to query SLURM job exit info and tail the SLURM log file."
+
+inputs:
+  slurm_login_user:
+    description: "Username for the SLURM login node."
+    required: true
+  slurm_login_hostname:
+    description: "Hostname of the SLURM login node."
+    required: true
+  job_id:
+    description: "The SLURM job ID to query."
+    required: true
+  log_file:
+    description: "Path to the SLURM log file on the remote host."
+    required: true
+
+outputs:
+  slurm_state:
+    description: "The SLURM job state (e.g., COMPLETED, FAILED, etc.)"
+    value: ${{ steps.query.slurm_state }}
+  slurm_exitcode:
+    description: "The exit code from the SLURM job."
+    value: ${{ steps.query.slurm_exitcode }}
+    
+
+runs:
+  using: "composite"
+  steps:
+    - name: Query SLURM job exit info and tail log
+      id: query
+      shell: bash
+      run: |
+         result=$(./github/actions/query-slurm-job/query_slurm_job.sh \
+          "${{ inputs.slurm_login_user }}" \
+          "${{ inputs.slurm_login_hostname }}" \
+          "${{ inputs.job_id }}" \
+          "${{ inputs.log_file }}" )

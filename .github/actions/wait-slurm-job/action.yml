@@ -1,0 +1,25 @@
+name: 'Wait For SLURM Job'
+
+description: 'Reusable action that waits for a SLURM job'
+inputs:
+  host:
+    description: 'The SSH host in the format user@hostname.'
+    required: true
+  job_id:
+    description: 'The SLURM job ID to monitor.'
+    required: true
+  check_interval:
+    description: 'Interval in seconds between job status checks (default: 15).'
+    required: false
+    default: '15'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Wait for SLURM Job Completion
+      shell: bash
+      run: |
+         result=$(./github/actions/submit-slurm-job/submit_job.sh \
+          "${{ inputs.host }}" \
+          "${{ inputs.job_id }}" \
+          "${{ inputs.check_interval }}" 

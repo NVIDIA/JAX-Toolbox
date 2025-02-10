@@ -140,36 +140,12 @@ jobs:
 
       - name: Query for job exit info
         id: exit-info
-        shell: bash -exu -o pipefail {0}
-        run: |
-          JOB_INFO=$(
-            ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} \
-            sacct -j ${{ steps.submit.outputs.SLURM_JOB_ID }} --format=JobID,JobName,State,Exitcode --parsable2 --noheader |\
-            grep -E '^[0-9]+\|'
-          )
-
-          SLURM_STATE=$(echo "$JOB_INFO" | cut -f 3 -d"|")
-          SLURM_EXITCODE=$(echo "$JOB_INFO" | cut -f 4 -d"|")
-
-          echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
-          echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
-
-          set -x
-          echo "***************************************************************"
-          echo "***************************************************************"
-          echo "******************** TAIL OF SLURM LOG BEG ********************"
-          echo "***************************************************************"
-          echo "***************************************************************"
-          ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} tail -n 200 ${{ steps.meta.outputs.LOG_FILE }}
-          echo "***************************************************************"
-          echo "***************************************************************"
-          echo "******************** TAIL OF SLURM LOG END ********************"
-          echo "***************************************************************"
-          echo "***************************************************************"
-
-          if [ "$SLURM_STATE" != "COMPLETED" ]; then
-            exit 1
-          fi
+        uses: ./.github/actions/query-slurm-job
+        with: |
+          slurm_login_user: ${{ secrets.SLURM_LOGIN_USER }}
+          slurm_login_hostname: ${{ inputs.SLURM_LOGIN_HOSTNAME }}
+          job_id: ${{ steps.submit.outputs.SLURM_JOB_ID }}
+          log_file: ${{ steps.meta.outputs.LOG_FILE }}
 
       - name: Gather artifacts
         if: "!cancelled()"
