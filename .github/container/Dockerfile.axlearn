@@ -38,7 +38,6 @@ transformers
 timm 
 wandb 
 grain
-nvidia-cudnn-cu12==9.7.0.66
 REQUIREMENTS
 EOF
 
