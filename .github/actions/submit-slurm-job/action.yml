@@ -1,0 +1,87 @@
+name: 'Submit SLURM Job'
+
+description: 'Reusable action to submit a SLURM job.'
+
+inputs:
+  image:
+    description: 'Container image to use for the SLURM job'
+    required: true
+  log_file:
+    description: 'Path to the log file on the SLURM login node'
+    required: true
+  output_path:
+    description: 'Output directory on the SLURM login node'
+    required: true
+  time_limit:
+    description: 'Time limit for the SLURM job'
+    required: true
+  nodes:
+    description: 'Number of nodes to request'
+    required: true
+  gpus_per_node:
+    description: 'Number of GPUs per node'
+    required: true
+  ntasks:
+    description: 'Total number of tasks to run'
+    required: true
+  ntasks_per_node:
+    description: 'Number of tasks per node'
+    required: true
+  extra_exports:
+    description: 'Extra environment variables to export (comma-separated)'
+    required: false
+    default: ''
+  srun_preamble:
+    description: 'Script to run on compute nodes before the main script'
+    required: false
+    default: 'true'
+  srun_script:
+    description: 'Main script to run on compute nodes'
+    required: true
+  slurm_login_user:
+    description: 'Username for the SLURM login node'
+    required: true
+  slurm_login_hostname:
+    description: 'Hostname of the SLURM login node'
+    required: true
+  container_registry_token:
+    description: 'Token for accessing the container registry'
+    required: true
+  output_mountpoint:
+    description: 'Mount point for the SLURM scratch space in the container'
+    required: true
+outputs:
+  slurm_job_id:
+    description: 'The ID of the submitted SLURM job'
+    value: ${{ steps.run_submit.slurm_job_id }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run submit_job.sh script
+      id: run_submit
+      shell: bash
+      run: |
+        # Execute the SLURM submission script with passed parameters.
+        # Capture its output (which prints the SLURM_JOB_ID) into a variable.
+        # TODO CHECK OUTPUT
+        result=$(./scripts/submit_job.sh \
+          "${{ inputs.image }}" \
+          "${{ inputs.log_file }}" \
+          "${{ inputs.output_path }}" \
+          "${{ inputs.time_limit }}" \
+          "${{ inputs.nodes }}" \
+          "${{ inputs.gpus_per_node }}" \
+          "${{ inputs.ntasks }}" \
+          "${{ inputs.ntasks_per_node }}" \
+          "${{ inputs.extra_exports }}" \
+          "${{ inputs.srun_preamble }}" \
+          "${{ inputs.srun_script }}" \
+          "${{ inputs.slurm_login_user }}" \
+          "${{ inputs.slurm_login_hostname }}" \
+          "${{ inputs.container_registry_token }}" \
+          "${{ inputs.output_mountpoint }}" )
+          
+        # Strip out the "SLURM_JOB_ID=" part to emit just the ID if needed.
+        slurm_job_id=$(echo "$result" | awk -F'=' '{print $2}')
+        echo "slurm_job_id=$slurm_job_id" >> "$GITHUB_OUTPUT"
