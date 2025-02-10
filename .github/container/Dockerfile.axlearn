@@ -16,7 +16,7 @@ EOF
 
 RUN <<"EOF" bash -ex
   echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
-  echo <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
+  cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
 aqtp==0.8.2
 einops==0.8.0
 nltk==3.7
