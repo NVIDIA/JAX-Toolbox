@@ -65,7 +65,7 @@ runs:
         # Execute the SLURM submission script with passed parameters.
         # Capture its output (which prints the SLURM_JOB_ID) into a variable.
         # TODO CHECK OUTPUT
-        result=$(./scripts/submit_job.sh \
+        result=$(./github/actions/submit-slurm-job/submit_job.sh \
           "${{ inputs.image }}" \
           "${{ inputs.log_file }}" \
           "${{ inputs.output_path }}" \

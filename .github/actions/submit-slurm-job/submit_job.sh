@@ -25,10 +25,10 @@ OUTPUT_MOUNTPOINT="${15}"
 
 SSH_CMD="ssh ${SLURM_LOGIN_USER}@${SLURM_LOGIN_HOSTNAME}"
 
-# Create output directory on the login node
+# Create output directory
 ${SSH_CMD} "mkdir -p ${OUTPUT_PATH}"
 
-# Build the SLURM submission script with placeholder values replaced
+# SLURM submission script
 JOB_SCRIPT=$(cat <<'EOF'
 #!/bin/bash
 #SBATCH --job-name=${GITHUB_RUN_ID}-${INPUT_NAME}
@@ -39,6 +39,21 @@ JOB_SCRIPT=$(cat <<'EOF'
 #SBATCH --output=__LOG_FILE__
 #SBATCH --export="__EXTRA_EXPORTS__,ENROOT_PASSWORD=__CONTAINER_REGISTRY_TOKEN__"
 
+# Execute this function when `scancel` is sent
+cleanup() {
+    echo "Checking for running Docker container..."
+    running_container=$(docker ps -q --filter "name=^/__IMAGE__$")
+
+    if [ -n "$running_container" ]; then
+        echo "Stopping Docker container __IMAGE__ ..."
+        docker stop "__IMAGE__"
+    else
+        echo "No running container found with name __IMAGE__."
+    fi   
+}
+# Make trap: this will be executed when the scirpt receives a SIGTERM signal
+trap 'cleanup' TERM
+
 # Preload enroot container using one task per node
 time srun \
   --ntasks-per-node=1 \
@@ -46,7 +61,7 @@ time srun \
   --container-image=__IMAGE__ \
   true
 
-# Run any preamble tasks
+# run single-task preambles for, e.g., dependencies installation
 time srun \
   --ntasks-per-node=1 \
   --container-name=runtime \

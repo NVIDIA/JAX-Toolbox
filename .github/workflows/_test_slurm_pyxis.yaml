@@ -113,58 +113,30 @@ jobs:
           
       - name: Submit SLURM jobs over SSH
         id: submit
-        shell: bash -O expand_aliases -x -e {0}
-        run: |
-          alias SSH='ssh ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}'
-          SSH mkdir -p ${{ steps.meta.outputs.OUTPUT_PATH }}
-          SLURM_JOB_ID=$(SSH sbatch --parsable <<"EOF"
-          #!/bin/bash
-          #SBATCH --job-name=${{ github.run_id }}-${{ inputs.NAME }}
-          #SBATCH --exclusive
-          #SBATCH --nodes=${{ inputs.NODES }}
-          #SBATCH --gpus-per-node=${{ inputs.GPUS_PER_NODE }}
-          #SBATCH --time=${{ inputs.TIME_LIMIT }}
-          #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
-          #SBATCH --export="${{ inputs.EXTRA_EXPORTS }},ENROOT_PASSWORD=${{ secrets.CONTAINER_REGISTRY_TOKEN }}"
-
-          # preload enroot container using one task per node
-          time srun \
-            --ntasks-per-node=1 \
-            --container-name=runtime \
-            --container-image=${{ steps.meta.outputs.IMAGE }} \
-            true
-            
-          # run single-task preambles for, e.g., dependencies installation
-          time srun \
-            --ntasks-per-node=1 \
-            --container-name=runtime \
-            bash <<"EOFINNER"
-            ${{ inputs.SRUN_PREAMBLE }}
-          EOFINNER
-
-          # run job with tasks on each node sharing one container
-          time srun \
-            --tasks=${{ inputs.NTASKS }} \
-            --tasks-per-node=${{ inputs.NTASKS_PER_NODE }} \
-            --container-name=runtime \
-            --container-mounts=${{ steps.meta.outputs.OUTPUT_PATH }}:${{ inputs.OUTPUT_MOUNTPOINT }} \
-            --container-entrypoint \
-            bash <<"EOFINNER"
-            ${{ inputs.SRUN_SCRIPT }}
-          EOFINNER
-
-          EOF
-          )
-
-          echo "SLURM_JOB_ID=${SLURM_JOB_ID}" >> $GITHUB_OUTPUT
+        uses: ./.github/actions/submit-slurm-job
+        with: |
+            image: ${{ steps.meta.outputs.IMAGE }}
+            log_file: ${{ steps.meta.outputs.LOG_FILE }}
+            output_path: ${{ steps.meta.outputs.OUTPUT_PATH }}
+            time_limit: ${{ inputs.TIME_LIMIT }}
+            nodes: ${{ inputs.NODES }}
+            gpus_per_node: ${{ inputs.GPUS_PER_NODE }}
+            ntasks: ${{ inputs.NTASKS }}
+            ntasks_per_node: ${{ inputs.NTASKS_PER_NODE }}
+            extra_exports: ${{ inputs.EXTRA_EXPORTS }}
+            srun_preamble: ${{ inputs.SRUN_PREAMBLE }}
+            srun_script: ${{ inputs.SRUN_SCRIPT }}
+            slurm_login_user: ${{ secrets.SLURM_LOGIN_USER }}
+            slurm_login_hostname: ${{ inputs.SLURM_LOGIN_HOSTNAME }}
+            container_registry_token: ${{ secrets.CONTAINER_REGISTRY_TOKEN }}
+            output_mountpoint: ${{ inputs.OUTPUT_MOUNTPOINT }}
 
       - name: Wait for SLURM job to complete
         id: wait
-        shell: bash -eu {0}
-        run: |
-          . .github/workflows/scripts/wait_for_slurm_job.sh
-
-          wait_for_slurm_job ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }} ${{ steps.submit.outputs.SLURM_JOB_ID }}
+        uses: ./.github/actions/wait-slurm-job
+        with: |
+          host: ${{ secrets.SLURM_LOGIN_USER }}@${{ inputs.SLURM_LOGIN_HOSTNAME }}
+          job_id: ${{ steps.submit.outputs.SLURM_JOB_ID }}
 
       - name: Query for job exit info
         id: exit-info
