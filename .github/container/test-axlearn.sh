@@ -162,19 +162,17 @@ for test_file in "${expanded_test_files[@]}"; do
 done
 
 # Initialize counters
-errors=0
 failures=0
 passed=0
 SUMMARY_FILE="${OUTPUT_DIRECTORY}/summary.txt"
 
 
-for test_file in "${final_test_files[@]:0:10}"; do
+for test_file in "${final_test_files[@]}"; do
     echo "Running: ${test_file}"
     # Ensure the test file exists
     if [ ! -f "${test_file}" ]; then
         echo "${test_file}: NOT FOUND" >> "${SUMMARY_FILE}"
         echo "Test file not found: ${test_file}"
-        ((errors++))
         continue
     fi
     log_file_name=$(echo "${test_file%.py}" | sed 's/\//__/g').log
@@ -194,18 +192,5 @@ for test_file in "${final_test_files[@]:0:10}"; do
     echo ""
 done
 
-echo $errors 
 echo $passed 
 echo $failures
-
-# e.g. of output summary 
-#/opt/axlearn/axlearn/common/adapter_flax_test.py: PASSED
-#/opt/axlearn/axlearn/common/attention_bias_test.py: PASSED
-#/opt/axlearn/axlearn/common/bert_test.py: FAILED (Exit code: 1)
-#/opt/axlearn/axlearn/common/causal_lm_test.py: FAILED (Exit code: 1)
-#/opt/axlearn/axlearn/common/checkpointer_orbax_test.py: PASSED
-#/opt/axlearn/axlearn/common/checkpointer_test.py: PASSED
-#/opt/axlearn/axlearn/common/compiler_options_test.py: PASSED
-#/opt/axlearn/axlearn/common/config_test.py: PASSED
-#/opt/axlearn/axlearn/common/conformer_test.py: FAILED (Exit code: 1)
-#/opt/axlearn/axlearn/common/convolution_test.py: FAILED (Exit code: 1)
