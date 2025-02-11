@@ -57,7 +57,9 @@ outputs:
 
 runs:
   using: "composite"
+  
   steps:
+    
     - name: Run submit_job.sh script
       id: run_submit
       shell: bash
