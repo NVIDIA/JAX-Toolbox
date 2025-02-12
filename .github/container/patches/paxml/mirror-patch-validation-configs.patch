@@ -1,0 +1,945 @@
+From c53fc29da94453d599f9310937f5591a1e4134cd Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Mon, 21 Aug 2023 12:54:59 -0700
+Subject: [PATCH 1/3] add configs for CI validation
+
+---
+ paxml/contrib/gpu/scripts_gpu/configs.py | 216 ++++++++++++++++++++++-
+ paxml/contrib/gpu/scripts_gpu/tasks.py   | 134 ++++++++++++--
+ 2 files changed, 326 insertions(+), 24 deletions(-)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
+index cb5ad52..ce65059 100644
+--- a/paxml/contrib/gpu/scripts_gpu/configs.py
++++ b/paxml/contrib/gpu/scripts_gpu/configs.py
+@@ -26,10 +26,11 @@ from paxml.contrib.gpu.scripts_gpu.llama_utils import BaseLLaMA
+ from paxml.contrib.gpu.scripts_gpu.lora_utils import LoRAMixin
+ from paxml.contrib.gpu.scripts_gpu.tasks import BoolQDataset
+ from paxml.contrib.gpu.scripts_gpu.tasks import LambadaDataset
+-from paxml.contrib.gpu.scripts_gpu.tasks import PileUnsupervisedDataset
++from paxml.contrib.gpu.scripts_gpu.tasks import GPTUnsupervisedDataset
+ from paxml.tasks.lm.model_params import maybe_setup_moe_params
+ from paxml.tasks.lm.params.c4 import TransformerLmSpmdAdam
+ from paxml.tasks.lm.params.lm_cloud import SyntheticDataset
++from paxml.tasks.lm.params.c4 import TransformerLmSpmdPipelineAdam
+ from praxis import base_layer
+ from praxis import layers
+ from praxis import optimizers
+@@ -222,7 +223,7 @@ class GPT5BBase(GPT126MBase):
+     model_p = task_p.model
+     stacked_p = model_p.lm_tpl.stacked_transformer_tpl
+     if issubclass(
+-        fdl.get_callable(stacked_p), transformers.StackedTransformerRepeated
++      fdl.get_callable(stacked_p), transformers.StackedTransformerRepeated
+     ):
+       stacked_p = stacked_p.block
+ 
+@@ -281,6 +282,201 @@ class GPT175BBase(GPT126MBase):
+   DCN_MESH_SHAPE = [1, 32, 1]
+   PERCORE_BATCH_SIZE = 6
+ 
++  NUM_LOSSES_TO_AVERAGE = 5
++
++
++############# pipeline parallel configs ###############
++class GPT126MPP(TransformerLmSpmdPipelineAdam):
++
++  MODEL_CLASS = CustomMetricsLM
++
++  USE_REPEATED_LAYER = False
++  
++  ICI_MESH_SHAPE = [4,2,1,1]
++  DCN_MESH_SHAPE = [1,1,1,1]
++  NUM_STAGES = 4
++  PERCORE_BATCH_SIZE = 4
++  MICROBATCH_SIZE = 8
++  
++  MAX_STEPS = 600000
++  
++  MAX_SEQ_LEN = 2048
++  VOCAB_SIZE = 50304
++  PACKED_INPUT = False ## disable packed input for TE
++  
++  NUM_LAYERS = 12
++  NUM_HEADS = 12
++  MODEL_DIMS = 768
++  HIDDEN_DIMS = 3072
++  DIMS_PER_HEAD = 64
++
++  TRAINABLE_POSITION_EMB = True
++  TRAINABLE_PE_MAX_SEQ_LEN = MAX_SEQ_LEN
++  
++  USE_BIAS = True
++  LAYERNORM_EPSILON = 1e-5
++  ATTEN_LOGIT_CAP = -1.0
++  INIT_STD = 0.023
++  SOFTMAX_INIT_STD = 0.023
++  ACTIVATION_CLS = layers.GELU
++    
++  ## optimizer-related
++  ADAM_BETA1 = 0.9
++  ADAM_BETA2 = 0.95
++  LEARNING_RATE = 6e-4
++  ADAM_EPSILON_ROOT = 0.0
++  ADAM_EPSILON = 1e-8
++  WEIGHT_DECAY = 0.1
++  ADAM_CLIP_THRESHOLD = -1.0
++  CLIP_GRADIENT_NORM_TO_VALUE = 1.0
++
++  ## lr schedule
++  LR_SCHEDULE = 'linear_rampup_cosine_decay'
++  LR_COS_WARMUP = 636
++  LR_COS_DECAY_START = LR_COS_WARMUP+1
++  LR_COS_DECAY_END = 500000
++  R_COS_MIN_RATIO = 0.1
++  LR_COS_MAX = 1.0
++
++  NUM_LOSSES_TO_AVERAGE = 10
++
++  def task(self):
++    task_p = super().task()
++    task_p = configure_gpt3_task(self, task_p)
++
++    task_p.train.num_train_steps = self.MAX_STEPS
++    task_p.train.num_losses_to_average = self.NUM_LOSSES_TO_AVERAGE
++
++    model_p = task_p.model
++    
++    ### compute layernorm reductions in fp32. Needed for stable training on GPUs
++    stacked_p = model_p.lm_tpl.stacked_transformer_tpl
++    if stacked_p.cls == layers.PipelinedTransformer:
++      stacked_p = stacked_p.pipeline_stage
++    if issubclass(stacked_p.cls, layers.StackedTransformerRepeated):
++      stacked_p = stacked_p.block
++    transformer_layer_p = stacked_p.transformer_layer_params_tpl
++    transformer_layer_p.ln_tpl.reductions_in_fp32 = True
++    transformer_layer_p.tr_fflayer_tpl.ln_tpl.reductions_in_fp32 = True
++    task_p.model.lm_tpl.final_ln_tpl.reductions_in_fp32 = True
++    
++    model_p.params_init = WeightInit.Gaussian(self.INIT_STD)
++    softmax_init = WeightInit.Gaussian(self.SOFTMAX_INIT_STD)
++    model_p.lm_tpl.softmax_tpl.params_init = softmax_init
++    
++    model_p.apply_eval_sample_weights = True
++    
++    return task_p
++
++@experiment_registry.register
++class Pile126MPP(GPT126MPP, GPTUnsupervisedDataset):
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++@experiment_registry.register
++class GPT5BPP(Pile126MPP):
++
++  USE_REPEATED_LAYER = False
++  ICI_MESH_SHAPE = [2, 2, 1, 2]
++  DCN_MESH_SHAPE = [2, 1, 1, 1]
++  #CHECKPOINT_POLICY = layers.AutodiffCheckpointType.SAVE_DOT_WITH_NO_BATCH_DIM
++  MAX_STEPS = 75000
++
++  PERCORE_BATCH_SIZE = 8
++
++  NUM_LAYERS = 24
++  NUM_HEADS = 32
++  MODEL_DIMS = 4096
++  HIDDEN_DIMS = 16384
++  DIMS_PER_HEAD = 128
++
++  INIT_STD = 0.01
++  SOFTMAX_INIT_STD = 0.01
++
++  ## optimizer-related
++  LEARNING_RATE = 1.6e-4
++
++  ## lr schedule
++  LR_COS_WARMUP = 115
++  LR_COS_DECAY_START = LR_COS_WARMUP+1
++  LR_COS_DECAY_END = 62500
++
++  CHECKPOINT_EVERY_N_STEPS = 250
++  SUMMARY_INTERVAL_STEPS = 10
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++
++    model_p = task_p.model
++    stacked_p = model_p.lm_tpl.stacked_transformer_tpl
++    if stacked_p.cls == layers.PipelinedTransformer:
++      stacked_p = stacked_p.pipeline_stage
++    if issubclass(stacked_p.cls, layers.StackedTransformerRepeated):
++      stacked_p = stacked_p.block
++
++    stacked_p.input_dropout_prob = 0.1
++    stacked_p.residual_dropout_prob = 0.1
++    stacked_p.atten_dropout_prob = 0.1
++    return task_p
++
++
++@experiment_registry.register
++class GPT175BPP(GPT126MPP, GPTUnsupervisedDataset):
++
++  NUM_LAYERS = 96
++  NUM_HEADS = 96
++  MODEL_DIMS = 12288
++  # Known as MLP_DIM in t5x
++  HIDDEN_DIMS = MODEL_DIMS * 4
++  # Defaults to MODEL_DIMS // NUM_HEADS.
++  DIMS_PER_HEAD = 128
++  # Known as NUM_EMBEDDINGS in t5x
++  VOCAB_SIZE = 50257
++  USE_REPEATED_LAYER = False
++  MAX_STEPS = 75000
++
++  # Model configs
++  ACTIVATION_CLS = layers.GELU
++  USE_GATED_ACTIVATION = False
++  SEPARATE_EMBEDDING = False
++  TRAINABLE_POSITION_EMB = True
++  ATTEN_LOGIT_CAP = -1.0  # Disable logits cap in atten
++
++  # HPs
++  WEIGHT_DECAY = 0.1
++  ADAM_BETA1 = 0.9
++  ADAM_BETA2 = 0.95
++  ADAM_EPSILON = 1e-8
++  ADAM_CLIP_THRESHOLD = -1.0  # Disable Adam clip_threshold
++  CLIP_GRADIENT_NORM_TO_VALUE = 1.0
++  LAYERNORM_EPSILON = 1e-5
++
++  # In units of steps for BS1.5k
++  LEARNING_RATE = 2e-5
++  LR_SCHEDULE = 'linear_rampup_cosine_decay'
++  LR_COS_WARMUP = 265
++  LR_COS_DECAY_START = LR_COS_WARMUP + 1
++  LR_COS_DECAY_END = 108600
++  LR_COS_MAX = 1.0
++  LR_COS_MIN_RATIO = 0.1
++
++  # Checkpoint
++  EVAL_INTERVAL_STEPS = 100
++  SUMMARY_INTERVAL_STEPS = 10
++  CHECKPOINT_EVERY_N_STEPS = 100
++  CHECKPOINT_MAX_TO_KEEP = 10
++
++  ## GPU-specific settings
++  ICI_MESH_SHAPE = [2,1,1,4]
++  DCN_MESH_SHAPE = [8,1,1,1]
++  NUM_STAGES = 16
++  PERCORE_BATCH_SIZE = 2
++  MICROBATCH_SIZE = 1
++
++  NUM_LOSSES_TO_AVERAGE = 5
++
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
+     return task_p
+@@ -319,26 +515,32 @@ class Synthetic175B(GPT175BBase, SyntheticDataset):
+ 
+ ### configs with the Pile dataset
+ @experiment_registry.register
+-class Pile126M(GPT126MBase, PileUnsupervisedDataset):
++class Pile126M(GPT126MBase, GPTUnsupervisedDataset):
+ 
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
++    if self.LAMBADA_EVAL:
++      task_p.model.eval_task = 'lambada'
+     return task_p
+ 
+ 
+ @experiment_registry.register
+-class Pile5B(GPT5BBase, PileUnsupervisedDataset):
++class Pile5B(GPT5BBase, GPTUnsupervisedDataset):
+ 
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
++    if self.LAMBADA_EVAL:
++      task_p.model.eval_task = 'lambada'
+     return task_p
+ 
+ 
+ @experiment_registry.register
+-class Pile175B(GPT175BBase, PileUnsupervisedDataset):
++class Pile175B(GPT175BBase, GPTUnsupervisedDataset):
+ 
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
++    if self.LAMBADA_EVAL:
++      task_p.model.eval_task = 'lambada'
+     return task_p
+ 
+ 
+@@ -555,14 +757,14 @@ class GLaM64B64EBase(GLaM126M64EBase):
+     return task_p
+ 
+ 
+-class PileGLaM126M64E(GLaM126M64EBase, PileUnsupervisedDataset):
++class PileGLaM126M64E(GLaM126M64EBase, GPTUnsupervisedDataset):
+ 
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
+     return task_p
+ 
+ 
+-class PileGLaM64B64E(GLaM64B64EBase, PileUnsupervisedDataset):
++class PileGLaM64B64E(GLaM64B64EBase, GPTUnsupervisedDataset):
+ 
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
+diff --git a/paxml/contrib/gpu/scripts_gpu/tasks.py b/paxml/contrib/gpu/scripts_gpu/tasks.py
+index 9e71b37..b969e0d 100644
+--- a/paxml/contrib/gpu/scripts_gpu/tasks.py
++++ b/paxml/contrib/gpu/scripts_gpu/tasks.py
+@@ -80,6 +80,30 @@ TaskRegistry.add_versioned_tfds_task(
+     shuffle_buffer_size=None,
+ )
+ 
++TaskRegistry.add_versioned_tfds_task(
++    'c4_lm_v301_gpt_2',
++    versions=['3.1.0'],
++    pinned_version='3.1.0',
++    tfds_name='c4/en',
++    tfds_data_dir=None,
++    preprocessors=[
++        functools.partial(
++            t5_preprocessors.rekey,
++            key_map={
++                'inputs': None,
++                'targets': 'text',
++            }),
++        seqio.preprocessors.tokenize,
++        t5_preprocessors.reduce_concat_tokens,
++        t5_preprocessors.split_tokens_to_targets_length,
++        seqio.preprocessors.append_eos_after_trim,
++    ],
++    output_features=GPT_OUTPUT_FEATURES_LM,
++    metric_fns=[],
++    shuffle_buffer_size=100000,
++  )
++
++
+ BOOLQ_OUTPUT_FEATURES = {
+     'inputs': seqio.Feature(vocabulary=vocab, add_eos=False),
+     'targets': seqio.Feature(vocabulary=vocab, add_eos=False),
+@@ -115,16 +139,16 @@ TaskRegistry.add_versioned_tfds_task(
+     shuffle_buffer_size=100000,
+ )
+ 
+-class PileUnsupervisedDataset(base_experiment.BaseExperiment):
++class GPTUnsupervisedDataset(base_experiment.BaseExperiment):
+   """Used for training Baseline ULM."""
+ 
+   PERCORE_BATCH_SIZE = 1
+   MAX_SEQ_LEN = 2048
+   TRAIN_INPUT_RANDOM_SEED = None
++  DATASET = "Pile" ## one of "Pile" or C4
++  LAMBADA_EVAL = False ## whether to evaluate on the lamabada dataset
+ 
+-  def _dataset_common(
+-      self, is_training
+-  ) -> pax_fiddle.Config[base_input.BaseInput]:
++  def set_bs_and_hosts(self):
+     num_local_devices = jax.local_device_count()
+     if self.PERCORE_BATCH_SIZE >= 1:
+       batch_size_per_process = int(self.PERCORE_BATCH_SIZE * num_local_devices)
+@@ -133,39 +157,115 @@ class PileUnsupervisedDataset(base_experiment.BaseExperiment):
+       global_batch_size = int(
+           self.PERCORE_BATCH_SIZE * num_local_devices * jax.process_count()
+       )
+-      batch_size_per_process = math.ceil(
+-          self.PERCORE_BATCH_SIZE * num_local_devices
+-      )
++      # batch_size_per_process = num_local_devices
++      batch_size_per_process = int(self.PERCORE_BATCH_SIZE * num_local_devices)
+       num_infeed_hosts = global_batch_size // batch_size_per_process
++    return batch_size_per_process, num_infeed_hosts
++
++  def _dataset_train(
++      self
++  ) -> pax_fiddle.Config[base_input.BaseInput]:
++
++    batch_size_per_process, num_infeed_hosts = self.set_bs_and_hosts()
++
++    if self.DATASET == "Pile":
++      name = 'PileTrain'
++      mixture_name = 'the_pile_lm'
++    elif self.DATASET == "C4":
++      name = 'C4Train'
++      mixture_name = 'c4_lm_v301_gpt_2'
++    else:
++      raise ValueError(f"Unsupported dataset {self.DATASET}. Please use either 'Pile' or 'C4'.")
+ 
+     p = pax_fiddle.Config(
+         seqio_input.SeqIOInput,
+-        name='PileTrain' if is_training else 'PileValidation',
+-        mixture_name='the_pile_lm',
+-        split_name='train' if is_training else 'validation',
++        name='C4Train',
++        mixture_name='c4_lm_v301_gpt_2',
++        split_name='train',
+         task_feature_lengths={'targets': self.MAX_SEQ_LEN},
+         use_cached=False,
+-        repeat=True if is_training else False,
++        repeat=True,
+         feature_converter=seqio_input.LanguageModelFeatures(
+-            pack=(self.PACKED_INPUT if is_training else False),
++            pack=(self.PACKED_INPUT),
+             use_custom_packing_ops=False,
+         ),
+-        is_training=is_training,
++        is_training=True,
+         input_random_seed=(
+-            self.TRAIN_INPUT_RANDOM_SEED if is_training else 4321
++            self.TRAIN_INPUT_RANDOM_SEED
+         ),
+         batch_size=batch_size_per_process,
+         num_infeed_hosts=num_infeed_hosts,
+-        reset_for_eval=False if is_training else True,
++        reset_for_eval=False,
+         shuffle=True,
+     )
+     return p
+ 
++  def _dataset_eval(
++      self
++  ) -> pax_fiddle.Config[base_input.BaseInput]:
++
++    batch_size_per_process, num_infeed_hosts = self.set_bs_and_hosts()
++
++    if self.LAMBADA_EVAL:
++      name = 'LambadaValidation'
++      mixture_name = 'lambada_eval'
++      split_name = 'test'
++      task_feature_lengths = {'targets': 64, 'inputs': self.MAX_SEQ_LEN - 64}
++      feature_converter = seqio_input.LanguageModelFeatures(
++            pack=False,
++            use_custom_packing_ops=False,
++            weights_on_targets_only=True,
++      )
++    elif self.DATASET == "Pile":
++      name = 'PileValidation'
++      mixture_name = 'the_pile_lm'
++      split_name = 'validation'
++      task_feature_lengths = {'targets': self.MAX_SEQ_LEN - 64}
++      feature_converter = seqio_input.LanguageModelFeatures(
++            pack=False,
++            use_custom_packing_ops=False,
++      )
++    elif self.DATASET == "C4":
++      name = 'C4Validation'
++      mixture_name = 'c4_lm_v301_gpt_2'
++      split_name = 'validation'
++      task_feature_lengths = {'targets': self.MAX_SEQ_LEN - 64}
++      feature_converter = seqio_input.LanguageModelFeatures(
++            pack=False,
++            use_custom_packing_ops=False,
++      ) 
++    else:
++      raise ValueError(f"Unsupported dataset {self.DATASET}. Please use either 'Pile' or 'C4'.")
++
++    p = pax_fiddle.Config(
++        seqio_input.SeqIOInput,
++        name='LambadaValidation',
++        mixture_name='lambada_eval',
++        split_name='test',
++        ## 'targets' is only one word
++        task_feature_lengths={'targets': 64, 'inputs': self.MAX_SEQ_LEN - 64},
++        use_cached=False,
++        repeat=False,
++        feature_converter=seqio_input.LanguageModelFeatures(
++            pack=False,
++            use_custom_packing_ops=False,
++            weights_on_targets_only=True,
++        ),
++        is_training=False,
++        input_random_seed=4321,
++        batch_size=batch_size_per_process,
++        num_infeed_hosts=num_infeed_hosts,
++        reset_for_eval=True,
++        shuffle=False,
++        eval_loop_num_batches=-1,
++    )
++    return p
++
+   def datasets(self) -> list[pax_fiddle.Config[base_input.BaseInput]]:
+     """Returns a list of dataset parameters."""
+     return [
+-        self._dataset_common(is_training=True),
+-        self._dataset_common(is_training=False),
++        self._dataset_train(),
++        self._dataset_eval(),
+     ]
+ 
+ 
+-- 
+2.48.1
+
+
+From dec37be496c651e3d8915732b89f1a7a9f3e1950 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Thu, 10 Oct 2024 11:15:25 -0700
+Subject: [PATCH 2/3] fixes
+
+Signed-off-by: ashors1 <ashors@nvidia.com>
+---
+ paxml/contrib/gpu/scripts_gpu/tasks.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/tasks.py b/paxml/contrib/gpu/scripts_gpu/tasks.py
+index b969e0d..5f568bf 100644
+--- a/paxml/contrib/gpu/scripts_gpu/tasks.py
++++ b/paxml/contrib/gpu/scripts_gpu/tasks.py
+@@ -179,8 +179,8 @@ class GPTUnsupervisedDataset(base_experiment.BaseExperiment):
+ 
+     p = pax_fiddle.Config(
+         seqio_input.SeqIOInput,
+-        name='C4Train',
+-        mixture_name='c4_lm_v301_gpt_2',
++        name=name,
++        mixture_name=mixture_name,
+         split_name='train',
+         task_feature_lengths={'targets': self.MAX_SEQ_LEN},
+         use_cached=False,
+-- 
+2.48.1
+
+
+From 708e3ee31883ebc0dae2c5ef299d4aa247226ce1 Mon Sep 17 00:00:00 2001
+From: ashors1 <ashors@nvidia.com>
+Date: Mon, 4 Nov 2024 09:55:59 -0800
+Subject: [PATCH 3/3] reorganize configs
+
+Signed-off-by: ashors1 <ashors@nvidia.com>
+---
+ paxml/contrib/gpu/scripts_gpu/configs.py | 393 +++++++++++------------
+ paxml/contrib/gpu/scripts_gpu/tasks.py   |   2 +
+ 2 files changed, 198 insertions(+), 197 deletions(-)
+
+diff --git a/paxml/contrib/gpu/scripts_gpu/configs.py b/paxml/contrib/gpu/scripts_gpu/configs.py
+index ce65059..8214fcb 100644
+--- a/paxml/contrib/gpu/scripts_gpu/configs.py
++++ b/paxml/contrib/gpu/scripts_gpu/configs.py
+@@ -285,203 +285,6 @@ class GPT175BBase(GPT126MBase):
+   NUM_LOSSES_TO_AVERAGE = 5
+ 
+ 
+-############# pipeline parallel configs ###############
+-class GPT126MPP(TransformerLmSpmdPipelineAdam):
+-
+-  MODEL_CLASS = CustomMetricsLM
+-
+-  USE_REPEATED_LAYER = False
+-  
+-  ICI_MESH_SHAPE = [4,2,1,1]
+-  DCN_MESH_SHAPE = [1,1,1,1]
+-  NUM_STAGES = 4
+-  PERCORE_BATCH_SIZE = 4
+-  MICROBATCH_SIZE = 8
+-  
+-  MAX_STEPS = 600000
+-  
+-  MAX_SEQ_LEN = 2048
+-  VOCAB_SIZE = 50304
+-  PACKED_INPUT = False ## disable packed input for TE
+-  
+-  NUM_LAYERS = 12
+-  NUM_HEADS = 12
+-  MODEL_DIMS = 768
+-  HIDDEN_DIMS = 3072
+-  DIMS_PER_HEAD = 64
+-
+-  TRAINABLE_POSITION_EMB = True
+-  TRAINABLE_PE_MAX_SEQ_LEN = MAX_SEQ_LEN
+-  
+-  USE_BIAS = True
+-  LAYERNORM_EPSILON = 1e-5
+-  ATTEN_LOGIT_CAP = -1.0
+-  INIT_STD = 0.023
+-  SOFTMAX_INIT_STD = 0.023
+-  ACTIVATION_CLS = layers.GELU
+-    
+-  ## optimizer-related
+-  ADAM_BETA1 = 0.9
+-  ADAM_BETA2 = 0.95
+-  LEARNING_RATE = 6e-4
+-  ADAM_EPSILON_ROOT = 0.0
+-  ADAM_EPSILON = 1e-8
+-  WEIGHT_DECAY = 0.1
+-  ADAM_CLIP_THRESHOLD = -1.0
+-  CLIP_GRADIENT_NORM_TO_VALUE = 1.0
+-
+-  ## lr schedule
+-  LR_SCHEDULE = 'linear_rampup_cosine_decay'
+-  LR_COS_WARMUP = 636
+-  LR_COS_DECAY_START = LR_COS_WARMUP+1
+-  LR_COS_DECAY_END = 500000
+-  R_COS_MIN_RATIO = 0.1
+-  LR_COS_MAX = 1.0
+-
+-  NUM_LOSSES_TO_AVERAGE = 10
+-
+-  def task(self):
+-    task_p = super().task()
+-    task_p = configure_gpt3_task(self, task_p)
+-
+-    task_p.train.num_train_steps = self.MAX_STEPS
+-    task_p.train.num_losses_to_average = self.NUM_LOSSES_TO_AVERAGE
+-
+-    model_p = task_p.model
+-    
+-    ### compute layernorm reductions in fp32. Needed for stable training on GPUs
+-    stacked_p = model_p.lm_tpl.stacked_transformer_tpl
+-    if stacked_p.cls == layers.PipelinedTransformer:
+-      stacked_p = stacked_p.pipeline_stage
+-    if issubclass(stacked_p.cls, layers.StackedTransformerRepeated):
+-      stacked_p = stacked_p.block
+-    transformer_layer_p = stacked_p.transformer_layer_params_tpl
+-    transformer_layer_p.ln_tpl.reductions_in_fp32 = True
+-    transformer_layer_p.tr_fflayer_tpl.ln_tpl.reductions_in_fp32 = True
+-    task_p.model.lm_tpl.final_ln_tpl.reductions_in_fp32 = True
+-    
+-    model_p.params_init = WeightInit.Gaussian(self.INIT_STD)
+-    softmax_init = WeightInit.Gaussian(self.SOFTMAX_INIT_STD)
+-    model_p.lm_tpl.softmax_tpl.params_init = softmax_init
+-    
+-    model_p.apply_eval_sample_weights = True
+-    
+-    return task_p
+-
+-@experiment_registry.register
+-class Pile126MPP(GPT126MPP, GPTUnsupervisedDataset):
+-
+-  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+-    task_p = super().task()
+-    return task_p
+-
+-@experiment_registry.register
+-class GPT5BPP(Pile126MPP):
+-
+-  USE_REPEATED_LAYER = False
+-  ICI_MESH_SHAPE = [2, 2, 1, 2]
+-  DCN_MESH_SHAPE = [2, 1, 1, 1]
+-  #CHECKPOINT_POLICY = layers.AutodiffCheckpointType.SAVE_DOT_WITH_NO_BATCH_DIM
+-  MAX_STEPS = 75000
+-
+-  PERCORE_BATCH_SIZE = 8
+-
+-  NUM_LAYERS = 24
+-  NUM_HEADS = 32
+-  MODEL_DIMS = 4096
+-  HIDDEN_DIMS = 16384
+-  DIMS_PER_HEAD = 128
+-
+-  INIT_STD = 0.01
+-  SOFTMAX_INIT_STD = 0.01
+-
+-  ## optimizer-related
+-  LEARNING_RATE = 1.6e-4
+-
+-  ## lr schedule
+-  LR_COS_WARMUP = 115
+-  LR_COS_DECAY_START = LR_COS_WARMUP+1
+-  LR_COS_DECAY_END = 62500
+-
+-  CHECKPOINT_EVERY_N_STEPS = 250
+-  SUMMARY_INTERVAL_STEPS = 10
+-
+-  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+-    task_p = super().task()
+-
+-    model_p = task_p.model
+-    stacked_p = model_p.lm_tpl.stacked_transformer_tpl
+-    if stacked_p.cls == layers.PipelinedTransformer:
+-      stacked_p = stacked_p.pipeline_stage
+-    if issubclass(stacked_p.cls, layers.StackedTransformerRepeated):
+-      stacked_p = stacked_p.block
+-
+-    stacked_p.input_dropout_prob = 0.1
+-    stacked_p.residual_dropout_prob = 0.1
+-    stacked_p.atten_dropout_prob = 0.1
+-    return task_p
+-
+-
+-@experiment_registry.register
+-class GPT175BPP(GPT126MPP, GPTUnsupervisedDataset):
+-
+-  NUM_LAYERS = 96
+-  NUM_HEADS = 96
+-  MODEL_DIMS = 12288
+-  # Known as MLP_DIM in t5x
+-  HIDDEN_DIMS = MODEL_DIMS * 4
+-  # Defaults to MODEL_DIMS // NUM_HEADS.
+-  DIMS_PER_HEAD = 128
+-  # Known as NUM_EMBEDDINGS in t5x
+-  VOCAB_SIZE = 50257
+-  USE_REPEATED_LAYER = False
+-  MAX_STEPS = 75000
+-
+-  # Model configs
+-  ACTIVATION_CLS = layers.GELU
+-  USE_GATED_ACTIVATION = False
+-  SEPARATE_EMBEDDING = False
+-  TRAINABLE_POSITION_EMB = True
+-  ATTEN_LOGIT_CAP = -1.0  # Disable logits cap in atten
+-
+-  # HPs
+-  WEIGHT_DECAY = 0.1
+-  ADAM_BETA1 = 0.9
+-  ADAM_BETA2 = 0.95
+-  ADAM_EPSILON = 1e-8
+-  ADAM_CLIP_THRESHOLD = -1.0  # Disable Adam clip_threshold
+-  CLIP_GRADIENT_NORM_TO_VALUE = 1.0
+-  LAYERNORM_EPSILON = 1e-5
+-
+-  # In units of steps for BS1.5k
+-  LEARNING_RATE = 2e-5
+-  LR_SCHEDULE = 'linear_rampup_cosine_decay'
+-  LR_COS_WARMUP = 265
+-  LR_COS_DECAY_START = LR_COS_WARMUP + 1
+-  LR_COS_DECAY_END = 108600
+-  LR_COS_MAX = 1.0
+-  LR_COS_MIN_RATIO = 0.1
+-
+-  # Checkpoint
+-  EVAL_INTERVAL_STEPS = 100
+-  SUMMARY_INTERVAL_STEPS = 10
+-  CHECKPOINT_EVERY_N_STEPS = 100
+-  CHECKPOINT_MAX_TO_KEEP = 10
+-
+-  ## GPU-specific settings
+-  ICI_MESH_SHAPE = [2,1,1,4]
+-  DCN_MESH_SHAPE = [8,1,1,1]
+-  NUM_STAGES = 16
+-  PERCORE_BATCH_SIZE = 2
+-  MICROBATCH_SIZE = 1
+-
+-  NUM_LOSSES_TO_AVERAGE = 5
+-
+-  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+-    task_p = super().task()
+-    return task_p
+-
+-
+ ### synthetic configs
+ @experiment_registry.register
+ class Synthetic126M(GPT126MBase, SyntheticDataset):
+@@ -783,3 +586,199 @@ class LambadaGLaM64B64E(GLaM64B64EBase, LambadaDataset):
+   def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
+     task_p = super().task()
+     return task_p
++
++############# pipeline parallel configs ###############
++class GPT126MPP(TransformerLmSpmdPipelineAdam):
++
++  MODEL_CLASS = CustomMetricsLM
++
++  USE_REPEATED_LAYER = False
++  
++  ICI_MESH_SHAPE = [4,2,1,1]
++  DCN_MESH_SHAPE = [1,1,1,1]
++  NUM_STAGES = 4
++  PERCORE_BATCH_SIZE = 4
++  MICROBATCH_SIZE = 8
++  
++  MAX_STEPS = 600000
++  
++  MAX_SEQ_LEN = 2048
++  VOCAB_SIZE = 50304
++  PACKED_INPUT = False ## disable packed input for TE
++  
++  NUM_LAYERS = 12
++  NUM_HEADS = 12
++  MODEL_DIMS = 768
++  HIDDEN_DIMS = 3072
++  DIMS_PER_HEAD = 64
++
++  TRAINABLE_POSITION_EMB = True
++  TRAINABLE_PE_MAX_SEQ_LEN = MAX_SEQ_LEN
++  
++  USE_BIAS = True
++  LAYERNORM_EPSILON = 1e-5
++  ATTEN_LOGIT_CAP = -1.0
++  INIT_STD = 0.023
++  SOFTMAX_INIT_STD = 0.023
++  ACTIVATION_CLS = layers.GELU
++    
++  ## optimizer-related
++  ADAM_BETA1 = 0.9
++  ADAM_BETA2 = 0.95
++  LEARNING_RATE = 6e-4
++  ADAM_EPSILON_ROOT = 0.0
++  ADAM_EPSILON = 1e-8
++  WEIGHT_DECAY = 0.1
++  ADAM_CLIP_THRESHOLD = -1.0
++  CLIP_GRADIENT_NORM_TO_VALUE = 1.0
++
++  ## lr schedule
++  LR_SCHEDULE = 'linear_rampup_cosine_decay'
++  LR_COS_WARMUP = 636
++  LR_COS_DECAY_START = LR_COS_WARMUP+1
++  LR_COS_DECAY_END = 500000
++  R_COS_MIN_RATIO = 0.1
++  LR_COS_MAX = 1.0
++
++  NUM_LOSSES_TO_AVERAGE = 10
++
++  def task(self):
++    task_p = super().task()
++    task_p = configure_gpt3_task(self, task_p)
++
++    task_p.train.num_train_steps = self.MAX_STEPS
++    task_p.train.num_losses_to_average = self.NUM_LOSSES_TO_AVERAGE
++
++    model_p = task_p.model
++    
++    ### compute layernorm reductions in fp32. Needed for stable training on GPUs
++    stacked_p = model_p.lm_tpl.stacked_transformer_tpl
++    if stacked_p.cls == layers.PipelinedTransformer:
++      stacked_p = stacked_p.pipeline_stage
++    if issubclass(stacked_p.cls, layers.StackedTransformerRepeated):
++      stacked_p = stacked_p.block
++    transformer_layer_p = stacked_p.transformer_layer_params_tpl
++    transformer_layer_p.ln_tpl.reductions_in_fp32 = True
++    transformer_layer_p.tr_fflayer_tpl.ln_tpl.reductions_in_fp32 = True
++    task_p.model.lm_tpl.final_ln_tpl.reductions_in_fp32 = True
++    
++    model_p.params_init = WeightInit.Gaussian(self.INIT_STD)
++    softmax_init = WeightInit.Gaussian(self.SOFTMAX_INIT_STD)
++    model_p.lm_tpl.softmax_tpl.params_init = softmax_init
++    
++    model_p.apply_eval_sample_weights = True
++    
++    return task_p
++
++@experiment_registry.register
++class Pile126MPP(GPT126MPP, GPTUnsupervisedDataset):
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
++
++@experiment_registry.register
++class GPT5BPP(Pile126MPP):
++
++  USE_REPEATED_LAYER = False
++  ICI_MESH_SHAPE = [2, 2, 1, 2]
++  DCN_MESH_SHAPE = [2, 1, 1, 1]
++  #CHECKPOINT_POLICY = layers.AutodiffCheckpointType.SAVE_DOT_WITH_NO_BATCH_DIM
++  MAX_STEPS = 75000
++
++  PERCORE_BATCH_SIZE = 8
++
++  NUM_LAYERS = 24
++  NUM_HEADS = 32
++  MODEL_DIMS = 4096
++  HIDDEN_DIMS = 16384
++  DIMS_PER_HEAD = 128
++
++  INIT_STD = 0.01
++  SOFTMAX_INIT_STD = 0.01
++
++  ## optimizer-related
++  LEARNING_RATE = 1.6e-4
++
++  ## lr schedule
++  LR_COS_WARMUP = 115
++  LR_COS_DECAY_START = LR_COS_WARMUP+1
++  LR_COS_DECAY_END = 62500
++
++  CHECKPOINT_EVERY_N_STEPS = 250
++  SUMMARY_INTERVAL_STEPS = 10
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++
++    model_p = task_p.model
++    stacked_p = model_p.lm_tpl.stacked_transformer_tpl
++    if stacked_p.cls == layers.PipelinedTransformer:
++      stacked_p = stacked_p.pipeline_stage
++    if issubclass(stacked_p.cls, layers.StackedTransformerRepeated):
++      stacked_p = stacked_p.block
++
++    stacked_p.input_dropout_prob = 0.1
++    stacked_p.residual_dropout_prob = 0.1
++    stacked_p.atten_dropout_prob = 0.1
++    return task_p
++
++
++@experiment_registry.register
++class GPT175BPP(GPT126MPP, GPTUnsupervisedDataset):
++
++  NUM_LAYERS = 96
++  NUM_HEADS = 96
++  MODEL_DIMS = 12288
++  # Known as MLP_DIM in t5x
++  HIDDEN_DIMS = MODEL_DIMS * 4
++  # Defaults to MODEL_DIMS // NUM_HEADS.
++  DIMS_PER_HEAD = 128
++  # Known as NUM_EMBEDDINGS in t5x
++  VOCAB_SIZE = 50257
++  USE_REPEATED_LAYER = False
++  MAX_STEPS = 75000
++
++  # Model configs
++  ACTIVATION_CLS = layers.GELU
++  USE_GATED_ACTIVATION = False
++  SEPARATE_EMBEDDING = False
++  TRAINABLE_POSITION_EMB = True
++  ATTEN_LOGIT_CAP = -1.0  # Disable logits cap in atten
++
++  # HPs
++  WEIGHT_DECAY = 0.1
++  ADAM_BETA1 = 0.9
++  ADAM_BETA2 = 0.95
++  ADAM_EPSILON = 1e-8
++  ADAM_CLIP_THRESHOLD = -1.0  # Disable Adam clip_threshold
++  CLIP_GRADIENT_NORM_TO_VALUE = 1.0
++  LAYERNORM_EPSILON = 1e-5
++
++  # In units of steps for BS1.5k
++  LEARNING_RATE = 2e-5
++  LR_SCHEDULE = 'linear_rampup_cosine_decay'
++  LR_COS_WARMUP = 265
++  LR_COS_DECAY_START = LR_COS_WARMUP + 1
++  LR_COS_DECAY_END = 108600
++  LR_COS_MAX = 1.0
++  LR_COS_MIN_RATIO = 0.1
++
++  # Checkpoint
++  EVAL_INTERVAL_STEPS = 100
++  SUMMARY_INTERVAL_STEPS = 10
++  CHECKPOINT_EVERY_N_STEPS = 100
++  CHECKPOINT_MAX_TO_KEEP = 10
++
++  ## GPU-specific settings
++  ICI_MESH_SHAPE = [2,1,1,4]
++  DCN_MESH_SHAPE = [8,1,1,1]
++  NUM_STAGES = 16
++  PERCORE_BATCH_SIZE = 2
++  MICROBATCH_SIZE = 1
++
++  NUM_LOSSES_TO_AVERAGE = 5
++
++  def task(self) -> pax_fiddle.Config[tasks_lib.SingleTask]:
++    task_p = super().task()
++    return task_p
+\ No newline at end of file
+diff --git a/paxml/contrib/gpu/scripts_gpu/tasks.py b/paxml/contrib/gpu/scripts_gpu/tasks.py
+index 5f568bf..12fd3af 100644
+--- a/paxml/contrib/gpu/scripts_gpu/tasks.py
++++ b/paxml/contrib/gpu/scripts_gpu/tasks.py
+@@ -268,6 +268,8 @@ class GPTUnsupervisedDataset(base_experiment.BaseExperiment):
+         self._dataset_eval(),
+     ]
+ 
++## for backward compatibility
++PileUnsupervisedDataset = GPTUnsupervisedDataset
+ 
+ class LambadaDataset(base_experiment.BaseExperiment):
+   """Used for zero-shot eval."""
+-- 
+2.48.1
+
