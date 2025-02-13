@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: PLACEHOLDER 
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: download
+        image: amazon/aws-cli
+        command:
+          - sh
+          - -c
+          - |
+            aws s3 cp s3://jax-toolbox-eks-output/summary.txt /opt/output/
+            aws s3 cp s3://jax-toolbox-eks-output/test-backend-independent.log /opt/output/
+        volumeMounts:
+        - mountPath: /opt/output
+          name: output
+      containers:
+      - name: parse-axlearn
+        image: ubuntu:22.04 
+        command:
+          - bash
+          - -exo
+          - pipefail
+          - -c
+          - |
+            if [ ! -f /opt/output/summary.txt ]; then
+              echo "summary.txt not found!"
+              exit 1
+            fi
+
+            passed_tests=$(grep -c ": PASSED" /opt/output/summary.txt || true)
+            failed_tests=$(grep -c ": FAILED" /opt/output/summary.txt || true)
+            total_tests=$((failed_tests + passed_tests))
+        volumeMounts:
+        - mountPath: /opt/output
+          name: output
+      imagePullSecrets:
+      - name: PLACEHOLDER 
+      volumes:
+      - name: output
+        emptyDir: {}

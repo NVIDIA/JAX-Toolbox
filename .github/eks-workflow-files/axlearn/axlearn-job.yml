@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: PLACEHOLDER 
+  labels:
+    kueue.x-k8s.io/queue-name: p5-queue
+spec:
+  completions: 1
+  parallelism: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: axlearn
+        image: PLACEHOLDER 
+        command:
+          - bash
+          - -exo
+          - pipefail
+          - -c
+          - |
+            # Example test command; adapted from your Docker run snippet
+            # Writes logs to /opt/output/test-backend-independent.log
+            # Also writes a summary file to /opt/output/summary.txt
+            test-axlearn.sh \
+              --directory "." \
+              --output "/opt/output/" \
+              --test-files "/opt/axlearn/axlearn/common/*_test.py"
+
+            # Wait a moment to ensure logs are flushed
+            sync
+        resources:
+          limits:
+            nvidia.com/gpu: 8
+        volumeMounts:
+        - name: output
+          mountPath: /opt/output
+
+      - name: upload
+        image: amazon/aws-cli
+        command:
+          - sh
+          - -c
+          - |
+            # Wait for the summary file to appear
+            while [ ! -f /opt/output/summary.txt ]; do
+              sleep 1
+            done
+            # Also wait for the main log
+            while [ ! -f /opt/output/test-backend-independent.log ]; do
+              sleep 1
+            done
+            # Now upload to your S3 bucket
+            aws s3 cp /opt/output/summary.txt s3://jax-toolbox-eks-output/
+            aws s3 cp /opt/output/test-backend-independent.log s3://jax-toolbox-eks-output/
+        volumeMounts:
+        - name: output
+          mountPath: /opt/output
+      imagePullSecrets:
+      - name: PLACEHOLDER  
+      volumes:
+      - name: output
+        emptyDir: {}

@@ -693,28 +693,97 @@ jobs:
   #     MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
   #   secrets: inherit
 
-  test-axlearn:
-    needs: build-axlearn
-    if: inputs.ARCHITECTURE == 'amd64'
-    uses: ./.github/workflows/_test_unit.yaml
-    with: # fix the arguments below
-      TEST_NAME: axlearn
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-backend-independent.log
-          test-axlearn.sh --directory "." --output "/opt/output/" --test-files "/opt/axlearn/axlearn/common/*_test.py" 
-        EOF
-      STATISTICS_SCRIPT: |
-        # Parse the summary.txt file to count passed/failed/error tests
-        # Adjust greps if your output format changes.
-        passed_tests=$(grep -c ": PASSED" /opt/output/summary.txt || true)
-        failed_tests=$(grep -c ": FAILED" /opt/output/summary.txt || true)
-        total_tests=$((failed_tests + passed_tests))
+  # test-axlearn-slurm:
+  #   needs: build-axlearn
+  #   if: inputs.ARCHITECTURE == 'amd64'
+  #   uses: ./.github/workflows/_test_unit.yaml
+  #   with: # fix the arguments below
+  #     TEST_NAME: axlearn
+  #     EXECUTE: |
+  #       docker run -i --shm-size=1g --gpus all \
+  #       ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }} \
+  #       bash <<"EOF" |& tee test-backend-independent.log
+  #         test-axlearn.sh --directory "." --output "/opt/output/" --test-files "/opt/axlearn/axlearn/common/*_test.py" 
+  #       EOF
+  #     STATISTICS_SCRIPT: |
+  #       # Parse the summary.txt file to count passed/failed/error tests
+  #       # Adjust greps if your output format changes.
+  #       passed_tests=$(grep -c ": PASSED" /opt/output/summary.txt || true)
+  #       failed_tests=$(grep -c ": FAILED" /opt/output/summary.txt || true)
+  #       total_tests=$((failed_tests + passed_tests))
 
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-backend-independent.log
-    secrets: inherit
+  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+  #     ARTIFACTS: |
+  #       test-backend-independent.log
+  #   secrets: inherit
+
+# TODO WE CAN CREATE A RESUABLE ACTION HERE
+# FIX everything with env.something
+test-axlearn-eks:
+  needs: build-axlearn
+  if: inputs.ARCHITECTURE == 'amd64'
+  runs-on: eks
+  env:
+    AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+    JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-axlearn
+    POSTPROCESS_JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-axlearn-postprocess
+    TOKEN_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-token
+  steps:
+  - name: Check out the repository
+    uses: actions/checkout@v4
+  - name: Login to GitHub Container Registry
+    uses: docker/login-action@v3
+    with:
+      registry: ghcr.io
+      username: ${{ github.repository_owner }}
+      password: ${{ secrets.GITHUB_TOKEN }}
+  - name: Store GitHub Container Registry token as Kubernetes secret
+    run: |
+      kubectl create secret generic \
+        ${{ github.run_id }}-${{ github.run_attempt }}-token \
+        --from-file=.dockerconfigjson=$HOME/.docker/config.json \
+        --type=kubernetes.io/dockerconfigjson
+  - name: Configure axlearn test job
+    run: |
+      # Replace placeholders in axlearn-job.yml with environment variables
+      yq -i ea 'select(di == 0).metadata.name = strenv(JOB_NAME)
+        | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
+        | select(di == 0).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
+      .github/eks-workflow-files/axlearn-job.yml
+      git diff .github/eks-workflow-files/axlearn-job.yml
+  - name: Submit axlearn test job
+    run: kubectl apply -f .github/eks-workflow-files/axlearn/axlearn-job.yml
+  - name: Wait for axlearn test job to start
+    run: |
+      while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-axlearn --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+        sleep 10
+      done
+  - name: Stream axlearn test job output
+    run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ github.run_id }}-${{ github.run_attempt }}-axlearn
+  - name: Delete axlearn test job
+    if: always()
+    run: kubectl delete job ${{ env.JOB_NAME }}
+  - name: Configure axlearn post-processing job
+    run: |
+      yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
+        | .spec.template.spec.containers[].imagePullSecrets[].name = strenv(TOKEN_NAME)
+      ' \
+      .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
+      git diff .github/eks-workflow-files/axlearn-postprocess-job.yml
+  - name: Submit axlearn post-processing job
+    run: kubectl apply -f .github/eks-workflow-files/axlearn-postprocess-job.yml
+  - name: Wait for axlearn post-processing job to start
+    run: |
+      while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-axlearn-postprocess --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+        sleep 10
+      done
+  - name: Stream axlearn post-processing job output
+    run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ github.run_id }}-${{ github.run_attempt }}-axlearn-postprocess
+  - name: Delete axlearn post-processing job
+    if: always()
+    run: kubectl delete job ${{ github.run_id }}-${{ github.run_attempt }}-axlearn-postprocess
+  - name: Delete GitHub Container Registry token
+    if: always()
+    run: kubectl delete secret ${{ github.run_id }}-${{ github.run_attempt }}-token
