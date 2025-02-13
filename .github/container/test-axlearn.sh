@@ -15,6 +15,7 @@ usage() {
     echo "                                Default: '*_test.py'."
     echo "  -o, --output DIRECTORY        Output directory for logs and summary."
     echo "                                Default: 'test_runs/<timestamp>'."
+    echo "  -k, --k8s                     Whether to run on a Kubernetes cluster."
     echo "  -h, --help                    Show this help message and exit."
     exit 1
 }
@@ -24,44 +25,56 @@ DIR='axlearn/axlearn/common'
 CUDA_DEVICES='0,1,2,3,4,5,6,7'
 TEST_FILES=()
 OUTPUT_DIRECTORY=''
+K8S=false
 
-# Parse args
-args=$(getopt -o d:p:c:t:o:h --long directory:,cuda-devices:,test-files:,output:,help -- "$@")
-if [ $? -ne 0 ]; then
-    usage
-    exit 1
-fi
-
-eval set -- "$args"
-
-while true; do
-    case "$1" in
+# Parse args manually
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
         -d|--directory)
+            if [[ -z "$2" ]]; then
+                echo "Error: --directory requires an argument."
+                usage
+            fi
             DIR="$2"
             shift 2
             ;;
         -c|--cuda-devices)
+            if [[ -z "$2" ]]; then
+                echo "Error: --cuda-devices requires an argument."
+                usage
+            fi
             CUDA_DEVICES="$2"
             shift 2
             ;;
         -t|--test-files)
             shift
             # Collect all arguments until the next option (starting with '-')
+            if [[ $# -eq 0 ]]; then
+                echo "Error: --test-files requires at least one file pattern."
+                usage
+            fi
+            echo "Option -t|--test-files with arguments:"
             while [[ $# -gt 0 && ! "$1" =~ ^- ]]; do
+                echo "  $1"
                 TEST_FILES+=("$1")
                 shift
             done
             ;;
         -o|--output)
+            if [[ -z "$2" ]]; then
+                echo "Error: --output requires an argument."
+                usage
+            fi
             OUTPUT_DIRECTORY="$2"
             shift 2
             ;;
+        -k|--k8s)
+            K8S=true
+            shift
+            ;;
         -h|--help)
             usage
-            ;;
-        --)
-            shift
-            break
             ;;
         *)
             echo "Unknown option: $1"
@@ -70,7 +83,7 @@ while true; do
     esac
 done
 
-# TODO double check what's the best choice
+
 if [ -z "$OUTPUT_DIRECTORY" ]; then
     timestamp=$(date +%Y%m%d_%H%M%S)
     OUTPUT_DIRECTORY="test_runs/${timestamp}"
@@ -92,7 +105,9 @@ else
     echo "  Test Files Pattern: '*_test.py' (default)"
 fi
 echo "  Output Directory: $OUTPUT_DIRECTORY"
+echo "  Kubernetes mode: $K8S"
 echo "" 
+
 
 cd "$DIR" || exit 1
 
@@ -101,6 +116,12 @@ export CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}"
 echo "Using CUDA devices: $CUDA_VISIBLE_DEVICES"
 
 echo "Running tests..."
+
+# If we are on Kubernetes, install torch
+if [ "$K8S" = true ]; then
+    echo "K8S mode is true. Installing torch..."
+    pip install torch
+fi
 
 if [ "${#TEST_FILES[@]}" -eq 0 ]; then
     TEST_FILES=("*_test.py")

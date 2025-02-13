@@ -25,7 +25,8 @@ spec:
             test-axlearn.sh \
               --directory "." \
               --output "/opt/output/" \
-              --test-files "/opt/axlearn/axlearn/common/*_test.py"
+              --test-files "/opt/axlearn/axlearn/common/*_test.py" \
+              --k8s
 
             # Wait a moment to ensure logs are flushed
             sync
