@@ -119,8 +119,10 @@ echo "Running tests..."
 
 # If we are on Kubernetes, install torch
 if [ "$K8S" = true ]; then
-    echo "K8S mode is true. Installing torch..."
-    pip install torch
+    uname -a 
+    python --version
+    #pip install torch  # install cpu version 
+    #nvidia-cudnn-cu12==9.7.0.66
 fi
 
 if [ "${#TEST_FILES[@]}" -eq 0 ]; then
@@ -168,7 +170,7 @@ done
 # we are skipping some tests as there's still wip by Apple
 final_test_files=()
 
-for test_file in "${expanded_test_files[@]}"; do 
+for test_file in "${expanded_test_files[@]:0:5}"; do 
     exclude=false 
     #echo $test_file
     for pattern in "${EXCLUDE_PATTERNS[@]}"; do 

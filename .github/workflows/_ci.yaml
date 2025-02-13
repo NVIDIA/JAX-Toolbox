@@ -742,7 +742,7 @@ jobs:
     - name: Store GitHub Container Registry token as Kubernetes secret
       run: |
         kubectl create secret generic \
-          ${{ github.run_id }}-${{ github.run_attempt }}-token \
+          ${{ env.TOKEN_NAME }} \
           --from-file=.dockerconfigjson=$HOME/.docker/config.json \
           --type=kubernetes.io/dockerconfigjson
     - name: Configure axlearn test job
@@ -757,33 +757,48 @@ jobs:
       run: kubectl apply -f .github/eks-workflow-files/axlearn/axlearn-job.yml
     - name: Wait for axlearn test job to start
       run: |
-        while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-axlearn --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+        while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ env.JOB_NAME }} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
           sleep 10
         done
     - name: Stream axlearn test job output
-      run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ github.run_id }}-${{ github.run_attempt }}-axlearn
+      run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ env.JOB_NAME }}
     - name: Delete axlearn test job
       if: always()
       run: kubectl delete job ${{ env.JOB_NAME }}
-    - name: Configure axlearn post-processing job
+    - name: Download logs from S3
       run: |
-        yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
-          | .spec.template.spec.containers[].imagePullSecrets[].name = strenv(TOKEN_NAME)
-        ' \
-        .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
-        git diff .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
-    - name: Submit axlearn post-processing job
-      run: kubectl apply -f .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
-    - name: Wait for axlearn post-processing job to start
-      run: |
-        while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-axlearn-postprocess --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
-          sleep 10
-        done
-    - name: Stream axlearn post-processing job output
-      run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ github.run_id }}-${{ github.run_attempt }}-axlearn-postprocess
-    - name: Delete axlearn post-processing job
-      if: always()
-      run: kubectl delete job ${{ github.run_id }}-${{ github.run_attempt }}-axlearn-postprocess
+        mkdir -p /tmp/axlearn-output
+        aws s3 cp s3://jax-toolbox-eks-output/summary.txt /tmp/axlearn-output/
+        aws s3 cp s3://jax-toolbox-eks-output/test-backend-independent.log /tmp/axlearn-output/
+
+        passed_tests=$(grep -c ": PASSED" /tmp/axlearn-output/summary.txt || true)
+        failed_tests=$(grep -c ": FAILED" /tmp/axlearn-output/summary.txt || true)
+        total_tests=$((failed_tests + passed_tests))
+
+        echo "Passed tests: $passed_tests"
+        echo "Failed tests: $failed_tests"
+        echo "Total tests: $total_tests"
+    # - name: Configure axlearn post-processing job
+    #   run: |
+    #     yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
+    #       | .spec.template.spec.containers[].imagePullSecrets[].name = strenv(TOKEN_NAME)
+    #     ' \
+    #     .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
+    #     git diff .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
+    # - name: Submit axlearn post-processing job
+    #   run: kubectl apply -f .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
+    # - name: Wait for axlearn post-processing job to start
+    #   run: |
+    #     while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ env.POSTPROCESS_JOB_NAME }} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+    #       sleep 10
+    #     done
+    # - name: Stream axlearn post-processing job output
+    #   run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ env.POSTPROCESS_JOB_NAME }}
+    # - name: Delete axlearn post-processing job
+    #   if: always()
+    #   run: kubectl delete job ${{ env.POSTPROCESS_JOB_NAME }}
+    # TODO upload aritfacts to github
     - name: Delete GitHub Container Registry token
       if: always()
-      run: kubectl delete secret ${{ github.run_id }}-${{ github.run_attempt }}-token
+      run: kubectl delete secret ${{ env.TOKEN }}
+  
