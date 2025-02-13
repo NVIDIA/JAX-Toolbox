@@ -751,8 +751,8 @@ jobs:
         yq -i ea 'select(di == 0).metadata.name = strenv(JOB_NAME)
           | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
-        .github/eks-workflow-files/axlearn-job.yml
-        git diff .github/eks-workflow-files/axlearn-job.yml
+        .github/eks-workflow-files/axlearn/axlearn-job.yml
+        git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
     - name: Submit axlearn test job
       run: kubectl apply -f .github/eks-workflow-files/axlearn/axlearn-job.yml
     - name: Wait for axlearn test job to start
@@ -771,9 +771,9 @@ jobs:
           | .spec.template.spec.containers[].imagePullSecrets[].name = strenv(TOKEN_NAME)
         ' \
         .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
-        git diff .github/eks-workflow-files/axlearn-postprocess-job.yml
+        git diff .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
     - name: Submit axlearn post-processing job
-      run: kubectl apply -f .github/eks-workflow-files/axlearn-postprocess-job.yml
+      run: kubectl apply -f .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
     - name: Wait for axlearn post-processing job to start
       run: |
         while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ github.run_id }}-${{ github.run_attempt }}-axlearn-postprocess --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
