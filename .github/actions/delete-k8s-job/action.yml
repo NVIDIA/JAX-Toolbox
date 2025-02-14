@@ -10,6 +10,7 @@ runs:
   using: "composite"
   steps:
     - name: Delete Kubernetes job
+      shell: bash
       if: always()
       run: |
         kubectl delete job ${{ inputs.job-name }}

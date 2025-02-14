@@ -733,10 +733,10 @@ jobs:
       run: |
         echo "DATE_TEST_RAN=$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
     - name: Check and GHCR Login
-      uses: /.github/actions/checkout-ghcr-login
+      uses: ./.github/actions/checkout-ghcr-login
       with: 
           docker-username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          docker-password: ${{ secrets.GITHUB_TOKEN }}
           token-name: ${{ env.TOKEN_NAME }}
     - name: Configure axlearn test job
       run: |
@@ -748,6 +748,7 @@ jobs:
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
         .github/eks-workflow-files/axlearn/axlearn-job.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
+
     - name: Submit & wait for axlearn test job
       uses: ./.github/actions/submit-k8s-job 
       with:
