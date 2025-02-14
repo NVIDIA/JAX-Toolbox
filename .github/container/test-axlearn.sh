@@ -120,6 +120,7 @@ echo "Running tests..."
 # If we are on Kubernetes, install torch for cpu only
 if [ "$K8S" = true ]; then
      pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+     pip install transformers
 fi
 
 if [ "${#TEST_FILES[@]}" -eq 0 ]; then
@@ -174,14 +175,8 @@ passed=0
 SUMMARY_FILE="${OUTPUT_DIRECTORY}/summary.txt"
 
 
-for test_file in "${final_test_files[@]:0:5}"; do
+for test_file in "${final_test_files[@]}"; do
     echo "Running: ${test_file}"
-    # Ensure the test file exists
-    if [ ! -f "${test_file}" ]; then
-        echo "${test_file}: NOT FOUND" >> "${SUMMARY_FILE}"
-        echo "Test file not found: ${test_file}"
-        continue
-    fi
     log_file_name=$(echo "${test_file%.py}" | sed 's/\//__/g').log
     log_file="${LOG_DIRECTORY}/${log_file_name}"
     # run the tests and save them as *.log
