@@ -119,9 +119,7 @@ echo "Running tests..."
 
 # If we are on Kubernetes, install torch
 if [ "$K8S" = true ]; then
-    uname -a 
-    python --version
-    #pip install torch  # install cpu version 
+    pip install torch==2.6.0+cpu.cxx11.abi-cp312-cp312-linux_x86_64.whl --index-url https://download.pytorch.org/whl/torch/
     #nvidia-cudnn-cu12==9.7.0.66
 fi
 
@@ -166,11 +164,9 @@ for pattern in "${EXCLUDE_PATTERNS[@]}"; do
     echo  "$pattern"
 done
 
-#expanded_test_files=( "${expanded_test_files[@]:0:10}" )
-# we are skipping some tests as there's still wip by Apple
 final_test_files=()
 
-for test_file in "${expanded_test_files[@]:0:5}"; do 
+for test_file in "${expanded_test_files[@]}"; do 
     exclude=false 
     #echo $test_file
     for pattern in "${EXCLUDE_PATTERNS[@]}"; do 
@@ -190,7 +186,7 @@ passed=0
 SUMMARY_FILE="${OUTPUT_DIRECTORY}/summary.txt"
 
 
-for test_file in "${final_test_files[@]}"; do
+for test_file in "${final_test_files[@]:0:5}"; do
     echo "Running: ${test_file}"
     # Ensure the test file exists
     if [ ! -f "${test_file}" ]; then

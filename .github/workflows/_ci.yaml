@@ -745,11 +745,16 @@ jobs:
           ${{ env.TOKEN_NAME }} \
           --from-file=.dockerconfigjson=$HOME/.docker/config.json \
           --type=kubernetes.io/dockerconfigjson
+    - name: Set date environment variable
+      run: |
+        echo "DATE_TEST_RAN=$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
     - name: Configure axlearn test job
       run: |
         # Replace placeholders in axlearn-job.yml with environment variables
-        yq -i ea 'select(di == 0).metadata.name = strenv(JOB_NAME)
+        yq -i ea '
+           select(di == 0).metadata.name = strenv(JOB_NAME)
           | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
+          | select(di == 0).spec.template.spec.containers[1].env[0].value = strenv(DATE_TEST_RAN)
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
         .github/eks-workflow-files/axlearn/axlearn-job.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
@@ -768,8 +773,7 @@ jobs:
     - name: Download logs from S3
       run: |
         mkdir -p /tmp/axlearn-output
-        aws s3 cp s3://jax-toolbox-eks-output/summary.txt /tmp/axlearn-output/
-        aws s3 cp s3://jax-toolbox-eks-output/test-backend-independent.log /tmp/axlearn-output/
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ env.DATE_TEST_RAN }}/summary.txt /tmp/axlearn-output/
 
         passed_tests=$(grep -c ": PASSED" /tmp/axlearn-output/summary.txt || true)
         failed_tests=$(grep -c ": FAILED" /tmp/axlearn-output/summary.txt || true)
@@ -778,26 +782,54 @@ jobs:
         echo "Passed tests: $passed_tests"
         echo "Failed tests: $failed_tests"
         echo "Total tests: $total_tests"
-    # - name: Configure axlearn post-processing job
-    #   run: |
-    #     yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
-    #       | .spec.template.spec.containers[].imagePullSecrets[].name = strenv(TOKEN_NAME)
-    #     ' \
-    #     .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
-    #     git diff .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
-    # - name: Submit axlearn post-processing job
-    #   run: kubectl apply -f .github/eks-workflow-files/axlearn/axlearn-postprocess-job.yml
-    # - name: Wait for axlearn post-processing job to start
-    #   run: |
-    #     while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ env.POSTPROCESS_JOB_NAME }} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
-    #       sleep 10
-    #     done
-    # - name: Stream axlearn post-processing job output
-    #   run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ env.POSTPROCESS_JOB_NAME }}
-    # - name: Delete axlearn post-processing job
-    #   if: always()
-    #   run: kubectl delete job ${{ env.POSTPROCESS_JOB_NAME }}
-    # TODO upload aritfacts to github
+
+        echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
+        echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
+
+    - name: Generate sitrep
+      id: sitrep
+      if: "!cancelled()"
+      shell: bash -x -e {0}
+      run: |
+        # bring in utility functions
+        source .github/workflows/scripts/to_json.sh
+
+        badge_label='Axlearn EKS Unit'
+
+        total_tests=${{ steps.test-stats.outputs.TOTAL_TESTS }} \
+        failed_tests=${{ steps.test-stats.outputs.FAILED_TESTS }} \
+        passed_tests=${{ steps.test-stats.outputs.PASSED_TESTS }} \
+        errors="0" \
+        summary="All tests: $total_tests. Passed: $passed_tests. Failed: $failed_tests." \
+        badge_message="Passed $passed_tests out of $total_tests." \
+        badge_color="brightgreen"
+        if [ "$failed_tests" -gt 0 ]; then
+          badge_color="red"
+        fi \
+
+        to_json \
+          summary \
+          errors total_tests passed_tests failed_tests \
+          badge_label badge_color badge_message \
+        > sitrep.json
+
+        schemaVersion=1 \
+        label="${badge_label}" \
+        message="Passed $passed_tests out of $total_tests." \
+        color=$badge_color \
+        to_json schemaVersion label message color \
+        > "badge-axlearn-test"
+
+    - name: Upload artifacts
+      if: "!cancelled()"
+      uses: actions/upload-artifact@v4
+      with:
+        name: "artifact-axlearn-test"
+        path: |
+          sitrep.json
+          "badge-axlearn-test"
+          summary.txt
     - name: Delete GitHub Container Registry token
       if: always()
       run: kubectl delete secret ${{ env.TOKEN }}

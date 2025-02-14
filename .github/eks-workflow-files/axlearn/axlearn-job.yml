@@ -36,9 +36,11 @@ spec:
         volumeMounts:
         - name: output
           mountPath: /opt/output
-
       - name: upload
         image: amazon/aws-cli
+        env: 
+        - name: TEST_DATE 
+          value: PLACEHOLDER
         command:
           - sh
           - -c
@@ -47,13 +49,8 @@ spec:
             while [ ! -f /opt/output/summary.txt ]; do
               sleep 1
             done
-            # Also wait for the main log
-            while [ ! -f /opt/output/test-backend-independent.log ]; do
-              sleep 1
-            done
             # Now upload to your S3 bucket
-            aws s3 cp /opt/output/summary.txt s3://jax-toolbox-eks-output/
-            aws s3 cp /opt/output/test-backend-independent.log s3://jax-toolbox-eks-output/
+            aws s3 cp /opt/output/summary.txt s3://jax-toolbox-eks-output/axlearn/${TEST_DATE}/summary.txt
         volumeMounts:
         - name: output
           mountPath: /opt/output
