@@ -38,33 +38,33 @@ permissions:
 
 jobs:
 
-  # build-base:
-  #   uses: ./.github/workflows/_build_base.yaml
-  #   with:
-  #     ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-  #     BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
-  #     BUILD_DATE: ${{ inputs.BUILD_DATE }}
-  #     MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
-  #   secrets: inherit
+  build-base:
+    uses: ./.github/workflows/_build_base.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
+    secrets: inherit
 
-  # build-jax:
-  #   needs: build-base
-  #   uses: ./.github/workflows/_build.yaml
-  #   with:
-  #     ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-  #     ARTIFACT_NAME: artifact-jax-build
-  #     BADGE_FILENAME: badge-jax-build
-  #     BUILD_DATE: ${{ inputs.BUILD_DATE }}
-  #     BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-  #     CONTAINER_NAME: jax
-  #     DOCKERFILE: .github/container/Dockerfile.jax
-  #     RUNNER_SIZE: large
-  #     EXTRA_BUILD_ARGS: |
-  #       URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
-  #       URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
-  #       URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
-  #       URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
-  #   secrets: inherit
+  build-jax:
+    needs: build-base
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-jax-build
+      BADGE_FILENAME: badge-jax-build
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+      CONTAINER_NAME: jax
+      DOCKERFILE: .github/container/Dockerfile.jax
+      RUNNER_SIZE: large
+      EXTRA_BUILD_ARGS: |
+        URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
+        URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
+        URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
+        URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+    secrets: inherit
 
   # build-triton:
   #   needs: build-jax
@@ -203,57 +203,55 @@ jobs:
   #       URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).PANOPTICAPI }}
   #   secrets: inherit
 
-  # build-axlearn:
-  #   needs: build-jax
-  #   uses: ./.github/workflows/_build.yaml
-  #   with:
-  #     ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-  #     ARTIFACT_NAME: artifact-axlearn-build
-  #     BADGE_FILENAME: badge-axlearn-build
-  #     BUILD_DATE: ${{ inputs.BUILD_DATE }}
-  #     BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-  #     CONTAINER_NAME: axlearn
-  #     DOCKERFILE: .github/container/Dockerfile.axlearn
-  #     EXTRA_BUILD_ARGS: |
-  #       URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
-  #   secrets: inherit
+  build-axlearn:
+    needs: build-jax
+    uses: ./.github/workflows/_build.yaml
+    with:
+      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+      ARTIFACT_NAME: artifact-axlearn-build
+      BADGE_FILENAME: badge-axlearn-build
+      BUILD_DATE: ${{ inputs.BUILD_DATE }}
+      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      CONTAINER_NAME: axlearn
+      DOCKERFILE: .github/container/Dockerfile.axlearn
+    secrets: inherit
 
-  # collect-docker-tags:
-  #   runs-on: ubuntu-22.04
-  #   if: "!cancelled()"
-  #   needs:
-  #     - build-base
-  #     - build-jax
-  #     # - build-triton
-  #     # - build-equinox
-  #     # - build-maxtext
-  #     # - build-levanter
-  #     # - build-upstream-t5x
-  #     # - build-upstream-pax
-  #     # - build-rosetta-t5x
-  #     # - build-rosetta-pax
-  #     # - build-gemma
-  #     - build-axlearn
-  #   outputs:
-  #     TAGS: ${{ steps.collect-tags.outputs.TAGS }}
-  #   steps:
-  #     - name: Save docker tags as a JSON object
-  #       id: collect-tags
-  #       run: |
-  #         TAGS=$(cat <<EOF | jq -c
-  #         [\
-  #           {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
-  #           {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-  #           {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
-  #           {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-  #           {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
+  collect-docker-tags:
+    runs-on: ubuntu-22.04
+    if: "!cancelled()"
+    needs:
+      - build-base
+      - build-jax
+      # - build-triton
+      # - build-equinox
+      # - build-maxtext
+      # - build-levanter
+      # - build-upstream-t5x
+      # - build-upstream-pax
+      # - build-rosetta-t5x
+      # - build-rosetta-pax
+      # - build-gemma
+      - build-axlearn
+    outputs:
+      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
+    steps:
+      - name: Save docker tags as a JSON object
+        id: collect-tags
+        run: |
+          TAGS=$(cat <<EOF | jq -c
+          [\
+            {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
+            {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
 
-  #           {}\
-  #         ]
-  #         EOF
-  #         )
+            {}\
+          ]
+          EOF
+          )
 
-  #         echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
+          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
 
   # test-distribution:
   #   runs-on: ubuntu-22.04
@@ -709,12 +707,11 @@ jobs:
 
 
   test-axlearn-eks:
-    #needs: build-axlearn
+    needs: build-axlearn
     if: inputs.ARCHITECTURE == 'amd64'
     runs-on: eks
     env:
-      # needs.build-axlearn.outputs.DOCKER_TAG_FINAL
-      AXLEARN_DOCKER_IMAGE: "ghcr.io/nvidia/jax-toolbox-internal:13331372559-axlearn-amd6" 
+      AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
       JOB_NAME: axlearn-${{ github.run_id }}
       TOKEN_NAME: axlearn-${{ github.run_id }}-token
     steps:
