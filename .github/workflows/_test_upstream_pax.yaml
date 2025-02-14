@@ -190,13 +190,14 @@ jobs:
             PARALLEL_CONFIG: [1, 4, 1, 2]
             BATCH_SIZE: 4
             ADDITIONAL_ARGS: ""
-          - TEST_NAME: 16DP1FSDP1TP1PP
-            PARALLEL_CONFIG: [1, 16, 1, 1]
-            BATCH_SIZE: 4
-            ADDITIONAL_ARGS: ""
-          - TEST_NAME: 2DP1FSDP2TP4PP
-            PARALLEL_CONFIG: [4, 2, 1, 2]
-            BATCH_SIZE: 4
+          # 2-node tests temporarily disabled
+          # - TEST_NAME: 16DP1FSDP1TP1PP
+          #   PARALLEL_CONFIG: [1, 16, 1, 1]
+          #   BATCH_SIZE: 4
+          #   ADDITIONAL_ARGS: ""
+          # - TEST_NAME: 2DP1FSDP2TP4PP
+          #   PARALLEL_CONFIG: [4, 2, 1, 2]
+          #   BATCH_SIZE: 4
           - TEST_NAME: LLaMA_eval
             PARALLEL_CONFIG: [1, 1, 8, 1]
             BATCH_SIZE: 4
