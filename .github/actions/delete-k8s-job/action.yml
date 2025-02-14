@@ -1,0 +1,15 @@
+name: Delete K8s Job
+description: Cleans up the Job resource to avoid leaving pods behind.
+
+inputs:
+  job-name:
+    description: The job name to delete
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Delete Kubernetes job
+      if: always()
+      run: |
+        kubectl delete job ${{ inputs.job-name }}

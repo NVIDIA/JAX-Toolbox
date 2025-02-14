@@ -719,35 +719,25 @@ jobs:
   #       test-backend-independent.log
   #   secrets: inherit
 
-  # TODO WE CAN CREATE A RESUABLE ACTION HERE
-  # FIX everything with env.something
+
   test-axlearn-eks:
     needs: build-axlearn
     if: inputs.ARCHITECTURE == 'amd64'
     runs-on: eks
     env:
       AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-axlearn
-      POSTPROCESS_JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-axlearn-postprocess
-      TOKEN_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-token
+      JOB_NAME: axlearn-${{ github.run_id }}
+      TOKEN_NAME: axlearn-${{ github.run_id }}-token
     steps:
-    - name: Check out the repository
-      uses: actions/checkout@v4
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Store GitHub Container Registry token as Kubernetes secret
-      run: |
-        kubectl create secret generic \
-          ${{ env.TOKEN_NAME }} \
-          --from-file=.dockerconfigjson=$HOME/.docker/config.json \
-          --type=kubernetes.io/dockerconfigjson
-    - name: Set date environment variable
+    - name: Set date env var for saving files
       run: |
         echo "DATE_TEST_RAN=$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
+    - name: Check and GHCR Login
+      uses: /.github/actions/checkout-ghcr-login
+      with: 
+          docker-username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          token-name: ${{ env.TOKEN_NAME }}
     - name: Configure axlearn test job
       run: |
         # Replace placeholders in axlearn-job.yml with environment variables
@@ -758,18 +748,17 @@ jobs:
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
         .github/eks-workflow-files/axlearn/axlearn-job.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
-    - name: Submit axlearn test job
-      run: kubectl apply -f .github/eks-workflow-files/axlearn/axlearn-job.yml
-    - name: Wait for axlearn test job to start
-      run: |
-        while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ env.JOB_NAME }} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
-          sleep 10
-        done
-    - name: Stream axlearn test job output
-      run: kubectl logs --all-containers=true --all-pods=true --follow job/${{ env.JOB_NAME }}
+    - name: Submit & wait for axlearn test job
+      uses: ./.github/actions/submit-k8s-job 
+      with:
+        job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
+        job-name: ${{ env.JOB_NAME }}
+
     - name: Delete axlearn test job
-      if: always()
-      run: kubectl delete job ${{ env.JOB_NAME }}
+      uses: ./.github/actions/delete-k8s-job
+      with: 
+        job-name: ${{ env.JOB_NAME }}
+
     - name: Download logs from S3
       run: |
         mkdir -p /tmp/axlearn-output
@@ -831,6 +820,7 @@ jobs:
           "badge-axlearn-test"
           summary.txt
     - name: Delete GitHub Container Registry token
-      if: always()
-      run: kubectl delete secret ${{ env.TOKEN }}
+      uses: ./.github/actions/delete-ghcr-token
+      with: 
+        token-name: ${{ env.TOKEN_NAME }}
   

@@ -1,0 +1,16 @@
+name: Delete GHCR Token
+description: Deletes the K8s secret used for pulling images from GHCR.
+
+inputs:
+  token-name:
+    description: Name of the K8s secret to delete
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Delete GitHub Container Registry token
+      shell: bash
+      if: always()
+      run: |
+        kubectl delete secret ${{ inputs.token-name }}

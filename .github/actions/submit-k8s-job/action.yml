@@ -1,0 +1,31 @@
+name: Submit & Stream K8s Job
+description: Submits a Kubernetes job and then streams its logs to GitHub Actions.
+
+inputs:
+  job-config-file:
+    description: Path to the Kubernetes job YAML
+    required: true
+  job-name:
+    description: The job name
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Submit Kubernetes job
+      shell: bash
+      run: |
+        kubectl apply -f "${{ inputs.job-config-file }}"
+
+    - name: Wait for Kubernetes job to start
+      shell: bash
+      run: |
+        while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+          echo "Waiting for pods to start..."
+          sleep 10
+        done
+
+    - name: Stream Kubernetes job output
+      shell: bash
+      run: |
+        kubectl logs --all-containers=true --all-pods=true --follow job/${{ inputs.job-name }}

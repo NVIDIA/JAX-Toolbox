@@ -117,18 +117,18 @@ echo "Using CUDA devices: $CUDA_VISIBLE_DEVICES"
 
 echo "Running tests..."
 
-# If we are on Kubernetes, install torch
+# If we are on Kubernetes, install torch for cpu only
 if [ "$K8S" = true ]; then
-    pip install torch==2.6.0+cpu.cxx11.abi-cp312-cp312-linux_x86_64.whl --index-url https://download.pytorch.org/whl/torch/
-    #nvidia-cudnn-cu12==9.7.0.66
+     pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
 fi
 
 if [ "${#TEST_FILES[@]}" -eq 0 ]; then
     TEST_FILES=("*_test.py")
 fi
+
 expanded_test_files=()
 for pattern in "${TEST_FILES[@]}"; do
-    # Use globbing to expand pattern
+    # retrieve all the files
     files=( $pattern )
     if [ "${#files[@]}" -gt 0 ]; then
         expanded_test_files+=( "${files[@]}" )
@@ -137,19 +137,12 @@ for pattern in "${TEST_FILES[@]}"; do
     fi
 done
 
-
 if [ "${#expanded_test_files[@]}" -eq 0 ]; then
     echo "No test files found to run."
     exit 1
 fi
 
-echo "These are the test files:"
-for f in "${expanded_test_files[@]}"; do
-    echo "  $f"
-done
-
-# Get the directory where the script is located
-#SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+# in case we have the exclusion list file 
 EXCLUDE_LIST_FILE="$DIR/exclusion_list.txt"
 EXCLUDE_PATTERNS=()
 
@@ -159,16 +152,11 @@ if [ -f "$EXCLUDE_LIST_FILE" ]; then
 else
     echo "Exclusion list file not found at '$EXCLUDE_LIST_FILE'"
 fi
-echo "Exclude patterns read:"
-for pattern in "${EXCLUDE_PATTERNS[@]}"; do
-    echo  "$pattern"
-done
 
 final_test_files=()
 
 for test_file in "${expanded_test_files[@]}"; do 
     exclude=false 
-    #echo $test_file
     for pattern in "${EXCLUDE_PATTERNS[@]}"; do 
         if [[ "$(basename "$test_file")" == "$(basename "$pattern")" ]]; then
             exclude=true 
@@ -180,7 +168,7 @@ for test_file in "${expanded_test_files[@]}"; do
     fi 
 done
 
-# Initialize counters
+# Initialize counters for test
 failures=0
 passed=0
 SUMMARY_FILE="${OUTPUT_DIRECTORY}/summary.txt"
@@ -198,9 +186,9 @@ for test_file in "${final_test_files[@]:0:5}"; do
     log_file="${LOG_DIRECTORY}/${log_file_name}"
     # run the tests and save them as *.log
     pytest "${test_file}" --capture=tee-sys | tee "${log_file}"
-    # TODO parse the logs?
     exit_code=${PIPESTATUS[0]}
     echo $exit_code
+    # write number of tests passed and failed
     if [ $exit_code -eq 0 ]; then
         echo "${test_file}: PASSED" >> "${SUMMARY_FILE}"
         ((passed++))
@@ -210,6 +198,3 @@ for test_file in "${final_test_files[@]:0:5}"; do
     fi
     echo ""
 done
-
-echo $passed 
-echo $failures
