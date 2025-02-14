@@ -1,0 +1,31 @@
+name: Checkout, GHCR login, K8s secret
+description: Performs repository checkout, logs into GitHub Container Registry, and stores the token as a Kubernetes secret.
+
+inputs:
+  docker-username:
+    description: Username for GHCR
+    required: true
+  docker-password:
+    description: Password (e.g., GITHUB_TOKEN)
+    required: true
+  token-name:
+    description: Name of the K8s secret to create
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: "ghcr.io"
+        username: ${{ inputs.docker-username }}
+        password: ${{ inputs.docker-password }}
+
+    - name: Store GitHub Container Registry token as Kubernetes secret
+      shell: bash
+      run: |
+        kubectl create secret generic \
+          ${{ inputs.token-name }} \
+          --from-file=.dockerconfigjson=$HOME/.docker/config.json \
+          --type=kubernetes.io/dockerconfigjson
