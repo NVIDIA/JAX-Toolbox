@@ -466,6 +466,8 @@ jobs:
       POSTPROCESS_JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-postprocess
       TOKEN_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-token
     steps:
+    - name: Check out the repository
+      uses: actions/checkout@v4
     - name: GHCR login
       uses: ./.github/actions/ghcr-login 
       with: 
