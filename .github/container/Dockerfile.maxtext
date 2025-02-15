@@ -3,6 +3,8 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG URLREF_MAXTEXT=https://github.com/google/maxtext.git#main
 ARG SRC_PATH_MAXTEXT=/opt/maxtext
+ARG URLREF_JETSTREAM=https://github.com/AI-Hypercomputer/JetStream.git#main
+ARG SRC_PATH_JETSTREAM=/opt/jetstream
 
 ###############################################################################
 ## Download source and add auxiliary scripts
@@ -11,10 +13,12 @@ ARG SRC_PATH_MAXTEXT=/opt/maxtext
 FROM ${BASE_IMAGE} as mealkit
 ARG URLREF_MAXTEXT
 ARG SRC_PATH_MAXTEXT
+ARG URLREF_JETSTREAM
+ARG SRC_PATH_JETSTREAM
 
 RUN <<"EOF" bash -ex
 git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
-echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+echo "-e ${SRC_PATH_MAXTEXT}" >> /opt/pip-tools.d/requirements-maxtext.in
 
 # specify some restrictions to speed up the build and
 # avoid pip to download and check all available versions of packages
@@ -26,6 +30,12 @@ for pattern in \
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt;
 done
 echo "tensorflow-metadata>=1.15.0" >> ${SRC_PATH_MAXTEXT}/requirements.txt
+# remove outdated version of JetStream in favor of the upstream JetStream
+sed -i "/google-jetstream/d" ${SRC_PATH_MAXTEXT}/requirements.txt
+
+# Add the upstream JetStream
+git-clone.sh ${URLREF_JETSTREAM} ${SRC_PATH_JETSTREAM}
+echo "-e ${SRC_PATH_JETSTREAM}" >> /opt/pip-tools.d/requirements-jetstream.in
 EOF
 
 ###############################################################################
