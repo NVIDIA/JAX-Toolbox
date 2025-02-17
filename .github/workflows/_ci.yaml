@@ -495,25 +495,17 @@ jobs:
       with: 
         job-name: ${{ env.JOB_NAME }}
     
-    - name: Configure post-processing job
+
+    - name: Postprocess retrieve test 
       run: |
         export JOB_OUTPUT_PATTERN="${JOB_NAME}-rank*.zip"
-        yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
-          | .spec.template.spec.containers[].image = strenv(JAX_DOCKER_IMAGE)
-          | .spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
-          | .spec.template.spec.initContainers[].command[7] = strenv(JOB_OUTPUT_PATTERN)' \
-          .github/eks-workflow-files/post-process-job.yml
-        git diff .github/eks-workflow-files/post-process-job.yml
-    - name: Submit Kubernetes job
-      uses: ./.github/actions/submit-k8s-job
-      with: 
-        job-config-file: .github/eks-workflow-files/post-process-job.yml
-        job-name: ${{ env.POSTPROCESS_JOB_NAME }}
-    - name: Delete eks postprocess job
-      uses: ./.github/actions/delete-k8s-job
-      if: ( cancelled() || always() )
-      with: 
-        job-name: ${{ env.JOB_NAME }}
+        mkdir -p /tmp/axlearn-output
+        aws s3 cp --recursive --exclude "*" --include "${JOB_OUTPUT_PATTERN}" s3://jax-toolbox-eks-output/ /tmp/axlearn-output
+
+    - name: Combine with nsys-jax-combine
+      run: | 
+        cd /tmp/axlearn-output
+        nsys-jax-combine -o combined.zip ./*.zip --analysis communication
     - name: Delete GitHub Container Registry token
       uses: ./.github/actions/delete-ghcr-token
       if: ( cancelled() || always() )
