@@ -24,6 +24,7 @@ runs:
           if [ "$status" = "Running" ] || [ "$status" = "Pending" ]; then
             kubectl delete pod "$pod" --force --grace-period=0 || true
           fi
+        done
         
         # make sure job is deleted
         kubectl delete job ${{ inputs.job-name }} --force --grace-period=0 || true 
