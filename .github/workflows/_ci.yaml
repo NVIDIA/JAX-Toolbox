@@ -462,9 +462,9 @@ jobs:
     runs-on: eks
     env:
       JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-jax
-      POSTPROCESS_JOB_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-postprocess
-      TOKEN_NAME: ${{ github.run_id }}-${{ github.run_attempt }}-token
+      JOB_NAME: ${{ github.run_id }}-nsys-jax
+      POSTPROCESS_JOB_NAME: ${{ github.run_id }}-nsys-jax-postprocess
+      TOKEN_NAME: ${{ github.run_id }}-nsys-jax-token
     steps:
     - name: Check out the repository
       uses: actions/checkout@v4
@@ -488,27 +488,32 @@ jobs:
       with: 
         job-config-file: .github/eks-workflow-files/job.yml
         job-name: ${{ env.JOB_NAME }}
-
     - name: Delete eks job
       uses: ./.github/actions/delete-k8s-job
-      if: ( cancelled() || always() )
+      if: always()
       with: 
         job-name: ${{ env.JOB_NAME }}
-    
-
-    - name: Postprocess retrieve test 
+    - name: Configure post-processing job
       run: |
         export JOB_OUTPUT_PATTERN="${JOB_NAME}-rank*.zip"
-        mkdir -p /tmp/axlearn-output
-        aws s3 cp --recursive --exclude "*" --include "${JOB_OUTPUT_PATTERN}" s3://jax-toolbox-eks-output/ /tmp/axlearn-output
-
-    - name: Combine with nsys-jax-combine
-      run: | 
-        cd /tmp/axlearn-output
-        nsys-jax-combine -o combined.zip ./*.zip --analysis communication
+        yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
+          | .spec.template.spec.containers[].image = strenv(JAX_DOCKER_IMAGE)
+          | .spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
+          | .spec.template.spec.initContainers[].command[7] = strenv(JOB_OUTPUT_PATTERN)' \
+          .github/eks-workflow-files/post-process-job.yml
+        git diff .github/eks-workflow-files/post-process-job.yml
+    - name: Submit post process k8s job
+      uses: ./.github/actions/submit-k8s/job
+      with: 
+          job-config-file: .github/eks-workflow-files/post-process-job.yml
+          job-name: ${{ env.POSTPROCESS_JOB_NAME }}
+    - name: Delete post process k8s job
+      uses: ./.github/actions/delete-k8s-job
+      with:
+          job-name: ${{ env.POSTPROCESS_JOB_NAME }}
     - name: Delete GitHub Container Registry token
       uses: ./.github/actions/delete-ghcr-token
-      if: ( cancelled() || always() )
+      if: always()
       with: 
         token-name: ${{ env.TOKEN_NAME }}
 
@@ -732,13 +737,13 @@ jobs:
 
     - name: Delete axlearn test job
       uses: ./.github/actions/delete-k8s-job
-      if: ( cancelled() || always() )
+      if: always()
       with: 
         job-name: ${{ env.JOB_NAME }}
 
     - name: Delete GitHub Container Registry token
       uses: ./.github/actions/delete-ghcr-token
-      if: ( cancelled() || always() )
+      if: always()
       with: 
         token-name: ${{ env.TOKEN_NAME }}
 
