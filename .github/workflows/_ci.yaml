@@ -503,7 +503,7 @@ jobs:
           .github/eks-workflow-files/post-process-job.yml
         git diff .github/eks-workflow-files/post-process-job.yml
     - name: Submit post process k8s job
-      uses: ./.github/actions/submit-k8s/job
+      uses: ./.github/actions/submit-k8s-job
       with: 
           job-config-file: .github/eks-workflow-files/post-process-job.yml
           job-name: ${{ env.POSTPROCESS_JOB_NAME }}

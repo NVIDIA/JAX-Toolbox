@@ -128,8 +128,6 @@ jobs:
         uses: ./.github/actions/delete-k8s-job
         with:
           job-name: ${{ env.LAUNCHER_NAME }}
-
-          job-name: ${{ env.POSTPROCESS_JOB_NAME }}
       - name: Delete GitHub Container Registry token
         uses: ./.github/actions/delete-ghcr-token
         if: always()
