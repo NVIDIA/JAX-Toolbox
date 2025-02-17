@@ -494,7 +494,6 @@ jobs:
       if: ( cancelled() || always() )
       with: 
         job-name: ${{ env.JOB_NAME }}
-        token-name: ${{ env.TOKEN_NAME }}
     
     - name: Configure post-processing job
       run: |
@@ -515,9 +514,9 @@ jobs:
       if: ( cancelled() || always() )
       with: 
         job-name: ${{ env.JOB_NAME }}
-        token-name: ${{ env.TOKEN_NAME }}
     - name: Delete GitHub Container Registry token
       uses: ./.github/actions/delete-ghcr-token
+      if: ( cancelled() || always() )
       with: 
         token-name: ${{ env.TOKEN_NAME }}
 
@@ -744,6 +743,11 @@ jobs:
       if: ( cancelled() || always() )
       with: 
         job-name: ${{ env.JOB_NAME }}
+
+    - name: Delete GitHub Container Registry token
+      uses: ./.github/actions/delete-ghcr-token
+      if: ( cancelled() || always() )
+      with: 
         token-name: ${{ env.TOKEN_NAME }}
 
     - name: Download logs from S3

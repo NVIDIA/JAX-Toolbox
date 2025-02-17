@@ -5,9 +5,7 @@ inputs:
   job-name:
     description: The job name to delete
     required: true
-  token-name:
-    description: Name of the K8s secret to delete
-    required: true
+
 
 runs:
   using: "composite"
@@ -28,7 +26,3 @@ runs:
         
         # make sure job is deleted
         kubectl delete job ${{ inputs.job-name }} --force --grace-period=0 || true 
-
-
-        # delet eghcr secret 
-        kubectl delete secret ${{ inputs.token-name }} || true
