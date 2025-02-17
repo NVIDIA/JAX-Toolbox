@@ -5,12 +5,29 @@ inputs:
   job-name:
     description: The job name to delete
     required: true
+  token-name:
+    description: Name of the K8s secret to delete
+    required: true
 
 runs:
   using: "composite"
   steps:
     - name: Delete Kubernetes job
       shell: bash
-      if: always()
       run: |
-        kubectl delete job ${{ inputs.job-name }}
+        # make sure we're deleting all the resources 
+        pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o jsonpath='{.items[*].metadata.name}')
+
+        for pod in $pods; do 
+          status=$(kubectl get pod "$pod" -o jsonpath='{.status.phase}' || true)
+          echo "Pod: $pod, status: $status"
+          if [ "$status" = "Running" ] || [ "$status" = "Pending" ]; then
+            kubectl delete pod "$pod" --force --grace-period=0 || true
+          fi
+        
+        # make sure job is deleted
+        kubectl delete job ${{ inputs.job-name }} --force --grace-period=0 || true 
+
+
+        # delet eghcr secret 
+        kubectl delete secret ${{ inputs.token-name }} || true
