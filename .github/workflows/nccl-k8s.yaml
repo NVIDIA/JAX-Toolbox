@@ -54,8 +54,8 @@ jobs:
       BASE_IMAGE: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
       JOB_NAME: "nccl-test-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.test }}"
-      LAUNCHER_NAME: "${{ env.JOB_NAME }}-launcher"
-      TOKEN_NAME: "${{ env.JOB_NAME }}-token"
+      LAUNCHER_NAME: "nccl-test-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.test }}-launcher"
+      TOKEN_NAME: "nccl-test-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.test }}-token"
 
     
     steps:

@@ -21,7 +21,7 @@ runs:
       shell: bash
       run: |
         # wait for the job to be created 
-        kubectl wait --for=create job/${{ inputs.job-name }} --timeout=60
+        kubectl wait --for=create job/${{ inputs.job-name }} --timeout=60s
 
         # wait for the 'spec.suspend' field to become false. Necessary for kueue
         kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${{ inputs.job-name }} --timeout=3600s
