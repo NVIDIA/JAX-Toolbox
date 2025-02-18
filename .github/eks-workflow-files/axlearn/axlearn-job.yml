@@ -19,16 +19,12 @@ spec:
           - pipefail
           - -c
           - |
-            # Example test command; adapted from your Docker run snippet
-            # Writes logs to /opt/output/test-backend-independent.log
-            # Also writes a summary file to /opt/output/summary.txt
             test-axlearn.sh \
               --directory "." \
               --output "/opt/output/" \
               --test-files "/opt/axlearn/axlearn/common/*_test.py" \
               --k8s
 
-            # Wait a moment to ensure logs are flushed
             sync  
             wait 
             # after execution flag the results have been produced 
@@ -48,11 +44,10 @@ spec:
           - sh
           - -c
           - |
-            # Wait for the tests to finish
             while [ ! -f /opt/output/done ]; do
-              sleep 1
+              sleep 5
             done
-            # Now upload to your S3 bucket
+            # Upload to S3 bucket
             aws s3 cp /opt/output/summary.txt s3://jax-toolbox-eks-output/axlearn/${TEST_DATE}/summary.txt
         volumeMounts:
         - name: output

@@ -103,7 +103,7 @@ jobs:
           job-config-file: .github/eks-workflow-files/mpi-nccl-test.yml
           job-name: ${{ steps.var.outputs.LAUNCHER_NAME }} 
       - name: Retrieve Kubernetes job status
-        shell: bash -exo pipefail
+        shell: bash -exo pipefail {0}
         run: |
           LAUNCHER_NAME="${{ steps.var.outputs.LAUNCHER_NAME }}"
           while readarray -d : -t status < <(kubectl get job/${LAUNCHER_NAME} -o 'jsonpath={.status.failed}:{.status.succeeded}'); do
