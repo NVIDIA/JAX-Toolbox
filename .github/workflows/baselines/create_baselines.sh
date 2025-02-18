@@ -9,38 +9,7 @@ usage() {
 [ "$#" -ge "2" ] || usage
 
 TYPE=$1
-if [[ "$TYPE" == "upstream-pax" ]]; then
-    CONFIGS=(
-        "16DP1FSDP1TP1PP"
-        "1DP1FSDP1TP1PP"
-        "1DP2FSDP4TP1PP_single_process"
-        "1DP8FSDP1TP1PP"
-        "2DP1FSDP1TP4PP"
-        "2DP1FSDP2TP4PP"
-        "4DP1FSDP2TP1PP"
-        "8DP1FSDP1TP1PP"
-        "8DP1FSDP1TP1PP_eval"
-        "8DP1FSDP1TP1PP_single_process"
-    )
-    # OUTPUT_DIR should be relative to this script
-    OUTPUT_DIR=PAX_MGMN/upstream
-elif [[ "$TYPE" == "rosetta-pax" ]]; then
-    CONFIGS=(
-        "16DP1FSDP1TP1PP_TE"
-        "1DP1FSDP1TP1PP_TE"
-        "1DP2FSDP4TP1PP_single_process_TE"
-        "1DP8FSDP1TP1PP_TE"
-        "2DP1FSDP1TP4PP"
-        "2DP1FSDP2TP4PP"
-        "4DP1FSDP2TP1PP"
-        "4DP1FSDP2TP1PP_TE"
-        "8DP1FSDP1TP1PP"
-        "8DP1FSDP1TP1PP_TE"
-        "8DP1FSDP1TP1PP_eval_TE"
-        "8DP1FSDP1TP1PP_single_process_TE"
-    )
-    OUTPUT_DIR=PAX_MGMN/rosetta
-elif [[ "$TYPE" == "upstream-t5x" ]]; then
+if [[ "$TYPE" == "upstream-t5x" ]]; then
     CONFIGS=(
         "1G1N"
         "1G2N"

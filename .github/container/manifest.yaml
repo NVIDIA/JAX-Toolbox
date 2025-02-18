@@ -32,30 +32,7 @@ t5x:
     mirror/patch/dali-support: file://patches/t5x/mirror-patch-dali-support.patch # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
     mirror/patch/t5x_te_in_contrib_noindent: file://patches/t5x/mirror-patch-t5x_te_in_contrib_noindent.patch # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
     mirror/patch/fix-default-vocab: file://patches/t5x/mirror-patch-fix-default-vocab.patch # pull/1609/head  # https://github.com/google-research/t5x/pull/1609: Fixes seqio vocab mismatch
-paxml:
-  url: https://github.com/google/paxml.git
-  mirror_url: https://github.com/nvjax-svc-0/paxml.git
-  tracking_ref: main
-  latest_verified_commit: 051795784f8ddaba57eb51218addb5f1db8e04f4
-  mode: git-clone
-  patches:
-    pull/46/head: file://patches/paxml/PR-46.patch # adds Transformer Engine support
-    pull/93/head: file://patches/paxml/PR-93.patch # exposes TE DPA argument in Grok to make it configurable from the command line
-    mirror/patch/validation-configs: file://patches/paxml/mirror-patch-validation-configs.patch # adds additional configs for testing
-    mirror/patch/log-avg-loss: file://patches/paxml/mirror-patch-log-avg-loss.patch # logs average loss over last `n` steps
-    mirror/patch/status-logging: file://patches/paxml/mirror-patch-status-logging.patch # sets log level of task status lines to warning
-praxis:
-  url: https://github.com/google/praxis.git
-  mirror_url: https://github.com/nvjax-svc-0/praxis.git
-  tracking_ref: main
-  latest_verified_commit: c58bcc4e82c80489a7f8a2c3366e7f6b32d271d4
-  mode: git-clone
-  patches:
-    pull/27/head: file://patches/praxis/PR-27.patch # This PR allows XLA:GPU to detect the MHA pattern more easily to call fused kernels from cublas.
-    pull/36/head: file://patches/praxis/PR-36.patch # adds Transformer Engine support
-    pull/84/head: file://patches/praxis/PR-84.patch # experimental support for using TE FMHA in GQA
 lingvo:
-  # Used only in ARM pax builds
   url: https://github.com/tensorflow/lingvo.git
   tracking_ref: master
   latest_verified_commit: 05a076b0783a8bbf4a770095966c472bb37bbf65
@@ -63,12 +40,6 @@ lingvo:
 pydantic:
   version: X.Y.Z
   mode: pip-constraint
-# Used by praxis
-fiddle:
-  url: https://github.com/google/fiddle.git
-  tracking_ref: main
-  latest_verified_commit: 2a17618c56eb99aa58aa898ae12cbac7cf5c3b30
-  mode: pip-vcs
 # Used by t5x
 airio:
   url: https://github.com/google/airio.git

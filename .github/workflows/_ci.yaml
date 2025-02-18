@@ -145,23 +145,6 @@ jobs:
         URLREF_AIRIO=${{ fromJson(inputs.SOURCE_URLREFS).AIRIO }}
     secrets: inherit
 
-  build-upstream-pax:
-    needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-pax-build
-      BADGE_FILENAME: badge-pax-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: upstream-pax
-      DOCKERFILE: .github/container/Dockerfile.pax
-      EXTRA_BUILD_ARGS: |
-        URLREF_PAXML=${{ fromJson(inputs.SOURCE_URLREFS).PAXML }}
-        URLREF_PRAXIS=${{ fromJson(inputs.SOURCE_URLREFS).PRAXIS }}
-        URLREF_LINGVO=${{ fromJson(inputs.SOURCE_URLREFS).LINGVO }}
-    secrets: inherit
-
   build-rosetta-t5x:
     needs: build-upstream-t5x
     uses: ./.github/workflows/_build_rosetta.yaml
@@ -170,16 +153,6 @@ jobs:
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       BASE_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: t5x
-    secrets: inherit
-
-  build-rosetta-pax:
-    needs: build-upstream-pax
-    uses: ./.github/workflows/_build_rosetta.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_MEALKIT }}
-      BASE_LIBRARY: pax
     secrets: inherit
 
   build-gemma:
@@ -214,9 +187,7 @@ jobs:
       - build-maxtext
       - build-levanter
       - build-upstream-t5x
-      - build-upstream-pax
       - build-rosetta-t5x
-      - build-rosetta-pax
       - build-gemma
     outputs:
       TAGS: ${{ steps.collect-tags.outputs.TAGS }}
@@ -233,9 +204,7 @@ jobs:
             {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "levanter",     "stage": "final",   "priority": 900,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "upstream-pax", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "t5x",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "pax",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "gemma",        "stage": "final",   "priority": 900,  "tag": "${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "triton",       "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_MEALKIT }}"},\
@@ -243,9 +212,7 @@ jobs:
             {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "levanter",     "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "upstream-pax", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-pax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "t5x",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "pax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "gemma",        "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-gemma.outputs.DOCKER_TAG_MEALKIT }}"},\
 
             {}\
@@ -536,13 +503,13 @@ jobs:
   #       test-equinox.log
   #   secrets: inherit
 
-  test-te-multigpu:
-    needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-    uses: ./.github/workflows/_test_te.yaml
-    with:
-      TE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
+  # test-te-multigpu:
+  #   needs: build-upstream-pax
+  #   if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+  #   uses: ./.github/workflows/_test_te.yaml
+  #   with:
+  #     TE_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
+  #   secrets: inherit
 
   test-upstream-t5x:
     needs: build-upstream-t5x
@@ -616,51 +583,35 @@ jobs:
         test-levanter.log
     secrets: inherit
 
-  test-te:
-    needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: te
-      EXECUTE: |
-        docker run -i --gpus all --shm-size=1g -v $PWD:/log \
-        ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-te.log
-          pip install pytest-reportlog
-          pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TRANSFORMER_ENGINE}/tests/jax
-        EOF
-      STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-te.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      TIMEOUT_MINUTES: 120
-      ARTIFACTS: |
-        test-te.log
-        pytest-report.jsonl
-    secrets: inherit
+  # test-te:
+  #   needs: build-upstream-pax
+  #   if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+  #   uses: ./.github/workflows/_test_unit.yaml
+  #   with:
+  #     TEST_NAME: te
+  #     EXECUTE: |
+  #       docker run -i --gpus all --shm-size=1g -v $PWD:/log \
+  #       ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }} \
+  #       bash <<"EOF" |& tee test-te.log
+  #         pip install pytest-reportlog
+  #         pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TRANSFORMER_ENGINE}/tests/jax
+  #       EOF
+  #     STATISTICS_SCRIPT: |
+  #       summary_line=$(tail -n1 test-te.log)
+  #       errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+  #       passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
+  #       failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+  #       total_tests=$((failed_tests + passed_tests))
+  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+  #       echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+  #     TIMEOUT_MINUTES: 120
+  #     ARTIFACTS: |
+  #       test-te.log
+  #       pytest-report.jsonl
+  #   secrets: inherit
 
-  test-upstream-pax:
-    needs: build-upstream-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_upstream_pax.yaml
-    with:
-      PAX_IMAGE: ${{ needs.build-upstream-pax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
-  test-rosetta-pax:
-    needs: build-rosetta-pax
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_pax_rosetta.yaml
-    with:
-      PAX_IMAGE: ${{ needs.build-rosetta-pax.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-  
   test-gemma:
     needs: build-gemma
     uses: ./.github/workflows/_test_unit.yaml  

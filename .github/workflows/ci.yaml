@@ -37,7 +37,7 @@ on:
         type: string
         description: |
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
-          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,paxml,praxis,maxtext,levanter,haliax,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,maxtext,levanter,haliax,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
         default: ''
         required: false
 
@@ -338,9 +338,7 @@ jobs:
             maxtext
             levanter
             upstream-t5x
-            upstream-pax
             t5x
-            pax
             gemma
           )
           declare -a STAGES=(
