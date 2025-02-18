@@ -187,6 +187,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       CONTAINER_NAME: axlearn
       DOCKERFILE: .github/container/Dockerfile.axlearn
+      RUNNER_SIZE: large
     secrets: inherit
 
   collect-docker-tags:
