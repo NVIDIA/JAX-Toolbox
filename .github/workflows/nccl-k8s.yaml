@@ -73,7 +73,7 @@ jobs:
         with:
           docker-username: ${{ github.repository_owner }}
           docker-password: ${{ secrets.GITHUB_TOKEN }}
-          token-name: ${{ steps.var.TOKEN_NAME }}
+          token-name: ${{ steps.var.outputs.TOKEN_NAME }}
       - name: Configure Kubernetes job
         shell: bash
         run: |
