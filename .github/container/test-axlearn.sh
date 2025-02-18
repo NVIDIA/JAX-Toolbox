@@ -120,7 +120,8 @@ echo "Running tests..."
 # If we are on Kubernetes, install torch for cpu only
 if [ "$K8S" = true ]; then
      pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
-     pip install transformers sklearn timm
+     pip install transformers
+     pip install scikit-learn timm 
 fi
 
 if [ "${#TEST_FILES[@]}" -eq 0 ]; then

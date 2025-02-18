@@ -191,7 +191,7 @@ jobs:
 
   collect-docker-tags:
     runs-on: ubuntu-22.04
-    if: "!cancelled()"
+    if: ${{ !cancelled() }}
     needs:
       - build-base
       # - build-jax
@@ -457,7 +457,7 @@ jobs:
   #       job-name: ${{ env.JOB_NAME }}
   #   - name: Delete eks job
   #     uses: ./.github/actions/delete-k8s-job
-  #     if: always()
+  #     if: ${{ always() }}
   #     with: 
   #       job-name: ${{ env.JOB_NAME }}
   #   - name: Configure post-processing job
@@ -480,7 +480,7 @@ jobs:
   #         job-name: ${{ env.POSTPROCESS_JOB_NAME }}
   #   - name: Delete GitHub Container Registry token
   #     uses: ./.github/actions/delete-ghcr-token
-  #     if: always()
+  #     if:  ${{ always() }}
   #     with: 
   #       token-name: ${{ env.TOKEN_NAME }}
 
@@ -688,13 +688,13 @@ jobs:
 
     - name: Delete axlearn test job
       uses: ./.github/actions/delete-k8s-job
-      if: always()
+      if: ${{ always() }}
       with: 
         job-name: ${{ env.JOB_NAME }}
 
     - name: Delete GitHub Container Registry token
       uses: ./.github/actions/delete-ghcr-token
-      if: always()
+      if: ${{ always() }}
       with: 
         token-name: ${{ env.TOKEN_NAME }}
 
@@ -717,7 +717,7 @@ jobs:
         echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
     - name: Generate sitrep
       id: sitrep
-      if: "!cancelled()"
+      if: ${{ !cancelled() }}
       shell: bash -x -e {0}
       run: |
         # bring in utility functions
@@ -750,7 +750,7 @@ jobs:
         > "badge-axlearn-test"
 
     - name: Upload artifacts
-      if: "!cancelled()"
+      if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v4
       with:
         name: "artifact-axlearn-test"

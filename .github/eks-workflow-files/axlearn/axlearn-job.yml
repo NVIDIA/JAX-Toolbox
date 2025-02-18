@@ -30,7 +30,9 @@ spec:
 
             # Wait a moment to ensure logs are flushed
             sync  
-            
+            wait 
+            # after execution flag the results have been produced 
+            touch /opt/output/done
         resources:
           limits:
             nvidia.com/gpu: 8
@@ -46,8 +48,8 @@ spec:
           - sh
           - -c
           - |
-            # Wait for the summary file to appear
-            while [ ! -f /opt/output/summary.txt ]; do
+            # Wait for the tests to finish
+            while [ ! -f /opt/output/done ]; do
               sleep 1
             done
             # Now upload to your S3 bucket

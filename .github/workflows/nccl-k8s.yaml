@@ -63,9 +63,10 @@ jobs:
         id: var
         shell: bash 
         run: |
-          echo "JOB_NAME=${{ env.JOB_NAME}//_/-}" >> $GITHUB_OUTPUT
-          echo "LAUNCHER_NAME=nccl-test-${{ env.JOB_NAME}//_/-}-launcher" >> $GITHUB_OUTPUT 
-          echo "TOKEN_NAME=nccl-test-${{ env.JOB_NAME}//_/-}-token" >> $GITHUB_OUTPUT
+          export JOB_NAME="nccl-test-${{ github.run_id }}-${TEST_NAME//_/-}"
+          echo "JOB_NAME=${JOB_NAME}" >> $GITHUB_OUTPUT
+          echo "LAUNCHER_NAME=${JOB_NAME}-launcher" >> $GITHUB_OUTPUT 
+          echo "TOKEN_NAME=nccl-test-${JOB_NAME}-token" >> $GITHUB_OUTPUT
 
       - name: GHCR login and store K8s secret
         uses: ./.github/actions/ghcr-login
@@ -76,9 +77,9 @@ jobs:
       - name: Configure Kubernetes job
         shell: bash
         run: |
-          export JOB_NAME="${{ steps.var.JOB_NAME }}"
-          export LAUNCHER_NAME="${{ steps.var.LAUNCHER_NAME }}"
-          export TOKEN_NAME="${{ steps.var.TOKEN_NAME }}"
+          export JOB_NAME="${{ steps.var.outputs.JOB_NAME }}"
+          export LAUNCHER_NAME="${{ steps.var.outputs.LAUNCHER_NAME }}"
+          export TOKEN_NAME="${{ steps.var.outputs.TOKEN_NAME }}"
           export TEST_NAME="${{ env.TEST_NAME }}"
           export WORKER_NAME="${JOB_NAME}-worker"
 
@@ -100,11 +101,11 @@ jobs:
         uses: ./.github/actions/submit-k8s-job
         with:
           job-config-file: .github/eks-workflow-files/mpi-nccl-test.yml
-          job-name: ${{ steps.var.LAUNCHER_NAME }} 
+          job-name: ${{ steps.var.outputs.LAUNCHER_NAME }} 
       - name: Retrieve Kubernetes job status
         shell: bash -exo pipefail
         run: |
-          LAUNCHER_NAME="${{ steps.var.LAUNCHER_NAME }}"
+          LAUNCHER_NAME="${{ steps.var.outputs.LAUNCHER_NAME }}"
           while readarray -d : -t status < <(kubectl get job/${LAUNCHER_NAME} -o 'jsonpath={.status.failed}:{.status.succeeded}'); do
             failure=${status[0]:-0}
             success=${status[1]:-0}
@@ -120,21 +121,21 @@ jobs:
           done
           exit ${failure}
       - name: Debug failed Kubernetes job
-        if: failure()
+        if: ${{ failure() }}
         shell: bash
         run: |
-          LAUNCHER_NAME="${{ steps.var.LAUNCHER_NAME }}"
+          LAUNCHER_NAME="${{ steps.var.outputs.LAUNCHER_NAME }}"
           pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} -o name)
           if [[ -n "${pods}" ]]; then
             kubectl describe ${pods}
           fi
       - name: Delete Kubernetes job
-        if: always()
+        if: ${{ always() }}
         uses: ./.github/actions/delete-k8s-job
         with:
-          job-name: ${{ steps.var.LAUNCHER_NAME }}
+          job-name: ${{ steps.var.outputs.LAUNCHER_NAME }}
       - name: Delete GitHub Container Registry token
         uses: ./.github/actions/delete-ghcr-token
-        if: always()
+        if: ${{ always() }}
         with: 
-          token-name: ${{ steps.var.TOKEN_NAME }}
+          token-name: ${{ steps.var.outputs.TOKEN_NAME }}
