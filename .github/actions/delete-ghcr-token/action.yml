@@ -11,6 +11,5 @@ runs:
   steps:
     - name: Delete GitHub Container Registry token
       shell: bash
-      if: always()
       run: |
         kubectl delete secret ${{ inputs.token-name }}
