@@ -1,3 +1,6 @@
+# Notice
+Please note, Pax-related content in JAX-Toolbox is no longer being actively maintained or updated.
+
 # Pax
 [Pax](https://github.com/google/paxml/tree/main) is a framework developed by Google optimized for running machine learning experiments using JAX. Pax consists of the Paxml and [Praxis](https://github.com/google/praxis/tree/main) repositories and is maintained as a [distribution](../../../docs/DEVELOPMENT.md) within Rosetta. This means that we cherry-pick the necessary changes to optimize Pax for GPUs on top of upstream Paxml and Praxis' `main` branches. We also provide support for FP8 training via both [Transformer Engine](https://github.com/NVIDIA/TransformerEngine) and native [XLA-FP8](../../../docs/NATIVE_FP8.md).
 
