@@ -15,7 +15,7 @@ Usage: $0 [OPTION]...
   -h, --help                Print usage.
   -m, --manifest=PATH       Path to the manifest. Updates it in-place
   -o, --override_dir=PATH   Use this if there is a custom location of the upstream clone. If not specified, uses /opt/\${PACKAGE}
-  -p, --package=KEY         The package name in the manifest to use, e.g., t5x, paxml
+  -p, --package=KEY         The package name in the manifest to use, e.g., t5x
   -s, --skip-apply          If provided, will only create patches, update manifest, and skip applying. When not provided, applies local patches.
 
 --------------

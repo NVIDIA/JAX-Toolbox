@@ -35,7 +35,7 @@ def parse_args(args=None):
     parser.add_argument(
         "--container",
         help="""
-            Container to use. Example: jax, pax, triton. Used to construct the URLs of
+            Container to use. Example: jax, maxtext. Used to construct the URLs of
             nightly containers, like ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD.""",
     )
     parser.add_argument(
