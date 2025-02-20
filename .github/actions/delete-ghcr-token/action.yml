@@ -10,6 +10,9 @@ runs:
   using: "composite"
   steps:
     - name: Delete GitHub Container Registry token
-      shell: bash
-      run: |
-        kubectl delete secret ${{ inputs.token-name }}
+      uses: ./.github/actions/with-post-step
+      with: 
+        main: | 
+          echo "Main post step action: no action required"
+        post: |
+          kubectl delete secret ${{ inputs.token-name }}

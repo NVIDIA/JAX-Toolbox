@@ -11,18 +11,20 @@ runs:
   using: "composite"
   steps:
     - name: Delete Kubernetes job
-      shell: bash
-      run: |
-        # make sure we're deleting all the resources 
-        pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o jsonpath='{.items[*].metadata.name}')
+      uses: ./.github/actions/with-post-step 
+      with: 
+        main: |
+          echo "Main post step action: no action required"
+        post: | 
+          pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o jsonpath='{.items[*].metadata.name}')
 
-        for pod in $pods; do 
-          status=$(kubectl get pod "$pod" -o jsonpath='{.status.phase}' || true)
-          echo "Pod: $pod, status: $status"
-          if [ "$status" = "Running" ] || [ "$status" = "Pending" ]; then
-            kubectl delete pod "$pod" --force --grace-period=0 || true
-          fi
-        done
-        
-        # make sure job is deleted
-        kubectl delete job ${{ inputs.job-name }} --force --grace-period=0 || true 
+          for pod in $pods; do 
+            status=$(kubectl get pod "$pod" -o jsonpath='{.status.phase}' || true)
+            echo "Pod: $pod, status: $status"
+            if [ "$status" = "Running" ] || [ "$status" = "Pending" ]; then
+              kubectl delete pod "$pod" --force --grace-period=0 || true
+            fi
+          done
+          
+          # make sure job is deleted
+          kubectl delete job ${{ inputs.job-name }} --force --grace-period=0 || true 
