@@ -8,7 +8,7 @@ on:
         description: Axlearn image from ghcr.io/nvidia
         default: ghcr.io/nvidia/jax:axlearn
         required: false
-        
+
 jobs:
   single-process-single-node:
     runs-on: jumpbox
@@ -43,49 +43,49 @@ jobs:
         id: submit
         shell: bash -O expand_aliases -x -e {0}
         run: |
-        alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
-        sshx "date && hostname && sinfo"
-        sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
-        JOB=$(sshx sbatch --parsable << EOF
-        #!/bin/bash
-        #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
-        #SBATCH --exclusive
-        #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
-        #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
-        #SBATCH --time=00:30:00
-        #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
+            alias sshx='ssh -o "ServerAliveInterval 7" ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }}'
+            sshx "date && hostname && sinfo"
+            sshx mkdir -p ${{ steps.meta.outputs.MODEL_PATH }}
+            JOB=$(sshx sbatch --parsable << EOF
+            #!/bin/bash
+            #SBATCH --job-name=${{ steps.meta.outputs.JOB_NAME }}
+            #SBATCH --exclusive
+            #SBATCH --nodes=${{ steps.meta.outputs.NODES }}
+            #SBATCH --gpus-per-node=${{ steps.meta.outputs.GPUS_PER_NODE }}
+            #SBATCH --time=00:30:00
+            #SBATCH --output=${{ steps.meta.outputs.LOG_FILE }}
 
-        # preload enroot container using one task per node
-        time srun \
-            --ntasks-per-node=1 \
-            --container-name=runtime \
-            --container-image=${{ steps.meta.outputs.IMAGE }} \
-            true
+            # preload enroot container using one task per node
+            time srun \
+                --ntasks-per-node=1 \
+                --container-name=runtime \
+                --container-image=${{ steps.meta.outputs.IMAGE }} \
+                true
 
-        # run job with tasks on each node sharing one container
-        time srun \
-            --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
-            --container-name=runtime \
-            --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
-            --container-entrypoint \
-            test-fuji-1B.sh
-        EOF
-        )
+            # run job with tasks on each node sharing one container
+            time srun \
+                --ntasks=${{ steps.meta.outputs.TOTAL_TASKS }} \
+                --container-name=runtime \
+                --container-mounts=${{ steps.meta.outputs.MODEL_PATH }}:/output \
+                --container-entrypoint \
+                test-fuji-1B.sh
+            EOF
+            )
 
-        echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
+            echo "SLURM_JOB_ID=${JOB}" >> $GITHUB_OUTPUT
 
-        . .github/workflows/scripts/wait_for_slurm_job.sh
+            . .github/workflows/scripts/wait_for_slurm_job.sh
 
-        wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
+            wait_for_slurm_job ${{ secrets.CLUSTER_LOGIN_USER }}@${{ vars.HOSTNAME_SLURM_LOGIN }} ${JOB}
 
-        # Gather job info
-        SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
-        SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
-        echo "SLURM Job state is ${SLURM_STATE}"
-        echo "SLURM Job exit code is ${SLURM_EXITCODE}"
-        echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
-        echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
-        set -x
+            # Gather job info
+            SLURM_STATE=$(sshx sacct -j $JOB --format=State --parsable2 --noheader |& head -n 1)
+            SLURM_EXITCODE=$(sshx sacct -j $JOB --format=exitcode --parsable2 --noheader | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g')
+            echo "SLURM Job state is ${SLURM_STATE}"
+            echo "SLURM Job exit code is ${SLURM_EXITCODE}"
+            echo "SLURM_STATE=${SLURM_STATE}" >> "$GITHUB_OUTPUT"
+            echo "SLURM_EXITCODE=${SLURM_EXITCODE}" >> "$GITHUB_OUTPUT"
+            set -x
 
 
       - name: Remove orphaned SLURM job if the CI job is canceled
