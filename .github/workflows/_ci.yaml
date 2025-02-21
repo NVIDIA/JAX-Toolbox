@@ -775,8 +775,8 @@ jobs:
     runs-on: eks
     env:
       AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: axlearn-fuji-1B-${{ github.run_id }}
-      TOKEN_NAME: axlearn-fuji-1B-${{ github.run_id }}-token
+      JOB_NAME: axlearn-fuji-1b-${{ github.run_id }}
+      TOKEN_NAME: axlearn-fuji-1b-${{ github.run_id }}-token
     steps:
     - name: Check out the repository
       uses: actions/checkout@v4
