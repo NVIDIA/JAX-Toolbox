@@ -25,7 +25,7 @@ for pattern in \
   ; do
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt;
 done
-echo "tensorflow-metadata>=1.15.0" >> ${SRC_PATH_MAXTEXT}/requirements.txt
+echo -e "\ntensorflow-metadata>=1.15.0" >> ${SRC_PATH_MAXTEXT}/requirements.txt
 EOF
 
 ###############################################################################
