@@ -24,8 +24,13 @@ portpicker==1.6.0
 seqio==0.0.18
 protobuf==3.20.3  
 pytest>=7.4.3
-tensorflow-cpu
 REQUIREMENTS
+  # Only append "tensorflow-cpu" if running on x86_64
+  if [ "$(uname -m)" = "x86_64" ]; then
+    echo "tensorflow-cpu" >> /opt/pip-tools.d/requirements-axlearn.in
+  else
+    echo "Skipping TF on $(uname -m)"
+  fi
 EOF
 
 
@@ -35,7 +40,7 @@ EOF
 
 ADD test-axlearn.sh /usr/local/bin
 ADD test-fuji-1B.sh /usr/local/bin
-ADD test-fuji-7B.sh /usr/local/bin
+
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
