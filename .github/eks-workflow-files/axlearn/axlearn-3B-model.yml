@@ -39,7 +39,7 @@ spec:
                             --xla_gpu_enable_pipelined_reduce_scatter=true
                             --xla_gpu_enable_nccl_comm_splitting=false"
 
-            export XLA_PYTHON_CLEINT_PREALLOCATE=false
+            export XLA_PYTHON_CLIENT_PREALLOCATE=false
             export TF_GPU_ALLOCATOR=cuda_malloc_async
             export XLA_FLAGS="${XLA_BASE_FLAGS}"
 

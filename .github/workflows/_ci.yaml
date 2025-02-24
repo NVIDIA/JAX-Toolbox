@@ -761,15 +761,23 @@ jobs:
           "badge-axlearn-test"
           summary.txt
 
-  test-axlearn-fuji-1B-slurm:
+  # test-axlearn-fuji-1B-slurm:
+  #   needs: build-axlearn
+  #   if: inputs.ARCHITECTURE == 'amd64' 
+  #   uses: ./.github/workflows/_test_fuji_1B.yaml
+  #   with:
+  #     AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+  #   secrets: inherit
+
+  test-axlearn-fuji-7B-slurm:
     needs: build-axlearn
     if: inputs.ARCHITECTURE == 'amd64' 
-    uses: ./.github/workflows/_test_fuji_1B.yaml
+    uses: ./.github/workflows/_test_fuji_7B.yaml
     with:
       AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  test-axlearn-fuji-1B:
+  test-axlearn-fuji-1B-eks:
     needs: build-axlearn
     if: inputs.ARCHITECTURE == 'amd64'
     runs-on: eks

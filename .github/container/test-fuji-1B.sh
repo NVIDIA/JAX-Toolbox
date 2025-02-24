@@ -1,6 +1,6 @@
 #! /bin/bash
 BASEDIR="/opt/host/"
-CONFIG="fuji-7B-v3-flash"
+CONFIG="fuji-1B-v3-flash"
 POSTFIX=${POSTFIX:=""}
 
 

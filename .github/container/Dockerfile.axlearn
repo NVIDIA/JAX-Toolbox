@@ -35,6 +35,7 @@ EOF
 
 ADD test-axlearn.sh /usr/local/bin
 ADD test-fuji-1B.sh /usr/local/bin
+ADD test-fuji-7B.sh /usr/local/bin
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
