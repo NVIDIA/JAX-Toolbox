@@ -10,10 +10,10 @@ FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_AXLEARN
 ARG SRC_PATH_AXLEARN
 
-RUN <<"EOF" bash -ex
-  git clone "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
-EOF
+RUN git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
 
+# these packages are needed to run axlearn tests
+# https://github.com/apple/axlearn/blob/main/pyproject.toml as reference
 RUN <<"EOF" bash -ex
   echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
@@ -38,8 +38,7 @@ EOF
 ## Add test script to the path
 ###############################################################################
 
-ADD test-axlearn.sh /usr/local/bin
-ADD test-fuji-1B.sh /usr/local/bin
+ADD test-axlearn.sh test-fuji-1B.sh /usr/local/bin/
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage

@@ -10,19 +10,16 @@ usage() {
     echo "  OPTIONS                       DESCRIPTION"
     echo "  -d, --directory DIR           Directory to run tests in."
     echo "                                Default: 'axlearn/axlearn/common'."
-    echo "  -c, --cuda-devices DEVICES    CUDA devices to use. Default: '0,1,2,3,4,5,6,7'."
     echo "  -t, --test-files FILES        Pattern for test files to run."
     echo "                                Default: '*_test.py'."
     echo "  -o, --output DIRECTORY        Output directory for logs and summary."
     echo "                                Default: 'test_runs/<timestamp>'."
-    echo "  -k, --k8s                     Whether to run on a Kubernetes cluster."
     echo "  -h, --help                    Show this help message and exit."
     exit 1
 }
 
 # Default values
 DIR='axlearn/axlearn/common'
-CUDA_DEVICES='0,1,2,3,4,5,6,7'
 TEST_FILES=()
 OUTPUT_DIRECTORY=''
 K8S=false
@@ -37,14 +34,6 @@ while [[ $# -gt 0 ]]; do
                 usage
             fi
             DIR="$2"
-            shift 2
-            ;;
-        -c|--cuda-devices)
-            if [[ -z "$2" ]]; then
-                echo "Error: --cuda-devices requires an argument."
-                usage
-            fi
-            CUDA_DEVICES="$2"
             shift 2
             ;;
         -t|--test-files)
@@ -69,10 +58,6 @@ while [[ $# -gt 0 ]]; do
             OUTPUT_DIRECTORY="$2"
             shift 2
             ;;
-        -k|--k8s)
-            K8S=true
-            shift
-            ;;
         -h|--help)
             usage
             ;;
@@ -95,7 +80,6 @@ mkdir -p "${LOG_DIRECTORY}"
 # Print out config for sanity check
 echo "Configuration:"
 echo "  Directory: $DIR"
-echo "  CUDA Devices: $CUDA_DEVICES"
 if [ "${#TEST_FILES[@]}" -gt 0 ]; then
     echo "  Test Files:"
     for f in "${TEST_FILES[@]}"; do
@@ -106,23 +90,14 @@ else
 fi
 echo "  Output Directory: $OUTPUT_DIRECTORY"
 echo "  Kubernetes mode: $K8S"
-echo "" 
-
 
 cd "$DIR" || exit 1
 
-# Set CUDA devices
-export CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}"
-echo "Using CUDA devices: $CUDA_VISIBLE_DEVICES"
-
 echo "Running tests..."
 
-# If we are on Kubernetes, install torch for cpu only
-if [ "$K8S" = true ]; then
-     pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
-     pip install transformers
-     pip install scikit-learn timm 
-fi
+pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+pip install transformers scikit-learn timm 
+
 
 if [ "${#TEST_FILES[@]}" -eq 0 ]; then
     TEST_FILES=("*_test.py")

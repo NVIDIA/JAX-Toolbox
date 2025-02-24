@@ -660,16 +660,17 @@ jobs:
       JOB_NAME: axlearn-${{ github.run_id }}
       TOKEN_NAME: axlearn-${{ github.run_id }}-token
     steps:
-    - name: Set date env var for saving files
-      run: |
-        echo "DATE_TEST_RAN=$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
     - name: Check out the repository
       uses: actions/checkout@v4
-    - name: GHCR Login
-      uses: ./.github/actions/ghcr-login
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: K8s GHCR login and delete
+      uses: ./.github/actions/store-delete-k8s-ghcr
       with: 
-          docker-username: ${{ github.repository_owner }}
-          docker-password: ${{ secrets.GITHUB_TOKEN }}
           token-name: ${{ env.TOKEN_NAME }}
     - name: Configure axlearn test job
       run: |
@@ -677,34 +678,20 @@ jobs:
         yq -i ea '
            select(di == 0).metadata.name = strenv(JOB_NAME)
           | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
-          | select(di == 0).spec.template.spec.containers[1].env[0].value = strenv(DATE_TEST_RAN)
+          | select(di == 0).spec.template.spec.containers[1].env[0].value = "${{ github.run_id }}"
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
         .github/eks-workflow-files/axlearn/axlearn-job.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
-
-    - name: Submit & wait for axlearn test job
-      uses: ./.github/actions/submit-k8s-job 
+    - name: Submit & delete axlearn test 
+      uses: ./.github/actions/submit-delete-k8s-job 
       with:
         job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
         job-name: ${{ env.JOB_NAME }}
-
-    - name: Delete axlearn test job
-      uses: ./.github/actions/delete-k8s-job
-      if: ${{ always() }}
-      with: 
-        job-name: ${{ env.JOB_NAME }}
-
-    - name: Delete GitHub Container Registry token
-      uses: ./.github/actions/delete-ghcr-token
-      if: ${{ always() }}
-      with: 
-        token-name: ${{ env.TOKEN_NAME }}
-
     - name: Download logs from S3
       id: log-s3
       run: |
         mkdir -p /tmp/axlearn-output
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ env.DATE_TEST_RAN }}/summary.txt /tmp/axlearn-output/
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/summary.txt /tmp/axlearn-output/
 
         passed_tests=$(grep -c ": PASSED" /tmp/axlearn-output/summary.txt || true)
         failed_tests=$(grep -c ": FAILED" /tmp/axlearn-output/summary.txt || true)
@@ -713,7 +700,6 @@ jobs:
         echo "Passed tests: $passed_tests"
         echo "Failed tests: $failed_tests"
         echo "Total tests: $total_tests"
-
         echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
         echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
         echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
@@ -761,14 +747,8 @@ jobs:
           "badge-axlearn-test"
           summary.txt
 
-  test-axlearn-fuji-1B-slurm:
-    needs: build-axlearn
-    if: inputs.ARCHITECTURE == 'amd64' 
-    uses: ./.github/workflows/_test_fuji_1B.yaml
-    with:
-      AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
+  # the fuji test will run for 20 minutes only, as per 2025-02-24 
+  # is not possible to set the `max_steps` value
   test-axlearn-fuji-1B-eks:
     needs: build-axlearn
     if: inputs.ARCHITECTURE == 'amd64'
@@ -780,11 +760,15 @@ jobs:
     steps:
     - name: Check out the repository
       uses: actions/checkout@v4
-    - name: GHCR Login
-      uses: ./.github/actions/ghcr-login
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: K8s GHCR login and delete
+      uses: ./.github/actions/store-delete-k8s-ghcr
       with: 
-          docker-username: ${{ github.repository_owner }}
-          docker-password: ${{ secrets.GITHUB_TOKEN }}
           token-name: ${{ env.TOKEN_NAME }}
     - name: Configure axlearn test job
       run: |
@@ -795,20 +779,9 @@ jobs:
         .github/eks-workflow-files/axlearn/axlearn-1B-model.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-1B-model.yml
 
-    - name: Submit & wait for axlearn test job
-      uses: ./.github/actions/submit-k8s-job 
+    - name: Submit & delete axlearn test 
+      uses: ./.github/actions/submit-delete-k8s-job 
       with:
-        job-config-file: ".github/eks-workflow-files/axlearn/axlearn-1B-model.yml"
+        job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-1B-model.yml"
         job-name: ${{ env.JOB_NAME }}
 
-    - name: Delete axlearn test job
-      uses: ./.github/actions/delete-k8s-job
-      if: ${{ always() }}
-      with: 
-        job-name: ${{ env.JOB_NAME }}
-
-    - name: Delete GitHub Container Registry token
-      uses: ./.github/actions/delete-ghcr-token
-      if: ${{ always() }}
-      with: 
-        token-name: ${{ env.TOKEN_NAME }}

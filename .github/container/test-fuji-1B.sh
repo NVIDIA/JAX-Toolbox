@@ -3,9 +3,7 @@ BASEDIR="/opt/host/"
 CONFIG="fuji-1B-v3-flash"
 POSTFIX=${POSTFIX:=""}
 
-
-export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
-                 --xla_gpu_graph_level=0
+BASE_XLA_FLAGS=${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true
                  --xla_gpu_enable_highest_priority_async_stream=true
                  --xla_gpu_all_reduce_combine_threshold_bytes=1073741824
                  --xla_gpu_all_gather_combine_threshold_bytes=1073741824
@@ -17,13 +15,9 @@ export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
                  --xla_gpu_enable_triton_gemm=false
                  --xla_gpu_enable_all_gather_combine_by_dim=false
                  --xla_gpu_enable_reduce_scatter_combine_by_dim=false
-                 --xla_disable_hlo_passes=rematerialization"
+                 --xla_disable_hlo_passes=rematerialization}
 
-export XLA_PYTHON_CLIENT_PREALLOCATE=false
-export TF_GPU_ALLOCATOR=cuda_malloc_async
-export NCCL_BUFFSIZE=8388608 
-export NCCL_P2P_NET_CHUNKSIZE=524288
-export NCCL_LAUNCH_MODE=GROUP
+export XLA_FLAGS="$BASE_XLA_FLAGS ${XLA_FLAGS:-}" 
 
 LOG_DIF=${BASEDIR}/logs
 TRAINER_DIR=${LOG_DIF}/${CONFIG}_N${SLURM_JOB_NUM_NODES}_n${SLURM_NTASKS}/trainer-logs

@@ -13,6 +13,10 @@ runs:
       uses: ./.github/actions/with-post-step
       with: 
         main: | 
-          echo "Main post step action: no action required"
+          # Store GitHub Container Registry token as Kubernetes secret
+          kubectl create secret generic \
+          ${{ inputs.token-name }} \
+          --from-file=.dockerconfigjson=$HOME/.docker/config.json \
+          --type=kubernetes.io/dockerconfigjson
         post: |
           kubectl delete secret ${{ inputs.token-name }}
