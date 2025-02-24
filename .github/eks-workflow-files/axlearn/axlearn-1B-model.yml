@@ -5,6 +5,8 @@ metadata:
   labels:
     kueue.x-k8s.io/queue-name: p5-queue
 spec:
+  # the job will run for 20 mins, as we can' tset max_steps
+  activeDeadlineSeconds: 1200
   completions: 1
   parallelism: 1
   template:
