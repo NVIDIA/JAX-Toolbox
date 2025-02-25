@@ -749,14 +749,14 @@ jobs:
 
   # the fuji test will run for 20 minutes only, as per 2025-02-24 
   # is not possible to set the `max_steps` value
-  test-axlearn-fuji-1B-eks:
+  test-axlearn-fuji-3B-eks:
     needs: build-axlearn
     if: inputs.ARCHITECTURE == 'amd64'
     runs-on: eks
     env:
       AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: axlearn-fuji-1b-${{ github.run_id }}
-      TOKEN_NAME: axlearn-fuji-1b-${{ github.run_id }}-token
+      JOB_NAME: axlearn-fuji-3b-${{ github.run_id }}
+      TOKEN_NAME: axlearn-fuji-3b-${{ github.run_id }}-token
     steps:
     - name: Check out the repository
       uses: actions/checkout@v4
@@ -776,12 +776,12 @@ jobs:
            select(di == 0).metadata.name = strenv(JOB_NAME)
           | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
-        .github/eks-workflow-files/axlearn/axlearn-1B-model.yml
-        git diff .github/eks-workflow-files/axlearn/axlearn-1B-model.yml
+        .github/eks-workflow-files/axlearn/axlearn-3B-model.yml
+        git diff .github/eks-workflow-files/axlearn/axlearn-3B-model.yml
 
     - name: Submit & delete axlearn test 
       uses: ./.github/actions/submit-delete-k8s-job 
       with:
-        job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-1B-model.yml"
+        job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-3B-model.yml"
         job-name: ${{ env.JOB_NAME }}
 
