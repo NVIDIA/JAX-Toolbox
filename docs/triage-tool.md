@@ -54,7 +54,11 @@ virtualenv triage-venv
 ```
 
 The tool should be invoked on a machine with `docker` available and whatever GPUs are
-needed to execute the test case.
+needed to execute the test case if the default runtime (`--container-runtime=docker`)
+is used.
+If `--container-runtime=pyxis` is used instead, the tool should be invoked on a machine
+where `srun --container-image=XXX ... test_command` will execute the test case on one
+or more machines with appropriate GPUs, *e.g.* inside an `salloc` session.
 
 ## Usage
 
@@ -78,6 +82,10 @@ as fast and targeted as possible.
 
 If you want to run multiple commands, you might want to use something like
 `jax-toolbox-triage --container=jax sh -c "command1 && command2"`.
+
+Alternatively, you can use `-v` (`--container-mount`) to mount a host directory
+containing test scripts into the container and execute a script from there, *e.g.*
+`-v $PWD:/work /work/test.sh`.
 
 The expectation is that the test case will be executed successfully several times as
 part of the triage, so you may want to tune some parameters to reduce the execution
@@ -291,12 +299,7 @@ critical date, but the third stage will fail because it will try and fail to rep
 test success by building the JAX/XLA commits from `2024-10-14` in the `2024-10-15`
 container.
 
-Other limitations include that only `docker` is supported as a container runtime, which
-also implies that it is not currently possible to triage a test that requires a
-multi-node or multi-process test.
-
-The tool also does not currently handle skipping commits that do not compile, or test
-cases that require copying files (*e.g.* script files) into the container.
+The tool also does not currently handle skipping commits that do not compile.
 
 If you run into these limitations in real-world usage of this tool, please file a bug
 against JAX-Toolbox including details of manual steps you took to root-case the test
