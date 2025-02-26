@@ -126,7 +126,14 @@ def parse_args(args=None):
             significantly speed up the commit-level search. By default, uses a temporary
             directory including the name of the current user.""",
     )
+    parser.add_argument(
+        "--container-runtime",
+        default="docker",
+        help="Container runtime used, this can be either docker or pyxis.",
+        type=lambda s: s.lower(),
+    )
     args = parser.parse_args(args=args)
+    assert args.container_runtime in {"docker", "pyxis"}, args.container_runtime
     num_explicit_containers = (args.passing_container is not None) + (
         args.failing_container is not None
     )

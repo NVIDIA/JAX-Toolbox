@@ -9,6 +9,7 @@ import typing
 from .args import parse_args
 from .docker import DockerContainer
 from .logic import commit_search, container_search, TestResult
+from .pyxis import PyxisContainer
 from .utils import (
     container_exists as container_exists_base,
     container_url as container_url_base,
@@ -30,7 +31,9 @@ def main():
         container_exists_base, container=args.container, logger=logger
     )
     Container = functools.partial(
-        DockerContainer, logger=logger, mounts=bazel_cache_mounts
+        DockerContainer if args.container_runtime == "docker" else PyxisContainer,
+        logger=logger,
+        mounts=bazel_cache_mounts,
     )
     bazel_cache_mount_args = []
     for src, dst in bazel_cache_mounts:
