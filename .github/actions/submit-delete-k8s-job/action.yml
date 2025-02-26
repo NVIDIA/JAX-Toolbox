@@ -15,7 +15,6 @@ runs:
   steps:
     - name: Delete Kubernetes job
       uses: ./.github/actions/with-post-step 
-      shell: bash
       with: 
         main: |
           echo "Submit K8s job" 
