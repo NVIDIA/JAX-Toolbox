@@ -24,4 +24,4 @@ runs:
           --from-file=.dockerconfigjson=$HOME/.docker/config.json \
           --type=kubernetes.io/dockerconfigjson
         post: |
-          kubectl delete secret ${{ inputs.token-name }}
+          kubectl delete secret ${{ steps.token.outputs.token-name }}

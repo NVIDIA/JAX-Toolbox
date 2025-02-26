@@ -1,9 +1,9 @@
-name: Delete K8s Job
-description: Cleans up the Job resource to avoid leaving pods behind.
+name: Submit & Delete K8s Job
+description: Submit and delete a K8s job after its execution
 
 inputs:
   job-name:
-    description: The job name to delete
+    description: The job name
     required: true
   job-config-file:
     description: Path to the Kubernetes job YAML
@@ -12,9 +12,8 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Delete Kubernetes job
+    - name: Submit and Delete Kubernetes job
       uses: ./.github/actions/with-post-step 
-      shell: bash 
       with: 
         main: |
           echo "Submit K8s job" 
