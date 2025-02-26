@@ -10,9 +10,10 @@ runs:
   using: "composite"
   steps:
     - name: Generate a UUID token 
+      shell: bash 
       id: token
       run: | 
-        echo "token-name=$(uuidgen)" >> $GITHUB_OUTPUT
+        echo "token-name=${RANDOM}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> $GITHUB_OUTPUT
     - name: Delete GitHub Container Registry token
       uses: ./.github/actions/with-post-step
       with: 
