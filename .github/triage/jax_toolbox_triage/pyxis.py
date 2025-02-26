@@ -14,7 +14,7 @@ class PyxisContainer:
         mounts: typing.List[typing.Tuple[pathlib.Path, pathlib.Path]],
     ):
         self._logger = logger
-        mount_str = ",".join(map(":".join, mounts))
+        mount_str = ",".join(map(lambda t: f"{t[0]}:{t[1]}", mounts))
         self._mount_args = [f"--container-mounts={mount_str}"] if mount_str else []
         self._name = secrets.token_urlsafe()
         self._url = url
