@@ -1,14 +1,19 @@
-name: Delete GHCR Token
-description: Deletes the K8s secret used for pulling images from GHCR.
+name: Store & Delete GHCR Token
+description: Store and Delete the docker credentails for pulling from GHCR
 
-inputs:
+outputs:
   token-name:
     description: Name of the K8s secret to delete
-    required: true
+    value: ${{ steps.token.outputs.token-name }}
 
 runs:
   using: "composite"
   steps:
+    - name: Generate a UUID token 
+      shell: bash 
+      id: token
+      run: | 
+        echo "token-name=$(uuidgen)" >> $GITHUB_OUTPUT
     - name: Delete GitHub Container Registry token
       uses: ./.github/actions/with-post-step
       shell: bash
@@ -16,7 +21,7 @@ runs:
         main: | 
           # Store GitHub Container Registry token as Kubernetes secret
           kubectl create secret generic \
-          ${{ inputs.token-name }} \
+          ${{ steps.token.outputs.token-name }} \
           --from-file=.dockerconfigjson=$HOME/.docker/config.json \
           --type=kubernetes.io/dockerconfigjson
         post: |

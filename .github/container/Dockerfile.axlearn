@@ -38,7 +38,7 @@ EOF
 ## Add test script to the path
 ###############################################################################
 
-ADD test-axlearn.sh test-fuji-1B.sh /usr/local/bin/
+ADD test-axlearn.sh test-fuji.sh /usr/local/bin/
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage

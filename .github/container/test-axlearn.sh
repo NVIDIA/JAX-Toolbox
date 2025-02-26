@@ -89,7 +89,6 @@ else
     echo "  Test Files Pattern: '*_test.py' (default)"
 fi
 echo "  Output Directory: $OUTPUT_DIRECTORY"
-echo "  Kubernetes mode: $K8S"
 
 cd "$DIR" || exit 1
 

@@ -658,7 +658,6 @@ jobs:
     env:
       AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
       JOB_NAME: axlearn-${{ github.run_id }}
-      TOKEN_NAME: axlearn-${{ github.run_id }}-token
     steps:
     - name: Check out the repository
       uses: actions/checkout@v4
@@ -668,10 +667,9 @@ jobs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR login and delete
+    - name: K8s GHCR store and delete token 
+      id: store-token
       uses: ./.github/actions/store-delete-k8s-ghcr
-      with: 
-          token-name: ${{ env.TOKEN_NAME }}
     - name: Configure axlearn test job
       run: |
         # Replace placeholders in axlearn-job.yml with environment variables
@@ -679,7 +677,7 @@ jobs:
            select(di == 0).metadata.name = strenv(JOB_NAME)
           | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
           | select(di == 0).spec.template.spec.containers[1].env[0].value = "${{ github.run_id }}"
-          | select(di == 0).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
+          | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
         .github/eks-workflow-files/axlearn/axlearn-job.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
     - name: Submit & delete axlearn test 
@@ -756,7 +754,6 @@ jobs:
     env:
       AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
       JOB_NAME: axlearn-fuji-3b-${{ github.run_id }}
-      TOKEN_NAME: axlearn-fuji-3b-${{ github.run_id }}-token
     steps:
     - name: Check out the repository
       uses: actions/checkout@v4
@@ -766,22 +763,21 @@ jobs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR login and delete
+    - name: K8s GHCR store and delete token
+      id: store-token
       uses: ./.github/actions/store-delete-k8s-ghcr
-      with: 
-          token-name: ${{ env.TOKEN_NAME }}
     - name: Configure axlearn test job
       run: |
         yq -i ea '
            select(di == 0).metadata.name = strenv(JOB_NAME)
           | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
-          | select(di == 0).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
-        .github/eks-workflow-files/axlearn/axlearn-3B-model.yml
-        git diff .github/eks-workflow-files/axlearn/axlearn-3B-model.yml
+          | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
+        .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
+        git diff .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
 
     - name: Submit & delete axlearn test 
       uses: ./.github/actions/submit-delete-k8s-job 
       with:
-        job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-3B-model.yml"
+        job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
         job-name: ${{ env.JOB_NAME }}
 

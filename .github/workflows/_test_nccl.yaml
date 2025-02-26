@@ -3,18 +3,15 @@ name: ~run NCCL tests
 on:
   workflow_call:
     inputs:
-      # Note that cuda-dl-base installs the NCCL tests, while the vanilla nvidia/cuda
-      # images do not; when JAX-Toolbox moves to using cuda-dl-base this workflow ought
-      # to be modified to test one of the JAX-Toolbox containers.
       CONTAINER:
         type: string
-        description: CUDA image to use as base, e.g. nvcr.io/nvidia/cuda-dl-base:24.11-cuda12.6-devel-ubuntu24.04
+        description: CUDA image to use as base
         required: true
 
 permissions:
-  actions:  write # to cancel previous workflows
-  contents: read  # to fetch code
-  packages: write # to upload container
+  actions: write
+  contents: read
+  packages: write
 
 jobs:
   build-mpi-operator-compatible-base:
@@ -23,12 +20,13 @@ jobs:
       ARCHITECTURE: amd64
       ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
       BADGE_FILENAME: badge-mpi-operator-compatible-base-build
-      BUILD_DATE: 0000-00-00 # not important; this image is never published
+      BUILD_DATE: 0000-00-00
       BASE_IMAGE: ${{ inputs.CONTAINER }}
       CONTAINER_NAME: mpi-operator-compatible-base
       DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
       RUNNER_SIZE: small
     secrets: inherit
+
   nccl-test:
     needs: build-mpi-operator-compatible-base
     strategy:
@@ -42,6 +40,7 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
+
       - name: Modify variables 
         id: var
         shell: bash 
@@ -49,35 +48,36 @@ jobs:
           export JOB_NAME="nccl-test-${{ github.run_id }}-${TEST_NAME//_/-}"
           echo "JOB_NAME=${JOB_NAME}" >> $GITHUB_OUTPUT
           echo "LAUNCHER_NAME=${JOB_NAME}-launcher" >> $GITHUB_OUTPUT 
-          echo "TOKEN_NAME=nccl-test-${JOB_NAME}-token" >> $GITHUB_OUTPUT 
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: K8s GHCR login and delete
-        uses: ./.github/actions/store-delete-k8s-ghcr
-        with: 
-            token-name: ${{ steps.var.outputs.TOKEN_NAME }}
+      - name: K8s GHCR store and delete token
+        id: store-token
+        uses: ./.github/actions/store-delete-k8s-ghcr 
       - name: Configure Kubernetes job
         run: |
           export WORKER_NAME="${JOB_NAME}-worker"
           yq -i '.metadata.name = strenv(JOB_NAME)
             | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].image = strenv(BASE_IMAGE)
             | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].name = strenv(LAUNCHER_NAME)
-            | .spec.mpiReplicaSpecs.Launcher.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
+            | .spec.mpiReplicaSpecs.Launcher.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
             | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].command[3] = strenv(TEST_NAME)
             | .spec.mpiReplicaSpecs.Worker.template.spec.containers[].image = strenv(BASE_IMAGE)
             | .spec.mpiReplicaSpecs.Worker.template.spec.containers[].name = strenv(WORKER_NAME)
-            | .spec.mpiReplicaSpecs.Worker.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
+            | .spec.mpiReplicaSpecs.Worker.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
             .github/eks-workflow-files/mpi-nccl-test.yml
           git diff .github/eks-workflow-files/mpi-nccl-test.yml
-    - name: Submit & delete Kubernetes test 
-      uses: ./.github/actions/submit-delete-k8s-job 
-      with:
-        job-config-file:  ".github/eks-workflow-files/mpi-nccl-test.yml"
-        job-name: ${{ steps.var.output.JOB_NAME }}
+
+      - name: Submit & delete Kubernetes test 
+        uses: ./.github/actions/submit-delete-k8s-job 
+        with:
+          job-config-file: ".github/eks-workflow-files/mpi-nccl-test.yml"
+          job-name: ${{ steps.var.outputs.JOB_NAME }}  # Fixed outputs instead of output
+
       - name: Retrieve Kubernetes job status
         shell: bash -exo pipefail {0}
         run: |
@@ -91,19 +91,15 @@ jobs:
             elif [[ ${total} == 1 ]]; then
               break
             else
-              # Shouldn't happen, maybe a sign the job being monitored does not have a
-              # single launcher pod?
               exit 255
             fi
           done
           exit ${failure}
-      # Provide more debug output in case of failure; note that some kinds of launch
-      # failure do not produce any log output.
+
       - name: Debug failed Kubernetes job
         if: failure()
         run: |
           LAUNCHER_NAME="${{ steps.var.outputs.LAUNCHER_NAME }}"
-          # Provide better debug in case of launch failures that will not produce log output
           pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} -o name)
           if [[ -n "${pods}" ]]; then
             kubectl describe ${pods}

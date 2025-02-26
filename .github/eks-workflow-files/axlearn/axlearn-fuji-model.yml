@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: PLACEHOLDER
+    labels:
+        kueue.x-k8s.io/queue-name: p5-queue
+spec:
+    # the job will run for 20 mins, as we can't set max_steps
+    activeDeadlineSeconds: 1200
+    completions: 1
+    parallelism: 1
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: axlearn-fuji-3B
+                  image: PLACEHOLDER
+                  command:
+                    - bash
+                    - -xo
+                    - pipefail
+                    - -c
+                    - "\nBASEDIR=\"/opt/axlearn\"\nCONFIG=\"fuji-3B-v3-flash-single-host\"\nBASE_XLA_FLAGS=${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true\n     --xla_gpu_enable_highest_priority_async_stream=true\n     --xla_gpu_all_reduce_combine_threshold_bytes=1073741824\n     --xla_gpu_all_gather_combine_threshold_bytes=1073741824\n     --xla_gpu_reduce_scatter_combine_threshold_bytes=1073741824\n     --xla_gpu_enable_pipelined_all_gather=true\n     --xla_gpu_enable_pipelined_reduce_scatter=true\n     --xla_gpu_enable_pipelined_all_reduce=true\n     --xla_gpu_enable_while_loop_double_buffering=true\n     --xla_gpu_enable_triton_gemm=false\n     --xla_gpu_enable_all_gather_combine_by_dim=false\n     --xla_gpu_enable_reduce_scatter_combine_by_dim=false\n     --xla_disable_hlo_passes=rematerialization}\n\nexport XLA_FLAGS=\"$BASE_XLA_FLAGS ${XLA_FLAGS:-}\" \n\nLOG_DIR=${BASEDIR}/logs\nTRAINER_DIR=${LOG_DIR}/${CONFIG}${POSTFIX}-eks/trainer-dir\nmkdir -p ${TRAINER_DIR}\n\npython3  -m axlearn.common.launch_trainer_main  \\\n    --module=text.gpt.c4_trainer \\\n    --config=${CONFIG} \\\n    --trainer_dir=${TRAINER_DIR} \\\n    --data_dir=gs://axlearn-public/tensorflow_datasets \\\n    --jax_backend=gpu \n"
+                  resources:
+                    limits:
+                        nvidia.com/gpu: 8
+                  volumeMounts:
+                    - name: output
+                      mountPath: /opt/output
+            imagePullSecrets:
+                - name: PLACEHOLDER
+            volumes:
+                - name: output
+                  emptyDir: {}

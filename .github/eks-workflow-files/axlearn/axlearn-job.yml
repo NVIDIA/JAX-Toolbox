@@ -1,59 +1,59 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: PLACEHOLDER 
-  labels:
-    kueue.x-k8s.io/queue-name: p5-queue
+    name: PLACEHOLDER
+    labels:
+        kueue.x-k8s.io/queue-name: p5-queue
 spec:
-  completions: 1
-  parallelism: 1
-  template:
-    spec:
-      restartPolicy: Never
-      containers:
-      - name: axlearn
-        image: PLACEHOLDER 
-        command:
-          - bash
-          - -xo
-          - pipefail
-          - -c
-          - |
-            test-axlearn.sh \
-              --directory "." \
-              --output "/opt/output/" \
-              --test-files "/opt/axlearn/axlearn/common/*_test.py" \
-              --k8s
+    completions: 1
+    parallelism: 1
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: axlearn
+                  image: PLACEHOLDER
+                  command:
+                    - bash
+                    - -xo
+                    - pipefail
+                    - -c
+                    - |
+                      test-axlearn.sh \
+                        --directory "." \
+                        --output "/opt/output/" \
+                        --test-files "/opt/axlearn/axlearn/common/*_test.py" \
+                        --k8s
 
-            sync  
-            wait 
-            # after execution flag the results have been produced 
-            touch /opt/output/done
-        resources:
-          limits:
-            nvidia.com/gpu: 8
-        volumeMounts:
-        - name: output
-          mountPath: /opt/output
-      - name: upload
-        image: amazon/aws-cli
-        env: 
-        - name: TEST_DATE 
-          value: PLACEHOLDER
-        command:
-          - sh
-          - -c
-          - |
-            while [ ! -f /opt/output/done ]; do
-              sleep 5
-            done
-            # Upload to S3 bucket
-            aws s3 cp /opt/output/summary.txt s3://jax-toolbox-eks-output/axlearn/${TEST_DATE}/summary.txt
-        volumeMounts:
-        - name: output
-          mountPath: /opt/output
-      imagePullSecrets:
-      - name: PLACEHOLDER  
-      volumes:
-      - name: output
-        emptyDir: {}
+                      sync  
+                      wait 
+                      # after execution flag the results have been produced 
+                      touch /opt/output/done
+                  resources:
+                    limits:
+                        nvidia.com/gpu: 8
+                  volumeMounts:
+                    - name: output
+                      mountPath: /opt/output
+                - name: upload
+                  image: amazon/aws-cli
+                  env:
+                    - name: TEST_DATE
+                      value: PLACEHOLDER
+                  command:
+                    - sh
+                    - -c
+                    - |
+                      while [ ! -f /opt/output/done ]; do
+                        sleep 5
+                      done
+                      # Upload to S3 bucket
+                      aws s3 cp /opt/output/summary.txt s3://jax-toolbox-eks-output/axlearn/${TEST_DATE}/summary.txt
+                  volumeMounts:
+                    - name: output
+                      mountPath: /opt/output
+            imagePullSecrets:
+                - name: PLACEHOLDER
+            volumes:
+                - name: output
+                  emptyDir: {}
