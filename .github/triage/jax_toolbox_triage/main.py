@@ -239,7 +239,7 @@ def main():
                     "xla": xla_commit,
                 },
             )
-            result_str = 'pass' if test_result.returncode == 0 else 'fail'
+            result_str = "pass" if test_result.returncode == 0 else "fail"
             logger.info(f"Test completed in {test_time:.1f}s ({result_str})")
             logger.debug(
                 f"Test stdout:\n{test_result.stdout}\nTest stderr:\n{test_result.stderr}"
