@@ -232,7 +232,7 @@ def main():
                 "commit",
                 {
                     "build_time": middle - before,
-                    "container": container_url(range_end),
+                    "container": failing_url,
                     "jax": jax_commit,
                     "result": test_result.returncode == 0,
                     "test_time": test_time,
@@ -253,5 +253,5 @@ def main():
             logger=logger,
             skip_precondition_checks=args.skip_precondition_checks,
         )
-        result["container"] = container_url(range_end)
+        result["container"] = failing_url
         add_summary_record("result", result, scalar=True)
