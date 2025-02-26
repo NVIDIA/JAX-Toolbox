@@ -127,6 +127,16 @@ def parse_args(args=None):
             directory including the name of the current user.""",
     )
     parser.add_argument(
+        "-v",
+        "--container-mount",
+        action="append",
+        help="""
+            Takes a SRC:DST value and mounts the (host) directory SRC into the container
+            at DST; this can be used to pass in a test script, e.g. -v $PWD:/work before
+            using /work/test.sh as a test command.""",
+        type=lambda s: s.split(":", 1),
+    )
+    parser.add_argument(
         "--container-runtime",
         default="docker",
         help="Container runtime used, this can be either docker or pyxis.",

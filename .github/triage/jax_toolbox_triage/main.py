@@ -33,7 +33,7 @@ def main():
     Container = functools.partial(
         DockerContainer if args.container_runtime == "docker" else PyxisContainer,
         logger=logger,
-        mounts=bazel_cache_mounts,
+        mounts=bazel_cache_mounts + args.container_mount,
     )
     bazel_cache_mount_args = []
     for src, dst in bazel_cache_mounts:
