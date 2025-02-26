@@ -47,6 +47,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create env vars 
+        id: var 
+        shell: bash 
+        run: | 
+          JOB_NAME="nccl-test-${{ github.run_id }}-${{ github.run_attempt }}-${TEST_NAME//_/-}"
+          LAUNCHER_NAME="${JOB_NAME}-launcher"
+          TOKEN_NAME="${JOB_NAME}-token"
+          # Make these available to later steps
+          echo "JOB_NAME=${JOB_NAME}" >> "$GITHUB_ENV"
+          echo "LAUNCHER_NAME=${LAUNCHER_NAME}" >> "$GITHUB_ENV"
       - name: K8s GHCR store and delete token
         id: store-token
         uses: ./.github/actions/store-delete-k8s-ghcr 
