@@ -10,7 +10,6 @@ runs:
   using: "composite"
   steps:
     - name: Generate a UUID token 
-      shell: bash 
       id: token
       run: | 
         echo "token-name=$(uuidgen)" >> $GITHUB_OUTPUT
