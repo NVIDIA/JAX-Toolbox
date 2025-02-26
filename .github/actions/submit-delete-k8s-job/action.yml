@@ -9,29 +9,30 @@ inputs:
     description: Path to the Kubernetes job YAML
     required: true
 
-
 runs:
   using: "composite"
   steps:
     - name: Delete Kubernetes job
       uses: ./.github/actions/with-post-step 
+      shell: bash 
       with: 
         main: |
           echo "Submit K8s job" 
           kubectl apply -f "${{ inputs.job-config-file }}"
-          # wait for the job to be created 
+          
+          # Wait for job to be craeted
           kubectl wait --for=create job/${{ inputs.job-name }} --timeout=60s
-
-          # wait for the 'spec.suspend' field to become false. Necessary for kueue
+          
+          # Wait for job to be unsuspended
           kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${{ inputs.job-name }} --timeout=7200s
-
-          while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
-            echo "Waiting for pods to start..."
-            sleep 20
-          done
-
-          # stream the logs 
+          
+          # Wait for pods to be running
+          kubectl wait --for=condition=Ready \
+            --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} \
+            --timeout=600s pod
+          
+          # Stream logs
           kubectl logs --all-containers=true --all-pods=true --follow job/${{ inputs.job-name }}
+          
         post: | 
           kubectl delete job ${{ inputs.job-name }}
- 

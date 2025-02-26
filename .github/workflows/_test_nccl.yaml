@@ -3,15 +3,18 @@ name: ~run NCCL tests
 on:
   workflow_call:
     inputs:
+      # Note that cuda-dl-base installs the NCCL tests, while the vanilla nvidia/cuda
+      # images do not; when JAX-Toolbox moves to using cuda-dl-base this workflow ought
+      # to be modified to test one of the JAX-Toolbox containers.
       CONTAINER:
         type: string
-        description: CUDA image to use as base
+        description: CUDA image to use as base, e.g. nvcr.io/nvidia/cuda-dl-base:24.11-cuda12.6-devel-ubuntu24.04
         required: true
 
 permissions:
-  actions: write
-  contents: read
-  packages: write
+  actions:  write # to cancel previous workflows
+  contents: read  # to fetch code
+  packages: write # to upload container
 
 jobs:
   build-mpi-operator-compatible-base:
@@ -20,13 +23,12 @@ jobs:
       ARCHITECTURE: amd64
       ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
       BADGE_FILENAME: badge-mpi-operator-compatible-base-build
-      BUILD_DATE: 0000-00-00
+      BUILD_DATE: 0000-00-00 # not important; this image is never published
       BASE_IMAGE: ${{ inputs.CONTAINER }}
       CONTAINER_NAME: mpi-operator-compatible-base
       DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
       RUNNER_SIZE: small
     secrets: inherit
-
   nccl-test:
     needs: build-mpi-operator-compatible-base
     strategy:
@@ -36,19 +38,9 @@ jobs:
     env:
       BASE_IMAGE: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
-
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
-
-      - name: Modify variables 
-        id: var
-        shell: bash 
-        run: |
-          export JOB_NAME="nccl-test-${{ github.run_id }}-${TEST_NAME//_/-}"
-          echo "JOB_NAME=${JOB_NAME}" >> $GITHUB_OUTPUT
-          echo "LAUNCHER_NAME=${JOB_NAME}-launcher" >> $GITHUB_OUTPUT 
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -71,17 +63,29 @@ jobs:
             | .spec.mpiReplicaSpecs.Worker.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
             .github/eks-workflow-files/mpi-nccl-test.yml
           git diff .github/eks-workflow-files/mpi-nccl-test.yml
-
-      - name: Submit & delete Kubernetes test 
-        uses: ./.github/actions/submit-delete-k8s-job 
-        with:
-          job-config-file: ".github/eks-workflow-files/mpi-nccl-test.yml"
-          job-name: ${{ steps.var.outputs.JOB_NAME }}  # Fixed outputs instead of output
-
+      - name: Submit Kubernetes job
+        run: kubectl apply -f .github/eks-workflow-files/mpi-nccl-test.yml
+      - name: Wait for Kubernetes job to start
+        # Note that this is *not* using JOB_NAME
+        run: |
+          # Launcher job is created eagerly, but suspended. Kueue un-suspends it when
+          # resources are available, but that is where there can be a long wait if the
+          # cluster is busy executing other jobs.
+          kubectl wait --for=create job/${LAUNCHER_NAME}
+          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${LAUNCHER_NAME} --timeout=3600s
+      - name: Stream Kubernetes job output
+        # Note that this is *not* JOB_NAME
+        run: |
+          # Streaming logs will fail if the container/pod is still pending
+          while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+            sleep 1
+          done
+          # TODO: --all-containers=true --all-pods=true could make sense here, but it
+          # prefixes lines with a rather verbose tag
+          kubectl logs --follow job/${LAUNCHER_NAME}
       - name: Retrieve Kubernetes job status
         shell: bash -exo pipefail {0}
         run: |
-          LAUNCHER_NAME="${{ steps.var.outputs.LAUNCHER_NAME }}"
           while readarray -d : -t status < <(kubectl get job/${LAUNCHER_NAME} -o 'jsonpath={.status.failed}:{.status.succeeded}'); do
             failure=${status[0]:-0}
             success=${status[1]:-0}
@@ -91,16 +95,26 @@ jobs:
             elif [[ ${total} == 1 ]]; then
               break
             else
+              # Shouldn't happen, maybe a sign the job being monitored does not have a
+              # single launcher pod?
               exit 255
             fi
           done
           exit ${failure}
-
+      # Provide more debug output in case of failure; note that some kinds of launch
+      # failure do not produce any log output.
       - name: Debug failed Kubernetes job
         if: failure()
         run: |
-          LAUNCHER_NAME="${{ steps.var.outputs.LAUNCHER_NAME }}"
+          # Provide better debug in case of launch failures that will not produce log output
           pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} -o name)
           if [[ -n "${pods}" ]]; then
             kubectl describe ${pods}
           fi
+      # Clean up in case of errors as well as success
+      - name: Delete Kubernetes job
+        if: always()
+        run: kubectl delete -f .github/eks-workflow-files/mpi-nccl-test.yml
+      - name: Delete GitHub Container Registry token
+        if: always()
+        run: kubectl delete secret ${TOKEN_NAME}
