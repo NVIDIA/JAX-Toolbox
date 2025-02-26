@@ -125,6 +125,3 @@ jobs:
       - name: Delete Kubernetes job
         if: always()
         run: kubectl delete -f .github/eks-workflow-files/mpi-nccl-test.yml
-      - name: Delete GitHub Container Registry token
-        if: always()
-        run: kubectl delete secret ${TOKEN_NAME}

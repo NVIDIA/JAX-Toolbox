@@ -13,7 +13,7 @@ spec:
         spec:
             restartPolicy: Never
             containers:
-                - name: axlearn-fuji-3B
+                - name: axlearn-fuji
                   image: PLACEHOLDER
                   command:
                     - bash
