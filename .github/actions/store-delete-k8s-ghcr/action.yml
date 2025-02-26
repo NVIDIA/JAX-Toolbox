@@ -16,7 +16,6 @@ runs:
         echo "token-name=$(uuidgen)" >> $GITHUB_OUTPUT
     - name: Delete GitHub Container Registry token
       uses: ./.github/actions/with-post-step
-      shell: bash
       with: 
         main: | 
           # Store GitHub Container Registry token as Kubernetes secret

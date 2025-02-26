@@ -747,7 +747,7 @@ jobs:
 
   # the fuji test will run for 20 minutes only, as per 2025-02-24 
   # is not possible to set the `max_steps` value
-  test-axlearn-fuji-3B-eks:
+  test-axlearn-fuji-models-eks:
     needs: build-axlearn
     if: inputs.ARCHITECTURE == 'amd64'
     runs-on: eks
