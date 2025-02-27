@@ -22,7 +22,6 @@ usage() {
 DIR='axlearn/axlearn/common'
 TEST_FILES=()
 OUTPUT_DIRECTORY=''
-K8S=false
 
 # Parse args manually
 while [[ $# -gt 0 ]]; do
