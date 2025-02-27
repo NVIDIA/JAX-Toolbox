@@ -310,10 +310,3 @@ if __name__ == '__main__':
     coordinator.initialize_workers()
     coordinator.log("Initialized workers")
     asyncio.run(coordinator.run(input_shape=(16, 512), num_steps=30))
-
-
-
-
-
-    
-

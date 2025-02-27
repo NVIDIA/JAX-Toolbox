@@ -1,5 +1,4 @@
 import time
-import os
 from absl import app
 from typing import Sequence
 from ray.job_submission import JobSubmissionClient, JobStatus

@@ -12,7 +12,7 @@ export NGPUS=$GPUS_PER_NODE # Since this is only for one node
 export REDIS_ADDR=$IP:$REDIS_PORT
 
 # Start the redis server
-# redis-server --bind "$IP" --port "$REDIS_PORT" --protected-mode no --daemonize yes
+redis-server --bind "$IP" --port "$REDIS_PORT" --protected-mode no --daemonize yes
 
 # Start the Ray head node
 ray start --head --node-ip-address="$IP" --port="$PORT" --block &
@@ -27,7 +27,3 @@ ray start --address "$IP_HEAD" --include-log-monitor=False --resources="{\"worke
 sleep 5
 
 python3 ray_example_driver.py
-
-
-
-

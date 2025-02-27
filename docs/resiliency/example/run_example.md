@@ -7,7 +7,7 @@ The example is a single node toy example that demonstrates how to run a simple t
 Start by building the docker image using the Dockerfile in this directory.
 
 ```shell
-nvidia-docker build -t ray_resiliency_example -f Dockerfile .
+docker build -t ray_resiliency_example -f Dockerfile .
 ```
 
 ## Running the example
@@ -15,7 +15,7 @@ nvidia-docker build -t ray_resiliency_example -f Dockerfile .
  After sshing into a node with at least 2 GPUs run the following command to get into the previously built container.
 
 ```shell
-nvidia-docker run --name resilient_jax --network=host --security-opt seccomp=unconfined --cap-add SYS_PTRACE -it --shm-size=50g --ulimit memlock=-1 resilient_jax
+docker run --gpus=all --name ray_resiliency_example --network=host --security-opt seccomp=unconfined --cap-add SYS_PTRACE -it --shm-size=50g --ulimit memlock=-1 ray_resiliency_example
 ```
 
 Once inside the container run the `launch_ray_job.sh` script to run the example:
