@@ -21,6 +21,7 @@ aqtp==0.8.2
 einops==0.8.0
 nltk==3.7
 portpicker==1.6.0
+seqio==0.0.18
 protobuf==3.20.3  
 pytest>=7.4.3
 REQUIREMENTS
