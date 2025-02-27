@@ -52,6 +52,42 @@ name: ~test TransformerEngine
            test_multigpu_encoder.py \
            test_model_parallel_encoder.py
 
+   te-unittests:
+     uses: ./.github/workflows/_test_slurm_pyxis.yaml
+     strategy:
+       matrix:
+         N_GPU: [2, 4, 8]
+       fail-fast: false
+     secrets:
+       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+       SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
+       CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
+     with:
+       NAME: ${{ inputs.ARTIFACT_PREFIX }}-transformerengine-unittests-${{ matrix.N_GPU }}GPU
+       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
+       OUTPUT_BASEDIR: /nfs/cluster
+       OUTPUT_MOUNTPOINT: /output
+       NODES: 1
+       GPUS_PER_NODE: ${{ matrix.N_GPU }}
+       NTASKS: 1
+       NTASKS_PER_NODE: 1
+       TIME_LIMIT: '00:10:00'
+       EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
+       IMAGE: ${{ inputs.TE_IMAGE }}
+       SRUN_PREAMBLE: |
+         nvidia-smi
+         pip install \
+           pytest \
+           pytest-reportlog \
+           cuda-python \
+           -r ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder/requirements.txt
+       SRUN_SCRIPT: |
+         set -ex
+
+         cd /opt/transformer-engine
+         sed s@/opt/transformerengine@/opt/transformer-engine@g -i qa/L0_jax_unittest/test.sh
+         bash qa/L0_jax_distributed_unittest/test.sh
+
    sitrep:
      needs: [te-multi-gpu, te-unittests]
      if: success() || failure()
