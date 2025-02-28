@@ -93,8 +93,8 @@ cd "$DIR" || exit 1
 
 echo "Running tests..."
 
-pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
-pip install transformers scikit-learn timm 
+pip install transformers --no-deps 
+pip install scikit-learn timm 
 
 
 if [ "${#TEST_FILES[@]}" -eq 0 ]; then
