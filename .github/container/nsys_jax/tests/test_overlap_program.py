@@ -103,7 +103,7 @@ def test_modules(fixture_name, num_executions, request):
     assert len(test_module_data) == num_executions * num_devices
     # executions of the same module on the 2 devices should overlap
     gpu0_df = test_module_data.loc[(slice(None), 0), :]
-    gpu1_df = test_module_data.loc[(slice(None), 0), :]
+    gpu1_df = test_module_data.loc[(slice(None), 1), :]
     gpu0_end = gpu0_df["ProjStartMs"] + gpu0_df["ProjDurMs"]
     gpu1_end = gpu1_df["ProjStartMs"] + gpu1_df["ProjDurMs"]
     assert (gpu0_df["ProjStartMs"].array < gpu1_end.array).all()
