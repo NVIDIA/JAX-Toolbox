@@ -524,7 +524,6 @@ jobs:
       ARTIFACTS: |
         test-te.log
         pytest-report.jsonl
-    secrets: inherit
 
 #  test-upstream-t5x:
 #    needs: build-upstream-t5x
