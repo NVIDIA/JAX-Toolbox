@@ -25,12 +25,6 @@ seqio==0.0.18
 protobuf==3.20.3  
 pytest>=7.4.3
 REQUIREMENTS
-  # Only append "tensorflow-cpu" if running on x86_64
-  if [ "$(uname -m)" = "x86_64" ]; then
-    echo "tensorflow-cpu" >> /opt/pip-tools.d/requirements-axlearn.in
-  else
-    echo "Skipping TF on $(uname -m)"
-  fi
 EOF
 
 
