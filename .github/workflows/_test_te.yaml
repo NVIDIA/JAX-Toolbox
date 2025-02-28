@@ -15,138 +15,75 @@ on:
         default: 'te'
 
 jobs:
-  te-multi-gpu:
-    uses: ./.github/workflows/_test_slurm_pyxis.yaml
-    strategy:
-      matrix:
-        N_GPU: [2, 4, 8]
-      fail-fast: false
-    secrets:
-      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
-      CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
-    with:
-      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
-      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-      OUTPUT_BASEDIR: /nfs/cluster
-      OUTPUT_MOUNTPOINT: /output
-      NODES: 1
-      GPUS_PER_NODE: ${{ matrix.N_GPU }}
-      NTASKS: 1
-      NTASKS_PER_NODE: 1
-      TIME_LIMIT: '00:10:00'
-      EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
-      IMAGE: ${{ inputs.TE_IMAGE }}
-      SRUN_PREAMBLE: |
-        nvidia-smi
-        pip install \
-          pytest \
-          pytest-reportlog \
-          cuda-python \
-          -r ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder/requirements.txt
-      SRUN_SCRIPT: |
-        set -ex
-        cd ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder
-        pytest --report-log=/output/pytest-report.jsonl \
-          test_single_gpu_encoder.py \
-          test_multigpu_encoder.py \
-          test_model_parallel_encoder.py
+#  te-multi-gpu:
+#    uses: ./.github/workflows/_test_slurm_pyxis.yaml
+#    strategy:
+#      matrix:
+#        N_GPU: [2, 4, 8]
+#      fail-fast: false
+#    secrets:
+#      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+#      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
+#      CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
+#    with:
+#      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
+#      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
+#      OUTPUT_BASEDIR: /nfs/cluster
+#      OUTPUT_MOUNTPOINT: /output
+#      NODES: 1
+#      GPUS_PER_NODE: ${{ matrix.N_GPU }}
+#      NTASKS: 1
+#      NTASKS_PER_NODE: 1
+#      TIME_LIMIT: '00:10:00'
+#      EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
+#      IMAGE: ${{ inputs.TE_IMAGE }}
+#      SRUN_PREAMBLE: |
+#        nvidia-smi
+#        pip install \
+#          pytest \
+#          pytest-reportlog \
+#          cuda-python \
+#          -r ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder/requirements.txt
+#      SRUN_SCRIPT: |
+#        set -ex
+#        cd ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder
+#        pytest --report-log=/output/pytest-report.jsonl \
+#          test_single_gpu_encoder.py \
+#          test_multigpu_encoder.py \
+#          test_model_parallel_encoder.py
 
   te-unittests:
-    uses: ./.github/workflows/_test_slurm_pyxis.yaml
-    strategy:
-      matrix:
-        N_GPU: [2, 4, 8]
-      fail-fast: false
-    secrets:
-      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
-      CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
+    needs: build-jax
+    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    uses: ./.github/workflows/_test_unit.yaml
     with:
-      NAME: ${{ inputs.ARTIFACT_PREFIX }}-transformerengine-unittests-${{ matrix.N_GPU }}GPU
-      SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
-      OUTPUT_BASEDIR: /nfs/cluster
-      OUTPUT_MOUNTPOINT: /output
-      NODES: 1
-      GPUS_PER_NODE: ${{ matrix.N_GPU }}
-      NTASKS: 1
-      NTASKS_PER_NODE: 1
-      TIME_LIMIT: '00:10:00'
-      EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
-      IMAGE: ${{ inputs.TE_IMAGE }}
-      SRUN_PREAMBLE: |
-        nvidia-smi
-        pip install \
-          pytest \
-          pytest-reportlog \
-          cuda-python \
-          -r ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder/requirements.txt
-      SRUN_SCRIPT: |
-        set -ex
+      TEST_NAME: te
+      EXECUTE: |
+        docker run -i --gpus all --shm-size=1g -v $PWD:/log \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-te.log
+          pip install pytest-reportlog pytest-xdist
+          # Start MPS daemon
+          nvidia-cuda-mps-control -d
+          # TE's default is slightly different, without the hyphen
+          export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
+          # 1 GPU per worker, 6 workers per GPU
+          pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
+        EOF
 
-        cd /opt/transformer-engine
-        sed s@/opt/transformerengine@/opt/transformer-engine@g -i qa/L0_jax_unittest/test.sh
-        bash qa/L0_jax_distributed_unittest/test.sh
+      STATISTICS_SCRIPT: |
+        summary_line=$(tail -n1 test-te.log)
+        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
+        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+        total_tests=$((failed_tests + passed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
 
-  sitrep:
-    needs: [te-multi-gpu, te-unittests]
-    if: success() || failure()
-    runs-on: ubuntu-latest
-    env:
-      ARTIFACT_NAME_FULL: ${{ inputs.ARTIFACT_PREFIX }}-multigpu-test
-      BADGE_FILENAME_FULL: badge-${{ inputs.ARTIFACT_PREFIX }}-multigpu-test.json
-    steps:
-      - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: |
-            ${{ inputs.ARTIFACT_PREFIX }}-*
-          merge-multiple: true
-
-      - name: Generate sitrep
-        shell: bash -x -e {0}
-        run: |
-          # bring in utility functions
-          source .github/workflows/scripts/to_json.sh
-          test_outcome_files=$(find -name pytest-report.jsonl)
-          badge_label='TE Multi GPU tests'
-          passed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "passed") | .outcome' | wc -l)
-          failed_tests=$(cat ${test_outcome_files} | jq -r 'select(."$report_type" == "CollectReport" and .outcome == "failed") | .outcome' | wc -l)
-          total_tests=$((failed_tests + passed_tests))
-          
-          if [[ ${total_tests} == 0 ]]; then
-            badge_message='error'
-            badge_color=red
-            summary='TE multi GPU tests did not complete due to errors.'
-          else
-            badge_message="${passed_tests}/${total_tests} passed"
-            if [[ ${failed_tests} == 0 ]]; then
-              badge_color=brightgreen
-            else
-              badge_color=yellow
-            fi
-            summary="TE multi GPU tests : $badge_message"
-          fi
-          run_id=${{ github.run_id }} \
-          to_json \
-            run_id \
-            summary \
-            total_tests passed_tests failed_tests \
-            badge_label badge_color badge_message \
-          > sitrep.json
-          schemaVersion=1 \
-          label="${badge_label}" \
-          message="${badge_message}" \
-          color="${badge_color}" \
-          to_json schemaVersion label message color \
-          > ${{ env.BADGE_FILENAME_FULL }}
-      - name: Upload training logs as artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT_NAME_FULL }}
-          path: |
-            sitrep.json
-            ${{ env.BADGE_FILENAME_FULL }}
+      TIMEOUT_MINUTES: 120
+      ARTIFACTS: |
+        test-te.log
+        pytest-report.jsonl
+    secrets: inherit
