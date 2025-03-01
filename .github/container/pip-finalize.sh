@@ -46,6 +46,12 @@ if [[ $(echo -n "$unpinned_vcs_dependencies" | wc -l) -gt 0 ]]; then
   exit 1
 fi
 
+# Replace any tensorflow==X with tensorflow-cpu==X in requirements.txt only on amd64
+if [ "$(uname -m)" = "x86_64" ]; then
+  sed -i 's/^tensorflow==\([0-9.*]\+\)$/tensorflow-cpu==\1/' requirements.txt
+else
+  echo "Skipping TF on $(uname -m)"
+fi
 # --no-deps is required since conflicts can still appear during pip-sync
 pip-sync --pip-args '--no-deps --src /opt' requirements.txt
 
