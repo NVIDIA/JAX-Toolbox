@@ -780,5 +780,5 @@ jobs:
       uses: ./.github/actions/submit-delete-k8s-job 
       with:
         job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
-        job-name: ${{ env.JOB_NAME }}https://docs.google.com/spreadsheets/d/12JIThodWLhf-H7Ob9p3CGZHLjKEPp17ogp9Do5Ofa6U/edit?gid=1030128481#gid=1030128481
+        job-name: ${{ env.JOB_NAME }}
 
