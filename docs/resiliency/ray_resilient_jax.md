@@ -13,6 +13,9 @@ python3 -m pip install "ray[default]" redis
 ```
 
 The need for redis will be explained a little later in this guide.
+
+While the tutorial below, is comprehensive and detailed it is only meant to be a guide to be able to use Ray to implement fault tolerant workloads of your own. It is not presented in a way that one can just copy and paste its contents to produce a runnable example. For a full runnable example, please refer to the [simple toy example](./example/) that includes a simplified example that can be run on a single node (with at least 2 GPUs) in a fault tolerant manner.
+
 ### Why Ray?
 
 Ray's runtime is based on a "head"/"worker" architecture where a "head" process called the coordinator, spawns "worker" processes called actors. This architecture
@@ -77,125 +80,24 @@ ray start --address "IP_ADDR_1:<HEAD_NODE_PORT>" \
 ```
 Now the Ray cluster consists of 1 Ray head node and 2 Ray worker nodes, all allocated across the 2 physical nodes with IP addresses `IP_ADDR_1` and `IP_ADDR_2`.
 
-### Starting a Ray Cluster with a SLURM allocation
-
-While the example above is simple and illustrates how to quickly bringup a Ray cluster on two physical nodes, it is inefficient to manually run the scripts when scaling to many more nodes. Additionally, it is likely that physical resources are allocated to an application by a scheduler like SLURM or Kubernetes. In this guide we will assume that SLURM is the physical resource allocator. Below is a template of a SLURM batch script that sets up a ray cluster with the specification as above (1 Ray worker node per physical node / 8 GPUs per Ray worker node), but over `<NUM_NODES>` physical nodes.
-
-```console
-#!/bin/bash
-#SBATCH --nodes=<NUM_NODES>+1
-#SBATCH --exclusive
-#SBATCH --account=<SLURM_ACCOUNT>
-#SBATCH --partition=<SLURM_PARTITION>
-#SBATCH --time=<SLURM_ALLOCATION_TIME>
-
-# Number of GPUs per node
-gpus_per_node=8
-
-# Getting the node names
-nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
-nodes_array=($nodes)
-
-# Getting the node names and IP addresses in the SLURM allocation
-nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
-nodes_array=($nodes)
-ip_addresses_array=()
-
-for node in $nodes; do
-    ip_address=$(host $node | awk '/has address/ { print $4 }')
-    # Add the IP address to the array
-    ip_addresses_array+=("$ip_address")
-done
-
-head_node=${nodes_array[0]}
-head_node_ip=${ip_addresses_array[0]}
-
-port=<PORT>
-ip_head=$head_node_ip:$port
-
-# First we start the head of the ray cluster on one of the physical nodes
-# In this case we are giving an entire physical node to the ray head node
-# The ray head node is marked by including --head to the ray start command
-srun --nodes=1 --ntasks=1 -w "$head_node" ray start --head \
-                                                    --node-ip-address="$head_node_ip" \
-                                                    --port=$port \
-                                                    --block" &
-
-# We now need to start the Ray worker nodes
-# We define the following variables to help
-num_ray_worker_nodes=$((SLURM_JOB_NUM_NODES - 1)) # One physical node is for the ray head node, rest are for ray worker nodes
-export NUM_ACTORS=$((gpus_per_node * num_ray_worker_nodes)) # 8 actors per ray worker node (one for each GPU)
-
-# Start Ray worker nodes
-# We want 1 Ray worker node per physical node
-# Worker nodes are started with ray start but without the --head flag
-min_worker_port=10001
-max_worker_port=10257
-for ((i = 1; i <= num_ray_worker_nodes; i++)); do
-    node_i=${nodes_array[$i]}
-    
-    srun --exact --nodes=1 --ntasks=1 --cpus-per-task=$((16 * gpus_per_node)) -w "$node_i" \
-    ray start --address "$ip_head" \
-              --resources="{\"worker_units\": gpus_per_node}" \
-              --min-worker-port=$min_worker_port \
-              --max-worker-port=$max_worker_port --block &
-    sleep 3
-  done
-done
-
-# At this stage the Ray cluster bringup has started on the physical nodes in the allocation
-# Before we launch a job on this cluster we need to make sure that the bringup is complete
-# We do so by querying the number of worker_units in the ray cluster and asserting = NUM_ACTORS
-extract_worker_units() {
-  status_output=$(srun --overlap --nodes=1 --ntasks=1 -w "$head_node" ray status)
-  if echo "$status_output" | grep -q "worker_units"; then
-    worker_units=$(echo "$status_output" | grep "worker_units" | awk -F'[/. ]' '{print $4}')
-    echo $worker_units
-  else
-    echo 0
-  fi
-}
-
-# Poll to make sure that all Ray worker nodes have connected to the head.
-# All workers have connected when number of GPUs in ray cluster
-# is equal to NUM_ACTORS. We use the utility function above
-# to check how many GPUs have come online in the ray cluster
-while true; do
-  worker_units=$(extract_worker_units)
-  if [ "$worker_units" -eq "$NUM_ACTORS" ]; then
-    break
-  fi
-  sleep 2
-done
-
-echo "All workers connected!"
-
-# We can now launch a job on this cluster
-# We do so by launching a driver process on the physical node that the head node is on
-# This driver process is responsible for launching a job on the Ray cluster
-srun --overlap --nodes=1 --ntasks=1 -w "$head_node" python3 launch_ray_cluster_job.py
-```
-
 ## Implementing the coordinator and actors
 
-Now that we have the ray cluster brought up, we can launch a job on this cluster. But before we do so we need to define the actions of the coordinator and the actors.
+Now that we have an understanding of how to bring up a ray cluster, we are almost in a position to be able to launch a job on this cluster. Before we do so we need to define the actions of the coordinator and the actors.
 
 ### Designing the coordinator
 
 Let us start defining a class called `RayClusterCoordinator`, that encapsulates the functionality of the coordinator. We will start simple and add functionality as we go:
 
 ```python
-# coordinator.py
-
 import ray
 import random
 import asyncio
 import redis
         
 class RayClusterCoordinator:
-  def __init__(self, worker_cls, num_workers) -> None:
+  def __init__(self, worker_cls) -> None:
     self.worker_cls = worker_cls
-    self.num_workers = num_workers
+    self.num_workers = int(os.environ.get('NGPUS'))
   
     self.workers = [worker_cls.options(num_gpus=1, 
                                        num_cpus=16, 
@@ -218,21 +120,19 @@ class RayClusterCoordinator:
 ```
 The first job of the coordinator is to spawn actors and have them be scheduled on Ray worker nodes. This happens in the constructor of the `RayClusterCoordinator`. `worker_cls` is the class that encapsulates the functionality of each actor. Notice how we request 1 GPU, 16 CPUs and 1 worker_unit per actor as mentioned earlier. There are two additional mandatory methods that RayClusterCoordinator implements:
 - `initialize_workers`: the purpose of this method is to trigger the initialize method of the `worker_cls` representing an actor
-- `run`: the purpose of this method is to launch computation on all the scheduled actors. We haven't included the details of the run method quite yet, nor have we discussed why it is an async method. We will get to both after defining some of the functionality of the class representing an actor.
+- `run`: the purpose of this method is to launch computation on all the scheduled actors. We haven't included the details of the run method quite yet, nor have we discussed why it is an async method. We will get to both after defining some of the functionality of the class representing an actor. In the class definition above `NGPUS` is an environment variable tha represents the total number of GPUs available to the job across all nodes. 
 
 ### Designing the actor
 
-Our design of the actor involves defining two classes: `JaxWorker` and `ModelTrainer`. `JaxWorker` will define a high level interface for the role an actor plays in this system and `ModelTrainer` is a subclass of `JaxWorker` that will implement specific functionality to train a model in a failure resilient manner, including model checkpointing and compilation caching. Let's start with `JaxWorker`.
+Our design of the actor involves defining two classes: `ResilientWorker` and `ModelTrainer`. `ResilientWorker` will define a high level interface for the role an actor plays in this system and `ModelTrainer` is a subclass of `ResilientWorker` that will implement specific functionality to train a model in a failure resilient manner, including model checkpointing and compilation caching. Let's start with `ResilientWorker`.
 
 ```python
-# jaxworker.py
-
 import jax
 import socket
 import os
 import redis
 
-class JaxWorker:
+class ResilientWorker:
     def __init__(self):
         self.host_ip = socket.gethostbyname(socket.gethostname())
         self.logical_gpu_id = int(os.environ.get('CUDA_VISIBLE_DEVICES'))
@@ -254,24 +154,21 @@ class JaxWorker:
         raise NotImplementedError
 ```
 
-The JaxWorker interface defines a number of methods, the most important of which are the `initialize` and `run` methods:
-- `initialize`: is responsible for initializing `jax.distributed` across all the spawned actors. Every class that inherits from JaxWorker can initialize any task specific state in it's initialize method, but must call the base class' initialize method to setup the jax.distributed runtime.
--  `run`: every class that inherits from JaxWorker must implement its own run method. This is the entry point to the computation that the actors will perform.
+The ResilientWorker interface defines a number of methods, the most important of which are the `initialize` and `run` methods:
+- `initialize`: is responsible for initializing `jax.distributed` across all the spawned actors. Every class that inherits from ResilientWorker can initialize any task specific state in it's initialize method, but must call the base class' initialize method to setup the jax.distributed runtime.
+-  `run`: every class that inherits from ResilientWorker must implement its own run method. This is the entry point to the computation that the actors will perform.
 
 To understand how this class and inheritance structure works, let's start implementing the `ModelTrainer` class.
 
 ```python
-# modeltrainer.py
-
 import ray
 import jax
 import orbax.checkpoint as ocp
 from optax._src.transform import ScaleByAdamState
 from optax._src.base import EmptyState
-from jaxworker import JaxWorker
 
 @ray.remote
-class ModelTrainer(JaxWorker):
+class ModelTrainer(ResilientWorker):
     def __init__(self):
         super().__init__()
     
@@ -289,14 +186,14 @@ class ModelTrainer(JaxWorker):
     def run(self, num_physical_nodes, restore=False) -> List[Any] | None:
         # Method implementing the training loop
 ```
-In this guide, the obejctive of the actors is to finetune a pretrained LLM. Additionally, they have to do so in a *fault tolerant* manner. `ModelTrainer` is the class that encapsulates this behavior and inherits from `JaxWorker`. It's responsibilities are to finetune an LLM, initialize checkpointing and enable compilation caching to facilitate fast restarting. The class is decorated with `ray.remote` since instances of this class are to be scheduled as actors.
+In this guide, the objective of the actors is to finetune a pretrained LLM. Additionally, they have to do so in a *fault tolerant* manner. `ModelTrainer` is the class that encapsulates this behavior and inherits from `ResilientWorker`. It's responsibility to finetune an LLM while being able to recover quickly and automatically when met with a failure. The class is decorated with `ray.remote` since instances of this class are to be scheduled as actors.
 
-As a subclass of `JaxWorker`, `ModelTrainer` *must* implement its own `run` method. But before we look at the details of the `run` method 
-let's look at the details of the overriden `initialize` method in `ModelTrainer`. It is *not* mandatory for subclasses of `JaxWorker` to override `initialize`, but it is often useful to initialize child class specific state by doing so. In addition to calling the base class' `initialize` method to initialize `jax.distributed`, `ModelTrainer` initializes the following in its `initialize` method:
+As a subclass of `ResilientWorker`, `ModelTrainer` *must* implement its own `run` method. But before we look at the details of the `run` method 
+let's look at the details of the overriden `initialize` method in `ModelTrainer`. It is *not* mandatory for subclasses of `ResilientWorker` to override `initialize`, but it is often useful to initialize child class specific state by doing so. In this example, given our objective, in addition to calling the base class' `initialize` method to initialize `jax.distributed`, `ModelTrainer` initializes the following in its `initialize` method:
 1. **model checkpointing state**: initialization of an [Orbax](https://github.com/google/orbax) checkpoint manager. One of the important aspects of fault tolerant training is to be able to recover from the latest checkpoint. Hence our model is checkpointed at fixed intervals during the finetuning process
 2. **jax compilation cache**: to avoid the penalty of recompilation when restoring the training run from the latest checkpoint after a crash or a hang
 
-Fault tolerant training necessitates quick failure detection and quick recovery. Model checkpointing and compilation caching are particularly important steps towards that objective. We will now look at the details of the `run` method of `ModelTrainer` with the following caveat: we will merely gloss over parts of the `run` method that don't pertain directly to fault tolerant training, these include:
+Fault tolerant training necessitates quick failure detection and quick recovery. Model checkpointing and compilation caching are particularly important steps towards that objective and demonstrate two examples of additional initialization that can be implemented in the initialize method of a subclass of `ResilientWorker`. We will now look at the details of the `run` method of `ModelTrainer` with the following caveat: we will merely gloss over parts of the `run` method that don't pertain directly to fault tolerant training, these include:
 - Dataset creation and tokenizing
 - Sharding model parameters
 - Dataloading details
@@ -482,26 +379,20 @@ When the coordinator receives a failure signal from the `_run_workers_async` tas
 
 In its current state, this system can recover from crashes in any of the actors. But another important, and trickier class of failures to be able to detect and recover from is hangs. Hangs can occur for a variety of reasons during a run and so it's important for the system to be able to detect them in a general sense.
 
-Being able to detect hangs requires more proactivity on the part of the coordinator, for the simple reason that if any actor is in a hanged state, it cannot send any signals to the coordinator to communicate that it is in such a state. So in addition to the crash detection logic outlined in `_run_workers_async` we will have the coordinator perform its second non-blocking task via another async function called `_detect_worker_hang_async`, into which we will add the logic to detect hangs. At a high level, the logic to detect hangs depends on the actors "checking in" periodically with the coordinator via a distributed key-value store. This is what we will use Redis for. To start a redis server on the same physical node as the Ray head node, we make the following change to the head node launch command in the launch script:
+Being able to detect hangs requires more proactivity on the part of the coordinator, for the simple reason that if any actor is in a hanged state, it cannot send any signals to the coordinator to communicate that it is in such a state. So in addition to the crash detection logic outlined in `_run_workers_async` we will have the coordinator perform its second non-blocking task via another async function called `_detect_worker_hang_async`, into which we will add the logic to detect hangs. At a high level, the logic to detect hangs depends on the actors "checking in" periodically with the coordinator via a distributed key-value store. This is what we will use Redis for. To start the redis-server simply run the following on the same physical node that the ray head node is running on.
 
 ```console
-# Script before looks the same...
-
-srun --nodes=1 --ntasks=1 -w "$head_node" bash -c "redis-server --bind $head_node_ip --port 6380 --daemonize yes && \
-                                                   ray start --head --node-ip-address="$head_node_ip" --port=$port --block" &
-
+redis-server --bind $head_node_ip --port 6380 --protected-mode no --daemonize yes &&
 export REDIS_ADDR=$head_node_ip:6380
-
-# Rest of the script looks the same...
 ```
-With the redis server running we need to have both the coordinator and each actor connect to the server, which we can do by adding the following two lines to the constructor of `RayClusterCoordinator` and `JaxWorker`:
+With the redis server running we need to have both the coordinator and each actor connect to the server, which we can do by adding the following two lines to the constructor of `RayClusterCoordinator` and `ResilientWorker`:
 
 ```python
 self.redis_addr = os.environ.get('REDIS_ADDR').split(':')
 self.redis = redis.Redis(host=self.redis_addr[0], port=int(self.redis_addr[1]), decode_responses=True, password=None)
 ```
 
-As mentioned, the the hang detection logic we are yet to implement in `_detect_worker_hang_async` depends on actors "checking in" with the coordinator. This is facilitated through a heartbeat in the form of a timestamp from each actor being written to the redis KV store. They key is the process ID and the value is the timestamp of the last time the actor was alive. This is implemented through a context manager that we add to the `JaxWorker` class:
+As mentioned, the the hang detection logic we are yet to implement in `_detect_worker_hang_async` depends on actors "checking in" with the coordinator. This is facilitated through a heartbeat in the form of a timestamp from each actor being written to the redis KV store. They key is the process ID and the value is the timestamp of the last time the actor was alive. This is implemented through a context manager that we add to the `ResilientWorker` class:
 
 ```python
 @contextmanager
@@ -589,32 +480,35 @@ When the coordinator determines an actor has hanged, it raises an exception that
 
 ## Launching a job Ray job
 
-With that we've described every important aspect of the coordinator and the actors that help them work together to achieve failure resilient training. The final piece of the puzzle is to launch the training job that leverages all the logic implemented in `RayClusterCoordinator`, `JaxWorker` and `ModelTrainer`, on the Ray cluster. This is achieved through the following two scripts:
+With that we've described every important aspect of the coordinator and the actors that help them work together to achieve failure resilient training. The final piece of the puzzle is to launch the training job that leverages all the logic implemented in `RayClusterCoordinator`, `ResilientWorker` and `ModelTrainer`, on the Ray cluster. This is achieved through the following two scripts:
 
 ```python
 # main.py
-
 import os
 import ray
-from coordinator import RayClusterCoordinator
-from modeltrainer import ModelTrainer
 
 ray.init(address='auto')
-num_workers = int(os.environ.get('NUM_ACTORS'))
 # Create the Ray cluster coordinator object
-cluster_coorindator = RayClusterCoordinator(ModelTrainer, num_workers)
+cluster_coorindator = RayClusterCoordinator(ModelTrainer)
 # Get the job configuration set during launch.
 # This is automatically set by Ray
 job_runtime_env = json.loads(os.environ.get('RAY_JOB_CONFIG_JSON_ENV_VAR'))['runtime_env']
 
 # Initialize workers
 cluster_coordinator.initialize_workers(jax_compilation_cache=job_runtime_env['jax_compilation_cache'],
-                                      ckpt_dir=job_runtime_env['ckpt_dir'],
-                                      ckpt_freq=job_runtime_env['ckpt_freq'])
+                                       ckpt_dir=job_runtime_env['ckpt_dir'],
+                                       ckpt_freq=job_runtime_env['ckpt_freq'])
 
 # Run the workers
 run_results = asyncio.run(cluster_coordinator.run(restore=False))
 ```
+
+Now that we have:
+
+- Brought up a Ray Cluster
+- Implemented the Coordinator and Actor functionality
+
+We can launch a workload on the Ray cluster that runs the computation we want in a fault tolerant manner. The script that does so is called a driver script and looks as follows:
 
 ```python
 # launch_ray_cluster_job.py
@@ -646,8 +540,106 @@ logs = client.get_job_logs(job_id)
 print(logs)
 ```
 
-Recall that the last line of the SLURM batch script executes the `launch_ray_cluster_job.py` script. This script is called the driver. The driver script is run on the same physical node as the Ray head node and is the reason the address to connect the JobSubmissionClient to the Ray cluster is `http://127.0.0.1` or
-`localhost`. 
+The driver script is run on the same physical node as the Ray head node and is the reason the address to connect the JobSubmissionClient to the Ray cluster is `http://127.0.0.1` or `localhost`.
+
+### Starting a Ray Cluster with a SLURM allocation
+
+Sometimes it is likely that physical resources are allocated to an application by a scheduler like SLURM or Kubernetes. The script below is a template of a SLURM batch script that sets up a ray cluster with the specification as above (1 Ray worker node per physical node / 8 GPUs per Ray worker node), but over `<NUM_NODES>` physical nodes.
+
+```console
+#!/bin/bash
+#SBATCH --nodes=<NUM_NODES>+1
+#SBATCH --exclusive
+#SBATCH --account=<SLURM_ACCOUNT>
+#SBATCH --partition=<SLURM_PARTITION>
+#SBATCH --time=<SLURM_ALLOCATION_TIME>
+
+# Number of GPUs per node
+gpus_per_node=8
+
+# Getting the node names
+nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
+nodes_array=($nodes)
+
+# Getting the node names and IP addresses in the SLURM allocation
+nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
+nodes_array=($nodes)
+ip_addresses_array=()
+
+for node in $nodes; do
+    ip_address=$(host $node | awk '/has address/ { print $4 }')
+    # Add the IP address to the array
+    ip_addresses_array+=("$ip_address")
+done
+
+head_node=${nodes_array[0]}
+head_node_ip=${ip_addresses_array[0]}
+
+port=<PORT>
+ip_head=$head_node_ip:$port
+
+# First we start the head of the ray cluster on one of the physical nodes
+# In this case we are giving an entire physical node to the ray head node
+# The ray head node is marked by including --head to the ray start command
+srun --nodes=1 --ntasks=1 -w "$head_node" bash -c "redis-server --bind $head_node_ip --port 6380 --daemonize yes && \
+                                                   ray start --head --node-ip-address="$head_node_ip" --port=$port --block" &
+
+export REDIS_ADDR=$head_node_ip:6380
+
+# We now need to start the Ray worker nodes
+# We define the following variables to help
+num_ray_worker_nodes=$((SLURM_JOB_NUM_NODES - 1)) # One physical node is for the ray head node, rest are for ray worker nodes
+export NGPUS=$((gpus_per_node * num_ray_worker_nodes)) # 8 actors per ray worker node (one for each GPU)
+
+# Start Ray worker nodes
+# We want 1 Ray worker node per physical node
+# Worker nodes are started with ray start but without the --head flag
+min_worker_port=10001
+max_worker_port=10257
+for ((i = 1; i <= num_ray_worker_nodes; i++)); do
+    node_i=${nodes_array[$i]}
+    
+    srun --exact --nodes=1 --ntasks=1 --cpus-per-task=$((16 * gpus_per_node)) -w "$node_i" \
+    ray start --address "$ip_head" \
+              --resources="{\"worker_units\": gpus_per_node}" \
+              --min-worker-port=$min_worker_port \
+              --max-worker-port=$max_worker_port --block &
+    sleep 3
+  done
+done
+
+# At this stage the Ray cluster bringup has started on the physical nodes in the allocation
+# Before we launch a job on this cluster we need to make sure that the bringup is complete
+# We do so by querying the number of worker_units in the ray cluster and asserting = NGPUS
+extract_worker_units() {
+  status_output=$(srun --overlap --nodes=1 --ntasks=1 -w "$head_node" ray status)
+  if echo "$status_output" | grep -q "worker_units"; then
+    worker_units=$(echo "$status_output" | grep "worker_units" | awk -F'[/. ]' '{print $4}')
+    echo $worker_units
+  else
+    echo 0
+  fi
+}
+
+# Poll to make sure that all Ray worker nodes have connected to the head.
+# All workers have connected when number of GPUs in ray cluster
+# is equal to NGPUS. We use the utility function above
+# to check how many GPUs have come online in the ray cluster
+while true; do
+  worker_units=$(extract_worker_units)
+  if [ "$worker_units" -eq "$NGPUS" ]; then
+    break
+  fi
+  sleep 2
+done
+
+echo "All workers connected!"
+
+# We can now launch a job on this cluster
+# We do so by launching the driver process on the physical node that the head node is on
+# This driver process is responsible for launching a job on the Ray cluster
+srun --overlap --nodes=1 --ntasks=1 -w "$head_node" python3 launch_ray_cluster_job.py
+```
 
 ## Sharp bits and current limitations
 
