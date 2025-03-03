@@ -42,6 +42,7 @@ apt_packages=(
   vim
   wget
   jq
+  zip
   # llvm.sh
   lsb-release 
   software-properties-common
