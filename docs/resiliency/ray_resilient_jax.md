@@ -36,11 +36,11 @@ The first step to launching any workload using Ray is to start a Ray Cluster. Th
 of "worker nodes". There is a slight abuse of terminology that can be a little confusing here with the usage of the word "node" but both Ray
 head nodes and Ray worker nodes can in general be thought of as sub-allocations within a physical node. This means that on a physical
 node with 8 GPUs and 128 CPUs, a Ray worker node could pertain to a sub-allocation of up to 8 GPUs and 128 CPUs. And similarly for the Ray head node. The coordinator process
-always runs on the Ray head node and actors always run on Ray worker nodes. In this guide we will assume that each actor gets 1 GPU, 16 CPUs and that we operate in a 1 process per GPU setting. 
+always runs on the Ray head node and actors always run on Ray worker nodes. In this guide we will assume that each actor gets 1 GPU, 16 CPUs and that we operate in a 1 GPU per process setting. 
 
 ### Starting a Ray Cluster manually
 
-We will begin with a simple example of how to manually start a Ray cluster on 2 physical nodes. This will involve a single Ray head node and 2 Ray worker nodes, where each Ray worker node is allocated all GPUs of the node it runs on. We will assume the IP addresses of the physical nodes are `IP_ADDR_1` and `IP_ADDR_2` and that the head node will be allocated on the physical node with `IP_ADDR_1`. 
+We will begin with a simple example of how to manually start a Ray cluster on 2 physical nodes. This will involve a single Ray head node and 2 Ray worker nodes, where each Ray worker node is allocated all GPUs of the node it runs on. Moreover, each worker node will have as many actors scheduled on it as it has GPUs available, with each actor being able to address only a single GPU. This ensures that we are indeed operating in a 1 GPU per process setting.  We will assume the IP addresses of the physical nodes are `IP_ADDR_1` and `IP_ADDR_2` and that the head node will be allocated on the physical node with `IP_ADDR_1`. 
 
 First, run the following script on one physical node:
 ```console
@@ -594,9 +594,9 @@ max_worker_port=10257
 for ((i = 1; i <= num_ray_worker_nodes; i++)); do
     node_i=${nodes_array[$i]}
     
-    srun --exact --nodes=1 --ntasks=1 --cpus-per-task=$((16 * gpus_per_node)) -w "$node_i" \
+    srun --exact --nodes=1 --ntasks=1 --cpus-per-task=$((16 * $gpus_per_node)) -w "$node_i" \
     ray start --address "$ip_head" \
-              --resources="{\"worker_units\": gpus_per_node}" \
+              --resources="{\"worker_units\": $gpus_per_node}" \
               --min-worker-port=$min_worker_port \
               --max-worker-port=$max_worker_port --block &
     sleep 3
