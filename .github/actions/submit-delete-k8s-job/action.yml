@@ -34,4 +34,4 @@ runs:
           kubectl logs --all-containers=true --all-pods=true --follow job/${{ inputs.job-name }}
           
         post: | 
-          kubectl delete job ${{ inputs.job-name }}
+          kubectl delete -f "${{ inputs.job-config-file }}"

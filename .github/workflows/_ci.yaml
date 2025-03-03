@@ -688,11 +688,12 @@ jobs:
     - name: Download logs from S3
       id: log-s3
       run: |
-        mkdir -p /tmp/axlearn-output
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/summary.txt /tmp/axlearn-output/
+        mkdir -p axlearn-output
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/summary.txt axlearn-output/
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/test_logs.tar.gz axlearn-output/
 
-        passed_tests=$(grep -c ": PASSED" /tmp/axlearn-output/summary.txt || true)
-        failed_tests=$(grep -c ": FAILED" /tmp/axlearn-output/summary.txt || true)
+        passed_tests=$(grep -c ": PASSED" axlearn-output/summary.txt || true)
+        failed_tests=$(grep -c ": FAILED" axlearn-output/summary.txt || true)
         total_tests=$((failed_tests + passed_tests))
 
         echo "Passed tests: $passed_tests"
@@ -733,7 +734,7 @@ jobs:
         message="Passed $passed_tests out of $total_tests." \
         color=$badge_color \
         to_json schemaVersion label message color \
-        > "badge-axlearn-test"
+        > badge-axlearn-test.json
 
     - name: Upload artifacts
       if: ${{ !cancelled() }}
@@ -742,8 +743,8 @@ jobs:
         name: "artifact-axlearn-test"
         path: |
           sitrep.json
-          "badge-axlearn-test"
-          summary.txt
+          badge-axlearn-test.json
+          axlearn-output/*
 
   # the fuji test will run for 20 minutes only, as per 2025-02-24 
   # is not possible to set the `max_steps` value
@@ -779,5 +780,5 @@ jobs:
       uses: ./.github/actions/submit-delete-k8s-job 
       with:
         job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
-        job-name: ${{ env.JOB_NAME }}
+        job-name: ${{ env.JOB_NAME }}https://docs.google.com/spreadsheets/d/12JIThodWLhf-H7Ob9p3CGZHLjKEPp17ogp9Do5Ofa6U/edit?gid=1030128481#gid=1030128481
 
