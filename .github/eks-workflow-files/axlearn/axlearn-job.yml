@@ -49,7 +49,7 @@ spec:
                       # Upload to S3 bucket
                       aws s3 cp /opt/output/summary.txt s3://jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
                       # Zip the results of all the tests 
-                      tar -czf test_logs.tar.gz /opt/output
+                      tar cvzf test_logs.tar.gz /opt/output
                       # Upload logs to S3 bucket
                       aws s3 cp test_logs.tar.gz s3://jax-toolbox-eks-output/axlearn/${RUN_ID}/test_logs.tar.gz
                   volumeMounts:
