@@ -48,10 +48,8 @@ spec:
                       done
                       # Upload to S3 bucket
                       aws s3 cp /opt/output/summary.txt s3://jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
-                      # Zip the results of all the tests 
-                      zip -r test_logs.zip /opt/output
                       # Upload logs to S3 bucket
-                      aws s3 cp test_logs.tar.gz s3://jax-toolbox-eks-output/axlearn/${RUN_ID}/test_logs.zip
+                      aws s3 cp /opt/output/ s3://jax-toolbox-eks-output/axlearn/${RUN_ID}/ --recursive --exclude "*" --include "*.log"
                   volumeMounts:
                     - name: output
                       mountPath: /opt/output
