@@ -480,7 +480,7 @@ When the coordinator determines an actor has hanged, it raises an exception that
 
 ## Launching a job Ray job
 
-With that we've described every important aspect of the coordinator and the actors that help them work together to achieve failure resilient training. The final piece of the puzzle is to launch the training job that leverages all the logic implemented in `RayClusterCoordinator`, `ResilientWorker` and `ModelTrainer`, on the Ray cluster. This is achieved through the following two scripts:
+With that we've described every important aspect of the coordinator and the actors that help them work together to achieve failure resilient training. The final piece of the puzzle is to launch the training job that leverages all the logic implemented in `RayClusterCoordinator`, `ResilientWorker` and `ModelTrainer`, on the Ray cluster. This is achieved through the following entrypoint (which could be in its own main.py file or all the code above as well as the entrypoint could be implemented in a large main.py file):
 
 ```python
 # main.py
@@ -503,12 +503,7 @@ cluster_coordinator.initialize_workers(jax_compilation_cache=job_runtime_env['ja
 run_results = asyncio.run(cluster_coordinator.run(restore=False))
 ```
 
-Now that we have:
-
-- Brought up a Ray Cluster
-- Implemented the Coordinator and Actor functionality
-
-We can launch a workload on the Ray cluster that runs the computation we want in a fault tolerant manner. The script that does so is called a driver script and looks as follows:
+and a script called the driver as shown below:
 
 ```python
 # launch_ray_cluster_job.py
