@@ -18,9 +18,16 @@ spec:
         - -c
         - |
           pip install pytest-reportlog pytest-xdist
-          # Start MPS daemon nvidia-cuda-mps-control -d
-          # TE's default is slightly different, without the hyphen export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
-          # 1 GPU per worker, 6 workers per GPU pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
+
+          # Start MPS daemon
+          nvidia-cuda-mps-control -d
+
+          # TE's default is slightly different, without the hyphen
+          export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
+
+          # 1 GPU per worker, 6 workers per GPU
+          pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
+
         image: IMAGE_URI
         name: transformer-engine
         resources:
