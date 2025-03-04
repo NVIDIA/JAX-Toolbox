@@ -490,7 +490,7 @@ jobs:
   #   secrets: inherit
   test-transformerengine-eks:
 #    needs: build-jax
-#    if: inputs.ARCHITECTURE == 'amd64'
+    if: inputs.ARCHITECTURE == 'amd64'
     runs-on: eks
     env:
 #      JAX_DOCKER_IMAGE: ${{  needs.build-jax.outputs.DOCKER_TAG_FINAL }}
