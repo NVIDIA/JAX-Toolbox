@@ -494,7 +494,7 @@ jobs:
     runs-on: eks
     env:
 #      JAX_DOCKER_IMAGE: ${{  needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      JAX_DOCKER_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:13654704499-base-amd64
+      JAX_DOCKER_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:13652377029-jax-amd64
       JOB_NAME: transformerengine-${{ github.run_id }}
     steps:
     - name: Check out the repository
