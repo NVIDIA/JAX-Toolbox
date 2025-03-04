@@ -176,37 +176,37 @@ jobs:
 #        URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).PANOPTICAPI }}
 #    secrets: inherit
 
-  collect-docker-tags:
-    runs-on: ubuntu-22.04
-    if: "!cancelled()"
-    needs:
-      - build-base
-      - build-jax
-#      - build-triton
-#      - build-equinox
-#      - build-maxtext
-#      - build-levanter
-#      - build-upstream-t5x
-#      - build-rosetta-t5x
-#      - build-gemma
-    outputs:
-      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
-
-    steps:
-      - name: Save docker tags as a JSON object
-        id: collect-tags
-        run: |
-          TAGS=$(cat <<EOF | jq -c
-          [\
-            {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
-            {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {}\
-          ]
-          EOF
-          )
-
-          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
+#  collect-docker-tags:
+#    runs-on: ubuntu-22.04
+#    if: "!cancelled()"
+#    needs:
+#      - build-base
+#      - build-jax
+##      - build-triton
+##      - build-equinox
+##      - build-maxtext
+##      - build-levanter
+##      - build-upstream-t5x
+##      - build-rosetta-t5x
+##      - build-gemma
+#    outputs:
+#      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
+#
+#    steps:
+#      - name: Save docker tags as a JSON object
+#        id: collect-tags
+#        run: |
+#          TAGS=$(cat <<EOF | jq -c
+#          [\
+#            {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
+#            {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
+#            {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
+#            {}\
+#          ]
+#          EOF
+#          )
+#
+#          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
 
 #  test-distribution:
 #    runs-on: ubuntu-22.04
@@ -490,7 +490,7 @@ jobs:
   #   secrets: inherit
   test-transformerengine-eks:
 #    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'
+#    if: inputs.ARCHITECTURE == 'amd64'
     runs-on: eks
     env:
 #      JAX_DOCKER_IMAGE: ${{  needs.build-jax.outputs.DOCKER_TAG_FINAL }}
