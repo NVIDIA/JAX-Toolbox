@@ -516,7 +516,8 @@ jobs:
           | select(di == 0).spec.template.spec.containers[1].env[0].value = "${{ github.run_id }}"
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
         .github/eks-workflow-files/transformer-engine/unit-tests.yml
-        git diff .github/eks-workflow-files/transformer-engine/unit-tests.yml
+        cat .github/eks-workflow-files/transformer-engine/unit-tests.yml
+        # git diff .github/eks-workflow-files/transformer-engine/unit-tests.yml
 
     - name: Submit & delete transformer engine unit test job
       uses: ./.github/actions/submit-delete-k8s-job 
