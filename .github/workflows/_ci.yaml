@@ -436,12 +436,9 @@ jobs:
     steps:
     - name: Check out the repository
       uses: actions/checkout@v4
-    - name: GHCR login
-      uses: ./.github/actions/ghcr-login 
-      with: 
-        docker-username: ${{ github.repository_owner }}
-        docker-password: ${{ secrets.GITHUB_TOKEN}}
-        token-name: ${{ env.TOKEN_NAME }}
+    - name: K8s GHCR store and delete token
+      id: store-token
+      uses: ./.github/actions/store-delete-k8s-ghcr 
     - name: Configure Kubernetes job
       run: |
         yq -i ea 'select(di == 0).spec.selector.job-name = strenv(JOB_NAME)
@@ -452,14 +449,9 @@ jobs:
           .github/eks-workflow-files/job.yml
         git diff .github/eks-workflow-files/job.yml
     - name: Submit Kubernetes job
-      uses: ./.github/actions/submit-k8s-job
+      uses: ./.github/actions/submit-delete-k8s-job
       with: 
         job-config-file: .github/eks-workflow-files/job.yml
-        job-name: ${{ env.JOB_NAME }}
-    - name: Delete eks job
-      uses: ./.github/actions/delete-k8s-job
-      if: ${{ always() }}
-      with: 
         job-name: ${{ env.JOB_NAME }}
     - name: Configure post-processing job
       run: |
@@ -470,20 +462,11 @@ jobs:
           | .spec.template.spec.initContainers[].command[7] = strenv(JOB_OUTPUT_PATTERN)' \
           .github/eks-workflow-files/post-process-job.yml
         git diff .github/eks-workflow-files/post-process-job.yml
-    - name: Submit post process k8s job
-      uses: ./.github/actions/submit-k8s-job
+    - name: Submit post process Kubernetes job
+      uses: ./.github/actions/submit-delete-k8s-job
       with: 
-          job-config-file: .github/eks-workflow-files/post-process-job.yml
-          job-name: ${{ env.POSTPROCESS_JOB_NAME }}
-    - name: Delete post process k8s job
-      uses: ./.github/actions/delete-k8s-job
-      with:
-          job-name: ${{ env.POSTPROCESS_JOB_NAME }}
-    - name: Delete GitHub Container Registry token
-      uses: ./.github/actions/delete-ghcr-token
-      if:  ${{ always() }}
-      with: 
-        token-name: ${{ env.TOKEN_NAME }}
+        job-config-file: .github/eks-workflow-files/post-process-job.yml
+        job-name: ${{ env.POSTPROCESS_JOB_NAME }}
 
   # test-equinox:
   #   needs: build-equinox
