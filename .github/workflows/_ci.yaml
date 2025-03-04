@@ -488,43 +488,142 @@ jobs:
   #     ARTIFACTS: |
   #       test-equinox.log
   #   secrets: inherit
-
-  te-unittests:
-    secrets: inherit
+  test-transformerengine-eks:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: te
-      EXECUTE: |
-        docker run -i --gpus all --shm-size=1g -v $PWD:/log \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-te.log
-          pip install pytest-reportlog pytest-xdist
-          # Start MPS daemon
-          nvidia-cuda-mps-control -d
-          # TE's default is slightly different, without the hyphen
-          export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
-          # 1 GPU per worker, 6 workers per GPU
-          pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
-        EOF
+    if: inputs.ARCHITECTURE == 'amd64'
+    runs-on: eks
+    env:
+      JAX_DOCKER_IMAGE: ${{  needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+      JOB_NAME: transformerengine-${{ github.run_id }}
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v4
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: K8s GHCR store and delete token 
+      id: store-token
+      uses: ./.github/actions/store-delete-k8s-ghcr
+    - name: Configure job manifest
+      run: |
+        yq -i ea '
+           select(di == 0).metadata.name = strenv(JOB_NAME)
+          | select(di == 0).spec.template.spec.containers[0].image = strenv(JAX_DOCKER_IMAGE)
+          | select(di == 0).spec.template.spec.containers[1].env[0].value = "${{ github.run_id }}"
+          | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
+        .github/eks-workflow-files/transformer-engine/unit-tests.yml
+        git diff .github/eks-workflow-files/transformer-engine/unit-tests.yml
 
-      STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-te.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+    - name: Submit & delete transformer engine unit test job
+      uses: ./.github/actions/submit-delete-k8s-job 
+      with:
+        job-config-file: .github/eks-workflow-files/transformer-engine/unit-tests.yml
+        job-name: ${{ env.JOB_NAME }}
+
+    - name: Download logs from S3
+      id: log-s3
+      run: |
+        NAME=transformer-engine
+        LOCAL_DIR=$NAME-output
+
+        mkdir -p $LOCAL_DIR
+        aws s3 cp s3://jax-toolbox-eks-output/$NAME/${{ github.run_id }}/summary.txt $LOCAL_DIR/
+        aws s3 cp s3://jax-toolbox-eks-output/$NAME/${{ github.run_id }}/ $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
+
+        passed_tests=$(grep -c ": PASSED" $LOCAL_DIR/summary.txt || true)
+        failed_tests=$(grep -c ": FAILED" $LOCAL_DIR/summary.txt || true)
         total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
 
-      TIMEOUT_MINUTES: 120
-      ARTIFACTS: |
-        test-te.log
-        pytest-report.jsonl
+        echo "Passed tests: $passed_tests"
+        echo "Failed tests: $failed_tests"
+        echo "Total tests: $total_tests"
+        echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
+        echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
 
+    - name: Generate sitrep
+      id: sitrep
+      if: ${{ !cancelled() }}
+      shell: bash -x -e {0}
+      run: |
+        # bring in utility functions
+        source .github/workflows/scripts/to_json.sh
+
+        badge_label='TransformerEngine EKS Unit'
+
+        total_tests=${{ steps.log-s3.outputs.TOTAL_TESTS }} \
+        failed_tests=${{ steps.log-s3.outputs.FAILED_TESTS }} \
+        passed_tests=${{ steps.log-s3.outputs.PASSED_TESTS }} \
+        errors="0" \
+        summary="All tests: $total_tests. Passed: $passed_tests. Failed: $failed_tests." \
+        badge_message="Passed $passed_tests out of $total_tests." \
+        badge_color="brightgreen"
+        if [ "$failed_tests" -gt 0 ]; then
+          badge_color="red"
+        fi \
+
+        to_json \
+          summary \
+          errors total_tests passed_tests failed_tests \
+          badge_label badge_color badge_message \
+        > sitrep.json
+
+        schemaVersion=1 \
+        label="${badge_label}" \
+        message="Passed $passed_tests out of $total_tests." \
+        color=$badge_color \
+        to_json schemaVersion label message color \
+        > badge-transformer-engine-test.json
+
+    - name: Upload artifacts
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: "artifact-transformer-engine-test"
+        path: |
+          sitrep.json
+          badge-transformer-engine-test.json
+          trasformer-engine-output/*
+
+#  te-unittests:
+#    secrets: inherit
+#    needs: build-jax
+#    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+#    uses: ./.github/workflows/_test_unit.yaml
+#    with:
+#      TEST_NAME: te
+#      EXECUTE: |
+#        docker run -i --gpus all --shm-size=1g -v $PWD:/log \
+#        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+#        bash <<"EOF" |& tee test-te.log
+#          pip install pytest-reportlog pytest-xdist
+#          # Start MPS daemon
+#          nvidia-cuda-mps-control -d
+#          # TE's default is slightly different, without the hyphen
+#          export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
+#          # 1 GPU per worker, 6 workers per GPU
+#          pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
+#        EOF
+#
+#      STATISTICS_SCRIPT: |
+#        summary_line=$(tail -n1 test-te.log)
+#        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+#        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
+#        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+#        total_tests=$((failed_tests + passed_tests))
+#        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+#        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+#        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+#        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+#
+#      TIMEOUT_MINUTES: 120
+#      ARTIFACTS: |
+#        test-te.log
+#        pytest-report.jsonl
+#
 #  test-upstream-t5x:
 #    needs: build-upstream-t5x
 #    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
