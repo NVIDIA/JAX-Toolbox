@@ -432,10 +432,15 @@ jobs:
       JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       JOB_NAME: ${{ github.run_id }}-nsys-jax
       POSTPROCESS_JOB_NAME: ${{ github.run_id }}-nsys-jax-postprocess
-      TOKEN_NAME: ${{ github.run_id }}-nsys-jax-token
     steps:
     - name: Check out the repository
       uses: actions/checkout@v4
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: K8s GHCR store and delete token
       id: store-token
       uses: ./.github/actions/store-delete-k8s-ghcr 
@@ -443,7 +448,7 @@ jobs:
       run: |
         yq -i ea 'select(di == 0).spec.selector.job-name = strenv(JOB_NAME)
           | select(di == 1).metadata.name = strenv(JOB_NAME)
-          | select(di == 1).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
+          | select(di == 1).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
           | select(di == 1).spec.template.spec.containers[0].image = strenv(JAX_DOCKER_IMAGE)
           | select(di == 1).spec.template.spec.containers[0].env[0].value = strenv(JOB_NAME)' \
           .github/eks-workflow-files/job.yml
@@ -458,7 +463,7 @@ jobs:
         export JOB_OUTPUT_PATTERN="${JOB_NAME}-rank*.zip"
         yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
           | .spec.template.spec.containers[].image = strenv(JAX_DOCKER_IMAGE)
-          | .spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
+          | .spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
           | .spec.template.spec.initContainers[].command[7] = strenv(JOB_OUTPUT_PATTERN)' \
           .github/eks-workflow-files/post-process-job.yml
         git diff .github/eks-workflow-files/post-process-job.yml
