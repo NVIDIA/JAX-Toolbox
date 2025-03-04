@@ -39,8 +39,6 @@ spec:
           resources:
             limits:
               nvidia.com/gpu: 8
-            requests:
-              nvidia.com/gpu: 1
           volumeMounts:
             - name: output
               mountPath: /opt/output
