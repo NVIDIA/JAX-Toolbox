@@ -511,9 +511,9 @@ jobs:
     - name: Configure job manifest
       run: |
         cat .github/eks-workflow-files/transformer-engine/unit-tests.yml | \
-            sed "s/JOB_NAME/${{ env.JOB_NAME }}/" | \
-            sed "s/IMAGE_NAME/${{ env.JAX_DOCKER_IMAGE }}/" | \
-            sed "s/SECRETS_NAME/${{ steps.store-token.outputs.token-name }}/" | \
+            sed s@JOB_NAME@${{ env.JOB_NAME }}@ | \
+            sed s@IMAGE_NAME@${{ env.JAX_DOCKER_IMAGE }}@ | \
+            sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@ | \
             tee .github/eks-workflow-files/transformer-engine/unit-tests.yml
         cat .github/eks-workflow-files/transformer-engine/unit-tests.yml
 
