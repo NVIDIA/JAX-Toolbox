@@ -1,51 +1,36 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name:
-    '[object Object]': null
   labels:
     kueue.x-k8s.io/queue-name: p5-queue
+  name: JOB_NAME
 spec:
   activeDeadlineSeconds: 1200
   completions: 1
   parallelism: 1
   template:
     spec:
-      restartPolicy: Never
       containers:
-        - name: transformer-engine
-          image:
-            '[object Object]': null
-          command:
-            - bash
-            - '-xo'
-            - pipefail
-            - '-c'
-            - >
-              pip install pytest-reportlog pytest-xdist
-
-              # Start MPS daemon
-
-              nvidia-cuda-mps-control -d
-
-              # TE's default is slightly different, without the hyphen
-
-              export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
-
-              # 1 GPU per worker, 6 workers per GPU
-
-              pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash
-              ${TE_PATH}/qa/L0_jax_unittest/test.sh
-          resources:
-            limits:
-              nvidia.com/gpu: 8
-          volumeMounts:
-            - name: output
-              mountPath: /opt/output
+      - command:
+        - bash
+        - -xo
+        - pipefail
+        - -c
+        - |
+          pip install pytest-reportlog pytest-xdist
+          # Start MPS daemon nvidia-cuda-mps-control -d
+          # TE's default is slightly different, without the hyphen export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
+          # 1 GPU per worker, 6 workers per GPU pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
+        image: IMAGE_URI
+        name: transformer-engine
+        resources:
+          limits:
+            nvidia.com/gpu: 8
+        volumeMounts:
+        - mountPath: /opt/output
+          name: output
       imagePullSecrets:
-        - name:
-            '[object Object]': null
+      - name: SECRETS_NAME
+      restartPolicy: Never
       volumes:
-        - name: output
-          emptyDir: {}
-
+      - name: output
