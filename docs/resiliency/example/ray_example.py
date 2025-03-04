@@ -291,13 +291,15 @@ class ModelTrainer(ResilientWorker):
             current_time = datetime.datetime.now()
             time_since_failure_sim = (current_time - failure_timer_start).total_seconds()
             if time_since_failure_sim >= 10:
+                # Fail with a probability of 0.5
                 # Fail with a crash if we are failing on an even step
                 # Fail with a hang if we are failing on an odd step
-                if step % 2 == 0:
-                    # Cause a seg fault, no graceful exception propagation
-                    eval((lambda:0).__code__.replace(co_consts=()))
-                else:
-                    time.sleep(300)
+                if random.random() < 0.5:
+                    if step % 2 == 0:
+                        # Cause a seg fault, no graceful exception propagation
+                        eval((lambda:0).__code__.replace(co_consts=()))
+                    else:
+                        time.sleep(300)
 
             print(f"Process ID = {self.process_id}, Step = {step}, Loss = {loss}", flush=True)
 
