@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-    name: PLACEHOLDER
+    name: {{ JOB_NAME }}
     labels:
         kueue.x-k8s.io/queue-name: p5-queue
 spec:
@@ -13,54 +13,32 @@ spec:
         spec:
             restartPolicy: Never
             containers:
-                - name: axlearn-fuji-model
-                  image: PLACEHOLDER
+                - name: transformer-engine
+                  image: {{ IMAGE_URI }}
                   command:
                     - bash
                     - -xo
                     - pipefail
                     - -c
                     - |        
-                      BASEDIR="/opt/axlearn"
-                      CONFIG="fuji-3B-v3-flash-single-host"
-                      HLO_DUMP=0
-                      POSTFIX=""
+		      pip install pytest-reportlog pytest-xdist
+		      # Start MPS daemon
+		      nvidia-cuda-mps-control -d
+		      # TE's default is slightly different, without the hyphen
+		      export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
+		      # 1 GPU per worker, 6 workers per GPU
+		      pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
 
-                      AR_THRESHOLD=1073741824
-                      AG_THRESHOLD=8589934592
-                      RS_THRESHOLD=8589934592
-                      BASE_XLA_FLAGS=${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true
-                          --xla_gpu_all_reduce_combine_threshold_bytes=1073741824
-                          --xla_gpu_all_gather_combine_threshold_bytes=1073741824
-                          --xla_gpu_reduce_scatter_combine_threshold_bytes=1073741824
-                          --xla_gpu_enable_pipelined_all_gather=true
-                          --xla_gpu_enable_pipelined_reduce_scatter=true
-                          --xla_gpu_enable_pipelined_all_reduce=true
-                          --xla_gpu_enable_while_loop_double_buffering=true
-                          --xla_disable_hlo_passes=rematerialization}
-
-                      export XLA_FLAGS="$BASE_XLA_FLAGS ${XLA_FLAGS:-}" 
-                      export TF_GPU_ALLOCATOR=cuda_malloc_async
-
-                      LOG_DIR=${BASEDIR}/logs
-                      TRAINER_DIR=${LOG_DIR}/${CONFIG}${POSTFIX}-eks/trainer-dir
-                      mkdir -p ${TRAINER_DIR}
-
-
-                      python3 -m axlearn.common.launch_trainer_main \
-                          --module=text.gpt.c4_trainer \
-                          --config=${CONFIG} \
-                          --trainer_dir=${TRAINER_DIR} \
-                          --data_dir=gs://axlearn-public/tensorflow_datasets \
-                          --jax_backend=gpu                    
                   resources:
                     limits:
                         nvidia.com/gpu: 8
+                    requests:
+                        nvidia.com/gpu: 1
                   volumeMounts:
                     - name: output
                       mountPath: /opt/output
             imagePullSecrets:
-                - name: PLACEHOLDER
+                - name: {{ IMAGE_PULL_SECRET }}
             volumes:
                 - name: output
                   emptyDir: {}
