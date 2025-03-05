@@ -527,7 +527,7 @@ jobs:
       run: |
         S3_BUCKET=jax-toolbox-eks-output
         CI_NAME=transformer-engine
-        LOCAL_DIR=$NAME-output
+        LOCAL_DIR=$CI_NAME-output
 
         mkdir -p $LOCAL_DIR
         aws s3 cp s3://${S3_BUCKET}/${CI_NAME}/${{ github.run_id }}/summary.txt $LOCAL_DIR/
