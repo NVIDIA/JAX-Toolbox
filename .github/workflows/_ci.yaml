@@ -506,7 +506,6 @@ jobs:
     if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
     uses: ./.github/workflows/_test_unit.yaml
     with:
-      JAX_DOCKER_IMAGE: 
       TEST_NAME: te
       EXECUTE: |
         docker run -i --gpus all --shm-size=1g -v $PWD:/log \
