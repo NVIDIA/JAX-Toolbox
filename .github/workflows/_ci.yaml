@@ -511,11 +511,10 @@ jobs:
     - name: Configure job manifest
       run: |
         cat .github/eks-workflow-files/transformer-engine/unit-tests.yml | \
-            sed s@JOB_NAME@${{ env.JOB_NAME }}@ | \
-            sed s@IMAGE_URI@${{ env.JAX_DOCKER_IMAGE }}@ | \
-            sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@ | \
+            sed s@JOB_NAME@${{ env.JOB_NAME }}@g | \
+            sed s@IMAGE_URI@${{ env.JAX_DOCKER_IMAGE }}@g | \
+            sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
             tee .github/eks-workflow-files/transformer-engine/unit-tests.yml
-        cat .github/eks-workflow-files/transformer-engine/unit-tests.yml
 
     - name: Submit & delete transformer engine unit test job
       uses: ./.github/actions/submit-delete-k8s-job 
@@ -523,26 +522,27 @@ jobs:
         job-config-file: .github/eks-workflow-files/transformer-engine/unit-tests.yml
         job-name: ${{ env.JOB_NAME }}
 
-    - name: Download logs from S3
-      id: log-s3
+    - name: Download and process logs from S3
+      id: s3-logs-process
       run: |
-        NAME=transformer-engine
+        S3_BUCKET=jax-toolbox-eks-output
+        CI_NAME=transformer-engine
         LOCAL_DIR=$NAME-output
 
         mkdir -p $LOCAL_DIR
-        aws s3 cp s3://jax-toolbox-eks-output/$NAME/${{ github.run_id }}/summary.txt $LOCAL_DIR/
-        aws s3 cp s3://jax-toolbox-eks-output/$NAME/${{ github.run_id }}/ $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
+        aws s3 cp s3://${S3_BUCKET}/${CI_NAME}/${{ github.run_id }}/summary.txt $LOCAL_DIR/
+        aws s3 cp s3://${S3_BUCKET}/${CI_NAME}/${{ github.run_id }}/ $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
 
-        passed_tests=$(grep -c ": PASSED" $LOCAL_DIR/summary.txt || true)
-        failed_tests=$(grep -c ": FAILED" $LOCAL_DIR/summary.txt || true)
-        total_tests=$((failed_tests + passed_tests))
+        passed=$(cat $LOCAL_DIR/tests.log | grep 'PASSED opt/transformer' | wc -l || true)
+        failed=$(cat $LOCAL_DIR/tests.log | grep 'FAILED opt/transformer' | wc -l || true)
 
-        echo "Passed tests: $passed_tests"
-        echo "Failed tests: $failed_tests"
-        echo "Total tests: $total_tests"
-        echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
-        echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
+        total=$((failed + passed))
+        echo "Passed tests: $passed"
+        echo "Failed tests: $failed"
+        echo "Total tests: $total"
+        echo "PASSED_TESTS=$passed" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=$failed" >> $GITHUB_OUTPUT
+        echo "TOTAL_TESTS=$total" >> $GITHUB_OUTPUT
 
     - name: Generate sitrep
       id: sitrep
@@ -554,9 +554,9 @@ jobs:
 
         badge_label='TransformerEngine EKS Unit'
 
-        total_tests=${{ steps.log-s3.outputs.TOTAL_TESTS }} \
-        failed_tests=${{ steps.log-s3.outputs.FAILED_TESTS }} \
-        passed_tests=${{ steps.log-s3.outputs.PASSED_TESTS }} \
+        total_tests=${{ steps.s3-logs-process.outputs.TOTAL_TESTS }} \
+        failed_tests=${{ steps.s3-logs-process.outputs.FAILED_TESTS }} \
+        passed_tests=${{ steps.s3-logs-process.outputs.PASSED_TESTS }} \
         errors="0" \
         summary="All tests: $total_tests. Passed: $passed_tests. Failed: $failed_tests." \
         badge_message="Passed $passed_tests out of $total_tests." \
