@@ -515,13 +515,11 @@ jobs:
             sed s@IMAGE_URI@${{ env.JAX_DOCKER_IMAGE }}@g | \
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
             tee .github/eks-workflow-files/transformer-engine/unit-tests.yml
-
     - name: Submit & delete transformer engine unit test job
       uses: ./.github/actions/submit-delete-k8s-job 
       with:
         job-config-file: .github/eks-workflow-files/transformer-engine/unit-tests.yml
         job-name: ${{ env.JOB_NAME }}
-
     - name: Download and process logs from S3
       id: s3-logs-process
       run: |
@@ -530,7 +528,7 @@ jobs:
         LOCAL_DIR=$CI_NAME-output
 
         mkdir -p $LOCAL_DIR
-        aws s3 cp s3://${S3_BUCKET}/${CI_NAME}/${{ github.run_id }}/summary.txt $LOCAL_DIR/
+        # aws s3 cp s3://${S3_BUCKET}/${CI_NAME}/${{ github.run_id }}/summary.txt $LOCAL_DIR/
         aws s3 cp s3://${S3_BUCKET}/${CI_NAME}/${{ github.run_id }}/ $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
 
         passed=$(cat $LOCAL_DIR/tests.log | grep 'PASSED opt/transformer' | wc -l || true)
