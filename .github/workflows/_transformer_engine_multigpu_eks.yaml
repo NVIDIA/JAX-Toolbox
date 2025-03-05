@@ -117,7 +117,7 @@ jobs:
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v4
       with:
-        name: "artifact-transformer-engine-test"
+        name: "artifact-multigpu-test-${{ env.RUN_NAME }}"
         path: |
           sitrep.json
           badge-transformer-engine-test.json
