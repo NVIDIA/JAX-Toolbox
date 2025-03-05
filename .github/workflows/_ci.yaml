@@ -488,103 +488,19 @@ jobs:
   #     ARTIFACTS: |
   #       test-equinox.log
   #   secrets: inherit
-  test-transformerengine-eks:
+  test-transformerengine-h100:
 #    needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64'
     runs-on: eks
-    env:
+    uses: ./.github/workflows/transformer-engine/_unittests_eks.yaml
+    with:
 #      JAX_DOCKER_IMAGE: ${{  needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       JAX_DOCKER_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:13652377029-jax-amd64
       JOB_NAME: transformerengine-${{ github.run_id }}
       S3_BUCKET: jax-toolbox-eks-output
       CI_NAME: transformer-engine
-    steps:
-    - name: Check out the repository
-      uses: actions/checkout@v4
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token 
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-    - name: Configure job manifest
-      run: |
-        cat .github/eks-workflow-files/transformer-engine/unit-tests.yml | \
-            sed s@JOB_NAME@${{ env.JOB_NAME }}@g | \
-            sed s@IMAGE_URI@${{ env.JAX_DOCKER_IMAGE }}@g | \
-            sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
-            tee .github/eks-workflow-files/transformer-engine/unit-tests.yml
-    - name: Submit & delete transformer engine unit test job
-      uses: ./.github/actions/submit-delete-k8s-job 
-      with:
-        job-config-file: .github/eks-workflow-files/transformer-engine/unit-tests.yml
-        job-name: ${{ env.JOB_NAME }}
-    - name: Download and process logs from S3
-      id: s3-logs-process
-      run: |
-        LOCAL_DIR=${{ env.CI_NAME }}-output
+    secrets: inherit
 
-        mkdir -p $LOCAL_DIR
-        # aws s3 cp s3://${{ env.S3_BUCKET }}/${{ env.CI_NAME }}/${{ env.JOB_NAME }}/summary.txt $LOCAL_DIR/
-        aws s3 cp s3://${{ env.S3_BUCKET }}/${{ env.CI_NAME }}/${{ env.JOB_NAME }}/ $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
-
-        passed=$(cat $LOCAL_DIR/tests.log | grep 'PASSED opt/transformer' | wc -l || true)
-        failed=$(cat $LOCAL_DIR/tests.log | grep 'FAILED opt/transformer' | wc -l || true)
-
-        total=$((failed + passed))
-        echo "Passed tests: $passed"
-        echo "Failed tests: $failed"
-        echo "Total tests: $total"
-        echo "PASSED_TESTS=$passed" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=$failed" >> $GITHUB_OUTPUT
-        echo "TOTAL_TESTS=$total" >> $GITHUB_OUTPUT
-
-    - name: Generate sitrep
-      id: sitrep
-      if: ${{ !cancelled() }}
-      shell: bash -x -e {0}
-      run: |
-        # bring in utility functions
-        source .github/workflows/scripts/to_json.sh
-
-        badge_label='TransformerEngine EKS Unit'
-
-        total_tests=${{ steps.s3-logs-process.outputs.TOTAL_TESTS }} \
-        failed_tests=${{ steps.s3-logs-process.outputs.FAILED_TESTS }} \
-        passed_tests=${{ steps.s3-logs-process.outputs.PASSED_TESTS }} \
-        errors="0" \
-        summary="All tests: $total_tests. Passed: $passed_tests. Failed: $failed_tests." \
-        badge_message="Passed $passed_tests out of $total_tests." \
-        badge_color="brightgreen"
-        if [ "$failed_tests" -gt 0 ]; then
-          badge_color="red"
-        fi \
-
-        to_json \
-          summary \
-          errors total_tests passed_tests failed_tests \
-          badge_label badge_color badge_message \
-        > sitrep.json
-
-        schemaVersion=1 \
-        label="${badge_label}" \
-        message="Passed $passed_tests out of $total_tests." \
-        color=$badge_color \
-        to_json schemaVersion label message color \
-        > badge-transformer-engine-test.json
-
-    - name: Upload artifacts
-      if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: "artifact-transformer-engine-test"
-        path: |
-          sitrep.json
-          badge-transformer-engine-test.json
-          trasformer-engine-output/*
 
 #  te-unittests:
 #    secrets: inherit
