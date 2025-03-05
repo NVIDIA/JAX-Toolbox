@@ -116,7 +116,6 @@ jobs:
           trasformer-engine-output/*
   transformer-engine-multigpu-test-eks:
     strategy:
-       max-parallel: 1
        fail-fast: true
        matrix:
          N_GPU: [2, 4, 8]

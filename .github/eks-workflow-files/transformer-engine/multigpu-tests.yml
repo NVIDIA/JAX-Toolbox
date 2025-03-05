@@ -6,8 +6,6 @@ metadata:
   name: JOB_NAME
 spec:
   activeDeadlineSeconds: 1200
-  completions: 1
-  parallelism: 1
   template:
     spec:
       containers:
