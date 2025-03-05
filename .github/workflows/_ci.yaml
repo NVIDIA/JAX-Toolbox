@@ -492,7 +492,7 @@ jobs:
 #    needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64'
     runs-on: eks
-    uses: ./.github/workflows/transformer-engine/_unittests_eks.yaml
+    uses: ./.github/workflows/_transformer_engine_unittests_eks.yaml
     with:
 #      JAX_DOCKER_IMAGE: ${{  needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       JAX_DOCKER_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:13652377029-jax-amd64
