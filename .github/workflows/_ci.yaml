@@ -491,7 +491,6 @@ jobs:
   test-transformerengine-h100:
 #    needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64'
-    runs-on: eks
     uses: ./.github/workflows/_transformer_engine_unittests_eks.yaml
     with:
 #      JAX_DOCKER_IMAGE: ${{  needs.build-jax.outputs.DOCKER_TAG_FINAL }}
