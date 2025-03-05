@@ -11,11 +11,7 @@ spec:
   template:
     spec:
       containers:
-      - name: transformer-engine
-        env:
-        - name: LOG_DIR
-          value: /opt/output
-        command:
+      - command:
         - bash
         - -xo
         - pipefail
@@ -33,28 +29,23 @@ spec:
           pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh | tee -a ${LOG_DIR}/tests.log
 
           touch /opt/output/done
+        env:
+        - name: LOG_DIR
+          value: /opt/output
         image: IMAGE_URI
+        name: transformer-engine
         resources:
           limits:
             nvidia.com/gpu: 8
         volumeMounts:
         - mountPath: /opt/output
           name: output
-      - name: upload-logs
-        image: amazon/aws-cli
-        env:
-        - name: RUN_ID
-          value: JOB_NAME
-        - name: S3_BUCKET
-          value: jax-toolbox-eks-output
-        - name: CI_NAME
-          value: transformer-engine
-        command:
+      - command:
         - sh
         - -c
         - |
           while [ ! -f /opt/output/done ]; do
-      	    sleep 5
+            sleep 5
           done
 
           # Upload to S3 bucket
@@ -62,9 +53,18 @@ spec:
 
           # Upload logs to S3 bucket
           aws s3 cp /opt/output/ s3://${S3_BUCKET}/${CI_NAME}/${RUN_ID}/ --recursive --exclude "*" --include "*.log"
+        env:
+        - name: RUN_ID
+          value: JOB_NAME
+        - name: S3_BUCKET
+          value: jax-toolbox-eks-output
+        - name: CI_NAME
+          value: transformer-engine
+        image: amazon/aws-cli
+        name: upload-logs
         volumeMounts:
-        - name: output
-          mountPath: /opt/output
+        - mountPath: /opt/output
+          name: output
       imagePullSecrets:
       - name: SECRETS_NAME
       restartPolicy: Never
