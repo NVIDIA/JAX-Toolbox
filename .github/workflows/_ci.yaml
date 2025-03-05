@@ -488,10 +488,10 @@ jobs:
   #     ARTIFACTS: |
   #       test-equinox.log
   #   secrets: inherit
-  test-transformerengine-unittests-h100:
+  test-transformerengine-h100:
 #    needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64'
-    uses: ./.github/workflows/_transformer_engine_unittests_eks.yaml
+    uses: ./.github/workflows/_transformer_engine_eks.yaml
     with:
 #      JAX_DOCKER_IMAGE: ${{  needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       JAX_DOCKER_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:13652377029-jax-amd64
@@ -499,16 +499,6 @@ jobs:
       S3_BUCKET: jax-toolbox-eks-output
       CI_NAME: transformer-engine
     secrets: inherit
-  test-transformerengine-multigpu-h100:
-    if: inputs.ARCHITECTURE == 'amd64'
-    uses: ./.github/workflows/_transformer_engine_multigpu_eks.yaml
-    with:
-      JAX_DOCKER_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:13652377029-jax-amd64
-      JOB_NAME: transformerengine-multigpu-${{ github.run_id }}
-      S3_BUCKET: jax-toolbox-eks-output
-      CI_NAME: transformer-engine
-    secrets: inherit
-
 
 #  te-unittests:
 #    secrets: inherit
