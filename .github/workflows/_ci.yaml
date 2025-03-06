@@ -521,6 +521,12 @@ jobs:
 
           # 1 GPU per worker, 3 workers per GPU
           pytest-xdist.sh 1 3 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
+
+          # merge the log files
+          cat \
+            pytest-report-L0-unittest.jsonl
+            > pytest-report.jsonl
+
         EOF
 
       STATISTICS_SCRIPT: |
