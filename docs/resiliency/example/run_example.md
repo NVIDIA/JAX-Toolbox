@@ -12,14 +12,8 @@ docker build -t ray_resiliency_example -f Dockerfile .
 
 ## Running the example
 
- After sshing into a node with at least 2 GPUs run the following command to get into the previously built container.
+ After sshing into a node with at least 2 GPUs run the following command to get into the previously built container and run the example.
 
 ```shell
 docker run --gpus=all --name ray_resiliency_example --network=host --security-opt seccomp=unconfined --cap-add SYS_PTRACE -it --shm-size=50g --ulimit memlock=-1 ray_resiliency_example bash -c "chmod +x ./launch_ray_job.sh && ./launch_ray_job.sh"
-```
-
-Once inside the container run the `launch_ray_job.sh` script to run the example:
-
-```shell
-./launch_ray_job.sh
 ```
