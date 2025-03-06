@@ -6,15 +6,9 @@ This guide demonstrates how resilient training of models written in libraries bu
     -  automatic recovery from failures and hangs by leveraging Ray's machinery for failure detection and recovery from a model checkpoint
     -  fast recovery from failures and hangs by leveraging model compilation caching
 
-It assumes familiarity with Ray and Ray Clusters and requires a couple of extra packages these are Ray itself and redis-py: 
 
-```console
-python3 -m pip install "ray[default]" redis
-```
 
-The need for redis will be explained a little later in this guide.
-
-While the tutorial below, is comprehensive and detailed it is only meant to be a guide to be able to use Ray to implement fault tolerant workloads of your own. It is not presented in a way that one can just copy and paste its contents to produce a runnable example. For a full runnable example, please refer to the [simple toy example](./example/) that includes a simplified example that can be run on a single node (with at least 2 GPUs) in a fault tolerant manner.
+For a full runnable example of resilient JAX training using Ray see the [simple toy example](./example/), which includes a Docker image you can try out on a single node with a least two GPUs. The guide below gives an overview of the example code and how you might want to extend it to your own model.
 
 ### Why Ray?
 
@@ -52,7 +46,7 @@ min_worker_port=10001
 max_worker_port=10257
 
 # On the physical node with `IP_ADDR_1`:
-CUDA_VISIBLE_DEVICES="" ray start --node-ip-address=IP_ADDR_1 --port=<HEAD_NODE_PORT>
+CUDA_VISIBLE_DEVICES="" ray start --head --node-ip-address=IP_ADDR_1 --port=<HEAD_NODE_PORT>
 ray start --address "IP_ADDR_1:<HEAD_NODE_PORT>" \
                     --resources="{\"worker_units\": $gpus_per_node}" \
                     --min-worker-port=$min_worker_port \
@@ -95,13 +89,13 @@ import asyncio
 import redis
         
 class RayClusterCoordinator:
-  def __init__(self, worker_cls) -> None:
-    self.worker_cls = worker_cls
-    self.num_workers = int(os.environ.get('NGPUS'))
-  
-    self.workers = [worker_cls.options(num_gpus=1, 
-                                       num_cpus=16, 
-                                       resources={"worker_units": 1}).remote() for _ in range(self.num_workers)]
+    def __init__(self, worker_cls) -> None:
+        self.worker_cls = worker_cls
+        self.num_workers = int(os.environ.get('NGPUS'))
+
+        self.workers = [worker_cls.options(num_gpus=1, 
+                                            num_cpus=16, 
+                                            resources={"worker_units": 1}).remote() for _ in range(self.num_workers)]
    
     def initialize_workers(self, **kwargs):
         self.worker_init_kwargs = kwargs
@@ -120,11 +114,11 @@ class RayClusterCoordinator:
 ```
 The first job of the coordinator is to spawn actors and have them be scheduled on Ray worker nodes. This happens in the constructor of the `RayClusterCoordinator`. `worker_cls` is the class that encapsulates the functionality of each actor. Notice how we request 1 GPU, 16 CPUs and 1 worker_unit per actor as mentioned earlier. There are two additional mandatory methods that RayClusterCoordinator implements:
 - `initialize_workers`: the purpose of this method is to trigger the initialize method of the `worker_cls` representing an actor
-- `run`: the purpose of this method is to launch computation on all the scheduled actors. We haven't included the details of the run method quite yet, nor have we discussed why it is an async method. We will get to both after defining some of the functionality of the class representing an actor. In the class definition above `NGPUS` is an environment variable tha represents the total number of GPUs available to the job across all nodes. 
+- `run`: the purpose of this method is to launch computation on all the scheduled actors. We haven't included the details of the run method quite yet, nor have we discussed why it is an async method. We will get to both after defining some of the functionality of the class representing an actor. In the class definition above `NGPUS` is an environment variable that represents the total number of GPUs available to the job across all nodes. 
 
 ### Designing the actor
 
-Our design of the actor involves defining two classes: `ResilientWorker` and `ModelTrainer`. `ResilientWorker` will define a high level interface for the role an actor plays in this system and `ModelTrainer` is a subclass of `ResilientWorker` that will implement specific functionality to train a model in a failure resilient manner, including model checkpointing and compilation caching. Let's start with `ResilientWorker`.
+Our design of the actor involves defining two classes: `ResilientWorker` and `ModelTrainer`. `ResilientWorker` will define a high level interface for the role an actor plays in this system and `ModelTrainer` is a subclass of `ResilientWorker` that will implement specific functionality to train a model in a fault-tolerant manner, including model checkpointing and compilation caching. Let's start with `ResilientWorker`.
 
 ```python
 import jax
@@ -155,7 +149,7 @@ class ResilientWorker:
 ```
 
 The ResilientWorker interface defines a number of methods, the most important of which are the `initialize` and `run` methods:
-- `initialize`: is responsible for initializing `jax.distributed` across all the spawned actors. Every class that inherits from ResilientWorker can initialize any task specific state in it's initialize method, but must call the base class' initialize method to setup the jax.distributed runtime.
+- `initialize`: is responsible for initializing `jax.distributed` across all the spawned actors. Every class that inherits from ResilientWorker can initialize any task specific state in its initialize method, but must call the base class' initialize method to setup the jax.distributed runtime.
 -  `run`: every class that inherits from ResilientWorker must implement its own run method. This is the entry point to the computation that the actors will perform.
 
 To understand how this class and inheritance structure works, let's start implementing the `ModelTrainer` class.
@@ -186,14 +180,14 @@ class ModelTrainer(ResilientWorker):
     def run(self, num_physical_nodes, restore=False) -> List[Any] | None:
         # Method implementing the training loop
 ```
-In this guide, the objective of the actors is to finetune a pretrained LLM. Additionally, they have to do so in a *fault tolerant* manner. `ModelTrainer` is the class that encapsulates this behavior and inherits from `ResilientWorker`. It's responsibility to finetune an LLM while being able to recover quickly and automatically when met with a failure. The class is decorated with `ray.remote` since instances of this class are to be scheduled as actors.
+In this guide, the objective of the actors is to finetune a pretrained LLM. Additionally, they have to do so in a *fault tolerant* manner. `ModelTrainer` is the class that encapsulates this behavior and inherits from `ResilientWorker`. Its responsibility to finetune an LLM while being able to recover quickly and automatically when met with a failure. The class is decorated with `ray.remote` since instances of this class are to be scheduled as actors.
 
 As a subclass of `ResilientWorker`, `ModelTrainer` *must* implement its own `run` method. But before we look at the details of the `run` method 
-let's look at the details of the overriden `initialize` method in `ModelTrainer`. It is *not* mandatory for subclasses of `ResilientWorker` to override `initialize`, but it is often useful to initialize child class specific state by doing so. In this example, given our objective, in addition to calling the base class' `initialize` method to initialize `jax.distributed`, `ModelTrainer` initializes the following in its `initialize` method:
+let's look at the details of the overridden `initialize` method in `ModelTrainer`. It is *not* mandatory for subclasses of `ResilientWorker` to override `initialize`, but it is often useful to initialize child class specific state by doing so. In this example, given our objective, in addition to calling the base class' `initialize` method to initialize `jax.distributed`, `ModelTrainer` initializes the following in its `initialize` method:
 1. **model checkpointing state**: initialization of an [Orbax](https://github.com/google/orbax) checkpoint manager. One of the important aspects of fault tolerant training is to be able to recover from the latest checkpoint. Hence our model is checkpointed at fixed intervals during the finetuning process
 2. **jax compilation cache**: to avoid the penalty of recompilation when restoring the training run from the latest checkpoint after a crash or a hang
 
-Fault tolerant training necessitates quick failure detection and quick recovery. Model checkpointing and compilation caching are particularly important steps towards that objective and demonstrate two examples of additional initialization that can be implemented in the initialize method of a subclass of `ResilientWorker`. We will now look at the details of the `run` method of `ModelTrainer` with the following caveat: we will merely gloss over parts of the `run` method that don't pertain directly to fault tolerant training, these include:
+We will now look at the details of the `run` method of `ModelTrainer` with the following caveat: we will merely gloss over parts of the `run` method that don't pertain directly to fault tolerant training, these include:
 - Dataset creation and tokenizing
 - Sharding model parameters
 - Dataloading details
@@ -551,10 +545,6 @@ Sometimes it is likely that physical resources are allocated to an application b
 
 # Number of GPUs per node
 gpus_per_node=8
-
-# Getting the node names
-nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
-nodes_array=($nodes)
 
 # Getting the node names and IP addresses in the SLURM allocation
 nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
