@@ -49,7 +49,7 @@ jobs:
     - name: Configure job manifest
       run: |
         K8S_JOB_TEMPLATE="${{ env.TE_EKS_FILES_PREFIX }}/test.yml"
-	K8S_JOB_MANIFEST="${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml"
+        K8S_JOB_MANIFEST="${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml"
         SCRIPT="${{ env.TE_EKS_FILES_PREFIX }}/scripts/${{ matrix.TEST }}.sh"
 
         sed '/SCRIPT/ {
@@ -161,7 +161,7 @@ jobs:
     - name: Configure job manifest
       run: |
         K8S_JOB_TEMPLATE="${{ env.TE_EKS_FILES_PREFIX }}/test.yml"
-	K8S_JOB_MANIFEST="${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml"
+        K8S_JOB_MANIFEST="${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml"
         SCRIPT="${{ env.TE_EKS_FILES_PREFIX }}/scripts/${{ matrix.TEST }}.sh"
 
         sed '/SCRIPT/ {
