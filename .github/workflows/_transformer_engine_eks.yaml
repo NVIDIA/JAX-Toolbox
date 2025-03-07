@@ -26,6 +26,11 @@ permissions:
 
 jobs:
   transformer-engine-unittest-eks:
+    strategy:
+       fail-fast: true
+       matrix:
+         N_GPU: [8]
+         SCRIPT: [github/eks-workflow-files/transformer-engine/unittest.sh]
     runs-on: [eks] # H100
     steps:
     - name: Check out the repository
@@ -41,11 +46,14 @@ jobs:
       uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Configure job manifest
       run: |
-        cat .github/eks-workflow-files/transformer-engine/unit-tests.yml | \
+	sed -i '/SCRIPT/{r ${{ matrix.SCRIPT }}
+	d}' .github/eks-workflow-files/transformer-engine/test.yml
+        cat .github/eks-workflow-files/transformer-engine/test.yml | \
             sed s@JOB_NAME@${{ inputs.JOB_NAME }}@g | \
             sed s@IMAGE_URI@${{ inputs.JAX_DOCKER_IMAGE }}@g | \
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
             tee .github/eks-workflow-files/transformer-engine/unit-tests.yml
+
     - name: Submit & delete transformer engine unit test job
       uses: ./.github/actions/submit-delete-k8s-job 
       with:
@@ -114,11 +122,13 @@ jobs:
           sitrep.json
           badge-transformer-engine-test.json
           trasformer-engine-output/*
+
   transformer-engine-multigpu-test-eks:
     strategy:
        fail-fast: true
        matrix:
          N_GPU: [2, 4, 8]
+         SCRIPT: [.github/eks-workflow-files/transformer-engine/multi-gpu.sh]
     runs-on: [eks] # H100
     env:
       RUN_NAME: ${{ inputs.JOB_NAME }}-${{ matrix.N_GPU }}xh100
@@ -136,11 +146,14 @@ jobs:
       uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Configure job manifest
       run: |
-        cat .github/eks-workflow-files/transformer-engine/multigpu-tests.yml | \
+	sed -i '/SCRIPT/{r ${{ matrix.SCRIPT }}
+	d}' .github/eks-workflow-files/transformer-engine/test.yml
+        cat .github/eks-workflow-files/transformer-engine/test.yml | \
             sed s@JOB_NAME@${{ env.RUN_NAME }}@g | \
             sed s@IMAGE_URI@${{ inputs.JAX_DOCKER_IMAGE }}@g | \
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
             sed s@N_GPU@${{ matrix.N_GPU }}@g | \
+            sed s@SCRIPT@$(cat ${{ matrix.SCRIPT }}}@g | \
             tee .github/eks-workflow-files/transformer-engine/unit-tests.yml
     - name: Submit & delete transformer engine unit test job
       uses: ./.github/actions/submit-delete-k8s-job 
