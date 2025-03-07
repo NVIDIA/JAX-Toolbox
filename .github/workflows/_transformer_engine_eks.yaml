@@ -46,7 +46,7 @@ jobs:
       uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Configure job manifest
       run: |
-	sed -i '/SCRIPT/{r ${{ matrix.SCRIPT }}
+        sed -i '/SCRIPT/{r ${{ matrix.SCRIPT }}
 	d}' .github/eks-workflow-files/transformer-engine/test.yml
         cat .github/eks-workflow-files/transformer-engine/test.yml | \
             sed s@JOB_NAME@${{ inputs.JOB_NAME }}@g | \
