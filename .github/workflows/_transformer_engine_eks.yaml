@@ -65,8 +65,10 @@ jobs:
         LOCAL_DIR=${{ inputs.CI_NAME }}-output
 
         mkdir -p $LOCAL_DIR
+        aws s3 ls s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ inputs.JOB_NAME }}/ 
         # aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ inputs.JOB_NAME }}/summary.txt $LOCAL_DIR/
         aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ inputs.JOB_NAME }}/ $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
+        ls $LOCAL_DIR
 
         passed=$(cat $LOCAL_DIR/tests.log | grep 'PASSED opt/transformer' | wc -l || true)
         failed=$(cat $LOCAL_DIR/tests.log | grep 'FAILED opt/transformer' | wc -l || true)
