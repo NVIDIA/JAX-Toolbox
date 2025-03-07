@@ -154,7 +154,7 @@ jobs:
 
         mkdir -p $LOCAL_DIR
         # aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ inputs.RUN_NAME }}/summary.txt $LOCAL_DIR/
-        aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}// $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
+        aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ inputs.RUN_NAME }}/ $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
 
         passed=$(cat $LOCAL_DIR/tests.log | grep 'PASSED opt/transformer' | wc -l || true)
         failed=$(cat $LOCAL_DIR/tests.log | grep 'FAILED opt/transformer' | wc -l || true)

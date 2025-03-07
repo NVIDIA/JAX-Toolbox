@@ -50,6 +50,7 @@ spec:
           done
 
           # Upload logs to S3 bucket
+          cat /opt/output/tests.log
           aws s3 cp /opt/output/ s3://${S3_BUCKET}/${CI_NAME}/${RUN_ID}/ --recursive --exclude "*" --include "*.log"
         env:
         - name: RUN_ID
