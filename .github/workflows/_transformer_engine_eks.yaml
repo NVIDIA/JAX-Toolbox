@@ -139,14 +139,13 @@ jobs:
   transformer-engine-multigpu-test-eks:
     env:
       TE_EKS_FILES_PREFIX: .github/eks-workflow-files/transformer-engine
+      RUN_NAME: ${{ inputs.JOB_NAME }}-${{ matrix.N_GPU }}xh100
     strategy:
        fail-fast: true
        matrix:
          N_GPU: [2, 4, 8]
          TEST: [multigpu]
     runs-on: [eks] # H100
-    env:
-      RUN_NAME: ${{ inputs.JOB_NAME }}-${{ matrix.N_GPU }}xh100
     steps:
     - name: Check out the repository
       uses: actions/checkout@v4
