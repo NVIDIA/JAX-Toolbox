@@ -52,6 +52,7 @@ jobs:
             sed s@JOB_NAME@${{ inputs.JOB_NAME }}@g | \
             sed s@IMAGE_URI@${{ inputs.JAX_DOCKER_IMAGE }}@g | \
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
+            sed s@N_GPU@${{ matrix.N_GPU }}@g | \
             tee .github/eks-workflow-files/transformer-engine/unit-tests.yml
 
     - name: Submit & delete transformer engine unit test job
@@ -155,7 +156,6 @@ jobs:
             sed s@IMAGE_URI@${{ inputs.JAX_DOCKER_IMAGE }}@g | \
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
             sed s@N_GPU@${{ matrix.N_GPU }}@g | \
-            sed s@SCRIPT@$(cat ${{ matrix.SCRIPT }}}@g | \
             tee .github/eks-workflow-files/transformer-engine/unit-tests.yml
     - name: Submit & delete transformer engine unit test job
       uses: ./.github/actions/submit-delete-k8s-job 
