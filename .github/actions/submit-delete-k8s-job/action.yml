@@ -14,9 +14,10 @@ runs:
   steps:
     - name: Submit and Delete Kubernetes job
       uses: ./.github/actions/with-post-step 
+      shell: bash -eo pipefail
       with: 
         main: |
-          echo "Submit K8s job" 
+          echo "Submit K8s job ${{ inputs.job-config-file }}" 
           kubectl apply -f "${{ inputs.job-config-file }}"
           
           # Wait for job to be craeted
@@ -32,6 +33,37 @@ runs:
           
           # Stream logs
           kubectl logs --all-containers=true --all-pods=true --follow job/${{ inputs.job-name }}
-          
+
+          # Check whether the job succeeded or failed 
+          while readarray -d : -t status < <(kubectl get job/${{ inputs.job-name }} -o 'jsonpath={.status.failed}:{.status.succeeded}'); do
+            failures="${status[0]:-0}"
+            successes="${status[1]:-0}"
+            total=$((failures + successes))
+
+            if [[ $total -lt 2 ]]; then
+              # neither "failed" nor "succeeded" is 2, so wait
+              sleep 1
+            elif [[ $total -eq 2 ]]; then
+              # we have total=2 => either 2 successes or 2 failures 
+              # (or 1 failed + 1 succeeded). 
+              # In any case, the job is done – break.
+              break
+            else
+              # Just in case we get an unexpected number
+              exit 255
+            fi
+          done
+
+          # If job indicates a failure try to print out the info
+          if [[ $failures -gt 0 ]]; then
+            echo "Job ${{ inputs.job-name }} has $failures failures"
+            # this is for batch jobs only
+            pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o name)
+            if [[ -n "${pods}" ]]; then
+              kubectl describe ${pods}
+            fi
+            exit 1
+          fi 
         post: | 
+          echo "Deleting K8s job: ${{ input.job-name }}"
           kubectl delete -f "${{ inputs.job-config-file }}"
