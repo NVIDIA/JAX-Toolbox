@@ -67,7 +67,7 @@ jobs:
             tee $K8S_JOB_MANIFEST > /dev/null
 
         cat $K8S_JOB_MANIFEST | \
-            sed s@JOB_NAME@${{ inputs.RUN_NAME }}@g | \
+            sed s@JOB_NAME@${{ env.RUN_NAME }}@g | \
             sed s@IMAGE_URI@${{ inputs.JAX_DOCKER_IMAGE }}@g | \
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
             sed s@N_GPU@${{ matrix.N_GPU }}@g | \
@@ -85,8 +85,8 @@ jobs:
         LOCAL_DIR=${{ inputs.CI_NAME }}-output
 
         mkdir -p $LOCAL_DIR
-        # aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ inputs.RUN_NAME }}/summary.txt $LOCAL_DIR/
-        aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ inputs.RUN_NAME }}/ $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
+        # aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ env.RUN_NAME }}/summary.txt $LOCAL_DIR/
+        aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ env.RUN_NAME }}/ $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
 
         passed=$(cat $LOCAL_DIR/tests.log | grep 'PASSED opt/transformer' | wc -l || true)
         failed=$(cat $LOCAL_DIR/tests.log | grep 'FAILED opt/transformer' | wc -l || true)
