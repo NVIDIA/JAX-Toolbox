@@ -46,9 +46,11 @@ jobs:
       uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Configure job manifest
       run: |
-        sed -i '/SCRIPT/{r ${{ matrix.SCRIPT }}
-        d}' .github/eks-workflow-files/transformer-engine/test.yml
-        cat .github/eks-workflow-files/transformer-engine/test.yml | \
+        sed '/SCRIPT/{r ${{ matrix.SCRIPT }}
+        d}' .github/eks-workflow-files/transformer-engine/test.yml | \
+            awk '{print "        " $0}' | \ # set indentation
+            tee .github/eks-workflow-files/transformer-engine/unit-tests.yml
+        cat .github/eks-workflow-files/transformer-engine/unit-tests.yml | \
             sed s@JOB_NAME@${{ inputs.JOB_NAME }}@g | \
             sed s@IMAGE_URI@${{ inputs.JAX_DOCKER_IMAGE }}@g | \
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
@@ -149,18 +151,20 @@ jobs:
       uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Configure job manifest
       run: |
-        sed -i '/SCRIPT/{r ${{ matrix.SCRIPT }}
-        d}' .github/eks-workflow-files/transformer-engine/test.yml
-        cat .github/eks-workflow-files/transformer-engine/test.yml | \
+        sed '/SCRIPT/{r ${{ matrix.SCRIPT }}
+        d}' .github/eks-workflow-files/transformer-engine/test.yml | \
+            awk '{print "        " $0}' | \ # set indentation
+            tee .github/eks-workflow-files/transformer-engine/multi-gpu.yml
+        cat .github/eks-workflow-files/transformer-engine/multi-gpu.yml | \
             sed s@JOB_NAME@${{ env.RUN_NAME }}@g | \
             sed s@IMAGE_URI@${{ inputs.JAX_DOCKER_IMAGE }}@g | \
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
             sed s@N_GPU@${{ matrix.N_GPU }}@g | \
-            tee .github/eks-workflow-files/transformer-engine/unit-tests.yml
+            tee .github/eks-workflow-files/transformer-engine/multi-gpu.yml
     - name: Submit & delete transformer engine unit test job
       uses: ./.github/actions/submit-delete-k8s-job 
       with:
-        job-config-file: .github/eks-workflow-files/transformer-engine/unit-tests.yml
+        job-config-file: .github/eks-workflow-files/transformer-engine/multi-gpu.yml
         job-name: ${{ env.RUN_NAME }}
     - name: Download and process logs from S3
       id: s3-logs-process
