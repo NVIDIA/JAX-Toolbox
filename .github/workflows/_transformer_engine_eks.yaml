@@ -34,9 +34,9 @@ jobs:
        matrix:
          N_GPU: [2, 4, 8]
          include:
-           - TEST: [multigpu]
-           - N_GPU: [8]
-             TEST: [unittest]
+           - TEST: multigpu
+           - N_GPU: 8
+             TEST: unittest
     runs-on: [eks] # H100
     steps:
     - name: Check out the repository
