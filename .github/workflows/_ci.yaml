@@ -520,22 +520,8 @@ jobs:
         docker run -i --gpus all --shm-size=1g -v $PWD:/log \
         ghcr.io/nvidia/jax-toolbox-internal:13652377029-jax-amd64 \
         bash <<"EOF" |& tee test-te.log
-          pip install pytest-reportlog pytest-xdist
-
-          # Start MPS daemon
-          nvidia-cuda-mps-control -d
-
-          # TE's default is slightly different, without the hyphen
-          export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
-
-          # 1 GPU per worker, 3 workers per GPU
-          pytest-xdist.sh 1 3 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
-
-          # merge the log files
-          cat \
-            pytest-report-L0-unittest.jsonl
-            > pytest-report.jsonl
-
+          pip install pytest-reportlog
+          pytest --report-log=log/pytest-report.jsonl ${SRC_PATH_TRANSFORMER_ENGINE}/tests/jax
         EOF
 
       STATISTICS_SCRIPT: |

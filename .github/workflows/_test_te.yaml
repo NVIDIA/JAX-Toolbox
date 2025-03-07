@@ -11,7 +11,7 @@ on:
         type: string
         description: 'Name of the artifact zip file'
         required: false
-        default: 'te'
+        default: 'te-multi-gpu'
 
 jobs:
   te-multi-gpu:
@@ -25,7 +25,7 @@ jobs:
       SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
       CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
     with:
-      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}GPU
+      NAME: ${{ inputs.ARTIFACT_PREFIX }}-multi-gpu-${{ matrix.N_GPU }
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
       OUTPUT_BASEDIR: /nfs/cluster
       OUTPUT_MOUNTPOINT: /output
