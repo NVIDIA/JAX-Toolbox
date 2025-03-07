@@ -32,8 +32,8 @@ jobs:
     strategy:
        fail-fast: true
        matrix:
+         - N_GPU: [2, 4, 8]
          include:
-           - N_GPU: [2, 4, 8]
              TEST: [multigpu]
            - N_GPU: [8]
              TEST: [unittest]
