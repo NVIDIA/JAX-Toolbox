@@ -1,0 +1,37 @@
+name: Submit & Delete K8s Job
+description: Submit and delete a K8s job after its execution
+
+inputs:
+  job-name:
+    description: The job name
+    required: true
+  job-config-file:
+    description: Path to the Kubernetes job YAML
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Submit and Delete Kubernetes job
+      uses: ./.github/actions/with-post-step 
+      with: 
+        main: |
+          echo "Submit K8s job" 
+          kubectl apply -f "${{ inputs.job-config-file }}"
+          
+          # Wait for job to be craeted
+          kubectl wait --for=create job/${{ inputs.job-name }} --timeout=60s
+          
+          # Wait for job to be unsuspended
+          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${{ inputs.job-name }} --timeout=7200s
+          
+          # Wait for pods to be running
+          kubectl wait --for=condition=Ready \
+            --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} \
+            --timeout=600s pod
+          
+          # Stream logs
+          kubectl logs --all-containers=true --all-pods=true --follow job/${{ inputs.job-name }}
+          
+        post: | 
+          kubectl delete -f "${{ inputs.job-config-file }}"

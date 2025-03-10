@@ -47,31 +47,30 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Store GitHub Container Registry token as Kubernetes secret
-        run: |
-          # Replace underscores in TEST_NAME with - to make a valid Kubernetes name
+      - name: Create env vars 
+        id: var 
+        shell: bash 
+        run: | 
           JOB_NAME="nccl-test-${{ github.run_id }}-${{ github.run_attempt }}-${TEST_NAME//_/-}"
           LAUNCHER_NAME="${JOB_NAME}-launcher"
           TOKEN_NAME="${JOB_NAME}-token"
           # Make these available to later steps
           echo "JOB_NAME=${JOB_NAME}" >> "$GITHUB_ENV"
           echo "LAUNCHER_NAME=${LAUNCHER_NAME}" >> "$GITHUB_ENV"
-          echo "TOKEN_NAME=${TOKEN_NAME}" >> "$GITHUB_ENV"
-          kubectl create secret generic \
-            ${TOKEN_NAME} \
-            --from-file=.dockerconfigjson=$HOME/.docker/config.json \
-            --type=kubernetes.io/dockerconfigjson
+      - name: K8s GHCR store and delete token
+        id: store-token
+        uses: ./.github/actions/store-delete-k8s-ghcr 
       - name: Configure Kubernetes job
         run: |
           export WORKER_NAME="${JOB_NAME}-worker"
           yq -i '.metadata.name = strenv(JOB_NAME)
             | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].image = strenv(BASE_IMAGE)
             | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].name = strenv(LAUNCHER_NAME)
-            | .spec.mpiReplicaSpecs.Launcher.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
+            | .spec.mpiReplicaSpecs.Launcher.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
             | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].command[3] = strenv(TEST_NAME)
             | .spec.mpiReplicaSpecs.Worker.template.spec.containers[].image = strenv(BASE_IMAGE)
             | .spec.mpiReplicaSpecs.Worker.template.spec.containers[].name = strenv(WORKER_NAME)
-            | .spec.mpiReplicaSpecs.Worker.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)' \
+            | .spec.mpiReplicaSpecs.Worker.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
             .github/eks-workflow-files/mpi-nccl-test.yml
           git diff .github/eks-workflow-files/mpi-nccl-test.yml
       - name: Submit Kubernetes job
@@ -126,6 +125,3 @@ jobs:
       - name: Delete Kubernetes job
         if: always()
         run: kubectl delete -f .github/eks-workflow-files/mpi-nccl-test.yml
-      - name: Delete GitHub Container Registry token
-        if: always()
-        run: kubectl delete secret ${TOKEN_NAME}
