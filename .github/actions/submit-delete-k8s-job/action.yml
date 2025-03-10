@@ -14,7 +14,6 @@ runs:
   steps:
     - name: Submit and Delete Kubernetes job
       uses: ./.github/actions/with-post-step 
-      shell: bash -eo pipefail
       with: 
         main: |
           echo "Submit K8s job ${{ inputs.job-config-file }}" 
@@ -73,5 +72,5 @@ runs:
             exit 1
           fi 
         post: |
-          echo "Deleting K8s job: ${{ input.job-name }}"
+          echo "Deleting K8s job: ${{ inputs.job-name }}"
           kubectl delete -f "${{ inputs.job-config-file }}"
