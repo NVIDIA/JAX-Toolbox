@@ -554,11 +554,6 @@ jobs:
       ARTIFACTS: |
         test-te.log
         pytest-report.jsonl
-    secrets: inherit
-
-
-
-
 
 #  te-unittests:
 #    secrets: inherit
