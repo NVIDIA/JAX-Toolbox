@@ -25,7 +25,7 @@ jobs:
       SLURM_LOGIN_USER: ${{ secrets.CLUSTER_LOGIN_USER }}
       CONTAINER_REGISTRY_TOKEN: ${{ secrets.github_token }}
     with:
-      NAME: ${{ inputs.ARTIFACT_PREFIX }}-multi-gpu-${{ matrix.N_GPU }}
+      NAME: ${{ inputs.ARTIFACT_PREFIX }}-${{ matrix.N_GPU }}
       SLURM_LOGIN_HOSTNAME: ${{ vars.HOSTNAME_SLURM_LOGIN }}
       OUTPUT_BASEDIR: /nfs/cluster
       OUTPUT_MOUNTPOINT: /output

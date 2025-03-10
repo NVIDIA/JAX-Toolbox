@@ -29,6 +29,7 @@ jobs:
     env:
       TE_EKS_FILES_PREFIX: .github/eks-workflow-files/transformer-engine
       RUN_NAME: ${{ inputs.JOB_NAME }}-${{ matrix.N_GPU }}gpu-${{ matrix.TEST }}
+      BADGE_SUFFIX: "${{ matrix.TEST }} (${{ matrix.N_GPU }})"
     strategy:
        fail-fast: true
        matrix:
@@ -60,12 +61,14 @@ jobs:
         K8S_JOB_MANIFEST="${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml"
         SCRIPT="${{ env.TE_EKS_FILES_PREFIX }}/scripts/${{ matrix.TEST }}.sh"
 
+        # paste in script to manifest from file
         sed '/SCRIPT/ {
             r '$SCRIPT'
             d
         }' $K8S_JOB_TEMPLATE | \
             tee $K8S_JOB_MANIFEST > /dev/null
 
+        # update placeholder values
         cat $K8S_JOB_MANIFEST | \
             sed s@JOB_NAME@${{ env.RUN_NAME }}@g | \
             sed s@IMAGE_URI@${{ inputs.JAX_DOCKER_IMAGE }}@g | \
@@ -107,7 +110,7 @@ jobs:
         # bring in utility functions
         source .github/workflows/scripts/to_json.sh
 
-        badge_label='TransformerEngine EKS Unit'
+        badge_label='TransformerEngine EKS ${{ env.BADGE_SUFFIX }}'
 
         total_tests=${{ steps.s3-logs-process.outputs.TOTAL_TESTS }} \
         failed_tests=${{ steps.s3-logs-process.outputs.FAILED_TESTS }} \
