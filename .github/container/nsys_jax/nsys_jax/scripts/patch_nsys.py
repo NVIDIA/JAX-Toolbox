@@ -1,4 +1,3 @@
-import os
 import re
 import shutil
 import subprocess
@@ -1372,11 +1371,20 @@ def main():
             patch_content = None
     if patch_content is not None:
         print(f"Patching Nsight Systems version {m.group(1)}")
-        # e.g. /opt/nvidia/nsight-systems-cli/2024.7.1/target-linux-x64
-        tdir = os.path.dirname(os.path.realpath(nsys))
+        nsys_recipe_help = subprocess.check_output(
+            [nsys, "recipe", "--help"], text=True
+        )
+        m = re.search(
+            r"List of required Python packages: '(.*?)/nsys_recipe/requirements/common.txt'",
+            nsys_recipe_help,
+        )
+        assert m is not None, (
+            f"Could not determine target directory from: {nsys_recipe_help}"
+        )
+        # e.g. /opt/nvidia/nsight-systems-cli/2024.7.1/target-linux-x64/python/packages
         subprocess.run(
             [shutil.which("git"), "apply"],
-            cwd=os.path.join(tdir, "python", "packages"),
+            cwd=m.group(1),
             input=patch_content,
             check=True,
             text=True,
