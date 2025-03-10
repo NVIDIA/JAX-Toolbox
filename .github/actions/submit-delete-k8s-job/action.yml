@@ -42,7 +42,7 @@ runs:
           fi
 
           # Check whether the job succeeded or failed
-          while readarray -d : -t status < <(kubectl get job/${{ inputs.job-name }} -o 'jsonpath={.status.failed}:{.status.succeeded}'); do
+          while IFS=: read -r failures successes; do
             failures="${status[0]:-0}"
             successes="${status[1]:-0}"
             total=$((failures + successes))
@@ -59,7 +59,9 @@ runs:
               echo "Unexpected number of completed pods ${total} with parallelism ${parallelism}"
               exit 255
             fi
-          done
+          done <<EOF
+          $(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}')
+          EOF
 
           # If job indicates a failure try to print out the info
           if [ $failures -gt 0 ]; then
@@ -70,7 +72,7 @@ runs:
               kubectl describe ${pods}
             fi
             exit 1
-          fi 
+          fi
         post: |
           echo "Deleting K8s job: ${{ inputs.job-name }}"
           kubectl delete -f "${{ inputs.job-config-file }}"
