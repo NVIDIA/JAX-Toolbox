@@ -26,35 +26,27 @@ spec:
 
                       sync  
                       wait 
-                      # after execution flag the results have been produced 
-                      touch /opt/output/done
+                      # copy results to the mounted s3 bucket 
+                      mkdir -p /jax-toolbox-eks-output/axlearn/${RUN_ID}
+                      cp /opt/output/summary.txt /jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
+                      # copy all the log files 
+                      cp /opt/output/*.log /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
+                  env:
+                    - name: RUN_ID
+                      value: PLACEHOLDER
                   resources:
                     limits:
                         nvidia.com/gpu: 8
                   volumeMounts:
                     - name: output
                       mountPath: /opt/output
-                - name: upload
-                  image: amazon/aws-cli
-                  env:
-                    - name: RUN_ID
-                      value: PLACEHOLDER
-                  command:
-                    - sh
-                    - -c
-                    - |
-                      while [ ! -f /opt/output/done ]; do
-                        sleep 5
-                      done
-                      # Upload to S3 bucket
-                      aws s3 cp /opt/output/summary.txt s3://jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
-                      # Upload logs to S3 bucket
-                      aws s3 cp /opt/output/ s3://jax-toolbox-eks-output/axlearn/${RUN_ID}/ --recursive --exclude "*" --include "*.log"
-                  volumeMounts:
-                    - name: output
-                      mountPath: /opt/output
+                    - name: s3-storage 
+                      mountPath: /jax-toolbox-eks-output
             imagePullSecrets:
                 - name: PLACEHOLDER
             volumes:
                 - name: output
                   emptyDir: {}
+                - name: s3-storage
+                  persistentVolumeClaim:
+                    claimName: s3-pvc 
