@@ -18,6 +18,7 @@ import sys
 import tempfile
 import time
 import traceback
+from typing import Optional
 import zipfile
 
 from .utils import execute_analysis_script, shuffle_analysis_arg
@@ -264,7 +265,7 @@ def main() -> None:
         return f"--{n}" if v is None else f"--{n}={v}"
 
     # Get the existing XLA_FLAGS and parse them into a dictionary.
-    xla_flags = {}
+    xla_flags: dict[str, Optional[str]] = {}
     for flag in shlex.split(env.get("XLA_FLAGS", "")):
         assert flag.startswith("--")
         bits = flag[2:].split("=", maxsplit=1)
