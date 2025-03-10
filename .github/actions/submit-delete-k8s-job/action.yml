@@ -14,7 +14,6 @@ runs:
   steps:
     - name: Submit and Delete Kubernetes job
       uses: ./.github/actions/with-post-step 
-      shell: bash
       with: 
         main: |
           echo "Submit K8s job ${{ inputs.job-config-file }}" 
@@ -37,7 +36,7 @@ runs:
           # Detect job parallelism 
           parallelism=$(kubectl get job/"${{ inputs.job-name }}" -o jsonpath='{.spec.parallelism}')
           # if parallelism is not set, use default value of 1 
-          if [[ -z "${parallelism}" ]]; then
+          if [ -z "${parallelism}" ]; then
             echo "No parallelism specified, defaulting to 1"
             parallelism=1
           fi
@@ -48,10 +47,10 @@ runs:
             successes="${status[1]:-0}"
             total=$((failures + successes))
 
-            if [[ $total -lt $parallelism ]]; then
+            if [ $total -lt $parallelism ]; then
               # neither "failed" nor "succeeded", so wait
               sleep 1
-            elif [[ $total -eq $parallelism ]]; then
+            elif [ $total -eq $parallelism ]; then
               # we have total=parallelism => either X successes or X failures  
               # In any case, the job is done
               break
@@ -63,11 +62,11 @@ runs:
           done
 
           # If job indicates a failure try to print out the info
-          if [[ $failures -gt 0 ]]; then
+          if [ $failures -gt 0 ]; then
             echo "Job ${{ inputs.job-name }} has $failures failures"
             # this is for batch jobs only
             pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o name)
-            if [[ -n "${pods}" ]]; then
+            if [ -n "${pods}" ]; then
               kubectl describe ${pods}
             fi
             exit 1
