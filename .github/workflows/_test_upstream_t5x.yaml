@@ -42,9 +42,9 @@ jobs:
         include:
           - TEST_NAME: "1P8G"
             N_GPU: 8
-          - TEST_NAME: "1P2G_fmha"
-            N_GPU: 2
-            ADDITIONAL_ARGS: "--enable-fmha 1"
+          # - TEST_NAME: "1P2G_fmha"
+          #   N_GPU: 2
+          #   ADDITIONAL_ARGS: "--enable-fmha 1"
       fail-fast: false
     runs-on: jumpbox
     steps:

@@ -137,27 +137,6 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.triton">
-          <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Triton%3D%7Bcore%2CJAX-Triton%2CTriton%7D">
-        </a>
-      </td>
-      <td>
-        <code>ghcr.io/nvidia/jax:triton</code>
-      </td>
-      <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-triton-md">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-triton-build-amd64.json&logo=docker&label=amd64">
-        </a>
-        <!-- <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-triton-build-arm64.json&logo=docker&label=arm64"> -->
-      </td>
-      <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-triton-unit-test-a100-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-triton-unit-test-A100.json&logo=nvidia&label=JAX-Triton A100">
-        </a>
-      </td>
-    </tr>
-    <tr>
-      <td>
         <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.t5x">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Upstream%20T5X%3D%7Bcore%2CT5X%7D">
         </a>

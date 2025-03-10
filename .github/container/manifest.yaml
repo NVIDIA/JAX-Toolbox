@@ -71,11 +71,6 @@ seqio:
   tracking_ref: main
   latest_verified_commit: 11706e4a1e01a81ea6b3e02c5ad147028d5b94bb
   mode: pip-vcs
-jax-triton:
-  url: https://github.com/jax-ml/jax-triton.git
-  tracking_ref: main
-  latest_verified_commit: 1999d9b116bf7c5c94f70de4a45b414255366fbe
-  mode: git-clone
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
