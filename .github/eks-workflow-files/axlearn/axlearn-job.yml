@@ -47,3 +47,6 @@ spec:
             volumes:
                 - name: output
                   emptyDir: {}
+                - name: s3-storage
+                  persistentVolumeClaim:
+                    claimName: s3-pvc 
