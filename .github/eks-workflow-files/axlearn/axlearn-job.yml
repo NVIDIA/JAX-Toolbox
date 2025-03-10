@@ -27,10 +27,10 @@ spec:
                       sync  
                       wait 
                       # copy results to the mounted s3 bucket 
-                      mkdir -p /opt/jax-toolbox-eks-output/axlearn/${RUN_ID}
-                      cp /opt/output/summary.txt /opt/jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
+                      mkdir -p /jax-toolbox-eks-output/axlearn/${RUN_ID}
+                      cp /opt/output/summary.txt /jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
                       # copy all the log files 
-                      cp /opt/output/*.log /opt/jax-toolbox-eks-output/axlearn/${RUN_ID}/.
+                      cp /opt/output/*.log /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
                   env:
                     - name: RUN_ID
                       value: PLACEHOLDER
@@ -41,7 +41,7 @@ spec:
                     - name: output
                       mountPath: /opt/output
                     - name: s3-storage 
-                      mountPath: /opt/jax-toolbox-eks-output
+                      mountPath: /jax-toolbox-eks-output
             imagePullSecrets:
                 - name: PLACEHOLDER
             volumes:
