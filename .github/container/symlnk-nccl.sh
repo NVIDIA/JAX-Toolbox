@@ -8,7 +8,7 @@ set -ex -o pipefail
 prefix=/opt/nvidia/nccl
 if [[ -d "${prefix}" ]]; then
   echo "Skipping link farm creation"
-  exit 1
+  exit 0
 fi
 arch=$(uname -m)-linux-gnu
 nccl_packages=$(dpkg -l 'libnccl*' | awk '/^ii/ {print $2}')

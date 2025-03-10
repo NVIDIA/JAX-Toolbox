@@ -34,22 +34,30 @@ runs:
           # Stream logs
           kubectl logs --all-containers=true --all-pods=true --follow job/${{ inputs.job-name }}
 
-          # Check whether the job succeeded or failed 
+          # Detect job parallelism 
+          parallelism=$(kubectl get job/"${{ inputs.job-name }}" -o jsonpath='{.spec.parallelism}')
+          # if parallelism is not set, use default value of 1 
+          if [[ -z "${parallelism}" ]]; then
+            echo "No parallelism specified, defaulting to 1"
+            parallelism=1
+          fi
+
+          # Check whether the job succeeded or failed
           while readarray -d : -t status < <(kubectl get job/${{ inputs.job-name }} -o 'jsonpath={.status.failed}:{.status.succeeded}'); do
             failures="${status[0]:-0}"
             successes="${status[1]:-0}"
             total=$((failures + successes))
 
-            if [[ $total -lt 2 ]]; then
-              # neither "failed" nor "succeeded" is 2, so wait
+            if [[ $total -lt $parallelism ]]; then
+              # neither "failed" nor "succeeded", so wait
               sleep 1
-            elif [[ $total -eq 2 ]]; then
-              # we have total=2 => either 2 successes or 2 failures 
-              # (or 1 failed + 1 succeeded). 
-              # In any case, the job is done – break.
+            elif [[ $total -eq $parallelism ]]; then
+              # we have total=parallelism => either X successes or X failures  
+              # In any case, the job is done
               break
             else
-              # Just in case we get an unexpected number
+              # Log here 
+              echo "Unexpected number of completed pods ${total} with parallelism ${parallelism}"
               exit 255
             fi
           done
@@ -64,6 +72,6 @@ runs:
             fi
             exit 1
           fi 
-        post: | 
+        post: |
           echo "Deleting K8s job: ${{ input.job-name }}"
           kubectl delete -f "${{ inputs.job-config-file }}"
