@@ -182,13 +182,9 @@ class ResilientWorker:
     def initialize(self, coordinator_addr, num_processes):
         jax.distributed.initialize(coordinator_address=coordinator_addr, num_processes=num_processes, process_id=self.process_id, local_device_ids=0)
 
-    @contextmanager
-    def EnableHeartbeat(self):
-        try:
-            yield
-        finally:
-            current_time = datetime.datetime.now().isoformat()
-            self.redis.set(self.process_id, current_time)
+    def send_heartbeat(self):
+        current_time = datetime.datetime.now().isoformat()
+        self.redis.set(self.process_id, current_time)
     
     def run(self, *args, **kwargs):
         raise NotImplementedError
@@ -278,28 +274,33 @@ class ModelTrainer(ResilientWorker):
         failure_timer_start = datetime.datetime.now()
         for step in range(starting_step, num_steps):
             time.sleep(1)
-            with self.EnableHeartbeat():
-                input = jax.random.normal(rng, shape=input_shape)
-                sharded_input = jax.make_array_from_process_local_data(input_sharding, input, input.shape)
-                loss, params, optimizer_state = train_step(model, params, optimizer, optimizer_state, sharded_input)
+            input = jax.random.normal(rng, shape=input_shape)
+            sharded_input = jax.make_array_from_process_local_data(input_sharding, input, input.shape)
+            loss, params, optimizer_state = train_step(model, params, optimizer, optimizer_state, sharded_input)
 
-                # Wait for step to finish before checkpointing then save checkpoint
-                params, optimizer_state = jax.block_until_ready((params, optimizer_state))
-                ModelTrainer.checkpoint(ckpt_mgr, params, optimizer_state, step)
+            # Wait for step to finish before checkpointing then save checkpoint
+            params, optimizer_state = jax.block_until_ready((params, optimizer_state))
+            ModelTrainer.checkpoint(ckpt_mgr, params, optimizer_state, step)
+            self.send_heartbeat()
 
             # Fail every 10 seconds
             current_time = datetime.datetime.now()
             time_since_failure_sim = (current_time - failure_timer_start).total_seconds()
             if time_since_failure_sim >= 10:
-                # Fail with a probability of 0.5
-                # Fail with a crash if we are failing on an even step
-                # Fail with a hang if we are failing on an odd step
-                if random.random() < 0.5:
-                    if step % 2 == 0:
-                        # Cause a seg fault, no graceful exception propagation
+                # Make coordinator crash / hang
+                if self.process_id == 0:
+                    if step < 20:
                         eval((lambda:0).__code__.replace(co_consts=()))
-                    else:
+                    elif step >= 20 and step < 30:
                         time.sleep(300)
+                else:
+                    if step >= 30:
+                        # Stochastic failure for all other processes after step 30
+                        if random.random() < 0.5:
+                            # Cause a seg fault, no graceful exception propagation
+                            eval((lambda:0).__code__.replace(co_consts=()))
+                        else:
+                            time.sleep(300)
 
             print(f"Process ID = {self.process_id}, Step = {step}, Loss = {loss}", flush=True)
 

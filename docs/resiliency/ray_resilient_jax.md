@@ -517,16 +517,21 @@ job_id = client.submit_job(
                         "ckpt_dir" : "/path/to/checkpoint/directory",
                         "ckpt_freq" : 100,
             }
-        )
+)
 
+prev_logs = ''
 while True:
     status = client.get_job_status(job_id)
     if status in {JobStatus.SUCCEEDED, JobStatus.STOPPED, JobStatus.FAILED}:
+        if status in {JobStatus.STOPPED, JobStatus.FAILED}:
+            logs = client.get_job_logs(job_id)
+            print(logs, flush=True)
         break
-    time.sleep(90)
-
-logs = client.get_job_logs(job_id)
-print(logs)
+    time.sleep(5)
+    if status == JobStatus.RUNNING:
+        logs = client.get_job_logs(job_id)
+        print(logs[len(prev_logs):], flush=True)
+        prev_logs = logs
 ```
 
 The driver script is run on the same physical node as the Ray head node and is the reason the address to connect the JobSubmissionClient to the Ray cluster is `http://127.0.0.1` or `localhost`.
@@ -537,7 +542,7 @@ Sometimes it is likely that physical resources are allocated to an application b
 
 ```console
 #!/bin/bash
-#SBATCH --nodes=<NUM_NODES>+1
+#SBATCH --nodes=<NUM_NODES>
 #SBATCH --exclusive
 #SBATCH --account=<SLURM_ACCOUNT>
 #SBATCH --partition=<SLURM_PARTITION>
@@ -573,7 +578,7 @@ export REDIS_ADDR=$head_node_ip:6380
 
 # We now need to start the Ray worker nodes
 # We define the following variables to help
-num_ray_worker_nodes=$((SLURM_JOB_NUM_NODES - 1)) # One physical node is for the ray head node, rest are for ray worker nodes
+num_ray_worker_nodes=$SLURM_JOB_NUM_NODES 
 export NGPUS=$((gpus_per_node * num_ray_worker_nodes)) # 8 actors per ray worker node (one for each GPU)
 
 # Start Ray worker nodes
@@ -581,7 +586,7 @@ export NGPUS=$((gpus_per_node * num_ray_worker_nodes)) # 8 actors per ray worker
 # Worker nodes are started with ray start but without the --head flag
 min_worker_port=10001
 max_worker_port=10257
-for ((i = 1; i <= num_ray_worker_nodes; i++)); do
+for ((i = 0; i < num_ray_worker_nodes; i++)); do
     node_i=${nodes_array[$i]}
     
     srun --exact --nodes=1 --ntasks=1 --cpus-per-task=$((16 * $gpus_per_node)) -w "$node_i" \
