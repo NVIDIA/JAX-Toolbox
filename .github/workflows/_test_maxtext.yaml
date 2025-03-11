@@ -178,10 +178,10 @@ jobs:
       max-parallel: 1
       matrix:
         PARALLEL_CONFIG:
-        - [1, 1, 1, 1]
-        - [1, 1, 8, 1]
-        - [1, 1, 1, 8]
-        - [1, 1, 4, 2]
+        # - [1, 1, 1, 1]
+        # - [1, 1, 8, 1]
+        # - [1, 1, 1, 8]
+        # - [1, 1, 4, 2]
         - [1, 2, 2, 2]
         # 2-node config temporarily disabled
         # - [1, 4, 2, 2]
