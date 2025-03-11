@@ -154,6 +154,7 @@ class RayClusterCoordinator:
                 self.initialize_workers(**self.worker_init_kwargs)
 
                 self.log("Reinitializing tasks")
+                kwargs["recovery_id"] += 1
                 runners = asyncio.create_task(self._run_workers_async(*args, **kwargs))
                 hang_detector = asyncio.create_task(self._detect_worker_hang_async())
 
@@ -232,7 +233,7 @@ class ModelTrainer(ResilientWorker):
                           args=ocp.args.Composite(params=ocp.args.StandardSave(params), 
                                                   optimizer_state=ocp.args.StandardSave(optimizer_state_pytree)))
 
-    def run(self, input_shape, num_steps):
+    def run(self, input_shape, num_steps, recovery_id):
         rng = jax.random.key(42)
 
         # Define mesh to shard parameters, in this simple
@@ -273,7 +274,6 @@ class ModelTrainer(ResilientWorker):
         # Train loop
         failure_timer_start = datetime.datetime.now()
         for step in range(starting_step, num_steps):
-            time.sleep(1)
             input = jax.random.normal(rng, shape=input_shape)
             sharded_input = jax.make_array_from_process_local_data(input_sharding, input, input.shape)
             loss, params, optimizer_state = train_step(model, params, optimizer, optimizer_state, sharded_input)
@@ -283,24 +283,25 @@ class ModelTrainer(ResilientWorker):
             ModelTrainer.checkpoint(ckpt_mgr, params, optimizer_state, step)
             self.send_heartbeat()
 
-            # Fail every 10 seconds
-            current_time = datetime.datetime.now()
-            time_since_failure_sim = (current_time - failure_timer_start).total_seconds()
-            if time_since_failure_sim >= 10:
-                # Make coordinator crash / hang
+            # In the first two instances of the program (before any failures and after 1 failure)
+            # Only make the process with id = 0 (the JAX coordinator) fail with two different
+            # failure modes: an "ungraceful" crash and a hang at steps 10 and 20 respectively
+            # In other instances of of the program (beyond the second recovered run), let other processes
+            # randomly fail every 10 iterations
+            if recovery_id == 0 and step == 10:
                 if self.process_id == 0:
-                    if step < 20:
-                        eval((lambda:0).__code__.replace(co_consts=()))
-                    elif step >= 20 and step < 30:
-                        time.sleep(300)
+                    eval((lambda:0).__code__.replace(co_consts=()))
+            
+            if recovery_id == 1 and step == 20:
+                if self.process_id == 0:
+                    time.sleep(300)
+            
+            if recovery_id == 2 and (step > 20 and step % 10 == 0):
+                if random.random() < 0.5:
+                    # Cause a seg fault, no graceful exception propagation
+                    eval((lambda:0).__code__.replace(co_consts=()))
                 else:
-                    if step >= 30:
-                        # Stochastic failure for all other processes after step 30
-                        if random.random() < 0.5:
-                            # Cause a seg fault, no graceful exception propagation
-                            eval((lambda:0).__code__.replace(co_consts=()))
-                        else:
-                            time.sleep(300)
+                    time.sleep(300)
 
             print(f"Process ID = {self.process_id}, Step = {step}, Loss = {loss}", flush=True)
 
@@ -312,4 +313,4 @@ if __name__ == '__main__':
     coordinator = RayClusterCoordinator(ModelTrainer, hang_time_threshold)
     coordinator.initialize_workers()
     coordinator.log("Initialized workers")
-    asyncio.run(coordinator.run(input_shape=(16, 512), num_steps=30))
+    asyncio.run(coordinator.run(input_shape=(16, 512), num_steps=50, recovery_id=0))
