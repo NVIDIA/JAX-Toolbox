@@ -5,7 +5,7 @@ metadata:
     kueue.x-k8s.io/queue-name: p5-queue
   name: JOB_NAME
 spec:
-  activeDeadlineSeconds: 1200
+  activeDeadlineSeconds: 2400
   template:
     spec:
       containers:

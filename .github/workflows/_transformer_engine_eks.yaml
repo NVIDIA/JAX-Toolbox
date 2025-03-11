@@ -94,7 +94,7 @@ jobs:
         passed_tests=$(cat $LOCAL_DIR/$REPORT_JSON |  jq --slurp | jq '.[] | select(.outcome == "passed") | .outcome' | wc -l || true)
         failed_tests=$(cat $LOCAL_DIR/$REPORT_JSON |  jq --slurp | jq '.[] | select(.outcome == "failed") | .outcome' | wc -l || true)
 
-        total_test=$((failed_tests + passed_tests))
+        total_tests=$((failed_tests + passed_tests))
         echo "Passed tests: $passed_tests"
         echo "Failed tests: $failed_tests"
         echo "Total tests: $total_tests"
