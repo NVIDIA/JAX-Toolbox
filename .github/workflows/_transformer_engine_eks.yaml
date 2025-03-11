@@ -86,21 +86,21 @@ jobs:
       id: s3-logs-process
       run: |
         LOCAL_DIR=${{ inputs.CI_NAME }}-output
+        REPORT_JSON=pytest-report.jsonl
 
         mkdir -p $LOCAL_DIR
-        # aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ env.RUN_NAME }}/summary.txt $LOCAL_DIR/
-        aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ env.RUN_NAME }}/ $LOCAL_DIR/ --recursive --exclude "*" --include "*.log"
+        aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ env.RUN_NAME }}/ $LOCAL_DIR/ --recursive 
 
-        passed=$(cat $LOCAL_DIR/tests.log | grep 'PASSED opt/transformer' | wc -l || true)
-        failed=$(cat $LOCAL_DIR/tests.log | grep 'FAILED opt/transformer' | wc -l || true)
+        passed_tests=$(cat $LOCAL_DIR/$REPORT_JSON |  jq --slurp | jq '.[] | select(.outcome == "passed") | .outcome' | wc -l || true)
+        failed_tests=$(cat $LOCAL_DIR/$REPORT_JSON |  jq --slurp | jq '.[] | select(.outcome == "failed") | .outcome' | wc -l || true)
 
-        total=$((failed + passed))
-        echo "Passed tests: $passed"
-        echo "Failed tests: $failed"
-        echo "Total tests: $total"
-        echo "PASSED_TESTS=$passed" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=$failed" >> $GITHUB_OUTPUT
-        echo "TOTAL_TESTS=$total" >> $GITHUB_OUTPUT
+        total_test=$((failed_tests + passed_tests))
+        echo "Passed tests: $passed_tests"
+        echo "Failed tests: $failed_tests"
+        echo "Total tests: $total_tests"
+        echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
+        echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
 
     - name: Generate sitrep
       id: sitrep
