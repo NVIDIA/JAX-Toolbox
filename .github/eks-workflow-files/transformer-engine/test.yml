@@ -31,13 +31,15 @@ SCRIPT
         - sh
         - -c
         - |
-          while [ ! -f /opt/output/done ]; do
+          while [ ! -f ${LOG_DIR}/done ]; do
             sleep 5
           done
 
           # Upload logs to S3 bucket
-          aws s3 cp /opt/output/ s3://${S3_BUCKET}/${CI_NAME}/${RUN_ID}/ --recursive 
+          aws s3 cp ${LOG_DIR}/ s3://${S3_BUCKET}/${CI_NAME}/${RUN_ID}/ --recursive 
         env:
+        - name: LOG_DIR
+          value: /opt/output
         - name: RUN_ID
           value: JOB_NAME
         - name: S3_BUCKET
