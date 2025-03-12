@@ -508,15 +508,15 @@ jobs:
      secrets: inherit
 
   test-te-unit-a100:
+    needs: build-jax
     secrets: inherit
-    #needs: build-jax
     if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: te
       EXECUTE: |
         docker run -i --gpus all --shm-size=1g -v $PWD:/log \
-        ghcr.io/nvidia/jax-toolbox-internal:13652377029-jax-amd64 \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-te.log
           set -x
 
