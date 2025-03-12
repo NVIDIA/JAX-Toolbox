@@ -9,6 +9,7 @@ import typing
 from .args import parse_args
 from .docker import DockerContainer
 from .logic import commit_search, container_search, TestResult
+from .pyxis import PyxisContainer
 from .utils import (
     container_exists as container_exists_base,
     container_url as container_url_base,
@@ -30,7 +31,9 @@ def main():
         container_exists_base, container=args.container, logger=logger
     )
     Container = functools.partial(
-        DockerContainer, logger=logger, mounts=bazel_cache_mounts
+        DockerContainer if args.container_runtime == "docker" else PyxisContainer,
+        logger=logger,
+        mounts=bazel_cache_mounts + args.container_mount,
     )
     bazel_cache_mount_args = []
     for src, dst in bazel_cache_mounts:
@@ -229,14 +232,15 @@ def main():
                 "commit",
                 {
                     "build_time": middle - before,
-                    "container": container_url(range_end),
+                    "container": failing_url,
                     "jax": jax_commit,
                     "result": test_result.returncode == 0,
                     "test_time": test_time,
                     "xla": xla_commit,
                 },
             )
-            logger.info(f"Test completed in {test_time:.1f}s")
+            result_str = "pass" if test_result.returncode == 0 else "fail"
+            logger.info(f"Test completed in {test_time:.1f}s ({result_str})")
             logger.debug(
                 f"Test stdout:\n{test_result.stdout}\nTest stderr:\n{test_result.stderr}"
             )
@@ -250,5 +254,5 @@ def main():
             logger=logger,
             skip_precondition_checks=args.skip_precondition_checks,
         )
-        result["container"] = container_url(range_end)
+        result["container"] = failing_url
         add_summary_record("result", result, scalar=True)

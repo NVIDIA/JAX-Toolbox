@@ -574,6 +574,8 @@ def main() -> None:
             if src_file == "<string>":
                 # This can appear due to python -c "...", for example.
                 continue
+            if src_file == "<frozen runpy>":
+                continue
             assert osp.isabs(src_file), f"{src_file} is not absolute"
             output_queue.put(("sources" + src_file, src_file, COMPRESS_DEFLATE))
         print(f"{archive_name}: gathered source code in {time.time() - start:.2f}s")
