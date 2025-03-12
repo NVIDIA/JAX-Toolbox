@@ -3,7 +3,7 @@ name: ~test TransformerEngine
 on:
   workflow_call:
     inputs:
-      TE_IMAGE:
+      JAX_IMAGE:
         type: string
         description: 'JAX image'
         required: true
@@ -35,7 +35,7 @@ jobs:
       NTASKS_PER_NODE: 1
       TIME_LIMIT: '00:10:00'
       EXTRA_EXPORTS: 'VOCAB_PATH=gs://t5-data/vocabs/cc_all.32000.100extra/sentencepiece.model'
-      IMAGE: ${{ inputs.TE_IMAGE }}
+      IMAGE: ${{ inputs.JAX_IMAGE }}
       SRUN_PREAMBLE: |
         nvidia-smi
         pip install \
@@ -46,7 +46,7 @@ jobs:
       SRUN_SCRIPT: |
         set -ex
         cd ${SRC_PATH_TRANSFORMER_ENGINE}/examples/jax/encoder
-        pytest --report-log=/output/pytest-report.jsonl \
+        pytest -vvv --report-log=/output/pytest-report.jsonl \
           test_single_gpu_encoder.py \
           test_multigpu_encoder.py \
           test_model_parallel_encoder.py
