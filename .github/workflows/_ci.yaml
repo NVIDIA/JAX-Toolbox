@@ -533,14 +533,14 @@ jobs:
           ## into a single .jsonl file of results from multiple pytest invocations
           ## inside the test.sh script, so it's useful even with a single worker per
           ## device.
-          #pytest-xdist.sh 8 1 pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh
-          #pytest-xdist.sh 8 1 pytest-report-L1-distributed-unittest.jsonl bash ${TE_PATH}/qa/L1_jax_distributed_unittest/test.sh
+          pytest-xdist.sh 8 1 /log/pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh
+          pytest-xdist.sh 8 1 /log/pytest-report-L1-distributed-unittest.jsonl bash ${TE_PATH}/qa/L1_jax_distributed_unittest/test.sh
 
           # merge the log files
-          #  pytest-report-L0-distributed-unittest.jsonl \
-          #  pytest-report-L1-distributed-unittest.jsonl \
           cat \
             /log/pytest-report-L0-unittest.jsonl
+            /log/pytest-report-L0-distributed-unittest.jsonl \
+            /log/pytest-report-L1-distributed-unittest.jsonl \
             > /log/pytest-report.jsonl
         EOF
       STATISTICS_SCRIPT: |
@@ -560,7 +560,8 @@ jobs:
         test-te.log
         pytest-report.jsonl
         pytest-report-L0-unittest.jsonl
-
+        pytest-report-L0-distributed-unittest.jsonl
+        pytest-report-L1-distributed-unittest.jsonl
 #  test-upstream-t5x:
 #    needs: build-upstream-t5x
 #    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
