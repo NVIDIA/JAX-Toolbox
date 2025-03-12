@@ -2,7 +2,7 @@ name: ~test TransformerEngine tests on EKS cluster (8xH100)
 on:
   workflow_call:
     inputs:
-      JAX_DOCKER_IMAGE:
+      JAX_IMAGE:
         type: string
         description: 'URI of image to run tests on'
         required: true
@@ -71,7 +71,7 @@ jobs:
         # update placeholder values
         cat $K8S_JOB_MANIFEST | \
             sed s@JOB_NAME@${{ env.RUN_NAME }}@g | \
-            sed s@IMAGE_URI@${{ inputs.JAX_DOCKER_IMAGE }}@g | \
+            sed s@IMAGE_URI@${{ inputs.JAX_IMAGE }}@g | \
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
             sed s@N_GPU@${{ matrix.N_GPU }}@g | \
             tee $K8S_JOB_MANIFEST
