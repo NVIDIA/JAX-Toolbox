@@ -8,7 +8,7 @@ LLM, CV, and multimodal models.
 ```bash
 cd JAX-Toolbox
 
-ROSETTA_BASE=pax  # or t5x
+ROSETTA_BASE=t5x
 
 docker buildx build --build-context jax-toolbox=. --tag rosetta-${ROSETTA_BASE}:latest -f rosetta/Dockerfile.${ROSETTA_BASE} .
 
