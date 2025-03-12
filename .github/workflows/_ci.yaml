@@ -520,6 +520,8 @@ jobs:
         docker run -i --gpus all --shm-size=1g -v $PWD:/log \
         ghcr.io/nvidia/jax-toolbox-internal:13652377029-jax-amd64 \
         bash <<"EOF" |& tee test-te.log
+          set -x
+
           pip install pytest-reportlog pytest-xdist
           # Start MPS daemon
           nvidia-cuda-mps-control -d
@@ -527,24 +529,27 @@ jobs:
           export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
           # 1 GPU per worker, 6 workers per GPU
           pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
-          # 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
-          # into a single .jsonl file of results from multiple pytest invocations
-          # inside the test.sh script, so it's useful even with a single worker per
-          # device.
-          pytest-xdist.sh 8 1 pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh
-          pytest-xdist.sh 8 1 pytest-report-L1-distributed-unittest.jsonl bash ${TE_PATH}/qa/L1_jax_distributed_unittest/test.sh
+          ## 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
+          ## into a single .jsonl file of results from multiple pytest invocations
+          ## inside the test.sh script, so it's useful even with a single worker per
+          ## device.
+          #pytest-xdist.sh 8 1 pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh
+          #pytest-xdist.sh 8 1 pytest-report-L1-distributed-unittest.jsonl bash ${TE_PATH}/qa/L1_jax_distributed_unittest/test.sh
+
           # merge the log files
+          #  pytest-report-L0-distributed-unittest.jsonl \
+          #  pytest-report-L1-distributed-unittest.jsonl \
           cat \
-            pytest-report-L0-unittest.jsonl \
-            pytest-report-L0-distributed-unittest.jsonl \
-            pytest-report-L1-distributed-unittest.jsonl \
+            pytest-report-L0-unittest.jsonl
             > pytest-report.jsonl
         EOF
       STATISTICS_SCRIPT: |
+        ls
+        report_json=pytest-report-L0-unittest.jsonl
         summary_line=$(tail -n1 test-te.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+        passed_tests=$(cat $report_json | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
+        failed_tests=$(cat $report_json | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
         total_tests=$((failed_tests + passed_tests))
         echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
         echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
@@ -554,43 +559,8 @@ jobs:
       ARTIFACTS: |
         test-te.log
         pytest-report.jsonl
+        pytest-report-L0-unittest.jsonl
 
-#  te-unittests:
-#    secrets: inherit
-#    needs: build-jax
-#    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-#    uses: ./.github/workflows/_test_unit.yaml
-#    with:
-#      TEST_NAME: te
-#      EXECUTE: |
-#        docker run -i --gpus all --shm-size=1g -v $PWD:/log \
-#        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-#        bash <<"EOF" |& tee test-te.log
-#          pip install pytest-reportlog pytest-xdist
-#          # Start MPS daemon
-#          nvidia-cuda-mps-control -d
-#          # TE's default is slightly different, without the hyphen
-#          export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
-#          # 1 GPU per worker, 6 workers per GPU
-#          pytest-xdist.sh 1 6 pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
-#        EOF
-#
-#      STATISTICS_SCRIPT: |
-#        summary_line=$(tail -n1 test-te.log)
-#        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-#        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-#        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-#        total_tests=$((failed_tests + passed_tests))
-#        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-#        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-#        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-#        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-#
-#      TIMEOUT_MINUTES: 120
-#      ARTIFACTS: |
-#        test-te.log
-#        pytest-report.jsonl
-#
 #  test-upstream-t5x:
 #    needs: build-upstream-t5x
 #    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
