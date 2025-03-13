@@ -14,13 +14,13 @@ if [[ -d "${prefix}" ]]; then
 fi
 
 arch=$(uname -m)-linux-gnu
-libcudnn_pkgs=$(dpkg -l 'libcudnn*' | awk '/^ii/ {print $2}')
-if [[ -z "${libcudnn_pkgs}" ]]; then
-  echo "No libcudnn packages installed."
+cudnn_pkgs=$(dpkg -l '*cudnn*' | awk '/^ii/ {print $2}')
+if [[ -z "${cudnn_pkgs}" ]]; then
+  echo "No cuDNN packages installed."
   exit 1
 fi
 
-for cudnn_file in $(dpkg -L ${libcudnn_pkgs} | sort -u); do
+for cudnn_file in $(dpkg -L ${cudnn_pkgs} | sort -u); do
   # Real files and symlinks are linked into $prefix
   if [[ -f "${cudnn_file}" || -h "${cudnn_file}" ]]; then
     # Replace /usr with $prefix
