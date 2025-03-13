@@ -15,8 +15,6 @@ spec:
                   image: PLACEHOLDER
                   command:
                     - bash
-                    - -xo
-                    - pipefail
                     - -c
                     - |
                       pip install pytest-reportlog pytest-xdist
