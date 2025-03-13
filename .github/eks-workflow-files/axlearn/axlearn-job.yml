@@ -1,5 +1,5 @@
 apiVersion: batch/v1
-kind: Jobs
+kind: Job
 metadata:
     name: PLACEHOLDER
     labels:
