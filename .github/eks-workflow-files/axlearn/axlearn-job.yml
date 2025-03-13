@@ -19,19 +19,22 @@ spec:
                     - pipefail
                     - -c
                     - |
-                      test-axlearn.sh \
-                        --directory "." \
-                        --output "/opt/output/" \
-                        --test-files "/opt/axlearn/axlearn/common/*_test.py"
+                      pip install pytest-reportlog pytest-xdist
 
+                      # Start MPS daemon
+                      nvidia-cuda-mps-control -d
+
+                      # run tests 
+                      pytest-xdist.sh 8 1 axlearn-unitted.jsonl ./test-axlearn.sh --directory "." --output "/opt/output/" --test-files "/opt/axlearn/axlearn/common/*_test.py" | tee -a ${LOG_DIR}/pytest_stdout.log
+                      
                       sync  
                       wait 
-                      # copy results to the mounted s3 bucket 
-                      mkdir -p /jax-toolbox-eks-output/axlearn/${RUN_ID}
-                      cp /opt/output/summary.txt /jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
-                      # copy all the log files 
-                      ls /opt/output/
-                      cp -r /opt/output/*.log /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
+                      # # copy results to the mounted s3 bucket 
+                      # mkdir -p /jax-toolbox-eks-output/axlearn/${RUN_ID}
+                      # cp /opt/output/summary.txt /jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
+                      # # copy all the log files 
+                      # ls /opt/output/
+                      # cp -r /opt/output/*.log /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
                   env:
                     - name: RUN_ID
                       value: PLACEHOLDER
