@@ -36,7 +36,7 @@ spec:
                       cp /opt/output/summary.txt /jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
                       # copy all the log files 
                       ls /opt/output/
-                      cp -r /opt/output/*.log /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
+                      cp -r /opt/output/logs/*.log /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
                       cp -r axlearn-unittests.jsonl /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
                   env:
                     - name: RUN_ID
