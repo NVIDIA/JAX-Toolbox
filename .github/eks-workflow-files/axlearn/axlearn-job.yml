@@ -30,7 +30,8 @@ spec:
                       mkdir -p /jax-toolbox-eks-output/axlearn/${RUN_ID}
                       cp /opt/output/summary.txt /jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
                       # copy all the log files 
-                      cp /opt/output/*.log /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
+                      ls /opt/output/
+                      cp -r /opt/output/*.log /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
                   env:
                     - name: RUN_ID
                       value: PLACEHOLDER
