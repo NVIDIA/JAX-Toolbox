@@ -17,6 +17,7 @@ spec:
                     - bash
                     - -c
                     - |
+                      set -exo pipefail
                       pip install pytest-reportlog pytest-xdist
 
                       # Start MPS daemon
@@ -29,11 +30,8 @@ spec:
                       pytest-xdist.sh 8 1 axlearn-unittests.jsonl bash /usr/local/bin/test-axlearn.sh --directory "." --output "/opt/output/" --test-files "/opt/axlearn/axlearn/common/*_test.py" | tee -a ${LOG_DIR}/pytest_stdout.log
                       
                       wait
-                      # copy results to the mounted s3 bucket 
                       mkdir -p /jax-toolbox-eks-output/axlearn/${RUN_ID}
                       cp /opt/output/summary.txt /jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
-                      # copy all the log files 
-                      ls /opt/output/
                       cp -r /opt/output/logs/*.log /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
                       cp -r axlearn-unittests.jsonl /jax-toolbox-eks-output/axlearn/${RUN_ID}/.
                   env:
