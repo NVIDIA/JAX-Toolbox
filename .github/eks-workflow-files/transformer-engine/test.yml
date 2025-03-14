@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    kueue.x-k8s.io/queue-name: p5-queue
+  name: JOB_NAME
+spec:
+  activeDeadlineSeconds: 7200
+  template:
+    spec:
+      containers:
+      - command:
+        - bash
+        - -xo
+        - pipefail
+        - -c
+        - |
+SCRIPT
+        env:
+        - name: LOG_DIR
+          value: /opt/output
+        image: IMAGE_URI
+        name: transformer-engine
+        resources:
+          limits:
+            nvidia.com/gpu: N_GPU
+        volumeMounts:
+        - mountPath: /opt/output
+          name: output
+      - command:
+        - sh
+        - -c
+        - |
+          while [ ! -f ${LOG_DIR}/done ]; do
+            sleep 5
+          done
+
+          # Upload logs to S3 bucket
+          aws s3 cp ${LOG_DIR}/ s3://${S3_BUCKET}/${CI_NAME}/${RUN_ID}/ --recursive 
+        env:
+        - name: LOG_DIR
+          value: /opt/output
+        - name: RUN_ID
+          value: JOB_NAME
+        - name: S3_BUCKET
+          value: jax-toolbox-eks-output
+        - name: CI_NAME
+          value: transformer-engine
+        image: amazon/aws-cli
+        name: upload-logs
+        volumeMounts:
+        - mountPath: /opt/output
+          name: output
+      imagePullSecrets:
+      - name: SECRETS_NAME
+      restartPolicy: Never
+      volumes:
+      - name: output

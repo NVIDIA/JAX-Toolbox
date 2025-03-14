@@ -16,19 +16,25 @@ runs:
       uses: ./.github/actions/with-post-step 
       with: 
         main: |
+          set -x 
+          TIMEOUT_JOB_CREATION=60s
+          TIMEOUT_JOB_WAIT=14400s
+          TIMEOUT_JOB_START=600s
+
           echo "Submit K8s job" 
           kubectl apply -f "${{ inputs.job-config-file }}"
+          kubectl get event | grep ${{ inputs.job-name }}
           
           # Wait for job to be craeted
-          kubectl wait --for=create job/${{ inputs.job-name }} --timeout=60s
+          kubectl wait --for=create job/${{ inputs.job-name }} --timeout=$TIMEOUT_JOB_CREATION
           
           # Wait for job to be unsuspended
-          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${{ inputs.job-name }} --timeout=7200s
+          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${{ inputs.job-name }} --timeout=$TIMEOUT_JOB_WAIT
           
           # Wait for pods to be running
           kubectl wait --for=condition=Ready \
             --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} \
-            --timeout=600s pod
+            --timeout=$TIMEOUT_JOB_START pod
           
           # Stream logs
           kubectl logs --all-containers=true --all-pods=true --follow job/${{ inputs.job-name }}
