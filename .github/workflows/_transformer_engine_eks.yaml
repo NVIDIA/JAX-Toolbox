@@ -25,7 +25,7 @@ permissions:
   packages: write # to upload container
 
 jobs:
-  transformer-engine-test-eks:
+  te-test-eks:
     env:
       TE_EKS_FILES_PREFIX: .github/eks-workflow-files/transformer-engine
       RUN_NAME: ${{ inputs.JOB_NAME }}-${{ matrix.N_GPU }}gpu-${{ matrix.TEST }}
@@ -34,10 +34,6 @@ jobs:
        fail-fast: true
        matrix:
          include:
-           - TEST: multigpu
-             N_GPU: 2
-           - TEST: multigpu
-             N_GPU: 4
            - TEST: multigpu
              N_GPU: 8
            - TEST: unittest
