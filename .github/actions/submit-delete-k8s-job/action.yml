@@ -32,66 +32,54 @@ runs:
           
           # Stream logs
           kubectl logs --all-containers=true --all-pods=true --follow job/${{ inputs.job-name }}
-          # Wait for the job to complete or fail
-          kubectl wait --for=condition=complete job/${{ inputs.job-name }} --timeout=900s || true
-          kubectl wait --for=condition=failed   job/${{ inputs.job-name }} --timeout=60s   || true
-          
-          job_failed="$(kubectl get job/${{ inputs.job-name }} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}')"
-          if [ "$job_failed" = "True" ]; then
-            echo "Job ${{ inputs.job-name }} failed."
-            pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o name)
-            if [ -n "$pods" ]; then
-              kubectl describe $pods
-            fi
-            exit 1
-          else
-            echo "Job ${{ inputs.job-name }} completed successfully."
-          fi
           
           # Detect job parallelism 
-          # parallelism=$(kubectl get job/"${{ inputs.job-name }}" -o jsonpath='{.spec.parallelism}')
-          # # if parallelism is not set, use default value of 1 
-          # if [ -z "${parallelism}" ]; then
-          #   echo "No parallelism specified, defaulting to 1"
-          #   parallelism=1
-          # fi
+          parallelism=$(kubectl get job/"${{ inputs.job-name }}" -o jsonpath='{.spec.parallelism}')
+          # if parallelism is not set, use default value of 1 
+          echo "Parallelism ${parallelism}"
+          if [ -z "${parallelism}" ]; then
+            echo "No parallelism specified, defaulting to 1"
+            parallelism=1
+          fi
 
-          # # Check whether the job succeeded or failed
-          # while IFS=: read -r failures successes; do
-          #   failures="${status%:*}"
-          #   successes="${status#*:}"
+          # Check whether the job succeeded or failed
+          while IFS=: read -r failures successes; do
+            failures="${status%:*}"
+            successes="${status#*:}"
 
-          #   failures="${failures:-0}"
-          #   successes="${successes:-0}"
-          #   total=$((failures + successes))
+            failures="${failures:-0}"
+            successes="${successes:-0}"
+            total=$((failures + successes))
 
-          #   if [ $total -lt $parallelism ]; then
-          #     # neither "failed" nor "succeeded", so wait
-          #     sleep 1
-          #   elif [ $total -eq $parallelism ]; then
-          #     # we have total=parallelism => either X successes or X failures  
-          #     # In any case, the job is done
-          #     break
-          #   else
-          #     # Log here 
-          #     echo "Unexpected number of completed pods ${total} with parallelism ${parallelism}"
-          #     exit 255
-          #   fi
-          # done <<EOF
-          # $(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}')
-          # EOF
+            echo "failures: ${failures}, successes: ${successes}"
+
+            if [ $total -lt $parallelism ]; then
+              # neither "failed" nor "succeeded", so wait
+              sleep 1
+            elif [ $total -eq $parallelism ]; then
+              # we have total=parallelism => either X successes or X failures  
+              # In any case, the job is done
+              break
+            else
+              # Log here 
+              echo "Unexpected number of completed pods ${total} with parallelism ${parallelism}"
+              exit 255
+            fi
+          done <<EOF
+          $(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}')
+          EOF
 
 
-          # # If job indicates a failure try to print out the info
-          # if [ "${failures:-0}" -gt 0 ]; then
-          #   echo "Job ${{ inputs.job-name }} has $failures failures"
-          #   # this is for batch jobs only
-          #   pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o name)
-          #   if [ -n "${pods}" ]; then
-          #     kubectl describe ${pods}
-          #   fi
-          #   exit 1
-          # fi
+          # If job indicates a failure try to print out the info
+          if [ "${failures:-0}" -gt 0 ]; then
+            echo "Job ${{ inputs.job-name }} has $failures failures"
+            # this is for batch jobs only
+            pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o name)
+            if [ -n "${pods}" ]; then
+              kubectl describe ${pods}
+            fi
+            exit 1
+          fi
         post: |
           echo "Deleting K8s job: ${{ inputs.job-name }}"
           kubectl delete -f "${{ inputs.job-config-file }}"
