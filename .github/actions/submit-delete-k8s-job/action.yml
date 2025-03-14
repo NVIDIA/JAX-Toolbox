@@ -55,7 +55,8 @@ runs:
 
             if [ $total -lt $parallelism ]; then
               # neither "failed" nor "succeeded", so wait
-              sleep 1
+              echo "Total less than parallelism sleep"
+              sleep 60
             elif [ $total -eq $parallelism ]; then
               # we have total=parallelism => either X successes or X failures  
               # In any case, the job is done
