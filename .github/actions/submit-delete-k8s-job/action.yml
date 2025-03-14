@@ -43,8 +43,11 @@ runs:
 
           # Check whether the job succeeded or failed
           while IFS=: read -r failures successes; do
-            failures="${status[0]:-0}"
-            successes="${status[1]:-0}"
+            failures="${status%:*}"
+            successes="${status#*:}"
+
+            failures="${failures:-0}"
+            successes="${successes:-0}"
             total=$((failures + successes))
 
             if [ $total -lt $parallelism ]; then
