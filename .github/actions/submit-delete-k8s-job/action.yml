@@ -68,7 +68,7 @@ runs:
 
 
           # If job indicates a failure try to print out the info
-          if [ $failures -gt 0 ]; then
+          if [ "${failures:-0}" -gt 0 ]; then
             echo "Job ${{ inputs.job-name }} has $failures failures"
             # this is for batch jobs only
             pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o name)
