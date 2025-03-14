@@ -14,7 +14,6 @@ spec:
                 - name: axlearn
                   image: PLACEHOLDER
                   command:
-                    - /usr/bin/env
                     - bash
                     - -c
                     - |
@@ -29,9 +28,9 @@ spec:
                       chmod +x /usr/local/bin/test-axlearn.sh
                       # Start MPS daemon
                       nvidia-cuda-mps-control -d
-
+                      test-axlearn.sh --directory "." --output "/opt/output/" --test-files "/opt/axlearn/axlearn/common/*_test.py" 
                       # run tests 
-                      pytest-xdist.sh 8 1 axlearn-unittests.jsonl test-axlearn.sh --directory "." --output "/opt/output/" --test-files "/opt/axlearn/axlearn/common/*_test.py" | tee -a ${LOG_DIR}/pytest_stdout.log
+                      #pytest-xdist.sh 8 1 axlearn-unittests.jsonl test-axlearn.sh --directory "." --output "/opt/output/" --test-files "/opt/axlearn/axlearn/common/*_test.py" | tee -a ${LOG_DIR}/pytest_stdout.log
                       
                       wait
                       mkdir -p /jax-toolbox-eks-output/axlearn/${RUN_ID}
