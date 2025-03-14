@@ -14,6 +14,7 @@ spec:
                 - name: axlearn
                   image: PLACEHOLDER
                   command:
+                    - /usr/bin/env
                     - bash
                     - -c
                     - |

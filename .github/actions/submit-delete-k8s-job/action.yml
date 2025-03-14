@@ -14,7 +14,6 @@ runs:
   steps:
     - name: Submit and Delete Kubernetes job
       uses: ./.github/actions/with-post-step
-      shell: bash
       with: 
         main: |
           echo "Submit K8s job ${{ inputs.job-config-file }}" 
