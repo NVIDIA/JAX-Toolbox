@@ -60,7 +60,7 @@ runs:
               exit 255
             fi
           done <<EOF
-          `kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}'`
+          $(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}')
           EOF
 
 
