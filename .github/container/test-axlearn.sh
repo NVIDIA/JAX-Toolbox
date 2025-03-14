@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -uo pipefail
+set -o errexit
+set -o pipefail
 
 usage() {
     echo "Run tests in axlearn with specified options."
@@ -13,7 +14,7 @@ usage() {
     echo "  -t, --test-files FILES        Pattern for test files to run."
     echo "                                Default: '*_test.py'."
     echo "  -o, --output DIRECTORY        Output directory for logs and summary."
-    echo "                                Default: 'test_runs/<timestamp>'."
+    echo "                                Default: 'test_runs/<timestamp}'."
     echo "  -h, --help                    Show this help message and exit."
     exit 1
 }
@@ -98,15 +99,15 @@ pip install timm transformers scikit-learn
 
 
 if [ "${#TEST_FILES[@]}" -eq 0 ]; then
-    TEST_FILES=("*_test.py")
+    TEST_FILES=("*.py")
 fi
 
 expanded_test_files=()
 for pattern in "${TEST_FILES[@]}"; do
     # retrieve all the files
-    files=( $pattern )
+    files=($pattern)
     if [ "${#files[@]}" -gt 0 ]; then
-        expanded_test_files+=( "${files[@]}" )
+        expanded_test_files+=("${files[@]}")
     else
         echo "Warning: No files matched pattern '$pattern'"
     fi
@@ -122,8 +123,9 @@ EXCLUDE_LIST_FILE="$DIR/exclusion_list.txt"
 EXCLUDE_PATTERNS=()
 
 if [ -f "$EXCLUDE_LIST_FILE" ]; then
-    echo "Reading exclusion list from '$EXCLUDE_LIST_FILE'"
-    mapfile -t EXCLUDE_PATTERNS < "$EXCLUDE_LIST_FILE"
+    while IFS= read -r line; do
+        EXCLUDE_PATTERNS+=("$line")
+    done < "$EXCLUDE_LIST_FILE"
 else
     echo "Exclusion list file not found at '$EXCLUDE_LIST_FILE'"
 fi
