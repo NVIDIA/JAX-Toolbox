@@ -5,6 +5,8 @@ metadata:
     labels:
         kueue.x-k8s.io/queue-name: p5-queue
 spec:
+    completions: 1
+    parallelism: 1
     template:
         spec:
             restartPolicy: Never
@@ -25,10 +27,11 @@ spec:
                       chmod +x /usr/local/bin/pytest-xdist.sh
                       chmod +x /usr/local/bin/test-axlearn.sh
                       # Start MPS daemon
-                      nvidia-cuda-mps-control -d
+                      nvidia-cuda-mps-control -d &
                       # run tests 
                       pytest-xdist.sh 8 1 axlearn-unittests.jsonl test-axlearn.sh --directory "." --output "/opt/output/" --test-files "/opt/axlearn/axlearn/common/*_test.py" | tee -a ${LOG_DIR}/pytest_stdout.log
-                      
+                                            
+                      killall nvidia-cuda-mps-control || true
                       wait
                       mkdir -p /jax-toolbox-eks-output/axlearn/${RUN_ID}
                       cp /opt/output/summary.txt /jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
