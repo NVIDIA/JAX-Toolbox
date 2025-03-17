@@ -42,8 +42,15 @@ runs:
             parallelism=1
           fi
 
+          failures=0
+          successes=0
+          # Poll the k8s job for a max of 2 hours, sleep 60s
+          max_attempts=120 
+
           # Check whether the job succeeded or failed
-          while IFS=: read -r failures successes; do
+          while [ $attempt -lt $max_attemps ]; do
+            # retrieve the current status of the job 
+            status="$(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}')"
             failures="${status%:*}"
             successes="${status#*:}"
 
@@ -51,36 +58,36 @@ runs:
             successes="${successes:-0}"
             total=$((failures + successes))
 
-            echo "failures: ${failures}, successes: ${successes}"
+            echo "failures: ${failures}, successes: ${successes} attempt: ${attempt}"
 
-            if [ $total -lt $parallelism ]; then
-              # neither "failed" nor "succeeded", so wait
-              echo "Total less than parallelism sleep"
-              sleep 60
-            elif [ $total -eq $parallelism ]; then
-              # we have total=parallelism => either X successes or X failures  
-              # In any case, the job is done
-              break
-            else
-              # Log here 
-              echo "Unexpected number of completed pods ${total} with parallelism ${parallelism}"
-              exit 255
+            if [ $total -eq $parallelism ]; then 
+              # all pods completed here 
+
+              # check failures
+              if [ $failures -gt 0 ]; then 
+                echo "Job ${{ inputs.job-name }} has $failures failures"
+                kubectl describe job/"${{ inputs.job-name }}"
+                # retrieve info from pods
+                pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o name)
+                if [ -n $pods ]; then 
+                  kubectl describe $pods
+                fi 
+                exit 1 
+              fi
+
+              # no failures, so success 
+              break 
             fi
-          done <<EOF
-          $(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}')
-          EOF
 
+            attempt=$((attempt+1))
+            sleep 60 
+          done
 
-          # If job indicates a failure try to print out the info
-          if [ "${failures:-0}" -gt 0 ]; then
-            echo "Job ${{ inputs.job-name }} has $failures failures"
-            # this is for batch jobs only
-            pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o name)
-            if [ -n "${pods}" ]; then
-              kubectl describe ${pods}
-            fi
-            exit 1
+          if [ $attempt -ge $max_attempts ]; then 
+            echo "Job not completed within 2 hours"
+            exit 1 
           fi
+
         post: |
           echo "Deleting K8s job: ${{ inputs.job-name }}"
           kubectl delete -f "${{ inputs.job-config-file }}"
