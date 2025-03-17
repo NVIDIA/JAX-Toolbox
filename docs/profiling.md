@@ -25,7 +25,7 @@ You can also install it yourself from [here](https://developer.nvidia.com/nsight
 package repositories [here](https://developer.download.nvidia.com/devtools/repos).
 To collect a profile, simply launch your program inside `nsys`, for example:
 ```bash
-$ nsys profile --cuda-graph-trace=node python my_script.py
+nsys profile --cuda-graph-trace=node python my_script.py
 ```
 
 This will produce an `.nsys-rep` file, by default `report1.nsys-rep`.
@@ -113,7 +113,7 @@ and reduce the number of epochs profiled, for example `num_epochs = 5`.
 
 If we then tell `nsys` to listen to the CUDA profiler API, with a command like:
 ```bash
-$ PYTHONPATH=/opt/jax nsys profile --capture-range=cudaProfilerApi --cuda-graph-trace=node --capture-range-end=stop python /opt/jax/examples/mnist_vae.py
+PYTHONPATH=/opt/jax nsys profile --capture-range=cudaProfilerApi --cuda-graph-trace=node --capture-range-end=stop python /opt/jax/examples/mnist_vae.py
 ```
 then the resulting profile will only contain 3 iterations of the loop (5 total - 2 skipped).
 
