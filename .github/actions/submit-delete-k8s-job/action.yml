@@ -67,11 +67,6 @@ runs:
               if [ $failures -gt 0 ]; then 
                 echo "Job ${{ inputs.job-name }} has $failures failures"
                 kubectl describe job/"${{ inputs.job-name }}"
-                # retrieve info from pods
-                pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o name)
-                if [ -n $pods ]; then 
-                  kubectl describe $pods
-                fi 
                 exit 1 
               fi
 
