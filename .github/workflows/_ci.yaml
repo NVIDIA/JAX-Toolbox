@@ -639,7 +639,7 @@ jobs:
   #   secrets: inherit
 
   test-axlearn-eks:
-    #needs: build-axlearn
+    needs: build-axlearn
     if: inputs.ARCHITECTURE == 'amd64'
     runs-on: eks
     env:
