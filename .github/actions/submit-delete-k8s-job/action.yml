@@ -33,56 +33,26 @@ runs:
           # Stream logs
           kubectl logs --all-containers=true --all-pods=true --follow job/${{ inputs.job-name }}
           
-          # Detect job parallelism 
-          parallelism=$(kubectl get job/"${{ inputs.job-name }}" -o jsonpath='{.spec.parallelism}')
-          # if parallelism is not set, use default value of 1 
-          echo "Parallelism ${parallelism}"
-          if [ -z "${parallelism}" ]; then
-            echo "No parallelism specified, defaulting to 1"
-            parallelism=1
-          fi
+          # Wait for the job to be completed or timed out
+          kubectl wait --for=condition=Complete job/"${{ inputs.job-name }}" --timeout=10800s || (echo "Job did not complete within 3 hours." && exit 1)
+          echo "Job logs for ${{ inputs.job-name }}:"
+          kubectl logs --all-containers=true --all-pods=true --follow job/"${{ inputs.job-name }}"
 
-          failures=0
-          successes=0
-          # Poll the k8s job for a max of 2 hours, sleep 60s
-          max_attempts=120 
-
-          # Check whether the job succeeded or failed
-          while [ $attempt -lt $max_attemps ]; do
-            # retrieve the current status of the job 
-            status="$(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}')"
-            failures="${status%:*}"
-            successes="${status#*:}"
-
-            failures="${failures:-0}"
-            successes="${successes:-0}"
-            total=$((failures + successes))
-
-            echo "failures: ${failures}, successes: ${successes} attempt: ${attempt}"
-
-            if [ $total -eq $parallelism ]; then 
-              # all pods completed here 
-
-              # check failures
-              if [ $failures -gt 0 ]; then 
-                echo "Job ${{ inputs.job-name }} has $failures failures"
-                kubectl describe job/"${{ inputs.job-name }}"
-                exit 1 
-              fi
-
-              # no failures, so success 
-              break 
+          # Check job status to see if it failed
+          failures=$(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}')
+          failures="${failures:-0}"
+          if [ "$failures" -gt 0 ]; then
+            echo "Job had $failures failures"
+            kubectl describe job/"${{ inputs.job-name }}"
+            pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} -o name)
+            if [ -n "$pods" ]; then
+              kubectl describe $pods
             fi
-
-            attempt=$((attempt+1))
-            sleep 60 
-          done
-
-          if [ $attempt -ge $max_attempts ]; then 
-            echo "Job not completed within 2 hours"
-            exit 1 
+            exit 1
           fi
-
         post: |
-          echo "Deleting K8s job: ${{ inputs.job-name }}"
+          echo "Deleting K8s job you just submitted..."
           kubectl delete -f "${{ inputs.job-config-file }}"
+          post: |
+            echo "Deleting K8s job: ${{ inputs.job-name }}"
+            kubectl delete -f "${{ inputs.job-config-file }}"
