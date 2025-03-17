@@ -23,15 +23,13 @@ spec:
                       LOG_DIR="/opt/output/logs"
                       mkdir -p ${LOG_DIR}
 
-                      # ONLY FOR TESTING THEN FIX THIS 
-                      chmod +x /usr/local/bin/pytest-xdist.sh
-                      chmod +x /usr/local/bin/test-axlearn.sh
                       # Start MPS daemon
                       nvidia-cuda-mps-control -d &
-                      # run tests 
+                      # Run tests 
                       pytest-xdist.sh 8 1 axlearn-unittests.jsonl test-axlearn.sh --directory "." --output "/opt/output/" --test-files "/opt/axlearn/axlearn/common/*_test.py" | tee -a ${LOG_DIR}/pytest_stdout.log
 
                       wait
+                      # Copy to S3
                       mkdir -p /jax-toolbox-eks-output/axlearn/${RUN_ID}
                       cp /opt/output/summary.txt /jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
                       cp -r /opt/output/logs/*.log /jax-toolbox-eks-output/axlearn/${RUN_ID}/.

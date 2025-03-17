@@ -149,7 +149,7 @@ passed=0
 SUMMARY_FILE="${OUTPUT_DIRECTORY}/summary.txt"
 
 
-for test_file in "${final_test_files[@]:0:5}"; do
+for test_file in "${final_test_files[@]}"; do
     echo "Running: ${test_file}"
     log_file_name=$(echo "${test_file%.py}" | sed 's/\//__/g').log
     log_file="${LOG_DIRECTORY}/${log_file_name}"
