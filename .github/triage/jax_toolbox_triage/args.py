@@ -35,7 +35,7 @@ def parse_args(args=None):
     parser.add_argument(
         "--container",
         help="""
-            Container to use. Example: jax, pax, triton. Used to construct the URLs of
+            Container to use. Example: jax, maxtext. Used to construct the URLs of
             nightly containers, like ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD.""",
     )
     parser.add_argument(
@@ -126,7 +126,24 @@ def parse_args(args=None):
             significantly speed up the commit-level search. By default, uses a temporary
             directory including the name of the current user.""",
     )
+    parser.add_argument(
+        "-v",
+        "--container-mount",
+        action="append",
+        help="""
+            Takes a SRC:DST value and mounts the (host) directory SRC into the container
+            at DST; this can be used to pass in a test script, e.g. -v $PWD:/work before
+            using /work/test.sh as a test command.""",
+        type=lambda s: s.split(":", 1),
+    )
+    parser.add_argument(
+        "--container-runtime",
+        default="docker",
+        help="Container runtime used, this can be either docker or pyxis.",
+        type=lambda s: s.lower(),
+    )
     args = parser.parse_args(args=args)
+    assert args.container_runtime in {"docker", "pyxis"}, args.container_runtime
     num_explicit_containers = (args.passing_container is not None) + (
         args.failing_container is not None
     )

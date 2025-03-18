@@ -1,4 +1,4 @@
-name: nsys-jax pure-Python CI
+name: nsys-jax non-GPU CI
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -274,3 +274,22 @@ jobs:
           if [[ $format_status != 0 || $check_status != 0 ]]; then
             exit 1
           fi
+  installation:
+    strategy:
+      matrix:
+        include:
+          - container: "nvidia/cuda:12.6.3-base-ubuntu24.04"
+            nsys_package: "cuda-nsight-systems-12-6"
+          - container: "nvidia/cuda:12.8.0-base-ubuntu24.04"
+            nsys_package: "cuda-nsight-systems-12-8"
+    runs-on: ubuntu-latest
+    container: "${{ matrix.container }}"
+    steps:
+      - name: Install ${{ matrix.nsys_package }}
+        run: |
+          apt-get update
+          apt-get install -y git python3-pip ${{ matrix.nsys_package }}
+      - name: Install nsys-jax
+        run: pip install --break-system-packages git+https://github.com/NVIDIA/JAX-Toolbox.git@${{ github.head_ref || github.sha }}#subdirectory=.github/container/nsys_jax
+      - name: Run nsys-jax-patch-nsys
+        run: nsys-jax-patch-nsys

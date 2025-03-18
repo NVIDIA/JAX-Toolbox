@@ -1,4 +1,4 @@
-name: ~publish t5x/pax integration test results
+name: ~publish t5x integration test results
 
 on:
   workflow_call:
@@ -9,7 +9,7 @@ on:
         required: true
       EXPERIMENT_SUBDIR:
         type: string
-        description: Subdirectory to easily filter experiments, e.g., T5X, ROSETTA_PAX
+        description: Subdirectory to easily filter experiments, e.g., T5X
         default: T5X
         required: false
       ARTIFACT_NAME:
