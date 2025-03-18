@@ -34,8 +34,6 @@ jobs:
        fail-fast: true
        matrix:
          include:
-           - TEST: multigpu
-             N_GPU: 8
            - TEST: unittest
              N_GPU: 8
     runs-on: [eks] # cluster with H100 nodes

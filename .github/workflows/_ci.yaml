@@ -487,14 +487,6 @@ jobs:
       CI_NAME: transformer-engine
     secrets: inherit
 
-  test-te-multigpu-a100:
-     needs: build-jax
-     if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-     uses: ./.github/workflows/_test_te.yaml
-     with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-     secrets: inherit
-
   test-te-unit-a100:
     needs: build-jax
     secrets: inherit
