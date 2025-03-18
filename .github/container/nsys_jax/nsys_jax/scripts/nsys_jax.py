@@ -18,6 +18,7 @@ import sys
 import tempfile
 import time
 import traceback
+from typing import Optional
 import zipfile
 
 from .utils import execute_analysis_script, shuffle_analysis_arg
@@ -259,20 +260,21 @@ def main() -> None:
     if "JAX_ENABLE_COMPILATION_CACHE" not in env:
         env["JAX_ENABLE_COMPILATION_CACHE"] = "false"
 
+    def format_flag(tup):
+        n, v = tup
+        return f"--{n}" if v is None else f"--{n}={v}"
+
     # Get the existing XLA_FLAGS and parse them into a dictionary.
-    xla_flag_list = shlex.split(env.get("XLA_FLAGS", ""))
-    xla_flags = {}
-    for flag in xla_flag_list:
+    xla_flags: dict[str, Optional[str]] = {}
+    for flag in shlex.split(env.get("XLA_FLAGS", "")):
         assert flag.startswith("--")
         bits = flag[2:].split("=", maxsplit=1)
         name, value = bits[0], bits[1] if len(bits) > 1 else None
-        assert name not in xla_flags
+        if name in xla_flags:
+            print(
+                f"WARNING: {format_flag((name, xla_flags[name]))} being overriden by {flag}"
+            )
         xla_flags[name] = value
-
-    def as_list(flags):
-        return [f"--{n}" if v is None else f"--{n}={v}" for n, v in flags.items()]
-
-    assert xla_flag_list == as_list(xla_flags)
 
     def as_bool(s):
         """String -> bool conversion following XLA's semantics."""
@@ -298,7 +300,7 @@ def main() -> None:
 
     # Serialise the modified XLA flags. shlex.join is tempting, but doesn't seem to
     # get the right result for --xla_dump_hlo_pass_re=.*, as it adds extra quotes.
-    env["XLA_FLAGS"] = " ".join(as_list(xla_flags))
+    env["XLA_FLAGS"] = " ".join(map(format_flag, xla_flags.items()))
 
     # Run the application in nsys
     # TODO: consider being more fault-tolerant?
