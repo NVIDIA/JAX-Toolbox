@@ -66,23 +66,6 @@ jobs:
         URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
     secrets: inherit
 
-  build-triton:
-    needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # Triton does not seem to support arm64
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-triton-build
-      BADGE_FILENAME: badge-triton-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: triton
-      DOCKERFILE: .github/container/Dockerfile.triton
-      RUNNER_SIZE: large
-      EXTRA_BUILD_ARGS: |
-        URLREF_JAX_TRITON=${{ fromJson(inputs.SOURCE_URLREFS).JAX_TRITON }}
-    secrets: inherit
-
   build-equinox:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
@@ -196,7 +179,6 @@ jobs:
     needs:
       - build-base
       - build-jax
-      - build-triton
       - build-equinox
       - build-maxtext
       - build-levanter
@@ -214,7 +196,6 @@ jobs:
           [\
             {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
             {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "triton",       "stage": "final",   "priority": 900,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "levanter",     "stage": "final",   "priority": 900,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}"},\
@@ -223,7 +204,6 @@ jobs:
             {"flavor": "gemma",        "stage": "final",   "priority": 900,  "tag": "${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "triton",       "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-triton.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "levanter",     "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}"},\
@@ -271,7 +251,7 @@ jobs:
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-backend-independent.log
-          test-jax.sh -b backend-independent 
+          test-jax.sh -b backend-independent
         EOF
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
@@ -443,7 +423,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: K8s GHCR store and delete token
       id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr 
+      uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Configure Kubernetes job
       run: |
         yq -i ea 'select(di == 0).spec.selector.job-name = strenv(JOB_NAME)
@@ -455,7 +435,7 @@ jobs:
         git diff .github/eks-workflow-files/job.yml
     - name: Submit Kubernetes job
       uses: ./.github/actions/submit-delete-k8s-job
-      with: 
+      with:
         job-config-file: .github/eks-workflow-files/job.yml
         job-name: ${{ env.JOB_NAME }}
     - name: Configure post-processing job
@@ -469,7 +449,7 @@ jobs:
         git diff .github/eks-workflow-files/post-process-job.yml
     - name: Submit post process Kubernetes job
       uses: ./.github/actions/submit-delete-k8s-job
-      with: 
+      with:
         job-config-file: .github/eks-workflow-files/post-process-job.yml
         job-name: ${{ env.POSTPROCESS_JOB_NAME }}
 
@@ -521,35 +501,6 @@ jobs:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  test-triton:
-    needs: build-triton
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: triton
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all --volume $PWD:/output \
-        ${{ needs.build-triton.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-triton.log
-          # autotuner tests from jax-triton now hit a triton code path that uses utilities from pytorch; this relies on
-          # actually having a CUDA backend for pytoch
-          pip install --no-deps torch
-          python /opt/jax-triton/tests/triton_call_test.py --xml_output_file /output/triton_test.xml
-        EOF
-      STATISTICS_SCRIPT: |
-        curl -L -o yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) && chmod 777 yq;
-        total_tests=$(./yq '.testsuites."+@tests"' triton_test.xml)
-        errors=$(./yq '.testsuites."+@errors"' triton_test.xml)
-        failed_tests=$(./yq '.testsuites."+@failures"' triton_test.xml)
-        passed_tests=$((total_tests - errors - failed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-triton.log
-    secrets: inherit
-
   test-levanter:
     needs: build-levanter
     if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
@@ -576,7 +527,7 @@ jobs:
       ARTIFACTS: |
         test-levanter.log
     secrets: inherit
-    
+
   # test-te:
   #   needs: build-upstream-pax
   #   if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
@@ -608,7 +559,7 @@ jobs:
 
   test-gemma:
     needs: build-gemma
-    uses: ./.github/workflows/_test_unit.yaml  
+    uses: ./.github/workflows/_test_unit.yaml
     if: inputs.ARCHITECTURE == 'amd64'
     with:
       TEST_NAME: gemma
@@ -654,7 +605,7 @@ jobs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token 
+    - name: K8s GHCR store and delete token
       id: store-token
       uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Configure axlearn test job
@@ -667,8 +618,8 @@ jobs:
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
         .github/eks-workflow-files/axlearn/axlearn-job.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
-    - name: Submit & delete axlearn test 
-      uses: ./.github/actions/submit-delete-k8s-job 
+    - name: Submit & delete axlearn test
+      uses: ./.github/actions/submit-delete-k8s-job
       with:
         job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
         job-name: ${{ env.JOB_NAME }}
@@ -735,7 +686,7 @@ jobs:
           axlearn-unittests.jsonl
           axlearn-output/*
 
-  # the fuji test will run for 20 minutes only, as per 2025-02-24 
+  # the fuji test will run for 20 minutes only, as per 2025-02-24
   # is not possible to set the `max_steps` value
   # this will be done with a customer python code
   test-axlearn-fuji-models-eks:
@@ -766,8 +717,8 @@ jobs:
         .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
 
-    - name: Submit & delete axlearn test 
-      uses: ./.github/actions/submit-delete-k8s-job 
+    - name: Submit & delete axlearn test
+      uses: ./.github/actions/submit-delete-k8s-job
       with:
         job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
         job-name: ${{ env.JOB_NAME }}
