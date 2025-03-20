@@ -101,7 +101,7 @@ log file.
 You should pay attention to the first execution of your test case, to make sure it is
 failing for the correct reason. For example:
 ```console
-$ jax-toolbox-triage --container jax command-you-forgot-to-install
+jax-toolbox-triage --container jax command-you-forgot-to-install
 ```
 will not immediately abort, because the tool is **expecting** the command to fail in
 the early stages of the triage:
