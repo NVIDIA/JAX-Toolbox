@@ -686,9 +686,6 @@ jobs:
           axlearn-unittests.jsonl
           axlearn-output/*
 
-  # the fuji test will run for 20 minutes only, as per 2025-02-24
-  # is not possible to set the `max_steps` value
-  # this will be done with a customer python code
   test-axlearn-fuji-models-eks:
     needs: build-axlearn
     if: inputs.ARCHITECTURE == 'amd64'

@@ -30,8 +30,8 @@ spec:
                           --jax_backend=gpu \
                           --trainer_dir=${TRAINER_DIR} \
                           --data_dir=gs://axlearn-public/tensorflow_datasets \
-                          --fsdp=8 \
-                          --dp=1 \
+                          --ici_fsdp=8 \
+                          --dcn_dp=1 \
                           --gbs=16 \
                           --ga=1 \
                           --seq_len=4096 \

@@ -82,7 +82,7 @@ jobs:
           # resources are available, but that is where there can be a long wait if the
           # cluster is busy executing other jobs.
           kubectl wait --for=create job/${LAUNCHER_NAME}
-          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${LAUNCHER_NAME} --timeout=7200s
+          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${LAUNCHER_NAME} --timeout=14400s
       - name: Stream Kubernetes job output
         # Note that this is *not* JOB_NAME
         run: |
