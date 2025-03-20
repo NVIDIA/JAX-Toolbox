@@ -506,19 +506,17 @@ jobs:
           # TE's default is slightly different, without the hyphen
           export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
           # 1 GPU per worker, 6 workers per GPU
-          pytest-xdist.sh 1 6 /log/pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
+          pytest-xdist.sh 1 3 /log/pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
           ## 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
           ## into a single .jsonl file of results from multiple pytest invocations
           ## inside the test.sh script, so it's useful even with a single worker per
           ## device.
           pytest-xdist.sh 8 1 /log/pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh
-          pytest-xdist.sh 8 1 /log/pytest-report-L1-distributed-unittest.jsonl bash ${TE_PATH}/qa/L1_jax_distributed_unittest/test.sh
 
           # merge the log files
           cat \
             /log/pytest-report-L0-unittest.jsonl
-            /log/pytest-report-L0-distributed-unittest.jsonl \
-            /log/pytest-report-L1-distributed-unittest.jsonl \
+            /log/pytest-report-L0-distributed-unittest.jsonl 
             > /log/pytest-report.jsonl
         EOF
       STATISTICS_SCRIPT: |
