@@ -411,7 +411,8 @@ jobs:
     env:
       JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       JOB_NAME: ${{ github.run_id }}-nsys-jax
-      SERVICE_NAME: ${{ github.run_id}}-nsys-jax-service-name
+      # Service name cannot start with a number
+      SERVICE_NAME: svc-${{ github.run_id}}-nsys-jax
       POSTPROCESS_JOB_NAME: ${{ github.run_id }}-nsys-jax-postprocess
     steps:
     - name: Check out the repository
