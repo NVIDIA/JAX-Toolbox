@@ -93,7 +93,7 @@ COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
 # Preserve the versions of jax and xla
 COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
-ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+ADD build-jax.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
 
