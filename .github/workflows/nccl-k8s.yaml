@@ -34,5 +34,5 @@ jobs:
   nccl-tests:
     uses: ./.github/workflows/_test_nccl.yaml
     with:
-      CONTAINER: ${{ inputs.CONTAINER || 'nvcr.io/nvidia/cuda-dl-base:25.02-cuda12.8-devel-ubuntu24.04' }}
+      CONTAINER: 'nvcr.io/nvidia/cuda-dl-base:25.02-cuda12.5-devel-ubuntu24.04'
     secrets: inherit
