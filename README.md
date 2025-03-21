@@ -15,7 +15,7 @@ We support and test the following JAX frameworks and model architectures. More d
 | [t5x](./rosetta/rosetta/projects/imagen) | Imagen | pre-training | `ghcr.io/nvidia/t5x:imagen-2023-10-02.v3` |
 | [big vision](./rosetta/rosetta/projects/paligemma) | PaliGemma | fine-tuning, evaluation | `ghcr.io/nvidia/jax:gemma` |
 | levanter | GPT, LLaMA, MPT, Backpacks | pre-training, fine-tuning | `ghcr.io/nvidia/jax:levanter` |
-| axlearn | Fuji | pre-training | `gchr.io/nvidia/jax:axlearn` | 
+| [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `gchr.io/nvidia/jax:axlearn` |
 
 # Build Pipeline Status
 <table>
@@ -255,9 +255,9 @@ We support and test the following JAX frameworks and model architectures. More d
   </tbody>
 </table>
 
-In all cases, `ghcr.io/nvidia/jax:XXX` points to latest nightly build of the container for `XXX`. For a stable reference, use `ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`. 
+In all cases, `ghcr.io/nvidia/jax:XXX` points to latest nightly build of the container for `XXX`. For a stable reference, use `ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`.
 
-In addition to the public CI, we also run internal CI tests on H100 SXM 80GB and A100 SXM 80GB. 
+In addition to the public CI, we also run internal CI tests on H100 SXM 80GB and A100 SXM 80GB.
 
 ## Environment Variables
 

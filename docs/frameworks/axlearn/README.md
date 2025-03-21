@@ -33,15 +33,13 @@ You can check the above on the  [AXLearn code](https://github.com/apple/axlearn/
 Each model can then work in a different mode:
 - `-flash`: uses flash attention;
 - `-flash-single-host`: uses flash attention and it's tuned to work on a single host.
-To run one of these models, on an EKS instance, you can follow this deployment file:
+To run one of these models, on an EKS instance, you can follow this deployment file, with the running command depicted in the [c4_trainer description](https://github.com/apple/axlearn/blob/main/axlearn/experiments/text/gpt/c4_trainer.py):
 
 ```yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
-    name: name-of-your-job
-    labels:
-        kueue.x-k8s.io/queue-name: p5-queue
+    name: axlearn-fuji
 spec:
     completions: 1
     parallelism: 1
@@ -58,10 +56,10 @@ spec:
                     - -c
                     - |
                       BASEDIR="/opt/axlearn"
-                      CONFIG="fuji-3B-v3-flash-single-host"
+                      CONFIG="fuji-1B-v3-flash-single-host"
 
                       LOG_DIR=${BASEDIR}/logs
-                      TRAINER_DIR=${LOG_DIR}/${CONFIG}${POSTFIX}-eks/trainer-dir
+                      TRAINER_DIR=${LOG_DIR}/${CONFIG}-eks/trainer-dir
                       mkdir -p ${TRAINER_DIR}
 
                       python3 -m axlearn.common.launch_trainer_main \
@@ -70,17 +68,6 @@ spec:
                           --trainer_dir=${TRAINER_DIR} \
                           --data_dir=gs://axlearn-public/tensorflow_datasets \
                           --jax_backend=gpu
-                  resources:
-                    limits:
-                        nvidia.com/gpu: 8
-                  volumeMounts:
-                    - name: output
-                      mountPath: /opt/output
-            imagePullSecrets:
-                - name: YOUR_GITHUB_TOKEN
-            volumes:
-                - name: output
-                  emptyDir: {}
 ```
 This will run the `fuji-3B-v3-flash-single-host` model, and all the input configurations (e.g. max number of steps, sequence length, parallelism) can be found [here](https://github.com/apple/axlearn/blob/main/axlearn/experiments/testdata/axlearn.experiments.text.gpt.c4_trainer/fuji-3B-v3-flash-single-host.txt). The input dataset is the public tensorflow [C4 dataset](https://www.tensorflow.org/datasets/catalog/c4).
 
