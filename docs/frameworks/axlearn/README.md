@@ -33,7 +33,7 @@ You can check the above on the  [AXLearn code](https://github.com/apple/axlearn/
 Each model can then work in a different mode:
 - `-flash`: uses flash attention;
 - `-flash-single-host`: uses flash attention and it's tuned to work on a single host.
-To run one of these models, on an EKS instance, you can follow this deployment file, with the running command depicted in the [c4_trainer description](https://github.com/apple/axlearn/blob/main/axlearn/experiments/text/gpt/c4_trainer.py):
+To run one of these models, on an EKS instance, you can [follow this deployment file](https://github.com/NVIDIA/JAX-Toolbox/blob/626d1a76da5ca1decfd9822f512849a2b5164cef/.github/eks-workflow-files/axlearn/axlearn-fuji-model.yml), with the running command depicted in the [c4_trainer description](https://github.com/apple/axlearn/blob/main/axlearn/experiments/text/gpt/c4_trainer.py), whose skeleton looks like:
 
 ```yaml
 apiVersion: batch/v1
@@ -56,7 +56,7 @@ spec:
                     - -c
                     - |
                       BASEDIR="/opt/axlearn"
-                      CONFIG="fuji-1B-v3-flash-single-host"
+                      CONFIG="fuji-3B-v3-flash-single-host"
 
                       LOG_DIR=${BASEDIR}/logs
                       TRAINER_DIR=${LOG_DIR}/${CONFIG}-eks/trainer-dir
