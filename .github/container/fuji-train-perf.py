@@ -1,5 +1,7 @@
+import re
 import sys
 import argparse
+import numpy as np
 
 from absl import app, flags
 from axlearn.common.config import config_for_function
@@ -82,6 +84,54 @@ parser.add_argument(
     "--write_summary_steps", type=int, default=500, help="Save summary every X steps."
 )
 
+parser.add_argument(
+    "--output_log_file",
+    type=str,
+    default="/opt/output/output_log.log",
+    help="Final log file.",
+)
+
+parser.add_argument("--world_size", type=int, help="Total number of GPUs")
+
+
+def extract_metrics(input_file: str, gbs: int, seq_len: int, world_size: int):
+    """Extract tokens/sec/GPU and Seq/sec/GPU metrics
+
+    Args:
+        input_file:  str, input log file
+        gbs: int, global batch size
+        seq_len: int, max sequence length
+        world_size: int, number of GPUs
+
+    Returns:
+    """
+    pattern = re.compile(r"Average step time:\s+([0-9.]+)\s+seconds")
+    with open(input_file, "r") as f:
+        times = [float(match.group(1)) for line in f if (match := pattern.search(line))]
+
+    if not times:
+        return {
+            "tokens_per_sec_gpu_mean": 0.0,
+            "tokens_per_sec_gpu_std": 0.0,
+            "seqs_per_sec_gpu_mean": 0.0,
+            "seqs_per_sec_gpu_std": 0.0,
+            "avg_step_time_mean": 0.0,
+            "avg_step_time_std": 0.0,
+        }
+    times_arr = np.array(times, dtype=np.float32)
+    # metrics
+    tokens_per_sec_gpu = (gbs * seq_len) / times_arr / world_size
+    seqs_per_sec_gpu = (gbs) / times_arr / world_size
+
+    return {
+        "tokens_per_sec_gpu_mean": tokens_per_sec_gpu.mean(),
+        "tokens_per_sec_gpu_std": tokens_per_sec_gpu.std(),
+        "seqs_per_sec_gpu_mean": seqs_per_sec_gpu.mean(),
+        "seqs_per_sec_gpu_std": seqs_per_sec_gpu.std(),
+        "avg_step_time_mean": times_arr.mean(),
+        "avg_step_time_std": times_arr.std(),
+    }
+
 
 def run_main():
     """Run main function
@@ -119,6 +169,8 @@ def main(parsed_args):
     max_step = parsed_args.max_step
     save_checkpoint_steps = parsed_args.save_checkpoint_steps
     write_summary_steps = parsed_args.write_summary_steps
+    output_log_file = parsed_args.output_log_file
+    world_size = parsed_args.world_size
 
     print(
         f"=== Parameter Check ===\n"
@@ -136,6 +188,8 @@ def main(parsed_args):
         f"save_checkpoint_steps: {save_checkpoint_steps}\n"
         f"write_summary_steps: {write_summary_steps}\n"
         f"global_batch_size: {gbs_size}\n"
+        f"output log file: {output_log_file}\n"
+        f"world size: {world_size}"
         f"======================\n"
     )
 
@@ -187,6 +241,15 @@ def main(parsed_args):
     launch_trainer.run_trainer(
         trainer_config=trainer_config,
     )
+    # extract metrics
+    perf_nums = extract_metrics(
+        input_file=output_log_file, gbs=gbs_size, seq_len=seq_len, world_size=world_size
+    )
+
+    print(f"""Extracted metrics:
+          tokens_per_sec_gpu_mean: {perf_nums['tokens_per_sec_gpu_mean']} +/- {perf_nums['tokens_per_sec_gpu_std']}\n
+          seqs_per_sec_gpu_mean: {perf_nums['seqs_per_sec_gpu_mean']} +/- {perf_nums['seqs_per_sec_gpu_std']}\n
+          average time step: {perf_nums['avg_step_time_mean']}" +/- {perf_nums['avg_step_time_std']}""")
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@ spec:
                       LOG_DIR=/opt/logs
                       TRAINER_DIR=${LOG_DIR}/${CONFIG}-eks/trainer-dir
                       mkdir -p ${TRAINER_DIR}
+                      OUTPUT_LOG_FILE=${TRAINER_DIR}/output.log
 
                       python3 /usr/local/bin/fuji-train-perf.py \
                           --module=text.gpt.c4_trainer \
@@ -35,9 +36,11 @@ spec:
                           --gbs=16 \
                           --ga=1 \
                           --seq_len=4096 \
-                          --max_step=100 \
+                          --max_step=101 \
                           --save_checkpoint_steps=100 \
-                          --write_summary_steps=100
+                          --write_summary_steps=100 \
+                          --output_log_file=${OUTPUT_LOG_FILE} \
+                          --num_gpus=8 > ${OUTPUT_LOG_FILE}
                   resources:
                     limits:
                         nvidia.com/gpu: 8
