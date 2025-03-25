@@ -2,9 +2,9 @@ import re
 import sys
 import argparse
 import numpy as np
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 
-from absl import app, flags
+from absl import app, flags, logging as absl_logging
 from axlearn.common.config import config_for_function
 from axlearn.experiments.text.gpt import c4_trainer
 from axlearn.common.trainer import SpmdTrainer
@@ -144,6 +144,8 @@ def run_main():
 
     This function parses the input args and runs the main code.
     """
+    # set up log of absl to be info so we can track it
+    absl_logging.set_stderrthreshold("info")
     # retrieve the parse args, while absl flags are recognized
     parsed_args, other_argv = parser.parse_known_args(sys.argv[1:])
     sys.argv = [sys.argv[0]] + other_argv
@@ -195,7 +197,7 @@ def main(parsed_args):
         f"write_summary_steps: {write_summary_steps}\n"
         f"global_batch_size: {gbs_size}\n"
         f"output log file: {output_log_file}\n"
-        f"world size: {world_size}"
+        f"world size: {world_size}\n"
         f"======================\n"
     )
 
@@ -245,7 +247,7 @@ def main(parsed_args):
     )
     # Launch training
     with open(output_log_file, "w") as f:
-        with redirect_stdout(f):
+        with redirect_stdout(f), redirect_stderr(f):
             _ = launch_trainer.run_trainer(
                 trainer_config=trainer_config,
             )
@@ -257,7 +259,7 @@ def main(parsed_args):
     print(f"""Extracted metrics:
           tokens_per_sec_gpu_mean: {perf_nums['tokens_per_sec_gpu_mean']} +/- {perf_nums['tokens_per_sec_gpu_std']}\n
           seqs_per_sec_gpu_mean: {perf_nums['seqs_per_sec_gpu_mean']} +/- {perf_nums['seqs_per_sec_gpu_std']}\n
-          average time step: {perf_nums['avg_step_time_mean']}" +/- {perf_nums['avg_step_time_std']}""")
+          average time step: {perf_nums['avg_step_time_mean']} +/- {perf_nums['avg_step_time_std']}""")
 
 
 if __name__ == "__main__":
