@@ -38,7 +38,9 @@ def process_communication_data(steady_state):
         collective_types.add(collective)
         # This grouped data frame will have a row for each device that is participating
         # in this instance of the collective.
-        devices = df.groupby(["ProgramId", "ProgramExecution", "ThunkIndex"])
+        devices = df.groupby(
+            ["ProgramId", "ProgramExecution", "Name", "ThunkExecution"]
+        )
         # Take the fastest device bandwidth. Rationale: the slower devices appear
         # slower because they spend some time waiting for the last device, and then all
         # devices complete the collective at the same time. The fastest device is
@@ -134,8 +136,7 @@ def process_hidden_ms_to_total_ms(steady_state):
     for collective, df in grouped_data:
         collective_types.add(collective)
         total_ms = df["ProjDurMs"] + df["ProjDurHiddenMs"]
-        mean_dur_hidden_ms_to_total_ms = (df["ProjDurHiddenMs"] / total_ms).mean()
-        summary_data[collective] = mean_dur_hidden_ms_to_total_ms
+        summary_data[collective] = df["ProjDurHiddenMs"].sum() / total_ms.sum()
 
     return collective_types, summary_data
 
@@ -253,8 +254,7 @@ def main():
     # Load the profiler data; the compilation part is needed for the warmup heuristics
     all_data = load_profiler_data(args.prefix, frames={"communication", "compile"})
     # Align timestamps
-    all_data, alignment_metadata = align_profiler_data_timestamps(all_data)
-    print(f"Alignment metadata: {alignment_metadata}")
+    all_data, _ = align_profiler_data_timestamps(all_data)
     # Partition the profile data into initialisation and steady-state running
     _, steady_state = apply_warmup_heuristics(all_data)
 
