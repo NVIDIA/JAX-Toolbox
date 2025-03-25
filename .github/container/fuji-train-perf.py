@@ -2,6 +2,7 @@ import re
 import sys
 import argparse
 import numpy as np
+from contextlib import redirect_stdout
 
 from absl import app, flags
 from axlearn.common.config import config_for_function
@@ -106,8 +107,12 @@ def extract_metrics(input_file: str, gbs: int, seq_len: int, world_size: int):
     Returns:
     """
     pattern = re.compile(r"Average step time:\s+([0-9.]+)\s+seconds")
+    times = []
     with open(input_file, "r") as f:
-        times = [float(match.group(1)) for line in f if (match := pattern.search(line))]
+        for line in f:
+            match = pattern.search(line)
+            if match:
+                times.append(float(match.group(1)))
 
     if not times:
         return {
@@ -118,18 +123,19 @@ def extract_metrics(input_file: str, gbs: int, seq_len: int, world_size: int):
             "avg_step_time_mean": 0.0,
             "avg_step_time_std": 0.0,
         }
+
     times_arr = np.array(times, dtype=np.float32)
-    # metrics
+    # Metrics
     tokens_per_sec_gpu = (gbs * seq_len) / times_arr / world_size
     seqs_per_sec_gpu = (gbs) / times_arr / world_size
 
     return {
-        "tokens_per_sec_gpu_mean": tokens_per_sec_gpu.mean(),
-        "tokens_per_sec_gpu_std": tokens_per_sec_gpu.std(),
-        "seqs_per_sec_gpu_mean": seqs_per_sec_gpu.mean(),
-        "seqs_per_sec_gpu_std": seqs_per_sec_gpu.std(),
-        "avg_step_time_mean": times_arr.mean(),
-        "avg_step_time_std": times_arr.std(),
+        "tokens_per_sec_gpu_mean": float(tokens_per_sec_gpu.mean()),
+        "tokens_per_sec_gpu_std": float(tokens_per_sec_gpu.std()),
+        "seqs_per_sec_gpu_mean": float(seqs_per_sec_gpu.mean()),
+        "seqs_per_sec_gpu_std": float(seqs_per_sec_gpu.std()),
+        "avg_step_time_mean": float(times_arr.mean()),
+        "avg_step_time_std": float(times_arr.std()),
     }
 
 
@@ -238,9 +244,11 @@ def main(parsed_args):
         recorder=config_for_function(lambda: measurement.global_recorder)
     )
     # Launch training
-    launch_trainer.run_trainer(
-        trainer_config=trainer_config,
-    )
+    with open(output_log_file, "w") as f:
+        with redirect_stdout(f):
+            _ = launch_trainer.run_trainer(
+                trainer_config=trainer_config,
+            )
     # extract metrics
     perf_nums = extract_metrics(
         input_file=output_log_file, gbs=gbs_size, seq_len=seq_len, world_size=world_size
