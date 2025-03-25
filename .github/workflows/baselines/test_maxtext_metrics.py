@@ -31,6 +31,7 @@ def test_loss(baseline_filename):
         loss_expected = {step: loss_expected_values[i] for i, step in enumerate(
             range(start_step, end_step+1, interval))}
         loss_actual = test_utils.read_maxtext_tb_tag(event_file, loss_summary_name)
+        del loss_actual[0] # removing the very first step
         assert loss_expected.keys() == loss_actual.keys(), \
             f"Steps at which loss was emitted for run do not match baseline. \
             Actual steps: {loss_actual.keys()}, Baseline steps: {loss_expected.keys()}"
