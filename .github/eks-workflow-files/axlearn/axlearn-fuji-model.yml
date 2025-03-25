@@ -40,7 +40,7 @@ spec:
                           --save_checkpoint_steps=100 \
                           --write_summary_steps=100 \
                           --output_log_file=${OUTPUT_LOG_FILE} \
-                          --num_gpus=8
+                          --world_size=8
                   resources:
                     limits:
                         nvidia.com/gpu: 8
