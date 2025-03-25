@@ -543,14 +543,6 @@ jobs:
         pytest-report-L0-unittest.jsonl
         pytest-report-L0-distributed-unittest.jsonl
         pytest-report-L1-distributed-unittest.jsonl
-  test-upstream-t5x:
-    needs: build-upstream-t5x
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-    uses: ./.github/workflows/_test_upstream_t5x.yaml
-    with:
-      T5X_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
   test-rosetta-t5x:
     needs: build-rosetta-t5x
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64

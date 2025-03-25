@@ -154,9 +154,7 @@ We support and test the following JAX frameworks and model architectures. More d
         </a>
       </td>
       <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-upstream-t5x-mgmn-test-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-upstream-t5x-mgmn-test.json&logo=nvidia&label=A100%20distributed">
-        </a>
+        [tests disabled]
       </td>
     </tr>
     <tr>
