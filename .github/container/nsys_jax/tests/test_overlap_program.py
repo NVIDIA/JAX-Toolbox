@@ -63,7 +63,8 @@ def test_comms(fixture_name, num_executions, request):
     assert profiler_data.communication.index.names == [
         "ProgramId",
         "ProgramExecution",
-        "ThunkIndex",
+        "Name",
+        "ThunkExecution",
         "Device",
     ]
     test_comm_data = profiler_data.communication.loc[module_id, :]
@@ -77,8 +78,8 @@ def test_comms(fixture_name, num_executions, request):
     # communication behind *some* compute, on at least one device
     assert (test_comm_data["ProjDurHiddenMs"] > 0.0).any()
     # executions of the same collective on the 2 devices should overlap
-    gpu0_df = test_comm_data.loc[(slice(None), slice(None), 0), :]
-    gpu1_df = test_comm_data.loc[(slice(None), slice(None), 1), :]
+    gpu0_df = test_comm_data.loc[(slice(None), slice(None), slice(None), 0), :]
+    gpu1_df = test_comm_data.loc[(slice(None), slice(None), slice(None), 1), :]
     gpu0_end = (
         gpu0_df["ProjStartMs"] + gpu0_df["ProjDurMs"] + gpu0_df["ProjDurHiddenMs"]
     )
