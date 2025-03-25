@@ -280,6 +280,9 @@ For a list of previously used XLA flags that are no longer needed, please also r
 
 | First nightly with new base container | Base container |
 | ------------------------------------- | -------------- |
+| 2025-03-04 | nvcr.io/nvidia/cuda-dl-base:25.02-cuda12.8-devel-ubuntu24.04 |
+| 2025-01-31 | nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04 |
+| 2025-01-28 | nvcr.io/nvidia/cuda-dl-base:24.11-cuda12.6-devel-ubuntu24.04 |
 | 2024-12-07 | nvidia/cuda:12.6.3-devel-ubuntu22.04 |
 | 2024-11-06 | nvidia/cuda:12.6.2-devel-ubuntu22.04 |
 | 2024-09-25 | nvidia/cuda:12.6.1-devel-ubuntu22.04 |
