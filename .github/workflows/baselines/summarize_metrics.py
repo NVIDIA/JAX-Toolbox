@@ -40,7 +40,7 @@ def main():
         if not os.path.exists(searchpath):
             searchpath = os.path.join(args.test_config, "summaries/train")
         if not os.path.exists(searchpath):
-            searchpath = os.path.join(args.test_config, "logdir/tensorboard")
+            searchpath = os.path.join(args.test_config, "logdir/tensorboard/logdir")
         assert os.path.exists(searchpath), f"Neither {args.test_config}/train nor {args.test_config}/summaries/train nor {args.test_config}/logdir/tensorboard dirs exist"
         event_files = glob.glob(os.path.join(searchpath, "events*"))
         assert len(event_files) > 0, f"{searchpath} did not contain a tensorboard events file"
