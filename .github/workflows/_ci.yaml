@@ -48,6 +48,7 @@ jobs:
     secrets: inherit
 
   test-nccl:
+    if: inputs.ARCHITECTURE == 'amd64' # build only amd64
     needs: build-base
     uses: ./.github/workflows/_test_nccl.yaml
     with:
