@@ -1,31 +1,31 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 8f4658ecdbe40cde0c43a9ab127359347943c076
+  latest_verified_commit: 660f536300e23680c14b26373d111c07477f669a
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 6de79c2c931374dfa7e403c0626d8dd1ec0ed398
+  latest_verified_commit: d535b0804700d1f4320ad91fc8eb2c465d3e08c3
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
   tracking_ref: main
-  latest_verified_commit: 718aa8ccb12c3fdefcf3d196874e4fc667b3ade5
+  latest_verified_commit: 0dec8a8062078f3892bf67382834a4421086254c
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  latest_verified_commit: 1ec33ae1191ae6644365155f8e8f618145c44cd7
+  latest_verified_commit: 0356010ca068b4205bda4e2f5feffa7fbd5e38ae
   mode: git-clone
 t5x:
   url: https://github.com/google-research/t5x.git
   mirror_url: https://github.com/nvjax-svc-0/t5x.git
   tracking_ref: main
-  latest_verified_commit: 707995a3a8238e0c3557d3cc1318a883215c54c9
+  latest_verified_commit: ad6a629aa61f7353998482055feee597b651093f
   mode: git-clone
   patches:
     mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
@@ -35,7 +35,7 @@ t5x:
 lingvo:
   url: https://github.com/tensorflow/lingvo.git
   tracking_ref: master
-  latest_verified_commit: 05a076b0783a8bbf4a770095966c472bb37bbf65
+  latest_verified_commit: 0f2bcc1f73e763254200cb66b5cdedd39f2191f7
   mode: git-clone
 pydantic:
   version: X.Y.Z
@@ -44,12 +44,12 @@ pydantic:
 airio:
   url: https://github.com/google/airio.git
   tracking_ref: main
-  latest_verified_commit: 37109ff0d1059f885b9b11ef9058eca5d219d7cb
+  latest_verified_commit: c6531b3653c7453bcc0bcb5ae241f1191be1ae51
   mode: git-clone
 clu:
   url: https://github.com/google/CommonLoopUtils.git
   tracking_ref: main
-  latest_verified_commit: c50acb760902c94a89ad3f605edc2d094bc2a7a1
+  latest_verified_commit: a8152eb825dc04df8acdbb2b42fc89f9aafa37ba
   mode: pip-vcs
 dllogger:
   url: https://github.com/NVIDIA/dllogger.git
@@ -59,72 +59,72 @@ dllogger:
 jestimator:
   url: https://github.com/google-research/jestimator.git
   tracking_ref: main
-  latest_verified_commit: 6a57d35539f5193a9756a7cb846654e9b221b2e7
+  latest_verified_commit: 326824a477feef6d92e6f44175000907a72899ca
   mode: pip-vcs
 optax:
   url: https://github.com/google-deepmind/optax.git
   tracking_ref: main
-  latest_verified_commit: b4acf8eed4fe26f4b7be5337a8b72cde0ffbc3cf
+  latest_verified_commit: 7ca9b81984090f93108a8ce52116a86cbe531306
   mode: pip-vcs
 seqio:
   url: https://github.com/google/seqio.git
   tracking_ref: main
-  latest_verified_commit: 11706e4a1e01a81ea6b3e02c5ad147028d5b94bb
+  latest_verified_commit: 49213270cc20aaafaa06814502aad655d9275936
   mode: pip-vcs
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
-  latest_verified_commit: 78daad198544def8274dbd656d122fbe6a0e1129
+  latest_verified_commit: db89bbb818e7dc98ee9d3ad14db0a24f436f0c55
   mode: git-clone
 levanter:
   url: https://github.com/stanford-crfm/levanter.git
   tracking_ref: main
-  latest_verified_commit: 19829c2c360cc1b8e7975f540e612845e4877a69
+  latest_verified_commit: 5cd04e465a3d49a90f39be78a232afc2831b2f0b
   mode: git-clone
 haliax:
   url: https://github.com/stanford-crfm/haliax.git
   tracking_ref: main
-  latest_verified_commit: 2a696a0c971901ff93afdaa965959d8e3b982ba9
+  latest_verified_commit: 1882172fba6a619e286eabc88e7642e7cc92622c
   mode: git-clone
 mujoco:
   url: https://github.com/google-deepmind/mujoco.git
   tracking_ref: main
-  latest_verified_commit: e95159b4f6d48d114b16a8dc13ad26b3e44bc3e2
+  latest_verified_commit: d6943731b284ee51375147a3f7e520259cf2beb5
   mode: git-clone
 mujoco-mpc:
   url: https://github.com/google-deepmind/mujoco_mpc.git
   tracking_ref: main
-  latest_verified_commit: 4700f4a13be18398f5aaf6a33ed42e531967e3ae
+  latest_verified_commit: 9bd2037498056a0ab9cf9463ab841e40fef54142
   mode: git-clone
 language-to-reward-2023:
   url: https://github.com/google-deepmind/language_to_reward_2023.git
   tracking_ref: main
-  latest_verified_commit: abb8e5125e4ecd0da378490b73448c05a694def5
+  latest_verified_commit: 4a3a20f9c8705e3a3ded4d218d9c129303d9682e
   mode: git-clone
 mlperf-logging:
   url: https://github.com/mlcommons/logging.git
   tracking_ref: master
-  latest_verified_commit: 99ba37ac267c870d7c6c17e1837aa9180a37cdc1
+  latest_verified_commit: 7748a02cd06c1abc3a652ad41bc454cfaa46cbf9
   mode: pip-vcs
 gemma:
   url: https://github.com/google-deepmind/gemma.git
   tracking_ref: main
-  latest_verified_commit: 036083ab16843e09369a0138630687dba96d4d23
+  latest_verified_commit: c5d20663f5962d73b6345d0824627f322f8455e7
   mode: git-clone
 equinox:
   url: https://github.com/patrick-kidger/equinox.git
   tracking_ref: main
-  latest_verified_commit: 1e601672d38d2c4d483535070a3572d8e8508a20
+  latest_verified_commit: f0cf6c3ef91ccf152ecaa531e82aa67a0ff73f4a
   mode: git-clone
 big-vision:
   url: https://github.com/google-research/big_vision.git
   tracking_ref: main
-  latest_verified_commit: 70b22bb60c46023e50fd0f5d42e0f48f8dfe2fdb
+  latest_verified_commit: 6d6c28a9634fd2f48f0f505f112d063dfc9bdf96
   mode: git-clone
 common-loop-utils:
   url: https://github.com/google/CommonLoopUtils.git
   tracking_ref: main
-  latest_verified_commit: b172f5a21fbd6236ea9408ed94d0fc0b11bffe33
+  latest_verified_commit: a8152eb825dc04df8acdbb2b42fc89f9aafa37ba
   mode: git-clone
 flaxformer:
   url: https://github.com/google/flaxformer.git
@@ -139,10 +139,10 @@ panopticapi:
 orbax-checkpoint:
   url: https://github.com/google/orbax.git
   tracking_ref: main
-  latest_verified_commit: 16c2d409e365576284dbaf190ac002b24c1f927f
+  latest_verified_commit: 10f521a3f2412b8126c70aac1089d1dfbec709a8
   mode: pip-vcs
 pathwaysutils:
   url: https://github.com/google/pathways-utils.git
   tracking_ref: main
-  latest_verified_commit: 359776d454940ffaa337c36d1df16308d44a95a9
+  latest_verified_commit: 62b7526f00589050165b596fc045cd1592825108
   mode: pip-vcs
