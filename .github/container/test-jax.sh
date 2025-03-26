@@ -7,6 +7,7 @@ usage() {
     echo ""
     echo "Usage: $0 [OPTION]... TESTS"
     echo "  -b, --battery          Specify predefined test batteries to run."
+    echo "  --src-path-jax         Path to JAX source."
     echo "  --build-jaxlib         Runs the JAX tests using jaxlib built from source."
     echo "  --cache-test-results   yes|no|auto, passes through to bazel --cache_test_results"
     echo "  --reuse-jaxlib         Runs the JAX tests using preinstalled jaxlib. (DEFAULT)"
@@ -20,13 +21,15 @@ usage() {
     exit $1
 }
 
-jax_source_dir() {
-    dirname `python -c "import jax; print(*jax.__path__)"`
-}
+## Set default arguments if not provided via command-line
+SRC_PATH_JAX="/opt/jax"
+BUILD_JAXLIB=0
+CACHE_TEST_RESULTS=no
+ENABLE_X64=-1
 
 query_tests() {
-    cd `jax_source_dir`
-    python build/build.py build --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
+    cd ${SRC_PATH_JAX}
+    python build/build.py build --use_new_wheel_build_rule --wheels=jax,jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
     bazel query tests/... 2>&1 | grep -F '//tests:'
     exit
 }
@@ -40,17 +43,16 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-## Set default arguments if not provided via command-line
-BUILD_JAXLIB=0
-CACHE_TEST_RESULTS=no
-ENABLE_X64=-1
-
 ## parse arguments
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
     -b | --battery)
         BATTERY="$2"
+        shift 2
+        ;;
+    --src-path-jax)
+        SRC_PATH_JAX="$2"
         shift 2
         ;;
     --build-jaxlib)
@@ -85,6 +87,9 @@ while [ : ]; do
         ;;
   esac
 done
+
+## Set internal variables
+SRC_PATH_JAX=$(realpath $SRC_PATH_JAX)
 
 if [[ $# -eq 0 ]] && [[ -z "$BATTERY" ]]; then
     echo "No tests specified. Use '-q/--query' to see a list of all available tests."
@@ -123,7 +128,7 @@ COMMON_FLAGS=$(cat << EOF
 --test_env=XLA_PYTHON_CLIENT_PREALLOCATE=false
 --test_output=errors
 --java_runtime_version=remotejdk_11
---run_under `jax_source_dir`/build/parallel_accelerator_execute.sh
+--run_under ${SRC_PATH_JAX}/build/parallel_accelerator_execute.sh
 EOF
 )
 
@@ -182,7 +187,7 @@ set -ex
 
 ## Install dependencies
 
-pip install -r `jax_source_dir`/build/test-requirements.txt
+pip install -r ${SRC_PATH_JAX}/build/test-requirements.txt
 # Reason for manually installing matplotlib:
 # https://github.com/google/jax/commit/6b76937c530bd8ee185cc9e1991b3696bd10e831
 # https://github.com/google/jax/blob/6bc74d2a9874e1fe93a45191bb829c07dfee04fa/tests/BUILD#L134
@@ -190,6 +195,6 @@ pip install matplotlib
 
 ## Run tests
 
-cd `jax_source_dir`
-python build/build.py build --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
+cd ${SRC_PATH_JAX}
+python build/build.py build --use_new_wheel_build_rule --wheels=jax,jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
 bazel test ${BAZEL_TARGET} ${TEST_TAG_FILTERS} ${COMMON_FLAGS} ${EXTRA_FLAGS}
