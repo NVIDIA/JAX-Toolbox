@@ -154,9 +154,7 @@ We support and test the following JAX frameworks and model architectures. More d
         </a>
       </td>
       <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-upstream-t5x-mgmn-test-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-upstream-t5x-mgmn-test.json&logo=nvidia&label=A100%20distributed">
-        </a>
+        [tests disabled]
       </td>
     </tr>
     <tr>
@@ -280,6 +278,9 @@ For a list of previously used XLA flags that are no longer needed, please also r
 
 | First nightly with new base container | Base container |
 | ------------------------------------- | -------------- |
+| 2025-03-04 | nvcr.io/nvidia/cuda-dl-base:25.02-cuda12.8-devel-ubuntu24.04 |
+| 2025-01-31 | nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04 |
+| 2025-01-28 | nvcr.io/nvidia/cuda-dl-base:24.11-cuda12.6-devel-ubuntu24.04 |
 | 2024-12-07 | nvidia/cuda:12.6.3-devel-ubuntu22.04 |
 | 2024-11-06 | nvidia/cuda:12.6.2-devel-ubuntu22.04 |
 | 2024-09-25 | nvidia/cuda:12.6.1-devel-ubuntu22.04 |

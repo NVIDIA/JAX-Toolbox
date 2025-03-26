@@ -373,24 +373,6 @@ jobs:
       ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
       FW_NAME: ${{ inputs.FW_NAME }}
 
-  summary:
-    name: test-maxtext-summary
-    runs-on: ubuntu-22.04
-    needs: [single-process-multi-device, maxtext-multinode]
-    if: "!cancelled()"
-    steps:
-      - name: Generate TensorBoard query URL
-        run: |
-          (
-          cat << EOF
-
-          ## MaxText training
-
-          [view metrics](https://${{ vars.HOSTNAME_TENSORBOARD }}/#scalars&regexInput=${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}&_smoothingWeight=0&tagFilter=seqs_per)
-
-          EOF
-          ) | tee $GITHUB_STEP_SUMMARY
-
   outcome:
     name: test-maxtext-outcome
     needs: sitrep
