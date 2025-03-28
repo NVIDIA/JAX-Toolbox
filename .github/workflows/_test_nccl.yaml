@@ -3,12 +3,9 @@ name: ~run NCCL tests
 on:
   workflow_call:
     inputs:
-      # Note that cuda-dl-base installs the NCCL tests, while the vanilla nvidia/cuda
-      # images do not; when JAX-Toolbox moves to using cuda-dl-base this workflow ought
-      # to be modified to test one of the JAX-Toolbox containers.
       CONTAINER:
         type: string
-        description: CUDA image to use as base, e.g. nvcr.io/nvidia/cuda-dl-base:24.11-cuda12.6-devel-ubuntu24.04
+        description: Container to test; assumed to already contain {all_gather,all_reduce,broadcast,reduce_scatter}_perf_mpi in $PATH
         required: true
 
 permissions:
