@@ -1,6 +1,42 @@
-## PGLE Workflow for GPU with NSight profiler
-This doc will describe the steps to run with PGLE (Profile Guided Latency Estimator) support.
+# PGLE workflows
+There are three ways of using PGLE (Profile Guided Latency Estimator) optimization on
+GPU.
+The [JAX documentation](
+https://docs.jax.dev/en/latest/gpu_performance_tips.html#auto-and-manual-pgle)
+describes the **recommended** AutoPGLE workflow, and an alternative manual PGLE
+workflow using the built-in JAX profiler.
 
+**Important**: the JAX profiler, which is used by both of the workflows documented
+above, cannot co-exist with the NVIDIA Nsight Systems profiler. This limitation can be
+avoided by using the JAX compilation cache, as described in the next section.
+
+This page describes an alternative manual PGLE workflow using the NVIDIA Nsight Systems
+profiler. It is no longer recommended, but this documentation has been kept for
+completeness.
+
+## Collecting NVIDIA Nsight Systems profiles when using AutoPGLE
+[jax#24910](https://github.com/jax-ml/jax/pull/24910) (JAX v0.5.1 and newer) added a
+new JAX configuration option, `JAX_COMPILATION_CACHE_EXPECT_PGLE`, which tells JAX to
+attempt to load PGLE-optimized compiled functions from the persistent compilation
+cache.
+
+This allows a two-step process, where the first step writes a PGLE-optimized function
+to the cache:
+```bash
+export JAX_ENABLE_COMPILATION_CACHE=yes          # not strictly needed, on by default
+export JAX_COMPILATION_CACHE_DIR=/root/jax_cache
+JAX_ENABLE_PGLE=yes python my-model.py
+```
+And the second step uses Nsight Systems and loads the PGLE-optimized function from the
+cache:
+```bash
+JAX_COMPILATION_CACHE_EXPECT_PGLE=yes nsys profile python my-model.py
+```
+See also the [JAX documentation](
+https://docs.jax.dev/en/latest/persistent_compilation_cache.html#pitfalls) for more
+information about the persistent compilation cache and possible pitfalls.
+
+## PGLE Workflow for GPU with NSight profiler (no longer recommended)
 On high-level, the **Profile Guided Latency Estimator (PGLE)** workflow measures the actual running time of compute and collectives. This profile information is then fed back into XLA compiler for a better scheduling decision. The first run is basically a *"Profile"* run and then the second run is basically the *"Performance"* run.
 
 The workflow to use the Profile Guided Latency Estimator with Nsight Systems (Nsys) in XLA/GPU is:
