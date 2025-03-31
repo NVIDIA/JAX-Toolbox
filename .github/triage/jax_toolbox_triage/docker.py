@@ -77,3 +77,16 @@ class DockerContainer:
             self._logger.fatal(result.stderr)
             result.check_returncode()
         return result
+
+    def exists(self) -> bool:
+        """
+        Check if the given container exists.
+        """
+        result = subprocess.run(
+            ["docker", "pull", self._url],
+            stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+        )
+        self._logger.debug(result.stdout)
+        return result.returncode == 0

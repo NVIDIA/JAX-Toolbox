@@ -11,7 +11,6 @@ from .docker import DockerContainer
 from .logic import commit_search, container_search, TestResult
 from .pyxis import PyxisContainer
 from .utils import (
-    container_exists as container_exists_base,
     container_url as container_url_base,
     get_logger,
     prepare_bazel_cache_mounts,
@@ -27,17 +26,11 @@ def main():
         f"{(args.output_prefix / 'debug.log').resolve()}"
     )
     container_url = functools.partial(container_url_base, container=args.container)
-    container_exists = functools.partial(
-        container_exists_base, container=args.container, logger=logger
-    )
     Container = functools.partial(
         DockerContainer if args.container_runtime == "docker" else PyxisContainer,
         logger=logger,
         mounts=bazel_cache_mounts + args.container_mount,
     )
-    bazel_cache_mount_args = []
-    for src, dst in bazel_cache_mounts:
-        bazel_cache_mount_args += ["-v", f"{src}:{dst}"]
 
     def add_summary_record(section, record, scalar=False):
         """
@@ -61,7 +54,9 @@ def main():
         with open(summary_filename, "w") as ofile:
             json.dump(data, ofile)
 
-    def get_commit(container: DockerContainer, repo: str) -> typing.Tuple[str, str]:
+    def get_commit(
+        container: DockerContainer | PyxisContainer, repo: str
+    ) -> typing.Tuple[str, str]:
         """
         Get the commit of the given repository that was used in the given nightly container
 
@@ -71,15 +66,17 @@ def main():
         """
         assert repo in {"jax", "xla"}
         # Older containers used /opt/jax-source etc.
+        results = []
         for suffix in ["", "-source"]:
             dirname = f"/opt/{repo}{suffix}"
             result = container.exec(["git", "rev-parse", "HEAD"], workdir=dirname)
+            results.append(result)
             if result.returncode == 0:
                 commit = result.stdout.strip()
                 if len(commit) == 40:
                     return commit, dirname
         raise Exception(
-            f"Could not extract commit of {repo} from {args.container} container {container}"
+            f"Could not extract commit of {repo} from {args.container} container {container}: {' '.join(map(str, results))}"
         )
 
     def check_container(date: datetime.date) -> TestResult:
@@ -118,7 +115,7 @@ def main():
         # Search through the published containers, narrowing down to a pair of dates with
         # the property that the test passed on `range_start` and fails on `range_end`.
         range_start, range_end = container_search(
-            container_exists=container_exists,
+            container_exists=lambda date: Container(container_url(date)).exists(),
             container_passes=check_container,
             start_date=args.start_date,
             end_date=args.end_date,

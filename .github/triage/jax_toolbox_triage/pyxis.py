@@ -63,3 +63,18 @@ class PyxisContainer:
             self._logger.fatal(result.stderr)
             result.check_returncode()
         return result
+
+    def exists(self) -> bool:
+        result = subprocess.run(
+            [
+                "srun",
+                f"--container-image={self._url}",
+                f"--container-name={self._name}",
+                "true",
+            ],
+            encoding="utf-8",
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        self._logger.debug(result.stdout)
+        return result.returncode == 0
