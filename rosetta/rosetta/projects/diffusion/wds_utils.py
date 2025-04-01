@@ -467,7 +467,7 @@ def get_mm_wds_from_urls(cfg: WebDatasetConfig, batch_size:int =-1) -> Tuple[Any
         if m.ftype is not None:
             in_ftypes.append(m.ftype)
         unpack_assign_or_assign(key=k, value=m.shape, dictionary=out_shapes)
-        unpack_assign_or_assign(key=k, value=jax.tree_map(type_proc, m.out_type), dictionary=out_types)
+        unpack_assign_or_assign(key=k, value=jax.tree_util.tree_map(type_proc, m.out_type), dictionary=out_types)
 
     # Inference Server determination
     if server_list is None:
@@ -515,7 +515,7 @@ def get_random_wds(cfg: WebDatasetConfig) -> Tuple[Any, Mapping[str, Tuple[int]]
         if m.ftype is not None:
             in_ftypes.append(m.ftype)
         unpack_assign_or_assign(key=k, value=m.shape, dictionary=out_shapes)
-        unpack_assign_or_assign(key=k, value=jax.tree_map(type_proc, m.out_type), dictionary=out_types)
+        unpack_assign_or_assign(key=k, value=jax.tree_util.tree_map(type_proc, m.out_type), dictionary=out_types)
 
     preprocessor = functools.partial(run_preproc, keys=keys, modalities=modalities)
     def random_generator(wds_config: WebDatasetConfig, num_elements: int = 100):
@@ -525,7 +525,7 @@ def get_random_wds(cfg: WebDatasetConfig) -> Tuple[Any, Mapping[str, Tuple[int]]
                 if isinstance(modality_config.shape, (tuple, list)):
                     datum[modality_config.ftype] = np.random.randint(size=modality_config.shape, low=0, high=2).astype(modality_config.out_type)
                 else:
-                    datum[modality_config.ftype] = jax.tree_map(
+                    datum[modality_config.ftype] = jax.tree_util.tree_map(
                         lambda shape, dtype: np.random.randint(size=shape, low=0, high=2).astype(dtype),
                         modality_config.shape,
                         modality_config.out_type,
