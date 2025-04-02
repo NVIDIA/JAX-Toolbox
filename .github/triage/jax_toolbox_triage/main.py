@@ -211,9 +211,6 @@ def main():
             )
             build_jax = [
                 "build-jax.sh",
-                # Leave the editable /opt/jax[-source] installation alone. Otherwise
-                # test-jax.sh is broken by having a /usr/... installation directory.
-                "--jaxlib_only",
                 # Workaround bugs in old containers where the default was wrong.
                 "--src-path-jax",
                 jax_dir,
