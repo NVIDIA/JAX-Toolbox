@@ -20,6 +20,15 @@ class PyxisContainer:
         self._url = url
 
     def __enter__(self):
+        # Workaround for pyxis backend with some bazel versions
+        # https://github.com/bazelbuild/bazel/issues/22955#issuecomment-2293899428
+        self.check_exec(
+            [
+                "sh",
+                "-c",
+                "echo 'startup --host_jvm_args=-XX:-UseContainerSupport' > /root/.bazelrc",
+            ]
+        )
         return self
 
     def __exit__(self, *exc_info):
