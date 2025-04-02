@@ -85,10 +85,10 @@ def main():
         """
         before = time.monotonic()
         with Container(container_url(date)) as worker:
+            jax_commit, _ = get_commit(worker, "jax")
+            xla_commit, _ = get_commit(worker, "xla")
             result = worker.exec(args.test_command)
             test_time = time.monotonic() - before
-            jax_commit = get_commit(worker, "jax")
-            xla_commit = get_commit(worker, "xla")
 
         test_pass = result.returncode == 0
         logger.info(f"Ran test case in {date} in {test_time:.1f}s, pass={test_pass}")
@@ -195,6 +195,9 @@ def main():
             logger.info(f"Checking out XLA {xla_commit} JAX {jax_commit}")
             # Build JAX
             before = time.monotonic()
+            # Unfortunately the build system does not always seem to handle incremental
+            # rebuilds correctly.
+            worker.check_exec(["bazel", "clean", "--expunge"], workdir=jax_dir)
             build_jax = [
                 "build-jax.sh",
                 f"--bazel-cache={args.bazel_cache}",
