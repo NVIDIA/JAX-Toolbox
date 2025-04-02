@@ -18,7 +18,7 @@ from .utils import (
 
 
 def get_commit(
-    container: DockerContainer | PyxisContainer, repo: str
+    container: typing.Union[DockerContainer, PyxisContainer], repo: str
 ) -> typing.Tuple[str, str]:
     """
     Get the commit of the given repository that was used in the given nightly container
