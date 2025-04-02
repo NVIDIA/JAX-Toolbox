@@ -199,9 +199,12 @@ def main():
                 "build-jax.sh",
                 f"--bazel-cache={args.bazel_cache}",
             ]
-            worker.check_exec(build_jax, workdir=jax_dir)
+            build_result = worker.check_exec(build_jax, workdir=jax_dir)
             middle = time.monotonic()
             logger.info(f"Build completed in {middle - before:.1f}s")
+            logger.debug(
+                f"Build stdout:\n{build_result.stdout}\nBuild stderr:\n{build_result.stderr}"
+            )
             # Run the test
             test_result = worker.exec(args.test_command)
             test_time = time.monotonic() - middle
