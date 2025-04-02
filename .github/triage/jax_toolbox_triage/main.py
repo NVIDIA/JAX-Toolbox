@@ -195,25 +195,8 @@ def main():
             logger.info(f"Checking out XLA {xla_commit} JAX {jax_commit}")
             # Build JAX
             before = time.monotonic()
-            # Next two are workarounds for bugs in old containers
-            worker.check_exec(["sh", "-c", f"rm -vf {jax_dir}/dist/jaxlib-*.whl"])
-            # This will error out on newer containers, but that should be harmless
-            worker.exec(
-                [
-                    "cp",
-                    f"{jax_dir}/jax/version.py",
-                    f"{jax_dir}/build/lib/jax/version.py",
-                ]
-            )
-            # It seemed that this might be the origin of flaky behaviour.
-            worker.check_exec(
-                ["sh", "-c", "echo 'test --cache_test_results=no' > /root/.bazelrc"]
-            )
             build_jax = [
                 "build-jax.sh",
-                # Workaround bugs in old containers where the default was wrong.
-                "--src-path-jax",
-                jax_dir,
                 f"--bazel-cache={args.bazel_cache}",
             ]
             worker.check_exec(build_jax, workdir=jax_dir)
