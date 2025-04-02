@@ -19,6 +19,7 @@ class DockerContainer:
         self._url = url
 
     def __enter__(self):
+        self._logger.debug(f"Launching {self}")
         result = subprocess.run(
             [
                 "docker",
@@ -50,6 +51,9 @@ class DockerContainer:
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
         )
+
+    def __repr__(self):
+        return f"Docker({self._url})"
 
     def exec(
         self, command: typing.List[str], workdir=None

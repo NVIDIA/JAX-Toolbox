@@ -17,6 +17,32 @@ from .utils import (
 )
 
 
+def get_commit(
+    container: DockerContainer | PyxisContainer, repo: str
+) -> typing.Tuple[str, str]:
+    """
+    Get the commit of the given repository that was used in the given nightly container
+
+    Arguments:
+    date: nightly container date
+    repo: repository, must be jax or xla
+    """
+    assert repo in {"jax", "xla"}
+    # Older containers used /opt/jax-source etc.
+    results = []
+    for suffix in ["", "-source"]:
+        dirname = f"/opt/{repo}{suffix}"
+        result = container.exec(["git", "rev-parse", "HEAD"], workdir=dirname)
+        results.append(result)
+        if result.returncode == 0:
+            commit = result.stdout.strip()
+            if len(commit) == 40:
+                return commit, dirname
+    raise Exception(
+        f"Could not extract commit of {repo} from {container}: {' '.join(map(str, results))}"
+    )
+
+
 def main():
     args = parse_args()
     bazel_cache_mounts = prepare_bazel_cache_mounts(args.bazel_cache)
@@ -54,31 +80,6 @@ def main():
         with open(summary_filename, "w") as ofile:
             json.dump(data, ofile)
 
-    def get_commit(
-        container: DockerContainer | PyxisContainer, repo: str
-    ) -> typing.Tuple[str, str]:
-        """
-        Get the commit of the given repository that was used in the given nightly container
-
-        Arguments:
-        date: nightly container date
-        repo: repository, must be jax or xla
-        """
-        assert repo in {"jax", "xla"}
-        # Older containers used /opt/jax-source etc.
-        results = []
-        for suffix in ["", "-source"]:
-            dirname = f"/opt/{repo}{suffix}"
-            result = container.exec(["git", "rev-parse", "HEAD"], workdir=dirname)
-            results.append(result)
-            if result.returncode == 0:
-                commit = result.stdout.strip()
-                if len(commit) == 40:
-                    return commit, dirname
-        raise Exception(
-            f"Could not extract commit of {repo} from {args.container} container {container}: {' '.join(map(str, results))}"
-        )
-
     def check_container(date: datetime.date) -> TestResult:
         """
         See if the test passes in the given container.
@@ -89,9 +90,10 @@ def main():
             xla_commit, _ = get_commit(worker, "xla")
             result = worker.exec(args.test_command)
             test_time = time.monotonic() - before
-
-        test_pass = result.returncode == 0
-        logger.info(f"Ran test case in {date} in {test_time:.1f}s, pass={test_pass}")
+            test_pass = result.returncode == 0
+            logger.info(
+                f"Ran test case in {worker} in {test_time:.1f}s, pass={test_pass}"
+            )
         logger.debug(result.stdout)
         logger.debug(result.stderr)
         add_summary_record(
@@ -142,7 +144,7 @@ def main():
         logger.info(
             (
                 f"Bisecting JAX [{start_jax_commit}, {end_jax_commit}] and "
-                f"XLA [{start_xla_commit}, {end_xla_commit}] using {failing_url}"
+                f"XLA [{start_xla_commit}, {end_xla_commit}] using {worker}"
             )
         )
 

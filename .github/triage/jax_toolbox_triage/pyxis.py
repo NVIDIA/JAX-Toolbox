@@ -20,6 +20,7 @@ class PyxisContainer:
         self._url = url
 
     def __enter__(self):
+        self._logger.debug(f"Launching {self}")
         # Workaround for pyxis backend with some bazel versions
         # https://github.com/bazelbuild/bazel/issues/22955#issuecomment-2293899428
         self.check_exec(
@@ -33,6 +34,9 @@ class PyxisContainer:
 
     def __exit__(self, *exc_info):
         pass
+
+    def __repr__(self):
+        return f"Pyxis({self._url})"
 
     def exec(
         self, command: typing.List[str], workdir=None
