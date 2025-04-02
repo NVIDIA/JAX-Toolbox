@@ -29,7 +29,7 @@ ENABLE_X64=-1
 
 query_tests() {
     cd ${SRC_PATH_JAX}
-    python build/build.py build --use_new_wheel_build_rule --wheels=jax,jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
+    python build/build.py build --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
     bazel query tests/... 2>&1 | grep -F '//tests:'
     exit
 }
@@ -196,5 +196,5 @@ pip install matplotlib
 ## Run tests
 
 cd ${SRC_PATH_JAX}
-python build/build.py build --use_new_wheel_build_rule --wheels=jax,jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
+python build/build.py build --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
 bazel test ${BAZEL_TARGET} ${TEST_TAG_FILTERS} ${COMMON_FLAGS} ${EXTRA_FLAGS}
