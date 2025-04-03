@@ -24,6 +24,25 @@ from axlearn.common.utils import (
 
 FLAGS = flags.FLAGS
 
+MODELS_INFO = {
+    "fuji-7B-v2-flash": {
+        "n_layers": 32,
+        "hidden_size": 4096,
+        "ffn_hidden_size": 11008,
+        "n_heads": 32,
+        "n_query_group": 32,
+        "vocab_size": 32768,
+    },
+    "fuji-70B-v2-flash": {
+        "n_layers": 80,
+        "hidden_size": 8192,
+        "ffn_hidden_size": 28672,
+        "n_heads": 64,
+        "n_query_group": 8,
+        "vocab_size": 32768,
+    },
+}
+
 parser = argparse.ArgumentParser(description="Custom parallelism args")
 parser.add_argument(
     "--ici_pp", type=int, default=1, help="Intranode pipeline parallelism size."
@@ -95,17 +114,38 @@ parser.add_argument(
 parser.add_argument("--world_size", type=int, help="Total number of GPUs")
 
 
-def extract_metrics(input_file: str, gbs: int, seq_len: int, world_size: int):
+def extract_metrics(
+    input_file: str, gbs: int, mbs: int, seq_len: int, world_size: int, config: str
+):
     """Extract tokens/sec/GPU and Seq/sec/GPU metrics
 
     Args:
         input_file:  str, input log file
         gbs: int, global batch size
+        mbs: int, microbatch size
         seq_len: int, max sequence length
         world_size: int, number of GPUs
+        config: str, model
 
     Returns:
     """
+    # model flops per iteration (ref https://arxiv.org/pdf/2205.05198 App. A)
+    n_layers = MODELS_INFO[config]["n_layers"]
+    hidden_size = MODELS_INFO[config]["hidden_size"]
+    vocab_size = MODELS_INFO[config]["vocab_size"]
+    model_flop_per_iteration = (
+        72
+        * mbs
+        * n_layers
+        * seq_len
+        * (hidden_size**2)
+        * (
+            1
+            + (seq_len / (6 * hidden_size))
+            + (vocab_size / (12 * hidden_size * n_layers))
+        )
+    )
+
     pattern = re.compile(r"Average step time:\s+([0-9.]+)\s+seconds")
     times = []
     with open(input_file, "r") as f:
@@ -128,6 +168,10 @@ def extract_metrics(input_file: str, gbs: int, seq_len: int, world_size: int):
     # Metrics
     tokens_per_sec_gpu = (gbs * seq_len) / times_arr / world_size
     seqs_per_sec_gpu = (gbs) / times_arr / world_size
+    # tflops/s/n_devices TO CHECK IF WE NEED A /100 for n-iterations
+    tflops_s_devices = model_flop_per_iteration / times_arr / world_size / 10**12
+
+    print(f"DEBUG: tflops_s_devices: {tflops_s_devices} ")
 
     return {
         "tokens_per_sec_gpu_mean": float(tokens_per_sec_gpu.mean()),
@@ -252,8 +296,15 @@ def main(parsed_args):
                 trainer_config=trainer_config,
             )
     # extract metrics
+    # compute the microbatch size
+    mbs = gbs_size // (dcn_dp_size * ga_size)
     perf_nums = extract_metrics(
-        input_file=output_log_file, gbs=gbs_size, seq_len=seq_len, world_size=world_size
+        input_file=output_log_file,
+        gbs=gbs_size,
+        mbs=mbs,
+        seq_len=seq_len,
+        world_size=world_size,
+        config=config_name,
     )
 
     print(f"""Extracted metrics:
