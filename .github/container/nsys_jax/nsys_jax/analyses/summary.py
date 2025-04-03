@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import math
 from nsys_jax import (
     apply_warmup_heuristics,
     ensure_compiled_protos_are_importable,
@@ -8,6 +9,8 @@ from nsys_jax import (
     remove_autotuning_detail,
 )
 import pathlib
+from prettytable import PrettyTable
+from uncertainties import ufloat  # type: ignore
 
 
 def main():
@@ -45,12 +48,59 @@ def main():
         / module_stats[("ProjDurMs", "sum")].sum()
     )
 
+    if steady_state.communication is not None and len(steady_state.communication):
+        # Calculate the time spent waiting in collectives for each module.
+        # Min/max over devices within individual communication thunk executions
+        min_max_device_times = (
+            steady_state.communication["ProjDurMs"]
+            .groupby(["ProgramId", "ProgramExecution", "Name", "ThunkExecution"])
+            .agg(("min", "max"))
+        )
+        # Define wait time as max-min *exposed* communication thunk times
+        thunk_wait_times = min_max_device_times["max"] - min_max_device_times["min"]
+        # Sum over thunks within each module
+        module_wait_times = thunk_wait_times.groupby(
+            ["ProgramId", "ProgramExecution"]
+        ).agg("sum")
+        # Stats over different executions of the module
+        wait_averages = module_wait_times.groupby("ProgramId").agg(("mean", "std"))
+        module_stats[("WaitMs", "mean")] = wait_averages["mean"]
+        module_stats[("WaitMs", "std")] = wait_averages["std"]
+        module_stats[("WaitMs", "percent")] = (
+            100 * wait_averages["mean"] / module_stats[("ProjDurMs", "mean")]
+        )
+
     def dump(fname, df):
         with open(fname + ".json", "w") as ofile:
             df.to_json(ofile, orient="split")
 
     dump("module-stats", module_stats)
-    print(f" === MODULE EXECUTION SUMMARY ===\n{module_stats}")
+    print(" === MODULE EXECUTION SUMMARY ===")
+    fields = {
+        "ID": lambda _, v: str(v),
+        "Name": lambda _, v: v,
+        "#execs": lambda _, v: str(v),
+        "Thunks": lambda _, v: f"{v:S}" if v.s else f"{v.n:.0f}",
+        "Duration [ms]": lambda _, v: f"{v:S}",
+        "Duration [%]": lambda _, v: f"{v:.3f}",
+        "Wait time [ms]": lambda _, v: "---" if math.isnan(v.n) else f"{v:S}",
+        "Wait time [%]": lambda _, v: "---" if math.isnan(v) else f"{v:.3f}",
+    }
+    table = PrettyTable(align="r", custom_format=fields, field_names=fields.keys())
+    for id, row in module_stats.iterrows():
+        table.add_row(
+            [
+                id,
+                row[("Name", "first")],
+                row[("Name", "count")],
+                ufloat(row[("NumThunks", "mean")], row[("NumThunks", "std")]),
+                ufloat(row[("ProjDurMs", "mean")], row[("ProjDurMs", "std")]),
+                row[("ProjDurMs", "percent")],
+                ufloat(row[("WaitMs", "mean")], row[("WaitMs", "std")]),
+                row[("WaitMs", "percent")],
+            ]
+        )
+    print(table)
 
     compilation_stats = generate_compilation_statistics(init.compile)
     if len(compilation_stats):

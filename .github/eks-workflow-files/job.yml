@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: jax-headless-svc
+  name: PLACEHOLDER
 spec:
   clusterIP: None # clusterIP must be None to create a headless service
   selector:
@@ -19,7 +19,7 @@ spec:
   completionMode: Indexed
   template:
     spec:
-      subdomain: jax-headless-svc # has to match Service name
+      subdomain: PLACEHOLDER # has to match Service name
       restartPolicy: Never
       containers:
         - name: jax
@@ -30,13 +30,12 @@ spec:
             - sh
             - -c
             - |
-              install-efa.sh
               nsys-jax \
               --output=/opt/output/${JOB_NAME}-rank%q{JOB_COMPLETION_INDEX}.zip \
               -- \
               jax-nccl-test \
               --coordinator-address \
-              ${JOB_NAME}-0.jax-headless-svc:3389 \
+              ${JOB_NAME}-0.${SERVICE_NAME}:3389 \
               --distributed \
               --gpus-per-process=8 \
               --process-count=2 \
@@ -44,6 +43,8 @@ spec:
               touch /opt/output/.done
           env:
             - name: JOB_NAME
+              value: PLACEHOLDER
+            - name: SERVICE_NAME
               value: PLACEHOLDER
             - name: XLA_FLAGS
               value: --xla_gpu_enable_command_buffer=

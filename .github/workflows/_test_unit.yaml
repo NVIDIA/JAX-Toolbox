@@ -104,6 +104,9 @@ jobs:
             fi
             echo "badge_message=${passed_tests}/${total_tests} passed" >> $GITHUB_OUTPUT
             echo "summary=${{ inputs.TEST_NAME }} unit test on ${{ matrix.GPU_ARCH }}: ${total_tests} total tests, ${errors} errors, ${passed_tests} passed, ${failed_tests} failed." >> $GITHUB_OUTPUT
+            if [[ ${passed_tests} < ${total_tests} ]]; then
+              exit 1
+            fi
           fi
 
       - name: Generate sitrep

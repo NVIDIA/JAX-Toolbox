@@ -411,6 +411,8 @@ jobs:
     env:
       JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
       JOB_NAME: ${{ github.run_id }}-nsys-jax
+      # Service name cannot start with a number
+      SERVICE_NAME: svc-${{ github.run_id}}-nsys-jax
       POSTPROCESS_JOB_NAME: ${{ github.run_id }}-nsys-jax-postprocess
     steps:
     - name: Check out the repository
@@ -427,10 +429,13 @@ jobs:
     - name: Configure Kubernetes job
       run: |
         yq -i ea 'select(di == 0).spec.selector.job-name = strenv(JOB_NAME)
+          | select(di == 0).metadata.name = strenv(SERVICE_NAME)
           | select(di == 1).metadata.name = strenv(JOB_NAME)
+          | select(di == 1).spec.template.spec.subdomain = strenv(SERVICE_NAME)
           | select(di == 1).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
           | select(di == 1).spec.template.spec.containers[0].image = strenv(JAX_DOCKER_IMAGE)
-          | select(di == 1).spec.template.spec.containers[0].env[0].value = strenv(JOB_NAME)' \
+          | select(di == 1).spec.template.spec.containers[0].env[0].value = strenv(JOB_NAME)
+          | select(di == 1).spec.template.spec.containers[0].env[1].value = strenv(SERVICE_NAME)' \
           .github/eks-workflow-files/job.yml
         git diff .github/eks-workflow-files/job.yml
     - name: Submit Kubernetes job
@@ -538,14 +543,6 @@ jobs:
         pytest-report-L0-unittest.jsonl
         pytest-report-L0-distributed-unittest.jsonl
         pytest-report-L1-distributed-unittest.jsonl
-  test-upstream-t5x:
-    needs: build-upstream-t5x
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-    uses: ./.github/workflows/_test_upstream_t5x.yaml
-    with:
-      T5X_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}
-    secrets: inherit
-
   test-rosetta-t5x:
     needs: build-rosetta-t5x
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
@@ -564,7 +561,7 @@ jobs:
         docker run -i --gpus all --shm-size=1g \
         ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-levanter.log
-          pip install flake8 pytest soundfile librosa
+          pip install flake8 pytest pytest-asyncio soundfile tensorboardx librosa
           PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests -m "not entry and not slow and not ray"
         EOF
       STATISTICS_SCRIPT: |
