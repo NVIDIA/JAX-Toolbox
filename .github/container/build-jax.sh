@@ -318,13 +318,19 @@ else
 fi
 
 # install jax and jaxlib
-pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax-cuda-pjrt -e ${BUILD_PATH_JAXLIB}/jax-cuda-plugin -e "${SRC_PATH_JAX}"
+## update jax/setup.py to accept recently built jaxlib
+pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax-cuda-pjrt -e ${BUILD_PATH_JAXLIB}/jax-cuda-plugin 
+jaxlib_version=$(pip show jaxlib | grep Version | tr ':' '\n' | tail -1)
+sed -i "s|^_current_jaxlib_version.*|_current_jaxlib_version = '${jaxlib_version}'|" /opt/jax/setup.py
+sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
+pip --disable-pip-version-check install -e "${SRC_PATH_JAX}"
 ## after installation (example)
 # jax                     0.5.4.dev20250325    /opt/jaxlibs/jax
 # jax-cuda12-pjrt         0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_pjrt
 # jax-cuda12-plugin       0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_plugin
 # jaxlib                  0.5.4.dev20250325    /opt/jaxlibs/jaxlib
 pip list | grep jax
+
 
 # Ensure directories are readable by all for non-root users
 chmod 755 $BUILD_PATH_JAXLIB/*
