@@ -26,7 +26,7 @@ on:
 
 jobs:
   runner:
-    uses: ./.github/workflows/_runner_ondemand_slurm.yaml
+    uses: ./.github/workflows/_test_slurm_pyxis.yaml
     with:
       NAME: "A100"
       LABELS: "A100,${{ github.run_id }}"
