@@ -25,6 +25,14 @@ from axlearn.common.utils import (
 FLAGS = flags.FLAGS
 
 MODELS_INFO = {
+    "fuji-1B-v3-flash": {
+        "n_layers": 16,
+        "hidden_size": 2048,
+        "ffn_hidden_size": 8192,
+        "n_heads": 32,
+        "n_query_group": 8,
+        "vocab_size": 131072,
+    },
     "fuji-3B-v3-flash": {
         "n_layers": 28,
         "hidden_size": 3072,
