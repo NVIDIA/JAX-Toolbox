@@ -31,6 +31,7 @@ echo >> ${SRC_PATH_MAXTEXT}/requirements.txt
 for requirement in \
     "tensorflow-metadata>=1.15.0" \
     "seqio@git+https://github.com/google/seqio.git" \
+    "werkzeug>=3.0.3" \
   ; do
     echo "${requirement}" >> ${SRC_PATH_MAXTEXT}/requirements.txt
 done
