@@ -235,7 +235,7 @@ def _remove_padding(all_inferences, all_indices):
   """
   non_pad_idxs = np.where(all_indices >= 0)
   all_indices = all_indices[non_pad_idxs]
-  all_inferences = jax.tree_map(lambda x: x[non_pad_idxs], all_inferences)
+  all_inferences = jax.tree_util.tree_map(lambda x: x[non_pad_idxs], all_inferences)
   return all_inferences, all_indices
 
 
@@ -305,7 +305,7 @@ def get_infer_fn(infer_step: InferStepCallable, batch_size: int,
   def infer_fn(ds: tf.data.Dataset,
                train_state: train_state_lib.TrainState,
                rng: Optional[jnp.ndarray] = None):
-    ds_shapes = jax.tree_map(lambda x: jnp.array(x.shape), ds.element_spec)
+    ds_shapes = jax.tree_util.tree_map(lambda x: jnp.array(x.shape), ds.element_spec)
     ds = ds.enumerate()
     multihost_assert_equal(
         ds_shapes, 'Dataset element shapes do not agree across hosts. '
@@ -359,7 +359,7 @@ def get_infer_fn(infer_step: InferStepCallable, batch_size: int,
       # returns de-sharded batched indices and result replicated on all hosts.
 
       if jax.config.jax_array and jax.process_count() > 1:
-        logging.info('in array conf. array shape is ' + str(jax.tree_map(lambda x: x.shape, infer_batch)))
+        logging.info('in array conf. array shape is ' + str(jax.tree_util.tree_map(lambda x: x.shape, infer_batch)))
         inputs = multihost_utils.host_local_array_to_global_array(
             (infer_batch, step_rng, index), partitioner.mesh,
             (partitioner.data_partition_spec, None,
@@ -379,8 +379,8 @@ def get_infer_fn(infer_step: InferStepCallable, batch_size: int,
             batch_indices, batch_result = multihost_utils.global_array_to_host_local_array(
                 (batch_indices, batch_result), partitioner.mesh, (None, None))
 
-        logging.info('out shape' + str(jax.tree_map(lambda x: x.shape, batch_result)))
-        logging.info('out idx shape' + str(jax.tree_map(lambda x: x.shape, batch_indices)))
+        logging.info('out shape' + str(jax.tree_util.tree_map(lambda x: x.shape, batch_result)))
+        logging.info('out idx shape' + str(jax.tree_util.tree_map(lambda x: x.shape, batch_indices)))
       else:
         if return_batch:
             batch_indices, batch_result, batch_ret = partitioned_infer_step(
@@ -401,8 +401,8 @@ def get_infer_fn(infer_step: InferStepCallable, batch_size: int,
           return x
 
       try:
-        logging.info("full result " + str(jax.tree_map(lambda x: x.shape, batch_result)))
-        batch_result = jax.tree_map(_copy_to_host_async, batch_result)
+        logging.info("full result " + str(jax.tree_util.tree_map(lambda x: x.shape, batch_result)))
+        batch_result = jax.tree_util.tree_map(_copy_to_host_async, batch_result)
         if return_batch_keys:
             if return_batch_keys == True:
                 ret = batch_ret
@@ -413,12 +413,12 @@ def get_infer_fn(infer_step: InferStepCallable, batch_size: int,
             batch_return = ret 
         else:
             batch_return = None
-        batch_indices = jax.tree_map(_copy_to_host_async, batch_indices)
+        batch_indices = jax.tree_util.tree_map(_copy_to_host_async, batch_indices)
       except AttributeError:
         # Similar to jax.device_get, we skip transfers for non DeviceArrays.
         pass
 
-      logging.info('out idx shape after copy' + str(jax.tree_map(lambda x: x.shape, batch_indices)))
+      logging.info('out idx shape after copy' + str(jax.tree_util.tree_map(lambda x: x.shape, batch_indices)))
 
       batched_results.append(batch_result)
       if return_batch_keys:
@@ -430,7 +430,7 @@ def get_infer_fn(infer_step: InferStepCallable, batch_size: int,
     all_inferences = batched_results
 
     # List[B * shard_count, ...] -> [B * shard_count * batch_count, ...]
-    all_inferences = jax.tree_map(lambda *args: np.concatenate(args),
+    all_inferences = jax.tree_util.tree_map(lambda *args: np.concatenate(args),
                                   *all_inferences)
     all_indices = np.concatenate(all_indices)
     logging.info(str(tree_shape(all_inferences)) + str(tree_shape(all_indices)))
@@ -443,7 +443,7 @@ def get_infer_fn(infer_step: InferStepCallable, batch_size: int,
     # `infer_step` is `model.predict_batch_with_aux`.
     logging.info(str(tree_shape(all_inferences)) + str(tree_shape(all_indices)))
     if return_batch_keys:
-        all_batches = jax.tree_map(lambda *args: np.concatenate(args),
+        all_batches = jax.tree_util.tree_map(lambda *args: np.concatenate(args),
                                    *batched_return)
 
     # aux_values is supposed to be a dictionary that maps strings to a set of
@@ -483,7 +483,7 @@ def get_infer_fn(infer_step: InferStepCallable, batch_size: int,
     if aux_values is None:
       return indices_and_outputs
     else:
-      aux_values = jax.tree_map(lambda x: np.array(x).tolist(), aux_values)
+      aux_values = jax.tree_util.tree_map(lambda x: np.array(x).tolist(), aux_values)
       return indices_and_outputs, aux_values
 
   return infer_fn
@@ -531,7 +531,7 @@ def expand_dims_like(target, source):
     return jnp.reshape(target, target.shape + (1, ) * (len(source.shape) - len(target.shape)))
 
 def tree_shape(tree):
-    return jax.tree_map(lambda x: x.shape, tree)
+    return jax.tree_util.tree_map(lambda x: x.shape, tree)
 
 def add_fake_length_method(obj, size):
     def length(self):

@@ -19,6 +19,7 @@ class DockerContainer:
         self._url = url
 
     def __enter__(self):
+        self._logger.debug(f"Launching {self}")
         result = subprocess.run(
             [
                 "docker",
@@ -51,6 +52,9 @@ class DockerContainer:
             stdout=subprocess.PIPE,
         )
 
+    def __repr__(self):
+        return f"Docker({self._url})"
+
     def exec(
         self, command: typing.List[str], workdir=None
     ) -> subprocess.CompletedProcess:
@@ -77,3 +81,16 @@ class DockerContainer:
             self._logger.fatal(result.stderr)
             result.check_returncode()
         return result
+
+    def exists(self) -> bool:
+        """
+        Check if the given container exists.
+        """
+        result = subprocess.run(
+            ["docker", "pull", self._url],
+            stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+        )
+        self._logger.debug(result.stdout)
+        return result.returncode == 0

@@ -302,7 +302,7 @@ def create_sharded_iterator(train_iter,
     checkpoint_cfg,
     data_layout):
 
-  input_shapes = jax.tree_map(
+  input_shapes = jax.tree_util.tree_map(
       lambda x: (data_layout.batch_size, *x.shape[1:]), train_iter.element_spec,
   )
 
