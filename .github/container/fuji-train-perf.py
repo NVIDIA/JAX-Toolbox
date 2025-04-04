@@ -186,7 +186,7 @@ def extract_metrics(
 
     times_arr = np.array(times, dtype=np.float32)
     # remove first value as this is not correct
-    times_arr = times_arr[1:]
+    times_arr = times_arr[1:] if times_arr.shape > (1,) else times_arr
     # Metrics
     tokens_per_sec_gpu = (gbs * seq_len) / times_arr / world_size
     seqs_per_sec_gpu = (gbs) / times_arr / world_size
