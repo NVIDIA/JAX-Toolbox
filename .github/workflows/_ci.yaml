@@ -251,7 +251,7 @@ jobs:
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-backend-independent.log
-          test-jax.sh -b backend-independent 
+          test-jax.sh -b backend-independent
         EOF
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
@@ -425,7 +425,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: K8s GHCR store and delete token
       id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr 
+      uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Configure Kubernetes job
       run: |
         yq -i ea 'select(di == 0).spec.selector.job-name = strenv(JOB_NAME)
@@ -440,7 +440,7 @@ jobs:
         git diff .github/eks-workflow-files/job.yml
     - name: Submit Kubernetes job
       uses: ./.github/actions/submit-delete-k8s-job
-      with: 
+      with:
         job-config-file: .github/eks-workflow-files/job.yml
         job-name: ${{ env.JOB_NAME }}
     - name: Configure post-processing job
@@ -454,7 +454,7 @@ jobs:
         git diff .github/eks-workflow-files/post-process-job.yml
     - name: Submit post process Kubernetes job
       uses: ./.github/actions/submit-delete-k8s-job
-      with: 
+      with:
         job-config-file: .github/eks-workflow-files/post-process-job.yml
         job-name: ${{ env.POSTPROCESS_JOB_NAME }}
 
@@ -580,7 +580,7 @@ jobs:
 
   test-gemma:
     needs: build-gemma
-    uses: ./.github/workflows/_test_unit.yaml  
+    uses: ./.github/workflows/_test_unit.yaml
     if: inputs.ARCHITECTURE == 'amd64'
     with:
       TEST_NAME: gemma
@@ -626,7 +626,7 @@ jobs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token 
+    - name: K8s GHCR store and delete token
       id: store-token
       uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Configure axlearn test job
@@ -635,12 +635,12 @@ jobs:
         yq -i ea '
            select(di == 0).metadata.name = strenv(JOB_NAME)
           | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
-          | select(di == 0).spec.template.spec.containers[1].env[0].value = "${{ github.run_id }}"
+          | select(di == 0).spec.template.spec.containers[0].env[0].value = "${{ github.run_id }}"
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
         .github/eks-workflow-files/axlearn/axlearn-job.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
-    - name: Submit & delete axlearn test 
-      uses: ./.github/actions/submit-delete-k8s-job 
+    - name: Submit & delete axlearn test
+      uses: ./.github/actions/submit-delete-k8s-job
       with:
         job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
         job-name: ${{ env.JOB_NAME }}
@@ -650,6 +650,7 @@ jobs:
         mkdir -p axlearn-output
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/summary.txt axlearn-output/
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/ axlearn-output/ --recursive --exclude "*" --include "*.log"
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/axlearn-unittests.jsonl axlearn-output/
 
         passed_tests=$(grep -c ": PASSED" axlearn-output/summary.txt || true)
         failed_tests=$(grep -c ": FAILED" axlearn-output/summary.txt || true)
@@ -703,11 +704,9 @@ jobs:
         path: |
           sitrep.json
           badge-axlearn-test.json
+          axlearn-unittests.jsonl
           axlearn-output/*
 
-  # the fuji test will run for 20 minutes only, as per 2025-02-24 
-  # is not possible to set the `max_steps` value
-  # this will be done with a customer python code
   test-axlearn-fuji-models-eks:
     needs: build-axlearn
     if: inputs.ARCHITECTURE == 'amd64'
@@ -736,9 +735,8 @@ jobs:
         .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
 
-    - name: Submit & delete axlearn test 
-      uses: ./.github/actions/submit-delete-k8s-job 
+    - name: Submit & delete axlearn test
+      uses: ./.github/actions/submit-delete-k8s-job
       with:
         job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
         job-name: ${{ env.JOB_NAME }}
-

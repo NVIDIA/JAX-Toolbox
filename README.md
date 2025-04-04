@@ -10,12 +10,12 @@ We support and test the following JAX frameworks and model architectures. More d
 
 | Framework | Models | Use cases | Container |
 | :--- | :---: | :---: | :---: |
-| [maxtext](./rosetta/rosetta/projects/maxtext)| GPT, LLaMA, Gemma, Mistral, Mixtral | pretraining | `ghcr.io/nvidia/jax:maxtext` |
+| [maxtext](./rosetta/rosetta/projects/maxtext)| GPT, LLaMA, Gemma, Mistral, Mixtral | pre-training | `ghcr.io/nvidia/jax:maxtext` |
 | [t5x](./rosetta/rosetta/projects/t5x) | T5, ViT | pre-training, fine-tuning | `ghcr.io/nvidia/jax:t5x` |
 | [t5x](./rosetta/rosetta/projects/imagen) | Imagen | pre-training | `ghcr.io/nvidia/t5x:imagen-2023-10-02.v3` |
 | [big vision](./rosetta/rosetta/projects/paligemma) | PaliGemma | fine-tuning, evaluation | `ghcr.io/nvidia/jax:gemma` |
-| levanter | GPT, LLaMA, MPT, Backpacks | pretraining, fine-tuning | `ghcr.io/nvidia/jax:levanter` |
-| axlearn | Fuji | pretraining | `gchr.io/nvidia/jax:axlearn` | 
+| levanter | GPT, LLaMA, MPT, Backpacks | pre-training, fine-tuning | `ghcr.io/nvidia/jax:levanter` |
+| [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `gchr.io/nvidia/jax:axlearn` |
 
 # Build Pipeline Status
 <table>
@@ -246,16 +246,16 @@ We support and test the following JAX frameworks and model architectures. More d
       </td>
       <td>
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-maxtext-test-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axleran-test.json&logo=nvidia&label=A100%20distributed">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-test.json&logo=nvidia&label=H100%20distributed">
         </a>
       </td>
     </tr>
   </tbody>
 </table>
 
-In all cases, `ghcr.io/nvidia/jax:XXX` points to latest nightly build of the container for `XXX`. For a stable reference, use `ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`. 
+In all cases, `ghcr.io/nvidia/jax:XXX` points to latest nightly build of the container for `XXX`. For a stable reference, use `ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`.
 
-In addition to the public CI, we also run internal CI tests on H100 SXM 80GB and A100 SXM 80GB. 
+In addition to the public CI, we also run internal CI tests on H100 SXM 80GB and A100 SXM 80GB.
 
 ## Environment Variables
 

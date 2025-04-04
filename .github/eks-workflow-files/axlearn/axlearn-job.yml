@@ -5,8 +5,6 @@ metadata:
     labels:
         kueue.x-k8s.io/queue-name: p5-queue
 spec:
-    completions: 1
-    parallelism: 1
     template:
         spec:
             restartPolicy: Never
@@ -15,46 +13,32 @@ spec:
                   image: PLACEHOLDER
                   command:
                     - bash
-                    - -xo
-                    - pipefail
                     - -c
                     - |
-                      test-axlearn.sh \
-                        --directory "." \
-                        --output "/opt/output/" \
-                        --test-files "/opt/axlearn/axlearn/common/*_test.py"
+                      set -exo pipefail
+                      pip install pytest-reportlog pytest-xdist
 
-                      sync  
-                      wait 
-                      # after execution flag the results have been produced 
-                      touch /opt/output/done
+                      LOG_DIR="/output/${RUN_ID}"
+                      mkdir -p ${LOG_DIR}
+
+                      # Start MPS daemon
+                      nvidia-cuda-mps-control -d
+                      # Run tests
+                      pytest-xdist.sh 1 6 ${LOG_DIR}/axlearn-unittests.jsonl test-axlearn.sh --directory "." --output ${LOG_DIR} --test-files "/opt/axlearn/axlearn/common/*_test.py" | tee -a ${LOG_DIR}/pytest_stdout.log
+
+                  env:
+                    - name: RUN_ID
+                      value: PLACEHOLDER
                   resources:
                     limits:
                         nvidia.com/gpu: 8
                   volumeMounts:
-                    - name: output
-                      mountPath: /opt/output
-                - name: upload
-                  image: amazon/aws-cli
-                  env:
-                    - name: RUN_ID
-                      value: PLACEHOLDER
-                  command:
-                    - sh
-                    - -c
-                    - |
-                      while [ ! -f /opt/output/done ]; do
-                        sleep 5
-                      done
-                      # Upload to S3 bucket
-                      aws s3 cp /opt/output/summary.txt s3://jax-toolbox-eks-output/axlearn/${RUN_ID}/summary.txt
-                      # Upload logs to S3 bucket
-                      aws s3 cp /opt/output/ s3://jax-toolbox-eks-output/axlearn/${RUN_ID}/ --recursive --exclude "*" --include "*.log"
-                  volumeMounts:
-                    - name: output
-                      mountPath: /opt/output
+                    - name: s3-storage
+                      mountPath: /output
+                      subPath: axlearn
             imagePullSecrets:
                 - name: PLACEHOLDER
             volumes:
-                - name: output
-                  emptyDir: {}
+                - name: s3-storage
+                  persistentVolumeClaim:
+                    claimName: s3-pvc
