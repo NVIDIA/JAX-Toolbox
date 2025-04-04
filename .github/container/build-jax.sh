@@ -288,8 +288,7 @@ pushd ${SRC_PATH_JAX}
 time python "${SRC_PATH_JAX}/build/build.py" build \
     --editable \
     --use_clang \
-    --use_new_wheel_build_rule \
-    --wheels=jax,jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
+    --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
     --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
     --bazel_options=--linkopt=-fuse-ld=lld \
     --local_xla_path=$SRC_PATH_XLA \
@@ -299,13 +298,12 @@ popd
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
-line="jax @ file://${BUILD_PATH_JAXLIB}/jax"
+line="jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib"
 if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
     pushd "${SRC_PATH_JAX}"
     echo "${line}" >> build/requirements.in
-    echo "jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib" >> build/requirements.in
-    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt" >> build/requirements.in
-    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax-cuda-pjrt" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax-cuda-plugin" >> build/requirements.in
     PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
     bazel run --verbose_failures=true //build:requirements.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
     popd
@@ -320,14 +318,19 @@ else
 fi
 
 # install jax and jaxlib
-pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin -e ${BUILD_PATH_JAXLIB}/jax
-
+## update jax/setup.py to accept recently built jaxlib
+pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax-cuda-pjrt -e ${BUILD_PATH_JAXLIB}/jax-cuda-plugin 
+jaxlib_version=$(pip show jaxlib | grep Version | tr ':' '\n' | tail -1)
+sed -i "s|^_current_jaxlib_version.*|_current_jaxlib_version = '${jaxlib_version}'|" /opt/jax/setup.py
+sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
+pip --disable-pip-version-check install -e "${SRC_PATH_JAX}"
 ## after installation (example)
 # jax                     0.5.4.dev20250325    /opt/jaxlibs/jax
 # jax-cuda12-pjrt         0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_pjrt
 # jax-cuda12-plugin       0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_plugin
 # jaxlib                  0.5.4.dev20250325    /opt/jaxlibs/jaxlib
 pip list | grep jax
+
 
 # Ensure directories are readable by all for non-root users
 chmod 755 $BUILD_PATH_JAXLIB/*
