@@ -123,14 +123,13 @@ parser.add_argument("--world_size", type=int, help="Total number of GPUs")
 
 
 def extract_metrics(
-    input_file: str, gbs: int, mbs: int, seq_len: int, world_size: int, config: str
-):
+    input_file: str, gbs: int, seq_len: int, world_size: int, config: str
+) -> dict:
     """Extract tokens/sec/GPU and Seq/sec/GPU metrics
 
     Args:
         input_file:  str, input log file
         gbs: int, global batch size
-        mbs: int, microbatch size
         seq_len: int, max sequence length
         world_size: int, number of GPUs
         config: str, model
@@ -141,16 +140,21 @@ def extract_metrics(
     n_layers = MODELS_INFO[config]["n_layers"]
     hidden_size = MODELS_INFO[config]["hidden_size"]
     vocab_size = MODELS_INFO[config]["vocab_size"]
+    query_group = MODELS_INFO[config]["n_query_group"]
+    ffn_size = MODELS_INFO[config]["ffn_hidden_size"]
+    n_heads = MODELS_INFO[config]["n_heads"]
+
     model_flop_per_iteration = (
-        72
-        * mbs
-        * n_layers
+        gbs
         * seq_len
+        * n_layers
         * (hidden_size**2)
         * (
-            1
-            + (seq_len / (6 * hidden_size))
-            + (vocab_size / (12 * hidden_size * n_layers))
+            12
+            + 12 * (query_group / n_heads)
+            + 18 * (ffn_size / hidden_size)
+            + 12 * (seq_len / hidden_size)
+            + 6 * (vocab_size / (n_layers * hidden_size))
         )
     )
 
@@ -176,10 +180,8 @@ def extract_metrics(
     # Metrics
     tokens_per_sec_gpu = (gbs * seq_len) / times_arr / world_size
     seqs_per_sec_gpu = (gbs) / times_arr / world_size
-    # tflops/s/n_devices TO CHECK IF WE NEED A /100 for n-iterations
-    tflops_s_devices = model_flop_per_iteration / times_arr / world_size / 10**12
-
-    print(f"DEBUG: tflops_s_devices: {tflops_s_devices} ")
+    # tflops/s/n_devices, take the very last number
+    tflops_s_devices = model_flop_per_iteration / times_arr[-1] / world_size / 10**12
 
     return {
         "tokens_per_sec_gpu_mean": float(tokens_per_sec_gpu.mean()),
@@ -188,6 +190,7 @@ def extract_metrics(
         "seqs_per_sec_gpu_std": float(seqs_per_sec_gpu.std()),
         "avg_step_time_mean": float(times_arr.mean()),
         "avg_step_time_std": float(times_arr.std()),
+        "tflops_s_devices": tflops_s_devices,
     }
 
 
@@ -304,12 +307,9 @@ def main(parsed_args):
                 trainer_config=trainer_config,
             )
     # extract metrics
-    # compute the microbatch size
-    mbs = gbs_size // (dcn_dp_size * ga_size)
     perf_nums = extract_metrics(
         input_file=output_log_file,
         gbs=gbs_size,
-        mbs=mbs,
         seq_len=seq_len,
         world_size=world_size,
         config=config_name,
@@ -318,7 +318,8 @@ def main(parsed_args):
     print(f"""Extracted metrics:
           tokens_per_sec_gpu_mean: {perf_nums['tokens_per_sec_gpu_mean']} +/- {perf_nums['tokens_per_sec_gpu_std']}\n
           seqs_per_sec_gpu_mean: {perf_nums['seqs_per_sec_gpu_mean']} +/- {perf_nums['seqs_per_sec_gpu_std']}\n
-          average time step: {perf_nums['avg_step_time_mean']} +/- {perf_nums['avg_step_time_std']}""")
+          average time step: {perf_nums['avg_step_time_mean']} +/- {perf_nums['avg_step_time_std']}\n
+          tflops_per_sec_per_devices: {perf_nums['tflops_s_devices']}""")
 
 
 if __name__ == "__main__":
