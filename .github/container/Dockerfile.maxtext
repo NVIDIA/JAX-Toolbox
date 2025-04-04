@@ -31,7 +31,6 @@ echo >> ${SRC_PATH_MAXTEXT}/requirements.txt
 for requirement in \
     "tensorflow-metadata>=1.15.0" \
     "seqio@git+https://github.com/google/seqio.git" \
-    "werkzeug>=3.0.3" \
   ; do
     echo "${requirement}" >> ${SRC_PATH_MAXTEXT}/requirements.txt
 done
@@ -50,5 +49,6 @@ ADD test-maxtext.sh /usr/local/bin
 FROM mealkit as final
 
 RUN pip-finalize.sh
+RUN pip install "werkzeug>=3.0.3
 
 WORKDIR ${SRC_PATH_MAXTEXT}
