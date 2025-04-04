@@ -1,0 +1,107 @@
+name: ~test MaxText functionality on Kubernetes
+
+on:
+  workflow_call:
+    inputs:
+      MAXTEXT_IMAGE:
+        type: string
+        description: MaxText container to test
+        required: true
+
+permissions:
+  contents: read  # to fetch code
+
+jobs:
+  maxtext:
+    runs-on: eks
+    env:
+      CONTAINER_IMAGE: "${{ inputs.MAXTEXT_IMAGE }}"
+      JOB_NAME: "maxtext-${{ github.run_id }}-${{ github.run_attempt }}"
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to NVIDIA Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: nvcr.io
+          username: $oauthtoken
+          password: ${{ secrets.NVCR_TOKEN }}
+      - name: Store GitHub Container Registry token as Kubernetes secret
+        run: |
+          # Make this available to later steps
+          TOKEN_NAME="${JOB_NAME}-token"
+          echo "TOKEN_NAME=${TOKEN_NAME}" >> "$GITHUB_ENV"
+          kubectl create secret generic \
+            ${TOKEN_NAME} \
+            --from-file=.dockerconfigjson=$HOME/.docker/config.json \
+            --type=kubernetes.io/dockerconfigjson
+      - name: Configure Kubernetes job
+        run: |
+          export SERVICE_NAME="${JOB_NAME}-svc"
+          yq -i ea 'select(di == 0).metadata.name = strenv(SERVICE_NAME)
+            | select(di == 0).spec.selector.job-name = strenv(JOB_NAME)
+            | select(di == 1).metadata.name = strenv(JOB_NAME)
+            | select(di == 1).spec.template.spec.subdomain = strenv(SERVICE_NAME)
+            | select(di == 1).spec.template.spec.imagePullSecrets[].name = strenv(TOKEN_NAME)
+            | select(di == 1).spec.template.spec.containers[0].image = strenv(CONTAINER_IMAGE)
+            | select(di == 1).spec.template.spec.containers[0].command[3] = strenv(SERVICE_NAME)
+            | select(di == 1).spec.template.spec.containers[0].command[4] = strenv(JOB_NAME)
+            | select(di == 1).spec.template.spec.containers[1].command[3] = strenv(JOB_NAME)' \
+            .github/eks-workflow-files/maxtext-job.yaml
+          git diff .github/eks-workflow-files/maxtext-job.yaml
+      - name: Submit Kubernetes job
+        run: kubectl apply -f .github/eks-workflow-files/maxtext-job.yaml
+      - name: Wait for Kubernetes job to start
+        run: |
+          # Launcher job is created eagerly, but suspended. Kueue un-suspends it when
+          # resources are available, but that is where there can be a long wait if the
+          # cluster is busy executing other jobs.
+          kubectl wait --for=create job/${JOB_NAME}
+          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${JOB_NAME} --timeout=3600s
+      - name: Stream Kubernetes job output
+        run: |
+          # Streaming logs will fail if the container/pod is still pending
+          while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${JOB_NAME} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+            sleep 1
+          done
+          kubectl logs --all-containers=true --all-pods=true --follow job/${JOB_NAME}
+      - name: Retrieve Kubernetes job status
+        shell: bash -exo pipefail {0}
+        run: |
+          while readarray -d : -t status < <(kubectl get job/${JOB_NAME} -o 'jsonpath={.status.failed}:{.status.succeeded}'); do
+            failure=${status[0]:-0}
+            success=${status[1]:-0}
+            total=$((failure+success))
+            if [[ ${total} < 2 ]]; then
+              sleep 1
+            elif [[ ${total} == 2 ]]; then
+              break
+            else
+              # FIXME
+              exit 255
+            fi
+          done
+          exit ${failure}
+      # Provide more debug output in case of failure; note that some kinds of launch
+      # failure do not produce any log output.
+      - name: Debug failed Kubernetes job
+        if: failure()
+        run: |
+          # Provide better debug in case of launch failures that will not produce log output
+          pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${JOB_NAME} -o name)
+          if [[ -n "${pods}" ]]; then
+            kubectl describe ${pods}
+          fi
+      # Clean up in case of errors as well as success
+      - name: Delete Kubernetes job
+        if: always()
+        run: kubectl delete -f .github/eks-workflow-files/maxtext-job.yaml
+      - name: Delete GitHub Container Registry token
+        if: always()
+        run: kubectl delete secret ${TOKEN_NAME}
