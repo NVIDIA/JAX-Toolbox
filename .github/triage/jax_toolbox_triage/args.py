@@ -130,6 +130,7 @@ def parse_args(args=None):
         "-v",
         "--container-mount",
         action="append",
+        default=[],
         help="""
             Takes a SRC:DST value and mounts the (host) directory SRC into the container
             at DST; this can be used to pass in a test script, e.g. -v $PWD:/work before

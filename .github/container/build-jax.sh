@@ -38,7 +38,6 @@ usage() {
     echo "    --debug                        Build in debug mode"
     echo "    --dry                          Dry run, parse arguments only"
     echo "    -h, --help                     Print usage."
-    echo "    --jaxlib_only                  Only build and install jaxlib"
     echo "    --no-clean                     Do not delete local configuration and bazel cache (default)"
     echo "    --src-path-jax                 Path to JAX source"
     echo "    --src-path-xla                 Path to XLA source"
@@ -61,12 +60,11 @@ CPU_ARCH="$(dpkg --print-architecture)"
 CUDA_COMPUTE_CAPABILITIES="local"
 DEBUG=0
 DRY=0
-JAXLIB_ONLY=0
 SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 XLA_ARM64_PATCH_LIST=""
 
-args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
+args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -115,10 +113,6 @@ while [ : ]; do
             ;;
         --dry)
             DRY=1
-            shift 1
-            ;;
-        --jaxlib_only)
-            JAXLIB_ONLY=1
             shift 1
             ;;
         --src-path-jax)
@@ -313,11 +307,7 @@ fi
 ## Install the built packages
 
 # Uninstall jaxlib in case this script was used before.
-if [[ "$JAXLIB_ONLY" == "0" ]]; then
-    pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
-else
-    pip uninstall -y jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
-fi
+pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
 
 # install jax and jaxlib
 pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin -e ${BUILD_PATH_JAXLIB}/jax

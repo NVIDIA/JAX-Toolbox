@@ -229,7 +229,9 @@ def commit_search(
             logger.fatal("Vanilla rebuild did not reproduce test failure")
             logger.fatal(stdout)
             logger.fatal(stderr)
-            raise Exception("Could not reproduce")
+            raise Exception(
+                "Could not reproduce failure after rebuild in 'bad' container"
+            )
 
     # Verify that we can build the commit at the start of the range and reproduce the
     # test success there in the end-of-range container.
@@ -246,7 +248,9 @@ def commit_search(
         )
         logger.fatal(stdout)
         logger.fatal(stderr)
-        raise Exception("Could not reproduce")
+        raise Exception(
+            "Could not reproduce success with 'good' commits in 'bad' container"
+        )
 
     # Finally, start bisecting. This is XLA-centric; JAX is moved too but is secondary.
     while len(xla_commits) > 2:

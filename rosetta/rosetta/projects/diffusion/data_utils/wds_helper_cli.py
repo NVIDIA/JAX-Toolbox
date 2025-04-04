@@ -48,7 +48,7 @@ if __name__ == '__main__':
         else:
             raise ValueError(f'Not sure how to print type {type(obj)}: {obj}')
     print('== SINGLE EXAMPLE ==')
-    print(json.dumps(jax.tree_map(printer, single_elem), indent=2))
+    print(json.dumps(tree_util.tree_map(printer, single_elem), indent=2))
     # if args.batch_size > 1:
     #     print(f'== BATCH [N={args.batch_size}] EXAMPLE ==')
     #     print(json.dumps(jax.tree_map(printer, next(iter(dataset))), indent=2))
