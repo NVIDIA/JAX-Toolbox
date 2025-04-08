@@ -253,8 +253,7 @@ RUN_NAME="logdir" ## the RUN_NAME cannot be changed
 if [ -z "$DECODER_BLOCK" ]; then
 
     # this part could be used to test different model ootb
-    RUN_SETTINGS="MaxText/train.py \
-        MaxText/configs/base.yml \
+    RUN_SETTINGS="MaxText/configs/base.yml \
         run_name=${RUN_NAME} \
         model_name=${MODEL} \
         steps=${STEPS} \
@@ -277,8 +276,7 @@ if [ -z "$DECODER_BLOCK" ]; then
         ${ADDITIONAL_ARGS}"
 else
     # this is essentially used for CI run
-    RUN_SETTINGS="MaxText/train.py \
-        MaxText/configs/base.yml \
+    RUN_SETTINGS="MaxText/configs/base.yml \
         run_name=${RUN_NAME} \
         decoder_block=${DECODER_BLOCK} \
         steps=$STEPS \
@@ -310,6 +308,6 @@ else
 fi
 
 echo "Command: python3 $RUN_SETTINGS"
-python3 $RUN_SETTINGS
+python3 -m MaxText.train $RUN_SETTINGS
 
 echo "Output at ${OUTPUT}"
