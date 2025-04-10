@@ -175,6 +175,7 @@ def extract_metrics(
                 times.append(float(match.group(1)))
 
     if not times:
+        print("Error, times array is empty")
         return {
             "tokens_per_sec_gpu_mean": 0.0,
             "tokens_per_sec_gpu_std": 0.0,
@@ -182,6 +183,7 @@ def extract_metrics(
             "seqs_per_sec_gpu_std": 0.0,
             "avg_step_time_mean": 0.0,
             "avg_step_time_std": 0.0,
+            "tflops_s_devices": 0.0,
         }
 
     times_arr = np.array(times, dtype=np.float32)
