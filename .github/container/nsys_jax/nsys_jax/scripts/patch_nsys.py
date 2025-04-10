@@ -3,7 +3,6 @@ import shutil
 import subprocess
 
 patch_content_2024_5_1_and_2024_6_1 = r"""diff --git a/nsys_recipe/lib/nvtx.py b/nsys_recipe/lib/nvtx.py
-index 2470043..7abf892 100644
 --- a/nsys_recipe/lib/nvtx.py
 +++ b/nsys_recipe/lib/nvtx.py
 @@ -161,6 +161,7 @@ def _compute_gpu_projection_df(
@@ -15,7 +14,6 @@ index 2470043..7abf892 100644
      )
 
 diff --git a/nsys_recipe/recipes/nvtx_gpu_proj_trace/nvtx_gpu_proj_trace.py b/nsys_recipe/recipes/nvtx_gpu_proj_trace/nvtx_gpu_proj_trace.py
-index cd60bf4..37e0d0d 100644
 --- a/nsys_recipe/recipes/nvtx_gpu_proj_trace/nvtx_gpu_proj_trace.py
 +++ b/nsys_recipe/recipes/nvtx_gpu_proj_trace/nvtx_gpu_proj_trace.py
 @@ -96,6 +96,7 @@ class NvtxGpuProjTrace(recipe.Recipe):
@@ -898,7 +896,7 @@ diff --git a/nsys_recipe/recipes/nvtx_gpu_proj_trace/nvtx_gpu_proj_trace.py b/ns
              "start": "Start",
 '''
 
-patch_content_2025_1_1 = r'''diff --git a/nsys_recipe/lib/args.py b/nsys_recipe/lib/args.py
+patch_content_2025_1_1_65 = r'''diff --git a/nsys_recipe/lib/args.py b/nsys_recipe/lib/args.py
 --- a/nsys_recipe/lib/args.py
 +++ b/nsys_recipe/lib/args.py
 @@ -40,6 +40,8 @@ class Option(Enum):
@@ -1348,6 +1346,461 @@ diff --git a/nsys_recipe/recipes/nvtx_gpu_proj_trace/nvtx_gpu_proj_trace.py b/ns
          parser.add_argument_to_group(filter_group, Option.FILTER_TIME)
 '''
 
+patch_content_2025_1_1_110 = r'''
+diff --git a/nsys_recipe/lib/args.py b/nsys_recipe/lib/args.py
+--- a/nsys_recipe/lib/args.py
++++ b/nsys_recipe/lib/args.py
+@@ -40,6 +40,8 @@ class Option(Enum):
+     FILTER_TIME = 13
+     FILTER_PROJECTED_NVTX = 14
+     HIDE_INACTIVE = 15
++    PER_GPU = 16
++    PER_STREAM = 17
+ 
+ 
+ def _replace_range(name, start_index, end_index, value):
+@@ -489,6 +491,22 @@ class ArgumentParser(argparse.ArgumentParser):
+                 "By default, all devices are shown.",
+                 **kwargs,
+             )
++        elif option == Option.PER_GPU:
++            group.add_argument(
++                "--per-gpu",
++                action="store_const",
++                const=["deviceId"],
++                default=[],
++                help="Group events by GPU.",
++            )
++        elif option == Option.PER_STREAM:
++            group.add_argument(
++                "--per-stream",
++                action="store_const",
++                const=["deviceId", "streamId"],
++                default=[],
++                help="Group events by stream within each GPU.",
++            )
+         else:
+             raise NotImplementedError("Invalid option.")
+ 
+diff --git a/nsys_recipe/lib/data_utils.py b/nsys_recipe/lib/data_utils.py
+--- a/nsys_recipe/lib/data_utils.py
++++ b/nsys_recipe/lib/data_utils.py
+@@ -265,7 +265,7 @@ class RangeColumnUnifier:
+             cuda_df = self._original_df
+ 
+         proj_nvtx_df = nvtx.project_nvtx_onto_gpu(filtered_nvtx_df, cuda_df)
+-        if proj_nvtx_df is None:
++        if proj_nvtx_df.empty:
+             return
+ 
+         self._filter_by_overlap(proj_nvtx_df)
+diff --git a/nsys_recipe/lib/nvtx.py b/nsys_recipe/lib/nvtx.py
+--- a/nsys_recipe/lib/nvtx.py
++++ b/nsys_recipe/lib/nvtx.py
+@@ -7,6 +7,7 @@
+ # disclosure or distribution of this material and related documentation
+ # without an express license agreement from NVIDIA CORPORATION or
+ # its affiliates is strictly prohibited.
++from collections import defaultdict
+ 
+ import numpy as np
+ import pandas as pd
+@@ -66,43 +67,41 @@ def combine_text_fields(nvtx_df, str_df):
+     return nvtx_textId_df.drop(columns=["textStr"])
+ 
+ 
+-def compute_hierarchy_info(nvtx_df):
+-    """Compute the hierarchy information of each NVTX range.
+-
+-    This function assumes that the input DataFrame is sorted by times. It
+-    will add the following columns to the DataFrame:
+-    - stackLevel: level of the range in the stack.
+-    - parentId: ID of the parent range.
+-    - rangeStack: IDs of the ranges that make up the stack.
+-    - childrenCount: number of child ranges.
+-    - rangeId: arbitrary ID of the range.
+-    """
+-    hierarchy_df = nvtx_df.copy()
+-
+-    hierarchy_df["parentId"] = None
+-    hierarchy_df["stackLevel"] = 0
+-    hierarchy_df["rangeStack"] = None
+-
++def _compute_hierarchy_info(proj_nvtx_df, nvtx_stream_map):
++    hierarchy_df = proj_nvtx_df.assign(parentId=None, stackLevel=0, rangeStack=None)
+     stack = []
+ 
+     for row in hierarchy_df.itertuples():
+-        while stack and stack[-1].end <= row.start:
++        while stack and row.end > stack[-1].end:
+             stack.pop()
+ 
+-        parent_index = stack[-1].Index if stack else np.nan
+         stack.append(row)
+ 
+-        hierarchy_df.at[row.Index, "parentId"] = parent_index
++        # Exclude ranges from the stack where the GPU operations are run on
++        # different streams by checking if the intersection of their streams is
++        # non-empty.
++        current_stack = [
++            r
++            for r in stack
++            if nvtx_stream_map[r.originalIndex] & nvtx_stream_map[row.originalIndex]
++        ]
++
++        # The current row is the last element of the stack.
++        hierarchy_df.at[row.Index, "parentId"] = (
++            current_stack[-2].Index if len(current_stack) > 1 else np.nan
++        )
+         # The stack level starts at 0.
+-        hierarchy_df.at[row.Index, "stackLevel"] = len(stack) - 1
+-        hierarchy_df.at[row.Index, "rangeStack"] = [r.Index for r in stack]
++        hierarchy_df.at[row.Index, "stackLevel"] = len(current_stack) - 1
++        hierarchy_df.at[row.Index, "rangeStack"] = [r.Index for r in current_stack]
+ 
+     hierarchy_df = hierarchy_df.reset_index().rename(columns={"index": "rangeId"})
+-
+     children_count = hierarchy_df["parentId"].value_counts()
+     hierarchy_df["childrenCount"] = (
+         hierarchy_df["rangeId"].map(children_count).fillna(0).astype(int)
+     )
++    # Convert to Int64 to support missing values (pd.NA) while keeping
++    # integer type.
++    hierarchy_df["parentId"] = hierarchy_df["parentId"].astype("Int64")
+ 
+     return hierarchy_df
+ 
+@@ -139,98 +138,165 @@ def _add_individual_events(nvtx_gpu_start_dict, nvtx_gpu_end_dict, list_of_indiv
+     return indices, starts, ends
+ 
+ 
+-def _compute_gpu_projection_df(nvtx_df, cuda_df, cuda_nvtx_index_map):
++def _aggregate_cuda_ranges(
++    cuda_df, cuda_nvtx_index_map, innermost_nvtx_indices, row_offset
++):
+     # Each NVTX index will be associated with the minimum start time and the
+     # maximum end time of the CUDA operations that the corresponding NVTX range
+     # encloses.
+     nvtx_gpu_start_dict = {}
+     nvtx_gpu_end_dict = {}
+-    # list_of_individuals contains NVTX indices that should not be grouped.
+-    # These items will be treated individually, using their original
+-    # start and end times without aggregation.
+-    list_of_individuals = []
++
++    indices = []
++    starts = []
++    ends = []
++
++    nvtx_stream_map = defaultdict(set)
+ 
+     for cuda_row in cuda_df.itertuples():
+         if cuda_row.Index not in cuda_nvtx_index_map:
+             continue
+ 
+         nvtx_indices = cuda_nvtx_index_map[cuda_row.Index]
++
+         for nvtx_index in nvtx_indices:
+-            if hasattr(cuda_row, "groupId") and not pd.isna(cuda_row.groupId):
+-                list_of_individuals.append(
+-                    (nvtx_index, cuda_row.gpu_start, cuda_row.gpu_end)
+-                )
++            nvtx_stream_map[nvtx_index].add(cuda_row.streamId)
++
++            start = cuda_row.gpu_start
++            end = cuda_row.gpu_end
++
++            # Handle cases where the innermost NVTX range encloses CUDA events
++            # that result in multiple GPU ranges (e.g. CUDA graphs). In this
++            # case, we don't group them and keep them as separate NVTX ranges.
++            if (
++                hasattr(cuda_row, "groupId")
++                and not pd.isna(cuda_row.groupId)
++                and nvtx_index in innermost_nvtx_indices
++            ):
++                indices.append(nvtx_index)
++                starts.append(start)
++                ends.append(end)
+                 continue
++
+             if nvtx_index not in nvtx_gpu_start_dict:
+-                nvtx_gpu_start_dict[nvtx_index] = cuda_row.gpu_start
+-                nvtx_gpu_end_dict[nvtx_index] = cuda_row.gpu_end
++                nvtx_gpu_start_dict[nvtx_index] = start
++                nvtx_gpu_end_dict[nvtx_index] = end
+                 continue
+-            if cuda_row.gpu_start < nvtx_gpu_start_dict[nvtx_index]:
+-                nvtx_gpu_start_dict[nvtx_index] = cuda_row.gpu_start
+-            if cuda_row.gpu_end > nvtx_gpu_end_dict[nvtx_index]:
+-                nvtx_gpu_end_dict[nvtx_index] = cuda_row.gpu_end
+ 
+-    indices, starts, ends = _add_individual_events(
+-        nvtx_gpu_start_dict, nvtx_gpu_end_dict, list_of_individuals
+-    )
++            if start < nvtx_gpu_start_dict[nvtx_index]:
++                nvtx_gpu_start_dict[nvtx_index] = start
++            if end > nvtx_gpu_end_dict[nvtx_index]:
++                nvtx_gpu_end_dict[nvtx_index] = end
+ 
+-    df = pd.DataFrame(
+-        {"text": nvtx_df.loc[indices, "text"], "start": starts, "end": ends}
+-    ).reset_index()
++    indices += list(nvtx_gpu_start_dict.keys())
++    starts += list(nvtx_gpu_start_dict.values())
++    ends += list(nvtx_gpu_end_dict.values())
+ 
+-    # Preserve original order for rows with identical "start" and "end" values
+-    # using the index.
+-    return (
+-        df.sort_values(by=["start", "end", "index"], ascending=[True, False, True])
+-        .drop(columns=["index"])
+-        .reset_index(drop=True)
++    df = (
++        pd.DataFrame({"originalIndex": indices, "start": starts, "end": ends})
++        # Preserve original order for rows with identical "start" and "end"
++        # values using the index.
++        .sort_values(
++            by=["start", "end", "originalIndex"], ascending=[True, False, True]
++        ).reset_index(drop=True)
+     )
+ 
++    df.index = range(row_offset, row_offset + len(df))
++    return _compute_hierarchy_info(df, nvtx_stream_map)
+ 
+-def _compute_grouped_gpu_projection_df(
+-    nvtx_df, cuda_df, cuda_nvtx_index_map, per_gpu=False, per_stream=False
+-):
+-    group_by_elements = []
+-    if per_stream:
+-        group_by_elements.append("streamId")
+-    if per_gpu:
+-        group_by_elements.append("deviceId")
+ 
+-    if not group_by_elements:
+-        df = _compute_gpu_projection_df(nvtx_df, cuda_df, cuda_nvtx_index_map)
+-        return df if not df.empty else None
++def _compute_gpu_projection_df(
++    cuda_df, group_columns, cuda_nvtx_index_map, innermost_nvtx_indices, row_offset
++):
++    if group_columns:
++        cuda_gdf = cuda_df.groupby(group_columns)
++    else:
++        cuda_gdf = [(None, cuda_df)]
+ 
+     dfs = []
+-    cuda_gdf = cuda_df.groupby(group_by_elements)
+-
+     for group_keys, cuda_group_df in cuda_gdf:
+-        df = _compute_gpu_projection_df(nvtx_df, cuda_group_df, cuda_nvtx_index_map)
++        df = _aggregate_cuda_ranges(
++            cuda_group_df, cuda_nvtx_index_map, innermost_nvtx_indices, row_offset
++        )
+         if df.empty:
+             continue
+ 
+-        if per_stream:
+-            df["streamId"] = group_keys[group_by_elements.index("streamId")]
+-        if per_gpu:
+-            df["deviceId"] = group_keys[group_by_elements.index("deviceId")]
++        row_offset += len(df)
++
++        for key in group_columns:
++            df[key] = group_keys[group_columns.index(key)]
++
+         dfs.append(df)
+ 
++    if not dfs:
++        return pd.DataFrame()
++
+     if not dfs:
+         return None
+ 
+     return pd.concat(dfs, ignore_index=True)
+ 
+ 
+-def project_nvtx_onto_gpu(nvtx_df, cuda_df, per_gpu=False, per_stream=False):
++def _validate_group_columns(df, group_columns):
++    if isinstance(group_columns, str):
++        group_columns = [group_columns]
++    elif group_columns is None:
++        group_columns = []
++
++    for col in group_columns:
++        if col not in df.columns:
++            raise ValueError(f"Column '{col}' not found in the DataFrame.")
++
++    return group_columns
++
++
++def _get_innermost_nvtx_indices(nvtx_df):
++    parent_nvtx_df = pd.Series(np.nan, index=nvtx_df.index)
++    stack = []
++
++    for row in nvtx_df.itertuples():
++        while stack and row.end > stack[-1].end:
++            stack.pop()
++
++        if stack:
++            parent_nvtx_df[row.Index] = stack[-1].Index
++
++        stack.append(row)
++
++    parent_ids = parent_nvtx_df.dropna().unique()
++    return set(parent_nvtx_df[~parent_nvtx_df.index.isin(parent_ids)].index)
++
++
++def project_nvtx_onto_gpu(nvtx_df, cuda_df, group_columns=None):
+     """Project the NVTX ranges from the CPU onto the GPU.
+ 
+     The projected range will have the start timestamp of the first enclosed GPU
+     operation and the end timestamp of the last enclosed GPU operation.
+ 
++    Parameters
++    ----------
++    nvtx_df : pd.DataFrame
++        DataFrame containing NVTX ranges.
++    cuda_df : pd.DataFrame
++        DataFrame containing CUDA events. It must contain both the runtime and
++        GPU operations.
++    group_columns : str or list of str, optional
++        Column names in the CUDA table by which events should be grouped when
++        the associated NVTX range is projected onto the GPU.
++
+     Returns
+     -------
+-    proj_nvtx_df : pd.DataFrame or None
+-        DataFrame with projected NVTX ranges, or None if none are found.
++    proj_nvtx_df : pd.DataFrame
++        DataFrame with projected NVTX ranges and additional columns for the
++        hierarchy information, including:
++        - stackLevel: level of the range in the stack.
++        - parentId: ID of the parent range.
++        - rangeStack: IDs of the ranges that make up the stack.
++        - childrenCount: number of child ranges.
++        - rangeId: arbitrary ID of the range.
+     """
++    group_columns = _validate_group_columns(cuda_df, group_columns)
++
+     # Filter ranges that are incomplete or end on a different thread.
+     filtered_nvtx_df = nvtx_df[
+         nvtx_df["start"].notnull()
+@@ -242,6 +308,7 @@ def project_nvtx_onto_gpu(nvtx_df, cuda_df, per_gpu=False, per_stream=False):
+     cuda_gdf = cuda_df.groupby("globalTid")
+ 
+     dfs = []
++    total_rows = 0
+ 
+     for global_tid, nvtx_tid_df in nvtx_gdf:
+         if global_tid not in cuda_gdf.groups:
+@@ -252,20 +319,44 @@ def project_nvtx_onto_gpu(nvtx_df, cuda_df, per_gpu=False, per_stream=False):
+             nvtx_tid_df, cuda_tid_df, fully_contained=True
+         )
+ 
+-        df = _compute_grouped_gpu_projection_df(
+-            filtered_nvtx_df, cuda_tid_df, cuda_nvtx_index_map, per_gpu, per_stream
++        innermost_nvtx_indices = _get_innermost_nvtx_indices(nvtx_tid_df)
++        df = _compute_gpu_projection_df(
++            cuda_tid_df,
++            group_columns,
++            cuda_nvtx_index_map,
++            innermost_nvtx_indices,
++            total_rows,
+         )
+         if df is None:
+             continue
+ 
++        total_rows += len(df)
++
++        df["text"] = df["originalIndex"].map(nvtx_tid_df["text"])
+         # The values of pid and tid are the same within each group of globalTid.
+-        df["pid"] = nvtx_tid_df["pid"].iat[0]
+-        df["tid"] = nvtx_tid_df["tid"].iat[0]
++        for col in ["pid", "tid"]:
++            df[col] = nvtx_tid_df[col].iat[0]
++
++        df = df.drop(columns=["originalIndex"])
+ 
+         dfs.append(df)
+ 
+     if not dfs:
+-        return None
++        return pd.DataFrame(
++            columns=[
++                "text",
++                "start",
++                "end",
++                "pid",
++                "tid",
++                "stackLevel",
++                "parentId",
++                "rangeStack",
++                "childrenCount",
++                "rangeId",
++            ]
++            + group_columns
++        )
+ 
+     return pd.concat(dfs, ignore_index=True)
+ 
+diff --git a/nsys_recipe/recipes/nvtx_gpu_proj_trace/nvtx_gpu_proj_trace.py b/nsys_recipe/recipes/nvtx_gpu_proj_trace/nvtx_gpu_proj_trace.py
+--- a/nsys_recipe/recipes/nvtx_gpu_proj_trace/nvtx_gpu_proj_trace.py
++++ b/nsys_recipe/recipes/nvtx_gpu_proj_trace/nvtx_gpu_proj_trace.py
+@@ -87,17 +87,14 @@ class NvtxGpuProjTrace(recipe.Recipe):
+             )
+             return None
+ 
+-        proj_nvtx_df = nvtx.project_nvtx_onto_gpu(
+-            nvtx_df, cuda_df, parsed_args.per_gpu, parsed_args.per_stream
+-        )
+-        if proj_nvtx_df is None:
++        group_columns = parsed_args.per_gpu or parsed_args.per_stream
++        proj_nvtx_df = nvtx.project_nvtx_onto_gpu(nvtx_df, cuda_df, group_columns)
++        if proj_nvtx_df.empty:
+             logger.info(
+                 f"{report_path}: Report does not contain any NVTX data that can be projected onto the GPU."
+             )
+             return None
+ 
+-        proj_nvtx_df = nvtx.compute_hierarchy_info(proj_nvtx_df)
+-
+         name_dict = {
+             "text": "Text",
+             "start": "Start",
+@@ -111,9 +108,9 @@ class NvtxGpuProjTrace(recipe.Recipe):
+             "rangeStack": "Range Stack",
+         }
+ 
+-        if parsed_args.per_gpu:
++        if "deviceId" in group_columns:
+             name_dict["deviceId"] = "Device ID"
+-        if parsed_args.per_stream:
++        if "streamId" in group_columns:
+             name_dict["streamId"] = "Stream ID"
+ 
+         proj_nvtx_df = proj_nvtx_df.rename(columns=name_dict)[name_dict.values()]
+@@ -179,16 +176,10 @@ class NvtxGpuProjTrace(recipe.Recipe):
+         parser.add_recipe_argument(Option.START)
+         parser.add_recipe_argument(Option.END)
+         parser.add_recipe_argument(Option.CSV)
+-        parser.add_recipe_argument(
+-            "--per-gpu",
+-            action="store_true",
+-            help="Give the results per GPU.",
+-        )
+-        parser.add_recipe_argument(
+-            "--per-stream",
+-            action="store_true",
+-            help="Give the results per stream.",
+-        )
++
++        per_group = parser.recipe_group.add_mutually_exclusive_group()
++        parser.add_argument_to_group(per_group, Option.PER_GPU)
++        parser.add_argument_to_group(per_group, Option.PER_STREAM)
+ 
+         filter_group = parser.recipe_group.add_mutually_exclusive_group()
+         parser.add_argument_to_group(filter_group, Option.FILTER_TIME)
+'''
+
 
 def main():
     """
@@ -1357,7 +1810,7 @@ def main():
     assert nsys is not None, "nsys-jax-patch-nsys expects nsys to be installed"
     nsys_version = subprocess.check_output([nsys, "--version"], text=True)
     m = re.match(
-        r"^NVIDIA Nsight Systems version (\d+\.\d+\.\d+)\.\d+-\d+v\d+$", nsys_version
+        r"^NVIDIA Nsight Systems version (\d+\.\d+\.\d+)\.(\d+)-\d+v\d+$", nsys_version
     )
     assert m is not None, f"Could not parse: {nsys_version}"
     match m.group(1):
@@ -1366,11 +1819,17 @@ def main():
         case "2024.6.2":
             patch_content = patch_content_2024_6_2
         case "2025.1.1":
-            patch_content = patch_content_2025_1_1
+            match m.group(2):
+                case "65":
+                    patch_content = patch_content_2025_1_1_65
+                case "110":
+                    patch_content = patch_content_2025_1_1_110
+                case _:
+                    raise Exception(f"{m.group(1)}.{m.group(2)} patch not known")
         case _:
             patch_content = None
     if patch_content is not None:
-        print(f"Patching Nsight Systems version {m.group(1)}")
+        print(f"Patching Nsight Systems version {m.group(1)}.{m.group(2)}")
         nsys_recipe_help = subprocess.check_output(
             [nsys, "recipe", "--help"], text=True
         )
