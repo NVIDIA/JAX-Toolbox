@@ -326,10 +326,10 @@ def main(parsed_args):
     )
 
     print(f"""Extracted metrics:
-          tokens_per_sec_gpu_mean: {perf_nums['tokens_per_sec_gpu_mean']} +/- {perf_nums['tokens_per_sec_gpu_std']}\n
-          seqs_per_sec_gpu_mean: {perf_nums['seqs_per_sec_gpu_mean']} +/- {perf_nums['seqs_per_sec_gpu_std']}\n
-          average time step: {perf_nums['avg_step_time_mean']} +/- {perf_nums['avg_step_time_std']}\n
-          tflops_per_sec_per_devices: {perf_nums['tflops_s_devices']}""")
+          Tokens/s/device: {perf_nums['tokens_per_sec_gpu_mean']} +/- {perf_nums['tokens_per_sec_gpu_std']}\n
+          Seqs/s/device: {perf_nums['seqs_per_sec_gpu_mean']} +/- {perf_nums['seqs_per_sec_gpu_std']}\n
+          AvgTimestep {perf_nums['avg_step_time_mean']} +/- {perf_nums['avg_step_time_std']}\n
+          TFLOP/s/device: {perf_nums['tflops_s_devices']}""")
 
 
 if __name__ == "__main__":
