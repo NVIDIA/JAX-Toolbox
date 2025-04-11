@@ -47,10 +47,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create env vars 
-        id: var 
-        shell: bash 
-        run: | 
+      - name: Create env vars
+        id: var
+        shell: bash
+        run: |
           JOB_NAME="nccl-test-${{ github.run_id }}-${{ github.run_attempt }}-${TEST_NAME//_/-}"
           LAUNCHER_NAME="${JOB_NAME}-launcher"
           TOKEN_NAME="${JOB_NAME}-token"
@@ -59,7 +59,7 @@ jobs:
           echo "LAUNCHER_NAME=${LAUNCHER_NAME}" >> "$GITHUB_ENV"
       - name: K8s GHCR store and delete token
         id: store-token
-        uses: ./.github/actions/store-delete-k8s-ghcr 
+        uses: ./.github/actions/store-delete-k8s-ghcr
       - name: Configure Kubernetes job
         run: |
           export WORKER_NAME="${JOB_NAME}-worker"
@@ -82,7 +82,7 @@ jobs:
           # resources are available, but that is where there can be a long wait if the
           # cluster is busy executing other jobs.
           kubectl wait --for=create job/${LAUNCHER_NAME}
-          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${LAUNCHER_NAME} --timeout=3600s
+          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${LAUNCHER_NAME} --timeout=14400s
       - name: Stream Kubernetes job output
         # Note that this is *not* JOB_NAME
         run: |
