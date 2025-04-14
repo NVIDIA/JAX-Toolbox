@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: PLACEHOLDER
+    labels:
+        kueue.x-k8s.io/queue-name: p5-queue
+spec:
+    completions: 1
+    parallelism: 1
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: axlearn-fuji-model
+                  image: PLACEHOLDER
+                  command:
+                    - bash
+                    - -xo
+                    - pipefail
+                    - -c
+                    - |
+                      CONFIG="fuji-3B-v3-flash"
+                      LOG_DIR=/opt/logs
+                      TRAINER_DIR=${LOG_DIR}/${CONFIG}-eks/trainer-dir
+                      mkdir -p ${TRAINER_DIR}
+                      OUTPUT_LOG_FILE=${TRAINER_DIR}/output.log
+
+                      python3 /usr/local/bin/fuji-train-perf.py \
+                          --module=text.gpt.c4_trainer \
+                          --config=${CONFIG} \
+                          --jax_backend=gpu \
+                          --trainer_dir=${TRAINER_DIR} \
+                          --data_dir=gs://axlearn-public/tensorflow_datasets \
+                          --ici_fsdp=8 \
+                          --dcn_dp=1 \
+                          --gbs=16 \
+                          --ga=1 \
+                          --seq_len=4096 \
+                          --max_step=301 \
+                          --save_checkpoint_steps=100 \
+                          --write_summary_steps=100 \
+                          --output_log_file=${OUTPUT_LOG_FILE} \
+                          --world_size=8
+                  resources:
+                    limits:
+                        nvidia.com/gpu: 8
+                  volumeMounts:
+                    - name: output
+                      mountPath: /opt/output
+            imagePullSecrets:
+                - name: PLACEHOLDER
+            volumes:
+                - name: output
+                  emptyDir: {}

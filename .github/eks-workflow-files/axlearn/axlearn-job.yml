@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: PLACEHOLDER
+    labels:
+        kueue.x-k8s.io/queue-name: p5-queue
+spec:
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: axlearn
+                  image: PLACEHOLDER
+                  command:
+                    - bash
+                    - -c
+                    - |
+                      set -exo pipefail
+                      pip install pytest-reportlog pytest-xdist
+
+                      LOG_DIR="/output/${RUN_ID}"
+                      mkdir -p ${LOG_DIR}
+
+                      # Start MPS daemon
+                      nvidia-cuda-mps-control -d
+                      # Run tests
+                      pytest-xdist.sh 1 6 ${LOG_DIR}/axlearn-unittests.jsonl test-axlearn.sh --directory "." --output ${LOG_DIR} --test-files "/opt/axlearn/axlearn/common/*_test.py" | tee -a ${LOG_DIR}/pytest_stdout.log
+
+                  env:
+                    - name: RUN_ID
+                      value: PLACEHOLDER
+                  resources:
+                    limits:
+                        nvidia.com/gpu: 8
+                  volumeMounts:
+                    - name: s3-storage
+                      mountPath: /output
+                      subPath: axlearn
+            imagePullSecrets:
+                - name: PLACEHOLDER
+            volumes:
+                - name: s3-storage
+                  persistentVolumeClaim:
+                    claimName: s3-pvc

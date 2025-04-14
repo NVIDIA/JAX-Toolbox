@@ -10,7 +10,7 @@ CUDNN_MAJOR_VERSION=9
 prefix=/opt/nvidia/cudnn
 if [[ -d "${prefix}" ]]; then
   echo "Skipping link farm creation"
-  exit 1
+  exit 0
 fi
 
 arch=$(uname -m)-linux-gnu

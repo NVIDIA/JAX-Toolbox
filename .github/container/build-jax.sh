@@ -38,7 +38,6 @@ usage() {
     echo "    --debug                        Build in debug mode"
     echo "    --dry                          Dry run, parse arguments only"
     echo "    -h, --help                     Print usage."
-    echo "    --jaxlib_only                  Only build and install jaxlib"
     echo "    --no-clean                     Do not delete local configuration and bazel cache (default)"
     echo "    --src-path-jax                 Path to JAX source"
     echo "    --src-path-xla                 Path to XLA source"
@@ -61,12 +60,11 @@ CPU_ARCH="$(dpkg --print-architecture)"
 CUDA_COMPUTE_CAPABILITIES="local"
 DEBUG=0
 DRY=0
-JAXLIB_ONLY=0
 SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 XLA_ARM64_PATCH_LIST=""
 
-args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,jaxlib_only,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
+args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -115,10 +113,6 @@ while [ : ]; do
             ;;
         --dry)
             DRY=1
-            shift 1
-            ;;
-        --jaxlib_only)
-            JAXLIB_ONLY=1
             shift 1
             ;;
         --src-path-jax)
@@ -288,7 +282,8 @@ pushd ${SRC_PATH_JAX}
 time python "${SRC_PATH_JAX}/build/build.py" build \
     --editable \
     --use_clang \
-    --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
+    --use_new_wheel_build_rule \
+    --wheels=jax,jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
     --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
     --bazel_options=--linkopt=-fuse-ld=lld \
     --local_xla_path=$SRC_PATH_XLA \
@@ -298,12 +293,13 @@ popd
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
-line="jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib"
+line="jax @ file://${BUILD_PATH_JAXLIB}/jax"
 if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
     pushd "${SRC_PATH_JAX}"
     echo "${line}" >> build/requirements.in
-    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax-cuda-pjrt" >> build/requirements.in
-    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax-cuda-plugin" >> build/requirements.in
+    echo "jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt" >> build/requirements.in
+    echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin" >> build/requirements.in
     PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
     bazel run --verbose_failures=true //build:requirements.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
     popd
@@ -311,20 +307,16 @@ fi
 ## Install the built packages
 
 # Uninstall jaxlib in case this script was used before.
-if [[ "$JAXLIB_ONLY" == "0" ]]; then
-    pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
-else
-    pip uninstall -y jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
-fi
+pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
 
 # install jax and jaxlib
-pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax-cuda-pjrt -e ${BUILD_PATH_JAXLIB}/jax-cuda-plugin -e "${SRC_PATH_JAX}"
+pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin -e ${BUILD_PATH_JAXLIB}/jax
 
 ## after installation (example)
-# jax               0.4.36.dev20241125+f828f2d7d /opt/jax
-# jax-cuda12-pjrt   0.4.36.dev20241125           /opt/jaxlibs/jax-cuda-pjrt
-# jax-cuda12-plugin 0.4.36.dev20241125           /opt/jaxlibs/jax-cuda-plugin
-# jaxlib            0.4.36.dev20241125           /opt/jaxlibs/jaxlib
+# jax                     0.5.4.dev20250325    /opt/jaxlibs/jax
+# jax-cuda12-pjrt         0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_pjrt
+# jax-cuda12-plugin       0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_plugin
+# jaxlib                  0.5.4.dev20250325    /opt/jaxlibs/jaxlib
 pip list | grep jax
 
 # Ensure directories are readable by all for non-root users

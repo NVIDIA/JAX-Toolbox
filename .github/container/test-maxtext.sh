@@ -34,7 +34,7 @@ usage() {
                                        1. test-maxtext.sh -b 2 --model-name=gpt3-52k
                                        2. test-maxtext.sh -b 2 --model-name=gemma-2b --dtype=fp8
                                        3. test-maxtext.sh -n 1 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --fsdp=8 --output train_output --multiprocess
-                                       4. test-maxtext.sh -n 1 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --fsdp=8 --output train_output --multiprocess -a "scan_layers=false max_target_length=4096 use_iota_embed=true logits_dot_in_fp32=false"
+                                       4. test-maxtext.sh -n 1 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --fsdp=8 --output train_output --multiprocess -a 'scan_layers=false max_target_length=4096 use_iota_embed=true logits_dot_in_fp32=false'
                                        5. test-maxtext.sh -n 1 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --dtype=fp8 --steps=10 --fsdp=8 --output train_output --multiprocess
                                        6. test-maxtext.sh -n 8 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --output train_output --fsdp=8 --data-parallel=8 --multiprocess
                                        7. test-maxtext.sh -n 8 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --output train_output --fsdp=4 --tensor-parallel=2 --data-parallel=8 --multiprocess
@@ -106,10 +106,6 @@ while [ : ]; do
     --dtype)
         DTYPE="$2"
         shift 2
-        ;;
-    --enable-te)
-        ENABLE_TE=1
-        shift 1
         ;;
     -s | --steps)
         STEPS="$2"
@@ -253,8 +249,7 @@ RUN_NAME="logdir" ## the RUN_NAME cannot be changed
 if [ -z "$DECODER_BLOCK" ]; then
 
     # this part could be used to test different model ootb
-    RUN_SETTINGS="MaxText/train.py \
-        MaxText/configs/base.yml \
+    RUN_SETTINGS="MaxText/configs/base.yml \
         run_name=${RUN_NAME} \
         model_name=${MODEL} \
         steps=${STEPS} \
@@ -277,8 +272,7 @@ if [ -z "$DECODER_BLOCK" ]; then
         ${ADDITIONAL_ARGS}"
 else
     # this is essentially used for CI run
-    RUN_SETTINGS="MaxText/train.py \
-        MaxText/configs/base.yml \
+    RUN_SETTINGS="MaxText/configs/base.yml \
         run_name=${RUN_NAME} \
         decoder_block=${DECODER_BLOCK} \
         steps=$STEPS \
@@ -310,6 +304,6 @@ else
 fi
 
 echo "Command: python3 $RUN_SETTINGS"
-python3 $RUN_SETTINGS
+python3 -m MaxText.train $RUN_SETTINGS
 
 echo "Output at ${OUTPUT}"

@@ -22,10 +22,20 @@ for pattern in \
     "s|absl-py|absl-py>=2.1.0|g" \
     "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
     "s|tensorflow-datasets|tensorflow-datasets>=4.8.0|g" \
+    "s|sentencepiece==0.1.97|sentencepiece>=0.2|g" \
+    "s|tensorflow>=2.13.0|tensorflow==2.18.1|g" \
   ; do
+    # tensorflow-cpu==2.19.0 is incompatible with tensorflow-text
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt;
 done
-echo "tensorflow-metadata>=1.15.0" >> ${SRC_PATH_MAXTEXT}/requirements.txt
+# add new line in case requirements.txt does not end with a new line
+echo >> ${SRC_PATH_MAXTEXT}/requirements.txt
+for requirement in \
+    "tensorflow-metadata>=1.15.0" \
+    "seqio@git+https://github.com/google/seqio.git" \
+  ; do
+    echo "${requirement}" >> ${SRC_PATH_MAXTEXT}/requirements.txt
+done
 EOF
 
 ###############################################################################

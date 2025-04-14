@@ -102,15 +102,15 @@ def _classify_comms(thunk_df: pd.DataFrame, prefix: pathlib.Path) -> pd.DataFram
     # Classify each thunk as either communication or computation, as we only
     # want to attribute non-overlapped communication time to those operations.
     assert thunk_df.index.names[0] == "ProgramId"
+    assert thunk_df.index.names[2] == "Name"
 
-    def is_communication(tup):
-        idx, name = tup
+    def is_communication(idx):
         return _is_communication(
-            program_id=idx[0], prefix=prefix, instruction_name=name
+            program_id=idx[0], prefix=prefix, instruction_name=idx[2]
         )
 
     thunk_df["Communication"] = pd.Series(
-        data=map(is_communication, thunk_df["Name"].items()),
+        data=map(is_communication, thunk_df.index),
         index=thunk_df.index,
     )
     return _calculate_overlap(thunk_df)
@@ -122,6 +122,23 @@ compile_prefix = "XlaCompile:#module="
 def _load_parquet_file(file: pathlib.Path) -> pd.DataFrame:
     # Separate function to make profiles of this Python code easier to read
     return pd.read_parquet(file)
+
+
+def _sort_thunk_frame(df: pd.DataFrame) -> pd.DataFrame:
+    # Sort a thunk-level data frame. The third level of the index is the thunk
+    # name, so we cannot do a straightforward sort by the index without getting
+    # an alphabetic sort -- which is not convenient. Instead we sort by the
+    # mean (across devices) execution time.
+    df["ProjStartMsMean"] = (
+        df["ProjStartMs"]
+        .groupby(
+            ["ProgramId", "ProgramExecution", "Name", "ThunkExecution"], sort=False
+        )
+        .agg("mean")
+    )
+    return df.sort_values(
+        by=["ProgramId", "ProgramExecution", "ProjStartMsMean", "Device"]
+    ).drop(columns=["ProjStartMsMean"])
 
 
 def _load_nvtx_gpu_proj_trace_single(
@@ -230,8 +247,9 @@ def _load_nvtx_gpu_proj_trace_single(
         mod_id_names = df.loc[mod_ids, "Name"]
         assert mod_ids.shape == mod_id_names.shape
         # Get a mask in mod_id_names of entries where ModuleId in the original
-        # Thunk is not referring to a Module. If it's not a module, it should
-        # be a thunk.
+        # Thunk is not referring to a Module yet. Intermediate levels of the
+        # hierarchy can be other thunks (e.g. an individual graph node may
+        # have a thunk representing the whole graph as a parent).
         mask = ~mod_id_names.str.startswith(module_prefix)
         assert (mask == mod_id_names.str.startswith(thunk_prefix)).all()
         assert mask.shape == mod_ids.shape
@@ -380,11 +398,6 @@ def _load_nvtx_gpu_proj_trace_single(
             repl=lambda m: m.group(1),
             regex=True,
         )
-        # Add an index of the thunk within the module
-        # TODO: the ordering is potentially inconsistent across module executions in case of multiple streams/overlap
-        thunk_df["ThunkIndex"] = thunk_df.groupby(
-            ["ProgramId", "ProgramExecution", "Device"]
-        ).cumcount()
         # Add a new column describing which (0th, 1st, ...) execution of the thunk
         # within the given module execution this is. For example, while loops in the
         # HLO can lead to the same thunk being executed multiple times within the same
@@ -392,12 +405,12 @@ def _load_nvtx_gpu_proj_trace_single(
         thunk_df["ThunkExecution"] = thunk_df.groupby(
             ["ProgramId", "ProgramExecution", "Device", "Name"]
         ).cumcount()
-
+        thunk_df = thunk_df.set_index(
+            ["ProgramId", "ProgramExecution", "Name", "ThunkExecution", "Device"]
+        )
         # Classify thunks as communication/computation and save to output
         output["thunk"] = _classify_comms(
-            thunk_df.set_index(
-                ["ProgramId", "ProgramExecution", "ThunkIndex", "Device"]
-            ).sort_index(),
+            _sort_thunk_frame(thunk_df),
             prefix,
         )
 
@@ -456,12 +469,19 @@ def _load_nvtx_gpu_proj_trace(
                     tmp[k].append(v)
         output = {}
         for k, v in tmp.items():
-            output[k] = pd.concat(v, verify_integrity=True).sort_index()
+            output[k] = pd.concat(v, verify_integrity=True)
+        # The frames coming out of _load_nvtx_gpu_proj_trace_single are already
+        # sorted, individually, because _classify_comms needs that. But if many
+        # have been concatenated then a new sort is needed to interleave the
+        # data correctly.
+        if "thunk" in output:
+            output["thunk"] = _sort_thunk_frame(output["thunk"])
     else:
         output = _load_nvtx_gpu_proj_trace_single(
             prefix, filenames[0], meta_filenames[0], frames
         )
-        output = {k: v.sort_index() for k, v in output.items()}
+    if "module" in output:
+        output["module"] = output["module"].sort_index()
     return output
 
 

@@ -46,7 +46,10 @@ elif [[ "$TYPE" == "rosetta-t5x" ]]; then
     )
     OUTPUT_DIR=T5X_MGMN/rosetta
 elif [[ "$TYPE" == "upstream-maxtext" ]]; then
-    CONFIGS=("1DP1FSDP1TP1PP" "1DP1FSDP8TP1PP" "1DP2FSDP4TP1PP_single_process" "1DP4FSDP2TP1PP" "1DP8FSDP1TP1PP" "2DP2FSDP2TP1PP" "4DP2FSDP2TP1PP")
+    CONFIGS=(
+	"1DP2FSDP4TP1PP_single_process"
+	"2DP2FSDP2TP1PP"
+    )
     OUTPUT_DIR=MAXTEXT/upstream
 else
     usage
@@ -60,8 +63,10 @@ bash ${UTIL_DIR}/download_artifacts.sh ${ALL_WF_RUNS[@]}
 URLS=()
 for WORKFLOW_RUN in ${ALL_WF_RUNS[@]}; do
   for CFG in ${CONFIGS[@]}; do
-    if [[ $(find . -mindepth 1 -maxdepth 2 -type d -name $CFG | wc -l) -ne 1 ]]; then
-      echo "Expected one artifact to have a '$CFG' dir under '$PWD', but found $(find . -mindepth 1 -maxdepth 2 -type d -name $CFG)"
+    CFG=$TYPE-$WORKFLOW_RUN-$CFG
+    ARTS=$(find . -mindepth 1 -maxdepth 2 -type d -name $CFG)
+    if (( $(echo ${ARTS} | wc -l) != 1 )); then
+      echo "Expected one artifact to have a '$CFG' dir under '$PWD', but found ${ARTS}"
       exit 1
     fi
   done

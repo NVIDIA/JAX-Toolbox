@@ -333,7 +333,6 @@ jobs:
           declare -a FLAVORS=(
             base
             jax
-            triton
             equinox
             maxtext
             levanter

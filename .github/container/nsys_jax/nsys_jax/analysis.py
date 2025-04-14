@@ -54,12 +54,11 @@ def align_profiler_data_timestamps(
     )
     # For each collective, calculate the mean end time of each collective across devices
     mean_end_times = end_times.groupby(
-        ["ProgramId", "ProgramExecution", "ThunkIndex"]
+        ["ProgramId", "ProgramExecution", "Name", "ThunkExecution"], sort=False
     ).agg("mean")
     # For each collective + device, calculate the delta of the end time from the mean
     end_time_skews = end_times - mean_end_times
-    device_skews = end_time_skews.groupby("Device")
-    median_device_skews = device_skews.agg("median")
+    median_device_skews = end_time_skews.groupby("Device").agg("median")
     # Apply these corrections to the device-side timestamps
     for k in ["communication", "module", "thunk"]:
         df = getattr(frames, k)
@@ -78,11 +77,10 @@ def apply_warmup_heuristics(frames: ProfilerData) -> tuple[ProfilerData, Profile
     """
     Given a ProfilerData dataclass, as returned by `load_profiler_data`, use heuristics
     to split the profile data into initialisation and steady state running. The current
-    approach is to assume everything is steady state if compilation was not profiled,
-    and if compilation *was* profiled then label the 0th execution as initialisation
-    and the 2nd and later ones as steady state operation, discarding one execution in
-    between. If there is no communication in the profile, that one in between is not
-    discarded.
+    approach is to check whether compilation of each module was profiled, and if so
+    classify the first execution as initialization, and if the profile data includes
+    communication thunks to classify an additional execution of each module as being
+    initialization.
 
     Returns a tuple of:
       ProfilerData dataclass, with only initialisation (and compile)
@@ -104,7 +102,9 @@ def apply_warmup_heuristics(frames: ProfilerData) -> tuple[ProfilerData, Profile
     #
     # then one-time costs (e.g. JIT compilation) of postamble(0) will affect when
     # step_function(1) is actually launched, whereas step_function(2) and later are
-    # expected to launch closer to in lockstep across processes.
+    # expected to launch closer to in lockstep across processes. Even if compilation is
+    # not profiled, profiler initialisation can take variable time across processes and
+    # induce skews between the first profiled executions.
     init = ProfilerData(compile=frames.compile)
     steady = ProfilerData()
     steady_state_threshold = (
@@ -115,20 +115,19 @@ def apply_warmup_heuristics(frames: ProfilerData) -> tuple[ProfilerData, Profile
         if df is None:
             continue
         compile_mask = df.index.get_level_values("ProgramId").isin(compilation_ids_seen)
+        threshold = compile_mask + steady_state_threshold
         prog_exec_values = df.index.get_level_values("ProgramExecution")
-        init_mask = compile_mask & (prog_exec_values == 0)
-        steady_mask = ~compile_mask | (prog_exec_values > steady_state_threshold)
+        init_mask = prog_exec_values < threshold
+        steady_mask = ~init_mask
         if len(df) != 0 and not steady_mask.any():
             print(
-                f"WARNING: heuristics could not identify steady-state execution in {k} frame, assuming EVERYTHING is steady-state. You may want to increase the number of profiled executions."
+                f"WARNING: heuristics could not identify steady-state execution in {k} "
+                "frame, assuming EVERYTHING is steady-state. You may want to increase "
+                "the number of profiled executions."
             )
             setattr(init, k, df[steady_mask])
             setattr(steady, k, df[~steady_mask])
         else:
-            assert (
-                steady_state_threshold == 0
-                or (prog_exec_values[~init_mask & ~steady_mask] == 1).all()
-            )
             setattr(init, k, df[init_mask])
             setattr(steady, k, df[steady_mask])
     return init, steady
@@ -303,12 +302,14 @@ def calculate_collective_metrics(
     if len(comm_df) == 0:
         return comm_df
 
-    def body(tup):
-        idx, name = tup
-        return get_message_size(idx[0], name, prefix=prefix)
+    assert comm_df.index.names[0] == "ProgramId"
+    assert comm_df.index.names[2] == "Name"
+
+    def body(idx):
+        return get_message_size(idx[0], idx[2], prefix=prefix)
 
     metrics_df = pd.DataFrame.from_records(
-        map(body, comm_df["Name"].items()),
+        map(body, comm_df.index),
         columns=[
             "MessageSize",
             "Collective",

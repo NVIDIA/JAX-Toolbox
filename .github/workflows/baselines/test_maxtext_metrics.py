@@ -2,10 +2,11 @@ import pytest
 import os
 import json
 import glob
-import sys
+from numpy.testing import assert_allclose
 import test_utils
 from statistics import mean
 
+LOSS_RTOL = 0.10
 STEP_TIME_MULT = 0.95
 E2E_TIME_MULT = 0.95
 test_dir = os.path.dirname(os.path.abspath(__file__))
@@ -22,9 +23,22 @@ def test_loss(baseline_filename):
     event_file = os.path.join(results_dir, test_config, "logdir/tensorboard/logdir/events*")
     event_file = glob.glob(event_file)[0]
     with open(baseline_filepath, "r") as baseline_file:
-        end_step = json.load(baseline_file)["end_step"]
+        baseline_data = json.load(baseline_file)
+        loss_expected_values = baseline_data["loss_values"]
+        start_step = baseline_data["start_step"]
+        end_step = baseline_data["end_step"]
+        interval = baseline_data["step_interval"]
+        loss_expected = {step: loss_expected_values[i] for i, step in enumerate(
+            range(start_step, end_step+1, interval))}
         loss_actual = test_utils.read_maxtext_tb_tag(event_file, loss_summary_name)
-        assert 0 <= loss_actual[end_step] < 1.8e-3, f"Loss at final step: {loss_actual[end_step]}, Expected 0 <= loss < 1.8e-3"
+        del loss_actual[0] # removing the very first step
+        assert loss_expected.keys() == loss_actual.keys(), \
+            f"Steps at which loss was emitted for run do not match baseline. \
+            Actual steps: {loss_actual.keys()}, Baseline steps: {loss_expected.keys()}"
+        assert_allclose(list(loss_actual.values()), list(loss_expected.values()),
+                        rtol=LOSS_RTOL,
+                        err_msg=f"Run loss values: {loss_actual.values()}, \
+                                Baseline loss values: {loss_expected.values()}")
 
 
 @pytest.mark.parametrize("baseline_filename", os.listdir(baselines_dir))

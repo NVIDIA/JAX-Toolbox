@@ -71,11 +71,11 @@ seqio:
   tracking_ref: main
   latest_verified_commit: 11706e4a1e01a81ea6b3e02c5ad147028d5b94bb
   mode: pip-vcs
-jax-triton:
-  url: https://github.com/jax-ml/jax-triton.git
+google-jetstream:
+  url: https://github.com/AI-Hypercomputer/JetStream.git
   tracking_ref: main
-  latest_verified_commit: 1999d9b116bf7c5c94f70de4a45b414255366fbe
-  mode: git-clone
+  latest_verified_commit: b8b9cb2ea4668da2c5012fc4c7ba958424d82ac9
+  mode: pip-vcs
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
@@ -90,21 +90,6 @@ haliax:
   url: https://github.com/stanford-crfm/haliax.git
   tracking_ref: main
   latest_verified_commit: 2a696a0c971901ff93afdaa965959d8e3b982ba9
-  mode: git-clone
-mujoco:
-  url: https://github.com/google-deepmind/mujoco.git
-  tracking_ref: main
-  latest_verified_commit: e95159b4f6d48d114b16a8dc13ad26b3e44bc3e2
-  mode: git-clone
-mujoco-mpc:
-  url: https://github.com/google-deepmind/mujoco_mpc.git
-  tracking_ref: main
-  latest_verified_commit: 4700f4a13be18398f5aaf6a33ed42e531967e3ae
-  mode: git-clone
-language-to-reward-2023:
-  url: https://github.com/google-deepmind/language_to_reward_2023.git
-  tracking_ref: main
-  latest_verified_commit: abb8e5125e4ecd0da378490b73448c05a694def5
   mode: git-clone
 mlperf-logging:
   url: https://github.com/mlcommons/logging.git

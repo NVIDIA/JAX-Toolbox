@@ -1,7 +1,6 @@
 import datetime
 import logging
 import pathlib
-import subprocess
 import typing
 
 
@@ -17,22 +16,6 @@ def container_url(date: datetime.date, *, container: str) -> str:
         return f"ghcr.io/nvidia/jax:{container}-{date.isoformat()}"
     else:
         return f"ghcr.io/nvidia/{container}:nightly-{date.isoformat()}"
-
-
-def container_exists(
-    date: datetime.date, *, container: str, logger: logging.Logger
-) -> bool:
-    """
-    Check if the given container exists.
-    """
-    result = subprocess.run(
-        ["docker", "pull", container_url(date, container=container)],
-        stderr=subprocess.STDOUT,
-        stdout=subprocess.PIPE,
-        encoding="utf-8",
-    )
-    logger.debug(result.stdout)
-    return result.returncode == 0
 
 
 def get_logger(output_prefix: pathlib.Path) -> logging.Logger:
