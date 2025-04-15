@@ -52,7 +52,7 @@ RUN build-jax.sh \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
-    --xla-arm64-patch /opt/xla-arm64-neon.patch \ 
+    --xla-arm64-patch /opt/xla-arm64-neon.patch \
     --clean
 
 ## Transformer engine: check out source and build wheel
@@ -120,6 +120,9 @@ RUN <<"EOF" bash -ex
 ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl)" > /opt/pip-tools.d/requirements-te.in
 EOF
+
+# Copy jax examples
+COPY jax_examples/fdgg.py /opt/jax/examples/fdgg.py
 
 ###############################################################################
 ## Install primary packages and transitive dependencies
