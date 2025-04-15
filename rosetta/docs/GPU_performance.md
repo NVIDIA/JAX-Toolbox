@@ -44,6 +44,10 @@ To enable asynchronous communication for all collectives, the following is recom
 
 - --xla_gpu_enable_highest_priority_async_stream=true
 
+To enable more efficient P2P transfers utilizing Copy Engine, turn on the following flag:
+
+- --xla_gpu_use_memcpy_local_p2p=true
+
 For more fine-grained control over which collectives should be asynchronous or not, please use: 
 
 - --xla_gpu_disable_async_collectives=allreduce,allgather,reducescatter,collectivebroadcast,alltoall,collectivepermute
