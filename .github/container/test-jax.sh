@@ -128,7 +128,6 @@ COMMON_FLAGS=$(cat << EOF
 --test_env=XLA_PYTHON_CLIENT_PREALLOCATE=false
 --test_output=errors
 --java_runtime_version=remotejdk_11
---run_under ${SRC_PATH_JAX}/build/parallel_accelerator_execute.sh
 EOF
 )
 
