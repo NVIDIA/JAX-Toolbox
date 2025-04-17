@@ -25,6 +25,8 @@ spec:
                       mkdir -p ${TRAINER_DIR}
                       OUTPUT_LOG_FILE=${TRAINER_DIR}/output.log
 
+                      export XLA_FLAGS="--xla_gpu_enable_command_buffer="
+
                       python3 /usr/local/bin/fuji-train-perf.py \
                           --module=text.gpt.c4_trainer \
                           --config=${CONFIG} \
