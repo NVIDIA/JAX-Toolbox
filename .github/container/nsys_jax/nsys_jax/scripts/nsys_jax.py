@@ -339,16 +339,11 @@ def main() -> None:
     if capture_range_end == "stop-shutdown" or capture_range_end.startswith(
         "repeat-shutdown:"
     ):
-        # nsys will send this signal on shutdown
+        # nsys will send this signal on shutdown; takes none/sigkill/sigterm or an int
         kill_signal = nsys_arg_value("kill", "sigterm")
         if kill_signal != "none":
-            if kill_signal == "sigterm":
-                kill_signal = 15
-            elif kill_signal == "sigkill":
-                kill_signal = 9
-            else:
-                kill_signal = int(kill_signal)
-            expected_returncodes.add(128 + kill_signal)
+            ks_map = {"sigterm": 15, "sigkill": 9}
+            expected_returncodes.add(128 + int(ks_map.get(kill_signal, kill_signal)))
     if application_result.returncode in expected_returncodes:
         # Collapse any expected return code into success
         application_result.returncode = 0
