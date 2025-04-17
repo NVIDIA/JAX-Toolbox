@@ -171,6 +171,8 @@ jobs:
       CONTAINER_NAME: axlearn
       DOCKERFILE: .github/container/Dockerfile.axlearn
       RUNNER_SIZE: large
+      EXTRA_BUILD_ARGS: |
+        URLREF_AXLEARN="https://github.com/Steboss/axlearn.git#sbosisio/tree_util"
     secrets: inherit
 
   collect-docker-tags:
@@ -521,7 +523,7 @@ jobs:
           # merge the log files
           cat \
             /log/pytest-report-L0-unittest.jsonl
-            /log/pytest-report-L0-distributed-unittest.jsonl 
+            /log/pytest-report-L0-distributed-unittest.jsonl
             > /log/pytest-report.jsonl
         EOF
       STATISTICS_SCRIPT: |
