@@ -8,9 +8,24 @@ print_var() {
     echo "$1: ${!1}"
 }
 
+# CUDA_ARCH_LIST comes from the dl-cuda-base image starting with CUDA 12.9
+# It is a space-separated list of compute capabilities, e.g. "7.5 8.0 12.0"
 supported_compute_capabilities() {
     ARCH=$1
-    if [[ "${ARCH}" == "amd64" ]]; then
+    # Infer the compute capabilities from the CUDA_ARCH_LIST variable if it is set
+    # Example: "7.5 8.0 12.0" -> "sm_75,sm_80,compute_120"
+    if [[ -n "${CUDA_ARCH_LIST}" ]]; then
+        read -r -a _CUDA_ARCH_LIST <<< "${CUDA_ARCH_LIST}"
+        SM_LIST=""
+        for _ARCH in "${_CUDA_ARCH_LIST[@]}"; do
+            if [[ "${_ARCH}" == "${_CUDA_ARCH_LIST[-1]}" ]]; then
+                SM_LIST="${SM_LIST}compute_${_ARCH//./}"
+            else
+                SM_LIST="${SM_LIST}sm_${_ARCH//./},"
+            fi
+        done
+        echo "${SM_LIST}"
+    elif [[ "${ARCH}" == "amd64" ]]; then
         echo "sm_75,sm_80,sm_86,sm_90,sm_100,compute_120"
     elif [[ "${ARCH}" == "arm64" ]]; then
         echo "sm_80,sm_86,sm_90,sm_100,compute_120"
