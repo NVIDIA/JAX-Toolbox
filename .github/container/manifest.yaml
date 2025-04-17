@@ -138,6 +138,6 @@ pathwaysutils:
   mode: pip-vcs
 axlearn:
   url: https://github.com/Steboss/axlearn.git
-  tracking_ref: main
+  tracking_ref: sbosisio/tree_util
   latest_verified_commit:
   mode: git-clone
