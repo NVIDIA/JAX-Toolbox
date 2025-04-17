@@ -44,7 +44,7 @@ To enable asynchronous communication for all collectives, the following is recom
 
 - --xla_gpu_enable_highest_priority_async_stream=true
 
-To enable more efficient P2P transfers utilizing Copy Engine, turn on the following flag:
+To enable more efficient P2P transfers utilizing Copy Engine, turn on the following flag. Note that this will enable Copy Engine transfers only for devices managed within a single process.
 
 - --xla_gpu_use_memcpy_local_p2p=true
 
@@ -165,3 +165,10 @@ Blackwell (B200) GPUs have a memory capacity of 180GB, significantly more than H
 - Optimize activation checkpointing policies: fewer activation tensors need to be recomputed in the backward pass on B200.
 
 Careful tuning of these parameters is essential when transitioning from H100 to B200 systems to fully utilize the available resources.
+
+### **Debugging Hangs in 1-process-multiple-device set-up**
+If using 1 process to manage multiple devices in a node, hangs can happen when a process-wide synchronizing CUDA API such as cudaFree is called at the same time a collective is running across multiple devices within the same process.
+The following remedy steps can be taken to workaround such cases:
+
+- Set [NCCL_LAUNCH_MODE=GROUP](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-launch-mode) in the environment.
+- Change the JAX program to bind 1 process to a single device instead of managing multiple devices.
