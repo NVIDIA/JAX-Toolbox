@@ -134,11 +134,11 @@ while [ : ]; do
             usage 1
             ;;
         --install)
-            install=1
+            INSTALL=1
             shift 1
             ;;
         --no-install)
-            install=0
+            INSTALL=0
             shift 1
             ;;
         --src-path-jax)
