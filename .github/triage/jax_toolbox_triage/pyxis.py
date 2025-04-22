@@ -39,12 +39,20 @@ class PyxisContainer:
         return f"Pyxis({self._url})"
 
     def exec(
-        self, command: typing.List[str], workdir=None
+        self,
+        command: typing.List[str],
+        policy: typing.Literal["once", "once_per_container", "default"] = "default",
+        workdir=None,
     ) -> subprocess.CompletedProcess:
         """
         Run a command inside a persistent container.
         """
         workdir = [] if workdir is None else [f"--container-workdir={workdir}"]
+        policy_args = {
+            "once": ["--ntasks=1"],
+            "once_per_container": ["--ntasks-per-node=1"],
+            "default": [],
+        }[policy]
         command = (
             [
                 "srun",
@@ -53,6 +61,7 @@ class PyxisContainer:
                 "--container-remap-root",
             ]
             + self._mount_args
+            + policy_args
             + workdir
             + command
         )

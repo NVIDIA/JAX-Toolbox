@@ -32,7 +32,9 @@ def get_commit(
     results = []
     for suffix in ["", "-source"]:
         dirname = f"/opt/{repo}{suffix}"
-        result = container.exec(["git", "rev-parse", "HEAD"], workdir=dirname)
+        result = container.exec(
+            ["git", "rev-parse", "HEAD"], policy="once", workdir=dirname
+        )
         results.append(result)
         if result.returncode == 0:
             commit = result.stdout.strip()
@@ -159,6 +161,7 @@ def main():
                     "--format=%H %cI",
                     f"{start}^..{end}",
                 ],
+                policy="once",
                 workdir=dir,
             )
             data = []
@@ -190,21 +193,39 @@ def main():
             jaxlib, and run the test command. Throws on error when checking out or
             building, and returns the status of the test command.
             """
-            worker.check_exec(["git", "stash"], workdir=xla_dir)
-            worker.check_exec(["git", "stash"], workdir=jax_dir)
-            worker.check_exec(["git", "checkout", xla_commit], workdir=xla_dir)
-            worker.check_exec(["git", "checkout", jax_commit], workdir=jax_dir)
+            worker.check_exec(
+                ["git", "stash"], policy="once_per_container", workdir=xla_dir
+            )
+            worker.check_exec(
+                ["git", "stash"], policy="once_per_container", workdir=jax_dir
+            )
+            worker.check_exec(
+                ["git", "checkout", xla_commit],
+                policy="once_per_container",
+                workdir=xla_dir,
+            )
+            worker.check_exec(
+                ["git", "checkout", jax_commit],
+                policy="once_per_container",
+                workdir=jax_dir,
+            )
             logger.info(f"Checking out XLA {xla_commit} JAX {jax_commit}")
             # Build JAX
             before = time.monotonic()
             # Unfortunately the build system does not always seem to handle incremental
             # rebuilds correctly.
-            worker.check_exec(["bazel", "clean", "--expunge"], workdir=jax_dir)
+            worker.check_exec(
+                ["bazel", "clean", "--expunge"],
+                policy="once_per_container",
+                workdir=jax_dir,
+            )
             build_jax = [
                 "build-jax.sh",
                 f"--bazel-cache={args.bazel_cache}",
             ]
-            build_result = worker.check_exec(build_jax, workdir=jax_dir)
+            build_result = worker.check_exec(
+                build_jax, policy="once_per_container", workdir=jax_dir
+            )
             middle = time.monotonic()
             logger.info(f"Build completed in {middle - before:.1f}s")
             logger.debug(
