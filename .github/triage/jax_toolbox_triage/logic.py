@@ -214,43 +214,34 @@ def commit_search(
     end_jax_commit = jax_commits[-1][0]
     end_xla_commit = xla_commits[-1][0]
     if skip_precondition_checks:
-        logger.info("Skipping check that vanilla rebuild + test reproduces failure")
+        logger.info("Skipping check that 'bad' commits reproduce failure")
     else:
-        # Verify we can build successfully and that the test fails as expected. These
-        # commits are the ones already checked out in the container, but specifying
-        # them explicitly is good for the summary JSON.
-        logger.info("Building in the range-ending container...")
+        # Verify we can build successfully and that the test fails as expected.
         range_end_result, stdout, stderr = build_and_test(
             jax_commit=end_jax_commit, xla_commit=end_xla_commit
         )
         if not range_end_result:
-            logger.info("Verified test failure after vanilla rebuild")
+            logger.info("Verified test failure using 'bad' commits")
         else:
-            logger.fatal("Vanilla rebuild did not reproduce test failure")
+            logger.fatal("Could not reproduce failure with 'bad' commits")
             logger.fatal(stdout)
             logger.fatal(stderr)
-            raise Exception(
-                "Could not reproduce failure after rebuild in 'bad' container"
-            )
+            raise Exception("Could not reproduce failure with 'bad' commits")
 
-    # Verify that we can build the commit at the start of the range and reproduce the
-    # test success there in the end-of-range container.
-    range_start_result, stdout, stderr = build_and_test(
-        jax_commit=start_jax_commit, xla_commit=start_xla_commit
-    )
-    if range_start_result:
-        logger.info(
-            "Test passed after rebuilding commits from start container in end container"
-        )
+    if skip_precondition_checks:
+        logger.info("Skipping check that 'good' commits reproduce success")
     else:
-        logger.fatal(
-            "Test failed after rebuilding commits from start container in end container"
+        # Verify that we can build successfully and that the test succeeds as expected.
+        range_start_result, stdout, stderr = build_and_test(
+            jax_commit=start_jax_commit, xla_commit=start_xla_commit
         )
-        logger.fatal(stdout)
-        logger.fatal(stderr)
-        raise Exception(
-            "Could not reproduce success with 'good' commits in 'bad' container"
-        )
+        if range_start_result:
+            logger.info("Verified test passes using 'good' commits")
+        else:
+            logger.fatal("Could not reproduce success with 'good' commits")
+            logger.fatal(stdout)
+            logger.fatal(stderr)
+            raise Exception("Could not reproduce success with 'good' commits")
 
     # Finally, start bisecting. This is XLA-centric; JAX is moved too but is secondary.
     while len(xla_commits) > 2:
@@ -260,6 +251,9 @@ def commit_search(
         for jax_index, (jax_hash, jax_date) in enumerate(jax_commits):
             if jax_date >= xla_date:
                 break
+        logger.info(
+            f"Chose from {len(xla_commits)} remaining XLA commits and {len(jax_commits)} remaining JAX commits"
+        )
         bisect_result, _, _ = build_and_test(jax_commit=jax_hash, xla_commit=xla_hash)
         if bisect_result:
             # Test passed, continue searching in the second half
