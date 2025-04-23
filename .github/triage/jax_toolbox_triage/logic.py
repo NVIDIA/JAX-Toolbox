@@ -217,6 +217,7 @@ def commit_search(
         logger.info("Skipping check that 'bad' commits reproduce failure")
     else:
         # Verify we can build successfully and that the test fails as expected.
+        logger.info("Verifying test failure using 'bad' commits")
         range_end_result, stdout, stderr = build_and_test(
             jax_commit=end_jax_commit, xla_commit=end_xla_commit
         )
@@ -232,6 +233,7 @@ def commit_search(
         logger.info("Skipping check that 'good' commits reproduce success")
     else:
         # Verify that we can build successfully and that the test succeeds as expected.
+        logger.info("Verifying test success using 'good' commits")
         range_start_result, stdout, stderr = build_and_test(
             jax_commit=start_jax_commit, xla_commit=start_xla_commit
         )
