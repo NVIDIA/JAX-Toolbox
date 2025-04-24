@@ -36,7 +36,13 @@ RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
     git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX}
+    cd ${SRC_PATH_JAX}
+    git checkout 127aa7621868cb77e552b5d1f90e4a42b09c13fa
+    cd
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
+    cd ${SRC_PATH_XLA}
+    git checkout 520f243f3662ae3683952a3e1a4871a56907f8af
+    cd
 EOF
 
 ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
@@ -52,7 +58,7 @@ RUN build-jax.sh \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
-    --xla-arm64-patch /opt/xla-arm64-neon.patch \ 
+    --xla-arm64-patch /opt/xla-arm64-neon.patch \
     --clean
 
 ## Transformer engine: check out source and build wheel
