@@ -310,7 +310,7 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --editable \
     --use_clang \
     --use_new_wheel_build_rule \
-    --wheels=jax,jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
+    --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
     --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
     --bazel_options=--linkopt=-fuse-ld=lld \
     --local_xla_path=$SRC_PATH_XLA \
@@ -320,10 +320,10 @@ popd
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
-line="jax @ file://${BUILD_PATH_JAXLIB}/jax"
-if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
+local_jax_whl="jax @ file://${SRC_PATH_JAX}"
+if ! grep -xF "${local_jax_whl}" "${SRC_PATH_JAX}/build/requirements.in"; then
     pushd "${SRC_PATH_JAX}"
-    echo "${line}" >> build/requirements.in
+    echo "${local_jax_whl}" >> build/requirements.in
     echo "jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib" >> build/requirements.in
     echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt" >> build/requirements.in
     echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin" >> build/requirements.in
@@ -339,10 +339,10 @@ if [[ "${INSTALL}" == "1" ]]; then
     pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
 
     # install jax and jaxlib
-    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin -e ${BUILD_PATH_JAXLIB}/jax
+    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin -e ${SRC_PATH_JAX}/jax
 
     ## after installation (example)
-    # jax                     0.5.4.dev20250325    /opt/jaxlibs/jax
+    # jax                     0.5.4.dev20250325    /opt/jax
     # jax-cuda12-pjrt         0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_pjrt
     # jax-cuda12-plugin       0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_plugin
     # jaxlib                  0.5.4.dev20250325    /opt/jaxlibs/jaxlib
