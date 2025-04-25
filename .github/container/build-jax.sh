@@ -339,13 +339,14 @@ if [[ "${INSTALL}" == "1" ]]; then
     pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
 
     # install jax and jaxlib
-    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin -e ${SRC_PATH_JAX}/jax
+    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin -e ${SRC_PATH_JAX}
 
     ## after installation (example)
-    # jax                     0.5.4.dev20250325    /opt/jax
-    # jax-cuda12-pjrt         0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_pjrt
-    # jax-cuda12-plugin       0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_plugin
-    # jaxlib                  0.5.4.dev20250325    /opt/jaxlibs/jaxlib
+    # jax                     0.6.1.dev20250425+966578b61 /opt/jax
+    # jax-cuda12-pjrt         0.6.1.dev20250425           /opt/jaxlibs/jax_cuda12_pjrt
+    # jax-cuda12-plugin       0.6.1.dev20250425           /opt/jaxlibs/jax_cuda12_plugin
+    # jaxlib                  0.6.1.dev20250425           /opt/jaxlibs/jaxlib
+    # nsys-jax                0.1.dev1134+gfac62b6        /opt/nsys-jax/.github/container/nsys_jax
     pip list | grep jax
 fi
 
