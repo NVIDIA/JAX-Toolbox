@@ -49,6 +49,7 @@ ADD xla-arm64-neon.patch /opt
 RUN build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
+    --no-install \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
@@ -58,10 +59,12 @@ RUN build-jax.sh \
 ## Transformer engine: check out source and build wheel
 RUN <<"EOF" bash -ex -o pipefail
 pip install ninja && rm -rf ~/.cache/pip
-# TransformerEngine now needs JAX at build time
 git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 pushd ${SRC_PATH_TRANSFORMER_ENGINE}
 export NVTE_BUILD_THREADS_PER_JOB=8
+export NVTE_FRAMEWORK=jax
+# TransformerEngine needs FFI headers from XLA
+export XLA_HOME=${SRC_PATH_XLA}
 python setup.py bdist_wheel && rm -rf build
 ls "${SRC_PATH_TRANSFORMER_ENGINE}/dist"
 EOF
@@ -103,7 +106,7 @@ RUN <<"EOF" bash -ex
 for component in $(ls ${BUILD_PATH_JAXLIB}); do
     echo "-e file://${BUILD_PATH_JAXLIB}/${component}" >> /opt/pip-tools.d/requirements-jax.in;
 done
-echo "-e file://${BUILD_PATH_JAXLIB}/jax[k8s]" >> /opt/pip-tools.d/requirements-jax.in
+echo "-e file://${SRC_PATH_JAX}[k8s]" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax
@@ -113,7 +116,6 @@ echo "-e file://${SRC_PATH_FLAX}" >> /opt/pip-tools.d/requirements-flax.in
 EOF
 
 # Copy TransformerEngine wheel from the builder stage
-ENV NVTE_FRAMEWORK=jax
 ENV SRC_PATH_TRANSFORMER_ENGINE=${SRC_PATH_TRANSFORMER_ENGINE}
 COPY --from=builder ${SRC_PATH_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 RUN <<"EOF" bash -ex

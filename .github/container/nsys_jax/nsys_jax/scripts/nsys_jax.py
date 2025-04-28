@@ -241,6 +241,28 @@ def main() -> None:
             return
         nsys_flags.append(f"--{arg}={value}")
 
+    def nsys_arg_value(arg, default_value):
+        """
+        Get the value of --arg in `nsys_flags`, or return `default_value`.
+        [..., --arg, VALUE, ...] and [--arg=VALUE] are both possible.
+        """
+        arg_indices = [
+            n
+            for n, flag in enumerate(nsys_flags)
+            if flag == f"--{arg}" or flag.startswith(f"--{arg}=")
+        ]
+        if len(arg_indices) == 0:
+            return default_value
+        arg_index = arg_indices[-1]  # last one wins
+        flag = nsys_flags[arg_index]
+        if flag == f"--{arg}":
+            assert arg_index < len(nsys_flags) - 1, (
+                "[..., --arg, VALUE, ...] requires --arg not be last"
+            )
+            return nsys_flags[arg_index + 1]
+        assert flag.startswith(f"--{arg}="), flag
+        return flag.removeprefix(f"--{arg}=")
+
     # Override some Nsight Systems defaults, but don't block setting them explicitly.
     override_nsys_default("cuda-graph-trace", "node")
     override_nsys_default("cpuctxsw", "none")
@@ -309,9 +331,24 @@ def main() -> None:
         "nsys",
         "profile",
     ] + nsys_flags
-    subprocess.run(
-        (nsys if enable_profiling else []) + application, check=True, env=env
+    application_result = subprocess.run(
+        (nsys if enable_profiling else []) + application, env=env
     )
+    expected_returncodes = {0}
+    capture_range_end = nsys_arg_value("capture-range-end", "stop-shutdown")
+    if capture_range_end == "stop-shutdown" or capture_range_end.startswith(
+        "repeat-shutdown:"
+    ):
+        # nsys will send this signal on shutdown; takes none/sigkill/sigterm or an int
+        kill_signal = nsys_arg_value("kill", "sigterm")
+        if kill_signal != "none":
+            ks_map = {"sigterm": 15, "sigkill": 9}
+            expected_returncodes.add(128 + int(ks_map.get(kill_signal, kill_signal)))
+    if application_result.returncode in expected_returncodes:
+        # Collapse any expected return code into success
+        application_result.returncode = 0
+    else:
+        print(f"Application returned unexpected code {application_result.returncode}")
 
     # If we skipped profiling the application, there is nothing more to be done.
     if not enable_profiling:
@@ -746,7 +783,7 @@ def main() -> None:
             # Make sure any errors from the output thread are surfaced
             future.result()
 
-    exit_code = 0
+    exit_code = application_result.returncode
     with ThreadPoolExecutor() as executor, output_thread(executor):
         # Track futures so we can wait on them and report errors.
         futures = []
@@ -817,7 +854,10 @@ def main() -> None:
             for future in results.done:
                 futures.remove(future)
                 if future.exception() is not None:
-                    exit_code = 1
+                    # Make sure we return an exit code, but don't overwrite which code
+                    # might have been returned by the application
+                    if exit_code == 0:
+                        exit_code = 1
                     traceback.print_exception(future.exception())
             pending = len(futures)
             if pending == 0:

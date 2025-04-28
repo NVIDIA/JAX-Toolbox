@@ -8,9 +8,24 @@ print_var() {
     echo "$1: ${!1}"
 }
 
+# CUDA_ARCH_LIST comes from the dl-cuda-base image starting with CUDA 12.9
+# It is a space-separated list of compute capabilities, e.g. "7.5 8.0 12.0"
 supported_compute_capabilities() {
     ARCH=$1
-    if [[ "${ARCH}" == "amd64" ]]; then
+    # Infer the compute capabilities from the CUDA_ARCH_LIST variable if it is set
+    # Example: "7.5 8.0 12.0" -> "sm_75,sm_80,compute_120"
+    if [[ -n "${CUDA_ARCH_LIST}" ]]; then
+        read -r -a _CUDA_ARCH_LIST <<< "${CUDA_ARCH_LIST}"
+        SM_LIST=""
+        for _ARCH in "${_CUDA_ARCH_LIST[@]}"; do
+            if [[ "${_ARCH}" == "${_CUDA_ARCH_LIST[-1]}" ]]; then
+                SM_LIST="${SM_LIST}compute_${_ARCH//./}"
+            else
+                SM_LIST="${SM_LIST}sm_${_ARCH//./},"
+            fi
+        done
+        echo "${SM_LIST}"
+    elif [[ "${ARCH}" == "amd64" ]]; then
         echo "sm_75,sm_80,sm_86,sm_90,sm_100,compute_120"
     elif [[ "${ARCH}" == "arm64" ]]; then
         echo "sm_80,sm_86,sm_90,sm_100,compute_120"
@@ -33,11 +48,13 @@ usage() {
     echo "    --build-param PARAM            Param passed to the jaxlib build command. Can be passed many times."
     echo "    --build-path-jaxlib PATH       Editable install prefix for jaxlib and plugins"
     echo "    --clean                        Delete local configuration and bazel cache"
-    echo "    --clean-only                   Do not build, just cleanup"
+    echo "        --clean-only               Do not build, just cleanup"
     echo "    --cpu-arch                     Target CPU architecture, e.g. amd64, arm64, etc."
     echo "    --debug                        Build in debug mode"
     echo "    --dry                          Dry run, parse arguments only"
     echo "    -h, --help                     Print usage."
+    echo "    --install                      Install the JAX wheels when build succeeds"
+    echo "        --no-install               Do not install the JAX wheels when build succeeds"
     echo "    --no-clean                     Do not delete local configuration and bazel cache (default)"
     echo "    --src-path-jax                 Path to JAX source"
     echo "    --src-path-xla                 Path to XLA source"
@@ -60,11 +77,12 @@ CPU_ARCH="$(dpkg --print-architecture)"
 CUDA_COMPUTE_CAPABILITIES="local"
 DEBUG=0
 DRY=0
+INSTALL=1
 SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 XLA_ARM64_PATCH_LIST=""
 
-args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,no-clean,clean-only,dry,help,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
+args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,no-clean,clean-only,dry,help,install,no-install,src-path-jax:,src-path-xla:,sm:,xla-arm64-patch: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -88,9 +106,6 @@ while [ : ]; do
             BUILD_PATH_JAXLIB="$2"
             shift 2
             ;;
-        -h | --help)
-            usage 1
-            ;;
         --clean)
             CLEAN=1
             shift 1
@@ -113,6 +128,17 @@ while [ : ]; do
             ;;
         --dry)
             DRY=1
+            shift 1
+            ;;
+        -h | --help)
+            usage 1
+            ;;
+        --install)
+            INSTALL=1
+            shift 1
+            ;;
+        --no-install)
+            INSTALL=0
             shift 1
             ;;
         --src-path-jax)
@@ -223,6 +249,7 @@ print_var CLEANONLY
 print_var CPU_ARCH
 print_var CUDA_COMPUTE_CAPABILITIES
 print_var DEBUG
+print_var INSTALL
 print_var SRC_PATH_JAX
 print_var SRC_PATH_XLA
 
@@ -283,7 +310,7 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --editable \
     --use_clang \
     --use_new_wheel_build_rule \
-    --wheels=jax,jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
+    --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
     --cuda_compute_capabilities=$TF_CUDA_COMPUTE_CAPABILITIES \
     --bazel_options=--linkopt=-fuse-ld=lld \
     --local_xla_path=$SRC_PATH_XLA \
@@ -293,10 +320,10 @@ popd
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
-line="jax @ file://${BUILD_PATH_JAXLIB}/jax"
-if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
+local_jax_whl="jax @ file://${SRC_PATH_JAX}"
+if ! grep -xF "${local_jax_whl}" "${SRC_PATH_JAX}/build/requirements.in"; then
     pushd "${SRC_PATH_JAX}"
-    echo "${line}" >> build/requirements.in
+    echo "${local_jax_whl}" >> build/requirements.in
     echo "jaxlib @ file://${BUILD_PATH_JAXLIB}/jaxlib" >> build/requirements.in
     echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt @ file://${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt" >> build/requirements.in
     echo "jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin @ file://${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin" >> build/requirements.in
@@ -304,20 +331,24 @@ if ! grep -xF "${line}" "${SRC_PATH_JAX}/build/requirements.in"; then
     bazel run --verbose_failures=true //build:requirements.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
     popd
 fi
+
 ## Install the built packages
 
-# Uninstall jaxlib in case this script was used before.
-pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
+if [[ "${INSTALL}" == "1" ]]; then
+    # Uninstall jaxlib in case this script was used before.
+    pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_CUDA_MAJOR_VERSION}-plugin
 
-# install jax and jaxlib
-pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin -e ${BUILD_PATH_JAXLIB}/jax
+    # install jax and jaxlib
+    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin -e ${SRC_PATH_JAX}
 
-## after installation (example)
-# jax                     0.5.4.dev20250325    /opt/jaxlibs/jax
-# jax-cuda12-pjrt         0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_pjrt
-# jax-cuda12-plugin       0.5.4.dev20250325    /opt/jaxlibs/jax_cuda12_plugin
-# jaxlib                  0.5.4.dev20250325    /opt/jaxlibs/jaxlib
-pip list | grep jax
+    ## after installation (example)
+    # jax                     0.6.1.dev20250425+966578b61 /opt/jax
+    # jax-cuda12-pjrt         0.6.1.dev20250425           /opt/jaxlibs/jax_cuda12_pjrt
+    # jax-cuda12-plugin       0.6.1.dev20250425           /opt/jaxlibs/jax_cuda12_plugin
+    # jaxlib                  0.6.1.dev20250425           /opt/jaxlibs/jaxlib
+    # nsys-jax                0.1.dev1134+gfac62b6        /opt/nsys-jax/.github/container/nsys_jax
+    pip list | grep jax
+fi
 
 # Ensure directories are readable by all for non-root users
 chmod 755 $BUILD_PATH_JAXLIB/*

@@ -19,6 +19,9 @@ RUN <<"EOF" bash -ex
 # 1. Fetch T5X
 git-clone.sh "${URLREF_T5X}" "${SRC_PATH_T5X}"
 echo "-e file://${SRC_PATH_T5X}[gpu]" >> /opt/pip-tools.d/requirements-t5x.in
+# Avoid installing tensorflow-cpu==2.19.0 as it is broken; tensorflow is remapped to
+# tensorflow-cpu by pip-finalize.sh
+echo "tensorflow==2.18.1" >> /opt/pip-tools.d/requirements-t5x.in
 # This is required because pip can sometimes try to pull every version of seqio-nightly during
 # resolution which leads to a ResolutionTooDeep error. The latest nightlies appear to work
 # so setting the lower-bound to something recent

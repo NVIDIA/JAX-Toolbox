@@ -107,6 +107,7 @@ for epoch in range(num_epochs):
   if epoch == 2: libcudart.cudaProfilerStart()
   tic = time.time()
   ...
+result.block_until_ready()
 libcudart.cudaProfilerStop()
 ```
 and reduce the number of epochs profiled, for example `num_epochs = 5`.
