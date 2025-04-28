@@ -4,7 +4,7 @@ jax:
   latest_verified_commit: 8f4658ecdbe40cde0c43a9ab127359347943c076
   mode: git-clone
 xla:
-  url: https://github.com/Cjkkkk/xla/tree/main
+  url: https://github.com/Cjkkkk/xla.git
   tracking_ref: cudnn_cuda_graph_update
   latest_verified_commit: 6de79c2c931374dfa7e403c0626d8dd1ec0ed398
   mode: git-clone
