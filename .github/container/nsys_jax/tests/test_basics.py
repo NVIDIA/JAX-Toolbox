@@ -1,5 +1,4 @@
 import os
-import subprocess
 import sys
 import tempfile
 import zipfile
@@ -23,20 +22,17 @@ def test_stacktrace_entry_with_file():
     the source file is bundled into the nsys-jax output archive.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
-        archive = f"{tmpdir}/out.zip"
         src_file = f"{tmpdir}/test.py"
         assert os.path.isabs(src_file), src_file
         src_code = "import jax\njax.jit(lambda x: x*2)(4)\n"
         with open(src_file, "w") as f:
             f.write(src_code)
-        subprocess.run(
-            ["nsys-jax", "--output", archive, sys.executable, src_file], check=True
-        )
-        with zipfile.ZipFile(archive) as ifile:
-            src_file_in_archive = f"sources{src_file}"
-            assert src_file_in_archive in ifile.namelist()
-            with ifile.open(src_file_in_archive, "r") as archived_file:
-                assert archived_file.read().decode() == src_code
+        archive = nsys_jax([sys.executable, src_file])
+    with zipfile.ZipFile(archive) as ifile:
+        src_file_in_archive = f"sources{src_file}"
+        assert src_file_in_archive in ifile.namelist()
+        with ifile.open(src_file_in_archive, "r") as archived_file:
+            assert archived_file.read().decode() == src_code
 
 
 def test_stacktrace_entry_without_file():

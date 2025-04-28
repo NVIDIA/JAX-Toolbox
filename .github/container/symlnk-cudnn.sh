@@ -21,8 +21,15 @@ if [[ -z "${libcudnn_pkgs}" ]]; then
 fi
 
 for cudnn_file in $(dpkg -L ${libcudnn_pkgs} | sort -u); do
-  # Real files and symlinks are linked into $prefix
+  # Skip unversioned symlinks since we'll create our own
   if [[ -f "${cudnn_file}" || -h "${cudnn_file}" ]]; then
+    # Skip if it's an unversioned symlink in the new package structure
+    if [[ -h "${cudnn_file}" ]] && \
+       [[ ! "${cudnn_file}" =~ _v${CUDNN_MAJOR_VERSION}\.h$ ]] && \
+       [[ ! "${cudnn_file}" =~ \.so\.${CUDNN_MAJOR_VERSION}(\.[0-9]+\.[0-9]+)?$ ]]; then
+      echo "Skipping unversioned symlink ${cudnn_file}"
+      continue
+    fi
     # Replace /usr with $prefix
     nosysprefix="${cudnn_file#"/usr/"}"
     # include/x86_64-linux-gpu -> include/

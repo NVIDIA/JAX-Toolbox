@@ -3,7 +3,7 @@ ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:25.03-cuda12.8-devel-ubuntu24.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG CLANG_VERSION=18
-ARG JAX_TOOLBOX_REF
+ARG JAX_TOOLBOX_REF=main
 
 ###############################################################################
 ## Build base image
