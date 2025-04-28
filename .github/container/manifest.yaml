@@ -1,7 +1,7 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 8f4658ecdbe40cde0c43a9ab127359347943c076
+  latest_verified_commit: 5263f0f869dcc0e0c2fc7b4e0ebe0d35b4c00613
   mode: git-clone
 xla:
   url: https://github.com/Cjkkkk/xla.git
