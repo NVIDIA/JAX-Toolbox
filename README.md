@@ -15,7 +15,7 @@ We support and test the following JAX frameworks and model architectures. More d
 | [t5x](./rosetta/rosetta/projects/imagen) | Imagen | pre-training | `ghcr.io/nvidia/t5x:imagen-2023-10-02.v3` |
 | [big vision](./rosetta/rosetta/projects/paligemma) | PaliGemma | fine-tuning, evaluation | `ghcr.io/nvidia/jax:gemma` |
 | levanter | GPT, LLaMA, MPT, Backpacks | pre-training, fine-tuning | `ghcr.io/nvidia/jax:levanter` |
-| [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `gchr.io/nvidia/jax:axlearn` |
+| [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` |
 
 # Build Pipeline Status
 <table>
