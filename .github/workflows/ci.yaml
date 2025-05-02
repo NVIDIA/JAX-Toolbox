@@ -37,7 +37,7 @@ on:
         type: string
         description: |
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
-          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,maxtext,levanter,haliax,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,maxtext,haliax,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
         default: ''
         required: false
 
@@ -343,7 +343,6 @@ jobs:
             jax
             equinox
             maxtext
-            levanter
             upstream-t5x
             t5x
             gemma
