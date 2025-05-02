@@ -62,6 +62,11 @@ pip install ninja && rm -rf ~/.cache/pip
 git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 pushd ${SRC_PATH_TRANSFORMER_ENGINE}
 export NVTE_BUILD_THREADS_PER_JOB=8
+if [[ -n "${CUDA_ARCH_LIST//}" ]]; then
+  # "1.2 3.4 5.6" -> "12-real;34-real;56", i.e. SASS plus PTX for the last one
+  NVTE_CUDA_ARCHS="${CUDA_ARCH_LIST// /-real;}"
+  export NVTE_CUDA_ARCHS="${NVTE_CUDA_ARCHS//./}"
+fi
 export NVTE_FRAMEWORK=jax
 # TransformerEngine needs FFI headers from XLA
 export XLA_HOME=${SRC_PATH_XLA}
