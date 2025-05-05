@@ -37,7 +37,7 @@ on:
         type: string
         description: |
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
-          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,maxtext,haliax,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,axlearn,equinox,T5X,maxtext} (case-insensitive)
         default: ''
         required: false
 
@@ -345,7 +345,6 @@ jobs:
             maxtext
             upstream-t5x
             t5x
-            gemma
           )
           declare -a STAGES=(
             mealkit
