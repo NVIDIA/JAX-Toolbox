@@ -36,9 +36,6 @@ RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
     git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX}
-    cd ${SRC_PATH_JAX}
-    git checkout a891cfabbcd3ab98c3c6bbfd97be19cb78275ade
-    cd
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
