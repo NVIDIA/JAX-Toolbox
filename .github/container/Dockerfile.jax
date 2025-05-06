@@ -55,10 +55,8 @@ RUN build-jax.sh \
     --clean
 
 ## Transformer engine: check out source and build wheel
-RUN --mount=type=ssh \
-    --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
-<<"EOF" bash -ex -o pipefail
-pip install --no-cache-dir ninja
+RUN <<"EOF" bash -ex -o pipefail
+pip install ninja && rm -rf ~/.cache/pip
 git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 pushd ${SRC_PATH_TRANSFORMER_ENGINE}
 export NVTE_BUILD_THREADS_PER_JOB=8
