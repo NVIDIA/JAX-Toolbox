@@ -26,7 +26,7 @@ echo "-e file://${SRC_PATH_JETSTREAM}" >> /opt/pip-tools.d/requirements-maxtext.
 # remove GitHub direct‑reference of JetStream in MaxText requirements
 sed -i '/^google-jetstream/d' ${SRC_PATH_MAXTEXT}/requirements.txt
 
-# add version constraints to avoid eternal dependency resoltion
+# add version constraints to avoid eternal dependency resolution
 for pattern in \
     "s|absl-py|absl-py>=2.1.0|g" \
     "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
