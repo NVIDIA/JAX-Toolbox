@@ -9,8 +9,18 @@ valid_start_end_container = [
     "failing-url",
 ]
 valid_container_and_commits = [
-    ["--passing-container", "passing-url", "--failing-commits", "jax:0123456789,xla:fedcba9876543210"],
-    ["--failing-container", "failing-url", "--passing-commits", "xla:fedcba9876543210,jax:0123456789"],
+    [
+        "--passing-container",
+        "passing-url",
+        "--failing-commits",
+        "jax:0123456789,xla:fedcba9876543210",
+    ],
+    [
+        "--failing-container",
+        "failing-url",
+        "--passing-commits",
+        "xla:fedcba9876543210,jax:0123456789",
+    ],
 ]
 valid_start_end_date_args = [
     ["--container", "jax"],
@@ -21,7 +31,10 @@ valid_start_end_date_args = [
 
 
 @pytest.mark.parametrize(
-    "good_args", [valid_start_end_container] + valid_start_end_date_args + valid_container_and_commits
+    "good_args",
+    [valid_start_end_container]
+    + valid_start_end_date_args
+    + valid_container_and_commits,
 )
 def test_good_container_args(good_args):
     args = parse_args(good_args + test_command)
@@ -48,7 +61,12 @@ def test_bad_container_arg_combinations_across_groups(date_args):
         ["--passing-container", "passing-url"],
         ["--failing-container", "failing-url"],
         # Need at least one container
-        ["--passing-commits", "jax:0123456789,xla:fedcba9876543210", "--failing-commits", "xla:fedcba9876543210,jax:0123456789"],
+        [
+            "--passing-commits",
+            "jax:0123456789,xla:fedcba9876543210",
+            "--failing-commits",
+            "xla:fedcba9876543210,jax:0123456789",
+        ],
         # Cannot combine --passing-container with --passing-commits etc.
         ["--passing-container", "passing-url", "--passing-commits", "jax:123,xla:456"],
         ["--failing-container", "failing-url", "--failing-commits", "jax:123,xla:456"],
@@ -75,6 +93,7 @@ def test_bad_container_arg_combinations_within_groups(container_args):
 def test_unparsable_container_args(container_args):
     with pytest.raises(SystemExit):
         parse_args(container_args + test_command)
+
 
 def test_invalid_container_runtime():
     with pytest.raises(Exception):
