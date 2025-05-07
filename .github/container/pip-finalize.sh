@@ -28,15 +28,8 @@ done | tee requirements.vcs
 unset IFS
 
 # Second pip-compile includes one more requirements file that pins all vcs installs
-# Uses a special env var to let our custom pip impl know to treat the following as
-# equivalent:
-#
-# fiddle @ git+https://github.com/google/fiddle
-# fiddle @ git+https://github.com/google/fiddle@cd4497e4c09bdf95dcccaa1e138c2c125d32d39f
-#
-# JAX_TOOLBOX_VCS_EQUIVALENCY is an environment variable enabling custom logic in pip
-# that treats the above as equivalent and prefers the URI wit the SHA
-JAX_TOOLBOX_VCS_EQUIVALENCY=true pip-compile -o requirements.txt requirements.vcs $(ls requirements-*.in)
+# NB there was an old patch to do with equivalency; kw JAX_TOOLBOX_VCS_EQUIVALENCY
+pip-compile -o requirements.txt requirements.vcs $(ls requirements-*.in)
 
 # If there are unpinned VCS dependencies, error since these should be included in the manifest
 unpinned_vcs_dependencies=$(cat requirements.txt | egrep '^[^#].+ @ git\+' | egrep -v '^[^#].+ @ git\+.+@' || true)
