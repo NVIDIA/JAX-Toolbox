@@ -10,9 +10,9 @@ def parse_commit_argument(s):
     ret = {}
     for part in s.split(","):
         sw, commit = part.split(":", 1)
-        assert sw in {"jax", "xla"}, sw
         assert sw not in ret, ret
         ret[sw] = commit
+    assert ret.keys() == {"jax", "xla"}, ret.keys()
     return ret
 
 
@@ -175,26 +175,19 @@ def parse_args(args=None):
     )
     args = parser.parse_args(args=args)
     assert args.container_runtime in {"docker", "pyxis"}, args.container_runtime
-    num_explicit_containers = (args.passing_container is not None) + (
-        args.failing_container is not None
-    )
-    if num_explicit_containers == 2:
-        # Explicit mode, --container, --start-date and --end-date are all ignored
-        # TODO: --passing-commits --failing-commits
-        if args.container:
-            raise Exception(
-                "--container must not be passed if --passing-container and --failing-container are"
-            )
-        if args.start_date:
-            raise Exception(
-                "--start-date must not be passed if --passing-container and --failing-container are"
-            )
-        if args.end_date:
-            raise Exception(
-                "--end-date must not be passed if --passing-container and --failing-container are"
-            )
-    elif num_explicit_containers == 0 and args.container is None:
-        raise Exception(
-            "--container must be passed if --passing-container and --failing-container are not"
-        )
+    passing_commits_known = (args.passing_container is not None) or (args.passing_commits is not None)
+    failing_commits_known = (args.failing_container is not None) or (args.failing_commits is not None)
+    sets_of_known_commits = passing_commits_known + failing_commits_known
+    if sets_of_known_commits == 2:
+        # If the container-level search is being skipped, because a valid combination
+        # of --{passing,failing}-{commits,container} is passed, then no container-level
+        # search options should be passed.
+        assert args.container is None and args.start_date is None and args.end_date is None, "No container-level search options should be passed if the passing/failing containers/commits have been passed explicitly."
+        assert args.passing_container is not None or args.failing_container is not None, ""
+    elif sets_of_known_commits == 1:
+        raise Exception("If --passing-{commits OR container} is passed then --failing-{commits OR container} should be too")
+    else:
+        # None of --{passing,failing}-{commits,container} were passed, make sure the
+        # compulsory arguments for the container-level search were passed
+        assert args.container is not None, "--container must be passed for the container-level search"
     return args
