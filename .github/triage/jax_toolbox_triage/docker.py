@@ -56,7 +56,10 @@ class DockerContainer:
         return f"Docker({self._url})"
 
     def exec(
-        self, command: typing.List[str], workdir=None
+        self,
+        command: typing.List[str],
+        policy: typing.Literal["once", "once_per_container", "default"] = "default",
+        workdir=None,
     ) -> subprocess.CompletedProcess:
         """
         Run a command inside a persistent container.

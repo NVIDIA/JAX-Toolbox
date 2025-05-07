@@ -6,6 +6,16 @@ import pathlib
 import tempfile
 
 
+def parse_commit_argument(s):
+    ret = {}
+    for part in s.split(","):
+        sw, commit = part.split(":", 1)
+        assert sw not in ret, ret
+        ret[sw] = commit
+    assert ret.keys() == {"jax", "xla"}, ret.keys()
+    return ret
+
+
 def parse_args(args=None):
     parser = argparse.ArgumentParser(
         description="""
@@ -70,10 +80,11 @@ def parse_args(args=None):
         "--failing-container",
         help="""
             Skip the container-level search and pass this container to the commit-level
-            search. If this is passed, --passing-container must be too, but --container
-            is not required. This can be used to apply the commit-level bisection
-            search to containers not from the ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD
-            series, although they must have a similar structure.""",
+            search. If this is passed, --passing-container or --passing-commits must be
+            too, but --container is not required. This can be used to apply the
+            commit-level bisection search to containers not from the
+            ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD series, although they must have a
+            similar structure.""",
     )
     container_search_args.add_argument(
         "--end-date",
@@ -88,10 +99,11 @@ def parse_args(args=None):
         "--passing-container",
         help="""
             Skip the container-level search and pass this container to the commit-level
-            search. If this is passed, --failing-container must be too, but --container is
-            not required. This can be used to apply the commit-level bisection search
-            to containers not from the ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD series,
-            although they must have a similar structure.""",
+            search. If this is passed, --failing-container or --failing-commits must be
+            too, but --container is not required. This can be used to apply the
+            commit-level bisection search to containers not from the
+            ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD series, although they must have a
+            similar structure.""",
     )
     container_search_args.add_argument(
         "--start-date",
@@ -126,6 +138,24 @@ def parse_args(args=None):
             significantly speed up the commit-level search. By default, uses a temporary
             directory including the name of the current user.""",
     )
+    commit_search_args.add_argument(
+        "--failing-commits",
+        help="""
+            When combined with --passing-container, the commit-level triage will use
+            that container and --failing-commits will specify the end of the commit
+            range, rather than the commits being extracted from --failing-container.
+            Expects an argument of form jax:jax_commit_hash,xla:xla_commit_hash.""",
+        type=parse_commit_argument,
+    )
+    commit_search_args.add_argument(
+        "--passing-commits",
+        help="""
+            When combined with --failing-container, the commit-level triage will use
+            that container and --passing-commits will specify the start of the commit
+            range, rather than the commits being extracted from --passing-container.
+            Expects an argument of form jax:jax_commit_hash,xla:xla_commit_hash.""",
+        type=parse_commit_argument,
+    )
     parser.add_argument(
         "-v",
         "--container-mount",
@@ -145,29 +175,33 @@ def parse_args(args=None):
     )
     args = parser.parse_args(args=args)
     assert args.container_runtime in {"docker", "pyxis"}, args.container_runtime
-    num_explicit_containers = (args.passing_container is not None) + (
-        args.failing_container is not None
+    passing_commits_known = (args.passing_container is not None) or (
+        args.passing_commits is not None
     )
-    if num_explicit_containers == 1:
-        raise Exception(
-            "--passing-container and --failing-container must both be passed if either is"
+    failing_commits_known = (args.failing_container is not None) or (
+        args.failing_commits is not None
+    )
+    sets_of_known_commits = passing_commits_known + failing_commits_known
+    if sets_of_known_commits == 2:
+        # If the container-level search is being skipped, because a valid combination
+        # of --{passing,failing}-{commits,container} is passed, then no container-level
+        # search options should be passed.
+        assert (
+            args.container is None and args.start_date is None and args.end_date is None
+        ), (
+            "No container-level search options should be passed if the passing/failing containers/commits have been passed explicitly."
         )
-    if num_explicit_containers == 2:
-        # Explicit mode, --container, --start-date and --end-date are all ignored
-        if args.container:
-            raise Exception(
-                "--container must not be passed if --passing-container and --failing-container are"
-            )
-        if args.start_date:
-            raise Exception(
-                "--start-date must not be passed if --passing-container and --failing-container are"
-            )
-        if args.end_date:
-            raise Exception(
-                "--end-date must not be passed if --passing-container and --failing-container are"
-            )
-    elif num_explicit_containers == 0 and args.container is None:
+        assert (
+            args.passing_container is not None or args.failing_container is not None
+        ), ""
+    elif sets_of_known_commits == 1:
         raise Exception(
-            "--container must be passed if --passing-container and --failing-container are not"
+            "If --passing-{commits OR container} is passed then --failing-{commits OR container} should be too"
+        )
+    else:
+        # None of --{passing,failing}-{commits,container} were passed, make sure the
+        # compulsory arguments for the container-level search were passed
+        assert args.container is not None, (
+            "--container must be passed for the container-level search"
         )
     return args
