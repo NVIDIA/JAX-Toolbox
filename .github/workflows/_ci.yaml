@@ -94,7 +94,7 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.maxtext
       EXTRA_BUILD_ARGS: |
         URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
-        URLREF_JETSTREAM=${{ fromJson(inputs.SOURCE_URLREFS).JETSTREAM }}
+        URLREF_JETSTREAM=${{ fromJson(inputs.SOURCE_URLREFS).GOOGLE-JETSTREAM }}
     secrets: inherit
 
   build-upstream-t5x:
