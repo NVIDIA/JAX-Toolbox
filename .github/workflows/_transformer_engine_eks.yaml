@@ -46,7 +46,7 @@ jobs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token 
+    - name: K8s GHCR store and delete token
       id: store-token
       uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Configure job manifest
@@ -72,13 +72,16 @@ jobs:
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
             sed s@N_GPU@${{ matrix.N_GPU }}@g | \
             tee $K8S_JOB_MANIFEST
-
-    - name: Submit & delete transformer engine unit test job
-      uses: ./.github/actions/submit-delete-k8s-job 
+    - name: Submit transformer enginer tests on EKS
+      uses: ./.github/actions/submit-k8s-job
       with:
-        job-config-file: ${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml
-        job-name: ${{ env.RUN_NAME }}
-
+          job-config-file: ${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml
+          job-name: ${{ env.RUN_NAME }}
+    - name: Monitor & delete transformer engine tests
+      uses: ./.github/actions/monitor-and-delete-k8s-job
+      with:
+          job-config-file: ${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml
+          job-name: ${{ env.RUN_NAME }}
     - name: Download and process logs from S3
       id: s3-logs-process
       run: |
@@ -86,7 +89,7 @@ jobs:
         REPORT_JSON=pytest-report.jsonl
 
         mkdir -p $LOCAL_DIR
-        aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ env.RUN_NAME }}/ $LOCAL_DIR/ --recursive 
+        aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ env.RUN_NAME }}/ $LOCAL_DIR/ --recursive
 
         passed_tests=$(cat $LOCAL_DIR/$REPORT_JSON |  jq --slurp | jq '.[] | select(.outcome == "passed") | .outcome' | wc -l || true)
         failed_tests=$(cat $LOCAL_DIR/$REPORT_JSON |  jq --slurp | jq '.[] | select(.outcome == "failed") | .outcome' | wc -l || true)
