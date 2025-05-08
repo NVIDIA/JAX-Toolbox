@@ -53,7 +53,7 @@ RUN build-jax.sh \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
-    --xla-arm64-patch /opt/xla-arm64-neon.patch \ 
+    --xla-arm64-patch /opt/xla-arm64-neon.patch \
     --clean
 
 ## Transformer engine: check out source and build wheel
