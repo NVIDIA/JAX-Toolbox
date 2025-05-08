@@ -16,17 +16,23 @@ ARG URLREF_JETSTREAM
 ARG SRC_PATH_MAXTEXT
 ARG SRC_PATH_JETSTREAM
 
-RUN <<"EOF" bash -ex
+RUN <<"EOF" bash -ex -o pipefail
 git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
 git-clone.sh ${URLREF_JETSTREAM} ${SRC_PATH_JETSTREAM}
+EOF
 
+RUN <<"EOF" bash -ex -o pipefail
 echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 echo "-e file://${SRC_PATH_JETSTREAM}" >> /opt/pip-tools.d/requirements-maxtext.in
+EOF
 
-# remove GitHub direct‑reference of JetStream in MaxText requirements
+# remove GitHub direct-reference of JetStream in MaxText requirements
+RUN <<"EOF" bash -ex -o pipefail
 sed -i '/^google-jetstream/d' ${SRC_PATH_MAXTEXT}/requirements.txt
+EOF
 
 # add version constraints to avoid eternal dependency resolution
+RUN <<"EOF" bash -ex -o pipefail
 for pattern in \
     "s|absl-py|absl-py>=2.1.0|g" \
     "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
@@ -37,8 +43,10 @@ for pattern in \
     # tensorflow-cpu==2.19.0 is incompatible with tensorflow-text
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt
 done
+EOF
 
 # add extra dependencies
+RUN <<"EOF" bash -ex -o pipefail
 echo >> ${SRC_PATH_MAXTEXT}/requirements.txt  # add new line
 for requirement in \
     "tensorflow-metadata>=1.15.0" \
