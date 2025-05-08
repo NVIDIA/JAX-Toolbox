@@ -1,0 +1,35 @@
+name: Submit K8s job
+description: Submit a job on K8s and wait for its starting status
+
+inputs:
+  job-name:
+    description: The job name
+    required: true
+  job-config-file:
+    description: Path to the Kubernetes job YAML
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+          set -x
+          TIMEOUT_JOB_CREATION=60s
+          TIMEOUT_JOB_WAIT=14400s
+          TIMEOUT_JOB_START=600s
+
+          echo "Submit K8s job"
+          kubectl apply -f "${{ inputs.job-config-file }}"
+          kubectl get event | grep ${{ inputs.job-name }}
+
+          # Wait for job to be created
+          kubectl wait --for=create job/${{ inputs.job-name }} --timeout=$TIMEOUT_JOB_CREATION
+
+          # Wait for job to be unsuspended
+          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${{ inputs.job-name }} --timeout=$TIMEOUT_JOB_WAIT
+
+          # Wait for pods to be running
+          kubectl wait --for=condition=Ready \
+            --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} \
+            --timeout=$TIMEOUT_JOB_START pod

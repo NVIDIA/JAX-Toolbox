@@ -397,10 +397,15 @@ jobs:
           | select(di == 1).spec.template.spec.containers[0].env[1].value = strenv(SERVICE_NAME)' \
           .github/eks-workflow-files/job.yml
         git diff .github/eks-workflow-files/job.yml
-    - name: Submit Kubernetes job
-      uses: ./.github/actions/submit-delete-k8s-job
+    - name: Submit JAX tests on EKS
+      uses: ./.github/actions/submit-k8s-job
       with:
-        job-config-file: .github/eks-workflow-files/job.yml
+        job-config-file: ".github/eks-workflow-files/job.yml"
+        job-name: ${{ env.JOB_NAME }}
+    - name: Monitor & delete JAX tests
+      uses: ./.github/actions/monitor-and-delete-k8s-job
+      with:
+        job-config-file: ".github/eks-workflow-files/job.yml"
         job-name: ${{ env.JOB_NAME }}
     - name: Configure post-processing job
       run: |
@@ -411,11 +416,16 @@ jobs:
           | .spec.template.spec.initContainers[].command[7] = strenv(JOB_OUTPUT_PATTERN)' \
           .github/eks-workflow-files/post-process-job.yml
         git diff .github/eks-workflow-files/post-process-job.yml
-    - name: Submit post process Kubernetes job
-      uses: ./.github/actions/submit-delete-k8s-job
+    - name: Submit nsys-jax tests on EKS
+      uses: ./.github/actions/submit-k8s-job
       with:
-        job-config-file: .github/eks-workflow-files/post-process-job.yml
-        job-name: ${{ env.POSTPROCESS_JOB_NAME }}
+        job-config-file: ".github/eks-workflow-files/post-process-job.yml"
+        job-name: ${{ env.JOB_NAME }}
+    - name: Monitor & delete nsys-jax tests
+      uses: ./.github/actions/monitor-and-delete-k8s-job
+      with:
+        job-config-file: ".github/eks-workflow-files/post-process-job.yml"
+        job-name: ${{ env.JOB_NAME }}
 
   # test-equinox:
   #   needs: build-equinox
@@ -548,8 +558,13 @@ jobs:
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
         .github/eks-workflow-files/axlearn/axlearn-job.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
-    - name: Submit & delete axlearn test
-      uses: ./.github/actions/submit-delete-k8s-job
+    - name: Submit AXLearn tests on EKS
+      uses: ./.github/actions/submit-k8s-job
+      with:
+        job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
+        job-name: ${{ env.JOB_NAME }}
+    - name: Monitor & delete axlearn test
+      uses: ./.github/actions/monitor-and-delete-k8s-job
       with:
         job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
         job-name: ${{ env.JOB_NAME }}
@@ -643,9 +658,13 @@ jobs:
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
         .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
-
-    - name: Submit & delete axlearn test
-      uses: ./.github/actions/submit-delete-k8s-job
+    - name: Submit AXLearn Fuji on EKS
+      uses: ./.github/actions/submit-k8s-job
       with:
-        job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
+        job-config-file: ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
+        job-name: ${{ env.JOB_NAME }}
+    - name: Monitor & delete axlearn Fuji on EKS
+      uses: ./.github/actions/monitor-and-delete-k8s-job
+      with:
+        job-config-file: ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
         job-name: ${{ env.JOB_NAME }}
