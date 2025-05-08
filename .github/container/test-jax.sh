@@ -135,6 +135,7 @@ else
     FLAGS+=("--//jax:build_jaxlib=false")
 fi
 
+set_default JOBS_PER_GPU $(( GPU_MEMORIES_MIB[0] / 10000))
 FLAGS+=(
     "--cache_test_results=${CACHE_TEST_RESULTS}"
     "--test_timeout=600"
@@ -145,11 +146,10 @@ FLAGS+=(
     # Default value of 2048 is not big enough for some tests, e.g.
     # //tests/pallas:mgpu_attention_test_gpu; note that this limit is not
     # respected by all codepaths in XLA.
-    "--test_env=TF_PER_DEVICE_MEMORY_LIMIT_MB=4096"
+    "--test_env=TF_PER_DEVICE_MEMORY_LIMIT_MB=$(( GPU_MEMORIES_MIB[0] / JOBS_PER_GPU ))"
     "--test_output=errors"
 )
 
-set_default JOBS_PER_GPU $(( GPU_MEMORIES_MIB[0] / 10000))
 case "${BATTERY}" in
     backend-independent)
         set_default VISIBLE_GPUS 1
