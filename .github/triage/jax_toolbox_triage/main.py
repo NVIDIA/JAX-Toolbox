@@ -32,7 +32,9 @@ def get_commit(
     results = []
     for suffix in ["", "-source"]:
         dirname = f"/opt/{repo}{suffix}"
-        result = container.exec(["git", "rev-parse", "HEAD"], workdir=dirname)
+        result = container.exec(
+            ["git", "rev-parse", "HEAD"], policy="once", workdir=dirname
+        )
         results.append(result)
         if result.returncode == 0:
             commit = result.stdout.strip()
@@ -108,12 +110,7 @@ def main():
         )
         return TestResult(result=test_pass, stdout=result.stdout, stderr=result.stderr)
 
-    if args.passing_container is not None:
-        assert args.failing_container is not None
-        # Skip the container-level search because explicit end points were given
-        passing_url = args.passing_container
-        failing_url = args.failing_container
-    else:
+    if args.passing_container is None and args.failing_container is None:
         # Search through the published containers, narrowing down to a pair of dates with
         # the property that the test passed on `range_start` and fails on `range_end`.
         range_start, range_end = container_search(
@@ -127,20 +124,44 @@ def main():
         )
         passing_url = container_url(range_start)
         failing_url = container_url(range_end)
+    else:
+        # Skip the container-level search because at lease one explicit end point was
+        # given
+        passing_url = args.passing_container
+        failing_url = args.failing_container
+
+    jax_dir = "/opt/jax"
+    xla_dir = "/opt/xla"
+    if args.passing_commits is not None:
+        start_jax_commit = args.passing_commits["jax"]
+        start_xla_commit = args.passing_commits["xla"]
+    else:
+        assert passing_url is not None
+        with Container(passing_url) as worker:
+            start_jax_commit, jax_dir = get_commit(worker, "jax")
+            start_xla_commit, xla_dir = get_commit(worker, "xla")
+
+    if args.failing_commits is not None:
+        end_jax_commit = args.failing_commits["jax"]
+        end_xla_commit = args.failing_commits["xla"]
+    else:
+        assert failing_url is not None
+        with Container(failing_url) as worker:
+            end_jax_commit, jax_dir = get_commit(worker, "jax")
+            end_xla_commit, xla_dir = get_commit(worker, "xla")
+
+    bisection_url = failing_url or passing_url
+    assert bisection_url is not None
+    assert jax_dir is not None
+    assert xla_dir is not None
 
     # Container-level search is now complete. Triage proceeds inside the `range_end``
     # container. First, we check that rewinding JAX and XLA inside the `range_end``
     # container to the commits used in the `range_start` container passes, whereas
     # using the `range_end` commits reproduces the failure.
 
-    with Container(passing_url) as worker:
-        start_jax_commit, _ = get_commit(worker, "jax")
-        start_xla_commit, _ = get_commit(worker, "xla")
-
     # Fire up the container that will be used for the fine search.
-    with Container(failing_url) as worker:
-        end_jax_commit, jax_dir = get_commit(worker, "jax")
-        end_xla_commit, xla_dir = get_commit(worker, "xla")
+    with Container(bisection_url) as worker:
         logger.info(
             (
                 f"Bisecting JAX [{start_jax_commit}, {end_jax_commit}] and "
@@ -150,6 +171,9 @@ def main():
 
         # Get the full lists of JAX/XLA commits and dates
         def commits(start, end, dir):
+            worker.check_exec(
+                ["git", "fetch"], policy="once_per_container", workdir=dir
+            )
             result = worker.check_exec(
                 [
                     "git",
@@ -159,6 +183,7 @@ def main():
                     "--format=%H %cI",
                     f"{start}^..{end}",
                 ],
+                policy="once",
                 workdir=dir,
             )
             data = []
@@ -190,21 +215,39 @@ def main():
             jaxlib, and run the test command. Throws on error when checking out or
             building, and returns the status of the test command.
             """
-            worker.check_exec(["git", "stash"], workdir=xla_dir)
-            worker.check_exec(["git", "stash"], workdir=jax_dir)
-            worker.check_exec(["git", "checkout", xla_commit], workdir=xla_dir)
-            worker.check_exec(["git", "checkout", jax_commit], workdir=jax_dir)
-            logger.info(f"Checking out XLA {xla_commit} JAX {jax_commit}")
+            worker.check_exec(
+                ["git", "stash"], policy="once_per_container", workdir=xla_dir
+            )
+            worker.check_exec(
+                ["git", "stash"], policy="once_per_container", workdir=jax_dir
+            )
+            worker.check_exec(
+                ["git", "checkout", xla_commit],
+                policy="once_per_container",
+                workdir=xla_dir,
+            )
+            worker.check_exec(
+                ["git", "checkout", jax_commit],
+                policy="once_per_container",
+                workdir=jax_dir,
+            )
+            logger.info(f"Checking out XLA {xla_commit} JAX {jax_commit} in {worker}")
             # Build JAX
             before = time.monotonic()
             # Unfortunately the build system does not always seem to handle incremental
             # rebuilds correctly.
-            worker.check_exec(["bazel", "clean", "--expunge"], workdir=jax_dir)
+            worker.check_exec(
+                ["bazel", "clean", "--expunge"],
+                policy="once_per_container",
+                workdir=jax_dir,
+            )
             build_jax = [
                 "build-jax.sh",
                 f"--bazel-cache={args.bazel_cache}",
             ]
-            build_result = worker.check_exec(build_jax, workdir=jax_dir)
+            build_result = worker.check_exec(
+                build_jax, policy="once_per_container", workdir=jax_dir
+            )
             middle = time.monotonic()
             logger.info(f"Build completed in {middle - before:.1f}s")
             logger.debug(
@@ -217,7 +260,7 @@ def main():
                 "commit",
                 {
                     "build_time": middle - before,
-                    "container": failing_url,
+                    "container": bisection_url,
                     "jax": jax_commit,
                     "result": test_result.returncode == 0,
                     "test_time": test_time,
