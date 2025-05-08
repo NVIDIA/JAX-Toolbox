@@ -13,6 +13,8 @@ usage() {
     echo "  --reuse-jaxlib         Runs the JAX tests using preinstalled jaxlib. (DEFAULT)"
     echo "  --disable-x64          Disable 64-bit floating point support in JAX (some tests may fail)"
     echo "  --enable-x64           Enable 64-bit floating point support in JAX (DEFAULT, required for some tests)"
+    echo "  --tests-per-gpu        How many test shards should be launched on each GPU in parallel."
+    echo "  --visible-gpus         How many GPUs should be made visible to each test."
     echo "  -q, --query            List all tests."
     echo "  -h, --help             Print usage."
     echo ""
@@ -26,19 +28,32 @@ SRC_PATH_JAX="/opt/jax"
 BUILD_JAXLIB=0
 CACHE_TEST_RESULTS=no
 ENABLE_X64=-1
+VISIBLE_GPUS=""
+JOBS_PER_GPU=""
 
 query_tests() {
+    set -e -o pipefail
     cd ${SRC_PATH_JAX}
-    python build/build.py build --use_new_wheel_build_rule --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
-    bazel query tests/... 2>&1 | grep -F '//tests:'
-    exit
+    # FIXME: this ignores .jax_configure.bazelrc lines
+    bazel query tests/... |& grep -F '//tests:'
+    exit 0
+}
+
+set_default() {
+    VAR=$1
+    VAL=$2
+    if [[ -z "${!VAR}" ]]; then
+        export $VAR="${VAL}"
+    elif [[ "${!VAR}" != "${VAL}" ]]; then
+        echo "WARNING: default value of ${VAR} overriden from ${VAL} to ${!VAR}"
+    fi
 }
 
 print_var() {
     echo "$1: ${!1}"
 }
 
-args=$(getopt -o b:qh --long battery:,build-jaxlib,cache-test-results:,disable-x64,enable-x64,reuse-jaxlib,query,help -- "$@")
+args=$(getopt -o b:qh --long battery:,build-jaxlib,cache-test-results:,disable-x64,enable-x64,reuse-jaxlib,query,tests-per-gpu:,visible-gpus:,help -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -52,7 +67,7 @@ while [ : ]; do
         shift 2
         ;;
     --src-path-jax)
-        SRC_PATH_JAX="$2"
+        SRC_PATH_JAX=$(realpath "$2")
         shift 2
         ;;
     --build-jaxlib)
@@ -75,6 +90,14 @@ while [ : ]; do
         BUILD_JAXLIB=0
         shift 1
         ;;
+    --tests-per-gpu)
+        JOBS_PER_GPU="$2"
+        shift 2
+        ;;
+    --visible-gpus)
+        VISIBLE_GPUS="$2"
+        shift 2
+        ;;
     -q | --query)
         query_tests
         ;;
@@ -89,76 +112,73 @@ while [ : ]; do
 done
 
 ## Set internal variables
-SRC_PATH_JAX=$(realpath $SRC_PATH_JAX)
-
 if [[ $# -eq 0 ]] && [[ -z "$BATTERY" ]]; then
     echo "No tests specified. Use '-q/--query' to see a list of all available tests."
     exit 1
 fi
 
-## Set derived variables
+readarray -t GPU_MEMORIES < <(nvidia-smi --query-gpu=memory.total --format=csv,noheader)
+NGPUS="${#GPU_MEMORIES[@]}"
+GPU_MEMORIES_MIB=("${GPU_MEMORIES[@]/ MiB/}")
 
-NCPUS=$(grep -c '^processor' /proc/cpuinfo)
-NGPUS=$(nvidia-smi -L | grep -c '^GPU')
+FLAGS=("$@")
 
 if [[ $ENABLE_X64 != 0 ]]; then
-    export JAX_ENABLE_X64=true
+    FLAGS+=("--test_env=JAX_ENABLE_X64=true")
 else
-    export JAX_ENABLE_X64=false
+    FLAGS+=("--test_env=JAX_ENABLE_X64=false")
 fi
 
 if [[ $BUILD_JAXLIB -eq 1 ]]; then
-    BAZEL_TARGET="--//jax:build_jaxlib=true"
+    FLAGS+=("--//jax:build_jaxlib=true")
 else
-    BAZEL_TARGET="--//jax:build_jaxlib=false"
+    FLAGS+=("--//jax:build_jaxlib=false")
 fi
 
-for t in $*; do
-    BAZEL_TARGET="${BAZEL_TARGET} $t"
-done
-
-TEST_TAG_FILTER_ARRAY=()
-COMMON_FLAGS=$(cat << EOF
---@local_config_cuda//:enable_cuda
---cache_test_results=${CACHE_TEST_RESULTS}
---test_timeout=600
---test_env=JAX_SKIP_SLOW_TESTS=1
---test_env=JAX_ACCELERATOR_COUNT=${NGPUS}
---test_env=XLA_PYTHON_CLIENT_ALLOCATOR=platform
---test_env=XLA_PYTHON_CLIENT_PREALLOCATE=false
---test_output=errors
---java_runtime_version=remotejdk_11
---run_under ${SRC_PATH_JAX}/build/parallel_accelerator_execute.sh
-EOF
+set_default JOBS_PER_GPU $(( GPU_MEMORIES_MIB[0] / 10000))
+FLAGS+=(
+    "--cache_test_results=${CACHE_TEST_RESULTS}"
+    "--test_timeout=600"
+    "--test_env=JAX_SKIP_SLOW_TESTS=1"
+    "--test_env=XLA_PYTHON_CLIENT_ALLOCATOR=platform"
+    "--test_env=XLA_PYTHON_CLIENT_PREALLOCATE=false"
+    "--test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
+    # Default value of 2048 is not big enough for some tests, e.g.
+    # //tests/pallas:mgpu_attention_test_gpu; note that this limit is not
+    # respected by all codepaths in XLA.
+    "--test_env=TF_PER_DEVICE_MEMORY_LIMIT_MB=$(( GPU_MEMORIES_MIB[0] / JOBS_PER_GPU ))"
+    "--test_output=errors"
 )
 
 case "${BATTERY}" in
-    large)
-        JOBS_PER_GPU=1
-        JOBS=$((NGPUS * JOBS_PER_GPU))
-        EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
-        BAZEL_TARGET="${BAZEL_TARGET} //tests:image_test_gpu //tests:scipy_stats_test_gpu"
-        ;;
-    gpu)
-        JOBS_PER_GPU=8
-        JOBS=$((NGPUS * JOBS_PER_GPU))
-        EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
-        # collect from all tests subdirectories recursively,
-        # use jax_test_gpu tag generated by jax_multiplatform_test rule:
-        # https://github.com/jax-ml/jax/blob/d36afe4f7fe01fe5db16069d796600090db5a3ce/jaxlib/jax.bzl#L265
-        TEST_TAG_FILTER_ARRAY+=('jax_test_gpu')
-        BAZEL_TARGET="${BAZEL_TARGET} //tests/..."
-        ;;
     backend-independent)
-        JOBS_PER_GPU=4
-        JOBS=$(($NGPUS * JOBS_PER_GPU))
-        EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU} --test_env=JAX_EXCLUDE_TEST_TARGETS=PmapTest.testSizeOverflow"
-        BAZEL_TARGET="${BAZEL_TARGET} //tests:backend_independent_tests"
+        set_default VISIBLE_GPUS 1
+        FLAGS+=("//tests:backend_independent_tests")
+        ;;
+    multi-gpu)
+        # TODO: unclear if JOBS_PER_GPU>1 will cause deadlocks for any tests in the suite
+        set_default VISIBLE_GPUS all
+        # --test_tag_filters=A,B is an OR of A and B, not an AND
+        FLAGS+=(
+            "--test_tag_filters=multiaccelerator"
+            "//tests:gpu_tests"
+            "//tests/pallas:gpu_tests"
+            "//tests/mosaic:gpu_tests"
+        )
+        ;;
+    single-gpu)
+        set_default VISIBLE_GPUS 1
+        # collect from all tests subdirectories recursively, use jax_test_gpu
+        # tag generated by jax_multiplatform_test rule:
+        # https://github.com/jax-ml/jax/blob/d36afe4f7fe01fe5db16069d796600090db5a3ce/jaxlib/jax.bzl#L265
+        FLAGS+=(
+            "--test_tag_filters=jax_test_gpu,-multiaccelerator"
+            "//tests/..."
+        )
         ;;
     "")
-        JOBS_PER_GPU=4
-        JOBS=$((NGPUS * JOBS_PER_GPU))
-        EXTRA_FLAGS="--local_test_jobs=${JOBS} --test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU}"
+        # Default if -b/--battery is not passed
+        set_default VISIBLE_GPUS 1
         ;;
     *)
         echo "Unknown battery ${BATTERY}"
@@ -166,35 +186,31 @@ case "${BATTERY}" in
         ;;
 esac
 
-TEST_TAG_FILTERS=""
-if [[ ${#TEST_TAG_FILTER_ARRAY[@]} > 0 ]]; then
-    TEST_TAG_FILTERS=$(IFS=, ; echo "--test_tag_filters=${TEST_TAG_FILTER_ARRAY[*]}")
+if [[ ${VISIBLE_GPUS} == "1" ]]; then
+    NJOBS=$((NGPUS * JOBS_PER_GPU))
+    FLAGS+=(
+        "--run_under=${SRC_PATH_JAX}/build/parallel_accelerator_execute.sh"
+        "--test_env=JAX_ACCELERATOR_COUNT=${NGPUS}"
+        "--test_env=JAX_TESTS_PER_ACCELERATOR=${JOBS_PER_GPU}"
+    )
+elif [[ ${VISIBLE_GPUS} == "all" ]]; then
+    NJOBS="${JOBS_PER_GPU}"
+else
+  echo "Unsupported --visible-gpus value: ${VISIBLE_GPUS}"
+  exit 1
 fi
 
-print_var NCPUS
-print_var NGPUS
+FLAGS+=(
+    "--local_test_jobs=${NJOBS}"
+)
+
 print_var BATTERY
-print_var JAX_ENABLE_X64
+print_var GPU_MEMORIES_MIB
 print_var JOBS_PER_GPU
-print_var JOBS
-print_var BUILD_JAXLIB
-print_var BAZEL_TARGET
-print_var TEST_TAG_FILTERS
-print_var COMMON_FLAGS
-print_var EXTRA_FLAGS
-
-set -ex
-
-## Install dependencies
-
-pip install -r ${SRC_PATH_JAX}/build/test-requirements.txt
-# Reason for manually installing matplotlib:
-# https://github.com/google/jax/commit/6b76937c530bd8ee185cc9e1991b3696bd10e831
-# https://github.com/google/jax/blob/6bc74d2a9874e1fe93a45191bb829c07dfee04fa/tests/BUILD#L134
-pip install matplotlib
+print_var NGPUS
+print_var VISIBLE_GPUS
 
 ## Run tests
-
 cd ${SRC_PATH_JAX}
-python build/build.py build --use_new_wheel_build_rule --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt --configure_only
-bazel test ${BAZEL_TARGET} ${TEST_TAG_FILTERS} ${COMMON_FLAGS} ${EXTRA_FLAGS}
+set -ex
+bazel test "${FLAGS[@]}"

@@ -31,7 +31,6 @@ ARG BUILD_PATH_JAXLIB
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
 
-
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
@@ -39,13 +38,13 @@ RUN --mount=type=ssh \
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
-ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+ADD build-jax.sh local_cuda_arch /usr/local/bin/
 # Install bazelisk
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
     chmod +x /usr/local/bin/bazel
-# TODO: move this patch into the manifest
-ADD xla-arm64-neon.patch /opt
+# Populate ${BUILD_PATH_JAXLIB} with editable wheels; --no-install because
+# (a) this is the builder stage, and (b) pip-finalize.sh does the install
 RUN build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
@@ -53,7 +52,6 @@ RUN build-jax.sh \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
-    --xla-arm64-patch /opt/xla-arm64-neon.patch \
     --clean
 
 ## Transformer engine: check out source and build wheel
@@ -62,10 +60,15 @@ pip install ninja && rm -rf ~/.cache/pip
 git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 pushd ${SRC_PATH_TRANSFORMER_ENGINE}
 export NVTE_BUILD_THREADS_PER_JOB=8
-if [[ -n "${CUDA_ARCH_LIST//}" ]]; then
+ARCH=$(dpkg --print-architecture)
+if [[ -n "${CUDA_ARCH_LIST}" ]]; then
   # "1.2 3.4 5.6" -> "12-real;34-real;56", i.e. SASS plus PTX for the last one
   NVTE_CUDA_ARCHS="${CUDA_ARCH_LIST// /-real;}"
   export NVTE_CUDA_ARCHS="${NVTE_CUDA_ARCHS//./}"
+elif [[ "${ARCH}" == "amd64" ]]; then
+  export NVTE_CUDA_ARCHS="75-real;80-real;86-real;90-real;100-real;120"
+elif [[ "${ARCH}" == "arm64" ]]; then
+  export NVTE_CUDA_ARCHS="80-real;86-real;90-real;100-real;120"
 fi
 export NVTE_FRAMEWORK=jax
 # TransformerEngine needs FFI headers from XLA
