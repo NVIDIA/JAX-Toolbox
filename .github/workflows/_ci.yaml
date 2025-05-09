@@ -402,10 +402,6 @@ jobs:
       with:
         job-config-file: ".github/eks-workflow-files/job.yml"
         job-name: ${{ env.JOB_NAME }}
-    - name: Monitor K8s job
-      uses: ./.github/actions/monitor-k8s-job
-      with:
-        job-name: ${{ env.JOB_NAME }}
     - name: Configure post-processing job
       run: |
         export JOB_OUTPUT_PATTERN="${JOB_NAME}-rank*.zip"
@@ -419,10 +415,6 @@ jobs:
       uses: ./.github/actions/submit-and-delete-k8s-job
       with:
         job-config-file: ".github/eks-workflow-files/post-process-job.yml"
-        job-name: ${{ env.JOB_NAME }}
-    - name: Monitor K8s job
-      uses: ./.github/actions/monitor-k8s-job
-      with:
         job-name: ${{ env.JOB_NAME }}
 
   # test-equinox:
@@ -561,10 +553,6 @@ jobs:
       with:
         job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
         job-name: ${{ env.JOB_NAME }}
-    - name: Monitor K8s job
-      uses: ./.github/actions/monitor-k8s-job
-      with:
-       job-name: ${{ env.JOB_NAME }}
     - name: Download logs from S3
       id: log-s3
       run: |
@@ -659,8 +647,4 @@ jobs:
       uses: ./.github/actions/submit-and-delete-k8s-job
       with:
         job-config-file: ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
-        job-name: ${{ env.JOB_NAME }}
-    - name: Monitor K8s job
-      uses: ./.github/actions/monitor-k8s-job
-      with:
         job-name: ${{ env.JOB_NAME }}
