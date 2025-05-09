@@ -1,0 +1,23 @@
+name: Submit & Delete K8s Job
+description: This action deploy a job to K8s and clean it up
+
+inputs:
+  job-name:
+    description: The job name
+    required: true
+  job-config-file:
+    description: Path to the Kubernetes job YAML
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Submit/Delete a K8s job
+      uses: ./.github/actions/with-post-step
+      with:
+        main: |
+          echo "Submit K8s job"
+          kubectl apply -f "${{ inputs.job-config-file }}"
+        post: |
+          echo "Deleting K8s job: ${{ inputs.job-name }}"
+          kubectl delete -f "${{ inputs.job-config-file }}"
