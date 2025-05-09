@@ -1,5 +1,5 @@
-name: Submit & Delete K8s Job
-description: Submit and delete a K8s job after its execution
+name: Submit & Monitor & Delete K8s Job
+description: Follow e2e a K8s job
 
 inputs:
   job-name:
@@ -12,7 +12,29 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Submit and Delete Kubernetes job
+    - name: Submit and wait for the job to start
+      shell: bash
+      run: |
+          set -x
+          TIMEOUT_JOB_CREATION=60s
+          TIMEOUT_JOB_WAIT=14400s
+          TIMEOUT_JOB_START=600s
+
+          echo "Submit K8s job"
+          kubectl apply -f "${{ inputs.job-config-file }}"
+          kubectl get event | grep ${{ inputs.job-name }}
+
+          # Wait for job to be created
+          kubectl wait --for=create job/${{ inputs.job-name }} --timeout=$TIMEOUT_JOB_CREATION
+
+          # Wait for job to be unsuspended
+          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${{ inputs.job-name }} --timeout=$TIMEOUT_JOB_WAIT
+
+          # Wait for pods to be running
+          kubectl wait --for=condition=Ready \
+            --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} \
+            --timeout=$TIMEOUT_JOB_START pod
+    - name: Monitor job and delete keys afterwards
       uses: ./.github/actions/with-post-step
       with:
         main: |
