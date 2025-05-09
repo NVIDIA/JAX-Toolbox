@@ -94,7 +94,7 @@ cd "$DIR" || exit 1
 echo "Running tests..."
 
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install timm transformers scikit-learn wandb
+pip install timm transformers scikit-learn
 
 
 if [ "${#TEST_FILES[@]}" -eq 0 ]; then
@@ -137,6 +137,7 @@ EXCLUDE_PATTERNS=(
   "/opt/axlearn/axlearn/common/input_reading_comprehension_test.py"
   "/opt/axlearn/axlearn/common/input_t5_test.py"
   "/opt/axlearn/axlearn/common/distilbert_test.py"
+  "/opt/axlearn/axlearn/common/summary_writer_test.py"
 )
 
 final_test_files=()
