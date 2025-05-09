@@ -77,6 +77,10 @@ jobs:
       with:
           job-config-file: ${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml
           job-name: ${{ env.RUN_NAME }}
+    - name: Monitor K8s job
+      uses: ./.github/actions/monitor-k8s-job
+      with:
+        job-config-file: ${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml
     - name: Download and process logs from S3
       id: s3-logs-process
       run: |

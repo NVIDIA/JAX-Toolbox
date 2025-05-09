@@ -402,6 +402,10 @@ jobs:
   #     with:
   #       job-config-file: ".github/eks-workflow-files/job.yml"
   #       job-name: ${{ env.JOB_NAME }}
+  #   - name: Monitor K8s job
+  #     uses: ./.github/actions/monitor-k8s-job
+  #     with:
+  #       job-config-file: ".github/eks-workflow-files/job.yml"
   #   - name: Configure post-processing job
   #     run: |
   #       export JOB_OUTPUT_PATTERN="${JOB_NAME}-rank*.zip"
@@ -416,6 +420,10 @@ jobs:
   #     with:
   #       job-config-file: ".github/eks-workflow-files/post-process-job.yml"
   #       job-name: ${{ env.JOB_NAME }}
+  #   - name: Monitor K8s job
+  #     uses: ./.github/actions/monitor-k8s-job
+  #     with:
+  #       job-config-file: ".github/eks-workflow-files/post-process-job.yml"
 
   # test-equinox:
   #   needs: build-equinox
@@ -549,10 +557,14 @@ jobs:
   #       .github/eks-workflow-files/axlearn/axlearn-job.yml
   #       git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
   #   - name: Submit & delete axlearn test
-  #     uses: ./.github/actions/monitor-and-delete-k8s-job
+  #     uses: ./.github/actions/submit-and-delete-k8s-job
   #     with:
   #       job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
   #       job-name: ${{ env.JOB_NAME }}
+  #  - name: Monitor K8s job
+  #    uses: ./.github/actions/monitor-k8s-job
+  #    with:
+  #      job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
   #   - name: Download logs from S3
   #     id: log-s3
   #     run: |
@@ -644,7 +656,11 @@ jobs:
         .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
     - name: Submit & delete axlearn Fuji on EKS
-      uses: ./.github/actions/monitor-and-delete-k8s-job
+      uses: ./.github/actions/submit-and-delete-k8s-job
       with:
         job-config-file: ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
         job-name: ${{ env.JOB_NAME }}
+    - name: Monitor K8s job
+      uses: ./.github/actions/monitor-k8s-job
+      with:
+        job-config-file: ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
