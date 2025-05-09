@@ -235,7 +235,8 @@ jobs:
         echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
       ARTIFACTS: |
         test-backend-independent.log
-        test-gpu.log
+        test-multi-gpu.log
+        test-single-gpu.log
     secrets: inherit
 
   test-nsys-jax:
