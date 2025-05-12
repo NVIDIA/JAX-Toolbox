@@ -119,25 +119,25 @@ fi
 
 # exclude all those tests that are not necessary because of time or error
 EXCLUDE_PATTERNS=(
-  "/opt/axlearn/axlearn/common/array_serialization_test.py"
-  "/opt/axlearn/axlearn/common/loss_test.py"
-  "/opt/axlearn/axlearn/common/mixture_of_experts_test.py"
-  "/opt/axlearn/axlearn/common/t5_test.py"
-  "/opt/axlearn/axlearn/common/param_converter_test.py"
-  "/opt/axlearn/axlearn/common/ssm_test.py"
-  "/opt/axlearn/axlearn/common/adapter_torch_test.py"
-  "/opt/axlearn/axlearn/common/state_builder_test.py"
-  "/opt/axlearn/axlearn/common/convolution_test.py"
-  "/opt/axlearn/axlearn/common/encoder_decoder_test.py"
-  "/opt/axlearn/axlearn/common/decoder_test.py"
-  "/opt/axlearn/axlearn/common/attention_test.py"
-  "/opt/axlearn/axlearn/common/deberta_test.py"
-  "/opt/axlearn/axlearn/common/trainer_test.py"
-  "/opt/axlearn/axlearn/common/vision_transformer_test.py"
-  "/opt/axlearn/axlearn/common/input_reading_comprehension_test.py"
-  "/opt/axlearn/axlearn/common/input_t5_test.py"
-  "/opt/axlearn/axlearn/common/distilbert_test.py"
-  "/opt/axlearn/axlearn/common/summary_writer_test.py"
+  "array_serialization_test.py"
+  "loss_test.py"
+  "mixture_of_experts_test.py"
+  "t5_test.py"
+  "param_converter_test.py"
+  "ssm_test.py"
+  "adapter_torch_test.py"
+  "state_builder_test.py"
+  "convolution_test.py"
+  "encoder_decoder_test.py"
+  "decoder_test.py"
+  "attention_test.py"
+  "deberta_test.py"
+  "trainer_test.py"
+  "vision_transformer_test.py"
+  "input_reading_comprehension_test.py"
+  "input_t5_test.py"
+  "distilbert_test.py"
+  "summary_writer_test.py"
 )
 
 final_test_files=()
@@ -158,8 +158,8 @@ done
 # Initialize counters for test
 failures=0
 passed=0
-SUMMARY_FILE="${OUTPUT_DIRECTORY}/summary.txt"
-
+CLOUD_SUMMARY_FILE="${OUTPUT_DIRECTORY}/summary.txt"
+LOCAL_SUMMARY_FILE="summary.txt"
 
 for test_file in "${final_test_files[@]}"; do
     echo "Running: ${test_file}"
@@ -171,11 +171,13 @@ for test_file in "${final_test_files[@]}"; do
     echo $exit_code
     # write number of tests passed and failed
     if [ $exit_code -eq 0 ]; then
-        echo "${test_file}: PASSED" >> "${SUMMARY_FILE}"
+        echo "${test_file}: PASSED" >> "${LOCAL_SUMMARY_FILE}"
         ((passed++))
     else
-        echo "${test_file}: FAILED (Exit code: $exit_code)" >> "${SUMMARY_FILE}"
+        echo "${test_file}: FAILED (Exit code: $exit_code)" >> "${LOCAL_SUMMARY_FILE}"
         ((failures++))
     fi
     echo ""
 done
+
+cp ${LOCAL_SUMMARY_FILE} ${CLOUD_SUMMARY_FILE}
