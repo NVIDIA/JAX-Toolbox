@@ -2,7 +2,9 @@
 
 set -uo pipefail
 
+# HELPER FUNCTIONS
 usage() {
+    # Function to handle all the inputs
     echo "Run tests in axlearn with specified options."
     echo ""
     echo "Usage: $0 [OPTIONS]"
@@ -18,12 +20,28 @@ usage() {
     exit 1
 }
 
-# Default values
+run_tests() {
+    # Function to run tests for AXLearn
+    local env_spec=$1
+    local marker=$2
+    local suffix=$3
+
+    local junit="log_${suffix}.xml"
+    local log="log_${suffix}.log"
+
+    cmd="${env_spec:+${env_spec} }pytest -m \"${marker}\" ${final_test_files[@]}\
+    --dist worksteal -n auto --capture=tee-sys -v \
+    --junit-xml=${LOG_DIRECTORY}/${junit} | tee ${LOG_DIRECTORY}/${log}"
+    echo "Running command ${cmd}"
+    eval "${cmd}"
+}
+
+# DEFAULT VALUES
 DIR='axlearn/axlearn/common'
 TEST_FILES=()
 OUTPUT_DIRECTORY=''
 
-# Parse args manually
+# INPUT PARSING
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
@@ -67,7 +85,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-
 if [ -z "$OUTPUT_DIRECTORY" ]; then
     timestamp=$(date +%Y%m%d_%H%M%S)
     OUTPUT_DIRECTORY="test_runs/${timestamp}"
@@ -76,7 +93,6 @@ LOG_DIRECTORY="${OUTPUT_DIRECTORY}/logs"
 
 mkdir -p "${LOG_DIRECTORY}"
 
-# Print out config for sanity check
 echo "Configuration:"
 echo "  Directory: $DIR"
 if [ "${#TEST_FILES[@]}" -gt 0 ]; then
@@ -91,12 +107,18 @@ echo "  Output Directory: $OUTPUT_DIRECTORY"
 
 cd "$DIR" || exit 1
 
-echo "Running tests..."
-
+# DEPENDENCIES
+echo "Installing dependencies..."
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install timm transformers scikit-learn
+pip install timm transformers scikit-learn tensorflow_io grain evaluate wandb
+echo "Downloading input data..."
+mkdir -p /opt/axlearn/axlearn/data/tokenizers/sentencepiece
+mkdir -p /opt/axlearn/axlearn/data/tokenizers/bpe
+curl https://huggingface.co/t5-base/resolve/main/spiece.model -o /opt/axlearn/axlearn/data/tokenizers/sentencepiece/t5-base
+curl https://huggingface.co/FacebookAI/roberta-base/raw/main/merges.txt -o /opt/axlearn/axlearn/data/tokenizers/bpe/roberta-base-merges.txt
+curl https://huggingface.co/FacebookAI/roberta-base/raw/main/vocab.json -o /opt/axlearn/axlearn/data/tokenizers/bpe/roberta-base-vocab.json
 
-
+# RETRIEVE TEST FILES
 if [ "${#TEST_FILES[@]}" -eq 0 ]; then
     TEST_FILES=("*_test.py")
 fi
@@ -117,29 +139,7 @@ if [ "${#expanded_test_files[@]}" -eq 0 ]; then
     exit 1
 fi
 
-# exclude all those tests that are not necessary because of time or error
-EXCLUDE_PATTERNS=(
-  "array_serialization_test.py"
-  "loss_test.py"
-  "mixture_of_experts_test.py"
-  "t5_test.py"
-  "param_converter_test.py"
-  "ssm_test.py"
-  "adapter_torch_test.py"
-  "state_builder_test.py"
-  "convolution_test.py"
-  "encoder_decoder_test.py"
-  "decoder_test.py"
-  "attention_test.py"
-  "deberta_test.py"
-  "trainer_test.py"
-  "vision_transformer_test.py"
-  "input_reading_comprehension_test.py"
-  "input_t5_test.py"
-  "distilbert_test.py"
-  "summary_writer_test.py"
-)
-
+EXCLUDE_PATTERNS=()
 final_test_files=()
 
 for test_file in "${expanded_test_files[@]}"; do
@@ -155,29 +155,37 @@ for test_file in "${expanded_test_files[@]}"; do
     fi
 done
 
-# Initialize counters for test
-failures=0
-passed=0
-CLOUD_SUMMARY_FILE="${OUTPUT_DIRECTORY}/summary.txt"
-LOCAL_SUMMARY_FILE="summary.txt"
+# RUN TESTS
+runs=(
+  "|not (gs_login or tpu or high_cpu or fp64 or for_8_devices)|base"
+  "JAX_ENABLE_X64=1|fp64|fp64"
+  "XLA_FLAGS='--xla_force_host_platform_device_count=8'|for_8_devices|8dev"
+)
 
-for test_file in "${final_test_files[@]}"; do
-    echo "Running: ${test_file}"
-    log_file_name=$(echo "${test_file%.py}" | sed 's/\//__/g').log
-    log_file="${LOG_DIRECTORY}/${log_file_name}"
-    # run the tests and save them as *.log
-    pytest "${test_file}" --capture=tee-sys | tee "${log_file}"
-    exit_code=${PIPESTATUS[0]}
-    echo $exit_code
-    # write number of tests passed and failed
-    if [ $exit_code -eq 0 ]; then
-        echo "${test_file}: PASSED" >> "${LOCAL_SUMMARY_FILE}"
-        ((passed++))
-    else
-        echo "${test_file}: FAILED (Exit code: $exit_code)" >> "${LOCAL_SUMMARY_FILE}"
-        ((failures++))
-    fi
-    echo ""
+for spec in "${runs[@]}"; do
+    IFS='|' read -r env_spec marker suffix <<< "${spec}"
+    echo "Running tests with ${env_spec}, ${marker}, ${suffix}"
+    run_tests "${env_spec}" "${marker}" "${suffix}"
 done
 
-cp ${LOCAL_SUMMARY_FILE} ${CLOUD_SUMMARY_FILE}
+# SUMMARY STATUS
+passed=0
+failed=0
+skipped=0
+for log in ${LOG_DIRECTORY}/log_*.log; do
+    count_pass=$(grep -Eo '[0-9]+ passed' "${log}" | awk '{print $1}' || true)
+    count_fail=$(grep -Eo '[0-9]+ failed' "${log}" | awk '{print $1}' || true)
+    count_skipped=$(grep -Eo '[0-9]+ skipped' "${log}" | awk '{print $1}' || true)
+    # in case of None
+    count_pass=${count_pass:-0}
+    count_fail=${count_fail:-0}
+    count_skipped=${count_skipped:-0}
+    # count all the tests
+    (( passed += count_pass ))
+    (( failed += count_fail ))
+    (( skipped += count_skipped ))
+done
+
+echo "Total number of passed tests ${passed}"
+echo "Total number of failed tests ${failed}"
+echo "Total number of skipped tests ${skipped}"
