@@ -158,7 +158,7 @@ done
 runs=(
   "|not (gs_login or tpu or high_cpu or fp64 or for_8_devices)|base"
   "JAX_ENABLE_X64=1|fp64|fp64"
-  "XLA_FLAGS='--xla_force_host_platform_device_count=8'|for_8_devices|8dev"
+  "|for_8_devices|8dev"
 )
 
 for spec in "${runs[@]}"; do

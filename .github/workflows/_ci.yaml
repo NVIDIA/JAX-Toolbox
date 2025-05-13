@@ -210,7 +210,6 @@ jobs:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
-        github.event_name != 'workflow_dispatch' ||
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
@@ -255,7 +254,6 @@ jobs:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
-        github.event_name != 'workflow_dispatch' ||
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
@@ -364,7 +362,6 @@ jobs:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
-        github.event_name != 'workflow_dispatch' ||
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
@@ -482,7 +479,6 @@ jobs:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
-        github.event_name != 'workflow_dispatch' ||
         inputs.MODE == 'full' ||
         inputs.MODE == 'te'
       )
@@ -500,7 +496,6 @@ jobs:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
-        github.event_name != 'workflow_dispatch' ||
         inputs.MODE == 'full' ||
         inputs.MODE == 'te'
       )
@@ -557,7 +552,6 @@ jobs:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
-        github.event_name != 'workflow_dispatch' ||
         inputs.MODE == 'full' ||
         inputs.MODE == 'rosetta'
       )
@@ -571,7 +565,6 @@ jobs:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
-        github.event_name != 'workflow_dispatch' ||
         inputs.MODE == 'full' ||
         inputs.MODE == 'maxtext'
       )
@@ -585,7 +578,6 @@ jobs:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
-        github.event_name != 'workflow_dispatch' ||
         inputs.MODE == 'full' ||
         inputs.MODE == 'axlearn'
       )
@@ -690,7 +682,6 @@ jobs:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
-        github.event_name != 'workflow_dispatch' ||
         inputs.MODE == 'full' ||
         inputs.MODE == 'axlearn'
       )
