@@ -1,20 +1,23 @@
+import collections
 from dataclasses import dataclass
 import datetime
 import functools
+import itertools
 import logging
 import typing
+
+from .utils import console_log_level
 
 
 @dataclass
 class TestResult:
     """
-    Hold the result/stdout/stderr of a test execution
+    Hold the pass/fail result and the interleaved stdout/stderr of a test run
     """
 
     __test__ = False  # stop pytest gathering this
     result: bool
-    stdout: typing.Optional[str] = None
-    stderr: typing.Optional[str] = None
+    stdouterr: str
 
 
 def as_datetime(date: datetime.date) -> datetime.datetime:
@@ -101,9 +104,9 @@ def container_search(
         logger.info(f"Skipping check for end-of-range failure in {end_date}")
     else:
         logger.info(f"Checking end-of-range failure in {end_date}")
-        test_end_date = container_passes(end_date)
-        logger.info(f"stdout: {test_end_date.stdout}")
-        logger.info(f"stderr: {test_end_date.stderr}")
+        # Print context for the IMPORTANT .info(...) to the console
+        with console_log_level(logger, logging.DEBUG):
+            test_end_date = container_passes(end_date)
         if test_end_date.result:
             raise Exception(f"Could not reproduce failure in {end_date}")
         logger.info(
@@ -187,133 +190,174 @@ def container_search(
 
 
 class BuildAndTest(typing.Protocol):
-    def __call__(
-        self, *, jax_commit: str, xla_commit: str
-    ) -> typing.Tuple[bool, str, str]: ...
+    def __call__(self, *, commits: dict[str, str]) -> TestResult:
+        """
+        Given an [unordered] set of {package_name: package_commit_sha}, build
+        those package versions and return the test result.
+        """
+        ...
+
+
+def _not_first(d):
+    return itertools.islice(d.items(), 1, None)
 
 
 def commit_search(
     *,
-    jax_commits: typing.Sequence[typing.Tuple[str, datetime.datetime]],
-    xla_commits: typing.Sequence[typing.Tuple[str, datetime.datetime]],
+    commits: collections.OrderedDict[
+        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
+    ],
     build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
 ):
     """
-    build_and_test: test the given commits in the container that originally shipped with end_{jax,xla}_commit.
+    Bisect a failure back to a single commit.
+
+    Arguments:
+    commits: *ordered* dictionary of commit sequences for different software
+        packages, e.g. commits["jax"][0] is (hash, date) of the passing JAX
+        commit. The ordering of packages has implications for precisely how
+        the triage proceeds.
+    build_and_test: callable that tests if a given vector of commits passes
+    logger: instance to log output to
+    skip_precondition_checks: if True, some tests that should pass/fail by
+        construction are skipped
     """
-    if (
-        len(jax_commits) == 0
-        or len(xla_commits) == 0
-        or len(jax_commits) + len(xla_commits) < 3
-    ):
-        raise Exception("Not enough commits passed")
-    start_jax_commit = jax_commits[0][0]
-    start_xla_commit = xla_commits[0][0]
-    end_jax_commit = jax_commits[-1][0]
-    end_xla_commit = xla_commits[-1][0]
-    if skip_precondition_checks:
-        logger.info("Skipping check that 'bad' commits reproduce failure")
-    else:
-        # Verify we can build successfully and that the test fails as expected.
-        logger.info("Verifying test failure using 'bad' commits")
-        range_end_result, stdout, stderr = build_and_test(
-            jax_commit=end_jax_commit, xla_commit=end_xla_commit
-        )
-        if not range_end_result:
-            logger.info("Verified test failure using 'bad' commits")
-        else:
-            logger.fatal("Could not reproduce failure with 'bad' commits")
-            logger.fatal(stdout)
-            logger.fatal(stderr)
-            raise Exception("Could not reproduce failure with 'bad' commits")
+    assert all(len(commit_list) for commit_list in commits.values()), (
+        "Not enough commits: need at least one commit for each package",
+        commits,
+    )
+    assert sum(map(len, commits.values())) > len(commits), (
+        "Not enough commits: need multiple commits for at least one package",
+        commits,
+    )
 
     if skip_precondition_checks:
         logger.info("Skipping check that 'good' commits reproduce success")
     else:
         # Verify that we can build successfully and that the test succeeds as expected.
         logger.info("Verifying test success using 'good' commits")
-        range_start_result, stdout, stderr = build_and_test(
-            jax_commit=start_jax_commit, xla_commit=start_xla_commit
-        )
-        if range_start_result:
+        passing_commits = {
+            package: commit_list[0][0] for package, commit_list in commits.items()
+        }
+        check_pass = build_and_test(commits=passing_commits)
+        if check_pass.result:
             logger.info("Verified test passes using 'good' commits")
         else:
             logger.fatal("Could not reproduce success with 'good' commits")
-            logger.fatal(stdout)
-            logger.fatal(stderr)
+            logger.fatal(check_pass.stdouterr)
             raise Exception("Could not reproduce success with 'good' commits")
 
-    # Finally, start bisecting. This is XLA-centric; JAX is moved too but is secondary.
-    while len(xla_commits) > 2:
-        middle = len(xla_commits) // 2
-        xla_hash, xla_date = xla_commits[middle]
-        # Find the oldest JAX commit that is newer than this
-        for jax_index, (jax_hash, jax_date) in enumerate(jax_commits):
-            if jax_date >= xla_date:
-                break
-        logger.info(
-            f"Chose from {len(xla_commits)} remaining XLA commits and {len(jax_commits)} remaining JAX commits"
-        )
-        bisect_result, _, _ = build_and_test(jax_commit=jax_hash, xla_commit=xla_hash)
+    if skip_precondition_checks:
+        logger.info("Skipping check that 'bad' commits reproduce failure")
+    else:
+        # Verify we can build successfully and that the test fails as expected.
+        logger.info("Verifying test failure using 'bad' commits")
+        failing_commits = {
+            package: commit_list[-1][0] for package, commit_list in commits.items()
+        }
+        # Temporarily print DEBUG output to the console, so the IMPORTANT info message
+        # below is actionable without checking the debug logfile.
+        with console_log_level(logger, logging.DEBUG):
+            check_fail = build_and_test(commits=failing_commits)
+        if not check_fail.result:
+            logger.info(
+                "Verified test failure using 'bad' commits. IMPORTANT: you should check "
+                "that the test output above shows the *expected* failure of your test "
+                "case. It is very easy to accidentally provide a test case that fails "
+                "for the wrong reason, which will not triage the correct issue!"
+            )
+        else:
+            logger.fatal("Could not reproduce failure with 'bad' commits")
+            logger.fatal(check_fail.stdouterr)
+            raise Exception("Could not reproduce failure with 'bad' commits")
+
+    # Make sure that the primary package (zeroth entry in `commits`) has
+    # multiple commits. If it doesn't, we can permute it to the end straight
+    # away as there is nothing to be done. We already asserted above that at
+    # least one package has multiple commits.
+    while len(next(iter(commits.values()))) == 1:
+        commits.move_to_end(next(iter(commits.keys())))
+
+    # Finally, start bisecting. The iteration order of `commits` defines the
+    # algorithm: we start bisecting using the first package (e.g. XLA), and
+    # take the oldest commits of the other packages that are newer than the
+    # first package.
+    primary, _ = next(iter(commits.items()))
+    while len(commits[primary]) > 2:
+        middle = len(commits[primary]) // 2
+        bisect_commits = {}
+        bisect_commits[primary], primary_date = commits[primary][middle]
+        log_msg = f"Chose from {len(commits[primary])} remaining {primary} commits"
+        # Find the oldest commits of the other packages that are newer, or the last commit
+        indices = {primary: middle}
+        for secondary, commit_list in _not_first(commits):
+            for index, (commit, date) in enumerate(commit_list):
+                if date >= primary_date:
+                    break
+            indices[secondary] = index
+            bisect_commits[secondary] = commit
+            log_msg += f", {len(commit_list)} remaining {secondary} commits"
+        logger.info(log_msg)
+        bisect_result = build_and_test(commits=bisect_commits).result
+
         if bisect_result:
             # Test passed, continue searching in the second half
-            xla_commits = xla_commits[middle:]
-            jax_commits = jax_commits[jax_index:]
+            for package, index in indices.items():
+                commits[package] = commits[package][index:]
         else:
             # Test failed, continue searching in the first half
-            xla_commits = xla_commits[: middle + 1]
-            jax_commits = jax_commits[: jax_index + 1]
+            for package, index in indices.items():
+                commits[package] = commits[package][: index + 1]
 
-    # XLA bisection converged. xla_commits has two entries. jax_commits may be a little
-    # longer, if it was more active than XLA at the relevant time. For example, here
-    # xla_commits is {oX, nX} and jax_commits is {oJ, mJ, nJ}, and the test passes with
-    # {oX, oJ} and fails with {nX, nJ}. Naming: o=old, m=medium, n=new, X=XLA, J=JAX.
+    # Primary bisection converged, meaning that there are two remaining
+    # commits there, but possibly more of the other packages:
     #     pass        fail
-    # XLA: oX -------- nX
-    # JAX: oJ -- mJ -- nJ
+    # PRI  pX -------- pZ
+    # SEC  sX -- sY -- sZ
+    # TER  tX --- tY - tZ
+    # ...
+    # If (pX, sZ, tZ, ...) passes, triage has converged: pZ is the culprit and
+    # (sZ, tZ, ...) gives the reference commits of the other projects.
     #
-    # To figure out whether to blame XLA or JAX, we now test {oX, nJ}.
-    old_xla_hash = xla_commits[0][0]
-    new_jax_hash = jax_commits[-1][0]
-    blame_result, _, _ = build_and_test(
-        jax_commit=new_jax_hash, xla_commit=old_xla_hash
+    # Otherwise, if it fails, pZ is innocent and we can continue triaging
+    # with the old primary package always fixed to pX.
+    assert len(commits[primary]) == 2, commits
+    blame_commits = {
+        primary: commits[primary][0][0],  # pX
+    }
+    for secondary, commit_list in _not_first(commits):
+        blame_commits[secondary] = commit_list[-1][0]  # sZ, tZ, ...
+    logger.info(
+        f"Two {primary} commits remain, checking if {commits[primary][-1][0]} is the "
+        "culprit"
     )
-    if blame_result:
-        # Test passed with {oX, nJ} but was known to fail with {nX, nJ}. Therefore, XLA
-        # commit nX is responsible and JAX is innocent.
-        results = (old_xla_hash, xla_commits[1][0])
-        logger.info(
-            "Bisected failure to XLA {}..{} with JAX {}".format(*results, new_jax_hash)
-        )
+    blame = build_and_test(commits=blame_commits)
+    if blame.result:
+        # Test passed with {pX, sZ, tZ, ...} but was known to fail with
+        # {pZ, sZ, tZ, ...}. Therefore pZ is the culprit commit.
+        (good_commit, _), (bad_commit, _) = commits[primary]
+        log_str = f"Bisected failure to {primary} {bad_commit} with"
+        for secondary, secondary_commit in _not_first(blame_commits):
+            log_str += f" {secondary} {secondary_commit}"
+        logger.info(log_str)
         return {
-            "jax_ref": new_jax_hash,
-            "xla_bad": xla_commits[1][0],
-            "xla_good": old_xla_hash,
+            f"{primary}_bad": bad_commit,
+            f"{primary}_good": good_commit,
+        } | {
+            f"{secondary}_ref": secondary_commit
+            for secondary, secondary_commit in _not_first(blame_commits)
         }
     else:
-        # Test failed with {oX, nJ} but was known to pass with {oX, oJ}, so JAX is
-        # responsible and we should bisect between oJ (pass) and nJ (fail). This yields
-        # a single JAX commit to blame, either mJ or nJ in the example above.
-        while len(jax_commits) > 2:
-            middle = len(jax_commits) // 2
-            jax_hash, _ = jax_commits[middle]
-            bisect_result, _, _ = build_and_test(
-                jax_commit=jax_hash, xla_commit=old_xla_hash
-            )
-            if bisect_result:
-                # Test passsed, continue searching in second half
-                jax_commits = jax_commits[middle:]
-            else:
-                # Test failed, continue searching in the first half
-                jax_commits = jax_commits[: middle + 1]
-        results = (jax_commits[0][0], jax_commits[1][0])
-        logger.info(
-            "Bisected failure to JAX {}..{} with XLA {}".format(*results, old_xla_hash)
+        # Test failed with both {pX, sZ, tZ, ...} and {pZ, sZ, tZ, ...}, so
+        # we can fix the primary package to pX and recurse with the old
+        # secondary package (s) as the new primary, and the old primary
+        # package (p) moved to the end.
+        commits[primary] = [commits.pop(primary)[0]]
+        return commit_search(
+            build_and_test=build_and_test,
+            commits=commits,
+            logger=logger,
+            skip_precondition_checks=True,
         )
-        return {
-            "jax_bad": jax_commits[1][0],
-            "jax_good": jax_commits[0][0],
-            "xla_ref": old_xla_hash,
-        }
