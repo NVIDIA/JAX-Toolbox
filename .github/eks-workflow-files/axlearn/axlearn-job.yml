@@ -21,9 +21,7 @@ spec:
                       LOG_DIR="/output/${RUN_ID}"
                       mkdir -p ${LOG_DIR}
 
-                      # Start MPS daemon
-                      nvidia-cuda-mps-control -d
-                      # Run tests
+                      export PYTHONWARNINGS="ignore::pytest.PytestCollectionWarning""
                       test-axlearn.sh --directory "." --output ${LOG_DIR} --test-files "/opt/axlearn/axlearn/common/*_test.py"
                   env:
                     - name: RUN_ID

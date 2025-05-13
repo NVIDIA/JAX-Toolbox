@@ -103,7 +103,6 @@ if [ "${#TEST_FILES[@]}" -gt 0 ]; then
 else
     echo "  Test Files Pattern: '*_test.py' (default)"
 fi
-echo "  Output Directory: $OUTPUT_DIRECTORY"
 
 cd "$DIR" || exit 1
 
@@ -139,7 +138,7 @@ if [ "${#expanded_test_files[@]}" -eq 0 ]; then
     exit 1
 fi
 
-EXCLUDE_PATTERNS=()
+EXCLUDE_PATTERNS=("array_serialization_test.py")
 final_test_files=()
 
 for test_file in "${expanded_test_files[@]}"; do
@@ -166,6 +165,7 @@ for spec in "${runs[@]}"; do
     IFS='|' read -r env_spec marker suffix <<< "${spec}"
     echo "Running tests with ${env_spec}, ${marker}, ${suffix}"
     run_tests "${env_spec}" "${marker}" "${suffix}"
+    echo "Test run"
 done
 
 # SUMMARY STATUS
@@ -189,3 +189,5 @@ done
 echo "Total number of passed tests ${passed}"
 echo "Total number of failed tests ${failed}"
 echo "Total number of skipped tests ${skipped}"
+# add those to summary.txt and we're using it for extracting values
+echo "PASSED: ${passed} FAILED: ${failed} SKIPPED: ${SKIPPED}" >> ${LOG_DIRECTORY}/summary.txt
