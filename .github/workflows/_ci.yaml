@@ -396,7 +396,6 @@ jobs:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
-        github.event_name != 'workflow_dispatch' ||
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
@@ -617,9 +616,9 @@ jobs:
       id: log-s3
       run: |
         mkdir -p axlearn-output
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/summary.txt axlearn-output/
-        aws s3 s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/ axlearn-output/ --recursive --exclude "*" --include "*.log"
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/ axlearn-output/ --recursive --exclude "*" --include "*.xml"
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/summary.txt axlearn_output/
+        aws s3 s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/ axlearn_output/ --recursive --exclude "*" --include "*.log"
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/ axlearn_output/ --recursive --exclude "*" --include "*.xml"
 
         passed_tests=$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' axlearn_output/summary.txt | grep -Eo '[0-9]+' )
         failed_tests=$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' axlearn_output/summary.txt | grep -Eo '[0-9]+' )
