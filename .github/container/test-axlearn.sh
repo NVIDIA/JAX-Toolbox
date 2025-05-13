@@ -190,4 +190,4 @@ echo "Total number of passed tests ${passed}"
 echo "Total number of failed tests ${failed}"
 echo "Total number of skipped tests ${skipped}"
 # add those to summary.txt and we're using it for extracting values
-echo "PASSED: ${passed} FAILED: ${failed} SKIPPED: ${SKIPPED}" >> ${LOG_DIRECTORY}/summary.txt
+echo "PASSED: ${passed} FAILED: ${failed} SKIPPED: ${skipped}" >> ${LOG_DIRECTORY}/summary.txt
