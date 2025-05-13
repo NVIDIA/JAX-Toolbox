@@ -2,22 +2,37 @@
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG URLREF_MAXTEXT=https://github.com/google/maxtext.git#main
+ARG URLREF_JETSTREAM=https://github.com/AI-Hypercomputer/JetStream.git#main
 ARG SRC_PATH_MAXTEXT=/opt/maxtext
+ARG SRC_PATH_JETSTREAM=/opt/jetstream
 
 ###############################################################################
 ## Download source and add auxiliary scripts
 ###############################################################################
 
-FROM ${BASE_IMAGE} as mealkit
+FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_MAXTEXT
+ARG URLREF_JETSTREAM
 ARG SRC_PATH_MAXTEXT
+ARG SRC_PATH_JETSTREAM
 
-RUN <<"EOF" bash -ex
+RUN <<"EOF" bash -ex -o pipefail
 git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
-echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+git-clone.sh ${URLREF_JETSTREAM} ${SRC_PATH_JETSTREAM}
+EOF
 
-# specify some restrictions to speed up the build and
-# avoid pip to download and check all available versions of packages
+RUN <<"EOF" bash -ex -o pipefail
+echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+echo "-e file://${SRC_PATH_JETSTREAM}" >> /opt/pip-tools.d/requirements-maxtext.in
+EOF
+
+# remove GitHub direct-reference of JetStream in MaxText requirements
+RUN <<"EOF" bash -ex -o pipefail
+sed -i '/^google-jetstream/d' ${SRC_PATH_MAXTEXT}/requirements.txt
+EOF
+
+# add version constraints to avoid eternal dependency resolution
+RUN <<"EOF" bash -ex -o pipefail
 for pattern in \
     "s|absl-py|absl-py>=2.1.0|g" \
     "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
@@ -26,10 +41,13 @@ for pattern in \
     "s|tensorflow>=2.13.0|tensorflow==2.18.1|g" \
   ; do
     # tensorflow-cpu==2.19.0 is incompatible with tensorflow-text
-    sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt;
+    sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt
 done
-# add new line in case requirements.txt does not end with a new line
-echo >> ${SRC_PATH_MAXTEXT}/requirements.txt
+EOF
+
+# add extra dependencies
+RUN <<"EOF" bash -ex -o pipefail
+echo >> ${SRC_PATH_MAXTEXT}/requirements.txt  # add new line
 for requirement in \
     "tensorflow-metadata>=1.15.0" \
     "seqio@git+https://github.com/google/seqio.git" \
@@ -48,7 +66,7 @@ ADD test-maxtext.sh /usr/local/bin
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
-FROM mealkit as final
+FROM mealkit AS final
 
 RUN pip-finalize.sh
 
