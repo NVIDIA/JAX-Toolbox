@@ -190,7 +190,7 @@ def container_search(
 
 
 class BuildAndTest(typing.Protocol):
-    def __call__(self, *, commits: dict[str, str]) -> TestResult:
+    def __call__(self, *, commits: typing.Dict[str, str]) -> TestResult:
         """
         Given an [unordered] set of {package_name: package_commit_sha}, build
         those package versions and return the test result.

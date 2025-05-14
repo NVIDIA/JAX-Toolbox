@@ -53,7 +53,7 @@ def get_commit(
 
 def get_commits_and_dirs(
     worker: typing.Union[DockerContainer, PyxisContainer], logger: logging.Logger
-) -> tuple[dict[str, str], dict[str, str]]:
+) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str]]:
     # Software we know may exist in the containers that we might be able to triage
     # We know how to recompile JAX/XLA, so it's OK that they include C++ code
     # TransformerEngine is intentionally excluded because there isn't a build-te.sh yet
@@ -90,8 +90,8 @@ def main():
 
     def get_commits(
         container_url: typing.Optional[str],
-        explicit_commits: typing.Optional[dict[str, str]],
-    ) -> tuple[dict[str, str], typing.Optional[dict[str, str]]]:
+        explicit_commits: typing.Optional[typing.Dict[str, str]],
+    ) -> typing.Tuple[typing.Dict[str, str], typing.Optional[typing.Dict[str, str]]]:
         """
         Get the list of commit hashes for different packages inside the given
         container, or return the explicitly passed set of hashes if they are
@@ -256,7 +256,7 @@ def main():
             assert passing_commits[package] == package_commits[package][0][0]
             assert failing_commits[package] == package_commits[package][-1][0]
 
-        def build_and_test(commits: dict[str, str]) -> TestResult:
+        def build_and_test(commits: typing.Dict[str, str]) -> TestResult:
             """
             The main body of the bisection loop. Update the JAX/XLA commits, build XLA and
             jaxlib, and run the test command. Throws on error when checking out or
