@@ -135,7 +135,7 @@ def test_commit_search(logger, extra_commits, packages, seed):
     )
     # Do not check the reference commits, it's a bit underspecified quite what they
     # mean, other than that the dummy_test assertions below should pass
-    ref_commits = {
+    commits = {
         package: algorithm_result.pop(f"{package}_ref")
         for package in package_names
         if package != culprit
@@ -144,12 +144,10 @@ def test_commit_search(logger, extra_commits, packages, seed):
         f"{culprit}_bad": bad_commit,
         f"{culprit}_good": good_commit,
     } == algorithm_result
-    assert dummy_test(
-        commits={culprit: algorithm_result[f"{culprit}_good"]} | ref_commits
-    ).result
-    assert not dummy_test(
-        commits={culprit: algorithm_result[f"{culprit}_bad"]} | ref_commits
-    ).result
+    commits[culprit] = algorithm_result[f"{culprit}_good"]
+    assert dummy_test(commits=commits).result
+    commits[culprit] = algorithm_result[f"{culprit}_bad"]
+    assert not dummy_test(commits=commits).result
 
 
 def other(project):
@@ -267,13 +265,15 @@ def test_commit_search_exhaustive(logger, commits):
     assert algorithm_result[f"{bad_project}_bad"] == bad_commit
     assert algorithm_result[f"{bad_project}_good"] == good_commit
     # Do check that the reference commit gives the expected results
-    ref_commits = {
+    commits = {
         proj: algorithm_result[f"{proj}_ref"]
         for proj in all_projects
         if proj != bad_project
     }
-    assert not dummy_test(commits={bad_project: bad_commit} | ref_commits).result
-    assert dummy_test(commits={bad_project: good_commit} | ref_commits).result
+    commits[bad_project] = bad_commit
+    assert not dummy_test(commits=commits).result
+    commits[bad_project] = good_commit
+    assert dummy_test(commits=commits).result
 
 
 @pytest.mark.parametrize(
