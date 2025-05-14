@@ -48,25 +48,26 @@ runs:
             parallelism=1
           fi
 
-          while true; do
-            IFS=: read -r failures successes <<< "$(kubectl get job/${{ inputs.job-name }} -o 'jsonpath={.status.failed}:{.status.succeeded}')"
+          while IFS=: read -r failures successes; do
             failures="${failures:-0}"
             successes="${successes:-0}"
-            total=$(( failures + successes ))
+            total=$((failures + successes))
 
-            if [ "$total" -lt "$parallelism" ]; then
-              sleep 10
-              continue
-            fi
-
-            if [ "$successes" -eq "$parallelism" ]; then
-              echo "Job completed successfully"
+            if [ $total -lt $parallelism ]; then
+              # neither "failed" nor "succeeded", so wait
+              sleep 1
+            elif [ $total -eq $parallelism ]; then
+              # we have total=parallelism => either X successes or X failures
+              # In any case, the job is done
               break
+            else
+              # Log here
+              echo "Unexpected number of completed pods ${total} with parallelism ${parallelism}"
+              exit 255
             fi
-
-            echo "Job ${{ inputs.job-name }} failed ($failures/$parallelism)"
-            exit 1
-          done
+          done <<EOF
+          $(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}')
+          EOF
 
            # If job indicates a failure try to print out the info
           if [ "${failures:-0}" -gt 0 ]; then
