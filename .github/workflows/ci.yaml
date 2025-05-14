@@ -119,7 +119,7 @@ jobs:
             echo "Error: If BUMP_MANIFEST=false, MERGE_BUMPED_MANIFEST cannot be true" >&2
             exit 1
           fi
-      
+
       - name: Determine CUDA image to use
         id: cuda-image
         shell: bash -x -e {0}
@@ -145,7 +145,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           bash bump.sh --input-manifest manifest.yaml --output-manifest manifest.yaml.new --base-patch-dir ./patches-new
-      
+
       - name: Maybe replace current manifest/patches with the new one and show diff
         working-directory: .github/container
         shell: bash -x -e {0}
@@ -226,7 +226,7 @@ jobs:
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
-      
+
       - name: Delete checked-out manifest and patches
         run: |
           rm .github/container/manifest.yaml
@@ -266,7 +266,7 @@ jobs:
           git merge --ff-only ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
           # Push the new change
           git push origin ${{ github.ref_name }}
-      
+
       # We will create a Draft PR & remote branch if:
       #  1. The tests failed
       #  2. The merge failed
@@ -297,12 +297,12 @@ jobs:
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: "Log created PR: #${{ fromJson(steps.create_pr.outputs.data).number }}"
         if: steps.create_pr.outcome == 'success'
         run: |
           echo "https://github.com/NVIDIA/JAX-Toolbox/pull/${{ fromJson(steps.create_pr.outputs.data).number }}" | tee -a $GITHUB_STEP_SUMMARY
-      
+
       # Guard delete in simple check to protect other branches
       - name: Check that the branch matches znightly- prefix
         run: |
@@ -345,6 +345,7 @@ jobs:
             maxtext
             upstream-t5x
             t5x
+            axlearn
           )
           declare -a STAGES=(
             mealkit
