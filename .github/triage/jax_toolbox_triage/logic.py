@@ -1,4 +1,3 @@
-import collections
 from dataclasses import dataclass
 import datetime
 import functools
@@ -204,7 +203,7 @@ def _not_first(d):
 
 def commit_search(
     *,
-    commits: collections.OrderedDict[
+    commits: typing.OrderedDict[
         str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
     ],
     build_and_test: BuildAndTest,
@@ -342,13 +341,13 @@ def commit_search(
         for secondary, secondary_commit in _not_first(blame_commits):
             log_str += f" {secondary} {secondary_commit}"
         logger.info(log_str)
-        return {
+        ret = {
             f"{primary}_bad": bad_commit,
             f"{primary}_good": good_commit,
-        } | {
-            f"{secondary}_ref": secondary_commit
-            for secondary, secondary_commit in _not_first(blame_commits)
         }
+        for secondary, secondary_commit in _not_first(blame_commits):
+            ret[f"{secondary}_ref"] = secondary_commit
+        return ret
     else:
         # Test failed with both {pX, sZ, tZ, ...} and {pZ, sZ, tZ, ...}, so
         # we can fix the primary package to pX and recurse with the old
