@@ -620,6 +620,7 @@ jobs:
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn_output/ --recursive --exclude "*" --include "*.log"
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn_output/ --recursive --exclude "*" --include "*.xml"
 
+
         passed_tests=$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' axlearn_output/summary.txt | grep -Eo '[0-9]+' )
         failed_tests=$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' axlearn_output/summary.txt | grep -Eo '[0-9]+' )
         skipped_tests=$(grep -Eo 'SKIPPED:[[:space:]]*[0-9]+' axlearn_output/summary.txt | grep -Eo '[0-9]+' )
