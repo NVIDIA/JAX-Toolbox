@@ -16,21 +16,21 @@ runs:
       uses: ./.github/actions/with-post-step
       with:
         main: |
-          set -x 
+          set -x
           TIMEOUT_JOB_CREATION=60s
           TIMEOUT_JOB_WAIT=14400s
           TIMEOUT_JOB_START=600s
 
-          echo "Submit K8s job" 
+          echo "Submit K8s job"
           kubectl apply -f "${{ inputs.job-config-file }}"
           kubectl get event | grep ${{ inputs.job-name }}
-          
+
           # Wait for job to be craeted
           kubectl wait --for=create job/${{ inputs.job-name }} --timeout=$TIMEOUT_JOB_CREATION
-          
+
           # Wait for job to be unsuspended
           kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${{ inputs.job-name }} --timeout=$TIMEOUT_JOB_WAIT
-          
+
           # Wait for pods to be running
           kubectl wait --for=condition=Ready \
             --selector=batch.kubernetes.io/job-name=${{ inputs.job-name }} \
@@ -48,26 +48,25 @@ runs:
             parallelism=1
           fi
 
-          while IFS=: read -r failures successes; do
+          while true; do
+            IFS=: read -r failures successes <<< "$(kubectl get job/${{ inputs.job-name }} -o 'jsonpath={.status.failed}:{.status.succeeded}')"
             failures="${failures:-0}"
             successes="${successes:-0}"
-            total=$((failures + successes))
+            total=$(( failures + successes ))
 
-            if [ $total -lt $parallelism ]; then
-              # neither "failed" nor "succeeded", so wait
-              sleep 1
-            elif [ $total -eq $parallelism ]; then
-              # we have total=parallelism => either X successes or X failures
-              # In any case, the job is done
-              break
-            else
-              # Log here
-              echo "Unexpected number of completed pods ${total} with parallelism ${parallelism}"
-              exit 255
+            if [ "$total" -lt "$parallelism" ]; then
+              sleep 10
+              continue
             fi
-          done <<EOF
-          $(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}')
-          EOF
+
+            if [ "$successes" -eq "$parallelism" ]; then
+              echo "Job completed successfully"
+              break
+            fi
+
+            echo "Job ${{ inputs.job-name }} failed ($failures/$parallelism)"
+            exit 1
+          done
 
            # If job indicates a failure try to print out the info
           if [ "${failures:-0}" -gt 0 ]; then
