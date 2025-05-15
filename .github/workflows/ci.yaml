@@ -359,6 +359,7 @@ jobs:
             maxtext
             upstream-t5x
             t5x
+            axlearn
           )
           declare -a STAGES=(
             mealkit
