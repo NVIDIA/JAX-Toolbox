@@ -30,7 +30,7 @@ run_tests() {
     local log="log_${suffix}.log"
 
     cmd="${env_spec:+${env_spec} }pytest -m \"${marker}\" ${final_test_files[@]}\
-    --dist worksteal -n auto --capture=tee-sys -v \
+    --capture=tee-sys -v \
     --junit-xml=${LOG_DIRECTORY}/${junit} | tee ${LOG_DIRECTORY}/${log}"
     echo "Running command ${cmd}"
     eval "${cmd}"
@@ -157,7 +157,7 @@ done
 runs=(
   "|not (gs_login or tpu or high_cpu or fp64 or for_8_devices)|base"
   "JAX_ENABLE_X64=1|fp64|fp64"
-  "XLA_FLAGS='--xla_force_host_platform_device_count=8'|for_8_devices|8dev"
+  "JAX_PLATFORMS='gpu'|for_8_devices|8dev"
 )
 
 for spec in "${runs[@]}"; do
