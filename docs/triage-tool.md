@@ -5,7 +5,8 @@ individual commit of JAX or XLA.
 It takes as input a command that returns an error (non-zero) code when run in "recent"
 containers, but which returns a success (zero) code when run in some "older" container.
 The command must be executable within the containers, *i.e.* it cannot refer to files
-that only exist on the host system.
+that only exist on the host system, unless those are explicitly mounted in using the
+`-v` (`--container-mount`) option.
 
 The tool follows a three-step process:
   1. A container-level search backwards from the "recent" container where the test is
@@ -16,8 +17,9 @@ The tool follows a three-step process:
      container where test passes and the **earliest** available container where it
      fails.
   3. A commit-level binary search, repeatedly building + testing inside the same
-     container, to identify a single commit of JAX (XLA) that causes the test to start
-     failing, and a reference commit of XLA (JAX) that can be used to reproduce the
+     container, to identify a single commit of a software package known to the tool
+     (JAX, XLA, Flax, optionally MaxText) that causes the test to start failing, and a
+     set of reference commits of the other packages that can be used to reproduce the
      regression.
 
 The third step can also be used on its own, via the `--passing-container` and
@@ -25,7 +27,7 @@ The third step can also be used on its own, via the `--passing-container` and
 tags, without the dependency on the `ghcr.io/nvidia/jax` registry. This assumes that
 the given containers are closely related to those from JAX-Toolbox
 (`ghcr.io/nvidia/jax:XXX`):
-* JAX and XLA sources at `/opt/{jax,xla}[-source]`
+* JAX, XLA, Flax[, MaxText] sources at `/opt/{jax,xla,flax,maxtext}[-source]`
 * `build-jax.sh` script from JAX-Toolbox available in the container
 
 ## Installation
@@ -59,6 +61,9 @@ is used.
 If `--container-runtime=pyxis` is used instead, the tool should be invoked on a machine
 where `srun --container-image=XXX ... test_command` will execute the test case on one
 or more machines with appropriate GPUs, *e.g.* inside an `salloc` session.
+Appropriate arguments (number of nodes, number of tasks per node, *etc.*) should be
+passed to `salloc` or set via `SLURM_` environment variables so that a bare `srun` will
+correctly launch the test case.
 
 ## Usage
 
@@ -159,7 +164,8 @@ inside that container will be skipped.
 
 ## Example
 
-Here is an example execution for a JAX unit test failure, with some annotation:
+Here is an example execution for a JAX unit test failure, with some annotation (note
+that a more modern version of the tool would have tracked Flax too):
 ```console
 user@gpu-machine $ jax-toolbox-triage --container jax test-jax.sh //tests:nn_test_gpu
 ```

@@ -5,6 +5,8 @@ import secrets
 import subprocess
 import typing
 
+from .utils import run_and_log
+
 # Used to make sure the {url: name} mapping is consistent within a process, but that
 # names are not re-used by different invocations of the triage tool. Using a consistent
 # mapping is a simple way of avoiding re-creating the container multiple times, e.g.
@@ -49,6 +51,7 @@ class PyxisContainer:
         self,
         command: typing.List[str],
         policy: typing.Literal["once", "once_per_container", "default"] = "default",
+        stderr: typing.Literal["interleaved", "separate"] = "interleaved",
         workdir=None,
     ) -> subprocess.CompletedProcess:
         """
@@ -66,19 +69,14 @@ class PyxisContainer:
                 f"--container-image={self._url}",
                 f"--container-name={self._name}",
                 "--container-remap-root",
+                "--no-container-mount-home",
             ]
             + self._mount_args
             + policy_args
             + workdir
             + command
         )
-        result = subprocess.run(
-            command,
-            encoding="utf-8",
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
-        return result
+        return run_and_log(command, logger=self._logger, stderr=stderr)
 
     def check_exec(
         self, cmd: typing.List[str], **kwargs
@@ -89,7 +87,6 @@ class PyxisContainer:
                 f"{' '.join(cmd)} exited with return code {result.returncode}"
             )
             self._logger.fatal(result.stdout)
-            self._logger.fatal(result.stderr)
             result.check_returncode()
         return result
 
