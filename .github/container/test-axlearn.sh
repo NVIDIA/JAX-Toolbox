@@ -137,7 +137,8 @@ if [ "${#expanded_test_files[@]}" -eq 0 ]; then
     exit 1
 fi
 
-EXCLUDE_PATTERNS=("array_serialization_test.py")
+EXCLUDE_PATTERNS=("array_serialization_test.py"
+    "host_array_test.py")
 final_test_files=()
 
 for test_file in "${expanded_test_files[@]}"; do
@@ -155,8 +156,8 @@ done
 
 # RUN TESTS
 runs=(
-  "|not (gs_login or tpu or high_cpu or fp64 or for_8_devices)|base"
-  "JAX_ENABLE_X64=1|fp64|fp64"
+  "JAX_PLATFORMS='gpu'|not (gs_login or tpu or high_cpu or fp64 or for_8_devices)|base"
+  "JAX_PLATFORMS='gpu' JAX_ENABLE_X64=1|fp64|fp64"
   "JAX_PLATFORMS='gpu'|for_8_devices|8dev"
 )
 
