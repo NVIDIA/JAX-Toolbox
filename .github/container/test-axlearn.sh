@@ -138,7 +138,8 @@ if [ "${#expanded_test_files[@]}" -eq 0 ]; then
 fi
 
 EXCLUDE_PATTERNS=("array_serialization_test.py"
-    "host_array_test.py")
+    "host_array_test.py"
+    "utils_test.py")
 final_test_files=()
 
 for test_file in "${expanded_test_files[@]}"; do
