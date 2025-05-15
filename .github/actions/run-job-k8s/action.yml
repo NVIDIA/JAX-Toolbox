@@ -1,0 +1,24 @@
+name: Submit, Monitor & Delete K8s Job
+description: Submits a K8s job, monitors it, and deletes it afterwards.
+
+inputs:
+  job-name:
+    description: K8s job name
+    required: true
+  job-config-file:
+    description: Path to the K8s job YAML
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Submit & delete K8s job
+      uses: ./.github/actions/submit-and-delete-k8s-job
+      with:
+        job-name: ${{ inputs.job-name }}
+        job-config-file: ${{ inputs.job-config-file }}
+
+    - name: Monitor K8s job
+      uses: ./.github/actions/monitor-k8s-job
+      with:
+        job-name: ${{ inputs.job-name }}

@@ -72,15 +72,11 @@ jobs:
             sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
             sed s@N_GPU@${{ matrix.N_GPU }}@g | \
             tee $K8S_JOB_MANIFEST
-    - name: Submit & delete transformer engine tests
-      uses: ./.github/actions/submit-and-delete-k8s-job
+    - name: Run Fuji on EKS
+      uses: ./.github/actions/run-job-k8s
       with:
           job-config-file: ${{ env.TE_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml
           job-name: ${{ env.RUN_NAME }}
-    - name: Monitor K8s job
-      uses: ./.github/actions/monitor-k8s-job
-      with:
-        job-name: ${{ env.RUN_NAME }}
     - name: Download and process logs from S3
       id: s3-logs-process
       run: |
