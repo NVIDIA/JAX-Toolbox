@@ -107,7 +107,6 @@ fi
 cd "$DIR" || exit 1
 
 # DEPENDENCIES
-echo "Installing dependencies..."
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pip install timm transformers scikit-learn tensorflow_io grain evaluate wandb
 echo "Downloading input data..."
