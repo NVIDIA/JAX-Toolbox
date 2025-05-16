@@ -4,6 +4,7 @@ metadata:
     name: PLACEHOLDER
     labels:
         kueue.x-k8s.io/queue-name: p5-queue
+        kueue.x-k8s.io/max-exec-time-seconds: "10800"
 spec:
     completions: 1
     parallelism: 1

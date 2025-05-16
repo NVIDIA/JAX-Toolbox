@@ -3,9 +3,9 @@ kind: Job
 metadata:
   labels:
     kueue.x-k8s.io/queue-name: p5-queue
+    kueue.x-k8s.io/max-exec-time-seconds: "10800"
   name: JOB_NAME
 spec:
-  activeDeadlineSeconds: 7200
   template:
     spec:
       containers:
@@ -36,7 +36,7 @@ SCRIPT
           done
 
           # Upload logs to S3 bucket
-          aws s3 cp ${LOG_DIR}/ s3://${S3_BUCKET}/${CI_NAME}/${RUN_ID}/ --recursive 
+          aws s3 cp ${LOG_DIR}/ s3://${S3_BUCKET}/${CI_NAME}/${RUN_ID}/ --recursive
         env:
         - name: LOG_DIR
           value: /opt/output
