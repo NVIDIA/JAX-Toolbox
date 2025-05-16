@@ -15,7 +15,7 @@ spec:
         - pipefail
         - -c
         - |
-          SCRIPT
+SCRIPT
         env:
         - name: LOG_DIR
           value: /opt/output
