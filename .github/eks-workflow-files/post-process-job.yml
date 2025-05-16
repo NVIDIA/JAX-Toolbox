@@ -3,6 +3,7 @@ kind: Job
 metadata:
   name: PLACEHOLDER
 spec:
+  activeDeadlineSeconds: 10800 # max 3 hours run
   template:
     spec:
       restartPolicy: Never

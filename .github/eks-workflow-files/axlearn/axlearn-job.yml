@@ -5,6 +5,7 @@ metadata:
     labels:
         kueue.x-k8s.io/queue-name: p5-queue
 spec:
+    activeDeadlineSeconds: 10800 # max 3 hours run
     template:
         spec:
             restartPolicy: Never

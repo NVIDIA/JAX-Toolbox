@@ -5,7 +5,7 @@ metadata:
     kueue.x-k8s.io/queue-name: p5-queue
   name: JOB_NAME
 spec:
-  activeDeadlineSeconds: 7200
+  activeDeadlineSeconds: 10800
   template:
     spec:
       containers:
@@ -15,7 +15,7 @@ spec:
         - pipefail
         - -c
         - |
-SCRIPT
+          SCRIPT
         env:
         - name: LOG_DIR
           value: /opt/output
@@ -36,7 +36,7 @@ SCRIPT
           done
 
           # Upload logs to S3 bucket
-          aws s3 cp ${LOG_DIR}/ s3://${S3_BUCKET}/${CI_NAME}/${RUN_ID}/ --recursive 
+          aws s3 cp ${LOG_DIR}/ s3://${S3_BUCKET}/${CI_NAME}/${RUN_ID}/ --recursive
         env:
         - name: LOG_DIR
           value: /opt/output
