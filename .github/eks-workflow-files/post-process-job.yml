@@ -3,9 +3,9 @@ kind: Job
 metadata:
   name: PLACEHOLDER
 spec:
-  activeDeadlineSeconds: 10800 # max 3 hours run
   template:
     spec:
+      maximumExecutionTimeSeconds: 10800
       restartPolicy: Never
       initContainers:
         - name: download
