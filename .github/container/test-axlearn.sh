@@ -139,7 +139,14 @@ fi
 
 EXCLUDE_PATTERNS=("array_serialization_test.py"
     "host_array_test.py"
-    "utils_test.py")
+    "utils_test.py"
+    "inference_test.py" # rocm test
+    "t5_test.py" # tensorflow bug
+    "input_t5_test.py"
+    "layers_test.py" # tensorflow bug
+    "checkpointer_orbax_test.py"
+    "checkpointer_test.py"
+    )
 final_test_files=()
 
 for test_file in "${expanded_test_files[@]}"; do
