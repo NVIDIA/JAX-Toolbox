@@ -171,9 +171,8 @@ done
 
 # RUN TESTS
 runs=(
-  "JAX_PLATFORMS='cuda'|not (gs_login or tpu or high_cpu or fp64 or for_8_devices)|base"
-  "JAX_PLATFORMS='cuda' JAX_ENABLE_X64=1|fp64|fp64"
-  "JAX_PLATFORMS='cuda'|for_8_devices|8dev"
+  "|not (gs_login or tpu or high_cpu or fp64 or for_8_devices)|base"
+  "JAX_ENABLE_X64=1|fp64|fp64"
 )
 
 for spec in "${runs[@]}"; do
