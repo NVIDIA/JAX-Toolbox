@@ -47,10 +47,10 @@ on:
           - full - everything will be run (default)
           - jax - run all the tests related to jax system
           - te - run all the tests related to TE
-          - rosetta - run build rosetta
+          - t5x - run build rosetta
           - maxtext - run only the tests for maxtext
           - axlearn - run only the tests for axlearn
-        options: [full, jax, te, rosetta, maxtext, axlearn]
+        options: [full, jax, te, t5x, maxtext, axlearn]
         default: full
 
 concurrency:

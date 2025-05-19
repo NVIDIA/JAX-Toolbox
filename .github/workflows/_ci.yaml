@@ -553,7 +553,7 @@ jobs:
       inputs.ARCHITECTURE == 'amd64' &&
       (
         inputs.MODE == 'full' ||
-        inputs.MODE == 'rosetta'
+        inputs.MODE == 't5x'
       )
     uses: ./.github/workflows/_test_t5x_rosetta.yaml
     with:

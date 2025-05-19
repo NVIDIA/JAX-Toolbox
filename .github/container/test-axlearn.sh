@@ -25,11 +25,13 @@ run_tests() {
     local env_spec=$1
     local marker=$2
     local suffix=$3
+    shift 3
+    local -a test_files=("$@")
 
     local junit="log_${suffix}.xml"
     local log="log_${suffix}.log"
 
-    cmd="${env_spec:+${env_spec} }pytest -m \"${marker}\" ${final_test_files[@]}\
+    cmd="${env_spec:+${env_spec} }pytest -m \"${marker}\" ${test_files[@]}\
     --capture=tee-sys -v \
     --junit-xml=${LOG_DIRECTORY}/${junit} | tee ${LOG_DIRECTORY}/${log}"
     echo "Running command ${cmd}"
@@ -153,6 +155,8 @@ EXCLUDE_PATTERNS=("array_serialization_test.py"
     "quantizer_test.py"
     "test_utils_test.py"
     "update_transformation_test.py"
+    "env_test.py"
+    "host_array_test.py" # cpu/tpu only
     )
 final_test_files=()
 
@@ -178,10 +182,19 @@ runs=(
 for spec in "${runs[@]}"; do
     IFS='|' read -r env_spec marker suffix <<< "${spec}"
     echo "Running tests with ${env_spec}, ${marker}, ${suffix}"
-    run_tests "${env_spec}" "${marker}" "${suffix}"
+    run_tests "${env_spec}" "${marker}" "${suffix}" "${final_test_files[@]}"
     echo "Test run"
 done
-
+# Run the for_8_devices test in isolation
+TEST_8_DEVICES_FILES=("gda_test.py"
+    "host_array_test.py"
+    "input_base_test.py"
+    "input_dispatch_test.py"
+    "trainer_test.py"
+    "utils_test.py"
+)
+echo "Running tests for 'for_8_devices'"
+run_tests "" "for_8_devices" "8dev" "${TEST_8_DEVICES_FILES}"
 # SUMMARY STATUS
 passed=0
 failed=0
