@@ -63,6 +63,8 @@ jobs:
           mv -v xla/xla protos/
           python -c "from nsys_jax import compile_protos; compile_protos(proto_dir='protos', output_dir='compiled_protos', output_stub_dir='compiled_stubs')"
           touch compiled_stubs/py.typed
+          # Work around https://github.com/protocolbuffers/protobuf/issues/21823
+          sed -i '1aimport datetime' compiled_stubs/xla/service/metrics_pb2.pyi
       - name: "Convert .ipynb to .py"
         run: |
           for notebook in $(find ${NSYS_JAX_PYTHON_FILES} -name '*.ipynb'); do
