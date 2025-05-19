@@ -197,6 +197,10 @@ class BuildAndTest(typing.Protocol):
         ...
 
 
+def _first(xs):
+    return next(iter(xs))
+
+
 def _not_first(d):
     return itertools.islice(d.items(), 1, None)
 
@@ -276,14 +280,14 @@ def commit_search(
     # multiple commits. If it doesn't, we can permute it to the end straight
     # away as there is nothing to be done. We already asserted above that at
     # least one package has multiple commits.
-    while len(next(iter(commits.values()))) == 1:
-        commits.move_to_end(next(iter(commits.keys())))
+    while len(_first(commits.values())) == 1:
+        commits.move_to_end(_first(commits.keys()))
 
     # Finally, start bisecting. The iteration order of `commits` defines the
     # algorithm: we start bisecting using the first package (e.g. XLA), and
     # take the oldest commits of the other packages that are newer than the
     # first package.
-    primary, _ = next(iter(commits.items()))
+    primary = _first(commits.keys())
     while len(commits[primary]) > 2:
         middle = len(commits[primary]) // 2
         bisect_commits = {}
