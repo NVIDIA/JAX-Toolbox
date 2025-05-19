@@ -26,8 +26,6 @@ spec:
                       nvidia-smi
 
                       # test on JAX
-                      echo "Test jax backend"
-                      python -c "import jax; print(jax.default_backend())"
                       pytest-xdist.sh 1 6 ${LOG_DIR}/axlearn-unittests.jsonl test-axlearn.sh --directory "." --output ${LOG_DIR} --test-files "/opt/axlearn/axlearn/common/*_test.py"
                   env:
                     - name: RUN_ID
