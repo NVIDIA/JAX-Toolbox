@@ -22,6 +22,12 @@ spec:
                       mkdir -p ${LOG_DIR}
 
                       # Run tests
+                      export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+                      nvidia-smi
+
+                      # test on JAX
+                      echo "Test jax backend"
+                      python -c "import jax; prin(jax.default_backend())"
                       pytest-xdist.sh 1 6 ${LOG_DIR}/axlearn-unittests.jsonl test-axlearn.sh --directory "." --output ${LOG_DIR} --test-files "/opt/axlearn/axlearn/common/*_test.py"
                   env:
                     - name: RUN_ID
