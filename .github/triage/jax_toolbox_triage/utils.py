@@ -1,6 +1,9 @@
+from contextlib import contextmanager
 import datetime
 import logging
 import pathlib
+import shlex
+import subprocess
 import typing
 
 
@@ -40,6 +43,22 @@ def get_logger(output_prefix: pathlib.Path) -> logging.Logger:
     return logger
 
 
+@contextmanager
+def console_log_level(logger, level):
+    # Find the StreamHandler
+    console = next(
+        filter(
+            lambda handler: isinstance(handler, logging.StreamHandler), logger.handlers
+        )
+    )
+    old_level = console.level
+    console.setLevel(level)
+    try:
+        yield None
+    finally:
+        console.setLevel(old_level)
+
+
 def prepare_bazel_cache_mounts(
     bazel_cache: str,
 ) -> typing.Sequence[typing.Tuple[pathlib.Path, pathlib.Path]]:
@@ -57,3 +76,27 @@ def prepare_bazel_cache_mounts(
         raise Exception(
             "--bazel-cache should be an http/https/grpc URL or an absolute path"
         )
+
+
+def run_and_log(
+    command, logger: logging.Logger, stderr: typing.Literal["interleaved", "separate"]
+) -> subprocess.CompletedProcess:
+    logger.debug(shlex.join(command))
+    result = subprocess.Popen(
+        command,
+        encoding="utf-8",
+        stderr=subprocess.STDOUT if stderr == "interleaved" else subprocess.PIPE,
+        stdout=subprocess.PIPE,
+    )
+    assert result.stdout is not None
+    stdouterr = ""
+    for line in iter(result.stdout.readline, ""):
+        stdouterr += line
+        logger.debug(line.strip())
+    result.wait()
+    return subprocess.CompletedProcess(
+        args=command,
+        returncode=result.returncode,
+        stdout=stdouterr,
+        stderr=result.stderr.read() if result.stderr is not None else "",
+    )
