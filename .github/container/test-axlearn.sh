@@ -194,7 +194,7 @@ TEST_8_DEVICES_FILES=("gda_test.py"
     "utils_test.py"
 )
 echo "Running tests for 'for_8_devices'"
-run_tests "" "for_8_devices" "8dev" "${TEST_8_DEVICES_FILES}"
+run_tests "" "for_8_devices" "8dev" "${TEST_8_DEVICES_FILES[@]}"
 # SUMMARY STATUS
 passed=0
 failed=0
