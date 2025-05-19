@@ -42,7 +42,7 @@ def parse_args(args=None):
             re-testing inside the earliest container that demonstrates the failure. At each
             point, the oldest JAX commit that is newer than XLA is used.""",
     )
-    parser.add_argument(
+    container_search_args.add_argument(
         "--container",
         help="""
             Container to use. Example: jax, maxtext. Used to construct the URLs of
