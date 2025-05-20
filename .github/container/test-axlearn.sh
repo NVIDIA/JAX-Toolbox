@@ -39,7 +39,7 @@ run_tests() {
 }
 
 # DEFAULT VALUES
-DIR='axlearn/axlearn/common'
+DIR='/opt/axlearn/axlearn/common'
 TEST_FILES=()
 OUTPUT_DIRECTORY=''
 
@@ -86,17 +86,15 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
+cd "$DIR"
 if [ -z "$OUTPUT_DIRECTORY" ]; then
     timestamp=$(date +%Y%m%d_%H%M%S)
-    OUTPUT_DIRECTORY="test_runs/${timestamp}"
+    OUTPUT_DIRECTORY="output/${timestamp}"
 fi
 LOG_DIRECTORY="${OUTPUT_DIRECTORY}/logs"
 
 mkdir -p "${LOG_DIRECTORY}"
 
-echo "Configuration:"
-echo "  Directory: $DIR"
 if [ "${#TEST_FILES[@]}" -gt 0 ]; then
     echo "  Test Files:"
     for f in "${TEST_FILES[@]}"; do
@@ -105,8 +103,6 @@ if [ "${#TEST_FILES[@]}" -gt 0 ]; then
 else
     echo "  Test Files Pattern: '*_test.py' (default)"
 fi
-
-cd "$DIR" || exit 1
 
 # DEPENDENCIES
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
@@ -164,10 +160,12 @@ EXCLUDE_PATTERNS=("array_serialization_test.py"
     "ssm_test.py" # test on ssm
     "summary_test.py" # wandb test
     "param_converter_test.py"
-    # these tests will be run separately
-    "learner_test.py"
-    "attention_test.py"
-    "adapter_flax_test.py"
+    "attention_test.py" # assertion errors to fix
+    # run these as part of the for_8_devices:
+    "gda_test.py"
+    "input_base_test.py"
+    "input_dispatch_test.py"
+    "trainer_test.py"
     "utils_test.py"
     )
 final_test_files=()
@@ -185,34 +183,39 @@ for test_file in "${expanded_test_files[@]}"; do
     fi
 done
 
+
 # RUN TESTS
+TEST_8_DEVICES_FILES=("gda_test.py"
+    "input_base_test.py"
+    "input_dispatch_test.py"
+    "trainer_test.py"
+    "utils_test.py"
+)
+TEST_8_DEVICES_WITH_PATHS=()
+for file in "${TEST_8_DEVICES_FILES[@]}"; do
+    found_files=$(find . -name "$file" -type f 2>/dev/null)
+    if [[ -n "$found_files" ]]; then
+        while IFS= read -r found_file; do
+            TEST_8_DEVICES_WITH_PATHS+=("$found_file")
+        done <<< "$found_files"
+    else
+        echo "Warning: Test file $file not found in current directory structure"
+    fi
+done
+
+run_tests "" "for_8_devices" "8_dev" "${TEST_8_DEVICES_WITH_PATHS[@]}"
+# All the other tests
 runs=(
   "|not (gs_login or tpu or high_cpu or fp64 or for_8_devices)|base"
   "JAX_ENABLE_X64=1|fp64|fp64"
 )
-
 for spec in "${runs[@]}"; do
     IFS='|' read -r env_spec marker suffix <<< "${spec}"
     echo "Running tests with ${env_spec}, ${marker}, ${suffix}"
     run_tests "${env_spec}" "${marker}" "${suffix}" "${final_test_files[@]}"
     echo "Test run"
 done
-# Run the for_8_devices test in isolation
-TEST_8_DEVICES_FILES=("axlearn/common/gda_test.py"
-    "axlearn/common/input_base_test.py"
-    "axlearn/common/input_dispatch_test.py"
-    "axlearn/common/trainer_test.py"
-    "axlearn/common/utils_test.py"
-)
-run_tests "" "for_8_devices" "8dev" "${TEST_8_DEVICES_FILES[@]}"
 
-# # Special tests, do not share resources, no markers
-# SPECIAL_TESTS=("axlearn/common/learner_test.py"
-# "axlearn/common/attention_test.py"
-# "axlearn/common/adapter_flax_test.py"
-# )
-# echo "Running remaining tests"
-# pytest ${SPECIAL_TESTS[@]} --capture=tee-sys -v --junit-xml=${LOG_DIRECTORY}/log_other.xml | tee ${LOG_DIRECTORY}/log_other.log
 # SUMMARY STATUS
 passed=0
 failed=0
