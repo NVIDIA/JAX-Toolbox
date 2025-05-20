@@ -24,8 +24,8 @@ runs:
           echo "Submit K8s job"
           kubectl apply -f "${{ inputs.job-config-file }}"
           kubectl get event | grep ${{ inputs.job-name }}
-
-          # Wait for job to be craeted
+          
+          # Wait for job to be created
           kubectl wait --for=create job/${{ inputs.job-name }} --timeout=$TIMEOUT_JOB_CREATION
 
           # Wait for job to be unsuspended
