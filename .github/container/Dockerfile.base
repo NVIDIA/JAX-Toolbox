@@ -36,6 +36,7 @@ apt_packages=(
   git
   gnupg
   liblzma-dev
+  ninja-build
   python-is-python3
   python3-pip
   rsync
@@ -46,15 +47,7 @@ apt_packages=(
   # llvm.sh
   lsb-release 
   software-properties-common
-  # GCP autoconfig
-  pciutils hwloc bind9-host
 )
-if [[ $(dpkg --print-architecture) == arm64 ]]; then
-  # h5py: The newest release of of h5py (3.11.0) does not include ARM wheels and causes pip to build h5py.
-  #       These installs ensure that 3.11.0, or any future version missing ARM, can be built.
-  #       Related: https://github.com/h5py/h5py/issues/2408
-  apt_packages+=(pkg-config libhdf5-dev)
-fi
 apt-get install -y ${apt_packages[@]}
 
 # Install LLVM/Clang
@@ -135,6 +128,15 @@ ENV PIP_BREAK_SYSTEM_PACKAGES=1
 # and fails due to pip-24.0 has been installed with system tool `apt` but not `python`. So we keep 
 # both pip-24.0 and pip-23.3.1 in the system, but use 23.3.1 with equivalency patch (see above).
 RUN pip install --upgrade --ignore-installed --no-cache-dir -e /opt/pip pip-tools && rm -rf ~/.cache/*
+
+# The symlinks for CUDA/cuDNN/NCCL exist to make the container's installations
+# of those components conform to XLA's expectations for local installations.
+
+###############################################################################
+## Symlink for CUDA
+###############################################################################
+
+RUN ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
 
 ###############################################################################
 ## Symlink for cuDNN
