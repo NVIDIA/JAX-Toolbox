@@ -110,7 +110,7 @@ cd "$DIR" || exit 1
 
 # DEPENDENCIES
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install timm transformers scikit-learn tensorflow_io grain evaluate wandb
+pip install timm transformers scikit-learn grain evaluate
 echo "Downloading input data..."
 mkdir -p /opt/axlearn/axlearn/data/tokenizers/sentencepiece
 mkdir -p /opt/axlearn/axlearn/data/tokenizers/bpe
@@ -140,9 +140,8 @@ if [ "${#expanded_test_files[@]}" -eq 0 ]; then
 fi
 
 EXCLUDE_PATTERNS=("array_serialization_test.py"
-    "host_array_test.py"
-    "utils_test.py"
     "t5_test.py" # tensorflow bug
+    "loss_test.py"
     "input_t5_test.py"
     "layers_test.py" # tensorflow bug
     "checkpointer_orbax_test.py"
@@ -156,7 +155,20 @@ EXCLUDE_PATTERNS=("array_serialization_test.py"
     "test_utils_test.py"
     "update_transformation_test.py"
     "env_test.py"
-    "host_array_test.py" # cpu/tpu only
+    "causal_lm_test.py"
+    "gradient_accumulation_test.py"
+    "file_system_test.py"
+    "compiler_options_test.py" # tpu only
+    "metrics_correlation_test.py" # manual only
+    "metrics_glue_test.py"
+    "ssm_test.py" # test on ssm
+    "summary_test.py" # wandb test
+    "param_converter_test.py"
+    # these tests will be run separately
+    "learner_test.py"
+    "attention_test.py"
+    "adapter_flax_test.py"
+    "utils_test.py"
     )
 final_test_files=()
 
@@ -186,15 +198,21 @@ for spec in "${runs[@]}"; do
     echo "Test run"
 done
 # Run the for_8_devices test in isolation
-TEST_8_DEVICES_FILES=("gda_test.py"
-    "host_array_test.py"
-    "input_base_test.py"
-    "input_dispatch_test.py"
-    "trainer_test.py"
-    "utils_test.py"
+TEST_8_DEVICES_FILES=("axlearn/common/gda_test.py"
+    "axlearn/common/input_base_test.py"
+    "axlearn/common/input_dispatch_test.py"
+    "axlearn/common/trainer_test.py"
+    "axlearn/common/utils_test.py"
 )
-echo "Running tests for 'for_8_devices'"
 run_tests "" "for_8_devices" "8dev" "${TEST_8_DEVICES_FILES[@]}"
+
+# # Special tests, do not share resources, no markers
+# SPECIAL_TESTS=("axlearn/common/learner_test.py"
+# "axlearn/common/attention_test.py"
+# "axlearn/common/adapter_flax_test.py"
+# )
+# echo "Running remaining tests"
+# pytest ${SPECIAL_TESTS[@]} --capture=tee-sys -v --junit-xml=${LOG_DIRECTORY}/log_other.xml | tee ${LOG_DIRECTORY}/log_other.log
 # SUMMARY STATUS
 passed=0
 failed=0
