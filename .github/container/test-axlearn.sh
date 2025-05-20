@@ -106,7 +106,7 @@ fi
 
 # DEPENDENCIES
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install timm transformers scikit-learn grain evaluate
+pip install timm transformers scikit-learn grain evaluate prefixed wandb
 echo "Downloading input data..."
 mkdir -p /opt/axlearn/axlearn/data/tokenizers/sentencepiece
 mkdir -p /opt/axlearn/axlearn/data/tokenizers/bpe
