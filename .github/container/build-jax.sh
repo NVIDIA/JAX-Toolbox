@@ -215,12 +215,6 @@ if [[ ${CLEANONLY} == 1 ]]; then
     exit
 fi
 
-# This is required for LOCAL_CUDA_PATH to matches XLA's expectations
-# TODO: move this to Dockerfile.base (?)
-if [[ ! -e "/usr/local/cuda/lib" ]]; then
-    ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
-fi
-
 ## Build the compiled parts of JAX
 pushd ${SRC_PATH_JAX}
 time python "${SRC_PATH_JAX}/build/build.py" build \

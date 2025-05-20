@@ -38,7 +38,7 @@ RUN --mount=type=ssh \
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
-ADD build-jax.sh local_cuda_arch /usr/local/bin/
+ADD build-jax.sh build-te.sh local_cuda_arch /usr/local/bin/
 # Install bazelisk
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
@@ -55,27 +55,17 @@ RUN build-jax.sh \
     --clean
 
 ## Transformer engine: check out source and build wheel
-RUN <<"EOF" bash -ex -o pipefail
-pip install ninja && rm -rf ~/.cache/pip
-git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
-pushd ${SRC_PATH_TRANSFORMER_ENGINE}
-export NVTE_BUILD_THREADS_PER_JOB=8
-ARCH=$(dpkg --print-architecture)
-if [[ -n "${CUDA_ARCH_LIST}" ]]; then
-  # "1.2 3.4 5.6" -> "12-real;34-real;56", i.e. SASS plus PTX for the last one
-  NVTE_CUDA_ARCHS="${CUDA_ARCH_LIST// /-real;}"
-  export NVTE_CUDA_ARCHS="${NVTE_CUDA_ARCHS//./}"
-elif [[ "${ARCH}" == "amd64" ]]; then
-  export NVTE_CUDA_ARCHS="75-real;80-real;86-real;90-real;100-real;120"
-elif [[ "${ARCH}" == "arm64" ]]; then
-  export NVTE_CUDA_ARCHS="80-real;86-real;90-real;100-real;120"
-fi
-export NVTE_FRAMEWORK=jax
-# TransformerEngine needs FFI headers from XLA
-export XLA_HOME=${SRC_PATH_XLA}
-python setup.py bdist_wheel && rm -rf build
-ls "${SRC_PATH_TRANSFORMER_ENGINE}/dist"
-EOF
+RUN --mount=type=ssh \
+    --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
+    git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
+# Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
+# because (a) this is the builder stage, and (b) pip-finalize.sh does the install
+RUN build-te.sh \
+    --clean \
+    --no-install \
+    --sm all \
+    --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \
+    --src-path-xla ${SRC_PATH_XLA}
 
 ###############################################################################
 ## Pack jaxlib wheel and various source dirs into a pre-installation image
@@ -104,7 +94,7 @@ COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
 # Preserve the versions of jax and xla
 COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
-ADD build-jax.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/local/bin/
+ADD build-jax.sh build-te.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
 
