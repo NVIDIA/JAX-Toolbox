@@ -11,6 +11,7 @@ ARG SRC_PATH_FLAX=/opt/flax
 ARG SRC_PATH_TRANSFORMER_ENGINE=/opt/transformer-engine
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
+ARG JAX_BUILD_EXTRA_FLAG
 
 ARG BAZEL_CACHE=/tmp
 ARG BUILD_DATE
@@ -30,6 +31,7 @@ ARG BAZEL_CACHE
 ARG BUILD_PATH_JAXLIB
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
+ARG JAX_BUILD_EXTRA_FLAG
 
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
@@ -51,7 +53,7 @@ RUN build-jax.sh \
     --no-install \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
-    --sm all \
+    --sm all ${JAX_BUILD_EXTRA_FLAG} \
     --clean
 
 ## Transformer engine: check out source and build wheel

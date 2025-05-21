@@ -51,6 +51,7 @@ usage() {
     echo "    --clean-only                   Do not build, just cleanup"
     echo "    --cpu-arch                     Target CPU architecture, e.g. amd64, arm64, etc."
     echo "    --debug                        Build in debug mode"
+    echo "    -r, --release                  Build for release"
     echo "    -h, --help                     Print usage."
     echo "    --install                      Install the JAX wheels when build succeeds"
     echo "    --no-install                   Do not install the JAX wheels when build succeeds"
@@ -76,10 +77,11 @@ CPU_ARCH="$(dpkg --print-architecture)"
 CUDA_COMPUTE_CAPABILITIES="local"
 DEBUG=0
 INSTALL=1
+IS_RELEASE=0
 SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 
-args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,no-clean,clean-only,help,install,no-install,src-path-jax:,src-path-xla:,sm: -- "$@")
+args=$(getopt -o h,r --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,release,cpu-arch:,debug,no-clean,clean-only,help,install,no-install,src-path-jax:,src-path-xla:,sm: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -121,6 +123,10 @@ while [ : ]; do
             ;;
         --debug)
             DEBUG=1
+            shift 1
+            ;;
+        -r | --release)
+            IS_RELEASE=1
             shift 1
             ;;
         -h | --help)
@@ -206,6 +212,7 @@ print_var INSTALL
 print_var PYTHON_VERSION
 print_var SRC_PATH_JAX
 print_var SRC_PATH_XLA
+print_var IS_RELEASE
 
 echo "=================================================="
 
@@ -217,6 +224,9 @@ fi
 
 ## Build the compiled parts of JAX
 pushd ${SRC_PATH_JAX}
+if [[ ${IS_RELEASE} == 1 ]]; then 
+    BUILD_RELEASE_FLAG="--bazel_options=--repo_env=ML_WHEEL_TYPE=release"
+fi
 time python "${SRC_PATH_JAX}/build/build.py" build \
     --editable \
     --use_clang \
@@ -227,7 +237,7 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn" \
     --bazel_options=--repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl" \
     --bazel_options=--linkopt=-fuse-ld=lld \
-    --bazel_options=--repo_env=ML_WHEEL_TYPE=release \
+    "${BUILD_RELEASE_FLAG}" \
     "--local_xla_path=${SRC_PATH_XLA}" \
     "--output_path=${BUILD_PATH_JAXLIB}" \
     $BUILD_PARAM
@@ -249,7 +259,13 @@ if [[ "${INSTALL}" == "1" ]]; then
     pip uninstall -y jax jaxlib jax-cuda${CUDA_MAJOR_VERSION}-pjrt jax-cuda${CUDA_MAJOR_VERSION}-plugin
 
     # install jax and jaxlib
-    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_plugin -e ${SRC_PATH_JAX}
+    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_plugin
+    if [[ ${IS_RELEASE} == 1 ]]; then
+        jaxlib_version=$(pip show jaxlib | grep Version | tr ':' '\n' | tail -1)
+        sed -i "s|^_current_jaxlib_version.*|_current_jaxlib_version = '${jaxlib_version}'|" /opt/jax/setup.py
+        sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
+    fi
+    pip --disable-pip-version-check install -e ${SRC_PATH_JAX}
 
     ## after installation (example)
     # jax                     0.6.1.dev20250425+966578b61 /opt/jax
@@ -263,6 +279,6 @@ fi
 chmod 755 $BUILD_PATH_JAXLIB/*
 
 ## Cleanup
-if [[ "$CLEAN" == "1" ]]; then
+if [[ ${CLEAN} == 1 ]]; then
     clean
 fi
