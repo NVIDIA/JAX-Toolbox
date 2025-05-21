@@ -616,14 +616,14 @@ jobs:
       id: log-s3
       run: |
         mkdir -p axlearn-output
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/summary.txt axlearn_output/
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn_output/ --recursive --exclude "*" --include "*.log"
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn_output/ --recursive --exclude "*" --include "*.xml"
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/summary.txt axlearn-output/
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.log"
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.xml"
 
 
-        passed_tests=$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' axlearn_output/summary.txt | grep -Eo '[0-9]+' )
-        failed_tests=$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' axlearn_output/summary.txt | grep -Eo '[0-9]+' )
-        skipped_tests=$(grep -Eo 'SKIPPED:[[:space:]]*[0-9]+' axlearn_output/summary.txt | grep -Eo '[0-9]+' )
+        passed_tests=$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
+        failed_tests=$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
+        skipped_tests=$(grep -Eo 'SKIPPED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
         total_tests=$((failed_tests + passed_tests + skipped_tests))
 
         echo "Passed tests: $passed_tests"

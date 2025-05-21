@@ -219,18 +219,22 @@ done
 # SUMMARY STATUS
 passed=0
 failed=0
+error=0
 skipped=0
 for log in ${LOG_DIRECTORY}/log_*.log; do
     count_pass=$(grep -Eo '[0-9]+ passed' "${log}" | awk '{print $1}' || true)
     count_fail=$(grep -Eo '[0-9]+ failed' "${log}" | awk '{print $1}' || true)
+    count_error=$(grep -Eo '[0-9]+ error' "${log}" | awk '{print $1}' || true)
     count_skipped=$(grep -Eo '[0-9]+ skipped' "${log}" | awk '{print $1}' || true)
     # in case of None
     count_pass=${count_pass:-0}
     count_fail=${count_fail:-0}
+    count_error=${count_error:-0}
     count_skipped=${count_skipped:-0}
     # count all the tests
     (( passed += count_pass ))
     (( failed += count_fail ))
+    (( failed += count_error ))
     (( skipped += count_skipped ))
 done
 
