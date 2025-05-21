@@ -2,8 +2,6 @@
 
           apt update
           apt install -y tmux
-          mkdir -p /opt/output
-          mkdir -p /log
 
           pip install pytest-reportlog pytest-xdist
           # Start MPS daemon
@@ -19,19 +17,19 @@
             shift
             local cmd="$@"
             tmux new-session -d -s $session_name
-            tmux send-keys -t $session_name "export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}; $cmd; touch /opt/output/$session_name.done" C-m
+            tmux send-keys -t $session_name "export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}; $cmd; touch ${LOG_DIR}/$session_name.done" C-m
           }
           
           tmux_run unittest $JAX_UNITTEST_CMD
           tmux_run distributed-unittest $JAX_DISTRIBUTED_UNITTEST_CMD
 
           while true; do
-            if  [[ -f /opt/output/unittest.done && -f /opt/output/distributed-unittest.done ]]; then
+            if  [[ -f ${LOG_DIR}/unittest.done && -f ${LOG_DIR}/distributed-unittest.done ]]; then
               echo "TransformerEngine unittest and distributed unittest both completed"
               break
-            elif  [[ -f /opt/output/unittest.done && ! -f /opt/output/distributed-unittest.done ]]; then
+            elif  [[ -f ${LOG_DIR}/unittest.done && ! -f ${LOG_DIR}/distributed-unittest.done ]]; then
               echo "TransformerEngine unittest done, waiting for distributed unittest to complete"
-            elif  [[ ! -f /opt/output/unittest.done && -f /opt/output/distributed-unittest.done ]]; then
+            elif  [[ ! -f ${LOG_DIR}/unittest.done && -f ${LOG_DIR}/distributed-unittest.done ]]; then
               echo "TransformerEngine unittest done, waiting for distributed unittest to complete"
             else
               echo "Waiting for TransformerEngine unittest and distributed unittest to complete"
@@ -41,8 +39,9 @@
 
           # merge the log files
           cat \
-            /log/pytest-report-L0-unittest.jsonl
-            /log/pytest-report-L0-distributed-unittest.jsonl
-            > /log/pytest-report.jsonl
+            ${LOG_DIR}/pytest-report-L0-unittest.jsonl
+            ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl
+            > ${LOG_DIR}/pytest-report.jsonl
 
+          cat ${LOG_DIR}/pytest-jsonl
           touch ${LOG_DIR}/done
