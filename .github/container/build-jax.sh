@@ -251,6 +251,14 @@ done
 bazel run --verbose_failures=true //build:requirements.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
 popd
 
+
+if [[ ${IS_RELEASE} == 1 ]]; then
+    jaxlib_version=$(pip show jaxlib | grep Version | tr ':' '\n' | tail -1)
+    sed -i "s|^_current_jaxlib_version.*|_current_jaxlib_version = 0.6.0|" /opt/jax/setup.py
+    sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
+fi
+
+
 ## Install the built packages
 
 if [[ "${INSTALL}" == "1" ]]; then
@@ -258,13 +266,7 @@ if [[ "${INSTALL}" == "1" ]]; then
     pip uninstall -y jax jaxlib jax-cuda${CUDA_MAJOR_VERSION}-pjrt jax-cuda${CUDA_MAJOR_VERSION}-plugin
 
     # install jax and jaxlib
-    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_plugin
-    if [[ ${IS_RELEASE} == 1 ]]; then
-        jaxlib_version=$(pip show jaxlib | grep Version | tr ':' '\n' | tail -1)
-        sed -i "s|^_current_jaxlib_version.*|_current_jaxlib_version = '${jaxlib_version}'|" /opt/jax/setup.py
-        sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
-    fi
-    pip --disable-pip-version-check install -e ${SRC_PATH_JAX}
+    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_plugin -e ${SRC_PATH_JAX}
 
     ## after installation (example)
     # jax                     0.6.1.dev20250425+966578b61 /opt/jax
