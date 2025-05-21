@@ -237,10 +237,9 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn" \
     --bazel_options=--repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl" \
     --bazel_options=--linkopt=-fuse-ld=lld \
-    "${BUILD_RELEASE_FLAG}" \
     "--local_xla_path=${SRC_PATH_XLA}" \
     "--output_path=${BUILD_PATH_JAXLIB}" \
-    $BUILD_PARAM
+    $BUILD_RELEASE_FLAG $BUILD_PARAM
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
