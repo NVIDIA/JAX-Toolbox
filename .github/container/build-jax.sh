@@ -254,7 +254,7 @@ popd
 
 if [[ ${IS_RELEASE} == 1 ]]; then
     jaxlib_version=$(pip show jaxlib | grep Version | tr ':' '\n' | tail -1)
-    sed -i "s|^_current_jaxlib_version.*|_current_jaxlib_version = 0.6.0|" /opt/jax/setup.py
+    # sed -i "s|^_current_jaxlib_version.*|_current_jaxlib_version = 0.6.0|" /opt/jax/setup.py
     sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
 fi
 
