@@ -39,9 +39,8 @@
 
           # merge the log files
           cat \
-            ${LOG_DIR}/pytest-report-L0-unittest.jsonl
-            ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl
-            > ${LOG_DIR}/pytest-report.jsonl
+            ${LOG_DIR}/pytest-report-L0-unittest.jsonl \
+            ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl | \
+            tee ${LOG_DIR}/pytest-report.jsonl
 
-          cat ${LOG_DIR}/pytest-jsonl
           touch ${LOG_DIR}/done

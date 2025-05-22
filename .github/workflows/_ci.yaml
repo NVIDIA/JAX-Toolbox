@@ -491,19 +491,19 @@ jobs:
             shift
             local cmd="$@"
             tmux new-session -d -s $session_name
-            tmux send-keys -t $session_name "export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}; $cmd; touch /opt/output/$session_name.done" C-m
+            tmux send-keys -t $session_name "export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}; $cmd; touch ${LOG_DIR}/$session_name.done" C-m
           }
           
           tmux_run unittest $JAX_UNITTEST_CMD
           tmux_run distributed-unittest $JAX_DISTRIBUTED_UNITTEST_CMD
 
           while true; do
-            if  [[ -f /opt/output/unittest.done && -f /opt/output/distributed-unittest.done ]]; then
+            if  [[ -f ${LOG_DIR}/unittest.done && -f ${LOG_DIR}/distributed-unittest.done ]]; then
               echo "TransformerEngine unittest and distributed unittest both completed"
               break
-            elif  [[ -f /opt/output/unittest.done && ! -f /opt/output/distributed-unittest.done ]]; then
+            elif  [[ -f ${LOG_DIR}/unittest.done && ! -f ${LOG_DIR}/distributed-unittest.done ]]; then
               echo "TransformerEngine unittest done, waiting for distributed unittest to complete"
-            elif  [[ ! -f /opt/output/unittest.done && -f /opt/output/distributed-unittest.done ]]; then
+            elif  [[ ! -f ${LOG_DIR}/unittest.done && -f ${LOG_DIR}/distributed-unittest.done ]]; then
               echo "TransformerEngine distributed unittest done, waiting for unittest to complete"
             else
               echo "Waiting for TransformerEngine unittest and distributed unittest to complete"
@@ -513,13 +513,12 @@ jobs:
 
           # merge the log files
           cat \
-            ${LOG_DIR}/pytest-report-L0-unittest.jsonl
-            ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl
-            > ${LOG_DIR}/pytest-report.jsonl
+            ${LOG_DIR}/pytest-report-L0-unittest.jsonl \
+            ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl | \
+            tee ${LOG_DIR}/pytest-report.jsonl
         EOF
       STATISTICS_SCRIPT: |
-        ls
-        report_json=pytest-report-L0-unittest.jsonl
+        report_json=pytest-report.jsonl
         summary_line=$(tail -n1 test-te.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
         passed_tests=$(cat $report_json | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
@@ -535,7 +534,6 @@ jobs:
         pytest-report.jsonl
         pytest-report-L0-unittest.jsonl
         pytest-report-L0-distributed-unittest.jsonl
-        pytest-report-L1-distributed-unittest.jsonl
   test-rosetta-t5x:
     needs: build-rosetta-t5x
     if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
