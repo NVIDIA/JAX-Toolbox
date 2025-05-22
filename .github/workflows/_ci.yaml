@@ -26,6 +26,11 @@ on:
         description: 'A JSON object containing git url+refs for softwares to be built'
         required: false
         default: '{}'
+      MODE:
+        type: string
+        description: 'Mode selection for running specific tests only'
+        required: false
+        default: full
     outputs:
       DOCKER_TAGS:
         description: 'JSON object containing tags of all docker images built'
@@ -203,7 +208,12 @@ jobs:
 
   test-jax:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: jax
@@ -242,7 +252,12 @@ jobs:
 
   test-nsys-jax:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: nsys-jax
@@ -345,7 +360,12 @@ jobs:
   # not already have nsys-jax installed
   test-nsys-jax-archive:
     needs: test-nsys-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
@@ -373,7 +393,12 @@ jobs:
 
   test-nsys-jax-eks:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
     runs-on: eks
     env:
       JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
@@ -451,7 +476,12 @@ jobs:
 
   test-te-h100:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'te'
+      )
     uses: ./.github/workflows/_transformer_engine_eks.yaml
     with:
       JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
@@ -463,7 +493,12 @@ jobs:
   test-te-unit-a100:
     needs: build-jax
     secrets: inherit
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'te'
+      )
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: te
@@ -536,7 +571,12 @@ jobs:
         pytest-report-L0-distributed-unittest.jsonl
   test-rosetta-t5x:
     needs: build-rosetta-t5x
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 't5x'
+      )
     uses: ./.github/workflows/_test_t5x_rosetta.yaml
     with:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
@@ -544,7 +584,12 @@ jobs:
 
   test-maxtext:
     needs: build-maxtext
-    if: inputs.ARCHITECTURE == 'amd64' # no arm64 gpu runners
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'maxtext'
+      )
     uses: ./.github/workflows/_test_maxtext.yaml
     with:
       MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
@@ -552,7 +597,12 @@ jobs:
 
   test-axlearn-eks:
     needs: build-axlearn
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'axlearn'
+      )
     runs-on: eks
     env:
       AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
@@ -588,16 +638,19 @@ jobs:
       id: log-s3
       run: |
         mkdir -p axlearn-output
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/summary.txt axlearn-output/
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/ axlearn-output/ --recursive --exclude "*" --include "*.log"
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/axlearn-unittests.jsonl axlearn-output/
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/summary.txt axlearn-output/
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.log"
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.xml"
 
-        passed_tests=$(grep -c ": PASSED" axlearn-output/summary.txt || true)
-        failed_tests=$(grep -c ": FAILED" axlearn-output/summary.txt || true)
-        total_tests=$((failed_tests + passed_tests))
+
+        passed_tests=$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
+        failed_tests=$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
+        skipped_tests=$(grep -Eo 'SKIPPED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
+        total_tests=$((failed_tests + passed_tests + skipped_tests))
 
         echo "Passed tests: $passed_tests"
         echo "Failed tests: $failed_tests"
+        echo "Skipped tests: $skipped_tests"
         echo "Total tests: $total_tests"
         echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
         echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
@@ -649,7 +702,12 @@ jobs:
 
   test-axlearn-fuji-models-eks:
     needs: build-axlearn
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'axlearn'
+      )
     runs-on: eks
     env:
       AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}

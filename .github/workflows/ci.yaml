@@ -40,6 +40,18 @@ on:
           PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,axlearn,equinox,T5X,maxtext,google-jetstream} (case-insensitive)
         default: ''
         required: false
+      MODE:
+        type: choice
+        description: |
+          This option is to run just specific part in the _ci step.
+          - full - everything will be run (default)
+          - jax - run all the tests related to jax system
+          - te - run all the tests related to TE
+          - t5x - run build rosetta
+          - maxtext - run only the tests for maxtext
+          - axlearn - run only the tests for axlearn
+        options: [full, jax, te, t5x, maxtext, axlearn]
+        default: full
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -197,6 +209,7 @@ jobs:
       CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
+      MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
     secrets: inherit
 
   arm64:
@@ -208,6 +221,7 @@ jobs:
       CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
+      MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
     secrets: inherit
 
   # Only merge if everything succeeds
