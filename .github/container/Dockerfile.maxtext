@@ -23,6 +23,7 @@ for pattern in \
     "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
     "s|tensorflow-datasets|tensorflow-datasets>=4.8.0|g" \
     "s|sentencepiece==0.1.97|sentencepiece>=0.2|g" \
+    "s|tensorflow-text>=2.13.0|tensorflow-text==2.18.1|g" \
     "s|tensorflow>=2.13.0|tensorflow==2.18.1|g" \
   ; do
     # tensorflow-cpu==2.19.0 is incompatible with tensorflow-text

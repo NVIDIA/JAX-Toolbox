@@ -26,6 +26,7 @@ echo "tensorflow==2.18.1" >> /opt/pip-tools.d/requirements-t5x.in
 # resolution which leads to a ResolutionTooDeep error. The latest nightlies appear to work
 # so setting the lower-bound to something recent
 echo "seqio-nightly>=0.0.18.dev20240714" >> /opt/pip-tools.d/requirements-t5x.in
+echo "tensorflow==2.18.1" >> /opt/pip-tools.d/requirements-t5x.in
 
 # 2. Remove head-of-tree specs from select dependencies
 pushd ${SRC_PATH_T5X}
