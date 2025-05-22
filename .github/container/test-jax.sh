@@ -135,6 +135,9 @@ else
     FLAGS+=("--//jax:build_jaxlib=false")
 fi
 
+# https://github.com/jax-ml/jax/pull/28870
+FLAGS+=("--//jaxlib/tools:add_pypi_cuda_wheel_deps=false")
+
 set_default JOBS_PER_GPU $(( GPU_MEMORIES_MIB[0] / 10000))
 FLAGS+=(
     "--cache_test_results=${CACHE_TEST_RESULTS}"
