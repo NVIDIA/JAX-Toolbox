@@ -34,7 +34,7 @@ for cudnn_file in $(dpkg -L ${libcudnn_pkgs} | sort -u); do
     link_name="${prefix}/${noarchlib}"
     link_dir=$(dirname "${link_name}")
     mkdir -p "${link_dir}"
-    ln -s "${cudnn_file}" "${link_name}"
+    ln -s "${cudnn_file}" "${link_name}" || true
   else
     echo "Skipping ${cudnn_file}"
   fi
