@@ -1,4 +1,4 @@
-          set -x
+          set -e
 
           apt update
           apt install -y tmux
@@ -9,8 +9,8 @@
           # TE's default is slightly different, without the hyphen
           export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
 
-          JAX_UNITTEST_CMD="pytest-xdist.sh --START_GPU_IDX=0 --END_GPU_IDX=3 1 3 /log/pytest-report-L0-unittest.jsonl bash $TE_PATH/qa/L0_jax_unittest/test.sh  | tee -a ${LOG_DIR}/unittest_pytest_stdout.log"
-          JAX_DISTRIBUTED_UNITTEST_CMD="pytest-xdist.sh --START_GPU_IDX=4 --END_GPU_IDX=7 4 1 /log/pytest-report-L0-distributed-unittest.jsonl bash $TE_PATH/qa/L0_jax_distributed_unittest/test.sh"
+          JAX_UNITTEST_CMD="pytest-xdist.sh --START_GPU_IDX=0 --END_GPU_IDX=3 1 3 ${LOG_DIR}/pytest-report-L0-unittest.jsonl bash $TE_PATH/qa/L0_jax_unittest/test.sh  | tee -a ${LOG_DIR}/unittest_pytest_stdout.log"
+          JAX_DISTRIBUTED_UNITTEST_CMD="pytest-xdist.sh --START_GPU_IDX=4 --END_GPU_IDX=7 4 1 ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl bash $TE_PATH/qa/L0_jax_distributed_unittest/test.sh"
 
           tmux_run() {
             local session_name=$1
@@ -30,11 +30,11 @@
             elif  [[ -f ${LOG_DIR}/unittest.done && ! -f ${LOG_DIR}/distributed-unittest.done ]]; then
               echo "TransformerEngine unittest done, waiting for distributed unittest to complete"
             elif  [[ ! -f ${LOG_DIR}/unittest.done && -f ${LOG_DIR}/distributed-unittest.done ]]; then
-              echo "TransformerEngine unittest done, waiting for distributed unittest to complete"
+              echo "TransformerEngine distributed unittest done, waiting for unittest to complete"
             else
               echo "Waiting for TransformerEngine unittest and distributed unittest to complete"
             fi
-            sleep 5
+            sleep 10
           done
 
           # merge the log files
