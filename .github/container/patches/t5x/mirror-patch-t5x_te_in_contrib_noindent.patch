@@ -637,7 +637,7 @@ index 89974dd..388d2ec 100755
 -MODEL_DIR_LOCAL=${7:-"model_dir"}
 -MODEL_DIR=${PWD}/${MODEL_DIR_LOCAL}
 -NUM_MICROBATCHES=${8:-0}
-+export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592 ${XLA_FLAGS}"
++export XLA_FLAGS="--xla_gpu_enable_triton_gemm=false --xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592 ${XLA_FLAGS}"
 +
 +#! Change these values !#
 +FT_TASK=${FT_TASK:=mnli2}       # currently supported: mnli2, squad1
@@ -751,7 +751,7 @@ index 18bb722..f807105 100755
 -MODEL_DIR=${PWD}/${MODEL_DIR_LOCAL}
 -NUM_MICROBATCHES=${6:-0}
 -MP=${7:-1} 
-+export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592 ${XLA_FLAGS}"
++export XLA_FLAGS="--xla_gpu_enable_triton_gemm=false --xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592 ${XLA_FLAGS}"
  
 -echo Model Parallel partitions: ${MP}
 +#! Change these values !#
@@ -3323,8 +3323,8 @@ index cd563ec..e075df3 100755
 -set -x
 +set -eoux pipefail
  
--export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592 ${XLA_FLAGS}"
-+export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592}"
+-export XLA_FLAGS="--xla_gpu_enable_triton_gemm=false --xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592 ${XLA_FLAGS}"
++export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_gpu_enable_triton_gemm=false --xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592}"
 +export XLA_FLAGS="${BASE_XLA_FLAGS} ${XLA_FLAGS:-}"
  
  #! Change these values !#
@@ -3442,8 +3442,8 @@ index d083540..56919a5 100755
  #BENCHMARK_MODE=True
  STAT_PERIOD=100 #only used if BENCHMARK_MODE is set
  
--export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592 ${XLA_FLAGS}"
-+export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592}"
+-export XLA_FLAGS="--xla_gpu_enable_triton_gemm=false --xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592 ${XLA_FLAGS}"
++export BASE_XLA_FLAGS="${BASE_XLA_FLAGS:---xla_gpu_enable_triton_gemm=false --xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_all_reduce_combine_threshold_bytes=8589934592}"
 +export XLA_FLAGS="${BASE_XLA_FLAGS} ${XLA_FLAGS:-}"
  
  #! Change these values !#
