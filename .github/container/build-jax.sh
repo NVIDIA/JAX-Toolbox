@@ -294,6 +294,8 @@ build --repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl"
 EOF
 
 pushd ${SRC_PATH_JAX}
+sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
+
 time python "${SRC_PATH_JAX}/build/build.py" build \
     --editable \
     --use_clang \
@@ -307,7 +309,7 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     $BUILD_PARAM
 popd
 
-sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
+
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
 line="jax @ file://${BUILD_PATH_JAXLIB}/jax"

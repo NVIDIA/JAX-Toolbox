@@ -110,6 +110,7 @@ EOF
 RUN <<"EOF" bash -ex
 git-clone.sh ${URLREF_FLAX} ${SRC_PATH_FLAX}
 echo "-e file://${SRC_PATH_FLAX}" >> /opt/pip-tools.d/requirements-flax.in
+sed -i "s|jax>=0.6.0|jax>=0.5.0|" ${SRC_PATH_FLAX/pyproject.toml
 EOF
 
 # Copy TransformerEngine wheel from the builder stage
