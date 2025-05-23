@@ -228,7 +228,6 @@ if [[ "${local_arch}" == "9.0" ]]; then
 fi
 
 export BASE_XLA_FLAGS=${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_scheduler=true
-                --xla_gpu_enable_triton_gemm=false
                 --xla_gpu_enable_command_buffer=
                 --xla_gpu_all_reduce_combine_threshold_bytes=1073741824 
                 --xla_gpu_all_gather_combine_threshold_bytes=1073741824 
