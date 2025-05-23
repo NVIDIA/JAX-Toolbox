@@ -142,7 +142,6 @@ For the the 126M model, we recommend setting `--xla_gpu_all_reduce_combine_thres
 
 ```
 BASE_XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
-                --xla_gpu_enable_triton_gemm=false
                 --xla_gpu_all_reduce_combine_threshold_bytes=33554432
                 --xla_gpu_enable_command_buffer=" bash run_pile_multinode.sh ...
 ```
