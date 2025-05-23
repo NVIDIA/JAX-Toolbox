@@ -307,6 +307,7 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     $BUILD_PARAM
 popd
 
+sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
 line="jax @ file://${BUILD_PATH_JAXLIB}/jax"
@@ -329,7 +330,7 @@ pip uninstall -y jax jaxlib jax-cuda${TF_CUDA_MAJOR_VERSION}-pjrt jax-cuda${TF_C
 # pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${TF_CUDA_MAJOR_VERSION}_plugin 
 # jaxlib_version=$(pip show jaxlib | grep Version | tr ':' '\n' | tail -1)
 # sed -i "s|^_current_jaxlib_version.*|_current_jaxlib_version = '${jaxlib_version}'|" /opt/jax/setup.py
-sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
+
 # pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jax
 
 ## after installation (example)
