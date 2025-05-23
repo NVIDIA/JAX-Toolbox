@@ -490,7 +490,7 @@ jobs:
       CI_NAME: transformer-engine
     secrets: inherit
 
-  test-te-unit-a100:
+  test-te-a100:
     needs: build-jax
     secrets: inherit
     if: >-
@@ -506,9 +506,11 @@ jobs:
         docker run -i --gpus all --shm-size=1g -v $PWD:/log \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-te.log
-          set -xe
+          set -xu -o pipefail
 
           LOG_DIR=/log
+          declare -i TEST_FAILURES=0
+
           pip install pytest-reportlog pytest-xdist
           # Start MPS daemon
           nvidia-cuda-mps-control -d
@@ -516,17 +518,21 @@ jobs:
           export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
           # 1 GPU per worker, 3 workers per GPU
           pytest-xdist.sh 1 3 ${LOG_DIR}/pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
+          TEST_FAILURES+=$?
           ## 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
           ## into a single .jsonl file of results from multiple pytest invocations
           ## inside the test.sh script, so it's useful even with a single worker per
           ## device.
           pytest-xdist.sh 8 1 ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh
+          TEST_FAILURES+=$?
 
           # merge the log files
           cat \
             ${LOG_DIR}/pytest-report-L0-unittest.jsonl \
             ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl \
             > ${LOG_DIR}/pytest-report.jsonl
+
+          exit $TEST_FAILURES
         EOF
       STATISTICS_SCRIPT: |
         report_json=pytest-report.jsonl
