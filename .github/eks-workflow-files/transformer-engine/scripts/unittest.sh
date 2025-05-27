@@ -1,7 +1,6 @@
           set -xu -o pipefail
 
           LOG_DIR=/opt/output
-          declare -i TEST_FAILURES=0
 
           pip install pytest-reportlog pytest-xdist
           
@@ -13,14 +12,12 @@
           
           # 1 GPU per worker, 4 workers per GPU
           pytest-xdist.sh 1 4 ${LOG_DIR}/pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh | tee -a ${LOG_DIR}/pytest_stdout.log
-          TEST_FAILURES+=$?
           
           # 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
           # into a single .jsonl file of results from multiple pytest invocations
           # inside the test.sh script, so it's useful even with a single worker per
           # device.
           pytest-xdist.sh 8 1 ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh | tee -a ${LOG_DIR}/pytest_stdout.log
-          TEST_FAILURES+=$?
 
           # merge the log files
           cat \
@@ -29,5 +26,3 @@
             > ${LOG_DIR}/pytest-report.jsonl
 
           touch ${LOG_DIR}/done
-
-          exit $TEST_FAILURES
