@@ -542,7 +542,12 @@ jobs:
         echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
         echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
 
-        exit $failed_tests
+        echo "$failed_tests tests failed"
+        if [[ $failed_tests -gt 0 ]]; then
+            exit 1
+        else
+            exit 0
+        fi
 
       TIMEOUT_MINUTES: 120
       ARTIFACTS: |

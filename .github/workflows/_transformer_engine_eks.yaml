@@ -99,7 +99,12 @@ jobs:
         echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
         echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
 
-        exit $failed_tests
+        echo "$failed_tests tests failed"
+        if [[ $failed_tests -gt 0 ]]; then
+            exit 1
+        else
+            exit 0
+        fi
 
     - name: Generate sitrep
       id: sitrep
