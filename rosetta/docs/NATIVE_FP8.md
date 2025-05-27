@@ -111,7 +111,6 @@ Enabling this feature is effortless. Users only need to include the option `--fd
 In addition to the suggested XLA flags mentioned in [this section](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/rosetta/projects/pax/README.md#xla-flags), we also recommend setting these following XLA flags. The execution script should look like:
 ```bash
 export XLA_FLAGS=" \
-    --xla_gpu_enable_triton_gemm=false \
     --xla_gpu_enable_pipelined_all_reduce=false \
     --xla_gpu_enable_pipelined_all_gather=false \
     --xla_gpu_enable_pipelined_reduce_scatter=false \
