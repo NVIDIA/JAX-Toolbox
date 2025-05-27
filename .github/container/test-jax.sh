@@ -134,8 +134,8 @@ if [[ $BUILD_JAXLIB -eq 1 ]]; then
 else
     FLAGS+=("--//jax:build_jaxlib=false")
 fi
-
-# https://github.com/jax-ml/jax/pull/28870
+# Added in https://github.com/jax-ml/jax/pull/28870: do not fetch
+# nvidia-*-cu1X wheels from PyPI to run tests, use the local installations
 FLAGS+=("--//jaxlib/tools:add_pypi_cuda_wheel_deps=false")
 
 set_default JOBS_PER_GPU $(( GPU_MEMORIES_MIB[0] / 10000))

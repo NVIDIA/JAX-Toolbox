@@ -218,6 +218,7 @@ fi
 ## Build the compiled parts of JAX
 pushd ${SRC_PATH_JAX}
 time python "${SRC_PATH_JAX}/build/build.py" build \
+    --cuda_major_version=${CUDA_MAJOR_VERSION} \
     --editable \
     --use_clang \
     --use_new_wheel_build_rule \
@@ -238,7 +239,7 @@ for component in jaxlib "jax-cuda${CUDA_MAJOR_VERSION}-pjrt" "jax-cuda${CUDA_MAJ
     # version, so nvidia-*-cu12 wheels disappear from the lock file
     sed -i "s|^${component}.*$|${component} @ file://${BUILD_PATH_JAXLIB}/${component//-/_}|" build/requirements.in
 done
-bazel run --verbose_failures=true //build:requirements.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
+bazel run --config=cuda_libraries_from_stubs --verbose_failures=true //build:requirements.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
 popd
 
 ## Install the built packages
