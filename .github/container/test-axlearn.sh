@@ -243,3 +243,10 @@ echo "Total number of failed tests ${failed}"
 echo "Total number of skipped tests ${skipped}"
 # add those to summary.txt and we're using it for extracting values
 echo "PASSED: ${passed} FAILED: ${failed} SKIPPED: ${skipped}" >> ${LOG_DIRECTORY}/summary.txt
+# send an error if there are any failed tests
+if [ ${failed} -gt 0 ]; then
+    echo "Some tests failed. Check the logs in ${LOG_DIRECTORY} for details."
+    exit 1
+else
+    echo "All tests passed successfully."
+fi

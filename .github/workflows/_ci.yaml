@@ -623,6 +623,7 @@ jobs:
         job-name: ${{ env.JOB_NAME }}
     - name: Download logs from S3
       id: log-s3
+      if: ${{ !cancelled() }}
       run: |
         mkdir -p axlearn-output
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/summary.txt axlearn-output/
