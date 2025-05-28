@@ -75,11 +75,11 @@ We support and test the following JAX frameworks and model architectures. More d
         </a>
         <br>
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-te-unit-test-A100-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-te-unit-test-A100.json&logo=nvidia&label=TransformerEngine%20A100">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-te-unit-test-a100.json&logo=nvidia&label=TransformerEngine%20A100">
         </a>
         <br>
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-transformer-engine-test.json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-transformer-engine-test.json&logo=nvidia&label=TransformerEngine%20H100">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-transformer-engine-test-json&logo=nvidia&label=TransformerEngine%20H100">
         </a>
         <br>
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-nsys-jax-unit-test-a100-json">
@@ -217,7 +217,6 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 | XLA Flags | Value | Explanation |
 | --------- | ----- | ----------- |
 | `--xla_gpu_enable_latency_hiding_scheduler` | `true`  | allows XLA to move communication collectives to increase overlap with compute kernels |
-| `--xla_gpu_enable_triton_gemm` | `false` | use cuBLAS instead of Trition GeMM kernels |
 
 | Environment Variable | Value | Explanation |
 | -------------------- | ----- | ----------- |

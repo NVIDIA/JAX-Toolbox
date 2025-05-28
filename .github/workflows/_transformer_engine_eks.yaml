@@ -25,7 +25,7 @@ permissions:
   packages: write # to upload container
 
 jobs:
-  te-test-eks:
+  te-test-h100:
     env:
       TE_EKS_FILES_PREFIX: .github/eks-workflow-files/transformer-engine
       RUN_NAME: ${{ inputs.JOB_NAME }}-${{ matrix.N_GPU }}gpu-${{ matrix.TEST }}
@@ -99,6 +99,13 @@ jobs:
         echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
         echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
 
+        echo "$failed_tests tests failed"
+        if [[ $failed_tests -gt 0 ]]; then
+            exit 1
+        else
+            exit 0
+        fi
+
     - name: Generate sitrep
       id: sitrep
       if: ${{ !cancelled() }}
@@ -137,8 +144,8 @@ jobs:
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v4
       with:
-        name: "artifact-multigpu-test-${{ env.RUN_NAME }}"
+        name: "te-unit-test-H100"
         path: |
           sitrep.json
           badge-transformer-engine-test.json
-          trasformer-engine-output/*
+          transformer-engine-output/*
