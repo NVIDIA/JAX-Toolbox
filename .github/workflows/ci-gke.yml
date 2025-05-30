@@ -51,6 +51,7 @@ jobs:
           PROJECT=nv-jaxtoolboxgcp-20240925
           
           cd $HOME/xpk
+          source $HOME/.venv/bin/activate
           python xpk.py cluster create \
                   --cluster  $CLUSTER_NAME \
                   --gke-version $GKE_VERSION \
