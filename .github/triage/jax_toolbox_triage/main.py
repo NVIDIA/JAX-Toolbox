@@ -169,11 +169,13 @@ def main():
         )
         passing_url = container_url(range_start)
         failing_url = container_url(range_end)
+        urls_from_cli = False
     else:
         # Skip the container-level search because at lease one explicit end point was
         # given
         passing_url = args.passing_container
         failing_url = args.failing_container
+        urls_from_cli = True
 
     # Get the git commits in the endpoint containers, or the explicitly passed commits
     passing_commits, passing_package_dirs = get_commits(
@@ -194,11 +196,18 @@ def main():
     # names that match it.
     if failing_url is not None:
         bisection_url = failing_url
+        if urls_from_cli:
+            bisection_url_source = "--failing-url"
+        else:
+            bisection_url_source = "container-level search endpoint"
         package_dirs = failing_package_dirs
     else:
         assert passing_url is not None
         bisection_url = passing_url
+        assert urls_from_cli
+        bisection_url_source = "--passing-url"
         package_dirs = passing_package_dirs
+    logger.info(f"Bisecting in {bisection_url} ({bisection_url_source})")
     assert package_dirs is not None
 
     # Fire up the container that will be used for the commit-level search.
