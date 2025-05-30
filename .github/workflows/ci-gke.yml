@@ -11,8 +11,7 @@ permissions:
   pull-requests: write  # to make pull request for manifest bump
 
 jobs:
-
-  metadata:
+  test:
     runs-on: gke-a3mega
     steps:
       - uses: actions/checkout@v4
