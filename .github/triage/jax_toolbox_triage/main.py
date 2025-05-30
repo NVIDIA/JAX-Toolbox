@@ -296,7 +296,15 @@ def main():
                 build_jax, policy="once_per_container", workdir=package_dirs["jax"]
             )
             middle = time.monotonic()
-            logger.info(f"Build completed in {middle - before:.1f}s")
+            logger.info(f"JAX build completed in {middle - before:.1f}s")
+            if "transformer-engine" in commits:
+                before = middle
+                build_te = ["build-te.sh"]
+                worker.check_exec(
+                    build_te, policy="once_per_container", workdir=package_dirs["transformer-engine"]
+                )
+                middle = time.monotonic()
+                logger.info(f"TransformerEngine build completed in {middle - before:.1f}s")
             # Run the test
             test_result = worker.exec(args.test_command)
             test_time = time.monotonic() - middle

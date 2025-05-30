@@ -6,12 +6,11 @@ import pathlib
 import tempfile
 
 # Software we know may exist in the containers that we might be able to triage
-# We know how to recompile JAX/XLA, so it's OK that they include C++ code
-# TransformerEngine is intentionally excluded because build-te.sh is not plumbed yet.
+# We know how to recompile JAX/XLA/TE, so it's OK that they include C++ code
 # Flax and MaxText are pure Python, so it's OK we don't have a way of compiling them,
 # but they are not always installed in containers we want to triage.
 compulsory_software = {"xla", "jax"}
-optional_software = {"flax", "maxtext"}
+optional_software = {"flax", "maxtext", "transformer-engine"}
 
 
 def parse_commit_argument(s):
