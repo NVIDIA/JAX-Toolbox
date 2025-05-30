@@ -1,0 +1,35 @@
+diff --git a/src/xpk/core/blueprint/blueprint_generator.py b/src/xpk/core/blueprint/blueprint_generator.py
+index ccbca90..22a880a 100644
+--- a/src/xpk/core/blueprint/blueprint_generator.py
++++ b/src/xpk/core/blueprint/blueprint_generator.py
+@@ -156,7 +156,6 @@ class BlueprintGenerator:
+         source="modules/scheduler/gke-cluster",
+         use=[primary_vpc_name, gpu_subnets_name],
+         settings={
+-            "release_channel": "RAPID",
+             "prefix_with_deployment_name": False,
+             "name_suffix": cluster_name,
+             "enable_private_endpoint": False,
+@@ -194,20 +193,18 @@ class BlueprintGenerator:
+     a3_megagpu_pool_0 = DeploymentModule(
+         id="a3_megagpu_pool_0",
+         source="modules/compute/gke-node-pool",
+-        use=["gke_cluster", gpu_subnets_name, "group_placement_0"],
++        use=["gke_cluster", gpu_subnets_name],
+         settings={
+             "name": f"{cluster_name}-a3-megagpu-pool-0",
+             "machine_type": system.gce_machine_type,
++            "guest_accelerator": [{"type":"nvidia-h100-mega-80gb", "count": 8, "gpu_driver_installation_config": {"gpu_driver_version": "INSTALLATION_DISABLED"}}],
+             "static_node_count": num_nodes,
+             "zones": [zone],
+-            "host_maintenance_interval": "PERIODIC",
+             "reservation_affinity": self._getblock_reservation_affinity(
+                 reservation
+             ),
+             "run_workload_script": False,
+             "spot": capacity_type == CapacityType.SPOT,
+-            "max_pods_per_node": 32,
+-            "auto_upgrade": True,
+         },
+         outputs=["instructions"],
+     )
