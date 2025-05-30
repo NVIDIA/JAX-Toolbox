@@ -19,5 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          ls
+          pwd
           gcloud version
+          source .venv/bin/activate
+          uv pip freeze
