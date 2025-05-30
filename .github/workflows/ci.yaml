@@ -3,14 +3,14 @@ name: CI
 on:
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
-    paths-ignore:
-      - '**.md'
+  #pull_request:
+  #  types:
+  #    - opened
+  #    - reopened
+  #    - ready_for_review
+  #    - synchronize
+  #  paths-ignore:
+  #    - '**.md'
   workflow_dispatch:
     inputs:
       PUBLISH:

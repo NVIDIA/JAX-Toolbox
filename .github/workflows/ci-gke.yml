@@ -1,0 +1,21 @@
+name: GKE test
+
+on:
+  pull_request:
+    types:
+      - opened
+permissions:
+  contents: write       # to fetch code and push branch
+  actions:  write       # to cancel previous workflows
+  packages: write       # to upload container
+  pull-requests: write  # to make pull request for manifest bump
+
+jobs:
+
+  metadata:
+    runs-on: gke-a3mega
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          ls
+	  gcloud version
