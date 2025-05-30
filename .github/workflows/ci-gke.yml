@@ -33,7 +33,7 @@ jobs:
         run: |
           set -x
           
-          git apply .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk
+          git apply --unsafe-paths .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk
 
       - name: Create cluster from compute reservation with xpk
         run: |
