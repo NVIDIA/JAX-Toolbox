@@ -1,0 +1,63 @@
+name: GKE test
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+permissions:
+  contents: write       # to fetch code and push branch
+  actions:  write       # to cancel previous workflows
+  packages: write       # to upload container
+  pull-requests: write  # to make pull request for manifest bump
+
+jobs:
+  test:
+    runs-on: gke-a3mega
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Environment
+        run: |
+          set -x
+
+          gcloud version
+
+          source $HOME/.venv/bin/activate
+          python --version
+          uv pip freeze
+
+      - name: Apply xpk patch
+        run: |
+          set -x
+          
+          git apply --unsafe-paths .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk
+
+      - name: Create cluster from compute reservation with xpk
+        run: |
+          set -x
+
+          CLUSTER_NAME=jtb-30-05-2025
+          GKE_VERSION=1.31.6-gke.1221000 
+          A3_MEGA=h100-mega-80gb-8
+          DEFAULT_CPU_MACHINE=e2-standard-8
+          NUM_NODES=2
+          
+          ZONE=us-central1-a
+          RESERVATION=jtb-reservation
+          
+          PROJECT=nv-jaxtoolboxgcp-20240925
+          
+          cd $HOME/xpk
+          source $HOME/.venv/bin/activate
+          python xpk.py cluster create \
+                  --cluster  $CLUSTER_NAME \
+                  --gke-version $GKE_VERSION \
+                  --device-type $A3_MEGA \
+                  --num-nodes $NUM_NODES \
+                  --default-pool-cpu-machine-type=$DEFAULT_CPU_MACHINE \
+                  --project=$PROJECT \
+                  --reservation $RESERVATION \
+                  --zone $ZONE

@@ -2,14 +2,14 @@ name: NCCL on Kubernetes
 on:
   schedule:
     - cron: '30 8 * * *'
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
-    paths-ignore:
-      - '**.md'
+  #pull_request:
+  #  types:
+  #    - opened
+  #    - reopened
+  #    - ready_for_review
+  #    - synchronize
+  #  paths-ignore:
+  #    - '**.md'
   workflow_dispatch:
     inputs:
       # Note that cuda-dl-base installs the NCCL tests, while the vanilla nvidia/cuda
