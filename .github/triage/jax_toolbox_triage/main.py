@@ -7,7 +7,7 @@ import subprocess
 import time
 import typing
 
-from .args import parse_args
+from .args import compulsory_software, optional_software, parse_args
 from .docker import DockerContainer
 from .logic import commit_search, container_search, TestResult
 from .pyxis import PyxisContainer
@@ -54,12 +54,6 @@ def get_commit(
 def get_commits_and_dirs(
     worker: typing.Union[DockerContainer, PyxisContainer], logger: logging.Logger
 ) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str]]:
-    # Software we know may exist in the containers that we might be able to triage
-    # We know how to recompile JAX/XLA, so it's OK that they include C++ code
-    # TransformerEngine is intentionally excluded because there isn't a build-te.sh yet
-    # Flax and MaxText are pure Python, so it's OK we don't have a way of compiling them
-    compulsory_software = ["xla", "jax", "flax"]
-    optional_software = ["maxtext"]
     package_commits, dirs = {}, {}
     for package in compulsory_software:
         package_commits[package], dirs[package] = get_commit(worker, logger, package)
@@ -97,15 +91,22 @@ def main():
         container, or return the explicitly passed set of hashes if they are
         given.
 
-        It is an error for both/neither of the arguments to be None.
+        If both arguments are non-None, the commits read from inside the given
+        container will be overwritten by explicit passed entries.
+
+        If is an error for both of the arguments to be None.
         """
         if explicit_commits is None:
             assert container_url is not None
             with Container(container_url) as worker:
                 return get_commits_and_dirs(worker, logger)
         else:
-            assert container_url is None
-            return explicit_commits, None
+            if container_url is None:
+                return explicit_commits, None
+            with Container(container_url) as worker:
+                commits, package_dirs = get_commits_and_dirs(worker, logger)
+            commits.update(explicit_commits)
+            return commits, package_dirs
 
     def add_summary_record(section, record, scalar=False):
         """
