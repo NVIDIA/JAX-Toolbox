@@ -3,6 +3,8 @@ import pathlib
 import subprocess
 import typing
 
+from .utils import run_and_log
+
 
 class DockerContainer:
     def __init__(
@@ -56,17 +58,20 @@ class DockerContainer:
         return f"Docker({self._url})"
 
     def exec(
-        self, command: typing.List[str], workdir=None
+        self,
+        command: typing.List[str],
+        policy: typing.Literal["once", "once_per_container", "default"] = "default",
+        stderr: typing.Literal["interleaved", "separate"] = "interleaved",
+        workdir=None,
     ) -> subprocess.CompletedProcess:
         """
         Run a command inside a persistent container.
         """
         workdir = [] if workdir is None else ["--workdir", workdir]
-        return subprocess.run(
+        return run_and_log(
             ["docker", "exec"] + workdir + [self._id] + command,
-            encoding="utf-8",
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
+            logger=self._logger,
+            stderr=stderr,
         )
 
     def check_exec(

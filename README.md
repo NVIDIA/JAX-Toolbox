@@ -13,9 +13,7 @@ We support and test the following JAX frameworks and model architectures. More d
 | [maxtext](./rosetta/rosetta/projects/maxtext)| GPT, LLaMA, Gemma, Mistral, Mixtral | pre-training | `ghcr.io/nvidia/jax:maxtext` |
 | [t5x](./rosetta/rosetta/projects/t5x) | T5, ViT | pre-training, fine-tuning | `ghcr.io/nvidia/jax:t5x` |
 | [t5x](./rosetta/rosetta/projects/imagen) | Imagen | pre-training | `ghcr.io/nvidia/t5x:imagen-2023-10-02.v3` |
-| [big vision](./rosetta/rosetta/projects/paligemma) | PaliGemma | fine-tuning, evaluation | `ghcr.io/nvidia/jax:gemma` |
-| levanter | GPT, LLaMA, MPT, Backpacks | pre-training, fine-tuning | `ghcr.io/nvidia/jax:levanter` |
-| [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `gchr.io/nvidia/jax:axlearn` |
+| [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` |
 
 # Build Pipeline Status
 <table>
@@ -76,40 +74,16 @@ We support and test the following JAX frameworks and model architectures. More d
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-test-A100.json&logo=nvidia&label=A100">
         </a>
         <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-te-unit-test-A100-json">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-te-unit-test-a100-json">
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-te-unit-test-A100.json&logo=nvidia&label=TransformerEngine%20A100">
         </a>
         <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-transformer-engine-test.json">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-transformer-engine-test-json">
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-transformer-engine-test.json&logo=nvidia&label=TransformerEngine%20H100">
         </a>
         <br>
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-nsys-jax-unit-test-a100-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-nsys-jax-unit-test-A100.json&logo=nvidia&label=nsys-jax A100">
-        </a>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.levanter">
-          <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Levanter%3D%7Bcore%2CLevanter%7D">
-        </a>
-      </td>
-      <td>
-        <code>ghcr.io/nvidia/jax:levanter</code>
-      </td>
-      <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-levanter-md">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-levanter-build-amd64.json&logo=docker&label=amd64">
-        </a>
-        <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-levanter-md">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-levanter-build-arm64.json&logo=docker&label=arm64">
-        </a>
-      </td>
-      <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-levanter-unit-test-a100-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-levanter-unit-test-A100.json&logo=nvidia&label=A100">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-nsys-jax-unit-test-A100.json&logo=nvidia&label=nsys-jax%20A100">
         </a>
       </td>
     </tr>
@@ -207,27 +181,6 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/Dockerfile.gemma">
-          <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Gemma%3D%7Bcore%2CGemma%2CPaliGemma%7D">
-        </a>
-      </td>
-      <td>
-        <code>ghcr.io/nvidia/jax:gemma</code>
-      </td>
-      <td>
-      <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-gemma-md">
-        <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-gemma-build-amd64.json&logo=docker&label=amd64">
-      </a>
-      <!-- <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-gemma-md"><img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-gemma-build-arm64.json&logo=docker&label=arm64"></a> -->
-      </td>
-      <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-gemma-unit-test-a100-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-gemma-unit-test-A100.json&logo=nvidia&label=A100">
-        </a>
-      </td>
-    </tr>
-    <tr>
-      <td>
         <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.axlearn">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=AXLearn%3D%7Bcore%2CAXLearn%7D">
         </a>
@@ -264,7 +217,6 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 | XLA Flags | Value | Explanation |
 | --------- | ----- | ----------- |
 | `--xla_gpu_enable_latency_hiding_scheduler` | `true`  | allows XLA to move communication collectives to increase overlap with compute kernels |
-| `--xla_gpu_enable_triton_gemm` | `false` | use cuBLAS instead of Trition GeMM kernels |
 
 | Environment Variable | Value | Explanation |
 | -------------------- | ----- | ----------- |

@@ -37,9 +37,21 @@ on:
         type: string
         description: |
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
-          PACKAGE∊{JAX,XLA,Flax,transformer-engine,T5X,maxtext,levanter,haliax,mujuco,mujuco-mpc,gemma,big-vision,common-loop-utils,flaxformer,panopticapi} (case-insensitive)
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,axlearn,equinox,T5X,maxtext,google-jetstream} (case-insensitive)
         default: ''
         required: false
+      MODE:
+        type: choice
+        description: |
+          This option is to run just specific part in the _ci step.
+          - full - everything will be run (default)
+          - jax - run all the tests related to jax system
+          - te - run all the tests related to TE
+          - t5x - run build rosetta
+          - maxtext - run only the tests for maxtext
+          - axlearn - run only the tests for axlearn
+        options: [full, jax, te, t5x, maxtext, axlearn]
+        default: full
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -119,7 +131,7 @@ jobs:
             echo "Error: If BUMP_MANIFEST=false, MERGE_BUMPED_MANIFEST cannot be true" >&2
             exit 1
           fi
-      
+
       - name: Determine CUDA image to use
         id: cuda-image
         shell: bash -x -e {0}
@@ -145,7 +157,7 @@ jobs:
         shell: bash -x -e {0}
         run: |
           bash bump.sh --input-manifest manifest.yaml --output-manifest manifest.yaml.new --base-patch-dir ./patches-new
-      
+
       - name: Maybe replace current manifest/patches with the new one and show diff
         working-directory: .github/container
         shell: bash -x -e {0}
@@ -197,6 +209,7 @@ jobs:
       CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
+      MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
     secrets: inherit
 
   arm64:
@@ -208,6 +221,7 @@ jobs:
       CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
+      MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
     secrets: inherit
 
   # Only merge if everything succeeds
@@ -226,7 +240,7 @@ jobs:
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
-      
+
       - name: Delete checked-out manifest and patches
         run: |
           rm .github/container/manifest.yaml
@@ -266,7 +280,7 @@ jobs:
           git merge --ff-only ${{ needs.metadata.outputs.MANIFEST_BRANCH }}
           # Push the new change
           git push origin ${{ github.ref_name }}
-      
+
       # We will create a Draft PR & remote branch if:
       #  1. The tests failed
       #  2. The merge failed
@@ -297,12 +311,12 @@ jobs:
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: "Log created PR: #${{ fromJson(steps.create_pr.outputs.data).number }}"
         if: steps.create_pr.outcome == 'success'
         run: |
           echo "https://github.com/NVIDIA/JAX-Toolbox/pull/${{ fromJson(steps.create_pr.outputs.data).number }}" | tee -a $GITHUB_STEP_SUMMARY
-      
+
       # Guard delete in simple check to protect other branches
       - name: Check that the branch matches znightly- prefix
         run: |
@@ -343,10 +357,9 @@ jobs:
             jax
             equinox
             maxtext
-            levanter
             upstream-t5x
             t5x
-            gemma
+            axlearn
           )
           declare -a STAGES=(
             mealkit

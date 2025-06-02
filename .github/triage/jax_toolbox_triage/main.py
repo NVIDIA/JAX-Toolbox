@@ -1,12 +1,13 @@
-#!/usr/bin/env python3
+import collections
 import datetime
 import functools
 import json
 import logging
+import subprocess
 import time
 import typing
 
-from .args import parse_args
+from .args import compulsory_software, optional_software, parse_args
 from .docker import DockerContainer
 from .logic import commit_search, container_search, TestResult
 from .pyxis import PyxisContainer
@@ -18,21 +19,28 @@ from .utils import (
 
 
 def get_commit(
-    container: typing.Union[DockerContainer, PyxisContainer], repo: str
+    container: typing.Union[DockerContainer, PyxisContainer], logger, repo: str
 ) -> typing.Tuple[str, str]:
     """
     Get the commit of the given repository that was used in the given nightly container
 
     Arguments:
-    date: nightly container date
+    container: running container to extract the commit from
     repo: repository, must be jax or xla
     """
-    assert repo in {"jax", "xla"}
     # Older containers used /opt/jax-source etc.
     results = []
     for suffix in ["", "-source"]:
         dirname = f"/opt/{repo}{suffix}"
-        result = container.exec(["git", "rev-parse", "HEAD"], workdir=dirname)
+        result = container.exec(
+            ["git", "rev-parse", "HEAD"],
+            policy="once",
+            stderr="separate",
+            workdir=dirname,
+        )
+        stderr = result.stderr.strip()
+        if len(stderr):
+            logger.debug(f"stderr: {stderr}")
         results.append(result)
         if result.returncode == 0:
             commit = result.stdout.strip()
@@ -41,6 +49,22 @@ def get_commit(
     raise Exception(
         f"Could not extract commit of {repo} from {container}: {' '.join(map(str, results))}"
     )
+
+
+def get_commits_and_dirs(
+    worker: typing.Union[DockerContainer, PyxisContainer], logger: logging.Logger
+) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str]]:
+    package_commits, dirs = {}, {}
+    for package in compulsory_software:
+        package_commits[package], dirs[package] = get_commit(worker, logger, package)
+    for package in optional_software:
+        try:
+            package_commits[package], dirs[package] = get_commit(
+                worker, logger, package
+            )
+        except Exception:
+            pass
+    return package_commits, dirs
 
 
 def main():
@@ -57,6 +81,32 @@ def main():
         logger=logger,
         mounts=bazel_cache_mounts + args.container_mount,
     )
+
+    def get_commits(
+        container_url: typing.Optional[str],
+        explicit_commits: typing.Optional[typing.Dict[str, str]],
+    ) -> typing.Tuple[typing.Dict[str, str], typing.Optional[typing.Dict[str, str]]]:
+        """
+        Get the list of commit hashes for different packages inside the given
+        container, or return the explicitly passed set of hashes if they are
+        given.
+
+        If both arguments are non-None, the commits read from inside the given
+        container will be overwritten by explicit passed entries.
+
+        If is an error for both of the arguments to be None.
+        """
+        if explicit_commits is None:
+            assert container_url is not None
+            with Container(container_url) as worker:
+                return get_commits_and_dirs(worker, logger)
+        else:
+            if container_url is None:
+                return explicit_commits, None
+            with Container(container_url) as worker:
+                commits, package_dirs = get_commits_and_dirs(worker, logger)
+            commits.update(explicit_commits)
+            return commits, package_dirs
 
     def add_summary_record(section, record, scalar=False):
         """
@@ -82,38 +132,30 @@ def main():
 
     def check_container(date: datetime.date) -> TestResult:
         """
-        See if the test passes in the given container.
+        See if the test passes in the given dated container.
         """
         before = time.monotonic()
         with Container(container_url(date)) as worker:
-            jax_commit, _ = get_commit(worker, "jax")
-            xla_commit, _ = get_commit(worker, "xla")
+            commits, _ = get_commits_and_dirs(worker, logger)
+            # This will stream interleaved stdout/stderr into the logger
             result = worker.exec(args.test_command)
             test_time = time.monotonic() - before
             test_pass = result.returncode == 0
             logger.info(
                 f"Ran test case in {worker} in {test_time:.1f}s, pass={test_pass}"
             )
-        logger.debug(result.stdout)
-        logger.debug(result.stderr)
         add_summary_record(
             "container",
             {
                 "container": container_url(date),
-                "jax": jax_commit,
                 "result": test_pass,
                 "test_time": test_time,
-                "xla": xla_commit,
-            },
+            }
+            | commits,
         )
-        return TestResult(result=test_pass, stdout=result.stdout, stderr=result.stderr)
+        return TestResult(result=test_pass, stdouterr=result.stdout)
 
-    if args.passing_container is not None:
-        assert args.failing_container is not None
-        # Skip the container-level search because explicit end points were given
-        passing_url = args.passing_container
-        failing_url = args.failing_container
-    else:
+    if args.passing_container is None and args.failing_container is None:
         # Search through the published containers, narrowing down to a pair of dates with
         # the property that the test passed on `range_start` and fails on `range_end`.
         range_start, range_end = container_search(
@@ -127,29 +169,54 @@ def main():
         )
         passing_url = container_url(range_start)
         failing_url = container_url(range_end)
+    else:
+        # Skip the container-level search because at lease one explicit end point was
+        # given
+        passing_url = args.passing_container
+        failing_url = args.failing_container
 
-    # Container-level search is now complete. Triage proceeds inside the `range_end``
-    # container. First, we check that rewinding JAX and XLA inside the `range_end``
-    # container to the commits used in the `range_start` container passes, whereas
-    # using the `range_end` commits reproduces the failure.
+    # Get the git commits in the endpoint containers, or the explicitly passed commits
+    passing_commits, passing_package_dirs = get_commits(
+        passing_url, args.passing_commits
+    )
+    failing_commits, failing_package_dirs = get_commits(
+        failing_url, args.failing_commits
+    )
 
-    with Container(passing_url) as worker:
-        start_jax_commit, _ = get_commit(worker, "jax")
-        start_xla_commit, _ = get_commit(worker, "xla")
+    # We should have commit hashes for all the same software packages at both
+    # ends of the range, one way or another. TODO: this could be relaxed.
+    assert passing_commits.keys() == failing_commits.keys(), (
+        passing_commits,
+        failing_commits,
+    )
 
-    # Fire up the container that will be used for the fine search.
-    with Container(failing_url) as worker:
-        end_jax_commit, jax_dir = get_commit(worker, "jax")
-        end_xla_commit, xla_dir = get_commit(worker, "xla")
-        logger.info(
-            (
-                f"Bisecting JAX [{start_jax_commit}, {end_jax_commit}] and "
-                f"XLA [{start_xla_commit}, {end_xla_commit}] using {worker}"
+    # Choose a container to do the commit-level bisection in; use directory
+    # names that match it.
+    if failing_url is not None:
+        bisection_url = failing_url
+        package_dirs = failing_package_dirs
+    else:
+        assert passing_url is not None
+        bisection_url = passing_url
+        package_dirs = passing_package_dirs
+    assert package_dirs is not None
+
+    # Fire up the container that will be used for the commit-level search.
+    with Container(bisection_url) as worker:
+        packages = passing_commits.keys()
+        log_str = "Bisecting"
+        for package in packages:
+            log_str += (
+                f" {package} [{passing_commits[package]}, {failing_commits[package]}]"
             )
-        )
+        log_str += f" using {worker}"
+        logger.info(log_str)
 
         # Get the full lists of JAX/XLA commits and dates
         def commits(start, end, dir):
+            worker.check_exec(
+                ["git", "fetch"], policy="once_per_container", workdir=dir
+            )
             result = worker.check_exec(
                 [
                     "git",
@@ -159,8 +226,11 @@ def main():
                     "--format=%H %cI",
                     f"{start}^..{end}",
                 ],
+                policy="once",
+                stderr=subprocess.PIPE,
                 workdir=dir,
             )
+            logger.debug(f"stderr: {result.stderr.strip()}")
             data = []
             for line in result.stdout.splitlines():
                 commit, date = line.split()
@@ -171,45 +241,62 @@ def main():
             return data
 
         # Get lists of (commit_hash, commit_date) pairs
-        jax_commits = commits(start_jax_commit, end_jax_commit, jax_dir)
-        xla_commits = commits(start_xla_commit, end_xla_commit, xla_dir)
-        # Confirm they're sorted by commit date
-        assert all(b[1] >= a[1] for a, b in zip(jax_commits, jax_commits[1:]))
-        assert all(b[1] >= a[1] for a, b in zip(xla_commits, xla_commits[1:]))
-        # Confirm the end values are included as expected
-        assert start_jax_commit == jax_commits[0][0]
-        assert start_xla_commit == xla_commits[0][0]
-        assert end_jax_commit == jax_commits[-1][0]
-        assert end_xla_commit == xla_commits[-1][0]
+        package_commits = collections.OrderedDict()
+        for package in packages:
+            package_commits[package] = commits(
+                passing_commits[package],
+                failing_commits[package],
+                package_dirs[package],
+            )
+            # Confirm they're sorted by commit date
+            assert all(
+                b[1] >= a[1]
+                for a, b in zip(package_commits[package], package_commits[package][1:])
+            )
+            # Confirm the end values are included as expected
+            assert passing_commits[package] == package_commits[package][0][0]
+            assert failing_commits[package] == package_commits[package][-1][0]
 
-        def build_and_test(
-            jax_commit: str, xla_commit: str
-        ) -> typing.Tuple[bool, str, str]:
+        def build_and_test(commits: typing.Dict[str, str]) -> TestResult:
             """
             The main body of the bisection loop. Update the JAX/XLA commits, build XLA and
             jaxlib, and run the test command. Throws on error when checking out or
             building, and returns the status of the test command.
             """
-            worker.check_exec(["git", "stash"], workdir=xla_dir)
-            worker.check_exec(["git", "stash"], workdir=jax_dir)
-            worker.check_exec(["git", "checkout", xla_commit], workdir=xla_dir)
-            worker.check_exec(["git", "checkout", jax_commit], workdir=jax_dir)
-            logger.info(f"Checking out XLA {xla_commit} JAX {jax_commit}")
+            # Amortise container startup overhead by batching together git commands
+            git_commands, git_refs = [], []
+            for package, commit in commits.items():
+                git_refs.append(f"{package}@{commit}")
+                git_commands += [
+                    f"cd {package_dirs[package]}",
+                    "git stash",
+                    f"git checkout {commit}",
+                ]
+            logger.info(f"Checking out {' '.join(git_refs)} in {worker}")
+            worker.check_exec(
+                ["sh", "-c", " && ".join(git_commands)],
+                policy="once_per_container",
+            )
             # Build JAX
+            # TODO: teach the tool how to build TransformerEngine too
+            # TODO: do not build JAX/XLA/TransformerEngine if we know their commits did not change?
             before = time.monotonic()
             # Unfortunately the build system does not always seem to handle incremental
             # rebuilds correctly.
-            worker.check_exec(["bazel", "clean", "--expunge"], workdir=jax_dir)
+            worker.check_exec(
+                ["bazel", "clean", "--expunge"],
+                policy="once_per_container",
+                workdir=package_dirs["jax"],
+            )
             build_jax = [
                 "build-jax.sh",
                 f"--bazel-cache={args.bazel_cache}",
             ]
-            build_result = worker.check_exec(build_jax, workdir=jax_dir)
+            worker.check_exec(
+                build_jax, policy="once_per_container", workdir=package_dirs["jax"]
+            )
             middle = time.monotonic()
             logger.info(f"Build completed in {middle - before:.1f}s")
-            logger.debug(
-                f"Build stdout:\n{build_result.stdout}\nBuild stderr:\n{build_result.stderr}"
-            )
             # Run the test
             test_result = worker.exec(args.test_command)
             test_time = time.monotonic() - middle
@@ -217,24 +304,21 @@ def main():
                 "commit",
                 {
                     "build_time": middle - before,
-                    "container": failing_url,
-                    "jax": jax_commit,
+                    "container": bisection_url,
                     "result": test_result.returncode == 0,
                     "test_time": test_time,
-                    "xla": xla_commit,
-                },
+                }
+                | commits,
             )
             result_str = "pass" if test_result.returncode == 0 else "fail"
             logger.info(f"Test completed in {test_time:.1f}s ({result_str})")
-            logger.debug(
-                f"Test stdout:\n{test_result.stdout}\nTest stderr:\n{test_result.stderr}"
+            return TestResult(
+                result=test_result.returncode == 0, stdouterr=test_result.stdout
             )
-            return test_result.returncode == 0, test_result.stdout, test_result.stderr
 
         # Run the commit-level bisection
         result = commit_search(
-            jax_commits=jax_commits,
-            xla_commits=xla_commits,
+            commits=package_commits,
             build_and_test=build_and_test,
             logger=logger,
             skip_precondition_checks=args.skip_precondition_checks,

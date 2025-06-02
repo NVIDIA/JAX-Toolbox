@@ -26,6 +26,11 @@ on:
         description: 'A JSON object containing git url+refs for softwares to be built'
         required: false
         default: '{}'
+      MODE:
+        type: string
+        description: 'Mode selection for running specific tests only'
+        required: false
+        default: full
     outputs:
       DOCKER_TAGS:
         description: 'JSON object containing tags of all docker images built'
@@ -102,22 +107,7 @@ jobs:
       DOCKERFILE: .github/container/Dockerfile.maxtext
       EXTRA_BUILD_ARGS: |
         URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
-    secrets: inherit
-
-  build-levanter:
-    needs: [build-jax]
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-levanter-build"
-      BADGE_FILENAME: "badge-levanter-build"
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: levanter
-      DOCKERFILE: .github/container/Dockerfile.levanter
-      EXTRA_BUILD_ARGS: |
-        URLREF_LEVANTER=${{ fromJson(inputs.SOURCE_URLREFS).LEVANTER }}
-        URLREF_HALIAX=${{ fromJson(inputs.SOURCE_URLREFS).HALIAX }}
+        URLREF_JETSTREAM=${{ fromJson(inputs.SOURCE_URLREFS).GOOGLE_JETSTREAM }}
     secrets: inherit
 
   build-upstream-t5x:
@@ -146,27 +136,6 @@ jobs:
       BASE_LIBRARY: t5x
     secrets: inherit
 
-  build-gemma:
-    needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    if: inputs.ARCHITECTURE == 'amd64' # build only amd64
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-gemma-build
-      BADGE_FILENAME: badge-gemma-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: gemma
-      DOCKERFILE: rosetta/Dockerfile.gemma
-      DOCKER_CONTEXT: .
-      EXTRA_BUILD_ARGS: |
-        URLREF_GEMMA=${{ fromJson(inputs.SOURCE_URLREFS).GEMMA }}
-        URLREF_BIG_VISION=${{ fromJson(inputs.SOURCE_URLREFS).BIG_VISION }}
-        URLREF_COMMON_LOOP_UTILS=${{ fromJson(inputs.SOURCE_URLREFS).COMMON_LOOP_UTILS }}
-        URLREF_FLAXFORMER=${{ fromJson(inputs.SOURCE_URLREFS).FLAXFORMER }}
-        URLREF_PANOPTICAPI=${{ fromJson(inputs.SOURCE_URLREFS).PANOPTICAPI }}
-    secrets: inherit
-
   build-axlearn:
     needs: build-jax
     uses: ./.github/workflows/_build.yaml
@@ -179,6 +148,8 @@ jobs:
       CONTAINER_NAME: axlearn
       DOCKERFILE: .github/container/Dockerfile.axlearn
       RUNNER_SIZE: large
+      EXTRA_BUILD_ARGS: |
+        URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
     secrets: inherit
 
   collect-docker-tags:
@@ -189,10 +160,8 @@ jobs:
       - build-jax
       - build-equinox
       - build-maxtext
-      - build-levanter
       - build-upstream-t5x
       - build-rosetta-t5x
-      - build-gemma
       - build-axlearn
     outputs:
       TAGS: ${{ steps.collect-tags.outputs.TAGS }}
@@ -206,18 +175,14 @@ jobs:
             {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "levanter",     "stage": "final",   "priority": 900,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "t5x",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "gemma",        "stage": "final",   "priority": 900,  "tag": "${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "levanter",     "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-levanter.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "t5x",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "gemma",        "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-gemma.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
 
             {}\
@@ -251,7 +216,12 @@ jobs:
 
   test-jax:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: jax
@@ -263,9 +233,15 @@ jobs:
         EOF
         docker run -i --shm-size=1g --gpus all \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee tee test-gpu.log
+        bash <<"EOF" |& tee test-single-gpu.log
           nvidia-cuda-mps-control -d
-          test-jax.sh -b gpu
+          test-jax.sh -b single-gpu
+        EOF
+        docker run -i --shm-size=1g --gpus all \
+        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+        bash <<"EOF" |& tee test-multi-gpu.log
+          nvidia-cuda-mps-control -d
+          test-jax.sh -b multi-gpu
         EOF
       STATISTICS_SCRIPT: |
         errors=$(cat test-*.log | grep -c 'ERROR:' || true)
@@ -278,12 +254,18 @@ jobs:
         echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
       ARTIFACTS: |
         test-backend-independent.log
-        test-gpu.log
+        test-multi-gpu.log
+        test-single-gpu.log
     secrets: inherit
 
   test-nsys-jax:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: nsys-jax
@@ -386,7 +368,12 @@ jobs:
   # not already have nsys-jax installed
   test-nsys-jax-archive:
     needs: test-nsys-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
@@ -414,7 +401,12 @@ jobs:
 
   test-nsys-jax-eks:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
     runs-on: eks
     env:
       JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
@@ -489,9 +481,15 @@ jobs:
   #     ARTIFACTS: |
   #       test-equinox.log
   #   secrets: inherit
+
   test-te-h100:
     needs: build-jax
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'te'
+      )
     uses: ./.github/workflows/_transformer_engine_eks.yaml
     with:
       JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
@@ -500,10 +498,15 @@ jobs:
       CI_NAME: transformer-engine
     secrets: inherit
 
-  test-te-unit-a100:
+  test-te-a100:
     needs: build-jax
     secrets: inherit
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'te'
+      )
     uses: ./.github/workflows/_test_unit.yaml
     with:
       TEST_NAME: te
@@ -511,30 +514,32 @@ jobs:
         docker run -i --gpus all --shm-size=1g -v $PWD:/log \
         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
         bash <<"EOF" |& tee test-te.log
-          set -x
+          set -xu -o pipefail
+
+          LOG_DIR=/log
 
           pip install pytest-reportlog pytest-xdist
           # Start MPS daemon
           nvidia-cuda-mps-control -d
           # TE's default is slightly different, without the hyphen
           export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
-          # 1 GPU per worker, 6 workers per GPU
-          pytest-xdist.sh 1 3 /log/pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
+          # 1 GPU per worker, 3 workers per GPU
+          pytest-xdist.sh 1 3 ${LOG_DIR}/pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
           ## 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
           ## into a single .jsonl file of results from multiple pytest invocations
           ## inside the test.sh script, so it's useful even with a single worker per
           ## device.
-          pytest-xdist.sh 8 1 /log/pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh
+          pytest-xdist.sh 8 1 ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh
 
           # merge the log files
           cat \
-            /log/pytest-report-L0-unittest.jsonl
-            /log/pytest-report-L0-distributed-unittest.jsonl 
-            > /log/pytest-report.jsonl
+            ${LOG_DIR}/pytest-report-L0-unittest.jsonl \
+            ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl \
+            > ${LOG_DIR}/pytest-report.jsonl
+
         EOF
       STATISTICS_SCRIPT: |
-        ls
-        report_json=pytest-report-L0-unittest.jsonl
+        report_json=pytest-report.jsonl
         summary_line=$(tail -n1 test-te.log)
         errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
         passed_tests=$(cat $report_json | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
@@ -544,75 +549,42 @@ jobs:
         echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
         echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
         echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+
+        echo "$failed_tests tests failed"
+        if [[ $failed_tests -gt 0 ]]; then
+            exit 1
+        else
+            exit 0
+        fi
+
       TIMEOUT_MINUTES: 120
       ARTIFACTS: |
         test-te.log
         pytest-report.jsonl
         pytest-report-L0-unittest.jsonl
         pytest-report-L0-distributed-unittest.jsonl
-        pytest-report-L1-distributed-unittest.jsonl
+
   test-rosetta-t5x:
     needs: build-rosetta-t5x
-    if: inputs.ARCHITECTURE == 'amd64' # no images for arm64
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 't5x'
+      )
     uses: ./.github/workflows/_test_t5x_rosetta.yaml
     with:
       T5X_IMAGE: ${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
-  test-levanter:
-    needs: build-levanter
-    if: inputs.ARCHITECTURE == 'amd64'  # arm64 runners n/a
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: levanter
-      EXECUTE: |
-        docker run -i --gpus all --shm-size=1g \
-        ${{ needs.build-levanter.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-levanter.log
-          pip install flake8 pytest pytest-asyncio soundfile tensorboardx librosa
-          PYTHONPATH=/opt/levanter/tests:$PYTHONPATH pytest /opt/levanter/tests -m "not entry and not slow and not ray"
-        EOF
-      STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-levanter.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-levanter.log
-    secrets: inherit
-
-  test-gemma:
-    needs: build-gemma
-    uses: ./.github/workflows/_test_unit.yaml
-    if: inputs.ARCHITECTURE == 'amd64'
-    with:
-      TEST_NAME: gemma
-      EXECUTE: |
-        docker run --shm-size=1g --gpus all ${{ needs.build-gemma.outputs.DOCKER_TAG_FINAL }} \
-        bash -ec \
-        "cd /opt/gemma && pip install -e .[dev] && pytest ." | tee test-gemma.log
-      STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-gemma.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-gemma.log
-    secrets: inherit
-
   test-maxtext:
     needs: build-maxtext
-    if: inputs.ARCHITECTURE == 'amd64' # no arm64 gpu runners
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'maxtext'
+      )
     uses: ./.github/workflows/_test_maxtext.yaml
     with:
       MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
@@ -620,7 +592,12 @@ jobs:
 
   test-axlearn-eks:
     needs: build-axlearn
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'axlearn'
+      )
     runs-on: eks
     env:
       AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
@@ -654,18 +631,22 @@ jobs:
         job-name: ${{ env.JOB_NAME }}
     - name: Download logs from S3
       id: log-s3
+      if: ${{ !cancelled() }}
       run: |
         mkdir -p axlearn-output
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/summary.txt axlearn-output/
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/ axlearn-output/ --recursive --exclude "*" --include "*.log"
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/axlearn-unittests.jsonl axlearn-output/
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/summary.txt axlearn-output/
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.log"
+        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.xml"
 
-        passed_tests=$(grep -c ": PASSED" axlearn-output/summary.txt || true)
-        failed_tests=$(grep -c ": FAILED" axlearn-output/summary.txt || true)
-        total_tests=$((failed_tests + passed_tests))
+
+        passed_tests=$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
+        failed_tests=$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
+        skipped_tests=$(grep -Eo 'SKIPPED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
+        total_tests=$((failed_tests + passed_tests + skipped_tests))
 
         echo "Passed tests: $passed_tests"
         echo "Failed tests: $failed_tests"
+        echo "Skipped tests: $skipped_tests"
         echo "Total tests: $total_tests"
         echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
         echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
@@ -717,7 +698,12 @@ jobs:
 
   test-axlearn-fuji-models-eks:
     needs: build-axlearn
-    if: inputs.ARCHITECTURE == 'amd64'
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'axlearn'
+      )
     runs-on: eks
     env:
       AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}

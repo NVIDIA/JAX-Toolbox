@@ -31,7 +31,6 @@ ARG BUILD_PATH_JAXLIB
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
 
-
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
@@ -39,13 +38,13 @@ RUN --mount=type=ssh \
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
-ADD build-jax.sh local_cuda_arch test-jax.sh /usr/local/bin/
+ADD build-jax.sh build-te.sh local_cuda_arch /usr/local/bin/
 # Install bazelisk
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
     chmod +x /usr/local/bin/bazel
-# TODO: move this patch into the manifest
-ADD xla-arm64-neon.patch /opt
+# Populate ${BUILD_PATH_JAXLIB} with editable wheels; --no-install because
+# (a) this is the builder stage, and (b) pip-finalize.sh does the install
 RUN build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
@@ -53,19 +52,20 @@ RUN build-jax.sh \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
-    --xla-arm64-patch /opt/xla-arm64-neon.patch \ 
     --clean
 
 ## Transformer engine: check out source and build wheel
-RUN <<"EOF" bash -ex -o pipefail
-pip install ninja && rm -rf ~/.cache/pip
-# TransformerEngine now needs JAX at build time
-git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
-pushd ${SRC_PATH_TRANSFORMER_ENGINE}
-export NVTE_BUILD_THREADS_PER_JOB=8
-python setup.py bdist_wheel && rm -rf build
-ls "${SRC_PATH_TRANSFORMER_ENGINE}/dist"
-EOF
+RUN --mount=type=ssh \
+    --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
+    git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
+# Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
+# because (a) this is the builder stage, and (b) pip-finalize.sh does the install
+RUN build-te.sh \
+    --clean \
+    --no-install \
+    --sm all \
+    --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \
+    --src-path-xla ${SRC_PATH_XLA}
 
 ###############################################################################
 ## Pack jaxlib wheel and various source dirs into a pre-installation image
@@ -85,7 +85,6 @@ ENV BUILD_DATE=${BUILD_DATE}
 # The following environment variables tune performance
 ENV XLA_FLAGS=""
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_latency_hiding_scheduler=true"
-ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_triton_gemm=false"
 ENV NCCL_NVLS_ENABLE=0
 
 COPY --from=builder ${BUILD_PATH_JAXLIB} ${BUILD_PATH_JAXLIB}
@@ -94,7 +93,7 @@ COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
 # Preserve the versions of jax and xla
 COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
-ADD build-jax.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/local/bin/
+ADD build-jax.sh build-te.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
 
@@ -104,7 +103,7 @@ RUN <<"EOF" bash -ex
 for component in $(ls ${BUILD_PATH_JAXLIB}); do
     echo "-e file://${BUILD_PATH_JAXLIB}/${component}" >> /opt/pip-tools.d/requirements-jax.in;
 done
-echo "-e file://${BUILD_PATH_JAXLIB}/jax[k8s]" >> /opt/pip-tools.d/requirements-jax.in
+echo "-e file://${SRC_PATH_JAX}[k8s]" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax
@@ -114,7 +113,6 @@ echo "-e file://${SRC_PATH_FLAX}" >> /opt/pip-tools.d/requirements-flax.in
 EOF
 
 # Copy TransformerEngine wheel from the builder stage
-ENV NVTE_FRAMEWORK=jax
 ENV SRC_PATH_TRANSFORMER_ENGINE=${SRC_PATH_TRANSFORMER_ENGINE}
 COPY --from=builder ${SRC_PATH_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 RUN <<"EOF" bash -ex
