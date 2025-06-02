@@ -143,9 +143,9 @@ def test_commit_search(logger, extra_commits, packages, seed):
     assert len(culprit_dates) == len(commits[culprit])
 
     def dummy_test(*, commits):
-        return wrap(culprit_dates[commits[culprit]] < bad_date)
+        return wrap(culprit_dates[commits[culprit]] < bad_date, commits)
 
-    algorithm_result, _, _ = commit_search(
+    algorithm_result, last_known_good, first_known_bad = commit_search(
         build_and_test=dummy_test,
         commits=commits,
         logger=logger,
@@ -166,6 +166,16 @@ def test_commit_search(logger, extra_commits, packages, seed):
     assert dummy_test(commits=commits).result
     commits[culprit] = algorithm_result[f"{culprit}_bad"]
     assert not dummy_test(commits=commits).result
+    assert last_known_good.result
+    assert not first_known_bad.result
+    assert f"{culprit}-{good_commit}" in last_known_good.host_output_directory
+    assert f"{culprit}-{bad_commit}" in first_known_bad.host_output_directory
+    assert (
+        last_known_good.host_output_directory.replace(
+            f"{culprit}-{good_commit}", f"{culprit}-{bad_commit}"
+        )
+        == first_known_bad.host_output_directory
+    )
 
 
 def other(project):
