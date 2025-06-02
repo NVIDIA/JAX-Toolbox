@@ -7,8 +7,12 @@ import random
 from jax_toolbox_triage.logic import commit_search, container_search, TestResult
 
 
-def wrap(b):
-    return TestResult(result=b, stdouterr="")
+def wrap(b, commits={}):
+    return TestResult(
+        host_output_directory="-".join(map("-".join, sorted(commits.items()))),
+        result=b,
+        stdouterr="",
+    )
 
 
 @pytest.fixture
@@ -29,27 +33,37 @@ def make_commits(jax, xla, flax=None):
 
 
 @pytest.mark.parametrize(
-    "dummy_test,expected",
+    "dummy_test,expected,last_known_good_dir,first_known_bad_dir",
     [
         (
-            lambda commits: wrap(commits["jax"] == "oJ"),
+            lambda commits: wrap(commits["jax"] == "oJ", commits),
             {"flax_ref": "nF", "xla_ref": "oX", "jax_bad": "mJ", "jax_good": "oJ"},
+            "flax-nF-jax-oJ-xla-oX",
+            "flax-nF-jax-mJ-xla-oX",
         ),
         (
-            lambda commits: wrap(commits["jax"] != "nJ"),
+            lambda commits: wrap(commits["jax"] != "nJ", commits),
             {"flax_ref": "nF", "xla_ref": "oX", "jax_bad": "nJ", "jax_good": "mJ"},
+            "flax-nF-jax-mJ-xla-oX",
+            "flax-nF-jax-nJ-xla-oX",
         ),
         (
-            lambda commits: wrap(commits["xla"] == "oX"),
+            lambda commits: wrap(commits["xla"] == "oX", commits),
             {"flax_ref": "nF", "jax_ref": "nJ", "xla_bad": "nX", "xla_good": "oX"},
+            "flax-nF-jax-nJ-xla-oX",
+            "flax-nF-jax-nJ-xla-nX",
         ),
         (
-            lambda commits: wrap(commits["flax"] == "oF"),
+            lambda commits: wrap(commits["flax"] == "oF", commits),
             {"flax_bad": "nF", "flax_good": "oF", "xla_ref": "oX", "jax_ref": "oJ"},
+            "flax-oF-jax-oJ-xla-oX",
+            "flax-nF-jax-oJ-xla-oX",
         ),
     ],
 )
-def test_commit_search_explicit(logger, dummy_test, expected):
+def test_commit_search_explicit(
+    logger, dummy_test, expected, last_known_good_dir, first_known_bad_dir
+):
     """
     Test the four possibilities in the hardcoded sequence below, where the container
     level search yielded that (oJ, oX, oF) passed and (nX, nJ, nF) failed. mJ, nJ, nX
@@ -60,13 +74,17 @@ def test_commit_search_explicit(logger, dummy_test, expected):
         xla=[("oX", 1), ("nX", 3)],
         flax=[("oF", 1), ("nF", 3)],
     )
-    algorithm_result = commit_search(
+    algorithm_result, last_known_good, first_known_bad = commit_search(
         build_and_test=dummy_test,
         commits=commits,
         logger=logger,
         skip_precondition_checks=False,
     )
     assert algorithm_result == expected
+    assert last_known_good.result
+    assert not first_known_bad.result
+    assert last_known_good.host_output_directory == last_known_good_dir
+    assert first_known_bad.host_output_directory == first_known_bad_dir
 
 
 start_date = datetime.datetime(2024, 10, 1)
@@ -127,7 +145,7 @@ def test_commit_search(logger, extra_commits, packages, seed):
     def dummy_test(*, commits):
         return wrap(culprit_dates[commits[culprit]] < bad_date)
 
-    algorithm_result = commit_search(
+    algorithm_result, _, _ = commit_search(
         build_and_test=dummy_test,
         commits=commits,
         logger=logger,
@@ -255,7 +273,7 @@ def test_commit_search_exhaustive(logger, commits):
     def dummy_test(*, commits):
         return wrap(dates[commits[bad_project]] < bad_date)
 
-    algorithm_result = commit_search(
+    algorithm_result, _, _ = commit_search(
         build_and_test=dummy_test,
         commits=split_commits,
         logger=logger,
