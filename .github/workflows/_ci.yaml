@@ -125,10 +125,8 @@ jobs:
               output_prefix: axlearn
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "${{ matrix.runner_size }}"]
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v4
       - id: call-build
-        uses: ./.github/workflows/_build.yaml
+        uses: ./.github/actions/build-container
         with:
           ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
           ARTIFACT_NAME: ${{ matrix.artifact_name }}
