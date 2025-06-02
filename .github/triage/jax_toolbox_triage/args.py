@@ -10,8 +10,9 @@ import tempfile
 # TransformerEngine is intentionally excluded because build-te.sh is not plumbed yet.
 # Flax and MaxText are pure Python, so it's OK we don't have a way of compiling them,
 # but they are not always installed in containers we want to triage.
-compulsory_software = {"xla", "jax"}
-optional_software = {"flax", "maxtext"}
+# Note this is not a `set` for the sake of run-to-run determinism.
+compulsory_software = ["xla", "jax"]
+optional_software = ["flax", "maxtext"]
 
 
 def parse_commit_argument(s):
@@ -203,10 +204,9 @@ def parse_args(args=None):
             args.passing_container is not None or args.failing_container is not None
         ), "At least one of --passing-container and --failing-container must be passed."
         for prefix in ["passing", "failing"]:
-            assert (
-                getattr(args, f"{prefix}_container") is not None
-                or getattr(args, f"{prefix}_commits").keys() >= compulsory_software
-            ), (
+            assert getattr(args, f"{prefix}_container") is not None or getattr(
+                args, f"{prefix}_commits"
+            ).keys() >= set(compulsory_software), (
                 f"--{prefix}-commits must specify all of {compulsory_software} if "
                 f"--{prefix}-container is not specified"
             )
