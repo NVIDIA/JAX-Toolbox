@@ -11,6 +11,7 @@ import time
 import typing
 
 from .args import compulsory_software, optional_software, parse_args
+from .container import Container
 from .docker import DockerContainer
 from .logic import commit_search, container_search, TestResult
 from .pyxis import PyxisContainer
@@ -22,7 +23,7 @@ from .utils import (
 
 
 def get_commit(
-    container: typing.Union[DockerContainer, PyxisContainer], logger, repo: str
+    container: Container, logger: logging.Logger, repo: str
 ) -> typing.Tuple[str, str]:
     """
     Get the commit of the given repository that was used in the given nightly container
@@ -55,7 +56,7 @@ def get_commit(
 
 
 def get_commits_and_dirs(
-    worker: typing.Union[DockerContainer, PyxisContainer], logger: logging.Logger
+    worker: Container, logger: logging.Logger
 ) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str]]:
     package_commits, dirs = {}, {}
     for package in compulsory_software:
