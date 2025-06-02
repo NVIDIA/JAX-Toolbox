@@ -389,7 +389,7 @@ def main() -> None:
         assert result.host_output_directory.parent == args.output_prefix
         symlink.symlink_to(result.host_output_directory.name)
 
-    symlink(last_known_good, "last_known_good")
-    symlink(first_known_bad, "first_known_bad")
+    symlink(last_known_good, "last-known-good")
+    symlink(first_known_bad, "first-known-bad")
     result["container"] = failing_url
     add_summary_record("result", result, scalar=True)
