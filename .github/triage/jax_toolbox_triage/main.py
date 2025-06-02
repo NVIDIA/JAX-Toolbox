@@ -1,8 +1,11 @@
 import collections
 import datetime
 import functools
+import hashlib
+import itertools
 import json
 import logging
+import pathlib
 import subprocess
 import time
 import typing
@@ -75,12 +78,37 @@ def main():
         "Verbose output, including stdout/err of triage commands, will be written to "
         f"{(args.output_prefix / 'debug.log').resolve()}"
     )
+
+    def test_output_directory(
+        url: str, commits: typing.Dict[str, str] = {}
+    ) -> pathlib.Path:
+        # Construct an output directory name, on the host, for output files written by
+        # the test case.
+        hash_chars = 8
+        urlhash = hashlib.sha1(url.encode()).hexdigest()[:hash_chars]
+        out_dirname = "-".join(
+            itertools.chain(
+                [urlhash], map(lambda t: f"{t[0]}{t[1][:hash_chars]}", commits.items())
+            )
+        )
+        out_dir = args.output_prefix / out_dirname
+        assert not out_dir.exists(), (
+            f"{out_dir} should not already exist, maybe you are re-using {args.output_prefix}?"
+        )
+        out_dir.mkdir(mode=0o755)
+        return out_dir.resolve()
+
     container_url = functools.partial(container_url_base, container=args.container)
-    Container = functools.partial(
-        DockerContainer if args.container_runtime == "docker" else PyxisContainer,
-        logger=logger,
-        mounts=bazel_cache_mounts + args.container_mount,
-    )
+
+    def Container(
+        url, test_output_host_directory: typing.Optional[pathlib.Path] = None
+    ):
+        Imp = DockerContainer if args.container_runtime == "docker" else PyxisContainer
+        mounts = bazel_cache_mounts + args.container_mount
+        if test_output_host_directory is not None:
+            # This can be used to save useful output from the test case (e.g. HLOs)
+            mounts.append((test_output_host_directory, "/triage-tool-output"))
+        return Imp(url, logger=logger, mounts=mounts)
 
     def get_commits(
         container_url: typing.Optional[str],
@@ -135,7 +163,10 @@ def main():
         See if the test passes in the given dated container.
         """
         before = time.monotonic()
-        with Container(container_url(date)) as worker:
+        out_dir = test_output_directory(container_url(date))
+        with Container(
+            container_url(date), test_output_host_directory=out_dir
+        ) as worker:
             commits, _ = get_commits_and_dirs(worker, logger)
             # This will stream interleaved stdout/stderr into the logger
             result = worker.exec(args.test_command)
@@ -148,12 +179,15 @@ def main():
             "container",
             {
                 "container": container_url(date),
+                "output_directory": out_dir,
                 "result": test_pass,
                 "test_time": test_time,
             }
             | commits,
         )
-        return TestResult(result=test_pass, stdouterr=result.stdout)
+        return TestResult(
+            host_output_directory=out_dir, result=test_pass, stdouterr=result.stdout
+        )
 
     if args.passing_container is None and args.failing_container is None:
         # Search through the published containers, narrowing down to a pair of dates with
@@ -201,7 +235,48 @@ def main():
         package_dirs = passing_package_dirs
     assert package_dirs is not None
 
-    # Fire up the container that will be used for the commit-level search.
+    # Get the full lists of JAX/XLA commits and dates
+    def get_commit_history(worker, start, end, dir):
+        # In particular the end commit might not already be known if the older,
+        # passing, container is being used for triage.
+        commits_known = worker.exec(
+            [
+                "sh",
+                "-c",
+                f"git cat-file commit {start} && git cat-file commit {end}",
+            ],
+            policy="once_per_container",
+            workdir=dir,
+        )
+        if commits_known.returncode != 0:
+            worker.check_exec(
+                ["git", "fetch"], policy="once_per_container", workdir=dir
+            )
+        result = worker.check_exec(
+            [
+                "git",
+                "log",
+                "--first-parent",
+                "--reverse",
+                "--format=%H %cI",
+                f"{start}^..{end}",
+            ],
+            policy="once",
+            stderr=subprocess.PIPE,
+            workdir=dir,
+        )
+        logger.debug(f"stderr: {result.stderr.strip()}")
+        data = []
+        for line in result.stdout.splitlines():
+            commit, date = line.split()
+            date = datetime.datetime.fromisoformat(date).astimezone(
+                datetime.timezone.utc
+            )
+            data.append((commit, date))
+        return data
+
+    # Fire up the container that will be used for the commit-level search and use it to
+    # extract the relevant history of the repositories that will be triaged.
     with Container(bisection_url) as worker:
         packages = passing_commits.keys()
         log_str = "Bisecting"
@@ -211,51 +286,11 @@ def main():
             )
         log_str += f" using {worker}"
         logger.info(log_str)
-
-        # Get the full lists of JAX/XLA commits and dates
-        def commits(start, end, dir):
-            # In particular the end commit might not already be known if the older,
-            # passing, container is being used for triage.
-            commits_known = worker.exec(
-                [
-                    "sh",
-                    "-c",
-                    f"git cat-file commit {start} && git cat-file commit {end}",
-                ],
-                policy="once_per_container",
-                workdir=dir,
-            )
-            if commits_known.returncode != 0:
-                worker.check_exec(
-                    ["git", "fetch"], policy="once_per_container", workdir=dir
-                )
-            result = worker.check_exec(
-                [
-                    "git",
-                    "log",
-                    "--first-parent",
-                    "--reverse",
-                    "--format=%H %cI",
-                    f"{start}^..{end}",
-                ],
-                policy="once",
-                stderr=subprocess.PIPE,
-                workdir=dir,
-            )
-            logger.debug(f"stderr: {result.stderr.strip()}")
-            data = []
-            for line in result.stdout.splitlines():
-                commit, date = line.split()
-                date = datetime.datetime.fromisoformat(date).astimezone(
-                    datetime.timezone.utc
-                )
-                data.append((commit, date))
-            return data
-
         # Get lists of (commit_hash, commit_date) pairs
         package_commits = collections.OrderedDict()
         for package in packages:
-            package_commits[package] = commits(
+            package_commits[package] = get_commit_history(
+                worker,
                 passing_commits[package],
                 failing_commits[package],
                 package_dirs[package],
@@ -269,21 +304,23 @@ def main():
             assert passing_commits[package] == package_commits[package][0][0]
             assert failing_commits[package] == package_commits[package][-1][0]
 
-        def build_and_test(commits: typing.Dict[str, str]) -> TestResult:
-            """
-            The main body of the bisection loop. Update the JAX/XLA commits, build XLA and
-            jaxlib, and run the test command. Throws on error when checking out or
-            building, and returns the status of the test command.
-            """
-            # Amortise container startup overhead by batching together git commands
-            git_commands, git_refs = [], []
-            for package, commit in commits.items():
-                git_refs.append(f"{package}@{commit}")
-                git_commands += [
-                    f"cd {package_dirs[package]}",
-                    "git stash",
-                    f"git checkout {commit}",
-                ]
+    def build_and_test(commits: typing.Dict[str, str]) -> TestResult:
+        """
+        The main body of the bisection loop. Update the JAX/XLA commits, build XLA and
+        jaxlib, and run the test command. Throws on error when checking out or
+        building, and returns the status of the test command.
+        """
+        # Amortise container startup overhead by batching together git commands
+        git_commands, git_refs = [], []
+        for package, commit in commits.items():
+            git_refs.append(f"{package}@{commit}")
+            git_commands += [
+                f"cd {package_dirs[package]}",
+                "git stash",
+                f"git checkout {commit}",
+            ]
+        out_dir = test_output_directory(bisection_url, commits=commits)
+        with Container(bisection_url, test_output_host_directory=out_dir) as worker:
             logger.info(f"Checking out {' '.join(git_refs)} in {worker}")
             worker.check_exec(
                 ["sh", "-c", " && ".join(git_commands)],
@@ -312,28 +349,31 @@ def main():
             # Run the test
             test_result = worker.exec(args.test_command)
             test_time = time.monotonic() - middle
-            add_summary_record(
-                "commit",
-                {
-                    "build_time": middle - before,
-                    "container": bisection_url,
-                    "result": test_result.returncode == 0,
-                    "test_time": test_time,
-                }
-                | commits,
-            )
-            result_str = "pass" if test_result.returncode == 0 else "fail"
-            logger.info(f"Test completed in {test_time:.1f}s ({result_str})")
-            return TestResult(
-                result=test_result.returncode == 0, stdouterr=test_result.stdout
-            )
-
-        # Run the commit-level bisection
-        result = commit_search(
-            commits=package_commits,
-            build_and_test=build_and_test,
-            logger=logger,
-            skip_precondition_checks=args.skip_precondition_checks,
+        add_summary_record(
+            "commit",
+            {
+                "build_time": middle - before,
+                "container": bisection_url,
+                "output_directory": out_dir,
+                "result": test_result.returncode == 0,
+                "test_time": test_time,
+            }
+            | commits,
         )
-        result["container"] = failing_url
-        add_summary_record("result", result, scalar=True)
+        result_str = "pass" if test_result.returncode == 0 else "fail"
+        logger.info(f"Test completed in {test_time:.1f}s ({result_str})")
+        return TestResult(
+            host_output_directory=out_dir,
+            result=test_result.returncode == 0,
+            stdouterr=test_result.stdout,
+        )
+
+    # Run the commit-level bisection
+    result = commit_search(
+        commits=package_commits,
+        build_and_test=build_and_test,
+        logger=logger,
+        skip_precondition_checks=args.skip_precondition_checks,
+    )
+    result["container"] = failing_url
+    add_summary_record("result", result, scalar=True)

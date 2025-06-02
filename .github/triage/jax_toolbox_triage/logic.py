@@ -3,6 +3,7 @@ import datetime
 import functools
 import itertools
 import logging
+import pathlib
 import typing
 
 from .utils import console_log_level
@@ -15,6 +16,7 @@ class TestResult:
     """
 
     __test__ = False  # stop pytest gathering this
+    host_output_directory: pathlib.Path
     result: bool
     stdouterr: str
 
