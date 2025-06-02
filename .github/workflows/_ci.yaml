@@ -126,7 +126,6 @@ jobs:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "${{ matrix.runner_size }}"]
     steps:
       - id: call-build
-        secrets: inherit
         uses: ./.github/workflows/_build.yaml
         with:
           ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -139,8 +138,14 @@ jobs:
           RUNNER_SIZE: ${{ matrix.runner_size }}
           EXTRA_BUILD_ARGS: ${{ matrix.extra_build_args || '' }}
     outputs:
-        ${{ matrix.output_prefix }}_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
-        ${{ matrix.output_prefix }}_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
+        equinox_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.equinox_DOCKER_TAG_MEALKIT }}
+        equinox_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.equinox_DOCKER_TAG_FINAL }}
+        maxtext_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.maxtext_DOCKER_TAG_MEALKIT }}
+        maxtext_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.maxtext_DOCKER_TAG_FINAL }}
+        upstream-t5x_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.upstream-t5x_DOCKER_TAG_MEALKIT }}
+        upstream-t5x_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.upstream-t5x_DOCKER_TAG_FINAL }}
+        axlearn_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.axlearn_DOCKER_TAG_MEALKIT }}
+        axlearn_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.axlearn_DOCKER_TAG_FINAL }}
 
   build-rosetta-t5x:
     needs: build-containers
