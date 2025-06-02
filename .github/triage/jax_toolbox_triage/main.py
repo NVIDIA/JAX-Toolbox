@@ -384,9 +384,12 @@ def main() -> None:
     def symlink(result: typing.Optional[TestResult], symlink_name: str) -> None:
         if result is None:
             return
-        symlink = args.output_prefix / symlink_name
+        symlink = (args.output_prefix / symlink_name).resolve()
         assert not symlink.exists(), symlink
-        assert result.host_output_directory.parent == args.output_prefix
+        assert symlink.parent == result.host_output_directory.parent, (
+            symlink,
+            result.host_output_directory,
+        )
         symlink.symlink_to(result.host_output_directory.name)
 
     symlink(last_known_good, "last-known-good")
