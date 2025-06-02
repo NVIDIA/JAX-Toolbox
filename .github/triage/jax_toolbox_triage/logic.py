@@ -82,7 +82,7 @@ def container_search(
     logger: logging.Logger,
     skip_precondition_checks: bool,
     threshold_days: int,
-):
+) -> typing.Tuple[datetime.date, datetime.date]:
     adjust = functools.partial(
         adjust_date, logger=logger, container_exists=container_exists
     )
@@ -199,15 +199,17 @@ class BuildAndTest(typing.Protocol):
         ...
 
 
-def _first(xs):
+T = typing.TypeVar("T")
+U = typing.TypeVar("U")
+FlatCommitDict = typing.Tuple[typing.Tuple[str, str], ...]
+
+
+def _first(xs: typing.Iterable[T]) -> T:
     return next(iter(xs))
 
 
-def _not_first(d):
+def _not_first(d: typing.Dict[T, U]) -> typing.Iterable[typing.Tuple[T, U]]:
     return itertools.islice(d.items(), 1, None)
-
-
-FlatCommitDict = typing.Tuple[typing.Tuple[str, str], ...]
 
 
 def _commit_search(
@@ -243,6 +245,7 @@ def _commit_search(
             package: commit_list[0][0] for package, commit_list in commits.items()
         }
         check_pass = build_and_test(commits=passing_commits)
+        assert _cache_key(passing_commits) not in result_cache
         result_cache[_cache_key(passing_commits)] = check_pass
         if check_pass.result:
             logger.info("Verified test passes using 'good' commits")
@@ -263,6 +266,7 @@ def _commit_search(
         # below is actionable without checking the debug logfile.
         with console_log_level(logger, logging.DEBUG):
             check_fail = build_and_test(commits=failing_commits)
+        assert _cache_key(failing_commits) not in result_cache
         result_cache[_cache_key(failing_commits)] = check_fail
         if not check_fail.result:
             logger.info(
@@ -304,6 +308,7 @@ def _commit_search(
             log_msg += f", {len(commit_list)} remaining {secondary} commits"
         logger.info(log_msg)
         bisect_result = build_and_test(commits=bisect_commits)
+        assert _cache_key(bisect_commits) not in result_cache
         result_cache[_cache_key(bisect_commits)] = bisect_result
 
         if bisect_result.result:
@@ -337,9 +342,11 @@ def _commit_search(
         f"Two {primary} commits remain, checking if {commits[primary][-1][0]} is the "
         "culprit"
     )
-    # TODO: it's possible {sX, tZ, ...} == {sZ, tZ, ...} and that this is duplicating work?
-    blame = build_and_test(commits=blame_commits)
-    result_cache[_cache_key(blame_commits)] = blame
+    # It's possible that this combination has already been tested at this point
+    blame = result_cache.get(_cache_key(blame_commits))
+    if blame is None:
+        blame = build_and_test(commits=blame_commits)
+        result_cache[_cache_key(blame_commits)] = blame
     if blame.result:
         # Test passed with {pX, sZ, tZ, ...} but was known to fail with
         # {pZ, sZ, tZ, ...}. Therefore pZ is the culprit commit.

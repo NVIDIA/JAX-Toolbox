@@ -4,6 +4,7 @@ import getpass
 import os
 import pathlib
 import tempfile
+import typing
 
 # Software we know may exist in the containers that we might be able to triage
 # We know how to recompile JAX/XLA, so it's OK that they include C++ code
@@ -15,8 +16,8 @@ compulsory_software = ["xla", "jax"]
 optional_software = ["flax", "maxtext"]
 
 
-def parse_commit_argument(s):
-    ret = {}
+def parse_commit_argument(s: str) -> typing.Dict[str, str]:
+    ret: typing.Dict[str, str] = {}
     for part in s.split(","):
         sw, commit = part.split(":", 1)
         assert sw not in ret, ret
@@ -24,7 +25,7 @@ def parse_commit_argument(s):
     return ret
 
 
-def parse_args(args=None):
+def parse_args(args=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="""
             Triage failures in JAX/XLA-related tests. The expectation is that the given

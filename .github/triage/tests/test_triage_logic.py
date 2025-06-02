@@ -334,8 +334,8 @@ def test_commit_search_static_test_function(logger, value):
         commit_search(
             build_and_test=lambda commits: wrap(value),
             commits=make_commits(
-                jax=[("", start_date), ("", start_date + step_size)],
-                xla=[("", start_date), ("", start_date + step_size)],
+                jax=[("1", start_date), ("2", start_date + step_size)],
+                xla=[("1", start_date), ("2", start_date + step_size)],
             ),
             logger=logger,
             skip_precondition_checks=False,
