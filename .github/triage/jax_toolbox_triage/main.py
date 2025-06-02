@@ -214,9 +214,21 @@ def main():
 
         # Get the full lists of JAX/XLA commits and dates
         def commits(start, end, dir):
-            worker.check_exec(
-                ["git", "fetch"], policy="once_per_container", workdir=dir
+            # In particular the end commit might not already be known if the older,
+            # passing, container is being used for triage.
+            commits_known = worker.exec(
+                [
+                    "sh",
+                    "-c",
+                    f"git cat-file commit {start} && git cat-file commit {end}",
+                ],
+                policy="once_per_container",
+                workdir=dir,
             )
+            if commits_known.returncode != 0:
+                worker.check_exec(
+                    ["git", "fetch"], policy="once_per_container", workdir=dir
+                )
             result = worker.check_exec(
                 [
                     "git",
