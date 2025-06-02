@@ -86,10 +86,10 @@ def main():
         # Construct an output directory name, on the host, for output files written by
         # the test case.
         hash_chars = 8
-        urlhash = hashlib.sha1(url.encode()).hexdigest()[:hash_chars]
+        urlhash = f"container-{hashlib.sha1(url.encode()).hexdigest()[:hash_chars]}"
         out_dirname = "-".join(
             itertools.chain(
-                [urlhash], map(lambda t: f"{t[0]}{t[1][:hash_chars]}", commits.items())
+                [urlhash], map(lambda t: f"{t[0]}-{t[1][:hash_chars]}", commits.items())
             )
         )
         out_dir = args.output_prefix / out_dirname
@@ -137,7 +137,11 @@ def main():
             commits.update(explicit_commits)
             return commits, package_dirs
 
-    def add_summary_record(section, record, scalar=False):
+    def add_summary_record(
+        section: str,
+        record: typing.Dict[str, typing.Union[bool, float, str]],
+        scalar: bool = False,
+    ):
         """
         Add a record to the output JSON file. This is intended to provide a useful record
         even in case of a fatal error.
@@ -180,7 +184,7 @@ def main():
             "container",
             {
                 "container": container_url(date),
-                "output_directory": out_dir,
+                "output_directory": out_dir.as_posix(),
                 "result": test_pass,
                 "test_time": test_time,
             }
@@ -355,7 +359,7 @@ def main():
             {
                 "build_time": middle - before,
                 "container": bisection_url,
-                "output_directory": out_dir,
+                "output_directory": out_dir.as_posix(),
                 "result": test_result.returncode == 0,
                 "test_time": test_time,
             }
