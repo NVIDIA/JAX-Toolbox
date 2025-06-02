@@ -60,6 +60,7 @@ jobs:
       CONTAINER: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
+  # Build JAX and then all the other containers
   build-jax:
     needs: build-base
     uses: ./.github/workflows/_build.yaml
@@ -79,77 +80,76 @@ jobs:
         URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
     secrets: inherit
 
-  build-equinox:
+  build-containers:
     needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-equinox-build
-      BADGE_FILENAME: badge-equinox-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: equinox
-      DOCKERFILE: .github/container/Dockerfile.equinox
-      EXTRA_BUILD_ARGS: |
-        URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
-    secrets: inherit
-
-  build-maxtext:
-    needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-maxtext-build
-      BADGE_FILENAME: badge-maxtext-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: maxtext
-      DOCKERFILE: .github/container/Dockerfile.maxtext
-      EXTRA_BUILD_ARGS: |
-        URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
-        URLREF_JETSTREAM=${{ fromJson(inputs.SOURCE_URLREFS).GOOGLE_JETSTREAM }}
-    secrets: inherit
-
-  build-upstream-t5x:
-    needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-t5x-build"
-      BADGE_FILENAME: "badge-t5x-build"
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: upstream-t5x
-      DOCKERFILE: .github/container/Dockerfile.t5x
-      EXTRA_BUILD_ARGS: |
-        URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
-        URLREF_AIRIO=${{ fromJson(inputs.SOURCE_URLREFS).AIRIO }}
-    secrets: inherit
+    strategy:
+        matrix:
+          include:
+            - container_name: equinox
+              dockerfile: .github/container/Dockerfile.equinox
+              artifact_name: artifact-equinox-build
+              badge_filename: badge-equinox-build
+              runner_size: small
+              base_image: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+              extra_build_args: |
+                  URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
+              output_prefix: equinox
+            - container_name: maxtext
+              dockerfile: .github/container/Dockerfile.maxtext
+              artifact_name: artifact-maxtext-build
+              badge_filename: badge-maxtext-build
+              runner_size: small
+              base_image: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+              extra_build_args: |
+                  URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
+                  URLREF_JETSTREAM=${{ fromJson(inputs.SOURCE_URLREFS).GOOGLE_JETSTREAM }}
+              output_prefix: maxtext
+            - container_name: upstream-t5x
+              dockerfile: .github/container/Dockerfile.t5x
+              artifact_name: artifact-t5x-build
+              badge_filename: badge-t5x-build
+              runner_size: small
+              base_image: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+              extra_build_args: |
+                  URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
+                  URLREF_AIRIO=${{ fromJson(inputs.SOURCE_URLREFS).AIRIO }}
+              output_prefix: upstream-t5x
+            - container_name: axlearn
+              dockerfile: .github/container/Dockerfile.axlearn
+              artifact_name: artifact-axlearn-build
+              badge_filename: badge-axlearn-build
+              runner_size: large
+              base_image: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+              extra_build_args: |
+                  URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
+              output_prefix: axlearn
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "${{ matrix.runner_size }}"]
+    steps:
+      - id: call-build
+        secrets: inherit
+        uses: ./.github/workflows/_build.yaml
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: ${{ matrix.artifact_name }}
+          BADGE_FILENAME: ${{ matrix.badge_filename }}
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ matrix.base_image }}
+          CONTAINER_NAME: ${{ matrix.container_name }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          RUNNER_SIZE: ${{ matrix.runner_size }}
+          EXTRA_BUILD_ARGS: ${{ matrix.extra_build_args || '' }}
+    outputs:
+        ${{ matrix.output_prefix }}_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
+        ${{ matrix.output_prefix }}_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
 
   build-rosetta-t5x:
-    needs: build-upstream-t5x
+    needs: build-containers
     uses: ./.github/workflows/_build_rosetta.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}
+      BASE_IMAGE: ${{ needs.build-containers.outputs.upstream-t5x_DOCKER_TAG_MEALKIT }}
       BASE_LIBRARY: t5x
-    secrets: inherit
-
-  build-axlearn:
-    needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-axlearn-build
-      BADGE_FILENAME: badge-axlearn-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: axlearn
-      DOCKERFILE: .github/container/Dockerfile.axlearn
-      RUNNER_SIZE: large
-      EXTRA_BUILD_ARGS: |
-        URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
     secrets: inherit
 
   collect-docker-tags:
@@ -158,11 +158,8 @@ jobs:
     needs:
       - build-base
       - build-jax
-      - build-equinox
-      - build-maxtext
-      - build-upstream-t5x
+      - build-containers
       - build-rosetta-t5x
-      - build-axlearn
     outputs:
       TAGS: ${{ steps.collect-tags.outputs.TAGS }}
     steps:
@@ -173,17 +170,17 @@ jobs:
           [\
             {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
             {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.equinox_DOCKER_TAG_FINAL }}"},\
+            {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.maxtext.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.upstream-t5x.DOCKER_TAG_FINAL }}"},\
             {"flavor": "t5x",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.axlearn.DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.equinox.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.maxtext.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.upstream-t5x.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "t5x",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.axlearn.DOCKER_TAG_MEALKIT }}"},\
 
             {}\
           ]
@@ -458,30 +455,6 @@ jobs:
         job-config-file: .github/eks-workflow-files/post-process-job.yml
         job-name: ${{ env.POSTPROCESS_JOB_NAME }}
 
-  # test-equinox:
-  #   needs: build-equinox
-  #   if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-  #   uses: ./.github/workflows/_test_unit.yaml
-  #   with:
-  #     IMAGE: ${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}
-  #     TEST_NAME: equinox
-  #     EXECUTE: |
-  #       docker run --shm-size=1g --gpus all ${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }} \
-  #       bash -exc -o pipefail \
-  #       'pushd /opt/equinox/tests && pip install -r requirements.txt && pytest .' | tee test-equinox.log
-  #     STATISTICS_SCRIPT: |
-  #       errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-  #       failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
-  #       passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
-  #       total_tests=$((failed_tests + passed_tests))
-  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-  #       echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-  #     ARTIFACTS: |
-  #       test-equinox.log
-  #   secrets: inherit
-
   test-te-h100:
     needs: build-jax
     if: >-
@@ -578,7 +551,7 @@ jobs:
     secrets: inherit
 
   test-maxtext:
-    needs: build-maxtext
+    needs: build-containers
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
@@ -591,7 +564,7 @@ jobs:
     secrets: inherit
 
   test-axlearn-eks:
-    needs: build-axlearn
+    needs: build-containers
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
@@ -697,7 +670,7 @@ jobs:
           axlearn-output/*
 
   test-axlearn-fuji-models-eks:
-    needs: build-axlearn
+    needs: build-containers
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
