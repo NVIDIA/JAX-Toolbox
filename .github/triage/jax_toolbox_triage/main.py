@@ -71,7 +71,7 @@ def get_commits_and_dirs(
     return package_commits, dirs
 
 
-def main():
+def main() -> None:
     args = parse_args()
     bazel_cache_mounts = prepare_bazel_cache_mounts(args.bazel_cache)
     logger = get_logger(args.output_prefix)
@@ -139,7 +139,7 @@ def main():
 
     def add_summary_record(
         section: str,
-        record: typing.Dict[str, typing.Union[bool, float, str]],
+        record: typing.Mapping[str, typing.Union[bool, float, str]],
         scalar: bool = False,
     ):
         """
@@ -374,11 +374,22 @@ def main():
         )
 
     # Run the commit-level bisection
-    result = commit_search(
+    result, last_known_good, first_known_bad = commit_search(
         commits=package_commits,
         build_and_test=build_and_test,
         logger=logger,
         skip_precondition_checks=args.skip_precondition_checks,
     )
+
+    def symlink(result: typing.Optional[TestResult], symlink_name: str) -> None:
+        if result is None:
+            return
+        symlink = args.output_prefix / symlink_name
+        assert not symlink.exists(), symlink
+        assert result.host_output_directory.parent == args.output_prefix
+        symlink.symlink_to(result.host_output_directory.name)
+
+    symlink(last_known_good, "last_known_good")
+    symlink(first_known_bad, "first_known_bad")
     result["container"] = failing_url
     add_summary_record("result", result, scalar=True)

@@ -207,7 +207,10 @@ def _not_first(d):
     return itertools.islice(d.items(), 1, None)
 
 
-def commit_search(
+FlatCommitDict = typing.Tuple[typing.Tuple[str, str], ...]
+
+
+def _commit_search(
     *,
     commits: typing.OrderedDict[
         str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
@@ -215,20 +218,8 @@ def commit_search(
     build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
-):
-    """
-    Bisect a failure back to a single commit.
-
-    Arguments:
-    commits: *ordered* dictionary of commit sequences for different software
-        packages, e.g. commits["jax"][0] is (hash, date) of the passing JAX
-        commit. The ordering of packages has implications for precisely how
-        the triage proceeds.
-    build_and_test: callable that tests if a given vector of commits passes
-    logger: instance to log output to
-    skip_precondition_checks: if True, some tests that should pass/fail by
-        construction are skipped
-    """
+    result_cache: typing.Dict[FlatCommitDict, TestResult],
+) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
     assert all(len(commit_list) for commit_list in commits.values()), (
         "Not enough commits: need at least one commit for each package",
         commits,
@@ -237,6 +228,11 @@ def commit_search(
         "Not enough commits: need multiple commits for at least one package",
         commits,
     )
+
+    def _cache_key(
+        commits: typing.Dict[str, str],
+    ) -> FlatCommitDict:
+        return tuple(sorted(commits.items()))
 
     if skip_precondition_checks:
         logger.info("Skipping check that 'good' commits reproduce success")
@@ -247,6 +243,7 @@ def commit_search(
             package: commit_list[0][0] for package, commit_list in commits.items()
         }
         check_pass = build_and_test(commits=passing_commits)
+        result_cache[_cache_key(passing_commits)] = check_pass
         if check_pass.result:
             logger.info("Verified test passes using 'good' commits")
         else:
@@ -266,6 +263,7 @@ def commit_search(
         # below is actionable without checking the debug logfile.
         with console_log_level(logger, logging.DEBUG):
             check_fail = build_and_test(commits=failing_commits)
+        result_cache[_cache_key(failing_commits)] = check_fail
         if not check_fail.result:
             logger.info(
                 "Verified test failure using 'bad' commits. IMPORTANT: you should check "
@@ -305,9 +303,10 @@ def commit_search(
             bisect_commits[secondary] = commit
             log_msg += f", {len(commit_list)} remaining {secondary} commits"
         logger.info(log_msg)
-        bisect_result = build_and_test(commits=bisect_commits).result
+        bisect_result = build_and_test(commits=bisect_commits)
+        result_cache[_cache_key(bisect_commits)] = bisect_result
 
-        if bisect_result:
+        if bisect_result.result:
             # Test passed, continue searching in the second half
             for package, index in indices.items():
                 commits[package] = commits[package][index:]
@@ -338,7 +337,9 @@ def commit_search(
         f"Two {primary} commits remain, checking if {commits[primary][-1][0]} is the "
         "culprit"
     )
+    # TODO: it's possible {sX, tZ, ...} == {sZ, tZ, ...} and that this is duplicating work?
     blame = build_and_test(commits=blame_commits)
+    result_cache[_cache_key(blame_commits)] = blame
     if blame.result:
         # Test passed with {pX, sZ, tZ, ...} but was known to fail with
         # {pZ, sZ, tZ, ...}. Therefore pZ is the culprit commit.
@@ -351,18 +352,72 @@ def commit_search(
             f"{primary}_bad": bad_commit,
             f"{primary}_good": good_commit,
         }
+        first_known_bad = {primary: bad_commit}
         for secondary, secondary_commit in _not_first(blame_commits):
+            first_known_bad[secondary] = secondary_commit
             ret[f"{secondary}_ref"] = secondary_commit
-        return ret
+        # `blame` represents the last-known-good test result, first-known-bad was seen
+        # earlier, or possibly not at all e.g. if `skip_precondition_checks` is True
+        # and first-known-bad was the end of the search range.
+        first_known_bad_result = result_cache.get(_cache_key(first_known_bad))
+        if first_known_bad_result is None:
+            if skip_precondition_checks:
+                logger.info(
+                    "Did not find a cached result for the first-known-bad "
+                    f"configuration {first_known_bad}, this is probably due to "
+                    "--skip-precondition-checks having been passed."
+                )
+            else:
+                logger.error(
+                    "Did not find a cached result for the first-known-bad "
+                    f"configuration {first_known_bad}, this is unexpected!"
+                )
+        return ret, blame, first_known_bad_result
     else:
         # Test failed with both {pX, sZ, tZ, ...} and {pZ, sZ, tZ, ...}, so
         # we can fix the primary package to pX and recurse with the old
         # secondary package (s) as the new primary, and the old primary
         # package (p) moved to the end.
         commits[primary] = [commits.pop(primary)[0]]
-        return commit_search(
+        return _commit_search(
             build_and_test=build_and_test,
             commits=commits,
             logger=logger,
             skip_precondition_checks=True,
+            result_cache=result_cache,
         )
+
+
+def commit_search(
+    *,
+    commits: typing.OrderedDict[
+        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
+    ],
+    build_and_test: BuildAndTest,
+    logger: logging.Logger,
+    skip_precondition_checks: bool,
+) -> typing.Tuple[
+    typing.Dict[str, str],
+    TestResult,
+    typing.Optional[TestResult],
+]:
+    """
+    Bisect a failure back to a single commit.
+
+    Arguments:
+    commits: *ordered* dictionary of commit sequences for different software
+        packages, e.g. commits["jax"][0] is (hash, date) of the passing JAX
+        commit. The ordering of packages has implications for precisely how
+        the triage proceeds.
+    build_and_test: callable that tests if a given vector of commits passes
+    logger: instance to log output to
+    skip_precondition_checks: if True, some tests that should pass/fail by
+        construction are skipped
+    """
+    return _commit_search(
+        commits=commits,
+        build_and_test=build_and_test,
+        logger=logger,
+        skip_precondition_checks=skip_precondition_checks,
+        result_cache={},
+    )
