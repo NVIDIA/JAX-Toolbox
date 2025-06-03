@@ -167,8 +167,6 @@ jobs:
         axlearn_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
         axlearn_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
 
-
-
   build-rosetta-t5x:
     needs: build-containers
     uses: ./.github/workflows/_build_rosetta.yaml
@@ -587,7 +585,7 @@ jobs:
       )
     uses: ./.github/workflows/_test_maxtext.yaml
     with:
-      MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
+      MAXTEXT_IMAGE: ${{ needs.build-containers.outputs.maxtext_DOCKER_TAG_FINAL }}
     secrets: inherit
 
   test-axlearn-eks:
@@ -600,7 +598,7 @@ jobs:
       )
     runs-on: eks
     env:
-      AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+      AXLEARN_DOCKER_IMAGE: ${{ needs.build-containers.outputs.axlearn_DOCKER_TAG_FINAL }}
       JOB_NAME: axlearn-${{ github.run_id }}
     steps:
     - name: Check out the repository
@@ -706,7 +704,7 @@ jobs:
       )
     runs-on: eks
     env:
-      AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+      AXLEARN_DOCKER_IMAGE: ${{ needs.build-containers.outputs.axlearn_DOCKER_TAG_FINAL }}
       JOB_NAME: axlearn-fuji-3b-${{ github.run_id }}
     steps:
     - name: Check out the repository
