@@ -69,7 +69,7 @@ jobs:
 
       - name: Create maxtext workload
         env:
-          WORKLOAD_NAME: maxtext
+          WORKLOAD_NAME_PREFIX: maxtext
           IMAGE: ghcr.io/nvidia/jax-toolbox-internal:14690670611-maxtext-amd64
           DEVICE_TYPE: h100-mega-80gb-8
           IMAGE_PULL_SECRET: jax-toolbox-ghcr
@@ -80,6 +80,7 @@ jobs:
           MAXTEXT_FSDP: 16
         run: |
           set -x
+          WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}
           
           CMD="
               console=/dev/stdout;
