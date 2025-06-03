@@ -103,7 +103,7 @@ jobs:
                                            profiler=nsys 
                                            skip_first_n_steps_for_profiler=3 
                                            profiler_steps=8' |&
-              tee /opt/output/output.$NODE_RANK.log >\"\${console}\"
+              tee /opt/output/output.$NODE_RANK.log > \${console}
           "
 
           # set container command in-line
