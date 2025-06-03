@@ -40,15 +40,19 @@ inputs:
     default: ""
   ssh-private-key:
     description: "SSH private key to use for building the image"
-    required: false
+    required: true
     default: ""
   ssh-known-hosts:
     description: "SSH known hosts entries to use for building the image"
-    required: false
+    required: true
     default: ""
   github-token:
     description: "GitHub token to use for authentication"
-    required: false
+    required: true
+    default: ""
+  bazel-remote-cache-url:
+    description: "URL of the Bazel remote cache to use for building the image"
+    required: true
     default: ""
 
 outputs:
@@ -122,7 +126,7 @@ runs:
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
     # FINAL IMAGE BUILD
@@ -155,7 +159,7 @@ runs:
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          BAZEL_CACHE=${{ inputs.BAZEL_REMOTE_CACHE_URL }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
 
