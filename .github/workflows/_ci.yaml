@@ -138,6 +138,8 @@ jobs:
               output_prefix: axlearn
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "${{ matrix.runner_size }}"]
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Build container ${{ matrix.container_name }}
         id: call-build
         uses: ./.github/actions/build-container
@@ -155,11 +157,16 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
           EXTRA_BUILD_ARGS: ${{ matrix.extra_build_args || '' }}
-      - name: Export output variables for ${{ matrix.container_name }}
-        id: export
-        run: |
-          echo "${{ matrix.output_prefix }}_DOCKER_TAG_MEALKIT=${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}" >> $GITHUB_OUTPUT
-          echo "${{ matrix.output_prefix }}_DOCKER_TAG_FINAL=${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}" >> $GITHUB_OUTPUT
+    outputs:
+        equinox_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
+        equinox_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
+        maxtext_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
+        maxtext_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
+        upstream-t5x_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
+        upstream-t5x_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
+        axlearn_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
+        axlearn_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
+
 
 
   build-rosetta-t5x:
@@ -191,16 +198,16 @@ jobs:
             {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
             {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.equinox_DOCKER_TAG_FINAL }}"},\
-            {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.maxtext.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.upstream-t5x.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.maxtext_DOCKER_TAG_FINAL }}"},\
+            {"flavor": "upstream-t5x", "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.upstream-t5x_DOCKER_TAG_FINAL }}"},\
             {"flavor": "t5x",          "stage": "final",   "priority": 900,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.axlearn.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-containers.outputs.axlearn_DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.equinox.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.maxtext.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.upstream-t5x.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.equinox_DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.maxtext_DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "upstream-t5x", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.upstream-t5x_DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "t5x",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-rosetta-t5x.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.axlearn.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-containers.outputs.axlearn_DOCKER_TAG_MEALKIT }}"},\
 
             {}\
           ]
