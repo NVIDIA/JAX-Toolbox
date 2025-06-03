@@ -67,6 +67,11 @@ jobs:
             echo "Cluster $CLUSTER_NAME already exists, skipping creation"  
           fi
 
+      - name: Apply xpk workload create patch
+        run: |
+          cd $HOME/xpk && git checkout src/xpk/core/workload_decorators/tcpxo_decorator.py && cd -
+          git apply --unsafe-paths .github/gke-workflow/xpk/tcpxo_decorator.patch --directory $HOME/xpk 
+
       - name: Create maxtext workload
         env:
           WORKLOAD_NAME_PREFIX: maxtext
