@@ -73,9 +73,6 @@ runs:
         echo 'UPLD_IMAGE=ghcr.io/nvidia/jax-toolbox-internal' >> $GITHUB_ENV
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
 
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
     - name: Setup SSH
       id: setup-ssh
       uses: ./.github/actions/setup-ssh

@@ -156,16 +156,22 @@ jobs:
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-          EXTRA_BUILD_ARGS: ${{ matrix.extra_build_args || '' }}
+          EXTRA_BUILD_ARGS: ${{ matrix.extra_build_args }}
+      # make sure each container has the right tag
+      - name: Export container tags
+        id: export
+        run: |
+          echo "${{ matrix.output_prefix }}_DOCKER_TAG_MEALKIT=${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}" >> $GITHUB_OUTPUT
+          echo "${{ matrix.output_prefix }}_DOCKER_TAG_FINAL=${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}" >> $GITHUB_OUTPUT
     outputs:
-        equinox_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
-        equinox_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
-        maxtext_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
-        maxtext_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
-        upstream-t5x_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
-        upstream-t5x_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
-        axlearn_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}
-        axlearn_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}
+      equinox_DOCKER_TAG_MEALKIT: ${{ steps.export.outputs.equinox_DOCKER_TAG_MEALKIT }}
+      equinox_DOCKER_TAG_FINAL: ${{ steps.export.outputs.equinox_DOCKER_TAG_FINAL }}
+      maxtext_DOCKER_TAG_MEALKIT: ${{ steps.export.outputs.maxtext_DOCKER_TAG_MEALKIT }}
+      maxtext_DOCKER_TAG_FINAL: ${{ steps.export.outputs.maxtext_DOCKER_TAG_FINAL }}
+      upstream-t5x_DOCKER_TAG_MEALKIT: ${{ steps.export.outputs.upstream-t5x_DOCKER_TAG_MEALKIT }}
+      upstream-t5x_DOCKER_TAG_FINAL: ${{ steps.export.outputs.upstream-t5x_DOCKER_TAG_FINAL }}
+      axlearn_DOCKER_TAG_MEALKIT: ${{ steps.export.outputs.axlearn_DOCKER_TAG_MEALKIT }}
+      axlearn_DOCKER_TAG_FINAL: ${{ steps.export.outputs.axlearn_DOCKER_TAG_FINAL }}
 
   build-rosetta-t5x:
     needs: build-containers
