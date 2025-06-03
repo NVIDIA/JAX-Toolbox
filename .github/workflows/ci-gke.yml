@@ -68,6 +68,3 @@ jobs:
           else
             echo "Cluster $CLUSTER_NAME already exists, skipping creation"  
           fi
-
-      - name: Create cluster from compute reservation with xpk
-        env:
