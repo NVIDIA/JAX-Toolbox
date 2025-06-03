@@ -38,6 +38,19 @@ inputs:
     description: "Extra build arguments to pass to the Docker build"
     required: false
     default: ""
+  ssh-private-key:
+    description: "SSH private key to use for building the image"
+    required: false
+    default: ""
+  ssh-known-hosts:
+    description: "SSH known hosts entries to use for building the image"
+    required: false
+    default: ""
+  github-token:
+    description: "GitHub token to use for authentication"
+    required: false
+    default: ""
+
 outputs:
   DOCKER_TAG_MEALKIT:
     description: "Tags of the 'mealkit' image built"
@@ -63,15 +76,15 @@ runs:
       id: setup-ssh
       uses: ./.github/actions/setup-ssh
       with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-        ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+        ssh-private-key: ${{ inputs.ssh-private-key }}
+        ssh-known-hosts: ${{ inputs.ssh-known-hosts }}
 
     - name: Login to GHCR
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ inputs.github-token }}
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3

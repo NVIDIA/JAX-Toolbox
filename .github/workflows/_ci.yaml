@@ -80,11 +80,17 @@ jobs:
             CONTAINER_NAME: jax
             DOCKERFILE: .github/container/Dockerfile.jax
             RUNNER_SIZE: large
+            ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+            ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+            github-token: ${{ secrets.GITHUB_TOKEN }}
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}
 
   build-containers:
     needs: build-jax
