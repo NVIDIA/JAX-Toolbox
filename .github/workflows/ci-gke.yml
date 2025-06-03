@@ -32,8 +32,8 @@ jobs:
 
       - name: Environment
         run: |
-          set -x
-
+          set -x 
+          
           gcloud version
 
           source $HOME/.venv/bin/activate
@@ -42,8 +42,6 @@ jobs:
 
       - name: Apply xpk patch
         run: |
-          set -x
-          
           cd $HOME/xpk && git checkout src/xpk/core/blueprint/blueprint_generator.py && cd -
           git apply --unsafe-paths .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk 
 
@@ -68,3 +66,59 @@ jobs:
           else
             echo "Cluster $CLUSTER_NAME already exists, skipping creation"  
           fi
+
+      - name: Create maxtext workload
+        env:
+          WORKLOAD_NAME: maxtext
+          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:14690670611-maxtext-amd64
+          DEVICE_TYPE: h100-mega-80gb-8
+          IMAGE_PULL_SECRET: jax-toolbox-ghcr
+          MAXTEXT_MODEL: llama2-7b 
+          MAXTEXT_ATTENTION_TYPE: cudnn_flash_te
+          MAXTEXT_REMAT_POLICY: minimal_flash
+          MAXTEXT_TRAIN_STEPS: 20
+          MAXTEXT_FSDP: 16
+        run: |
+          set -x
+          
+          CMD="
+              console=/dev/stdout;
+              nsys-jax --capture-range=cudaProfilerApi 
+                       --capture-range-end=stop 
+                       -o /opt/output/profile.zip 
+                       -- 
+                       test-maxtext.sh -n $NUM_NODES 
+                                       -b $NUM_NODES
+                                       --model-name=$MAXTEXT_MODEL
+                                       --attn-type=$MAXTEXT_ATTENTION_TYPE 
+                                       --remat-policy=$MAXTEXT_REMAT_POLICY 
+                                       --steps=$MAXTEXT_TRAIN_STEPS 
+                                       --fsdp=$MAXTEXT_FSDP 
+                                       --multiprocess 
+                                       -a 'scan_layers=false
+                                           max_target_length=4096 
+                                           use_iota_embed=true 
+                                           logits_dot_in_fp32=false 
+                                           profiler=nsys 
+                                           skip_first_n_steps_for_profiler=3 
+                                           profiler_steps=8' |&
+              tee /opt/output/output.$NODE_RANK.log >\"\${console}\"
+          "
+
+          # set container command in-line
+          CMD=$(echo $CMD | sed 's/\n/\ /g')
+
+          cd $HOME/xpk
+          source $HOME/.venv/bin/activate
+          python xpk.py workload create \
+                        --cluster $CLUSTER_NAME \
+                        --zone $ZONE \
+                        --workload $WORKLOAD_NAME \
+                        --docker-image $IMAGE \
+                        --device-type $DEVICE_TYPE \
+                        --num-nodes $NUM_NODES \
+                        --num-slices $NUM_NODES \
+                        --priority=high \
+                        --scheduler=gke.io/topology-aware-auto \
+                        --command "$CMD"
+
