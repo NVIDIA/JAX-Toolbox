@@ -16,6 +16,17 @@ permissions:
 jobs:
   test:
     runs-on: gke-a3mega
+
+      env:
+        CLUSTER_NAME: jtb-30-05-2025
+        GKE_VERSION: 1.31.6-gke.1221000 
+        A3_MEGA: h100-mega-80gb-8
+        DEFAULT_CPU_MACHINE: e2-standard-8
+        NUM_NODES: 2
+        ZONE: us-central1-a
+        RESERVATION: jtb-reservation
+        PROJECT: nv-jaxtoolboxgcp-20240925
+
     steps:
       - uses: actions/checkout@v4
 
@@ -37,19 +48,10 @@ jobs:
           git apply --unsafe-paths .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk 
 
       - name: Create cluster from compute reservation with xpk
-        env:
-          CLUSTER_NAME: jtb-30-05-2025
-          GKE_VERSION: 1.31.6-gke.1221000 
-          A3_MEGA: h100-mega-80gb-8
-          DEFAULT_CPU_MACHINE: e2-standard-8
-          NUM_NODES: 2
-          ZONE: us-central1-a
-          RESERVATION: jtb-reservation
-          PROJECT: nv-jaxtoolboxgcp-20240925
         run: |
           set -x
           
-          CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == \"\$CLUSTER_NAME\")')
+          CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == "'$CLUSTER_NAME'")')
           
           if ! [ $CLUSTER_EXISTS = true  ]; then
             cd $HOME/xpk
@@ -67,3 +69,5 @@ jobs:
             echo "Cluster $CLUSTER_NAME already exists, skipping creation"  
           fi
 
+      - name: Create cluster from compute reservation with xpk
+        env:
