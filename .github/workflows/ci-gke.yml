@@ -33,31 +33,37 @@ jobs:
         run: |
           set -x
           
-          git apply --unsafe-paths .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk
+          cd $HOME/xpk && git checkout src/xpk/core/blueprint/blueprint_generator.py && cd -
+          git apply --unsafe-paths .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk 
 
       - name: Create cluster from compute reservation with xpk
+        env:
+          CLUSTER_NAME: jtb-30-05-2025
+          GKE_VERSION: 1.31.6-gke.1221000 
+          A3_MEGA: h100-mega-80gb-8
+          DEFAULT_CPU_MACHINE: e2-standard-8
+          NUM_NODES: 2
+          ZONE: us-central1-a
+          RESERVATION: jtb-reservation
+          PROJECT: nv-jaxtoolboxgcp-20240925
         run: |
           set -x
+          
+          CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == \"\$CLUSTER_NAME\")')
+          
+          if ! [ $CLUSTER_EXISTS = true  ]; then
+            cd $HOME/xpk
+            source $HOME/.venv/bin/activate
+            python xpk.py cluster create \
+                    --cluster $CLUSTER_NAME \
+                    --gke-version $GKE_VERSION \
+                    --device-type $A3_MEGA \
+                    --num-nodes $NUM_NODES \
+                    --default-pool-cpu-machine-type=$DEFAULT_CPU_MACHINE \
+                    --project=$PROJECT \
+                    --reservation $RESERVATION \
+                    --zone $ZONE
+          else
+            echo "Cluster $CLUSTER_NAME already exists, skipping creation"  
+          fi
 
-          CLUSTER_NAME=jtb-30-05-2025
-          GKE_VERSION=1.31.6-gke.1221000 
-          A3_MEGA=h100-mega-80gb-8
-          DEFAULT_CPU_MACHINE=e2-standard-8
-          NUM_NODES=2
-          
-          ZONE=us-central1-a
-          RESERVATION=jtb-reservation
-          
-          PROJECT=nv-jaxtoolboxgcp-20240925
-          
-          cd $HOME/xpk
-          source $HOME/.venv/bin/activate
-          python xpk.py cluster create \
-                  --cluster  $CLUSTER_NAME \
-                  --gke-version $GKE_VERSION \
-                  --device-type $A3_MEGA \
-                  --num-nodes $NUM_NODES \
-                  --default-pool-cpu-machine-type=$DEFAULT_CPU_MACHINE \
-                  --project=$PROJECT \
-                  --reservation $RESERVATION \
-                  --zone $ZONE
