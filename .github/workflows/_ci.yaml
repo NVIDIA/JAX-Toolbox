@@ -138,7 +138,8 @@ jobs:
               output_prefix: axlearn
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "${{ matrix.runner_size }}"]
     steps:
-      - id: call-build
+      - name: Build container ${{ matrix.container_name }}
+        id: call-build
         uses: ./.github/actions/build-container
         with:
           ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
@@ -149,16 +150,17 @@ jobs:
           CONTAINER_NAME: ${{ matrix.container_name }}
           DOCKERFILE: ${{ matrix.dockerfile }}
           RUNNER_SIZE: ${{ matrix.runner_size }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
           EXTRA_BUILD_ARGS: ${{ matrix.extra_build_args || '' }}
-    outputs:
-        equinox_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.equinox_DOCKER_TAG_MEALKIT }}
-        equinox_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.equinox_DOCKER_TAG_FINAL }}
-        maxtext_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.maxtext_DOCKER_TAG_MEALKIT }}
-        maxtext_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.maxtext_DOCKER_TAG_FINAL }}
-        upstream-t5x_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.upstream-t5x_DOCKER_TAG_MEALKIT }}
-        upstream-t5x_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.upstream-t5x_DOCKER_TAG_FINAL }}
-        axlearn_DOCKER_TAG_MEALKIT: ${{ steps.call-build.outputs.axlearn_DOCKER_TAG_MEALKIT }}
-        axlearn_DOCKER_TAG_FINAL: ${{ steps.call-build.outputs.axlearn_DOCKER_TAG_FINAL }}
+      - name: Export output variables for ${{ matrix.container_name }}
+        id: export
+        run: |
+          echo "${{ matrix.output_prefix }}_DOCKER_TAG_MEALKIT=${{ steps.call-build.outputs.DOCKER_TAG_MEALKIT }}" >> $GITHUB_OUTPUT
+          echo "${{ matrix.output_prefix }}_DOCKER_TAG_FINAL=${{ steps.call-build.outputs.DOCKER_TAG_FINAL }}" >> $GITHUB_OUTPUT
+
 
   build-rosetta-t5x:
     needs: build-containers
