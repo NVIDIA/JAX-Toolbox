@@ -292,6 +292,25 @@ but that if JAX is moved forward to include
 then the test fails.
 This failure is fixed in [jax#24427](https://github.com/jax-ml/jax/pull/24427).
 
+## Other features
+The tool will mount a host system directory (under `--output-prefix`) into the
+container at `/triage-tool-output` and will make sure that this directory is unique for
+each container + commits that is tested. After the triage has converged, the tool will
+create `first-known-bad` and `last-known-good` symlinks under `--output-prefix` that
+identify the directories corresponding to immediately before and after the problematic
+commit.
+
+This can be useful to save metadata, such as HLO dump files or profile data.
+
+**Important**: if your test case launches multiple processes, it is your responsibility
+to segregate their output underneath `/triage-tool-output`, for example by using
+`$SLURM_PROCID` to only write output from one process, or to write to process-dependent
+locations. *e.g.* you might set `--xla_dump_to=/triage-tool-output/rank${SLURM_PROCID}`
+in your test script, and then compare the HLO dumps from
+`triage-YYYY-MM-DD-HH-MM-SS/last-known-good/rank0` and
+`triage-YYYY-MM-DD-HH-MM-SS/first-known-bad/rank0`
+after the triage has converged.
+
 ## Limitations
 
 This tool aims to target the common case that regressions are due to commits in JAX or

@@ -3,10 +3,11 @@ import pathlib
 import subprocess
 import typing
 
+from .container import Container
 from .utils import run_and_log
 
 
-class DockerContainer:
+class DockerContainer(Container):
     def __init__(
         self,
         url: str,
@@ -14,7 +15,7 @@ class DockerContainer:
         logger: logging.Logger,
         mounts: typing.List[typing.Tuple[pathlib.Path, pathlib.Path]],
     ):
-        self._logger = logger
+        super().__init__(logger=logger)
         self._mount_args = []
         for src, dst in mounts:
             self._mount_args += ["-v", f"{src}:{dst}"]
@@ -73,19 +74,6 @@ class DockerContainer:
             logger=self._logger,
             stderr=stderr,
         )
-
-    def check_exec(
-        self, cmd: typing.List[str], **kwargs
-    ) -> subprocess.CompletedProcess:
-        result = self.exec(cmd, **kwargs)
-        if result.returncode != 0:
-            self._logger.fatal(
-                f"{' '.join(cmd)} exited with return code {result.returncode}"
-            )
-            self._logger.fatal(result.stdout)
-            self._logger.fatal(result.stderr)
-            result.check_returncode()
-        return result
 
     def exists(self) -> bool:
         """
