@@ -37,6 +37,7 @@ jobs:
           bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
 
   nccl-test:
+    needs: build-mpi-operator-compatible-base
     strategy:
       matrix:
         test: [all_gather_perf_mpi, all_reduce_perf_mpi, broadcast_perf_mpi, reduce_scatter_perf_mpi]
