@@ -54,7 +54,8 @@ jobs:
     secrets: inherit
 
   build-mpi-operator-compatible-base:
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
+    needs: build-base
+    runs-on: [self-hosted, "amd64", "small"]
     outputs:
       DOCKER_TAG: ${{ steps.build.outputs.DOCKER_TAG }}
     steps:
@@ -64,11 +65,11 @@ jobs:
         id: build
         uses: ./.github/actions/build-container
         with:
-          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARCHITECTURE: "amd64"
           ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
           BADGE_FILENAME: badge-mpi-operator-compatible-base-build
           BUILD_DATE: ${{ inputs.BUILD_DATE }}
-          BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
+          BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
           CONTAINER_NAME: mpi-operator-compatible-base
           DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
           RUNNER_SIZE: small
