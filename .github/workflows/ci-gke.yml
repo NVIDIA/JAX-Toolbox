@@ -69,8 +69,10 @@ jobs:
 
       - name: Apply xpk workload create patch
         run: |
-          cd $HOME/xpk && git checkout src/xpk/core/workload_decorators/tcpxo_decorator.py && cd -
+          cd $HOME/xpk && git checkout src/xpk/core && cd -
           git apply --unsafe-paths .github/gke-workflow/xpk/tcpxo_decorator.patch --directory $HOME/xpk 
+          git apply --unsafe-paths .github/gke-workflow/xpk/docker_resources.patch --directory $HOME/xpk 
+          git apply --unsafe-paths .github/gke-workflow/xpk/workflow.patch --directory $HOME/xpk 
 
       - name: Create maxtext workload
         env:
@@ -83,10 +85,6 @@ jobs:
           MAXTEXT_REMAT_POLICY: minimal_flash
           MAXTEXT_TRAIN_STEPS: 20
           MAXTEXT_FSDP: 16
-          JAX_COORDINATOR_PORT: 3389
-          JAX_COORDINATOR_ADDRESS: maxtext:3389
-          NCCL_LIB_DIR: /opt/nvidia/nccl/lib
-          LD_LIBRARY_PATH: /opt/nvidia/nccl/lib:/usr/local/cuda-12.8/compat/lib.real:/usr/local/nvidia/lib6
         run: |
           set -x
           WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}
@@ -130,9 +128,5 @@ jobs:
                         --num-slices $NUM_NODES \
                         --priority=high \
                         --scheduler=gke.io/topology-aware-auto \
-                        --env JAX_COORDINATOR_PORT=$JAX_COORDINATOR_PORT \
-                        --env JAX_COORDINATOR_ADDRESS=$JAX_COORDINATOR_ADDRESS \
-                        --env NCCL_LIB_DIR=$NCCL_LIB_DIR \
-                        --env LD_LIBRARY_PATH=$LD_LIBRARY_PATH \
                         --command "$CMD"
 

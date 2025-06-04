@@ -1,0 +1,26 @@
+diff --git a/src/xpk/commands/workload.py b/src/xpk/commands/workload.py
+index a466a5c..8a5b99e 100644
+--- a/src/xpk/commands/workload.py
++++ b/src/xpk/commands/workload.py
+@@ -227,6 +227,8 @@ spec:
+               tolerations:
+               - operator: "Exists"
+                 key: nvidia.com/gpu
++              imagePullSecrets:
++              - name: jax-toolbox-ghcr
+               containers:
+               {container}
+ """
+@@ -463,6 +465,12 @@ def workload_create(args) -> None:
+       if args.device_type == cluster_gcluster.a3mega_device_type:
+         sub_networks = get_subnetworks_for_a3mega(args.cluster)
+         yml_string = tcpxo_decorator.decorate_jobset(yml_string, sub_networks)
++        yml_string += """\
++            - name: shared-memory
++              emptyDir:
++                medium: Memory
++                sizeLimit: 0.5Ti
++        """
+ 
+       if args.device_type == cluster_gcluster.a3ultra_device_type:
+         sub_networks = get_subnetworks_for_a3ultra(args.cluster)

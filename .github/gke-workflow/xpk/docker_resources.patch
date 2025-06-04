@@ -1,0 +1,109 @@
+diff --git a/src/xpk/core/docker_resources.py b/src/xpk/core/docker_resources.py
+index a95c557..754ac03 100644
+--- a/src/xpk/core/docker_resources.py
++++ b/src/xpk/core/docker_resources.py
+@@ -20,6 +20,8 @@ from .storage import GCS_FUSE_TYPE, GCP_FILESTORE_TYPE, Storage, get_storages_to
+ from .system_characteristics import AcceleratorType, SystemCharacteristics
+ 
+ 
++JAX_TOOLBOX_IMAGE_CONTAINER_PORT = 3389
++
+ def get_main_container_resources(
+     args, system: SystemCharacteristics, resource_type
+ ) -> str:
+@@ -64,7 +66,7 @@ def get_env_container(args, system: SystemCharacteristics) -> str:
+     str:
+       YAML with the env config for the main container, as a YAML string.
+   """
+-  gpu_env_yaml = """
++  gpu_env_yaml = f"""
+                   - name: REPLICATED_JOB_NAME
+                     valueFrom:
+                       fieldRef:
+@@ -74,30 +76,32 @@ def get_env_container(args, system: SystemCharacteristics) -> str:
+                       fieldRef:
+                         fieldPath: metadata.annotations['jobset.sigs.k8s.io/jobset-name']
+                   - name: JAX_COORDINATOR_ADDRESS
+-                    value: "$(JOBSET_NAME)-$(REPLICATED_JOB_NAME)-0-0.$(JOBSET_NAME)"
++                    value: "$(JOBSET_NAME)-$(REPLICATED_JOB_NAME)-0-0.$(JOBSET_NAME):{JAX_TOOLBOX_IMAGE_CONTAINER_PORT}"
+                   - name: NNODES
+-                    value: "{args.num_nodes}"
++                    value: "{{args.num_nodes}}"
+                   - name: NODE_RANK
+                     valueFrom:
+                       fieldRef:
+                         fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                   - name: USE_GPUDIRECT
+-                    value: {gpu_direct_name}
++                    value: {{gpu_direct_name}}
+                   - name: GPUS_PER_NODE
+-                    value: "{system.chips_per_vm}"
++                    value: "{{system.chips_per_vm}}"
+                   - name: JAX_COORDINATOR_PORT
+-                    value: "6002"
++                    value: "{JAX_TOOLBOX_IMAGE_CONTAINER_PORT}"
+                   - name: COMMAND
+-                    value: "{args.command}"
+-                  {args.env}"""
++                    value: "{{args.command}}"
++                  {{args.env}}"""
+ 
+   if system.accelerator_type == AcceleratorType['GPU']:
+     gpu_direct_name = 'fastrak'
+     if args.device_type == H100_DEVICE_TYPE:
+       gpu_direct_name = 'tcpx'
+       gpu_env_yaml += """
++                  - name: NCCL_LIB_DIR
++                    value: /opt/nvidia/nccl/lib
+                   - name: LD_LIBRARY_PATH
+-                    value: /usr/local/nvidia/lib64
++                    value: /opt/nvidia/nccl/lib:/usr/local/cuda-12.8/compat/lib.real:/usr/local/nvidia/lib64
+ """
+     elif args.device_type == H100_MEGA_DEVICE_TYPE:
+       gpu_direct_name = 'tcpxo'
+@@ -123,7 +127,7 @@ def get_cpu_env(num_slices, env_vars, system) -> str:
+   Returns:
+     str: yaml containing env variables
+   """
+-  yaml = """
++  yaml = f"""
+                 - name: REPLICATED_JOB_NAME
+                   valueFrom:
+                     fieldRef:
+@@ -137,12 +141,12 @@ def get_cpu_env(num_slices, env_vars, system) -> str:
+                     fieldRef:
+                       fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                 - name: PROCESSES_IN_JOB
+-                  value: "{processes_in_job}"
++                  value: "{{processes_in_job}}"
+                 - name: JAX_PROCESS_COUNT
+-                  value: "{process_count}"
+-                {env_vars}
++                  value: "{{process_count}}"
++                {{env_vars}}
+                 - name: JAX_COORDINATOR_ADDRESS
+-                  value: "$(JOBSET_NAME)-$(REPLICATED_JOB_NAME)-0-0.$(JOBSET_NAME)"
++                  value: "$(JOBSET_NAME)-$(REPLICATED_JOB_NAME)-0-0.$(JOBSET_NAME):{JAX_TOOLBOX_IMAGE_CONTAINER_PORT}"
+   """
+   return yaml.format(
+       processes_in_job=system.vms_per_slice,
+@@ -251,7 +255,9 @@ def get_volume_mounts(args, system: SystemCharacteristics) -> str:
+         or system.device_type == H200_DEVICE_TYPE
+         or system.device_type == B200_DEVICE_TYPE
+     ):
+-      volume_mount_yaml = ''
++      volume_mount_yaml = """- name: shared-memory
++                  mountPath: /dev/shm
++      """
+ 
+   storages: list[Storage] = get_storages_to_mount(
+       setup_k8s_env(args), args.storage
+@@ -300,7 +306,7 @@ def add_container_ports(args, system: SystemCharacteristics) -> str:
+   if args.use_pathways:
+     return ''
+ 
+-  gpu_port_yaml = """- containerPort: 6002"""
++  gpu_port_yaml = f"- containerPort: {JAX_TOOLBOX_IMAGE_CONTAINER_PORT}"
+   if system.accelerator_type == AcceleratorType['GPU']:
+     return gpu_port_yaml
+   return port_yaml
