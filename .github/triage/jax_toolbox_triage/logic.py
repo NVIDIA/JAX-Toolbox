@@ -420,6 +420,12 @@ def commit_search(
     logger: instance to log output to
     skip_precondition_checks: if True, some tests that should pass/fail by
         construction are skipped
+
+    Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
+    where the last element can be None if skip_precondition_checks=True. The
+    last two elements' .result fields will always be, respectively, True and
+    False, but the other fields can be used to obtain stdout+stderr and
+    output files from those test invocations.
     """
     return _commit_search(
         commits=commits,
