@@ -14,26 +14,13 @@ permissions:
   packages: write # to upload container
 
 jobs:
-  build-mpi-operator-compatible-base:
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: amd64
-      ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
-      BADGE_FILENAME: badge-mpi-operator-compatible-base-build
-      BUILD_DATE: 0000-00-00 # not important; this image is never published
-      BASE_IMAGE: ${{ inputs.CONTAINER }}
-      CONTAINER_NAME: mpi-operator-compatible-base
-      DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
-      RUNNER_SIZE: small
-    secrets: inherit
   nccl-test:
-    needs: build-mpi-operator-compatible-base
     strategy:
       matrix:
         test: [all_gather_perf_mpi, all_reduce_perf_mpi, broadcast_perf_mpi, reduce_scatter_perf_mpi]
     runs-on: eks
     env:
-      BASE_IMAGE: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG_FINAL }}
+      BASE_IMAGE: ${{ inputs.CONTAINER }}
       TEST_NAME: ${{ matrix.test }}
     steps:
       - name: Check out the repository

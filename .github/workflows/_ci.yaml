@@ -53,12 +53,36 @@ jobs:
       MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
+  build-mpi-operator-compatible-base:
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
+    outputs:
+      DOCKER_TAG: ${{ steps.build.outputs.DOCKER_TAG }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build MPI operator compatible base container
+        id: build
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
+          BADGE_FILENAME: badge-mpi-operator-compatible-base-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
+          CONTAINER_NAME: mpi-operator-compatible-base
+          DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+
   test-nccl:
     if: inputs.ARCHITECTURE == 'amd64' # build only amd64
-    needs: build-base
+    needs: [build-base, build-mpi-operator-compatible-base]
     uses: ./.github/workflows/_test_nccl.yaml
     with:
-      CONTAINER: ${{ inputs.CUDA_IMAGE }}
+      CONTAINER: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
   build-jax:
