@@ -134,6 +134,7 @@ jobs:
           WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}
 
           # stream container logs from first pod in jobset
+          sleep 15 # TODO: poll
           POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."jobset.sigs.k8s.io/jobset-name" == "'$WORKLOAD_NAME'") | .metadata.name' | sort | head -n 1)
           kubectl logs -f $POD
 
