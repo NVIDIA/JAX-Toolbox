@@ -58,7 +58,7 @@ jobs:
     needs: build-base
     uses: ./.github/workflows/_test_nccl.yaml
     with:
-      CONTAINER: ${{ inputs.CUDA_IMAGE }}
+      CONTAINER: ${{ needs.build-base.outputs.DOCKER_TAG }}
     secrets: inherit
 
   build-jax:
