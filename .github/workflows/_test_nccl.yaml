@@ -14,6 +14,28 @@ permissions:
   packages: write # to upload container
 
 jobs:
+  build-mpi-operator-compatible-base:
+    runs-on: [self-hosted, "amd64", "large"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build MPI operator compatible base container
+        id: build
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: amd64
+          ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
+          BADGE_FILENAME: badge-mpi-operator-compatible-base-build
+          BUILD_DATE: 0000-00-00 # not important; this image is never published
+          BASE_IMAGE: ${{ inputs.CONTAINER }}
+          CONTAINER_NAME: mpi-operator-compatible-base
+          DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+
   nccl-test:
     strategy:
       matrix:
@@ -41,24 +63,6 @@ jobs:
           # Make these available to later steps
           echo "JOB_NAME=${JOB_NAME}" >> "$GITHUB_ENV"
           echo "LAUNCHER_NAME=${LAUNCHER_NAME}" >> "$GITHUB_ENV"
-
-      - name: Build MPI operator compatible base container
-        id: build
-        uses: ./.github/actions/build-container
-        with:
-          ARCHITECTURE: "amd64"
-          ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
-          BADGE_FILENAME: badge-mpi-operator-compatible-base-build
-          BUILD_DATE: 0000-00-00 # not important; this image is never published
-          BASE_IMAGE: ${{ inputs.CONTAINER }}
-          CONTAINER_NAME: mpi-operator-compatible-base
-          DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
-          RUNNER_SIZE: small
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-
       - name: K8s GHCR store and delete token
         id: store-token
         uses: ./.github/actions/store-delete-k8s-ghcr
