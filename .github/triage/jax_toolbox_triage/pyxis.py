@@ -5,6 +5,7 @@ import secrets
 import subprocess
 import typing
 
+from .container import Container
 from .utils import run_and_log
 
 # Used to make sure the {url: name} mapping is consistent within a process, but that
@@ -14,7 +15,7 @@ from .utils import run_and_log
 _process_token = secrets.token_bytes()
 
 
-class PyxisContainer:
+class PyxisContainer(Container):
     def __init__(
         self,
         url: str,
@@ -22,7 +23,7 @@ class PyxisContainer:
         logger: logging.Logger,
         mounts: typing.List[typing.Tuple[pathlib.Path, pathlib.Path]],
     ):
-        self._logger = logger
+        super().__init__(logger=logger)
         mount_str = ",".join(map(lambda t: f"{t[0]}:{t[1]}", mounts))
         self._mount_args = [f"--container-mounts={mount_str}"] if mount_str else []
         self._name = hashlib.sha256(url.encode() + _process_token).hexdigest()
@@ -77,18 +78,6 @@ class PyxisContainer:
             + command
         )
         return run_and_log(command, logger=self._logger, stderr=stderr)
-
-    def check_exec(
-        self, cmd: typing.List[str], **kwargs
-    ) -> subprocess.CompletedProcess:
-        result = self.exec(cmd, **kwargs)
-        if result.returncode != 0:
-            self._logger.fatal(
-                f"{' '.join(cmd)} exited with return code {result.returncode}"
-            )
-            self._logger.fatal(result.stdout)
-            result.check_returncode()
-        return result
 
     def exists(self) -> bool:
         return self.exec(["true"]).returncode == 0

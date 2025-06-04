@@ -11,6 +11,7 @@ on:
   #    - synchronize
   #  paths-ignore:
   #    - '**.md'
+  #    - '.github/triage/**'
   workflow_dispatch:
     inputs:
       PUBLISH:
