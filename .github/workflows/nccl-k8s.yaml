@@ -10,6 +10,7 @@ on:
   #    - synchronize
   #  paths-ignore:
   #    - '**.md'
+  #    - '.github/triage/**'
   workflow_dispatch:
     inputs:
       # Note that cuda-dl-base installs the NCCL tests, while the vanilla nvidia/cuda

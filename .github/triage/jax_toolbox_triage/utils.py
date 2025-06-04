@@ -45,18 +45,16 @@ def get_logger(output_prefix: pathlib.Path) -> logging.Logger:
 
 @contextmanager
 def console_log_level(logger, level):
-    # Find the StreamHandler
-    console = next(
-        filter(
-            lambda handler: isinstance(handler, logging.StreamHandler), logger.handlers
-        )
-    )
-    old_level = console.level
-    console.setLevel(level)
+    # Temporarily change all handlers' levels to `level`
+    old = []
+    for handler in logger.handlers:
+        old.append((handler.level, handler))
+        handler.setLevel(level)
     try:
         yield None
     finally:
-        console.setLevel(old_level)
+        for old_level, handler in old:
+            handler.setLevel(old_level)
 
 
 def prepare_bazel_cache_mounts(

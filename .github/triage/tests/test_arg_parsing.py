@@ -21,6 +21,22 @@ valid_container_and_commits = [
         "--passing-commits",
         "xla:fedcba9876543210,jax:0123456789",
     ],
+    [
+        "--passing-container",
+        "passing-url",
+        "--passing-commits",
+        "jax:123",  # xla not needed, the value from passing-container can be read
+        "--failing-container",
+        "failing-url",
+    ],
+    [
+        "--failing-container",
+        "failing-url",
+        "--failing-commits",
+        "xla:456",  # jax not needed, the value from failing-container can be read
+        "--passing-container",
+        "passing-url",
+    ],
 ]
 valid_start_end_date_args = [
     ["--container", "jax"],
@@ -67,14 +83,29 @@ def test_bad_container_arg_combinations_across_groups(date_args):
             "--failing-commits",
             "xla:fedcba9876543210,jax:0123456789",
         ],
-        # Cannot combine --passing-container with --passing-commits etc.
-        ["--passing-container", "passing-url", "--passing-commits", "jax:123,xla:456"],
-        ["--failing-container", "failing-url", "--failing-commits", "jax:123,xla:456"],
         # --{passing,failing}-commits must be formatted correctly
-        ["--passing-container", "passing-url", "--failing-commits", "jax:123"],
+        [
+            "--passing-container",
+            "passing-url",
+            "--failing-commits",
+            # no xla
+            "jax:123",
+        ],
         ["--passing-container", "passing-url", "--failing-commits", "jax:123,jax:456"],
-        ["--passing-container", "passing-url", "--failing-commits", "xla:123"],
-        ["--passing-container", "passing-url", "--failing-commits", "bob:123"],
+        [
+            "--passing-container",
+            "passing-url",
+            "--failing-commits",
+            # no jax
+            "xla:123",
+        ],
+        [
+            "--passing-container",
+            "passing-url",
+            "--failing-commits",
+            # neither jax nor xla
+            "bob:123",
+        ],
     ],
 )
 def test_bad_container_arg_combinations_within_groups(container_args):

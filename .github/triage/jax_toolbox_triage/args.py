@@ -4,19 +4,28 @@ import getpass
 import os
 import pathlib
 import tempfile
+import typing
+
+# Software we know may exist in the containers that we might be able to triage
+# We know how to recompile JAX/XLA, so it's OK that they include C++ code
+# TransformerEngine is intentionally excluded because build-te.sh is not plumbed yet.
+# Flax and MaxText are pure Python, so it's OK we don't have a way of compiling them,
+# but they are not always installed in containers we want to triage.
+# Note this is not a `set` for the sake of run-to-run determinism.
+compulsory_software = ["xla", "jax"]
+optional_software = ["flax", "maxtext"]
 
 
-def parse_commit_argument(s):
-    ret = {}
+def parse_commit_argument(s: str) -> typing.Dict[str, str]:
+    ret: typing.Dict[str, str] = {}
     for part in s.split(","):
         sw, commit = part.split(":", 1)
         assert sw not in ret, ret
         ret[sw] = commit
-    assert ret.keys() == {"jax", "xla"}, ret.keys()
     return ret
 
 
-def parse_args(args=None):
+def parse_args(args=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="""
             Triage failures in JAX/XLA-related tests. The expectation is that the given
@@ -189,14 +198,23 @@ def parse_args(args=None):
         assert (
             args.container is None and args.start_date is None and args.end_date is None
         ), (
-            "No container-level search options should be passed if the passing/failing containers/commits have been passed explicitly."
+            "No container-level search options should be passed if the passing/failing"
+            " containers/commits have been passed explicitly."
         )
         assert (
             args.passing_container is not None or args.failing_container is not None
-        ), ""
+        ), "At least one of --passing-container and --failing-container must be passed."
+        for prefix in ["passing", "failing"]:
+            assert getattr(args, f"{prefix}_container") is not None or getattr(
+                args, f"{prefix}_commits"
+            ).keys() >= set(compulsory_software), (
+                f"--{prefix}-commits must specify all of {compulsory_software} if "
+                f"--{prefix}-container is not specified"
+            )
     elif sets_of_known_commits == 1:
         raise Exception(
-            "If --passing-{commits OR container} is passed then --failing-{commits OR container} should be too"
+            "If --passing-{commits AND/OR container} is passed then "
+            "--failing-{commits AND/OR container} should be too"
         )
     else:
         # None of --{passing,failing}-{commits,container} were passed, make sure the
