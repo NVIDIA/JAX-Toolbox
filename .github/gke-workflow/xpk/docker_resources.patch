@@ -87,17 +87,6 @@ index a95c557..754ac03 100644
    """
    return yaml.format(
        processes_in_job=system.vms_per_slice,
-@@ -251,7 +255,9 @@ def get_volume_mounts(args, system: SystemCharacteristics) -> str:
-         or system.device_type == H200_DEVICE_TYPE
-         or system.device_type == B200_DEVICE_TYPE
-     ):
--      volume_mount_yaml = ''
-+      volume_mount_yaml = """- name: shared-memory
-+                  mountPath: /dev/shm
-+      """
- 
-   storages: list[Storage] = get_storages_to_mount(
-       setup_k8s_env(args), args.storage
 @@ -300,7 +306,7 @@ def add_container_ports(args, system: SystemCharacteristics) -> str:
    if args.use_pathways:
      return ''

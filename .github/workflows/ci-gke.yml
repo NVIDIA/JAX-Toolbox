@@ -84,7 +84,7 @@ jobs:
           MAXTEXT_TRAIN_STEPS: 20
           MAXTEXT_FSDP: 16
         run: |
-          WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}
+          WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}
           
           CMD="
               mkdir -p /usr/share/workload;
@@ -136,7 +136,7 @@ jobs:
           MAIN_CONTAINER_NAME: gpu-image
           POLL_TIMEOUT: 3600
         run: |
-          WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}
+          WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}
 
           # stream container logs from first pod in jobset
           START=$(date +%s)
@@ -158,11 +158,14 @@ jobs:
 
 
           sleep 20 # todo poll pod status
-          kubectl logs -f -c $MAIN_CONTAINER_NAME $POD
+          kubectl logs -f -c $MAIN_CONTAINER_NAME $POD | tee ${WORKLOAD_NAME}-jobset.logs
 
+          # use exit code of jobset pod
+          export $(tail -n 1 ${WORKLOAD_NAME}-jobset.logs})
+          exit $EXIT_CODE
 
       - name: Clean up JobSet
         run: |
-          WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}
+          WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}
 
           kubectl delete jobset $WORKLOAD_NAME
