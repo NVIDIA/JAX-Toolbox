@@ -11,7 +11,7 @@ on:
         description: 'Build date in YYYY-MM-DD format'
         required: false
         default: NOT SPECIFIED
-      CUDA_IMAGE:
+      CUDA_IMAGE_TAG:
         type: string
         description: CUDA image to use as base, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04
         default: 'latest'
@@ -48,7 +48,7 @@ jobs:
     uses: ./.github/workflows/_build_base.yaml
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
+      BASE_IMAGE: ${{ inputs.CUDA_IMAGE_TAG }}
       BUILD_DATE: ${{ inputs.BUILD_DATE }}
       MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
@@ -58,7 +58,7 @@ jobs:
     needs: build-base
     uses: ./.github/workflows/_test_nccl.yaml
     with:
-      CONTAINER: ${{ inputs.CUDA_IMAGE }}
+      CONTAINER: "nvcr.io/nvidia/cuda-dl-base:${{ inputs.CUDA_IMAGE_TAG }}"
     secrets: inherit
 
   build-jax:
