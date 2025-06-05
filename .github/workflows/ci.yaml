@@ -29,7 +29,7 @@ on:
         description: "(used if BUMP_MANIFEST=true) If true: attempt to PR/merge manifest branch"
         default: false
         required: false
-      CUDA_IMAGE_TAG:
+      CUDA_IMAGE:
         type: string
         description: This is the tag of the CUDA image, e.g. nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04 or latest.
         default: 'latest'
@@ -78,7 +78,7 @@ jobs:
       MANIFEST_ARTIFACT_NAME: ${{ steps.manifest-branch.outputs.MANIFEST_ARTIFACT_NAME }}
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
-      CUDA_IMAGE_TAG: ${{ steps.cuda-image.outputs.CUDA_IMAGE_TAG }}
+      CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
         id: cancel-if-draft
@@ -138,11 +138,11 @@ jobs:
         shell: bash -x -e {0}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            CUDA_IMAGE_TAG="${{ inputs.CUDA_IMAGE_TAG }}"
+            CUDA_IMAGE="${{ inputs.CUDA_IMAGE }}"
           else
-            CUDA_IMAGE_TAG="latest"
+            CUDA_IMAGE="latest"
           fi
-          echo "CUDA_IMAGE_TAG=${CUDA_IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "CUDA_IMAGE=${CUDA_IMAGE}" >> $GITHUB_OUTPUT
 
   bump-manifest:
     needs: metadata
@@ -207,7 +207,7 @@ jobs:
     with:
       ARCHITECTURE: amd64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      CUDA_IMAGE_TAG: ${{ needs.metadata.outputs.CUDA_IMAGE_TAG }}
+      CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
       MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
@@ -219,7 +219,7 @@ jobs:
     with:
       ARCHITECTURE: arm64
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
-      CUDA_IMAGE_TAG: ${{ needs.metadata.outputs.CUDA_IMAGE_TAG }}
+      CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
       MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
