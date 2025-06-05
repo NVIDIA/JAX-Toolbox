@@ -155,5 +155,5 @@ jobs:
 
           echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${CLUSTER_NAME}"
           POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."jobset.sigs.k8s.io/jobset-name" == "'$WORKLOAD_NAME'") | .metadata.name' | sort | head -n 1)
-          kubectl logs -f $POD -c $MAIN_CONTAINER_NAME
+          kubectl logs -f -c $MAIN_CONTAINER_NAME $POD --pod-running-timeout=30s
 
