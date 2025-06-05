@@ -163,4 +163,6 @@ jobs:
 
       - name: Clean up JobSet
         run: |
+          WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}
+
           kubectl delete jobset $WORKLOAD_NAME
