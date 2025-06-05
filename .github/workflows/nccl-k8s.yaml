@@ -1,0 +1,25 @@
+name: NCCL on Kubernetes
+on:
+  workflow_dispatch:
+    inputs:
+      CONTAINER:
+        type: string
+        default: ghcr.io/nvidia/jax:base
+        description: Container to test, this is assumed to already contain the NCCL tests
+        required: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  actions:  write # to cancel previous workflows
+  contents: read  # to fetch code
+  packages: write # to upload container
+
+jobs:
+  nccl-tests:
+    uses: ./.github/workflows/_test_nccl.yaml
+    with:
+      CONTAINER: ${{ inputs.CONTAINER }}
+    secrets: inherit
