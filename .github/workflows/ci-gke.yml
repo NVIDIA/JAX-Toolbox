@@ -110,7 +110,7 @@ jobs:
                                            profiler=nsys 
                                            skip_first_n_steps_for_profiler=3 
                                            profiler_steps=8' |&
-              tee /opt/output/output.log > \${console}
+              tee /opt/output/output.log &> \${console}
           "
 
           # set container command in-line
@@ -135,8 +135,6 @@ jobs:
           MAIN_CONTAINER_NAME: gpu-image
           POLL_TIMEOUT: 3600
         run: |
-          set -x
-
           WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}
 
           # stream container logs from first pod in jobset
