@@ -71,7 +71,7 @@ jobs:
           cd $HOME/xpk && git checkout src/xpk && cd -
           git apply --unsafe-paths .github/gke-workflow/xpk/tcpxo_decorator.patch --directory $HOME/xpk 
           git apply --unsafe-paths .github/gke-workflow/xpk/docker_resources.patch --directory $HOME/xpk 
-          git apply --unsafe-paths .github/gke-workflow/xpk/workflow.patch --directory $HOME/xpk 
+          git apply --unsafe-paths .github/gke-workflow/xpk/workload.patch --directory $HOME/xpk 
 
       - name: Create maxtext workload
         env:
