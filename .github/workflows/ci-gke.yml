@@ -110,7 +110,8 @@ jobs:
                                            profiler=nsys 
                                            skip_first_n_steps_for_profiler=3 
                                            profiler_steps=8' |&
-              tee /opt/output/output.log &> \${console}
+              tee /opt/output/output.log &> \${console};
+              exit \$PIPESTATUS
           "
 
           # set container command in-line
@@ -148,9 +149,11 @@ jobs:
               echo "Timeout after waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${CLUSTER_NAME}"
               exit 1
             fi
+            echo "Waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${CLUSTER_NAME}"
             sleep 5
           done
 
+          echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${CLUSTER_NAME}"
           POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."jobset.sigs.k8s.io/jobset-name" == "'$WORKLOAD_NAME'") | .metadata.name' | sort | head -n 1)
           kubectl logs -f $POD -c $MAIN_CONTAINER_NAME
 
