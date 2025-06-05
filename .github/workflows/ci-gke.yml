@@ -158,10 +158,10 @@ jobs:
 
 
           sleep 20 # todo poll pod status
-          kubectl logs -f -c $MAIN_CONTAINER_NAME $POD | tee ${WORKLOAD_NAME}-jobset.logs
+          kubectl logs -f -c $MAIN_CONTAINER_NAME $POD |& tee ${WORKLOAD_NAME}-jobset.log
 
           # use exit code of jobset pod
-          export $(tail -n 1 ${WORKLOAD_NAME}-jobset.logs})
+          export $(tail -n 1 ${WORKLOAD_NAME}-jobset.log})
           exit $EXIT_CODE
 
       - name: Clean up JobSet
