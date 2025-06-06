@@ -181,13 +181,15 @@ jobs:
 
       - name: Set exit code from JobSet
         run: |
-          MAYBE_XPK_EXIT_CODE=$(tail -n 1 ${WORKLOAD_NAME}-jobset.log)
-          IS_EXIT_CODE=$(echo ${MAYBE_XPK_EXIT_CODE} |  grep -E '^EXIT\_CODE=*'; echo $?)
-          if ! [ ${IS_EXIT_CODE} == 1 ]; then
+          MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-jobset.log)"
+          echo ${MAYBE_XPK_EXIT_CODE} |  grep -E '^EXIT\_CODE=*'
+
+          if [ $? -ne 0 ]; then
             echo "The JobSet ${WORKLOAD_NAME} on ${CLUSTER_NAME} did not complete as expected "
             exit 1
           fi
-          export $($MAYBE_XPK_EXIT_CODE)
+
+          eval "export ${MAYBE_XPK_EXIT_CODE}"
           exit ${EXIT_CODE}
 
       - name: Clean up JobSet
