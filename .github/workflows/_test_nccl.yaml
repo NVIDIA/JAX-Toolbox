@@ -62,7 +62,7 @@ jobs:
         id: var
         shell: bash
         run: |
-          JOB_NAME="nccl-tets-${{ github.run_id }}-${{ github.run_attempt }}-${TEST_NAME//_/-}"
+          JOB_NAME="nccl-test-${{ github.run_id }}-${{ github.run_attempt }}-${TEST_NAME//_/-}"
           LAUNCHER_NAME="${JOB_NAME}-launcher"
           TOKEN_NAME="${JOB_NAME}-token"
           # Make these available to later steps
