@@ -121,7 +121,7 @@ readarray -t GPU_MEMORIES < <(nvidia-smi --query-gpu=memory.total --format=csv,n
 NGPUS="${#GPU_MEMORIES[@]}"
 GPU_MEMORIES_MIB=("${GPU_MEMORIES[@]/ MiB/}")
 
-FLAGS=("$@")
+FLAGS=()
 
 if [[ $ENABLE_X64 != 0 ]]; then
     FLAGS+=("--test_env=JAX_ENABLE_X64=true")
@@ -138,7 +138,10 @@ fi
 # nvidia-*-cu1X wheels from PyPI to run tests, use the local installations
 FLAGS+=("--//jaxlib/tools:add_pypi_cuda_wheel_deps=false")
 
-set_default JOBS_PER_GPU $(( GPU_MEMORIES_MIB[0] / 10000))
+# Default parallelism: at least 10GB per test, no more than 4 tests per GPU.
+DEFAULT_JOBS_PER_GPU=$(( GPU_MEMORIES_MIB[0] / 10000))
+if (( DEFAULT_JOBS_PER_GPU > 8 )); then DEFAULT_JOBS_PER_GPU=4; fi
+set_default JOBS_PER_GPU ${DEFAULT_JOBS_PER_GPU}
 FLAGS+=(
     "--cache_test_results=${CACHE_TEST_RESULTS}"
     "--test_timeout=600"
@@ -207,6 +210,7 @@ fi
 
 FLAGS+=(
     "--local_test_jobs=${NJOBS}"
+    "$@"
 )
 
 print_var BATTERY
