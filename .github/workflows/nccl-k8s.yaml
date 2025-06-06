@@ -1,26 +1,12 @@
 name: NCCL on Kubernetes
 on:
-  schedule:
-    - cron: '30 8 * * *'
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
-    paths-ignore:
-      - '**.md'
-      - '.github/triage/**'
   workflow_dispatch:
     inputs:
-      # Note that cuda-dl-base installs the NCCL tests, while the vanilla nvidia/cuda
-      # images do not; when JAX-Toolbox moves to using cuda-dl-base this workflow ought
-      # to be modified to test one of the JAX-Toolbox containers.
       CONTAINER:
         type: string
-        description: Container to test, this is assumed to already contain the NCCL tests e.g. cuda-dl-base or derived
-        default: ''
-        required: false
+        default: ghcr.io/nvidia/jax:base
+        description: Container to test, this is assumed to already contain the NCCL tests
+        required: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -35,5 +21,5 @@ jobs:
   nccl-tests:
     uses: ./.github/workflows/_test_nccl.yaml
     with:
-      CONTAINER: ${{ inputs.CONTAINER || 'nvcr.io/nvidia/cuda-dl-base:25.02-cuda12.8-devel-ubuntu24.04' }}
+      CONTAINER: ${{ inputs.CONTAINER }}
     secrets: inherit

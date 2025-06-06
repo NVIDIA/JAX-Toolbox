@@ -3,12 +3,9 @@ name: ~run NCCL tests
 on:
   workflow_call:
     inputs:
-      # Note that cuda-dl-base installs the NCCL tests, while the vanilla nvidia/cuda
-      # images do not; when JAX-Toolbox moves to using cuda-dl-base this workflow ought
-      # to be modified to test one of the JAX-Toolbox containers.
       CONTAINER:
         type: string
-        description: CUDA image to use as base, e.g. nvcr.io/nvidia/cuda-dl-base:24.11-cuda12.6-devel-ubuntu24.04
+        description: Container to test; assumed to already contain {all_gather,all_reduce,broadcast,reduce_scatter}_perf_mpi in $PATH
         required: true
 
 permissions:
@@ -18,17 +15,31 @@ permissions:
 
 jobs:
   build-mpi-operator-compatible-base:
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: amd64
-      ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
-      BADGE_FILENAME: badge-mpi-operator-compatible-base-build
-      BUILD_DATE: 0000-00-00 # not important; this image is never published
-      BASE_IMAGE: ${{ inputs.CONTAINER }}
-      CONTAINER_NAME: mpi-operator-compatible-base
-      DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
-      RUNNER_SIZE: small
-    secrets: inherit
+    runs-on: [self-hosted, "amd64", "large"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build MPI operator compatible base container
+        id: build
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: amd64
+          ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
+          BADGE_FILENAME: badge-mpi-operator-compatible-base-build
+          BUILD_DATE: 0000-00-00 # not important; this image is never published
+          BASE_IMAGE: ${{ inputs.CONTAINER }}
+          CONTAINER_NAME: mpi-operator-compatible-base
+          DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
+
+
   nccl-test:
     needs: build-mpi-operator-compatible-base
     strategy:
@@ -39,7 +50,7 @@ jobs:
       BASE_IMAGE: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
     steps:
-      - name: Check out the repository
+      - name: Checkout repository
         uses: actions/checkout@v4
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
