@@ -2,7 +2,7 @@
 set -exuo pipefail
 
 # Remove the symlink that makes `nsys` refer to the CUDA-bundled version:
-rm /usr/local/cuda/bin/nsys
+rm -f /usr/local/cuda/bin/nsys
 
 # Repo for newer nsight versions
 UBUNTU_ARCH=$(dpkg --print-architecture)
