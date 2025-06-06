@@ -99,7 +99,11 @@ def main() -> None:
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
-    container_url = functools.partial(container_url_base, container=args.container)
+    container_url = functools.partial(
+        container_url_base,
+        container=args.container,
+        template=args.container_url_template,
+    )
 
     def Container(
         url, test_output_host_directory: typing.Optional[pathlib.Path] = None
