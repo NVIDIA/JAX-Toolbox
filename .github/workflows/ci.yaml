@@ -31,7 +31,7 @@ on:
         required: false
       CUDA_IMAGE:
         type: string
-        description: This is the tag of the CUDA image, e.g. nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04 or latest.
+        description: CUDA image, e.g. nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04 or latest.
         default: 'latest'
         required: false
       SOURCE_OVERRIDES:
