@@ -770,7 +770,7 @@ jobs:
         .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
 
-    - name: Submit & delete axlearn test
+    - name: Submit & delete axlearn fuji model test
       uses: ./.github/actions/submit-delete-k8s-job
       with:
         job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
