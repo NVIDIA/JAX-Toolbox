@@ -57,6 +57,14 @@ def parse_args(args=None) -> argparse.Namespace:
             Container to use. Example: jax, maxtext. Used to construct the URLs of
             nightly containers, like ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD.""",
     )
+    container_search_args.add_argument(
+        "--container-url-template",
+        type=str,
+        help="""
+            Container URL pattern as a Python format string into which `container` and
+            `date` will be substituted, e.g. ghcr.io/nvidia/jax:{container}-{date} for
+            the JAX-Toolbox public nightlies.""",
+    )
     parser.add_argument(
         "--output-prefix",
         default=datetime.datetime.now().strftime("triage-%Y-%m-%d-%H-%M-%S"),
