@@ -7,18 +7,23 @@ import subprocess
 import typing
 
 
-def container_url(date: datetime.date, *, container: str) -> str:
+def container_url(
+    date: datetime.date, *, container: str, template: typing.Optional[str] = None
+) -> str:
     """
     Construct the URL for --container on the given date.
 
     Arguments:
     date: YYYY-MM-DD format.
     """
+    date_str = date.isoformat()
+    if template is not None:
+        return template.format(container=container, date=date_str)
     # Around 2024-02-09 the naming scheme changed.
-    if date > datetime.date(year=2024, month=2, day=9):
-        return f"ghcr.io/nvidia/jax:{container}-{date.isoformat()}"
+    elif date > datetime.date(year=2024, month=2, day=9):
+        return f"ghcr.io/nvidia/jax:{container}-{date_str}"
     else:
-        return f"ghcr.io/nvidia/{container}:nightly-{date.isoformat()}"
+        return f"ghcr.io/nvidia/{container}:nightly-{date_str}"
 
 
 def get_logger(output_prefix: pathlib.Path) -> logging.Logger:
