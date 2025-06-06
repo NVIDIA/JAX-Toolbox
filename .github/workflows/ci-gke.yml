@@ -158,8 +158,8 @@ jobs:
           POD_READY=false
           while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
             echo "Waiting for pod ${POD} in JobSet ${WORKLOAD_NAME} to become ready"
-            POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[] | select(.name == "'${MAIN_CONTAINER_NAME}'").ready')
             sleep 5
+            POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[] | select(.name == "'${MAIN_CONTAINER_NAME}'").ready')
           done;
 
           # stream container logs from first (coordinator) pod in jobset
