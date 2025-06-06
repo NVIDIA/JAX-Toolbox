@@ -4,6 +4,7 @@ ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG CLANG_VERSION=18
 ARG JAX_TOOLBOX_REF=main
+ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
 
 ###############################################################################
 ## Build base image
@@ -15,6 +16,7 @@ ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
 ARG CLANG_VERSION
 ARG JAX_TOOLBOX_REF
+ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
 ENV CUDA_BASE_IMAGE=${BASE_IMAGE}
 
 ###############################################################################
@@ -167,7 +169,7 @@ ADD jax-nccl-test parallel-launch /usr/local/bin/
 ##############################################################################
 
 ADD install-nsight-systems.sh /usr/local/bin
-RUN install-nsight-systems.sh
+RUN if [[ -n "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}" ]]; then install-nsight-systems.sh "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}"; fi
 
 ###############################################################################
 ## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
