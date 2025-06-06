@@ -1,0 +1,42 @@
+diff --git a/src/xpk/core/workload_decorators/tcpxo_decorator.py b/src/xpk/core/workload_decorators/tcpxo_decorator.py
+index 322e574..0a71db8 100644
+--- a/src/xpk/core/workload_decorators/tcpxo_decorator.py
++++ b/src/xpk/core/workload_decorators/tcpxo_decorator.py
+@@ -163,7 +163,12 @@ def add_tcpxo_daemon_container(job_manifest):
+           {'name': 'sys', 'mountPath': '/hostsysfs'},
+           {'name': 'proc-sys', 'mountPath': '/hostprocsysfs'},
+       ],
+-      'env': [{'name': 'LD_LIBRARY_PATH', 'value': '/usr/local/nvidia/lib64'}],
++      'env': [
++          {'name': 'LD_LIBRARY_PATH', 'value': '/opt/nvidia/nccl/lib:/usr/local/cuda-12.8/compat/lib.real:/usr/local/nvidia/lib64'},
++          {'name': 'NCCL_LIB_DIR', 'value': '/opt/nvidia/nccl/lib'},
++          {'name': 'NCCL_TUNER_PLUGIN', 'value': 'none'},
++          {'name': 'NCCL_NET_PLUGIN', 'value': '/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so'}
++      ],
+   }
+   job_manifest['spec']['template']['spec']['containers'].append(
+       tcpxo_daemon_container
+@@ -175,12 +180,22 @@ def update_gpu_containers(job_manifest):
+     if 'nvidia.com/gpu' in container.get('resources', {}).get('limits', {}):
+       container.setdefault('env', [])
+       container['env'].append(
+-          {'name': 'LD_LIBRARY_PATH', 'value': '/usr/local/nvidia/lib64'}
++          {'name': 'LD_LIBRARY_PATH', 'value': '/opt/nvidia/nccl/lib:/usr/local/cuda-12.8/compat/lib.real:/usr/local/nvidia/lib64'}
++      )
++      container['env'].append(
++          {'name': 'NCCL_LIB_DIR', 'value': '/opt/nvidia/nccl/lib'}
++      )
++      container['env'].append(
++          {'name': 'NCCL_NET_PLUGIN', 'value': '/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so'}
+       )
+       container['env'].append({
+           'name': 'NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY',
+           'value': '/dev/aperture_devices',
+       })
++      container['env'].append({
++          'name': 'NCCL_TUNER_PLUGIN',
++          'value': 'none',
++      })
+       container.setdefault('volumeMounts', [])
+       container['volumeMounts'].append(
+           {'name': 'aperture-devices', 'mountPath': '/dev/aperture_devices'}
