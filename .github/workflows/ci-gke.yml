@@ -87,8 +87,8 @@ jobs:
           MAXTEXT_FSDP: 16
         run: |
           CMD="
-              mkdir -p /usr/share/workload; # n.b. xpk missing mount for a3-megagpu-8g jobset spec
-              mkdir -p /opt/output; # todo: upload output to gcs/github actions from pod
+              mkdir -p /usr/share/workload; # no xpk volume mount for a3-megagpu-8g
+              mkdir -p /opt/output;
 
               console=/dev/stdout;
               nsys-jax --capture-range=cudaProfilerApi 
@@ -159,6 +159,13 @@ jobs:
           while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
             echo "Waiting for pod ${POD} in JobSet ${WORKLOAD_NAME} to become ready"
             sleep 5
+
+            POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[] | select(.name == "'${MAIN_CONTAINER_NAME}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
+            if ${POD_ERROR} ; do
+              echo "There was an issue starting the JobSet ${WORKLOAD_NAME} on ${CLUSTER_NAME}"
+              break
+            fi
+
             POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[] | select(.name == "'${MAIN_CONTAINER_NAME}'").ready')
           done;
 
