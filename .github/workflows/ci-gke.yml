@@ -27,6 +27,7 @@ jobs:
       RESERVATION: jtb-reservation
       PROJECT: nv-jaxtoolboxgcp-20240925
       WORKLOAD_NAME_PREFIX: maxtext
+      MAIN_CONTAINER_NAME: gpu-image
 
     steps:
       - uses: actions/checkout@v4
@@ -131,9 +132,8 @@ jobs:
                         --scheduler=gke.io/topology-aware-auto \
                         --command "${CMD}"
 
-      - name: Stream logs from JobSet
+      - name: Wait for JobSet to unsuspend
         env:
-          MAIN_CONTAINER_NAME: gpu-image
           POLL_TIMEOUT: 3600
         run: |
           # wait for jobset to start
@@ -152,9 +152,13 @@ jobs:
           done
 
           echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${CLUSTER_NAME}"
-          POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."jobset.sigs.k8s.io/jobset-name" == "'$WORKLOAD_NAME'") | .metadata.name' | sort | head -n 1)
 
-          # wait for pod readiness
+      - name: Set Pod name
+        run: |
+          echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels.\"jobset.sigs.k8s.io/jobset-name\" == \"'$WORKLOAD_NAME'\") | .metadata.name' | sort | head -n 1)" >> ${GITHUB_ENV}
+
+      - name: Wait for Pod readiness
+        run: |
           POD_READY=false
           while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
             echo "Waiting for pod ${POD} in JobSet ${WORKLOAD_NAME} to become ready"
@@ -169,12 +173,15 @@ jobs:
             POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[] | select(.name == "'${MAIN_CONTAINER_NAME}'").ready')
           done;
 
-          # stream container logs from first (coordinator) pod in jobset
+      - name: Stream logs from JobSet
+        run: |
+          # stream gpu-image container logs from first (coordinator) pod in jobset
           echo "Pod ${POD} in JobSet ${WORKLOAD_NAME} has become ready. Streaming logs..."
           kubectl logs -f -c ${MAIN_CONTAINER_NAME} ${POD} |& tee ${WORKLOAD_NAME}-jobset.log
 
-          # use exit code of jobset pod
-          MAYBE_XPK_EXIT_CODE=${tail -n 1 ${WORKLOAD_NAME}-jobset.log}
+      - name: Set exit code from JobSet
+        run: |
+          MAYBE_XPK_EXIT_CODE=$(tail -n 1 ${WORKLOAD_NAME}-jobset.log)
           IS_EXIT_CODE=$(echo ${MAYBE_XPK_EXIT_CODE} |  grep -E '^EXIT\_CODE=*'; echo $?)
           if ! [ ${IS_EXIT_CODE} == 1 ]; then
             echo "The JobSet ${WORKLOAD_NAME} on ${CLUSTER_NAME} did not complete as expected "
