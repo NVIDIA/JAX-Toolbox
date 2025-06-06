@@ -35,6 +35,10 @@ jobs:
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
+
 
   nccl-test:
     needs: build-mpi-operator-compatible-base
@@ -43,7 +47,7 @@ jobs:
         test: [all_gather_perf_mpi, all_reduce_perf_mpi, broadcast_perf_mpi, reduce_scatter_perf_mpi]
     runs-on: eks
     env:
-      BASE_IMAGE: ${{ inputs.CONTAINER }}
+      BASE_IMAGE: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
     steps:
       - name: Checkout repository
@@ -58,7 +62,7 @@ jobs:
         id: var
         shell: bash
         run: |
-          JOB_NAME="nccl-${{ github.run_id }}-${TEST_NAME//_/-}"
+          JOB_NAME="nccl-tets-${{ github.run_id }}-${{ github.run_attempt }}-${TEST_NAME//_/-}"
           LAUNCHER_NAME="${JOB_NAME}-launcher"
           TOKEN_NAME="${JOB_NAME}-token"
           # Make these available to later steps
