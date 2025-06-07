@@ -145,9 +145,6 @@ RUN ln -s /usr/local/cuda/lib64 /usr/local/cuda/lib
 ADD symlnk-cudnn.sh /usr/local/bin
 RUN symlnk-cudnn.sh
 
-ADD install-nccl.sh /usr/local/bin
-RUN install-nccl.sh
-
 ###############################################################################
 ## Symlink for NCCL
 ###############################################################################
