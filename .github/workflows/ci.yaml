@@ -210,7 +210,7 @@ jobs:
       CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
-      MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
+      MODE: "axlearn" # ${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
     secrets: inherit
 
   arm64:
@@ -222,7 +222,7 @@ jobs:
       CUDA_IMAGE: ${{ needs.metadata.outputs.CUDA_IMAGE }}
       MANIFEST_ARTIFACT_NAME: ${{ needs.metadata.outputs.MANIFEST_ARTIFACT_NAME }}
       SOURCE_URLREFS: ${{ needs.bump-manifest.outputs.SOURCE_URLREFS }}
-      MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
+      MODE: "axlearn" #${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
     secrets: inherit
 
   # Only merge if everything succeeds
