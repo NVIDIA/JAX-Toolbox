@@ -23,6 +23,12 @@ spec:
                       mkdir -p ${LOG_DIR}
                       # test on JAX, make sure 8 devices are visible
                       pytest-xdist.sh 8 4 ${LOG_DIR}/axlearn-unittests.jsonl test-axlearn.sh --directory "." --output ${LOG_DIR} --test-files "/opt/axlearn/axlearn/common/*_test.py"
+                      exit_code=$?
+                      if [ $exit_code -ne 0 ]; then
+                        echo "Tests failed with exit code $exit_code"
+                        exit $exit_code
+                      fi
+                      echo "Tests passed successfully"
                   env:
                     - name: RUN_ID
                       value: PLACEHOLDER
