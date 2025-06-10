@@ -111,7 +111,7 @@ def main() -> None:
     ):
         if args.container_runtime == "local":
             return LocalContainer(logger=logger)
-        
+
         Imp = DockerContainer if args.container_runtime == "docker" else PyxisContainer
         mounts = bazel_cache_mounts + args.container_mount
         if test_output_host_directory is not None:
@@ -201,7 +201,7 @@ def main() -> None:
         return TestResult(
             host_output_directory=out_dir, result=test_pass, stdouterr=result.stdout
         )
-    
+
     if args.container_runtime == "local":
         passing_url = "local"
         failing_url = "local"

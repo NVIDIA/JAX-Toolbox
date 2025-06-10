@@ -50,8 +50,9 @@ valid_local_args = [
     "--passing-commits",
     "jax:0123,xla:4567",
     "--failing-commits",
-    "jax:89ab,xla:cdef"
+    "jax:89ab,xla:cdef",
 ]
+
 
 @pytest.mark.parametrize(
     "good_args",

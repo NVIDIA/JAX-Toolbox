@@ -23,11 +23,8 @@ class LocalContainer(Container):
     def exec(
         self,
         command: typing.List[str],
-        policy: typing.Literal["once"]
-        | typing.Literal["once_per_container"]
-        | typing.Literal["default"] = "default",
-        stderr: typing.Literal["interleaved"]
-        | typing.Literal["separate"] = "interleaved",
+        policy: typing.Literal["once", "once_per_container", "default"] = "default",
+        stderr: typing.Literal["interleaved", "separate"] = "interleaved",
         workdir=None,
     ) -> subprocess.CompletedProcess:
         return run_and_log(command, logger=self._logger, stderr=stderr, cwd=workdir)

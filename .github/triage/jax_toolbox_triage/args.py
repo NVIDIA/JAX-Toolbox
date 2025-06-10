@@ -191,14 +191,16 @@ def parse_args(args=None) -> argparse.Namespace:
         type=lambda s: s.lower(),
     )
     args = parser.parse_args(args=args)
-    assert args.container_runtime in {"docker", "pyxis", "local"}, args.container_runtime
-    
+    assert args.container_runtime in {"docker", "pyxis", "local"}, (
+        args.container_runtime
+    )
+
     if args.container_runtime == "local":
+        assert args.passing_commits is not None and args.failing_commits is not None, (
+            "For local runtime, --passing-commits and --failing-commits must be provided."
+        )
         assert (
-            args.passing_commits is not None and args.failing_commits is not None
-        ), "For local runtime, --passing-commits and --failing-commits must be provided."
-        assert (
-            args.container is None 
+            args.container is None
             and args.start_date is None
             and args.end_date is None
             and args.passing_container is None

@@ -82,7 +82,10 @@ def prepare_bazel_cache_mounts(
 
 
 def run_and_log(
-    command, logger: logging.Logger, stderr: typing.Literal["interleaved", "separate"], cwd: typing.Optional[str] = None
+    command,
+    logger: logging.Logger,
+    stderr: typing.Literal["interleaved", "separate"],
+    cwd: typing.Optional[str] = None,
 ) -> subprocess.CompletedProcess:
     logger.debug(f"Executing in {cwd or '.'}: {shlex.join(command)}")
     result = subprocess.Popen(
@@ -90,7 +93,7 @@ def run_and_log(
         encoding="utf-8",
         stderr=subprocess.STDOUT if stderr == "interleaved" else subprocess.PIPE,
         stdout=subprocess.PIPE,
-        cwd=cwd
+        cwd=cwd,
     )
     assert result.stdout is not None
     stdouterr = ""
