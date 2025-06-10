@@ -41,6 +41,7 @@ permissions:
   actions:  write # to cancel previous workflows
   packages: write # to upload container
 
+
 jobs:
 
   build-base:
@@ -52,71 +53,159 @@ jobs:
       MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
+  test-nccl:
+    if: inputs.ARCHITECTURE == 'amd64' # build only amd64
+    needs: build-base
+    uses: ./.github/workflows/_test_nccl.yaml
+    with:
+      CONTAINER: ${{ needs.build-base.outputs.DOCKER_TAG }}
+    secrets: inherit
+
   build-jax:
     needs: build-base
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-jax-build
-      BADGE_FILENAME: badge-jax-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
-      CONTAINER_NAME: jax
-      DOCKERFILE: .github/container/Dockerfile.jax
-      RUNNER_SIZE: large
-      EXTRA_BUILD_ARGS: |
-        URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
-        URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
-        URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
-        URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
-    secrets: inherit
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
+    steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+        - name: Build JAX container
+          id: build-jax
+          uses: ./.github/actions/build-container
+          with:
+            ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+            ARTIFACT_NAME: artifact-jax-build
+            BADGE_FILENAME: badge-jax-build
+            BUILD_DATE: ${{ inputs.BUILD_DATE }}
+            BASE_IMAGE: ${{ needs.build-base.outputs.DOCKER_TAG }}
+            CONTAINER_NAME: jax
+            DOCKERFILE: .github/container/Dockerfile.jax
+            RUNNER_SIZE: large
+            ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+            ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+            github-token: ${{ secrets.GITHUB_TOKEN }}
+            bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+            EXTRA_BUILD_ARGS: |
+              URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
+              URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
+              URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
+              URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}
 
   build-equinox:
     needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-equinox-build
-      BADGE_FILENAME: badge-equinox-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: equinox
-      DOCKERFILE: .github/container/Dockerfile.equinox
-      EXTRA_BUILD_ARGS: |
-        URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
-    secrets: inherit
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-equinox.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build Equinox container
+        id: build-equinox
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-equinox-build
+          BADGE_FILENAME: badge-equinox-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: equinox
+          DOCKERFILE: .github/container/Dockerfile.equinox
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
 
   build-maxtext:
     needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-maxtext-build
-      BADGE_FILENAME: badge-maxtext-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: maxtext
-      DOCKERFILE: .github/container/Dockerfile.maxtext
-      EXTRA_BUILD_ARGS: |
-        URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
-        URLREF_JETSTREAM=${{ fromJson(inputs.SOURCE_URLREFS).GOOGLE_JETSTREAM }}
-    secrets: inherit
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-maxtext.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build MaxText container
+        id: build-maxtext
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-maxtext-build
+          BADGE_FILENAME: badge-maxtext-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: maxtext
+          DOCKERFILE: .github/container/Dockerfile.maxtext
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
+            URLREF_JETSTREAM=${{ fromJson(inputs.SOURCE_URLREFS).GOOGLE_JETSTREAM }}
 
   build-upstream-t5x:
     needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: "artifact-t5x-build"
-      BADGE_FILENAME: "badge-t5x-build"
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: upstream-t5x
-      DOCKERFILE: .github/container/Dockerfile.t5x
-      EXTRA_BUILD_ARGS: |
-        URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
-        URLREF_AIRIO=${{ fromJson(inputs.SOURCE_URLREFS).AIRIO }}
-    secrets: inherit
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-upstream-t5x.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-upstream-t5x.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - id: checkout
+        name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build Upstream T5X container
+        id: build-upstream-t5x
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-t5x-build
+          BADGE_FILENAME: badge-t5x-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: upstream-t5x
+          DOCKERFILE: .github/container/Dockerfile.t5x
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_T5X=${{ fromJson(inputs.SOURCE_URLREFS).T5X }}
+            URLREF_AIRIO=${{ fromJson(inputs.SOURCE_URLREFS).AIRIO }}
+
+  build-axlearn:
+    needs: build-jax
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build AxLearn container
+        id: build-axlearn
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-axlearn-build
+          BADGE_FILENAME: badge-axlearn-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: axlearn
+          DOCKERFILE: .github/container/Dockerfile.axlearn
+          RUNNER_SIZE: large
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
 
   build-rosetta-t5x:
     needs: build-upstream-t5x
@@ -128,22 +217,6 @@ jobs:
       BASE_LIBRARY: t5x
     secrets: inherit
 
-  build-axlearn:
-    needs: build-jax
-    uses: ./.github/workflows/_build.yaml
-    with:
-      ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-      ARTIFACT_NAME: artifact-axlearn-build
-      BADGE_FILENAME: badge-axlearn-build
-      BUILD_DATE: ${{ inputs.BUILD_DATE }}
-      BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-      CONTAINER_NAME: axlearn
-      DOCKERFILE: .github/container/Dockerfile.axlearn
-      RUNNER_SIZE: large
-      EXTRA_BUILD_ARGS: |
-        URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
-    secrets: inherit
-
   collect-docker-tags:
     runs-on: ubuntu-22.04
     if: ${{ !cancelled() }}
@@ -153,8 +226,8 @@ jobs:
       - build-equinox
       - build-maxtext
       - build-upstream-t5x
-      - build-rosetta-t5x
       - build-axlearn
+      - build-rosetta-t5x
     outputs:
       TAGS: ${{ steps.collect-tags.outputs.TAGS }}
     steps:
@@ -450,30 +523,6 @@ jobs:
         job-config-file: .github/eks-workflow-files/post-process-job.yml
         job-name: ${{ env.POSTPROCESS_JOB_NAME }}
 
-  # test-equinox:
-  #   needs: build-equinox
-  #   if: inputs.ARCHITECTURE == 'amd64' # arm64 runners n/a
-  #   uses: ./.github/workflows/_test_unit.yaml
-  #   with:
-  #     IMAGE: ${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}
-  #     TEST_NAME: equinox
-  #     EXECUTE: |
-  #       docker run --shm-size=1g --gpus all ${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }} \
-  #       bash -exc -o pipefail \
-  #       'pushd /opt/equinox/tests && pip install -r requirements.txt && pytest .' | tee test-equinox.log
-  #     STATISTICS_SCRIPT: |
-  #       errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-  #       failed_tests=$(echo $summary_line | grep -oE '[0-9]+ failed' | awk '{print $1} END { if (!NR) print 0}')
-  #       passed_tests=$(echo $summary_line | grep -oE '[0-9]+ passed' | awk '{print $1} END { if (!NR) print 0}')
-  #       total_tests=$((failed_tests + passed_tests))
-  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-  #       echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-  #     ARTIFACTS: |
-  #       test-equinox.log
-  #   secrets: inherit
-
   test-te-h100:
     needs: build-jax
     if: >-
@@ -721,7 +770,7 @@ jobs:
         .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
         git diff .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
 
-    - name: Submit & delete axlearn test
+    - name: Submit & delete axlearn fuji model test
       uses: ./.github/actions/submit-delete-k8s-job
       with:
         job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"

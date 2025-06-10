@@ -13,6 +13,7 @@ import typing
 from .args import compulsory_software, optional_software, parse_args
 from .container import Container
 from .docker import DockerContainer
+from .local import LocalContainer
 from .logic import commit_search, container_search, TestResult
 from .pyxis import PyxisContainer
 from .utils import (
@@ -108,6 +109,9 @@ def main() -> None:
     def Container(
         url, test_output_host_directory: typing.Optional[pathlib.Path] = None
     ):
+        if args.container_runtime == "local":
+            return LocalContainer(logger=logger)
+
         Imp = DockerContainer if args.container_runtime == "docker" else PyxisContainer
         mounts = bazel_cache_mounts + args.container_mount
         if test_output_host_directory is not None:
@@ -198,7 +202,10 @@ def main() -> None:
             host_output_directory=out_dir, result=test_pass, stdouterr=result.stdout
         )
 
-    if args.passing_container is None and args.failing_container is None:
+    if args.container_runtime == "local":
+        passing_url = "local"
+        failing_url = "local"
+    elif args.passing_container is None and args.failing_container is None:
         # Search through the published containers, narrowing down to a pair of dates with
         # the property that the test passed on `range_start` and fails on `range_end`.
         range_start, range_end = container_search(
@@ -235,7 +242,10 @@ def main() -> None:
 
     # Choose a container to do the commit-level bisection in; use directory
     # names that match it.
-    if failing_url is not None:
+    if args.container_runtime == "local":
+        bisection_url = "local"
+        package_dirs = failing_package_dirs
+    elif failing_url is not None:
         bisection_url = failing_url
         package_dirs = failing_package_dirs
     else:

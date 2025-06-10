@@ -3,12 +3,12 @@
 `jax-toolbox-triage` is a tool to automate the process of attributing regressions to an
 individual commit of JAX or XLA.
 It takes as input a command that returns an error (non-zero) code when run in "recent"
-containers, but which returns a success (zero) code when run in some "older" container.
-The command must be executable within the containers, *i.e.* it cannot refer to files
+environments, but which returns a success (zero) code when run in some "older" environment.
+The command must be executable within the triage environment, *i.e.* it cannot refer to files
 that only exist on the host system, unless those are explicitly mounted in using the
-`-v` (`--container-mount`) option.
+`-v` (`--container-mount`) option when using a container-based runtime.
 
-The tool follows a three-step process:
+The tool follows a process that can include up to three steps:
   1. A container-level search backwards from the "recent" container where the test is
      known to fail, which identifies an "older" container where the test passes. This
      search proceeds with an exponentially increasing step size and is based on the
@@ -16,8 +16,7 @@ The tool follows a three-step process:
   2. A container-level binary search to refine this to the **latest** available
      container where test passes and the **earliest** available container where it
      fails.
-  3. A commit-level binary search, repeatedly building + testing inside the same
-     container, to identify a single commit of a software package known to the tool
+  3. A commit-level binary search, repeatedly building + testing, to identify a single commit of a software package known to the tool
      (JAX, XLA, Flax, optionally MaxText) that causes the test to start failing, and a
      set of reference commits of the other packages that can be used to reproduce the
      regression.
@@ -64,20 +63,20 @@ or more machines with appropriate GPUs, *e.g.* inside an `salloc` session.
 Appropriate arguments (number of nodes, number of tasks per node, *etc.*) should be
 passed to `salloc` or set via `SLURM_` environment variables so that a bare `srun` will
 correctly launch the test case.
+If `--container-runtime=local` is used, the tool assumes it is already inside a JAX container and will execute all build and test commands directly.
 
 ## Usage
 
 To use the tool, there are two compulsory inputs:
    * A test command to triage.
-   * A specification of which containers to triage in. There are two choices here:
-     * `--container`: which of the `ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD` container
-       families to execute the test command in. Example: `jax` for a JAX unit test
-       failure, `maxtext` for a MaxText model execution failure. The `--start-date` and
+   * A specification of the triage scope. There are three choices here:
+      * **Container Search**: Usage `--container` to specify which of the `ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD` container families to search through. Example: `jax` for a JAX unit test failure, `maxtext` for a MaxText model execution failure. The `--start-date` and
        `--end-date` options can be combined with `--container` to tune the search; see
        below for more details.
-     * `--passing-container` and `--failing-container`: a pair of URLs to containers to
+     * **Commit Search between Containers**: `--passing-container` and `--failing-container`: a pair of URLs to containers to
        use in the commit-level search; if these are passed then no container-level
        search is performed.
+      * **Local Commit Search**: Use `--container-runtime=local` when you are already inside a JAX container. This mode skips all container orchestration and performs a commit-level search directly in the local container. It requires you to specify the commit range with `--passing-commits` and `--failing-commits`.
 
 The test command will be executed directly in the container, not inside a shell, so be
 sure not to add excessive quotation marks (*i.e.* run
@@ -88,7 +87,7 @@ as fast and targeted as possible.
 If you want to run multiple commands, you might want to use something like
 `jax-toolbox-triage --container=jax sh -c "command1 && command2"`.
 
-Alternatively, you can use `-v` (`--container-mount`) to mount a host directory
+Alternatively, when using a container runtime, you can use `-v` (`--container-mount`) to mount a host directory
 containing test scripts into the container and execute a script from there, *e.g.*
 `-v $PWD:/work /work/test.sh`.
 

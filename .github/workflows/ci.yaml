@@ -31,7 +31,7 @@ on:
         required: false
       CUDA_IMAGE:
         type: string
-        description: CUDA image to use as base, e.g. nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04
+        description: CUDA image, e.g. nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04 or latest.
         default: 'latest'
         required: false
       SOURCE_OVERRIDES:
@@ -133,7 +133,7 @@ jobs:
             exit 1
           fi
 
-      - name: Determine CUDA image to use
+      - name: Determine CUDA image tag to use
         id: cuda-image
         shell: bash -x -e {0}
         run: |
