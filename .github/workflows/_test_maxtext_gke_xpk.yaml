@@ -1,17 +1,13 @@
-name: GKE test
+name: ~Test MaxText (GKE, XPK)
 
 on:
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
-permissions:
-  contents: write       # to fetch code and push branch
-  actions:  write       # to cancel previous workflows
-  packages: write       # to upload container
-  pull-requests: write  # to make pull request for manifest bump
+  workflow_call:
+    inputs:
+      MAXTEXT_IMAGE:
+        type: string
+        description: MaxText image from ghcr.io/nvidia
+        default: ghcr.io/nvidia/jax:maxtext
+        required: false
 
 jobs:
   test:
@@ -80,7 +76,6 @@ jobs:
 
       - name: Create maxtext workload
         env:
-          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:14690670611-maxtext-amd64
           MAXTEXT_MODEL: llama2-7b 
           MAXTEXT_ATTENTION_TYPE: cudnn_flash_te
           MAXTEXT_REMAT_POLICY: minimal_flash
@@ -124,7 +119,7 @@ jobs:
                         --cluster ${CLUSTER_NAME} \
                         --zone ${ZONE} \
                         --workload ${WORKLOAD_NAME} \
-                        --docker-image ${IMAGE} \
+                        --docker-image ${{ inputs.MAXTEXT_IMAGE }} \
                         --device-type ${DEVICE_TYPE} \
                         --num-nodes ${NUM_NODES} \
                         --num-slices ${NUM_NODES} \
