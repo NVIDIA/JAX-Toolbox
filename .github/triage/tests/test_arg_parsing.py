@@ -44,17 +44,33 @@ valid_start_end_date_args = [
     ["--container", "jax", "--end-date", "2024-10-02"],
     ["--container", "jax", "--start-date", "2024-10-01", "--end-date", "2024-10-02"],
 ]
+valid_local_args = [
+    "--container-runtime",
+    "local",
+    "--passing-commits",
+    "jax:0123,xla:4567",
+    "--failing-commits",
+    "jax:89ab,xla:cdef",
+]
 
 
 @pytest.mark.parametrize(
     "good_args",
-    [valid_start_end_container]
+    [valid_start_end_container, valid_local_args]
     + valid_start_end_date_args
     + valid_container_and_commits,
 )
 def test_good_container_args(good_args):
     args = parse_args(good_args + test_command)
     assert args.test_command == test_command
+
+
+def test_good_local_args():
+    args = parse_args(valid_local_args + test_command)
+    assert args.test_command == test_command
+    assert args.container_runtime == "local"
+    assert "jax" in args.passing_commits
+    assert "xla" in args.failing_commits
 
 
 @pytest.mark.parametrize("date_args", valid_start_end_date_args)
@@ -129,3 +145,20 @@ def test_unparsable_container_args(container_args):
 def test_invalid_container_runtime():
     with pytest.raises(Exception):
         parse_args(["--container-runtime=magic-beans"] + test_command)
+
+
+@pytest.mark.parametrize(
+    "bad_local_args",
+    [
+        ["--container-runtime", "local"],
+        ["--container-runtime", "local", "--passing-commits", "jax:1,xla:2"],
+        ["--container-runtime", "local", "--failing-commits", "jax:1,xla:2"],
+        valid_local_args + ["--container", "jax"],
+        valid_local_args + ["--start-date", "2024-01-01"],
+        valid_local_args + ["--passing-container", "url"],
+        valid_local_args + ["--failing-container", "url"],
+    ],
+)
+def test_bad_local_arg_combinations(bad_local_args):
+    with pytest.raises(Exception):
+        parse_args(bad_local_args + test_command)
