@@ -1,6 +1,12 @@
 name: ~Test MaxText (GKE, XPK)
 
 on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
   workflow_call:
     inputs:
       MAXTEXT_IMAGE:
@@ -10,11 +16,11 @@ on:
         required: false
 
 jobs:
-  test:
+  maxtext-gke-xpk:
     runs-on: gke-a3mega
 
     env:
-      CLUSTER_NAME: jtb-30-05-2025
+      CLUSTER_NAME: jtb-2025-06-11
       GKE_VERSION: 1.31.6-gke.1221000 
       DEVICE_TYPE: h100-mega-80gb-8
       DEFAULT_CPU_MACHINE: e2-standard-8
@@ -24,6 +30,8 @@ jobs:
       PROJECT: nv-jaxtoolboxgcp-20240925
       WORKLOAD_NAME_PREFIX: maxtext
       MAIN_CONTAINER_NAME: gpu-image
+      # triage
+      MAXTEXT_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15109382631-maxtext-amd64
 
     steps:
       - uses: actions/checkout@v4
@@ -87,6 +95,7 @@ jobs:
               mkdir -p /opt/output;
 
               console=/dev/stdout;
+              
               nsys-jax --capture-range=cudaProfilerApi 
                        --capture-range-end=stop 
                        -o /opt/output/profile.zip 
@@ -119,7 +128,7 @@ jobs:
                         --cluster ${CLUSTER_NAME} \
                         --zone ${ZONE} \
                         --workload ${WORKLOAD_NAME} \
-                        --docker-image ${{ inputs.MAXTEXT_IMAGE }} \
+                        --docker-image ${MAXTEXT_IMAGE} \
                         --device-type ${DEVICE_TYPE} \
                         --num-nodes ${NUM_NODES} \
                         --num-slices ${NUM_NODES} \
