@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 import datetime
 import logging
 import pathlib
@@ -48,20 +47,6 @@ def get_logger(output_prefix: pathlib.Path) -> logging.Logger:
     return logger
 
 
-@contextmanager
-def console_log_level(logger, level):
-    # Temporarily change all handlers' levels to `level`
-    old = []
-    for handler in logger.handlers:
-        old.append((handler.level, handler))
-        handler.setLevel(level)
-    try:
-        yield None
-    finally:
-        for old_level, handler in old:
-            handler.setLevel(old_level)
-
-
 def prepare_bazel_cache_mounts(
     bazel_cache: str,
 ) -> typing.Sequence[typing.Tuple[pathlib.Path, pathlib.Path]]:
@@ -86,6 +71,7 @@ def run_and_log(
     logger: logging.Logger,
     stderr: typing.Literal["interleaved", "separate"],
     cwd: typing.Optional[str] = None,
+    log_level: int = logging.DEBUG,
 ) -> subprocess.CompletedProcess:
     logger.debug(f"Executing in {cwd or '.'}: {shlex.join(command)}")
     result = subprocess.Popen(
@@ -99,7 +85,7 @@ def run_and_log(
     stdouterr = ""
     for line in iter(result.stdout.readline, ""):
         stdouterr += line
-        logger.debug(line.strip())
+        logger.log(log_level, line.strip())
     result.wait()
     return subprocess.CompletedProcess(
         args=command,

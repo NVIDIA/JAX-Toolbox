@@ -6,8 +6,6 @@ import logging
 import pathlib
 import typing
 
-from .utils import console_log_level
-
 
 @dataclass
 class TestResult:
@@ -73,10 +71,21 @@ def adjust_date(
     return None
 
 
+class DateTester(typing.Protocol):
+    def __call__(
+        self, date: datetime.date, *, test_output_log_level: int = logging.DEBUG
+    ) -> TestResult:
+        """
+        Given an [unordered] set of {package_name: package_commit_sha}, build
+        those package versions and return the test result.
+        """
+        ...
+
+
 def container_search(
     *,
     container_exists: typing.Callable[[datetime.date], bool],
-    container_passes: typing.Callable[[datetime.date], TestResult],
+    container_passes: DateTester,
     start_date: typing.Optional[datetime.date],
     end_date: typing.Optional[datetime.date],
     logger: logging.Logger,
@@ -106,8 +115,7 @@ def container_search(
     else:
         logger.info(f"Checking end-of-range failure in {end_date}")
         # Print context for the IMPORTANT .info(...) to the console
-        with console_log_level(logger, logging.DEBUG):
-            test_end_date = container_passes(end_date)
+        test_end_date = container_passes(end_date, test_output_log_level=logging.INFO)
         if test_end_date.result:
             raise Exception(f"Could not reproduce failure in {end_date}")
         logger.info(
@@ -191,7 +199,12 @@ def container_search(
 
 
 class BuildAndTest(typing.Protocol):
-    def __call__(self, *, commits: typing.Dict[str, str]) -> TestResult:
+    def __call__(
+        self,
+        *,
+        commits: typing.Dict[str, str],
+        test_output_log_level: int = logging.DEBUG,
+    ) -> TestResult:
         """
         Given an [unordered] set of {package_name: package_commit_sha}, build
         those package versions and return the test result.
@@ -262,10 +275,9 @@ def _commit_search(
         failing_commits = {
             package: commit_list[-1][0] for package, commit_list in commits.items()
         }
-        # Temporarily print DEBUG output to the console, so the IMPORTANT info message
-        # below is actionable without checking the debug logfile.
-        with console_log_level(logger, logging.DEBUG):
-            check_fail = build_and_test(commits=failing_commits)
+        check_fail = build_and_test(
+            commits=failing_commits, test_output_log_level=logging.INFO
+        )
         assert _cache_key(failing_commits) not in result_cache
         result_cache[_cache_key(failing_commits)] = check_fail
         if not check_fail.result:
