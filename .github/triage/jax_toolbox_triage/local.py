@@ -23,11 +23,19 @@ class LocalContainer(Container):
     def exec(
         self,
         command: typing.List[str],
+        *,
         policy: typing.Literal["once", "once_per_container", "default"] = "default",
         stderr: typing.Literal["interleaved", "separate"] = "interleaved",
-        workdir=None,
+        workdir: typing.Optional[str] = None,
+        log_level: int = logging.DEBUG,
     ) -> subprocess.CompletedProcess:
-        return run_and_log(command, logger=self._logger, stderr=stderr, cwd=workdir)
+        return run_and_log(
+            command,
+            logger=self._logger,
+            log_level=log_level,
+            stderr=stderr,
+            cwd=workdir,
+        )
 
     def exists(self) -> bool:
         """The local environment always exists."""

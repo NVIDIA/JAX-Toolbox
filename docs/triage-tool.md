@@ -291,6 +291,24 @@ but that if JAX is moved forward to include
 then the test fails.
 This failure is fixed in [jax#24427](https://github.com/jax-ml/jax/pull/24427).
 
+## Triaging versioned components
+In addition to the git-repository-based triage discussed above, the tool is able to
+include a limited set of versions of other software components in the multi-component
+triage algorithm.
+To enable this feature, `--build-scripts-path` must give a path **inside** the test
+environment (container) that contains executables named `installCOMPONENT.sh` that
+accept a version as the first argument.
+This is typically used in conjunction with `--container-mount` to allow those
+installation helpers to be injected from the host system.
+
+Versions of `COMPONENT` will be read from the last-known-good and first-known-bad
+container environment variable `COMPONENT_VERSION`, or the version of `COMPONENT` can
+be set explicitly via `--{passing,failing}-commits`.
+
+Only two versions of `COMPONENT` will be read, one from each end of the triage range.
+If those versions are the same as each other, `installCOMPONENT.sh` will not be called
+and need not exist.
+
 ## Other features
 The tool will mount a host system directory (under `--output-prefix`) into the
 container at `/triage-tool-output` and will make sure that this directory is unique for
