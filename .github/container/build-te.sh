@@ -131,6 +131,9 @@ export NVTE_FRAMEWORK=jax
 export XLA_HOME=${SRC_PATH_XLA}
 
 pushd ${SRC_PATH_TRANSFORMER_ENGINE}
+# Install required packages that were removed in https://github.com/NVIDIA/TransformerEngine/pull/1852
+pip install "pybind11[global]"
+
 # The wheel filename includes the TE commit; if this has changed since the last
 # incremental build then we would end up with multiple wheels.
 rm -fv dist/*.whl
