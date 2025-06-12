@@ -57,7 +57,7 @@ index a95c557..754ac03 100644
 +                    value: /opt/nvidia/nccl/lib
                    - name: LD_LIBRARY_PATH
 -                    value: /usr/local/nvidia/lib64
-+                    value: /opt/nvidia/nccl/lib:/usr/local/cuda-12.8/compat/lib.real:/usr/local/nvidia/lib64
++                    value: /opt/nvidia/nccl/lib:/usr/local/cuda-12.8/targets/x86_64-linux/lib:/usr/local/nvidia/lib64
  """
      elif args.device_type == H100_MEGA_DEVICE_TYPE:
        gpu_direct_name = 'tcpxo'

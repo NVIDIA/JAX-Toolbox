@@ -8,7 +8,7 @@ index 322e574..0a71db8 100644
        ],
 -      'env': [{'name': 'LD_LIBRARY_PATH', 'value': '/usr/local/nvidia/lib64'}],
 +      'env': [
-+          {'name': 'LD_LIBRARY_PATH', 'value': '/opt/nvidia/nccl/lib:/usr/local/cuda-12.8/compat/lib.real:/usr/local/nvidia/lib64'},
++          {'name': 'LD_LIBRARY_PATH', 'value': '/opt/nvidia/nccl/lib:/usr/local/cuda-12.8/targets/x86_64-local/lib:/usr/local/nvidia/lib64'},
 +          {'name': 'NCCL_LIB_DIR', 'value': '/opt/nvidia/nccl/lib'},
 +          {'name': 'NCCL_TUNER_PLUGIN', 'value': 'none'},
 +          {'name': 'NCCL_NET_PLUGIN', 'value': '/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so'}
@@ -21,7 +21,7 @@ index 322e574..0a71db8 100644
        container.setdefault('env', [])
        container['env'].append(
 -          {'name': 'LD_LIBRARY_PATH', 'value': '/usr/local/nvidia/lib64'}
-+          {'name': 'LD_LIBRARY_PATH', 'value': '/opt/nvidia/nccl/lib:/usr/local/cuda-12.8/compat/lib.real:/usr/local/nvidia/lib64'}
++          {'name': 'LD_LIBRARY_PATH', 'value': '/opt/nvidia/nccl/lib:/usr/local/cuda-12.8/targets/x86_64-local/lib:/usr/local/nvidia/lib64'}
 +      )
 +      container['env'].append(
 +          {'name': 'NCCL_LIB_DIR', 'value': '/opt/nvidia/nccl/lib'}
