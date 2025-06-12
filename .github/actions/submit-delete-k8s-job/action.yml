@@ -49,7 +49,6 @@ runs:
           while true; do
             job_status_counts=$(kubectl get job/${INPUT_JOB_NAME} -o 'jsonpath={.status.failed}:{.status.succeeded}')
 
-            #IFS=: read -r failures successes <<< "$job_status_counts"
             IFS=:
             set -- $job_status_counts
             failures=${1:-0}
