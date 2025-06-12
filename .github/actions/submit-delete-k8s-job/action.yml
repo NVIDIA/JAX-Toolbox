@@ -49,7 +49,7 @@ runs:
 
           JOB_COMPLETED=false
           RETRIES=0
-          MAX_RETRIES=$(( TIMEOUT_JOB_WAIT / 20 )) # 20 seconds per retry
+          MAX_RETRIES=$(( TIMEOUT_JOB_WAIT / 20s )) # 20 seconds per retry
 
           while ! $JOB_COMPLETED && [ $RETRIES -lt $MAX_RETRIES ]; do
             STATUS_JSON=$(kubectl get job/"${{ inputs.job-name }}" -o json)
