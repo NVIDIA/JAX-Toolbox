@@ -787,13 +787,13 @@ jobs:
       run: |
         yq -i ea '
            select(di == 0).metadata.name = strenv(JOB_NAME)' \
-        .github/eks-workflow-files/test-jobs/test-success.yml
-        git diff .github/eks-workflow-files/test-jobs/test-success.yml
+        .github/eks-workflow-files/test-jobs/test-success.yaml
+        git diff .github/eks-workflow-files/test-jobs/test-success.yaml
 
     - name: Submit & delete test on k8s
       uses: ./.github/actions/submit-delete-k8s-job
       with:
-        job-config-file:  ".github/eks-workflow-files/test-jobs/test-success.yml"
+        job-config-file:  ".github/eks-workflow-files/test-jobs/test-success.yaml"
         job-name: ${{ env.JOB_NAME }}
 
 
@@ -808,11 +808,11 @@ jobs:
       run: |
         yq -i ea '
            select(di == 0).metadata.name = strenv(JOB_NAME)' \
-        .github/eks-workflow-files/test-jobs/test-fail.yml
-        git diff .github/eks-workflow-files/test-jobs/test-fail.yml
+        .github/eks-workflow-files/test-jobs/test-fail.yaml
+        git diff .github/eks-workflow-files/test-jobs/test-fail.yaml
 
     - name: Submit & delete test on k8s
       uses: ./.github/actions/submit-delete-k8s-job
       with:
-        job-config-file:  ".github/eks-workflow-files/test-jobs/test-fail.yml"
+        job-config-file:  ".github/eks-workflow-files/test-jobs/test-fail.yaml"
         job-name: ${{ env.JOB_NAME }}
