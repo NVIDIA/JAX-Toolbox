@@ -6,5 +6,6 @@ RUN apt-get update \
     && apt install -y openssh-server
 RUN passwd -d root && \
      echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
-     echo "PermitEmptyPasswords yes" >> /etc/ssh/sshd_config
+     echo "PermitEmptyPasswords yes" >> /etc/ssh/sshd_config && \
+     chmod +x /scripts/*
 

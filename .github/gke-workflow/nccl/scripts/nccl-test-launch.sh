@@ -1,4 +1,5 @@
 BENCHMARK=$1
+NHOSTS=${NHOSTS:-2}
 shift
 
 /scripts/start_ssh.sh ${@};
@@ -7,4 +8,6 @@ pushd /scripts;
 /scripts/generate_hostfiles.sh ${@};
 popd;
 
-BENCHMARK=$BENCHMARK NHOSTS=2 /scripts/test.sh
+if [ $NODE_RANK = 0 ] ; then
+  BENCHMARK=$BENCHMARK NHOSTS=$NHOSTS /scripts/test.sh
+fi

@@ -71,7 +71,7 @@ jobs:
 
       - name: Create NCCL test service
         run: |
-          kubectl apply -f .github/gke-workload/nccl/service.yml
+          kubectl apply -f .github/gke-workflow/nccl/service.yml
 
       - name: Create NCCL test workload
         run: |
@@ -80,6 +80,7 @@ jobs:
               mkdir -p /opt/output;
 
               service ssh start;
+              unset NCCL_NET_PLUGIN
 
               console=/dev/stdout;
               declare -a hosts=(\"nccl-test-host-1\" \"nccl-test-host-2\");
