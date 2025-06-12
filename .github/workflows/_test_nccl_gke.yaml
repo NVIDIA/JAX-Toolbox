@@ -1,0 +1,174 @@
+name: ~Test NCCL Kubernetes (GKE)
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+
+jobs:
+  build-nccl-gke:
+    runs-on: [self-hosted, "amd64", "large"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build NCCL image
+        id: build
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: amd64
+          ARTIFACT_NAME: artifact-nccl-gke-build
+          BADGE_FILENAME: badge-nccl-gke-build
+          BUILD_DATE: 0000-00-00 # not important; this image is never published
+          BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15606961831-maxtext-amd64
+          CONTAINER_NAME: nccl-gke
+          DOCKERFILE: .github/container/Dockerfile.nccl-gke
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+    outputs:
+      DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
+
+  nccl-gke:
+    runs-on: gke-a3mega
+
+    needs: build-nccl-gke
+
+    strategy:
+      matrix:
+        test: [all_gather_perf_mpi, all_reduce_perf_mpi, broadcast_perf_mpi, reduce_scatter_perf_mpi]
+
+    env:
+      BASE_IMAGE: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG_FINAL }}
+      TEST_NAME: ${{ matrix.test }}
+      WORKLOAD_NAME_PREFIX: nccl-test
+      MAIN_CONTAINER_NAME: gpu-image
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply xpk workload create patch
+        run: |
+          cd ${HOME}/xpk && git checkout src/xpk && cd -
+          git apply --unsafe-paths .github/gke-workflow/xpk/tcpxo_decorator.patch --directory ${HOME}/xpk
+          git apply --unsafe-paths .github/gke-workflow/xpk/docker_resources.patch --directory ${HOME}/xpk
+          git apply --unsafe-paths .github/gke-workflow/xpk/workload.patch --directory ${HOME}/xpk
+
+      - name: Set workload name
+        run: |
+          echo "WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}" >> ${GITHUB_ENV}
+
+      - name: Create NCCL test service
+        run: |
+          kubectl apply -f .github/gke-workload/nccl/service.yml
+
+      - name: Create NCCL test workload
+        run: |
+          CMD="
+              mkdir -p /usr/share/workload;
+              mkdir -p /opt/output;
+
+              service ssh start;
+
+              console=/dev/stdout;
+              declare -a hosts=(\"nccl-test-host-1\" \"nccl-test-host-2\");
+
+              /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
+              tee /opt/output/output.log &> \${console};
+              exit \$PIPESTATUS
+          "
+
+          # set container command in-line
+          CMD=$(echo ${CMD} | sed 's/\n/\ /g')
+
+          cd ${HOME}/xpk
+          source ${HOME}/.venv/bin/activate
+          python xpk.py workload create \
+                        --cluster ${CLUSTER_NAME} \
+                        --zone ${ZONE} \
+                        --workload ${WORKLOAD_NAME} \
+                        --docker-image ${MAXTEXT_IMAGE} \
+                        --device-type ${DEVICE_TYPE} \
+                        --num-nodes ${NUM_NODES} \
+                        --num-slices ${NUM_NODES} \
+                        --priority=high \
+                        --scheduler=gke.io/topology-aware-auto \
+                        --command "${CMD}"
+
+      - name: Wait for JobSet to unsuspend
+        env:
+          POLL_TIMEOUT: 3600
+        run: |
+          START=$(date +%s)
+          JOBSET_ACTIVE=false
+          while ! ${JOBSET_ACTIVE}  || [ -z ${JOBSET_ACTIVE} ]; do
+            JOBSET_ACTIVE=$(kubectl get jobset -o json | jq -r '.items[] | select(.metadata.name == "'${WORKLOAD_NAME}'").status.replicatedJobsStatus[0] | .active == 1')
+            NOW=$(date +%s)
+            ELAPSED=$(( NOW - START ))
+            if (( ELAPSED > POLL_TIMEOUT )) ; then
+              echo "Timeout after waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${CLUSTER_NAME}"
+              exit 1
+            fi
+            echo "Waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${CLUSTER_NAME}"
+            sleep 5
+          done
+
+          echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${CLUSTER_NAME}"
+
+      - name: Set Pod name
+        run: |
+          echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${WORKLOAD_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
+
+      - name: Wait for Pod readiness
+        run: |
+          POD_READY=false
+          while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
+            echo "Waiting for pod ${POD} in JobSet ${WORKLOAD_NAME} to become ready"
+            sleep 5
+
+            POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[] | select(.name == "'${MAIN_CONTAINER_NAME}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
+            if ${POD_ERROR} ; then
+              echo "There was an issue starting the JobSet ${WORKLOAD_NAME} on ${CLUSTER_NAME}"
+              break
+            fi
+
+            POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[] | select(.name == "'${MAIN_CONTAINER_NAME}'").ready')
+          done;
+
+      - name: Stream logs from JobSet
+        run: |
+          # stream gpu-image container logs from first (coordinator) pod in jobset
+          echo "Pod ${POD} in JobSet ${WORKLOAD_NAME} has become ready. Streaming logs..."
+          kubectl logs -f -c ${MAIN_CONTAINER_NAME} ${POD} |& tee ${WORKLOAD_NAME}-jobset.log
+
+      - name: Set exit code from JobSet
+        run: |
+          MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-jobset.log)"
+          echo ${MAYBE_XPK_EXIT_CODE} |  grep -E '^EXIT\_CODE=*'
+
+          if [ $? -ne 0 ]; then
+            echo "The JobSet ${WORKLOAD_NAME} on ${CLUSTER_NAME} did not complete as expected "
+            exit 1
+          fi
+
+          eval "export ${MAYBE_XPK_EXIT_CODE}"
+          exit ${EXIT_CODE}
+
+      - name: Clean up JobSet
+        if: ${{ always() }}
+        run: |
+          kubectl delete jobset --wait ${WORKLOAD_NAME} || echo "JobSet ${WORKLOAD_NAME} does not exist in ${CLUSTER_NAME}"
+
+      - name: Clean up NCCL test service
+        run: |
+          kubectl delete -f .github/gke-workload/nccl/service.yml
