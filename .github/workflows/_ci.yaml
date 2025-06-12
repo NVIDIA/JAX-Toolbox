@@ -786,7 +786,7 @@ jobs:
     - name: Configure axlearn test job
       run: |
         yq -i ea '
-           select(di == 0).metadata.name = strenv(JOB_NAME)\
+           select(di == 0).metadata.name = strenv(JOB_NAME)' \
         .github/eks-workflow-files/test-jobs/test-success.yml
         git diff .github/eks-workflow-files/test-jobs/test-success.yml
 
@@ -807,7 +807,7 @@ jobs:
     - name: Configure axlearn test job
       run: |
         yq -i ea '
-           select(di == 0).metadata.name = strenv(JOB_NAME)\
+           select(di == 0).metadata.name = strenv(JOB_NAME)' \
         .github/eks-workflow-files/test-jobs/test-fail.yml
         git diff .github/eks-workflow-files/test-jobs/test-fail.yml
 
