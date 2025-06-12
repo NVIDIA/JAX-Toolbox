@@ -11,6 +11,5 @@ spec:
       containers:
         - name: test-on-new-action
           image: busybox:latest
-          command: ["/bin/bash", "-c", "echo 'Fake simulation'; sleep 5;  echo 'Done'"]
+          command: ["/bin/bash", "-c", "echo 'Fake simulation'; sleep 25;  echo 'Done'"]
       restartPolicy: Never
-      backoffLimit: 0
