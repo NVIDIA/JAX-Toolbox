@@ -20,7 +20,6 @@ runs:
           TIMEOUT_JOB_CREATION=60s
           TIMEOUT_JOB_WAIT=14400s
           TIMEOUT_JOB_START=600s
-          JOB_POLL_INTERVAL=20s
 
           echo "Submit K8s job"
           kubectl apply -f "${{ inputs.job-config-file }}"
@@ -50,7 +49,7 @@ runs:
 
           JOB_COMPLETED=false
           RETRIES=0
-          MAX_RETRIES=$((TIMEOUT_JOB_WAIT / JOB_POLL_INTERVAL)) # 20 seconds per retry
+          MAX_RETRIES=720 #$((TIMEOUT_JOB_WAIT / 20 ))
 
           while ! $JOB_COMPLETED && [ $RETRIES -lt $MAX_RETRIES ]; do
             STATUS_JSON=$(kubectl get job/"${{ inputs.job-name }}" -o json)
