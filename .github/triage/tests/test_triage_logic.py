@@ -36,25 +36,25 @@ def make_commits(jax, xla, flax=None):
     "dummy_test,expected,last_known_good_dir,first_known_bad_dir",
     [
         (
-            lambda commits: wrap(commits["jax"] == "oJ", commits),
+            lambda *, commits, **kwargs: wrap(commits["jax"] == "oJ", commits),
             {"flax_ref": "nF", "xla_ref": "oX", "jax_bad": "mJ", "jax_good": "oJ"},
             "flax-nF-jax-oJ-xla-oX",
             "flax-nF-jax-mJ-xla-oX",
         ),
         (
-            lambda commits: wrap(commits["jax"] != "nJ", commits),
+            lambda *, commits, **kwargs: wrap(commits["jax"] != "nJ", commits),
             {"flax_ref": "nF", "xla_ref": "oX", "jax_bad": "nJ", "jax_good": "mJ"},
             "flax-nF-jax-mJ-xla-oX",
             "flax-nF-jax-nJ-xla-oX",
         ),
         (
-            lambda commits: wrap(commits["xla"] == "oX", commits),
+            lambda *, commits, **kwargs: wrap(commits["xla"] == "oX", commits),
             {"flax_ref": "nF", "jax_ref": "nJ", "xla_bad": "nX", "xla_good": "oX"},
             "flax-nF-jax-nJ-xla-oX",
             "flax-nF-jax-nJ-xla-nX",
         ),
         (
-            lambda commits: wrap(commits["flax"] == "oF", commits),
+            lambda *, commits, **kwargs: wrap(commits["flax"] == "oF", commits),
             {"flax_bad": "nF", "flax_good": "oF", "xla_ref": "oX", "jax_ref": "oJ"},
             "flax-oF-jax-oJ-xla-oX",
             "flax-nF-jax-oJ-xla-oX",
@@ -142,7 +142,7 @@ def test_commit_search(logger, extra_commits, packages, seed):
     culprit_dates = {sha: dt for sha, dt in commits[culprit]}
     assert len(culprit_dates) == len(commits[culprit])
 
-    def dummy_test(*, commits):
+    def dummy_test(*, commits, **kwargs):
         return wrap(culprit_dates[commits[culprit]] < bad_date, commits)
 
     algorithm_result, last_known_good, first_known_bad = commit_search(
@@ -280,7 +280,7 @@ def test_commit_search_exhaustive(logger, commits):
     assert all(len(v) for v in split_commits.values())
     assert len(split_commits[bad_project]) >= 2
 
-    def dummy_test(*, commits):
+    def dummy_test(*, commits, **kwargs):
         return wrap(dates[commits[bad_project]] < bad_date)
 
     algorithm_result, _, _ = commit_search(
@@ -321,7 +321,7 @@ def test_commit_search_exhaustive(logger, commits):
 def test_commit_search_no_commits(logger, commits):
     with pytest.raises(Exception, match="Not enough commits"):
         commit_search(
-            build_and_test=lambda commits: None,
+            build_and_test=lambda **kwargs: None,
             commits=commits,
             logger=logger,
             skip_precondition_checks=False,
@@ -332,7 +332,7 @@ def test_commit_search_no_commits(logger, commits):
 def test_commit_search_static_test_function(logger, value):
     with pytest.raises(Exception, match="Could not reproduce"):
         commit_search(
-            build_and_test=lambda commits: wrap(value),
+            build_and_test=lambda **kwargs: wrap(value),
             commits=make_commits(
                 jax=[("1", start_date), ("2", start_date + step_size)],
                 xla=[("1", start_date), ("2", start_date + step_size)],
@@ -382,7 +382,7 @@ def test_container_search_limits(
     with pytest.raises(Exception, match=match_string):
         container_search(
             container_exists=lambda dt: dt in dates_that_exist,
-            container_passes=lambda dt: wrap(False),
+            container_passes=lambda dt, **kwargs: wrap(False),
             start_date=start_date,
             end_date=end_date,
             logger=logger,
@@ -429,7 +429,7 @@ def test_container_search_checks(
     with pytest.raises(Exception, match=match_string):
         container_search(
             container_exists=lambda dt: True,
-            container_passes=lambda dt: wrap(dt in dates_that_pass),
+            container_passes=lambda dt, **kwargs: wrap(dt in dates_that_pass),
             start_date=start_date,
             end_date=end_date,
             logger=logger,
@@ -450,7 +450,7 @@ def test_container_search(logger, start_date, days_of_failure, threshold_days):
     assert start_date is None or threshold_date >= start_date
     good_date, bad_date = container_search(
         container_exists=lambda dt: True,
-        container_passes=lambda dt: wrap(dt < threshold_date),
+        container_passes=lambda dt, **kwargs: wrap(dt < threshold_date),
         start_date=start_date,
         end_date=end_date,
         logger=logger,

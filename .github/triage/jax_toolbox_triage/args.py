@@ -173,6 +173,18 @@ def parse_args(args=None) -> argparse.Namespace:
             Expects an argument of form jax:jax_commit_hash,xla:xla_commit_hash.""",
         type=parse_commit_argument,
     )
+    commit_search_args.add_argument(
+        "--build-scripts-path",
+        help="""
+            This is a path inside the container that contains installPACKAGE.sh
+            executables that the tool can use to move the versions of software
+            components *other than* the git repositories (XLA, JAX, ...) that are
+            explicitly supported. If this is given, the set of `PACKAGE` names is taken
+            from environment variables of the form `{PACKAGE}_VERSION` in the container
+            runtime environment. These executables will only be called if the component
+            in question has different versions at the endpoints of the bisection range.
+        """,
+    )
     parser.add_argument(
         "-v",
         "--container-mount",

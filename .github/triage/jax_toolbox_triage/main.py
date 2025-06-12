@@ -23,59 +23,108 @@ from .utils import (
 )
 
 
-def get_commit(
-    container: Container, logger: logging.Logger, repo: str
-) -> typing.Tuple[str, str]:
+def get_env(worker: Container) -> typing.Dict[str, str]:
     """
-    Get the commit of the given repository that was used in the given nightly container
+    Get the runtime environment in the given container.
 
-    Arguments:
-    container: running container to extract the commit from
-    repo: repository, must be jax or xla
+    Returns: {env_var: value} dictionary, sorted by key.
     """
-    # Older containers used /opt/jax-source etc.
-    results = []
-    for suffix in ["", "-source"]:
-        dirname = f"/opt/{repo}{suffix}"
-        result = container.exec(
-            ["git", "rev-parse", "HEAD"],
-            policy="once",
-            stderr="separate",
-            workdir=dirname,
+
+    def impl() -> typing.Dict[str, str]:
+        return dict(
+            map(
+                lambda kv: kv.split("=", 1),
+                worker.check_exec(
+                    ["env", "-0"],
+                    policy="once",
+                    stderr="separate",
+                )
+                .stdout[:-1]  # skip the trailing \0
+                .split("\0"),
+            )
         )
-        stderr = result.stderr.strip()
-        if len(stderr):
-            logger.debug(f"stderr: {stderr}")
-        results.append(result)
-        if result.returncode == 0:
-            commit = result.stdout.strip()
-            if len(commit) == 40:
-                return commit, dirname
-    raise Exception(
-        f"Could not extract commit of {repo} from {container}: {' '.join(map(str, results))}"
-    )
+
+    # Remove any environment variables that differ between consecutive `env` calls, for
+    # example some step-specific Slurm variables.
+    env1, env2 = impl(), impl()
+    # sorted(...) for run-to-run determinism
+    return {k: env1[k] for k in sorted(env1.keys() & env2.keys()) if env1[k] == env2[k]}
 
 
 def get_commits_and_dirs(
-    worker: Container, logger: logging.Logger
+    worker: Container,
 ) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str]]:
-    package_commits, dirs = {}, {}
-    for package in compulsory_software:
-        package_commits[package], dirs[package] = get_commit(worker, logger, package)
-    for package in optional_software:
-        try:
-            package_commits[package], dirs[package] = get_commit(
-                worker, logger, package
-            )
-        except Exception:
-            pass
-    return package_commits, dirs
+    """
+    Get the git repository paths and current HEAD commits in the given environment of
+    the software packages named in `compulsory_software` and `optional_software`.
+
+    Returns: ({package: commit}, {package: directory})
+    """
+    # Formulated this way to avoid paying too many times for container startup.
+    cmds = []
+    for package in compulsory_software + optional_software:
+        bits = [
+            f"(cd /opt/{package} && git rev-parse HEAD && echo {package} && pwd)",
+            f"(cd /opt/{package}-source && git rev-parse HEAD && echo {package} && pwd)",
+        ]
+        if package in optional_software:
+            bits.append("true")
+        cmds.append(f"({' || '.join(bits)})")
+    result = worker.check_exec(
+        ["sh", "-c", " && ".join(cmds)], policy="once", stderr="separate"
+    )
+    versions, dirs = {}, {}
+    # Look over triplets of output lines
+    for commit, package, dirname in zip(*([iter(result.stdout.splitlines())] * 3)):
+        dirs[package] = dirname
+        versions[package] = commit
+    return versions, dirs
+
+
+def get_versions_dirs_env(
+    worker: Container,
+    versions_from_env: bool,
+) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str], typing.Dict[str, str]]:
+    """
+    Get software versions in the given [container] environment, git repository paths
+    where relevant, and the runtime environment.
+
+    The list of software versions is drawn from git repositories at known container
+    locations and, if `versions_from_env` is True, from the environment.
+
+    Returns:
+      versions: {package: version or commit},
+      dirs: {package: git_repository_dir}
+      env: {env_var: value}
+    """
+    # Get the git repository paths and commits from the container.
+    versions, dirs = get_commits_and_dirs(worker)
+
+    # Get the environment variables from the container.
+    env = get_env(worker)
+
+    if versions_from_env:
+        # Promote any XXX_VERSION environment variables into `versions` if `XXX` is
+        # not already there.
+        # TODO: the match might need to be fuzzier (case, hyphens vs underscores)
+        for k, v in env.items():
+            if not len(v):
+                continue
+            if k[-8:] != "_VERSION":
+                continue
+            package = k[:-8]
+            assert package not in versions, (versions, package)
+            versions[package] = v
+    return versions, dirs, env
 
 
 def main() -> None:
     args = parse_args()
     bazel_cache_mounts = prepare_bazel_cache_mounts(args.bazel_cache)
     logger = get_logger(args.output_prefix)
+    logger.info("Arguments:")
+    for k, v in vars(args).items():
+        logger.info(f"  {k}: {v}")
     logger.info(
         "Verbose output, including stdout/err of triage commands, will be written to "
         f"{(args.output_prefix / 'debug.log').resolve()}"
@@ -90,7 +139,8 @@ def main() -> None:
         urlhash = f"container-{hashlib.sha1(url.encode()).hexdigest()[:hash_chars]}"
         out_dirname = "-".join(
             itertools.chain(
-                [urlhash], map(lambda t: f"{t[0]}-{t[1][:hash_chars]}", commits.items())
+                [urlhash],
+                map(lambda t: f"{t[0]}-{t[1][:hash_chars]}", sorted(commits.items())),
             )
         )
         out_dir = args.output_prefix / out_dirname
@@ -119,31 +169,48 @@ def main() -> None:
             mounts.append((test_output_host_directory, "/triage-tool-output"))
         return Imp(url, logger=logger, mounts=mounts)
 
-    def get_commits(
+    def get_versions(
         container_url: typing.Optional[str],
-        explicit_commits: typing.Optional[typing.Dict[str, str]],
-    ) -> typing.Tuple[typing.Dict[str, str], typing.Optional[typing.Dict[str, str]]]:
+        explicit_versions: typing.Optional[typing.Dict[str, str]],
+        versions_from_env: bool,
+    ) -> typing.Tuple[
+        typing.Dict[str, str],
+        typing.Optional[typing.Dict[str, str]],
+        typing.Optional[typing.Dict[str, str]],
+        typing.Optional[typing.Dict[str, str]],
+    ]:
         """
-        Get the list of commit hashes for different packages inside the given
-        container, or return the explicitly passed set of hashes if they are
-        given.
+        Given an optional container URL (e.g. --failing-container) and an optional set of
+        overriden versions (e.g. --failing-commits), obtain a list of software versions to
+        bookend the triage range.
 
-        If both arguments are non-None, the commits read from inside the given
-        container will be overwritten by explicit passed entries.
+        Also returns the container's runtime environment variables for diagnostic purposes.
+
+        If *only* overrides are given, those are returned verbatim and all other return
+        values are None.
+
+        Otherwise, the software versions, git repository directories and runtime
+        environment are extracted from the given container. If overrides are *also* given,
+        these take precedence over the extracted values.
 
         If is an error for both of the arguments to be None.
+
+        Returns:
+        versions: {packge: version} mapping defining one end of the triage range
+        url_versions: {package: version} corresponding to the given container (or None)
+        dirs: {package: git_repository_dir} (or None)
+        env: {env_var: value} (or None)
         """
-        if explicit_commits is None:
-            assert container_url is not None
-            with Container(container_url) as worker:
-                return get_commits_and_dirs(worker, logger)
-        else:
-            if container_url is None:
-                return explicit_commits, None
-            with Container(container_url) as worker:
-                commits, package_dirs = get_commits_and_dirs(worker, logger)
-            commits.update(explicit_commits)
-            return commits, package_dirs
+        if explicit_versions is not None and container_url is None:
+            return explicit_versions, None, None, None
+        assert container_url is not None
+        logger.info(f"Extracting versions from {container_url} ...")
+        with Container(container_url) as worker:
+            url_versions, dirs, env = get_versions_dirs_env(worker, versions_from_env)
+        overriden_versions = url_versions.copy()
+        if explicit_versions is not None:
+            overriden_versions.update(explicit_versions)
+        return overriden_versions, url_versions, dirs, env
 
     def add_summary_record(
         section: str,
@@ -171,7 +238,11 @@ def main() -> None:
         with open(summary_filename, "w") as ofile:
             json.dump(data, ofile)
 
-    def check_container(date: datetime.date) -> TestResult:
+    versions_from_env = args.build_scripts_path is not None
+
+    def check_container(
+        date: datetime.date, *, test_output_log_level: int = logging.DEBUG
+    ) -> TestResult:
         """
         See if the test passes in the given dated container.
         """
@@ -180,9 +251,9 @@ def main() -> None:
         with Container(
             container_url(date), test_output_host_directory=out_dir
         ) as worker:
-            commits, _ = get_commits_and_dirs(worker, logger)
+            commits, _, _ = get_versions_dirs_env(worker, versions_from_env)
             # This will stream interleaved stdout/stderr into the logger
-            result = worker.exec(args.test_command)
+            result = worker.exec(args.test_command, log_level=test_output_log_level)
             test_time = time.monotonic() - before
             test_pass = result.returncode == 0
             logger.info(
@@ -225,34 +296,62 @@ def main() -> None:
         passing_url = args.passing_container
         failing_url = args.failing_container
 
-    # Get the git commits in the endpoint containers, or the explicitly passed commits
-    passing_commits, passing_package_dirs = get_commits(
-        passing_url, args.passing_commits
+    # Get the commits/versions in the endpoint containers, or the explicitly passed
+    # commits, or the former overriden by the latter.
+    passing_versions, original_passing_versions, passing_package_dirs, passing_env = (
+        get_versions(passing_url, args.passing_commits, versions_from_env)
     )
-    failing_commits, failing_package_dirs = get_commits(
-        failing_url, args.failing_commits
+    failing_versions, original_failing_versions, failing_package_dirs, failing_env = (
+        get_versions(failing_url, args.failing_commits, versions_from_env)
     )
 
-    # We should have commit hashes for all the same software packages at both
+    # If we have two containers, print the differences between their environments. This
+    # can be useful in the case that rebuilding the good commits in the bad container,
+    # or vice versa, does not reproduce the expected result.
+    if passing_env is not None and failing_env is not None:
+        logger.info(f"Environment differences between {passing_url} and {failing_url}")
+        for key in passing_env.keys() - failing_env.keys():
+            logger.info(f"Only in {passing_url}: {key}={passing_env[key]}")
+        for key in failing_env.keys() - passing_env.keys():
+            logger.info(f"Only in {failing_url}: {key}={failing_env[key]}")
+        for key in passing_env.keys() & failing_env.keys():
+            if passing_env[key] == failing_env[key]:
+                continue
+            logger.info(
+                f"{key}: {passing_env[key]} ({passing_url}) vs. {failing_env[key]} "
+                f"({failing_url})"
+            )
+
+    # We should have versions for all the same software packages at both
     # ends of the range, one way or another. TODO: this could be relaxed.
-    assert passing_commits.keys() == failing_commits.keys(), (
-        passing_commits,
-        failing_commits,
+    assert passing_versions.keys() == failing_versions.keys(), (
+        passing_versions,
+        failing_versions,
     )
 
-    # Choose a container to do the commit-level bisection in; use directory
-    # names that match it.
+    # Which packages have versions that are not always the same?
+    dynamic_packages = {
+        pkg for pkg, _ in set(passing_versions.items()) ^ set(failing_versions.items())
+    }
+
+    # Choose an environment to do the commit-level bisection in; use directory names that
+    # match it, and track what the initial versions of the different packages are
     if args.container_runtime == "local":
         bisection_url = "local"
+        bisection_versions = original_failing_versions
         package_dirs = failing_package_dirs
     elif failing_url is not None:
         bisection_url = failing_url
+        bisection_versions = original_failing_versions
         package_dirs = failing_package_dirs
     else:
         assert passing_url is not None
         bisection_url = passing_url
+        bisection_versions = original_passing_versions
         package_dirs = passing_package_dirs
     assert package_dirs is not None
+    # This is the set of versions that are already installed
+    assert bisection_versions is not None
 
     # Get the full lists of JAX/XLA commits and dates
     def get_commit_history(worker, start, end, dir):
@@ -297,21 +396,25 @@ def main() -> None:
     # Fire up the container that will be used for the commit-level search and use it to
     # extract the relevant history of the repositories that will be triaged.
     with Container(bisection_url) as worker:
-        packages = passing_commits.keys()
+        packages = passing_versions.keys()
         log_str = "Bisecting"
         for package in packages:
             log_str += (
-                f" {package} [{passing_commits[package]}, {failing_commits[package]}]"
+                f" {package} [{passing_versions[package]}, {failing_versions[package]}]"
             )
         log_str += f" using {worker}"
         logger.info(log_str)
         # Get lists of (commit_hash, commit_date) pairs
         package_commits = collections.OrderedDict()
         for package in packages:
+            if package not in package_dirs:
+                # This is a version that came from the container environment, not a git
+                # checkout directory in the container. Handle those below.
+                continue
             package_commits[package] = get_commit_history(
                 worker,
-                passing_commits[package],
-                failing_commits[package],
+                passing_versions[package],
+                failing_versions[package],
                 package_dirs[package],
             )
             # Confirm they're sorted by commit date
@@ -320,27 +423,63 @@ def main() -> None:
                 for a, b in zip(package_commits[package], package_commits[package][1:])
             )
             # Confirm the end values are included as expected
-            assert passing_commits[package] == package_commits[package][0][0]
-            assert failing_commits[package] == package_commits[package][-1][0]
+            assert passing_versions[package] == package_commits[package][0][0]
+            assert failing_versions[package] == package_commits[package][-1][0]
+        # For the packages that just have one or two version numbers, associate those
+        # version numbers with the earliest and, if appropriate, latest XLA dates.
+        for package in packages:
+            if package in package_commits:
+                continue
+            package_commits[package] = [
+                (passing_versions[package], package_commits["xla"][0][1]),
+            ]
+            if passing_versions[package] != failing_versions[package]:
+                package_commits[package].append(
+                    (failing_versions[package], package_commits["xla"][-1][1])
+                )
 
-    def build_and_test(commits: typing.Dict[str, str]) -> TestResult:
+    def build_and_test(
+        *, commits: typing.Dict[str, str], test_output_log_level: int = logging.DEBUG
+    ) -> TestResult:
         """
         The main body of the bisection loop. Update the JAX/XLA commits, build XLA and
         jaxlib, and run the test command. Throws on error when checking out or
         building, and returns the status of the test command.
         """
         # Amortise container startup overhead by batching together git commands
-        git_commands, git_refs = [], []
+        git_commands, changed, skipped = [], [], []
         for package, commit in commits.items():
-            git_refs.append(f"{package}@{commit}")
-            git_commands += [
-                f"cd {package_dirs[package]}",
-                "git stash",
-                f"git checkout {commit}",
-            ]
-        out_dir = test_output_directory(bisection_url, commits=commits)
+            if bisection_versions[package] == commit:
+                # If the existing version is the desired one, do nothing.
+                skipped.append(f"{package}@{commit}")
+                continue
+            # Cache which version is now going to be checked out in the container
+            bisection_versions[package] = commit
+            changed.append(f"{package}@{commit}")
+            if package in package_dirs:
+                # A git repository that exists in the container.
+                git_commands += [
+                    f"cd {package_dirs[package]}",
+                    "git stash",
+                    f"git checkout {commit}",
+                ]
+            else:
+                # Another software package, `commit` is probably a version number.
+                # Installation of this version is delegated to an installPACKAGE.sh
+                # script that is assumed to be available in `args.build_scripts_path`.
+                assert args.build_scripts_path is not None
+                git_commands += [
+                    f"DEVEL=1 {args.build_scripts_path}/install{package}.sh {commit}"
+                ]
+        # Keep the pathnames shorter by only including packages that actually have
+        # multiple versions in the bisection range.
+        brief_commits = {p: ver for p, ver in commits.items() if p in dynamic_packages}
+        out_dir = test_output_directory(bisection_url, commits=brief_commits)
         with Container(bisection_url, test_output_host_directory=out_dir) as worker:
-            logger.info(f"Checking out {' '.join(git_refs)} in {worker}")
+            info_str = f"Checking out {' '.join(changed)} in {worker}"
+            if len(skipped):
+                info_str += f", leaving {' '.join(skipped)} unchanged"
+            logger.info(info_str)
             worker.check_exec(
                 ["sh", "-c", " && ".join(git_commands)],
                 policy="once_per_container",
@@ -350,23 +489,22 @@ def main() -> None:
             # TODO: do not build JAX/XLA/TransformerEngine if we know their commits did not change?
             before = time.monotonic()
             # Unfortunately the build system does not always seem to handle incremental
-            # rebuilds correctly.
-            worker.check_exec(
-                ["bazel", "clean", "--expunge"],
-                policy="once_per_container",
-                workdir=package_dirs["jax"],
-            )
-            build_jax = [
-                "build-jax.sh",
-                f"--bazel-cache={args.bazel_cache}",
+            # rebuilds correctly, so clean the local cache and rely on the remote one.
+            build_cmds = [
+                "bazel clean --expunge",
+                f"build-jax.sh --bazel-cache={args.bazel_cache}",
             ]
             worker.check_exec(
-                build_jax, policy="once_per_container", workdir=package_dirs["jax"]
+                ["sh", "-c", " && ".join(build_cmds)],
+                policy="once_per_container",
+                workdir=package_dirs["jax"],
             )
             middle = time.monotonic()
             logger.info(f"Build completed in {middle - before:.1f}s")
             # Run the test
-            test_result = worker.exec(args.test_command)
+            test_result = worker.exec(
+                args.test_command, log_level=test_output_log_level
+            )
             test_time = time.monotonic() - middle
         add_summary_record(
             "commit",

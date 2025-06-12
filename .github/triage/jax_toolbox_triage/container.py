@@ -30,9 +30,11 @@ class Container(ABC):
     def exec(
         self,
         command: typing.List[str],
+        *,
         policy: typing.Literal["once", "once_per_container", "default"] = "default",
         stderr: typing.Literal["interleaved", "separate"] = "interleaved",
-        workdir=None,
+        workdir: typing.Optional[str] = None,
+        log_level: int = logging.DEBUG,
     ) -> subprocess.CompletedProcess:
         """
         Run a command inside a persistent container.

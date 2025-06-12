@@ -51,14 +51,16 @@ class PyxisContainer(Container):
     def exec(
         self,
         command: typing.List[str],
+        *,
         policy: typing.Literal["once", "once_per_container", "default"] = "default",
         stderr: typing.Literal["interleaved", "separate"] = "interleaved",
-        workdir=None,
+        workdir: typing.Optional[str] = None,
+        log_level: int = logging.DEBUG,
     ) -> subprocess.CompletedProcess:
         """
         Run a command inside a persistent container.
         """
-        workdir = [] if workdir is None else [f"--container-workdir={workdir}"]
+        wd_arg = [] if workdir is None else [f"--container-workdir={workdir}"]
         policy_args = {
             "once": ["--ntasks=1"],
             "once_per_container": ["--ntasks-per-node=1"],
@@ -74,10 +76,12 @@ class PyxisContainer(Container):
             ]
             + self._mount_args
             + policy_args
-            + workdir
+            + wd_arg
             + command
         )
-        return run_and_log(command, logger=self._logger, stderr=stderr)
+        return run_and_log(
+            command, logger=self._logger, log_level=log_level, stderr=stderr
+        )
 
     def exists(self) -> bool:
         return self.exec(["true"]).returncode == 0
