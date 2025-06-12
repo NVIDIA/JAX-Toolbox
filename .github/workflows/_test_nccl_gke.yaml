@@ -46,6 +46,10 @@ jobs:
       BASE_IMAGE: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
       WORKLOAD_NAME_PREFIX: nccl-test
+      CLUSTER_NAME: jtb-2025-06-12
+      ZONE: us-central1-a
+      DEVICE_TYPE: h100-mega-80gb-8
+      NUM_NODES: 2
       MAIN_CONTAINER_NAME: gpu-image
 
     steps:
