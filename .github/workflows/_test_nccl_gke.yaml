@@ -21,10 +21,11 @@ jobs:
           ARTIFACT_NAME: artifact-nccl-gke-build
           BADGE_FILENAME: badge-nccl-gke-build
           BUILD_DATE: 0000-00-00 # not important; this image is never published
-          BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15606961831-maxtext-amd64
+          BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15517097053-base-amd64
           CONTAINER_NAME: nccl-gke
           DOCKERFILE: .github/container/Dockerfile.nccl-gke
           RUNNER_SIZE: small
+          DOCKER_CONTEXT: .
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
