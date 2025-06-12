@@ -531,6 +531,7 @@ def main() -> None:
         build_and_test=build_and_test,
         logger=logger,
         skip_precondition_checks=args.skip_precondition_checks,
+        confirmation_iterations=args.confirmation_iterations,
     )
 
     def symlink(result: typing.Optional[TestResult], symlink_name: str) -> None:

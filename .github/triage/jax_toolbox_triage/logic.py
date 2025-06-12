@@ -233,6 +233,7 @@ def _commit_search(
     build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
+    confirmation_iterations: int,
     result_cache: typing.Dict[FlatCommitDict, TestResult],
 ) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
     assert all(len(commit_list) for commit_list in commits.values()), (
@@ -391,6 +392,23 @@ def _commit_search(
                     "Did not find a cached result for the first-known-bad "
                     f"configuration {first_known_bad}, this is unexpected!"
                 )
+        for n in range(confirmation_iterations):
+            logger.info(f"Confirmation iteration {n+1}/{confirmation_iterations}...")
+            # Last run was with `blame_commits`...check `first_known_bad` next
+            blame_commits["_confirmation"] = n
+            first_known_bad["_confirmation"] = n
+            confirm_failure = build_and_test(commits=first_known_bad)
+            if confirm_failure.result:
+                logger.fatal("Could not reproduce failure with 'first_known_bad' versions")
+                logger.fatal(check_pass.stdouterr)
+                raise Exception("Could not reproduce failure with 'first_known_bad' versions")
+            confirm_success = build_and_test(commits=blame_commits)
+            if not confirm_success.result:
+                logger.fatal("Could not reproduce success with 'last_known_good' versions")
+                logger.fatal(check_pass.stdouterr)
+                raise Exception("Could not reproduce success with 'last_known_good' versions")
+        if confirmation_iterations:
+            logger.info("Confirmation iterations completed successfully")
         return ret, blame, first_known_bad_result
     else:
         # Test failed with both {pX, sZ, tZ, ...} and {pZ, sZ, tZ, ...}, so
@@ -415,6 +433,7 @@ def commit_search(
     build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
+    confirmation_iterations: int,
 ) -> typing.Tuple[
     typing.Dict[str, str],
     TestResult,
@@ -432,6 +451,9 @@ def commit_search(
     logger: instance to log output to
     skip_precondition_checks: if True, some tests that should pass/fail by
         construction are skipped
+    confirmation_iterations: how many times to re-run and confirm the
+        bisection result after the algorithm has converged. This is a last
+        line of defence against flaky test cases.
 
     Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
     where the last element can be None if skip_precondition_checks=True. The
@@ -444,5 +466,6 @@ def commit_search(
         build_and_test=build_and_test,
         logger=logger,
         skip_precondition_checks=skip_precondition_checks,
+        confirmation_iterations=confirmation_iterations,
         result_cache={},
     )

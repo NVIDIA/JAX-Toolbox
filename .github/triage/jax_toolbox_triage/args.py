@@ -185,6 +185,15 @@ def parse_args(args=None) -> argparse.Namespace:
             in question has different versions at the endpoints of the bisection range.
         """,
     )
+    commit_search_args.add_argument(
+        "--confirmation-iterations",
+        default=2,
+        help="""
+            After the fine/version-based search converges, re-run the test case this
+            many times for each of the last-known-good and first-known-bad version
+            vectors. This is a final attempt to guard against flaky test cases.""",
+        type=int,
+    )
     parser.add_argument(
         "-v",
         "--container-mount",
