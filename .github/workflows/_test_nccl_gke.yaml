@@ -103,7 +103,7 @@ jobs:
                         --cluster ${CLUSTER_NAME} \
                         --zone ${ZONE} \
                         --workload ${WORKLOAD_NAME} \
-                        --docker-image ${MAXTEXT_IMAGE} \
+                        --docker-image ${{ needs.build-nccl-gke.outputs.DOCKER_TAG_FINAL }} \
                         --device-type ${DEVICE_TYPE} \
                         --num-nodes ${NUM_NODES} \
                         --num-slices ${NUM_NODES} \
