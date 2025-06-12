@@ -49,9 +49,12 @@ runs:
           while true; do
             job_status_counts=$(kubectl get job/${INPUT_JOB_NAME} -o 'jsonpath={.status.failed}:{.status.succeeded}')
 
-            IFS=: read -r failures successes <<< "$job_status_counts"
-            failures="${failures:-0}"
-            successes="${successes:-0}"
+            #IFS=: read -r failures successes <<< "$job_status_counts"
+            IFS=:
+            set -- $job_status_counts
+            failures=${1:-0}
+            successes=${2:-0}
+
             total=$((failures + successes))
 
             echo "status: failures=${failures}, successes=${successes}, total=${total}, parallelism=${parallelism}"
