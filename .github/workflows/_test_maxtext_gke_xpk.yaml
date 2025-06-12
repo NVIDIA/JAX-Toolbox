@@ -20,7 +20,7 @@ jobs:
     runs-on: gke-a3mega
 
     env:
-      CLUSTER_NAME: jtb-2025-06-11
+      CLUSTER_NAME: jtb-2025-06-12
       GKE_VERSION: 1.31.6-gke.1221000 
       DEVICE_TYPE: h100-mega-80gb-8
       DEFAULT_CPU_MACHINE: e2-standard-8
@@ -44,7 +44,7 @@ jobs:
 
           source $HOME/.venv/bin/activate
           python --version
-          uv pip freeze | grep xpk
+          xpk version
 
       - name: Apply xpk cluster create patch
         run: |
