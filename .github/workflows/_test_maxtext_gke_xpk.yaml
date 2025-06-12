@@ -30,8 +30,7 @@ jobs:
       PROJECT: nv-jaxtoolboxgcp-20240925
       WORKLOAD_NAME_PREFIX: maxtext
       MAIN_CONTAINER_NAME: gpu-image
-      # triage
-      MAXTEXT_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15109382631-maxtext-amd64
+      MAXTEXT_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15606961831-maxtext-amd64
 
     steps:
       - uses: actions/checkout@v4
