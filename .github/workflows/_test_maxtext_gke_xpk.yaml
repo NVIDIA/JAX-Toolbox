@@ -51,9 +51,6 @@ jobs:
           cd $HOME/xpk && git checkout src/xpk/core/blueprint/blueprint_generator.py && cd -
           git apply --unsafe-paths .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk
 
-          # add missing xpk-sa rbac config
-          kubectl apply -f .github/gke-workflow/xpk/xpk-sa-rbac.yml
-
       - name: Create cluster from compute reservation with xpk
         run: |
           CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == "'${CLUSTER_NAME}'")')
@@ -73,6 +70,10 @@ jobs:
           else
             echo "Cluster ${CLUSTER_NAME} already exists, skipping creation"
           fi
+
+      - name: Configure cluster ServiceAccount
+        run: |
+          kubectl apply -f .github/gke-workflow/xpk/xpk-sa-rbac.yml
 
       - name: Apply xpk workload create patch
         run: |
