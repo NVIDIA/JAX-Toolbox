@@ -51,9 +51,10 @@ runs:
 
           while ! $JOB_COMPLETED; do
             STATUS_JSON=$(kubectl get job/"${{ inputs.job-name }}" -o json)
+            echo $STATUS_JSON | jq .
             failures=$(echo "$STATUS_JSON" | jq -r '.status.failed // 0')
             successes=$(echo "$STATUS_JSON" | jq -r '.status.succeeded // 0')
-            completions=$(echo "$STATUS_JSON" | jq -r '.status.completions // empty')
+            completions=$(echo "$STATUS_JSON" | jq -r '.status.completions // 0')
             total=$((failures + successes))
 
             if [ "${successes}" -ge "${completions}" ]; then
