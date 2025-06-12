@@ -47,28 +47,38 @@ runs:
             parallelism=1
           fi
 
-          while IFS=: read -r failures successes; do
-            failures="${failures:-0}"
-            successes="${successes:-0}"
+          JOB_COMPLETED=false
+          RETRIES=0
+          MAX_RETRIES=$(( TIMEOUT_JOB_WAIT / 20 )) # 20 seconds per retry
+
+          while ! $JOB_COMPLETED && [ $RETRIES -lt $MAX_RETRIES ]; do
+            STATUS_JSON=$(kubectl get job/"${{ inputs.job-name }}" -o json)
+            failures=$(echo "$STATUS_JSON" | jq -r '.status.failed // 0')
+            successes=$(echo "$STATUS_JSON" | jq -r '.status.succeeded // 0')
+            completions=$(echo "$STATUS_JSON" | jq -r '.status.completions // empty')
             total=$((failures + successes))
 
-            if [ $total -lt $parallelism ]; then
-              # neither "failed" nor "succeeded", so wait
-              sleep 1
-            elif [ $total -eq $parallelism ]; then
-              # we have total=parallelism => either X successes or X failures
-              # In any case, the job is done
-              break
+            if [ "${successes}" -ge "${completions}" ]; then
+              echo "Job ${{ inputs.job-name }} has completed successfully"
+              JOB_COMPLETED=true
+            elif [ "${failures}" -gt 0 ]; then
+              echo "Job ${{ inputs.job-name }} has failed with ${failures} failures"
+              JOB_COMPLETED=true
+            elif [ "${total}" -ge "${completions}"] && [ "${total}" -ge "${parallelism}" ]; then
+              echo "Job ${{ inputs.job-name }} has not completed yet, but all pods have been started: ${successes}/${completions} completed, ${failures} failed"
+              JOB_COMPLETED=true
             else
-              # Log here
-              echo "Unexpected number of completed pods ${total} with parallelism ${parallelism}"
-              exit 255
+              sleep 20
+              RETRIES=$((RETRIES + 1))
             fi
-          done <<EOF
-          $(kubectl get job/"${{ inputs.job-name }}" -o 'jsonpath={.status.failed}:{.status.succeeded}')
-          EOF
+          done
 
-           # If job indicates a failure try to print out the info
+          if ! $JOB_COMPLETED; then
+            echo "Job ${{ inputs.job-name }} did not complete within the timeout period (${TIMEOUT_JOB_WAIT})."
+            exit 1
+          fi
+
+          # Retrieve causes if job failed
           if [ "${failures:-0}" -gt 0 ]; then
             echo "Job ${{ inputs.job-name }} has $failures failures"
             # this is for batch jobs only
