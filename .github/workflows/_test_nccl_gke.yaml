@@ -84,10 +84,10 @@ jobs:
               mkdir -p /opt/output;
 
               service ssh start;
-              unset NCCL_NET_PLUGIN
+              unset NCCL_NET_PLUGIN;
 
               console=/dev/stdout;
-              declare -a hosts=(\"nccl-test-host-1\" \"nccl-test-host-2\");
+              declare -a hosts=('nccl-test-host-1' 'nccl-test-host-2');
 
               /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
               tee /opt/output/output.log &> \${console};
