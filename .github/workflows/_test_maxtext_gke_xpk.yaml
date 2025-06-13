@@ -152,7 +152,7 @@ jobs:
 
       - name: Set exit code from JobSet
         run: |
-          MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-${POD}jobset.log | awk '{ print $3 }' )"
+          MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-${POD}-jobset.log | awk '{ print $3 }' )"
           echo ${MAYBE_XPK_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$'
 
           if [ $? -ne 0 ]; then
