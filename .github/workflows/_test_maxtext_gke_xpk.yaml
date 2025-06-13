@@ -143,15 +143,15 @@ jobs:
 
       - name: Stream logs from JobSet Pods
         run: |
-          jobset_pods=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${workload_name}'") | .name' | tr '\n' ' '))
+          jobset_pods=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
           for jobset_pod in $jobset_pods; do
-            kubectl logs -f --prefix=true --timestamps=true -c ${main_container_name} ${jobset_pod} |& tee ${workload_name}-${jobset_pod}-jobset.log &
+            kubectl logs -f --prefix=true --timestamps=true -c ${main_container_name} ${jobset_pod} |& tee ${WORKLOAD_NAME}-${jobset_pod}-jobset.log &
           done
           wait < <(jobs -p)
 
       - name: Set exit code from JobSet
         run: |
-          MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-jobset.log)"
+          MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-${POD}-jobset.log)"
           echo ${MAYBE_XPK_EXIT_CODE} |  grep -E '^EXIT\_CODE=*'
 
           if [ $? -ne 0 ]; then
