@@ -132,13 +132,13 @@ jobs:
             echo "Waiting for pod ${POD} in JobSet ${WORKLOAD_NAME} to become ready"
             sleep 10
 
-            POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[] | select(.name == "'${MAIN_CONTAINER_NAME}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
+            POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${MAIN_CONTAINER_NAME}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
             if ${POD_ERROR} ; then
               echo "There was an issue starting the JobSet ${WORKLOAD_NAME} on ${CLUSTER_NAME}"
               break
             fi
 
-            POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[] | select(.name == "'${MAIN_CONTAINER_NAME}'").ready')
+            POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${MAIN_CONTAINER_NAME}'").ready')
           done;
 
       - name: Stream logs from JobSet
