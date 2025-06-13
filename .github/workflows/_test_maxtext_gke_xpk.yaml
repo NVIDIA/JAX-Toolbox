@@ -169,7 +169,7 @@ jobs:
           POD_READY=false
           while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
             echo "Waiting for pod ${POD} in JobSet ${WORKLOAD_NAME} to become ready"
-            sleep 5
+            sleep 10
 
             POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[] | select(.name == "'${MAIN_CONTAINER_NAME}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
             if ${POD_ERROR} ; then
