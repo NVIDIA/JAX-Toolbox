@@ -7,6 +7,6 @@ RUN apt-get update \
 RUN passwd -d root && \
      echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
      echo "PermitEmptyPasswords yes" >> /etc/ssh/sshd_config && \
-     echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_configA && \
+     echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config && \
      chmod +x /scripts/*
 
