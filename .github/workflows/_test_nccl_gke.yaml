@@ -164,11 +164,12 @@ jobs:
             POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${MAIN_CONTAINER_NAME}'").ready')
           done;
 
-      - name: Stream logs from JobSet
+      - name: Stream logs from JobSet Pods
         run: |
-          # stream gpu-image container logs from first (coordinator) pod in jobset
-          echo "Pod ${POD} in JobSet ${WORKLOAD_NAME} has become ready. Streaming logs..."
-          kubectl logs -f -c ${MAIN_CONTAINER_NAME} ${POD} |& tee ${WORKLOAD_NAME}-jobset.log
+          jobset_pods=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${workload_name}'") | .name' | tr '\n' ' '))
+          for jobset_pod in $jobset_pods; do
+            kubectl logs -f --prefix=true --timestamps=true -c ${main_container_name} ${jobset_pod} |& tee ${workload_name}-${jobset_pod}-jobset.log &
+          wait < <(jobs -p)
 
       - name: Set exit code from JobSet
         run: |
