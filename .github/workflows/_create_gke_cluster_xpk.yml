@@ -1,0 +1,65 @@
+name: ~Create GKE cluster with XPK
+
+on:
+  workflow_call:
+    inputs:
+      CLUSTER_NAME:
+        type: string
+        description: Cluster name
+        default: jtb-2025-06-12
+        required: false
+
+jobs:
+  xpk-create-gke-cluster:
+    env:
+      GKE_VERSION: 1.31.6-gke.1221000 
+      DEVICE_TYPE: h100-mega-80gb-8
+      DEFAULT_CPU_MACHINE: e2-standard-8
+      NUM_NODES: 2
+      ZONE: us-central1-a
+      RESERVATION: jtb-reservation
+      PROJECT: nv-jaxtoolboxgcp-20240925
+
+    runs-on: gke-a3mega
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show environment
+        run: |
+          set -x 
+          
+          gcloud version
+
+          source $HOME/.venv/bin/activate
+          python --version
+          xpk version
+
+      - name: Apply xpk cluster create patch
+        run: |
+          cd $HOME/xpk && git checkout src/xpk/core/blueprint/blueprint_generator.py && cd -
+          git apply --unsafe-paths .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk
+
+      - name: Create cluster from compute reservation with xpk
+        run: |
+          CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == "'${CLUSTER_NAME}'")')
+          
+          if ! [ $CLUSTER_EXISTS = true  ]; then
+            cd $HOME/xpk
+            source $HOME/.venv/bin/activate
+            python xpk.py cluster create \
+                    --cluster ${CLUSTER_NAME} \
+                    --gke-version ${GKE_VERSION} \
+                    --device-type ${DEVICE_TYPE} \
+                    --num-nodes ${NUM_NODES} \
+                    --default-pool-cpu-machine-type=${DEFAULT_CPU_MACHINE} \
+                    --project=${PROJECT} \
+                    --reservation ${RESERVATION} \
+                    --zone ${ZONE}
+          else
+            echo "Cluster ${CLUSTER_NAME} already exists, skipping creation"
+          fi
+
+      - name: Configure cluster ServiceAccount
+        run: |
+          kubectl apply -f .github/gke-workflow/xpk/xpk-sa-rbac.yml

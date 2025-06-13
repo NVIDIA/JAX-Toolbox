@@ -7,6 +7,7 @@ on:
       - reopened
       - ready_for_review
       - synchronize
+
   workflow_call:
     inputs:
       MAXTEXT_IMAGE:
@@ -21,13 +22,9 @@ jobs:
 
     env:
       CLUSTER_NAME: jtb-2025-06-12
-      GKE_VERSION: 1.31.6-gke.1221000 
       DEVICE_TYPE: h100-mega-80gb-8
-      DEFAULT_CPU_MACHINE: e2-standard-8
       NUM_NODES: 2
       ZONE: us-central1-a
-      RESERVATION: jtb-reservation
-      PROJECT: nv-jaxtoolboxgcp-20240925
       WORKLOAD_NAME_PREFIX: maxtext
       MAIN_CONTAINER_NAME: gpu-image
       MAXTEXT_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15606961831-maxtext-amd64
@@ -35,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Environment
+      - name: Show environment
         run: |
           set -x 
           
@@ -44,42 +41,6 @@ jobs:
           source $HOME/.venv/bin/activate
           python --version
           xpk version
-
-      - name: Apply xpk cluster create patch
-        run: |
-          cd $HOME/xpk && git checkout src/xpk/core/blueprint/blueprint_generator.py && cd -
-          git apply --unsafe-paths .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk
-
-      - name: Create cluster from compute reservation with xpk
-        run: |
-          CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == "'${CLUSTER_NAME}'")')
-          
-          if ! [ $CLUSTER_EXISTS = true  ]; then
-            cd $HOME/xpk
-            source $HOME/.venv/bin/activate
-            python xpk.py cluster create \
-                    --cluster ${CLUSTER_NAME} \
-                    --gke-version ${GKE_VERSION} \
-                    --device-type ${DEVICE_TYPE} \
-                    --num-nodes ${NUM_NODES} \
-                    --default-pool-cpu-machine-type=${DEFAULT_CPU_MACHINE} \
-                    --project=${PROJECT} \
-                    --reservation ${RESERVATION} \
-                    --zone ${ZONE}
-          else
-            echo "Cluster ${CLUSTER_NAME} already exists, skipping creation"
-          fi
-
-      - name: Configure cluster ServiceAccount
-        run: |
-          kubectl apply -f .github/gke-workflow/xpk/xpk-sa-rbac.yml
-
-      - name: Apply xpk workload create patch
-        run: |
-          cd ${HOME}/xpk && git checkout src/xpk && cd -
-          git apply --unsafe-paths .github/gke-workflow/xpk/tcpxo_decorator.patch --directory ${HOME}/xpk
-          git apply --unsafe-paths .github/gke-workflow/xpk/docker_resources.patch --directory ${HOME}/xpk
-          git apply --unsafe-paths .github/gke-workflow/xpk/workload.patch --directory ${HOME}/xpk
 
       - name: Set workload name
         run: |
@@ -103,8 +64,8 @@ jobs:
                        --capture-range-end=stop 
                        -o /opt/output/profile.zip 
                        -- 
-                       test-maxtext.sh -n $NUM_NODES 
-                                       -b $NUM_NODES
+                       test-maxtext.sh -n ${NUM_NODES} 
+                                       -b ${NUM_NODES}
                                        --model-name=${MAXTEXT_MODEL}
                                        --attn-type=${MAXTEXT_ATTENTION_TYPE}
                                        --remat-policy=${MAXTEXT_REMAT_POLICY}
