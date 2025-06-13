@@ -8,7 +8,7 @@ pushd /scripts;
 /scripts/generate_hostfiles.sh ${@};
 popd;
 
-COMPLETION_FLAG=/opt/output/$BENCHMARK_done
+COMPLETION_FLAG=/opt/output/${BENCHMARK}_done
 
 service ssh restart
 
@@ -28,7 +28,11 @@ if [ $NODE_RANK = 0 ] ; then
   done
 
   BENCHMARK=$BENCHMARK NHOSTS=$NHOSTS /scripts/test.sh
-  touch $COMPLETION_FLAG
+
+  for host in ${@}; do
+    ssh ${host} touch ${COMPLETION_FLAG}
+  done
+
 else
   while [ ! -f $COMPLETION_FLAG ]; do sleep 10; done
 fi
