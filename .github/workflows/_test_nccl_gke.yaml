@@ -167,15 +167,16 @@ jobs:
       - name: Stream logs from JobSet Pods
         run: |
           jobset_pods=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
-          for jobset_pod in $jobset_pods; do
-            kubectl logs -f --prefix=true --timestamps=true -c ${MAIN_CONTAINER_NAME} ${jobset_pod} |& tee ${WORKLOAD_NAME}-${jobset_pod}-jobset.log &
+
+          for jobset_pod in ${jobset_pods[@]}; do
+              kubectl logs -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD_NAME}-${jobset_pod}-jobset.log &
           done
           wait < <(jobs -p)
 
       - name: Set exit code from JobSet
         run: |
-          MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-${POD}-jobset.log)"
-          echo ${MAYBE_XPK_EXIT_CODE} |  grep -E '^EXIT\_CODE=*'
+          MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-${POD}jobset.log | awk '{ print $3 }' )"
+          echo ${MAYBE_XPK_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$'
 
           if [ $? -ne 0 ]; then
             echo "The JobSet ${WORKLOAD_NAME} on ${CLUSTER_NAME} did not complete as expected "
