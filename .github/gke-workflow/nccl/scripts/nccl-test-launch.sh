@@ -10,7 +10,23 @@ popd;
 
 COMPLETION_FLAG=/opt/output/$BENCHMARK_done
 
+service ssh restart
+
 if [ $NODE_RANK = 0 ] ; then
+  for host in ${@}; do
+    host_ready=false
+    while ! $host_ready; do
+      status=$(ssh $host echo "ready" 2> /dev/null || echo "unready")
+      if [ "$status" = "ready" ]; then
+        host_ready=true
+        break
+      fi
+      echo "$host not ready"
+      sleep 5
+    done
+    echo "$host ready"
+  done
+
   BENCHMARK=$BENCHMARK NHOSTS=$NHOSTS /scripts/test.sh
   touch $COMPLETION_FLAG
 else

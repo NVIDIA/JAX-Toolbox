@@ -5,7 +5,7 @@ while true; do
   if [[ -z $host ]]; then
     break
   fi
-  ssh -o StrictHostKeyChecking=no -p "${PORT}" "$host" \
+  ssh -p "${PORT}" "$host" \
     echo "Connected to ${host}"
   shift
 done
