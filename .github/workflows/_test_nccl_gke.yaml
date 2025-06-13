@@ -169,6 +169,7 @@ jobs:
           jobset_pods=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${workload_name}'") | .name' | tr '\n' ' '))
           for jobset_pod in $jobset_pods; do
             kubectl logs -f --prefix=true --timestamps=true -c ${main_container_name} ${jobset_pod} |& tee ${workload_name}-${jobset_pod}-jobset.log &
+          done
           wait < <(jobs -p)
 
       - name: Set exit code from JobSet
