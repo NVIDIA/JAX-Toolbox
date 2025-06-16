@@ -215,6 +215,9 @@ if [[ ${CLEANONLY} == 1 ]]; then
     exit
 fi
 
+# MOSAIC_GPU_NVSHMEM_{BC,SO}_PATH settings are a workaround for NVSHMEM
+# installations at the system level, not via PyPI wheels
+
 ## Build the compiled parts of JAX
 pushd ${SRC_PATH_JAX}
 time python "${SRC_PATH_JAX}/build/build.py" build \
@@ -227,6 +230,9 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --bazel_options=--repo_env=LOCAL_CUDA_PATH="/usr/local/cuda" \
     --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn" \
     --bazel_options=--repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl" \
+    --bazel_options=--repo_env=LOCAL_NVSHMEM_PATH="/opt/nvidia/nvshmem" \
+    --bazel_options=--test_env=MOSAIC_GPU_NVSHMEM_BC_PATH="/opt/nvidia/nvshmem/lib/libnvshmem_device.bc" \
+    --bazel_options=--test_env=MOSAIC_GPU_NVSHMEM_SO_PATH="/opt/nvidia/nvshmem/lib/libnvshmem_host.so" \
     --bazel_options=--linkopt=-fuse-ld=lld \
     "--local_xla_path=${SRC_PATH_XLA}" \
     "--output_path=${BUILD_PATH_JAXLIB}" \

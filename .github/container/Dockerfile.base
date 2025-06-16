@@ -171,6 +171,18 @@ ADD jax-nccl-test parallel-launch /usr/local/bin/
 ADD install-nsight-systems.sh /usr/local/bin
 RUN if [[ -n "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}" ]]; then install-nsight-systems.sh "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}"; fi
 
+##############################################################################
+## Install NVSHMEM
+##############################################################################
+ADD install-nvshmem.sh /usr/local/bin
+RUN install-nvshmem.sh
+
+##############################################################################
+## Create symlinks to help XLA find NVSHMEM
+##############################################################################
+ADD symlnk-nvshmem.sh /usr/local/bin
+RUN symlnk-nvshmem.sh
+
 ###############################################################################
 ## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
 ###############################################################################
