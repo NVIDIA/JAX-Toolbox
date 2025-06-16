@@ -10,11 +10,15 @@ fi
 UBUNTU_ARCH=$(dpkg --print-architecture)
 if [[ "${UBUNTU_ARCH}" == "arm64" ]]; then
   # nvshmem is only published for sbsa, not arm64
-  UBUNTU_ARCH="sbsa"
+  REPO_ARCH="sbsa"
+elif [[ "${UBUNTU_ARCH}" == "amd64" ]]; then
+  REPO_ARCH="x86_64"
+else
+  echo "Do not know how to map ${UBUNTU_ARCH} onto a compute/cuda repository URL"
+  exit 1
 fi
 UBUNTU_VERSION=$(. /etc/os-release && echo ${ID}${VERSION_ID/./}) # e.g. ubuntu2204
-COMPUTE_URL=https://developer.download.nvidia.com/compute/cuda/repos/${UBUNTU_VERSION}/${UBUNTU_ARCH}
-curl -o /tmp/keyring.deb "${COMPUTE_URL}/cuda-keyring_1.1-1_all.deb"
+curl -o /tmp/keyring.deb "https://developer.download.nvidia.com/compute/cuda/repos/${UBUNTU_VERSION}/${REPO_ARCH}/cuda-keyring_1.1-1_all.deb"
 dpkg -i /tmp/keyring.deb
 
 export DEBIAN_FRONTEND=noninteractive
