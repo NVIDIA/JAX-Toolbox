@@ -97,7 +97,7 @@ jobs:
         run: |
           PRELUDE="
               curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
-              tar xvf google-cloud-cli-linux-x86_64.tar.gz;
+              tar xf google-cloud-cli-linux-x86_64.tar.gz;
               ./google-cloud-sdk/install.sh --quiet;
               ./google-cloud-sdk/bin/gcloud init;
 
@@ -214,13 +214,14 @@ jobs:
 
       - name: Download artifacts from GCS
         run: |
+          mkdir -p output/${WORKLOAD_NAME}
           gsutil cp -r gs://${GCS_BUCKET}/${WORKLOAD_NAME_PREFIX}/${DATE}/${WORKLOAD_NAME} output/${WORKLOAD_NAME}
 
       - name: Upload artifacts to GitHub Acions
         uses: actions/upload-artifact@v4
         with:
-          name: ${WORKLOAD_NAME_PREFIX}-${TEST}
-          path: output/${WORKLOAD_NAME}/*
+          name: ${{ env.WORKLOAD_NAME_PREFIX }}-${{ env.TEST }}
+          path: output/${{ env.WORKLOAD_NAME }}/*
 
       - name: Clean up GCS artifacts
         if: ${{ always() }}
