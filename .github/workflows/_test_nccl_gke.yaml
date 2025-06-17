@@ -220,7 +220,7 @@ jobs:
       - name: Upload artifacts to GitHub Acions
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.WORKLOAD_NAME_PREFIX }}-${{ env.TEST }}
+          name: ${{ env.WORKLOAD_NAME_PREFIX }}-${{ matrix.test }}
           path: output/${{ env.WORKLOAD_NAME }}/*
 
       - name: Clean up GCS artifacts
