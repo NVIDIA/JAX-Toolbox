@@ -67,6 +67,7 @@ jobs:
           "
 
           POSTLUDE="
+              ./google-cloud-sdk/bin/gsutil cp -r /opt/output/ gs://${GCS_BUCKET}/${WORKLOAD_NAME_PREFIX}/${DATE}/${WORKLOAD_NAME}/node0\$NODE_RANK;
               exit \$PIPESTATUS;
           "
 
@@ -96,6 +97,8 @@ jobs:
           "
 
           # set container command in-line
+          PRELUDE=$(echo ${PRELUDE} | sed 's/\n/\ /g')
+          POSTLUDE=$(echo ${POSTLUDE} | sed 's/\n/\ /g')
           CMD=$(echo ${CMD} | sed 's/\n/\ /g')
 
           cd ${HOME}/xpk
