@@ -28,6 +28,7 @@ jobs:
       WORKLOAD_NAME_PREFIX: maxtext-train
       MAIN_CONTAINER_NAME: gpu-image
       MAXTEXT_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15606961831-maxtext-amd64
+      GCS_BUCKET: jaxtoolbox-ci
 
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +68,7 @@ jobs:
           "
 
           POSTLUDE="
-              \$HOME/google-cloud-sdk/bin/gsutil cp -r /opt/output/ ${{ env.WORKLOAD_NAME_PREFIX}}/${{ env.DATE }}/${{ env.WORKLOAD_NAME }}-node0\${NODE_RANK};
+              \$HOME/google-cloud-sdk/bin/gsutil cp -r /opt/output/ gs://${ env.GCS_BUCKET }}/${{ env.WORKLOAD_NAME_PREFIX}}/${{ env.DATE }}/${{ env.WORKLOAD_NAME }}/node0\${NODE_RANK};
               exit \$PIPESTATUS
           "
 
@@ -176,8 +177,22 @@ jobs:
           eval "export ${MAYBE_XPK_EXIT_CODE}"
           exit ${EXIT_CODE}
 
-
       - name: Clean up JobSet
         if: ${{ always() }}
         run: |
           kubectl delete jobset --wait ${WORKLOAD_NAME} || echo "JobSet ${WORKLOAD_NAME} does not exist in ${CLUSTER_NAME}"
+
+      - name: Download artifacts from GCS
+        run: |
+          gsutil cp -r gs://${GCS_BUCKET}/${WORKLOAD_NAME_PREFIX}/${DATE}/${WORKLOAD_NAME} output/${WORKLOAD_NAME}
+
+      - name: Upload artifacts to GitHub Acions
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${WORKLOAD_NAME_PREFIX}-${TEST}
+          path: output/${WORKLOAD_NAME}/*
+
+      - name: Clean up GCS artifacts
+        if: ${{ always() }}
+        run: |
+          rm -rf output/${WORKLOAD_NAME}
