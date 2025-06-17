@@ -82,8 +82,8 @@ jobs:
 
       - name: Set workload name
         run: |
-          TEST=$(echo "${{ matrix.test }}" | sed 's/perf_mpi//g')
-          echo "WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${TEST}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}" >> ${GITHUB_ENV}
+          TEST=$(echo "${{ matrix.test }}" | sed 's/_perf_mpi//g' | sed 's/_/-/g')
+          echo "WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${TEST}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> ${GITHUB_ENV}
           echo "DATE=$(date +'%Y-%m-%d')" >> ${GITHUB_ENV}
 
       - name: Create NCCL test service

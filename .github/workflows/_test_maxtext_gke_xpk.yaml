@@ -45,7 +45,7 @@ jobs:
 
       - name: Set workload name
         run: |
-          echo "WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}" >> ${GITHUB_ENV}
+          echo "WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> ${GITHUB_ENV}
           echo "DATE=$(date +'%Y-%m-%d')" >> ${GITHUB_ENV}
 
       - name: Create maxtext workload
