@@ -14,6 +14,12 @@ permissions:
   packages: write # to upload container
 
 jobs:
+  nccl-test-gke:
+    runs-on: gke-a3mega
+    uses: ./.github/workflows/_test_nccl_gke.yaml
+    with:
+      JAX_IMAGE: ${{ inputs.CONTAINER }}
+
   build-mpi-operator-compatible-base:
     runs-on: [self-hosted, "amd64", "large"]
     steps:
@@ -38,7 +44,6 @@ jobs:
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
-
 
   nccl-test:
     needs: build-mpi-operator-compatible-base

@@ -1,13 +1,6 @@
 name: ~Test MaxText (GKE, XPK)
 
 on:
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
-
   workflow_call:
     inputs:
       MAXTEXT_IMAGE:
@@ -27,7 +20,6 @@ jobs:
       ZONE: us-central1-a
       WORKLOAD_NAME_PREFIX: maxtext-train
       MAIN_CONTAINER_NAME: gpu-image
-      MAXTEXT_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15606961831-maxtext-amd64
       GCS_BUCKET: jaxtoolbox-ci
 
     steps:
@@ -107,7 +99,7 @@ jobs:
                         --cluster ${CLUSTER_NAME} \
                         --zone ${ZONE} \
                         --workload ${WORKLOAD_NAME} \
-                        --docker-image ${MAXTEXT_IMAGE} \
+                        --docker-image ${{ inputs.MAXTEXT_IMAGE }} \
                         --device-type ${DEVICE_TYPE} \
                         --num-nodes ${NUM_NODES} \
                         --num-slices ${NUM_NODES} \

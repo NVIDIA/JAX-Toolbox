@@ -1,12 +1,14 @@
 name: ~Test NCCL Kubernetes (GKE)
 
 on:
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
+  workflow_call:
+    inputs:
+      JAX_IMAGE:
+        type: string
+        description: JAX image from ghcr.io/nvidia
+        default: ghcr.io/nvidia/jax:latest
+        required: false
+
 
 jobs:
   build-nccl-gke:
@@ -21,7 +23,7 @@ jobs:
           ARTIFACT_NAME: artifact-nccl-gke-build
           BADGE_FILENAME: badge-nccl-gke-build
           BUILD_DATE: 0000-00-00 # not important; this image is never published
-          BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15517097053-base-amd64
+          BASE_IMAGE: ${{ inputs.JAX_IMAGE }}
           CONTAINER_NAME: nccl-gke
           DOCKERFILE: .github/container/Dockerfile.nccl-gke
           RUNNER_SIZE: small
@@ -45,7 +47,7 @@ jobs:
     env:
       BASE_IMAGE: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
-      WORKLOAD_NAME_PREFIX: nccl-test
+      WORKLOAD_NAME_PREFIX: nccl-gke
       CLUSTER_NAME: jtb-2025-06-12
       ZONE: us-central1-a
       DEVICE_TYPE: h100-mega-80gb-8

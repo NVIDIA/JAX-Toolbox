@@ -2,15 +2,15 @@ name: NCCL on Kubernetes
 on:
   schedule:
     - cron: '30 8 * * *'
-  #pull_request:
-  #  types:
-  #    - opened
-  #    - reopened
-  #    - ready_for_review
-  #    - synchronize
-  #  paths-ignore:
-  #    - '**.md'
-  #    - '.github/triage/**'
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+    paths-ignore:
+      - '**.md'
+      - '.github/triage/**'
   workflow_dispatch:
     inputs:
       CONTAINER:
