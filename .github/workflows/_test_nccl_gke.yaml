@@ -185,7 +185,7 @@ jobs:
           jobset_pods=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
 
           for jobset_pod in ${jobset_pods[@]}; do
-              kubectl logs -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD_NAME}-${jobset_pod}-jobset.log &
+              kubectl logs  --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD_NAME}-${jobset_pod}-jobset.log &
           done
           wait < <(jobs -p)
 
