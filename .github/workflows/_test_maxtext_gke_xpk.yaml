@@ -67,7 +67,6 @@ jobs:
           "
 
           POSTLUDE="
-              ./google-cloud-sdk/bin/gsutil cp -r /opt/output/ gs://${GCS_BUCKET}/${WORKLOAD_NAME_PREFIX}/${DATE}/${WORKLOAD_NAME}/node0\$NODE_RANK;
               exit \$PIPESTATUS;
           "
 
