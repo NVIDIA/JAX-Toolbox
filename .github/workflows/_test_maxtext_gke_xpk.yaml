@@ -25,7 +25,7 @@ jobs:
       DEVICE_TYPE: h100-mega-80gb-8
       NUM_NODES: 2
       ZONE: us-central1-a
-      WORKLOAD_NAME_PREFIX: maxtext
+      WORKLOAD_NAME_PREFIX: maxtext-train
       MAIN_CONTAINER_NAME: gpu-image
       MAXTEXT_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15606961831-maxtext-amd64
 
@@ -45,6 +45,7 @@ jobs:
       - name: Set workload name
         run: |
           echo "WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}" >> ${GITHUB_ENV}
+          echo "DATE=$(date +'%Y-%m-%d')" >> ${GITHUB_ENV}
 
       - name: Create maxtext workload
         env:
@@ -54,10 +55,23 @@ jobs:
           MAXTEXT_TRAIN_STEPS: 20
           MAXTEXT_FSDP: 16
         run: |
-          CMD="
+          PRELUDE="
+              curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
+              tar xvf google-cloud-cli-linux-x86_64.tar.gz;
+              ./google-cloud-sdk/install.sh --quiet;
+              ./google-cloud-sdk/bin/gcloud init;
+              source \$HOME/.bashrc;
+
               mkdir -p /usr/share/workload;
               mkdir -p /opt/output;
+          "
 
+          POSTLUDE="
+              \$HOME/google-cloud-sdk/bin/gsutil cp -r /opt/output/ ${{ env.WORKLOAD_NAME_PREFIX}}/${{ env.DATE }}/${{ env.WORKLOAD_NAME }}-node0\${NODE_RANK};
+              exit \$PIPESTATUS
+          "
+
+          CMD="
               console=/dev/stdout;
               
               nsys-jax --capture-range=cudaProfilerApi 
@@ -80,7 +94,6 @@ jobs:
                                            skip_first_n_steps_for_profiler=3 
                                            profiler_steps=8' |&
               tee /opt/output/output.log &> \${console};
-              exit \$PIPESTATUS
           "
 
           # set container command in-line

@@ -83,6 +83,7 @@ jobs:
         run: |
           TEST=$(echo "${{ matrix.test }}" | sed 's/perf_mpi//g')
           echo "WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${TEST}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}" >> ${GITHUB_ENV}
+          echo "DATE=$(date +'%Y-%m-%d')" >> ${GITHUB_ENV}
 
       - name: Create NCCL test service
         run: |
@@ -93,11 +94,24 @@ jobs:
 
       - name: Create NCCL test workload
         run: |
-          CMD="
+          PRELUDE="
+              curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
+              tar xvf google-cloud-cli-linux-x86_64.tar.gz;
+              ./google-cloud-sdk/install.sh --quiet;
+              ./google-cloud-sdk/bin/gcloud init;
+              source \$HOME/.bashrc;
+
               mkdir -p /usr/share/workload;
               mkdir -p /opt/output;
+          "
 
-              service ssh start;
+          POSTLUDE="
+              \$HOME/google-cloud-sdk/bin/gsutil cp -r /opt/output/ ${{ env.WORKLOAD_NAME_PREFIX}}/${{ env.DATE }}/${{ env.WORKLOAD_NAME }}-node0\${NODE_RANK};
+              exit \$PIPESTATUS
+          "
+
+          CMD="
+              service ssh restart;
               unset NCCL_NET_PLUGIN;
 
               console=/dev/stdout;
@@ -105,10 +119,11 @@ jobs:
 
               /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
               tee /opt/output/output.log &> \${console};
-              exit \$PIPESTATUS
           "
 
-          # set container command in-line
+          # set container commands in-line
+          PRELUDE=$(echo ${PRELUDE} | sed 's/\n/\ /g')
+          POSTLUDE=$(echo ${POSTLUDE} | sed 's/\n/\ /g')
           CMD=$(echo ${CMD} | sed 's/\n/\ /g')
 
           cd ${HOME}/xpk
@@ -123,7 +138,7 @@ jobs:
                         --num-slices ${NUM_NODES} \
                         --priority=high \
                         --scheduler=gke.io/topology-aware-auto \
-                        --command "${CMD}"
+                        --command "${PRELUDE} ${CMD} ${POSTLUDE}"
 
       - name: Wait for JobSet to unsuspend
         env:
@@ -196,3 +211,4 @@ jobs:
         if: ${{ always() }}
         run: |
           kubectl delete -f ${SERVICE_MANIFEST}
+
