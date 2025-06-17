@@ -111,7 +111,7 @@ jobs:
                         --num-slices ${NUM_NODES} \
                         --priority=high \
                         --scheduler=gke.io/topology-aware-auto \
-                        --command "${CMD}"
+                        --command "${PREDLUDE} ${CMD} ${POSTLUDE}"
 
       - name: Wait for JobSet to unsuspend
         env:
