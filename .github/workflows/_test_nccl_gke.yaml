@@ -72,7 +72,7 @@ jobs:
           TEST_NAME=$(echo "${{ matrix.test }}" | sed 's/_perf_mpi//g' | sed 's/_/-/g')
           WORKLOAD_PREFIX="${{ env.WORKLOAD_NAME_PREFIX }}-${TEST_NAME}"
 
-          echo "WORKLOAD_PREFIX=${WORKLOAD_PREFIX}"
+          echo "WORKLOAD_PREFIX=${WORKLOAD_PREFIX}" >> ${GITHUB_OUTPUT}
 
       - name: Launch XPK workload 
         uses: ./.github/actions/gke-xpk
