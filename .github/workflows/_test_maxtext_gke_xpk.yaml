@@ -18,7 +18,7 @@ jobs:
       DEVICE_TYPE: h100-mega-80gb-8
       NUM_NODES: 2
       ZONE: us-central1-a
-      WORKLOAD_NAME_PREFIX: maxtext-train
+      WORKLOAD_NAME_PREFIX: gke-maxtext-train
       MAIN_CONTAINER_NAME: gpu-image
       GCS_BUCKET: jaxtoolbox-ci
 
