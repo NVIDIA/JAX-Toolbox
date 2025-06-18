@@ -15,12 +15,9 @@ permissions:
 
 jobs:
   nccl-test-gke:
-    runs-on: gke-a3mega
-    steps:
-      - name: NCCL Test on GKE
-        uses: ./.github/workflows/_test_nccl_gke.yaml
-        with:
-          JAX_IMAGE: ${{ inputs.CONTAINER }}
+    uses: ./.github/workflows/_test_nccl_gke.yaml
+    with:
+      JAX_IMAGE: ${{ inputs.CONTAINER }}
 
   build-mpi-operator-compatible-base:
     runs-on: [self-hosted, "amd64", "large"]
