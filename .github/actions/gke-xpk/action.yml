@@ -126,9 +126,10 @@ runs:
       cd ${HOME}/xpk
       source ${HOME}/.venv/bin/activate
       python xpk.py workload create \
+                    --project ${{ inputs.GCP_PROJECT }} \
                     --cluster ${{ inputs.GKE_CLUSTER }} \
                     --zone ${{ inputs.GCP_ZONE }} \
-                    --workload ${{ inputs.WORKLOAD_NAME }} \
+                    --workload ${WORKLOAD_NAME} \
                     --docker-image ${{ inputs.IMAGE }} \
                     --device-type ${{ inputs.CLUSTER_DEVICE }} \
                     --num-nodes ${{ inputs.NUM_NODES }} \
