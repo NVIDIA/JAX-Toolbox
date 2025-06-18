@@ -62,6 +62,7 @@ runs:
   using: 'composite'
   steps:
   - name: Show environment
+    shell: bash -x -e -u {0}
     run: |
       set -x
   
@@ -72,6 +73,7 @@ runs:
       xpk version
   
   - name: Apply XPK workload create patch
+    shell: bash -x -e -u {0}
     run: |
       cd ${HOME}/xpk && git checkout src/xpk && cd -
       git apply --unsafe-paths .github/gke-workflow/xpk/tcpxo_decorator.patch --directory ${HOME}/xpk
@@ -79,6 +81,7 @@ runs:
       git apply --unsafe-paths .github/gke-workflow/xpk/workload.patch --directory ${HOME}/xpk
   
   - name: Set workload name
+    shell: bash -x -e -u {0}
     run: |
       WORKLOAD_NAME="${{ inputs.WORKLOAD_NAME_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
       DATE=$(date +'%Y-%m-%d')
@@ -86,9 +89,10 @@ runs:
 
       echo "WORKLOAD_NAME=${WORKLOAD_NAME}" >> ${GITHUB_ENV}
       echo "DATE=${DATE}" >> ${GITHUB_ENV}
-i     echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
+      echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
 
   - name: Set workload commands
+    shell: bash -x -e -u {0}
     run: |
       PRELUDE="
           curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
@@ -117,6 +121,7 @@ i     echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
       echo "POSTLUDE=${POSTLUDE}" >> ${GITHUB_ENV}
   
   - name: Create workload on cluster with XPK
+    shell: bash -x -e -u {0}
     run: |
       cd ${HOME}/xpk
       source ${HOME}/.venv/bin/activate
@@ -133,6 +138,7 @@ i     echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
                     --command "${PRELUDE} ${CMD} ${POSTLUDE}"
   
   - name: Wait for JobSet to unsuspend on cluster
+    shell: bash -u {0}
     env:
       POLL_TIMEOUT: 3600
     run: |
@@ -153,6 +159,7 @@ i     echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
       echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${GKE_CLUSTER}"
   
   - name: Set JobSet Pod name
+    shell: bash -u {0}
     run: |
       echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${WORKLOAD_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
   
@@ -173,6 +180,7 @@ i     echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
       done;
   
   - name: Stream logs from JobSet Pods
+    shell: bash -u {0}
     run: |
       jobset_pods=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
   
@@ -182,6 +190,7 @@ i     echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
       wait < <(jobs -p)
   
   - name: Set exit code from JobSet logs
+    shell: bash -u {0}
     run: |
       MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-${POD}-jobset.log | awk '{ print $3 }' )"
       echo ${MAYBE_XPK_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$'
@@ -195,11 +204,13 @@ i     echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
       exit ${EXIT_CODE}
   
   - name: Clean up JobSet from cluster
+    shell: bash -x -u {0}
     if: ${{ always() }}
     run: |
       kubectl delete jobset --wait ${WORKLOAD_NAME} || echo "JobSet ${WORKLOAD_NAME} does not exist in ${{ inputs.GKE_CLUSTER }}"
   
   - name: Download artifacts from GCS to runner
+    shell: bash -x -u {0}
     run: |
       mkdir -p output/${WORKLOAD_NAME}
       gsutil cp -r ${GCS_ARTIFACT_PATH} output/${WORKLOAD_NAME}
@@ -212,6 +223,7 @@ i     echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
       path: output/${{ env.WORKLOAD_NAME }}/*
   
   - name: Clean up GCS artifacts from runner
+    shell: bash -x -u {0}
     if: ${{ always() }}
     run: |
       rm -rf output/${WORKLOAD_NAME}
