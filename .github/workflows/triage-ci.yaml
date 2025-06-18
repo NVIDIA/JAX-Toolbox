@@ -5,14 +5,14 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 on:
-  #pull_request:
-  #  types:
-  #    - opened
-  #    - reopened
-  #    - ready_for_review
-  #    - synchronize
-  #  paths-ignore:
-  #    - '**.md'
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+    paths-ignore:
+      - '**.md'
   push:
     branches:
       - main

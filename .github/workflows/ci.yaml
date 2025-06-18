@@ -3,15 +3,15 @@ name: CI
 on:
   schedule:
     - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
-#  pull_request:
-#    types:
-#      - opened
-#      - reopened
-#      - ready_for_review
-#      - synchronize
-#    paths-ignore:
-#      - '**.md'
-#      - '.github/triage/**'
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+    paths-ignore:
+      - '**.md'
+      - '.github/triage/**'
   workflow_dispatch:
     inputs:
       PUBLISH:
@@ -52,7 +52,7 @@ on:
           - maxtext - run only the tests for maxtext
           - axlearn - run only the tests for axlearn
         options: [full, jax, te, t5x, maxtext, axlearn]
-        default: maxtext
+        default: full
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}

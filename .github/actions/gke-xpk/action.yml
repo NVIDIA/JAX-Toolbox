@@ -69,8 +69,6 @@ runs:
   - name: Show environment
     shell: bash -x -e -u {0}
     run: |
-      set -x
-  
       gcloud version
   
       source $HOME/.venv/bin/activate
@@ -110,7 +108,7 @@ runs:
       "
   
       POSTLUDE="
-          ./google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node0\$NODE_RANK;
+          ./google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node-0\$NODE_RANK;
           ${{ inputs.EXIT_COMMAND }}
       "
   
@@ -220,8 +218,8 @@ runs:
     shell: bash -x -u {0}
     run: |
       mkdir -p output/${WORKLOAD_NAME}
-      gsutil cp -r ${GCS_ARTIFACT_PATH} output/${WORKLOAD_NAME}
       mv ${WORKLOAD_NAME}-*.log output/${WORKLOAD_NAME}
+      gsutil cp -r ${GCS_ARTIFACT_PATH} output/${WORKLOAD_NAME}
   
   - name: Upload artifacts to GitHub Actions from runner
     uses: actions/upload-artifact@v4
