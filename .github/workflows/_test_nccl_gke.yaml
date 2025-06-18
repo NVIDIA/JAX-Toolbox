@@ -95,7 +95,7 @@ jobs:
               EXIT_CODE=0;
             else
               EXIT_CODE=\${MAYBE_MPI_EXIT_CODE};
-            fi
+            fi;
 
       - name: Clean up NCCL test Services from cluster
         if: ${{ always() }}
