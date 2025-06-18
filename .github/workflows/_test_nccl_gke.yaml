@@ -29,7 +29,7 @@ jobs:
           ARTIFACT_NAME: artifact-nccl-gke-build
           BADGE_FILENAME: badge-nccl-gke-build
           BUILD_DATE: 0000-00-00 # not important; this image is never published
-          BASE_IMAGE: ${{ inputs.JAX_IMAGE }}
+          BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15729070690-base-amd64
           CONTAINER_NAME: nccl-gke
           DOCKERFILE: .github/container/Dockerfile.nccl-gke
           RUNNER_SIZE: small
