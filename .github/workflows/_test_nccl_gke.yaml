@@ -90,7 +90,7 @@ jobs:
             tee /opt/output/output.log &> \${console};
 
             apt install ripgrep;
-            MAYBE_MPI_EXIT_CODE=\$(tail /opt/output/output.log | rg 'Exit code:\\\s+([0-9]+)' -or '\$1');
+            MAYBE_MPI_EXIT_CODE=\$(tail /opt/output/output.log | rg 'Exit code:    ([0-9]+)' -or '\$1');
             if [ -z \${MAYBE_MPI_EXIT_CODE} ]; then
               EXIT_CODE=0;
             else
