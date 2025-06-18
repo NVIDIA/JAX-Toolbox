@@ -476,7 +476,8 @@ def main() -> None:
         brief_commits = {p: ver for p, ver in commits.items() if p in dynamic_packages}
         out_dir = test_output_directory(bisection_url, commits=brief_commits)
         with Container(bisection_url, test_output_host_directory=out_dir) as worker:
-            info_str = f"Checking out {' '.join(changed)} in {worker}"
+            change_str = ' '.join(changed) if len(changed) else '<nothing>'
+            info_str = f"Checking out {change_str} in {worker}"
             if len(skipped):
                 info_str += f", leaving {' '.join(skipped)} unchanged"
             logger.info(info_str)
