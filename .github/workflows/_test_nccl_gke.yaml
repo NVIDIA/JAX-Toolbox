@@ -17,42 +17,41 @@ on:
 
 
 jobs:
-#  build-nccl-gke:
-#    runs-on: [self-hosted, "amd64", "large"]
-#    steps:
-#      - uses: actions/checkout@v4
-#      - name: Build NCCL image
-#        id: build
-#        uses: ./.github/actions/build-container
-#        with:
-#          ARCHITECTURE: amd64
-#          ARTIFACT_NAME: artifact-nccl-gke-build
-#          BADGE_FILENAME: badge-nccl-gke-build
-#          BUILD_DATE: 0000-00-00 # not important; this image is never published
-#          BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15729070690-base-amd64
-#          CONTAINER_NAME: nccl-gke
-#          DOCKERFILE: .github/container/Dockerfile.nccl-gke
-#          RUNNER_SIZE: small
-#          DOCKER_CONTEXT: .
-#          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-#          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-#          github-token: ${{ secrets.GITHUB_TOKEN }}
-#          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-#    outputs:
-#      DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
+  build-nccl-gke:
+    runs-on: [self-hosted, "amd64", "large"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build NCCL image
+        id: build
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: amd64
+          ARTIFACT_NAME: artifact-nccl-gke-build
+          BADGE_FILENAME: badge-nccl-gke-build
+          BUILD_DATE: 0000-00-00 # not important; this image is never published
+          BASE_IMAGE: ${{ inputs.JAX_IMAGE }}
+          CONTAINER_NAME: nccl-gke
+          DOCKERFILE: .github/container/Dockerfile.nccl-gke
+          RUNNER_SIZE: small
+          DOCKER_CONTEXT: .
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+    outputs:
+      DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
 
   nccl-gke:
     runs-on: gke-a3mega
 
-#    needs: build-nccl-gke 
+    needs: build-nccl-gke 
 
     strategy:
       matrix:
         test: [all_gather_perf_mpi, all_reduce_perf_mpi, broadcast_perf_mpi, reduce_scatter_perf_mpi]
 
     env:
-#      BASE_IMAGE: ${{ needs.build-nccl-gke.outputs.DOCKER_TAG_FINAL }}
-      BASE_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15737233011-nccl-gke-amd64
+      BASE_IMAGE: ${{ needs.build-nccl-gke.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
       WORKLOAD_NAME_PREFIX: nccl-gke
 
@@ -76,7 +75,7 @@ jobs:
           cat .github/gke-workflow/nccl/service.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD_NAME}'"' --yaml-output | tee ${SERVICE_MANIFEST}
           kubectl apply -f ${SERVICE_MANIFEST}
 
-      - name: Launch XPK workload on cluster
+      - name: Run XPK workload on cluster
         uses: ./.github/actions/gke-xpk
         with:
           IMAGE: ${{ env.BASE_IMAGE }}

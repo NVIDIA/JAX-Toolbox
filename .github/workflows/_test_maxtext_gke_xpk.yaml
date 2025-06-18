@@ -30,7 +30,7 @@ jobs:
       NUM_NODES: 2
 
     steps:
-    - name: Launch XPK workload on cluster
+    - name: Run XPK workload on cluster
       uses: ./.github/actions/gke-xpk
       with:
         IMAGE: ${{ env.MAXTEXT_IMAGE }}
@@ -45,7 +45,7 @@ jobs:
                    test-maxtext.sh -n ${{ env.NUM_NODES }}
                                    -b ${{ env.NUM_NODES }}
                                    --model-name=${{ env.MAXTEXT_MODEL }}
-                                   --attn-type=${[ env.MAXTEXT_ATTENTION_TYPE }}
+                                   --attn-type=${{ env.MAXTEXT_ATTENTION_TYPE }}
                                    --remat-policy=${{ env.MAXTEXT_REMAT_POLICY }}
                                    --steps=${{ env.MAXTEXT_TRAIN_STEPS }}
                                    --fsdp=${{ env.MAXTEXT_FSDP }}
