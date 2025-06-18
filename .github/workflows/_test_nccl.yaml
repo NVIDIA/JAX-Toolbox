@@ -18,6 +18,7 @@ jobs:
     uses: ./.github/workflows/_test_nccl_gke.yaml
     with:
       JAX_IMAGE: ${{ inputs.CONTAINER }}
+    secrets: inherit
 
   build-mpi-operator-compatible-base:
     runs-on: [self-hosted, "amd64", "large"]
