@@ -150,14 +150,14 @@ runs:
         NOW=$(date +%s)
         ELAPSED=$(( NOW - START ))
         if (( ELAPSED > POLL_TIMEOUT )) ; then
-          echo "Timeout after waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${GKE_CLUSTER}"
+          echo "Timeout after waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
           exit 1
         fi
-        echo "Waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${GKE_CLUSTER}"
+        echo "Waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
         sleep 5
       done
   
-      echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${GKE_CLUSTER}"
+      echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${{ inputs.GKE_CLUSTER }}"
   
   - name: Set JobSet Pod name
     shell: bash -u {0}
@@ -174,7 +174,7 @@ runs:
   
         POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
         if ${POD_ERROR} ; then
-          echo "There was an issue starting the JobSet ${WORKLOAD_NAME} on ${GKE_CLUSTER}"
+          echo "There was an issue starting the JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }}"
           break
         fi
   
