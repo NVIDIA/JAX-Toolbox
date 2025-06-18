@@ -105,8 +105,9 @@ runs:
       "
   
       POSTLUDE="
+          EXIT_CODE=\$PIPESTATUS
           ./google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node0\$NODE_RANK;
-          exit \$PIPESTATUS
+          exit \$EXIT_CODE
       "
   
       CMD="${{ inputs.COMMAND }}"

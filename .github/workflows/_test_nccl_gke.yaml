@@ -44,7 +44,7 @@ jobs:
   nccl-gke:
     runs-on: gke-a3mega
 
-#    needs: build-nccl-gke
+#    needs: build-nccl-gke 
 
     strategy:
       matrix:
@@ -82,6 +82,7 @@ jobs:
           IMAGE: ${{ env.BASE_IMAGE }}
           WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
           COMMAND: |
+            service ssh restart;
             console=/dev/stdout;
             declare -a hosts=('nccl-test-host-1' 'nccl-test-host-2');
 
