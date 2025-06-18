@@ -1,12 +1,6 @@
 name: ~Test NCCL Kubernetes (GKE)
 
 on:
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
   workflow_call:
     inputs:
       JAX_IMAGE:
@@ -14,7 +8,6 @@ on:
         description: JAX image from ghcr.io/nvidia
         default: ghcr.io/nvidia/jax-toolbox-internal:15729070690-base-amd64
         required: false
-
 
 jobs:
   build-nccl-gke:
