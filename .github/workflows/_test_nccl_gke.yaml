@@ -59,13 +59,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create NCCL test service
-        run: |
-          SERVICE_MANIFEST=".github/gke-workflow/nccl/service-${WORKLOAD_NAME}-${{ matrix.test }}.yaml"
-          echo "SERVICE_MANIFEST=${SERVICE_MANIFEST}" >> ${GITHUB_ENV}
-          cat .github/gke-workflow/nccl/service.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD_NAME}'"' --yaml-output | tee ${SERVICE_MANIFEST}
-          kubectl apply -f ${SERVICE_MANIFEST}
-
       - name: Set workload name prefix # due to 40 char limit
         id: workload-name
         run: |
@@ -74,7 +67,16 @@ jobs:
 
           echo "WORKLOAD_PREFIX=${WORKLOAD_PREFIX}" >> ${GITHUB_OUTPUT}
 
-      - name: Launch XPK workload 
+      - name: Create NCCL test Services on cluster
+        run: |
+          SERVICE_MANIFEST=".github/gke-workflow/nccl/service-${WORKLOAD_NAME}-${{ matrix.test }}.yaml"
+          WORKLOAD_NAME="${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "SERVICE_MANIFEST=${SERVICE_MANIFEST}" >> ${GITHUB_ENV}
+
+          cat .github/gke-workflow/nccl/service.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD_NAME}'"' --yaml-output | tee ${SERVICE_MANIFEST}
+          kubectl apply -f ${SERVICE_MANIFEST}
+
+      - name: Launch XPK workload  on cluster
         uses: ./.github/actions/gke-xpk
         with:
           IMAGE: ${{ env.BASE_IMAGE }}
@@ -86,7 +88,7 @@ jobs:
             /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
             tee /opt/output/output.log &> \${console};
 
-      - name: Clean up NCCL test service
+      - name: Clean up NCCL test Services from cluster
         if: ${{ always() }}
         run: |
           kubectl delete -f ${SERVICE_MANIFEST}
