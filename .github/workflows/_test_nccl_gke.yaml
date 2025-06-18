@@ -76,7 +76,7 @@ jobs:
           cat .github/gke-workflow/nccl/service.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD_NAME}'"' --yaml-output | tee ${SERVICE_MANIFEST}
           kubectl apply -f ${SERVICE_MANIFEST}
 
-      - name: Launch XPK workload  on cluster
+      - name: Launch XPK workload on cluster
         uses: ./.github/actions/gke-xpk
         with:
           IMAGE: ${{ env.BASE_IMAGE }}

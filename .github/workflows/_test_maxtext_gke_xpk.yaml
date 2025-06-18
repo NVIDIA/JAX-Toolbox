@@ -1,6 +1,12 @@
 name: ~Test MaxText (GKE, XPK)
 
 on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
   workflow_call:
     inputs:
       MAXTEXT_IMAGE:
@@ -14,179 +20,42 @@ jobs:
     runs-on: gke-a3mega
 
     env:
-      CLUSTER_NAME: jtb-2025-06-12
-      DEVICE_TYPE: h100-mega-80gb-8
-      NUM_NODES: 2
-      ZONE: us-central1-a
       WORKLOAD_NAME_PREFIX: gke-maxtext-train
-      MAIN_CONTAINER_NAME: gpu-image
-      GCS_BUCKET: jaxtoolbox-ci
+      MAXTEXT_MODEL: llama2-7b
+      MAXTEXT_ATTENTION_TYPE: cudnn_flash_te
+      MAXTEXT_REMAT_POLICY: minimal_flash
+      MAXTEXT_TRAIN_STEPS: 20
+      MAXTEXT_FSDP: 16
+      MAXTEXT_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:15729281707-maxtext-amd64
+      NUM_NODES: 2
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Show environment
-        run: |
-          set -x 
+    - name: Launch XPK workload on cluster
+      uses: ./.github/actions/gke-xpk
+      with:
+        IMAGE: ${{ env.MAXTEXT_IMAGE }}
+        WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
+        COMMAND: |
+          console=/dev/stdout;
           
-          gcloud version
-
-          source $HOME/.venv/bin/activate
-          python --version
-          xpk version
-
-      - name: Set workload name
-        run: |
-          echo "WORKLOAD_NAME=${WORKLOAD_NAME_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> ${GITHUB_ENV}
-          echo "DATE=$(date +'%Y-%m-%d')" >> ${GITHUB_ENV}
-
-      - name: Create maxtext workload
-        env:
-          MAXTEXT_MODEL: llama2-7b 
-          MAXTEXT_ATTENTION_TYPE: cudnn_flash_te
-          MAXTEXT_REMAT_POLICY: minimal_flash
-          MAXTEXT_TRAIN_STEPS: 20
-          MAXTEXT_FSDP: 16
-        run: |
-          PRELUDE="
-              curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
-              tar xf google-cloud-cli-linux-x86_64.tar.gz;
-              ./google-cloud-sdk/install.sh --quiet;
-              ./google-cloud-sdk/bin/gcloud init;
-
-              mkdir -p /usr/share/workload;
-              mkdir -p /opt/output;
-          "
-
-          POSTLUDE="
-              ./google-cloud-sdk/bin/gsutil cp -r /opt/output/ gs://${GCS_BUCKET}/${WORKLOAD_NAME_PREFIX}/${DATE}/${WORKLOAD_NAME}/node0\$NODE_RANK;
-              exit \$PIPESTATUS;
-          "
-
-          CMD="
-              console=/dev/stdout;
-              
-              nsys-jax --capture-range=cudaProfilerApi 
-                       --capture-range-end=stop 
-                       -o /opt/output/profile.zip 
-                       -- 
-                       test-maxtext.sh -n ${NUM_NODES} 
-                                       -b ${NUM_NODES}
-                                       --model-name=${MAXTEXT_MODEL}
-                                       --attn-type=${MAXTEXT_ATTENTION_TYPE}
-                                       --remat-policy=${MAXTEXT_REMAT_POLICY}
-                                       --steps=${MAXTEXT_TRAIN_STEPS}
-                                       --fsdp=${MAXTEXT_FSDP}
-                                       --multiprocess 
-                                       -a 'scan_layers=false
-                                           max_target_length=4096 
-                                           use_iota_embed=true 
-                                           logits_dot_in_fp32=false 
-                                           profiler=nsys 
-                                           skip_first_n_steps_for_profiler=3 
-                                           profiler_steps=8' |&
-              tee /opt/output/output.log &> \${console};
-          "
-
-          # set container command in-line
-          PRELUDE=$(echo ${PRELUDE} | sed 's/\n/\ /g')
-          POSTLUDE=$(echo ${POSTLUDE} | sed 's/\n/\ /g')
-          CMD=$(echo ${CMD} | sed 's/\n/\ /g')
-
-          cd ${HOME}/xpk
-          source ${HOME}/.venv/bin/activate
-          python xpk.py workload create \
-                        --cluster ${CLUSTER_NAME} \
-                        --zone ${ZONE} \
-                        --workload ${WORKLOAD_NAME} \
-                        --docker-image ${{ inputs.MAXTEXT_IMAGE }} \
-                        --device-type ${DEVICE_TYPE} \
-                        --num-nodes ${NUM_NODES} \
-                        --num-slices ${NUM_NODES} \
-                        --priority=high \
-                        --scheduler=gke.io/topology-aware-auto \
-                        --command "${PRELUDE} ${CMD} ${POSTLUDE}"
-
-      - name: Wait for JobSet to unsuspend
-        env:
-          POLL_TIMEOUT: 3600
-        run: |
-          # wait for jobset to start
-          START=$(date +%s)
-          JOBSET_ACTIVE=false
-          while ! ${JOBSET_ACTIVE}  || [ -z ${JOBSET_ACTIVE} ]; do
-            JOBSET_ACTIVE=$(kubectl get jobset -o json | jq -r '.items[] | select(.metadata.name == "'${WORKLOAD_NAME}'").status.replicatedJobsStatus[0] | .active == 1')
-            NOW=$(date +%s)
-            ELAPSED=$(( NOW - START ))
-            if (( ELAPSED > POLL_TIMEOUT )) ; then
-              echo "Timeout after waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${CLUSTER_NAME}"
-              exit 1
-            fi
-            echo "Waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${CLUSTER_NAME}"
-            sleep 5
-          done
-
-          echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${CLUSTER_NAME}"
-
-      - name: Set Pod name
-        run: |
-          echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${WORKLOAD_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
-
-      - name: Wait for Pod readiness
-        run: |
-          POD_READY=false
-          while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
-            echo "Waiting for pod ${POD} in JobSet ${WORKLOAD_NAME} to become ready"
-            sleep 10
-
-            POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${MAIN_CONTAINER_NAME}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
-            if ${POD_ERROR} ; then
-              echo "There was an issue starting the JobSet ${WORKLOAD_NAME} on ${CLUSTER_NAME}"
-              break
-            fi
-
-            POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${MAIN_CONTAINER_NAME}'").ready')
-          done;
-
-      - name: Stream logs from JobSet Pods
-        run: |
-          jobset_pods=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
-
-          for jobset_pod in ${jobset_pods[@]}; do
-              kubectl logs  --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD_NAME}-${jobset_pod}-jobset.log &
-          done
-          wait < <(jobs -p)
-
-      - name: Set exit code from JobSet
-        run: |
-          MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-${POD}-jobset.log | awk '{ print $3 }' )"
-          echo ${MAYBE_XPK_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$'
-
-          if [ $? -ne 0 ]; then
-            echo "The JobSet ${WORKLOAD_NAME} on ${CLUSTER_NAME} did not complete as expected "
-            exit 1
-          fi
-
-          eval "export ${MAYBE_XPK_EXIT_CODE}"
-          exit ${EXIT_CODE}
-
-      - name: Clean up JobSet
-        if: ${{ always() }}
-        run: |
-          kubectl delete jobset --wait ${WORKLOAD_NAME} || echo "JobSet ${WORKLOAD_NAME} does not exist in ${CLUSTER_NAME}"
-
-      - name: Download artifacts from GCS
-        run: |
-          mkdir -p output/${WORKLOAD_NAME}
-          gsutil cp -r gs://${GCS_BUCKET}/${WORKLOAD_NAME_PREFIX}/${DATE}/${WORKLOAD_NAME} output/${WORKLOAD_NAME}
-
-      - name: Upload artifacts to GitHub Acions
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.WORKLOAD_NAME_PREFIX }}
-          path: output/${{ env.WORKLOAD_NAME }}/*
-
-      - name: Clean up GCS artifacts
-        if: ${{ always() }}
-        run: |
-          rm -rf output/${WORKLOAD_NAME}
+          nsys-jax --capture-range=cudaProfilerApi
+                   --capture-range-end=stop
+                   -o /opt/output/profile.zip
+                   --
+                   test-maxtext.sh -n ${{ env.NUM_NODES }}
+                                   -b ${{ env.NUM_NODES }}
+                                   --model-name=${{ env.MAXTEXT_MODEL }}
+                                   --attn-type=${[ env.MAXTEXT_ATTENTION_TYPE }}
+                                   --remat-policy=${{ env.MAXTEXT_REMAT_POLICY }}
+                                   --steps=${{ env.MAXTEXT_TRAIN_STEPS }}
+                                   --fsdp=${{ env.MAXTEXT_FSDP }}
+                                   --multiprocess
+                                   -a 'scan_layers=false
+                                       max_target_length=4096
+                                       use_iota_embed=true
+                                       logits_dot_in_fp32=false
+                                       profiler=nsys
+                                       skip_first_n_steps_for_profiler=3
+                                       profiler_steps=8' |&
+          tee /opt/output/output.log &> \${console};
+          EXIT_CODE=\$PIPESTATUS;

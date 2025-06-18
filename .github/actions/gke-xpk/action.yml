@@ -52,6 +52,11 @@ inputs:
     required: false
     default: 'nvidia-smi; free -h;'
     type: string
+  EXIT_COMMAND:
+    description: 'Command to set exit code'
+    required: false
+    default: 'exit \$EXIT_CODE'
+    type: string
   WORKLOAD_NAME_PREFIX:
     description: 'Workload name prefix for XPK, also used to name uploaded artifact'
     required: false
@@ -106,7 +111,7 @@ runs:
   
       POSTLUDE="
           ./google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node0\$NODE_RANK;
-          exit \$EXIT_CODE
+          ${{ inputs.EXIT_COMMAND }}
       "
   
       CMD="${{ inputs.COMMAND }}"
