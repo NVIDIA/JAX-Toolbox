@@ -164,6 +164,7 @@ runs:
       echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${WORKLOAD_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
   
   - name: Wait for JobSet Pod readiness
+    shell: bash -u {0}
     run: |
       POD_READY=false
       while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
