@@ -61,17 +61,20 @@ class DockerContainer(Container):
     def exec(
         self,
         command: typing.List[str],
+        *,
         policy: typing.Literal["once", "once_per_container", "default"] = "default",
         stderr: typing.Literal["interleaved", "separate"] = "interleaved",
-        workdir=None,
+        workdir: typing.Optional[str] = None,
+        log_level: int = logging.DEBUG,
     ) -> subprocess.CompletedProcess:
         """
         Run a command inside a persistent container.
         """
-        workdir = [] if workdir is None else ["--workdir", workdir]
+        wd_arg = [] if workdir is None else ["--workdir", workdir]
         return run_and_log(
-            ["docker", "exec"] + workdir + [self._id] + command,
+            ["docker", "exec"] + wd_arg + [self._id] + command,
             logger=self._logger,
+            log_level=log_level,
             stderr=stderr,
         )
 
