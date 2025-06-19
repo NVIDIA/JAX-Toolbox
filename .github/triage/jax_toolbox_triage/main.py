@@ -14,7 +14,7 @@ from .args import compulsory_software, optional_software, parse_args
 from .container import Container
 from .docker import DockerContainer
 from .local import LocalContainer
-from .logic import commit_search, container_search, TestResult
+from .logic import container_search, TestResult, version_search
 from .pyxis import PyxisContainer
 from .utils import (
     container_url as container_url_base,
@@ -31,18 +31,12 @@ def get_env(worker: Container) -> typing.Dict[str, str]:
     """
 
     def impl() -> typing.Dict[str, str]:
-        return dict(
-            map(
-                lambda kv: kv.split("=", 1),
-                worker.check_exec(
-                    ["env", "-0"],
-                    policy="once",
-                    stderr="separate",
-                )
-                .stdout[:-1]  # skip the trailing \0
-                .split("\0"),
-            )
+        kvs = (
+            worker.check_exec(["env", "-0"], policy="once", stderr="separate")
+            .stdout[:-1]  # skip the trailing \0
+            .split("\0")
         )
+        return dict(kv.split("=", 1) for kv in kvs)
 
     # Remove any environment variables that differ between consecutive `env` calls, for
     # example some step-specific Slurm variables.
@@ -110,7 +104,7 @@ def get_versions_dirs_env(
         for k, v in env.items():
             if not len(v):
                 continue
-            if k[-8:] != "_VERSION":
+            if not k.endswith("_VERSION"):
                 continue
             package = k[:-8]
             assert package not in versions, (versions, package)
@@ -131,7 +125,7 @@ def main() -> None:
     )
 
     def test_output_directory(
-        url: str, commits: typing.Dict[str, str] = {}
+        url: str, versions: typing.Dict[str, str] = {}
     ) -> pathlib.Path:
         # Construct an output directory name, on the host, for output files written by
         # the test case.
@@ -140,7 +134,7 @@ def main() -> None:
         out_dirname = "-".join(
             itertools.chain(
                 [urlhash],
-                map(lambda t: f"{t[0]}-{t[1][:hash_chars]}", sorted(commits.items())),
+                map(lambda t: f"{t[0]}-{t[1][:hash_chars]}", sorted(versions.items())),
             )
         )
         out_dir = args.output_prefix / out_dirname
@@ -180,9 +174,9 @@ def main() -> None:
         typing.Optional[typing.Dict[str, str]],
     ]:
         """
-        Given an optional container URL (e.g. --failing-container) and an optional set of
-        overriden versions (e.g. --failing-commits), obtain a list of software versions to
-        bookend the triage range.
+        Given an optional container URL (e.g. --failing-container) and an optional set
+        of overriden versions (e.g. --failing-versions), obtain a list of software
+        versions to bookend the triage range.
 
         Also returns the container's runtime environment variables for diagnostic purposes.
 
@@ -193,7 +187,7 @@ def main() -> None:
         environment are extracted from the given container. If overrides are *also* given,
         these take precedence over the extracted values.
 
-        If is an error for both of the arguments to be None.
+        It is an error for both `container_url` and `explicit_versions` to be None.
 
         Returns:
         versions: {packge: version} mapping defining one end of the triage range
@@ -251,7 +245,7 @@ def main() -> None:
         with Container(
             container_url(date), test_output_host_directory=out_dir
         ) as worker:
-            commits, _, _ = get_versions_dirs_env(worker, versions_from_env)
+            versions, _, _ = get_versions_dirs_env(worker, versions_from_env)
             # This will stream interleaved stdout/stderr into the logger
             result = worker.exec(args.test_command, log_level=test_output_log_level)
             test_time = time.monotonic() - before
@@ -267,7 +261,7 @@ def main() -> None:
                 "result": test_pass,
                 "test_time": test_time,
             }
-            | commits,
+            | versions,
         )
         return TestResult(
             host_output_directory=out_dir, result=test_pass, stdouterr=result.stdout
@@ -296,17 +290,17 @@ def main() -> None:
         passing_url = args.passing_container
         failing_url = args.failing_container
 
-    # Get the commits/versions in the endpoint containers, or the explicitly passed
-    # commits, or the former overriden by the latter.
+    # Get the versions from the endpoint containers (if they exist), overridden by any
+    # explicitly passed versions.
     passing_versions, original_passing_versions, passing_package_dirs, passing_env = (
-        get_versions(passing_url, args.passing_commits, versions_from_env)
+        get_versions(passing_url, args.passing_versions, versions_from_env)
     )
     failing_versions, original_failing_versions, failing_package_dirs, failing_env = (
-        get_versions(failing_url, args.failing_commits, versions_from_env)
+        get_versions(failing_url, args.failing_versions, versions_from_env)
     )
 
     # If we have two containers, print the differences between their environments. This
-    # can be useful in the case that rebuilding the good commits in the bad container,
+    # can be useful in the case that rebuilding the good versions in the bad container,
     # or vice versa, does not reproduce the expected result.
     if passing_env is not None and failing_env is not None:
         logger.info(f"Environment differences between {passing_url} and {failing_url}")
@@ -334,7 +328,7 @@ def main() -> None:
         pkg for pkg, _ in set(passing_versions.items()) ^ set(failing_versions.items())
     }
 
-    # Choose an environment to do the commit-level bisection in; use directory names that
+    # Choose an environment to do the version-level bisection in; use directory names that
     # match it, and track what the initial versions of the different packages are
     if args.container_runtime == "local":
         bisection_url = "local"
@@ -393,7 +387,7 @@ def main() -> None:
             data.append((commit, date))
         return data
 
-    # Fire up the container that will be used for the commit-level search and use it to
+    # Fire up the container that will be used for the version-level search and use it to
     # extract the relevant history of the repositories that will be triaged.
     with Container(bisection_url) as worker:
         packages = passing_versions.keys()
@@ -405,13 +399,13 @@ def main() -> None:
         log_str += f" using {worker}"
         logger.info(log_str)
         # Get lists of (commit_hash, commit_date) pairs
-        package_commits = collections.OrderedDict()
+        package_versions = collections.OrderedDict()
         for package in packages:
             if package not in package_dirs:
                 # This is a version that came from the container environment, not a git
                 # checkout directory in the container. Handle those below.
                 continue
-            package_commits[package] = get_commit_history(
+            package_versions[package] = get_commit_history(
                 worker,
                 passing_versions[package],
                 failing_versions[package],
@@ -420,63 +414,67 @@ def main() -> None:
             # Confirm they're sorted by commit date
             assert all(
                 b[1] >= a[1]
-                for a, b in zip(package_commits[package], package_commits[package][1:])
+                for a, b in zip(
+                    package_versions[package], package_versions[package][1:]
+                )
             )
             # Confirm the end values are included as expected
-            assert passing_versions[package] == package_commits[package][0][0]
-            assert failing_versions[package] == package_commits[package][-1][0]
+            assert passing_versions[package] == package_versions[package][0][0]
+            assert failing_versions[package] == package_versions[package][-1][0]
         # For the packages that just have one or two version numbers, associate those
         # version numbers with the earliest and, if appropriate, latest XLA dates.
         for package in packages:
-            if package in package_commits:
+            if package in package_versions:
                 continue
-            package_commits[package] = [
-                (passing_versions[package], package_commits["xla"][0][1]),
+            package_versions[package] = [
+                (passing_versions[package], package_versions["xla"][0][1]),
             ]
             if passing_versions[package] != failing_versions[package]:
-                package_commits[package].append(
-                    (failing_versions[package], package_commits["xla"][-1][1])
+                package_versions[package].append(
+                    (failing_versions[package], package_versions["xla"][-1][1])
                 )
 
     def build_and_test(
-        *, commits: typing.Dict[str, str], test_output_log_level: int = logging.DEBUG
+        *, versions: typing.Dict[str, str], test_output_log_level: int = logging.DEBUG
     ) -> TestResult:
         """
-        The main body of the bisection loop. Update the JAX/XLA commits, build XLA and
-        jaxlib, and run the test command. Throws on error when checking out or
-        building, and returns the status of the test command.
+        The main body of the bisection loop. Update JAX/XLA/... versions, rebuild, and
+        run the test command. Throws on error when checking out or building, and returns
+        the status of the test command.
         """
         # Amortise container startup overhead by batching together git commands
         git_commands, changed, skipped = [], [], []
-        for package, commit in commits.items():
-            if bisection_versions[package] == commit:
+        for package, version in versions.items():
+            if bisection_versions[package] == version:
                 # If the existing version is the desired one, do nothing.
-                skipped.append(f"{package}@{commit}")
+                skipped.append(f"{package}@{version}")
                 continue
             # Cache which version is now going to be checked out in the container
-            bisection_versions[package] = commit
-            changed.append(f"{package}@{commit}")
+            bisection_versions[package] = version
+            changed.append(f"{package}@{version}")
             if package in package_dirs:
                 # A git repository that exists in the container.
                 git_commands += [
                     f"cd {package_dirs[package]}",
                     "git stash",
-                    f"git checkout {commit}",
+                    f"git checkout {version}",
                 ]
             else:
-                # Another software package, `commit` is probably a version number.
+                # Another software package, `version` is probably a version number.
                 # Installation of this version is delegated to an installPACKAGE.sh
                 # script that is assumed to be available in `args.build_scripts_path`.
                 assert args.build_scripts_path is not None
                 git_commands += [
-                    f"DEVEL=1 {args.build_scripts_path}/install{package}.sh {commit}"
+                    f"DEVEL=1 {args.build_scripts_path}/install{package}.sh {version}"
                 ]
         # Keep the pathnames shorter by only including packages that actually have
         # multiple versions in the bisection range.
-        brief_commits = {p: ver for p, ver in commits.items() if p in dynamic_packages}
-        out_dir = test_output_directory(bisection_url, commits=brief_commits)
+        brief_versions = {
+            p: ver for p, ver in versions.items() if p in dynamic_packages
+        }
+        out_dir = test_output_directory(bisection_url, versions=brief_versions)
         with Container(bisection_url, test_output_host_directory=out_dir) as worker:
-            change_str = ' '.join(changed) if len(changed) else '<nothing>'
+            change_str = " ".join(changed) if len(changed) else "<nothing>"
             info_str = f"Checking out {change_str} in {worker}"
             if len(skipped):
                 info_str += f", leaving {' '.join(skipped)} unchanged"
@@ -487,7 +485,7 @@ def main() -> None:
             )
             # Build JAX
             # TODO: teach the tool how to build TransformerEngine too
-            # TODO: do not build JAX/XLA/TransformerEngine if we know their commits did not change?
+            # TODO: do not build JAX/XLA/TransformerEngine if we know their versions did not change?
             before = time.monotonic()
             # Unfortunately the build system does not always seem to handle incremental
             # rebuilds correctly, so clean the local cache and rely on the remote one.
@@ -508,7 +506,7 @@ def main() -> None:
             )
             test_time = time.monotonic() - middle
         add_summary_record(
-            "commit",
+            "versions",
             {
                 "build_time": middle - before,
                 "container": bisection_url,
@@ -516,7 +514,7 @@ def main() -> None:
                 "result": test_result.returncode == 0,
                 "test_time": test_time,
             }
-            | commits,
+            | versions,
         )
         result_str = "pass" if test_result.returncode == 0 else "fail"
         logger.info(f"Test completed in {test_time:.1f}s ({result_str})")
@@ -526,9 +524,9 @@ def main() -> None:
             stdouterr=test_result.stdout,
         )
 
-    # Run the commit-level bisection
-    result, last_known_good, first_known_bad = commit_search(
-        commits=package_commits,
+    # Run the version-level bisection
+    result, last_known_good, first_known_bad = version_search(
+        versions=package_versions,
         build_and_test=build_and_test,
         logger=logger,
         skip_precondition_checks=args.skip_precondition_checks,

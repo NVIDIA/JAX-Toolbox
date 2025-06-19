@@ -4,12 +4,12 @@ import itertools
 import logging
 import pytest
 import random
-from jax_toolbox_triage.logic import commit_search, container_search, TestResult
+from jax_toolbox_triage.logic import container_search, TestResult, version_search
 
 
-def wrap(b, commits={}):
+def wrap(b, versions={}):
     return TestResult(
-        host_output_directory="-".join(map("-".join, sorted(commits.items()))),
+        host_output_directory="-".join(map("-".join, sorted(versions.items()))),
         result=b,
         stdouterr="",
     )
@@ -36,32 +36,32 @@ def make_commits(jax, xla, flax=None):
     "dummy_test,expected,last_known_good_dir,first_known_bad_dir",
     [
         (
-            lambda *, commits, **kwargs: wrap(commits["jax"] == "oJ", commits),
+            lambda *, versions, **kwargs: wrap(versions["jax"] == "oJ", versions),
             {"flax_ref": "nF", "xla_ref": "oX", "jax_bad": "mJ", "jax_good": "oJ"},
             "flax-nF-jax-oJ-xla-oX",
             "flax-nF-jax-mJ-xla-oX",
         ),
         (
-            lambda *, commits, **kwargs: wrap(commits["jax"] != "nJ", commits),
+            lambda *, versions, **kwargs: wrap(versions["jax"] != "nJ", versions),
             {"flax_ref": "nF", "xla_ref": "oX", "jax_bad": "nJ", "jax_good": "mJ"},
             "flax-nF-jax-mJ-xla-oX",
             "flax-nF-jax-nJ-xla-oX",
         ),
         (
-            lambda *, commits, **kwargs: wrap(commits["xla"] == "oX", commits),
+            lambda *, versions, **kwargs: wrap(versions["xla"] == "oX", versions),
             {"flax_ref": "nF", "jax_ref": "nJ", "xla_bad": "nX", "xla_good": "oX"},
             "flax-nF-jax-nJ-xla-oX",
             "flax-nF-jax-nJ-xla-nX",
         ),
         (
-            lambda *, commits, **kwargs: wrap(commits["flax"] == "oF", commits),
+            lambda *, versions, **kwargs: wrap(versions["flax"] == "oF", versions),
             {"flax_bad": "nF", "flax_good": "oF", "xla_ref": "oX", "jax_ref": "oJ"},
             "flax-oF-jax-oJ-xla-oX",
             "flax-nF-jax-oJ-xla-oX",
         ),
     ],
 )
-def test_commit_search_explicit(
+def test_version_search_explicit(
     logger, dummy_test, expected, last_known_good_dir, first_known_bad_dir
 ):
     """
@@ -74,9 +74,9 @@ def test_commit_search_explicit(
         xla=[("oX", 1), ("nX", 3)],
         flax=[("oF", 1), ("nF", 3)],
     )
-    algorithm_result, last_known_good, first_known_bad = commit_search(
+    algorithm_result, last_known_good, first_known_bad = version_search(
         build_and_test=dummy_test,
-        commits=commits,
+        versions=commits,
         logger=logger,
         skip_precondition_checks=False,
     )
@@ -94,10 +94,10 @@ step_size = datetime.timedelta(days=1)
 @pytest.mark.parametrize("seed", range(10))
 @pytest.mark.parametrize("packages", [2, 3, 100])
 @pytest.mark.parametrize("extra_commits", [0, 2, 7, 100])
-def test_commit_search(logger, extra_commits, packages, seed):
+def test_version_search(logger, extra_commits, packages, seed):
     """
     Generate random sequences of commits for `packages` different packages and test
-    that the commit-level search algorithm yields the expected results.
+    that the version-level search algorithm yields the expected results.
 
     The minimal set of commits generated is (good, bad) for the buggy package and
     (ref_i) for each other package, where the test passes for (good, ref_1, ...) and
@@ -142,16 +142,16 @@ def test_commit_search(logger, extra_commits, packages, seed):
     culprit_dates = {sha: dt for sha, dt in commits[culprit]}
     assert len(culprit_dates) == len(commits[culprit])
 
-    def dummy_test(*, commits, **kwargs):
-        return wrap(culprit_dates[commits[culprit]] < bad_date, commits)
+    def dummy_test(*, versions, **kwargs):
+        return wrap(culprit_dates[versions[culprit]] < bad_date, versions)
 
-    algorithm_result, last_known_good, first_known_bad = commit_search(
+    algorithm_result, last_known_good, first_known_bad = version_search(
         build_and_test=dummy_test,
-        commits=commits,
+        versions=commits,
         logger=logger,
         skip_precondition_checks=False,
     )
-    # Do not check the reference commits, it's a bit underspecified quite what they
+    # Do not check the reference versions, it's a bit underspecified quite what they
     # mean, other than that the dummy_test assertions below should pass
     commits = {
         package: algorithm_result.pop(f"{package}_ref")
@@ -163,9 +163,9 @@ def test_commit_search(logger, extra_commits, packages, seed):
         f"{culprit}_good": good_commit,
     } == algorithm_result
     commits[culprit] = algorithm_result[f"{culprit}_good"]
-    assert dummy_test(commits=commits).result
+    assert dummy_test(versions=commits).result
     commits[culprit] = algorithm_result[f"{culprit}_bad"]
-    assert not dummy_test(commits=commits).result
+    assert not dummy_test(versions=commits).result
     assert last_known_good.result
     assert not first_known_bad.result
     assert f"{culprit}-{good_commit}" in last_known_good.host_output_directory
@@ -256,7 +256,7 @@ def create_commits(num_commits, num_projects):
         create_commits(num_commits=5, num_projects=3),
     ),
 )
-def test_commit_search_exhaustive(logger, commits):
+def test_version_search_exhaustive(logger, commits):
     """
     Exhaustive search over combinations of a small number of commits
     """
@@ -280,12 +280,12 @@ def test_commit_search_exhaustive(logger, commits):
     assert all(len(v) for v in split_commits.values())
     assert len(split_commits[bad_project]) >= 2
 
-    def dummy_test(*, commits, **kwargs):
-        return wrap(dates[commits[bad_project]] < bad_date)
+    def dummy_test(*, versions, **kwargs):
+        return wrap(dates[versions[bad_project]] < bad_date)
 
-    algorithm_result, _, _ = commit_search(
+    algorithm_result, _, _ = version_search(
         build_and_test=dummy_test,
-        commits=split_commits,
+        versions=split_commits,
         logger=logger,
         skip_precondition_checks=False,
     )
@@ -299,9 +299,9 @@ def test_commit_search_exhaustive(logger, commits):
         if proj != bad_project
     }
     commits[bad_project] = bad_commit
-    assert not dummy_test(commits=commits).result
+    assert not dummy_test(versions=commits).result
     commits[bad_project] = good_commit
-    assert dummy_test(commits=commits).result
+    assert dummy_test(versions=commits).result
 
 
 @pytest.mark.parametrize(
@@ -318,22 +318,22 @@ def test_commit_search_exhaustive(logger, commits):
         ),
     ],
 )
-def test_commit_search_no_commits(logger, commits):
+def test_version_search_no_commits(logger, commits):
     with pytest.raises(Exception, match="Not enough commits"):
-        commit_search(
+        version_search(
             build_and_test=lambda **kwargs: None,
-            commits=commits,
+            versions=commits,
             logger=logger,
             skip_precondition_checks=False,
         )
 
 
 @pytest.mark.parametrize("value", [True, False])
-def test_commit_search_static_test_function(logger, value):
+def test_version_search_static_test_function(logger, value):
     with pytest.raises(Exception, match="Could not reproduce"):
-        commit_search(
+        version_search(
             build_and_test=lambda **kwargs: wrap(value),
-            commits=make_commits(
+            versions=make_commits(
                 jax=[("1", start_date), ("2", start_date + step_size)],
                 xla=[("1", start_date), ("2", start_date + step_size)],
             ),
