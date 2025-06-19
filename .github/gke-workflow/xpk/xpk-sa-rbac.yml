@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: xpk-sa
+  namespace: default
+  annotations:
+    iam.gke.io/gcp-service-account: jobset-xpk-user@nv-jaxtoolboxgcp-20240925.iam.gserviceaccount.com
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: xpk-sa
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: xpk-sa-binding
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: xpk-sa
+    namespace: default
+roleRef:
+  kind: Role
+  name: xpk-sa
+  apiGroup: rbac.authorization.k8s.io
