@@ -419,7 +419,9 @@ def main() -> None:
             assert passing_versions[package] == package_versions[package][0][0]
             assert failing_versions[package] == package_versions[package][-1][0]
         # For the packages that just have one or two version numbers, associate those
-        # version numbers with the earliest and, if appropriate, latest XLA dates.
+        # version numbers with the earliest and, if appropriate, latest XLA dates. This
+        # is only relevant to packages that do not have git repositories checked out and
+        # are managed via installPACKAGE.sh scripts and PACKAGE_VERSION environment vars
         for package in packages:
             if package in package_versions:
                 continue
@@ -458,9 +460,10 @@ def main() -> None:
             packages_missing_scripts = packages_needing_scripts - packages_with_scripts
             if packages_missing_scripts:
                 logger.warning(
-                    f"No installation scripts found for: {packages_missing_scripts}, "
-                    "whose versions change across the bisection range. These will be "
-                    "excluded from the bisection, which may cause it not to converge!"
+                    "No installation scripts found for: "
+                    f"{' '.join(packages_missing_scripts)}, whose version(s) change "
+                    "across the bisection range. These will be excluded from the "
+                    "bisection, which may cause it not to converge!"
                 )
                 dynamic_packages -= packages_missing_scripts
 

@@ -313,6 +313,11 @@ Only two versions of `COMPONENT` will be used, one from each end of the triage r
 If those versions are the same as each other, `installCOMPONENT.sh` will not be called
 and need not exist.
 
+Example: `--passing-container=contains_COMPONENT_v1` combined with
+`--failing-container=contains_COMPONENT_v3` might blame `v3` of `COMPONENT` for the
+regression, in which case `--passing-versions=COMPONENT:v2` could be used to re-run and
+see if the issue in fact appeared in `v2`.
+
 ## Other features
 The tool will mount a host system directory (under `--output-prefix`) into the
 container at `/triage-tool-output` and will make sure that this directory is unique for

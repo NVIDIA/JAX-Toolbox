@@ -318,7 +318,7 @@ def _version_search(
                     break
             indices[secondary] = index
             bisect_versions[secondary] = version
-            if len(version_list):
+            if len(version_list) > 1:
                 log_msg += f", {len(version_list)} remaining {secondary} versions"
                 log_msg += (
                     f" [{versions[secondary][0][0]}, {versions[secondary][-1][0]}]"
