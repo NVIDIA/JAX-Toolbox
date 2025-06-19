@@ -51,6 +51,8 @@ usage() {
     echo "    --clean-only                   Do not build, just cleanup"
     echo "    --cpu-arch                     Target CPU architecture, e.g. amd64, arm64, etc."
     echo "    --debug                        Build in debug mode"
+    echo "    --extra-targets T1[,T2[...]    Extra bazel targets that will be built and copied to --extra-target-dest."
+    echo "    --extra-target-dest PATH       Where extra target output files will be copied to."
     echo "    -h, --help                     Print usage."
     echo "    --install                      Install the JAX wheels when build succeeds"
     echo "    --no-install                   Do not install the JAX wheels when build succeeds"
@@ -75,11 +77,13 @@ CLEANONLY=0
 CPU_ARCH="$(dpkg --print-architecture)"
 CUDA_COMPUTE_CAPABILITIES="local"
 DEBUG=0
+EXTRA_TARGETS=()
+EXTRA_TARGET_DEST=""
 INSTALL=1
 SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 
-args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,no-clean,clean-only,help,install,no-install,src-path-jax:,src-path-xla:,sm: -- "$@")
+args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,extra-targets:,extra-target-dest:,no-clean,clean-only,help,install,no-install,src-path-jax:,src-path-xla:,sm: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -122,6 +126,14 @@ while [ : ]; do
         --debug)
             DEBUG=1
             shift 1
+            ;;
+        --extra-targets)
+            IFS=',' read -r -a EXTRA_TARGETS <<< "$2"
+            shift 2
+            ;;
+        --extra-target-dest)
+            EXTRA_TARGET_DEST="$2"
+            shift 2
             ;;
         -h | --help)
             usage 1
@@ -202,12 +214,19 @@ print_var CPU_ARCH
 print_var CUDA_COMPUTE_CAPABILITIES
 print_var CUDA_MAJOR_VERSION
 print_var DEBUG
+print_var EXTRA_TARGETS
+print_var EXTRA_TARGET_DEST
 print_var INSTALL
 print_var PYTHON_VERSION
 print_var SRC_PATH_JAX
 print_var SRC_PATH_XLA
 
 echo "=================================================="
+
+if [[ -n "${EXTRA_TARGET_DEST}" && ! -d "${EXTRA_TARGET_DEST}" ]]; then
+    echo "You must pass a directory to --extra-target-dest"
+    exit 1
+fi
 
 set -x
 if [[ ${CLEANONLY} == 1 ]]; then
@@ -245,7 +264,21 @@ for component in jaxlib "jax-cuda${CUDA_MAJOR_VERSION}-pjrt" "jax-cuda${CUDA_MAJ
     # version, so nvidia-*-cu12 wheels disappear from the lock file
     sed -i "s|^${component}.*$|${component} @ file://${BUILD_PATH_JAXLIB}/${component//-/_}|" build/requirements.in
 done
-bazel run --config=cuda_libraries_from_stubs --verbose_failures=true //build:requirements.update --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
+# Bazel args to avoid cache invalidation
+BAZEL_ARGS=(
+    --config=cuda_libraries_from_stubs
+    --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
+)
+bazel run "${BAZEL_ARGS[@]}" --verbose_failures=true //build:requirements.update
+if (( "${#EXTRA_TARGETS[@]}" > 0 )); then
+    bazel build "${BAZEL_ARGS[@]}" --verbose_failures=true "${EXTRA_TARGETS[@]}"
+    if [[ -n "${EXTRA_TARGET_DEST}" ]]; then
+        for target in "${EXTRA_TARGETS[@]}"; do
+            output_files=$(bazel cquery "${BAZEL_ARGS[@]}" "${target}" --output files)
+            cp -v ${output_files} "${EXTRA_TARGET_DEST}"
+        done
+    fi
+fi
 popd
 
 ## Install the built packages
