@@ -162,3 +162,45 @@ def test_invalid_container_runtime():
 def test_bad_local_arg_combinations(bad_local_args):
     with pytest.raises(Exception):
         parse_args(bad_local_args + test_command)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--passing-commits", "jax:1,xla:2", "--passing-versions", "jax:2,xla:2"],
+        ["--failing-commits", "jax:1,xla:2", "--failing-versions", "jax:2,xla:2"],
+        [
+            "--failing-commits",
+            "jax:1,xla:2",
+            "--failing-versions",
+            "jax:2,xla:2",
+            "--passing-commits",
+            "jax:1,xla:2",
+            "--passing-versions",
+            "jax:2,xla:2",
+        ],
+    ],
+)
+def test_combining_deprecated_args_with_their_replacements(args):
+    with pytest.raises(Exception):
+        parse_args(args + test_command)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--passing-commits", "jax:1,xla:2", "--failing-container", "url"],
+        ["--failing-commits", "jax:1,xla:2", "--passing-container", "url"],
+        [
+            "--failing-commits",
+            "jax:1,xla:2",
+            "--passing-commits",
+            "jax:1,xla:2",
+            "--passing-container",
+            "url",
+        ],
+    ],
+)
+def test_warning_on_deprecated_args(args):
+    with pytest.deprecated_call():
+        parse_args(args + test_command)

@@ -100,11 +100,8 @@ def get_versions_dirs_env(
     if versions_from_env:
         # Promote any XXX_VERSION environment variables into `versions` if `XXX` is
         # not already there.
-        # TODO: the match might need to be fuzzier (case, hyphens vs underscores)
         for k, v in env.items():
-            if not len(v):
-                continue
-            if not k.endswith("_VERSION"):
+            if not len(v) or not k.endswith("_VERSION"):
                 continue
             package = k[:-8]
             assert package not in versions, (versions, package)
@@ -434,6 +431,39 @@ def main() -> None:
                     (failing_versions[package], package_versions["xla"][-1][1])
                 )
 
+        # Check up-front whether the installation scripts exist for the packages that
+        # are being triaged by version + script rather than from a git repo + build.
+        if args.build_scripts_path is not None:
+            known_scripts = worker.check_exec(
+                [
+                    "find",
+                    args.build_scripts_path,
+                    "-maxdepth",
+                    "1",
+                    "-executable",
+                    "-print0",
+                ],
+                policy="once",
+                stderr="separate",
+            ).stdout.split("\0")
+            logger.debug(f"Found {known_scripts} inside {worker}")
+            packages_with_scripts = {
+                script[len(args.build_scripts_path) + 8 : -3]
+                for script in known_scripts
+                if script.startswith(args.build_scripts_path + "/install")
+                and script.endswith(".sh")
+            }
+            logger.debug(f"Found installation scripts for {packages_with_scripts}")
+            packages_needing_scripts = dynamic_packages - package_dirs.keys()
+            packages_missing_scripts = packages_needing_scripts - packages_with_scripts
+            if packages_missing_scripts:
+                logger.warning(
+                    f"No installation scripts found for: {packages_missing_scripts}, "
+                    "whose versions change across the bisection range. These will be "
+                    "excluded from the bisection, which may cause it not to converge!"
+                )
+                dynamic_packages -= packages_missing_scripts
+
     def build_and_test(
         *, versions: typing.Dict[str, str], test_output_log_level: int = logging.DEBUG
     ) -> TestResult:
@@ -444,7 +474,8 @@ def main() -> None:
         """
         # Amortise container startup overhead by batching together git commands
         git_commands, changed, skipped = [], [], []
-        for package, version in versions.items():
+        for package in sorted(dynamic_packages):
+            version = versions[package]
             if bisection_versions[package] == version:
                 # If the existing version is the desired one, do nothing.
                 skipped.append(f"{package}@{version}")
@@ -464,8 +495,16 @@ def main() -> None:
                 # Installation of this version is delegated to an installPACKAGE.sh
                 # script that is assumed to be available in `args.build_scripts_path`.
                 assert args.build_scripts_path is not None
+                assert package in packages_with_scripts, (
+                    package,
+                    packages_with_scripts,
+                )
+                extra_env = {
+                    # Need the static part for the .bc library
+                    "NVSHMEM": "DEVEL=1 STATIC=1",
+                }.get(package, "DEVEL=1")  # Always need development headers to rebuild
                 git_commands += [
-                    f"DEVEL=1 {args.build_scripts_path}/install{package}.sh {version}"
+                    f"{extra_env} {args.build_scripts_path}/install{package}.sh {version}"
                 ]
         # Keep the pathnames shorter by only including packages that actually have
         # multiple versions in the bisection range.

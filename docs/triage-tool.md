@@ -1,7 +1,9 @@
 # Triage tool
 
 `jax-toolbox-triage` is a tool to automate the process of attributing regressions to an
-individual commit of JAX or XLA.
+individual commit/version of JAX, XLA, another package that is explicitly built from a
+git repository checkout in the container, or a versioned component that is installed in
+the container environment.
 It takes as input a command that returns an error (non-zero) code when run in "recent"
 environments, but which returns a success (zero) code when run in some "older" environment.
 The command must be executable within the triage environment, *i.e.* it cannot refer to files
@@ -16,10 +18,12 @@ The tool follows a process that can include up to three steps:
   2. A container-level binary search to refine this to the **latest** available
      container where test passes and the **earliest** available container where it
      fails.
-  3. A commit-level binary search, repeatedly building + testing, to identify a single commit of a software package known to the tool
-     (JAX, XLA, Flax, optionally MaxText) that causes the test to start failing, and a
-     set of reference commits of the other packages that can be used to reproduce the
-     regression.
+  3. A version-level binary search, repeatedly building + testing, to identify a single
+     git commit of a software package known to the tool (JAX, XLA, Flax, MaxText, ...)
+     or a single version of a software package that the tool has been provided with an
+     external installation script for (cuBLAS, cuDNN, ...) that causes the test to start
+     failing, and a set of reference versions of the other packages that can be used to
+     reproduce the regression.
 
 The third step can also be used on its own, via the `--passing-container` and
 `--failing-container` options, which allows it to be used between private container
@@ -73,10 +77,8 @@ To use the tool, there are two compulsory inputs:
       * **Container Search**: Usage `--container` to specify which of the `ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD` container families to search through. Example: `jax` for a JAX unit test failure, `maxtext` for a MaxText model execution failure. The `--start-date` and
        `--end-date` options can be combined with `--container` to tune the search; see
        below for more details.
-     * **Commit Search between Containers**: `--passing-container` and `--failing-container`: a pair of URLs to containers to
-       use in the commit-level search; if these are passed then no container-level
-       search is performed.
-      * **Local Commit Search**: Use `--container-runtime=local` when you are already inside a JAX container. This mode skips all container orchestration and performs a commit-level search directly in the local container. It requires you to specify the commit range with `--passing-commits` and `--failing-commits`.
+      * **Version Search between Containers**: `--passing-container` and `--failing-container`: a pair of URLs to containers to use in the version-level search; if these are passed then no container-level search is performed.
+      * **Local Commit Search**: Use `--container-runtime=local` when you are already inside a JAX container. This mode skips all container orchestration and performs a version-level search directly in the local container. It requires you to specify the version range with `--passing-versions` and `--failing-versions`.
 
 The test command will be executed directly in the container, not inside a shell, so be
 sure not to add excessive quotation marks (*i.e.* run
@@ -148,7 +150,7 @@ known-good and earliest known-bad containers is below the threshold.
 If you need to re-start the tool for some reason, use of these options can help
 bootstrap the tool using the results of a previous (partial) run.
 
-### Optimising commit-level search performance
+### Optimising version-level search performance
 
 The third stage of the triage process involves repeatedly building JAX and XLA, which
 can be sped up significantly using a Bazel cache.
@@ -303,7 +305,7 @@ installation helpers to be injected from the host system.
 
 Versions of `COMPONENT` will be read from the last-known-good and first-known-bad
 container environment variable `COMPONENT_VERSION`, or the version of `COMPONENT` can
-be set explicitly via `--{passing,failing}-commits`.
+be set explicitly via `--{passing,failing}-versions`.
 
 Only two versions of `COMPONENT` will be read, one from each end of the triage range.
 If those versions are the same as each other, `installCOMPONENT.sh` will not be called
@@ -312,10 +314,10 @@ and need not exist.
 ## Other features
 The tool will mount a host system directory (under `--output-prefix`) into the
 container at `/triage-tool-output` and will make sure that this directory is unique for
-each container + commits that is tested. After the triage has converged, the tool will
+each container + version set that is tested. After the triage has converged, the tool will
 create `first-known-bad` and `last-known-good` symlinks under `--output-prefix` that
 identify the directories corresponding to immediately before and after the problematic
-commit.
+version or commit.
 
 This can be useful to save metadata, such as HLO dump files or profile data.
 
@@ -339,7 +341,10 @@ For example, if the regression is due to a new version of some other dependency
 two stages of the triage process will correctly identify that `2024-10-15` is the
 critical date, but the third stage will fail because it will try and fail to reproduce
 test success by building the JAX/XLA commits from `2024-10-14` in the `2024-10-15`
-container.
+container. The `--build-scripts-path` feature described above relaxes this limitation if
+`SomeProject` meets the relevant criteria (the `SOMEPROJECT_VERSION` environment
+variable is set in the containers; `installSOMEPROJECT.sh` exists in
+`--build-scripts-path`).
 
 The tool also does not currently handle skipping commits that do not compile.
 

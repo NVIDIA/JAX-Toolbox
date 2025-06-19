@@ -309,17 +309,20 @@ def _version_search(
         bisect_versions = {}
         bisect_versions[primary], primary_date = versions[primary][middle]
         log_msg = f"Chose from {len(versions[primary])} remaining {primary} versions"
-        log_msg += f" [f{versions[primary][0][0]}, f{versions[primary][-1][0]}]"
+        log_msg += f" [{versions[primary][0][0]}, {versions[primary][-1][0]}]"
         # Find the oldest versions of the other packages that are newer, or the last version
         indices = {primary: middle}
-        for secondary, versions_list in _not_first(versions):
+        for secondary, version_list in _not_first(versions):
             for index, (version, date) in enumerate(version_list):
                 if date >= primary_date:
                     break
             indices[secondary] = index
-            bisect_version[secondary] = version
-            log_msg += f", {len(version_list)} remaining {secondary} versions"
-            log_msg += f" [f{versions[secondary][0][0]}, f{versions[secondary][-1][0]}]"
+            bisect_versions[secondary] = version
+            if len(version_list):
+                log_msg += f", {len(version_list)} remaining {secondary} versions"
+                log_msg += (
+                    f" [{versions[secondary][0][0]}, {versions[secondary][-1][0]}]"
+                )
         logger.info(log_msg)
         bisect_result = build_and_test(versions=bisect_versions)
         assert _cache_key(bisect_versions) not in result_cache

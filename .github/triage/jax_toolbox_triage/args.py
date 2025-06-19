@@ -5,7 +5,7 @@ import os
 import pathlib
 import tempfile
 import typing
-import warning
+import warnings
 
 # Software we know may exist in the containers that we might be able to triage
 # We know how to recompile JAX/XLA, so it's OK that they include C++ code
@@ -172,7 +172,7 @@ def parse_args(args=None) -> argparse.Namespace:
             a triage with a single container (i.e. without passing --failing-container),
             and/or combined with --failing-container to override the initial versions
             read from that container. Expects an argument of the form
-            jax:commit_hash,xla:commit_hash,cublas:version.number[,...].""",
+            jax:commit_hash,xla:commit_hash,CUBLAS:version.number[,...].""",
         type=parse_version_argument,
     )
     version_search_args.add_argument(
@@ -188,7 +188,7 @@ def parse_args(args=None) -> argparse.Namespace:
             a triage with a single container (i.e. without passing --passing-container),
             and/or combined with --passing-container to override the initial versions
             read from that container. Expects an argument of the form
-            jax:commit_hash,xla:commit_hash,cublas:version.number[,...].""",
+            jax:commit_hash,xla:commit_hash,CUBLAS:version.number[,...].""",
         type=parse_version_argument,
     )
     version_search_args.add_argument(
@@ -237,7 +237,8 @@ def parse_args(args=None) -> argparse.Namespace:
         if getattr(args, f"{prefix}_versions") is None:
             warnings.warn(
                 f"WARNING: deprecated alias --{prefix}-commits being used, please "
-                f"migrate to --{prefix}-versions"
+                f"migrate to --{prefix}-versions",
+                DeprecationWarning,
             )
             setattr(args, f"{prefix}_versions", commits)
         else:

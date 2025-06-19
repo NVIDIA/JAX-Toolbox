@@ -319,7 +319,7 @@ def test_version_search_exhaustive(logger, commits):
     ],
 )
 def test_version_search_no_commits(logger, commits):
-    with pytest.raises(Exception, match="Not enough commits"):
+    with pytest.raises(Exception, match="Not enough versions"):
         version_search(
             build_and_test=lambda **kwargs: None,
             versions=commits,
