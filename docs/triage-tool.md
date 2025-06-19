@@ -304,10 +304,12 @@ This is typically used in conjunction with `--container-mount` to allow those
 installation helpers to be injected from the host system.
 
 Versions of `COMPONENT` will be read from the last-known-good and first-known-bad
-container environment variable `COMPONENT_VERSION`, or the version of `COMPONENT` can
-be set explicitly via `--{passing,failing}-versions`.
+container environment variable `COMPONENT_VERSION`. These values can be overriden using
+`--{passing,failing}-versions`, and **must** be set explicitly if only a single
+container is used (*e.g.* if `--passing-container` and `--failing-versions` are used
+without `--failing-container`).
 
-Only two versions of `COMPONENT` will be read, one from each end of the triage range.
+Only two versions of `COMPONENT` will be used, one from each end of the triage range.
 If those versions are the same as each other, `installCOMPONENT.sh` will not be called
 and need not exist.
 
