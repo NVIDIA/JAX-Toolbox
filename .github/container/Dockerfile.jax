@@ -52,7 +52,7 @@ RUN ARCH="$(dpkg --print-architecture)" && \
 RUN mkdir -p /builder/extra-targets && build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
-    --extra-targets ${EXTRA_BAZEL_TARGETS} \
+    --extra-targets "${EXTRA_BAZEL_TARGETS}" \
     --extra-target-dest /builder/extra-targets \
     --no-install \
     --src-path-jax ${SRC_PATH_JAX} \
@@ -97,7 +97,7 @@ COPY --from=builder ${BUILD_PATH_JAXLIB} ${BUILD_PATH_JAXLIB}
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
-COPY --from=builder /builder/extra-targets /usr/local/bin
+COPY --from=builder /builder/extra-targets/* /usr/local/bin/
 # Preserve the versions of jax and xla
 COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
 ADD build-jax.sh build-te.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/local/bin/
