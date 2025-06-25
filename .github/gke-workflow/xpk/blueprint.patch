@@ -19,7 +19,7 @@ index ccbca90..22a880a 100644
          settings={
              "name": f"{cluster_name}-a3-megagpu-pool-0",
              "machine_type": system.gce_machine_type,
-+            "guest_accelerator": [{"type":"nvidia-h100-mega-80gb", "count": 8, "gpu_driver_installation_config": {"gpu_driver_version": "LATEST"}}],
++            "guest_accelerator": [{"type":"nvidia-h100-mega-80gb", "count": 8, "gpu_driver_installation_config": {"gpu_driver_version": "DEFAULT"}}],
              "static_node_count": num_nodes,
              "zones": [zone],
 -            "host_maintenance_interval": "PERIODIC",
