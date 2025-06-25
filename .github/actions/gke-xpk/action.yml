@@ -62,27 +62,21 @@ inputs:
     required: false
     default: 'xpk'
     type: string
+  XPK_VERSION:
+    description: 'XPK release tag'
+    required: false
+    default: 'v0.8.0'
+    type: string
+  XPK_PYTHON:
+    description: 'Python version for XPK'
+    required: false
+    default: '3.12.10'
+    type: string
 
 runs:
   using: 'composite'
   steps:
-  - name: Show environment
-    shell: bash -x -e -u {0}
-    run: |
-      gcloud version
-  
-      source $HOME/.venv/bin/activate
-      python --version
-      xpk version
-  
-  - name: Apply XPK workload create patch
-    shell: bash -x -e -u {0}
-    run: |
-      cd ${HOME}/xpk && git checkout src/xpk && cd -
-      git apply --unsafe-paths .github/gke-workflow/xpk/tcpxo_decorator.patch --directory ${HOME}/xpk
-      git apply --unsafe-paths .github/gke-workflow/xpk/docker_resources.patch --directory ${HOME}/xpk
-      git apply --unsafe-paths .github/gke-workflow/xpk/workload.patch --directory ${HOME}/xpk
-  
+
   - name: Set workload name
     shell: bash -x -e -u {0}
     run: |
@@ -94,6 +88,35 @@ runs:
       echo "DATE=${DATE}" >> ${GITHUB_ENV}
       echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
 
+  - name: Setup environment
+    shell: bash -x -e -u {0}
+    run: |
+      mkdir -p ${WORKLOAD_NAME}
+      uv venv --verbose --python=${{ inputs.XPK_PYTHON }} --directory=${WORKLOAD_NAME}
+      source ${WORKLOAD_NAME}/.venv/bin/activate
+
+      # install xpk
+      git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD_NAME}/xpk
+
+      sed 's@pip install \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD_NAME}/xpk/Makefile
+      cd ${WORKLOAD_NAME}/xpk && make install && cd -
+
+  - name: Show environment
+    shell: bash -x -e -u {0}
+    run: |
+      gcloud version
+  
+      source ${WORKLOAD_NAME}/.venv/bin/activate
+      python --version
+      xpk version
+  
+  - name: Apply XPK workload create patch
+    shell: bash -x -e -u {0}
+    run: |
+      git apply --unsafe-paths .github/gke-workflow/xpk/tcpxo_decorator.patch --directory ${WORKLOAD_NAME}/xpk
+      git apply --unsafe-paths .github/gke-workflow/xpk/docker_resources.patch --directory ${WORKLOAD_NAME}/xpk
+      git apply --unsafe-paths .github/gke-workflow/xpk/workload.patch --directory ${WORKLOAD_NAME}/xpk
+  
   - name: Set workload commands
     shell: bash -x -e -u {0}
     run: |
@@ -127,8 +150,8 @@ runs:
   - name: Create workload on cluster with XPK
     shell: bash -x -e -u {0}
     run: |
-      cd ${HOME}/xpk
-      source ${HOME}/.venv/bin/activate
+      cd ${WORKLOAD_NAME}/xpk
+      source ${WORKLOAD_NAME}/.venv/bin/activate
       python xpk.py workload create \
                     --project ${{ inputs.GCP_PROJECT }} \
                     --cluster ${{ inputs.GKE_CLUSTER }} \
@@ -233,3 +256,9 @@ runs:
     if: ${{ always() }}
     run: |
       rm -rf output/${WORKLOAD_NAME}
+
+  - name: Clean up xpk environment from runner
+    shell: bash -x -u {0}
+    if: ${{ always() }}
+    run: |
+        rm -rf ${WORKLOAD_NAME}
