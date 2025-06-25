@@ -27,7 +27,7 @@ if [ $NODE_RANK = 0 ] ; then
     echo "$host ready"
   done
 
-  BENCHMARK=$BENCHMARK NHOSTS=$NHOSTS /scripts/test.sh
+  NCCL_BENCHMARK=$BENCHMARK NHOSTS=$NHOSTS /scripts/test.sh
 
   for host in ${@}; do
     ssh ${host} touch ${COMPLETION_FLAG}

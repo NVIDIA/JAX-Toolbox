@@ -47,6 +47,11 @@ jobs:
       BASE_IMAGE: ${{ needs.build-nccl-gke.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
       WORKLOAD_NAME_PREFIX: nccl-gke
+      NHOSTS: 2
+      NCCL_MINBYTES: 8
+      NCCL_MAXBYTES: 16G
+      NCCL_STEPFACTOR: 2
+      NCCL_ITERS: 100
 
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +79,15 @@ jobs:
           IMAGE: ${{ env.BASE_IMAGE }}
           WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
           COMMAND: |
+            export NHOSTS=${{ env.NHOSTS }};
+            export NCCL_LIB_DIR=/opt/nvida/nccl/lib;
+            export SCRIPT_DIR=/scripts;
+
+            export NCCL_MINBYTES=${{ env.NCCL_MINBYTES }};
+            export NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
+            export NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
+            export NCCL_ITERS=${{ env.NCCL_ITERS }};
+
             service ssh restart;
             console=/dev/stdout;
             declare -a hosts=('nccl-test-host-1' 'nccl-test-host-2');
