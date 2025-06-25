@@ -30,6 +30,8 @@ jobs:
         IMAGE: ${{ env.MAXTEXT_IMAGE }}
         WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
         COMMAND: |
+          export NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so;
+          export NCCL_TUNER_PLUGIN=none;
           console=/dev/stdout;
           
           nsys-jax --capture-range=cudaProfilerApi

@@ -98,9 +98,10 @@ runs:
     shell: bash -x -e -u {0}
     run: |
       PRELUDE="
+          apt install -y ripgrep > /dev/null;
           curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
           tar xf google-cloud-cli-linux-x86_64.tar.gz;
-          ./google-cloud-sdk/install.sh --quiet;
+          ./google-cloud-sdk/install.sh --quiet > /dev/null;
           ./google-cloud-sdk/bin/gcloud init;
   
           mkdir -p /usr/share/workload;

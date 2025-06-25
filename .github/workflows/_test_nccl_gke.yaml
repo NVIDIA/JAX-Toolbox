@@ -74,7 +74,6 @@ jobs:
           IMAGE: ${{ env.BASE_IMAGE }}
           WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
           COMMAND: |
-            unset NCCL_NET_PLUGIN;
             service ssh restart;
             console=/dev/stdout;
             declare -a hosts=('nccl-test-host-1' 'nccl-test-host-2');
@@ -82,7 +81,6 @@ jobs:
             /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
             tee /opt/output/output.log &> \${console};
 
-            apt install ripgrep;
             MAYBE_MPI_EXIT_CODE=\$(tail /opt/output/output.log | rg 'Exit code:[ ]+([0-9]+)' -or '\$1');
             if [ -z \${MAYBE_MPI_EXIT_CODE} ]; then
               EXIT_CODE=0;
