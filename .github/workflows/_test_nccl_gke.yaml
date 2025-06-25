@@ -1,0 +1,109 @@
+name: ~Test NCCL Kubernetes (GKE)
+
+on:
+  workflow_call:
+    inputs:
+      JAX_IMAGE:
+        type: string
+        description: JAX image from ghcr.io/nvidia
+        default: ghcr.io/nvidia/jax-toolbox-internal:15729070690-base-amd64
+        required: false
+
+jobs:
+  build-nccl-gke:
+    runs-on: [self-hosted, "amd64", "large"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build NCCL image
+        id: build
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: amd64
+          ARTIFACT_NAME: artifact-nccl-gke-build
+          BADGE_FILENAME: badge-nccl-gke-build
+          BUILD_DATE: 0000-00-00 # not important; this image is never published
+          BASE_IMAGE: ${{ inputs.JAX_IMAGE }}
+          CONTAINER_NAME: nccl-gke
+          DOCKERFILE: .github/container/Dockerfile.nccl-gke
+          RUNNER_SIZE: small
+          DOCKER_CONTEXT: .
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+    outputs:
+      DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
+
+  nccl-gke:
+    runs-on: gke-a3mega
+
+    needs: build-nccl-gke 
+
+    strategy:
+      matrix:
+        test: [all_gather_perf_mpi, all_reduce_perf_mpi, broadcast_perf_mpi, reduce_scatter_perf_mpi]
+
+    env:
+      BASE_IMAGE: ${{ needs.build-nccl-gke.outputs.DOCKER_TAG_FINAL }}
+      TEST_NAME: ${{ matrix.test }}
+      WORKLOAD_NAME_PREFIX: nccl-gke
+      NHOSTS: 2
+      NCCL_MINBYTES: 8
+      NCCL_MAXBYTES: 16G
+      NCCL_STEPFACTOR: 2
+      NCCL_ITERS: 100
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set workload name prefix # due to 40 char limit
+        id: workload-name
+        run: |
+          TEST_NAME=$(echo "${{ matrix.test }}" | sed 's/_perf_mpi//g' | sed 's/_/-/g')
+          WORKLOAD_PREFIX="${{ env.WORKLOAD_NAME_PREFIX }}-${TEST_NAME}"
+
+          echo "WORKLOAD_PREFIX=${WORKLOAD_PREFIX}" >> ${GITHUB_OUTPUT}
+
+      - name: Create NCCL test Services on cluster
+        run: |
+          SERVICE_MANIFEST=".github/gke-workflow/nccl/service-${WORKLOAD_NAME}-${{ matrix.test }}.yaml"
+          WORKLOAD_NAME="${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "SERVICE_MANIFEST=${SERVICE_MANIFEST}" >> ${GITHUB_ENV}
+
+          cat .github/gke-workflow/nccl/service.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD_NAME}'"' --yaml-output | tee ${SERVICE_MANIFEST}
+          kubectl apply -f ${SERVICE_MANIFEST}
+
+      - name: Run XPK workload on cluster
+        uses: ./.github/actions/gke-xpk
+        with:
+          IMAGE: ${{ env.BASE_IMAGE }}
+          WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
+          COMMAND: |
+            export NHOSTS=${{ env.NHOSTS }};
+            export NCCL_LIB_DIR=/opt/nvida/nccl/lib;
+            export SCRIPT_DIR=/scripts;
+
+            export NCCL_MINBYTES=${{ env.NCCL_MINBYTES }};
+            export NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
+            export NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
+            export NCCL_ITERS=${{ env.NCCL_ITERS }};
+
+            service ssh restart;
+            console=/dev/stdout;
+            declare -a hosts=('nccl-test-host-1' 'nccl-test-host-2');
+
+            /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
+            tee /opt/output/output.log &> \${console};
+
+            MAYBE_MPI_EXIT_CODE=\$(tail /opt/output/output.log | rg 'Exit code:[ ]+([0-9]+)' -or '\$1');
+            if [ -z \${MAYBE_MPI_EXIT_CODE} ]; then
+              EXIT_CODE=0;
+            else
+              EXIT_CODE=\${MAYBE_MPI_EXIT_CODE};
+            fi;
+
+      - name: Clean up NCCL test Services from cluster
+        if: ${{ always() }}
+        run: |
+          kubectl delete -f ${SERVICE_MANIFEST}
+
