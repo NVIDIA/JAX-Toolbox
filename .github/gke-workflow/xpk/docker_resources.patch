@@ -1,5 +1,5 @@
 diff --git a/src/xpk/core/docker_resources.py b/src/xpk/core/docker_resources.py
-index a95c557..754ac03 100644
+index a95c557..11e8e43 100644
 --- a/src/xpk/core/docker_resources.py
 +++ b/src/xpk/core/docker_resources.py
 @@ -20,6 +20,8 @@ from .storage import GCS_FUSE_TYPE, GCP_FILESTORE_TYPE, Storage, get_storages_to
@@ -20,7 +20,7 @@ index a95c557..754ac03 100644
                    - name: REPLICATED_JOB_NAME
                      valueFrom:
                        fieldRef:
-@@ -74,30 +76,32 @@ def get_env_container(args, system: SystemCharacteristics) -> str:
+@@ -74,22 +76,22 @@ def get_env_container(args, system: SystemCharacteristics) -> str:
                        fieldRef:
                          fieldPath: metadata.annotations['jobset.sigs.k8s.io/jobset-name']
                    - name: JAX_COORDINATOR_ADDRESS
@@ -50,18 +50,7 @@ index a95c557..754ac03 100644
  
    if system.accelerator_type == AcceleratorType['GPU']:
      gpu_direct_name = 'fastrak'
-     if args.device_type == H100_DEVICE_TYPE:
-       gpu_direct_name = 'tcpx'
-       gpu_env_yaml += """
-+                  - name: NCCL_LIB_DIR
-+                    value: /opt/nvidia/nccl/lib
-                   - name: LD_LIBRARY_PATH
--                    value: /usr/local/nvidia/lib64
-+                    value: /opt/nvidia/nccl/lib:/usr/local/cuda-12.8/targets/x86_64-linux/lib:/usr/local/nvidia/lib64
- """
-     elif args.device_type == H100_MEGA_DEVICE_TYPE:
-       gpu_direct_name = 'tcpxo'
-@@ -123,7 +127,7 @@ def get_cpu_env(num_slices, env_vars, system) -> str:
+@@ -123,7 +125,7 @@ def get_cpu_env(num_slices, env_vars, system) -> str:
    Returns:
      str: yaml containing env variables
    """
@@ -70,7 +59,7 @@ index a95c557..754ac03 100644
                  - name: REPLICATED_JOB_NAME
                    valueFrom:
                      fieldRef:
-@@ -137,12 +141,12 @@ def get_cpu_env(num_slices, env_vars, system) -> str:
+@@ -137,12 +139,12 @@ def get_cpu_env(num_slices, env_vars, system) -> str:
                      fieldRef:
                        fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
                  - name: PROCESSES_IN_JOB
@@ -87,7 +76,7 @@ index a95c557..754ac03 100644
    """
    return yaml.format(
        processes_in_job=system.vms_per_slice,
-@@ -251,7 +255,9 @@ def get_volume_mounts(args, system: SystemCharacteristics) -> str:
+@@ -251,7 +253,9 @@ def get_volume_mounts(args, system: SystemCharacteristics) -> str:
          or system.device_type == H200_DEVICE_TYPE
          or system.device_type == B200_DEVICE_TYPE
      ):
@@ -98,7 +87,7 @@ index a95c557..754ac03 100644
  
    storages: list[Storage] = get_storages_to_mount(
        setup_k8s_env(args), args.storage
-@@ -300,7 +306,7 @@ def add_container_ports(args, system: SystemCharacteristics) -> str:
+@@ -300,7 +304,7 @@ def add_container_ports(args, system: SystemCharacteristics) -> str:
    if args.use_pathways:
      return ''
  
