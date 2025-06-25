@@ -99,7 +99,7 @@ runs:
       git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD_NAME}/xpk
 
       sed 's@pip install \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD_NAME}/xpk/Makefile
-      cd ${WORKLOAD_NAME}/xpk && make install && cd -
+      cd ${WORKLOAD_NAME}/xpk && sudo make install && cd -
 
   - name: Show environment
     shell: bash -x -e -u {0}
@@ -150,8 +150,8 @@ runs:
   - name: Create workload on cluster with XPK
     shell: bash -x -e -u {0}
     run: |
-      cd ${WORKLOAD_NAME}/xpk
       source ${WORKLOAD_NAME}/.venv/bin/activate
+      cd ${WORKLOAD_NAME}/xpk
       python xpk.py workload create \
                     --project ${{ inputs.GCP_PROJECT }} \
                     --cluster ${{ inputs.GKE_CLUSTER }} \
