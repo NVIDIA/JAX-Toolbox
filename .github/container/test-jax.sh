@@ -140,7 +140,7 @@ FLAGS+=("--//jaxlib/tools:add_pypi_cuda_wheel_deps=false")
 
 # Default parallelism: at least 10GB per test, no more than 4 tests per GPU.
 DEFAULT_JOBS_PER_GPU=$(( GPU_MEMORIES_MIB[0] / 10000))
-if (( DEFAULT_JOBS_PER_GPU > 8 )); then DEFAULT_JOBS_PER_GPU=4; fi
+if (( DEFAULT_JOBS_PER_GPU > 4 )); then DEFAULT_JOBS_PER_GPU=4; fi
 set_default JOBS_PER_GPU ${DEFAULT_JOBS_PER_GPU}
 FLAGS+=(
     "--cache_test_results=${CACHE_TEST_RESULTS}"
