@@ -234,6 +234,7 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --bazel_options=--test_env=MOSAIC_GPU_NVSHMEM_BC_PATH="/opt/nvidia/nvshmem/lib/libnvshmem_device.bc" \
     --bazel_options=--test_env=MOSAIC_GPU_NVSHMEM_SO_PATH="/opt/nvidia/nvshmem/lib/libnvshmem_host.so" \
     --bazel_options=--linkopt=-fuse-ld=lld \
+    --bazel-options=--repo_env=ML_WHEEL_TYPE=release \
     "--local_xla_path=${SRC_PATH_XLA}" \
     "--output_path=${BUILD_PATH_JAXLIB}" \
     $BUILD_PARAM
