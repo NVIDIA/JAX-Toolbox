@@ -69,6 +69,9 @@ def main():
         module_stats[("WaitMs", "percent")] = (
             100 * wait_averages["mean"] / module_stats[("ProjDurMs", "mean")]
         )
+        have_wait_time = True
+    else:
+        have_wait_time = False
 
     def dump(fname, df):
         with open(fname + ".json", "w") as ofile:
@@ -83,9 +86,12 @@ def main():
         "Thunks": lambda _, v: f"{v:S}" if v.s else f"{v.n:.0f}",
         "Duration [ms]": lambda _, v: f"{v:S}",
         "Duration [%]": lambda _, v: f"{v:.3f}",
-        "Wait time [ms]": lambda _, v: "---" if math.isnan(v.n) else f"{v:S}",
-        "Wait time [%]": lambda _, v: "---" if math.isnan(v) else f"{v:.3f}",
     }
+    if have_wait_time:
+        fields.update({
+            "Wait time [ms]": lambda _, v: "---" if math.isnan(v.n) else f"{v:S}",
+            "Wait time [%]": lambda _, v: "---" if math.isnan(v) else f"{v:.3f}",
+        })
     table = PrettyTable(align="r", custom_format=fields, field_names=fields.keys())
     for id, row in module_stats.iterrows():
         table.add_row(
@@ -95,10 +101,11 @@ def main():
                 row[("Name", "count")],
                 ufloat(row[("NumThunks", "mean")], row[("NumThunks", "std")]),
                 ufloat(row[("ProjDurMs", "mean")], row[("ProjDurMs", "std")]),
-                row[("ProjDurMs", "percent")],
+                row[("ProjDurMs", "percent")]
+            ] + ([
                 ufloat(row[("WaitMs", "mean")], row[("WaitMs", "std")]),
                 row[("WaitMs", "percent")],
-            ]
+            ] if have_wait_time else [])
         )
     print(table)
 

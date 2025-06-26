@@ -272,7 +272,7 @@ def xla_module_metadata(
     #   module_0016.jit_train_step.sm_8.0_gpu_after_optimizations.hlo.pb
     # where 16 is the program id
     dump_dir = prefix / "dump"
-    for candidate in dump_dir.glob("*_gpu_after_optimizations.hlo.pb.xz"):
+    for candidate in dump_dir.glob("*after_optimizations.hlo.pb.xz"):
         if program_id == int(
             candidate.name.split(".", maxsplit=1)[0].split("_", maxsplit=1)[1]
         ):

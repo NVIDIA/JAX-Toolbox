@@ -278,10 +278,6 @@ def main() -> None:
     if "JAX_TRACEBACK_IN_LOCATIONS_LIMIT" not in env:
         env["JAX_TRACEBACK_IN_LOCATIONS_LIMIT"] = "-1"
 
-    # Disable the compilation cache so that we get the full set of .pb files
-    if "JAX_ENABLE_COMPILATION_CACHE" not in env:
-        env["JAX_ENABLE_COMPILATION_CACHE"] = "false"
-
     def format_flag(tup):
         n, v = tup
         return f"--{n}" if v is None else f"--{n}={v}"
