@@ -5,6 +5,7 @@ import os
 import pathlib
 import tempfile
 import typing
+import warnings
 
 # Software we know may exist in the containers that we might be able to triage
 # We know how to recompile JAX/XLA, so it's OK that they include C++ code
@@ -16,12 +17,12 @@ compulsory_software = ["xla", "jax"]
 optional_software = ["flax", "maxtext"]
 
 
-def parse_commit_argument(s: str) -> typing.Dict[str, str]:
+def parse_version_argument(s: str) -> typing.Dict[str, str]:
     ret: typing.Dict[str, str] = {}
     for part in s.split(","):
-        sw, commit = part.split(":", 1)
+        sw, version = part.split(":", 1)
         assert sw not in ret, ret
-        ret[sw] = commit
+        ret[sw] = version
     return ret
 
 
@@ -29,9 +30,14 @@ def parse_args(args=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="""
             Triage failures in JAX/XLA-related tests. The expectation is that the given
-            test command is failing in recent versions, but that it passed in the past. The
-            script first triages the regression with a search of the nightly containers,
-            and then refines the search to a particular commit of JAX or XLA.""",
+            test command is failing in recent versions, but that it passed in the past.
+            The script first triages the regression with a search of the nightly
+            containers, and then refines the search to a particular version of JAX, XLA,
+            or another component in the container. If a git repository and build recipe
+            are available for a component then the triage granularity is a single git
+            commit. If a component does not have a full history, but is known to have
+            different versions in the last-known-good and first-known-bad test
+            environments then the granularity is just between those two versions.""",
     )
 
     container_search_args = parser.add_argument_group(
@@ -44,12 +50,13 @@ def parse_args(args=None) -> argparse.Namespace:
             date on which the test was passing. The earliest failure is located to within
             --threshold-days days.""",
     )
-    commit_search_args = parser.add_argument_group(
-        title="Commit-level search",
+    version_search_args = parser.add_argument_group(
+        title="Version-level search",
         description="""
-            Second, the failure is localised to a commit of JAX or XLA by re-building and
-            re-testing inside the earliest container that demonstrates the failure. At each
-            point, the oldest JAX commit that is newer than XLA is used.""",
+            Second, the failure is localised to a single version (commit of JAX/XLA/...,
+            version number of cuBLAS/cuDNN/...) by re-building/re-installing/re-testing
+            inside a single container/environment. This is based on a binary search that
+            aligns the version histories of JAX, XLA, ... with each other by timestamp.""",
     )
     container_search_args.add_argument(
         "--container",
@@ -96,12 +103,12 @@ def parse_args(args=None) -> argparse.Namespace:
     container_search_args.add_argument(
         "--failing-container",
         help="""
-            Skip the container-level search and pass this container to the commit-level
-            search. If this is passed, --passing-container or --passing-commits must be
-            too, but --container is not required. This can be used to apply the
-            commit-level bisection search to containers not from the
-            ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD series, although they must have a
-            similar structure.""",
+            Skip the container-level search and pass this container to the version-level
+            search. If this is passed, --passing-container or --passing-versions must be
+            too, and container-level search arguments such as --container must not be
+            passed. This can be used to apply the version-level bisection search to
+            containers not from the ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD series,
+            although they must have a similar structure.""",
     )
     container_search_args.add_argument(
         "--end-date",
@@ -115,12 +122,12 @@ def parse_args(args=None) -> argparse.Namespace:
     container_search_args.add_argument(
         "--passing-container",
         help="""
-            Skip the container-level search and pass this container to the commit-level
-            search. If this is passed, --failing-container or --failing-commits must be
-            too, but --container is not required. This can be used to apply the
-            commit-level bisection search to containers not from the
-            ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD series, although they must have a
-            similar structure.""",
+            Skip the container-level search and pass this container to the version-level
+            search. If this is passed, --failing-container or --failing-versions must be
+            too, and container-level search arguments such as --container must not be
+            passed. This can be used to apply the version-level bisection search to
+            containers not from the ghcr.io/nvidia/jax:CONTAINER-YYYY-MM-DD series,
+            although they must have a similar structure.""",
     )
     container_search_args.add_argument(
         "--start-date",
@@ -144,7 +151,7 @@ def parse_args(args=None) -> argparse.Namespace:
             threshold.""",
         type=int,
     )
-    commit_search_args.add_argument(
+    version_search_args.add_argument(
         "--bazel-cache",
         default=os.path.join(
             tempfile.gettempdir(), f"{getpass.getuser()}-bazel-triage-cache"
@@ -152,26 +159,54 @@ def parse_args(args=None) -> argparse.Namespace:
         help="""
             Bazel cache to use when [re-]building JAX/XLA during the fine search. This can
             be a remote cache server or a local directory. Using a persistent cache can
-            significantly speed up the commit-level search. By default, uses a temporary
-            directory including the name of the current user.""",
+            significantly speed up the version-level search. By default, uses a temporary
+            directory including the name of the current user and assumes that it can be
+            read from all systems that launch containers (this can fail with the pyxis
+            runtime where those containers may run on remote systems).""",
     )
-    commit_search_args.add_argument(
+    version_search_args.add_argument(
+        "--failing-versions",
+        help="""
+            Explicitly specify component versions to use at the failing endpoint of the
+            version-level triage. This can be combined with --passing-container to run
+            a triage with a single container (i.e. without passing --failing-container),
+            and/or combined with --failing-container to override the initial versions
+            read from that container. Expects an argument of the form
+            jax:commit_hash,xla:commit_hash,CUBLAS:version.number[,...].""",
+        type=parse_version_argument,
+    )
+    version_search_args.add_argument(
         "--failing-commits",
-        help="""
-            When combined with --passing-container, the commit-level triage will use
-            that container and --failing-commits will specify the end of the commit
-            range, rather than the commits being extracted from --failing-container.
-            Expects an argument of form jax:jax_commit_hash,xla:xla_commit_hash.""",
-        type=parse_commit_argument,
+        help="Deprecated alias for --failing-versions",
+        type=parse_version_argument,
     )
-    commit_search_args.add_argument(
-        "--passing-commits",
+    version_search_args.add_argument(
+        "--passing-versions",
         help="""
-            When combined with --failing-container, the commit-level triage will use
-            that container and --passing-commits will specify the start of the commit
-            range, rather than the commits being extracted from --passing-container.
-            Expects an argument of form jax:jax_commit_hash,xla:xla_commit_hash.""",
-        type=parse_commit_argument,
+            Explicitly specify component versions to use at the failing endpoint of the
+            version-level triage. This can be combined with --failing-container to run
+            a triage with a single container (i.e. without passing --passing-container),
+            and/or combined with --passing-container to override the initial versions
+            read from that container. Expects an argument of the form
+            jax:commit_hash,xla:commit_hash,CUBLAS:version.number[,...].""",
+        type=parse_version_argument,
+    )
+    version_search_args.add_argument(
+        "--passing-commits",
+        help="Deprecated alias for --passing-versions",
+        type=parse_version_argument,
+    )
+    version_search_args.add_argument(
+        "--build-scripts-path",
+        help="""
+            This is a path inside the container that contains installPACKAGE.sh
+            executables that the tool can use to move the versions of software
+            components *other than* the git repositories (XLA, JAX, ...) that are
+            explicitly supported. If this is given, the set of `PACKAGE` names is taken
+            from environment variables of the form `{PACKAGE}_VERSION` in the container
+            runtime environment. These executables will only be called if the component
+            in question has different versions at the endpoints of the bisection range.
+        """,
     )
     parser.add_argument(
         "-v",
@@ -194,10 +229,29 @@ def parse_args(args=None) -> argparse.Namespace:
     assert args.container_runtime in {"docker", "pyxis", "local"}, (
         args.container_runtime
     )
+    # --{passing,failing}-commits are deprecated aliases for --{passing,failing}-versions.
+    for prefix in ["passing", "failing"]:
+        commits = getattr(args, f"{prefix}_commits")
+        if commits is None:
+            continue
+        if getattr(args, f"{prefix}_versions") is None:
+            warnings.warn(
+                f"WARNING: deprecated alias --{prefix}-commits being used, please "
+                f"migrate to --{prefix}-versions",
+                DeprecationWarning,
+            )
+            setattr(args, f"{prefix}_versions", commits)
+        else:
+            raise Exception(
+                f"Both --{prefix}-commits and --{prefix}-versions passed, "
+                f"--{prefix}-commits is deprecated - please remove it."
+            )
 
     if args.container_runtime == "local":
-        assert args.passing_commits is not None and args.failing_commits is not None, (
-            "For local runtime, --passing-commits and --failing-commits must be provided."
+        assert (
+            args.passing_versions is not None and args.failing_versions is not None
+        ), (
+            "For local runtime, --passing-versions and --failing-versions must be provided."
         )
         assert (
             args.container is None
@@ -208,40 +262,40 @@ def parse_args(args=None) -> argparse.Namespace:
         ), "Container-level search options are not applicable for local runtime."
         return args
 
-    passing_commits_known = (args.passing_container is not None) or (
-        args.passing_commits is not None
+    passing_versions_known = (args.passing_container is not None) or (
+        args.passing_versions is not None
     )
-    failing_commits_known = (args.failing_container is not None) or (
-        args.failing_commits is not None
+    failing_versions_known = (args.failing_container is not None) or (
+        args.failing_versions is not None
     )
-    sets_of_known_commits = passing_commits_known + failing_commits_known
-    if sets_of_known_commits == 2:
+    sets_of_known_versions = passing_versions_known + failing_versions_known
+    if sets_of_known_versions == 2:
         # If the container-level search is being skipped, because a valid combination
-        # of --{passing,failing}-{commits,container} is passed, then no container-level
+        # of --{passing,failing}-{versions,container} is passed, then no container-level
         # search options should be passed.
         assert (
             args.container is None and args.start_date is None and args.end_date is None
         ), (
             "No container-level search options should be passed if the passing/failing"
-            " containers/commits have been passed explicitly."
+            " containers/versions have been passed explicitly."
         )
         assert (
             args.passing_container is not None or args.failing_container is not None
         ), "At least one of --passing-container and --failing-container must be passed."
         for prefix in ["passing", "failing"]:
             assert getattr(args, f"{prefix}_container") is not None or getattr(
-                args, f"{prefix}_commits"
+                args, f"{prefix}_versions"
             ).keys() >= set(compulsory_software), (
                 f"--{prefix}-commits must specify all of {compulsory_software} if "
                 f"--{prefix}-container is not specified"
             )
-    elif sets_of_known_commits == 1:
+    elif sets_of_known_versions == 1:
         raise Exception(
-            "If --passing-{commits AND/OR container} is passed then "
-            "--failing-{commits AND/OR container} should be too"
+            "If --passing-{versions AND/OR container} is passed then "
+            "--failing-{versions AND/OR container} should be too"
         )
     else:
-        # None of --{passing,failing}-{commits,container} were passed, make sure the
+        # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
         assert args.container is not None, (
             "--container must be passed for the container-level search"

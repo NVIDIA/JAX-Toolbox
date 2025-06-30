@@ -6,8 +6,6 @@ import logging
 import pathlib
 import typing
 
-from .utils import console_log_level
-
 
 @dataclass
 class TestResult:
@@ -73,10 +71,21 @@ def adjust_date(
     return None
 
 
+class DateTester(typing.Protocol):
+    def __call__(
+        self, date: datetime.date, *, test_output_log_level: int = logging.DEBUG
+    ) -> TestResult:
+        """
+        Given a date, return the test result as obtained from the nightly container on
+        that date.
+        """
+        ...
+
+
 def container_search(
     *,
     container_exists: typing.Callable[[datetime.date], bool],
-    container_passes: typing.Callable[[datetime.date], TestResult],
+    container_passes: DateTester,
     start_date: typing.Optional[datetime.date],
     end_date: typing.Optional[datetime.date],
     logger: logging.Logger,
@@ -106,8 +115,7 @@ def container_search(
     else:
         logger.info(f"Checking end-of-range failure in {end_date}")
         # Print context for the IMPORTANT .info(...) to the console
-        with console_log_level(logger, logging.DEBUG):
-            test_end_date = container_passes(end_date)
+        test_end_date = container_passes(end_date, test_output_log_level=logging.INFO)
         if test_end_date.result:
             raise Exception(f"Could not reproduce failure in {end_date}")
         logger.info(
@@ -191,9 +199,14 @@ def container_search(
 
 
 class BuildAndTest(typing.Protocol):
-    def __call__(self, *, commits: typing.Dict[str, str]) -> TestResult:
+    def __call__(
+        self,
+        *,
+        versions: typing.Dict[str, str],
+        test_output_log_level: int = logging.DEBUG,
+    ) -> TestResult:
         """
-        Given an [unordered] set of {package_name: package_commit_sha}, build
+        Given an [unordered] set of {package_name: package_version}, build
         those package versions and return the test result.
         """
         ...
@@ -201,7 +214,7 @@ class BuildAndTest(typing.Protocol):
 
 T = typing.TypeVar("T")
 U = typing.TypeVar("U")
-FlatCommitDict = typing.Tuple[typing.Tuple[str, str], ...]
+FlatVersionDict = typing.Tuple[typing.Tuple[str, str], ...]
 
 
 def _first(xs: typing.Iterable[T]) -> T:
@@ -212,157 +225,161 @@ def _not_first(d: typing.Dict[T, U]) -> typing.Iterable[typing.Tuple[T, U]]:
     return itertools.islice(d.items(), 1, None)
 
 
-def _commit_search(
+def _version_search(
     *,
-    commits: typing.OrderedDict[
+    versions: typing.OrderedDict[
         str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
     ],
     build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
-    result_cache: typing.Dict[FlatCommitDict, TestResult],
+    result_cache: typing.Dict[FlatVersionDict, TestResult],
 ) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
-    assert all(len(commit_list) for commit_list in commits.values()), (
-        "Not enough commits: need at least one commit for each package",
-        commits,
+    assert all(len(version_list) for version_list in versions.values()), (
+        "Not enough versions: need at least one version for each package",
+        versions,
     )
-    assert sum(map(len, commits.values())) > len(commits), (
-        "Not enough commits: need multiple commits for at least one package",
-        commits,
+    assert sum(map(len, versions.values())) > len(versions), (
+        "Not enough versions: need multiple versions for at least one package",
+        versions,
     )
 
     def _cache_key(
-        commits: typing.Dict[str, str],
-    ) -> FlatCommitDict:
-        return tuple(sorted(commits.items()))
+        versions: typing.Dict[str, str],
+    ) -> FlatVersionDict:
+        return tuple(sorted(versions.items()))
 
     if skip_precondition_checks:
-        logger.info("Skipping check that 'good' commits reproduce success")
+        logger.info("Skipping check that 'good' versions reproduce success")
     else:
         # Verify that we can build successfully and that the test succeeds as expected.
-        logger.info("Verifying test success using 'good' commits")
-        passing_commits = {
-            package: commit_list[0][0] for package, commit_list in commits.items()
+        logger.info("Verifying test success using 'good' versions")
+        passing_versions = {
+            package: version_list[0][0] for package, version_list in versions.items()
         }
-        check_pass = build_and_test(commits=passing_commits)
-        assert _cache_key(passing_commits) not in result_cache
-        result_cache[_cache_key(passing_commits)] = check_pass
+        check_pass = build_and_test(versions=passing_versions)
+        assert _cache_key(passing_versions) not in result_cache
+        result_cache[_cache_key(passing_versions)] = check_pass
         if check_pass.result:
-            logger.info("Verified test passes using 'good' commits")
+            logger.info("Verified test passes using 'good' versions")
         else:
-            logger.fatal("Could not reproduce success with 'good' commits")
+            logger.fatal("Could not reproduce success with 'good' versions")
             logger.fatal(check_pass.stdouterr)
-            raise Exception("Could not reproduce success with 'good' commits")
+            raise Exception("Could not reproduce success with 'good' versions")
 
     if skip_precondition_checks:
-        logger.info("Skipping check that 'bad' commits reproduce failure")
+        logger.info("Skipping check that 'bad' versions reproduce failure")
     else:
         # Verify we can build successfully and that the test fails as expected.
-        logger.info("Verifying test failure using 'bad' commits")
-        failing_commits = {
-            package: commit_list[-1][0] for package, commit_list in commits.items()
+        logger.info("Verifying test failure using 'bad' versions")
+        failing_versions = {
+            package: version_list[-1][0] for package, version_list in versions.items()
         }
-        # Temporarily print DEBUG output to the console, so the IMPORTANT info message
-        # below is actionable without checking the debug logfile.
-        with console_log_level(logger, logging.DEBUG):
-            check_fail = build_and_test(commits=failing_commits)
-        assert _cache_key(failing_commits) not in result_cache
-        result_cache[_cache_key(failing_commits)] = check_fail
+        check_fail = build_and_test(
+            versions=failing_versions, test_output_log_level=logging.INFO
+        )
+        assert _cache_key(failing_versions) not in result_cache
+        result_cache[_cache_key(failing_versions)] = check_fail
         if not check_fail.result:
             logger.info(
-                "Verified test failure using 'bad' commits. IMPORTANT: you should check "
-                "that the test output above shows the *expected* failure of your test "
-                "case. It is very easy to accidentally provide a test case that fails "
-                "for the wrong reason, which will not triage the correct issue!"
+                "Verified test failure using 'bad' versions. IMPORTANT: you should "
+                "check that the test output above shows the *expected* failure of your "
+                "test case. It is very easy to accidentally provide a test case that "
+                "fails for the wrong reason, which will not triage the correct issue!"
             )
         else:
-            logger.fatal("Could not reproduce failure with 'bad' commits")
+            logger.fatal("Could not reproduce failure with 'bad' versions")
             logger.fatal(check_fail.stdouterr)
-            raise Exception("Could not reproduce failure with 'bad' commits")
+            raise Exception("Could not reproduce failure with 'bad' versions")
 
-    # Make sure that the primary package (zeroth entry in `commits`) has
-    # multiple commits. If it doesn't, we can permute it to the end straight
+    # Make sure that the primary package (zeroth entry in `versions`) has
+    # multiple versions. If it doesn't, we can permute it to the end straight
     # away as there is nothing to be done. We already asserted above that at
-    # least one package has multiple commits.
-    while len(_first(commits.values())) == 1:
-        commits.move_to_end(_first(commits.keys()))
+    # least one package has multiple versions.
+    while len(_first(versions.values())) == 1:
+        versions.move_to_end(_first(versions.keys()))
 
-    # Finally, start bisecting. The iteration order of `commits` defines the
+    # Finally, start bisecting. The iteration order of `versions` defines the
     # algorithm: we start bisecting using the first package (e.g. XLA), and
-    # take the oldest commits of the other packages that are newer than the
+    # take the oldest versions of the other packages that are newer than the
     # first package.
-    primary = _first(commits.keys())
-    while len(commits[primary]) > 2:
-        middle = len(commits[primary]) // 2
-        bisect_commits = {}
-        bisect_commits[primary], primary_date = commits[primary][middle]
-        log_msg = f"Chose from {len(commits[primary])} remaining {primary} commits"
-        # Find the oldest commits of the other packages that are newer, or the last commit
+    primary = _first(versions.keys())
+    while len(versions[primary]) > 2:
+        middle = len(versions[primary]) // 2
+        bisect_versions = {}
+        bisect_versions[primary], primary_date = versions[primary][middle]
+        log_msg = f"Chose from {len(versions[primary])} remaining {primary} versions"
+        log_msg += f" [{versions[primary][0][0]}, {versions[primary][-1][0]}]"
+        # Find the oldest versions of the other packages that are newer, or the last version
         indices = {primary: middle}
-        for secondary, commit_list in _not_first(commits):
-            for index, (commit, date) in enumerate(commit_list):
+        for secondary, version_list in _not_first(versions):
+            for index, (version, date) in enumerate(version_list):
                 if date >= primary_date:
                     break
             indices[secondary] = index
-            bisect_commits[secondary] = commit
-            log_msg += f", {len(commit_list)} remaining {secondary} commits"
+            bisect_versions[secondary] = version
+            if len(version_list) > 1:
+                log_msg += f", {len(version_list)} remaining {secondary} versions"
+                log_msg += (
+                    f" [{versions[secondary][0][0]}, {versions[secondary][-1][0]}]"
+                )
         logger.info(log_msg)
-        bisect_result = build_and_test(commits=bisect_commits)
-        assert _cache_key(bisect_commits) not in result_cache
-        result_cache[_cache_key(bisect_commits)] = bisect_result
+        bisect_result = build_and_test(versions=bisect_versions)
+        assert _cache_key(bisect_versions) not in result_cache
+        result_cache[_cache_key(bisect_versions)] = bisect_result
 
         if bisect_result.result:
             # Test passed, continue searching in the second half
             for package, index in indices.items():
-                commits[package] = commits[package][index:]
+                versions[package] = versions[package][index:]
         else:
             # Test failed, continue searching in the first half
             for package, index in indices.items():
-                commits[package] = commits[package][: index + 1]
+                versions[package] = versions[package][: index + 1]
 
     # Primary bisection converged, meaning that there are two remaining
-    # commits there, but possibly more of the other packages:
+    # versions there, but possibly more of the other packages:
     #     pass        fail
     # PRI  pX -------- pZ
     # SEC  sX -- sY -- sZ
     # TER  tX --- tY - tZ
     # ...
     # If (pX, sZ, tZ, ...) passes, triage has converged: pZ is the culprit and
-    # (sZ, tZ, ...) gives the reference commits of the other projects.
+    # (sZ, tZ, ...) gives the reference versions of the other projects.
     #
     # Otherwise, if it fails, pZ is innocent and we can continue triaging
     # with the old primary package always fixed to pX.
-    assert len(commits[primary]) == 2, commits
-    blame_commits = {
-        primary: commits[primary][0][0],  # pX
+    assert len(versions[primary]) == 2, versions
+    blame_versions = {
+        primary: versions[primary][0][0],  # pX
     }
-    for secondary, commit_list in _not_first(commits):
-        blame_commits[secondary] = commit_list[-1][0]  # sZ, tZ, ...
+    for secondary, version_list in _not_first(versions):
+        blame_versions[secondary] = version_list[-1][0]  # sZ, tZ, ...
     logger.info(
-        f"Two {primary} commits remain, checking if {commits[primary][-1][0]} is the "
+        f"Two {primary} versions remain, checking if {versions[primary][-1][0]} is the "
         "culprit"
     )
     # It's possible that this combination has already been tested at this point
-    blame = result_cache.get(_cache_key(blame_commits))
+    blame = result_cache.get(_cache_key(blame_versions))
     if blame is None:
-        blame = build_and_test(commits=blame_commits)
-        result_cache[_cache_key(blame_commits)] = blame
+        blame = build_and_test(versions=blame_versions)
+        result_cache[_cache_key(blame_versions)] = blame
     if blame.result:
         # Test passed with {pX, sZ, tZ, ...} but was known to fail with
-        # {pZ, sZ, tZ, ...}. Therefore pZ is the culprit commit.
-        (good_commit, _), (bad_commit, _) = commits[primary]
-        log_str = f"Bisected failure to {primary} {bad_commit} with"
-        for secondary, secondary_commit in _not_first(blame_commits):
-            log_str += f" {secondary} {secondary_commit}"
+        # {pZ, sZ, tZ, ...}. Therefore pZ is the culprit version.
+        (good_version, _), (bad_version, _) = versions[primary]
+        log_str = f"Bisected failure to {primary} {bad_version} with"
+        for secondary, secondary_version in _not_first(blame_versions):
+            log_str += f" {secondary} {secondary_version}"
         logger.info(log_str)
         ret = {
-            f"{primary}_bad": bad_commit,
-            f"{primary}_good": good_commit,
+            f"{primary}_bad": bad_version,
+            f"{primary}_good": good_version,
         }
-        first_known_bad = {primary: bad_commit}
-        for secondary, secondary_commit in _not_first(blame_commits):
-            first_known_bad[secondary] = secondary_commit
-            ret[f"{secondary}_ref"] = secondary_commit
+        first_known_bad = {primary: bad_version}
+        for secondary, secondary_version in _not_first(blame_versions):
+            first_known_bad[secondary] = secondary_version
+            ret[f"{secondary}_ref"] = secondary_version
         # `blame` represents the last-known-good test result, first-known-bad was seen
         # earlier, or possibly not at all e.g. if `skip_precondition_checks` is True
         # and first-known-bad was the end of the search range.
@@ -385,19 +402,19 @@ def _commit_search(
         # we can fix the primary package to pX and recurse with the old
         # secondary package (s) as the new primary, and the old primary
         # package (p) moved to the end.
-        commits[primary] = [commits.pop(primary)[0]]
-        return _commit_search(
+        versions[primary] = [versions.pop(primary)[0]]
+        return _version_search(
             build_and_test=build_and_test,
-            commits=commits,
+            versions=versions,
             logger=logger,
             skip_precondition_checks=True,
             result_cache=result_cache,
         )
 
 
-def commit_search(
+def version_search(
     *,
-    commits: typing.OrderedDict[
+    versions: typing.OrderedDict[
         str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
     ],
     build_and_test: BuildAndTest,
@@ -409,14 +426,14 @@ def commit_search(
     typing.Optional[TestResult],
 ]:
     """
-    Bisect a failure back to a single commit.
+    Bisect a failure back to a single version of a single component.
 
     Arguments:
-    commits: *ordered* dictionary of commit sequences for different software
-        packages, e.g. commits["jax"][0] is (hash, date) of the passing JAX
-        commit. The ordering of packages has implications for precisely how
+    versions: *ordered* dictionary of version sequences for different software
+        packages, e.g. versions["jax"][0] is (commit_hash, date) of the passing JAX
+        version. The ordering of packages has implications for precisely how
         the triage proceeds.
-    build_and_test: callable that tests if a given vector of commits passes
+    build_and_test: callable that tests if a given vector of versions passes
     logger: instance to log output to
     skip_precondition_checks: if True, some tests that should pass/fail by
         construction are skipped
@@ -427,8 +444,8 @@ def commit_search(
     False, but the other fields can be used to obtain stdout+stderr and
     output files from those test invocations.
     """
-    return _commit_search(
-        commits=commits,
+    return _version_search(
+        versions=versions,
         build_and_test=build_and_test,
         logger=logger,
         skip_precondition_checks=skip_precondition_checks,
