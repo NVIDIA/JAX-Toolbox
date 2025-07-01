@@ -261,4 +261,4 @@ runs:
     shell: bash -x -u {0}
     if: ${{ always() }}
     run: |
-        rm -rf ${WORKLOAD_NAME}
+      sudo rm -rf ${WORKLOAD_NAME}
