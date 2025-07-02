@@ -135,9 +135,7 @@ def main() -> None:
             )
         )
         out_dir = args.output_prefix / out_dirname
-        assert not out_dir.exists(), (
-            f"{out_dir} should not already exist, maybe you are re-using {args.output_prefix}?"
-        )
+        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {args.output_prefix}?"
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
@@ -345,7 +343,9 @@ def main() -> None:
     assert bisection_versions is not None
 
     # Get the full lists of JAX/XLA commits and dates
-    def get_commit_history(worker, start, end, dir):
+    def get_commit_history(
+        worker, start, end, dir, main_branch=None, feature_branch_name=None
+    ):
         # In particular the end commit might not already be known if the older,
         # passing, container is being used for triage.
         commits_known = worker.exec(
@@ -361,6 +361,41 @@ def main() -> None:
             worker.check_exec(
                 ["git", "fetch"], policy="once_per_container", workdir=dir
             )
+
+        # here we're considering the case of non-linear history
+        if feature_branch_name:
+            logger.info(
+                f"Using non-linear history logic with main branch {main_branch} and feature branch {feature_branch_name}"
+            )
+
+            # 1. find the linear range on the main branch
+            passing_main_commit_cmd = f"git merge-base {start} {end}"
+            failing_main_commit_cmd = f"git merge-base {end} origin/{args.main_branch}"
+
+            passing_main_commit = worker.check_exec(
+                ["sh    ", "-c", passing_main_commit_cmd], workdir=dir
+            ).stdout.strip()
+            failing_main_commit = worker.check_exec(
+                ["sh", "-c", failing_main_commit_cmd], workdir=dir
+            ).stdout.strip()
+
+            # 2. find commits to cherry-pick from the failing branch
+            cherry_pick_cmd = f"git rev-list --reverse {failing_main_commit}..{end}"
+            cherry_pick_commits_str = worker.check_exec(
+                ["sh", "-c", cherry_pick_cmd], workdir=dir
+            ).stdout.strip()
+            cherry_pick_commits = cherry_pick_commits_str.splitlines()
+            # log for testing
+            logger.info(f"Cherry-pick commits: {cherry_pick_commits}")
+
+            # 3. now we can use the main branch  commits for bisection
+            start = passing_main_commit
+            end = failing_main_commit
+            # and store the cherry picks
+            args.cherry_pick_commits = cherry_pick_commits
+        else:
+            args.cherry_pick_commits = []
+
         result = worker.check_exec(
             [
                 "git",
@@ -407,6 +442,8 @@ def main() -> None:
                 passing_versions[package],
                 failing_versions[package],
                 package_dirs[package],
+                args.main_branch,
+                args.feature_branch_name,
             )
             # Confirm they're sorted by commit date
             assert all(
@@ -487,12 +524,30 @@ def main() -> None:
             bisection_versions[package] = version
             changed.append(f"{package}@{version}")
             if package in package_dirs:
-                # A git repository that exists in the container.
-                git_commands += [
-                    f"cd {package_dirs[package]}",
-                    "git stash",
-                    f"git checkout {version}",
-                ]
+                # in case of non-linear history - should we limit this to XLA and JAX only?
+                if args.feature_branch_name and package in ["jax", "xla"]:
+                    logger.info("Working on a non-linear history")
+                    git_commands.append(f"cd {package_dirs[package]}")
+                    git_commands.append("git stash")
+                    # this is a checkout on the main branch
+                    git_commands.append(f"git checkout {version}")
+
+                    # cherry-picking
+                    if args.cherry_pick_commits:
+                        cherry_pick_str = " ".join(args.cherry_pick_commits)
+                        git_commands.append(
+                            f"git cherry-pick {cherry_pick_str} || (echo 'Cherry-pick failed' && exit 1)"
+                        )
+
+                else:
+                    # Linear history
+                    # A git repository that exists in the container.
+                    git_commands += [
+                        f"cd {package_dirs[package]}",
+                        "git stash",
+                        f"git checkout {version}",
+                    ]
+
             else:
                 # Another software package, `version` is probably a version number.
                 # Installation of this version is delegated to an installPACKAGE.sh

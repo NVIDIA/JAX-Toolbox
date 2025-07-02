@@ -225,10 +225,30 @@ def parse_args(args=None) -> argparse.Namespace:
         help="Container runtime used, can be docker, pyxis, or local.",
         type=lambda s: s.lower(),
     )
-    args = parser.parse_args(args=args)
-    assert args.container_runtime in {"docker", "pyxis", "local"}, (
-        args.container_runtime
+    parser.add_argument(
+        "--main-branch",
+        type=str,
+        default="main",
+        help="The name of the main branch, linear branch to be used for bisection",
     )
+    parser.add_argument(
+        "--feature-branch-name",
+        type=str,
+        default=None,
+        help="The name of the feature branch (e.g. blackwell-devel) to derive cherry-picks from",
+    )
+    parser.add_argument(
+        "--cherry-pick-commits",
+        type=list,
+        default=None,
+        help="List of commits to cherry-pick from the feature branch to the main branch",
+    )
+    args = parser.parse_args(args=args)
+    assert args.container_runtime in {
+        "docker",
+        "pyxis",
+        "local",
+    }, args.container_runtime
     # --{passing,failing}-commits are deprecated aliases for --{passing,failing}-versions.
     for prefix in ["passing", "failing"]:
         commits = getattr(args, f"{prefix}_commits")
@@ -250,9 +270,7 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), (
-            "For local runtime, --passing-versions and --failing-versions must be provided."
-        )
+        ), "For local runtime, --passing-versions and --failing-versions must be provided."
         assert (
             args.container is None
             and args.start_date is None
@@ -297,7 +315,7 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert args.container is not None, (
-            "--container must be passed for the container-level search"
-        )
+        assert (
+            args.container is not None
+        ), "--container must be passed for the container-level search"
     return args
