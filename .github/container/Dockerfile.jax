@@ -132,6 +132,4 @@ EOF
 ###############################################################################
 
 FROM mealkit AS final
-ENV PIP_PRE=1
-RUN sed -i '10,/pip-compile/{s/pip-compile/pip-compile --pre/}' pip-finalize.sh
 RUN pip-finalize.sh
