@@ -344,7 +344,7 @@ def main() -> None:
 
     # Get the full lists of JAX/XLA commits and dates
     def get_commit_history(
-        worker, start, end, dir, main_branch=None, feature_branch_name=None
+        worker, package, start, end, dir, main_branch=None, feature_branch_name=None
     ):
         # In particular the end commit might not already be known if the older,
         # passing, container is being used for triage.
@@ -363,7 +363,8 @@ def main() -> None:
             )
 
         # here we're considering the case of non-linear history
-        if feature_branch_name:
+        # limit for the moment to JAX and XLA
+        if feature_branch_name and package in ["jax", "xla"]:
             logger.info(
                 f"Using non-linear history logic with main branch {main_branch} and feature branch {feature_branch_name}"
             )
@@ -381,20 +382,18 @@ def main() -> None:
 
             # 2. find commits to cherry-pick from the failing branch
             cherry_pick_cmd = f"git rev-list --reverse {failing_main_commit}..{end}"
-            cherry_pick_commits_str = worker.check_exec(
-                ["sh", "-c", cherry_pick_cmd], workdir=dir
-            ).stdout.strip()
-            cherry_pick_commits = cherry_pick_commits_str.splitlines()
-            # log for testing
-            logger.info(f"Cherry-pick commits: {cherry_pick_commits}")
+            cherry_pick_commits_list = (
+                worker.check_exec(["sh", "-c", cherry_pick_cmd], workdir=dir)
+                .stdout.strip()
+                .splitlines()
+            )
+            if cherry_pick_commits_list:
+                args.cherry_pick_commits[package] = cherry_pick_commits_list
+            logger.info(f"Cherry-pick commits: {cherry_pick_commits_list}")
 
             # 3. now we can use the main branch  commits for bisection
             start = passing_main_commit
             end = failing_main_commit
-            # and store the cherry picks
-            args.cherry_pick_commits = cherry_pick_commits
-        else:
-            args.cherry_pick_commits = []
 
         result = worker.check_exec(
             [
@@ -439,6 +438,7 @@ def main() -> None:
                 continue
             package_versions[package] = get_commit_history(
                 worker,
+                package,
                 passing_versions[package],
                 failing_versions[package],
                 package_dirs[package],
@@ -525,20 +525,17 @@ def main() -> None:
             changed.append(f"{package}@{version}")
             if package in package_dirs:
                 # in case of non-linear history - should we limit this to XLA and JAX only?
-                if args.feature_branch_name and package in ["jax", "xla"]:
+                package_cherry_picks = args.cherry_pick_commits.get(package, [])
+                if package_cherry_picks:
                     logger.info("Working on a non-linear history")
                     git_commands.append(f"cd {package_dirs[package]}")
                     git_commands.append("git stash")
                     # this is a checkout on the main branch
                     git_commands.append(f"git checkout {version}")
-
-                    # cherry-picking
-                    if args.cherry_pick_commits:
-                        cherry_pick_str = " ".join(args.cherry_pick_commits)
-                        git_commands.append(
-                            f"git cherry-pick {cherry_pick_str} || (echo 'Cherry-pick failed' && exit 1)"
-                        )
-
+                    cherry_pick_str = " ".join(package_cherry_picks)
+                    git_commands.append(
+                        f"git cherry-pick {cherry_pick_str} || (echo 'Cherry-pick failed' && exit 1)"
+                    )
                 else:
                     # Linear history
                     # A git repository that exists in the container.
