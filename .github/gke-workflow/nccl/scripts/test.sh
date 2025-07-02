@@ -48,8 +48,6 @@ run_nccl() {
          -x NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=/usr/local/nvidia/lib64/a3plus_guest_config.textproto \
          -x NCCL_FASTRAK_PLUGIN_ACCEPT_TIMEOUT_MS=${NCCL_FASTRAK_PLUGIN_ACCEPT_TIMEOUT_MS} \
          -x NCCL_NVLS_ENABLE=${NCCL_NVLS_ENABLE} \
-         taskset \
-         -c 32-63 \
          ${NCCL_BENCHMARK} --minbytes ${NCCL_MINBYTES} \
                            --maxbytes ${NCCL_MAXBYTES} \
                            --stepfactor ${NCCL_STEPFACTOR} \
