@@ -1,3 +1,4 @@
+from collections import defaultdict
 import functools
 import lzma
 import pathlib
@@ -237,6 +238,83 @@ class HloProtoSet:
         return result
 
 
+def _load(file: pathlib.Path, program_id: int | None = None) -> HloProto:
+    from xla.service import hlo_pb2
+
+    hlo = hlo_pb2.HloProto()
+    with lzma.LZMAFile(file, "rb") as f:
+        hlo.ParseFromString(f.read())
+    assert program_id is None or hlo.hlo_module.id == program_id
+    return HloProto(hlo)
+
+
+_hlo_cache: dict[str, set[pathlib.Path]] = defaultdict(set)
+
+
+@functools.cache
+def _remap_program_id(
+    old_id_str: str | None, name: str, prefix: pathlib.Path, replica: str | None
+) -> str:
+    """ """
+    # In multi-input mode, we will have something like:
+    #   old_id = 1
+    #   name = jit_foo
+    #   prefix = PFX
+    #   replica = SLUG
+    # and a metadata dump file PFX/dump/module_0001.*after_optimizations.hlo.pb.xz/SLUG
+    # or PFX/dump/module_0001.*after_optimizations.hlo.pb.xz if that is unique
+    #
+    # In single-input mode, we will have something like:
+    #   old_id = 1
+    #   name = jit_foo
+    #   prefix = PFX
+    #   replica = None
+    # and a metadata dump file PFX/dump/module_0001.*after_optimizations.hlo.pb.xz
+
+    # If PFX/dump/module_0001.jit_foo.*after_optimizations.hlo.pb.xz is unique and a
+    # file, not a directory, take that. Otherwise,
+    # PFX/dump/module_0001.jit_foo.*after_optimizations.hlo.pb.xz/SLUG should be a
+    # unique file.
+    if old_id_str is None:
+        return "unknown"
+    old_id = int(old_id_str)
+
+    dump_dir = prefix / "dump"
+    candidates = [
+        candidate
+        for candidate in dump_dir.glob("*after_optimizations.hlo.pb.xz")
+        if old_id
+        == int(candidate.name.split(".", maxsplit=1)[0].split("_", maxsplit=1)[1])
+        and candidate.name.split(".", maxsplit=2)[1] == name
+    ]
+    if len(candidates) == 0:
+        raise Exception(
+            f"Could not find protobuf input for XlaModule {old_id} ({name}) in {dump_dir}"
+        )
+    elif len(candidates) > 1:
+        raise Exception(
+            f"Could not find unique protobuf input for XlaModule {old_id} ({name}) in {dump_dir}: {candidates}"
+        )
+    candidate = candidates[0]
+
+    if candidate.is_dir():
+        hlos = [
+            (file, _load(file, old_id))
+            for file in candidate.iterdir()
+            if file.name == replica
+        ]
+        assert len(hlos) == 1
+        candidate, hlo = hlos[0]
+    else:
+        hlo = _load(candidate, old_id)
+    fingerprint = hlo.proto().hlo_module.frontend_attributes.map[
+        "fingerprint_before_lhs"
+    ]
+    assert len(fingerprint), hlo.proto().hlo_module.frontend_attributes
+    _hlo_cache[fingerprint].add(candidate)
+    return fingerprint
+
+
 @typing.overload
 def xla_module_metadata(
     program_id: int,
@@ -255,7 +333,7 @@ def xla_module_metadata(
 
 @functools.cache
 def xla_module_metadata(
-    program_id: int,
+    program_id: str,
     policy: str = "consistent",
     prefix: pathlib.Path = default_data_prefix(),
 ) -> typing.Union[HloProto, HloProtoSet]:
@@ -267,39 +345,17 @@ def xla_module_metadata(
       all: return a dict of {profile_name: protobuf} with all the values that were seen
     """
     assert policy in {"consistent", "all"}
-    # First, find the input file. There is a lot more that can be done here,
-    # but the lowest-hanging fruit is to look for a filename like:
-    #   module_0016.jit_train_step.sm_8.0_gpu_after_optimizations.hlo.pb
-    # where 16 is the program id
-    dump_dir = prefix / "dump"
-    for candidate in dump_dir.glob("*_gpu_after_optimizations.hlo.pb.xz"):
-        if program_id == int(
-            candidate.name.split(".", maxsplit=1)[0].split("_", maxsplit=1)[1]
-        ):
-            break
-    else:
-        raise Exception(
-            f"Could not find protobuf input for XlaModule {program_id} in {dump_dir}"
-        )
-
-    def _load(file: pathlib.Path) -> HloProto:
-        from xla.service import hlo_pb2
-
-        hlo = hlo_pb2.HloProto()
-        with lzma.LZMAFile(file, "rb") as f:
-            hlo.ParseFromString(f.read())
-        assert hlo.hlo_module.id == program_id
-        return HloProto(hlo)
-
-    if candidate.is_dir():
+    assert program_id in _hlo_cache, program_id
+    hlo_files = _hlo_cache[program_id]
+    if len(hlo_files) > 1:
         # nsys-jax-combine found different .pb.xz files from different profiles
         if policy == "consistent":
             raise Exception(
                 f"program_id={program_id}: multiple protobuf dumps were found but policy demands consistency"
             )
         assert policy == "all"
-        return HloProtoSet({file.name: _load(file) for file in candidate.iterdir()})
+        return HloProtoSet({file.name: _load(file) for file in hlo_files})
     else:
         # nsys-jax output, or nsys-jax-combine only saw consistent values
-        proto = _load(candidate)
+        proto = _load(next(iter(hlo_files)))
         return HloProtoSet({None: proto}) if policy == "all" else proto

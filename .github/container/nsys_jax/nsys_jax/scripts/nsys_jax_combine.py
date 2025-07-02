@@ -84,18 +84,17 @@ def main():
             f"Output path {args.output} already exists and -f/--force-overwrite was not passed"
         )
 
-    hashes = defaultdict(set)
+    hashes = defaultdict(lambda: defaultdict(set))
     for input in args.input:
         with zipfile.ZipFile(input) as ifile:
             for member in ifile.infolist():
-                hashes[member.filename].add(member.CRC)
+                hashes[member.filename][member.CRC].add(input)
 
     mirror_dir = pathlib.Path(tempfile.mkdtemp()) if len(args.analysis) else None
     with zipfile.ZipFile(args.output, "w") as ofile:
         for n_input, input in enumerate(args.input):
-            first_input = n_input == 0
             keep_this_nsys_rep = args.keep_nsys_rep == "all" or (
-                args.keep_nsys_rep == "first" and first_input
+                args.keep_nsys_rep == "first" and (n_input == 0)
             )
             with zipfile.ZipFile(input) as ifile:
                 for member in ifile.infolist():
@@ -124,8 +123,11 @@ def main():
                             write(member)
                     else:
                         if len(seen_hashes) == 1:
-                            # This file was the same in all inputs: copy it once.
-                            if first_input:
+                            # This file the same wherever it appeared, which could mean
+                            # that it was the same in all inputs, or could mean that it
+                            # only appeared in one input.
+                            inputs_containing_this = next(iter(seen_hashes.values()))
+                            if input == next(iter(sorted(inputs_containing_this))):
                                 write(member)
                         else:
                             # This file was not the same in all inputs: copy it to a
