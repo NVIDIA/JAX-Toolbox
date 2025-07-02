@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:base
 ARG BUILD_PATH_JAXLIB=/opt/jaxlibs
+# Extra targets to build and copy outputs of, can be used for HLO tools. For example
+# @xla//xla/tools/multihost_hlo_runner:hlo_runner_main,@xla//xla/hlo/tools:hlo-opt
+ARG EXTRA_BAZEL_TARGETS=""
 ARG URLREF_JAX=https://github.com/google/jax.git#main
 ARG URLREF_XLA=https://github.com/openxla/xla.git#main
 ARG URLREF_FLAX=https://github.com/google/flax.git#main
@@ -28,6 +31,7 @@ ARG SRC_PATH_TRANSFORMER_ENGINE
 ARG SRC_PATH_XLA
 ARG BAZEL_CACHE
 ARG BUILD_PATH_JAXLIB
+ARG EXTRA_BAZEL_TARGETS
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
 
@@ -45,9 +49,11 @@ RUN ARCH="$(dpkg --print-architecture)" && \
     chmod +x /usr/local/bin/bazel
 # Populate ${BUILD_PATH_JAXLIB} with editable wheels; --no-install because
 # (a) this is the builder stage, and (b) pip-finalize.sh does the install
-RUN build-jax.sh \
+RUN mkdir -p /builder/extra-targets && build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
+    --extra-targets "${EXTRA_BAZEL_TARGETS}" \
+    --extra-target-dest /builder/extra-targets \
     --no-install \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
@@ -91,6 +97,7 @@ COPY --from=builder ${BUILD_PATH_JAXLIB} ${BUILD_PATH_JAXLIB}
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
+COPY --from=builder /builder/extra-targets/* /usr/local/bin/
 # Preserve the versions of jax and xla
 COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
 ADD build-jax.sh build-te.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/local/bin/
