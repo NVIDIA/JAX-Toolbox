@@ -1,0 +1,57 @@
+name: ~Test MaxText (GKE, XPK)
+
+on:
+  workflow_call:
+    inputs:
+      MAXTEXT_IMAGE:
+        type: string
+        description: MaxText image from ghcr.io/nvidia
+        default: ghcr.io/nvidia/jax:maxtext
+        required: false
+
+jobs:
+  maxtext-gke-xpk:
+    runs-on: gke-a3mega
+
+    env:
+      WORKLOAD_NAME_PREFIX: gke-maxtext-train
+      MAXTEXT_MODEL: llama2-7b
+      MAXTEXT_ATTENTION_TYPE: cudnn_flash_te
+      MAXTEXT_REMAT_POLICY: minimal_flash
+      MAXTEXT_TRAIN_STEPS: 20
+      MAXTEXT_FSDP: 16
+      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+      NUM_NODES: 2
+
+    steps:
+    - name: Run XPK workload on cluster
+      uses: ./.github/actions/gke-xpk
+      with:
+        IMAGE: ${{ env.MAXTEXT_IMAGE }}
+        WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
+        COMMAND: |
+          export NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so;
+          export NCCL_TUNER_PLUGIN=none;
+          console=/dev/stdout;
+          
+          nsys-jax --capture-range=cudaProfilerApi
+                   --capture-range-end=stop
+                   -o /opt/output/profile.zip
+                   --
+                   test-maxtext.sh -n ${{ env.NUM_NODES }}
+                                   -b ${{ env.NUM_NODES }}
+                                   --model-name=${{ env.MAXTEXT_MODEL }}
+                                   --attn-type=${{ env.MAXTEXT_ATTENTION_TYPE }}
+                                   --remat-policy=${{ env.MAXTEXT_REMAT_POLICY }}
+                                   --steps=${{ env.MAXTEXT_TRAIN_STEPS }}
+                                   --fsdp=${{ env.MAXTEXT_FSDP }}
+                                   --multiprocess
+                                   -a 'scan_layers=false
+                                       max_target_length=4096
+                                       use_iota_embed=true
+                                       logits_dot_in_fp32=false
+                                       profiler=nsys
+                                       skip_first_n_steps_for_profiler=3
+                                       profiler_steps=8' |&
+          tee /opt/output/output.log &> \${console};
+          EXIT_CODE=\$PIPESTATUS;
