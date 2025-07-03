@@ -237,12 +237,6 @@ def parse_args(args=None) -> argparse.Namespace:
         default=None,
         help="The name of the feature branch (e.g. blackwell-devel) to derive cherry-picks from",
     )
-    parser.add_argument(
-        "--cherry-pick-commits",
-        type=list,
-        default=None,
-        help="List of commits to cherry-pick from the feature branch to the main branch",
-    )
     args = parser.parse_args(args=args)
     assert args.container_runtime in {
         "docker",
