@@ -64,16 +64,18 @@ def remove_autotuning_detail(
     """
     Remove excessive detail originating from the autotuner, returning a cleaner
     ProfilerData dataclass:
-    - module and thunk frames lose ProgramId < 0 executions
+    - module and thunk frames lose ProgramId == "unknown" executions
     - compile frame loses granular detail within autotuner compilation and measurement
     """
-    # Ignore autotuning executions with ProgramId < 0
+    # Ignore autotuning executions with ProgramId == "unknown"
     if module_frame and data.module is not None and len(data.module):
-        assert data.module.index.names[0] == "ProgramId"
-        data.module = data.module.loc[0:]
+        data.module = data.module[
+            data.module.index.get_level_values("ProgramId") != "unknown"
+        ]
     if thunk_frame and data.thunk is not None and len(data.thunk):
-        assert data.thunk.index.names[0] == "ProgramId"
-        data.thunk = data.thunk.loc[0:]
+        data.thunk = data.thunk[
+            data.thunk.index.get_level_values("ProgramId") != "unknown"
+        ]
     if measurement and data.compile is not None and len(data.compile):
         # Removing child ranges of XlaAutotunerMeasurement ranges. The GEMM fusion
         # autotuner creates small modules/thunks when measuring, which emit XlaModule
