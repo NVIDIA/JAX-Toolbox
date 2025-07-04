@@ -149,8 +149,10 @@ def main():
                 result.check_returncode()
                 # Gather output files of the scrpt
                 for path in (mirror_dir / output_prefix).rglob("*"):
+                    src_path = mirror_dir / output_prefix / path
+                    if src_path.is_dir(): continue
                     with (
-                        open(mirror_dir / output_prefix / path, "rb") as src,
+                        open(src_path, "rb") as src,
                         ofile.open(str(path.relative_to(mirror_dir)), "w") as dst,
                     ):
                         # https://github.com/python/mypy/issues/15031 ?
