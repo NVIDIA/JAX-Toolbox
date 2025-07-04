@@ -61,7 +61,7 @@ class MockContainer(Container):
         command,
         *,
         policy="default",
-        stderr="interleave",
+        stderr="interleaved",
         workdir=None,
         log_level=logging.DEBUG,
     ):
@@ -102,8 +102,10 @@ def get_commit_history(
         policy="once_per_container",
         workdir=dir,
     )
+
     if commits_known.returncode != 0:
-        worker.check_exec(["git", "fetch"], policy="once_per_container", workdir=dir)
+        logger.error("ERROR!")
+        logger.error(f"{commits_known.stderr}")
 
     if feature_branch_name and package in ["jax", "xla"]:
         logger.info(
@@ -193,23 +195,25 @@ def triage_test_env():
         jax_repo_path.mkdir()
 
         def git_cmd(command, *args):
-            return (
-                run_command(["git", command, *args], cwd=jax_repo_path).stdout().strip()
-            )
+            return run_command(["git", command, *args], cwd=jax_repo_path)
 
         # main
         git_cmd("init", "-b", "main")
         git_cmd("config", "user.name", "Test User")
         git_cmd("config", "user.email", "test@user.it")
         # Create a linear commit history
-        m1 = git_cmd("commit", "--allow-empty", "-m", "M1")
-        m2 = git_cmd("commit", "--allow-empty", "-m", "M2")  # good commit
-        m3 = git_cmd("commit", "--allow-empty", "-m", "M3")  # bad commit
+        git_cmd("commit", "--allow-empty", "-m", "M1")
+        m1 = git_cmd("rev-parse", "HEAD")
+        git_cmd("commit", "--allow-empty", "-m", "M2")  # good commit
+        m2 = git_cmd("rev-parse", "HEAD")
+        git_cmd("commit", "--allow-empty", "-m", "M3")  # bad commit
+        m3 = git_cmd("rev-parse", "HEAD")
         # create a feature branch
         git_cmd("checkout", "-b", "feature", m1)
         (jax_repo_path / "feature_file.txt").write_text("feature")
         git_cmd("add", "feature_file.txt")
-        f1 = git_cmd("commit", "-m", "F1")
+        git_cmd("commit", "-m", "F1")
+        f1 = git_cmd("rev-parse", "HEAD")
 
         git_cmd("checkout", "-b", "passing_nonlinear", m2)
         git_cmd("cherry-pick", f1)
@@ -251,7 +255,7 @@ def triage_test_env():
         ("Linear History", "good_main", "bad_main", False, "good_main", "bad_main"),
     ],
 )
-def test_traige_scenarios(
+def test_triage_scenarios(
     triage_test_env,
     scenario,
     passing_commit_key,
@@ -263,13 +267,14 @@ def test_traige_scenarios(
     """Check if we nee dot restructure this + add types"""
     paths = triage_test_env["paths"]
     all_commits = triage_test_env["commits"]
+    jax_repo_path = paths["repo"] / "jax"
 
     class MockArgs:
         main_branch = "main"
         feature_branch_name = "feature" if use_nonlinear_flags else None
         bazel_cache = ""
         build_scripts_path = None
-        test_command = ["test-case.sh", str(paths["repo"]), all_commits["bad_main"]]
+        test_command = ["test-case.sh", str(jax_repo_path), all_commits["bad_main"]]
         cherry_pick_commits = {}
 
     args = MockArgs()
@@ -278,7 +283,7 @@ def test_traige_scenarios(
 
     passing_versions = {"jax": all_commits[passing_commit_key]}
     failing_versions = {"jax": all_commits[failing_commit_key]}
-    package_dirs = {"jax": str(paths["repo"])}
+    package_dirs = {"jax": str(jax_repo_path)}
     mock_container = MockContainer(paths["scripts"], logger)
     # call the get_commit_history
     package_versions = OrderedDict()
@@ -296,22 +301,31 @@ def test_traige_scenarios(
 
     # build and test
     def build_and_test_wrapper(*, versions, test_output_log_level=logging.DEBUG):
-        git_commands = [f"cd {package_dirs['jax']}", "git stash --include-untracked"]
+        workdir = package_dirs["jax"]
+        mock_container.check_exec(
+            ["git", "stash", "--include-untracked"], workdir=workdir
+        )
+
         if use_nonlinear_flags:
             build_script = paths["scripts"] / "build-jax.sh"
-            git_commands.append(f"git checkout {versions['jax']}")
+            mock_container.check_exec(
+                ["git", "checkout", versions["jax"]], workdir=workdir
+            )
             cherry_picks = args.cherry_pick_commits.get("jax", [])
             if cherry_picks:
-                git_commands.append(f"git cherry-pick { ' '.join(cherry_picks)}")
+                mock_container.check_exec(
+                    ["git", "cherry-pick"] + cherry_picks, workdir=workdir
+                )
         else:
             build_script = paths["scripts"] / "build-jax-linear.sh"
             build_script.write_text("#!/bin/sh\nexit 0")
             os.chmod(build_script, 0o755)
-            git_commands.append(f"git checkout {versions['jax']}")
+            mock_container.check_exec(
+                ["git", "checkout", versions["jax"]], workdir=workdir
+            )
 
-        mock_container.check_exec(["sh", "-c", " && ".join(git_commands)])
-        mock_container.check_exec([str(build_script)])
-        result = mock_container.exec(args.test_command, workdir=package_dirs["jax"])
+        mock_container.check_exec([str(build_script)], workdir=workdir)
+        result = mock_container.exec(args.test_command, workdir=workdir)
         return TestResult(
             host_output_directory=paths["output"],
             result=result.returncode == 0,
