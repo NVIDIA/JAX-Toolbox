@@ -490,7 +490,7 @@ class TriageTool:
         Function to prepare the triage tool for execution.
         At the moment, we're adding the bazel cache mounts to the tool.
         """
-        self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args)
+        self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
 
     def find_container_range(self) -> typing.Tuple[str, str]:
         """
