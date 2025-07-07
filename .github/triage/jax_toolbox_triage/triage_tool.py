@@ -33,6 +33,7 @@ class TriageTool:
         self.bisection_versions = None
         self.package_dirs = None
         self.dynamic_packages = set()
+        self.packages_with_scripts = set()
         # the cherry-pick gets populated only for non-linear cases
         self.args.cherry_pick_commits = {}
 
@@ -502,6 +503,7 @@ class TriageTool:
         Find the range from the passing and failing containers.
         Returns a tuple of the start and end container names.
         """
+        self.logger.info("Finding container range...")
         if self.args.container_runtime == "local":
             return "local", "local"
 
@@ -540,6 +542,8 @@ class TriageTool:
             failing_url (str): The URL of the failing container.
 
         """
+        self.logger.info("Gathering version information...")
+        self.logger.info(f"Using {self.bisection_url} for version-level bisection...")
         versions_from_env = self.args.build_scripts_path is not None
         # Get the versions from the endpoint containers (if they exist), overridden by any
         # explicitly passed versions.
@@ -571,8 +575,6 @@ class TriageTool:
             failing_versions,
         )
         # Which packages have versions that are not always the same?
-        # TODO: DOUBLE CHECK THIS what if:
-        # pkg for pkg in passing_versions if passing_versions[pkg] != failing_versions[pkg]
         self.dynamic_packages = {
             pkg
             for pkg, _ in set(passing_versions.items()) ^ set(failing_versions.items())
@@ -612,6 +614,7 @@ class TriageTool:
         Returns:
             Tuple[dict, TestResult]: The final versions and the test result.
         """
+        self.logger.info("Running version-level bisection...")
         # Prepare the container for the bisection
         with make_container(
             self.args.container_runtime,
