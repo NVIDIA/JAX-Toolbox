@@ -426,12 +426,17 @@ class TriageTool:
         out_dir = self._test_output_directory(
             self.bisection_url, versions=brief_versions
         )
+        mounts = (
+            self.bazel_cache_mounts
+            + self.args.container_mount
+            + [(out_dir, "/triage-tool-output")]
+        )
+
         with make_container(
             self.args.container_runtime,
             self.bisection_url,
-            self.bazel_cache_mounts,
+            mounts,
             self.logger,
-            test_output_host_directory=out_dir,
         ) as worker:
             change_str = " ".join(changed) if len(changed) else "<nothing>"
             info_str = f"Checking out {change_str} in {worker}"
