@@ -9,7 +9,7 @@ def make_container(
     runtime: str, url: str, mounts: list, logger: logging.Logger, **kwargs
 ) -> Container:
     """
-    This function craetes a container objects, based on the specified runtime
+    This function creates a container object, based on the specified runtime
 
     Args:
         runtime (str): The container runtime to use (e.g., 'docker', 'pyxis', 'local').

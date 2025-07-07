@@ -8,7 +8,6 @@ import pathlib
 import time
 import typing
 
-from .args import compulsory_software, optional_software
 from .container import Container
 from .logic import container_search, TestResult, version_search
 from .versions import get_versions_dirs_env
@@ -102,7 +101,7 @@ class TriageTool:
         worker: Container,
         passing_versions: typing.Dict[str, str],
         failing_versions: typing.Dict[str, str],
-    ):
+    ) -> collections.OrderedDict:
         """
         Gather the commit histories for the passing and failing versions.
 
@@ -111,26 +110,48 @@ class TriageTool:
             passing_versions (dict): The versions that passed.
             failing_versions (dict): The versions that failed.
         Returns:
-            Tuple[List[str], List[str]]: The commit histories for passing and failing versions.
+            collections.OrderDict: The commit histories for passing and failing versions.
         """
-        passing_commits = []
-        failing_commits = []
+        packages = passing_versions.keys()
+        package_versions = collections.OrderedDict()
 
-        for package, version in passing_versions.items():
-            if package not in compulsory_software + optional_software:
+        for package in packages:
+            if package not in self.package_dirs:
                 continue
-            cmd = f"cd /opt/{package} && git log --pretty=format:'%H' -n 1 {version}"
-            result = worker.check_exec(["sh", "-c", cmd])
-            passing_commits.append(result.stdout.strip())
+            package_versions[package] = get_commit_history(
+                worker,
+                package,
+                passing_versions[package],
+                failing_versions[package],
+                self.package_dirs[package],
+                main_branch=self.args.main_branch,
+                feature_branch_name=self.args.feature_branch_name,
+                logger=self.logger,
+                args=self.args,
+            )
 
-        for package, version in failing_versions.items():
-            if package not in compulsory_software + optional_software:
+            if not self.args.cherry_pick_commits.get(package):
+                assert all(
+                    b[1] >= a[1]
+                    for a, b in zip(
+                        package_versions[package], package_versions[package][1:]
+                    )
+                )
+                assert passing_versions[package] == package_versions[package][0][0]
+                assert failing_versions[package] == package_versions[package][-1][0]
+
+        for package in packages:
+            if package in package_versions:
                 continue
-            cmd = f"cd /opt/{package} && git log --pretty=format:'%H' -n 1 {version}"
-            result = worker.check_exec(["sh", "-c", cmd])
-            failing_commits.append(result.stdout.strip())
+            package_versions[package] = [
+                (passing_versions[package], package_versions["xla"][0][1])
+            ]
+            if passing_versions[package] != failing_versions[package]:
+                package_versions[package].append(
+                    (failing_versions[package], package_versions["xla"][-1][1])
+                )
 
-        return passing_commits, failing_commits
+        return package_versions
 
     def _log_environment_differences(self, url1: str, url2: str, env1: str, env2: str):
         """
@@ -180,9 +201,9 @@ class TriageTool:
         container_url = container_url_func(date)
 
         before = time.monotonic()
-        out_dir = self._test_output_directory(container_url(date))
+        out_dir = self._test_output_directory(container_url)
 
-        # this is from the previous Container class implementaiton in main
+        # this is from the previous Container class implementation in main
         mounts = self.args.container_mount + [(out_dir, "/triage-tool-output")]
 
         with make_container(
@@ -467,6 +488,7 @@ class TriageTool:
     def prepare(self):
         """
         Function to prepare the triage tool for execution.
+        At the moment, we're adding the bazel cache mounts to the tool.
         """
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args)
 
@@ -512,8 +534,6 @@ class TriageTool:
             passing_url (str): The URL of the passing container.
             failing_url (str): The URL of the failing container.
 
-        Returns:
-            Tuple[dict, dict, dict, dict]: The versions, URLs, directories, and environment variables.
         """
         versions_from_env = self.args.build_scripts_path is not None
         # Get the versions from the endpoint containers (if they exist), overridden by any
@@ -546,7 +566,8 @@ class TriageTool:
             failing_versions,
         )
         # Which packages have versions that are not always the same?
-        # TODO: DOUBLE CHECK THIS
+        # TODO: DOUBLE CHECK THIS what if:
+        # pkg for pkg in passing_versions if passing_versions[pkg] != failing_versions[pkg]
         self.dynamic_packages = {
             pkg
             for pkg, _ in set(passing_versions.items()) ^ set(failing_versions.items())

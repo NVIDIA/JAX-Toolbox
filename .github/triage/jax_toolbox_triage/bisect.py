@@ -13,6 +13,23 @@ def get_commit_history(
     logger=None,
     args=None,
 ):
+    """
+    Get the commit history for a given package between two commits.
+
+    Args:
+        worker (Container): The container worker to execute commands.
+        package (str): The name of the package.
+        start (str): The starting commit hash.
+        end (str): The ending commit hash.
+        dir (str): The directory where the git repository is located.
+        main_branch (str, optional): The main branch name. Defaults to None.
+        feature_branch_name (str, optional): The feature branch name. Defaults to None.
+        logger (Logger, optional): Logger for debug information. Defaults to None.
+        args: Additional arguments that may contain cherry-pick commits.
+
+    Returns:
+        list: A list of tuples containing commit hashes and their corresponding dates.
+    """
     # In particular the end commit might not already be known if the older,
     # passing, container is being used for triage.
     commits_known = worker.exec(
