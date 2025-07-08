@@ -56,9 +56,7 @@ class TriageTool:
         )
 
         out_dir = self.args.output_prefix / out_dirname
-        assert not out_dir.exists(), (
-            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
-        )
+        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
@@ -83,9 +81,9 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert container_url is not None, (
-            "Container URL must be provided if explicit versions are not set."
-        )
+        assert (
+            container_url is not None
+        ), "Container URL must be provided if explicit versions are not set."
 
         with make_container(
             self.args.container_runtime,
@@ -230,12 +228,14 @@ class TriageTool:
             self.args.output_prefix,
             "container",
             {
-                "container": container_url,
-                "output_directory": out_dir.as_posix(),
-                "result": test_pass,
-                "test_time": test_time,
-            }
-            | versions,
+                **{
+                    "container": container_url,
+                    "output_directory": out_dir.as_posix(),
+                    "result": test_pass,
+                    "test_time": test_time,
+                },
+                **versions,
+            },
         )
         return TestResult(
             host_output_directory=out_dir, result=test_pass, stdouterr=result.stdout
@@ -416,13 +416,15 @@ class TriageTool:
             self.args.output_prefix,
             "versions",
             {
-                "build_time": middle - before,
-                "container": self.bisection_url,
-                "output_directory": out_dir.as_posix(),
-                "result": test_result.returncode == 0,
-                "test_time": test_time,
-            }
-            | versions,
+                **{
+                    "build_time": middle - before,
+                    "container": self.bisection_url,
+                    "output_directory": out_dir.as_posix(),
+                    "result": test_result.returncode == 0,
+                    "test_time": test_time,
+                },
+                **versions,
+            },
         )
         result_str = "pass" if test_result.returncode == 0 else "fail"
         self.logger.info(f"Test completed in {test_time:.1f}s ({result_str})")
