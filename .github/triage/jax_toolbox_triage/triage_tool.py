@@ -30,7 +30,7 @@ class TriageTool:
         self.logger = logger
         self.bazel_cache_mounts = []
         self.bisection_url = None
-        self.bisection_versions = None
+        self.bisection_versions = {}
         self.package_dirs = None
         self.dynamic_packages = set()
         self.packages_with_scripts = set()
