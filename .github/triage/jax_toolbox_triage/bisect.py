@@ -42,7 +42,12 @@ def get_commit_history(
         workdir=dir,
     )
     if commits_known.returncode != 0:
-        worker.check_exec(["git", "fetch"], policy="once_per_container", workdir=dir)
+        if worker.exec(["git", "remote"]).stout.strip():
+            worker.check_exec(
+                ["git", "fetch"], policy="once_per_container", workdir=dir
+            )
+        else:
+            logger.warning("No remote found, skipping fetch.")
 
     # here we're considering the case of non-linear history
     # limit for the moment to JAX and XLA
@@ -56,7 +61,7 @@ def get_commit_history(
         failing_main_commit_cmd = f"git merge-base {end} origin/{main_branch}"
 
         passing_main_commit = worker.check_exec(
-            ["sh    ", "-c", passing_main_commit_cmd], workdir=dir
+            ["sh", "-c", passing_main_commit_cmd], workdir=dir
         ).stdout.strip()
         failing_main_commit = worker.check_exec(
             ["sh", "-c", failing_main_commit_cmd], workdir=dir

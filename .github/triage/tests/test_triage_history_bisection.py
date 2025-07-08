@@ -5,11 +5,8 @@ import os
 import logging
 from collections import OrderedDict
 import pytest
-import datetime
 
-# for the moment avoid using this, because we can't import it
-# then we'll refactor the main code
-# from jax_toolbox_triage.main import get_commit_history
+from jax_toolbox_triage.bisect import get_commit_history
 from jax_toolbox_triage.logic import version_search, TestResult
 from jax_toolbox_triage.container import Container
 
@@ -82,81 +79,6 @@ class MockContainer(Container):
 
     def exists(self) -> bool:
         return True
-
-
-def get_commit_history(
-    worker, package, start, end, dir, main_branch, feature_branch_name, args, logger
-):
-    """
-    This is a local copy of the get_commit_history logic from main.py,
-    For the moment we don't want to import it, we'll then refactor the main code
-    """
-    # In particular the end commit might not already be known if the older,
-    # passing, container is being used for triage.
-    commits_known = worker.exec(
-        [
-            "sh",
-            "-c",
-            f"git cat-file commit {start} && git cat-file commit {end}",
-        ],
-        policy="once_per_container",
-        workdir=dir,
-    )
-
-    if commits_known.returncode != 0:
-        logger.error("ERROR!")
-        logger.error(f"{commits_known.stderr}")
-
-    if feature_branch_name and package in ["jax", "xla"]:
-        logger.info(
-            f"Using non-linear history logic with main branch {main_branch} and feature branch {feature_branch_name}"
-        )
-        passing_main_commit_cmd = f"git merge-base {start} {end}"
-        failing_main_commit_cmd = f"git merge-base {end} origin/{main_branch}"
-
-        # In a local test, origin doesn't exist, so we use the local main branch ref.
-        failing_main_commit_cmd = f"git merge-base {end} {main_branch}"
-
-        passing_main_commit = worker.check_exec(
-            ["sh", "-c", passing_main_commit_cmd], workdir=dir
-        ).stdout.strip()
-        failing_main_commit = worker.check_exec(
-            ["sh", "-c", failing_main_commit_cmd], workdir=dir
-        ).stdout.strip()
-
-        cherry_pick_cmd = f"git rev-list --reverse {failing_main_commit}..{end}"
-        cherry_pick_commits_list = (
-            worker.check_exec(["sh", "-c", cherry_pick_cmd], workdir=dir)
-            .stdout.strip()
-            .splitlines()
-        )
-        if cherry_pick_commits_list:
-            args.cherry_pick_commits[package] = cherry_pick_commits_list
-
-        start = passing_main_commit
-        end = failing_main_commit
-
-    result = worker.check_exec(
-        [
-            "git",
-            "log",
-            "--first-parent",
-            "--reverse",
-            "--format=%H %cI",
-            f"{start}^..{end}",
-        ],
-        policy="once",
-        stderr=subprocess.PIPE,
-        workdir=dir,
-    )
-    data = []
-    for line in result.stdout.splitlines():
-        commit, date_str = line.split()
-        date = datetime.datetime.fromisoformat(date_str).astimezone(
-            datetime.timezone.utc
-        )
-        data.append((commit, date))
-    return data
 
 
 @pytest.fixture
@@ -240,17 +162,17 @@ def triage_test_env():
         }
 
 
-# Do we need to parametrize the test cases?
+# TEST CASES
 @pytest.mark.parametrize(
     "scenario, passing_commit_key, failing_commit_key, use_nonlinear_flags, expected_good_key, expected_bad_key",
     [
         (
             "Non-Linear History",  # scenario
             "passing_nonlinear",
-            "failing_nonlinear",  # bisection range
+            "failing_nonlinear",
             True,  # use the new flag
             "good_main",
-            "bad_main",  # expected results
+            "bad_main",
         ),
         ("Linear History", "good_main", "bad_main", False, "good_main", "bad_main"),
     ],
@@ -285,7 +207,7 @@ def test_triage_scenarios(
     failing_versions = {"jax": all_commits[failing_commit_key]}
     package_dirs = {"jax": str(jax_repo_path)}
     mock_container = MockContainer(paths["scripts"], logger)
-    # call the get_commit_history
+
     package_versions = OrderedDict()
     package_versions["jax"] = get_commit_history(
         worker=mock_container,

@@ -171,11 +171,11 @@ class TriageTool:
         """
         if env1 is None or env2 is None:
             return
-        self.logger.info(f"Environment differences between {url1} and {url2}")
+        self.logger.info(f"Environment differences between {url1} and {url2}:")
         for key in env1.keys() - env2.keys():
-            self.logger.info(f"Only in {url1}: {key}={env1[key]}")
+            self.logger.info(f"\tOnly in {url1}: {key}={env1[key]}")
         for key in env2.keys() - env1.keys():
-            self.logger.info(f"Only in {url2}: {key}={env2[key]}")
+            self.logger.info(f"\tOnly in {url2}: {key}={env2[key]}")
         for key in env1.keys() & env2.keys():
             if env1[key] != env2[key]:
                 self.logger.info(
