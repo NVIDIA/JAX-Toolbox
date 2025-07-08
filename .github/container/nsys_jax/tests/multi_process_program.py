@@ -1,6 +1,7 @@
 import argparse
 import functools
 import jax
+from jax.experimental.multihost_utils import sync_global_devices
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--rank", type=int)
@@ -78,3 +79,20 @@ def only_in_process_one(x):
 # Do something only in process 1
 if jax.process_index() == 1:
     square = only_in_process_one(square)
+
+
+# This means the stack traces are different for the two calls
+def trampoline0():
+    sync_global_devices("barrier")
+
+
+def trampoline1():
+    sync_global_devices("barrier")
+
+
+if jax.process_index() == 0:
+    trampoline0()
+    trampoline1()
+else:
+    trampoline1()
+    trampoline0()

@@ -11,6 +11,7 @@ import re
 
 from .analysis import calculate_collective_metrics
 from .protobuf import _hlo_cache, _remap_program_id, xla_module_metadata
+from .protobuf_utils import ensure_compiled_protos_are_importable
 from .utils import default_data_prefix, make_child_mask, ProfilerData
 
 pd.options.mode.copy_on_write = True
@@ -444,6 +445,8 @@ def _load_nvtx_gpu_proj_trace(
     prefix: pathlib.Path,
     frames: set[str],
 ):
+    # _remap_program_id needs to load protos
+    ensure_compiled_protos_are_importable(prefix=prefix)
     path = prefix / "nvtx_gpu_proj_trace" / "trace.parquet"
     meta_path = prefix / "thread-metadata.parquet"
     replica_slugs: list[str | None]
@@ -476,8 +479,7 @@ def _load_nvtx_gpu_proj_trace(
                 single_trace, hlo_cache = single_trace_tup
                 for k, v in single_trace.items():
                     tmp[k].append(v)
-                # Black magic to merge the caches from the pool worker
-                # processes into the orchestrator/main process.
+                # Merge the caches from the pool worker processes into the main one.
                 for k, v in hlo_cache.items():
                     _hlo_cache[k] |= v
         output = {}

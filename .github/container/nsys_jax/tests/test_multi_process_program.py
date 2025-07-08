@@ -137,62 +137,125 @@ def combined_data_and_path(individual_and_combined_results):
     return load_profiler_data(path), path
 
 
-def get_program_id(module_data, module_name):
+def get_program_ids(module_data, module_name, prefix):
     test_func_mask = module_data["Name"] == f"jit_{module_name}"
-    program_ids = module_data[test_func_mask].index.get_level_values("ProgramId")
-    # All executions should have the same program id
-    assert all(program_ids == program_ids[0])
-    return program_ids[0]
+    return set(module_data[test_func_mask].index.get_level_values("ProgramId"))
 
 
 instances = [
-    ("distinctively_named_function_with_lhs", 5, [0, 1]),
-    ("distinctively_named_function_without_lhs", 5, [0, 1]),
-    ("only_in_process_zero", 1, [0]),
-    ("another_distinctively_named_function", 5, [0, 1]),
-    ("another_one_only_in_process_zero", 1, [0]),
-    ("only_in_process_one", 1, [1]),
+    ("distinctively_named_function_with_lhs", 5, [0, 1], False),
+    ("distinctively_named_function_without_lhs", 5, [0, 1], False),
+    ("only_in_process_zero", 1, [0], False),
+    ("another_distinctively_named_function", 5, [0, 1], False),
+    ("another_one_only_in_process_zero", 1, [0], False),
+    ("only_in_process_one", 1, [1], False),
+    ("_psum", 2, [0, 1], True),  # sync_global_devices
 ]
 
 
-@pytest.mark.parametrize("module_name,num_executions,execution_devices", instances)
+@pytest.mark.parametrize(
+    "module_name,num_executions,execution_devices,has_collectives", instances
+)
 def test_combined_data(
-    combined_data_and_path, module_name, num_executions, execution_devices
+    combined_data_and_path,
+    module_name,
+    num_executions,
+    execution_devices,
+    has_collectives,
 ):
     """
     Make sure the module IDs are remapped correctly
     """
     combined_data, prefix = combined_data_and_path
-    remapped_id = get_program_id(combined_data.module, module_name)
-    module_data = combined_data.module.loc[remapped_id]
+    remapped_ids = get_program_ids(combined_data.module, module_name, prefix=prefix)
+    if has_collectives:
+        # If the module contains collectives, the sharded autotuner should guarantee
+        # that identical programs are compiled in both processes and that they are
+        # mapped onto the same ProgramId values. Otherwise, there might be different
+        # ProgramId values on each process.
+        assert len(remapped_ids) == 1
+    module_data = combined_data.module.loc[list(remapped_ids)]
     assert (
         len(module_data.index.get_level_values("ProgramExecution").unique())
         == num_executions
     )
-    assert (
-        module_data.index.get_level_values("Device")
-        == execution_devices * num_executions
-    ).all()
+    measured_device_sequence = module_data.index.get_level_values("Device")
+    expected_device_sequence_with_collectives = execution_devices * num_executions
+    if has_collectives:
+        assert (
+            measured_device_sequence == expected_device_sequence_with_collectives
+        ).all()
+    else:
+        assert sorted(measured_device_sequence) == sorted(
+            expected_device_sequence_with_collectives
+        )
 
 
-@pytest.mark.parametrize("module_name,num_executions,execution_devices", instances)
+@pytest.mark.parametrize(
+    "module_name,num_executions,execution_devices,has_collectives", instances
+)
 def test_reloading_proto_data(
-    combined_data_and_path, module_name, num_executions, execution_devices
+    combined_data_and_path,
+    module_name,
+    num_executions,
+    execution_devices,
+    has_collectives,
 ):
     """
     Make sure that calling xla_module_metadata with the remapped IDs present
     in the loaded data works.
     """
     combined_data, prefix = combined_data_and_path
-    remapped_id = get_program_id(combined_data.module, module_name)
-    hlo_set = xla_module_metadata(program_id=remapped_id, prefix=prefix, policy="all")
-    # This might prove a bit fragile. It passes today because:
-    # - distinctively_named_function's HLO dump does not get de-duplicated
-    #   because the HLO dumps from different SPMD processes are not bitwise
-    #   identical
-    # - another_distinctively_named_function additionally does not get
-    #   de-duplicated because the numerical ID does not match
-    assert len(hlo_set._protos) == len(execution_devices)
+    remapped_ids = get_program_ids(combined_data.module, module_name, prefix=prefix)
+    distinct_hlos = 0
+    for remapped_id in remapped_ids:
+        hlo_set = xla_module_metadata(
+            program_id=remapped_id, prefix=prefix, policy="all"
+        )
+        distinct_hlos += hlo_set.reduce_result(lambda _: 1, lambda a, b: a + b)
+    # This might prove a bit fragile. It passes today because e.g.
+    # distinctively_named_function's HLO dump does not get de-duplicated because the
+    # HLO dumps from different SPMD processes are not bitwise identical
+    assert distinct_hlos == len(execution_devices)
+
+
+def get_stack_traces(hlo_module):
+    """
+    Return a list of stack traces for all instructions in the given module.
+    """
+    return [
+        hlo_module.get_stack_frames(wrapped_inst.proto().metadata.stack_frame_id)
+        for _, wrapped_inst in hlo_module._instructions.values()
+    ]
+
+
+@pytest.mark.parametrize(
+    "module_name,should_be_consistent",
+    [("_psum", False), ("distinctively_named_function_with_lhs", True)],
+)
+def test_metadata_consistency(
+    combined_data_and_path, module_name, should_be_consistent
+):
+    """
+    Check the consistency of metadata handling between ranks. This is expected to match
+    for functions that are called in the same way across processes, but it is expected
+    to differ if different processes launch via different paths.
+    """
+    combined_data, prefix = combined_data_and_path
+    remapped_ids = get_program_ids(combined_data.module, module_name, prefix=prefix)
+    hlo_set = xla_module_metadata(
+        program_id=next(iter(remapped_ids)), prefix=prefix, policy="all"
+    )
+    stacks = hlo_set.reduce_result(
+        lambda hlo_module: [get_stack_traces(hlo_module)], lambda l1, l2: l1 + l2
+    )
+    # TODO: might need to allow len(stacks) == 1 for should_be_consistent=True if de-duplication gets better in future
+    assert len(stacks) == 2, "Should have two metadata dumps"
+    stacks1, stacks2 = stacks
+    if should_be_consistent:
+        assert stacks1 == stacks2
+    else:
+        assert stacks1 != stacks2
 
 
 @pytest.mark.parametrize("recipe", ["summary", "communication"])
