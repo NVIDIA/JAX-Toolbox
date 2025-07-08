@@ -2,11 +2,10 @@ import collections
 import datetime
 import functools
 import hashlib
-import itertools
 import logging
 import pathlib
 import time
-import typing
+from typing import Dict, Tuple, Union
 
 from .container import Container
 from .logic import container_search, TestResult, version_search
@@ -38,7 +37,7 @@ class TriageTool:
         self.args.cherry_pick_commits = {}
 
     def _test_output_directory(
-        self, url: str, versions: typing.Dict[str, str] = None
+        self, url: str, versions: Union[Dict[str, str], None]
     ) -> pathlib.Path:
         """
         Create a directory for test output based on the container URL and versions.
@@ -52,18 +51,22 @@ class TriageTool:
         hash_chars = 8
         urlhash = f"container-{hashlib.sha1(url.encode()).hexdigest()[:hash_chars]}"
         out_dirname = "-".join(
-            itertools.chain(
-                [urlhash],
-                map(lambda t: f"{t[0]}-{t[1][:hash_chars]}", sorted(versions.items())),
-            )
+            [urlhash]
+            + [f"{k}-{v[:hash_chars]}" for k, v in sorted((versions or {}).items())]
         )
+
         out_dir = self.args.output_prefix / out_dirname
-        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
+        assert not out_dir.exists(), (
+            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
+        )
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
     def _get_versions(
-        self, container_url: str, explicit_versions: str, versions_from_env: str
+        self,
+        container_url: str,
+        explicit_versions: Dict[str, str],
+        versions_from_env: bool,
     ):
         """
         Get the versions of the software packages in the container.
@@ -80,9 +83,9 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert (
-            container_url is not None
-        ), "Container URL must be provided if explicit versions are not set."
+        assert container_url is not None, (
+            "Container URL must be provided if explicit versions are not set."
+        )
 
         with make_container(
             self.args.container_runtime,
@@ -100,8 +103,8 @@ class TriageTool:
     def _gather_histories(
         self,
         worker: Container,
-        passing_versions: typing.Dict[str, str],
-        failing_versions: typing.Dict[str, str],
+        passing_versions: Dict[str, str],
+        failing_versions: Dict[str, str],
     ) -> collections.OrderedDict:
         """
         Gather the commit histories for the passing and failing versions.
@@ -153,7 +156,9 @@ class TriageTool:
 
         return package_versions
 
-    def _log_environment_differences(self, url1: str, url2: str, env1: str, env2: str):
+    def _log_environment_differences(
+        self, url1: str, url2: str, env1: Dict[str, str], env2: Dict[str, str]
+    ):
         """
          If we have two containers, print the differences between their environments. This
         can be useful in the case that rebuilding the good versions in the bad container,
@@ -201,7 +206,7 @@ class TriageTool:
         container_url = container_url_func(date)
 
         before = time.monotonic()
-        out_dir = self._test_output_directory(container_url)
+        out_dir = self._test_output_directory(container_url, None)
 
         # this is from the previous Container class implementation in main
         mounts = self.args.container_mount + [(out_dir, "/triage-tool-output")]
@@ -225,7 +230,7 @@ class TriageTool:
             self.args.output_prefix,
             "container",
             {
-                "container": container_url(date),
+                "container": container_url,
                 "output_directory": out_dir.as_posix(),
                 "result": test_pass,
                 "test_time": test_time,
@@ -235,68 +240,6 @@ class TriageTool:
         return TestResult(
             host_output_directory=out_dir, result=test_pass, stdouterr=result.stdout
         )
-
-    def _gather_histories(
-        self,
-        worker: Container,
-        passing_versions: typing.Dict[str, str],
-        failing_versions: typing.Dict[str, str],
-    ) -> typing.Tuple[typing.List[str], typing.List[str]]:
-        """
-        Gather the commit histories for the passing and failing versions.
-        This function is pivotal for non-linear history logic search
-
-        Args:
-            worker (Container): The container in which to run the commands.
-            passing_versions (dict): The versions that passed.
-            failing_versions (dict): The versions that failed.
-
-        Returns:
-            Tuple[List[str], List[str]]: The commit histories for passing and failing versions.
-        """
-        packages = passing_versions.keys()
-        self.logger.info(
-            f"Bisecting {' '.join(f'{p} [{passing_versions[p]}, {failing_versions[p]}]' for p in packages)} using {worker}"
-        )
-        package_versions = collections.OrderedDict()
-
-        for package in packages:
-            if package not in self.package_dirs:
-                continue
-            package_versions[package] = get_commit_history(
-                worker,
-                package,
-                passing_versions[package],
-                failing_versions[package],
-                self.package_dirs[package],
-                main_branch=self.args.main_branch,
-                logger=self.logger,
-                args=self.args,
-            )
-
-            if not self.args.cherry_pick_commits.get(package):
-                # Confirm they're sorted by commit date
-                assert all(
-                    b[1] >= a[1]
-                    for a, b in zip(
-                        package_versions[package], package_versions[package][1:]
-                    )
-                )
-                # Confirm the end values are included as expected
-                assert passing_versions[package] == package_versions[package][0][0]
-                assert failing_versions[package] == package_versions[package][-1][0]
-        for package in packages:
-            if package in package_versions:
-                continue
-            package_versions[package] = [
-                (passing_versions[package], package_versions["xla"][0][1])
-            ]
-            if passing_versions[package] != failing_versions[package]:
-                package_versions[package].append(
-                    (failing_versions[package], package_versions["xla"][-1][1])
-                )
-
-        return package_versions
 
     def _check_installation_scripts(self, worker: Container):
         """
@@ -353,7 +296,7 @@ class TriageTool:
     def _build_and_test(
         self,
         *,
-        versions: typing.Dict[str, str],
+        versions: Dict[str, str],
         test_output_log_level: int = logging.DEBUG,
     ) -> TestResult:
         """
@@ -496,7 +439,7 @@ class TriageTool:
         """
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
 
-    def find_container_range(self) -> typing.Tuple[str, str]:
+    def find_container_range(self) -> Tuple[str, str]:
         """
         Find the range from the passing and failing containers.
         Returns a tuple of the start and end container names.
@@ -599,9 +542,9 @@ class TriageTool:
 
     def run_version_bisection(
         self,
-        passing_versions: typing.Dict[str, str],
-        failing_versions: typing.Dict[str, str],
-    ) -> typing.Tuple[typing.Dict[str, str], TestResult]:
+        passing_versions: Dict[str, str],
+        failing_versions: Dict[str, str],
+    ) -> None:
         """
         Run the version bisection process.
 
@@ -638,3 +581,4 @@ class TriageTool:
         )
         result["container"] = self.bisection_url
         add_summary_record(self.args.output_prefix, "result", result, scalar=True)
+        self.logger.info("Version-level bisection completed")
