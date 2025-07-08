@@ -229,13 +229,7 @@ def parse_args(args=None) -> argparse.Namespace:
         "--main-branch",
         type=str,
         default="main",
-        help="The name of the main branch, linear branch to be used for bisection",
-    )
-    parser.add_argument(
-        "--feature-branch-name",
-        type=str,
-        default=None,
-        help="The name of the feature branch (e.g. blackwell-devel) to derive cherry-picks from",
+        help="The name of the main branch (e.g. main) to derive cherry-picks from",
     )
     args = parser.parse_args(args=args)
     assert args.container_runtime in {

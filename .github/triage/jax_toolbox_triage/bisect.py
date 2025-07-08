@@ -9,7 +9,6 @@ def get_commit_history(
     end,
     dir,
     main_branch=None,
-    feature_branch_name=None,
     logger=None,
     args=None,
 ):
@@ -23,7 +22,6 @@ def get_commit_history(
         end (str): The ending commit hash.
         dir (str): The directory where the git repository is located.
         main_branch (str, optional): The main branch name. Defaults to None.
-        feature_branch_name (str, optional): The feature branch name. Defaults to None.
         logger (Logger, optional): Logger for debug information. Defaults to None.
         args: Additional arguments that may contain cherry-pick commits.
 
@@ -49,12 +47,16 @@ def get_commit_history(
         else:
             logger.warning("No remote found, skipping fetch.")
 
-    # here we're considering the case of non-linear history
-    # limit for the moment to JAX and XLA
-    if feature_branch_name and package in ["jax", "xla"]:
-        logger.info(
-            f"Using non-linear history logic with main branch {main_branch} and feature branch {feature_branch_name}"
-        )
+    # detect non-linear history
+    is_ancestor_cmd = f"git merge-base --is-ancestor {start} {end}"
+    is_ancestor_result = worker.exec(
+        ["sh", "-c", is_ancestor_cmd],
+        workdir=dir,
+    )
+    is_linear = is_ancestor_result.returncode == 0
+
+    if not is_linear and package in ["jax", "xla"]:
+        logger.info(f"Using non-linear history logic with main branch {main_branch}")
 
         # 1. find the linear range on the main branch
         passing_main_commit_cmd = f"git merge-base {start} {end}"

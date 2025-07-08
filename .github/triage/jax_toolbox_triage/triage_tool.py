@@ -126,7 +126,6 @@ class TriageTool:
                 failing_versions[package],
                 self.package_dirs[package],
                 main_branch=self.args.main_branch,
-                feature_branch_name=self.args.feature_branch_name,
                 logger=self.logger,
                 args=self.args,
             )
@@ -271,7 +270,6 @@ class TriageTool:
                 failing_versions[package],
                 self.package_dirs[package],
                 main_branch=self.args.main_branch,
-                feature_branch_name=self.args.feature_branch_name,
                 logger=self.logger,
                 args=self.args,
             )

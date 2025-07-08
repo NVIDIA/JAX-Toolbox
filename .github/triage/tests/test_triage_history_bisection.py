@@ -121,6 +121,7 @@ def triage_test_env():
 
         # main
         git_cmd("init", "-b", "main")
+        git_cmd("remote", "add", "origin", str(jax_repo_path))
         git_cmd("config", "user.name", "Test User")
         git_cmd("config", "user.email", "test@user.it")
         # Create a linear commit history
@@ -164,17 +165,16 @@ def triage_test_env():
 
 # TEST CASES
 @pytest.mark.parametrize(
-    "scenario, passing_commit_key, failing_commit_key, use_nonlinear_flags, expected_good_key, expected_bad_key",
+    "scenario, passing_commit_key, failing_commit_key, expected_good_key, expected_bad_key",
     [
         (
-            "Non-Linear History",  # scenario
+            "Non-Linear History",
             "passing_nonlinear",
             "failing_nonlinear",
-            True,  # use the new flag
             "good_main",
             "bad_main",
         ),
-        ("Linear History", "good_main", "bad_main", False, "good_main", "bad_main"),
+        ("Linear History", "good_main", "bad_main", "good_main", "bad_main"),
     ],
 )
 def test_triage_scenarios(
@@ -182,7 +182,6 @@ def test_triage_scenarios(
     scenario,
     passing_commit_key,
     failing_commit_key,
-    use_nonlinear_flags,
     expected_good_key,
     expected_bad_key,
 ):
@@ -193,7 +192,6 @@ def test_triage_scenarios(
 
     class MockArgs:
         main_branch = "main"
-        feature_branch_name = "feature" if use_nonlinear_flags else None
         bazel_cache = ""
         build_scripts_path = None
         test_command = ["test-case.sh", str(jax_repo_path), all_commits["bad_main"]]
@@ -216,7 +214,6 @@ def test_triage_scenarios(
         end=failing_versions["jax"],
         dir=package_dirs["jax"],
         main_branch=args.main_branch,
-        feature_branch_name=args.feature_branch_name,
         args=args,
         logger=logger,
     )
@@ -227,17 +224,16 @@ def test_triage_scenarios(
         mock_container.check_exec(
             ["git", "stash", "--include-untracked"], workdir=workdir
         )
+        cherry_pick_commits = args.cherry_pick_commits.get("jax", [])
 
-        if use_nonlinear_flags:
+        if cherry_pick_commits:
             build_script = paths["scripts"] / "build-jax.sh"
             mock_container.check_exec(
                 ["git", "checkout", versions["jax"]], workdir=workdir
             )
-            cherry_picks = args.cherry_pick_commits.get("jax", [])
-            if cherry_picks:
-                mock_container.check_exec(
-                    ["git", "cherry-pick"] + cherry_picks, workdir=workdir
-                )
+            mock_container.check_exec(
+                ["git", "cherry-pick"] + cherry_pick_commits, workdir=workdir
+            )
         else:
             build_script = paths["scripts"] / "build-jax-linear.sh"
             build_script.write_text("#!/bin/sh\nexit 0")
