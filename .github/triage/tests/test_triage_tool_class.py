@@ -108,6 +108,11 @@ def triage_test_env():
         (mock_scripts_path / "test-case.sh").write_text(test_case_content)
         os.chmod(mock_scripts_path / "test-case.sh", 0o755)
 
+        # Create a fake bazel executable
+        (mock_scripts_path / "bazel").write_text("#!/bin/sh\necho bazel")
+        os.chmod(mock_scripts_path / "bazel", 0o755)
+
+        # setup the jax repo path
         jax_repo_path = repo_path / "jax"
         jax_repo_path.mkdir()
 
@@ -212,6 +217,14 @@ def test_triage_scenarios(
     monkeypatch.setattr(
         "jax_toolbox_triage.triage_tool.make_container", lambda *a, **kw: mock_container
     )
+
+    # In case of linear-history scenario, we need a fake jax script too
+    if scenario == "Linear History":
+        linear_build_script_path = paths["scripts"] / "build-jax.sh"
+        linear_build_script_path.write_text(
+            "#!/bin/sh\necho 'Mock linear build successful.'\nexit 0"
+        )
+        os.chmod(linear_build_script_path, 0o755)
 
     passing_versions = {"jax": all_commits[passing_commit_key]}
     failing_versions = {"jax": all_commits[failing_commit_key]}

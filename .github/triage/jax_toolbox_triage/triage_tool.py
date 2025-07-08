@@ -372,7 +372,7 @@ class TriageTool:
         git_commands, changed, skipped = [], [], []
         for package in sorted(self.dynamic_packages):
             version = versions[package]
-            if self.bisection_versions[package] == version:
+            if self.bisection_versions.get(package) == version:
                 # If the existing version is the desired one, do nothing.
                 skipped.append(f"{package}@{version}")
                 continue
