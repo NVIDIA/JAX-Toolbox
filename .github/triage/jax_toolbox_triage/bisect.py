@@ -101,6 +101,9 @@ def get_commit_history(
     data = []
     for line in result.stdout.splitlines():
         commit, date = line.split()
+        # for python < 3.11 we nee dto fix:
+        if date.endswith("Z"):
+            date = date[:-1] + "+00:00"
         date = datetime.datetime.fromisoformat(date).astimezone(datetime.timezone.utc)
         data.append((commit, date))
     return data
