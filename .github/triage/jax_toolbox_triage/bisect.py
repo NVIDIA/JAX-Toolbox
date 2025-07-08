@@ -58,7 +58,7 @@ def get_commit_history(
 
         # 1. find the linear range on the main branch
         passing_main_commit_cmd = f"git merge-base {start} {end}"
-        failing_main_commit_cmd = f"git merge-base {end} origin/{main_branch}"
+        failing_main_commit_cmd = f"git merge-base {end} {main_branch}"
 
         passing_main_commit = worker.check_exec(
             ["sh", "-c", passing_main_commit_cmd], workdir=dir
