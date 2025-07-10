@@ -48,9 +48,8 @@ def get_commit_history(
             logger.warning("No remote found, skipping fetch.")
 
     # detect non-linear history
-    is_ancestor_cmd = f"git merge-base --is-ancestor {start} {end}"
     is_ancestor_result = worker.exec(
-        ["sh", "-c", is_ancestor_cmd],
+        ["git", "merge-base", "--is-ancestor", start, end],
         workdir=dir,
     )
     is_linear = is_ancestor_result.returncode == 0
