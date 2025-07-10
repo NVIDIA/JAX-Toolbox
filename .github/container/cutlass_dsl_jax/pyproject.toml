@@ -1,0 +1,20 @@
+[project]
+name = "nvidia-cutlass-dsl-jax"
+description = "Primitives for calling CuTe/CUTLASS DSL kernels in Jax."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "jax>=0.6.2",
+  "nvidia-cutlass-dsl>=4.1.0.dev0"
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+tests = ["pytest"]
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "jax_cutlass.version.__version__"}
