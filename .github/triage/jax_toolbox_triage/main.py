@@ -12,7 +12,6 @@ def main() -> None:
 
     try:
         tool = TriageTool(args, logger)
-        tool.prepare()
 
         passing_url, failing_url = tool.find_container_range()
 

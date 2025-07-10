@@ -27,12 +27,12 @@ class TriageTool:
     def __init__(self, args, logger):
         self.args = args
         self.logger = logger
-        self.bazel_cache_mounts = []
         self.bisection_url = None
         self.bisection_versions = {}
         self.package_dirs = None
         self.dynamic_packages = set()
         self.packages_with_scripts = set()
+        self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
         # the cherry-pick gets populated only for non-linear cases
         self.args.cherry_pick_commits = {}
 
@@ -56,9 +56,7 @@ class TriageTool:
         )
 
         out_dir = self.args.output_prefix / out_dirname
-        assert not out_dir.exists(), (
-            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
-        )
+        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
@@ -83,9 +81,9 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert container_url is not None, (
-            "Container URL must be provided if explicit versions are not set."
-        )
+        assert (
+            container_url is not None
+        ), "Container URL must be provided if explicit versions are not set."
 
         with make_container(
             self.args.container_runtime,
@@ -133,15 +131,14 @@ class TriageTool:
                 args=self.args,
             )
 
-            if not self.args.cherry_pick_commits.get(package):
-                assert all(
-                    b[1] >= a[1]
-                    for a, b in zip(
-                        package_versions[package], package_versions[package][1:]
-                    )
+            assert all(
+                b[1] >= a[1]
+                for a, b in zip(
+                    package_versions[package], package_versions[package][1:]
                 )
-                assert passing_versions[package] == package_versions[package][0][0]
-                assert failing_versions[package] == package_versions[package][-1][0]
+            )
+            assert passing_versions[package] == package_versions[package][0][0]
+            assert failing_versions[package] == package_versions[package][-1][0]
 
         for package in packages:
             if package in package_versions:
@@ -325,26 +322,17 @@ class TriageTool:
             self.bisection_versions[package] = version
             changed.append(f"{package}@{version}")
             if package in self.package_dirs:
-                # in case of non-linear history - should we limit this to XLA and JAX only?
                 package_cherry_picks = self.args.cherry_pick_commits.get(package, [])
+                git_commands.append(f"cd {self.package_dirs[package]}")
+                git_commands.append("git stash")
+                # this is a checkout on the main branch
+                git_commands.append(f"git checkout {version}")
                 if package_cherry_picks:
                     self.logger.info("Working on a non-linear history")
-                    git_commands.append(f"cd {self.package_dirs[package]}")
-                    git_commands.append("git stash")
-                    # this is a checkout on the main branch
-                    git_commands.append(f"git checkout {version}")
                     cherry_pick_str = " ".join(package_cherry_picks)
                     git_commands.append(
-                        f"git cherry-pick {cherry_pick_str} || (echo 'Cherry-pick failed' && exit 1)"
+                        f"(git cherry-pick {cherry_pick_str} || (echo 'Cherry-pick failed' && exit 1) )"
                     )
-                else:
-                    # Linear history
-                    # A git repository that exists in the container.
-                    git_commands += [
-                        f"cd {self.package_dirs[package]}",
-                        "git stash",
-                        f"git checkout {version}",
-                    ]
 
             else:
                 # Another software package, `version` is probably a version number.
@@ -435,13 +423,6 @@ class TriageTool:
             result=test_result.returncode == 0,
             stdouterr=test_result.stdout,
         )
-
-    def prepare(self):
-        """
-        Function to prepare the triage tool for execution.
-        At the moment, we're adding the bazel cache mounts to the tool.
-        """
-        self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
 
     def find_container_range(self) -> Tuple[str, str]:
         """
@@ -564,7 +545,7 @@ class TriageTool:
         with make_container(
             self.args.container_runtime,
             self.bisection_url,
-            self.bazel_cache_mounts,
+            self.args.container_mount,
             self.logger,
         ) as worker:
             package_versions = self._gather_histories(

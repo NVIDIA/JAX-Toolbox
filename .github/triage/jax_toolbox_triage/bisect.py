@@ -8,7 +8,7 @@ def get_commit_history(
     start,
     end,
     dir,
-    main_branch=None,
+    main_branch,
     logger=None,
     args=None,
 ):
@@ -21,7 +21,7 @@ def get_commit_history(
         start (str): The starting commit hash.
         end (str): The ending commit hash.
         dir (str): The directory where the git repository is located.
-        main_branch (str, optional): The main branch name. Defaults to None.
+        main_branch (str): The main branch name. Defaults is the default branch of the repo.
         logger (Logger, optional): Logger for debug information. Defaults to None.
         args: Additional arguments that may contain cherry-pick commits.
 
@@ -54,19 +54,23 @@ def get_commit_history(
     )
     is_linear = is_ancestor_result.returncode == 0
 
-    if not is_linear and package in ["jax", "xla"]:
+    if not is_linear:
         logger.info(f"Using non-linear history logic with main branch {main_branch}")
 
         # 1. find the linear range on the main branch
-        passing_main_commit_cmd = f"git merge-base {start} {end}"
-        failing_main_commit_cmd = f"git merge-base {end} {main_branch}"
-
-        passing_main_commit = worker.check_exec(
-            ["sh", "-c", passing_main_commit_cmd], workdir=dir
-        ).stdout.strip()
-        failing_main_commit = worker.check_exec(
-            ["sh", "-c", failing_main_commit_cmd], workdir=dir
-        ).stdout.strip()
+        passing_and_failing_cmd = (
+            worker.check_exec(
+                [
+                    "sh",
+                    "-c",
+                    f"git merge-base {start} {end} && git merge-base {end} {main_branch}",
+                ],
+                workdir=dir,
+            )
+            .stdout()
+            .strip()
+        )
+        passing_main_commit, failing_main_commit = passing_and_failing_cmd.splitlines()
 
         # 2. find commits to cherry-pick from the failing branch
         cherry_pick_cmd = f"git rev-list --reverse {failing_main_commit}..{end}"
