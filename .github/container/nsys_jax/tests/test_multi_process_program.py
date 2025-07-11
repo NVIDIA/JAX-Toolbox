@@ -249,13 +249,13 @@ def test_metadata_consistency(
     stacks = hlo_set.reduce_result(
         lambda hlo_module: [get_stack_traces(hlo_module)], lambda l1, l2: l1 + l2
     )
-    # TODO: might need to allow len(stacks) == 1 for should_be_consistent=True if de-duplication gets better in future
-    assert len(stacks) == 2, "Should have two metadata dumps"
-    stacks1, stacks2 = stacks
-    if should_be_consistent:
-        assert stacks1 == stacks2
-    else:
+    assert should_be_consistent or len(stacks) == 2, "Should have two metadata dumps"
+    if not should_be_consistent:
+        stacks1, stacks2 = stacks
         assert stacks1 != stacks2
+    elif len(stacks) == 2:
+        stacks1, stacks2 = stacks
+        assert stacks1 == stacks2
 
 
 @pytest.mark.parametrize("recipe", ["summary", "communication"])
