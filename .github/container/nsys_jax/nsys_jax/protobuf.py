@@ -1,4 +1,5 @@
 from collections import defaultdict
+from collections.abc import Callable
 import functools
 import lzma
 import pathlib
@@ -221,6 +222,19 @@ class HloProtoSet:
     def __init__(self, protos: dict[typing.Optional[str], HloProto]):
         assert len(protos), f"HloProtoSet got {len(protos)} HloProtos"
         self._protos = protos
+
+    def reduce_result[T](
+        self, callable: Callable[[HloProto], T], reduction: Callable[[T, T], T]
+    ) -> T:
+        """
+        Apply a callable to all wrapped HloProto objects. If there are several, combine
+        the results using the given reduction operation.
+        """
+        values = iter(self._protos.values())
+        result = callable(next(values))
+        for proto in values:
+            result = reduction(result, callable(proto))
+        return result
 
     def unique_result(self, callable):
         """
