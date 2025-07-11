@@ -265,12 +265,13 @@ def _load(file: pathlib.Path, program_id: int | None = None) -> HloProto:
 
 _hlo_cache: dict[str, set[pathlib.Path]] = defaultdict(set)
 
-RE_MODULE = re.compile(rf"^module_(\d+)\.(.+)\.(.+)\.hlo\.pb\.xz$")
+RE_MODULE = re.compile(r"^module_(\d+)\.(.+?)\.(.+)\.hlo\.pb\.xz$")
 
 
 def _match_module(name) -> tuple[int, str, str] | None:
     if m := RE_MODULE.match(name):
         return int(m.group(1)), m.group(2), m.group(3)
+    return None
 
 
 @functools.cache
@@ -305,7 +306,7 @@ def _remap_program_id(
     candidates = [
         candidate
         for candidate in dump_dir.glob("*after_optimizations.hlo.pb.xz")
-        if _match_module(candidate)[:2] == (old_id, name)
+        if _match_module(candidate.name)[:2] == (old_id, name)
     ]
     if len(candidates) == 0:
         raise Exception(
