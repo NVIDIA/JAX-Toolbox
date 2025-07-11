@@ -31,7 +31,7 @@ def nsys_jax(command):
 
 
 def extract(archive):
-    tmpdir = tempfile.TemporaryDirectory(delete=False)
+    tmpdir = tempfile.TemporaryDirectory()
     old_dir = os.getcwd()
     os.chdir(tmpdir.name)
     try:

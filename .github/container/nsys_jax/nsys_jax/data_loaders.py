@@ -466,7 +466,7 @@ def _load_nvtx_gpu_proj_trace(
     if len(filenames) > 1:
         tmp = defaultdict(list)
         with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
-            for single_trace_tup in pool.starmap(
+            for single_trace, hlo_cache in pool.starmap(
                 _load_nvtx_gpu_proj_trace_single,
                 zip(
                     itertools.repeat(prefix),
@@ -476,7 +476,6 @@ def _load_nvtx_gpu_proj_trace(
                     itertools.repeat(frames),
                 ),
             ):
-                single_trace, hlo_cache = single_trace_tup
                 for k, v in single_trace.items():
                     tmp[k].append(v)
                 # Merge the caches from the pool worker processes into the main one.
