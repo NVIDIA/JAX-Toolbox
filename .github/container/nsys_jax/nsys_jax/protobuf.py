@@ -271,7 +271,7 @@ RE_MODULE = re.compile(r"^module_(\d+)\.(.+?)\.(.+)\.hlo\.pb\.xz$")
 def _match_module(name) -> tuple[int, str, str] | None:
     if m := RE_MODULE.match(name):
         return int(m.group(1)), m.group(2), m.group(3)
-    return None
+    return None, None, None
 
 
 @functools.cache
