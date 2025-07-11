@@ -31,7 +31,7 @@ def run_command(command, cwd=None, env=None):
 
 
 @pytest.fixture
-def triage_test_env():
+def triage_env():
     """
     Fixture to set up the test environment for triage tests.
 
@@ -58,6 +58,9 @@ def triage_test_env():
         test_case_content = (source_scripts_dir / "test-case.sh").read_text()
         (mock_scripts_path / "test-case.sh").write_text(test_case_content)
         os.chmod(mock_scripts_path / "test-case.sh", 0o755)
+        # fake bazel
+        (mock_scripts_path / "bazel").write_text("#!/bin/sh\nexit 0")
+        os.chmod(mock_scripts_path / "bazel", 0o755)
 
         # Create a git repository
         jax_repo_path = repo_path / "jax"
@@ -74,25 +77,31 @@ def triage_test_env():
         # Create a linear commit history
         git_cmd("commit", "--allow-empty", "-m", "M1")
         m1 = git_cmd("rev-parse", "HEAD")
+        logging.info(f"M1: {m1}")
         git_cmd("commit", "--allow-empty", "-m", "M2")  # good commit
         m2 = git_cmd("rev-parse", "HEAD")
+        logging.info(f"M2: {m2}")
         git_cmd("commit", "--allow-empty", "-m", "M3")  # bad commit
         m3 = git_cmd("rev-parse", "HEAD")
+        logging.info(f"M3: {m3}")
         # create a feature branch
         git_cmd("checkout", "-b", "feature", m1)
         (jax_repo_path / "feature_file.txt").write_text("feature")
         git_cmd("add", "feature_file.txt")
         git_cmd("commit", "-m", "F1")
         f1 = git_cmd("rev-parse", "HEAD")
+        logging.info(f"F1: {f1}")
         # here we're applying a feature to the good f1 commit
         git_cmd("checkout", "-b", "passing_nonlinear", m2)
         git_cmd("cherry-pick", f1)
         passing_nonlinear = git_cmd("rev-parse", "HEAD")
+        logging.info(f"Passing non-linear {passing_nonlinear}")
         # and then we apply the feature to the bad commit
         # this simulated the rebase scenario
         git_cmd("checkout", "-b", "failing_nonlinear", m3)
         git_cmd("cherry-pick", f1)
         failing_nonlinear = git_cmd("rev-parse", "HEAD")
+        logging.info(f"failing non linear {failing_nonlinear}")
         git_cmd("checkout", "main")
 
         # yield all the info
@@ -127,6 +136,7 @@ def triage_test_env():
 )
 def test_triage_scenarios(
     triage_env,
+    monkeypatch,
     scenario,
     passing_commit_key,
     failing_commit_key,
@@ -137,6 +147,10 @@ def test_triage_scenarios(
     paths = triage_env["paths"]
     all_commits = triage_env["commits"]
     jax_repo_path = paths["repo"] / "jax"
+    passing_versions = {"jax": all_commits[passing_commit_key]}
+    failing_versions = {"jax": all_commits[failing_commit_key]}
+    passing_versions_str = f"jax:{all_commits[passing_commit_key]}"
+    failing_versions_str = f"jax:{all_commits[failing_commit_key]}"
 
     arg_list = [
         "--main-branch",
@@ -145,6 +159,10 @@ def test_triage_scenarios(
         str(paths["output"]),
         "--container-runtime",
         "local",
+        "--passing-versions",
+        passing_versions_str,
+        "--failing-versions",
+        failing_versions_str,
         str(paths["scripts"] / "test-case.sh"),
         str(jax_repo_path),
         all_commits["bad_main"],
@@ -152,15 +170,23 @@ def test_triage_scenarios(
     args = parse_args(arg_list)
     logger = logging.getLogger(f"Scenario-{scenario}")
     logging.basicConfig(level=logging.INFO)
+    logger.info(f"Inputs args: {arg_list}")
+    # mp to mock bazel
+    original_path = os.environ.get("PATH", "")
+    monkeypatch.setenv("PATH", f"{paths['scripts']}:{original_path}")
 
     tool = TriageTool(args, logger)
     tool.package_dirs = {"jax": str(jax_repo_path)}
     tool.dynamic_packages = {"jax"}
     tool.bisection_url = "local"
+    if scenario == "Linear History":
+        linear_build_script_path = paths["scripts"] / "build-jax.sh"
+        linear_build_script_path.write_text(
+            "#!/bin/sh\necho 'Mock linear build successful.'\nexit 0"
+        )
+        os.chmod(linear_build_script_path, 0o755)
 
-    passing_versions = {"jax": all_commits[passing_commit_key]}
-    failing_versions = {"jax": all_commits[failing_commit_key]}
-
+    # run the bisection
     tool.run_version_bisection(passing_versions, failing_versions)
     summary_file = paths["output"] / "summary.json"
     assert summary_file.exists(), "The summary file was not created"

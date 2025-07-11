@@ -70,21 +70,17 @@ def get_commit_history(
     cherry_pick_range = {}
 
     if not is_linear:
-        logger.info(f"Using non-linear history logic with main branch {main_branch}")
+        logger.info(f"Using non-linear history logic with branch {main_branch}")
 
         # 1. find the linear range on the main branch
-        passing_and_failing_cmd = (
-            worker.check_exec(
-                [
-                    "sh",
-                    "-c",
-                    f"git merge-base {start} {end} && git merge-base {end} {main_branch}",
-                ],
-                workdir=dir,
-            )
-            .stdout()
-            .strip()
-        )
+        passing_and_failing_cmd = worker.check_exec(
+            [
+                "sh",
+                "-c",
+                f"git merge-base {start} {end} && git merge-base {end} {main_branch}",
+            ],
+            workdir=dir,
+        ).stdout.strip()
         passing_main_commit, failing_main_commit = passing_and_failing_cmd.splitlines()
 
         # 2. find commits to cherry-pick from the failing branch
@@ -116,5 +112,8 @@ def get_commit_history(
             date = date[:-1] + "+00:00"
         date = datetime.datetime.fromisoformat(date).astimezone(datetime.timezone.utc)
         data.append((commit, date))
+
+    logger.info(f"Data: {data}")
+    logger.info(f"Cherry pick {cherry_pick_range}")
 
     return data, cherry_pick_range

@@ -132,7 +132,7 @@ class TriageTool:
             )
             package_versions[package] = history
             if cherry_pick_range:
-                self.cherry_pick_commits[package] = cherry_pick_range
+                self.cherry_pick_commits[package] = cherry_pick_range[package]
 
             assert all(
                 b[1] >= a[1]
@@ -140,8 +140,14 @@ class TriageTool:
                     package_versions[package], package_versions[package][1:]
                 )
             )
-            assert passing_versions[package] == package_versions[package][0][0]
-            assert failing_versions[package] == package_versions[package][-1][0]
+
+            # this check works only for linera-case
+            if not self.cherry_pick_commits.get(package):
+                self.logger.info(f"package_versions: {package_versions}")
+                self.logger.info(f"passing versions: {passing_versions}")
+                self.logger.info(f"failing versions: {failing_versions}")
+                assert passing_versions[package] == package_versions[package][0][0]
+                assert failing_versions[package] == package_versions[package][-1][0]
 
         for package in packages:
             if package in package_versions:
@@ -325,17 +331,22 @@ class TriageTool:
             self.bisection_versions[package] = version
             changed.append(f"{package}@{version}")
             if package in self.package_dirs:
-                package_cherry_picks = self.cherry_pick_commits.get(package, [])
+                self.logger.info(
+                    f"Package working on {package} form {self.package_dirs}"
+                )
+                self.logger.info(f"And cherry pick commits {self.cherry_pick_commits}")
+                cherry_pick_range = self.cherry_pick_commits.get(package)
+                self.logger.info(f"Cherry pick range {cherry_pick_range}")
                 git_commands.append(f"cd {self.package_dirs[package]}")
                 git_commands.append("git stash")
                 # this is a checkout on the main branch
                 git_commands.append(f"git checkout {version}")
-                if package_cherry_picks:
+                if cherry_pick_range:
                     self.logger.info("Working on a non-linear history")
-                    cherry_pick_str = " ".join(package_cherry_picks)
                     git_commands.append(
-                        f"(git cherry-pick {cherry_pick_str} || (echo 'Cherry-pick failed' && exit 1) )"
+                        f"(git cherry-pick {cherry_pick_range} || (echo 'Cherry-pick failed' && exit 1) )"
                     )
+                    self.logger.info(f"Full command {git_commands}")
 
             else:
                 # Another software package, `version` is probably a version number.
