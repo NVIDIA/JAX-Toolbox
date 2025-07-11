@@ -40,12 +40,25 @@ def get_commit_history(
         workdir=dir,
     )
     if commits_known.returncode != 0:
-        if worker.exec(["git", "remote"]).stout.strip():
-            worker.check_exec(
-                ["git", "fetch"], policy="once_per_container", workdir=dir
-            )
+        if args.override_remotes and package in args.override_remotes:
+            remote_url = args.override_remotes[package]
+            fetch_cmd = ["git", "fetch", remote_url, start, end]
+            worker.check_exec(fetch_cmd, workdir=dir)
         else:
-            logger.warning("No remote found, skipping fetch.")
+            # default behaviour
+            # re: https://stackoverflow.com/questions/4089430/how-to-determine-the-url-that-a-local-git-repository-was-originally-cloned-from
+            remote_url_result = worker.check_exec(
+                ["git", "config", "--get", "remote.origin.url"], workdir=dir
+            )
+            if remote_url_result.returncode == 0:
+                remote_url = remote_url_result.stdout().strip()
+                fetch_cmd = ["git", "fetch", remote_url, start, end]
+                worker.check_exec(fetch_cmd, workdir=dir)
+            else:
+                logger.error(
+                    "No remote 'origin' found and no override provided. Cannot fetch missing commits"
+                )
+                raise Exception("Cannot find commits and no remote is configured")
 
     # detect non-linear history
     is_ancestor_result = worker.exec(
@@ -53,6 +66,7 @@ def get_commit_history(
         workdir=dir,
     )
     is_linear = is_ancestor_result.returncode == 0
+    cherry_pick_range = {}
 
     if not is_linear:
         logger.info(f"Using non-linear history logic with main branch {main_branch}")
@@ -73,15 +87,7 @@ def get_commit_history(
         passing_main_commit, failing_main_commit = passing_and_failing_cmd.splitlines()
 
         # 2. find commits to cherry-pick from the failing branch
-        cherry_pick_cmd = f"git rev-list --reverse {failing_main_commit}..{end}"
-        cherry_pick_commits_list = (
-            worker.check_exec(["sh", "-c", cherry_pick_cmd], workdir=dir)
-            .stdout.strip()
-            .splitlines()
-        )
-        if cherry_pick_commits_list:
-            args.cherry_pick_commits[package] = cherry_pick_commits_list
-        logger.info(f"Cherry-pick commits: {cherry_pick_commits_list}")
+        cherry_pick_range[package] = f"{failing_main_commit}..{end}"
 
         # 3. now we can use the main branch  commits for bisection
         start = passing_main_commit
@@ -109,4 +115,5 @@ def get_commit_history(
             date = date[:-1] + "+00:00"
         date = datetime.datetime.fromisoformat(date).astimezone(datetime.timezone.utc)
         data.append((commit, date))
-    return data
+
+    return data, cherry_pick_range

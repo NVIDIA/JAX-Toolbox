@@ -34,7 +34,7 @@ class TriageTool:
         self.packages_with_scripts = set()
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
         # the cherry-pick gets populated only for non-linear cases
-        self.args.cherry_pick_commits = {}
+        self.cherry_pick_commits = {}
 
     def _test_output_directory(
         self, url: str, versions: Union[Dict[str, str], None]
@@ -120,7 +120,7 @@ class TriageTool:
         for package in packages:
             if package not in self.package_dirs:
                 continue
-            package_versions[package] = get_commit_history(
+            history, cherry_pick_range = get_commit_history(
                 worker,
                 package,
                 passing_versions[package],
@@ -130,6 +130,9 @@ class TriageTool:
                 logger=self.logger,
                 args=self.args,
             )
+            package_versions[package] = history
+            if cherry_pick_range:
+                self.cherry_pick_commits[package] = cherry_pick_range
 
             assert all(
                 b[1] >= a[1]
@@ -322,7 +325,7 @@ class TriageTool:
             self.bisection_versions[package] = version
             changed.append(f"{package}@{version}")
             if package in self.package_dirs:
-                package_cherry_picks = self.args.cherry_pick_commits.get(package, [])
+                package_cherry_picks = self.cherry_pick_commits.get(package, [])
                 git_commands.append(f"cd {self.package_dirs[package]}")
                 git_commands.append("git stash")
                 # this is a checkout on the main branch

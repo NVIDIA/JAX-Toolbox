@@ -26,6 +26,23 @@ def parse_version_argument(s: str) -> typing.Dict[str, str]:
     return ret
 
 
+def parse_override_remotes(s: str) -> typing.Dict[str, str]:
+    """Function to parse the override remote
+
+    Inputs:
+        s: (str) e.g. https://<token>@host/repo.git
+
+    Returns:
+        ret: (typing.Dict[str,str]) Dictionary with software as key and git-url as value.
+    """
+    ret: typing.Dict[str, str] = {}
+    for part in s.split(","):
+        sw, url = part.split(":", 1)
+        assert sw not in ret, ret
+        ret[sw] = url
+    return ret
+
+
 def parse_args(args=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="""
@@ -208,6 +225,13 @@ def parse_args(args=None) -> argparse.Namespace:
             in question has different versions at the endpoints of the bisection range.
         """,
     )
+    version_search_args.add_argument(
+        "--override-remotes",
+        type=parse_override_remotes,
+        help="""Remote URLs to be used for fetching, including auth token. E.g.:
+            jax:https://<token>@host/repo.git,xla:https://<token>@host/repo.git
+            """,
+    )
     parser.add_argument(
         "-v",
         "--container-mount",
@@ -258,9 +282,7 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), (
-            "For local runtime, --passing-versions and --failing-versions must be provided."
-        )
+        ), "For local runtime, --passing-versions and --failing-versions must be provided."
         assert (
             args.container is None
             and args.start_date is None
@@ -305,7 +327,7 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert args.container is not None, (
-            "--container must be passed for the container-level search"
-        )
+        assert (
+            args.container is not None
+        ), "--container must be passed for the container-level search"
     return args
