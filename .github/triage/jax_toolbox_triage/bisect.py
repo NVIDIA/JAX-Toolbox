@@ -26,7 +26,8 @@ def get_commit_history(
         args: Additional arguments that may contain cherry-pick commits.
 
     Returns:
-        list: A list of tuples containing commit hashes and their corresponding dates.
+        data: list, list of all the commits
+        cherry_pick_range: str, range of cherry pick commits if any
     """
     # In particular the end commit might not already be known if the older,
     # passing, container is being used for triage.

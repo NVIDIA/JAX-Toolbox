@@ -1,0 +1,174 @@
+import subprocess
+import tempfile
+import pathlib
+import os
+import logging
+import json
+import pytest
+
+from jax_toolbox_triage.args import parse_args
+from jax_toolbox_triage.triage_tool import TriageTool
+
+
+def run_command(command, cwd=None, env=None):
+    """Simple function to run a command in a subprocess.
+
+    Args:
+        command (list): The command to run as a list of strings.
+        cwd (str, optional): The working directory to run the command in.
+        env (dict, optional): Environment variables to set for the command.
+    Returns:
+        str: The standard output of the command.
+    """
+    try:
+        result = subprocess.run(
+            command, cwd=cwd, env=env, check=True, capture_output=True, text=True
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Command '{' '.join(command)}' failed with error: {e}")
+        raise e
+
+
+@pytest.fixture
+def triage_test_env():
+    """
+    Fixture to set up the test environment for triage tests.
+
+    The fixture creates a temp directory and a git repo with a
+    defined linear and non-linear history.
+
+    The fixture yields a dictionary of paths and commit hashes
+    """
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = pathlib.Path(temp_dir)
+        repo_path = temp_path / "repos"
+        output_path = temp_path / "output"
+        mock_scripts_path = temp_path / "mock_scripts"
+        repo_path.mkdir()
+        output_path.mkdir()
+        mock_scripts_path.mkdir()
+        source_scripts_dir = pathlib.Path(__file__).parent / "mock_scripts"
+        # fake build-jax
+        build_script_content = (source_scripts_dir / "build-jax.sh").read_text()
+        (mock_scripts_path / "build-jax.sh").write_text(build_script_content)
+        os.chmod(mock_scripts_path / "build-jax.sh", 0o755)
+        # test-case.sh helper test script
+        test_case_content = (source_scripts_dir / "test-case.sh").read_text()
+        (mock_scripts_path / "test-case.sh").write_text(test_case_content)
+        os.chmod(mock_scripts_path / "test-case.sh", 0o755)
+
+        # Create a git repository
+        jax_repo_path = repo_path / "jax"
+        jax_repo_path.mkdir()
+
+        def git_cmd(command, *args):
+            return run_command(["git", command, *args], cwd=jax_repo_path)
+
+        # main
+        # why don't we push the scripts and use them in repo
+        git_cmd("init", "-b", "main")
+        git_cmd("config", "user.name", "Test User")
+        git_cmd("config", "user.email", "test@user.it")
+        # Create a linear commit history
+        git_cmd("commit", "--allow-empty", "-m", "M1")
+        m1 = git_cmd("rev-parse", "HEAD")
+        git_cmd("commit", "--allow-empty", "-m", "M2")  # good commit
+        m2 = git_cmd("rev-parse", "HEAD")
+        git_cmd("commit", "--allow-empty", "-m", "M3")  # bad commit
+        m3 = git_cmd("rev-parse", "HEAD")
+        # create a feature branch
+        git_cmd("checkout", "-b", "feature", m1)
+        (jax_repo_path / "feature_file.txt").write_text("feature")
+        git_cmd("add", "feature_file.txt")
+        git_cmd("commit", "-m", "F1")
+        f1 = git_cmd("rev-parse", "HEAD")
+        # here we're applying a feature to the good f1 commit
+        git_cmd("checkout", "-b", "passing_nonlinear", m2)
+        git_cmd("cherry-pick", f1)
+        passing_nonlinear = git_cmd("rev-parse", "HEAD")
+        # and then we apply the feature to the bad commit
+        # this simulated the rebase scenario
+        git_cmd("checkout", "-b", "failing_nonlinear", m3)
+        git_cmd("cherry-pick", f1)
+        failing_nonlinear = git_cmd("rev-parse", "HEAD")
+        git_cmd("checkout", "main")
+
+        # yield all the info
+        yield {
+            "paths": {
+                "repo": repo_path,
+                "output": output_path,
+                "scripts": mock_scripts_path,
+            },
+            "commits": {
+                "good_main": m2,
+                "bad_main": m3,
+                "feature": f1,
+                "passing_nonlinear": passing_nonlinear,
+                "failing_nonlinear": failing_nonlinear,
+            },
+        }
+
+
+@pytest.mark.parametrize(
+    "scenario, passing_commit_key, failing_commit_key, expected_good_key, expected_bad_key",
+    [
+        (
+            "Non-Linear History",
+            "passing_nonlinear",
+            "failing_nonlinear",
+            "good_main",
+            "bad_main",
+        ),
+        ("Linear History", "good_main", "bad_main", "good_main", "bad_main"),
+    ],
+)
+def test_triage_scenarios(
+    triage_env,
+    scenario,
+    passing_commit_key,
+    failing_commit_key,
+    expected_good_key,
+    expected_bad_key,
+):
+    """Test the get_commit_history for linear and non-linear histories."""
+    paths = triage_env["paths"]
+    all_commits = triage_env["commits"]
+    jax_repo_path = paths["repo"] / "jax"
+
+    arg_list = [
+        "--main-branch",
+        "main",
+        "--output-prefix",
+        str(paths["output"]),
+        "--container-runtime",
+        "local",
+        str(paths["scripts"] / "test-case.sh"),
+        str(jax_repo_path),
+        all_commits["bad_main"],
+    ]
+    args = parse_args(arg_list)
+    logger = logging.getLogger(f"Scenario-{scenario}")
+    logging.basicConfig(level=logging.INFO)
+
+    tool = TriageTool(args, logger)
+    tool.package_dirs = {"jax": str(jax_repo_path)}
+    tool.dynamic_packages = {"jax"}
+    tool.bisection_url = "local"
+
+    passing_versions = {"jax": all_commits[passing_commit_key]}
+    failing_versions = {"jax": all_commits[failing_commit_key]}
+
+    tool.run_version_bisection(passing_versions, failing_versions)
+    summary_file = paths["output"] / "summary.json"
+    assert summary_file.exists(), "The summary file was not created"
+    with open(summary_file, "r") as f:
+        summary_data = json.load(f)
+
+    assert "result" in summary_data, "No result section was created"
+    result = summary_data["result"]
+
+    assert result.get("jax_good") == all_commits[expected_good_key]
+    assert result.get("jax_bad") == all_commits[expected_bad_key]
