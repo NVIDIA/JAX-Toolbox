@@ -113,7 +113,4 @@ def get_commit_history(
         date = datetime.datetime.fromisoformat(date).astimezone(datetime.timezone.utc)
         data.append((commit, date))
 
-    logger.info(f"Data: {data}")
-    logger.info(f"Cherry pick {cherry_pick_range}")
-
     return data, cherry_pick_range

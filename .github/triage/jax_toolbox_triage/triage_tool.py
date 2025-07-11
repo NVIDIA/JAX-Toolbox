@@ -143,9 +143,6 @@ class TriageTool:
 
             # this check works only for linera-case
             if not self.cherry_pick_commits.get(package):
-                self.logger.info(f"package_versions: {package_versions}")
-                self.logger.info(f"passing versions: {passing_versions}")
-                self.logger.info(f"failing versions: {failing_versions}")
                 assert passing_versions[package] == package_versions[package][0][0]
                 assert failing_versions[package] == package_versions[package][-1][0]
 
@@ -331,12 +328,7 @@ class TriageTool:
             self.bisection_versions[package] = version
             changed.append(f"{package}@{version}")
             if package in self.package_dirs:
-                self.logger.info(
-                    f"Package working on {package} form {self.package_dirs}"
-                )
-                self.logger.info(f"And cherry pick commits {self.cherry_pick_commits}")
                 cherry_pick_range = self.cherry_pick_commits.get(package)
-                self.logger.info(f"Cherry pick range {cherry_pick_range}")
                 git_commands.append(f"cd {self.package_dirs[package]}")
                 git_commands.append("git stash")
                 # this is a checkout on the main branch
@@ -346,7 +338,6 @@ class TriageTool:
                     git_commands.append(
                         f"(git cherry-pick {cherry_pick_range} || (echo 'Cherry-pick failed' && exit 1) )"
                     )
-                    self.logger.info(f"Full command {git_commands}")
 
             else:
                 # Another software package, `version` is probably a version number.
