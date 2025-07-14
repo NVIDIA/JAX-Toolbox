@@ -148,7 +148,7 @@ def _load_nvtx_gpu_proj_trace_single(
     file: pathlib.Path,
     meta_file: pathlib.Path,
     frames: set[str],
-) -> tuple[dict[str, pd.DataFrame], dict[str, set[pathlib.Path]]]:
+) -> tuple[dict[str, pd.DataFrame], dict[tuple[pathlib.Path, str], set[pathlib.Path]]]:
     # Load the thread metadata used to map module/thunk executions to global device IDs
     meta_df = _load_parquet_file(meta_file)
     # Match XLA's launcher thread name. These threads launch work if >1 GPU is being
