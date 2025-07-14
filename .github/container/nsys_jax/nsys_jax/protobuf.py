@@ -214,6 +214,9 @@ class HloProto:
         return self._proto
 
 
+T = typing.TypeVar("T")
+
+
 class HloProtoSet:
     """
     Represents a set of HloProto objects for the same program_id, returned by
@@ -224,7 +227,7 @@ class HloProtoSet:
         assert len(protos), f"HloProtoSet got {len(protos)} HloProtos"
         self._protos = protos
 
-    def reduce_result[T](
+    def reduce_result(
         self, callable: Callable[[HloProto], T], reduction: Callable[[T, T], T]
     ) -> T:
         """

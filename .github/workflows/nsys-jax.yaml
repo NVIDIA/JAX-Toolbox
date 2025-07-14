@@ -37,10 +37,10 @@ jobs:
           path: JAX-Toolbox
           sparse-checkout: |
             .github/container
-      - name: "Setup Python 3.12"
+      - name: "Setup Python 3.10"
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.10'
       # jax is just a CPU-only build of the latest release for type-checking purposes
       - name: "Install jax / nsys_jax / mypy"
         run: pip install jax -e JAX-Toolbox/.github/container/nsys_jax matplotlib mypy nbconvert types-protobuf types-requests
@@ -140,10 +140,10 @@ jobs:
           # Get the actual test data from a real archive, minus the .nsys-rep file
           mkdir profile_data/
           unzip -d profile_data/ .github/workflows/nsys-jax/test_data/pax_fsdp4_1proc.zip
-      - name: "Setup Python 3.12"
+      - name: "Setup Python 3.10"
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.10'
       - name: Install nsys-jax and dependencies
         run: |
           # Do *not* use an editable install (covered above) for better coverage
@@ -262,10 +262,10 @@ jobs:
           path: JAX-Toolbox
           sparse-checkout: |
             .github/container
-      - name: "Setup Python 3.12"
+      - name: "Setup Python 3.10"
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.10'
       - name: "Install ruff"
         run: pip install ruff
       - name: "Run ruff checks"

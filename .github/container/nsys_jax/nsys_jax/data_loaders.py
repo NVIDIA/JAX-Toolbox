@@ -479,8 +479,8 @@ def _load_nvtx_gpu_proj_trace(
                 for k, v in single_trace.items():
                     tmp[k].append(v)
                 # Merge the caches from the pool worker processes into the main one.
-                for k, v in hlo_cache.items():
-                    _hlo_cache[k] |= v
+                for k2, v2 in hlo_cache.items():
+                    _hlo_cache[k2] |= v2
         output = {}
         for k, v in tmp.items():
             output[k] = pd.concat(v, verify_integrity=True)
