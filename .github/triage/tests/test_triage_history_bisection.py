@@ -73,7 +73,7 @@ def triage_env():
         # why don't we push the scripts and use them in repo
         git_cmd("init", "-b", "main")
         git_cmd("config", "user.name", "Test User")
-        git_cmd("config", "user.email", "test@user.it")
+        git_cmd("config", "user.email", "test@example.com")
         # Create a linear commit history
         git_cmd("commit", "--allow-empty", "-m", "M1")
         m1 = git_cmd("rev-parse", "HEAD")
