@@ -80,7 +80,7 @@ def triage_env():
         git_cmd("commit", "--allow-empty", "-m", "M2")  # good commit
         git_cmd("commit", "--allow-empty", "-m", "M3")  # bad commit
         m3 = git_cmd("rev-parse", "HEAD")
-        # create a feature branch
+        # create a feature branch; feature_file.txt must exist for the mock build-jax.sh to return true
         git_cmd("checkout", "-b", "feature", m1)
         (jax_repo_path / "feature_file.txt").write_text("feature")
         git_cmd("add", "feature_file.txt")
