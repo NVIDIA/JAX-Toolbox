@@ -102,7 +102,7 @@ def triage_env():
                 "scripts": mock_scripts_path,
             },
             "commits": {
-                "good_main": m2,
+                "good_main": m1,
                 "bad_main": m3,
                 "feature": f1,
                 "passing_nonlinear": passing_nonlinear,
