@@ -170,9 +170,8 @@ def test_triage_scenarios(
     args = parse_args(arg_list)
     logger = logging.getLogger(f"Scenario-{scenario}")
     logging.basicConfig(level=logging.INFO)
-    # mp to mock bazel
-    original_path = os.environ.get("PATH", "")
-    monkeypatch.setenv("PATH", f"{paths['scripts']}:{original_path}")
+    # Ensure bazel and build-jax.sh can be found.
+    monkeypatch.setenv("PATH", paths['scripts'], prepend=':')
 
     tool = TriageTool(args, logger)
     tool.package_dirs = {"jax": str(jax_repo_path)}
