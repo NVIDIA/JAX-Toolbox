@@ -103,7 +103,6 @@ def triage_env():
             "commits": {
                 "good_main": m1,
                 "bad_main": m3,
-                "feature": f1,
                 "passing_nonlinear": passing_nonlinear,
                 "failing_nonlinear": failing_nonlinear,
             },
