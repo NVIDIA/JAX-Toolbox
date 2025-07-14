@@ -10,7 +10,8 @@ import pathlib
 import re
 
 from .analysis import calculate_collective_metrics
-from .protobuf import xla_module_metadata
+from .protobuf import _hlo_cache, _remap_program_id, xla_module_metadata
+from .protobuf_utils import ensure_compiled_protos_are_importable
 from .utils import default_data_prefix, make_child_mask, ProfilerData
 
 pd.options.mode.copy_on_write = True
@@ -20,7 +21,7 @@ pd.options.mode.copy_on_write = True
 def _is_communication(
     program_id: int, prefix: pathlib.Path, instruction_name: str
 ) -> bool:
-    if program_id == -1:
+    if program_id == "unknown":
         # Assume this is an autotuning execution.
         return False
     try:
@@ -143,10 +144,11 @@ def _sort_thunk_frame(df: pd.DataFrame) -> pd.DataFrame:
 
 def _load_nvtx_gpu_proj_trace_single(
     prefix: pathlib.Path,
+    replica: str | None,
     file: pathlib.Path,
     meta_file: pathlib.Path,
     frames: set[str],
-) -> dict[str, pd.DataFrame]:
+) -> tuple[dict[str, pd.DataFrame], dict[tuple[pathlib.Path, str], set[pathlib.Path]]]:
     # Load the thread metadata used to map module/thunk executions to global device IDs
     meta_df = _load_parquet_file(meta_file)
     # Match XLA's launcher thread name. These threads launch work if >1 GPU is being
@@ -299,22 +301,25 @@ def _load_nvtx_gpu_proj_trace_single(
     # The classic example where it is not set is during autotuning, where ops
     # to be autotuned are extracted into new HloModule instances, which are not
     # propagated to the GpuExecutable that emits the XlaModule annotation.
-    # Those are probably not interesting, so setting the ProgramId to -1 in
-    # such cases is acceptable.
+    # Those are probably not interesting, so setting the ProgramId to
+    # "unknown" in such cases is acceptable.
     module_re = (
         "^"
         + tsl_prefix
         + r"XlaModule:#(?:prefix=(.*?),|)hlo_module=([a-z0-9._-]+)(?:,program_id=(\d+)|)#$"
     )
-    mod_program_ids = (
-        df.loc[mod_ids, "Name"]
-        .str.replace(
-            pat=module_re,
-            repl=lambda m: "-1" if m.group(3) is None else m.group(3),
-            n=1,
-            regex=True,
-        )
-        .astype(np.int32)
+    # Apply a transformation to the program IDs to handle the case where profiles are
+    # being combined from multiple processes, but the distributed application was not
+    # strictly SPMD - so the IDs collected from different processes do not match for
+    # "the same" program. The multi_process_program.py test in the nsys_jax test suite
+    # explicitly constructs this scenario.
+    mod_program_ids = df.loc[mod_ids, "Name"].str.replace(
+        pat=module_re,
+        repl=lambda m: _remap_program_id(
+            old_id_str=m.group(3), name=m.group(2), prefix=prefix, replica=replica
+        ),
+        n=1,
+        regex=True,
     )
     # Update each module and thunk row with the program ID it corresponds to
     df.loc[mod_ids, "ProgramId"] = mod_program_ids
@@ -385,7 +390,7 @@ def _load_nvtx_gpu_proj_trace_single(
                 "RangeStack",
                 "TID",
             ]
-        ).astype({"ProgramExecution": np.int32, "ProgramId": np.int32})
+        ).astype({"ProgramExecution": np.int32})
 
     output = {}
     if "thunk" in frames:
@@ -427,7 +432,7 @@ def _load_nvtx_gpu_proj_trace_single(
             ["ProgramId", "ProgramExecution", "Device"]
         )
 
-    return output
+    return output, _hlo_cache
 
 
 def _enough_processes(work_items: int) -> int:
@@ -440,26 +445,32 @@ def _load_nvtx_gpu_proj_trace(
     prefix: pathlib.Path,
     frames: set[str],
 ):
+    # _remap_program_id needs to load protos
+    ensure_compiled_protos_are_importable(prefix=prefix)
     path = prefix / "nvtx_gpu_proj_trace" / "trace.parquet"
     meta_path = prefix / "thread-metadata.parquet"
+    replica_slugs: list[str | None]
     if path.is_dir():
         # We're looking at the output of nsys-jax-combine
         assert meta_path.is_dir()
         filenames = sorted(path.iterdir())
+        replica_slugs = [fname.name for fname in filenames]
         meta_filenames = sorted(meta_path.iterdir())
     else:
         # We're looking at the output of nsys-jax
         assert not meta_path.is_dir()
         filenames = [path]
+        replica_slugs = [None]
         meta_filenames = [meta_path]
 
     if len(filenames) > 1:
         tmp = defaultdict(list)
         with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
-            for single_trace in pool.starmap(
+            for single_trace, hlo_cache in pool.starmap(
                 _load_nvtx_gpu_proj_trace_single,
                 zip(
                     itertools.repeat(prefix),
+                    replica_slugs,
                     filenames,
                     meta_filenames,
                     itertools.repeat(frames),
@@ -467,6 +478,9 @@ def _load_nvtx_gpu_proj_trace(
             ):
                 for k, v in single_trace.items():
                     tmp[k].append(v)
+                # Merge the caches from the pool worker processes into the main one.
+                for k2, v2 in hlo_cache.items():
+                    _hlo_cache[k2] |= v2
         output = {}
         for k, v in tmp.items():
             output[k] = pd.concat(v, verify_integrity=True)
@@ -477,8 +491,9 @@ def _load_nvtx_gpu_proj_trace(
         if "thunk" in output:
             output["thunk"] = _sort_thunk_frame(output["thunk"])
     else:
-        output = _load_nvtx_gpu_proj_trace_single(
-            prefix, filenames[0], meta_filenames[0], frames
+        # No explicit handling of the HLO cache, everything is in one process
+        output, _ = _load_nvtx_gpu_proj_trace_single(
+            prefix, None, filenames[0], meta_filenames[0], frames
         )
     if "module" in output:
         output["module"] = output["module"].sort_index()
