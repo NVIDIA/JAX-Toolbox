@@ -228,6 +228,7 @@ def parse_args(args=None) -> argparse.Namespace:
     version_search_args.add_argument(
         "--override-remotes",
         type=parse_override_remotes,
+        default={},
         help="""Remote URLs to be used for fetching, including auth token. E.g.:
             jax:https://<token>@host/repo.git,xla:https://<token>@host/repo.git
             """,
@@ -282,9 +283,7 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), (
-            "For local runtime, --passing-versions and --failing-versions must be provided."
-        )
+        ), "For local runtime, --passing-versions and --failing-versions must be provided."
         assert (
             args.container is None
             and args.start_date is None
@@ -329,7 +328,7 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert args.container is not None, (
-            "--container must be passed for the container-level search"
-        )
+        assert (
+            args.container is not None
+        ), "--container must be passed for the container-level search"
     return args

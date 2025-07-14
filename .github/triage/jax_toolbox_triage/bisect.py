@@ -42,7 +42,7 @@ def get_commit_history(
     )
     if commits_known.returncode != 0:
         if args.override_remotes and package in args.override_remotes:
-            remote_url = args.override_remotes[package]
+            remote_url = args.override_remotes.get(package, "origin")
             fetch_cmd = ["git", "fetch", remote_url, start, end]
             worker.check_exec(fetch_cmd, workdir=dir)
         else:
@@ -84,6 +84,7 @@ def get_commit_history(
         passing_main_commit, failing_main_commit = passing_and_failing_cmd.splitlines()
 
         # 2. find commits to cherry-pick from the failing branch
+        # TODO: as an alternative approach we may need to consider `{passing_main_commit}..{start}`
         cherry_pick_range[package] = f"{failing_main_commit}..{end}"
 
         # 3. now we can use the main branch  commits for bisection
