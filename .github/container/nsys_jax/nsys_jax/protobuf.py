@@ -257,13 +257,18 @@ def _load(file: pathlib.Path, program_id: int | None = None) -> HloProto:
     from xla.service import hlo_pb2
 
     hlo = hlo_pb2.HloProto()
-    with lzma.LZMAFile(file, "rb") as f:
-        hlo.ParseFromString(f.read())
+    try:
+        with lzma.LZMAFile(file, "rb") as f:
+            hlo.ParseFromString(f.read())
+    except FileNotFoundError as e:
+        raise FileNotFoundError(
+            f"{file.parent} contents: {list(file.parent.iterdir())}"
+        ) from e
     assert program_id is None or hlo.hlo_module.id == program_id
     return HloProto(hlo)
 
 
-_hlo_cache: dict[str, set[pathlib.Path]] = defaultdict(set)
+_hlo_cache: dict[tuple[pathlib.Path, str], set[pathlib.Path]] = defaultdict(set)
 
 RE_MODULE = re.compile(r"^module_(\d+)\.(.+?)\.(.+)\.hlo\.pb\.xz$")
 
@@ -332,7 +337,7 @@ def _remap_program_id(
         "fingerprint_before_lhs"
     ]
     assert len(fingerprint), hlo.proto().hlo_module.frontend_attributes
-    _hlo_cache[fingerprint].add(candidate)
+    _hlo_cache[(prefix, fingerprint)].add(candidate)
     return fingerprint
 
 
@@ -366,8 +371,8 @@ def xla_module_metadata(
       all: return a dict of {profile_name: protobuf} with all the values that were seen
     """
     assert policy in {"consistent", "all"}
-    assert program_id in _hlo_cache, program_id
-    hlo_files = _hlo_cache[program_id]
+    assert (prefix, program_id) in _hlo_cache, (prefix, program_id)
+    hlo_files = _hlo_cache[(prefix, program_id)]
     if len(hlo_files) > 1:
         # nsys-jax-combine found different .pb.xz files from different profiles
         if policy == "consistent":
