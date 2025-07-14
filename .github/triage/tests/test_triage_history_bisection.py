@@ -90,7 +90,7 @@ def triage_env():
         # and then we apply the feature to the bad commit
         # this simulated the rebase scenario
         git_cmd("checkout", "-b", "failing_nonlinear", m3)
-        git_cmd("cherry-pick", f1)
+        git_cmd("cherry-pick", passing_nonlinear)
         failing_nonlinear = git_cmd("rev-parse", "HEAD")
         git_cmd("checkout", "main")
 
