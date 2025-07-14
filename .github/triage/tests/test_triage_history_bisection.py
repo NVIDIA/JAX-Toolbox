@@ -86,10 +86,6 @@ def triage_env():
         (jax_repo_path / "feature_file.txt").write_text("feature")
         git_cmd("add", "feature_file.txt")
         git_cmd("commit", "-m", "F1")
-        f1 = git_cmd("rev-parse", "HEAD")
-        # here we're applying a feature to the good f1 commit
-        git_cmd("checkout", "-b", "passing_nonlinear", m2)
-        git_cmd("cherry-pick", f1)
         passing_nonlinear = git_cmd("rev-parse", "HEAD")
         # and then we apply the feature to the bad commit
         # this simulated the rebase scenario
