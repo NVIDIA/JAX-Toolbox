@@ -71,6 +71,7 @@ If `--container-runtime=local` is used, the tool assumes it is already inside a 
 
 ## Triage tool logic scheme
 
+```
 +--------------------------------+
 |           main.py              |
 |             main()             |
@@ -79,7 +80,6 @@ If `--container-runtime=local` is used, the tool assumes it is already inside a 
                  v
 +--------------------------------+
 |    tool = TriageTool(args)     |
-|         tool.prepare()         |
 +--------------------------------+
                  |
                  v
@@ -104,8 +104,7 @@ If `--container-runtime=local` is used, the tool assumes it is already inside a 
                  v
 +------------------------------------------------+
 |           tool._gather_histories()             |
-| (Calls bisect.py -> get_commit_history)        |
-| # get the list of all the commits between p&f  |
+| # (Calls bisect.py -> get_commit_history)      |
 +------------------------------------------------+
                  |
                  | <--- Inside get_commit_history()
@@ -137,7 +136,7 @@ If `--container-runtime=local` is used, the tool assumes it is already inside a 
                                  | <--- Inside _build_and_test()
                                  |
 +----------------------------------------------------------------------------+
-|                Does args.cherry_pick_commits exist? -->                    |
+|                Does args.cherry_pick_commits  exist?                       |
 +--------------------------+-------------------------------------------------+
 |           NO             |                      YES                        |
 |   (Linear History Path)  |            (Non-Linear History Path)            |
@@ -150,6 +149,7 @@ If `--container-runtime=local` is used, the tool assumes it is already inside a 
 | - build & test           |     | - git cherry-pick <feature_commits>             |
 |                          |     | - build & test                                  |
 +--------------------------+     +-------------------------------------------------+
+```
 
 ## Usage
 
