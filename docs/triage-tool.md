@@ -136,7 +136,7 @@ If `--container-runtime=local` is used, the tool assumes it is already inside a 
                                  | <--- Inside _build_and_test()
                                  |
 +----------------------------------------------------------------------------+
-|                Does args.cherry_pick_commits exist?                       |
+|                Does args.cherry_pick_commits  exist?                       |
 +--------------------------+-------------------------------------------------+
 |           NO             |                      YES                        |
 |   (Linear History Path)  |            (Non-Linear History Path)            |
