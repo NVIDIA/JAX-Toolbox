@@ -145,7 +145,7 @@ class TriageTool:
             )
 
             # this check works only for linera-case
-            if not self.cherry_pick_commits.get(package):
+            if package not in self.cherry_pick_commits:
                 assert passing_versions[package] == package_versions[package][0][0]
                 assert failing_versions[package] == package_versions[package][-1][0]
 
