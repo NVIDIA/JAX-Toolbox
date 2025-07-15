@@ -41,25 +41,7 @@ def get_commit_history(
         workdir=dir,
     )
     if commits_known.returncode != 0:
-        if args.override_remotes and package in args.override_remotes:
-            remote_url = args.override_remotes.get(package, "origin")
-            fetch_cmd = ["git", "fetch", remote_url, start, end]
-            worker.check_exec(fetch_cmd, workdir=dir)
-        else:
-            # default behaviour
-            # re: https://stackoverflow.com/questions/4089430/how-to-determine-the-url-that-a-local-git-repository-was-originally-cloned-from
-            remote_url_result = worker.check_exec(
-                ["git", "config", "--get", "remote.origin.url"], workdir=dir
-            )
-            if remote_url_result.returncode == 0:
-                remote_url = remote_url_result.stdout().strip()
-                fetch_cmd = ["git", "fetch", remote_url, start, end]
-                worker.check_exec(fetch_cmd, workdir=dir)
-            else:
-                logger.error(
-                    "No remote 'origin' found and no override provided. Cannot fetch missing commits"
-                )
-                raise Exception("Cannot find commits and no remote is configured")
+        worker.check_exec(["git", "fetch", args.override_remotes.get(package, "origin"), start, end], workdir=dir)```
 
     # detect non-linear history
     is_ancestor_result = worker.exec(
