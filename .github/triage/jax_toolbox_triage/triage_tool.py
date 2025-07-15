@@ -568,11 +568,5 @@ class TriageTool:
             self.args.output_prefix, last_known_good, first_known_bad
         )
         result["container"] = self.bisection_url
-        add_summary_record(self.args.output_prefix, "result", result, scalar=True)
         self.logger.info("Version-level bisection completed")
-
-        summary_file = self.args.output_prefix / "summary.json"
-        with open(summary_file, "r") as ifile:
-            summary_data = json.load(ifile)
-
-        return summary_data
+        return add_summary_record(self.args.output_prefix, "result", result, scalar=True)
