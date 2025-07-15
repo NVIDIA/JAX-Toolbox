@@ -3,7 +3,6 @@ import tempfile
 import pathlib
 import os
 import logging
-import json
 import pytest
 
 from jax_toolbox_triage.args import parse_args
@@ -69,7 +68,7 @@ def triage_env():
         def git_cmd(command, *args):
             return run_command(["git", command, *args], cwd=jax_repo_path)
 
-        # main
+        # NON-LINEAR HISTORY
         # why don't we push the scripts and use them in repo
         git_cmd("init", "-b", "main")
         git_cmd("config", "user.name", "Test User")
@@ -81,18 +80,38 @@ def triage_env():
         m2 = git_cmd("rev-parse", "HEAD")
         git_cmd("commit", "--allow-empty", "-m", "M3")  # bad commit
         m3 = git_cmd("rev-parse", "HEAD")
-        # create a feature branch
+        # create a feature branch from  M1
         git_cmd("checkout", "-b", "feature", m1)
         (jax_repo_path / "feature_file.txt").write_text("feature")
         git_cmd("add", "feature_file.txt")
         git_cmd("commit", "-m", "F1")
-        passing_nonlinear = git_cmd("rev-parse", "HEAD")
+        passing_nonlinear = git_cmd("rev-parse", "HEAD")  # F1
         # and then we apply the feature to the bad commit
         # this simulated the rebase scenario
         git_cmd("checkout", "-b", "failing_nonlinear", m3)
         git_cmd("cherry-pick", passing_nonlinear)
-        failing_nonlinear = git_cmd("rev-parse", "HEAD")
-        git_cmd("checkout", "main")
+        failing_nonlinear = git_cmd("rev-parse", "HEAD")  # F1'
+        # so now we have:
+        # M1 --- M2 --- M3
+        # |             |
+        # F1           F1'
+        # where F1 = passing
+        # and F2 = failing
+
+        # LINEAR HISTORY
+        git_cmd("checkout", "-b", "linear_feature_branch", passing_nonlinear)
+        git_cmd("commit", "--allow-empty", "-m", "L1")
+        l1_good_commit = git_cmd("rev-parse", "HEAD")  # L1
+        git_cmd("commit", "--allow-empty", "-m", "L2_BAD")  # L2 bad commit
+        l2_bad_linear_commit = git_cmd("rev-parse", "HEAD")
+        git_cmd("commit", "--allow-empty", "-m", "L3")  # L3
+        l3_failing_linear = git_cmd("rev-parse", "HEAD")
+        # so the linear repo would be
+        # M1 -- M2 -- M3
+        # |
+        # F1
+        # |
+        # L1 -- L2 -- L3
 
         # yield all the info
         yield {
@@ -104,24 +123,35 @@ def triage_env():
             "commits": {
                 "good_main": m2,
                 "bad_main": m3,
-                "feature": f1,
+                "feature": passing_nonlinear,
                 "passing_nonlinear": passing_nonlinear,
                 "failing_nonlinear": failing_nonlinear,
+                "good_linear": l1_good_commit,
+                "bad_commit_for_linear": l2_bad_linear_commit,
+                "failing_linear": l3_failing_linear,
             },
         }
 
 
 @pytest.mark.parametrize(
-    "scenario, passing_commit_key, failing_commit_key, expected_good_key, expected_bad_key",
+    "scenario, passing_commit_key, failing_commit_key, bad_commit_key, expected_good_key, expected_bad_key",
     [
         (
             "Non-Linear History",
             "passing_nonlinear",
             "failing_nonlinear",
+            "bad_main",
             "good_main",
             "bad_main",
         ),
-        ("Linear History", "good_main", "bad_main", "good_main", "bad_main"),
+        (
+            "Linear History",
+            "good_linear",
+            "failing_linear",
+            "bad_commit_for_linear",
+            "good_linear",
+            "bad_commit_for_linear",
+        ),
     ],
 )
 def test_triage_scenarios(
@@ -130,6 +160,7 @@ def test_triage_scenarios(
     scenario,
     passing_commit_key,
     failing_commit_key,
+    bad_commit_key,
     expected_good_key,
     expected_bad_key,
 ):
@@ -161,31 +192,21 @@ def test_triage_scenarios(
         "--",
         str(paths["scripts"] / "test-case.sh"),
         str(jax_repo_path),
-        all_commits["bad_main"],
+        all_commits[bad_commit_key],
     ]
     args = parse_args(arg_list)
     logger = logging.getLogger(f"Scenario-{scenario}")
     logging.basicConfig(level=logging.INFO)
     # Ensure bazel and build-jax.sh can be found.
-    monkeypatch.setenv("PATH", paths['scripts'], prepend=':')
+    monkeypatch.setenv("PATH", paths["scripts"], prepend=":")
 
     tool = TriageTool(args, logger)
     tool.package_dirs = {"jax": str(jax_repo_path)}
     tool.dynamic_packages = {"jax"}
     tool.bisection_url = "local"
-    if scenario == "Linear History":
-        linear_build_script_path = paths["scripts"] / "build-jax.sh"
-        linear_build_script_path.write_text(
-            "#!/bin/sh\necho 'Mock linear build successful.'\nexit 0"
-        )
-        os.chmod(linear_build_script_path, 0o755)
 
     # run the bisection
-    tool.run_version_bisection(passing_versions, failing_versions)
-    summary_file = paths["output"] / "summary.json"
-    assert summary_file.exists(), "The summary file was not created"
-    with open(summary_file, "r") as f:
-        summary_data = json.load(f)
+    summary_data = tool.run_version_bisection(passing_versions, failing_versions)
 
     assert "result" in summary_data, "No result section was created"
     result = summary_data["result"]

@@ -5,7 +5,8 @@ import hashlib
 import logging
 import pathlib
 import time
-from typing import Dict, Tuple, Union
+import json
+from typing import Dict, Tuple, Union, Any
 
 from .container import Container
 from .logic import container_search, TestResult, version_search
@@ -56,9 +57,7 @@ class TriageTool:
         )
 
         out_dir = self.args.output_prefix / out_dirname
-        assert not out_dir.exists(), (
-            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
-        )
+        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
@@ -83,9 +82,9 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert container_url is not None, (
-            "Container URL must be provided if explicit versions are not set."
-        )
+        assert (
+            container_url is not None
+        ), "Container URL must be provided if explicit versions are not set."
 
         with make_container(
             self.args.container_runtime,
@@ -536,7 +535,7 @@ class TriageTool:
         self,
         passing_versions: Dict[str, str],
         failing_versions: Dict[str, str],
-    ) -> None:
+    ) -> Dict[str, Any]:
         """
         Run the version bisection process.
 
@@ -574,3 +573,9 @@ class TriageTool:
         result["container"] = self.bisection_url
         add_summary_record(self.args.output_prefix, "result", result, scalar=True)
         self.logger.info("Version-level bisection completed")
+
+        summary_file = self.args.output_prefix / "summary.json"
+        with open(summary_file, "r") as ifile:
+            summary_data = json.load(ifile)
+
+        return summary_data
