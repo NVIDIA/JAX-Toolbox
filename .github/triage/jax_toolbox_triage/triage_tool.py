@@ -204,12 +204,7 @@ class TriageTool:
         Returns:
             TestResult: The result of the test, including whether it passed and the output.
         """
-        container_url_func = functools.partial(
-            container_url_base,
-            container=self.args.container,
-            template=self.args.container_url_template,
-        )
-        container_url = container_url_func(date)
+        container_url = container_url_base(date, container=self.args.container, template=self.args.container_url_template)
 
         before = time.monotonic()
         out_dir = self._test_output_directory(container_url, None)
