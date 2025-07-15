@@ -43,6 +43,7 @@ def add_summary_record(
 
     with open(summary_filename, "w") as ofile:
         json.dump(data, ofile)
+    return data      
 
 
 def create_output_symlinks(
