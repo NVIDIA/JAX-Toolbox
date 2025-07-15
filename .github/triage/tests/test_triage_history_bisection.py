@@ -96,7 +96,7 @@ def triage_env():
         # |             |
         # F1           F1'
         # where F1 = passing
-        # and F2 = failing
+        # and F1' = failing
 
         # LINEAR HISTORY
         git_cmd("checkout", "-b", "linear_feature_branch", passing_nonlinear)
