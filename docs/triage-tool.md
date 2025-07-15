@@ -69,6 +69,88 @@ passed to `salloc` or set via `SLURM_` environment variables so that a bare `sru
 correctly launch the test case.
 If `--container-runtime=local` is used, the tool assumes it is already inside a JAX container and will execute all build and test commands directly.
 
+## Triage tool logic scheme
+
++--------------------------------+
+|           main.py              |
+|             main()             |
++--------------------------------+
+                 |
+                 v
++--------------------------------+
+|    tool = TriageTool(args)     |
+|         tool.prepare()         |
++--------------------------------+
+                 |
+                 v
++--------------------------------+
+| tool.find_container_range()    |
++--------------------------------+
+                 |
+                 v
++--------------------------------+
+| tool.gather_version_info()     |
+| # extract commit hashes,       |
+| # compare environments         |
++--------------------------------+
+                 |
+                 v
++--------------------------------+
+| tool.run_version_bisection()   |
+| # main part of the logic       |
+| # it runs all the steps below  |
++--------------------------------+
+                 |
+                 v
++------------------------------------------------+
+|           tool._gather_histories()             |
+| (Calls bisect.py -> get_commit_history)        |
+| # get the list of all the commits between p&f  |
++------------------------------------------------+
+                 |
+                 | <--- Inside get_commit_history()
+                 |
++----------------------------------------------------------------------------+
+|               Is history linear? (git merge-base --is-ancestor)            |
++--------------------------+-------------------------------------------------+
+|           YES            |                       NO                        |
+|   (Linear History Path)  |            (Non-Linear History Path)            |
++--------------------------+-------------------------------------------------+
+                 |                                |
+                 v                                v
++--------------------------+     +-------------------------------------------------+
+| get_commit_history()     |     | get_commit_history()                            |
+| returns commits from     |     | - Uses 'git merge-base' to find linear range    |
+| main branch directly.    |     | - Finds cherry-picks to apply to args           |
+|                          |     | - Returns commits from the *main* branch        |
++--------------------------+     +-------------------------------------------------+
+                 |                                |
+                 |                                |
+                 +--------------------------------+
+                                 |
+                                 v
++------------------------------------------------+
+|      logic.py -> version_search() loop         |
+| (Repeatedly calls tool._build_and_test)        |
++------------------------------------------------+
+                                 |
+                                 | <--- Inside _build_and_test()
+                                 |
++----------------------------------------------------------------------------+
+|                Does args.cherry_pick_commits exist? -->                    |
++--------------------------+-------------------------------------------------+
+|           NO             |                      YES                        |
+|   (Linear History Path)  |            (Non-Linear History Path)            |
++--------------------------+-------------------------------------------------+
+                 |                                |
+                 v                                v
++--------------------------+     +-------------------------------------------------+
+| _build_and_test()        |     | _build_and_test()                               |
+| - git checkout <commit>  |     | - git checkout <main_branch_commit>             |
+| - build & test           |     | - git cherry-pick <feature_commits>             |
+|                          |     | - build & test                                  |
++--------------------------+     +-------------------------------------------------+
+
 ## Usage
 
 To use the tool, there are two compulsory inputs:
@@ -161,7 +243,7 @@ paths and `http`/`https`/`grpc` URLs.
 
 If `--skip-precondition-checks` is passed, a sanity check that the failure can be
 reproduced after rebuilding the JAX/XLA commits from the first-known-bad container
-inside that container will be skipped. 
+inside that container will be skipped.
 
 ## Example
 

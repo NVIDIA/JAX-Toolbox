@@ -26,6 +26,23 @@ def parse_version_argument(s: str) -> typing.Dict[str, str]:
     return ret
 
 
+def parse_override_remotes(s: str) -> typing.Dict[str, str]:
+    """Function to parse the override remote
+
+    Inputs:
+        s: (str) e.g. https://<token>@host/repo.git
+
+    Returns:
+        ret: (typing.Dict[str,str]) Dictionary with software as key and git-url as value.
+    """
+    ret: typing.Dict[str, str] = {}
+    for part in s.split(","):
+        sw, url = part.split(":", 1)
+        assert sw not in ret, ret
+        ret[sw] = url
+    return ret
+
+
 def parse_args(args=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="""
@@ -208,6 +225,14 @@ def parse_args(args=None) -> argparse.Namespace:
             in question has different versions at the endpoints of the bisection range.
         """,
     )
+    version_search_args.add_argument(
+        "--override-remotes",
+        type=parse_override_remotes,
+        default={},
+        help="""Remote URLs to be used for fetching, including auth token. E.g.:
+            jax:https://<token>@host/repo.git,xla:https://<token>@host/repo.git
+            """,
+    )
     parser.add_argument(
         "-v",
         "--container-mount",
@@ -225,10 +250,18 @@ def parse_args(args=None) -> argparse.Namespace:
         help="Container runtime used, can be docker, pyxis, or local.",
         type=lambda s: s.lower(),
     )
-    args = parser.parse_args(args=args)
-    assert args.container_runtime in {"docker", "pyxis", "local"}, (
-        args.container_runtime
+    parser.add_argument(
+        "--main-branch",
+        type=str,
+        default="main",
+        help="The name of the main branch (e.g. main) to derive cherry-picks from",
     )
+    args = parser.parse_args(args=args)
+    assert args.container_runtime in {
+        "docker",
+        "pyxis",
+        "local",
+    }, args.container_runtime
     # --{passing,failing}-commits are deprecated aliases for --{passing,failing}-versions.
     for prefix in ["passing", "failing"]:
         commits = getattr(args, f"{prefix}_commits")
