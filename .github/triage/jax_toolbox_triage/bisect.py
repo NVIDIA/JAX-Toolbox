@@ -77,7 +77,7 @@ def get_commit_history(
         end = failing_main_commit
 
     logger.info(
-        f"INFO: cherry_pick_range {cherry_pick_range}, start: {start} and end {end}"
+        f"cherry_pick_range: {cherry_pick_range}, start: {start}, end: {end}"
     )
 
     # now create the right git command to retrieve the history between start..end
