@@ -100,17 +100,11 @@ def get_commit_history(
         ["git", "rev-list", "--parents", "-n", "1", start], workdir=dir
     )
     is_root_commit = len(parent_check_result.stdout.strip().split()) == 1
+    log_range = f"{start}..{end}" if is_root_commit else f"{start}^..{end}"
 
     # now create the right git command to retrieve the history between start..end
     result = worker.check_exec(
-        [
-            "git",
-            "log",
-            "--first-parent",
-            "--reverse",
-            "--format=%H %cI",
-            f"{start}..{end}" if is_root_commit else f"{start}^..{end}",
-        ],
+        ["git", "log", "--first-parent", "--reverse", "--format=%H %cI", log_range],
         policy="once",
         stderr=subprocess.PIPE,
         workdir=dir,

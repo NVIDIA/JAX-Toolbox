@@ -77,6 +77,7 @@ def triage_env():
         git_cmd("commit", "--allow-empty", "-m", "M1")
         m1 = git_cmd("rev-parse", "HEAD")
         git_cmd("commit", "--allow-empty", "-m", "M2")  # good commit
+        m2 = git_cmd("rev-parse", "HEAD")
         git_cmd("commit", "--allow-empty", "-m", "M3")  # bad commit
         m3 = git_cmd("rev-parse", "HEAD")
         # create a feature branch from  M1
@@ -120,7 +121,7 @@ def triage_env():
                 "scripts": mock_scripts_path,
             },
             "commits": {
-                "good_main": m1,
+                "good_main": m2,  # last good commit
                 "bad_main": m3,
                 "passing_nonlinear": passing_nonlinear,
                 "failing_nonlinear": failing_nonlinear,
