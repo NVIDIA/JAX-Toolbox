@@ -41,7 +41,10 @@ def get_commit_history(
         workdir=dir,
     )
     if commits_known.returncode != 0:
-        worker.check_exec(["git", "fetch", args.override_remotes.get(package, "origin"), start, end], workdir=dir)```
+        worker.check_exec(
+            ["git", "fetch", args.override_remotes.get(package, "origin"), start, end],
+            workdir=dir,
+        )
 
     # detect non-linear history
     is_ancestor_result = worker.exec(
@@ -76,17 +79,17 @@ def get_commit_history(
     logger.info(
         f"INFO: cherry_pick_range {cherry_pick_range}, start: {start} and end {end}"
     )
-    # check if the start is the root commit. We may have to deal with the very start of the repo
-    # so we need to handle this case too
-    parent_check_result = worker.check_exec(
-        ["git", "rev-list", "--parents", "-n", "1", start], workdir=dir
-    )
-    is_root_commit = len(parent_check_result.stdout.strip().split()) == 1
-    log_range = f"{start}..{end}" if is_root_commit else f"{start}^..{end}"
 
     # now create the right git command to retrieve the history between start..end
     result = worker.check_exec(
-        ["git", "log", "--first-parent", "--reverse", "--format=%H %cI", log_range],
+        [
+            "git",
+            "log",
+            "--first-parent",
+            "--reverse",
+            "--format=%H %cI",
+            f"{start}^..{end}",
+        ],
         policy="once",
         stderr=subprocess.PIPE,
         workdir=dir,

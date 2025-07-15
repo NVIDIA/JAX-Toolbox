@@ -1,7 +1,6 @@
 import subprocess
 import tempfile
 import pathlib
-import os
 import logging
 import pytest
 
@@ -44,24 +43,9 @@ def triage_env():
         temp_path = pathlib.Path(temp_dir)
         repo_path = temp_path / "repos"
         output_path = temp_path / "output"
-        mock_scripts_path = temp_path / "mock_scripts"
+        source_scripts_dir = pathlib.Path(__file__).parent / "mock_scripts"
         repo_path.mkdir()
         output_path.mkdir()
-        mock_scripts_path.mkdir()
-        source_scripts_dir = pathlib.Path(__file__).parent / "mock_scripts"
-        # fake build-jax
-        build_script_content = (source_scripts_dir / "build-jax.sh").read_text()
-        (mock_scripts_path / "build-jax.sh").write_text(build_script_content)
-        os.chmod(mock_scripts_path / "build-jax.sh", 0o755)
-        # test-case.sh helper test script
-        test_case_content = (source_scripts_dir / "test-case.sh").read_text()
-        (mock_scripts_path / "test-case.sh").write_text(test_case_content)
-        os.chmod(mock_scripts_path / "test-case.sh", 0o755)
-        # fake bazel
-        (mock_scripts_path / "bazel").write_text("#!/bin/sh\nexit 0")
-        os.chmod(mock_scripts_path / "bazel", 0o755)
-
-        # Create a git repository
         jax_repo_path = repo_path / "jax"
         jax_repo_path.mkdir()
 
@@ -74,6 +58,7 @@ def triage_env():
         git_cmd("config", "user.name", "Test User")
         git_cmd("config", "user.email", "test@example.com")
         # Create a linear commit history
+        git_cmd("commit" "--allow-empty", "-m", "M0_base")
         git_cmd("commit", "--allow-empty", "-m", "M1")
         m1 = git_cmd("rev-parse", "HEAD")
         git_cmd("commit", "--allow-empty", "-m", "M2")  # good commit
@@ -92,9 +77,9 @@ def triage_env():
         git_cmd("cherry-pick", passing_nonlinear)
         failing_nonlinear = git_cmd("rev-parse", "HEAD")  # F1'
         # so now we have:
-        # M1 --- M2 --- M3
-        # |             |
-        # F1           F1'
+        # M0--M1 --- M2 --- M3
+        #     |             |
+        #     F1           F1'
         # where F1 = passing
         # and F1' = failing
 
@@ -118,7 +103,7 @@ def triage_env():
             "paths": {
                 "repo": repo_path,
                 "output": output_path,
-                "scripts": mock_scripts_path,
+                "scripts": source_scripts_dir,
             },
             "commits": {
                 "good_main": m2,  # last good commit

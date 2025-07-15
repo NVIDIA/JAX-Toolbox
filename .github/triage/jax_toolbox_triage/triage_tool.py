@@ -5,8 +5,7 @@ import hashlib
 import logging
 import pathlib
 import time
-import json
-from typing import Dict, Tuple, Union, Any
+from typing import Dict, Tuple, Union, Any, Optional
 
 from .container import Container
 from .logic import container_search, TestResult, version_search
@@ -57,11 +56,28 @@ class TriageTool:
         )
 
         out_dir = self.args.output_prefix / out_dirname
-        assert not out_dir.exists(), (
-            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
-        )
+        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
+
+    def _make_container(
+        self, url: str, test_output_directory: Optional[pathlib.Path] = None
+    ) -> Container:
+        """
+        Wrapper for make_container factory
+
+        Args:
+            url: (str), the input url of the docker image
+            test_output_directory: (pathlib.Path), the path to the output directory
+
+        Returns:
+            Container object
+        """
+        mounts = self.bazel_cache_mounts + self.args.container_mount
+        if test_output_directory is not None:
+            mounts.append((test_output_directory, "/triage-tool-output"))
+
+        return make_container(self.args.container_runtime, url, mounts, self.logger)
 
     def _get_versions(
         self,
@@ -84,16 +100,11 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert container_url is not None, (
-            "Container URL must be provided if explicit versions are not set."
-        )
+        assert (
+            container_url is not None
+        ), "Container URL must be provided if explicit versions are not set."
 
-        with make_container(
-            self.args.container_runtime,
-            container_url,
-            self.bazel_cache_mounts,
-            self.logger,
-        ) as worker:
+        with self._make_container(container_url) as worker:
             url_versions, dirs, env = get_versions_dirs_env(worker, versions_from_env)
         overriden_versions = url_versions.copy()
         if explicit_versions is not None:
@@ -204,16 +215,17 @@ class TriageTool:
         Returns:
             TestResult: The result of the test, including whether it passed and the output.
         """
-        container_url = container_url_base(date, container=self.args.container, template=self.args.container_url_template)
+        container_url = container_url_base(
+            date,
+            container=self.args.container,
+            template=self.args.container_url_template,
+        )
 
         before = time.monotonic()
         out_dir = self._test_output_directory(container_url, None)
 
-        # this is from the previous Container class implementation in main
-        mounts = self.args.container_mount + [(out_dir, "/triage-tool-output")]
-
-        with make_container(
-            self.args.container_runtime, container_url, mounts, self.logger
+        with self._make_container(
+            container_url, test_output_directory=out_dir
         ) as worker:
             versions, _, _ = get_versions_dirs_env(
                 worker, self.args.build_scripts_path is not None
@@ -361,17 +373,9 @@ class TriageTool:
         out_dir = self._test_output_directory(
             self.bisection_url, versions=brief_versions
         )
-        mounts = (
-            self.bazel_cache_mounts
-            + self.args.container_mount
-            + [(out_dir, "/triage-tool-output")]
-        )
 
-        with make_container(
-            self.args.container_runtime,
-            self.bisection_url,
-            mounts,
-            self.logger,
+        with self._make_container(
+            self.bisection_url, test_output_directory=out_dir
         ) as worker:
             change_str = " ".join(changed) if len(changed) else "<nothing>"
             info_str = f"Checking out {change_str} in {worker}"
@@ -545,12 +549,7 @@ class TriageTool:
         """
         self.logger.info("Running version-level bisection...")
         # Prepare the container for the bisection
-        with make_container(
-            self.args.container_runtime,
-            self.bisection_url,
-            self.args.container_mount,
-            self.logger,
-        ) as worker:
+        with self._make_container(self.bisection_url) as worker:
             package_versions = self._gather_histories(
                 worker, passing_versions, failing_versions
             )
@@ -569,4 +568,6 @@ class TriageTool:
         )
         result["container"] = self.bisection_url
         self.logger.info("Version-level bisection completed")
-        return add_summary_record(self.args.output_prefix, "result", result, scalar=True)
+        return add_summary_record(
+            self.args.output_prefix, "result", result, scalar=True
+        )
