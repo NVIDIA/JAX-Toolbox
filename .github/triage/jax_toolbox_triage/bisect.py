@@ -74,7 +74,7 @@ def get_commit_history(
         end = failing_main_commit
 
     logger.info(
-        f"INFO: cherry_pick_range {cherry_pick_range}, start: {start} and end {end}"
+        f"cherry_pick_range: {cherry_pick_range}, start: {start}, end: {end}"
     )
     # check if the start is the root commit. We may have to deal with the very start of the repo
     # so we need to handle this case too
