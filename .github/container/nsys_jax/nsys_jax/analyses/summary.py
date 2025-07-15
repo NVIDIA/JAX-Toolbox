@@ -48,7 +48,10 @@ def main():
         / module_stats[("ProjDurMs", "sum")].sum()
     )
 
-    if steady_state.communication is not None and len(steady_state.communication):
+    have_comms = steady_state.communication is not None and len(
+        steady_state.communication
+    )
+    if have_comms:
         # Calculate the time spent waiting in collectives for each module.
         # Min/max over devices within individual communication thunk executions
         min_max_device_times = (
@@ -83,9 +86,10 @@ def main():
         "Thunks": lambda _, v: f"{v:S}" if v.s else f"{v.n:.0f}",
         "Duration [ms]": lambda _, v: f"{v:S}",
         "Duration [%]": lambda _, v: f"{v:.3f}",
-        "Wait time [ms]": lambda _, v: "---" if math.isnan(v.n) else f"{v:S}",
-        "Wait time [%]": lambda _, v: "---" if math.isnan(v) else f"{v:.3f}",
     }
+    if have_comms:
+        fields["Wait time [ms]"] = lambda _, v: "---" if math.isnan(v.n) else f"{v:S}"
+        fields["Wait time [%]"] = lambda _, v: "---" if math.isnan(v) else f"{v:.3f}"
     table = PrettyTable(align="r", custom_format=fields, field_names=fields.keys())
     for id, row in module_stats.iterrows():
         table.add_row(
@@ -96,9 +100,15 @@ def main():
                 ufloat(row[("NumThunks", "mean")], row[("NumThunks", "std")]),
                 ufloat(row[("ProjDurMs", "mean")], row[("ProjDurMs", "std")]),
                 row[("ProjDurMs", "percent")],
-                ufloat(row[("WaitMs", "mean")], row[("WaitMs", "std")]),
-                row[("WaitMs", "percent")],
             ]
+            + (
+                [
+                    ufloat(row[("WaitMs", "mean")], row[("WaitMs", "std")]),
+                    row[("WaitMs", "percent")],
+                ]
+                if have_comms
+                else []
+            )
         )
     print(table)
 
