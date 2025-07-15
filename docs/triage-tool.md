@@ -71,6 +71,7 @@ If `--container-runtime=local` is used, the tool assumes it is already inside a 
 
 ## Triage tool logic scheme
 
+```
 +--------------------------------+
 |           main.py              |
 |             main()             |
@@ -150,6 +151,7 @@ If `--container-runtime=local` is used, the tool assumes it is already inside a 
 | - build & test           |     | - git cherry-pick <feature_commits>             |
 |                          |     | - build & test                                  |
 +--------------------------+     +-------------------------------------------------+
+```
 
 ## Usage
 
