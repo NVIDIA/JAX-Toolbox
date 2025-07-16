@@ -47,6 +47,11 @@ inputs:
     required: false
     default: ghcr.io/nvidia/jax:latest
     type: string
+  IMAGE_PULL_SECRET_NAME:
+    description: 'Name of k8s Secret resource for registry ImagePullSecret'
+    required: false
+    default: jax-toolbox-ghcr
+    type: string
   COMMAND:
     description: 'Command to run in main container on JobSet start up'
     required: false
@@ -113,9 +118,10 @@ runs:
   - name: Apply XPK workload create patch
     shell: bash -x -e -u {0}
     run: |
-      git apply --unsafe-paths .github/gke-workflow/xpk/tcpxo_decorator.patch --directory ${WORKLOAD_NAME}/xpk
-      git apply --unsafe-paths .github/gke-workflow/xpk/docker_resources.patch --directory ${WORKLOAD_NAME}/xpk
-      git apply --unsafe-paths .github/gke-workflow/xpk/workload.patch --directory ${WORKLOAD_NAME}/xpk
+      sed -i 's/{{ IMAGE_PULL_SECRET_NAME}}/${{ inputs.IMAGE_PULL_SECRET_NAME }}/g' .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch 
+      git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/tcpxo_decorator.patch --directory ${WORKLOAD_NAME}/xpk
+      git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/docker_resources.patch --directory ${WORKLOAD_NAME}/xpk
+      git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch --directory ${WORKLOAD_NAME}/xpk
   
   - name: Set workload commands
     shell: bash -x -e -u {0}
