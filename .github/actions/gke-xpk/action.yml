@@ -118,7 +118,7 @@ runs:
   - name: Apply XPK workload create patch
     shell: bash -x -e -u {0}
     run: |
-      sed -i 's/{{ IMAGE_PULL_SECRET_NAME}}/${{ inputs.IMAGE_PULL_SECRET_NAME }}/g' .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch 
+      sed -i 's/{{ IMAGE_PULL_SECRET_NAME }}/${{ inputs.IMAGE_PULL_SECRET_NAME }}/g' .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch 
       git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/tcpxo_decorator.patch --directory ${WORKLOAD_NAME}/xpk
       git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/docker_resources.patch --directory ${WORKLOAD_NAME}/xpk
       git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch --directory ${WORKLOAD_NAME}/xpk
