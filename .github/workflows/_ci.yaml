@@ -539,6 +539,22 @@ jobs:
       CI_NAME: transformer-engine
     secrets: inherit
 
+  test-jax-cutlass-h100:
+    needs: build-jax
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax-cutlass'
+      )
+    uses: ./.github/workflows/_jax_cutlass_eks.yaml
+    with:
+      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+      JOB_NAME: jax-cutlass-${{ github.run_id }}
+      S3_BUCKET: jax-toolbox-eks-output
+      CI_NAME: jax-cutlass
+    secrets: inherit
+
   test-te-a100:
     needs: build-jax
     secrets: inherit
