@@ -93,7 +93,7 @@ print_var() {
 }
 
 clean() {
-    pushd "${SRC_PATH_TRANSFORMER_ENGINE}"
+    pushd "${SRC_PATH_TE}"
     rm -rf build/ .eggs/
     popd
 }
@@ -130,7 +130,7 @@ export NVTE_FRAMEWORK=jax
 # TransformerEngine needs FFI headers from XLA
 export XLA_HOME=${SRC_PATH_XLA}
 
-pushd ${SRC_PATH_TRANSFORMER_ENGINE}
+pushd ${SRC_PATH_TE}
 # Install required packages that were removed in https://github.com/NVIDIA/TransformerEngine/pull/1852
 pip install "pybind11[global]"
 
@@ -143,7 +143,7 @@ popd
 
 ## Install the built packages
 if [[ "${INSTALL}" == "1" ]]; then
-    pip install ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl
+    pip install ${SRC_PATH_TE}/dist/*.whl
     pip list | grep ^transformer_engine
 fi
 
