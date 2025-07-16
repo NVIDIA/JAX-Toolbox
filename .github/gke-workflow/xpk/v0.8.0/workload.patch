@@ -7,7 +7,7 @@ index a466a5c..8a5b99e 100644
                - operator: "Exists"
                  key: nvidia.com/gpu
 +              imagePullSecrets:
-+              - name: jax-toolbox-ghcr
++              - name: {{ IMAGE_PULL_SECRET_NAME }}
                containers:
                {container}
  """
