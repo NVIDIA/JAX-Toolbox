@@ -24,10 +24,20 @@ jobs:
       NUM_NODES: 2
 
     steps:
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: K8s GHCR store and delete token
+      id: store-token
+      uses: ./.github/actions/store-delete-k8s-ghcr
     - name: Run XPK workload on cluster
       uses: ./.github/actions/gke-xpk
       with:
         IMAGE: ${{ env.MAXTEXT_IMAGE }}
+        IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
         WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
         COMMAND: |
           export NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so;
