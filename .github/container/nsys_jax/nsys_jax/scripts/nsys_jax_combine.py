@@ -150,7 +150,8 @@ def main():
                 # Gather output files of the scrpt
                 for path in (mirror_dir / output_prefix).rglob("*"):
                     src_path = mirror_dir / output_prefix / path
-                    if src_path.is_dir(): continue
+                    if src_path.is_dir():
+                        continue
                     with (
                         open(src_path, "rb") as src,
                         ofile.open(str(path.relative_to(mirror_dir)), "w") as dst,

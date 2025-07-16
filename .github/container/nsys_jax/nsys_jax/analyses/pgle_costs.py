@@ -62,8 +62,8 @@ def main():
         print(f"Processing module {row.Name} ({row.Index})")
         try:
             hlo_module = xla_module_metadata(row.Index, prefix=args.prefix)
-        except:
-            print("Skipping!")
+        except Exception as e:
+            print(f"Skipping due to: {e}")
             continue
         # Thunks in this module
         thunk_df = steady_state.thunk.loc[row.Index]
