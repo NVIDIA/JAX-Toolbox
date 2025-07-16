@@ -39,7 +39,7 @@ def min_compute_max_comm(grouped):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Write something for --xla_gpu_pgle_profile_file_or_directory_path"
+        description="Generate the profile.pbtxt expected by --xla_gpu_pgle_profile_file_or_directory_path"
     )
     parser.add_argument("prefix", type=pathlib.Path)
     args = parser.parse_args()
