@@ -1,0 +1,151 @@
+name: ~test TransformerEngine tests on EKS cluster (8xH100)
+on:
+  workflow_call:
+    inputs:
+      JAX_IMAGE:
+        type: string
+        description: 'URI of image to run tests on'
+        required: true
+      JOB_NAME:
+        type: string
+        description: 'Job name identifying the unique GitHub Actions run'
+        required: true
+      S3_BUCKET:
+        type: string
+        description: 'AWS S3 bucket to which logs will be uploaded for processing in CI'
+        required: true
+      CI_NAME:
+        type: string
+        description: 'Name of the CI'
+        required: true
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+  jax-cutlass-test-h100:
+    env:
+      JAX_CUTLASS_EKS_FILES_PREFIX: .github/eks-workflow-files/jax-cutlass
+      RUN_NAME: ${{ inputs.JOB_NAME }}-${{ matrix.N_GPU }}gpu-${{ matrix.TEST }}
+      BADGE_SUFFIX: "${{ matrix.TEST }} (${{ matrix.N_GPU }})"
+    strategy:
+       fail-fast: true
+       matrix:
+         include:
+           - TEST: unittest
+             N_GPU: 8
+    runs-on: [eks] # cluster with H100 nodes
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v4
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: K8s GHCR store and delete token 
+      id: store-token
+      uses: ./.github/actions/store-delete-k8s-ghcr
+    - name: Configure job manifest
+      run: |
+        set -x
+        K8S_JOB_TEMPLATE="${{ env.JAX_CUTLASS_EKS_FILES_PREFIX }}/test.yml"
+        K8S_JOB_MANIFEST="${{ env.JAX_CUTLASS_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml"
+        SCRIPT="${{ env.JAX_CUTLASS_EKS_FILES_PREFIX }}/scripts/${{ matrix.TEST }}.sh"
+
+        if ! [ -f $K8S_JOB_TEMPLATE ]; then
+          echo "Template manifest does not exist at $K8S_JOB_TEMPLATE"
+          exit 1
+        fi
+
+        # paste in script to manifest from file
+        # update placeholder values
+        sed '/SCRIPT/ {
+            r '$SCRIPT'
+            d
+        }' $K8S_JOB_TEMPLATE | \
+            sed s@JOB_NAME@${{ env.RUN_NAME }}@g | \
+            sed s@IMAGE_URI@${{ inputs.JAX_IMAGE }}@g | \
+            sed s@SECRETS_NAME@${{ steps.store-token.outputs.token-name }}@g | \
+            sed s@N_GPU@${{ matrix.N_GPU }}@g | \
+            tee $K8S_JOB_MANIFEST
+
+    - name: Submit & delete jax cutlass unit test job
+      uses: ./.github/actions/submit-delete-k8s-job 
+      with:
+        job-config-file: ${{ env.JAX_CUTLASS_EKS_FILES_PREFIX }}/${{ matrix.TEST }}.yml
+        job-name: ${{ env.RUN_NAME }}
+
+    - name: Download and process logs from S3
+      id: s3-logs-process
+      run: |
+        LOCAL_DIR=${{ inputs.CI_NAME }}-output
+        REPORT_JSON=pytest-report.jsonl
+
+        mkdir -p $LOCAL_DIR
+        aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.CI_NAME }}/${{ env.RUN_NAME }}/ $LOCAL_DIR/ --recursive 
+
+        passed_tests=$(cat $LOCAL_DIR/$REPORT_JSON |  jq --slurp | jq '.[] | select(.outcome == "passed") | .outcome' | wc -l || true)
+        failed_tests=$(cat $LOCAL_DIR/$REPORT_JSON |  jq --slurp | jq '.[] | select(.outcome == "failed") | .outcome' | wc -l || true)
+
+        total_tests=$((failed_tests + passed_tests))
+        echo "Passed tests: $passed_tests"
+        echo "Failed tests: $failed_tests"
+        echo "Total tests: $total_tests"
+        echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
+        echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
+
+        echo "$failed_tests tests failed"
+        if [[ $failed_tests -gt 0 ]]; then
+            exit 1
+        else
+            exit 0
+        fi
+
+    - name: Generate sitrep
+      id: sitrep
+      if: ${{ !cancelled() }}
+      shell: bash -x -e {0}
+      run: |
+        # bring in utility functions
+        source .github/workflows/scripts/to_json.sh
+
+        badge_label='Jax Cutlass EKS ${{ env.BADGE_SUFFIX }}'
+
+        total_tests=${{ steps.s3-logs-process.outputs.TOTAL_TESTS }} \
+        failed_tests=${{ steps.s3-logs-process.outputs.FAILED_TESTS }} \
+        passed_tests=${{ steps.s3-logs-process.outputs.PASSED_TESTS }} \
+        errors="0" \
+        summary="All tests: $total_tests. Passed: $passed_tests. Failed: $failed_tests." \
+        badge_message="Passed $passed_tests out of $total_tests." \
+        badge_color="brightgreen"
+        if [ "$failed_tests" -gt 0 ]; then
+          badge_color="red"
+        fi \
+
+        to_json \
+          summary \
+          errors total_tests passed_tests failed_tests \
+          badge_label badge_color badge_message \
+        > sitrep.json
+
+        schemaVersion=1 \
+        label="${badge_label}" \
+        message="Passed $passed_tests out of $total_tests." \
+        color=$badge_color \
+        to_json schemaVersion label message color \
+        > badge-jax-cutlass-test.json
+
+    - name: Upload artifacts
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: "jax-cutlass-test-H100"
+        path: |
+          sitrep.json
+          badge-jax-cutlass.json
+          jax-cutlass-output/*
