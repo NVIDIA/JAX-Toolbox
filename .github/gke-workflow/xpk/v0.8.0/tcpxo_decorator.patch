@@ -1,0 +1,13 @@
+diff --git a/src/xpk/core/workload_decorators/tcpxo_decorator.py b/src/xpk/core/workload_decorators/tcpxo_decorator.py
+index 322e574..5a0cc42 100644
+--- a/src/xpk/core/workload_decorators/tcpxo_decorator.py
++++ b/src/xpk/core/workload_decorators/tcpxo_decorator.py
+@@ -175,7 +175,7 @@ def update_gpu_containers(job_manifest):
+     if 'nvidia.com/gpu' in container.get('resources', {}).get('limits', {}):
+       container.setdefault('env', [])
+       container['env'].append(
+-          {'name': 'LD_LIBRARY_PATH', 'value': '/usr/local/nvidia/lib64'}
++              {'name': 'LD_LIBRARY_PATH', 'value': '/opt/nvidia/nccl/lib:/usr/local/cuda-12.8/targets/x86_64-local/lib:/usr/local/nvidia/lib64'}
+       )
+       container['env'].append({
+           'name': 'NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY',
