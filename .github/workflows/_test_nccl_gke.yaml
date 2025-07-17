@@ -22,10 +22,6 @@ jobs:
           username: $oauthtoken
           password: ${{ secrets.NVCR_TOKEN }}
 
-      - name: K8s GHCR store and delete token
-        id: store-token
-        uses: ./.github/actions/store-delete-k8s-ghcr
-
       - name: Build NCCL image
         id: build
         uses: ./.github/actions/build-container
