@@ -54,56 +54,68 @@ jobs:
       NCCL_ITERS: 100
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Set workload name prefix # due to 40 char limit
-        id: workload-name
-        run: |
-          TEST_NAME=$(echo "${{ matrix.test }}" | sed 's/_perf_mpi//g' | sed 's/_/-/g')
-          WORKLOAD_PREFIX="${{ env.WORKLOAD_NAME_PREFIX }}-${TEST_NAME}"
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-          echo "WORKLOAD_PREFIX=${WORKLOAD_PREFIX}" >> ${GITHUB_OUTPUT}
+    - name: K8s GHCR store and delete token
+      id: store-token
+      uses: ./.github/actions/store-delete-k8s-ghcr
 
-      - name: Create NCCL test Services on cluster
-        run: |
-          SERVICE_MANIFEST=".github/gke-workflow/nccl/service-${WORKLOAD_NAME}-${{ matrix.test }}.yaml"
-          WORKLOAD_NAME="${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          echo "SERVICE_MANIFEST=${SERVICE_MANIFEST}" >> ${GITHUB_ENV}
+    - name: Set workload name prefix # due to 40 char limit
+      id: workload-name
+      run: |
+        TEST_NAME=$(echo "${{ matrix.test }}" | sed 's/_perf_mpi//g' | sed 's/_/-/g')
+        WORKLOAD_PREFIX="${{ env.WORKLOAD_NAME_PREFIX }}-${TEST_NAME}"
 
-          cat .github/gke-workflow/nccl/service.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD_NAME}'"' --yaml-output | tee ${SERVICE_MANIFEST}
-          kubectl apply -f ${SERVICE_MANIFEST}
+        echo "WORKLOAD_PREFIX=${WORKLOAD_PREFIX}" >> ${GITHUB_OUTPUT}
 
-      - name: Run XPK workload on cluster
-        uses: ./.github/actions/gke-xpk
-        with:
-          IMAGE: ${{ env.BASE_IMAGE }}
-          WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
-          COMMAND: |
-            export NHOSTS=${{ env.NHOSTS }};
-            export NCCL_LIB_DIR=/opt/nvida/nccl/lib;
-            export SCRIPT_DIR=/scripts;
+    - name: Create NCCL test Services on cluster
+      run: |
+        SERVICE_MANIFEST=".github/gke-workflow/nccl/service-${WORKLOAD_NAME}-${{ matrix.test }}.yaml"
+        WORKLOAD_NAME="${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        echo "SERVICE_MANIFEST=${SERVICE_MANIFEST}" >> ${GITHUB_ENV}
 
-            export NCCL_MINBYTES=${{ env.NCCL_MINBYTES }};
-            export NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
-            export NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
-            export NCCL_ITERS=${{ env.NCCL_ITERS }};
+        cat .github/gke-workflow/nccl/service.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD_NAME}'"' --yaml-output | tee ${SERVICE_MANIFEST}
+        kubectl apply -f ${SERVICE_MANIFEST}
 
-            service ssh restart;
-            console=/dev/stdout;
-            declare -a hosts=('nccl-test-host-1' 'nccl-test-host-2');
+    - name: Run XPK workload on cluster
+      uses: ./.github/actions/gke-xpk
+      with:
+        IMAGE: ${{ env.BASE_IMAGE }}
+        IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
+        WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
+        COMMAND: |
+          export NHOSTS=${{ env.NHOSTS }};
+          export NCCL_LIB_DIR=/opt/nvida/nccl/lib;
+          export SCRIPT_DIR=/scripts;
 
-            /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
-            tee /opt/output/output.log &> \${console};
+          export NCCL_MINBYTES=${{ env.NCCL_MINBYTES }};
+          export NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
+          export NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
+          export NCCL_ITERS=${{ env.NCCL_ITERS }};
 
-            MAYBE_MPI_EXIT_CODE=\$(tail /opt/output/output.log | rg 'Exit code:[ ]+([0-9]+)' -or '\$1');
-            if [ -z \${MAYBE_MPI_EXIT_CODE} ]; then
-              EXIT_CODE=0;
-            else
-              EXIT_CODE=\${MAYBE_MPI_EXIT_CODE};
-            fi;
+          service ssh restart;
+          console=/dev/stdout;
+          declare -a hosts=('nccl-test-host-1' 'nccl-test-host-2');
 
-      - name: Clean up NCCL test Services from cluster
-        if: ${{ always() }}
-        run: |
-          kubectl delete -f ${SERVICE_MANIFEST}
+          /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
+          tee /opt/output/output.log &> \${console};
+
+          MAYBE_MPI_EXIT_CODE=\$(tail /opt/output/output.log | rg 'Exit code:[ ]+([0-9]+)' -or '\$1');
+          if [ -z \${MAYBE_MPI_EXIT_CODE} ]; then
+            EXIT_CODE=0;
+          else
+            EXIT_CODE=\${MAYBE_MPI_EXIT_CODE};
+          fi;
+
+    - name: Clean up NCCL test Services from cluster
+      if: ${{ always() }}
+      run: |
+        kubectl delete -f ${SERVICE_MANIFEST}
 
