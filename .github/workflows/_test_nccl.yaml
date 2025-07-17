@@ -68,7 +68,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ inputs.github-token }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: K8s GHCR store and delete token
         id: store-token
         uses: ./.github/actions/store-delete-k8s-ghcr
