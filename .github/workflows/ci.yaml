@@ -12,6 +12,8 @@ on:
     paths-ignore:
       - '**.md'
       - '.github/triage/**'
+    branches-ignore:
+      - '25.08-devel-add-ngc-release-testing'
   workflow_dispatch:
     inputs:
       PUBLISH:
