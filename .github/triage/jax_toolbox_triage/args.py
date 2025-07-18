@@ -170,9 +170,6 @@ def parse_args(args=None) -> argparse.Namespace:
     )
     version_search_args.add_argument(
         "--bazel-cache",
-        default=os.path.join(
-            tempfile.gettempdir(), f"{getpass.getuser()}-bazel-triage-cache"
-        ),
         help="""
             Bazel cache to use when [re-]building JAX/XLA during the fine search. This can
             be a remote cache server or a local directory. Using a persistent cache can
@@ -332,5 +329,15 @@ def parse_args(args=None) -> argparse.Namespace:
         # compulsory arguments for the container-level search were passed
         assert args.container is not None, (
             "--container must be passed for the container-level search"
+        )
+
+    if args.container_runtime == "pyxis":
+        assert args.bazel_cache is not None, (
+            "For pyxis runtime, --bazel-cache must be provided explicitly. You likely "
+            "want to use a remote cache URL."
+        )
+    elif args.bazel_cache is None:
+        args.bazel_cache = os.path.join(
+            tempfile.gettempdir(), f"{getpass.getuser()}-bazel-triage-cache"
         )
     return args
