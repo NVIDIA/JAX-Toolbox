@@ -18,6 +18,7 @@ ARG CLANG_VERSION
 ARG JAX_TOOLBOX_REF
 ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
 ENV CUDA_BASE_IMAGE=${BASE_IMAGE}
+ENV JAX_TOOLBOX_REF=${JAX_TOOLBOX_REF}
 
 ###############################################################################
 ## Install Python and essential tools
