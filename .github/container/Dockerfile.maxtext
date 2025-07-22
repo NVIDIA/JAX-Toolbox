@@ -39,6 +39,7 @@ for pattern in \
     "s|tensorflow-datasets|tensorflow-datasets>=4.8.0|g" \
     "s|sentencepiece==0.1.97|sentencepiece>=0.2|g" \
     "s|tensorflow>=2.13.0|tensorflow==2.18.1|g" \
+    "s|flax==0.10.6|flax|g" \
   ; do
     # tensorflow-cpu==2.19.0 is incompatible with tensorflow-text
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt
