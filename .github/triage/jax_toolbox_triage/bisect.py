@@ -52,10 +52,12 @@ def get_commit_history(
         workdir=dir,
     )
     is_linear = is_ancestor_result.returncode == 0
-    cherry_pick_range = {}
+    cherry_pick_range = None
 
     if not is_linear:
-        logger.info(f"Using non-linear history logic with branch {main_branch}")
+        logger.debug(
+            f"Using non-linear history logic for {package} with branch {main_branch}"
+        )
 
         # 1. find the linear range on the main branch
         passing_and_failing_cmd = worker.check_exec(
@@ -70,13 +72,21 @@ def get_commit_history(
 
         # 2. find commits to cherry-pick from the failing branch
         # TODO: as an alternative approach we may need to consider `{passing_main_commit}..{start}`
-        cherry_pick_range[package] = f"{failing_main_commit}..{end}"
+        cherry_pick_range = f"{failing_main_commit}..{end}"
 
         # 3. now we can use the main branch  commits for bisection
         start = passing_main_commit
         end = failing_main_commit
 
-    logger.info(f"cherry_pick_range: {cherry_pick_range}, start: {start}, end: {end}")
+    logger.info(
+        f"{package}: "
+        + (f"{start}^..{end}" if start != end else start)
+        + (
+            f" (cherry_pick: {cherry_pick_range})"
+            if cherry_pick_range is not None
+            else ""
+        )
+    )
 
     # now create the right git command to retrieve the history between start..end
     result = worker.check_exec(

@@ -14,7 +14,7 @@ import warnings
 # but they are not always installed in containers we want to triage.
 # Note this is not a `set` for the sake of run-to-run determinism.
 compulsory_software = ["xla", "jax"]
-optional_software = ["flax", "maxtext"]
+optional_software = ["flax", "maxtext", "transformer-engine"]
 
 
 def parse_version_argument(s: str) -> typing.Dict[str, str]:
@@ -262,6 +262,7 @@ def parse_args(args=None) -> argparse.Namespace:
     # --{passing,failing}-commits are deprecated aliases for --{passing,failing}-versions.
     for prefix in ["passing", "failing"]:
         commits = getattr(args, f"{prefix}_commits")
+        delattr(args, f"{prefix}_commits")
         if commits is None:
             continue
         if getattr(args, f"{prefix}_versions") is None:

@@ -36,6 +36,14 @@ class TriageTool:
         # the cherry-pick gets populated only for non-linear cases
         self.cherry_pick_commits = {}
 
+        self.logger.info("Arguments:")
+        for k, v in vars(self.args).items():
+            logger.info(f"  {k}: {v}")
+        logger.info(
+            "Verbose output, including stdout/err of triage commands, will be written "
+            f"to {(self.args.output_prefix / 'debug.log').resolve()}"
+        )
+
     def _test_output_directory(
         self, url: str, versions: Union[Dict[str, str], None]
     ) -> pathlib.Path:
@@ -147,8 +155,8 @@ class TriageTool:
                 args=self.args,
             )
             package_versions[package] = history
-            if cherry_pick_range:
-                self.cherry_pick_commits[package] = cherry_pick_range[package]
+            if cherry_pick_range is not None:
+                self.cherry_pick_commits[package] = cherry_pick_range
 
             assert all(
                 b[1] >= a[1]
@@ -157,7 +165,7 @@ class TriageTool:
                 )
             )
 
-            # this check works only for linera-case
+            # this check works only for linear-case
             if package not in self.cherry_pick_commits:
                 assert passing_versions[package] == package_versions[package][0][0]
                 assert failing_versions[package] == package_versions[package][-1][0]
@@ -196,13 +204,13 @@ class TriageTool:
             return
         self.logger.info(f"Environment differences between {url1} and {url2}:")
         for key in env1.keys() - env2.keys():
-            self.logger.info(f"\tOnly in {url1}: {key}={env1[key]}")
+            self.logger.info(f"  Only in {url1}: {key}={env1[key]}")
         for key in env2.keys() - env1.keys():
-            self.logger.info(f"\tOnly in {url2}: {key}={env2[key]}")
+            self.logger.info(f"  Only in {url2}: {key}={env2[key]}")
         for key in env1.keys() & env2.keys():
             if env1[key] != env2[key]:
                 self.logger.info(
-                    f"{key}: {env1[key]} ({url1}) vs. {env2[key]} ({url2})"
+                    f"  {key}: {env1[key]} ({url1}) vs. {env2[key]} ({url2})"
                 )
 
     def _check_container_by_date(
@@ -346,10 +354,7 @@ class TriageTool:
                 # this is a checkout on the main branch
                 git_commands.append(f"git checkout {version}")
                 if cherry_pick_range:
-                    self.logger.info("Working on a non-linear history")
-                    git_commands.append(
-                        f"(git cherry-pick {cherry_pick_range} || (echo 'Cherry-pick failed' && exit 1) )"
-                    )
+                    git_commands.append(f"git cherry-pick {cherry_pick_range}")
 
             else:
                 # Another software package, `version` is probably a version number.
@@ -397,6 +402,7 @@ class TriageTool:
             build_cmds = [
                 "bazel clean --expunge",
                 f"build-jax.sh --bazel-cache={self.args.bazel_cache}",
+                "build-te.sh",
             ]
             worker.check_exec(
                 ["sh", "-c", " && ".join(build_cmds)],
@@ -438,8 +444,10 @@ class TriageTool:
         Find the range from the passing and failing containers.
         Returns a tuple of the start and end container names.
         """
-        self.logger.info("Finding container range...")
         if self.args.container_runtime == "local":
+            self.logger.info(
+                "Skipping container-level search because --container-runtime=local"
+            )
             return "local", "local"
 
         container_url_func = functools.partial(
@@ -449,6 +457,7 @@ class TriageTool:
         )
 
         if self.args.passing_container is None and self.args.failing_container is None:
+            self.logger.info("Launching container-level search")
             range_start, range_end = container_search(
                 container_exists=lambda date: make_container(
                     self.args.container_runtime,
@@ -465,8 +474,15 @@ class TriageTool:
             )
 
             return container_url_func(range_start), container_url_func(range_end)
-        else:
-            return self.args.passing_container, self.args.failing_container
+
+        self.logger.info(
+            "Skipping container-level search because "
+            f"--passing-container={self.args.passing_container} "
+            f"({self.args.passing_versions}) and "
+            f"--failing-container={self.args.failing_container} "
+            f"({self.args.failing_versions}) were passed"
+        )
+        return self.args.passing_container, self.args.failing_container
 
     def gather_version_info(self, passing_url: str, failing_url: str):
         """
@@ -478,7 +494,6 @@ class TriageTool:
 
         """
         self.logger.info("Gathering version information...")
-        self.logger.info(f"Using {self.bisection_url} for version-level bisection...")
         versions_from_env = self.args.build_scripts_path is not None
         # Get the versions from the endpoint containers (if they exist), overridden by any
         # explicitly passed versions.
@@ -529,6 +544,7 @@ class TriageTool:
             self.bisection_url = passing_url
             self.bisection_versions = original_passing_versions
             self.package_dirs = passing_package_dirs
+        self.logger.info(f"Using {self.bisection_url} for version-level bisection...")
         assert self.package_dirs is not None
         # This is the set of versions that are already installed
         assert self.bisection_versions is not None
@@ -549,7 +565,6 @@ class TriageTool:
         Returns:
             Tuple[dict, TestResult]: The final versions and the test result.
         """
-        self.logger.info("Running version-level bisection...")
         # Prepare the container for the bisection
         with self._make_container(self.bisection_url) as worker:
             package_versions = self._gather_histories(
@@ -558,6 +573,7 @@ class TriageTool:
             self._check_installation_scripts(worker)
 
         # Run the version-level bisection
+        self.logger.info("Running version-level bisection...")
         result, last_known_good, first_known_bad = version_search(
             versions=package_versions,
             build_and_test=self._build_and_test,
