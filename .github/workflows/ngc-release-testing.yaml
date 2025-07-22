@@ -46,7 +46,7 @@ jobs:
     secrets: inherit
 
   finalize:
-    needs: [ test-nccl, test-jax, test-maxtext, test-maxtext-eks, test-maxtext-gke ]
+    needs: [ test-nccl, test-maxtext-eks, test-maxtext-gke ]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
