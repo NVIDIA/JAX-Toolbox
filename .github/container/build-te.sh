@@ -143,6 +143,7 @@ popd
 
 ## Install the built packages
 if [[ "${INSTALL}" == "1" ]]; then
+    pip uninstall -y transformer_engine
     pip install ${SRC_PATH_TE}/dist/*.whl
     pip list | grep ^transformer_engine
 fi

@@ -104,6 +104,7 @@ def container_search(
     else:
         # Default to the most recent container
         now = datetime.datetime.now()
+        logger.info(f"Searching for a valid container date close to {now}")
         end_date = adjust(now)
         if end_date is None:
             raise Exception(f"Could not find a valid container from {now}")

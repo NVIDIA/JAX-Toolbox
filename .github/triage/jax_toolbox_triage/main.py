@@ -9,17 +9,9 @@ def main() -> None:
     """
     args = parse_args()
     logger = get_logger(args.output_prefix)
-
-    try:
-        tool = TriageTool(args, logger)
-
-        passing_url, failing_url = tool.find_container_range()
-
-        passing_versions, failing_versions = tool.gather_version_info(
-            passing_url, failing_url
-        )
-
-        tool.run_version_bisection(passing_versions, failing_versions)
-
-    except Exception as e:
-        logger.fatal(f"Triage process failed: {e}")
+    tool = TriageTool(args, logger)
+    passing_url, failing_url = tool.find_container_range()
+    passing_versions, failing_versions = tool.gather_version_info(
+        passing_url, failing_url
+    )
+    tool.run_version_bisection(passing_versions, failing_versions)
