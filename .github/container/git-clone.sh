@@ -77,6 +77,13 @@ pushd ${DESTINATION}
 git checkout ${GIT_REF}
 COMMIT_SHA=$(git rev-parse HEAD)
 git submodule update --init --recursive
+if [[ "${GIT_REPO}" == *"gitlab"* ]]; then
+  git remote remove origin
+  if grep -q -r gitlab-ci-token .git; then
+    grep -r gitlab-ci-token .git | awk -F: '{print $1}' | xargs rm -f
+  fi
+  git branch -D main
+fi
 popd
 
 ## update the manifest file
