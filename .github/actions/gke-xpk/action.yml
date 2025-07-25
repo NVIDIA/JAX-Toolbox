@@ -281,6 +281,7 @@ runs:
 
       summary="${{ inputs.WORKLOAD_NAME_PREFIX }}"
       outcome=success
+      badge_label="${{ inputs.WORKLOAD_NAME_PREFIX }}"
       badge_color=brightgreen
 
       if [ "${XPK_EXIT_CODE}" -gt 0 ]; then
@@ -292,6 +293,7 @@ runs:
       fi
 
       to_json summary \
+              badge_label \
               badge_color \
               outcome | \
       tee sitrep.json
