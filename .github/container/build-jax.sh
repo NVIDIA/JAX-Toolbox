@@ -197,7 +197,7 @@ fi
 
 # WAR for https://github.com/openxla/xla/issues/28256
 if [[ "${CPU_ARCH}" == "arm64" ]]; then
-    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--config=clang_local --bazel_options=--config=cuda"
+    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--config=ci_linux_aarch64_cuda"
 fi
 
 if [[ "$DEBUG" == "1" ]]; then
