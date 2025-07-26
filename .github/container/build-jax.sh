@@ -244,6 +244,7 @@ fi
 
 ## Build the compiled parts of JAX
 pushd ${SRC_PATH_JAX}
+echo "build:cuda --repo_env HERMETIC_CUDA_COMPUTE_CAPABILITIES=\"${CUDA_COMPUTE_CAPABILITIES}\"" >> ${SRC_PATH_JAX}/.bazelrc
 time python "${SRC_PATH_JAX}/build/build.py" build \
     --cuda_major_version=${CUDA_MAJOR_VERSION} \
     --editable \
@@ -255,7 +256,6 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --bazel_options=--repo_env=LOCAL_CUDNN_PATH="/opt/nvidia/cudnn" \
     --bazel_options=--repo_env=LOCAL_NCCL_PATH="/opt/nvidia/nccl" \
     --bazel_options=--repo_env=LOCAL_NVSHMEM_PATH="/opt/nvidia/nvshmem" \
-    "--bazel_options=--repo_env=HERMETIC_CUDA_COMPUTE_CAPABILITIES==${CUDA_COMPUTE_CAPABILITIES}" \
     --bazel_options=--test_env=MOSAIC_GPU_NVSHMEM_BC_PATH="/opt/nvidia/nvshmem/lib/libnvshmem_device.bc" \
     --bazel_options=--test_env=MOSAIC_GPU_NVSHMEM_SO_PATH="/opt/nvidia/nvshmem/lib/libnvshmem_host.so" \
     --bazel_options=--linkopt=-fuse-ld=lld \
