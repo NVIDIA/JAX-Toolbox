@@ -157,9 +157,6 @@ def test_triage_scenarios(
     passing_versions_str = f"jax:{all_commits[passing_commit_key]}"
     failing_versions_str = f"jax:{all_commits[failing_commit_key]}"
 
-    bazel_cache_path = (paths["output"] / "bazel-cache").resolve()
-    bazel_cache_path.mkdir()
-
     arg_list = [
         "--main-branch",
         "main",
@@ -171,8 +168,6 @@ def test_triage_scenarios(
         passing_versions_str,
         "--failing-versions",
         failing_versions_str,
-        "--bazel-cache",
-        str(bazel_cache_path),
         "--",
         str(paths["scripts"] / "test-case.sh"),
         str(jax_repo_path),
@@ -182,7 +177,7 @@ def test_triage_scenarios(
     logger = logging.getLogger(f"Scenario-{scenario}")
     logging.basicConfig(level=logging.INFO)
     # Ensure bazel and build-jax.sh can be found.
-    monkeypatch.setenv("PATH", paths["scripts"], prepend=":")
+    monkeypatch.setenv("PATH", str(paths["scripts"]), prepend=":")
 
     tool = TriageTool(args, logger)
     tool.package_dirs = {"jax": str(jax_repo_path)}
