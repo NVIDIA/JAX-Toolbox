@@ -37,7 +37,7 @@ def get_commit_history(
             "-c",
             f"git cat-file commit {start} && git cat-file commit {end}",
         ],
-        policy="once_per_container",
+        policy="once",
         workdir=dir,
     )
     if commits_known.returncode != 0:
