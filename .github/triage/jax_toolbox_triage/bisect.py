@@ -37,18 +37,20 @@ def get_commit_history(
             "-c",
             f"git cat-file commit {start} && git cat-file commit {end}",
         ],
-        policy="once_per_container",
+        policy="once",
         workdir=dir,
     )
     if commits_known.returncode != 0:
         worker.check_exec(
             ["git", "fetch", args.override_remotes.get(package, "origin"), start, end],
+            policy="once_per_container",
             workdir=dir,
         )
 
     # detect non-linear history
     is_ancestor_result = worker.exec(
         ["git", "merge-base", "--is-ancestor", start, end],
+        policy="once",
         workdir=dir,
     )
     is_linear = is_ancestor_result.returncode == 0
@@ -66,6 +68,7 @@ def get_commit_history(
                 "-c",
                 f"git merge-base {start} {end} && git merge-base {end} {main_branch}",
             ],
+            policy="once",
             workdir=dir,
         ).stdout.strip()
         passing_main_commit, failing_main_commit = passing_and_failing_cmd.splitlines()

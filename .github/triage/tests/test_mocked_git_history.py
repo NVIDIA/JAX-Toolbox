@@ -8,26 +8,6 @@ from jax_toolbox_triage.args import parse_args
 from jax_toolbox_triage.triage_tool import TriageTool
 
 
-def run_command(command, cwd=None, env=None):
-    """Simple function to run a command in a subprocess.
-
-    Args:
-        command (list): The command to run as a list of strings.
-        cwd (str, optional): The working directory to run the command in.
-        env (dict, optional): Environment variables to set for the command.
-    Returns:
-        str: The standard output of the command.
-    """
-    try:
-        result = subprocess.run(
-            command, cwd=cwd, env=env, check=True, capture_output=True, text=True
-        )
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Command '{' '.join(command)}' failed with error: {e}")
-        raise e
-
-
 @pytest.fixture
 def triage_env():
     """
@@ -49,11 +29,16 @@ def triage_env():
         jax_repo_path = repo_path / "jax"
         jax_repo_path.mkdir()
 
-        def git_cmd(command, *args):
-            return run_command(["git", command, *args], cwd=jax_repo_path)
+        def git_cmd(*args):
+            return subprocess.run(
+                ["git"] + list(args),
+                capture_output=True,
+                check=True,
+                cwd=jax_repo_path,
+                text=True,
+            ).stdout.strip()
 
         # NON-LINEAR HISTORY
-        # why don't we push the scripts and use them in repo
         git_cmd("init", "-b", "main")
         git_cmd("config", "user.name", "Test User")
         git_cmd("config", "user.email", "test@example.com")
