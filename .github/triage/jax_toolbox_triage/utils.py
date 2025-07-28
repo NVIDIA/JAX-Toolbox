@@ -48,14 +48,15 @@ def get_logger(output_prefix: pathlib.Path) -> logging.Logger:
 
 
 def prepare_bazel_cache_mounts(
-    bazel_cache: str,
+    bazel_cache: typing.Optional[str],
 ) -> typing.Sequence[typing.Tuple[pathlib.Path, pathlib.Path]]:
     if (
-        bazel_cache.startswith("http://")
+        bazel_cache is None
+        or bazel_cache.startswith("http://")
         or bazel_cache.startswith("https://")
         or bazel_cache.startswith("grpc://")
     ):
-        # Remote cache, no mount needed
+        # No cache or remote cache, no mount needed
         return []
     elif (bazel_cache_path := pathlib.Path(bazel_cache)).is_absolute():
         bazel_cache_path.mkdir(exist_ok=True)

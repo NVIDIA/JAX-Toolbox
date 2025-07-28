@@ -278,6 +278,18 @@ def parse_args(args=None) -> argparse.Namespace:
                 f"--{prefix}-commits is deprecated - please remove it."
             )
 
+    if args.container_runtime == "pyxis":
+        assert args.bazel_cache is not None, (
+            "For pyxis runtime, --bazel-cache must be provided explicitly. You likely "
+            "want to use a remote cache URL."
+        )
+    elif args.container_runtime == "docker" and args.bazel_cache is None:
+        # In this case we can share a cache across containers by mounting in a
+        # temporary directory on the host machine.
+        args.bazel_cache = os.path.join(
+            tempfile.gettempdir(), f"{getpass.getuser()}-bazel-triage-cache"
+        )
+
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
@@ -332,13 +344,4 @@ def parse_args(args=None) -> argparse.Namespace:
             "--container must be passed for the container-level search"
         )
 
-    if args.container_runtime == "pyxis":
-        assert args.bazel_cache is not None, (
-            "For pyxis runtime, --bazel-cache must be provided explicitly. You likely "
-            "want to use a remote cache URL."
-        )
-    elif args.bazel_cache is None:
-        args.bazel_cache = os.path.join(
-            tempfile.gettempdir(), f"{getpass.getuser()}-bazel-triage-cache"
-        )
     return args
