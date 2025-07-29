@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--container-image")
+parser.add_argument("--container-mounts")
+parser.add_argument("--container-name")
+parser.add_argument("--container-remap-root", action="store_true")
+parser.add_argument("--container-workdir")
+parser.add_argument("--no-container-mount-home", action="store_true")
+parser.add_argument("--ntasks", type=int)
+parser.add_argument("--ntasks-per-node", type=int)
+args, test_cmd = parser.parse_known_args()
+num_nodes = int(os.environ["JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES"])
+procs_per_node = int(os.environ["JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE"])
+if args.ntasks_per_node is not None:
+    procs_per_node = args.ntasks_per_node
+procs = []
+if num_nodes > 1:
+    # Make node-local copies
+    for node in range(num_nodes):
+        node_prefix = f"{args.container_image}-node{node}of{num_nodes}"
+        if not os.path.isdir(node_prefix):
+            shutil.copytree(args.container_image, node_prefix)
+        procs += [node_prefix] * procs_per_node
+else:
+    # Use the original
+    procs += [args.container_image] * procs_per_node
+if args.ntasks is not None:
+    procs = procs[: args.ntasks]
+
+
+# JAX_TOOLBOX_TRIAGE_PREFIX is a lazy alternative to making something chroot-like work
+def env(prefix):
+    env = os.environ.copy()
+    env["JAX_TOOLBOX_TRIAGE_PREFIX"] = prefix
+    return env
+
+
+results = [
+    subprocess.Popen(
+        test_cmd,
+        cwd=(
+            f"{prefix}/{args.container_workdir}"
+            if args.container_workdir is not None
+            else None
+        ),
+        env=env(prefix),
+    )
+    for prefix in procs
+]
+for res in results:
+    res.wait()
+sys.exit(any(x.returncode != 0 for x in results))

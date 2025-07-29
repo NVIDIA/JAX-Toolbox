@@ -349,7 +349,9 @@ class TriageTool:
             changed.append(f"{package}@{version}")
             if package in self.package_dirs:
                 cherry_pick_range = self.cherry_pick_commits.get(package)
-                git_commands.append(f"cd {self.package_dirs[package]}")
+                git_commands.append(
+                    f"cd ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.package_dirs[package]}"
+                )
                 git_commands.append("git stash")
                 # this is a checkout on the main branch
                 git_commands.append(f"git checkout {version}")

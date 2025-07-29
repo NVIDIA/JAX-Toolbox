@@ -38,8 +38,8 @@ def get_commits_and_dirs(
     cmds = []
     for package in compulsory_software + optional_software:
         bits = [
-            f"(cd /opt/{package} && git rev-parse HEAD && echo {package} && pwd)",
-            f"(cd /opt/{package}-source && git rev-parse HEAD && echo {package} && pwd)",
+            f"(cd ${{JAX_TOOLBOX_TRIAGE_PREFIX}}/opt/{package} && git rev-parse HEAD && echo {package} && echo /opt/{package})",
+            f"(cd ${{JAX_TOOLBOX_TRIAGE_PREFIX}}/opt/{package}-source && git rev-parse HEAD && echo {package} && echo /opt/{package}-source)",
         ]
         if package in optional_software:
             bits.append("true")
@@ -52,6 +52,10 @@ def get_commits_and_dirs(
     for commit, package, dirname in zip(*([iter(result.stdout.splitlines())] * 3)):
         dirs[package] = dirname
         versions[package] = commit
+    missing_compulsory_software = set(compulsory_software) - versions.keys()
+    assert len(missing_compulsory_software) == 0, (
+        f"Only found git repositories for {set(versions.keys())}, missing {missing_compulsory_software}"
+    )
     return versions, dirs
 
 
