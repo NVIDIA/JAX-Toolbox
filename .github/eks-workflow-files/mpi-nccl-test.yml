@@ -41,7 +41,8 @@ spec:
                     echo "Workers were still not reachable after ${limit}, exiting"
                     exit 1
                   fi
-                  mpirun --allow-run-as-root -np 16 -N 8 $0 \
+                  mpirun --allow-run-as-root --tag-output -N 1 -x LD_LIBRARY_PATH=/usr/local/cuda/compat/lib nvidia-smi
+                  mpirun --allow-run-as-root -N 8 -x LD_LIBRARY_PATH=/usr/local/cuda/compat/lib $0 \
                     -b 8 \
                     -e 16G \
                     -f 2 \
