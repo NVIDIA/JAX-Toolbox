@@ -202,6 +202,16 @@ def extract_metrics(
     # tflops/s/n_devices, take the very last number
     tflops_s_devices = model_flop_per_iteration / times_arr[-1] / world_size / 10**12
 
+    # re-add to the input file the final metrics
+    with open(input_file, "a") as f:
+        f.write(
+            f"\n=== Final metrics ===\n"
+            f"Tokens/s/device: {tokens_per_sec_gpu.mean()} +/- {tokens_per_sec_gpu.std()}\n"
+            f"Seqs/s/device: {seqs_per_sec_gpu.mean()} +/- {seqs_per_sec_gpu.std()}\n"
+            f"AvgTimestep: {times_arr.mean()} +/- {times_arr.std()}\n"
+            f"TFLOP/s/device: {tflops_s_devices}\n"
+        )
+
     return {
         "tokens_per_sec_gpu_mean": float(tokens_per_sec_gpu.mean()),
         "tokens_per_sec_gpu_std": float(tokens_per_sec_gpu.std()),
