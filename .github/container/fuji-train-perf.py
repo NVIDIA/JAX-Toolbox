@@ -2,6 +2,7 @@ import re
 import sys
 import argparse
 import numpy as np
+from pathlib import Path
 from contextlib import redirect_stdout, redirect_stderr
 
 from absl import app, flags, logging as absl_logging
@@ -202,8 +203,10 @@ def extract_metrics(
     # tflops/s/n_devices, take the very last number
     tflops_s_devices = model_flop_per_iteration / times_arr[-1] / world_size / 10**12
 
-    # re-add to the input file the final metrics
-    with open(input_file, "a") as f:
+    # extract the parent folder and create a metrics.log file
+    input_file_path = Path(input_file)
+    metrics_file = input_file_path.parent / "metrics.log"
+    with open(metrics_file, "a") as f:
         f.write(
             f"\n=== Final metrics ===\n"
             f"Tokens/s/device: {tokens_per_sec_gpu.mean()} +/- {tokens_per_sec_gpu.std()}\n"
