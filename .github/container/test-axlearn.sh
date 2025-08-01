@@ -191,15 +191,28 @@ TEST_8_DEVICES_FILES=("gda_test.py"
     "trainer_test.py"
     "utils_test.py"
 )
+# we do not need to test the following
 TEST_8_DEVICES_WITH_PATHS=()
 for file in "${TEST_8_DEVICES_FILES[@]}"; do
-    found_files=$(find . -name "$file" -type f 2>/dev/null)
-    if [[ -n "$found_files" ]]; then
-        while IFS= read -r found_file; do
+    # Handle the ambiguous 'utils_test.py' as a special case.
+    if [[ "$file" == "utils_test.py" ]]; then
+        # Find the one specific 'utils_test.py' we want by its full path.
+        # Adjust the path if your target file is located elsewhere.
+        found_file=$(find . -path '*/axlearn/common/utils_test.py' -type f 2>/dev/null | head -n 1)
+        if [[ -n "$found_file" ]]; then
             TEST_8_DEVICES_WITH_PATHS+=("$found_file")
-        done <<< "$found_files"
+        else
+            echo "Warning: Desired utils_test.py not found at '*/axlearn/common/utils_test.py'"
+        fi
     else
-        echo "Warning: Test file $file not found in current directory structure"
+        # For all other (unambiguous) files, find them by name.
+        # This will add all found files to the array.
+        readarray -t found_files < <(find . -name "$file" -type f 2>/dev/null)
+        if [ ${#found_files[@]} -gt 0 ]; then
+            TEST_8_DEVICES_WITH_PATHS+=( "${found_files[@]}" )
+        else
+            echo "Warning: Test file '$file' not found in current directory structure"
+        fi
     fi
 done
 
