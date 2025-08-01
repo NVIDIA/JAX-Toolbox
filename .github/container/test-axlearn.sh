@@ -191,13 +191,11 @@ TEST_8_DEVICES_FILES=("gda_test.py"
     "trainer_test.py"
     "utils_test.py"
 )
-# we do not need to test the following
 TEST_8_DEVICES_WITH_PATHS=()
 for file in "${TEST_8_DEVICES_FILES[@]}"; do
     # Handle the ambiguous 'utils_test.py' as a special case.
     if [[ "$file" == "utils_test.py" ]]; then
-        # Find the one specific 'utils_test.py' we want by its full path.
-        # Adjust the path if your target file is located elsewhere.
+        # We do not need to test cli or gcloud utils_test
         found_file=$(find . -path '*/axlearn/common/utils_test.py' -type f 2>/dev/null | head -n 1)
         if [[ -n "$found_file" ]]; then
             TEST_8_DEVICES_WITH_PATHS+=("$found_file")
