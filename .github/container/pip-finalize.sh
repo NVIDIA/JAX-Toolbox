@@ -4,6 +4,12 @@ set -eoux pipefail
 
 pushd /opt/pip-tools.d
 
+#DEBUG
+for file in $(ls requirements-*.in); do
+  echo "DEBUG: $file"
+  cat $file
+done
+
 # First pip-compile gathers all reqs, but we are care only about VCS installs
 # It's possible there are 2nd degree transitive dependencies that are VCS, so
 # this is more robust to gather VCS requirements at the cost of pip-compiling
