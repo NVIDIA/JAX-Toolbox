@@ -11,9 +11,9 @@ usage() {
     echo ""
     echo "  OPTIONS                       DESCRIPTION"
     echo "  -d, --directory DIR           Directory to run tests in."
-    echo "                                Default: 'axlearn/axlearn/common'."
+    echo "                                Default: 'opt/axlearn'."
     echo "  -t, --test-files FILES        Pattern for test files to run."
-    echo "                                Default: '*_test.py'."
+    echo "                                Default: 'axlearn/common/*_test.py'."
     echo "  -o, --output DIRECTORY        Output directory for logs and summary."
     echo "                                Default: 'test_runs/<timestamp>'."
     echo "  -h, --help                    Show this help message and exit."
@@ -39,7 +39,7 @@ run_tests() {
 }
 
 # DEFAULT VALUES
-DIR='/opt/axlearn/axlearn/common'
+DIR='/opt/axlearn'
 TEST_FILES=()
 OUTPUT_DIRECTORY=''
 
@@ -95,15 +95,6 @@ LOG_DIRECTORY="${OUTPUT_DIRECTORY}/logs"
 
 mkdir -p "${LOG_DIRECTORY}"
 
-if [ "${#TEST_FILES[@]}" -gt 0 ]; then
-    echo "  Test Files:"
-    for f in "${TEST_FILES[@]}"; do
-        echo "    $f"
-    done
-else
-    echo "  Test Files Pattern: '*_test.py' (default)"
-fi
-
 # DEPENDENCIES
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pip install timm transformers scikit-learn grain evaluate prefixed wandb
@@ -115,26 +106,28 @@ curl https://huggingface.co/FacebookAI/roberta-base/raw/main/merges.txt -o /opt/
 curl https://huggingface.co/FacebookAI/roberta-base/raw/main/vocab.json -o /opt/axlearn/axlearn/data/tokenizers/bpe/roberta-base-vocab.json
 
 # RETRIEVE TEST FILES
-if [ "${#TEST_FILES[@]}" -eq 0 ]; then
-    TEST_FILES=("*_test.py")
-fi
-
 expanded_test_files=()
-for pattern in "${TEST_FILES[@]}"; do
-    # retrieve all the files
-    files=( $pattern )
-    if [ "${#files[@]}" -gt 0 ]; then
-        expanded_test_files+=( "${files[@]}" )
-    else
-        echo "Warning: No files matched pattern '$pattern'"
-    fi
-done
+if [ "${#TEST_FILES[@]}" -eq 0 ]; then
+    # if we are not giving anything for --test-files than we can match all those *_test.py files
+    readarray -t expanded_test_files < <(find . -name "*_test.py" -type f)
+    # otherwise let's check in the --test-files pattern
+else
+    for pattern in "${TEST_FILES[@]}"; do
+        readarray -t found_files < <(find . -name "$pattern" -type f)
+        if [ ${#found_files[@]} -gt 0 ]; then
+            expanded_test_files+=( "${found_files[@]}" )
+        else
+            echo "Warning: No files found matching pattern '$pattern'"
+        fi
+    done
+fi
 
 if [ "${#expanded_test_files[@]}" -eq 0 ]; then
     echo "No test files found to run."
     exit 1
 fi
 
+# EXCLUDE PATTERNS
 EXCLUDE_PATTERNS=("array_serialization_test.py"
     "t5_test.py" # tensorflow bug
     "loss_test.py"
@@ -185,11 +178,12 @@ done
 
 
 # RUN TESTS
-TEST_8_DEVICES_FILES=("gda_test.py"
-    "input_base_test.py"
-    "input_dispatch_test.py"
-    "trainer_test.py"
-    "utils_test.py"
+TEST_8_DEVICES_FILES=(
+    "axlearn/common/gda_test.py"
+    "axlearn/common/input_base_test.py"
+    "axlearn/common/input_dispatch_test.py"
+    "axlearn/common/trainer_test.py"
+    "axlearn/common/utils_test.py"
 )
 TEST_8_DEVICES_WITH_PATHS=()
 for file in "${TEST_8_DEVICES_FILES[@]}"; do
