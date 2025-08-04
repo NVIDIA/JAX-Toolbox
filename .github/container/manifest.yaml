@@ -11,7 +11,7 @@ xla:
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
-  tracking_ref: main
+  tracking_ref: v0.10.6
   latest_verified_commit: 718aa8ccb12c3fdefcf3d196874e4fc667b3ade5
   mode: git-clone
   patches:
@@ -104,4 +104,9 @@ pathwaysutils:
 axlearn:
   url: https://github.com/apple/axlearn.git
   tracking_ref: main
+  mode: git-clone
+qwix:
+  url: https://github.com/google/qwix.git
+  tracking_ref: main
+  latest_verified_commit: 9ca25462e0342d29ebf214c78624fc262c9f6871
   mode: git-clone
