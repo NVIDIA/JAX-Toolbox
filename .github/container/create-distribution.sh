@@ -139,7 +139,7 @@ cd ${INSTALLED_DIR}
 
 for git_command in cherry-pick rebase merge revert; do
   RESERVED_INPROGRESS_REF=$(echo $git_command | tr 'a-z' 'A-Z' | sed 's/-/_/g')_HEAD
-  if git rev-parse --verfiy $RESERVED_INPROGRESS_REF >/dev/null 2>&1; then
+  if git rev-parse --verify $RESERVED_INPROGRESS_REF >/dev/null 2>&1; then
     echo -e "[ERROR]: There is an inprogress $git_command. If you'd like to abort then run:\n"
     echo "  git -C ${INSTALLED_DIR} $git_command --abort"
     exit 1
@@ -315,7 +315,12 @@ for git_ref in $(yq e ".${PACKAGE}.patches | keys | .[]" $MANIFEST); do
     PR_ID=$(cut -d/ -f2 <<<"${git_ref}")
     branch=PR-${PR_ID}
     git fetch ${REMOTE_NAME} ${git_ref}:${branch}
-    main_branch=${REMOTE_NAME}/${TRACKING_REF}
+    if git rev-parse --verify refs/tags/${TRACKING_REF}; then
+      # Do not prefix a tag name with remote_name/
+      main_branch=${TRACKING_REF}
+    else
+      main_branch=${REMOTE_NAME}/${TRACKING_REF}
+    fi
   elif [[ "${git_ref}" =~ ^mirror/pull/ ]]; then
     if [[ -z "${MIRROR_GIT_URL}" ]] ; then
       echo "[Error]: MIRROR_GIT_URL not provided so cannot apply patch=${git_ref}"
