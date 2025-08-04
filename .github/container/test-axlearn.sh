@@ -113,6 +113,8 @@ if [ "${#TEST_FILES[@]}" -eq 0 ]; then
     # otherwise let's check in the --test-files pattern
 else
     for pattern in "${TEST_FILES[@]}"; do
+        echo "looking for pattern: $pattern"
+        echo "Cmd: find . -name \"$pattern\" -type f"
         readarray -t found_files < <(find . -name "$pattern" -type f)
         if [ ${#found_files[@]} -gt 0 ]; then
             expanded_test_files+=( "${found_files[@]}" )
