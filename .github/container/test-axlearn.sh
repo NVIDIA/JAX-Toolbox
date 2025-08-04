@@ -115,7 +115,7 @@ else
     for pattern in "${TEST_FILES[@]}"; do
         echo "looking for pattern: $pattern"
         echo "Cmd: find . -name \"$pattern\" -type f"
-        readarray -t found_files < <(find . -name "$pattern" -type f)
+        readarray -t found_files < <(find . -path "./$pattern" -type f)
         if [ ${#found_files[@]} -gt 0 ]; then
             expanded_test_files+=( "${found_files[@]}" )
         else
