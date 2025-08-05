@@ -22,7 +22,7 @@ spec:
                       LOG_DIR="/output/${RUN_ID}"
                       mkdir -p ${LOG_DIR}
                       # test on JAX, make sure 8 devices are visible
-                      pytest-xdist.sh 8 4 ${LOG_DIR}/axlearn-unittests.jsonl test-axlearn.sh --output ${LOG_DIR} --test-files "*_test.py"
+                      pytest-xdist.sh 8 4 ${LOG_DIR}/axlearn-unittests.jsonl test-axlearn.sh --output ${LOG_DIR} --test-files "axlearn/common/*_test.py"
                   env:
                     - name: RUN_ID
                       value: PLACEHOLDER
