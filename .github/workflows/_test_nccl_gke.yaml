@@ -72,6 +72,17 @@ jobs:
 
           echo "WORKLOAD_PREFIX=${WORKLOAD_PREFIX}" >> ${GITHUB_OUTPUT}
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Store registry secret on cluster
+        id: store-token
+        uses: ./.github/actions/store-delete-k8s-ghcr
+
       - name: Create NCCL test Services on cluster
         run: |
           SERVICE_MANIFEST=".github/gke-workflow/nccl/service-${WORKLOAD_NAME}-${{ matrix.test }}.yaml"
@@ -86,6 +97,7 @@ jobs:
         with:
           IMAGE: ${{ env.BASE_IMAGE }}
           WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
+          IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
           COMMAND: |
             export NHOSTS=${{ env.NHOSTS }};
             export NCCL_LIB_DIR=/opt/nvida/nccl/lib;
