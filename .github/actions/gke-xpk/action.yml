@@ -169,7 +169,6 @@ runs:
           --num-slices=${{ inputs.NUM_NODES }}
           --priority=high
           --scheduler=gke.io/topology-aware-auto
-          --command=\"${PRELUDE} ${CMD} ${POSTLUDE}\"
       )
 
       if [[ "${{ inputs.XPK_VERSION }}" == "v0.10.1" ]]; then
@@ -180,7 +179,9 @@ runs:
           )
       fi
 
-      python xpk.py workload create ${args[@]}
+      python xpk.py workload create \
+        ${args[@]} \
+        --command="${PRELUDE} ${CMD} ${POSTLUDE}"
   
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}
