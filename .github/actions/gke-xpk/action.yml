@@ -70,7 +70,7 @@ inputs:
   XPK_VERSION:
     description: 'XPK release tag'
     required: false
-    default: 'v0.8.0'
+    default: 'v0.10.1'
     type: string
   XPK_PYTHON:
     description: 'Python version for XPK'
@@ -119,9 +119,7 @@ runs:
     shell: bash -x -e -u {0}
     run: |
       sed -i 's/{{ IMAGE_PULL_SECRET_NAME }}/${{ inputs.IMAGE_PULL_SECRET_NAME }}/g' .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch 
-      git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/tcpxo_decorator.patch --directory ${WORKLOAD_NAME}/xpk
-      git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/docker_resources.patch --directory ${WORKLOAD_NAME}/xpk
-      git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch --directory ${WORKLOAD_NAME}/xpk
+      ls .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}} | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
   
   - name: Set workload commands
     shell: bash -x -e -u {0}
