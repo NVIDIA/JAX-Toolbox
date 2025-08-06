@@ -159,17 +159,17 @@ runs:
       cd ${WORKLOAD_NAME}/xpk
 
       args=(
-          --project ${{ inputs.GCP_PROJECT }}
-          --cluster ${{ inputs.GKE_CLUSTER }}
-          --zone ${{ inputs.GCP_ZONE }}
-          --workload ${WORKLOAD_NAME}
-          --docker-image ${{ inputs.IMAGE }}
-          --device-type ${{ inputs.CLUSTER_DEVICE }}
-          --num-nodes ${{ inputs.NUM_NODES }}
-          --num-slices ${{ inputs.NUM_NODES }}
+          --project=${{ inputs.GCP_PROJECT }}
+          --cluster=${{ inputs.GKE_CLUSTER }}
+          --zones=${{ inputs.GCP_ZONE }}
+          --workload=${WORKLOAD_NAME}
+          --docker-image=${{ inputs.IMAGE }}
+          --device-type=${{ inputs.CLUSTER_DEVICE }}
+          --num-nodes=${{ inputs.NUM_NODES }}
+          --num-slices=${{ inputs.NUM_NODES }}
           --priority=high
           --scheduler=gke.io/topology-aware-auto
-          --command "${PRELUDE} ${CMD} ${POSTLUDE}"
+          --command=\"${PRELUDE} ${CMD} ${POSTLUDE}\"
       )
 
       if [[ "${{ inputs.XPK_VERSION }}" == "v0.10.1" ]]; then
