@@ -631,6 +631,19 @@ jobs:
       MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
 
+  test-maxtext-gke:
+    needs: build-maxtext
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'maxtext'
+      )
+    uses: ./.github/workflows/_test_maxtext_gke_xpk.yaml
+    with:
+      MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
+
   test-axlearn-eks:
     needs: build-axlearn
     if: >-
