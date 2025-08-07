@@ -197,8 +197,7 @@ fi
 
 # WAR for https://github.com/openxla/xla/issues/28256
 if [[ "${CPU_ARCH}" == "arm64" ]]; then
-    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--config=ci_linux_aarch64_cuda"
-    echo "build:cuda --repo_env HERMETIC_CUDA_COMPUTE_CAPABILITIES=\"${CUDA_COMPUTE_CAPABILITIES}\"" >> ${SRC_PATH_JAX}/.bazelrc
+    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--config=cuda_nvcc_linux_aarch64"
 fi
 
 if [[ "$DEBUG" == "1" ]]; then
