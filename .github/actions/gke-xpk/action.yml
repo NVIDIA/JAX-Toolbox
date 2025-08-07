@@ -161,7 +161,7 @@ runs:
       args=(
           --project=${{ inputs.GCP_PROJECT }}
           --cluster=${{ inputs.GKE_CLUSTER }}
-          --zones=${{ inputs.GCP_ZONE }}
+          --zone=${{ inputs.GCP_ZONE }}
           --workload=${WORKLOAD_NAME}
           --docker-image=${{ inputs.IMAGE }}
           --device-type=${{ inputs.CLUSTER_DEVICE }}
