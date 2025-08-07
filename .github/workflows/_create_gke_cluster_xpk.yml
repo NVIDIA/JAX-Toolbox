@@ -1,65 +1,123 @@
 name: ~Create GKE cluster with XPK
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       CLUSTER_NAME:
         type: string
         description: Cluster name
-        default: jtb-2025-06-12
+        required: true
+      GKE_VERSION:
+        type: string
+        default: 1.31.6-gke.1221000 
         required: false
+      DEVICE_TYPE: 
+        type: string
+        default: h100-mega-80gb-8
+        required: false
+      DEFAULT_CPU_MACHINE: 
+        type: string
+        default: e2-standard-8
+        required: false
+      NUM_NODES: 
+        type: string
+        default: 2
+        required: false
+      GCP_PROJECT: 
+        type: string
+        default: nv-jaxtoolboxgcp-20240925
+        required: false
+      GCP_ZONE: 
+        type: string
+        default: us-central1-a
+        required: false
+      GCP_GCE_RESERVATION: 
+        type: string
+        default: jtb-reservation
+        required: false
+      XPK_VERSION:
+        description: 'XPK release tag'
+        required: false
+        default: 'v0.10.1'
+        type: string
+      XPK_PYTHON:
+        description: 'Python version for XPK'
+        required: false
+        default: '3.12.10'
+        type: string
 
 jobs:
   xpk-create-gke-cluster:
-    env:
-      GKE_VERSION: 1.31.6-gke.1221000 
-      DEVICE_TYPE: h100-mega-80gb-8
-      DEFAULT_CPU_MACHINE: e2-standard-8
-      NUM_NODES: 2
-      ZONE: us-central1-a
-      RESERVATION: jtb-reservation
-      PROJECT: nv-jaxtoolboxgcp-20240925
-
     runs-on: gke-a3mega
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Show environment
-        run: |
-          set -x 
-          
-          gcloud version
+    - name: Set workload name
+      shell: bash -x -e -u {0}
+      run: |
+        WORKLOAD_NAME="cluster-create-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        DATE=$(date +'%Y-%m-%d')
 
+        echo "WORKLOAD_NAME=${WORKLOAD_NAME}" >> ${GITHUB_ENV}
+        echo "DATE=${DATE}" >> ${GITHUB_ENV}
+
+    - name: Setup environment
+      shell: bash -x -e -u {0}
+      run: |
+        mkdir -p ${WORKLOAD_NAME}
+        uv venv --verbose --python=${{ inputs.XPK_PYTHON }} --directory=${WORKLOAD_NAME}
+        source ${WORKLOAD_NAME}/.venv/bin/activate
+
+        # install xpk
+        git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD_NAME}/xpk
+
+        sed 's@pip install \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD_NAME}/xpk/Makefile
+        cd ${WORKLOAD_NAME}/xpk && sudo make install; cd -
+
+    - name: Apply XPK cluster create patch
+      shell: bash -x -e -u {0}
+      run: |
+        PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
+        ls ${PATCH_PATH} | xargs -I {} git apply --unsafe-paths ${PATCH_PATH}/{} --directory ${WORKLOAD_NAME}/xpk
+
+    - name: Show environment
+      run: |
+        set -x 
+        
+        gcloud version
+
+        source $HOME/.venv/bin/activate
+        python --version
+        xpk version
+
+    - name: Create cluster from compute reservation with xpk
+      run: |
+        CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == "'${{ inputs.CLUSTER_NAME }}'")')
+        
+        if ! [ $CLUSTER_EXISTS = true  ]; then
+          cd $HOME/xpk
           source $HOME/.venv/bin/activate
-          python --version
-          xpk version
+           python xpk.py cluster create \
+                  --cluster ${{ inputs.CLUSTER_NAME }} \
+                  --gke-version ${{ inputs.GKE_VERSION }} \
+                  --device-type ${{ inputs.DEVICE_TYPE }} \
+                  --num-nodes ${{ inputs.NUM_NODES }} \
+                  --default-pool-cpu-machine-type=${{ inputs.DEFAULT_CPU_MACHINE }} \
+                  --project=${{ inputs.GCP_PROJECT }} \
+                  --reservation ${{ inputs.GCP_GCE_RESERVATION }} \
+                  --zone ${{ inputs.GCP_ZONE }}
+        else
+          echo "Cluster ${{ inputs.CLUSTER_NAME }} already exists, skipping creation"
+        fi
 
-      - name: Apply xpk cluster create patch
-        run: |
-          cd $HOME/xpk && git checkout src/xpk/core/blueprint/blueprint_generator.py && cd -
-          git apply --unsafe-paths .github/gke-workflow/xpk/blueprint.patch --directory $HOME/xpk
-
-      - name: Create cluster from compute reservation with xpk
-        run: |
-          CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == "'${CLUSTER_NAME}'")')
-          
-          if ! [ $CLUSTER_EXISTS = true  ]; then
-            cd $HOME/xpk
-            source $HOME/.venv/bin/activate
-            python xpk.py cluster create \
-                    --cluster ${CLUSTER_NAME} \
-                    --gke-version ${GKE_VERSION} \
-                    --device-type ${DEVICE_TYPE} \
-                    --num-nodes ${NUM_NODES} \
-                    --default-pool-cpu-machine-type=${DEFAULT_CPU_MACHINE} \
-                    --project=${PROJECT} \
-                    --reservation ${RESERVATION} \
-                    --zone ${ZONE}
-          else
-            echo "Cluster ${CLUSTER_NAME} already exists, skipping creation"
-          fi
-
-      - name: Configure cluster ServiceAccount
-        run: |
+    - name: Configure cluster ServiceAccount
+      run: |
+  
+        # not configured in xpk pre v0.10.0
+        if [[ "${{ inputs.XPK_VERSION }}" == "v0.8.0" ]]; then
           kubectl apply -f .github/gke-workflow/xpk/xpk-sa-rbac.yml
+        fi
+
+        # enable GCS interactivity from pods
+        kubectl apply -f /github/gke-workflow/xpk/xpk-gcs-sa.yml
