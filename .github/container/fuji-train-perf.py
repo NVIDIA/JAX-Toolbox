@@ -129,7 +129,8 @@ parser.add_argument(
 
 parser.add_argument(
     "--trace_steps",
-    type=list,
+    nargs="+",
+    type=int,
     default=None,
     help="Steps to trace (e.g. [1, 20, 50]). To profile the training give `--jax_profiler_port 9999` to the script.",
 )
