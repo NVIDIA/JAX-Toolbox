@@ -1,0 +1,34 @@
+diff --git a/src/xpk/core/blueprint/blueprint_generator.py b/src/xpk/core/blueprint/blueprint_generator.py
+index 3d7f046..d94fe9e 100644
+--- a/src/xpk/core/blueprint/blueprint_generator.py
++++ b/src/xpk/core/blueprint/blueprint_generator.py
+@@ -201,12 +201,15 @@ class BlueprintGenerator:
+                 "type": "nvidia-h100-mega-80gb",
+                 "count": 8,
+                 "gpu_driver_installation_config": {
+-                    "gpu_driver_version": "LATEST"
++                    "gpu_driver_version": "INSTALLATION_DISABLED"
+                 },
+             }],
+             "auto_upgrade": (
+                 True if capacity_type != CapacityType.FLEX_START else False
+             ),
++            "labels": {
++                "gke-no-default-nvidia-gpu-device-plugin": True,
++            },
+         },
+         outputs=["instructions"],
+     )
+@@ -282,9 +285,9 @@ class BlueprintGenerator:
+             workload_configmap,
+         ],
+     )
+-    if set_placement_policy and reservation_placement_policy is None:
+-      a3_megagpu_pool_0.use.append(group_placement_0.id)
+-      primary_group.modules.append(group_placement_0)
++    #if set_placement_policy and reservation_placement_policy is None:
++    #  a3_megagpu_pool_0.use.append(group_placement_0.id)
++    #  primary_group.modules.append(group_placement_0)
+     a3_mega_blueprint = Blueprint(
+         terraform_backend_defaults=self._getblock_terraform_backend(
+             gcs_bucket, cluster_name, prefix
