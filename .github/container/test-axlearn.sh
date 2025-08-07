@@ -180,35 +180,13 @@ done
 
 
 # RUN TESTS
-TEST_8_DEVICES_FILES=(
-    "axlearn/common/gda_test.py"
-    "axlearn/common/input_base_test.py"
-    "axlearn/common/input_dispatch_test.py"
-    "axlearn/common/trainer_test.py"
-    "axlearn/common/utils_test.py"
+TEST_8_DEVICES_WITH_PATHS=(
+  "./axlearn/common/gda_test.py"
+  "./axlearn/common/input_base_test.py"
+  "./axlearn/common/input_dispatch_test.py"
+  "./axlearn/common/trainer_test.py"
+  "./axlearn/common/utils_test.py"
 )
-TEST_8_DEVICES_WITH_PATHS=()
-for file in "${TEST_8_DEVICES_FILES[@]}"; do
-    # Handle the ambiguous 'utils_test.py' as a special case.
-    if [[ "$file" == "utils_test.py" ]]; then
-        # We do not need to test cli or gcloud utils_test
-        found_file=$(find . -path '*/axlearn/common/utils_test.py' -type f 2>/dev/null | head -n 1)
-        if [[ -n "$found_file" ]]; then
-            TEST_8_DEVICES_WITH_PATHS+=("$found_file")
-        else
-            echo "Warning: Desired utils_test.py not found at '*/axlearn/common/utils_test.py'"
-        fi
-    else
-        # For all other (unambiguous) files, find them by name.
-        # This will add all found files to the array.
-        readarray -t found_files < <(find . -name "$file" -type f 2>/dev/null)
-        if [ ${#found_files[@]} -gt 0 ]; then
-            TEST_8_DEVICES_WITH_PATHS+=( "${found_files[@]}" )
-        else
-            echo "Warning: Test file '$file' not found in current directory structure"
-        fi
-    fi
-done
 
 run_tests "" "for_8_devices" "8_dev" "${TEST_8_DEVICES_WITH_PATHS[@]}"
 # All the other tests
