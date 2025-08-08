@@ -70,7 +70,7 @@ inputs:
   XPK_VERSION:
     description: 'XPK release tag'
     required: false
-    default: 'v0.8.0'
+    default: 'v0.10.1'
     type: string
   XPK_PYTHON:
     description: 'Python version for XPK'
@@ -119,9 +119,8 @@ runs:
     shell: bash -x -e -u {0}
     run: |
       sed -i 's/{{ IMAGE_PULL_SECRET_NAME }}/${{ inputs.IMAGE_PULL_SECRET_NAME }}/g' .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch 
-      git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/tcpxo_decorator.patch --directory ${WORKLOAD_NAME}/xpk
-      git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/docker_resources.patch --directory ${WORKLOAD_NAME}/xpk
-      git apply --unsafe-paths .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch --directory ${WORKLOAD_NAME}/xpk
+      PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
+      ls ${PATCH_PATH} | xargs -I {} git apply --unsafe-paths ${PATCH_PATH}/{} --directory ${WORKLOAD_NAME}/xpk
   
   - name: Set workload commands
     shell: bash -x -e -u {0}
@@ -158,18 +157,31 @@ runs:
     run: |
       source ${WORKLOAD_NAME}/.venv/bin/activate
       cd ${WORKLOAD_NAME}/xpk
+
+      args=(
+          --project=${{ inputs.GCP_PROJECT }}
+          --cluster=${{ inputs.GKE_CLUSTER }}
+          --zone=${{ inputs.GCP_ZONE }}
+          --workload=${WORKLOAD_NAME}
+          --docker-image=${{ inputs.IMAGE }}
+          --device-type=${{ inputs.CLUSTER_DEVICE }}
+          --num-nodes=${{ inputs.NUM_NODES }}
+          --num-slices=${{ inputs.NUM_NODES }}
+          --priority=high
+          --scheduler=gke.io/topology-aware-auto
+      )
+
+      if [[ "${{ inputs.XPK_VERSION }}" == "v0.10.1" ]]; then
+          args+=(
+              --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
+              --env="JAX_COORDINATOR_PORT=3389"
+              --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
+          )
+      fi
+
       python xpk.py workload create \
-                    --project ${{ inputs.GCP_PROJECT }} \
-                    --cluster ${{ inputs.GKE_CLUSTER }} \
-                    --zone ${{ inputs.GCP_ZONE }} \
-                    --workload ${WORKLOAD_NAME} \
-                    --docker-image ${{ inputs.IMAGE }} \
-                    --device-type ${{ inputs.CLUSTER_DEVICE }} \
-                    --num-nodes ${{ inputs.NUM_NODES }} \
-                    --num-slices ${{ inputs.NUM_NODES }} \
-                    --priority=high \
-                    --scheduler=gke.io/topology-aware-auto \
-                    --command "${PRELUDE} ${CMD} ${POSTLUDE}"
+        ${args[@]} \
+        --command="${PRELUDE} ${CMD} ${POSTLUDE}"
   
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}
