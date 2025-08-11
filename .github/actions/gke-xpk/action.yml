@@ -88,7 +88,7 @@ runs:
       CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == "'${{ inputs.GKE_CLUSTER }}'")')
       if [ $CLUSTER_EXISTS = false ]; then
         "Cluster ${{ inputs.CLUSTER_DEVICE }} does not exist, cannot schedule workload on it"
-        exit 0
+        exit 1
       fi
 
   - name: Set workload name
