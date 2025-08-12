@@ -79,7 +79,7 @@ jobs:
       shell: bash -x -e -u {0}
       run: |
         PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
-        ls ${PATCH_PATH} | xargs -I {} git apply --unsafe-paths ${PATCH_PATH}/{} --directory ${WORKLOAD_NAME}/xpk
+        ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths ${PATCH_PATH}/{} --directory ${WORKLOAD_NAME}/xpk
 
     - name: Show environment
       run: |
@@ -116,11 +116,11 @@ jobs:
   
         # not configured in xpk pre v0.10.0
         if [[ "${{ inputs.XPK_VERSION }}" == "v0.8.0" ]]; then
-          kubectl apply -f .github/gke-workflow/xpk/xpk-sa-rbac.yml
+          kubectl apply -f .github/gke-workflow/xpk/v0.8.0/xpk-sa-rbac.yml
         fi
 
         # enable GCS interactivity from pods
-        kubectl apply -f /github/gke-workflow/xpk/xpk-gcs-sa.yml
+        kubectl apply -f /github/gke-workflow/gke/xpk-gcs-sa.yml
 
     - name: Install GPU operator
       run: |
