@@ -6,19 +6,29 @@ from nsys_jax import (
     load_profiler_data,
     xla_module_metadata,
 )
+from nsys_jax.protobuf import HloProto, HloProtoSet
 import pathlib
 
 
-def write_pbtxt(outdir: pathlib.Path, series_ms, hlo_module):
-    mod_proto = hlo_module.proto().hlo_module
-    fingerprint = mod_proto.frontend_attributes.map["fingerprint_before_lhs"]
+def get_scheduling_name(module: HloProto, name: str) -> str:
+    _, inst = module.find_instruction(name)
+    return inst.proto().metadata.scheduling_name
+
+
+def write_pbtxt(outdir: pathlib.Path, series_ms, hlo_module_set: HloProtoSet):
+    fingerprint = hlo_module_set.unique_result(
+        lambda mod: mod.proto().hlo_module.frontend_attributes.map[
+            "fingerprint_before_lhs"
+        ]
+    )
     outdir.mkdir(exist_ok=True)
     fp_fname = f"{fingerprint}.pbtxt"
     null_names = 0
     with open(outdir / fp_fname, "w") as ofile:
         for name, cost_ms in series_ms.items():
-            comp, inst = hlo_module.find_instruction(name)
-            scheduling_name = inst.proto().metadata.scheduling_name
+            scheduling_name = hlo_module_set.unique_result(
+                lambda mod: get_scheduling_name(mod, name)
+            )
             null_names += len(scheduling_name) == 0
             ofile.write(
                 f'costs {{ name: "{scheduling_name}" cost_us: {cost_ms * 1000:.1f} }}\n'
@@ -61,7 +71,7 @@ def main():
     for row in module_ranking.itertuples():
         print(f"Processing module {row.Name} ({row.Index})")
         try:
-            hlo_module = xla_module_metadata(row.Index, prefix=args.prefix)
+            hlo_set = xla_module_metadata(row.Index, policy="all", prefix=args.prefix)
         except Exception as e:
             print(f"Skipping due to: {e}")
             continue
@@ -73,7 +83,7 @@ def main():
         write_pbtxt(
             pathlib.Path("./maxcomm_mincompute"),
             min_compute_max_comm(thunk_df.groupby("Name")),
-            hlo_module,
+            hlo_set,
         )
 
 
