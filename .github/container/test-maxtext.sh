@@ -47,7 +47,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,mem-fraction:,model-name:,decoder-block:,attn-type:,remat-policy:,batch-per-gpu:,dtype:,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,mem-fraction:,model-name:,decoder-block:,attn-type:,remat-policy:,batch-per-gpu:,dtype:,quantization:,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -63,6 +63,7 @@ ATTN_TYPE="dot_product"
 REMAT_POLICY="minimal"
 BATCH_PER_GPU=2
 DTYPE="bfloat16"
+QUANTIZATION=""
 STEPS=10
 DP=1
 FSDP=1
@@ -105,6 +106,10 @@ while [ : ]; do
         ;;
     --dtype)
         DTYPE="$2"
+        shift 2
+        ;;
+    --quantization)
+        QUANTIZATION="$2"
         shift 2
         ;;
     -s | --steps)
@@ -166,7 +171,14 @@ fi
 
 # for fp8 runs
 if [ $DTYPE == "fp8" ]; then
+    if [ -n "$QUANTIZATION" ]; then
+        echo "Error: --quantization cannot be used with --dtype=fp8"
+        exit 1
+    fi
     ADDITIONAL_ARGS+=" quantization=$DTYPE"
+fi
+if [ -n "$QUANTIZATION" ]; then
+    ADDITIONAL_ARGS+=" quantization=$QUANTIZATION"
 fi
 
 GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
@@ -200,6 +212,7 @@ print_var ATTN_TYPE
 print_var REMAT_POLICY
 print_var BATCH_PER_GPU
 print_var DTYPE
+print_var QUANTIZATION
 print_var STEPS
 print_var NGPUS
 print_var HARDWARE
@@ -213,7 +226,7 @@ print_var dcn_FSDP
 print_var ici_TP
 print_var PP
 
-MAXTEXT_DIR="/opt/maxtext"
+MAXTEXT_DIR="${MAXTEXT_DIR:-/opt/maxtext}"
 pushd ${MAXTEXT_DIR}
 
 ## Launch
