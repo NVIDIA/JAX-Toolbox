@@ -109,3 +109,8 @@ qwix:
   tracking_ref: main
   latest_verified_commit: 9ca25462e0342d29ebf214c78624fc262c9f6871
   mode: git-clone
+tunix:
+  url: https://github.com/google/tunix.git
+  tracking_ref: main
+  latest_verified_commit: d799a45d48027e27b6a08aaf7cb15e6a4f495c01
+  mode: git-clone
