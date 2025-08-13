@@ -152,11 +152,12 @@ def _load_nvtx_gpu_proj_trace_single(
     # Load the thread metadata used to map module/thunk executions to global device IDs
     meta_df = _load_parquet_file(meta_file)
     # Match XLA's launcher thread name. These threads launch work if >1 GPU is being
-    # driven by the process.
+    # driven by the process. xla#29725 renamed slice -> partition.
     device_by_pid_tid = (
         meta_df["Name"]
         .str.extract(
-            r"^XlaLauncher:#global=(?P<Device>\d+),local=(?P<LocalDevice>\d+),process=(?P<Process>\d+),slice=(?P<Slice>\d+)#$"
+            r"^XlaLauncher:#global=(?P<Device>\d+),local=(?P<LocalDevice>\d+),"
+            r"process=(?P<Process>\d+),(?:partition|slice)=(?P<Slice>\d+)#$"
         )
         .dropna()
         .astype(np.int32)
