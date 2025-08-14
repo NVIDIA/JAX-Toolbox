@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
-ARG URLREF_AXLEARN=https://github.com/Steboss/axlearn.git#sbosisio/working_branch
+ARG URLREF_AXLEARN=https://github.com/apple/axlearn.git
 ARG SRC_PATH_AXLEARN=/opt/axlearn
 
 ###############################################################################
