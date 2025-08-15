@@ -28,6 +28,7 @@ usage() {
     echo "  --data-parallel            Data parallelism to use. Defaults to 1. If specified FSDP dims will be inferred."
     echo "  --fsdp                     Fully-sharded data parallelism to use. Defaults to 1. If none of the sharding specs are provided it will assume its FSDP across all available gpus."
     echo "  --tensor-parallel          Tensor parallelism to use. Defaults to 1. If specified, FSDP dims will be inferred."
+    echo "  --tensor-sequence-parallel Tensor parallelism + Sequence parallelism to use. Defaults to 1. If specified, FSDP dims will be inferred."
     echo "  --pipeline-parallel        Pipeline parallelism to use. Defaults to 1 for no pipelining."
     echo "  -n, --nodes                Number of nodes."
     echo "  -h, --help                 Print usage. Some examples:  
@@ -40,6 +41,7 @@ usage() {
                                        7. test-maxtext.sh -n 8 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --output train_output --fsdp=4 --tensor-parallel=2 --data-parallel=8 --multiprocess
                                        8. test-maxtext.sh -n 16 -b 2 --model-name=llama2-70b --attn-type=cudnn_flash_te --remat-policy=save_dot_except_mlp --steps=10 --output train_output --fsdp=128 --multiprocess
                                        9. test-maxtext.sh -n 16 -b 2 --model-name=llama2-70b --attn-type=cudnn_flash_te --remat-policy=save_dot_except_mlp --steps=10 --output train_output --fsdp=64 --data-parallel=2 --multiprocess
+                                       10. test-maxtext.sh -n 8 -b 2 --model-name=llama2-7b --attn-type=cudnn_flash_te --remat-policy=minimal_flash --steps=10 --output train_output --fsdp=4 --tensor-sequence-parallel=2 --data-parallel=8 --multiprocess
                                        
                                        Note:
                                        a) FSDP and TP needs to defined for use; DP is not necessary to define, it will always be inferred from the other two.
@@ -47,7 +49,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,mem-fraction:,model-name:,decoder-block:,attn-type:,remat-policy:,batch-per-gpu:,dtype:,quantization:,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,mem-fraction:,model-name:,decoder-block:,attn-type:,remat-policy:,batch-per-gpu:,dtype:,quantization:,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,tensor-sequence-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -68,6 +70,7 @@ STEPS=10
 DP=1
 FSDP=1
 TP=1
+TPSP=1
 PP=1
 NODES=1
 ENABLE_FUSED_ATTN=0
@@ -136,6 +139,10 @@ while [ : ]; do
         TP="$2"
         shift 2
         ;;
+    --tensor-sequence-parallel)
+        TPSP="$2"
+        shift 2
+        ;;
     --pipeline-parallel)
         PP="$2"
         shift 2
@@ -191,17 +198,36 @@ NGPUS=$((GPUS_PER_NODE * NODES))
 # TP is always ici; after TP it will be FSDP and
 # from TP and FSDP, we can find out ici and dcn DP
 # in other words, DP dim across ici and dcn axis will always be inferred
+
 ici_TP=${TP}
+ici_TPSP=${TPSP}
+
+# Check that exactly one of TP or TPSP is different from 1
+if [ $(( (ici_TP != 1) + (ici_TPSP != 1) )) -ne 1 ]; then
+  echo "Please use either tensor-parallel or tensor-sequence-parallel."
+  echo "Both modes should not be used at the same time."
+  echo "ici_TP=$ici_TP"
+  echo "ici_TPSP=$ici_TPSP"
+  exit 1
+fi
+# Select effective TP value
+if [ "$ici_TP" != "1" ]; then
+  effective_TP=$ici_TP
+else
+  effective_TP=$ici_TPSP
+fi
+
 ici_DP=1
 dcn_FSDP=1
-if [ $((FSDP*TP)) -gt ${GPUS_PER_NODE} ]; then
-    ici_FSDP=$((GPUS_PER_NODE/TP))
-    dcn_FSDP=$((FSDP/ici_FSDP))
-    dcn_DP=$((NGPUS/(ici_FSDP*ici_TP*ici_DP*dcn_FSDP)))
+
+if [ $((FSDP * effective_TP)) -gt ${GPUS_PER_NODE} ]; then
+  ici_FSDP=$((GPUS_PER_NODE / effective_TP))
+  dcn_FSDP=$((FSDP / ici_FSDP))
+  dcn_DP=$((NGPUS / (ici_FSDP * effective_TP * ici_DP * dcn_FSDP)))
 else
-    ici_FSDP=$FSDP
-    ici_DP=$((GPUS_PER_NODE/(FSDP*TP)))
-    dcn_DP=$((NGPUS/(ici_FSDP*ici_TP*ici_DP*dcn_FSDP)))
+  ici_FSDP=$FSDP
+  ici_DP=$((GPUS_PER_NODE / (FSDP * effective_TP)))
+  dcn_DP=$((NGPUS / (ici_FSDP * effective_TP * ici_DP * dcn_FSDP)))
 fi
 
 print_var ADDITIONAL_ARGS
@@ -224,6 +250,7 @@ print_var dcn_DP
 print_var ici_FSDP
 print_var dcn_FSDP
 print_var ici_TP
+print_var ici_TPSP
 print_var PP
 
 MAXTEXT_DIR="${MAXTEXT_DIR:-/opt/maxtext}"
@@ -280,6 +307,7 @@ if [ -z "$DECODER_BLOCK" ]; then
         ici_data_parallelism=${ici_DP} \
         dcn_data_parallelism=${dcn_DP} \
         ici_tensor_parallelism=${ici_TP} \
+        ici_tensor_sequence_parallelism=${ici_TPSP} \
         dcn_tensor_parallelism=1 \
         ${ADDITIONAL_ARGS}"
 else
@@ -311,6 +339,7 @@ else
         ici_data_parallelism=${ici_DP} \
         dcn_data_parallelism=${dcn_DP} \
         ici_tensor_parallelism=${ici_TP} \
+        ici_tensor_sequence_parallelism=${ici_TPSP} \
         dcn_tensor_parallelism=1 \
         ${ADDITIONAL_ARGS}"
 fi
