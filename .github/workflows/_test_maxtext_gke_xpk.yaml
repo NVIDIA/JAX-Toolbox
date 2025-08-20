@@ -57,3 +57,4 @@ jobs:
                                        profiler_steps=8' |&
           tee /opt/output/output.log &> \${console};
           EXIT_CODE=\$PIPESTATUS;
+        secrets: inherit
