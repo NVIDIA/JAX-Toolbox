@@ -1,17 +1,21 @@
+import argparse
 import datetime
-import subprocess
+import logging
+import typing
+
+from .container import Container
 
 
 def get_commit_history(
-    worker,
-    package,
-    start,
-    end,
-    dir,
-    main_branch,
-    logger=None,
-    args=None,
-):
+    worker: Container,
+    package: str,
+    start: str,
+    end: str,
+    dir: str,
+    main_branch: str,
+    logger: logging.Logger,
+    args: argparse.Namespace,
+) -> typing.Tuple[typing.List[typing.Tuple[str, datetime.datetime]], typing.List[str]]:
     """
     Get the commit history for a given package between two commits.
 
@@ -27,35 +31,58 @@ def get_commit_history(
 
     Returns:
         data: list, list of all the commits
-        cherry_pick_range: str, range of cherry pick commits if any
+        cherry_pick_ranges: list[str], commits to attempt cherry-picking
     """
     # In particular the end commit might not already be known if the older,
     # passing, container is being used for triage.
-    commits_known = worker.exec(
-        [
-            "sh",
-            "-c",
-            f"git cat-file commit {start} && git cat-file commit {end}",
-        ],
-        policy="once",
-        workdir=dir,
+    commits_known = (
+        worker.exec(
+            [
+                "sh",
+                "-c",
+                f"git cat-file commit {start} && git cat-file commit {end}",
+            ],
+            policy="once",
+            workdir=dir,
+        ).returncode
+        == 0
     )
-    if commits_known.returncode != 0:
+    if not commits_known:
         worker.check_exec(
             ["git", "fetch", args.override_remotes.get(package, "origin"), start, end],
             policy="once_per_container",
             workdir=dir,
         )
 
-    # detect non-linear history
-    is_ancestor_result = worker.exec(
-        ["git", "merge-base", "--is-ancestor", start, end],
-        policy="once",
-        workdir=dir,
-    )
-    is_linear = is_ancestor_result.returncode == 0
-    cherry_pick_range = None
+    if package in args.workaround_buggy_container:
+        # The automatic rebase of the JAX branch used in the internal nightly
+        # containers was buggy for a while, leading to it re-writing commits that were
+        # actually on upstream main to have different hashes:
+        # b'          e'
+        # |           |
+        # a - b - c - d - e
+        # where b=b' e=e' apart from commit message and hash, and b' and e' are the
+        # commits in the containers. This unfortunately only differs from the 'true'
+        # non-linear case by whether or not b=b' and e=e'.
+        # b' = start
+        # a  = start^
+        # e' = end
+        # The workaround here is to replace b' with its
+        # parent a. This leaves open the possibility that the final result of the
+        # triage could be reported as e', in which case the user can manually re-map it
+        # to e, and makes the bisection range 1 commit wider than it really needs to be
+        start = f"{start}^"
 
+    # detect non-linear history
+    is_linear = (
+        worker.exec(
+            ["git", "merge-base", "--is-ancestor", start, end],
+            policy="once",
+            workdir=dir,
+        ).returncode
+        == 0
+    )
+    cherry_pick_ranges = []
     if not is_linear:
         logger.debug(
             f"Using non-linear history logic for {package} with branch {main_branch}"
@@ -69,15 +96,18 @@ def get_commit_history(
                 f"git merge-base {start} {end} && git merge-base {end} {main_branch}",
             ],
             policy="once",
+            stderr="separate",
             workdir=dir,
         ).stdout.strip()
         passing_main_commit, failing_main_commit = passing_and_failing_cmd.splitlines()
 
         # 2. find commits to cherry-pick from the failing branch
-        # TODO: as an alternative approach we may need to consider `{passing_main_commit}..{start}`
-        cherry_pick_range = f"{failing_main_commit}..{end}"
+        cherry_pick_ranges += [
+            f"{failing_main_commit}..{end}",
+            f"{passing_main_commit}..{start}",
+        ]
 
-        # 3. now we can use the main branch  commits for bisection
+        # 3. now we can use the main branch commits for bisection
         start = passing_main_commit
         end = failing_main_commit
 
@@ -85,8 +115,8 @@ def get_commit_history(
         f"{package}: "
         + (f"{start}^..{end}" if start != end else start)
         + (
-            f" (cherry_pick: {cherry_pick_range})"
-            if cherry_pick_range is not None
+            f" (cherry_pick: {' '.join(cherry_pick_ranges)})"
+            if len(cherry_pick_ranges)
             else ""
         )
     )
@@ -102,17 +132,17 @@ def get_commit_history(
             f"{start}^..{end}",
         ],
         policy="once",
-        stderr=subprocess.PIPE,
+        stderr="separate",
         workdir=dir,
     )
 
     data = []
     for line in result.stdout.splitlines():
         commit, date = line.split()
-        # for python < 3.11 we nee dto fix:
+        # for python < 3.11 we need to fix:
         if date.endswith("Z"):
             date = date[:-1] + "+00:00"
         date = datetime.datetime.fromisoformat(date).astimezone(datetime.timezone.utc)
         data.append((commit, date))
 
-    return data, cherry_pick_range
+    return data, cherry_pick_ranges

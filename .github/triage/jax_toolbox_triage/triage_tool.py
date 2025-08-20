@@ -8,7 +8,7 @@ import time
 from typing import Dict, Tuple, Union, Any, Optional
 
 from .container import Container
-from .logic import container_search, TestResult, version_search
+from .logic import container_search, TestExecutionOutcome, TestResult, version_search
 from .versions import get_versions_dirs_env
 from .summary import add_summary_record, create_output_symlinks
 from .bisect import get_commit_history
@@ -33,8 +33,6 @@ class TriageTool:
         self.dynamic_packages = set()
         self.packages_with_scripts = set()
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
-        # the cherry-pick gets populated only for non-linear cases
-        self.cherry_pick_commits = {}
 
         self.logger.info("Arguments:")
         for k, v in vars(self.args).items():
@@ -144,7 +142,7 @@ class TriageTool:
         for package in packages:
             if package not in self.package_dirs:
                 continue
-            history, cherry_pick_range = get_commit_history(
+            history, cherry_pick_ranges = get_commit_history(
                 worker,
                 package,
                 passing_versions[package],
@@ -155,8 +153,10 @@ class TriageTool:
                 args=self.args,
             )
             package_versions[package] = history
-            if cherry_pick_range is not None:
-                self.cherry_pick_commits[package] = cherry_pick_range
+            for cherry_pick_range in cherry_pick_ranges:
+                if package not in self.args.cherry_pick:
+                    self.args.cherry_pick[package] = []
+                self.args.cherry_pick[package].append(cherry_pick_range)
 
             assert all(
                 b[1] >= a[1]
@@ -164,11 +164,6 @@ class TriageTool:
                     package_versions[package], package_versions[package][1:]
                 )
             )
-
-            # this check works only for linear-case
-            if package not in self.cherry_pick_commits:
-                assert passing_versions[package] == package_versions[package][0][0]
-                assert failing_versions[package] == package_versions[package][-1][0]
 
         for package in packages:
             if package in package_versions:
@@ -263,7 +258,12 @@ class TriageTool:
             },
         )
         return TestResult(
-            host_output_directory=out_dir, result=test_pass, stdouterr=result.stdout
+            build_stdouterr=None,
+            host_output_directory=out_dir,
+            result=TestExecutionOutcome.TEST_SUCCESS
+            if test_pass
+            else TestExecutionOutcome.TEST_FAILURE,
+            stdouterr=result.stdout,
         )
 
     def _check_installation_scripts(self, worker: Container):
@@ -348,15 +348,16 @@ class TriageTool:
             self.bisection_versions[package] = version
             changed.append(f"{package}@{version}")
             if package in self.package_dirs:
-                cherry_pick_range = self.cherry_pick_commits.get(package)
                 git_commands.append(
                     f"cd ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.package_dirs[package]}"
                 )
                 git_commands.append("git stash")
                 # this is a checkout on the main branch
                 git_commands.append(f"git checkout {version}")
-                if cherry_pick_range:
-                    git_commands.append(f"git cherry-pick {cherry_pick_range}")
+                for cherry_pick_range in self.args.cherry_pick.get(package, []):
+                    git_commands.append(
+                        f"(git cherry-pick {cherry_pick_range} || git cherry-pick --abort)"
+                    )
 
             else:
                 # Another software package, `version` is probably a version number.
@@ -396,7 +397,6 @@ class TriageTool:
                 policy="once_per_container",
             )
             # Build JAX
-            # TODO: teach the tool how to build TransformerEngine too
             # TODO: do not build JAX/XLA/TransformerEngine if we know their versions did not change?
             before = time.monotonic()
             # Unfortunately the build system does not always seem to handle incremental
@@ -406,39 +406,49 @@ class TriageTool:
                 f"build-jax.sh --bazel-cache={self.args.bazel_cache}",
                 "build-te.sh",
             ]
-            worker.check_exec(
+            build_result = worker.exec(
                 ["sh", "-c", " && ".join(build_cmds)],
                 policy="once_per_container",
                 workdir=self.package_dirs["jax"],
             )
+            build_pass = build_result.returncode == 0
             middle = time.monotonic()
-            self.logger.info(f"Build completed in {middle - before:.1f}s")
-            # Run the test
-            test_result = worker.exec(
-                self.args.test_command, log_level=test_output_log_level
+            build_time = middle - before
+            self.logger.info(
+                f"Build {'succeeded' if build_pass else 'failed'} in {build_time:.1f}s"
             )
-            test_time = time.monotonic() - middle
-
-        add_summary_record(
-            self.args.output_prefix,
-            "versions",
-            {
-                **{
-                    "build_time": middle - before,
-                    "container": self.bisection_url,
-                    "output_directory": out_dir.as_posix(),
-                    "result": test_result.returncode == 0,
-                    "test_time": test_time,
-                },
-                **versions,
-            },
-        )
-        result_str = "pass" if test_result.returncode == 0 else "fail"
-        self.logger.info(f"Test completed in {test_time:.1f}s ({result_str})")
+            summary = {
+                "build_time": build_time,
+                "container": self.bisection_url,
+            }
+            summary.update(versions)
+            if build_pass:
+                # Run the test
+                test_result = worker.exec(
+                    self.args.test_command, log_level=test_output_log_level
+                )
+                test_output = test_result.stdout
+                test_time = time.monotonic() - middle
+                test_result_enum = (
+                    TestExecutionOutcome.TEST_SUCCESS
+                    if test_result.returncode == 0
+                    else TestExecutionOutcome.TEST_FAILURE
+                )
+                summary["output_directory"] = out_dir.as_posix()
+                summary["test_time"] = test_time
+                self.logger.info(
+                    f"Test completed in {test_time:.1f}s ({test_result_enum})"
+                )
+            else:
+                test_output = None
+                test_result_enum = TestExecutionOutcome.BUILD_FAILURE
+        summary["result"] = str(test_result_enum)
+        add_summary_record(self.args.output_prefix, "versions", summary)
         return TestResult(
+            build_stdouterr=build_result.stdout,
             host_output_directory=out_dir,
-            result=test_result.returncode == 0,
-            stdouterr=test_result.stdout,
+            result=test_result_enum,
+            stdouterr=test_output,
         )
 
     def find_container_range(self) -> Tuple[str, str]:
@@ -520,12 +530,17 @@ class TriageTool:
             passing_url, failing_url, passing_env, failing_env
         )
 
-        # We should have versions for all the same software packages at both
-        # ends of the range, one way or another. TODO: this could be relaxed.
-        assert passing_versions.keys() == failing_versions.keys(), (
-            passing_versions,
-            failing_versions,
-        )
+        # We only know how to handle software packages that have versions defined at
+        # both ends of the range.
+        inconsistent_keys = passing_versions.keys() ^ failing_versions.keys()
+        if len(inconsistent_keys):
+            self.logger.warning(
+                f"Ignoring packages that only have defined versions in one endpoint: {' '.join(inconsistent_keys)}"
+            )
+            for k in inconsistent_keys:
+                for d in [passing_versions, failing_versions]:
+                    d.pop(k, None)
+
         # Which packages have versions that are not always the same?
         self.dynamic_packages = {
             pkg

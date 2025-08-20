@@ -17,6 +17,16 @@ compulsory_software = ["xla", "jax"]
 optional_software = ["flax", "maxtext", "transformer-engine"]
 
 
+def parse_cherry_picks(s: str) -> typing.Dict[str, typing.List[str]]:
+    ret: typing.Dict[str, typing.List[str]] = {}
+    for part in s.split(","):
+        sw, commit = part.split(":", 1)
+        if sw not in ret:
+            ret[sw] = []
+        ret[sw].append(commit)
+    return ret
+
+
 def parse_version_argument(s: str) -> typing.Dict[str, str]:
     ret: typing.Dict[str, str] = {}
     for part in s.split(","):
@@ -211,6 +221,26 @@ def parse_args(args=None) -> argparse.Namespace:
         type=parse_version_argument,
     )
     version_search_args.add_argument(
+        "--cherry-pick",
+        default={},
+        help="""
+            Cherry-pick the given fix(es) into the specified packages. Expects an
+            argument of the form jax:hash1,jax:hash2,xla:hash3[,...] - when checking
+            out a new version of the given package then those commit hashes will be
+            cherry-picked in on top if they apply cleanly, otherwise they will be
+            skipped. This is mainly intended to allow, for example, build fixes to be
+            cherry-picked to allow triage of a test failure in a time period when the
+            build was not succeeding.""",
+        type=parse_cherry_picks,
+    )
+    version_search_args.add_argument(
+        "--workaround-buggy-container",
+        help="Use the parent of the commit read from the start container for the given components.",
+        action="append",
+        default=[],
+        type=str,
+    )
+    version_search_args.add_argument(
         "--build-scripts-path",
         help="""
             This is a path inside the container that contains installPACKAGE.sh
@@ -259,6 +289,7 @@ def parse_args(args=None) -> argparse.Namespace:
         "pyxis",
         "local",
     }, args.container_runtime
+    args.workaround_buggy_container = set(args.workaround_buggy_container)
     # --{passing,failing}-commits are deprecated aliases for --{passing,failing}-versions.
     for prefix in ["passing", "failing"]:
         commits = getattr(args, f"{prefix}_commits")

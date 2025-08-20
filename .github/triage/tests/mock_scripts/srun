@@ -40,7 +40,7 @@ def env(prefix):
     env["JAX_TOOLBOX_TRIAGE_PREFIX"] = prefix
     return env
 
-
+print("srun: warning: sometimes srun likes to print warnings on stderr", file=sys.stderr)
 results = [
     subprocess.Popen(
         test_cmd,
