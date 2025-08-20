@@ -11,8 +11,7 @@ xla:
 flax:
   url: https://github.com/google/flax.git
   mirror_url: https://github.com/nvjax-svc-0/flax.git
-  tracking_ref: v0.10.6
-  latest_verified_commit: 718aa8ccb12c3fdefcf3d196874e4fc667b3ade5
+  tracking_ref: main
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
@@ -109,4 +108,9 @@ qwix:
   url: https://github.com/google/qwix.git
   tracking_ref: main
   latest_verified_commit: 9ca25462e0342d29ebf214c78624fc262c9f6871
+  mode: git-clone
+tunix:
+  url: https://github.com/google/tunix.git
+  tracking_ref: main
+  latest_verified_commit: d799a45d48027e27b6a08aaf7cb15e6a4f495c01
   mode: git-clone
