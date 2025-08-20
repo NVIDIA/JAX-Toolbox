@@ -1,0 +1,16 @@
+diff --git a/src/xpk/commands/workload.py b/src/xpk/commands/workload.py
+index 0231bab..25e34eb 100644
+--- a/src/xpk/commands/workload.py
++++ b/src/xpk/commands/workload.py
+@@ -482,8 +482,9 @@ def workload_create(args) -> None:
+             flex=True if capacity_type == CapacityType.FLEX_START else False,
+         )
+         else (
+-            'kueue.x-k8s.io/podset-preferred-topology:'
+-            ' "cloud.google.com/gce-topology-host"'
++            """
++                kueue.x-k8s.io/podset-preferred-topology: "cloud.google.com/gce-topology-host"
++            """
+         )
+     )
+ 
