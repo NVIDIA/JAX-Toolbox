@@ -9,12 +9,12 @@ inputs:
     type: string
   GKE_CLUSTER:
     description: 'GKE cluster name'
-    default: jtb-2025-08-06
+    default: jtb-gke-gpu-op-nonccl
     required: false
     type: string
   GCP_ZONE:
     description: 'GCP zone of the cluster'
-    default: us-central1-a
+    default: europe-west4-b
     required: false
     type: string
   CLUSTER_DEVICE: 
@@ -47,11 +47,6 @@ inputs:
     required: false
     default: ghcr.io/nvidia/jax:latest
     type: string
-  IMAGE_PULL_SECRET_NAME:
-    description: 'Name of k8s Secret resource for registry ImagePullSecret'
-    required: false
-    default: jax-toolbox-ghcr
-    type: string
   COMMAND:
     description: 'Command to run in main container on JobSet start up'
     required: false
@@ -81,6 +76,26 @@ inputs:
 runs:
   using: 'composite'
   steps:
+
+  - name: Check cluster exists
+    shell: bash -x -e -u {0}
+    run: |
+      CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == "'${{ inputs.GKE_CLUSTER }}'")')
+      if [ $CLUSTER_EXISTS = false ]; then
+        "Cluster ${{ inputs.CLUSTER_DEVICE }} does not exist, cannot schedule workload on it"
+        exit 1
+      fi
+
+  - name: Container registry login
+    uses: docker/login-action@v3
+    with:
+      registry: ghcr.io
+      username: ${{ github.repository_owner }}
+      password: ${{ secrets.GITHUB_TOKEN }}
+
+  - name: Create registry credentails cluster secret 
+    id: store-token
+    uses: ./.github/actions/store-delete-k8s-ghcr
 
   - name: Set workload name
     shell: bash -x -e -u {0}
@@ -120,7 +135,7 @@ runs:
     run: |
       sed -i 's/{{ IMAGE_PULL_SECRET_NAME }}/${{ inputs.IMAGE_PULL_SECRET_NAME }}/g' .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch 
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
-      ls ${PATCH_PATH} | xargs -I {} git apply --unsafe-paths ${PATCH_PATH}/{} --directory ${WORKLOAD_NAME}/xpk
+      ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
   
   - name: Set workload commands
     shell: bash -x -e -u {0}
