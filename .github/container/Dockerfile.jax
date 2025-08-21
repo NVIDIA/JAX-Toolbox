@@ -2,8 +2,8 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax:base
 ARG BUILD_PATH_JAXLIB=/opt/jaxlibs
 # Extra targets to build and copy outputs of, can be used for HLO tools. For example
-# @xla//xla/tools/multihost_hlo_runner:hlo_runner_main,@xla//xla/hlo/tools:hlo-opt
-ARG EXTRA_BAZEL_TARGETS=""
+# @xla//xla/hlo/tools:hlo-opt,...
+ARG EXTRA_BAZEL_TARGETS="@xla//xla/tools/multihost_hlo_runner:hlo_runner_main"
 ARG URLREF_JAX=https://github.com/google/jax.git#main
 ARG URLREF_XLA=https://github.com/openxla/xla.git#main
 ARG URLREF_FLAX=https://github.com/google/flax.git#main
