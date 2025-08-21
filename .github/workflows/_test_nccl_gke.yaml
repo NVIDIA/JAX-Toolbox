@@ -77,11 +77,11 @@ jobs:
 
     - name: Create NCCL test Services on cluster
       run: |
-        SERVICE_MANIFEST=".github/gke-workflow/nccl/service-${WORKLOAD_NAME}-${{ matrix.test }}.yaml"
+        SERVICE_MANIFEST=".github/gke-workflow/gke/nccl-svc-${WORKLOAD_NAME}-${{ matrix.test }}.yaml"
         WORKLOAD_NAME="${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
         echo "SERVICE_MANIFEST=${SERVICE_MANIFEST}" >> ${GITHUB_ENV}
 
-        cat .github/gke-workflow/nccl/service.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD_NAME}'"' --yaml-output | tee ${SERVICE_MANIFEST}
+        cat .github/gke-workflow/gke/nccl-svc.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD_NAME}'"' --yaml-output | tee ${SERVICE_MANIFEST}
         kubectl apply -f ${SERVICE_MANIFEST}
 
     - name: Run XPK workload on cluster
