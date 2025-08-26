@@ -74,6 +74,7 @@ def run_and_log(
     cwd: typing.Optional[str] = None,
     log_level: int = logging.DEBUG,
 ) -> subprocess.CompletedProcess:
+    assert stderr in {"interleaved", "separate"}, stderr
     logger.debug(f"Executing in {cwd or '.'}: {shlex.join(command)}")
     result = subprocess.Popen(
         command,

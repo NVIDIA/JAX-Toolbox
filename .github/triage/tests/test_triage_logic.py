@@ -15,7 +15,7 @@ def wrap(b, versions={}):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def logger():
     logger = logging.getLogger("triage-tests")
     logger.setLevel(logging.DEBUG)
