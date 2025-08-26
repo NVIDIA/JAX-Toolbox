@@ -33,8 +33,6 @@ class TriageTool:
         self.dynamic_packages = set()
         self.packages_with_scripts = set()
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
-        # the cherry-pick gets populated only for non-linear cases
-        self.cherry_pick_commits = {}
 
         self.logger.info("Arguments:")
         for k, v in vars(self.args).items():
@@ -144,7 +142,7 @@ class TriageTool:
         for package in packages:
             if package not in self.package_dirs:
                 continue
-            history, cherry_pick_range = get_commit_history(
+            history, cherry_pick_ranges = get_commit_history(
                 worker,
                 package,
                 passing_versions[package],
@@ -155,8 +153,10 @@ class TriageTool:
                 args=self.args,
             )
             package_versions[package] = history
-            if cherry_pick_range is not None:
-                self.cherry_pick_commits[package] = cherry_pick_range
+            for cherry_pick_range in cherry_pick_ranges:
+                if package not in self.args.cherry_pick:
+                    self.args.cherry_pick[package] = []
+                self.args.cherry_pick[package].append(cherry_pick_range)
 
             assert all(
                 b[1] >= a[1]
@@ -164,11 +164,6 @@ class TriageTool:
                     package_versions[package], package_versions[package][1:]
                 )
             )
-
-            # this check works only for linear-case
-            if package not in self.cherry_pick_commits:
-                assert passing_versions[package] == package_versions[package][0][0]
-                assert failing_versions[package] == package_versions[package][-1][0]
 
         for package in packages:
             if package in package_versions:
@@ -348,15 +343,16 @@ class TriageTool:
             self.bisection_versions[package] = version
             changed.append(f"{package}@{version}")
             if package in self.package_dirs:
-                cherry_pick_range = self.cherry_pick_commits.get(package)
                 git_commands.append(
                     f"cd ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.package_dirs[package]}"
                 )
                 git_commands.append("git stash")
                 # this is a checkout on the main branch
                 git_commands.append(f"git checkout {version}")
-                if cherry_pick_range:
-                    git_commands.append(f"git cherry-pick {cherry_pick_range}")
+                for cherry_pick_range in self.args.cherry_pick.get(package, []):
+                    git_commands.append(
+                        f"(git cherry-pick {cherry_pick_range} || git cherry-pick --abort)"
+                    )
 
             else:
                 # Another software package, `version` is probably a version number.
@@ -396,7 +392,6 @@ class TriageTool:
                 policy="once_per_container",
             )
             # Build JAX
-            # TODO: teach the tool how to build TransformerEngine too
             # TODO: do not build JAX/XLA/TransformerEngine if we know their versions did not change?
             before = time.monotonic()
             # Unfortunately the build system does not always seem to handle incremental
@@ -520,12 +515,17 @@ class TriageTool:
             passing_url, failing_url, passing_env, failing_env
         )
 
-        # We should have versions for all the same software packages at both
-        # ends of the range, one way or another. TODO: this could be relaxed.
-        assert passing_versions.keys() == failing_versions.keys(), (
-            passing_versions,
-            failing_versions,
-        )
+        # We only know how to handle software packages that have versions defined at
+        # both ends of the range.
+        inconsistent_keys = passing_versions.keys() ^ failing_versions.keys()
+        if len(inconsistent_keys):
+            self.logger.warning(
+                f"Ignoring packages that only have defined versions in one endpoint: {' '.join(inconsistent_keys)}"
+            )
+            for k in inconsistent_keys:
+                for d in [passing_versions, failing_versions]:
+                    d.pop(k, None)
+
         # Which packages have versions that are not always the same?
         self.dynamic_packages = {
             pkg
