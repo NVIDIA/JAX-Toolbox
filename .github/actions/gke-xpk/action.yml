@@ -9,12 +9,12 @@ inputs:
     type: string
   GKE_CLUSTER:
     description: 'GKE cluster name'
-    default: jtb-2025-08-06
+    default: jtb-2025-08-26
     required: false
     type: string
   GCP_ZONE:
     description: 'GCP zone of the cluster'
-    default: us-central1-a
+    default: europe-west4-b
     required: false
     type: string
   CLUSTER_DEVICE: 
