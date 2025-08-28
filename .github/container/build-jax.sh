@@ -195,11 +195,6 @@ elif [[ ! -z "${BAZEL_CACHE}" ]] ; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=${BAZEL_CACHE}"
 fi
 
-# WAR for https://github.com/openxla/xla/issues/28256
-if [[ "${CPU_ARCH}" == "arm64" ]]; then
-    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--config=ci_linux_aarch64_cuda${CUDA_MAJOR_VERSION}"
-fi
-
 if [[ "$DEBUG" == "1" ]]; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=-c --bazel_options=dbg --bazel_options=--strip=never --bazel_options=--cxxopt=-g --bazel_options=--cxxopt=-O0"
 fi
