@@ -8,7 +8,7 @@ import time
 from typing import Dict, Tuple, Union, Any, Optional
 
 from .container import Container
-from .logic import container_search, TestResult, version_search
+from .logic import container_search, TestExecutionOutcome, TestResult, version_search
 from .versions import get_versions_dirs_env
 from .summary import add_summary_record, create_output_symlinks
 from .bisect import get_commit_history
@@ -258,7 +258,12 @@ class TriageTool:
             },
         )
         return TestResult(
-            host_output_directory=out_dir, result=test_pass, stdouterr=result.stdout
+            build_stdouterr=None,
+            host_output_directory=out_dir,
+            result=TestExecutionOutcome.TEST_SUCCESS
+            if test_pass
+            else TestExecutionOutcome.TEST_FAILURE,
+            stdouterr=result.stdout,
         )
 
     def _check_installation_scripts(self, worker: Container):
@@ -401,39 +406,49 @@ class TriageTool:
                 f"build-jax.sh --bazel-cache={self.args.bazel_cache}",
                 "build-te.sh",
             ]
-            worker.check_exec(
+            build_result = worker.exec(
                 ["sh", "-c", " && ".join(build_cmds)],
                 policy="once_per_container",
                 workdir=self.package_dirs["jax"],
             )
+            build_pass = build_result.returncode == 0
             middle = time.monotonic()
-            self.logger.info(f"Build completed in {middle - before:.1f}s")
-            # Run the test
-            test_result = worker.exec(
-                self.args.test_command, log_level=test_output_log_level
+            build_time = middle - before
+            self.logger.info(
+                f"Build {'succeeded' if build_pass else 'failed'} in {build_time:.1f}s"
             )
-            test_time = time.monotonic() - middle
-
-        add_summary_record(
-            self.args.output_prefix,
-            "versions",
-            {
-                **{
-                    "build_time": middle - before,
-                    "container": self.bisection_url,
-                    "output_directory": out_dir.as_posix(),
-                    "result": test_result.returncode == 0,
-                    "test_time": test_time,
-                },
-                **versions,
-            },
-        )
-        result_str = "pass" if test_result.returncode == 0 else "fail"
-        self.logger.info(f"Test completed in {test_time:.1f}s ({result_str})")
+            summary = {
+                "build_time": build_time,
+                "container": self.bisection_url,
+            }
+            summary.update(versions)
+            if build_pass:
+                # Run the test
+                test_result = worker.exec(
+                    self.args.test_command, log_level=test_output_log_level
+                )
+                test_output = test_result.stdout
+                test_time = time.monotonic() - middle
+                test_result_enum = (
+                    TestExecutionOutcome.TEST_SUCCESS
+                    if test_result.returncode == 0
+                    else TestExecutionOutcome.TEST_FAILURE
+                )
+                summary["output_directory"] = out_dir.as_posix()
+                summary["test_time"] = test_time
+                self.logger.info(
+                    f"Test completed in {test_time:.1f}s ({test_result_enum})"
+                )
+            else:
+                test_output = None
+                test_result_enum = TestExecutionOutcome.BUILD_FAILURE
+        summary["result"] = str(test_result_enum)
+        add_summary_record(self.args.output_prefix, "versions", summary)
         return TestResult(
+            build_stdouterr=build_result.stdout,
             host_output_directory=out_dir,
-            result=test_result.returncode == 0,
-            stdouterr=test_result.stdout,
+            result=test_result_enum,
+            stdouterr=test_output,
         )
 
     def find_container_range(self) -> Tuple[str, str]:
