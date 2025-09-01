@@ -26,6 +26,9 @@ spec:
             - image: PLACEHOLDER
               imagePullPolicy: IfNotPresent
               name: PLACEHOLDER
+              env:
+              - name: NCCL_DEBUG
+                value: "INFO"
               command:
                 - bash
                 - -c
@@ -65,6 +68,9 @@ spec:
             - image: PLACEHOLDER
               imagePullPolicy: IfNotPresent
               name: PLACEHOLDER
+              env:
+              - name: NCCL_DEBUG
+                value: "INFO"
               volumeMounts:
                 - name: shmem
                   mountPath: /dev/shm
