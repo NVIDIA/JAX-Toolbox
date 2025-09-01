@@ -42,13 +42,25 @@ class Container(ABC):
         pass
 
     def check_exec(
-        self, cmd: typing.List[str], **kwargs
+        self,
+        cmd: typing.List[str],
+        *,
+        log_level: int = logging.DEBUG,
+        policy: typing.Literal["once", "once_per_container", "default"] = "default",
+        stderr: typing.Literal["interleaved", "separate"] = "interleaved",
+        workdir: typing.Optional[str] = None,
     ) -> subprocess.CompletedProcess:
-        result = self.exec(cmd, **kwargs)
+        result = self.exec(
+            cmd, log_level=log_level, policy=policy, stderr=stderr, workdir=workdir
+        )
         if result.returncode != 0:
             self._logger.fatal(
                 f"{' '.join(cmd)} exited with return code {result.returncode}"
             )
+            if stderr == "separate":
+                self._logger.fatal("stderr:")
+                self._logger.fatal(result.stderr)
+                self._logger.fatal("stdout:")
             self._logger.fatal(result.stdout)
             result.check_returncode()
         return result
