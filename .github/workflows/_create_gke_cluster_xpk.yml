@@ -120,15 +120,16 @@ jobs:
         fi
 
         # enable GCS interactivity from pods
-        kubectl apply -f /github/gke-workflow/gke/xpk-gcs-sa.yml
+        kubectl apply -f .github/gke-workflow/gke/xpk-gcs-sa.yml
 
     - name: Install GPU operator
       run: |
         kubectl apply -f .github/gke-workflow/gke/namespace.yml
         kubectl apply -n gpu-operator -f .github/gke-workflow/gke/gpu-operator-quota.yml
         kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/master/nvidia-driver-installer/cos/daemonset-preloaded.yaml
-        helm install --wait --generate-name \
+        helm install --wait  \
                      --namespace gpu-operator \
+                     gpu-operator
                      nvidia/gpu-operator \
                      --version=v25.3.2 \
                      -f .github/gke-workflow/gke/helm/gpu-operator.yml
