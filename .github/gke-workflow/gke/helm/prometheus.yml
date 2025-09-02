@@ -1,0 +1,54 @@
+extraScrapeConfigs: |
+  - job_name: dcgm-exporter
+    scrape_interval: 5s # Adjust the interval as needed
+    kubernetes_sd_configs:
+    - role: pod
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+      action: keep
+      regex: nvidia-dcgm-exporter
+    - source_labels: [__meta_kubernetes_pod_node_name]
+      target_label: instance
+    - source_labels: [__address__]
+      target_label: __address__
+      regex: (.*):\d+
+      replacement: $1:9400
+  - job_name: node-exporter
+    scrape_interval: 5s # Adjust the interval as needed
+    kubernetes_sd_configs:
+    - role: pod
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+      action: keep
+      regex: node-exporter
+    - source_labels: [__meta_kubernetes_pod_node_name]
+      target_label: instance
+    - source_labels: [__address__]
+      target_label: __address__
+      regex: (.*):\d+
+      replacement: $1:9100
+
+server:
+  tolerations:
+    - key: "components.gke.io/gke-managed-components"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+alertmanager:
+  tolerations:
+    - key: "components.gke.io/gke-managed-components"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+kube-state-metrics:
+  tolerations:
+    - key: "components.gke.io/gke-managed-components"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+prometheus-pushgateway:
+  tolerations:
+    - key: "components.gke.io/gke-managed-components"
+      operator: "Exists"
+      effect: "NoSchedule"
+      
