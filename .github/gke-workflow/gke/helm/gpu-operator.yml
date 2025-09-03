@@ -1,0 +1,32 @@
+hostPaths:
+  driverInstallDir: /home/kubernetes/bin/nvidia
+  toolkit.installDir: /home/kubernetes/bin/nvidia
+cdi:
+  enabled: true
+  default: true
+driver:
+  enabled: false
+node-feature-discovery:
+  worker:
+    tolerations:
+      - key: "components.gke.io/gke-managed-components"
+        operator: "Exists"
+        effect: "NoSchedule"
+  master:
+    tolerations:
+      - key: "components.gke.io/gke-managed-components"
+        operator: "Exists"
+        effect: "NoSchedule"
+  gc:
+    tolerations:
+      - key: "components.gke.io/gke-managed-components"
+        operator: "Exists"
+        effect: "NoSchedule"
+operator:
+  imagePullSecrets:
+    - name: nvcriotoken
+  tolerations:
+    - key: "components.gke.io/gke-managed-components"
+      operator: "Exists"
+      effect: "NoSchedule"
+
