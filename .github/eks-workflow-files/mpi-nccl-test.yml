@@ -27,8 +27,12 @@ spec:
               imagePullPolicy: IfNotPresent
               name: PLACEHOLDER
               env:
-              - name: NCCL_DEBUG
-                value: "INFO"
+              - name: PATH
+                value: $PATH:/opt/amazon/efa/bin:/usr/bin
+              - name: LD_LIBRARY_PATH
+                value: "/opt/amazon/openmpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:/usr/local/nvidia/lib:$LD_LIBRARY_PATH"
+              - name: NCCL_TUNER_PLUGIN
+                value: /opt/aws-ofi-nccl/install/lib/libnccl-ofi-tuner.so
               command:
                 - bash
                 - -c
@@ -44,8 +48,8 @@ spec:
                     echo "Workers were still not reachable after ${limit}, exiting"
                     exit 1
                   fi
-                  mpirun --allow-run-as-root --tag-output -N 1 -x LD_LIBRARY_PATH=/usr/local/cuda/compat/lib.real nvidia-smi
-                  mpirun --allow-run-as-root -N 8 -x LD_LIBRARY_PATH=/usr/local/cuda/compat/lib.real $0 \
+                  /opt/amazon/openmpi/bin/mpirun --allow-run-as-root --tag-output -N 1 -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH} nvidia-smi
+                  /opt/amazon/openmpi/bin/mpirun --allow-run-as-root -N 8 -x ${PATH} -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH} $0 \
                     -b 8 \
                     -e 16G \
                     -f 2 \
@@ -69,8 +73,6 @@ spec:
               imagePullPolicy: IfNotPresent
               name: PLACEHOLDER
               env:
-              - name: NCCL_DEBUG
-                value: "INFO"
               volumeMounts:
                 - name: shmem
                   mountPath: /dev/shm
