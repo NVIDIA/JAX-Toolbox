@@ -120,7 +120,7 @@ runs:
     run: |
       sed -i 's/{{ IMAGE_PULL_SECRET_NAME }}/${{ inputs.IMAGE_PULL_SECRET_NAME }}/g' .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch 
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
-      ls ${PATCH_PATH} | xargs -I {} git apply --unsafe-paths ${PATCH_PATH}/{} --directory ${WORKLOAD_NAME}/xpk
+      ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
   
   - name: Set workload commands
     shell: bash -x -e -u {0}
@@ -229,26 +229,43 @@ runs:
   - name: Stream logs from JobSet Pods
     shell: bash -u {0}
     run: |
-      jobset_pods=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
+      JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
+      echo "JOBSET_PODS=${JOBSET_PODS[@]}" >> ${GITHUB_ENV}
   
-      for jobset_pod in ${jobset_pods[@]}; do
-          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD_NAME}-${jobset_pod}-jobset.log &
+      for jobset_pod in ${JOBSET_PODS[@]}; do
+          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD_NAME}/${jobset_pod}.log &
       done
       wait < <(jobs -p)
   
-  - name: Set exit code from JobSet logs
+  - name: Set exit code from JobSet pods logs
     shell: bash -u {0}
     run: |
-      MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}-${POD}-jobset.log | awk '{ print $3 }' )"
-      echo ${MAYBE_XPK_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$'
-  
-      if [ $? -ne 0 ]; then
-        echo "The JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }} did not complete as expected "
+      parse_pod_exit_code() {
+        local pod=$1
+        MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}/${pod}.log | awk '{ print $3 }' )"
+        echo ${MAYBE_XPK_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
+        
+        if [ $? -ne 0 ]; then
+          echo "The JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }} did not complete as expected "
+          exit 1
+        fi
+
+        echo "Pod ${pod} exited with ${MAYBE_XPK_EXIT_CODE}" >&2
+
+        eval "export ${MAYBE_XPK_EXIT_CODE}"
+        echo ${EXIT_CODE}
+      }
+      
+      ALL_EXIT_CODES=0
+      for jobset_pod in ${JOBSET_PODS[@]}; do
+        POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod})
+        ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
+      done
+
+      if [ ${ALL_EXIT_CODES} -gt 0 ]; then
         exit 1
       fi
-  
-      eval "export ${MAYBE_XPK_EXIT_CODE}"
-      exit ${EXIT_CODE}
+      exit 0
   
   - name: Clean up JobSet from cluster
     shell: bash -x -u {0}
@@ -259,22 +276,16 @@ runs:
   - name: Download artifacts from GCS to runner
     shell: bash -x -u {0}
     run: |
-      mkdir -p output/${WORKLOAD_NAME}
-      mv ${WORKLOAD_NAME}-*.log output/${WORKLOAD_NAME}
-      gsutil cp -r ${GCS_ARTIFACT_PATH} output/${WORKLOAD_NAME}
+      mkdir -p ${WORKLOAD_NAME}/output
+      gsutil cp -r ${GCS_ARTIFACT_PATH} ${WORKLOAD_NAME}/output
+      cp ${WORKLOAD_NAME}/*.log ${WORKLOAD_NAME}/output
   
   - name: Upload artifacts to GitHub Actions from runner
     uses: actions/upload-artifact@v4
     with:
       name: ${{ inputs.WORKLOAD_NAME_PREFIX }}
-      path: output/${{ env.WORKLOAD_NAME }}/*
+      path: ${{ env.WORKLOAD_NAME }}/output/*
   
-  - name: Clean up GCS artifacts from runner
-    shell: bash -x -u {0}
-    if: ${{ always() }}
-    run: |
-      rm -rf output/${WORKLOAD_NAME}
-
   - name: Clean up xpk environment from runner
     shell: bash -x -u {0}
     if: ${{ always() }}
