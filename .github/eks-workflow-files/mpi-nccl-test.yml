@@ -30,7 +30,7 @@ spec:
               - name: PATH
                 value: $PATH:/opt/amazon/efa/bin:/usr/bin:/usr/local/mpi/bin
               - name: LD_LIBRARY_PATH
-                value: "/usr/local/mpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:/usr/local/nvidia/lib:$LD_LIBRARY_PATH"
+                value: "/usr/local/mpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:/usr/local/nvidia/lib:/usr/local/cuda/compat/lib.real:$LD_LIBRARY_PATH"
               - name: NCCL_TUNER_PLUGIN
                 value: /opt/aws-ofi-nccl/install/lib/libnccl-ofi-tuner.so
               command:
@@ -49,7 +49,7 @@ spec:
                     exit 1
                   fi
                   mpirun --allow-run-as-root --tag-output -N 1 -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH} nvidia-smi
-                  mpirun --allow-run-as-root -N 8 -x ${PATH} -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH} $0 \
+                  mpirun --allow-run-as-root -N 8 -x ${PATH} -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH} -x NVIDIA_GDRCOPY=enabled -x FI_EFA_USE_DEVICE_RDMA=1 -x FI_LOG_LEVEL=info -x NCCL_DEBUG=info -x NCCL_TUNER_PLUGIN=${NCCL_TUNER_PLUGIN} $0 \
                     -b 8 \
                     -e 16G \
                     -f 2 \
