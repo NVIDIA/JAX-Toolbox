@@ -48,8 +48,8 @@ spec:
                     echo "Workers were still not reachable after ${limit}, exiting"
                     exit 1
                   fi
-                  /opt/amazon/openmpi/bin/mpirun --allow-run-as-root --tag-output -N 1 -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH} nvidia-smi
-                  /opt/amazon/openmpi/bin/mpirun --allow-run-as-root -N 8 -x ${PATH} -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH} $0 \
+                  mpirun --allow-run-as-root --tag-output -N 1 -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH} nvidia-smi
+                  mpirun --allow-run-as-root -N 8 -x ${PATH} -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH} $0 \
                     -b 8 \
                     -e 16G \
                     -f 2 \
