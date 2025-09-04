@@ -28,9 +28,9 @@ spec:
               name: PLACEHOLDER
               env:
               - name: PATH
-                value: $PATH:/opt/amazon/efa/bin:/usr/bin
+                value: $PATH:/opt/amazon/efa/bin:/usr/bin:/usr/local/mpi/bin
               - name: LD_LIBRARY_PATH
-                value: "/opt/amazon/openmpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:/usr/local/nvidia/lib:$LD_LIBRARY_PATH"
+                value: "/usr/local/mpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:/usr/local/nvidia/lib:$LD_LIBRARY_PATH"
               - name: NCCL_TUNER_PLUGIN
                 value: /opt/aws-ofi-nccl/install/lib/libnccl-ofi-tuner.so
               command:
