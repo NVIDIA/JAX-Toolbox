@@ -64,7 +64,7 @@ RUN mkdir -p /builder/extra-targets && \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
     --clean \
-    "${EXTRA_BUILD_JAX_ARGS}"
+    ${EXTRA_BUILD_JAX_ARGS}
 
 ## Transformer engine: check out source and build wheel
 RUN --mount=type=ssh \

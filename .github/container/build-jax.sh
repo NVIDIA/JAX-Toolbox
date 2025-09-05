@@ -282,11 +282,10 @@ if (( "${#EXTRA_TARGETS[@]}" > 0 )); then
         for target in "${EXTRA_TARGETS[@]}"; do
             target_type=$(bazel cquery "${BAZEL_ARGS[@]}" "${target}" --output label_kind 2>/dev/null | cut -f1 -d' ')
             subdir_dest=""
-            case ${target_type}; in
+            case ${target_type} in
                 "cc_binary") subdir_dest="bin" ;;
                 "python_library") subdir_dest="python" ;;
-                *)
-                    echo "warning: unexpected type of extra target: ${target_type} ${target}" ;;
+                *) echo "warning: unexpected type of extra target: ${target_type} ${target}" ;;
             esac
             output_files=$(bazel cquery "${BAZEL_ARGS[@]}" "${target}" --output files)
             cp -v ${output_files} "${EXTRA_TARGET_DEST}/${subdir_dest}"
