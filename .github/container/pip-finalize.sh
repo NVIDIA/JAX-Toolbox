@@ -8,13 +8,6 @@ pushd /opt/pip-tools.d
 # It's possible there are 2nd degree transitive dependencies that are VCS, so
 # this is more robust to gather VCS requirements at the cost of pip-compiling
 # twice
-cat requirements-*.in
-if [ -d "/opt/axlearn" ]; then
-  echo "Directory /opt/axlearn exists. Reading file..."
-  cat /opt/axlearn/pyproject.toml
-else
-  echo "Directory /opt/axlearn does not exist. Skipping."
-fi
 pip-compile -o requirements.pre $(ls requirements-*.in)
 
 IFS=$'\n'
