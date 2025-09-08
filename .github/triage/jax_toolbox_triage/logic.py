@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import datetime
+from enum import auto, Enum
 import functools
 import itertools
 import logging
@@ -7,16 +8,34 @@ import pathlib
 import typing
 
 
-@dataclass
-class TestResult:
+class TestExecutionOutcome(Enum):
     """
-    Hold the pass/fail result and the interleaved stdout/stderr of a test run
+    Enumerate the possible outcomes of a build + test run. This might be extended in
+    future to allow test cases to return more nuanced results, e.g. TEST_DOES_NOT_EXIST
+    to avoid searching back before the introduction of a test case.
     """
 
     __test__ = False  # stop pytest gathering this
+    BUILD_FAILURE = auto()
+    TEST_FAILURE = auto()
+    TEST_SUCCESS = auto()
+
+
+@dataclass
+class TestResult:
+    """
+    Hold the pass/fail result and the interleaved stdout/stderr of a test run.
+
+    `build_stdouterr` can be None if there was no build, e.g. running the test case in
+    an existing container.
+    `stdouterr` can be None if the build did not succeed, so the test was not run.
+    """
+
+    __test__ = False  # stop pytest gathering this
+    build_stdouterr: typing.Optional[str]
     host_output_directory: pathlib.Path
-    result: bool
-    stdouterr: str
+    result: TestExecutionOutcome
+    stdouterr: typing.Optional[str]
 
 
 def as_datetime(date: datetime.date) -> datetime.datetime:
@@ -117,7 +136,7 @@ def container_search(
         logger.info(f"Checking end-of-range failure in {end_date}")
         # Print context for the IMPORTANT .info(...) to the console
         test_end_date = container_passes(end_date, test_output_log_level=logging.INFO)
-        if test_end_date.result:
+        if test_end_date.result != TestExecutionOutcome.TEST_FAILURE:
             raise Exception(f"Could not reproduce failure in {end_date}")
         logger.info(
             "IMPORTANT: you should check that the test output above shows the "
@@ -162,7 +181,7 @@ def container_search(
         logger.info(f"Skipping check that the test passes on start_date={start_date}")
     else:
         # While condition prints an info message
-        while not container_passes(search_date).result:
+        while container_passes(search_date).result != TestExecutionOutcome.TEST_SUCCESS:
             # Test failed on `search_date`, go further into the past
             earliest_failure = search_date
             new_search_date = adjust(
@@ -190,8 +209,7 @@ def container_search(
         if range_mid is None:
             # It wasn't possible to refine further.
             break
-        result = container_passes(range_mid).result
-        if result:
+        if container_passes(range_mid).result == TestExecutionOutcome.TEST_SUCCESS:
             range_start = range_mid
         else:
             range_end = range_mid
@@ -226,6 +244,71 @@ def _not_first(d: typing.Dict[T, U]) -> typing.Iterable[typing.Tuple[T, U]]:
     return itertools.islice(d.items(), 1, None)
 
 
+def _get_versions(
+    *,
+    logger: logging.Logger,
+    primary: str,
+    primary_index: typing.Optional[int] = None,
+    versions: typing.OrderedDict[
+        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
+    ],
+) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, int]]:
+    if primary_index is None:
+        primary_index = len(versions[primary]) // 2
+        log_msg = f"Chose from {len(versions[primary])} remaining {primary} versions"
+        log_msg += f" [{versions[primary][0][0]}, {versions[primary][-1][0]}]"
+    else:
+        log_msg = None
+    bisect_versions = {}
+    bisect_versions[primary], primary_date = versions[primary][primary_index]
+    # Find the oldest versions of the other packages that are newer, or the last version
+    indices = {primary: primary_index}
+    for secondary, version_list in _not_first(versions):
+        for index, (version, date) in enumerate(version_list):
+            if date >= primary_date:
+                break
+        indices[secondary] = index
+        bisect_versions[secondary] = version
+        if log_msg is not None and len(version_list) > 1:
+            log_msg += f", {len(version_list)} remaining {secondary} versions"
+            log_msg += f" [{versions[secondary][0][0]}, {versions[secondary][-1][0]}]"
+    if log_msg is not None:
+        logger.info(log_msg)
+    return bisect_versions, indices
+
+
+def _earliest_versions(
+    versions: typing.OrderedDict[
+        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
+    ],
+) -> typing.Dict[str, str]:
+    return {package: version_list[0][0] for package, version_list in versions.items()}
+
+
+def _latest_versions(
+    versions: typing.OrderedDict[
+        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
+    ],
+) -> typing.Dict[str, str]:
+    return {package: version_list[-1][0] for package, version_list in versions.items()}
+
+
+def _strip_build_failures(versions: typing.Dict[str, str]) -> typing.Dict[str, str]:
+    def remove_build_failures(ver):
+        ver_bits = ver.split(",")
+        if len(ver_bits) == 1:
+            return ver
+        elif ver_bits[1][0] == "[" and ver_bits[-1][-1] == "]":
+            # v1,[v2,v3] -> v1
+            return ver_bits[0]
+        else:
+            # [v1,v2],v3 -> v3
+            assert ver_bits[0][0] == "[" and ver_bits[-2][-1] == "]", ver_bits
+            return ver_bits[-1]
+
+    return {k: remove_build_failures(v) for k, v in versions.items()}
+
+
 def _version_search(
     *,
     versions: typing.OrderedDict[
@@ -248,40 +331,37 @@ def _version_search(
     def _cache_key(
         versions: typing.Dict[str, str],
     ) -> FlatVersionDict:
-        return tuple(sorted(versions.items()))
+        return tuple(sorted(_strip_build_failures(versions).items()))
 
     if skip_precondition_checks:
         logger.info("Skipping check that 'good' versions reproduce success")
     else:
         # Verify that we can build successfully and that the test succeeds as expected.
         logger.info("Verifying test success using 'good' versions")
-        passing_versions = {
-            package: version_list[0][0] for package, version_list in versions.items()
-        }
+        passing_versions = _earliest_versions(versions)
         check_pass = build_and_test(versions=passing_versions)
         assert _cache_key(passing_versions) not in result_cache
         result_cache[_cache_key(passing_versions)] = check_pass
-        if check_pass.result:
+        if check_pass.result == TestExecutionOutcome.TEST_SUCCESS:
             logger.info("Verified test passes using 'good' versions")
         else:
-            logger.fatal("Could not reproduce success with 'good' versions")
+            err = f"Could not reproduce success with 'good' versions ({check_pass.result})"
+            logger.fatal(err)
             logger.fatal(check_pass.stdouterr)
-            raise Exception("Could not reproduce success with 'good' versions")
+            raise Exception(err)
 
     if skip_precondition_checks:
         logger.info("Skipping check that 'bad' versions reproduce failure")
     else:
         # Verify we can build successfully and that the test fails as expected.
         logger.info("Verifying test failure using 'bad' versions")
-        failing_versions = {
-            package: version_list[-1][0] for package, version_list in versions.items()
-        }
+        failing_versions = _latest_versions(versions)
         check_fail = build_and_test(
             versions=failing_versions, test_output_log_level=logging.INFO
         )
         assert _cache_key(failing_versions) not in result_cache
         result_cache[_cache_key(failing_versions)] = check_fail
-        if not check_fail.result:
+        if check_fail.result == TestExecutionOutcome.TEST_FAILURE:
             logger.info(
                 "Verified test failure using 'bad' versions. IMPORTANT: you should "
                 "check that the test output above shows the *expected* failure of your "
@@ -289,9 +369,12 @@ def _version_search(
                 "fails for the wrong reason, which will not triage the correct issue!"
             )
         else:
-            logger.fatal("Could not reproduce failure with 'bad' versions")
+            err = (
+                f"Could not reproduce failure with 'bad' versions ({check_fail.result})"
+            )
+            logger.fatal(err)
             logger.fatal(check_fail.stdouterr)
-            raise Exception("Could not reproduce failure with 'bad' versions")
+            raise Exception(err)
 
     # Make sure that the primary package (zeroth entry in `versions`) has
     # multiple versions. If it doesn't, we can permute it to the end straight
@@ -305,38 +388,178 @@ def _version_search(
     # take the oldest versions of the other packages that are newer than the
     # first package.
     primary = _first(versions.keys())
-    while len(versions[primary]) > 2:
-        middle = len(versions[primary]) // 2
-        bisect_versions = {}
-        bisect_versions[primary], primary_date = versions[primary][middle]
-        log_msg = f"Chose from {len(versions[primary])} remaining {primary} versions"
-        log_msg += f" [{versions[primary][0][0]}, {versions[primary][-1][0]}]"
-        # Find the oldest versions of the other packages that are newer, or the last version
-        indices = {primary: middle}
-        for secondary, version_list in _not_first(versions):
-            for index, (version, date) in enumerate(version_list):
-                if date >= primary_date:
-                    break
-            indices[secondary] = index
-            bisect_versions[secondary] = version
-            if len(version_list) > 1:
-                log_msg += f", {len(version_list)} remaining {secondary} versions"
-                log_msg += (
-                    f" [{versions[secondary][0][0]}, {versions[secondary][-1][0]}]"
-                )
-        logger.info(log_msg)
-        bisect_result = build_and_test(versions=bisect_versions)
-        assert _cache_key(bisect_versions) not in result_cache
-        result_cache[_cache_key(bisect_versions)] = bisect_result
+    get_versions = functools.partial(_get_versions, logger=logger, primary=primary)
 
-        if bisect_result.result:
+    def build_cached(bisect_versions):
+        cache_key = _cache_key(bisect_versions)
+        bisect_result = result_cache.get(cache_key)
+        if bisect_result is not None:
+            return bisect_result
+        bisect_result = build_and_test(versions=_strip_build_failures(bisect_versions))
+        result_cache[cache_key] = bisect_result
+        return bisect_result
+
+    def find_successful_build(versions):
+        # Try to find a set of versions where the build does not fail, starting with
+        # the set of versions that implement in a binary search for the actual test failure
+        bisect_versions, indices = get_versions(versions=versions)
+        bisect_result = build_cached(bisect_versions)
+        if bisect_result.result != TestExecutionOutcome.BUILD_FAILURE:
+            return bisect_result, bisect_versions
+        logger.info(
+            f"Encountered build failure using index={indices[primary]} of "
+            f"the remaining {primary} versions"
+        )
+        # Versions based on the middle of the remaining `primary` commits led to a
+        # build failure (n), but the endpoints build OK (y).
+        # y -- ? -- n -- ? -- y
+        # |         |         |
+        # start   middle     end
+        #
+        # We may know about other build failures (n values) in the range due to
+        # previous iterations.
+        #       cached
+        #         |
+        # y???nnnnnnnnn???????????y
+        # |           |           |
+        # start     middle       end
+        #
+        # And the hope of this logic is that we will find either an early version where
+        # the build succeeds and the test fails (so we can throw away the range with
+        # build failures), or a late version where the build succeeds and the test
+        # succeeds so we can do the same. The somewhat arbitrary logic here is to take
+        # the shorter y??????n run and refine it in the hope one of the ? is a y.
+        assert (
+            result_cache.get(_cache_key(_earliest_versions(versions))).result
+            == TestExecutionOutcome.TEST_SUCCESS
+        )
+        build_statuses = [(True, {p: 0 for p in versions})]
+        for n in range(1, len(versions[primary]) - 1):
+            versions_n, indices_n = get_versions(primary_index=n, versions=versions)
+            result_n = result_cache.get(_cache_key(versions_n))
+            assert (
+                result_n is None
+                or result_n.result == TestExecutionOutcome.BUILD_FAILURE
+            )
+            build_statuses.append((None if result_n is None else False, indices_n))
+        assert (
+            result_cache.get(_cache_key(_latest_versions(versions))).result
+            == TestExecutionOutcome.TEST_FAILURE
+        )
+        build_statuses.append((True, {p: len(vs) - 1 for p, vs in versions.items()}))
+        assert len(build_statuses) == len(versions[primary])
+        # build_statuses is something like [True, None, False, None, True]; identify
+        # the ranges [b, None, ..., not b] i.e [0, 2] and [2, 4] in the example, and do
+        # binary searches in them
+        start, start_v = 0, True
+        ranges = []
+        for n, (v, _) in enumerate(build_statuses):
+            if v == start_v:
+                start = n
+            elif v is not None and v != start_v:
+                if n - start > 1:
+                    # Need some None values in betwen
+                    ranges.append((start, n))
+                start, start_v = n, v
+        assert len(ranges) <= 2
+        # Start with the narrower range
+        ranges.sort(key=lambda v: v[1] - v[0])
+        for start, end in ranges:
+            start_status, start_indices = build_statuses[start]
+            end_status, end_indices = build_statuses[end]
+            assert start_status is not None
+            assert end_status is not None
+            assert start_status != end_status
+            assert all(v is None for v, _ in build_statuses[start + 1 : end - 1])
+            range_versions = {
+                package: versions[package][start_index : end_indices[package] + 1]
+                for package, start_index in start_indices.items()
+            }
+            while len(range_versions[primary]) > 2:
+                bisect_versions, indices = get_versions(versions=range_versions)
+                bisect_result = build_cached(bisect_versions)
+                if bisect_result.result != TestExecutionOutcome.BUILD_FAILURE:
+                    return bisect_result, bisect_versions
+                logger.info(
+                    "Encountered another build failure when refining "
+                    f"{len(range_versions[primary])} {primary} versions in "
+                    f"{len(ranges)} candidate range(s)"
+                )
+
+                def _slice(index):
+                    # range was (Y??n if start_status else n??Y) and a ? turned out to be an n
+                    return (
+                        slice(None, index + 1) if start_status else slice(index, None)
+                    )
+
+                range_versions = {
+                    package: range_versions[package][_slice(index)]
+                    for package, index in indices.items()
+                }
+        return bisect_result, bisect_versions
+
+    while len(versions[primary]) > 2:
+        bisect_result, bisect_versions = find_successful_build(versions=versions)
+
+        # reconstruct the indices in `versions` of the versions in `bisect_versions`
+        def _index(pkg, ver):
+            for n, (v, _) in enumerate(versions[pkg]):
+                if v == ver:
+                    return n
+            assert False
+
+        indices = {pkg: _index(pkg, ver) for pkg, ver in bisect_versions.items()}
+        if bisect_result.result == TestExecutionOutcome.TEST_SUCCESS:
             # Test passed, continue searching in the second half
             for package, index in indices.items():
                 versions[package] = versions[package][index:]
-        else:
+        elif bisect_result.result == TestExecutionOutcome.TEST_FAILURE:
             # Test failed, continue searching in the first half
             for package, index in indices.items():
                 versions[package] = versions[package][: index + 1]
+        else:
+            assert bisect_result.result == TestExecutionOutcome.BUILD_FAILURE, (
+                bisect_result
+            )
+            # Did not succeed in finding a version of `primary` that builds. This does
+            # not quite mean that all versions fail, as the algorithm will not try all
+            # versions in ranges with failures at both ends
+            #
+            #       might
+            #          \
+            # Y n n n Y n n n n n n n Y (build passes Y/n)
+            # |     |     |           |
+            # start Q1  middle       end
+            #
+            # as given middle=fail, and Q1=fail the points between Q1 and middle will
+            # not be checked.
+            n_primary = len(versions[primary])
+            logger.info(n_primary)
+            build_fail_commits = []
+            for n in range(1, n_primary - 1):
+                versions_n, _ = get_versions(primary_index=n, versions=versions)
+                # Should have been a build failure if tested.
+                result_n = result_cache.get(_cache_key(versions_n))
+                if result_n is not None:
+                    assert result_n.result == TestExecutionOutcome.BUILD_FAILURE, (
+                        result_n
+                    )
+                build_fail_commits.append(versions_n[primary])
+            logger.warning(
+                f"Could not triage {primary} to a single version due to build "
+                f"failures, adding {n_primary - 2} build failure version(s) to both "
+                "last-known-good and first-known-bad versions to represent this lack "
+                "of signal. The tool has not positively verified that *all* of these "
+                "commits actually lead to build failures."
+            )
+            test_pass_commit, test_pass_date = versions[primary][0]
+            test_fail_commit, test_fail_date = versions[primary][-1]
+            test_pass_range = f"{test_pass_commit},[{','.join(build_fail_commits)}]"
+            test_fail_range = f"[{','.join(build_fail_commits)}],{test_fail_commit}"
+            versions[primary] = [
+                (test_pass_range, test_pass_date),
+                (test_fail_range, test_fail_date),
+            ]
 
     # Primary bisection converged, meaning that there are two remaining
     # versions there, but possibly more of the other packages:
@@ -351,24 +574,18 @@ def _version_search(
     # Otherwise, if it fails, pZ is innocent and we can continue triaging
     # with the old primary package always fixed to pX.
     assert len(versions[primary]) == 2, versions
-    blame_versions = {
-        primary: versions[primary][0][0],  # pX
-    }
-    for secondary, version_list in _not_first(versions):
-        blame_versions[secondary] = version_list[-1][0]  # sZ, tZ, ...
+    (good_version, _), (bad_version, _) = versions[primary]
+    blame_versions = _latest_versions(versions)  # [pZ,] sZ, tZ, ...
+    blame_versions[primary] = good_version  # pX
     logger.info(
         f"Two {primary} versions remain, checking if {versions[primary][-1][0]} is the "
         "culprit"
     )
     # It's possible that this combination has already been tested at this point
-    blame = result_cache.get(_cache_key(blame_versions))
-    if blame is None:
-        blame = build_and_test(versions=blame_versions)
-        result_cache[_cache_key(blame_versions)] = blame
-    if blame.result:
+    blame = build_cached(blame_versions)
+    if blame.result == TestExecutionOutcome.TEST_SUCCESS:
         # Test passed with {pX, sZ, tZ, ...} but was known to fail with
         # {pZ, sZ, tZ, ...}. Therefore pZ is the culprit version.
-        (good_version, _), (bad_version, _) = versions[primary]
         log_str = f"Bisected failure to {primary} {bad_version} with"
         for secondary, secondary_version in _not_first(blame_versions):
             log_str += f" {secondary} {secondary_version}"
@@ -403,6 +620,7 @@ def _version_search(
         # we can fix the primary package to pX and recurse with the old
         # secondary package (s) as the new primary, and the old primary
         # package (p) moved to the end.
+        assert blame.result == TestExecutionOutcome.TEST_FAILURE, blame.result
         versions[primary] = [versions.pop(primary)[0]]
         return _version_search(
             build_and_test=build_and_test,
