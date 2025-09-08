@@ -93,7 +93,7 @@ jobs:
         id: submit_job
         run: |
           echo "Check whether the cluster is under maintenance"
-          if kubectl get nodes -o custom-columns=TAINTS:.spec.taints | grep -q "maintenance"; then
+          if kubectl get nodes -o custom-columns=TAINTS:.spec.taints | grep "maintenance"; then
             echo "Cluster is under maintenance, skipping job submission"
             echo "continue-run=false" >> "$GITHUB_OUTPUT"
           else

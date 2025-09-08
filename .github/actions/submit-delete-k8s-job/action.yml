@@ -17,7 +17,7 @@ runs:
       with:
         main: |
           echo "Checking for cluster maintenance taint..."
-          if kubectl get nodes -o custom-columns=TAINTS:.spec.taints | grep -q "maintenance"; then
+          if kubectl get nodes -o custom-columns=TAINTS:.spec.taints | grep "maintenance"; then
             echo "Cluster is under maintenance, skipping job submission."
             exit 0 # Exit successfully without running the rest of the script
           fi
