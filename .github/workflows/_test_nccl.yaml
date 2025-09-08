@@ -90,8 +90,18 @@ jobs:
             .github/eks-workflow-files/mpi-nccl-test.yml
           git diff .github/eks-workflow-files/mpi-nccl-test.yml
       - name: Submit Kubernetes job
-        run: kubectl apply -f .github/eks-workflow-files/mpi-nccl-test.yml
+        id: submit_job
+        run: |
+          echo "Check whether the cluster is under maintenance"
+          if kubectl get nodes -o custom-columns=TAINTS:.spec.taints | grep "maintenance"; then
+            echo "Cluster is under maintenance, skipping job submission"
+            echo "continue-run=false" >> "$GITHUB_OUTPUT"
+          else
+            kubectl apply -f .github/eks-workflow-files/mpi-nccl-test.yml
+            echo "continue-run=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Wait for Kubernetes job to start
+        if: steps.submit_job.outputs.continue-run == 'true'
         # Note that this is *not* using JOB_NAME
         run: |
           # Launcher job is created eagerly, but suspended. Kueue un-suspends it when
@@ -100,6 +110,7 @@ jobs:
           kubectl wait --for=create job/${LAUNCHER_NAME}
           kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${LAUNCHER_NAME} --timeout=14400s
       - name: Stream Kubernetes job output
+        if: steps.submit_job.outputs.continue-run == 'true'
         # Note that this is *not* JOB_NAME
         run: |
           # Streaming logs will fail if the container/pod is still pending
@@ -110,6 +121,7 @@ jobs:
           # prefixes lines with a rather verbose tag
           kubectl logs --follow job/${LAUNCHER_NAME}
       - name: Retrieve Kubernetes job status
+        if: steps.submit_job.outputs.continue-run == 'true'
         shell: bash -exo pipefail {0}
         run: |
           while readarray -d : -t status < <(kubectl get job/${LAUNCHER_NAME} -o 'jsonpath={.status.failed}:{.status.succeeded}'); do
@@ -130,7 +142,7 @@ jobs:
       # Provide more debug output in case of failure; note that some kinds of launch
       # failure do not produce any log output.
       - name: Debug failed Kubernetes job
-        if: failure()
+        if: failure() && steps.submit_job.outputs.continue-run == 'true'
         run: |
           # Provide better debug in case of launch failures that will not produce log output
           pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} -o name)
