@@ -8,6 +8,8 @@ pushd /opt/pip-tools.d
 # It's possible there are 2nd degree transitive dependencies that are VCS, so
 # this is more robust to gather VCS requirements at the cost of pip-compiling
 # twice
+cat requirements-*.in
+
 pip-compile -o requirements.pre $(ls requirements-*.in)
 
 IFS=$'\n'

@@ -19,6 +19,7 @@ RUN <<"EOF" bash -ex
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
 aqtp==0.8.2
 einops==0.8.0
+ml_dtypes>=0.5.0
 nltk==3.7
 portpicker==1.6.0
 seqio==0.0.20
@@ -31,7 +32,7 @@ EOF
 
 # fix the version of numpy >= 1.26.0 in the pyproject.toml to be in line with jaxlib
 RUN sed -i 's/"numpy==1.26.4"/"numpy>=1.26.0"/' /opt/axlearn/pyproject.toml
-
+RUN cat /opt/axlearn/pyproject.toml
 ###############################################################################
 ## Add test script to the path
 ###############################################################################
