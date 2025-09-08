@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
-ARG URLREF_AXLEARN=https://github.com/Steboss/axlearn.git#sbosisio/working_branch
+ARG URLREF_AXLEARN=https://github.com/Steboss/axlearn.git
 ARG SRC_PATH_AXLEARN=/opt/axlearn
 
 ###############################################################################
@@ -21,15 +21,16 @@ aqtp==0.8.2
 einops==0.8.0
 nltk==3.7
 portpicker==1.6.0
-seqio==0.0.18
-protobuf==3.20.3
+seqio==0.0.20
 pytest>=7.4.3
-tensorflow==2.18.1
+tensorflow==2.18.0
 pytest-xdist
 pytest-reportlog
 REQUIREMENTS
 EOF
 
+# fix the version of numpy >= 1.26.0 in the pyproject.toml to be in line with jaxlib
+RUN sed -i 's/"numpy==1.26.4"/"numpy>=1.26.0"/' /opt/axlearn/pyproject.toml
 
 ###############################################################################
 ## Add test script to the path
