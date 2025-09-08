@@ -9,7 +9,7 @@ pushd /opt/pip-tools.d
 # this is more robust to gather VCS requirements at the cost of pip-compiling
 # twice
 cat requirements-*.in
-
+cat /opt/axlearn/pyproject.toml
 pip-compile -o requirements.pre $(ls requirements-*.in)
 
 IFS=$'\n'
