@@ -277,17 +277,27 @@ bazel run "${BAZEL_ARGS[@]}" --verbose_failures=true //build:requirements.update
 if (( "${#EXTRA_TARGETS[@]}" > 0 )); then
     bazel build "${BAZEL_ARGS[@]}" --verbose_failures=true "${EXTRA_TARGETS[@]}"
     if [[ -n "${EXTRA_TARGET_DEST}" ]]; then
-        # Make sub-directories for executables and python modules 
-        mkdir -p ${EXTRA_TARGET_DEST}/bin ${EXTRA_TARGET_DEST}/python
+        mkdir -p ${EXTRA_TARGET_DEST}/bin ${EXTRA_TARGET_DEST}/lib ${EXTRA_TARGET_DEST}/python
         for target in "${EXTRA_TARGETS[@]}"; do
             target_type=$(bazel cquery "${BAZEL_ARGS[@]}" "${target}" --output label_kind 2>/dev/null | cut -f1 -d' ')
+            output_files=$(bazel cquery "${BAZEL_ARGS[@]}" "${target}" --output files 2>/dev/null)
             subdir_dest=""
             case ${target_type} in
-                "cc_binary") subdir_dest="bin" ;;
+                "cc_binary")
+                    if file ${output_files} | grep -q "shared object"; then
+                        # Check for PyInit to see if this is a python module
+                        if nm -D ${output_files} | grep PyInit; then
+                            subdir_dest="python"
+                        else
+                            subdir_dest="lib"
+                        fi
+                    else
+                        subdir_dest="bin"
+                    fi
+                ;;
                 "python_library") subdir_dest="python" ;;
                 *) echo "warning: unexpected type of extra target: ${target_type} ${target}" ;;
             esac
-            output_files=$(bazel cquery "${BAZEL_ARGS[@]}" "${target}" --output files)
             cp -v ${output_files} "${EXTRA_TARGET_DEST}/${subdir_dest}"
         done
     fi
