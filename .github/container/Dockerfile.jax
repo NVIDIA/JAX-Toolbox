@@ -3,7 +3,7 @@ ARG BASE_IMAGE=ghcr.io/nvidia/jax:base
 ARG BUILD_PATH_JAXLIB=/opt/jaxlibs
 # Extra targets to build and copy outputs of, can be used for HLO tools. For example
 # @xla//xla/hlo/tools:hlo-opt,...
-ARG EXTRA_BAZEL_TARGETS="@xla//xla/tools/multihost_hlo_runner:hlo_runner_main,@xla//xla/tools/multihost_hlo_runner:py_hlo_multihost_runner"
+ARG EXTRA_BAZEL_TARGETS="@xla//xla/tools/multihost_hlo_runner:hlo_runner_main,@xla//xla/tools/multihost_hlo_runner:py_hlo_multihost_runner.so"
 
 # Extra arguments to append to build-jax.sh
 ARG EXTRA_BUILD_JAX_ARGS=""
