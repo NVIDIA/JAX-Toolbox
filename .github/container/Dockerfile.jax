@@ -104,7 +104,7 @@ COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
 COPY --from=builder /builder/extra-targets/bin/* /usr/local/bin
-COPY --from=builder /builder/extra-targets/python/*.so /usr/local/lib/python3/dist-packages/
+COPY --from=builder /builder/extra-targets/python/*.so /usr/lib/python3/dist-packages/
 
 # Preserve the versions of jax and xla
 COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
