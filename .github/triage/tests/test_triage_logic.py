@@ -4,13 +4,25 @@ import itertools
 import logging
 import pytest
 import random
-from jax_toolbox_triage.logic import container_search, TestResult, version_search
+from jax_toolbox_triage.logic import (
+    container_search,
+    TestExecutionOutcome,
+    TestResult,
+    version_search,
+)
 
 
-def wrap(b, versions={}):
+def wrap(b, versions={}, build_failure=False):
     return TestResult(
+        build_stdouterr="",
         host_output_directory="-".join(map("-".join, sorted(versions.items()))),
-        result=b,
+        result=TestExecutionOutcome.BUILD_FAILURE
+        if build_failure
+        else (
+            TestExecutionOutcome.TEST_SUCCESS
+            if b
+            else TestExecutionOutcome.TEST_FAILURE
+        ),
         stdouterr="",
     )
 
@@ -81,8 +93,8 @@ def test_version_search_explicit(
         skip_precondition_checks=False,
     )
     assert algorithm_result == expected
-    assert last_known_good.result
-    assert not first_known_bad.result
+    assert last_known_good.result == TestExecutionOutcome.TEST_SUCCESS
+    assert first_known_bad.result == TestExecutionOutcome.TEST_FAILURE
     assert last_known_good.host_output_directory == last_known_good_dir
     assert first_known_bad.host_output_directory == first_known_bad_dir
 
@@ -94,7 +106,8 @@ step_size = datetime.timedelta(days=1)
 @pytest.mark.parametrize("seed", range(10))
 @pytest.mark.parametrize("packages", [2, 3, 100])
 @pytest.mark.parametrize("extra_commits", [0, 2, 7, 100])
-def test_version_search(logger, extra_commits, packages, seed):
+@pytest.mark.parametrize("build_pass_probability", [0.0, 0.9, 1.0])
+def test_version_search(logger, build_pass_probability, extra_commits, packages, seed):
     """
     Generate random sequences of commits for `packages` different packages and test
     that the version-level search algorithm yields the expected results.
@@ -104,6 +117,9 @@ def test_version_search(logger, extra_commits, packages, seed):
     fails for (bad, ref_1, ...).
 
     Around `extra_commits` extra commits will be added across the 2+ packages.
+
+    If `build_failures` is true, some commits within the generated range will result in
+    [simulated] build failures.
     """
     rng = random.Random(seed)
 
@@ -121,10 +137,14 @@ def test_version_search(logger, extra_commits, packages, seed):
             (random_hash(), start_date + rng.randint(-2, +2) * step_size)
         ]
 
+    build_failure_commits = set()
+
     def append_random_commits(n):
         for _ in range(n):
             output = rng.choice(list(commits.values()))
             output.append((random_hash(), output[-1][1] + random_delay()))
+            if rng.random() >= build_pass_probability:
+                build_failure_commits.add(output[-1][0])
 
     # Noise
     append_random_commits(extra_commits // 2)
@@ -142,8 +162,16 @@ def test_version_search(logger, extra_commits, packages, seed):
     culprit_dates = {sha: dt for sha, dt in commits[culprit]}
     assert len(culprit_dates) == len(commits[culprit])
 
+    # Make sure that the last-of-everything is not a build failure
+    for commit_list in commits.values():
+        build_failure_commits.discard(commit_list[-1][0])
+
     def dummy_test(*, versions, **kwargs):
-        return wrap(culprit_dates[versions[culprit]] < bad_date, versions)
+        return wrap(
+            culprit_dates[versions[culprit]] < bad_date,
+            versions,
+            build_failure=any(v in build_failure_commits for v in versions.values()),
+        )
 
     algorithm_result, last_known_good, first_known_bad = version_search(
         build_and_test=dummy_test,
@@ -158,23 +186,37 @@ def test_version_search(logger, extra_commits, packages, seed):
         for package in package_names
         if package != culprit
     }
-    assert {
-        f"{culprit}_bad": bad_commit,
-        f"{culprit}_good": good_commit,
-    } == algorithm_result
-    commits[culprit] = algorithm_result[f"{culprit}_good"]
-    assert dummy_test(versions=commits).result
-    commits[culprit] = algorithm_result[f"{culprit}_bad"]
-    assert not dummy_test(versions=commits).result
-    assert last_known_good.result
-    assert not first_known_bad.result
-    assert f"{culprit}-{good_commit}" in last_known_good.host_output_directory
-    assert f"{culprit}-{bad_commit}" in first_known_bad.host_output_directory
+    # The true first-bad and last-good commits should appear in the relevant lists.
+    assert bad_commit in algorithm_result[f"{culprit}_bad"]
+    assert good_commit in algorithm_result[f"{culprit}_good"]
+    # There should only be ,-separated lists of commits in case of build failures
+    assert build_pass_probability < 1.0 or "," not in algorithm_result[f"{culprit}_bad"]
     assert (
-        last_known_good.host_output_directory.replace(
-            f"{culprit}-{good_commit}", f"{culprit}-{bad_commit}"
-        )
-        == first_known_bad.host_output_directory
+        build_pass_probability < 1.0 or "," not in algorithm_result[f"{culprit}_good"]
+    )
+    # The first listed 'good' commit should be one where the test runs + passes
+    passing_version_before_build_failures = algorithm_result[f"{culprit}_good"].split(
+        ","
+    )[0]
+    commits[culprit] = passing_version_before_build_failures
+    assert dummy_test(versions=commits).result == TestExecutionOutcome.TEST_SUCCESS
+    # The last listed 'bad' commit should be one where the test runs + fails
+    failing_version_after_build_failures = algorithm_result[f"{culprit}_bad"].split(
+        ","
+    )[-1]
+    commits[culprit] = failing_version_after_build_failures
+    assert dummy_test(versions=commits).result == TestExecutionOutcome.TEST_FAILURE
+    # The returned results should have the correct outcomes
+    assert last_known_good.result == TestExecutionOutcome.TEST_SUCCESS
+    assert first_known_bad.result == TestExecutionOutcome.TEST_FAILURE
+    # Not sure if this is worth testing...
+    assert (
+        f"{culprit}-{passing_version_before_build_failures}"
+        in last_known_good.host_output_directory
+    )
+    assert (
+        f"{culprit}-{failing_version_after_build_failures}"
+        in first_known_bad.host_output_directory
     )
 
 
@@ -299,9 +341,9 @@ def test_version_search_exhaustive(logger, commits):
         if proj != bad_project
     }
     commits[bad_project] = bad_commit
-    assert not dummy_test(versions=commits).result
+    assert dummy_test(versions=commits).result == TestExecutionOutcome.TEST_FAILURE
     commits[bad_project] = good_commit
-    assert dummy_test(versions=commits).result
+    assert dummy_test(versions=commits).result == TestExecutionOutcome.TEST_SUCCESS
 
 
 @pytest.mark.parametrize(
