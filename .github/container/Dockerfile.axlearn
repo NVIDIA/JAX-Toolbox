@@ -17,26 +17,26 @@ RUN git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
 RUN <<"EOF" bash -ex
   echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
-aqtp==0.8.2
+aqtp #==0.8.2
 cloudpickle
-einops==0.8.0
-ml-dtypes==0.5.3
-nltk==3.7
-nvidia-ml-py>=12.560.30
+einops #==0.8.0
+ml-dtypes #==0.5.3
+nltk #==3.7
+nvidia-ml-py #>=12.560.30
 nvidia-nccl-cu13
-optax>=0.1.7
-protobuf==5.29.5
+optax #>=0.1.7
+protobuf #==5.29.5
 portpicker
-pytest>=7.4.3
+pytest #>=7.4.3
 pytest-xdist
 pytest-reportlog
-seqio==0.0.20
+seqio #==0.0.20
 tensorflow #==2.19.1
-tensorflow-datasets==4.9.9
-tensorflow-io>=0.37.1
+tensorflow-datasets #==4.9.9
+tensorflow-io #>=0.37.1
 tensorflow-text #==2.19.0
-tensorstore==0.1.76
-triton>=2.1.0
+tensorstore #==0.1.76
+triton #>=2.1.0
 REQUIREMENTS
 EOF
 
