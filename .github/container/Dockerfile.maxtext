@@ -22,6 +22,7 @@ git-clone.sh ${URLREF_JETSTREAM} ${SRC_PATH_JETSTREAM}
 EOF
 
 RUN <<"EOF" bash -ex -o pipefail
+echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 echo "-e file://${SRC_PATH_MAXTEXT}" >> /opt/pip-tools.d/requirements-maxtext.in
 echo "-e file://${SRC_PATH_JETSTREAM}" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
