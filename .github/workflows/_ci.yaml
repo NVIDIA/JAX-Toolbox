@@ -180,7 +180,7 @@ jobs:
   #           URLREF_AIRIO=${{ fromJson(inputs.SOURCE_URLREFS).AIRIO }}
 
   build-axlearn:
-    needs: build-jax
+    #needs: build-jax
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}
