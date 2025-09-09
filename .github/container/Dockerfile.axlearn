@@ -15,9 +15,10 @@ RUN git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
 # these packages are needed to run axlearn tests
 # https://github.com/apple/axlearn/blob/main/pyproject.toml as reference
 RUN <<"EOF" bash -ex
-  echo "-e file:///${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
+  echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
 aqtp==0.8.2
+cloudpickle
 einops==0.8.0
 ml-dtypes==0.5.3
 nltk==3.7
@@ -30,10 +31,10 @@ pytest>=7.4.3
 pytest-xdist
 pytest-reportlog
 seqio==0.0.20
-tensorflow==2.19.1
+tensorflow #==2.19.1
 tensorflow-datasets==4.9.9
 tensorflow-io>=0.37.1
-tensorflow-text==2.19.0
+tensorflow-text #==2.19.0
 tensorstore==0.1.76
 triton>=2.1.0
 REQUIREMENTS
