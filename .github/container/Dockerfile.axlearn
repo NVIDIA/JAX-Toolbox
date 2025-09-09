@@ -35,7 +35,7 @@ seqio==0.0.20
 tensorflow>=2.18.0
 tensorflow-datasets>=4.9.2
 tensorflow-io>=0.37.1
-tensorflow_test>=2.18.0
+tensorflow_text>=2.18.0
 tensorstore>=0.1.63
 triton>=2.1.0
 REQUIREMENTS
