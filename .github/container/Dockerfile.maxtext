@@ -22,6 +22,7 @@ git-clone.sh ${URLREF_JETSTREAM} ${SRC_PATH_JETSTREAM}
 EOF
 
 RUN <<"EOF" bash -ex -o pipefail
+echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 echo "-e file://${SRC_PATH_MAXTEXT}" >> /opt/pip-tools.d/requirements-maxtext.in
 echo "-e file://${SRC_PATH_JETSTREAM}" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
@@ -50,7 +51,6 @@ echo >> ${SRC_PATH_MAXTEXT}/requirements.txt  # add new line
 for requirement in \
     "tensorflow-metadata>=1.15.0" \
     "seqio@git+https://github.com/google/seqio.git" \
-    "grain" \
   ; do
     echo "${requirement}" >> ${SRC_PATH_MAXTEXT}/requirements.txt
 done
