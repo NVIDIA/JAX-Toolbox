@@ -16,9 +16,32 @@ RUN git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
 # https://github.com/apple/axlearn/blob/main/pyproject.toml as reference
 RUN <<"EOF" bash -ex
   echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
+  cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
+aqtp==0.8.2
+einops==0.8.0
+flax>=0.10.2
+ml-dtypes>=0.4.1
+nltk==3.7
+numpy>=1.26.4
+nvidia-ml-py>=12.560.30
+nvidia-nccl-cu13
+optax>=0.1.7
+protobuf>=3.20.3
+portpicker
+pytest>=7.4.3
+pytest-xdist
+pytest-reportlog
+seqio==0.0.20
+tensorflow>=2.18.0
+tensorflow-datasets>=4.9.2
+tensorflow-io>=0.37.1
+tensorflow_test>=2.18.0
+tensorstore>=0.1.63
+triton>=2.1.0
+REQUIREMENTS
 EOF
 
-COPY axlearn-pyproject.toml ${SRC_PATH_AXLEARN}/pyproject.toml
+#COPY axlearn-pyproject.toml ${SRC_PATH_AXLEARN}/pyproject.toml
 # fix the version of numpy >= 1.26.0 in the pyproject.toml to be in line with jaxlib
 #RUN sed -i 's/"numpy==1.26.4"/"numpy>=1.26.0"/' /opt/axlearn/pyproject.toml
 ###############################################################################
