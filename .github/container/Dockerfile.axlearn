@@ -20,7 +20,7 @@ RUN <<"EOF" bash -ex
 aqtp==0.8.2
 einops==0.8.0
 flax>=0.10.2
-ml-dtypes>=0.4.1
+ml-dtypes==0.4.1
 nltk==3.7
 numpy>=1.26.4
 nvidia-ml-py>=12.560.30
