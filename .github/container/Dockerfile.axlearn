@@ -6,7 +6,7 @@ ARG SRC_PATH_AXLEARN=/opt/axlearn
 ###############################################################################
 ## Download source and configure dependencies
 ###############################################################################
-FROM ghcr.io/nvidia/jax-toolbox-internal:17556925895-jax-amd64-mealkit AS mealkit
+FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_AXLEARN
 ARG SRC_PATH_AXLEARN
 
