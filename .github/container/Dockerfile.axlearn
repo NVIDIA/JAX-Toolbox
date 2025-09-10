@@ -17,32 +17,50 @@ RUN git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
 RUN <<"EOF" bash -ex
   echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
-aqtp #==0.8.2
+aqtp==0.8.2
 cloudpickle
-einops #==0.8.0
-ml-dtypes #==0.5.3
-nltk #==3.7
-nvidia-ml-py #>=12.560.30
+einops==0.8.0
+nltk==3.7
+nvidia-ml-py>=12.560.30
 nvidia-nccl-cu13
-optax #>=0.1.7
-protobuf #==5.29.5
+optax==0.1.7
+protobuf
 portpicker
-pytest #>=7.4.3
+pytest
 pytest-xdist
 pytest-reportlog
-seqio #==0.0.20
-tensorflow #==2.19.1
-tensorflow-datasets #==4.9.9
-tensorflow-io #>=0.37.1
-tensorflow-text #==2.19.0
-tensorstore #==0.1.76
-triton #>=2.1.0
+tensorstore
+triton>=2.1.0
 REQUIREMENTS
 EOF
 
 #COPY axlearn-pyproject.toml ${SRC_PATH_AXLEARN}/pyproject.toml
 # fix the version of numpy >= 1.26.0 in the pyproject.toml to be in line with jaxlib
 RUN sed -i 's/"numpy==1.26.4"/"numpy>=1.26.0"/' /opt/axlearn/pyproject.toml
+
+# add version constraints to avoid eternal dependency resolution
+RUN <<"EOF" bash -ex -o pipefail
+for pattern in \
+    "s|absl-py|absl-py>=2.1.0|g" \
+    "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
+    "s|tensorflow-datasets|tensorflow-datasets>=4.8.0|g" \
+    "s|tensorflow>=2.16.0|tensorflow==2.18.1|g" \
+  ; do
+    # tensorflow-cpu==2.19.0 is incompatible with tensorflow-text
+    sed -i "${pattern}" /opt/pip-tools.d/requirements-axlearn.in
+done
+EOF
+
+# add extra dependencies
+RUN <<"EOF" bash -ex -o pipefail
+echo >> ${SRC_PATH_MAXTEXT}/requirements.txt  # add new line
+for requirement in \
+    "tensorflow-metadata>=1.15.0" \
+    "seqio@git+https://github.com/google/seqio.git" \
+  ; do
+    echo "${requirement}" >> /opt/pip-tools.d/requirements-axlearn.in
+done
+EOF
 ###############################################################################
 ## Add test script to the path
 ###############################################################################
