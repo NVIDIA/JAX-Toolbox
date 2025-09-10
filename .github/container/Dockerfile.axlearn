@@ -53,7 +53,7 @@ EOF
 
 # add extra dependencies
 RUN <<"EOF" bash -ex -o pipefail
-echo >> ${SRC_PATH_MAXTEXT}/requirements.txt  # add new line
+echo >> /opt/pip-tools.d/requirements-axlearn.in  # add new line
 for requirement in \
     "tensorflow-metadata>=1.15.0" \
     "seqio@git+https://github.com/google/seqio.git" \
