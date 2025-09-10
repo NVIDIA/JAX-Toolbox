@@ -39,7 +39,6 @@ triton>=2.1.0
 REQUIREMENTS
 EOF
 
-#COPY axlearn-pyproject.toml ${SRC_PATH_AXLEARN}/pyproject.toml
 # fix the version of numpy >= 1.26.0 in the pyproject.toml to be in line with jaxlib
 RUN sed -i 's/"numpy==1.26.4"/"numpy>=1.26.0"/' /opt/axlearn/pyproject.toml
 
