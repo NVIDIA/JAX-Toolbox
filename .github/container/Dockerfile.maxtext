@@ -26,9 +26,11 @@ RUN <<"EOF" bash -ex -o pipefail
 for pattern in \
     "s|tensorflow>=2.19.1|tensorflow==2.18.1|g" \
     "s|tensorboard>=2.19.0|tensorboard>=2.18,<2.19|g" \
+    "s|tensorflow-text>=2.19.0|tensorflow-text==2.18.1|g" \
   ; do
     # tensorflow-cpu==2.19.0 is incompatible with tensorflow-text
     # tensorboard>=2.19.0 is incompatible with tensorflow==2.18.1
+    # tensorflow-text>=2.19.0 is incompatible with tensorflow==2.18.1
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/pyproject.toml
 done
 EOF
