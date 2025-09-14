@@ -25,6 +25,7 @@ EOF
 
 RUN <<"EOF" bash -ex -o pipefail
 echo "-e file://${SRC_PATH_MAXTEXT}" >> /opt/pip-tools.d/requirements-maxtext.in
+echo "-r ${SRC_PATH_MAXTEXT}/src/install_maxtext_extra_deps/extra_deps_from_github.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 #echo "-e file://${SRC_PATH_JETSTREAM}" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
 
