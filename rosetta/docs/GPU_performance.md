@@ -7,6 +7,38 @@ The flags can be set via the environment variable `XLA_FLAGS="--xla-flag1=true -
 Please note that some of these flags are experimental. All combinations of flags have not been tested, yet. If you see any unexpected behaviors, please let us know.
 
 
+## Quick lookup by symptom
+
+**Poor compute/communication overlap**
+- Use Optimization level (O1) → see [Optimization level](#optimization-level)
+- Consider manual async overrides (disable specific collectives, enable memcpy local P2P) → see [Asynchronous collectives](#xla-flags-for-asynchronous-collective-communication)
+- Force pipelined AR/AG/RS → see [Optimization level](#optimization-level)
+- Enable while-loop double buffering → see [Optimization level](#optimization-level)
+
+**Many small collectives or low bandwidth**
+- Tune combine thresholds (AR/AG/RS) → see [FSDP optimization flags](#flags-to-enable-optimizations-for-fsdp-communication)
+
+**Slow collectives within a node (NVLINK/NVSwitch)**
+- Provide ICI perf table or use built-in default → see [Optimization level](#optimization-level)
+- Enable memcpy-based local P2P → see [Asynchronous collectives](#xla-flags-for-asynchronous-collective-communication)
+
+**Slow cross-node collectives (DCN)**
+- Review SOL latency estimator notes and adjust as needed → see [Optimization level](#optimization-level)
+
+**High CPU launch overhead**
+- Use CUDA Graphs (command buffer) → see [CUDA graphs](#cuda-graphs)
+
+**OOMs or fragmentation**
+- Set XLA_PYTHON_CLIENT_MEM_FRACTION → see [Memory management](#flags-to-manage-memory-used-in-jaxxla)
+- Tune xla_gpu_memory_limit_slop_factor → see [Memory management](#flags-to-manage-memory-used-in-jaxxla)
+
+**Multi-device single-process hangs**
+- Consider `NCCL_LAUNCH_MODE=GROUP` or one process per device → see [Blackwell tips](#tips-for-good-llm-training-performance-on-blackwell-b200)
+
+**Blackwell-specific performance questions**
+- Prefer command buffer for FUSION,CUSTOM_CALL; do not set `CUDA_DEVICE_MAX_CONNECTIONS=1` → see [Blackwell tips](#tips-for-good-llm-training-performance-on-blackwell-b200)
+
+
 ## Flags to manage memory used in JAX/XLA
 
 - XLA_PYTHON_CLIENT_MEM_FRACTION is a XLA environment variable that allocates a fraction of GPU memory for JAX/XLA.
@@ -32,17 +64,7 @@ The following variable accelerates all-reduce collective on NVLink4/H100. It req
 - NCCL_NVLS_ENABLE:1 
 
 
-## XLA flags to enable Latency Hiding Scheduler, and asynchronous collective communication
-
-To achieve communication computation overlap for models in JAX/XLA, we must enable Latency Hiding Scheduler and enable asynchronous communications. 
-
-To enable latency hiding optimizations with XLA, turn on the following flag: 
-
-- --xla_gpu_enable_latency_hiding_scheduler=true 
-
-To enable asynchronous communication for all collectives, the following is recommended, and is set by default in XLA :
-
-- --xla_gpu_enable_highest_priority_async_stream=true
+## XLA flags for asynchronous collective communication
 
 To enable more efficient P2P transfers utilizing Copy Engine, turn on the following flag. Note that this will enable Copy Engine transfers only for devices managed within a single process.
 
@@ -52,23 +74,53 @@ For more fine-grained control over which collectives should be asynchronous or n
 
 - --xla_gpu_disable_async_collectives=allreduce,allgather,reducescatter,collectivebroadcast,alltoall,collectivepermute
 
+## Optimization level
+
+- Set via JAX (not an XLA_FLAGS switch):
+```python
+import jax
+jax.config.update("jax_optimization_level", "O1")
+```
+
+- Or via environment variable:
+```
+JAX_OPTIMIZATION_LEVEL=O1 python your_script.py
+```
+
+- Effect details (O1):
+  - Latency Hiding Scheduler (LHS): previously required `--xla_gpu_enable_latency_hiding_scheduler=true`; now enabled by O1. To force explicitly:
+
+    ```
+    --xla_gpu_enable_latency_hiding_scheduler=true
+    ```
+  - Collective pipelining: previously set via flags; now enabled by O1. To force explicitly:
+
+    ```
+    --xla_gpu_enable_pipelined_all_reduce=true
+    --xla_gpu_enable_pipelined_all_gather=true
+    --xla_gpu_enable_pipelined_reduce_scatter=true
+    ```
+  - Unified SOL latency estimator:
+    - Enabled on Hopper/Blackwell at O1 when supported. Single-host (NVLINK) collectives use a perf table; cross-host DCN collectives use the analytical SOL model.
+    - To explicitly enable or tune SOL:
+      ```
+      --xla_gpu_enable_analytical_sol_latency_estimator=true
+      --xla_gpu_experimental_collective_perf_table_path=/path/to/collective_profiles.pbtxt  # optional for ICI
+      --xla_gpu_analytical_latency_estimator_options="nccl_op_launch_us=55,nic_speed_gbps=400,chunk_prep_us=6,rtt_us=3,gpus_per_node=8,chunk_size_bytes=4194304"  # optional for DCN
+      ```
+      If no perf table is provided or found for the device, SOL falls back to the approximate estimator for ICI.
+  - While-loop unrolling: with the default enum `AUTO`, O1 enables unrolling that can realize double-buffering. To force it regardless of O1, set:
+    
+    ```
+    --xla_gpu_enable_while_loop_double_buffering=true
+    ```
+    
+    or set the enum to DOUBLE_BUFFER/FULL_UNROLL.
+
 ### Flags to enable optimizations for FSDP communication 
 
-With FSDP in JAX/XLA, there are additional optimizations of 
+With FSDP in JAX/XLA, the following knobs can further tune behavior beyond what optimization level O1 enables:
 
-- scan loop unrolling and loop double buffering 
-    - --xla_gpu_enable_while_loop_double_buffering=true
-      
-- optimized pipelining of all-gather and reduce-scatter for latency hiding in FSDP
-    - --xla_gpu_enable_pipelined_all_gather=true
-    - --xla_gpu_enable_pipelined_reduce_scatter=true
-    - --xla_gpu_enable_pipelined_all_reduce=true 
-    - --xla_gpu_enable_pipelined_collectives=false // if true overrides the above
-      
-- combining tensors that are sharded along different dimensions. Within a transformer layer, tensors can be sharded row-wise or column-wise and by default XLA will generate multiple collective calls for tensors sharded along different dimensions. The following optimization flags combine all tensors shardings, and map them to a group NCCL call that has a large commulative size and achieves high communication efficiency. 
-    - --xla_gpu_enable_all_gather_combine_by_dim=false
-    - --xla_gpu_enable_reduce_scatter_combine_by_dim=false
-      
 - Combine threshold values in XLA that determine when an all-gather (AG) or reduce-scatter (RS) is triggered. We want to set these values to be at least as large as the size of weights (AG) or gradients (RS) in a single transformer layer since large communication buffers achieve higher link bandwidth utilization. For example, LLAMA2-7B with BF16 weights and gradients, we have 32 transformer layers => each layer has ~218M weights => one would want to set these thresholds to at least 436MB.
     - --xla_gpu_all_gather_combine_threshold_bytes=8589934592
     - --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592
