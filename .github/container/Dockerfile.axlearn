@@ -35,7 +35,6 @@ tensorflow==2.18.1
 tensorflow-datasets>=4.8.0
 tensorflow-metadata>=1.15.0
 tensorstore
-triton>=2.1.0
 REQUIREMENTS
 EOF
 
