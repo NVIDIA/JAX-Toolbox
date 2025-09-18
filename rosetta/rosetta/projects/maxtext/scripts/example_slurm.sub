@@ -80,7 +80,7 @@ echo "*******STARTING********" \
 && cd $MAXTEXT_DIR \
 && nvidia-smi \
 && python3 MaxText/train.py \
-    MaxText/configs/base.yml \
+    src/MaxText/configs/base.yml \
     model_name=${MODEL} \
     per_device_batch_size=2 \
     steps=15 \

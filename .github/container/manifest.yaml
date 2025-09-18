@@ -102,7 +102,7 @@ pathwaysutils:
   mode: pip-vcs
 axlearn:
   url: https://github.com/Steboss/axlearn.git
-  tracking_ref: sbosisio/working_branch
+  tracking_ref: main
   mode: git-clone
 qwix:
   url: https://github.com/google/qwix.git
