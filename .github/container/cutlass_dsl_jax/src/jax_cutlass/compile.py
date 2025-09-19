@@ -29,6 +29,9 @@ from .types import (
     jax_to_cutlass_dtype,
     from_dlpack,
     JaxArray,
+    JaxArrayList,
+    make_placeholder_array,
+    DEFAULT_CUTLASS_DEVICE_MEMSPACE,
     DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
 )
 
@@ -69,13 +72,26 @@ class FunctionSpec:
     def get_compile_args(self):
         """Returns the arguments to provide to cute.compile."""
         compiler_ins = [
-            JaxArray.create(0, leaf.shape, leaf.dtype, leaf.layout) for leaf in self.in_args
+            make_placeholder_array(
+                jax_to_cutlass_dtype(leaf.dtype),
+                leaf.shape,
+                leaf.layout,
+                DEFAULT_CUTLASS_DEVICE_MEMSPACE,
+                DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
+            )
+            for leaf in self.in_args
         ]
         compiler_outs = [
-            JaxArray.create(0, leaf.shape, leaf.dtype, leaf.layout) for leaf in self.out_args
+            make_placeholder_array(
+                jax_to_cutlass_dtype(leaf.dtype),
+                leaf.shape,
+                leaf.layout,
+                DEFAULT_CUTLASS_DEVICE_MEMSPACE,
+                DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
+            )
+            for leaf in self.out_args
         ]
-        x = tuple(sum([compiler_ins, compiler_outs], []))
-        return x
+        return JaxArrayList(tuple(sum([compiler_ins, compiler_outs], [])))
 
     def get_runtime_args(self, out, *args):
         """Returns the arguments to provide to the compiled function at runtime."""
@@ -84,14 +100,13 @@ class FunctionSpec:
         # directly instead which is the only value needed.
         ins = [from_dlpack(args[i]) for i, spec in enumerate(self.in_args)]
         outs = [from_dlpack(out[i]) for i, spec in enumerate(self.out_args)]
-
-        return tuple(sum([ins, outs], []))
+        return JaxArrayList(tuple(sum([ins, outs], [])))
 
 
 @cute.jit
 def jit_wrapper(
     stream: cuda.CUstream,
-    args: tuple[JaxArray, ...],
+    args: JaxArrayList,
     *,
     wrapped_fn: cutlass.Constexpr,
     spec: cutlass.Constexpr,
@@ -99,8 +114,8 @@ def jit_wrapper(
     # split buffer argument into inputs and outputs and return to tree
     ins, outs = args[: len(spec.in_args)], args[(len(spec.in_args)) :]
     if cutlass.const_expr(spec.convert_tensors):
-        ins = jax.tree.map(lambda x, a: x.get_tensor(a.mode), ins, spec.in_args)
-        outs = jax.tree.map(lambda x, a: x.get_tensor(a.mode), outs, spec.out_args)
+        ins = [x.get_tensor(a.mode) for x, a in zip(ins, spec.in_args)]
+        outs = [x.get_tensor(a.mode) for x, a in zip(outs, spec.out_args)]
     ins = jax.tree.unflatten(spec.input_tree, ins)
     outs = jax.tree.unflatten(spec.output_tree, outs)
     wrapped_fn(stream, *ins, *outs, **dict(spec.kwargs))
@@ -119,8 +134,8 @@ class CompileResult:
     spec: FunctionSpec
 
     def __call__(self, ctx: ExecutionContext, out, *args):
-        args = self.spec.get_runtime_args(out, *args)
-        self.compiled_fn(cuda.CUstream(ctx.stream), args)
+        cargs = self.spec.get_runtime_args(out, *args)
+        self.compiled_fn(cuda.CUstream(ctx.stream), cargs)
 
 
 def _check_is_valid_type(x, is_input):

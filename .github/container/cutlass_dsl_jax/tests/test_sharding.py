@@ -61,6 +61,7 @@ def launch(
     const_b: cutlass.Constexpr
 ):
     # these two kernels are launched to the same stream.
+    print(f"{a.shape=}")
     kernel(a, b, c, const_a, const_b).launch(
         grid=[a.shape[-1], 1, 1], block=[a.shape[-2], 1, 1], stream=stream
     )
