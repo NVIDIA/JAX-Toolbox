@@ -87,7 +87,7 @@ jax.config.update("jax_optimization_level", "O1")
 JAX_OPTIMIZATION_LEVEL=O1 python your_script.py
 ```
 
-- Effect details (O1):
+### Effect details (O1):
   - Latency Hiding Scheduler (LHS): previously required `--xla_gpu_enable_latency_hiding_scheduler=true`; now enabled by O1. To force explicitly:
 
     ```
@@ -101,12 +101,12 @@ JAX_OPTIMIZATION_LEVEL=O1 python your_script.py
     --xla_gpu_enable_pipelined_reduce_scatter=true
     ```
   - Unified SOL latency estimator:
-    - Enabled on Hopper/Blackwell at O1 when supported. Single-host (NVLINK) collectives use a perf table; cross-host DCN collectives use the analytical SOL model.
-    - To explicitly enable or tune SOL:
+    - Enabled on Hopper/Blackwell at O1 when supported. ICI (NVLINK domain) collectives use a perf table; cross-host DCN collectives use the analytical SOL model.
+    - To explicitly enable or tune SOL latency estimator:
       ```
       --xla_gpu_enable_analytical_sol_latency_estimator=true
       --xla_gpu_experimental_collective_perf_table_path=/path/to/collective_profiles.pbtxt  # optional for ICI
-      --xla_gpu_analytical_latency_estimator_options="nccl_op_launch_us=55,nic_speed_gbps=400,chunk_prep_us=6,rtt_us=3,gpus_per_node=8,chunk_size_bytes=4194304"  # optional for DCN
+      --xla_gpu_analytical_latency_estimator_options="nccl_op_launch_us=45,nic_speed_gbps=25.0,chunk_prep_us=6,rtt_us=31,gpus_per_node=8,chunk_size_bytes=4194304"  # H100 defaults from XLA SoL; optional for DCN
       ```
       If no perf table is provided or found for the device, SOL falls back to the approximate estimator for ICI.
   - While-loop unrolling: with the default enum `AUTO`, O1 enables unrolling that can realize double-buffering. To force it regardless of O1, set:
@@ -116,6 +116,40 @@ JAX_OPTIMIZATION_LEVEL=O1 python your_script.py
     ```
     
     or set the enum to DOUBLE_BUFFER/FULL_UNROLL.
+
+### Populate collective perf table (for ICI)
+
+Use the built-in generator to create ICI (NVLINK domain) collective profiles that SOL will consume.
+
+- Single host (H100 8 GPUs example):
+```
+bazel run --config=cuda --repo_env=HERMETIC_CUDA_COMPUTE_CAPABILITIES=sm_90 -- //xla/tools:collective_perf_table_gen_main \
+  --alsologtostderr \
+  --num_nodes=1 \
+  --num_devices_per_host=8 \
+  --task_id=0 \
+  --collectives=ALL_REDUCE,ALL_GATHER,REDUCE_SCATTER,ALL_TO_ALL \
+  --tensor_size_bytes_spec='start=1024,stop=2147483648,factor=2' \
+  --collective_devices_spec='[1,8]<=[8];[2,4]<=[8];[4,2]<=[8]'\
+  --output=/path/to/collective_profiles.pbtxt
+```
+
+Notes:
+- SOL consumes perf tables only for ICI collectives. DCN collectives always use the analytical model.
+- `--collective_devices_spec` covers `[1,8]<=[8];[2,4]<=[8];[4,2]<=[8]` replica groupings by default and may be omitted if no customization is needed.
+- Accepts `--collectives=ALL_REDUCE,ALL_GATHER,REDUCE_SCATTER,ALL_TO_ALL`.
+
+### Analytical latency estimator options (for DCN)
+  
+  Source: SOL analytical model parameters are parsed and used in `xla/service/gpu/model/sol_latency_estimator.cc` and `xla/service/gpu/model/analytical_latency_estimator.*`.
+  These options affect only DCN collective timing.
+  
+  - `nccl_op_launch_us`=45: host-side NCCL kernel launch/submit overhead per collective (microseconds).
+  - `nic_speed_gbps`=25.0: effective NIC throughput in GBytes/s.
+  - `chunk_prep_us`=6: per-chunk pack/unpack or staging overhead in the pipeline (microseconds).
+  - `rtt_us`=31: inter-host round-trip latency used by the model (microseconds).
+  - `gpus_per_node`=8: ranks per host; informs partitioning between ICI and DCN paths.
+  - `chunk_size_bytes`=4194304: pipeline chunk size in bytes (4 MiB here) used by the model.
 
 ### Flags to enable optimizations for FSDP communication 
 
