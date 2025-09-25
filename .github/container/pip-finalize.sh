@@ -4,9 +4,11 @@ set -eoux pipefail
 
 pushd /opt/pip-tools.d
 
-# Extract already-pinned VCS dependencies from requirements-pinned.in if it exists
 if [[ -f "requirements-pinned.in" ]]; then
-  # Found requirements-pinned.in, extracting pre-pinned VCS dependencies
+  # Filter out editable installs and local wheels from requirements-pinned.in
+  grep -v "\-e" requirements-pinned.in | grep -v "sha256=" > requirements-pinned.in.tmp
+  mv requirements-pinned.in.tmp requirements-pinned.in
+  # Extract already-pinned VCS dependencies
   grep '^[^#].* @ git\+.*@' requirements-pinned.in > requirements.pre-pinned-vcs || true
 else
   touch requirements.pre-pinned-vcs
