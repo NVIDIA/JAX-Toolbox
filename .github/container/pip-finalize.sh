@@ -69,3 +69,6 @@ for post_install in $(ls /opt/pip-tools-post-install.d/*); do
     "${post_install}"
   fi
 done
+
+echo "######## Frozen requirements ########"
+pip freeze
