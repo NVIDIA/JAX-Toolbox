@@ -4,16 +4,32 @@ set -eoux pipefail
 
 pushd /opt/pip-tools.d
 
+# Extract already-pinned VCS dependencies from requirements-pinned.in if it exists
+if [[ -f "requirements-pinned.in" ]]; then
+  # Found requirements-pinned.in, extracting pre-pinned VCS dependencies
+  grep '^[^#].* @ git\+.*@' requirements-pinned.in > requirements.pre-pinned-vcs || true
+else
+  touch requirements.pre-pinned-vcs
+fi
+
 # First pip-compile gathers all reqs, but we are care only about VCS installs
 # It's possible there are 2nd degree transitive dependencies that are VCS, so
 # this is more robust to gather VCS requirements at the cost of pip-compiling
 # twice
-pip-compile -o requirements.pre $(ls requirements-*.in)
+# Exclude requirements-pinned.in from initial compilation to avoid conflicts
+pip-compile -o requirements.pre $(ls requirements-*.in | grep -v requirements-pinned.in)
 
 IFS=$'\n'
 for line in $(cat requirements.pre | egrep '^[^#].+ @ git\+' || true); do
   # VCS installs are of the form "PACKAGE @ git+..."
   PACKAGE=$(echo "$line" | awk '{print $1}')
+  
+  # Check if this package is already pinned in requirements-pinned.in
+  if grep -q "^${PACKAGE} @ git\+.*@" requirements.pre-pinned-vcs; then
+    # Skipping ${PACKAGE} - already pinned in requirements-pinned.in
+    continue
+  fi
+  
   ref=$(yq e ".${PACKAGE}.latest_verified_commit" ${MANIFEST_FILE})
   if [[ "$line" == *"#subdirectory="* ]]; then
     # This is required b/c git-refs/commits cannot come after
@@ -26,6 +42,12 @@ for line in $(cat requirements.pre | egrep '^[^#].+ @ git\+' || true); do
   fi
 done | tee requirements.vcs
 unset IFS
+
+# Append pre-pinned VCS dependencies to requirements.vcs
+if [[ -s requirements.pre-pinned-vcs ]]; then
+  # Adding pre-pinned VCS dependencies from requirements-pinned.in
+  cat requirements.pre-pinned-vcs >> requirements.vcs
+fi
 
 # Second pip-compile includes one more requirements file that pins all vcs installs
 # Uses a special env var to let our custom pip impl know to treat the following as
@@ -56,6 +78,7 @@ fi
 pip-sync --pip-args '--no-deps --src /opt' requirements.txt
 
 rm -rf ~/.cache/*
+rm -f requirements.pre-pinned-vcs
 
 # Execute post-install hooks
 for post_install in $(ls /opt/pip-tools-post-install.d/*); do
