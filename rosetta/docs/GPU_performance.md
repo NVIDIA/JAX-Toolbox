@@ -104,7 +104,7 @@ JAX_OPTIMIZATION_LEVEL=O1 python your_script.py
     ```
   - Unified SOL latency estimator:
     - Enabled on Hopper/Blackwell at O1 when supported. Collectives within a single NVLink domain use a perf table; collectives spanning multiple NVLink domains use the analytical SOL model.
-    - To explicitly enable or tune SOL latency estimator:
+    - To explicitly enable or tune the SOL latency estimator:
       ```
       --xla_gpu_enable_analytical_sol_latency_estimator=true
       --xla_gpu_experimental_collective_perf_table_path=/path/to/collective_profiles.pbtxt  # optional for NVLink
