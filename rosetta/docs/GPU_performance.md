@@ -103,7 +103,7 @@ JAX_OPTIMIZATION_LEVEL=O1 python your_script.py
     --xla_gpu_enable_pipelined_reduce_scatter=true
     ```
   - Unified SOL latency estimator:
-    - Enabled on Hopper/Blackwell at O1 when supported. NVLink domain collectives use a perf table; cross-host DCN collectives use the analytical SOL model.
+    - Enabled on Hopper/Blackwell at O1 when supported. Collectives within a single NVLink domain use a perf table; collectives spanning multiple NVLink domains use the analytical SOL model.
     - To explicitly enable or tune SOL latency estimator:
       ```
       --xla_gpu_enable_analytical_sol_latency_estimator=true
