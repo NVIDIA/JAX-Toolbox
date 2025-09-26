@@ -1,0 +1,52 @@
+name: ~NGC release testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      JAX_IMAGE:
+        type: string
+        description: "JAX image to run tests on"
+        required: false
+        default: ''
+      MAXTEXT_IMAGE:
+        type: string
+        description: "MaxText image to run tests on"
+        required: false
+        default: ''
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+
+permissions:
+  contents: read  # to fetch code
+  actions:  write # to cancel previous workflows
+  packages: write # to upload container
+
+jobs:
+  test-nccl:
+    if: inputs.JAX_IMAGE != ''
+    uses: ./.github/workflows/_test_nccl.yaml
+    with:
+      CONTAINER: ${{ inputs.JAX_IMAGE }}
+    secrets: inherit
+
+  test-maxtext-eks:
+    if: inputs.MAXTEXT_IMAGE != ''
+    uses: ./.github/workflows/_test_maxtext_k8s.yaml
+    with:
+      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+    secrets: inherit
+
+  test-maxtext-gke:
+    if: inputs.MAXTEXT_IMAGE != ''
+    uses: ./.github/workflows/_test_maxtext_gke_xpk.yaml
+    with:
+      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+    secrets: inherit
+
+  finalize:
+    needs: [ test-nccl, test-maxtext-eks, test-maxtext-gke ]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_finalize.yaml
+    secrets: inherit
