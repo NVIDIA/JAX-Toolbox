@@ -74,7 +74,7 @@ For more fine-grained control over which collectives should be asynchronous or n
 
 - --xla_gpu_disable_async_collectives=allreduce,allgather,reducescatter,collectivebroadcast,alltoall,collectivepermute
 
-## Optimization level
+## Optimization level ([XLA doc](https://openxla.org/xla/gpu_optimization_levels))
 
 Optimization level is a high-level knob that enables a bundle of XLA GPU optimizations that generally improve runtime perfomance at the cost of increasing compile time. Using optimization level reduces manual flag tuning, increases compute/communication overlap, and improves out-of-the-box performance while keeping behavior predictable.
 
@@ -102,7 +102,7 @@ JAX_OPTIMIZATION_LEVEL=O1 python your_script.py
     --xla_gpu_enable_pipelined_all_gather=true
     --xla_gpu_enable_pipelined_reduce_scatter=true
     ```
-  - Unified SOL latency estimator:
+  - Unified SOL latency estimator (see [LHS Cost Model](https://openxla.org/xla/lhs_cost_model) for more details):
     - Enabled on Hopper/Blackwell at O1 when supported. Collectives within a single NVLink domain use a perf table; collectives spanning multiple NVLink domains use the analytical SOL model.
     - To explicitly enable or tune the SOL latency estimator:
       ```
