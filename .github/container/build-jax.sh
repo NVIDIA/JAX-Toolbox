@@ -83,7 +83,7 @@ INSTALL=1
 SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 
-args=$(getopt -o h --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,cpu-arch:,debug,extra-targets:,extra-target-dest:,no-clean,clean-only,help,install,no-install,src-path-jax:,src-path-xla:,sm: -- "$@")
+args=$(getopt -o h r --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,release,cpu-arch:,debug,extra-targets:,extra-target-dest:,no-clean,clean-only,help,install,no-install,src-path-jax:,src-path-xla:,sm: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -134,6 +134,10 @@ while [ : ]; do
         --extra-target-dest)
             EXTRA_TARGET_DEST="$2"
             shift 2
+            ;;
+        -r | --release)
+            IS_RELEASE=1
+            shift 1
             ;;
         -h | --help)
             usage 1
@@ -225,6 +229,7 @@ print_var INSTALL
 print_var PYTHON_VERSION
 print_var SRC_PATH_JAX
 print_var SRC_PATH_XLA
+print_var IS_RELEASE
 
 echo "=================================================="
 
@@ -268,6 +273,12 @@ for component in jaxlib "jax-cuda${CUDA_MAJOR_VERSION}-pjrt" "jax-cuda${CUDA_MAJ
     # version, so nvidia-*-cu12 wheels disappear from the lock file
     sed -i "s|^${component}.*$|${component} @ file://${BUILD_PATH_JAXLIB}/${component//-/_}|" build/requirements.in
 done
+
+if [[ "${IS_RELEASE}" == "1" ]]; then
+    jaxlib_version=$(pip show jaxlib | grep Version | tr ':' '\n' | tail -1)
+    sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
+fi
+
 # Bazel args to avoid cache invalidation
 BAZEL_ARGS=(
     --config=cuda_libraries_from_stubs
