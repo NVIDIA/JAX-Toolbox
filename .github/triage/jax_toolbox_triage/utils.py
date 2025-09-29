@@ -85,9 +85,15 @@ def run_and_log(
     )
     assert result.stdout is not None
     stdouterr = ""
-    for line in iter(result.stdout.readline, ""):
-        stdouterr += line
-        logger.log(log_level, line.strip())
+    try:
+        for line in iter(result.stdout.readline, ""):
+            stdouterr += line
+            logger.log(log_level, line.strip())
+    except KeyboardInterrupt:
+        # Ctrl-C of the triage tool should not leave children alive
+        logger.warning("Killing child process due to KeyboardInterrupt")
+        result.terminate()
+        raise
     result.wait()
     return subprocess.CompletedProcess(
         args=command,
