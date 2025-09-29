@@ -12,6 +12,8 @@ on:
     paths-ignore:
       - '**.md'
       - '.github/triage/**'
+    branches-ignore:
+      - '25.*' # workflows for release to be triggered via dispatch event only
   workflow_dispatch:
     inputs:
       PUBLISH:
