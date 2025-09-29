@@ -83,7 +83,7 @@ INSTALL=1
 SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 
-args=$(getopt -o h r --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,release,cpu-arch:,debug,extra-targets:,extra-target-dest:,no-clean,clean-only,help,install,no-install,src-path-jax:,src-path-xla:,sm: -- "$@")
+args=$(getopt -o h,r --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,release,cpu-arch:,debug,extra-targets:,extra-target-dest:,no-clean,clean-only,help,install,no-install,src-path-jax:,src-path-xla:,sm: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
