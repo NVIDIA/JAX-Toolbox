@@ -23,6 +23,11 @@ git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
 git-clone.sh ${URLREF_JETSTREAM} ${SRC_PATH_JETSTREAM}
 EOF
 
+# WAR: tunix package is not needed for Nvidia GPU support
+RUN <<"EOF" bash -ex -o pipefail
+sed -i '/tunix/d' ${SRC_PATH_MAXTEXT}/src/install_maxtext_extra_deps/extra_deps_from_github.txt
+EOF
+
 RUN <<"EOF" bash -ex -o pipefail
 echo "-e file://${SRC_PATH_MAXTEXT}" >> /opt/pip-tools.d/requirements-maxtext.in
 echo "-r ${SRC_PATH_MAXTEXT}/src/install_maxtext_extra_deps/extra_deps_from_github.txt" >> /opt/pip-tools.d/requirements-maxtext.in
