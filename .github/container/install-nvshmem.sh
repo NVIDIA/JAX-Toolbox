@@ -25,7 +25,7 @@ export DEBIAN_FRONTEND=noninteractive
 export TZ=America/Los_Angeles
 
 apt-get update
-apt-get install -y nvshmem=${NVSHMEM_VERSION}*
+apt-get install -y libnvshmem3{,-dev,-static}-cuda-${CUDA_VERSION:0:2}=${NVSHMEM_VERSION}*
 apt-get clean
 
 rm -rf /var/lib/apt/lists/* /tmp/keyring.deb
