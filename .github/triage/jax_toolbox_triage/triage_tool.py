@@ -5,7 +5,7 @@ import hashlib
 import logging
 import pathlib
 import time
-from typing import Dict, Tuple, Union, Any, Optional
+from typing import Dict, Tuple, Union, Any, Optional, Set
 
 from .container import Container
 from .logic import container_search, TestExecutionOutcome, TestResult, version_search
@@ -266,35 +266,41 @@ class TriageTool:
             stdouterr=result.stdout,
         )
 
-    def _check_installation_scripts(self, worker: Container):
+    def _check_installation_scripts(self, worker: Container) -> Set[str]:
         """
-        Check for special installation cases, like cuBLAS or cuDNN
+        Look for installation scripts that can be used to change the versions
+        of packages like cuBLAS and cuDNN. These are expected to be named
+        {build_scripts_path}/installPACKAGE.sh and to be executable.
 
         Args:
             worker (Container): The container in which to run the commands.
+        Returns:
+            packages_needing_scripts (set[str]): Packages whose versions are
+                not static, but for which installation scripts were not found
         """
         if self.args.build_scripts_path is None:
-            return
+            return set()
 
         known_scripts_result = worker.exec(
             [
-                "find",
-                self.args.build_scripts_path,
-                "-maxdepth",
-                "1",
-                "-executable",
-                "-print0",
+                "sh",
+                "-c",
+                f'find ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.args.build_scripts_path} -maxdepth 1 -type f -and -executable -print0 | sed -e "s|^${{JAX_TOOLBOX_TRIAGE_PREFIX}}||"',
             ],
             policy="once",
             stderr="separate",
         )
         if known_scripts_result.returncode != 0:
-            self.logger.warning(
+            raise Exception(
                 f"Failed to find known installation scripts in {self.args.build_scripts_path}: {known_scripts_result.stderr}"
             )
-            known_scripts = []
         else:
-            known_scripts = known_scripts_result.stdout.split("\0")
+            # Drop trailing \0
+            known_scripts = known_scripts_result.stdout.split("\0")[:-1]
+        if len(known_scripts) == 0:
+            raise Exception(
+                f"Failed to find known installation scripts in {self.args.build_scripts_path}"
+            )
 
         self.logger.debug(f"Found {known_scripts} inside {worker}")
 
@@ -309,14 +315,7 @@ class TriageTool:
         )
         packages_needing_scripts = self.dynamic_packages - self.package_dirs.keys()
         packages_missing_scripts = packages_needing_scripts - self.packages_with_scripts
-        if packages_missing_scripts:
-            self.logger.warning(
-                "No installation scripts found for: "
-                f"{' '.join(packages_missing_scripts)}, whose version(s) change "
-                "across the bisection range. These will be excluded from the "
-                "bisection, which may cause it not to converge!"
-            )
-            self.dynamic_packages -= packages_missing_scripts
+        return packages_missing_scripts
 
     def _build_and_test(
         self,
@@ -373,7 +372,7 @@ class TriageTool:
                     "NVSHMEM": "DEVEL=1 STATIC=1",
                 }.get(package, "DEVEL=1")  # Always need development headers to rebuild
                 git_commands += [
-                    f"{extra_env} {self.args.build_scripts_path}/install{package}.sh {version}"
+                    f"{extra_env} ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.args.build_scripts_path}/install{package}.sh {version}"
                 ]
         # Keep the pathnames shorter by only including packages that actually have
         # multiple versions in the bisection range.
@@ -587,7 +586,17 @@ class TriageTool:
             package_versions = self._gather_histories(
                 worker, passing_versions, failing_versions
             )
-            self._check_installation_scripts(worker)
+            packages_missing_scripts = self._check_installation_scripts(worker)
+        if packages_missing_scripts:
+            self.logger.warning(
+                "No installation scripts found for: "
+                f"{' '.join(packages_missing_scripts)}, whose version(s) change "
+                "across the bisection range. These will be excluded from the "
+                "bisection, which may cause it not to converge!"
+            )
+            self.dynamic_packages -= packages_missing_scripts
+            for package in packages_missing_scripts:
+                del package_versions[package]
 
         # Run the version-level bisection
         self.logger.info("Running version-level bisection...")

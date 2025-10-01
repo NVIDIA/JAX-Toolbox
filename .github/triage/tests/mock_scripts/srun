@@ -36,8 +36,18 @@ if args.ntasks is not None:
 
 # JAX_TOOLBOX_TRIAGE_PREFIX is a lazy alternative to making something chroot-like work
 def env(prefix):
+    assert len(prefix)
+    if prefix[:-1] != "/":
+        prefix += "/"
     env = os.environ.copy()
     env["JAX_TOOLBOX_TRIAGE_PREFIX"] = prefix
+    try:
+        with open(f"{prefix}.env") as env_file:
+            for line in env_file:
+                k, v = line.strip().split("=", 1)
+                env[k] = v
+    except OSError:
+        pass
     return env
 
 print("srun: warning: sometimes srun likes to print warnings on stderr", file=sys.stderr)
