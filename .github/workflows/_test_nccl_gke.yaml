@@ -62,12 +62,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Login to GitHub Container Registry
+    - name: Login to nvcr.io Container Registry
       uses: docker/login-action@v3
       with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        registry: nvcr.io
+        username: $oauthtoken
+        password: ${{ secrets.NVCR_TOKEN }}
 
     - name: K8s GHCR store and delete token
       id: store-token
