@@ -31,12 +31,14 @@ jobs:
       CONTAINER: ${{ inputs.JAX_IMAGE }}
     secrets: inherit
 
-  test-maxtext-eks:
-    if: inputs.MAXTEXT_IMAGE != ''
-    uses: ./.github/workflows/_test_maxtext_k8s.yaml
-    with:
-      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
-    secrets: inherit
+#  EKS cluster offline due to maintenance - to run manually
+# 
+#  test-maxtext-eks:
+#    if: inputs.MAXTEXT_IMAGE != ''
+#    uses: ./.github/workflows/_test_maxtext_k8s.yaml
+#    with:
+#      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+#    secrets: inherit
 
   test-maxtext-gke:
     if: inputs.MAXTEXT_IMAGE != ''
@@ -46,7 +48,7 @@ jobs:
     secrets: inherit
 
   finalize:
-    needs: [ test-nccl, test-maxtext-eks, test-maxtext-gke ]
+    needs: [ test-nccl, test-maxtext-gke] # ,test-maxtext-eks ]
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
