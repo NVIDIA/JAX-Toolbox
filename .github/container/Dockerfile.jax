@@ -64,6 +64,7 @@ RUN mkdir -p /builder/extra-targets && \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
     --clean \
+    --release \
     ${EXTRA_BUILD_JAX_ARGS}
 
 ## Transformer engine: check out source and build wheel

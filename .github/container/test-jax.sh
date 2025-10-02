@@ -119,7 +119,15 @@ fi
 
 readarray -t GPU_MEMORIES < <(nvidia-smi --query-gpu=memory.total --format=csv,noheader)
 NGPUS="${#GPU_MEMORIES[@]}"
-GPU_MEMORIES_MIB=("${GPU_MEMORIES[@]/ MiB/}")
+if [[ " ${GPU_MEMORIES[*]} " =~ [[:space:]]\[N/A\][[:space:]] ]]; then
+    # On iGPU devices, nvidia-smi reports [N/A] GPU memory; use the system
+    # memory size instead to estimate what each GPU can use
+    SYSTEM_MEMORY_MIB=$(grep MemTotal /proc/meminfo | awk '{print $2 / 1024}')
+    declare -a GPU_MEMORIES_MIB
+    for (( i = 0; i < NGPUS; i++ )); do GPU_MEMORIES_MIB+=($(( SYSTEM_MEMORY_MIB / NGPUS ))); done
+else
+    GPU_MEMORIES_MIB=("${GPU_MEMORIES[@]/ MiB/}")
+fi
 
 FLAGS=()
 
