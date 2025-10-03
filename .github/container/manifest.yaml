@@ -111,6 +111,6 @@ tunix:
   mode: git-clone
 torchxla:
   url: https://github.com/pytorch/xla.git
-  tracking_ref: master
+  tracking_ref: refs/heads/master
   latest_verified_commit: 03d4dc06772a97c8092ecc4de65e904a898c8ff8
   mode: git-clone
