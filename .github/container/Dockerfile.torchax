@@ -18,6 +18,9 @@ ARG SUBDIR_TORCHAX
 RUN <<"EOF" bash -ex
 git-clone.sh --sparse-path ${SUBDIR_TORCHAX} ${URLREF_TORCHXLA} ${SRC_PATH_TORCHXLA}
 echo "-e file://${SRC_PATH_TORCHXLA}/${SUBDIR_TORCHAX}" >> /opt/pip-tools.d/requirements-torchax.in
+# tensorflow is only needed to suppress an absl warning when importing torchax
+# that tensorflow.io.gfile will not support GCS paths such as gs://...
+# comment it out if not needed so that ~300 MB of image size can be saved
 echo "tensorflow" >> /opt/pip-tools.d/requirements-torchax.in
 echo "torch" >> /opt/pip-tools.d/requirements-torchax.in
 echo "torchvision" >> /opt/pip-tools.d/requirements-torchax.in
