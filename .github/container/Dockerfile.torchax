@@ -1,0 +1,36 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_TORCHXLA=https://github.com/pytorch/xla.git#master
+ARG SRC_PATH_TORCHXLA=/opt/torch-xla
+ARG SUBDIR_TORCHAX=torchax
+
+###############################################################################
+## Download source and add auxiliary scripts
+###############################################################################
+
+FROM ${BASE_IMAGE} as mealkit
+ARG URLREF_TORCHXLA
+ARG SRC_PATH_TORCHXLA
+ARG SUBDIR_TORCHAX
+
+# Specify installation targets
+RUN <<"EOF" bash -ex
+git-clone.sh --sparse-path ${SUBDIR_TORCHAX} ${URLREF_TORCHXLA} ${SRC_PATH_TORCHXLA}
+echo "-e file://${SRC_PATH_TORCHXLA}/${SUBDIR_TORCHAX}" >> /opt/pip-tools.d/requirements-torchax.in
+echo "tensorflow" >> /opt/pip-tools.d/requirements-torchax.in
+echo "torch" >> /opt/pip-tools.d/requirements-torchax.in
+echo "torchvision" >> /opt/pip-tools.d/requirements-torchax.in
+EOF
+
+###############################################################################
+## Install accumulated packages from the base image and the previous stage
+###############################################################################
+
+FROM mealkit as final
+
+RUN <<"EOF" bash -ex -o pipefail
+PIP_INDEX_URL=https://download.pytorch.org/whl/cpu \
+PIP_EXTRA_INDEX_URL=https://pypi.org/simple \
+pip-finalize.sh
+EOF
