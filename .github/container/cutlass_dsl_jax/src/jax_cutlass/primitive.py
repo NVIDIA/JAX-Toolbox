@@ -31,7 +31,7 @@ try:
 except ImportError as e:
     # buffer_callback is used until we implement C++/FFI interface
     raise ImportError(
-        "A more recent version of Jax is required for cutlass_call. Current version:"
+        "A more recent version (>=0.6.2) of Jax is required for cutlass_call. Current version:"
         f" {jax.__version__}"
     ) from e
 

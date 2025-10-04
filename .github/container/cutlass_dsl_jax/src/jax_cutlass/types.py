@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from typing import Type, Optional, Sequence, Union, Callable, Any, TypeVar
+import sys
 import ctypes
 import math
 import inspect
@@ -89,7 +90,9 @@ def from_dlpack(buffer):
     return _from_dlpack(buffer, assumed_align=DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT)
 
 
-class _JaxArrayBase:
+class _JaxArrayBase(cute.Pointer):
+    """Base class for the JaxArray and JaxRuntimeArray types."""
+
     def __init__(
         self,
         ptr: cute.Pointer,
@@ -135,7 +138,7 @@ class _JaxArrayBase:
 
 
 class JaxArray(_JaxArrayBase):
-    """Represents a jax.Array value passed to a cute kernel or function.
+    """Represents a jax.Array IR value passed to a cute kernel or function.
 
     The JaxArray is a shaped pointer with physical dimension specified by the Jax program.
     By default the data is assumed to follow row-major layout but a custom order
@@ -211,8 +214,7 @@ class JaxArray(_JaxArrayBase):
         :param mode: Maps the physical shape dimension to logical shape dimensions. If not given the physical layout is used.
         :type tuple[int,...]: Tuple that is same size as shape.
         """
-        shape = self._shape  # tuple([cute.Int32(x) for x in self._shape])
-        layout = cute.make_ordered_layout(shape, self._order, loc=loc, ip=ip)
+        layout = cute.make_ordered_layout(self._shape, self._order, loc=loc, ip=ip)
         if mode is not None:
             layout = cute.select(layout, mode)
         return layout
@@ -312,14 +314,17 @@ class JaxArrayList:
     the jit boundary.
     """
 
-    def __init__(self, arrays):
-        self.arrays = arrays
+    def __init__(self, arrays: Sequence[JaxArray]):
+        self.arrays = tuple(arrays)
 
     def __getitem__(self, idx):
         return self.arrays[idx]
 
     def __len__(self):
         return len(self.arrays)
+
+    def __iter__(self):
+        return iter(self.arrays)
 
     def __c_pointers__(self):
         return [x.__c_pointers__()[0] for x in self.arrays]
