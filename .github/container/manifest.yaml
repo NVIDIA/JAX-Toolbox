@@ -70,11 +70,6 @@ seqio:
   tracking_ref: main
   latest_verified_commit: 11706e4a1e01a81ea6b3e02c5ad147028d5b94bb
   mode: pip-vcs
-google-jetstream:
-  url: https://github.com/AI-Hypercomputer/JetStream.git
-  tracking_ref: main
-  latest_verified_commit: b8b9cb2ea4668da2c5012fc4c7ba958424d82ac9
-  mode: git-clone
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main

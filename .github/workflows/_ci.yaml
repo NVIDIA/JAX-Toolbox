@@ -147,7 +147,6 @@ jobs:
           bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
           EXTRA_BUILD_ARGS: |
             URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
-            URLREF_JETSTREAM=${{ fromJson(inputs.SOURCE_URLREFS).GOOGLE_JETSTREAM }}
 
   build-upstream-t5x:
     needs: build-jax
