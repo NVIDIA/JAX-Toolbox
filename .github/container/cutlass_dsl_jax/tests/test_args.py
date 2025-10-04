@@ -108,10 +108,12 @@ class TestListArgs:
         tidx, _, _ = cute.arch.thread_idx()
         bidx, _, _ = cute.arch.block_idx()
 
-        for idx in cute.range_constexpr(len(b)):
+        for idx in cutlass.range_constexpr(len(b)):
             frgA = cute.make_fragment(cute.size(a, mode=[0]), a.element_type)
             cute.autovec_copy(a[None, tidx, bidx], frgA)
-            frgB = cute.make_fragment(cute.size(b[int(idx)], mode=[0]), b[idx].element_type)
+            frgB = cute.make_fragment(
+                cute.size(b[int(idx)], mode=[0]), b[idx].element_type
+            )
             frgC = cute.make_fragment(cute.size(c[idx], mode=[0]), c[idx].element_type)
             cute.autovec_copy(b[idx][None, tidx, bidx], frgB)
             frgC.store(frgA.load() + frgB.load())
@@ -167,7 +169,7 @@ class TestListArgsAlias:
         bidx, _, _ = cute.arch.block_idx()
 
         # Only write to the even lists
-        for idx in cute.range_constexpr(0, len(b), 2):
+        for idx in cutlass.range_constexpr(0, len(b), 2):
             frgA = cute.make_fragment(cute.size(a, mode=[0]), a.element_type)
             cute.autovec_copy(a[None, tidx, bidx], frgA)
             frgB = cute.make_fragment(cute.size(b[idx], mode=[0]), b[idx].element_type)
@@ -213,7 +215,9 @@ class TestListArgsAlias:
         # This list of arrays will be updated by the call
         c = [jnp.full(shape, idx + 1, dtype) for idx in range(len(b))]
 
-        call = cutlass_call(self.launch, output_shape_dtype=(c,), input_output_aliases={2: 0})
+        call = cutlass_call(
+            self.launch, output_shape_dtype=(c,), input_output_aliases={2: 0}
+        )
         (c,) = call(a, b, c)
 
         c_ref = self.ref_call(a, b)

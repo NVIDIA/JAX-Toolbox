@@ -85,5 +85,5 @@ def test_back_to_back(n):
         c, d = cutlass_call(launch, output_shape_dtype=((a, b)))(a, b)
 
         c_ref, d_ref = ref_call(a, b)
-        assert jnp.allclose(c, c_ref, atol=1e-6)
-        assert jnp.allclose(d, d_ref, atol=1e-6)
+        assert jnp.allclose(c, c_ref, atol=1e-6), "c"
+        assert jnp.allclose(d, d_ref, atol=1e-6), "d"

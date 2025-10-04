@@ -12,9 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import gc
+import ctypes
 from typing import Any, Callable
 from dataclasses import dataclass
+from functools import partial
+from pathlib import Path
+
 import time
 import logging
 import threading
@@ -24,11 +29,15 @@ import cuda.bindings.driver as cuda
 import jax
 import jax.numpy as jnp
 from jax.experimental.buffer_callback import ExecutionContext
+import jaxlib
 
 from .types import (
     jax_to_cutlass_dtype,
     from_dlpack,
     JaxArray,
+    JaxArrayList,
+    make_placeholder_array,
+    DEFAULT_CUTLASS_DEVICE_MEMSPACE,
     DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
 )
 
@@ -69,13 +78,26 @@ class FunctionSpec:
     def get_compile_args(self):
         """Returns the arguments to provide to cute.compile."""
         compiler_ins = [
-            JaxArray.create(0, leaf.shape, leaf.dtype, leaf.layout) for leaf in self.in_args
+            make_placeholder_array(
+                jax_to_cutlass_dtype(leaf.dtype),
+                leaf.shape,
+                leaf.layout,
+                DEFAULT_CUTLASS_DEVICE_MEMSPACE,
+                DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
+            )
+            for leaf in self.in_args
         ]
         compiler_outs = [
-            JaxArray.create(0, leaf.shape, leaf.dtype, leaf.layout) for leaf in self.out_args
+            make_placeholder_array(
+                jax_to_cutlass_dtype(leaf.dtype),
+                leaf.shape,
+                leaf.layout,
+                DEFAULT_CUTLASS_DEVICE_MEMSPACE,
+                DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
+            )
+            for leaf in self.out_args
         ]
-        x = tuple(sum([compiler_ins, compiler_outs], []))
-        return x
+        return JaxArrayList(tuple(sum([compiler_ins, compiler_outs], [])))
 
     def get_runtime_args(self, out, *args):
         """Returns the arguments to provide to the compiled function at runtime."""
@@ -84,14 +106,13 @@ class FunctionSpec:
         # directly instead which is the only value needed.
         ins = [from_dlpack(args[i]) for i, spec in enumerate(self.in_args)]
         outs = [from_dlpack(out[i]) for i, spec in enumerate(self.out_args)]
-
-        return tuple(sum([ins, outs], []))
+        return JaxArrayList(tuple(sum([ins, outs], [])))
 
 
 @cute.jit
 def jit_wrapper(
     stream: cuda.CUstream,
-    args: tuple[JaxArray, ...],
+    args: JaxArrayList,
     *,
     wrapped_fn: cutlass.Constexpr,
     spec: cutlass.Constexpr,
@@ -99,8 +120,8 @@ def jit_wrapper(
     # split buffer argument into inputs and outputs and return to tree
     ins, outs = args[: len(spec.in_args)], args[(len(spec.in_args)) :]
     if cutlass.const_expr(spec.convert_tensors):
-        ins = jax.tree.map(lambda x, a: x.get_tensor(a.mode), ins, spec.in_args)
-        outs = jax.tree.map(lambda x, a: x.get_tensor(a.mode), outs, spec.out_args)
+        ins = [x.get_tensor(a.mode) for x, a in zip(ins, spec.in_args)]
+        outs = [x.get_tensor(a.mode) for x, a in zip(outs, spec.out_args)]
     ins = jax.tree.unflatten(spec.input_tree, ins)
     outs = jax.tree.unflatten(spec.output_tree, outs)
     wrapped_fn(stream, *ins, *outs, **dict(spec.kwargs))
@@ -119,8 +140,9 @@ class CompileResult:
     spec: FunctionSpec
 
     def __call__(self, ctx: ExecutionContext, out, *args):
-        args = self.spec.get_runtime_args(out, *args)
-        self.compiled_fn(cuda.CUstream(ctx.stream), args)
+        self.compiled_fn(
+            cuda.CUstream(ctx.stream), self.spec.get_runtime_args(out, *args)
+        )
 
 
 def _check_is_valid_type(x, is_input):
@@ -284,9 +306,27 @@ class _DummyInitKernel:
         pass
 
 
+_CUTLASS_DSL_INITIALIZED = False
+
+
 def initialize_cutlass_dsl():
     """Initializes cutlass DSL."""
+    global _CUTLASS_DSL_INITIALIZED
+    if _CUTLASS_DSL_INITIALIZED:
+        return
+
+    # TODO(mgoldfarb-nvidia): There are several runtime libraries that export C++ symbols
+    # which conflict with jax libraries. Initializing cutlass before jax will cause these
+    # symbols to incorrectly interpose. Our WAR is to for loading of jaxlib and its
+    # dependant libraries to ensure all symbols are loaded prior to compiling cutedsl programs.
+    # This linking issue is planed to be resolved in cute DSL 4.3.
+    jaxlib_common = Path(jaxlib.__file__).parent / "libjax_common.so"
+    if jaxlib_common.exists():
+        ctypes.CDLL(str(jaxlib_common), mode=ctypes.RTLD_GLOBAL)
+
     kernel = _DummyInitKernel()
     with _compile_lock:
         logger.debug("Initializing cutlass dsl...")
         _ = cutlass.cute.compile(kernel.init)
+
+    _CUTLASS_DSL_INITIALIZED = True

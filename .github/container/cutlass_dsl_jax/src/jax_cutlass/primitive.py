@@ -31,7 +31,7 @@ try:
 except ImportError as e:
     # buffer_callback is used until we implement C++/FFI interface
     raise ImportError(
-        "A more recent version of Jax is required for cutlass_call. Current version:"
+        "A more recent version (>=0.6.2) of Jax is required for cutlass_call. Current version:"
         f" {jax.__version__}"
     ) from e
 
@@ -133,7 +133,9 @@ def _cutlass_call_impl(
             output_layout_flat = [row_major_layout(x) for x in output_shape_dtype_flat]
         else:
             output_layout_flat = list(output_layout)
-            for idx, (layout, arg) in enumerate(zip(output_layout_flat, output_shape_dtype_flat)):
+            for idx, (layout, arg) in enumerate(
+                zip(output_layout_flat, output_shape_dtype_flat)
+            ):
                 if layout is None:
                     output_layout_flat[idx] = row_major_layout(arg)
         output_layout_flat = tuple(output_layout_flat)
@@ -154,10 +156,14 @@ def _cutlass_call_impl(
             input_mode_flat = tuple(input_mode_flat)
 
         if output_mode is None:
-            output_mode_flat = tuple(default_tensor_mode(x) for x in output_shape_dtype_flat)
+            output_mode_flat = tuple(
+                default_tensor_mode(x) for x in output_shape_dtype_flat
+            )
         else:
             output_mode_flat = list(output_mode)
-            for idx, (mode, arg) in enumerate(zip(output_mode_flat, output_shape_dtype_flat)):
+            for idx, (mode, arg) in enumerate(
+                zip(output_mode_flat, output_shape_dtype_flat)
+            ):
                 if mode is None:
                     output_mode_flat[idx] = default_tensor_mode(arg)
             output_mode_flat = tuple(output_mode_flat)
