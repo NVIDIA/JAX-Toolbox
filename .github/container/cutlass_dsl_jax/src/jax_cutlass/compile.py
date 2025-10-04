@@ -12,9 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import gc
+import ctypes
 from typing import Any, Callable
 from dataclasses import dataclass
+from functools import partial
+from pathlib import Path
+
 import time
 import logging
 import threading
@@ -24,6 +29,7 @@ import cuda.bindings.driver as cuda
 import jax
 import jax.numpy as jnp
 from jax.experimental.buffer_callback import ExecutionContext
+import jaxlib
 
 from .types import (
     jax_to_cutlass_dtype,
@@ -134,8 +140,9 @@ class CompileResult:
     spec: FunctionSpec
 
     def __call__(self, ctx: ExecutionContext, out, *args):
-        cargs = self.spec.get_runtime_args(out, *args)
-        self.compiled_fn(cuda.CUstream(ctx.stream), cargs)
+        self.compiled_fn(
+            cuda.CUstream(ctx.stream), self.spec.get_runtime_args(out, *args)
+        )
 
 
 def _check_is_valid_type(x, is_input):
@@ -299,9 +306,27 @@ class _DummyInitKernel:
         pass
 
 
+_CUTLASS_DSL_INITIALIZED = False
+
+
 def initialize_cutlass_dsl():
     """Initializes cutlass DSL."""
+    global _CUTLASS_DSL_INITIALIZED
+    if _CUTLASS_DSL_INITIALIZED:
+        return
+
+    # TODO(mgoldfarb-nvidia): There are several runtime libraries that export C++ symbols
+    # which conflict with jax libraries. Initializing cutlass before jax will cause these
+    # symbols to incorrectly interpose. Our WAR is to for loading of jaxlib and its
+    # dependant libraries to ensure all symbols are loaded prior to compiling cutedsl programs.
+    # This linking issue is planed to be resolved in cute DSL 4.3.
+    jaxlib_common = Path(jaxlib.__file__).parent / "libjax_common.so"
+    if jaxlib_common.exists():
+        ctypes.CDLL(str(jaxlib_common), mode=ctypes.RTLD_GLOBAL)
+
     kernel = _DummyInitKernel()
     with _compile_lock:
         logger.debug("Initializing cutlass dsl...")
         _ = cutlass.cute.compile(kernel.init)
+
+    _CUTLASS_DSL_INITIALIZED = True

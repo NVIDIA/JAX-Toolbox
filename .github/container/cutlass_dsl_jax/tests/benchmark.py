@@ -93,7 +93,9 @@ class BenchmarkCollector:
         with open(filename, "w") as fp:
             for key in results:
                 gkey = lambda x: x[0]
-                for kernel_key, group in groupby(sorted(results[key], key=gkey), key=gkey):
+                for kernel_key, group in groupby(
+                    sorted(results[key], key=gkey), key=gkey
+                ):
                     # header
                     for key_entry in key:
                         if not isinstance(key_entry[1], (list, tuple)):
@@ -145,4 +147,6 @@ class BenchmarkCollector:
             num_iters = self.default_benchmark_iters
         if not self.enabled:
             num_iters = 0
-        return cupti_benchmark_profiler_runner_context(self.request, filename, self, num_iters)
+        return cupti_benchmark_profiler_runner_context(
+            self.request, filename, self, num_iters
+        )
