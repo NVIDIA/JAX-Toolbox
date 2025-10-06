@@ -94,9 +94,9 @@ The only XLA flag that `nsys-jax` will **overwrite** is `--xla_dump_to`, which s
 Protobuf metadata. `nsys-jax` additionally changes the default value of `--xla_dump_hlo_as_proto` (`true`), but will
 not modify this if it has been set explicitly.
 
-> **Note**: because the Protobuf metadata is written at compilation time, using the JAX persistent compilation cache
-> prevents it from being written reliably. Because of this `nsys-jax` sets `JAX_ENABLE_COMPILATION_CACHE` to `false` if
-> it is not explicitly set.
+> **Note**: older versions of `nsys-jax` used to override the default value of `JAX_ENABLE_COMPILATION_CACHE` to
+> `false` because older versions of XLA did not dump the Protobuf metadata when reading from the JAX persistent
+> compilation cache. Support for this was added to XLA in https://github.com/openxla/xla/pull/28928.
 
 After collecting the Nsight Systems profile, `nsys-jax` triggers two extra processing steps:
 - the `.nsys-rep` file is converted into a `.parquet` and a `.csv.xz` file for offline analysis
