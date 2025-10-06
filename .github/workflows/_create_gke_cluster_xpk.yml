@@ -97,7 +97,7 @@ jobs:
         
         if ! [ $CLUSTER_EXISTS = true  ]; then
           source ${WORKLOAD_NAME}/.venv/bin/activate
-          python ${WORKLOAD_NAME}/xpk.py cluster create \
+          python ${WORKLOAD_NAME}/xpk/xpk.py cluster create \
                  --cluster ${{ inputs.CLUSTER_NAME }} \
                  --gke-version ${{ inputs.GKE_VERSION }} \
                  --device-type ${{ inputs.DEVICE_TYPE }} \
