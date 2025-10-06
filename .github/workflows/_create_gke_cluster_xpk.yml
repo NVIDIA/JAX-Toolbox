@@ -96,17 +96,16 @@ jobs:
         CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == "'${{ inputs.CLUSTER_NAME }}'")')
         
         if ! [ $CLUSTER_EXISTS = true  ]; then
-          cd $HOME/xpk
-          source $HOME/.venv/bin/activate
-           python xpk.py cluster create \
-                  --cluster ${{ inputs.CLUSTER_NAME }} \
-                  --gke-version ${{ inputs.GKE_VERSION }} \
-                  --device-type ${{ inputs.DEVICE_TYPE }} \
-                  --num-nodes ${{ inputs.NUM_NODES }} \
-                  --default-pool-cpu-machine-type=${{ inputs.DEFAULT_CPU_MACHINE }} \
-                  --project=${{ inputs.GCP_PROJECT }} \
-                  --reservation ${{ inputs.GCP_GCE_RESERVATION }} \
-                  --zone ${{ inputs.GCP_ZONE }}
+          source ${WORKLOAD_NAME}/.venv/bin/activate
+          python ${WORKLOAD_NAME}/xpk.py cluster create \
+                 --cluster ${{ inputs.CLUSTER_NAME }} \
+                 --gke-version ${{ inputs.GKE_VERSION }} \
+                 --device-type ${{ inputs.DEVICE_TYPE }} \
+                 --num-nodes ${{ inputs.NUM_NODES }} \
+                 --default-pool-cpu-machine-type=${{ inputs.DEFAULT_CPU_MACHINE }} \
+                 --project=${{ inputs.GCP_PROJECT }} \
+                 --reservation ${{ inputs.GCP_GCE_RESERVATION }} \
+                 --zone ${{ inputs.GCP_ZONE }}
         else
           echo "Cluster ${{ inputs.CLUSTER_NAME }} already exists, skipping creation"
         fi
