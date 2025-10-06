@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
-ARG URLREF_AXLEARN=https://github.com/Steboss/axlearn.git#sbosisio/working_branch
+ARG URLREF_AXLEARN=https://github.com/Steboss/axlearn.git#main
 ARG SRC_PATH_AXLEARN=/opt/axlearn
 
 ###############################################################################
@@ -17,19 +17,27 @@ RUN git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
 RUN <<"EOF" bash -ex
   echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
+absl-py>=2.1.0
 aqtp==0.8.2
+cloudpickle
 einops==0.8.0
 nltk==3.7
-portpicker==1.6.0
-seqio==0.0.18
-protobuf==3.20.3
-pytest>=7.4.3
-tensorflow==2.18.1
+optax==0.1.7
+protobuf>=3.19.0
+portpicker
+pytest
 pytest-xdist
 pytest-reportlog
+seqio@git+https://github.com/google/seqio.git
+tensorflow==2.18.1
+tensorflow-datasets>=4.8.0
+tensorflow-metadata>=1.15.0
+tensorstore
 REQUIREMENTS
 EOF
 
+# fix the version of numpy >= 1.26.0 in the pyproject.toml to be in line with jaxlib
+RUN sed -i 's/"numpy==1.26.4"/"numpy>=1.26.0"/' /opt/axlearn/pyproject.toml
 
 ###############################################################################
 ## Add test script to the path

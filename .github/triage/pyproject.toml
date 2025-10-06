@@ -1,6 +1,9 @@
 [project]
 name = "jax-toolbox-triage"
 dynamic = ["version"]
+dependencies = [
+    "psutil",
+]
 # Because this script needs to run on compute clusters *outside* the containers that it
 # orchestrates, it tries to tolerate old Python versions
 requires-python = ">= 3.8"

@@ -10,6 +10,8 @@ import tempfile
 from jax_toolbox_triage.args import compulsory_software, parse_args
 from jax_toolbox_triage.triage_tool import TriageTool
 
+mock_scripts_path = pathlib.Path(__file__).parent / "mock_scripts"
+
 
 def git_cmd(*args, cwd=None):
     return subprocess.run(
@@ -95,9 +97,7 @@ def test_mock_containers(
         "JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", str(processes_per_node)
     )
     # Ensure bazel, build-jax.sh, srun etc. stubs can be found.
-    monkeypatch.setenv(
-        "PATH", str(pathlib.Path(__file__).parent / "mock_scripts"), prepend=":"
-    )
+    monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
     with tempfile.TemporaryDirectory() as output_prefix:
         arg_list = [
             # Currently no way to use the pyxis backend without a cache
@@ -142,3 +142,139 @@ def test_mock_containers(
             summary_data["result"][f"{bad_package}_bad"]
             == failing_container[f"{bad_package}_bad"]
         )
+
+
+@pytest.fixture
+def passing_container_with_bad_library(passing_container):
+    scenario = passing_container["scenario"]
+    with tempfile.TemporaryDirectory(suffix=f"-passing-{scenario}-bad-lib") as temp_dir:
+        temp_path = pathlib.Path(temp_dir)
+        shutil.copytree(passing_container["prefix"], temp_path, dirs_exist_ok=True)
+        scripts_dir = temp_path / "build-scripts"
+        scripts_dir.mkdir()
+        shutil.copy(mock_scripts_path / "installPACKAGE.sh", scripts_dir)
+        with open(temp_path / ".env", "w") as env_file:
+            env_file.write("PACKAGE_VERSION=bad\n")
+            env_file.write("PACKAGE_WITHOUT_SCRIPT_VERSION=new\n")
+            env_file.write("STATIC_PACKAGE_WITHOUT_SCRIPT_VERSION=fixed\n")
+        yield {"prefix": temp_path}
+
+
+@pytest.fixture
+def passing_container_with_good_library(passing_container):
+    scenario = passing_container["scenario"]
+    with tempfile.TemporaryDirectory(
+        suffix=f"-passing-{scenario}-good-lib"
+    ) as temp_dir:
+        temp_path = pathlib.Path(temp_dir)
+        shutil.copytree(passing_container["prefix"], temp_path, dirs_exist_ok=True)
+        scripts_dir = temp_path / "build-scripts"
+        scripts_dir.mkdir()
+        shutil.copy(mock_scripts_path / "installPACKAGE.sh", scripts_dir)
+        with open(temp_path / ".env", "w") as env_file:
+            env_file.write("PACKAGE_VERSION=good\n")
+            env_file.write("PACKAGE_WITHOUT_SCRIPT_VERSION=old\n")
+            env_file.write("STATIC_PACKAGE_WITHOUT_SCRIPT_VERSION=fixed\n")
+        yield {"prefix": temp_path}
+
+
+def test_triage_with_missing_installation_script_dir(
+    monkeypatch, passing_container, failing_container
+):
+    # Tell the mock `srun` how to behave
+    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", "1")
+    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", "1")
+    # Ensure the srun stub can be found
+    monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
+    arg_list = [
+        # Currently no way to use the pyxis backend without a cache
+        "--bazel-cache=https://example.com/does-not-exist",
+        "--build-scripts",
+        "/path-does-not-exist",
+        "--container-runtime",
+        "pyxis",
+        "--passing-container",
+        str(passing_container["prefix"]),
+        "--failing-container",
+        str(failing_container["prefix"]),
+        "false",
+    ]
+    args = parse_args(arg_list)
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    tool = TriageTool(args, logger)
+    passing_versions, failing_versions = tool.gather_version_info(
+        args.passing_container, args.failing_container
+    )
+    with pytest.raises(
+        Exception,
+        match="Failed to find known installation scripts in /path-does-not-exist",
+    ):
+        tool.run_version_bisection(passing_versions, failing_versions)
+
+
+def test_triage_with_installation_scripts(
+    caplog,
+    monkeypatch,
+    passing_container_with_bad_library,
+    passing_container_with_good_library,
+):
+    caplog.set_level(logging.DEBUG)
+    # Tell the mock `srun` how to behave
+    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", "1")
+    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", "1")
+    # Ensure bazel, build-jax.sh, srun etc. stubs can be found.
+    monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
+    with tempfile.TemporaryDirectory() as output_prefix:
+        arg_list = [
+            # Currently no way to use the pyxis backend without a cache
+            "--bazel-cache=https://example.com/does-not-exist",
+            "--build-scripts",
+            "/build-scripts",
+            "--container-runtime",
+            "pyxis",
+            "--output-prefix",
+            output_prefix,
+            "--passing-container",
+            str(passing_container_with_good_library["prefix"]),
+            "--failing-container",
+            str(passing_container_with_bad_library["prefix"]),
+            "--",
+            "sh",
+            "-c",
+            "[ $PACKAGE_VERSION = good ]",
+        ]
+        args = parse_args(arg_list)
+        tool = TriageTool(args, logging.getLogger())
+        # Check the correct versions are extracted from the two pseudocontainers
+        passing_versions, failing_versions = tool.gather_version_info(
+            args.passing_container, args.failing_container
+        )
+        assert passing_versions["PACKAGE"] == "good"
+        assert failing_versions["PACKAGE"] == "bad"
+        assert passing_versions["PACKAGE_WITHOUT_SCRIPT"] == "old"
+        assert failing_versions["PACKAGE_WITHOUT_SCRIPT"] == "new"
+        assert passing_versions["STATIC_PACKAGE_WITHOUT_SCRIPT"] == "fixed"
+        assert failing_versions["STATIC_PACKAGE_WITHOUT_SCRIPT"] == "fixed"
+        for package in compulsory_software:
+            assert passing_versions[package] == failing_versions[package]
+        # Run the bisection
+        caplog.clear()
+        summary_data = tool.run_version_bisection(passing_versions, failing_versions)
+
+        # There should be a warning that PACKAGE_WITHOUT_SCRIPT is not triageable
+        def my_warning(record):
+            return (
+                record.levelname == "WARNING"
+                and record.message
+                == "No installation scripts found for: PACKAGE_WITHOUT_SCRIPT, whose version(s) change across the bisection range. These will be excluded from the bisection, which may cause it not to converge!"
+            )
+
+        assert sum(map(my_warning, caplog.records)) == 1
+        assert "result" in summary_data, summary_data
+        assert summary_data["result"]["PACKAGE_good"] == "good"
+        assert summary_data["result"]["PACKAGE_bad"] == "bad"
+        # FIXME: don't completely drop version information in this case so
+        #        that we can assert this value is in {"new", "old"} instead
+        assert "PACKAGE_WITHOUT_SCRIPT_ref" not in summary_data["result"]
+        assert summary_data["result"]["STATIC_PACKAGE_WITHOUT_SCRIPT_ref"] == "fixed"

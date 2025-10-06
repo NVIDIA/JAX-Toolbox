@@ -2,9 +2,7 @@
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG URLREF_MAXTEXT=https://github.com/google/maxtext.git#main
-ARG URLREF_JETSTREAM=https://github.com/AI-Hypercomputer/JetStream.git#main
 ARG SRC_PATH_MAXTEXT=/opt/maxtext
-ARG SRC_PATH_JETSTREAM=/opt/jetstream
 
 ###############################################################################
 ## Download source and add auxiliary scripts
@@ -12,46 +10,27 @@ ARG SRC_PATH_JETSTREAM=/opt/jetstream
 
 FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_MAXTEXT
-ARG URLREF_JETSTREAM
 ARG SRC_PATH_MAXTEXT
-ARG SRC_PATH_JETSTREAM
 
 RUN <<"EOF" bash -ex -o pipefail
 git-clone.sh ${URLREF_MAXTEXT} ${SRC_PATH_MAXTEXT}
-git-clone.sh ${URLREF_JETSTREAM} ${SRC_PATH_JETSTREAM}
 EOF
 
 RUN <<"EOF" bash -ex -o pipefail
-echo "-r ${SRC_PATH_MAXTEXT}/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
-echo "-e file://${SRC_PATH_JETSTREAM}" >> /opt/pip-tools.d/requirements-maxtext.in
-EOF
-
-# remove GitHub direct-reference of JetStream in MaxText requirements
-RUN <<"EOF" bash -ex -o pipefail
-sed -i '/^google-jetstream/d' ${SRC_PATH_MAXTEXT}/requirements.txt
+echo "-e file://${SRC_PATH_MAXTEXT}" >> /opt/pip-tools.d/requirements-maxtext.in
+echo "-r ${SRC_PATH_MAXTEXT}/src/install_maxtext_extra_deps/extra_deps_from_github.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
 
 # add version constraints to avoid eternal dependency resolution
 RUN <<"EOF" bash -ex -o pipefail
 for pattern in \
-    "s|absl-py|absl-py>=2.1.0|g" \
-    "s|protobuf==3.20.3|protobuf>=3.19.0|g" \
-    "s|tensorflow-datasets|tensorflow-datasets>=4.8.0|g" \
-    "s|tensorflow>=2.16.0|tensorflow==2.18.1|g" \
+    "s|tensorflow>=2.19.1|tensorflow==2.18.1|g" \
+    "s|tensorboard>=2.19.0|tensorboard>=2.18,<2.19|g" \
+    "s|tensorflow-text>=2.19.0|tensorflow-text==2.18.1|g" \
+    "/tunix/d" \
   ; do
-    # tensorflow-cpu==2.19.0 is incompatible with tensorflow-text
-    sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/requirements.txt
-done
-EOF
-
-# add extra dependencies
-RUN <<"EOF" bash -ex -o pipefail
-echo >> ${SRC_PATH_MAXTEXT}/requirements.txt  # add new line
-for requirement in \
-    "tensorflow-metadata>=1.15.0" \
-    "seqio@git+https://github.com/google/seqio.git" \
-  ; do
-    echo "${requirement}" >> ${SRC_PATH_MAXTEXT}/requirements.txt
+    # tensorflow-cpu,tensorboard,tensorflow-text>=2.19.0 is incompatible with tensorflow==2.18.1
+    sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/pyproject.toml
 done
 EOF
 
