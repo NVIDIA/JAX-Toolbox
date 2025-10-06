@@ -79,7 +79,7 @@ jobs:
       shell: bash -x -e -u {0}
       run: |
         PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
-        ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths ${PATCH_PATH}/{} --directory ${WORKLOAD_NAME}/xpk
+        ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
 
     - name: Show environment
       run: |
