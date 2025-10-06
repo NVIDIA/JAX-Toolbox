@@ -97,15 +97,21 @@ jobs:
         
         if ! [ $CLUSTER_EXISTS = true  ]; then
           source ${WORKLOAD_NAME}/.venv/bin/activate
-          python ${WORKLOAD_NAME}/xpk/xpk.py cluster create \
-                 --cluster ${{ inputs.CLUSTER_NAME }} \
-                 --gke-version ${{ inputs.GKE_VERSION }} \
-                 --device-type ${{ inputs.DEVICE_TYPE }} \
-                 --num-nodes ${{ inputs.NUM_NODES }} \
-                 --default-pool-cpu-machine-type=${{ inputs.DEFAULT_CPU_MACHINE }} \
-                 --project=${{ inputs.GCP_PROJECT }} \
-                 --reservation ${{ inputs.GCP_GCE_RESERVATION }} \
+          args=(
+                 --cluster ${{ inputs.CLUSTER_NAME }}
+                 --gke-version ${{ inputs.GKE_VERSION }}
+                 --device-type ${{ inputs.DEVICE_TYPE }}
+                 --num-nodes ${{ inputs.NUM_NODES }}
+                 --default-pool-cpu-machine-type=${{ inputs.DEFAULT_CPU_MACHINE }}
+                 --project=${{ inputs.GCP_PROJECT }}
                  --zone ${{ inputs.GCP_ZONE }}
+          )
+          if [ ${{ inputs.GCP_GCE_RESERVATION }} != "none" ]; then
+            args+=(
+                 --reservation ${{ inputs.GCP_GCE_RESERVATION }}
+            )
+          fi
+          python ${WORKLOAD_NAME}/xpk/xpk.py cluster create ${args[@]}
         else
           echo "Cluster ${{ inputs.CLUSTER_NAME }} already exists, skipping creation"
         fi
