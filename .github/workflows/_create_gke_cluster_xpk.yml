@@ -133,3 +133,9 @@ jobs:
                      nvidia/gpu-operator \
                      --version=v25.3.2 \
                      -f .github/gke-workflow/gke/helm/gpu-operator.yml
+
+    - name: Clean up xpk environment from runner
+      shell: bash -x -u {0}
+      if: ${{ always() }}
+      run: |
+        sudo rm -rf ${WORKLOAD_NAME}
