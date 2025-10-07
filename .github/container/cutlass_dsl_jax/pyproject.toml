@@ -5,7 +5,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "jax>=0.6.2",
-  "nvidia-cutlass-dsl==4.2.1"
+  "nvidia-cutlass-dsl>=4.2.1"
 ]
 dynamic = ["version"]
 
