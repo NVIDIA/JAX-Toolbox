@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This version will track cutlass until it merges into the main package.
-__version_info__ = (4, 2, 1)
+
+__version_info__ = (0, 2, 0)
 __version__ = ".".join(str(v) for v in __version_info__)

@@ -24,7 +24,7 @@ import jax
 import jax.numpy as jnp
 from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
 
-from jax_cutlass import cutlass_call
+from jax_cutlass import cutlass_call, TensorMode as TM
 
 from .tensor import create_tensor
 
@@ -87,6 +87,8 @@ def test_jit_sharding(n):
         call = cutlass_call(
             launch,
             output_shape_dtype=jax.ShapeDtypeStruct(a.shape, b.dtype),
+            input_mode=(TM(static=True), TM(static=True)),
+            output_mode=TM(static=True),
             const_a=const_a,
             const_b=const_b,
         )
@@ -131,6 +133,8 @@ def test_shardmap(n):
             call = cutlass_call(
                 launch,
                 output_shape_dtype=jax.ShapeDtypeStruct(a_block.shape, a_block.dtype),
+                input_mode=(TM(static=True), TM(static=True)),
+                output_mode=TM(static=True),
                 const_a=const_a,
                 const_b=const_b,
             )

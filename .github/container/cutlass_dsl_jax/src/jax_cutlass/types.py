@@ -22,6 +22,7 @@ from functools import partial, reduce
 from operator import mul
 from itertools import chain
 from typing import Annotated
+from enum import Enum
 
 import cuda.bindings.driver as cuda
 
@@ -58,7 +59,47 @@ JAX_DTYPE_TO_CUTLASS_DTYPE = {
 }
 
 DEFAULT_CUTLASS_DEVICE_MEMSPACE = AddressSpace.gmem
-DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT = 32
+DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT = 256
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class TensorMode:
+    """Provides a specification of cute.Tensor modes and additional metadata about
+    dynamic/static modes.
+
+    Arguments:
+        mode : Specifies the position of each mode in the tensor (M0, M1, ... MN)
+    """
+    mode: tuple[int, ...] | None = field(metadata=dict(static=True), default=None)
+    # Indicates the shape and strides will be defined statically. Enabling may enable
+    # additional optimization. Kernels that do not support static shapes will generate
+    # compile errors if this is enabled so we leave it off by default.
+    static: bool = field(metadata=dict(static=True), default=False)
+    # Overrides the default pointer alignment. Generally this should not be changed
+    # but is left here to provide a hook.
+    ptr_assumed_align: int = field(
+        metadata=dict(static=True), default=DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT
+    )
+
+    def __post_init__(self):
+        if self.mode is not None:
+            if len(self.mode) != len(set(self.mode)):
+                raise ValueError(
+                    f"Invalid mode {self.mode} contains duplicate entries."
+                )
+            for m in self.mode:
+                if m < 0 or m >= len(self.mode):
+                    raise ValueError(
+                        f"Invalid mode {self.mode} contains out of range entires."
+                    )
+        if (
+            self.ptr_assumed_align <= 0
+            or not math.log2(self.ptr_assumed_align).is_integer()
+        ):
+            raise ValueError(
+                f"Invalid pointer alignment {self.ptr_assumed_align} must be power of 2."
+            )
 
 
 def row_major_layout(shaped):
@@ -69,12 +110,12 @@ def row_major_layout(shaped):
     return tuple(reversed(range(len(shaped.shape))))
 
 
-def default_tensor_mode(shaped):
+def default_tensor_mode(shaped) -> TensorMode:
     """Returns a default tensor mode given a shaped value.
 
     Default tensor mode is (0, 1, ... N-2, N-1) for an N_dimensional tensor.
     """
-    return tuple(range(len(shaped.shape)))
+    return TensorMode(tuple(range(len(shaped.shape))))
 
 
 def jax_to_cutlass_dtype(dtype):
@@ -85,9 +126,9 @@ def jax_to_cutlass_dtype(dtype):
     return JAX_DTYPE_TO_CUTLASS_DTYPE[dtype]
 
 
-def from_dlpack(buffer):
+def from_dlpack(buffer, assumed_align: int = DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT):
     """Convert device buffer to runtime Tensor."""
-    return _from_dlpack(buffer, assumed_align=DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT)
+    return _from_dlpack(buffer, assumed_align=assumed_align)
 
 
 class _JaxArrayBase(cute.Pointer):
@@ -202,7 +243,7 @@ class JaxArray(_JaxArrayBase):
         return JaxArray(self.ptr.align(min_align, loc, ip), self._shape, self._order)
 
     def get_layout(
-        self, mode: tuple[int, ...] = None, *, loc=None, ip=None
+        self, mode: tuple[int, ...] | TensorMode = None, *, loc=None, ip=None
     ) -> cute.Layout:
         """Create a cute.Layout from this JaxArray.
 
@@ -214,13 +255,19 @@ class JaxArray(_JaxArrayBase):
         :param mode: Maps the physical shape dimension to logical shape dimensions. If not given the physical layout is used.
         :type tuple[int,...]: Tuple that is same size as shape.
         """
-        layout = cute.make_ordered_layout(self._shape, self._order, loc=loc, ip=ip)
-        if mode is not None:
-            layout = cute.select(layout, mode)
+        if isinstance(mode, (tuple, list)):
+            mode = TensorMode(mode)
+
+        shape = (
+            self._shape if mode.static else [cutlass.as_numeric(m) for m in self._shape]
+        )
+        layout = cute.make_ordered_layout(tuple(shape), self._order, loc=loc, ip=ip)
+        if mode is not None and mode.mode is not None:
+            layout = cute.select(layout, mode.mode)
         return layout
 
     def get_tensor(
-        self, mode: tuple[int, ...] = None, *, loc=None, ip=None
+        self, mode: tuple[int, ...] | TensorMode = None, *, loc=None, ip=None
     ) -> cute.Tensor:
         """Create a cute.Tensor from this JaxArray.
 
@@ -309,7 +356,6 @@ def make_placeholder_array(
 
 class JaxArrayList:
     """Holds list of JaxArray or JaxRuntimeArray.
-
     This class facilitates conversion of JaxRuntimeArray to JaxArray when crossing
     the jit boundary.
     """

@@ -15,6 +15,7 @@
 import os
 import gc
 import ctypes
+import inspect
 from typing import Any, Callable
 from dataclasses import dataclass
 from functools import partial
@@ -36,6 +37,7 @@ from .types import (
     from_dlpack,
     JaxArray,
     JaxArrayList,
+    TensorMode,
     make_placeholder_array,
     DEFAULT_CUTLASS_DEVICE_MEMSPACE,
     DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
@@ -49,6 +51,8 @@ from cutlass.base_dsl.runtime.cuda import unload_cubin_module
 
 logger = logging.getLogger(__name__)
 
+_CUTLASS_COMPILE_CACHE = {}
+
 
 @dataclass(frozen=True)
 class Arg:
@@ -56,7 +60,7 @@ class Arg:
     shape: tuple[int, ...]
     dtype: jnp.dtype
     layout: tuple[int, ...]
-    mode: tuple[int, ...]
+    mode: TensorMode
 
 
 @dataclass(frozen=True)
@@ -69,9 +73,9 @@ class FunctionSpec:
     output_tree: Any
     input_output_aliases: tuple[tuple[int, int], ...]
     input_layout: tuple[tuple[int, ...]]
-    input_mode: tuple[tuple[int, ...]]
-    output_mode: tuple[tuple[int, ...]]
+    input_mode: tuple[TensorMode, ...]
     output_layout: tuple[tuple[int, ...]]
+    output_mode: tuple[TensorMode, ...]
     convert_tensors: bool
     kwargs: tuple[tuple[str, Any]]
 
@@ -83,9 +87,9 @@ class FunctionSpec:
                 leaf.shape,
                 leaf.layout,
                 DEFAULT_CUTLASS_DEVICE_MEMSPACE,
-                DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
+                mode.ptr_assumed_align,
             )
-            for leaf in self.in_args
+            for leaf, mode in zip(self.in_args, self.input_mode)
         ]
         compiler_outs = [
             make_placeholder_array(
@@ -93,19 +97,16 @@ class FunctionSpec:
                 leaf.shape,
                 leaf.layout,
                 DEFAULT_CUTLASS_DEVICE_MEMSPACE,
-                DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
+                mode.ptr_assumed_align,
             )
-            for leaf in self.out_args
+            for leaf, mode in zip(self.out_args, self.output_mode)
         ]
         return JaxArrayList(tuple(sum([compiler_ins, compiler_outs], [])))
 
     def get_runtime_args(self, out, *args):
         """Returns the arguments to provide to the compiled function at runtime."""
-        # We have to convert to dlpack because __cuda_device_array__ does not support
-        # all of the fp8/fp6/fp4 types properly. We could also expose the device pointer
-        # directly instead which is the only value needed.
-        ins = [from_dlpack(args[i]) for i, spec in enumerate(self.in_args)]
-        outs = [from_dlpack(out[i]) for i, spec in enumerate(self.out_args)]
+        ins = [from_dlpack(args[i]).iterator for i, spec in enumerate(self.in_args)]
+        outs = [from_dlpack(out[i]).iterator for i, spec in enumerate(self.out_args)]
         return JaxArrayList(tuple(sum([ins, outs], [])))
 
 
@@ -162,9 +163,6 @@ def _build_arg_tree(args, specs, is_input):
     args = jax.tree.unflatten(args_tree, args)
 
     return args, args_tree, is_single_leaf_node
-
-
-_CUTLASS_COMPILE_CACHE = {}
 
 
 def build_function_spec(

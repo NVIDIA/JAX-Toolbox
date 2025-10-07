@@ -24,7 +24,7 @@ import cutlass.cute as cute
 import jax
 import jax.numpy as jnp
 
-from jax_cutlass import cutlass_call
+from jax_cutlass import cutlass_call, TensorMode as TM
 
 from .tensor import create_tensor
 
@@ -82,6 +82,8 @@ class TestConstexprArgs:
             cutlass_call,
             self.launch,
             output_shape_dtype=jax.ShapeDtypeStruct(shape, dtype),
+            input_mode=(TM(static=True), TM(static=True)),
+            output_mode=TM(static=True),
         )
         c = call(const_a=1.0, const_b=1.0)(a, b)
         c_ref = self.ref_call(a, b, 1.0, 1.0)
@@ -148,7 +150,12 @@ class TestListArgs:
         b = [create_tensor(shape, dtype, k) for k in b_keys]
         c = [jax.ShapeDtypeStruct(shape, dtype) for x in b]
 
-        call = cutlass_call(self.launch, output_shape_dtype=(c,))
+        call = cutlass_call(
+            self.launch,
+            output_shape_dtype=(c,),
+            input_mode=(TM(static=True), [TM(static=True)] * len(b)),
+            output_mode=[TM(static=True)] * len(b),
+        )
         (c,) = call(a, b)
 
         c_ref = self.ref_call(a, b)
@@ -216,7 +223,15 @@ class TestListArgsAlias:
         c = [jnp.full(shape, idx + 1, dtype) for idx in range(len(b))]
 
         call = cutlass_call(
-            self.launch, output_shape_dtype=(c,), input_output_aliases={2: 0}
+            self.launch,
+            output_shape_dtype=(c,),
+            input_output_aliases={2: 0},
+            input_mode=(
+                TM(static=True),
+                [TM(static=True)] * len(b),
+                [TM(static=True)] * len(b),
+            ),
+            output_mode=[TM(static=True)] * len(b),
         )
         (c,) = call(a, b, c)
 
