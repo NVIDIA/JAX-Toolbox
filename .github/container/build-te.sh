@@ -103,6 +103,12 @@ if [[ "$SM" == "all" ]]; then
     SM_LIST=$(default_compute_capabilities)
 elif [[ "$SM" == "local" ]]; then
     SM_LIST=$("${SCRIPT_DIR}/local_cuda_arch")
+    if [[ -z "${SM_LIST}" ]]; then
+        echo "Could not determine the local GPU architecture."
+        echo "You should pass --sm when compiling on a machine without GPUs."
+        nvidia-smi || true
+        exit 1
+    fi
 else
     SM_LIST=${SM}
 fi
@@ -131,8 +137,19 @@ export NVTE_FRAMEWORK=jax
 export XLA_HOME=${SRC_PATH_XLA}
 
 pushd ${SRC_PATH_TE}
-# Install required packages that were removed in https://github.com/NVIDIA/TransformerEngine/pull/1852
-pip install "pybind11[global]"
+# Install some build dependencies, but avoid installing everything
+# (jax, torch, ...) because we do not want to pull in a released version of
+# JAX, or the wheel-based installation of CUDA. Note that when we build TE as
+# part of building the JAX containers, JAX and XLA are not yet installed.
+python - << EOF
+import subprocess, sys, tomllib
+with open("pyproject.toml", "rb") as ifile:
+    data = tomllib.load(ifile)
+subprocess.run(
+    [sys.executable, "-m", "pip", "install"]
+    + [r for r in data["build-system"]["requires"]
+       if r.startswith("nvidia-mathdx") or r.startswith("pybind11")])
+EOF
 
 # The wheel filename includes the TE commit; if this has changed since the last
 # incremental build then we would end up with multiple wheels.
