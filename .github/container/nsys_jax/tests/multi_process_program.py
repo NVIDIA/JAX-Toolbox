@@ -1,7 +1,6 @@
 import argparse
 import functools
 import jax
-from jax.experimental.multihost_utils import sync_global_devices
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--rank", type=int)
