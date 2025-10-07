@@ -81,18 +81,23 @@ if jax.process_index() == 1:
     square = only_in_process_one(square)
 
 
+@jax.jit
+def different_stacktraces(x):
+    return x * 934
+
+
 # This means the stack traces are different for the two calls
-def trampoline0():
-    sync_global_devices("barrier")
+def trampoline0(square):
+    return different_stacktraces(square)
 
 
-def trampoline1():
-    sync_global_devices("barrier")
+def trampoline1(square):
+    return different_stacktraces(square)
 
 
 if jax.process_index() == 0:
-    trampoline0()
-    trampoline1()
+    square = trampoline0(square)
+    square = trampoline1(square)
 else:
-    trampoline1()
-    trampoline0()
+    square = trampoline1(square)
+    square = trampoline0(square)
