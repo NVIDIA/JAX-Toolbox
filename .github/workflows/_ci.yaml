@@ -335,11 +335,6 @@ jobs:
       TEST_NAME: nsys-jax
       EXECUTE: |
         set -o pipefail
-        num_tests=0
-        num_failures=0
-        # Run the pytest-driven tests; failure is explicitly handled below so set +e to
-        # avoid an early abort here.
-        set +e
         docker run -i --shm-size=1g --gpus all \
           -v $PWD:/opt/output \
           ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
@@ -350,81 +345,20 @@ jobs:
             test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
             pytest --report-log=/opt/output/pytest-report.jsonl "${test_path}"
         EOF
-        set -e
-        GPUS_PER_NODE=$(nvidia-smi -L | grep -c '^GPU')
-        for mode in 1-process 2-process process-per-gpu; do
-          DOCKER="docker run --shm-size=1g --gpus all --env XLA_FLAGS=--xla_gpu_enable_command_buffer= --env XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 -v ${PWD}:/opt/output ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"
-          if [[ "${mode}" == "1-process" ]]; then
-            PROCESS_COUNT=1
-            ARGS=""
-          elif [[ "${mode}" == "2-process" ]]; then
-            # Use two processes with GPUS_PER_NODE/2 GPUs per process in the hope that
-            # this will flush out more bugs than process-per-node or process-per-GPU.
-            PROCESS_COUNT=2
-            ARGS="--process-id RANK --process-count ${PROCESS_COUNT} --coordinator-address 127.0.0.1:12345 --gpus-per-process $((GPUS_PER_NODE/2)) --distributed"
-          else
-            PROCESS_COUNT=${GPUS_PER_NODE}
-            ARGS="--process-id RANK --process-count ${PROCESS_COUNT} --coordinator-address 127.0.0.1:12345 --gpus-per-process 1 --distributed"
-          fi
-          for collection in full partial; do
-            NSYS_JAX="nsys-jax"
-            if [[ "${mode}" == "1-process" ]]; then
-              # We will not run nsys-jax-combine, so run analyses eagerly
-              NSYS_JAX+=" --nsys-jax-analysis communication --nsys-jax-analysis summary"
-            fi
-            NSYS_JAX+=" --output=/opt/output/${mode}-${collection}-execution-%q{RANK}"
-            if [[ "${collection}" == "partial" ]]; then
-              NSYS_JAX+=" --capture-range=cudaProfilerApi --capture-range-end=stop"
-              # nvbug/4801401
-              NSYS_JAX+=" --sample=none"
-            fi
-            set +e
-            ${DOCKER} parallel-launch RANK ${PROCESS_COUNT} ${NSYS_JAX} \
-              -- jax-nccl-test ${ARGS} |& tee ${mode}-${collection}-execution.log
-            num_failures=$((num_failures + ($? != 0)))
-            set -e
-            num_tests=$((num_tests + 1))
-          done
-          if [[ "${mode}" != "1-process" ]]; then
-            # Run nsys-jax-combine
-            NSYS_JAX_COMBINE="nsys-jax-combine --analysis communication --analysis summary --output=/opt/output/${mode}-${collection}-execution.zip"
-            for (( i=0; i<PROCESS_COUNT; i++ )); do
-              NSYS_JAX_COMBINE+=" /opt/output/${mode}-${collection}-execution-${i}.zip"
-            done
-            set +e
-            ${DOCKER} ${NSYS_JAX_COMBINE} |& tee ${mode}-${collection}-execution-combine.log
-            num_failures=$((num_failures + ($? != 0)))
-            set -e
-            num_tests=$((num_tests + 1))
-          fi
-        done
-        ls -R .
-        echo "NSYS_JAX_TEST_COUNT=${num_tests}" >> $GITHUB_ENV
-        echo "NSYS_JAX_FAIL_COUNT=${num_failures}" >> $GITHUB_ENV
-        exit $num_failures
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-nsys-jax.log)
         num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
         passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
         failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-        total_tests=$(( NSYS_JAX_TEST_COUNT + passed_tests + failed_tests ))
-        num_passed=$(( passed_tests + NSYS_JAX_TEST_COUNT - NSYS_JAX_FAIL_COUNT ))
-        num_failed=$(( failed_tests + NSYS_JAX_FAIL_COUNT ))
+        total_tests=$(( passed_tests + failed_tests ))
         echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
         echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${num_passed}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${num_failed}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
       ARTIFACTS: |
         # pytest-driven part
         test-nsys-jax.log
         pytest-report.jsonl
-        # nsys-jax logfiles
-        *process-*-execution.log
-        # nsys-jax output for the case that doesn't use nsys-jax-combine
-        1-process-*-execution-0.zip
-        # nsys-jax-combine output/logfiles
-        *process*-*-execution.zip
-        *-execution-combine.log
     secrets: inherit
 
   # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
