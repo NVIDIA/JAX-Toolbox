@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .primitive import cutlass_call
-from .types import jax_to_cutlass_dtype, from_dlpack, JaxArray
+from .types import jax_to_cutlass_dtype, from_dlpack, JaxArray, TensorMode
 from .compile import release_compile_cache, initialize_cutlass_dsl
 from .version import __version__, __version_info__
 
@@ -26,6 +26,7 @@ __all__ = [
     "jax_to_cutlass_dtype",
     "from_dlpack",
     "JaxArray",
+    "TensorMode",
     "release_compile_cache",
     "__version__",
     "__version_info__",

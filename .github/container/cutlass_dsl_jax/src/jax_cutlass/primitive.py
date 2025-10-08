@@ -31,14 +31,14 @@ try:
 except ImportError as e:
     # buffer_callback is used until we implement C++/FFI interface
     raise ImportError(
-        "A more recent version of Jax is required for cutlass_call. Current version:"
+        "A more recent version (>=0.6.2) of Jax is required for cutlass_call. Current version:"
         f" {jax.__version__}"
     ) from e
 
 import cutlass
 
 from .compile import get_or_compile_kernel, build_function_spec
-from .types import row_major_layout, default_tensor_mode
+from .types import row_major_layout, default_tensor_mode, TensorMode
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +98,24 @@ def cutlass_call(
     )
 
 
+def _normalize_tensor_mode(value: Any):
+    if value is None:
+        return [None]
+    elif isinstance(value, (tuple, list)):
+        if isinstance(value[0], int):  # single tuple of modes
+            return TensorMode(tuple(value))
+        else:
+            flat, _ = jax.tree.flatten(
+                [_normalize_tensor_mode(x) for x in value],
+                is_leaf=lambda x: x is None or isinstance(x, TensorMode),
+            )
+            return flat
+    elif isinstance(value, TensorMode):
+        return [value]
+    else:
+        raise TypeError(f"Unexpected value for TensorMode {value} {type(value)}")
+
+
 def _cutlass_call_impl(
     fn,
     *,
@@ -133,7 +151,9 @@ def _cutlass_call_impl(
             output_layout_flat = [row_major_layout(x) for x in output_shape_dtype_flat]
         else:
             output_layout_flat = list(output_layout)
-            for idx, (layout, arg) in enumerate(zip(output_layout_flat, output_shape_dtype_flat)):
+            for idx, (layout, arg) in enumerate(
+                zip(output_layout_flat, output_shape_dtype_flat)
+            ):
                 if layout is None:
                     output_layout_flat[idx] = row_major_layout(arg)
         output_layout_flat = tuple(output_layout_flat)
@@ -147,26 +167,45 @@ def _cutlass_call_impl(
         if input_mode is None:
             input_mode_flat = tuple(default_tensor_mode(x) for x in args_flat)
         else:
-            input_mode_flat = list(input_mode)
+            input_mode_flat = _normalize_tensor_mode(input_mode)
             for idx, (mode, arg) in enumerate(zip(input_mode_flat, args_flat)):
                 if mode is None:
                     input_mode_flat[idx] = default_tensor_mode(arg)
             input_mode_flat = tuple(input_mode_flat)
 
         if output_mode is None:
-            output_mode_flat = tuple(default_tensor_mode(x) for x in output_shape_dtype_flat)
+            output_mode_flat = tuple(
+                default_tensor_mode(x) for x in output_shape_dtype_flat
+            )
         else:
-            output_mode_flat = list(output_mode)
-            for idx, (mode, arg) in enumerate(zip(output_mode_flat, output_shape_dtype_flat)):
+            output_mode_flat = _normalize_tensor_mode(output_mode)
+            for idx, (mode, arg) in enumerate(
+                zip(output_mode_flat, output_shape_dtype_flat)
+            ):
                 if mode is None:
                     output_mode_flat[idx] = default_tensor_mode(arg)
             output_mode_flat = tuple(output_mode_flat)
 
         if len(input_mode_flat) != len(args_flat):
-            raise ValueError("Must has same number of input modes as input arrays.")
+            raise ValueError(
+                f"Must has same number of input modes ({len(input_mode_flat)}) as input arrays ({len(args_flat)})."
+            )
 
         if len(output_mode_flat) != len(output_shape_dtype_flat):
-            raise ValueError("Must has same number of output modes as output arrays.")
+            raise ValueError(
+                f"Must has same number of output modes ({len(output_mode_flat)}) as output arrays ({len(output_shape_dtype_flat)})."
+            )
+
+        # Validate dynamic mode settings match whatever static shape
+        # information we got as input.
+        for idx, (arg, mode) in enumerate(zip(args_flat, input_mode_flat)):
+            if mode.mode is not None and len(mode.mode) != len(arg.shape):
+                raise ValueError(f"Input #{idx} has invalid mode.")
+        for idx, (arg, mode) in enumerate(
+            zip(output_shape_dtype_flat, output_mode_flat)
+        ):
+            if mode.mode is not None and len(mode.mode) != len(arg.shape):
+                raise ValueError(f"Output #{idx} has invalid mode.")
 
         output_flat = cutlass_call_inner_p.bind(
             *args_flat,
