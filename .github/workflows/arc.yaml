@@ -5,8 +5,10 @@ on: [push]
 jobs:
   metadata:
     runs-on: k8s-arc
+    container:
+      image: ghcr.io/nvidia/jax:jax-2025-10-07
     steps:
       - name: k8s
         shell: bash -x -e {0}
         run: |
-          pwd
+          nvidia-smi
