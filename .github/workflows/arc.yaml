@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+    paths-ignore:
+      - '**.md'
+      - '.github/triage/**'
+jobs:
+  metadata:
+    runs-on: k8s-arc
+    steps:
+      - name: k8s
+        shell: bash -x -e {0}
+        run: |
+          pwd
