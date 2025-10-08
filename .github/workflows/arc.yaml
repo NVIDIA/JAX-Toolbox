@@ -7,8 +7,9 @@ jobs:
     runs-on: k8s-arc
     container:
       image: ghcr.io/nvidia/jax:jax-2025-10-07
+      options: --gpus all
     steps:
       - name: k8s
         shell: bash -x -e {0}
         run: |
-          /usr/bin/nvidia-smi
+          /usr/bin/nvidia-smi 
