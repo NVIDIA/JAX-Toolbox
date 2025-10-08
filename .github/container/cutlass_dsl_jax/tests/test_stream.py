@@ -23,7 +23,7 @@ import cutlass.cute as cute
 import jax
 import jax.numpy as jnp
 
-from jax_cutlass import cutlass_call
+from jax_cutlass import cutlass_call, TensorMode as TM
 
 from .tensor import create_tensor
 
@@ -82,8 +82,13 @@ def test_back_to_back(n):
 
         a = create_tensor(shape, dtype, a_key)
         b = create_tensor(shape, dtype, b_key)
-        c, d = cutlass_call(launch, output_shape_dtype=((a, b)))(a, b)
+        c, d = cutlass_call(
+            launch,
+            output_shape_dtype=((a, b)),
+            input_mode=[TM(static=True)] * 2,
+            output_mode=[TM(static=True)] * 2,
+        )(a, b)
 
         c_ref, d_ref = ref_call(a, b)
-        assert jnp.allclose(c, c_ref, atol=1e-6)
-        assert jnp.allclose(d, d_ref, atol=1e-6)
+        assert jnp.allclose(c, c_ref, atol=1e-6), "c"
+        assert jnp.allclose(d, d_ref, atol=1e-6), "d"
