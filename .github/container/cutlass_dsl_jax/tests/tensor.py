@@ -17,9 +17,19 @@ import jax
 import jax.numpy as jnp
 
 
-def create_tensor(shape, dtype, key, *, minval=-2.0, maxval=2.0, fill_value=None):
-    if fill_value is not None:
+def create_tensor(
+    shape, dtype, key, *, minval=-2.0, maxval=2.0, fill_value=None, fill_arange=False
+):
+    if fill_arange:
+        tensor = jnp.ones(shape, dtype=dtype)
+        tensor = tensor * jnp.arange(tensor.size, dtype=tensor.dtype).reshape(
+            tensor.shape
+        )
+    elif fill_value is not None:
         tensor = jnp.full(shape, fill_value, dtype=dtype)
     else:
-        tensor = jax.random.uniform(key, shape, dtype=dtype, minval=minval, maxval=maxval)
+        tensor = jax.random.uniform(
+            key, shape, dtype=jnp.float32, minval=minval, maxval=maxval
+        )
+        tensor = tensor.astype(dtype)
     return tensor

@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from typing import Type, Optional, Sequence, Union, Callable, Any, TypeVar
+import sys
+import ctypes
 import math
 import inspect
 from dataclasses import dataclass, field
@@ -20,6 +22,7 @@ from functools import partial, reduce
 from operator import mul
 from itertools import chain
 from typing import Annotated
+from enum import Enum
 
 import cuda.bindings.driver as cuda
 
@@ -56,7 +59,47 @@ JAX_DTYPE_TO_CUTLASS_DTYPE = {
 }
 
 DEFAULT_CUTLASS_DEVICE_MEMSPACE = AddressSpace.gmem
-DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT = 32
+DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT = 256
+
+
+@jax.tree_util.register_dataclass
+@dataclass(frozen=True)
+class TensorMode:
+    """Provides a specification of cute.Tensor modes and additional metadata about
+    dynamic/static modes.
+
+    Arguments:
+        mode : Specifies the position of each mode in the tensor (M0, M1, ... MN)
+    """
+    mode: tuple[int, ...] | None = field(metadata=dict(static=True), default=None)
+    # Indicates the shape and strides will be defined statically. Enabling may enable
+    # additional optimization. Kernels that do not support static shapes will generate
+    # compile errors if this is enabled so we leave it off by default.
+    static: bool = field(metadata=dict(static=True), default=False)
+    # Overrides the default pointer alignment. Generally this should not be changed
+    # but is left here to provide a hook.
+    ptr_assumed_align: int = field(
+        metadata=dict(static=True), default=DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT
+    )
+
+    def __post_init__(self):
+        if self.mode is not None:
+            if len(self.mode) != len(set(self.mode)):
+                raise ValueError(
+                    f"Invalid mode {self.mode} contains duplicate entries."
+                )
+            for m in self.mode:
+                if m < 0 or m >= len(self.mode):
+                    raise ValueError(
+                        f"Invalid mode {self.mode} contains out of range entires."
+                    )
+        if (
+            self.ptr_assumed_align <= 0
+            or not math.log2(self.ptr_assumed_align).is_integer()
+        ):
+            raise ValueError(
+                f"Invalid pointer alignment {self.ptr_assumed_align} must be power of 2."
+            )
 
 
 def row_major_layout(shaped):
@@ -67,64 +110,38 @@ def row_major_layout(shaped):
     return tuple(reversed(range(len(shaped.shape))))
 
 
-def default_tensor_mode(shaped):
+def default_tensor_mode(shaped) -> TensorMode:
     """Returns a default tensor mode given a shaped value.
 
     Default tensor mode is (0, 1, ... N-2, N-1) for an N_dimensional tensor.
     """
-    return tuple(range(len(shaped.shape)))
+    return TensorMode(tuple(range(len(shaped.shape))))
 
 
 def jax_to_cutlass_dtype(dtype):
     """Gets the corresponding cutlass dtype given a jax dtype."""
     dtype = jnp.dtype(dtype)
     if dtype not in JAX_DTYPE_TO_CUTLASS_DTYPE:
-        raise ValueError(f"Jax dtype {dtype} has no equivalent cutlass dtype.")
+        raise ValueError(f"Jax dtype [{dtype}] has no equivalent cutlass dtype.")
     return JAX_DTYPE_TO_CUTLASS_DTYPE[dtype]
 
 
-def from_dlpack(buffer):
+def from_dlpack(buffer, assumed_align: int = DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT):
     """Convert device buffer to runtime Tensor."""
-    return _from_dlpack(buffer, assumed_align=DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT)
+    return _from_dlpack(buffer, assumed_align=assumed_align)
 
 
-def make_ptr(addr: int, dtype: jnp.dtype, align=DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT):
-    """Create a cute.Pointer from the given address, dtype and alignment."""
-    dtype = jax_to_cutlass_dtype(dtype)
-    if addr <= 0:
-        # n.b. 0 causes issues with c_types so we use a non-zero address that is aligned
-        # The value should not matter but we do it for good measure.
-        addr = 2 ** int(math.ceil(math.log2(align)))
-    if addr % align != 0:
-        raise ValueError(f"address ({addr=}) is not aligned ({align})")
-    return cute.runtime.make_ptr(dtype, addr, AddressSpace.gmem, align)
-
-
-class JaxArray(cute.Pointer):
-    """Represents a jax.Array value passed to a cute kernel or function.
-
-    The JaxArray is a shaped pointer with physical dimension specified by the Jax program.
-    By default the data is assumed to follow row-major layout but a custom order
-    (e.g. column-major) can also be used.
-
-    e.g. (8, 4, 2) row-major strides are (8, 2, 1)
-
-    JaxArray always have statically know shapes and strides.
-    """
+class _JaxArrayBase(cute.Pointer):
+    """Base class for the JaxArray and JaxRuntimeArray types."""
 
     def __init__(
-        self, ptr: cute.Pointer, shape: tuple[int, ...], order: tuple[int, ...] | None = None
+        self,
+        ptr: cute.Pointer,
+        shape: tuple[int, ...],
+        order: tuple[int, ...] | None = None,
     ):
-        """Creates a Jax array from a cute.Pointer and shape/stride information.
-
-        Args:
-            ptr: The typed pointer.
-            shape: A tuple of shape dimensions associated with the .
-            order: An optional ordering of the dimensions in shape. If None the
-                shape is assumed to be row-major.
-        """
         self.ptr = ptr
-        self._shape = shape
+        self._shape = tuple(shape)
         if order is None:
             order = tuple(reversed(range(len(self._shape))))
         if len(order) != len(shape):
@@ -134,12 +151,16 @@ class JaxArray(cute.Pointer):
                 raise ValueError(f"Invalid index {s} in stride order", order, shape)
         if len(tuple(set(order))) != len(order):
             raise ValueError(f"order has duplicate indices", order)
-        self._order = order
+        self._order = tuple(order)
 
     @property
     def shape(self) -> tuple[int, ...]:
         """Returns physical shape of this jax array."""
         return self._shape
+
+    @property
+    def ndim(self) -> int:
+        return len(self._shape)
 
     @property
     def order(self) -> tuple[int, ...]:
@@ -156,6 +177,37 @@ class JaxArray(cute.Pointer):
         """Returns the address space of this jax array."""
         return self.ptr.memspace
 
+
+class JaxArray(_JaxArrayBase):
+    """Represents a jax.Array IR value passed to a cute kernel or function.
+
+    The JaxArray is a shaped pointer with physical dimension specified by the Jax program.
+    By default the data is assumed to follow row-major layout but a custom order
+    (e.g. column-major) can also be used.
+
+    e.g. (8, 4, 2) row-major strides are (8, 2, 1)
+
+    JaxArray always have statically know shapes and strides.
+    """
+
+    def __init__(
+        self,
+        ptr: cute.Pointer,
+        shape: tuple[int, ...],
+        order: tuple[int, ...] | None = None,
+    ):
+        """Creates a Jax array from a cute.Pointer and shape/stride information.
+
+        Args:
+            ptr: The typed pointer.
+            shape: A tuple of shape dimensions associated with the .
+            order: An optional ordering of the dimensions in shape. If None the
+                shape is assumed to be row-major.
+        """
+        if not hasattr(ptr, "value") or not isinstance(ptr.value, ir.Value):
+            raise ValueError("not an ir.Value", ptr)
+        super().__init__(ptr, shape, order)
+
     #
     # Compile Time IR Value Properties
     #
@@ -164,41 +216,35 @@ class JaxArray(cute.Pointer):
 
     @property
     def value(self) -> cute.Pointer:
-        self._assert_ir_value()
         return self.ptr.value
 
     @property
     def type(self) -> ir.Type:
-        self._assert_ir_value()
         return self.ptr.type
 
     @property
     def alignment(self) -> int:
-        self._assert_ir_value()
         return self.ptr.alignment
 
     @property
     def max_alignment(self) -> int:
-        self._assert_ir_value()
         return self.ptr.max_alignment
 
     def llvm_ptr(self, *, loc=None, ip=None) -> ir.Value:
-        self._assert_ir_value()
         return self.ptr.llvm_ptr(loc, ip)
 
     def __add__(self, offset: IntTuple) -> "JaxArray":
-        self._assert_ir_value()
         return JaxArray(self.ptr + offset, self._shape, self._order)
 
     def toint(self, *, loc=None, ip=None):
-        self._assert_ir_value()
         return self.ptr.toint()
 
     def align(self, min_align: int, *, loc=None, ip=None) -> "JaxArray":
-        self._assert_ir_value()
         return JaxArray(self.ptr.align(min_align, loc, ip), self._shape, self._order)
 
-    def get_layout(self, mode: tuple[int, ...] = None, *, loc=None, ip=None) -> cute.Layout:
+    def get_layout(
+        self, mode: tuple[int, ...] | TensorMode = None, *, loc=None, ip=None
+    ) -> cute.Layout:
         """Create a cute.Layout from this JaxArray.
 
         Physical: (I, J, K) strides are (J*K, K, 1) in row-major order.
@@ -209,35 +255,30 @@ class JaxArray(cute.Pointer):
         :param mode: Maps the physical shape dimension to logical shape dimensions. If not given the physical layout is used.
         :type tuple[int,...]: Tuple that is same size as shape.
         """
-        self._assert_ir_value()
-        layout = cute.make_ordered_layout(self._shape, order=self._order, loc=loc, ip=ip)
-        if mode is not None:
-            layout = cute.select(layout, mode)
+        if isinstance(mode, (tuple, list)):
+            mode = TensorMode(mode)
+
+        shape = (
+            self._shape if mode.static else [cutlass.as_numeric(m) for m in self._shape]
+        )
+        layout = cute.make_ordered_layout(tuple(shape), self._order, loc=loc, ip=ip)
+        if mode is not None and mode.mode is not None:
+            layout = cute.select(layout, mode.mode)
         return layout
 
-    def get_tensor(self, mode: tuple[int, ...] = None, *, loc=None, ip=None) -> cute.Tensor:
+    def get_tensor(
+        self, mode: tuple[int, ...] | TensorMode = None, *, loc=None, ip=None
+    ) -> cute.Tensor:
         """Create a cute.Tensor from this JaxArray.
 
         :param mode: Maps the physical shape dimension to logical shape dimensions. If not given the physical layout is used.
         :type tuple[int,...]: Tuple that is same size as shape.
         :see get_layout
         """
-        self._assert_ir_value()
         layout = self.get_layout(mode, loc=loc, ip=ip)
         return cute.make_tensor(self.ptr, layout)
 
     # Utility methods
-
-    @staticmethod
-    def create(
-        addr: int,
-        shape: tuple[int, ...],
-        dtype: jnp.dtype,
-        order: tuple[int, ...] | None = None,
-        align=DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
-    ):
-        """Creates a runtime JaxArray from integer address."""
-        return JaxArray(make_ptr(addr, dtype, align), shape, order)
 
     def __str__(self) -> str:
         return f"JaxArray<{self.ptr}:{self.shape}:{self.order}>"
@@ -245,7 +286,39 @@ class JaxArray(cute.Pointer):
     def __repr__(self) -> str:
         return str(self)
 
-    # JitArgument Protocol and DynamicExpression Protocol
+    # DynamicExpression Protocol
+
+    def __extract_mlir_values__(self):
+        return [self.ptr.value]
+
+    def __new_from_mlir_values__(self, values):
+        return JaxArray(
+            self.ptr.__new_from_mlir_values__(values), self._shape, self._order
+        )
+
+
+class JaxRuntimeArray(_JaxArrayBase):
+    """Runtime equivalent of jax.Array."""
+
+    def __init__(
+        self,
+        ptr: cute.Pointer | int,
+        shape: tuple[int, ...],
+        order: tuple[int, ...] | None = None,
+    ):
+        super().__init__(ptr, shape, order)
+
+    @property
+    def alignment(self) -> int:
+        return self.ptr._assumed_align
+
+    def __str__(self) -> str:
+        return f"JaxRuntimeArray<{self.ptr}:{self.shape}:{self.order}>"
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    # JitArgument Protocol
 
     def __c_pointers__(self):
         return self.ptr.__c_pointers__()
@@ -253,12 +326,62 @@ class JaxArray(cute.Pointer):
     def __get_mlir_types__(self):
         return self.ptr.__get_mlir_types__()
 
+
+def make_runtime_array(
+    value: Union[int, ctypes._Pointer],
+    dtype: Type[Numeric],
+    shape: tuple[int, ...],
+    order: tuple[int, ...] | None = None,
+    mem_space: AddressSpace = AddressSpace.generic,
+    assumed_align=DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
+):
+    """Creates a JaxRuntimeArray and its underlying pointer."""
+    ptr = cute.runtime.make_ptr(dtype, value, mem_space, assumed_align)
+    return JaxRuntimeArray(ptr, shape, order)
+
+
+def make_placeholder_array(
+    dtype: Type[Numeric],
+    shape: tuple[int, ...],
+    order: tuple[int, ...] | None = None,
+    mem_space: AddressSpace = AddressSpace.generic,
+    assumed_align=DEFAULT_CUTLASS_DEVICE_BUFFER_ALIGNMENT,
+):
+    """Creates a JaxRuntimeArray that can be used as a placeholder for cute.compile."""
+    # n.b. 0 causes issues with c_types so we use a non-zero address that is aligned
+    # The value should not matter but we do it for good measure.
+    addr = 2 ** int(math.ceil(math.log2(assumed_align)))
+    return make_runtime_array(addr, dtype, shape, order, mem_space, assumed_align)
+
+
+class JaxArrayList:
+    """Holds list of JaxArray or JaxRuntimeArray.
+    This class facilitates conversion of JaxRuntimeArray to JaxArray when crossing
+    the jit boundary.
+    """
+
+    def __init__(self, arrays: Sequence[JaxArray]):
+        self.arrays = tuple(arrays)
+
+    def __getitem__(self, idx):
+        return self.arrays[idx]
+
+    def __len__(self):
+        return len(self.arrays)
+
+    def __iter__(self):
+        return iter(self.arrays)
+
+    def __c_pointers__(self):
+        return [x.__c_pointers__()[0] for x in self.arrays]
+
+    def __get_mlir_types__(self):
+        return [x.__get_mlir_types__()[0] for x in self.arrays]
+
     def __extract_mlir_values__(self):
-        return self.ptr.__extract_mlir_values__()
+        return [x.__extract_mlir_values__()[0] for x in self.arrays]
 
     def __new_from_mlir_values__(self, values):
-        return JaxArray(self.ptr.__new_from_mlir_values__(values), self._shape, self._order)
-
-    def _assert_ir_value(self):
-        if not hasattr(self.ptr, "value") or not isinstance(self.ptr.value, ir.Value):
-            raise ValueError("not an ir.Value", self.ptr)
+        return JaxArrayList(
+            [JaxArray(v, x.shape, x.order) for x, v in zip(self.arrays, values)]
+        )

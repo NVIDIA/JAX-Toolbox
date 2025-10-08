@@ -32,22 +32,29 @@ def launch(stream: cuda.CUstream, out: cute.Tensor):
 
 
 def test_vjp_not_allowed():
-    with pytest.raises(NotImplementedError, match=r".*cutlass_call does not support VJP.*"):
+    with pytest.raises(
+        NotImplementedError, match=r".*cutlass_call does not support VJP.*"
+    ):
         empty = jnp.zeros(tuple(), jnp.float32)
         call = cutlass_call(launch, output_shape_dtype=empty)
         jax.value_and_grad(call)(empty)
 
 
 def test_transpose_not_allowed():
-    with pytest.raises(NotImplementedError, match=r".*cutlass_call does not support transpose.*"):
+    with pytest.raises(
+        NotImplementedError, match=r".*cutlass_call does not support transpose.*"
+    ):
         empty = jnp.zeros(tuple(), jnp.float32)
         call = cutlass_call(launch, output_shape_dtype=empty)
-        jax.linear_transpose(call, jax.ShapeDtypeStruct(empty.shape, empty.dtype))(empty)
+        jax.linear_transpose(call, jax.ShapeDtypeStruct(empty.shape, empty.dtype))(
+            empty
+        )
 
 
 def test_vmap_not_allowed():
     with pytest.raises(
-        NotImplementedError, match=r".*cutlass_call does not support batching with jax\.vmap.*"
+        NotImplementedError,
+        match=r".*cutlass_call does not support batching with jax\.vmap.*",
     ):
         empty = jnp.zeros(tuple(), jnp.float32)
         empty_b = jnp.zeros((8,), jnp.float32)

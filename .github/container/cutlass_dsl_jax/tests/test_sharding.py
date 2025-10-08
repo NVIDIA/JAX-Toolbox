@@ -24,7 +24,7 @@ import jax
 import jax.numpy as jnp
 from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
 
-from jax_cutlass import cutlass_call
+from jax_cutlass import cutlass_call, TensorMode as TM
 
 from .tensor import create_tensor
 
@@ -58,7 +58,7 @@ def launch(
     c: cute.Tensor,
     *,
     const_a: cutlass.Constexpr,
-    const_b: cutlass.Constexpr
+    const_b: cutlass.Constexpr,
 ):
     # these two kernels are launched to the same stream.
     kernel(a, b, c, const_a, const_b).launch(
@@ -79,14 +79,16 @@ def test_jit_sharding(n):
     dtype = jnp.float32
     a = create_tensor(shape, dtype, a_key)
     b = create_tensor(shape, dtype, b_keys)
-    jax.device_put(a, NamedSharding(mesh, sharding))
-    jax.device_put(b, NamedSharding(mesh, sharding))
+    a = jax.device_put(a, NamedSharding(mesh, sharding))
+    b = jax.device_put(b, NamedSharding(mesh, sharding))
 
     @partial(jax.jit, static_argnums=(2, 3))
     def compute(a, b, const_a, const_b):
         call = cutlass_call(
             launch,
             output_shape_dtype=jax.ShapeDtypeStruct(a.shape, b.dtype),
+            input_mode=(TM(static=True), TM(static=True)),
+            output_mode=TM(static=True),
             const_a=const_a,
             const_b=const_b,
         )
@@ -118,16 +120,21 @@ def test_shardmap(n):
         dtype = jnp.float32
         a = create_tensor(shape, dtype, a_key)
         b = create_tensor(shape, dtype, b_keys)
-        jax.lax.with_sharding_constraint(a, NamedSharding(mesh, sharding))
-        jax.lax.with_sharding_constraint(b, NamedSharding(mesh, sharding))
+        a = jax.lax.with_sharding_constraint(a, NamedSharding(mesh, sharding))
+        b = jax.lax.with_sharding_constraint(b, NamedSharding(mesh, sharding))
 
         @partial(
-            jax.shard_map, mesh=mesh, in_specs=(sharding, sharding), out_specs=(sharding, sharding)
+            jax.shard_map,
+            mesh=mesh,
+            in_specs=(sharding, sharding),
+            out_specs=(sharding, sharding),
         )
         def sharded_call(a_block, b_block):
             call = cutlass_call(
                 launch,
                 output_shape_dtype=jax.ShapeDtypeStruct(a_block.shape, a_block.dtype),
+                input_mode=(TM(static=True), TM(static=True)),
+                output_mode=TM(static=True),
                 const_a=const_a,
                 const_b=const_b,
             )

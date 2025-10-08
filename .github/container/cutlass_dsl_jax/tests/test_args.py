@@ -24,7 +24,7 @@ import cutlass.cute as cute
 import jax
 import jax.numpy as jnp
 
-from jax_cutlass import cutlass_call
+from jax_cutlass import cutlass_call, TensorMode as TM
 
 from .tensor import create_tensor
 
@@ -82,6 +82,8 @@ class TestConstexprArgs:
             cutlass_call,
             self.launch,
             output_shape_dtype=jax.ShapeDtypeStruct(shape, dtype),
+            input_mode=(TM(static=True), TM(static=True)),
+            output_mode=TM(static=True),
         )
         c = call(const_a=1.0, const_b=1.0)(a, b)
         c_ref = self.ref_call(a, b, 1.0, 1.0)
@@ -108,10 +110,12 @@ class TestListArgs:
         tidx, _, _ = cute.arch.thread_idx()
         bidx, _, _ = cute.arch.block_idx()
 
-        for idx in cute.range_constexpr(len(b)):
+        for idx in cutlass.range_constexpr(len(b)):
             frgA = cute.make_fragment(cute.size(a, mode=[0]), a.element_type)
             cute.autovec_copy(a[None, tidx, bidx], frgA)
-            frgB = cute.make_fragment(cute.size(b[int(idx)], mode=[0]), b[idx].element_type)
+            frgB = cute.make_fragment(
+                cute.size(b[int(idx)], mode=[0]), b[idx].element_type
+            )
             frgC = cute.make_fragment(cute.size(c[idx], mode=[0]), c[idx].element_type)
             cute.autovec_copy(b[idx][None, tidx, bidx], frgB)
             frgC.store(frgA.load() + frgB.load())
@@ -146,7 +150,12 @@ class TestListArgs:
         b = [create_tensor(shape, dtype, k) for k in b_keys]
         c = [jax.ShapeDtypeStruct(shape, dtype) for x in b]
 
-        call = cutlass_call(self.launch, output_shape_dtype=(c,))
+        call = cutlass_call(
+            self.launch,
+            output_shape_dtype=(c,),
+            input_mode=(TM(static=True), [TM(static=True)] * len(b)),
+            output_mode=[TM(static=True)] * len(b),
+        )
         (c,) = call(a, b)
 
         c_ref = self.ref_call(a, b)
@@ -167,7 +176,7 @@ class TestListArgsAlias:
         bidx, _, _ = cute.arch.block_idx()
 
         # Only write to the even lists
-        for idx in cute.range_constexpr(0, len(b), 2):
+        for idx in cutlass.range_constexpr(0, len(b), 2):
             frgA = cute.make_fragment(cute.size(a, mode=[0]), a.element_type)
             cute.autovec_copy(a[None, tidx, bidx], frgA)
             frgB = cute.make_fragment(cute.size(b[idx], mode=[0]), b[idx].element_type)
@@ -213,7 +222,17 @@ class TestListArgsAlias:
         # This list of arrays will be updated by the call
         c = [jnp.full(shape, idx + 1, dtype) for idx in range(len(b))]
 
-        call = cutlass_call(self.launch, output_shape_dtype=(c,), input_output_aliases={2: 0})
+        call = cutlass_call(
+            self.launch,
+            output_shape_dtype=(c,),
+            input_output_aliases={2: 0},
+            input_mode=(
+                TM(static=True),
+                [TM(static=True)] * len(b),
+                [TM(static=True)] * len(b),
+            ),
+            output_mode=[TM(static=True)] * len(b),
+        )
         (c,) = call(a, b, c)
 
         c_ref = self.ref_call(a, b)
