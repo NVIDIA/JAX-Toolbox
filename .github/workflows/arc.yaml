@@ -3,7 +3,7 @@ name: CI
 on: [push]
 
 jobs:
-  metadata:
+  nvidia-smi:
     runs-on: k8s-arc
     container:
       image: ghcr.io/nvidia/jax:jax-2025-10-07
@@ -11,4 +11,4 @@ jobs:
       - name: k8s
         shell: bash -x -e {0}
         run: |
-          nvidia-smi
+          /usr/bin/nvidia-smi
