@@ -26,6 +26,8 @@ RUN <<"EOF" bash -ex -o pipefail
 for pattern in \
     "s|^tensorflow$|tensorflow==2.18.1|g" \
     "s|^tensorflow-text$|tensorflow-text==2.18.1|g" \
+    "s|^jax!=.*|jax|g" \
+    "s|^jaxlib!=.*|jaxlib|g" \
   ; do
     # tensorflow-cpu,tensorboard,tensorflow-text>=2.19.0 is incompatible with tensorflow==2.18.1
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/base_requirements/requirements.txt
