@@ -96,9 +96,11 @@ pathwaysutils:
   latest_verified_commit: 359776d454940ffaa337c36d1df16308d44a95a9
   mode: pip-vcs
 axlearn:
-  url: https://github.com/Steboss/axlearn.git
+  url: https://github.com/apple/axlearn.git
   tracking_ref: main
   mode: git-clone
+  patches:
+    pull/1339/head: file://patches/axlearn/PR-1339.patch
 qwix:
   url: https://github.com/google/qwix.git
   tracking_ref: main
