@@ -109,8 +109,8 @@ tunix:
   tracking_ref: main
   latest_verified_commit: d799a45d48027e27b6a08aaf7cb15e6a4f495c01
   mode: git-clone
-torchxla:
-  url: https://github.com/pytorch/xla.git
-  tracking_ref: refs/heads/master
-  latest_verified_commit: 03d4dc06772a97c8092ecc4de65e904a898c8ff8
+torchax:
+  url: https://github.com/google/torchax.git
+  tracking_ref: main
+  latest_verified_commit: f41e3de8526f9d4e8410bfb84660faaaf0b3ba4a
   mode: git-clone

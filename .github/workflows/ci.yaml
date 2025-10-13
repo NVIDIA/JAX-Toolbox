@@ -38,7 +38,7 @@ on:
         type: string
         description: |
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
-          PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,axlearn,equinox,T5X,maxtext,TorchXLA} (case-insensitive)
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,axlearn,equinox,T5X,maxtext,TorchAX} (case-insensitive)
         default: ''
         required: false
       MODE:

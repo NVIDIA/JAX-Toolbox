@@ -10,8 +10,6 @@ Usage: $0 [OPTION]... GIT_URL#REF PATH
   -h, --help             Print usage.
   -m, --manifest FILE    The manifest yaml file to which the downloaded library is documented.
                          Default is /opt/manifest.d/git-clone.yaml
-  --sparse-path PATH     If specified, use sparse checkout to only fetch the given path.
-                         PATH is relative to the repo root.
 
 Example:
   # clone JAX's main branch at /opt/jax and update manifest file at the default location
@@ -22,7 +20,7 @@ EOF
     exit $1
 }
 
-args=$(getopt -o hm: --long help,manifest:,sparse-path: -- "$@")
+args=$(getopt -o hm: --long help,manifest: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -30,7 +28,6 @@ fi
 ## Set default arguments
 
 MANIFEST="/opt/manifest.d/git-clone.yaml"
-SPARSE_PATH=""
 
 eval set -- "$args"
 while [ : ]; do
@@ -40,10 +37,6 @@ while [ : ]; do
         ;;
     -m | --manifest)
         MANIFEST="$2"
-        shift 2
-        ;;
-    --sparse-path)
-        SPARSE_PATH="$2"
         shift 2
         ;;
     --)
@@ -79,15 +72,7 @@ echo "Fetching $GIT_REPO#$GIT_REF to $DESTINATION"
 
 set -ex -o pipefail
 
-if [[ -n "${SPARSE_PATH}" ]]; then
-    git clone --no-checkout ${GIT_REPO} ${DESTINATION}
-    pushd ${DESTINATION}
-    git sparse-checkout init --cone
-    git sparse-checkout set ${SPARSE_PATH}
-    popd
-else
-    git clone ${GIT_REPO} ${DESTINATION}
-fi
+git clone ${GIT_REPO} ${DESTINATION}
 pushd ${DESTINATION}
 git checkout ${GIT_REF}
 COMMIT_SHA=$(git rev-parse HEAD)

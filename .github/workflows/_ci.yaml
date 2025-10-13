@@ -174,7 +174,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
           EXTRA_BUILD_ARGS: |
-            URLREF_TORCHXLA=${{ fromJson(inputs.SOURCE_URLREFS).TORCHXLA }}
+            URLREF_TORCHAX=${{ fromJson(inputs.SOURCE_URLREFS).TORCHAX }}
 
   build-upstream-t5x:
     needs: build-jax

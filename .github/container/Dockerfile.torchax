@@ -1,29 +1,27 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
-ARG URLREF_TORCHXLA=https://github.com/pytorch/xla.git#master
-ARG SRC_PATH_TORCHXLA=/opt/torch-xla
-ARG SUBDIR_TORCHAX=torchax
+ARG URLREF_TORCHAX=https://github.com/google/torchax.git#main
+ARG SRC_PATH_TORCHAX=/opt/torchax
 
 ###############################################################################
 ## Download source and add auxiliary scripts
 ###############################################################################
 
 FROM ${BASE_IMAGE} as mealkit
-ARG URLREF_TORCHXLA
-ARG SRC_PATH_TORCHXLA
-ARG SUBDIR_TORCHAX
+ARG URLREF_TORCHAX
+ARG SRC_PATH_TORCHAX
 
 # Specify installation targets
 RUN <<"EOF" bash -ex
-git-clone.sh --sparse-path ${SUBDIR_TORCHAX} ${URLREF_TORCHXLA} ${SRC_PATH_TORCHXLA}
-echo "-e file://${SRC_PATH_TORCHXLA}/${SUBDIR_TORCHAX}" >> /opt/pip-tools.d/requirements-torchax.in
-# tensorflow is only needed to suppress an absl warning when importing torchax
-# that tensorflow.io.gfile will not support GCS paths such as gs://...
-# comment it out if not needed so that ~300 MB of image size can be saved
-echo "tensorflow" >> /opt/pip-tools.d/requirements-torchax.in
+git-clone.sh ${URLREF_TORCHAX} ${SRC_PATH_TORCHAX}
+echo "-e file://${SRC_PATH_TORCHAX}" >> /opt/pip-tools.d/requirements-torchax.in
 echo "torch" >> /opt/pip-tools.d/requirements-torchax.in
 echo "torchvision" >> /opt/pip-tools.d/requirements-torchax.in
+# tensorflow is only needed to suppress an absl warning when importing torchax
+# that tensorflow.io.gfile will not support GCS paths such as gs://...
+# comment it out if you want to save ~300 MB in image size
+echo "tensorflow" >> /opt/pip-tools.d/requirements-torchax.in
 EOF
 
 ###############################################################################
