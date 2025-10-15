@@ -177,7 +177,10 @@ clean() {
     popd
 }
 
-CUDA_MAJOR_VERSION="${CUDA_VERSION:0:2}"
+# Derive CUDA_MAJOR_VERSION from CUDA_VERSION if it isn't set
+if [ -z ${CUDA_MAJOR_VERSION+x} ]; then
+    CUDA_MAJOR_VERSION="${CUDA_VERSION:0:2}"
+fi
 PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
 if [[ "$CUDA_COMPUTE_CAPABILITIES" == "all" ]]; then
     CUDA_COMPUTE_CAPABILITIES=$(supported_compute_capabilities ${CPU_ARCH})
@@ -263,17 +266,21 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
+old_hash=($(md5sum build/requirements.in))
 for component in jaxlib "jax-cuda${CUDA_MAJOR_VERSION}-pjrt" "jax-cuda${CUDA_MAJOR_VERSION}-plugin"; do
-    # Note that this also drops the [with-cuda] extra from the committed
-    # version, so nvidia-*-cu12 wheels disappear from the lock file
     sed -i "s|^${component}.*$|${component} @ file://${BUILD_PATH_JAXLIB}/${component//-/_}|" build/requirements.in
 done
+new_hash=($(md5sum build/requirements.in))
 # Bazel args to avoid cache invalidation
 BAZEL_ARGS=(
     --config=cuda_libraries_from_stubs
     --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
 )
-bazel run "${BAZEL_ARGS[@]}" --verbose_failures=true //build:requirements.update
+# //build:requirements.update can be quite slow; only run it if we actually
+# modified requirements.in just above.
+if [[ "${old_hash}" != "${new_hash}" ]]; then
+    bazel run "${BAZEL_ARGS[@]}" --verbose_failures=true //build:requirements.update
+fi
 if (( "${#EXTRA_TARGETS[@]}" > 0 )); then
     bazel build "${BAZEL_ARGS[@]}" --verbose_failures=true "${EXTRA_TARGETS[@]}"
     if [[ -n "${EXTRA_TARGET_DEST}" ]]; then
