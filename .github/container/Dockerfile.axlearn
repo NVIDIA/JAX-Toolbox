@@ -3,6 +3,8 @@ ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG SRC_MANIFEST_FILE=manifest.yaml
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG SRC_PATH_AXLEARN=/opt/axlearn
+ARG GIT_USER_NAME="JAX Toolbox"
+ARG GIT_USER_EMAIL=jax@nvidia.com
 
 ###############################################################################
 ## Download source and configure dependencies
@@ -11,7 +13,8 @@ FROM ${BASE_IMAGE} AS mealkit
 ARG DEST_MANIFEST_DIR
 ARG DEST_MANIFEST_DIR
 ARG SRC_PATH_AXLEARN
-
+ARG GIT_USER_NAME
+ARG GIT_USER_EMAIL
 
 # Use create distribution as we have a patch
 ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
