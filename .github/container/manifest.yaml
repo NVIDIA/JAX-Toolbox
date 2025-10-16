@@ -97,7 +97,7 @@ pathwaysutils:
   mode: pip-vcs
 axlearn:
   url: https://github.com/apple/axlearn.git
-  mirror_url: https://github.com/nvjax-svc-0/flax.git
+  mirror_url: https://github.com/nvjax-svc-0/axlearn.git
   tracking_ref: main
   mode: git-clone
   patches:
