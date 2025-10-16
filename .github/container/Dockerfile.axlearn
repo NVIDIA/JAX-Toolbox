@@ -3,7 +3,7 @@ ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG SRC_MANIFEST_FILE=manifest.yaml
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG SRC_PATH_AXLEARN=/opt/axlearn
-ARG GIT_USER_NAME="JAX Toolbox"
+ARG GIT_USER_NAME=NVIDIA
 ARG GIT_USER_EMAIL=jax@nvidia.com
 
 ###############################################################################
@@ -20,19 +20,23 @@ ARG GIT_USER_EMAIL
 # Use create distribution as we have a patch
 ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
 COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-# and copy the patch
 COPY patches/ ${DEST_MANIFEST_DIR}/patches/
-# clone the repo from the manifest
-RUN git-clone.sh https://github.com/apple/axlearn.git#main ${SRC_PATH_AXLEARN}
-# Apply the patch after cloning
-RUN <<"EOF" bash -ex
-git config --global user.name "${GIT_USER_NAME}"
-git config --global user.email "${GIT_USER_EMAIL}"
-EOF
-RUN ${DEST_MANIFEST_DIR}/create-distribution.sh \
+# Run the patch with cloning
+RUN <<EOF bash -ex
+  # clone the repo
+  git-clone.sh https://github.com/apple/axlearn.git#main ${SRC_PATH_AXLEARN}
+  # then set up the identity
+  git config --global user.email "${GIT_USER_EMAIL}"
+  git config --global user.name "${GIT_USER_NAME}"
+  # Apply the patch
+  ${DEST_MANIFEST_DIR}/create_distribution.sh \
     --manifest ${DEST_MANIFEST_DIR}/manifest.yaml \
     --package axlearn \
     --override_dir ${SRC_PATH_AXLEARN}
+
+  # general clean up
+  rm -f ~/.gitconfig
+EOF
 
 # these packages are needed to run axlearn tests
 # https://github.com/apple/axlearn/blob/main/pyproject.toml as reference
