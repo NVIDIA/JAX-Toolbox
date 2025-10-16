@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: xpk-gcs-sa
+  name: xpk-sa
   namespace: default
   annotations:
     iam.gke.io/gcp-service-account: jobset-xpk-user@nv-jaxtoolboxgcp-20240925.iam.gserviceaccount.com
@@ -25,7 +25,7 @@ metadata:
   namespace: default
 subjects:
   - kind: ServiceAccount
-    name: xpk-gcs-sa
+    name: xpk-sa
     namespace: default
 roleRef: 
   kind: Role
