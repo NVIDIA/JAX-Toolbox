@@ -12,6 +12,7 @@ ARG GIT_USER_EMAIL=jax@nvidia.com
 FROM ${BASE_IMAGE} AS mealkit
 ARG DEST_MANIFEST_DIR
 ARG DEST_MANIFEST_DIR
+ARG SRC_MANIFEST_FILE
 ARG SRC_PATH_AXLEARN
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
@@ -24,6 +25,9 @@ COPY patches/ ${DEST_MANIFEST_DIR}/patches/
 # clone the repo from the manifest
 RUN git-clone.sh https://github.com/apple/axlearn.git#main ${SRC_PATH_AXLEARN}
 # Apply the patch after cloning
+RUN git config --global user.name "${GIT_USER_NAME}" && \
+    git config --global user.email "${GIT_USER_EMAIL}"
+
 RUN ${DEST_MANIFEST_DIR}/create-distribution.sh \
     --manifest ${DEST_MANIFEST_DIR}/manifest.yaml \
     --package axlearn \
