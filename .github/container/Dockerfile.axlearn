@@ -23,6 +23,11 @@ COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
 COPY patches/ ${DEST_MANIFEST_DIR}/patches/
 # clone the repo from the manifest
 RUN git-clone.sh https://github.com/apple/axlearn.git#main ${SRC_PATH_AXLEARN}
+# Apply the patch after cloning
+RUN ${DEST_MANIFEST_DIR}/create-distribution.sh \
+    --manifest ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE} \
+    --package axlearn \
+    --override_dir ${SRC_PATH_AXLEARN}
 
 # these packages are needed to run axlearn tests
 # https://github.com/apple/axlearn/blob/main/pyproject.toml as reference
