@@ -25,7 +25,7 @@ COPY patches/ ${DEST_MANIFEST_DIR}/patches/
 RUN git-clone.sh https://github.com/apple/axlearn.git#main ${SRC_PATH_AXLEARN}
 # Apply the patch after cloning
 RUN ${DEST_MANIFEST_DIR}/create-distribution.sh \
-    --manifest ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE} \
+    --manifest ${DEST_MANIFEST_DIR}/manifest.yaml \
     --package axlearn \
     --override_dir ${SRC_PATH_AXLEARN}
 
