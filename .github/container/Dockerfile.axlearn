@@ -29,7 +29,7 @@ RUN <<EOF bash -ex
   git config --global user.email "${GIT_USER_EMAIL}"
   git config --global user.name "${GIT_USER_NAME}"
   # Apply the patch
-  ${DEST_MANIFEST_DIR}/create_distribution.sh \
+  ${DEST_MANIFEST_DIR}/create-distribution.sh \
     --manifest ${DEST_MANIFEST_DIR}/manifest.yaml \
     --package axlearn \
     --override_dir ${SRC_PATH_AXLEARN}
