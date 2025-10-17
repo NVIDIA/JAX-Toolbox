@@ -41,7 +41,7 @@ while [ : ]; do
         ;;
     --)
         shift;
-        break 
+        break
         ;;
   esac
 done
@@ -80,7 +80,6 @@ git submodule update --init --recursive
 popd
 
 ## update the manifest file
-
 mkdir -p $(dirname ${MANIFEST})
 touch ${MANIFEST}
 PACKAGE=$(basename "${DESTINATION}")
