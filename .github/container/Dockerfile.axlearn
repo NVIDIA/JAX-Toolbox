@@ -18,21 +18,24 @@ ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
 
 # Use create distribution as we have a patch
-ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
-COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-COPY patches/ ${DEST_MANIFEST_DIR}/patches/
+# ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
+# COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
+# COPY patches/ ${DEST_MANIFEST_DIR}/patches/
 # Run the patch with cloning
-RUN <<EOF bash -ex
-  # clone the repo
-  git-clone.sh https://github.com/apple/axlearn.git#main ${SRC_PATH_AXLEARN}
+RUN --mount=target=/mnt/jax-toolbox,from=jax-toolbox <<"EOF" bash -exu
+  # move files from mount
+  cp -r /mnt/jax-toolbox/.github/container/patches ${MANIFEST_DIR}/
+  cp /mnt/jax-toolbox/.github/container/manifest.yaml ${MANIFEST_DIR}/manifest.yaml
+  cp /mnt/jax-toolbox/.github/container/create-distribution.sh ${MANIFEST_DIR}/create-distribution.sh
+  # TODO: remove
+  cp /mnt/jax-toolbox/.github/container/pip-finalize.sh /usr/local/bin/
   # then set up the identity
   git config --global user.email "${GIT_USER_EMAIL}"
   git config --global user.name "${GIT_USER_NAME}"
   # Apply the patch
-  ${DEST_MANIFEST_DIR}/create-distribution.sh \
+  bash ${DEST_MANIFEST_DIR}/create-distribution.sh \
     --manifest ${DEST_MANIFEST_DIR}/manifest.yaml \
-    --package axlearn \
-    --override_dir ${SRC_PATH_AXLEARN}
+    --package axlearn
 
   # general clean up
   rm -f ~/.gitconfig
@@ -40,6 +43,7 @@ EOF
 
 # these packages are needed to run axlearn tests
 # https://github.com/apple/axlearn/blob/main/pyproject.toml as reference
+WORKDIR /opt/axlearn
 RUN <<"EOF" bash -ex
   echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
