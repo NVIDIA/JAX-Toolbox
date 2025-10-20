@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
+ARG URLREF_AXLEARN=https://github.com/apple/axlearn.git
+ARG SRC_PATH_AXLEARN=/opt/axlearn
 ARG SRC_MANIFEST_FILE=manifest.yaml
 ARG DEST_MANIFEST_DIR=/opt/manifest.d
 ARG SRC_PATH_AXLEARN=/opt/axlearn
@@ -16,6 +18,8 @@ ARG SRC_MANIFEST_FILE
 ARG SRC_PATH_AXLEARN
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
+ARG URLREF_AXLEARN
+ARG SRC_PATH_AXLEARN
 
 # Use create distribution as we have a patch
 # ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
@@ -23,22 +27,12 @@ ARG GIT_USER_EMAIL
 # COPY patches/ ${DEST_MANIFEST_DIR}/patches/
 # Run the patch with cloning
 RUN <<"EOF" bash -exu
-  # move files from mount
-  cp -r /mnt/jax-toolbox/.github/container/patches ${MANIFEST_DIR}/
-  cp /mnt/jax-toolbox/.github/container/manifest.yaml ${MANIFEST_DIR}/manifest.yaml
-  cp /mnt/jax-toolbox/.github/container/create-distribution.sh ${MANIFEST_DIR}/create-distribution.sh
-  # TODO: remove
-  cp /mnt/jax-toolbox/.github/container/pip-finalize.sh /usr/local/bin/
-  # then set up the identity
   git config --global user.email "${GIT_USER_EMAIL}"
   git config --global user.name "${GIT_USER_NAME}"
-  # Apply the patch
-  bash ${DEST_MANIFEST_DIR}/create-distribution.sh \
+  git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
+  ${DEST_MANIFEST_DIR}/create-distribution.sh \
     --manifest ${DEST_MANIFEST_DIR}/manifest.yaml \
     --package axlearn
-
-  # general clean up
-  rm -f ~/.gitconfig
 EOF
 
 # these packages are needed to run axlearn tests
