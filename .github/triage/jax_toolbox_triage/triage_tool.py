@@ -153,6 +153,17 @@ class TriageTool:
                 args=self.args,
             )
             package_versions[package] = history
+            if package in self.args.cherry_pick:
+                # If explicit commits to cherry-pick were given on the commandline,
+                # make sure they are known to the local working copy. They might not be
+                # if the fix being cherry-picked is newer, or only lives in a remote
+                # that is being passed in via --override-remotes.
+                worker.check_exec(
+                    ["git", "fetch", self.args.override_remotes.get(package, "origin")]
+                    + self.args.cherry_pick[package],
+                    policy="once_per_container",
+                    workdir=self.package_dirs[package],
+                )
             for cherry_pick_range in cherry_pick_ranges:
                 if package not in self.args.cherry_pick:
                     self.args.cherry_pick[package] = []
