@@ -21,10 +21,6 @@ ARG GIT_USER_EMAIL
 ARG URLREF_AXLEARN
 ARG SRC_PATH_AXLEARN
 
-# Use create distribution as we have a patch
-# ADD --chmod=777 create-distribution.sh ${DEST_MANIFEST_DIR}/
-# COPY ${SRC_MANIFEST_FILE} ${DEST_MANIFEST_DIR}/${SRC_MANIFEST_FILE}
-# COPY patches/ ${DEST_MANIFEST_DIR}/patches/
 # Run the patch with cloning
 RUN <<"EOF" bash -exu
   git config --global user.email "${GIT_USER_EMAIL}"
