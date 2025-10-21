@@ -22,6 +22,8 @@ from axlearn.common.utils import (
     HybridMeshShape,
 )
 
+import ast
+
 FLAGS = flags.FLAGS
 
 MODELS_INFO = {
@@ -125,6 +127,13 @@ parser.add_argument(
     type=str,
     default="/opt/output/output_log.log",
     help="Final log file.",
+)
+
+parser.add_argument(
+    "--trace_steps",
+    type=ast.literal_eval,
+    default=None,
+    help="Steps where we want JAX tracing. Example: [1,20,30]. AXLearn will pick up the 3 consecutive steps. Please, remember to add also `--jax_profiler_port 9999` to the input command",
 )
 
 parser.add_argument("--world_size", type=int, help="Total number of GPUs")
@@ -246,6 +255,7 @@ def main(parsed_args):
     write_summary_steps = parsed_args.write_summary_steps
     output_log_file = parsed_args.output_log_file
     world_size = parsed_args.world_size
+    trace_steps = parsed_args.trace_steps
 
     print(
         f"=== Parameter Check ===\n"
@@ -306,6 +316,9 @@ def main(parsed_args):
     trainer_config.checkpointer.save_policy.n = save_checkpoint_steps
     trainer_config.checkpointer.keep_every_n_steps = save_checkpoint_steps
     trainer_config.summary_writer.write_every_n_steps = write_summary_steps
+
+    if trace_steps is not None:
+        trainer_config.start_trace_steps = trace_steps
 
     # Call AXLearn Jax setup
     launch.setup()
