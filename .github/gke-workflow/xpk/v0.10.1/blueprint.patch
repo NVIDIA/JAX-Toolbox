@@ -1,8 +1,8 @@
 diff --git a/src/xpk/core/blueprint/blueprint_generator.py b/src/xpk/core/blueprint/blueprint_generator.py
-index 3d7f046..d94fe9e 100644
+index 3d7f046..bac71ba 100644
 --- a/src/xpk/core/blueprint/blueprint_generator.py
 +++ b/src/xpk/core/blueprint/blueprint_generator.py
-@@ -201,12 +201,15 @@ class BlueprintGenerator:
+@@ -201,12 +201,16 @@ class BlueprintGenerator:
                  "type": "nvidia-h100-mega-80gb",
                  "count": 8,
                  "gpu_driver_installation_config": {
@@ -10,6 +10,7 @@ index 3d7f046..d94fe9e 100644
 +                    "gpu_driver_version": "INSTALLATION_DISABLED"
                  },
              }],
++            "enable_private_nodes": True,
              "auto_upgrade": (
                  True if capacity_type != CapacityType.FLEX_START else False
              ),

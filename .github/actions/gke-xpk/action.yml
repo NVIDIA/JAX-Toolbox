@@ -9,7 +9,7 @@ inputs:
     type: string
   GKE_CLUSTER:
     description: 'GKE cluster name'
-    default: jtb-2025-08-26
+    default: jtb-2025-10-07
     required: false
     type: string
   GCP_ZONE:

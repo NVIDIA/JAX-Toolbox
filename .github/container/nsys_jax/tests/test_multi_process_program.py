@@ -149,7 +149,7 @@ instances = [
     ("another_distinctively_named_function", 5, [0, 1], False),
     ("another_one_only_in_process_zero", 1, [0], False),
     ("only_in_process_one", 1, [1], False),
-    ("_psum", 2, [0, 1], True),  # sync_global_devices
+    ("different_stacktraces", 2, [0, 1], True),  # sync_global_devices
 ]
 
 
@@ -173,7 +173,7 @@ def test_combined_data(
         # that identical programs are compiled in both processes and that they are
         # mapped onto the same ProgramId values. Otherwise, there might be different
         # ProgramId values on each process.
-        assert len(remapped_ids) == 1
+        assert len(remapped_ids) == 1, combined_data.module["Name"].unique()
     module_data = combined_data.module.loc[list(remapped_ids)]
     assert (
         len(module_data.index.get_level_values("ProgramExecution").unique())
@@ -231,7 +231,7 @@ def get_stack_traces(hlo_module):
 
 @pytest.mark.parametrize(
     "module_name,should_be_consistent",
-    [("_psum", False), ("distinctively_named_function_with_lhs", True)],
+    [("different_stacktraces", False), ("distinctively_named_function_with_lhs", True)],
 )
 def test_metadata_consistency(
     combined_data_and_path, module_name, should_be_consistent

@@ -218,10 +218,6 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 | --------- | ----- | ----------- |
 | `--xla_gpu_enable_latency_hiding_scheduler` | `true`  | allows XLA to move communication collectives to increase overlap with compute kernels |
 
-| Environment Variable | Value | Explanation |
-| -------------------- | ----- | ----------- |
-| `NCCL_NVLS_ENABLE` | `0` | Disables NVLink SHARP ([1](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-nvls-enable)). Future releases will re-enable this feature. |
-
 There are various other XLA flags users can set to improve performance. For a detailed explanation of these flags, please refer to the [GPU performance](./rosetta/docs/GPU_performance.md) doc. XLA flags can also be tuned per workload. For example, each script includes a directory [xla_flags](./rosetta/rosetta/projects/maxtext/xla_flags).
 
 For a list of previously used XLA flags that are no longer needed, please also refer to the [GPU performance](./rosetta/docs/GPU_performance.md#previously-used-xla-flags) page.
@@ -230,6 +226,7 @@ For a list of previously used XLA flags that are no longer needed, please also r
 
 | First nightly with new base container | Base container |
 | ------------------------------------- | -------------- |
+| 2025-10-02 | nvcr.io/nvidia/cuda-dl-base:25.09-cuda13.0-devel-ubuntu24.04 |
 | 2025-08-22 | nvcr.io/nvidia/cuda-dl-base:25.08-cuda13.0-devel-ubuntu24.04 |
 | 2025-07-03 | nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04 |
 | 2025-04-11 | nvcr.io/nvidia/cuda-dl-base:25.03-cuda12.8-devel-ubuntu24.04 |
