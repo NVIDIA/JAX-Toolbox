@@ -37,7 +37,7 @@ class PyxisContainer(Container):
             [
                 "sh",
                 "-c",
-                "echo 'startup --host_jvm_args=-XX:-UseContainerSupport' > ${JAX_TOOLBOX_TRIAGE_PREFIX}root/.bazelrc",
+                "echo 'startup --host_jvm_args=-XX:-UseContainerSupport' > ${JAX_TOOLBOX_TRIAGE_PREFIX}/root/.bazelrc",
             ]
         )
         return self
