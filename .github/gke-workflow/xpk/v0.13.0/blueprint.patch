@@ -1,0 +1,19 @@
+diff --git a/src/xpk/core/blueprint/blueprint_generator.py b/src/xpk/core/blueprint/blueprint_generator.py
+index 3e432f7..c20e8e4 100644
+--- a/src/xpk/core/blueprint/blueprint_generator.py
++++ b/src/xpk/core/blueprint/blueprint_generator.py
+@@ -201,9 +201,13 @@ class BlueprintGenerator:
+                 "type": "nvidia-h100-mega-80gb",
+                 "count": 8,
+                 "gpu_driver_installation_config": {
+-                    "gpu_driver_version": "LATEST"
++                    # avoid using LATEST due to GPU driver forward compatibility support
++                    # not available when using a feature branch driver release
++                    "gpu_driver_version": "INSTALLATION_DISABLED"
+                 },
+             }],
++            # use private nodes in pool due to NVIDIA organization constraints
++            "enable_private_nodes": True,
+             "auto_upgrade": (
+                 True if capacity_type != CapacityType.FLEX_START else False
+             ),

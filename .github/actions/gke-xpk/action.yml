@@ -70,7 +70,7 @@ inputs:
   XPK_VERSION:
     description: 'XPK release tag'
     required: false
-    default: 'v0.10.1'
+    default: 'v0.13.0'
     type: string
   XPK_PYTHON:
     description: 'Python version for XPK'
@@ -171,7 +171,14 @@ runs:
           --scheduler=gke.io/topology-aware-auto
       )
 
-      if [[ "${{ inputs.XPK_VERSION }}" == "v0.10.1" ]]; then
+      version_greater() {
+        if [[ $(echo -e "$1\n$2" | sort -V | head -n 1) != "$1" ]]; then
+          return 0
+        fi
+        return 1
+      }
+
+      if version_greater "v0.10.0" "${{ inputs.XPK_VERSION }}"; then
           args+=(
               --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
               --env="JAX_COORDINATOR_PORT=3389"
