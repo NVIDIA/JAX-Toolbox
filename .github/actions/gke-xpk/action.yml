@@ -177,7 +177,7 @@ runs:
         return 1
       }
 
-      if version_greater "v0.10.0" "${{ inputs.XPK_VERSION }}"; then
+      if version_greater "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
           args+=(
               --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
               --env="JAX_COORDINATOR_PORT=3389"
