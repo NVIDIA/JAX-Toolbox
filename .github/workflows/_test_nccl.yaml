@@ -23,6 +23,12 @@ jobs:
   build-mpi-operator-compatible-base:
     runs-on: [self-hosted, "amd64", "large"]
     steps:
+      - name: Login to nvcr.io Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: nvcr.io
+          username: $oauthtoken
+          password: ${{ secrets.NVCR_TOKEN }}
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Build MPI operator compatible base container

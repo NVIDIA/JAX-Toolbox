@@ -64,6 +64,7 @@ RUN mkdir -p /builder/extra-targets && \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
     --clean \
+    --release \
     ${EXTRA_BUILD_JAX_ARGS}
 
 ## Transformer engine: check out source and build wheel
@@ -97,7 +98,6 @@ ENV BUILD_DATE=${BUILD_DATE}
 # The following environment variables tune performance
 ENV XLA_FLAGS=""
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_latency_hiding_scheduler=true"
-ENV NCCL_NVLS_ENABLE=0
 
 COPY --from=builder ${BUILD_PATH_JAXLIB} ${BUILD_PATH_JAXLIB}
 COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
