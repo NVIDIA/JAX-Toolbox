@@ -118,7 +118,6 @@ runs:
   - name: Apply XPK workload create patch
     shell: bash -x -e -u {0}
     run: |
-      sed -i 's/{{ IMAGE_PULL_SECRET_NAME }}/${{ inputs.IMAGE_PULL_SECRET_NAME }}/g' .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch 
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
       ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
   
