@@ -20,147 +20,142 @@ jobs:
       JAX_IMAGE: ${{ inputs.CONTAINER }}
     secrets: inherit
 
-#  EKS cluster offline due to maintenance - to run manually
-#
-#  build-mpi-operator-compatible-base:
-#    runs-on: [self-hosted, "amd64", "large"]
-#    steps:
-#      - name: Login to nvcr.io Container Registry
-#        uses: docker/login-action@v3
-#        with:
-#          registry: nvcr.io
-#          username: $oauthtoken
-#          password: ${{ secrets.NVCR_TOKEN }}
-#      - name: Checkout repository
-#        uses: actions/checkout@v4
-#      - name: Build MPI operator compatible base container
-#        id: build
-#        uses: ./.github/actions/build-container
-#        with:
-#          ARCHITECTURE: amd64
-#          ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
-#          BADGE_FILENAME: badge-mpi-operator-compatible-base-build
-#          BUILD_DATE: 0000-00-00 # not important; this image is never published
-#          BASE_IMAGE: ${{ inputs.CONTAINER }}
-#          CONTAINER_NAME: mpi-operator-compatible-base
-#          DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
-#          RUNNER_SIZE: small
-#          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-#          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-#          github-token: ${{ secrets.GITHUB_TOKEN }}
-#          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-#    outputs:
-#      DOCKER_TAG_MEALKIT: ${{ steps.build.outputs.DOCKER_TAG_MEALKIT }}
-#      DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
-#
-#
-#  EKS cluster offline due to maintenance - to run manually
-#
-#  nccl-test:
-#    needs: build-mpi-operator-compatible-base
-#    strategy:
-#      matrix:
-#        test: [all_gather_perf_mpi, all_reduce_perf_mpi, broadcast_perf_mpi, reduce_scatter_perf_mpi]
-#    runs-on: eks
-#    env:
-#      BASE_IMAGE: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG_FINAL }}
-#      TEST_NAME: ${{ matrix.test }}
-#    steps:
-#      - name: Checkout repository
-#        uses: actions/checkout@v4
-#      - name: Login to GitHub Container Registry
-#        uses: docker/login-action@v3
-#        with:
-#          registry: ghcr.io
-#          username: ${{ github.repository_owner }}
-#          password: ${{ secrets.GITHUB_TOKEN }}
-#      - name: Create env vars
-#        id: var
-#        shell: bash
-#        run: |
-#          JOB_NAME="nccl-test-${{ github.run_id }}-${{ github.run_attempt }}-${TEST_NAME//_/-}"
-#          LAUNCHER_NAME="${JOB_NAME}-launcher"
-#          TOKEN_NAME="${JOB_NAME}-token"
-#          # Make these available to later steps
-#          echo "JOB_NAME=${JOB_NAME}" >> "$GITHUB_ENV"
-#          echo "LAUNCHER_NAME=${LAUNCHER_NAME}" >> "$GITHUB_ENV"
-#      - name: K8s GHCR store and delete token
-#        id: store-token
-#        uses: ./.github/actions/store-delete-k8s-ghcr
-#      - name: Configure Kubernetes job
-#        run: |
-#          export WORKER_NAME="${JOB_NAME}-worker"
-#          yq -i '.metadata.name = strenv(JOB_NAME)
-#            | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].image = strenv(BASE_IMAGE)
-#            | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].name = strenv(LAUNCHER_NAME)
-#            | .spec.mpiReplicaSpecs.Launcher.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
-#            | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].command[3] = strenv(TEST_NAME)
-#            | .spec.mpiReplicaSpecs.Worker.template.spec.containers[].image = strenv(BASE_IMAGE)
-#            | .spec.mpiReplicaSpecs.Worker.template.spec.containers[].name = strenv(WORKER_NAME)
-#            | .spec.mpiReplicaSpecs.Worker.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
-#            .github/eks-workflow-files/mpi-nccl-test.yml
-#          git diff .github/eks-workflow-files/mpi-nccl-test.yml
-#      - name: Submit Kubernetes job
-#        id: submit_job
-#        run: |
-#          echo "Check whether the cluster is under maintenance"
-#          if kubectl get nodes -o custom-columns=TAINTS:.spec.taints | grep "maintenance"; then
-#            echo "Cluster is under maintenance, skipping job submission"
-#            echo "continue-run=false" >> "$GITHUB_OUTPUT"
-#          else
-#            kubectl apply -f .github/eks-workflow-files/mpi-nccl-test.yml
-#            echo "continue-run=true" >> "$GITHUB_OUTPUT"
-#          fi
-#      - name: Wait for Kubernetes job to start
-#        if: steps.submit_job.outputs.continue-run == 'true'
-#        # Note that this is *not* using JOB_NAME
-#        run: |
-#          # Launcher job is created eagerly, but suspended. Kueue un-suspends it when
-#          # resources are available, but that is where there can be a long wait if the
-#          # cluster is busy executing other jobs.
-#          kubectl wait --for=create job/${LAUNCHER_NAME}
-#          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${LAUNCHER_NAME} --timeout=14400s
-#      - name: Stream Kubernetes job output
-#        if: steps.submit_job.outputs.continue-run == 'true'
-#        # Note that this is *not* JOB_NAME
-#        run: |
-#          # Streaming logs will fail if the container/pod is still pending
-#          while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
-#            sleep 1
-#          done
-#          # TODO: --all-containers=true --all-pods=true could make sense here, but it
-#          # prefixes lines with a rather verbose tag
-#          kubectl logs --follow job/${LAUNCHER_NAME}
-#      - name: Retrieve Kubernetes job status
-#        if: steps.submit_job.outputs.continue-run == 'true'
-#        shell: bash -exo pipefail {0}
-#        run: |
-#          while readarray -d : -t status < <(kubectl get job/${LAUNCHER_NAME} -o 'jsonpath={.status.failed}:{.status.succeeded}'); do
-#            failure=${status[0]:-0}
-#            success=${status[1]:-0}
-#            total=$((failure+success))
-#            if [[ ${total} < 1 ]]; then
-#              sleep 1
-#            elif [[ ${total} == 1 ]]; then
-#              break
-#            else
-#              # Shouldn't happen, maybe a sign the job being monitored does not have a
-#              # single launcher pod?
-#              exit 255
-#            fi
-#          done
-#          exit ${failure}
-#      # Provide more debug output in case of failure; note that some kinds of launch
-#      # failure do not produce any log output.
-#      - name: Debug failed Kubernetes job
-#        if: failure() && steps.submit_job.outputs.continue-run == 'true'
-#        run: |
-#          # Provide better debug in case of launch failures that will not produce log output
-#          pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} -o name)
-#          if [[ -n "${pods}" ]]; then
-#            kubectl describe ${pods}
-#          fi
-#      # Clean up in case of errors as well as success
-#      - name: Delete Kubernetes job
-#        if: always()
-#        run: kubectl delete -f .github/eks-workflow-files/mpi-nccl-test.yml
+  build-mpi-operator-compatible-base:
+    runs-on: [self-hosted, "amd64", "large"]
+    steps:
+      - name: Login to nvcr.io Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: nvcr.io
+          username: $oauthtoken
+          password: ${{ secrets.NVCR_TOKEN }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build MPI operator compatible base container
+        id: build
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: amd64
+          ARTIFACT_NAME: artifact-mpi-operator-compatible-base-build
+          BADGE_FILENAME: badge-mpi-operator-compatible-base-build
+          BUILD_DATE: 0000-00-00 # not important; this image is never published
+          BASE_IMAGE: ${{ inputs.CONTAINER }}
+          CONTAINER_NAME: mpi-operator-compatible-base
+          DOCKERFILE: .github/container/Dockerfile.mpi-operator-compatible-base
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
+
+  nccl-test:
+    needs: build-mpi-operator-compatible-base
+    strategy:
+      matrix:
+        test: [all_gather_perf_mpi, all_reduce_perf_mpi, broadcast_perf_mpi, reduce_scatter_perf_mpi]
+    runs-on: eks
+    env:
+      BASE_IMAGE: ${{ needs.build-mpi-operator-compatible-base.outputs.DOCKER_TAG_FINAL }}
+      TEST_NAME: ${{ matrix.test }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create env vars
+        id: var
+        shell: bash
+        run: |
+          JOB_NAME="nccl-test-${{ github.run_id }}-${{ github.run_attempt }}-${TEST_NAME//_/-}"
+          LAUNCHER_NAME="${JOB_NAME}-launcher"
+          TOKEN_NAME="${JOB_NAME}-token"
+          # Make these available to later steps
+          echo "JOB_NAME=${JOB_NAME}" >> "$GITHUB_ENV"
+          echo "LAUNCHER_NAME=${LAUNCHER_NAME}" >> "$GITHUB_ENV"
+      - name: K8s GHCR store and delete token
+        id: store-token
+        uses: ./.github/actions/store-delete-k8s-ghcr
+      - name: Configure Kubernetes job
+        run: |
+          export WORKER_NAME="${JOB_NAME}-worker"
+          yq -i '.metadata.name = strenv(JOB_NAME)
+            | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].image = strenv(BASE_IMAGE)
+            | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].name = strenv(LAUNCHER_NAME)
+            | .spec.mpiReplicaSpecs.Launcher.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
+            | .spec.mpiReplicaSpecs.Launcher.template.spec.containers[].command[3] = strenv(TEST_NAME)
+            | .spec.mpiReplicaSpecs.Worker.template.spec.containers[].image = strenv(BASE_IMAGE)
+            | .spec.mpiReplicaSpecs.Worker.template.spec.containers[].name = strenv(WORKER_NAME)
+            | .spec.mpiReplicaSpecs.Worker.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
+            .github/eks-workflow-files/mpi-nccl-test.yml
+          git diff .github/eks-workflow-files/mpi-nccl-test.yml
+      - name: Submit Kubernetes job
+        id: submit_job
+        run: |
+          echo "Check whether the cluster is under maintenance"
+          if kubectl get nodes -o custom-columns=TAINTS:.spec.taints | grep "maintenance"; then
+            echo "Cluster is under maintenance, skipping job submission"
+            echo "continue-run=false" >> "$GITHUB_OUTPUT"
+          else
+            kubectl apply -f .github/eks-workflow-files/mpi-nccl-test.yml
+            echo "continue-run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Wait for Kubernetes job to start
+        if: steps.submit_job.outputs.continue-run == 'true'
+        # Note that this is *not* using JOB_NAME
+        run: |
+          # Launcher job is created eagerly, but suspended. Kueue un-suspends it when
+          # resources are available, but that is where there can be a long wait if the
+          # cluster is busy executing other jobs.
+          kubectl wait --for=create job/${LAUNCHER_NAME}
+          kubectl wait --for=jsonpath='{.spec.suspend}=false' job/${LAUNCHER_NAME} --timeout=14400s
+      - name: Stream Kubernetes job output
+        if: steps.submit_job.outputs.continue-run == 'true'
+        # Note that this is *not* JOB_NAME
+        run: |
+          # Streaming logs will fail if the container/pod is still pending
+          while [[ -n $(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} --output=jsonpath='{.items[?(@.status.phase == "Pending")].metadata.name}') ]]; do
+            sleep 1
+          done
+          # TODO: --all-containers=true --all-pods=true could make sense here, but it
+          # prefixes lines with a rather verbose tag
+          kubectl logs --follow job/${LAUNCHER_NAME}
+      - name: Retrieve Kubernetes job status
+        if: steps.submit_job.outputs.continue-run == 'true'
+        shell: bash -exo pipefail {0}
+        run: |
+          while readarray -d : -t status < <(kubectl get job/${LAUNCHER_NAME} -o 'jsonpath={.status.failed}:{.status.succeeded}'); do
+            failure=${status[0]:-0}
+            success=${status[1]:-0}
+            total=$((failure+success))
+            if [[ ${total} < 1 ]]; then
+              sleep 1
+            elif [[ ${total} == 1 ]]; then
+              break
+            else
+              # Shouldn't happen, maybe a sign the job being monitored does not have a
+              # single launcher pod?
+              exit 255
+            fi
+          done
+          exit ${failure}
+      # Provide more debug output in case of failure; note that some kinds of launch
+      # failure do not produce any log output.
+      - name: Debug failed Kubernetes job
+        if: failure() && steps.submit_job.outputs.continue-run == 'true'
+        run: |
+          # Provide better debug in case of launch failures that will not produce log output
+          pods=$(kubectl get pods --selector=batch.kubernetes.io/job-name=${LAUNCHER_NAME} -o name)
+          if [[ -n "${pods}" ]]; then
+            kubectl describe ${pods}
+          fi
+      # Clean up in case of errors as well as success
+      - name: Delete Kubernetes job
+        if: always()
+        run: kubectl delete -f .github/eks-workflow-files/mpi-nccl-test.yml
