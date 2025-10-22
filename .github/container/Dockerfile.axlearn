@@ -1,19 +1,35 @@
 # syntax=docker/dockerfile:1-labs
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
-ARG URLREF_AXLEARN=https://github.com/Steboss/axlearn.git#main
+ARG URLREF_AXLEARN=https://github.com/apple/axlearn.git
 ARG SRC_PATH_AXLEARN=/opt/axlearn
+ARG DEST_MANIFEST_DIR=/opt/manifest.d
+ARG GIT_USER_NAME=JAX Toolbox
+ARG GIT_USER_EMAIL=jax@nvidia.com
 
 ###############################################################################
 ## Download source and configure dependencies
 ###############################################################################
 FROM ${BASE_IMAGE} AS mealkit
+ARG DEST_MANIFEST_DIR
+ARG SRC_PATH_AXLEARN
+ARG GIT_USER_NAME
+ARG GIT_USER_EMAIL
 ARG URLREF_AXLEARN
 ARG SRC_PATH_AXLEARN
 
-RUN git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
+# Run the patch with cloning
+RUN <<"EOF" bash -exu
+  git config --global user.email "${GIT_USER_EMAIL}"
+  git config --global user.name "${GIT_USER_NAME}"
+  git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
+  ${DEST_MANIFEST_DIR}/create-distribution.sh \
+    --manifest ${DEST_MANIFEST_DIR}/manifest.yaml \
+    --package axlearn
+EOF
 
 # these packages are needed to run axlearn tests
 # https://github.com/apple/axlearn/blob/main/pyproject.toml as reference
+WORKDIR /opt/axlearn
 RUN <<"EOF" bash -ex
   echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
