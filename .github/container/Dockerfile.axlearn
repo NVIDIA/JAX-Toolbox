@@ -13,7 +13,6 @@ ARG GIT_USER_EMAIL=jax@nvidia.com
 ###############################################################################
 FROM ${BASE_IMAGE} AS mealkit
 ARG DEST_MANIFEST_DIR
-ARG DEST_MANIFEST_DIR
 ARG SRC_MANIFEST_FILE
 ARG SRC_PATH_AXLEARN
 ARG GIT_USER_NAME
