@@ -22,6 +22,8 @@ from axlearn.common.utils import (
     HybridMeshShape,
 )
 
+import ast
+
 FLAGS = flags.FLAGS
 
 MODELS_INFO = {
@@ -129,10 +131,9 @@ parser.add_argument(
 
 parser.add_argument(
     "--trace_steps",
-    nargs="+",
-    type=int,
+    type=ast.literal_eval,
     default=None,
-    help="Steps to trace (e.g. [1, 20, 50]). To profile the training give `--jax_profiler_port 9999` to the script.",
+    help="Steps where we want JAX tracing. Example: [1,20,30]. AXLearn will pick up the 3 consecutive steps. Please, remember to add also `--jax_profiler_port 9999` to the input command",
 )
 
 parser.add_argument("--world_size", type=int, help="Total number of GPUs")
@@ -253,8 +254,8 @@ def main(parsed_args):
     save_checkpoint_steps = parsed_args.save_checkpoint_steps
     write_summary_steps = parsed_args.write_summary_steps
     output_log_file = parsed_args.output_log_file
-    trace_steps = parsed_args.trace_steps
     world_size = parsed_args.world_size
+    trace_steps = parsed_args.trace_steps
 
     print(
         f"=== Parameter Check ===\n"
