@@ -7,25 +7,25 @@ import typing
 import zipfile
 
 
-def nsys_jax_with_result(command):
+def nsys_jax_with_result(command, *, out_dir):
     """
     Helper to run nsys-jax with a unique output file that will be automatically
     cleaned up on destruction. Explicitly returns the `subprocess.CompletedProcess`
     instance.
     """
-    output = tempfile.NamedTemporaryFile(suffix=".zip")
+    output = tempfile.NamedTemporaryFile(delete=False, dir=out_dir, suffix=".zip")
     result = subprocess.run(
         ["nsys-jax", "--force-overwrite", "--output", output.name] + command,
     )
     return output, result
 
 
-def nsys_jax(command):
+def nsys_jax(command, *, out_dir):
     """
     Helper to run nsys-jax with a unique output file that will be automatically
     cleaned up on destruction. Throws if running `nsys-jax` does not succeed.
     """
-    output, result = nsys_jax_with_result(command)
+    output, result = nsys_jax_with_result(command, out_dir=out_dir)
     result.check_returncode()
     return output
 
@@ -42,11 +42,11 @@ def extract(archive):
     return tmpdir
 
 
-def nsys_jax_archive(command):
+def nsys_jax_archive(command, *, out_dir):
     """
     Helper to run nsys-jax and automatically extract the output, yielding a directory.
     """
-    archive = nsys_jax(command)
+    archive = nsys_jax(command, out_dir=out_dir)
     tmpdir = extract(archive)
     # Make sure the protobuf bindings can be imported, the generated .py will go into
     # a temporary directory that is not currently cleaned up. The bindings cannot be
@@ -58,13 +58,17 @@ def nsys_jax_archive(command):
 
 
 def multi_process_nsys_jax(
-    num_processes: int, command: typing.Callable[[int], list[str]]
+    num_processes: int,
+    command: typing.Callable[[int], list[str]],
+    *,
+    out_dir,
 ):
     """
     Helper to run a multi-process test under nsys-jax and yield several .zip
     """
     child_outputs = [
-        tempfile.NamedTemporaryFile(suffix=".zip") for _ in range(num_processes)
+        tempfile.NamedTemporaryFile(delete=False, dir=out_dir, suffix=".zip")
+        for _ in range(num_processes)
     ]
     children = [
         subprocess.Popen(

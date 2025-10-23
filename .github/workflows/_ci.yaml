@@ -343,7 +343,7 @@ jobs:
             pip install pytest-reportlog nsys-jax[test]
             # abuse knowledge that nsys-jax is installed editable, so the tests exist
             test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
-            pytest --report-log=/opt/output/pytest-report.jsonl "${test_path}"
+            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "${test_path}"
         EOF
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-nsys-jax.log)
@@ -359,6 +359,7 @@ jobs:
         # pytest-driven part
         test-nsys-jax.log
         pytest-report.jsonl
+        pytest-tmp/
     secrets: inherit
 
   # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
