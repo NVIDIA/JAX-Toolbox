@@ -70,7 +70,7 @@ inputs:
   XPK_VERSION:
     description: 'XPK release tag'
     required: false
-    default: 'v0.10.1'
+    default: 'v0.13.0'
     type: string
   XPK_PYTHON:
     description: 'Python version for XPK'
@@ -118,7 +118,6 @@ runs:
   - name: Apply XPK workload create patch
     shell: bash -x -e -u {0}
     run: |
-      sed -i 's/{{ IMAGE_PULL_SECRET_NAME }}/${{ inputs.IMAGE_PULL_SECRET_NAME }}/g' .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch 
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
       ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
   
@@ -171,7 +170,14 @@ runs:
           --scheduler=gke.io/topology-aware-auto
       )
 
-      if [[ "${{ inputs.XPK_VERSION }}" == "v0.10.1" ]]; then
+      version_greater() {
+        if [[ $(echo -e "$1\n$2" | sort -V | head -n 1) != "$1" ]]; then
+          return 0
+        fi
+        return 1
+      }
+
+      if version_greater "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
           args+=(
               --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
               --env="JAX_COORDINATOR_PORT=3389"
