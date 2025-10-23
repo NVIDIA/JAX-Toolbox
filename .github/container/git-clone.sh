@@ -66,7 +66,7 @@ fi
 
 ## check out the source
 GIT_REPO=$(cut -d# -f1 <<< $GIT_URLREF)
-GIT_REF=$(cut -d# -f2- <<< $GIT_URLREF)
+GIT_REF=$(cut -s -d# -f2- <<< $GIT_URLREF)
 
 echo "Fetching $GIT_REPO#$GIT_REF to $DESTINATION"
 
@@ -74,7 +74,9 @@ set -ex -o pipefail
 
 git clone ${GIT_REPO} ${DESTINATION}
 pushd ${DESTINATION}
-git checkout ${GIT_REF}
+if [[ -n "${GIT_REF}" ]]; then
+    git checkout ${GIT_REF}
+fi
 COMMIT_SHA=$(git rev-parse HEAD)
 git submodule update --init --recursive
 popd
