@@ -148,6 +148,34 @@ jobs:
           EXTRA_BUILD_ARGS: |
             URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
 
+  build-torchax:
+    needs: build-jax
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-torchax.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-torchax.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build TorchAX container
+        id: build-torchax
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-torchax-build
+          BADGE_FILENAME: badge-torchax-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: torchax
+          DOCKERFILE: .github/container/Dockerfile.torchax
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_TORCHAX=${{ fromJson(inputs.SOURCE_URLREFS).TORCHAX }}
+
   build-upstream-t5x:
     needs: build-jax
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
