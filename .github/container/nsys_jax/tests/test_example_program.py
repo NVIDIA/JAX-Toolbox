@@ -11,12 +11,13 @@ from nsys_jax_test_helpers import nsys_jax_archive  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def profiler_data():
+def profiler_data(tmp_path_factory):
     """
     Fixture that yields the loaded result of profiling example_program.py with nsys-jax.
     """
     outdir = nsys_jax_archive(
-        [sys.executable, os.path.join(os.path.dirname(__file__), "example_program.py")]
+        [sys.executable, os.path.join(os.path.dirname(__file__), "example_program.py")],
+        out_dir=tmp_path_factory.mktemp("test_example_program"),
     )
     return load_profiler_data(pathlib.Path(outdir.name))
 

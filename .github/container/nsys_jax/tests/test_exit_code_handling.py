@@ -20,7 +20,7 @@ kill_args = {
 
 
 @pytest.mark.parametrize("kill", kill_args.keys())
-def test_program_that_is_killed_by_nsys(kill):
+def test_program_that_is_killed_by_nsys(kill, tmp_path):
     """
     The default --capture-range-end=stop-shutdown behaviour of nsys profile causes nsys
     to kill the profiled process after cudaProfilerStop if
@@ -38,12 +38,13 @@ def test_program_that_is_killed_by_nsys(kill):
             sys.executable,
             cuda_profiler_api,
             "sleep",
-        ]
+        ],
+        out_dir=tmp_path,
     )
     assert os.path.isfile(output_zip.name)
 
 
-def test_program_that_fails_after_cuda_profiler_stop():
+def test_program_that_fails_after_cuda_profiler_stop(tmp_path):
     """
     With --capture-range=stop then nsys-jax should still propagate a failure code from
     the application.
@@ -56,14 +57,17 @@ def test_program_that_fails_after_cuda_profiler_stop():
             sys.executable,
             cuda_profiler_api,
             "exit42",
-        ]
+        ],
+        out_dir=tmp_path,
     )
     assert result.returncode == 42, result
     assert os.path.isfile(output_zip.name)
 
 
 @pytest.mark.parametrize("kill", kill_args.keys())
-def test_program_that_fails_after_cuda_profiler_stop_as_nsys_tries_to_kill_it(kill):
+def test_program_that_fails_after_cuda_profiler_stop_as_nsys_tries_to_kill_it(
+    tmp_path, kill
+):
     """
     The racy case, where either nsys sends SIGTERM or the application exits with 42.
     Also cover the case where --capture-range-end is not passed explicitly.
@@ -76,7 +80,8 @@ def test_program_that_fails_after_cuda_profiler_stop_as_nsys_tries_to_kill_it(ki
             sys.executable,
             cuda_profiler_api,
             "exit42",
-        ]
+        ],
+        out_dir=tmp_path,
     )
     # If nsys sends SIGTERM fast enough, the child process will exit due to that and
     # nsys-jax will return 0 (because that is the expected result). The application

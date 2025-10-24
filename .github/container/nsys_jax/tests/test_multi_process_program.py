@@ -18,7 +18,7 @@ from nsys_jax_test_helpers import extract, multi_process_nsys_jax  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def individual_results():
+def individual_results(tmp_path_factory):
     """
     Fixture that yields the .zip files from individual subprocesses.
     """
@@ -33,6 +33,7 @@ def individual_results():
             "--rank",
             str(rank),
         ],
+        out_dir=tmp_path_factory.mktemp("test_multi_progress_program"),
     )
 
 

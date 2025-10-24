@@ -9,14 +9,14 @@ if helper_dir not in sys.path:
 from nsys_jax_test_helpers import nsys_jax  # noqa: E402
 
 
-def test_program_without_gpu_activity():
+def test_program_without_gpu_activity(tmp_path):
     """
     Profiling a program that doesn't do anything should succeed.
     """
-    nsys_jax([sys.executable, "-c", "print('Hello world!')"])
+    nsys_jax([sys.executable, "-c", "print('Hello world!')"], out_dir=tmp_path)
 
 
-def test_stacktrace_entry_with_file():
+def test_stacktrace_entry_with_file(tmp_path):
     """
     Test that if a source file appears in the traceback of a JITed JAX function then
     the source file is bundled into the nsys-jax output archive.
@@ -27,7 +27,7 @@ def test_stacktrace_entry_with_file():
         src_code = "import jax\njax.jit(lambda x: x*2)(4)\n"
         with open(src_file, "w") as f:
             f.write(src_code)
-        archive = nsys_jax([sys.executable, src_file])
+        archive = nsys_jax([sys.executable, src_file], out_dir=tmp_path)
     with zipfile.ZipFile(archive) as ifile:
         src_file_in_archive = f"sources{src_file}"
         assert src_file_in_archive in ifile.namelist()
@@ -35,11 +35,13 @@ def test_stacktrace_entry_with_file():
             assert archived_file.read().decode() == src_code
 
 
-def test_stacktrace_entry_without_file():
+def test_stacktrace_entry_without_file(tmp_path):
     """
     Test that tracing code that does not come from a named file works (bug 4931958).
     """
-    archive = nsys_jax(["python", "-c", "import jax; jax.jit(lambda x: x*2)(4)"])
+    archive = nsys_jax(
+        ["python", "-c", "import jax; jax.jit(lambda x: x*2)(4)"], out_dir=tmp_path
+    )
     with zipfile.ZipFile(archive.name) as ifile:
         # The combination of -c and JAX suppressing references to its own source code
         # should mean that no source code files are gathered.

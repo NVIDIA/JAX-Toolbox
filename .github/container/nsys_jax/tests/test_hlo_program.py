@@ -18,7 +18,7 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.fixture(scope="module")
-def profiler_data():
+def profiler_data(tmp_path_factory):
     """
     Fixture that yields the loaded result of profiling example_program.py with nsys-jax.
     """
@@ -27,7 +27,8 @@ def profiler_data():
             hlo_runner_main,
             f"--num_repeats={num_repeats}",
             os.path.join(os.path.dirname(__file__), "example.hlo"),
-        ]
+        ],
+        out_dir=tmp_path_factory.mktemp("test_hlo_program"),
     )
     return load_profiler_data(pathlib.Path(outdir.name))
 
