@@ -61,8 +61,6 @@ remove_packages=(
   python3-gi
   software-properties-common
   lsb-release
-  python3-yaml
-  python3-pygments
 )
 
 apt-get remove -y ${remove_packages[@]}
