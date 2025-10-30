@@ -344,10 +344,9 @@ jobs:
             # abuse knowledge that nsys-jax is installed editable, so the tests exist
             test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
             pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "${test_path}"
-            # change permissions to the tmp directory so GHA can process it afterwards
-            chmod -R a+rw /opt/output/pytest-tmp
-
         EOF
+        sudo chown -R $USER:$USER pytest-tmp/ pytest-report.jsonl test-nsys-jax.log 2>/dev/null || true
+        chmod -R u+rwX,go+rX pytest-tmp/ 2>/dev/null || true
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-nsys-jax.log)
         num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
