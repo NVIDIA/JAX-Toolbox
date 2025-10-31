@@ -2,7 +2,6 @@
 ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:25.09-cuda13.0-devel-ubuntu24.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
-ARG CLANG_VERSION=18
 ARG JAX_TOOLBOX_REF=main
 ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
 
@@ -14,7 +13,6 @@ FROM ${BASE_IMAGE}
 ARG BASE_IMAGE
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
-ARG CLANG_VERSION
 ARG JAX_TOOLBOX_REF
 ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
 ENV CUDA_BASE_IMAGE=${BASE_IMAGE}
@@ -52,37 +50,6 @@ apt_packages=(
   software-properties-common
 )
 apt-get install -y ${apt_packages[@]}
-
-# Install LLVM/Clang
-bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- ${CLANG_VERSION}
-
-# Make sure that clang and clang++ point to the new version. This list is based
-# on the symlinks installed by the `clang` (as opposed to `clang-14`) and `lld`
-# (as opposed to `lld-14`) packages available in Ubuntu 22.04. 100 is an
-# arbitrary priority.
-update-alternatives --verbose \
-  --install /usr/bin/clang          clang          /usr/lib/llvm-${CLANG_VERSION}/bin/clang 100 \
-  --slave   /usr/bin/asan_symbolize asan_symbolize /usr/bin/asan_symbolize-${CLANG_VERSION} \
-  --slave   /usr/bin/clang++        clang++        /usr/lib/llvm-${CLANG_VERSION}/bin/clang++ \
-  --slave   /usr/bin/ld.lld         ld.lld         /usr/lib/llvm-${CLANG_VERSION}/bin/lld \
-  --slave   /usr/bin/lld            lld            /usr/lib/llvm-${CLANG_VERSION}/bin/lld \
-  --slave   /usr/bin/lld-link       lld-link       /usr/lib/llvm-${CLANG_VERSION}/bin/lld \
-  --slave   /usr/bin/wasm-ld        wasm-ld        /usr/lib/llvm-${CLANG_VERSION}/bin/lld
-
-# Make sure that any later attempt to install `clang` or `lld` will fail.
-cat >/etc/apt/preferences.d/no-unversioned-clang-lld <<EOL
-# LLVM is installed from apt.llvm.org using versioned packages, whereas the
-# unversioned clang and lld packages come from Ubuntu and refer to older
-# versions of LLVM. Please use versioned packages in this container.
-Package: clang
-Pin: release *
-Pin-Priority: -1
-
-Package: lld
-Pin: release *
-Pin-Priority: -1
-EOL
-
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 
@@ -94,8 +61,6 @@ remove_packages=(
   python3-gi
   software-properties-common
   lsb-release
-  python3-yaml
-  python3-pygments
 )
 
 apt-get remove -y ${remove_packages[@]}
