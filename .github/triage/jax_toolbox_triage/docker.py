@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import shutil
 import subprocess
 import typing
 
@@ -23,37 +24,45 @@ class DockerContainer(Container):
 
     def __enter__(self):
         self._logger.debug(f"Launching {self}")
-        result = subprocess.run(
+        have_gpus = shutil.which("nvidia-smi") is not None
+        if not have_gpus:
+            self._logger.warning("No GPUs detected!")
+        gpu_args = ["--gpus=all"] if have_gpus else []
+        result = run_and_log(
             [
                 "docker",
                 "run",
                 "--detach",
                 # Otherwise bazel shutdown hangs.
                 "--init",
-                "--gpus=all",
                 "--shm-size=1g",
             ]
+            + gpu_args
             + self._mount_args
             + [
                 self._url,
                 "sleep",
                 "infinity",
             ],
-            check=True,
-            encoding="utf-8",
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
+            logger=self._logger,
+            stderr="separate",
         )
+        if result.returncode != 0:
+            self._logger.error(f"Could not launch {self}, exit code {result.returncode}:")
+            self._logger.error("stdout:")
+            self._logger.error(result.stdout)
+            self._logger.error("stderr:")
+            self._logger.error(result.stderr)
+        result.check_returncode()
         self._id = result.stdout.strip()
         return self
 
     def __exit__(self, *exc_info):
-        subprocess.run(
+        run_and_log(
             ["docker", "stop", self._id],
-            check=True,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
+            logger=self._logger,
+            stderr="interleaved",
+        ).check_returncode()
 
     def __repr__(self):
         return f"Docker({self._url})"
@@ -82,11 +91,9 @@ class DockerContainer(Container):
         """
         Check if the given container exists.
         """
-        result = subprocess.run(
+        result = run_and_log(
             ["docker", "pull", self._url],
-            stderr=subprocess.STDOUT,
-            stdout=subprocess.PIPE,
-            encoding="utf-8",
+            logger=self._logger,
+            stderr="interleaved",
         )
-        self._logger.debug(result.stdout)
         return result.returncode == 0
