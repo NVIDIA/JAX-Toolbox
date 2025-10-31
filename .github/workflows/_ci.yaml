@@ -336,14 +336,11 @@ jobs:
       EXECUTE: |
         set -o pipefail
         docker run -i --shm-size=1g --gpus all \
-          --user $(id -u)$(id -g) \
-          -e HOME=/tmp \
-          -e PATH=/tmp/.local/bin:$PATH \
-          -v $PWD:/opt/output \
+          -v $PWD:/opt/output:rw \
           ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
           bash <<"EOF" |& tee test-nsys-jax.log
             # nsys-jax is already installed, this is just adding the test dependencies
-            pip install --user pytest-reportlog nsys-jax[test]
+            pip install pytest-reportlog nsys-jax[test]
             # abuse knowledge that nsys-jax is installed editable, so the tests exist
             test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
             pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "${test_path}"
