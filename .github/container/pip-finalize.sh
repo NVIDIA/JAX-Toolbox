@@ -54,7 +54,7 @@ else
   if [[ "$(uname -m)" = "x86_64" ]]; then
     sed -i 's/^tensorflow==\([0-9.*]\+\)$/tensorflow-cpu==\1/' requirements.txt
   elif [[ "$(uname -m)" = "arm64" ]] || [[ "$(uname -m)" = "aarch64" ]]; then
-    sed -i 's/^tensorflow==.*$/tensorflow-metal==1.1.0/' requirements.txt
+    sed -i 's/^tensorflow==.*$/tensorflow-metal/' requirements.txt
   else
     echo "Skipping TF on $(uname -m)"
   fi
