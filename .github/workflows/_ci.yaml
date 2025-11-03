@@ -335,8 +335,9 @@ jobs:
       TEST_NAME: nsys-jax
       EXECUTE: |
         set -o pipefail
+        mkdir -p output-results
         docker run -i --shm-size=1g --gpus all \
-          -v $PWD:/opt/output:rw \
+          -v output-results:/opt/output \
           ghcr.io/nvidia/jax-toolbox-internal:19028680673-jax-amd64 \
           bash <<"EOF" |& tee test-nsys-jax.log
             # nsys-jax is already installed, this is just adding the test dependencies
@@ -344,14 +345,13 @@ jobs:
             # abuse knowledge that nsys-jax is installed editable, so the tests exist
             test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
             pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "${test_path}"
+            chmod -R a+rwX /opt/output
         EOF
-        echo "PERMISSION TEST"
-        chmod -R 777 /runner/_work/JAX-Toolbox/JAX-Toolbox/pytest-tmp
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-nsys-jax.log)
         num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-        failed_tests=$(cat pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+        passed_tests=$(cat output-results/pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
+        failed_tests=$(cat output-results/pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
         total_tests=$(( passed_tests + failed_tests ))
         echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
         echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
@@ -360,8 +360,8 @@ jobs:
       ARTIFACTS: |
         # pytest-driven part
         test-nsys-jax.log
-        pytest-report.jsonl
-        pytest-tmp/
+        output-results/pytest-report.jsonl
+        output-results/pytest-tmp/
     secrets: inherit
 
   # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
