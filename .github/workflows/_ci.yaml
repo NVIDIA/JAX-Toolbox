@@ -345,6 +345,7 @@ jobs:
             test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
             pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "${test_path}"
         EOF
+        chmod -R 777 pytest-tmp/
       STATISTICS_SCRIPT: |
         summary_line=$(tail -n1 test-nsys-jax.log)
         num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
