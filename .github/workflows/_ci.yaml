@@ -337,7 +337,7 @@ jobs:
         set -o pipefail
         mkdir -p output-results
         docker run -i --shm-size=1g --gpus all \
-          -v output-results:/opt/output \
+          -v $PWD/output-results:/opt/output \
           ghcr.io/nvidia/jax-toolbox-internal:19028680673-jax-amd64 \
           bash <<"EOF" |& tee test-nsys-jax.log
             # nsys-jax is already installed, this is just adding the test dependencies
