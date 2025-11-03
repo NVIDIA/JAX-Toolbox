@@ -260,6 +260,11 @@ def parse_args(args=None) -> argparse.Namespace:
             jax:https://<token>@host/repo.git,xla:https://<token>@host/repo.git
             """,
     )
+    version_search_args.add_argument(
+        "--exclude-transformer-engine",
+        action="store_true",
+        help="Exclude transformer-engine from the list of optional software to triage.",
+    )
     parser.add_argument(
         "-v",
         "--container-mount",
@@ -324,9 +329,7 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), (
-            "For local runtime, --passing-versions and --failing-versions must be provided."
-        )
+        ), "For local runtime, --passing-versions and --failing-versions must be provided."
         assert (
             args.container is None
             and args.start_date is None
@@ -371,8 +374,11 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert args.container is not None, (
-            "--container must be passed for the container-level search"
-        )
+        assert (
+            args.container is not None
+        ), "--container must be passed for the container-level search"
+
+    if args.exclude_transformer_engine:
+        optional_software.remove("transformer-engine")
 
     return args
