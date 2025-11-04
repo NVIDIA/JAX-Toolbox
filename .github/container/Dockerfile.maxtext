@@ -18,7 +18,7 @@ EOF
 
 RUN <<"EOF" bash -ex -o pipefail
 echo "-e file://${SRC_PATH_MAXTEXT}" >> /opt/pip-tools.d/requirements-maxtext.in
-echo "-r ${SRC_PATH_MAXTEXT}/base_requirements/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+echo "-r ${SRC_PATH_MAXTEXT}/dependencies/requirements/base_requirements/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
 
 # add version constraints to avoid eternal dependency resolution
@@ -26,11 +26,9 @@ RUN <<"EOF" bash -ex -o pipefail
 for pattern in \
     "s|^tensorflow$|tensorflow==2.18.1|g" \
     "s|^tensorflow-text$|tensorflow-text==2.18.1|g" \
-    "s|^jax!=.*|jax|g" \
-    "s|^jaxlib!=.*|jaxlib|g" \
   ; do
     # tensorflow-cpu,tensorboard,tensorflow-text>=2.19.0 is incompatible with tensorflow==2.18.1
-    sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/base_requirements/requirements.txt
+    sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/dependencies/requirements/base_requirements/requirements.txt
 done
 EOF
 
