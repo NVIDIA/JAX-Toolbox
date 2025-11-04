@@ -153,6 +153,17 @@ class TriageTool:
                 args=self.args,
             )
             package_versions[package] = history
+            if package in self.args.cherry_pick:
+                # If explicit commits to cherry-pick were given on the commandline,
+                # make sure they are known to the local working copy. They might not be
+                # if the fix being cherry-picked is newer, or only lives in a remote
+                # that is being passed in via --override-remotes.
+                worker.check_exec(
+                    ["git", "fetch", self.args.override_remotes.get(package, "origin")]
+                    + self.args.cherry_pick[package],
+                    policy="once_per_container",
+                    workdir=self.package_dirs[package],
+                )
             for cherry_pick_range in cherry_pick_ranges:
                 if package not in self.args.cherry_pick:
                     self.args.cherry_pick[package] = []
@@ -529,22 +540,6 @@ class TriageTool:
             passing_url, failing_url, passing_env, failing_env
         )
 
-        # We only know how to handle software packages that have versions defined at
-        # both ends of the range.
-        inconsistent_keys = passing_versions.keys() ^ failing_versions.keys()
-        if len(inconsistent_keys):
-            self.logger.warning(
-                f"Ignoring packages that only have defined versions in one endpoint: {' '.join(inconsistent_keys)}"
-            )
-            for k in inconsistent_keys:
-                for d in [passing_versions, failing_versions]:
-                    d.pop(k, None)
-
-        # Which packages have versions that are not always the same?
-        self.dynamic_packages = {
-            pkg
-            for pkg, _ in set(passing_versions.items()) ^ set(failing_versions.items())
-        }
         # Choose an environment to do the version-level bisection in; use directory names that
         # match it, and track what the initial versions of the different packages are
         if self.args.container_runtime == "local":
@@ -560,6 +555,40 @@ class TriageTool:
             self.bisection_url = passing_url
             self.bisection_versions = original_passing_versions
             self.package_dirs = passing_package_dirs
+
+        # We only know how to handle software packages that have versions defined at
+        # both ends of the range.
+        inconsistent_keys = passing_versions.keys() ^ failing_versions.keys()
+        if len(inconsistent_keys):
+            self.logger.warning(
+                f"Ignoring packages that only have defined versions in one endpoint: {' '.join(inconsistent_keys)}"
+            )
+            for k in inconsistent_keys:
+                for d in [passing_versions, failing_versions]:
+                    d.pop(k, None)
+
+        # Not sure how to handle a package that does not have a defined version in the
+        # bisection environment but that is expected to be included in the bisection...
+        assert passing_versions.keys() == failing_versions.keys()
+        unknown_initial_packages = (
+            passing_versions.keys() - self.bisection_versions.keys()
+        )
+        assert len(unknown_initial_packages) == 0, (
+            passing_versions.keys(),
+            self.bisection_versions.keys(),
+        )
+
+        # Which packages have versions that are not always the same? There are three
+        # relevant sets of versions: the starting values in the bisection environment,
+        # the start/passing value for the bisection, and the end/failing value for the
+        # bisection.
+        static_packages = {
+            pkg
+            for pkg, _ in set(passing_versions.items())
+            & set(failing_versions.items())
+            & set(self.bisection_versions.items())
+        }
+        self.dynamic_packages = passing_versions.keys() - static_packages
         self.logger.info(f"Using {self.bisection_url} for version-level bisection...")
         assert self.package_dirs is not None
         # This is the set of versions that are already installed

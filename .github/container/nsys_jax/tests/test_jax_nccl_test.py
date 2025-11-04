@@ -38,7 +38,7 @@ def set_env(monkeypatch):
 
 
 @pytest.mark.parametrize("collection", ["full", "partial"])
-def test_jax_nccl_single_process(monkeypatch, collection):
+def test_jax_nccl_single_process(monkeypatch, tmp_path, collection):
     set_env(monkeypatch)
     nsys_jax(
         capture_args(collection)
@@ -49,7 +49,8 @@ def test_jax_nccl_single_process(monkeypatch, collection):
             "summary",
             "--",
             "jax-nccl-test",
-        ]
+        ],
+        out_dir=tmp_path,
     )
 
 
@@ -65,7 +66,7 @@ if device_count >= 3:
 
 @pytest.mark.parametrize("process_count", process_counts_to_test)
 @pytest.mark.parametrize("collection", ["full", "partial"])
-def test_jax_nccl_multi_process(monkeypatch, process_count, collection):
+def test_jax_nccl_multi_process(monkeypatch, tmp_path, process_count, collection):
     assert device_count % process_count == 0, (device_count, process_count)
     gpus_per_process = device_count // process_count
     set_env(monkeypatch)
@@ -85,6 +86,7 @@ def test_jax_nccl_multi_process(monkeypatch, process_count, collection):
             str(gpus_per_process),
             "--distributed",
         ],
+        out_dir=tmp_path,
     )
     combined_output = tempfile.NamedTemporaryFile(suffix=".zip")
     subprocess.run(

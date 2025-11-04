@@ -70,7 +70,7 @@ inputs:
   XPK_VERSION:
     description: 'XPK release tag'
     required: false
-    default: 'v0.10.1'
+    default: 'v0.13.0'
     type: string
   XPK_PYTHON:
     description: 'Python version for XPK'
@@ -118,7 +118,6 @@ runs:
   - name: Apply XPK workload create patch
     shell: bash -x -e -u {0}
     run: |
-      sed -i 's/{{ IMAGE_PULL_SECRET_NAME }}/${{ inputs.IMAGE_PULL_SECRET_NAME }}/g' .github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}/workload.patch 
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
       ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
   
@@ -171,7 +170,14 @@ runs:
           --scheduler=gke.io/topology-aware-auto
       )
 
-      if [[ "${{ inputs.XPK_VERSION }}" == "v0.10.1" ]]; then
+      version_greater() {
+        if [[ $(echo -e "$1\n$2" | sort -V | head -n 1) != "$1" ]]; then
+          return 0
+        fi
+        return 1
+      }
+
+      if version_greater "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
           args+=(
               --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
               --env="JAX_COORDINATOR_PORT=3389"
@@ -247,6 +253,7 @@ runs:
         
         if [ $? -ne 0 ]; then
           echo "The JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }} did not complete as expected "
+          echo "XPK_EXIT_CODE=1" >> ${GITHUB_ENV}
           exit 1
         fi
 
@@ -262,11 +269,12 @@ runs:
         ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
       done
 
+      echo "XPK_EXIT_CODE=${ALL_EXIT_CODES}" >> ${GITHUB_ENV}
       if [ ${ALL_EXIT_CODES} -gt 0 ]; then
         exit 1
       fi
       exit 0
-  
+
   - name: Clean up JobSet from cluster
     shell: bash -x -u {0}
     if: ${{ always() }}
@@ -291,3 +299,38 @@ runs:
     if: ${{ always() }}
     run: |
       sudo rm -rf ${WORKLOAD_NAME}
+
+  - name: Generate sitrep
+    id: sitrep
+    shell: bash -x -e {0}
+    if: ${{ always() }}
+    run: |
+      source .github/workflows/scripts/to_json.sh
+      badge_label="${{ matrix.test }}"
+
+      summary="${{ inputs.WORKLOAD_NAME_PREFIX }}"
+      outcome=success
+      badge_label="${{ inputs.WORKLOAD_NAME_PREFIX }}"
+      badge_color=brightgreen
+
+      if [ "${XPK_EXIT_CODE}" -gt 0 ]; then
+        badge_color=red
+        outcome=failed
+        summary+=": fail"
+      else
+        summary+=": pass"
+      fi
+
+      to_json summary \
+              badge_label \
+              badge_color \
+              outcome | \
+      tee sitrep.json
+
+  - name: Upload sitrep to GitHub Actions from runner
+    if: ${{ always() }}
+    uses: actions/upload-artifact@v4
+    with:
+      name: ${{ inputs.WORKLOAD_NAME_PREFIX }}-sitrep
+      path: |
+        sitrep.json

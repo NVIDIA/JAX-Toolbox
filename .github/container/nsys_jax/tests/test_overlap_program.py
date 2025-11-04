@@ -14,16 +14,19 @@ overlap_program = os.path.join(os.path.dirname(__file__), "overlap_program.py")
 
 
 @pytest.fixture(scope="module")
-def profiler_data_full():
+def profiler_data_full(tmp_path_factory):
     """
     Fixture that yields the loaded result of profiling overlap_program.py with nsys-jax.
     """
-    outdir = nsys_jax_archive([sys.executable, overlap_program])
+    outdir = nsys_jax_archive(
+        [sys.executable, overlap_program],
+        out_dir=tmp_path_factory.mktemp("test_overlap_program_full"),
+    )
     return load_profiler_data(pathlib.Path(outdir.name))
 
 
 @pytest.fixture(scope="module")
-def profiler_data_narrow():
+def profiler_data_narrow(tmp_path_factory):
     """
     Fixture that yields the loaded result of profiling overlap_program.py with nsys-jax.
     """
@@ -34,7 +37,8 @@ def profiler_data_narrow():
             "--",
             sys.executable,
             overlap_program,
-        ]
+        ],
+        out_dir=tmp_path_factory.mktemp("test_overlap_program_narrow"),
     )
     return load_profiler_data(pathlib.Path(outdir.name))
 

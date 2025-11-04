@@ -126,8 +126,10 @@ print_var SRC_PATH_XLA
 echo "=================================================="
 
 # Parse SM_LIST into the format accepted by TransformerEngine's build system
-# "1.2,3.4,5.6" -> "12-real;34-real;56", i.e. SASS plus PTX for the last one
-NVTE_CUDA_ARCHS="${SM_LIST//,/-real;}"
+# "1.2,3.4,5.6" -> "12;34;56". In principle we would like to compile SASS-only
+# plus PTX for the highest known architecture, but TransformerEngine's build
+# system does not currently handle that.
+NVTE_CUDA_ARCHS="${SM_LIST//,/;}"
 set -x
 export NVTE_CUDA_ARCHS="${NVTE_CUDA_ARCHS//./}"
 # Parallelism within nvcc invocations.
