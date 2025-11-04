@@ -150,7 +150,7 @@ with open("pyproject.toml", "rb") as ifile:
 subprocess.run(
     [sys.executable, "-m", "pip", "install"]
     + [r for r in data["build-system"]["requires"]
-       if r.startswith("nvidia-mathdx") or r.startswith("pybind11")])
+       if r.startswith("pybind11")])
 EOF
 
 # The wheel filename includes the TE commit; if this has changed since the last
