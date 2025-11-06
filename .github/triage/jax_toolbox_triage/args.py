@@ -260,6 +260,11 @@ def parse_args(args=None) -> argparse.Namespace:
             jax:https://<token>@host/repo.git,xla:https://<token>@host/repo.git
             """,
     )
+    version_search_args.add_argument(
+        "--exclude-transformer-engine",
+        action="store_true",
+        help="Exclude transformer-engine from the list of optional software to triage.",
+    )
     parser.add_argument(
         "-v",
         "--container-mount",
@@ -374,5 +379,8 @@ def parse_args(args=None) -> argparse.Namespace:
         assert args.container is not None, (
             "--container must be passed for the container-level search"
         )
+
+    if args.exclude_transformer_engine:
+        optional_software.remove("transformer-engine")
 
     return args
