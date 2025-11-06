@@ -63,6 +63,7 @@ RUN mkdir -p /builder/extra-targets && \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --sm all \
+    --debug \
     --clean \
     ${EXTRA_BUILD_JAX_ARGS}
 
