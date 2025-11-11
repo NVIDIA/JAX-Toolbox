@@ -10,7 +10,9 @@ Usage: $0 [OPTION]... GIT_URL#REF PATH
   -h, --help             Print usage.
   -m, --manifest FILE    The manifest yaml file to which the downloaded library is documented.
                          Default is /opt/manifest.d/git-clone.yaml
-TARGET_IMAGE
+  --sparse-path PATH     If specified, use sparse checkout to only fetch the given path.
+                         PATH is relative to the repo root.
+
 Example:
   # clone JAX's main branch at /opt/jax and update manifest file at the default location
   git-clone.sh https://github.com/google/jax.git#main /opt/jax
