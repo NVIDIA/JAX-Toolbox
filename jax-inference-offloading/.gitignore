@@ -1,0 +1,8 @@
+*.swp
+*.swo
+*.swn
+__pycache__
+.nfs*
+*.egg-info
+build
+.env
