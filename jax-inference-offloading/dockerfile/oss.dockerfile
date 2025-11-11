@@ -15,11 +15,12 @@
 # limitations under the License.
 
 ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04
-ARG URL_JIO=ssh://git@gitlab-master.nvidia.com:12051/dl/jax/jax-vllm-coupling.git  # UPDATE BEFORE DEPLOYMENT
+ARG URL_JIO=https://github.com/NVIDIA/JAX-Toolbox.git
 ARG REF_JIO=main
 ARG URL_TUNIX=https://github.com/google/tunix.git
 ARG REF_TUNIX=main
-ARG SRC_PATH_JIO=/opt/jax-inference-offloading
+ARG BASE_PATH_JIO=/opt/jtbx
+ARG SUB_PATH_JIO=jax-inference-offloading
 ARG SRC_PATH_TUNIX=/opt/tunix
 
 ###############################################################################
@@ -53,14 +54,15 @@ ARG URL_JIO
 ARG REF_JIO
 ARG URL_TUNIX
 ARG REF_TUNIX
-ARG SRC_PATH_JIO
+ARG BASE_PATH_JIO
+ARG SUB_PATH_JIO
 ARG SRC_PATH_TUNIX
 
+ENV SRC_PATH_JIO=${BASE_PATH_JIO}/${SUB_PATH_JIO}
+
 # Check out source code
-RUN --mount=type=ssh <<"EOF" bash -ex -o pipefail
-mkdir -p ~/.ssh && chmod 700 ~/.ssh  # REMOVE BEFORE DEPLOYMENT
-ssh-keyscan gitlab-master.nvidia.com >> ~/.ssh/known_hosts  # REMOVE BEFORE DEPLOYMENT
-git clone --branch ${REF_JIO} ${URL_JIO} ${SRC_PATH_JIO}
+RUN <<"EOF" bash -ex -o pipefail
+git clone --branch ${REF_JIO} --sparse-path ${SUB_PATH_JIO} ${URL_JIO} ${BASE_PATH_JIO}
 git clone --branch ${REF_TUNIX} ${URL_TUNIX} ${SRC_PATH_TUNIX}
 EOF
 

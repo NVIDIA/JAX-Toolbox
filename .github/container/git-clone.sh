@@ -10,7 +10,7 @@ Usage: $0 [OPTION]... GIT_URL#REF PATH
   -h, --help             Print usage.
   -m, --manifest FILE    The manifest yaml file to which the downloaded library is documented.
                          Default is /opt/manifest.d/git-clone.yaml
-
+TARGET_IMAGE
 Example:
   # clone JAX's main branch at /opt/jax and update manifest file at the default location
   git-clone.sh https://github.com/google/jax.git#main /opt/jax
@@ -20,7 +20,7 @@ EOF
     exit $1
 }
 
-args=$(getopt -o hm: --long help,manifest: -- "$@")
+args=$(getopt -o hm: --long help,manifest:,sparse-path: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -28,6 +28,7 @@ fi
 ## Set default arguments
 
 MANIFEST="/opt/manifest.d/git-clone.yaml"
+SPARSE_PATH=""
 
 eval set -- "$args"
 while [ : ]; do
@@ -39,9 +40,13 @@ while [ : ]; do
         MANIFEST="$2"
         shift 2
         ;;
+    --sparse-path)
+        SPARSE_PATH="$2"
+        shift 2
+        ;;
     --)
         shift;
-        break
+        break 
         ;;
   esac
 done
@@ -66,29 +71,29 @@ fi
 
 ## check out the source
 GIT_REPO=$(cut -d# -f1 <<< $GIT_URLREF)
-GIT_REF=$(cut -s -d# -f2- <<< $GIT_URLREF)
+GIT_REF=$(cut -d# -f2- <<< $GIT_URLREF)
 
 echo "Fetching $GIT_REPO#$GIT_REF to $DESTINATION"
 
 set -ex -o pipefail
 
-git clone ${GIT_REPO} ${DESTINATION}
-pushd ${DESTINATION}
-if [[ -n "${GIT_REF}" ]]; then
-    git checkout ${GIT_REF}
+if [[ -n "${SPARSE_PATH}" ]]; then
+    git clone --no-checkout ${GIT_REPO} ${DESTINATION}
+    pushd ${DESTINATION}
+    git sparse-checkout init --cone
+    git sparse-checkout set ${SPARSE_PATH}
+    popd
+else
+    git clone ${GIT_REPO} ${DESTINATION}
 fi
+pushd ${DESTINATION}
+git checkout ${GIT_REF}
 COMMIT_SHA=$(git rev-parse HEAD)
 git submodule update --init --recursive
-if [[ "${GIT_REPO}" == *"gitlab"* ]]; then
-  git remote remove origin
-  if grep -q -r gitlab-ci-token .git; then
-    grep -r gitlab-ci-token .git | awk -F: '{print $1}' | xargs rm -f
-  fi
-  git branch -D main
-fi
 popd
 
 ## update the manifest file
+
 mkdir -p $(dirname ${MANIFEST})
 touch ${MANIFEST}
 PACKAGE=$(basename "${DESTINATION}")
