@@ -1,38 +1,32 @@
-# Start a container:
+# JAX-vLLM Rollout Offloading Bridge
 
-```
-srun  \
-  --container-image=gitlab-master.nvidia.com:5005/dl/jax/jax-vllm-coupling:2025-08-27 \
-  -p b100x4_preprod \
-  --container-mounts=$HOME/workspace/:/opt/host --pty -t 8:00:00 /bin/bash
-```
+## Overview
 
-# How to run examples
+This project couples JAX training with vLLM inference to accelerate reinforcement-learning (RL) post-training. In RL, the model must generate many completions ("rollouts") each iteration. Those rollouts behave like inference workloads and often dominate total compute. The bridge keeps training in JAX while offloading rollouts to vLLM, combining JAX's scalable training with an inference-optimized engine.
 
-> Please export HF_TOKEN and (optionally) KAGGLE_USERNAME and KAGGLE_KEY upon prompted.
+## Why offload rollouts?
 
-From `/opt/jax-vllm-coupling/examples`:
+- Rollouts are autoregressive, bandwidth/latency-bound, and benefit from inference frameworks' specialized scheduling and kernel paths.
+- In-framework decoding is straightforward but typically slower; offloading provides inference-grade throughput while the trainer stays in JAX.
 
-## Llama 3 8B (default model), JAX:vLLM 2:4
+## What this bridge provides
 
-```bash
-bash coupling.sh
-```
+- Lightweight coupling layer between JAX and vLLM.
+- RPC gateway (control plane): trainer <-> rollout engine coordination; runtime negotiation of model/parallelism settings.
+- NCCL data plane (fast path): direct GPU-to-GPU weight streaming (no disk I/O or serialization).
+- Resharding and layout mapping: handles different parallelism schemes (e.g., FSDP in JAX vs TP in vLLM) with fan-in/fan-out strategies.
+- Simple rollout API surface: send prompts and sampling parameters from JAX, receive generated outputs from vLLM.
 
-## Llama 3 70B, JAX:vLLM 4:4
+## Architecture (high level)
 
-```bash
-N_GPUS_VLLM=4 N_GPUS_JAX=4 MODEL_NAME=meta-llama/Llama-3.3-70B-Instruct bash coupling.sh
-```
+1. Trainer (JAX): runs the RL loop and periodically exports current weights.
+2. Gateway (gRPC): routes control messages and orchestrates transport setup.
+3. Rollout engine (vLLM): maintains the serving model, accepts live weight updates, and performs batched/token-efficient generation.
+4. Transport: NCCL streams TP-aware weight shards directly to vLLM ranks; mapping logic aligns tensor names/layouts across frameworks.
 
-## Gemma 3 1B, JAX:vLLM 2:1
+## Capabilities
 
-```bash
-N_GPUS_VLLM=1 N_GPUS_JAX=2 MODEL_NAME=google/gemma-3-1b-it JAX_MODEL_NAME=google/gemma-3/flax JAX_MODEL_FLAVOR=gemma3-1b-it bash coupling.sh
-```
-
-## Running JAX and vLLM on different hosts
-
-```bash
-JAX_HOST=<host1> VLLM_HOST=<host2> N_GPUS_VLLM=<m> N_GPUS_JAX=<n> bash coupling_multihost.sh
-```
+- Frequent, low-overhead weight refresh from JAX into vLLM.
+- TP-aware sharding (pre-sharded updates) to reduce bandwidth and memory.
+- Flexible deployment: trainer and rollout can run on different GPU "meshes" and sizes.
+- Extensible tensor mappings: reference mappings for common LLM families; adaptable for custom models.
