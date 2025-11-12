@@ -13,6 +13,12 @@ on:
       - '.github/workflows/jio.yaml'
       - 'jax-inference-offloading/**'
   workflow_dispatch:
+    inputs:
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
+        required: false      
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -67,7 +73,7 @@ jobs:
           id: build-container
           uses: ./.github/actions/build-container
           with:
-            ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+            ARCHITECTURE: ${{ matrix.ARCHITECTURE }}
             ARTIFACT_NAME: artifact-jio-build
             BADGE_FILENAME: badge-jio-build
             BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
