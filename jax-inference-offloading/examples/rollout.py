@@ -66,5 +66,6 @@ if __name__ == "__main__":
   try:
     mp.set_start_method("spawn", force=True)
   except RuntimeError:
+    # The start method can only be set once per process; ignore if already set.
     pass
   main()

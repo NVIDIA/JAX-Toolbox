@@ -146,10 +146,12 @@ class VllmGPURollout(BaseRollout):
     try:
       self._bridge.gateway.shutdown()
     except Exception:
+      # Ignore shutdown errors; process teardown or remote unavailability is expected.
       pass
 
   def __del__(self):
     try:
       self.shutdown()
     except Exception:
+      # Suppress destructor-time errors during interpreter shutdown.
       pass

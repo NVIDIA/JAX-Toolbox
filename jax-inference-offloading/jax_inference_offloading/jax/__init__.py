@@ -50,13 +50,13 @@ class OffloadingBridge:
       self._gateway = make_trainer_client(gateway_url, self._executor)
       self._handshake_result = self._gateway.handshake(mesh.devices.size, model_name=model_name)
       self._mapping_specs = proto_to_dataclass(self._handshake_result.mapping_specs, 'mapping_specs')
-      logger.warn(f'JAX creating transport ({jax.process_index()}/{jax.process_count()}): {self._handshake_result.jax_parallelism.tp} (train) x {self._handshake_result.vllm_parallelism.tp} (rollout)')
+      logger.warning(f'JAX creating transport ({jax.process_index()}/{jax.process_count()}): {self._handshake_result.jax_parallelism.tp} (train) x {self._handshake_result.vllm_parallelism.tp} (rollout)')
       self._transports, self._transport_config = self._gateway.create_transport(
         backend='NCCL',
         trainer_ranks=self._handshake_result.jax_parallelism.tp,
         rollout_ranks=self._handshake_result.vllm_parallelism.tp
       )
-      logger.warn(f'JAX {jax.process_index()}/{jax.process_count()} transports created: {self._transports}')
+      logger.warning(f'JAX {jax.process_index()}/{jax.process_count()} transports created: {self._transports}')
     if transfer_mode == 'fused':
       self._model_transport = NcclFusedModelTransport(
         mesh,

@@ -194,7 +194,7 @@ class VLLMWorkerExtension:
         self.commit_staged_weights(reset=True)
 
     self.sync()
-    logger.warn("done receiving")
+    logger.warning("done receiving")
     self.commit_staged_weights(reset=True)
 
   def update_weights_grouped(self, mapping_specs: TpModelMappingSpecs):
@@ -260,7 +260,7 @@ class VLLMWorkerExtension:
       self.commit_staged_weights(reset=True)
 
     self.sync()
-    logger.warn("done receiving")
+    logger.warning("done receiving")
     self.commit_staged_weights(reset=True)
 
   def commit_staged_weights(self, reset=True):

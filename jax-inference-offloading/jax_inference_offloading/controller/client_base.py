@@ -63,4 +63,5 @@ class ClientBase:
     try:
       self._channel.close()
     except Exception:
+      # Ignore close errors; channel may already be closed.
       pass

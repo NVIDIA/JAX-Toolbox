@@ -107,5 +107,3 @@ def load_model(name, mesh: jax.sharding.Mesh = None, checkpoint_path: str = None
     return model
   else:
     raise ValueError(f"Unsupported model name: {name}")
-
-  return model
