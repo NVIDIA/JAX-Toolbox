@@ -71,7 +71,6 @@ class NcclGroupedModelTransport:
   def __call__(self, named_parameters: Dict[str, jax.Array]):
     mapping_specs = self._mapping_specs
     gateway = self._gateway
-    transports = self._transports
     transport_config = self._transport_config
 
     gateway.start_weight_transfer('grouped')

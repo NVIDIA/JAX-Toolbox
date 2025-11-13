@@ -30,13 +30,6 @@ try:
 except ImportError:
   has_torch = False
 
-try:
-  import jax
-  import jax.numpy as jnp
-  has_jax = True
-except ImportError:
-  has_jax = False
-
 
 logger = getLogger(__name__)
 

@@ -18,7 +18,6 @@ import re
 from dataclasses import asdict, replace
 
 import jax
-from flax import nnx
 
 from tunix.models.dummy_model_creator import create_dummy_model
 

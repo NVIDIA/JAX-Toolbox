@@ -31,12 +31,6 @@ try:
 except ImportError:
   has_torch = False
 
-try:
-  import jax
-  import jax.numpy as jnp
-  has_jax = True
-except ImportError:
-  has_jax = False
 
 logger = getLogger(__name__)
 
@@ -120,6 +114,8 @@ class NcclStarTransport(NcclTransport):
           comm = nccl.NcclCommunicator(world_size, unique_id, 0)  # trainer rank is at the center of the star in fan-out mode and is always rank 0
         transports.append(cls(comm=comm))
       return transports
+    else:
+      raise ValueError(f"Unknown transport mode: {config['MODE']}")
 
   @classmethod
   def create_rollout_transport(cls, config: dict[str, Any], tp_rank: int) -> 'NcclStarTransport':
@@ -141,6 +137,8 @@ class NcclStarTransport(NcclTransport):
       unique_id = cls.decode_nccl_id(config["UNIQUE_IDS"][star_id])
       comm = nccl.NcclCommunicator(world_size, unique_id, rank)
       return cls(comm)
+    else:
+      raise ValueError(f"Unknown transport mode: {config['MODE']}")
 
   def __init__(self, comm: nccl.NcclCommunicator):
     self._comm = comm
@@ -272,7 +270,6 @@ class NcclStarTransport(NcclTransport):
     assert self._comm.rank_id() == 0, \
       "Star scatter must originate from the root (rank 0)."
 
-    num_peers = self._comm.size() - 1
     with cuda.Device(self._comm.device_id()):
       stream = cuda.get_current_stream().ptr
 

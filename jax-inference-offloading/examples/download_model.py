@@ -150,6 +150,8 @@ def main():
     key = args.kaggle_key or os.getenv("KAGGLE_KEY")
     with stdout_to_stderr():
       return download_kaggle(args.model, args.flavor, username, key)
+  else:
+    raise ValueError(f"Unknown hub: {hub}")
 
 
 if __name__ == "__main__":

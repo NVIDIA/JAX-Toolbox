@@ -30,7 +30,6 @@ from jax_inference_offloading.api.utils import DataclassFor
 from jax_inference_offloading.controller.trainer_client import TrainerClient
 from jax_inference_offloading.sharding import PolymorphicMesh
 from jax_inference_offloading.transport.tensor.nccl_star import NcclStarTransport
-from jax_inference_offloading.models.mapping_util import _proto_to_slice
 from jax_inference_offloading.timer import Timer
 
 logger = logging.getLogger(__name__)
