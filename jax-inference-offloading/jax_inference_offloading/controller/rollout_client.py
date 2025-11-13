@@ -141,12 +141,6 @@ class RolloutServicer:
     self._llm.llm_engine.engine_core.shutdown()
     logger.warning("Rollout client shut down.")
 
-  def shutdown(self):
-    logger.warning("Shutting down rollout client...")
-    self._llm.llm_engine.engine_core.shutdown()
-    logger.warning("Rollout client shut down.")
-
-
 class RolloutClient(ClientBase):
   def __init__(self, executor, controller_stub, broker_stub, channel=None):
     super().__init__(executor, controller_stub, broker_stub, channel)
