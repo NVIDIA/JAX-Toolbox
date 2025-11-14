@@ -77,7 +77,7 @@ pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
 echo "jax[cuda12_local]" >> /opt/pip-tools.d/requirements.in
 echo "-e file://${SRC_PATH_JIO}" >> /opt/pip-tools.d/requirements.in
 echo "-e file://${SRC_PATH_TUNIX}" >> /opt/pip-tools.d/requirements.in
-cat ${SRC_PATH_JIO}/examples/requirements.in >> /opt/pip-tools.d/requirements.in
+cat "${SRC_PATH_JIO}/examples/requirements.in" >> /opt/pip-tools.d/requirements.in
 EOF
 
 ###############################################################################
