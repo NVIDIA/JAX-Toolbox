@@ -75,7 +75,6 @@ jobs:
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
             EXTRA_BUILD_ARGS: |
-              URL_JIO=${{ github.repositoryUrl }}
               REF_JIO=${{ github.ref }}
 
     outputs:
