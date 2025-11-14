@@ -83,8 +83,6 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
-            # EXTRA_BUILD_ARGS: |
-            #   URLREF_TUNIX=${{ fromJson(inputs.SOURCE_URLREFS).TUNIX }}
 
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-container.outputs.DOCKER_TAG_MEALKIT }}
