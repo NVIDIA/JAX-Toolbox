@@ -75,7 +75,8 @@ jobs:
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
             EXTRA_BUILD_ARGS: |
-              URLREF_JIO=${{ github.repository }}@${{ github.ref }}
+              URL_JIO=${{ github.repositoryUrl }}
+              REF_JIO=${{ github.ref }}
 
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-container.outputs.DOCKER_TAG_MEALKIT }}
