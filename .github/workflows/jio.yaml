@@ -32,20 +32,11 @@ permissions:
 jobs:
   metadata:
     runs-on: ubuntu-22.04
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
     steps:
-      - name: Cancel workflow run if the trigger is a draft PR
-        id: cancel-if-draft
-        if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
-        run: |
-          echo "Cancelling workflow for draft PR"
-          curl -X POST -H "Authorization: token ${{ github.token }}" \
-                -H "Accept: application/vnd.github.v3+json" \
-                "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
-          while true; do sleep 1; done  # blocks execution in case workflow cancellation takes time
-
       - name: Set build date
         id: date
         shell: bash -x -e {0}
