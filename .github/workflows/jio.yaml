@@ -1,0 +1,83 @@
+name: JAX Inference Offloading
+
+on:
+  schedule:
+    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+    paths:
+      - '.github/workflows/jio.yaml'
+      - 'jax-inference-offloading/**'
+  workflow_dispatch:
+    inputs:
+      PUBLISH:
+        type: boolean
+        description: Publish dated images and update the 'latest' tag?
+        default: false
+        required: false      
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read        # to fetch code
+  actions:  write       # to cancel previous workflows
+  packages: write       # to upload containers
+
+jobs:
+  metadata:
+    runs-on: ubuntu-22.04
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
+    outputs:
+      BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
+    steps:
+      - name: Set build date
+        id: date
+        shell: bash -x -e {0}
+        run: |
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether results will be 'published'
+        id: if-publish
+        shell: bash -x -e {0}
+        run: |
+          echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: metadata
+    strategy:
+      fail-fast: true
+      matrix:
+        ARCHITECTURE: [amd64, arm64]
+    runs-on: [self-hosted, "${{ matrix.ARCHITECTURE }}", "small"]
+    steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+        - name: Build container
+          id: build-container
+          uses: ./.github/actions/build-container
+          with:
+            ARCHITECTURE: ${{ matrix.ARCHITECTURE }}
+            ARTIFACT_NAME: artifact-jio-build
+            BADGE_FILENAME: badge-jio-build
+            BASE_IMAGE: nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04
+            BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+            CONTAINER_NAME: jio
+            DOCKERFILE: jax-inference-offloading/dockerfile/oss.dockerfile
+            RUNNER_SIZE: small
+            ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+            ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+            github-token: ${{ secrets.GITHUB_TOKEN }}
+            EXTRA_BUILD_ARGS: |
+              REF_JIO=${{ github.ref }}
+
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-container.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-container.outputs.DOCKER_TAG_FINAL }}

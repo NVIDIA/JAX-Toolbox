@@ -1,0 +1,85 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+message VllmParam {
+  optional string name = 1;
+  repeated int32 shape = 2;
+
+  message TpSharding {
+    optional int32 dim = 1;
+    optional int32 parallelism = 2;
+    optional int32 aux_dim = 3;
+    optional int32 aux_parallelism = 4;
+  }
+
+  optional TpSharding tp_sharding = 3;
+  optional string dtype = 4;
+}
+
+message TensorSlice {
+  message Index {
+    optional int64 index = 1;
+  }
+  message Slice {
+    optional int64 start = 1 [default = -9223372036854775808];
+    optional int64 stop = 2 [default = -9223372036854775808];
+  }
+  message Ellipsis {}
+
+  message Dim {
+    oneof elem {
+      Index index = 1;
+      Slice slice = 2;
+      Ellipsis ellipsis = 3;
+    }
+  }
+  repeated Dim dims = 1;
+}
+
+message JaxParam {
+  optional string name = 1;
+
+  // Transformation from the JAX parameter to the vLLM parameter.
+  message Transform {
+    optional TensorSlice slice = 1;
+    repeated int32 transpose = 2;
+    repeated int32 reshape = 3;
+    // For vLLM KV heads replication.
+    // replication_count > 1 indicates contiguous replication along replication_axis.
+    optional int32 replication_count = 4 [default = 1];
+    // Axis index in the original JAX tensor; after slicing and before transposition
+    optional int32 replication_axis = 5 [default = -1];
+  }
+
+  optional Transform transform = 2;
+
+  message PartitionSpecs {
+    repeated string axes = 1;
+  }
+
+  optional PartitionSpecs partition_specs = 3;  // TODO: maybe not needed
+}
+
+message ParamMapping {
+  optional VllmParam vllm_param = 1;
+  optional JaxParam jax_param = 2;
+}
+
+message TpModelMappingSpecs {
+  repeated ParamMapping mappings = 1;
+}
