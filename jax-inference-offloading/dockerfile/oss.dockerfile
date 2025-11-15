@@ -68,7 +68,6 @@ git sparse-checkout init --cone
 git sparse-checkout set ${SUB_PATH_JIO}
 git fetch origin ${REF_JIO}
 git checkout FETCH_HEAD
-ls -lR ${SUB_PATH_JIO}
 popd
 git clone --branch ${REF_TUNIX} ${URL_TUNIX} ${SRC_PATH_TUNIX}
 EOF
