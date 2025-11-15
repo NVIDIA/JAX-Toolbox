@@ -62,10 +62,12 @@ ENV SRC_PATH_JIO=${BASE_PATH_JIO}/${SUB_PATH_JIO}
 
 # Check out source code
 RUN <<"EOF" bash -ex -o pipefail
-git clone --branch ${REF_JIO} --no-checkout ${URL_JIO} ${BASE_PATH_JIO}
+git clone --no-checkout ${URL_JIO} ${BASE_PATH_JIO}
 pushd ${BASE_PATH_JIO}
 git sparse-checkout init --cone
 git sparse-checkout set ${SUB_PATH_JIO}
+git fetch origin ${REF_JIO}
+git checkout FETCH_HEAD
 popd
 git clone --branch ${REF_TUNIX} ${URL_TUNIX} ${SRC_PATH_TUNIX}
 EOF
