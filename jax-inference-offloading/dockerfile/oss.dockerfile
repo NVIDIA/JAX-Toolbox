@@ -68,19 +68,27 @@ git sparse-checkout init --cone
 git sparse-checkout set ${SUB_PATH_JIO}
 git fetch origin ${REF_JIO}
 git checkout FETCH_HEAD
+ls -lR ${SUB_PATH_JIO}
 popd
 git clone --branch ${REF_TUNIX} ${URL_TUNIX} ${SRC_PATH_TUNIX}
 EOF
 
 # Aggregate requirements for pip-tools
-RUN <<"EOF" bash -ex -o pipefail
-mkdir -p /opt/pip-tools.d
-pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
-echo "jax[cuda12_local]" >> /opt/pip-tools.d/requirements.in
-echo "-e file://${SRC_PATH_JIO}" >> /opt/pip-tools.d/requirements.in
-echo "-e file://${SRC_PATH_TUNIX}" >> /opt/pip-tools.d/requirements.in
-cat "${SRC_PATH_JIO}/examples/requirements.in" >> /opt/pip-tools.d/requirements.in
-EOF
+# RUN <<"EOF" bash -ex -o pipefail
+# mkdir -p /opt/pip-tools.d
+# pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
+# echo "jax[cuda12_local]" >> /opt/pip-tools.d/requirements.in
+# echo "-e file://${SRC_PATH_JIO}" >> /opt/pip-tools.d/requirements.in
+# echo "-e file://${SRC_PATH_TUNIX}" >> /opt/pip-tools.d/requirements.in
+# cat "${SRC_PATH_JIO}/examples/requirements.in" >> /opt/pip-tools.d/requirements.in
+# EOF
+RUN mkdir -p /opt/pip-tools.d
+RUN pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
+RUN echo "jax[cuda12_local]" >> /opt/pip-tools.d/requirements.in
+RUN echo "-e file://${SRC_PATH_JIO}" >> /opt/pip-tools.d/requirements.in
+RUN echo "-e file://${SRC_PATH_TUNIX}" >> /opt/pip-tools.d/requirements.in
+RUN cat "${SRC_PATH_JIO}/examples/requirements.in" >> /opt/pip-tools.d/requirements.in
+
 
 ###############################################################################
 ## install Python packages
