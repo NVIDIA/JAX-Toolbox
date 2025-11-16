@@ -30,6 +30,12 @@ for pattern in \
     # tensorflow-cpu,tensorboard,tensorflow-text>=2.19.0 is incompatible with tensorflow==2.18.1
     sed -i "${pattern}" ${SRC_PATH_MAXTEXT}/dependencies/requirements/base_requirements/requirements.txt
 done
+
+# remove custom build hook that conflicts with our dependencies introduced in
+# https://github.com/AI-Hypercomputer/maxtext/commit/de886f9a918d17cfb025a353e7da2bc4d64c26b5
+sed -i -e '/^\[tool\.hatch\.build\.targets\.wheel\.hooks\.custom\]$/d' \
+       -e '/^path = "build_hooks\.py"$/d' \
+       ${SRC_PATH_MAXTEXT}/pyproject.toml
 EOF
 
 ###############################################################################
