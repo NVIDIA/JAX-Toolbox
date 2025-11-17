@@ -2,8 +2,6 @@
 
 set -ex
 
-CUDNN_MAJOR_VERSION=9
-
 # Create a prefix with include/ and lib/ directories containing symlinks to the cuDNN
 # version that was just installed; this is useful to pass to XLA to avoid it fetching
 # its own copy of cuDNN.
@@ -19,6 +17,14 @@ if [[ -z "${libcudnn_pkgs}" ]]; then
   echo "No libcudnn packages installed."
   exit 1
 fi
+
+# Auto-detect cuDNN major version from installed packages (e.g., libcudnn9, libcudnn10)
+CUDNN_MAJOR_VERSION=$(echo "${libcudnn_pkgs}" | grep -oP 'libcudnn\K\d+' | head -n1)
+if [[ -z "${CUDNN_MAJOR_VERSION}" ]]; then
+  echo "Could not determine CUDNN major version from packages: ${libcudnn_pkgs}"
+  exit 1
+fi
+echo "Detected CUDNN major version: ${CUDNN_MAJOR_VERSION}"
 
 for cudnn_file in $(dpkg -L ${libcudnn_pkgs} | sort -u); do
   # Skip unversioned symlinks since we'll create our own
