@@ -28,9 +28,9 @@ def align_profiler_data_timestamps(
     # Error if the communication frame doesn't exist at all, but not if it is empty.
     # Calling this on a profile that does not contain any communication should
     # gracefully yield empty results.
-    assert frames.communication is not None, (
-        "align_profiler_data_timestamps requires a communication frame"
-    )
+    assert (
+        frames.communication is not None
+    ), "align_profiler_data_timestamps requires a communication frame"
     if not len(frames.communication):
         # Nothing to be done, return an empty result
         return frames, {}
@@ -43,9 +43,9 @@ def align_profiler_data_timestamps(
             f"WARNING: cannot align {num_profiled_devices} devices because max collective size is 1"
         )
         return frames, {}
-    assert num_profiled_devices == max_collective_size, (
-        f"Aligning {num_profiled_devices} using collectives of size {max_collective_size} is not implemented"
-    )
+    assert (
+        num_profiled_devices == max_collective_size
+    ), f"Aligning {num_profiled_devices} using collectives of size {max_collective_size} is not implemented"
     # Find the collectives that will be used
     align_df = comm_df[comm_df["CollectiveSize"] == max_collective_size]
     # Calculate the collectives' end times
@@ -189,18 +189,19 @@ def _get_message_size(
 ) -> tuple[int, str, int, float, float]:
     _, inst = module_proto.find_instruction(instruction)
     comm_inst = inst.communication_proto()
-    assert comm_inst.opcode in {
-        "all-gather-start",
-        "all-reduce-start",
-        "all-to-all",
-        "collective-broadcast",
-        "collective-permute-start",
-        "dynamic-slice",
-        "dynamic-update-slice",
-        "reduce-scatter",
-    }, (
-        f"{instruction}: message size calculation for {comm_inst.opcode} has not yet been validated"
-    )
+    assert (
+        comm_inst.opcode
+        in {
+            "all-gather-start",
+            "all-reduce-start",
+            "all-to-all",
+            "collective-broadcast",
+            "collective-permute-start",
+            "dynamic-slice",
+            "dynamic-update-slice",
+            "reduce-scatter",
+        }
+    ), f"{instruction}: message size calculation for {comm_inst.opcode} has not yet been validated"
 
     def _byte_size(inst) -> int:
         size_bits = math.prod(
@@ -254,9 +255,9 @@ def _get_message_size(
             collective_size = iota_group_list.num_devices_per_group
         else:
             collective_sizes = set(len(group.replica_ids) for group in replica_groups)
-            assert len(collective_sizes) == 1, (
-                f"Heterogeneous collective {comm_inst} could not be interpreted"
-            )
+            assert (
+                len(collective_sizes) == 1
+            ), f"Heterogeneous collective {comm_inst} could not be interpreted"
             collective_size = next(iter(collective_sizes))
     total_msg_size = 0
     for operand_id in comm_inst.operand_ids:
@@ -391,10 +392,29 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
             # Assuming there's only one parallel region inside `launcher_row`
             parallel_start = child_df.loc[~is_main, "StartMs"].min()
             parallel_end = child_ends[~is_main].max()
-            # Assert that there are no main-thread tasks during this period
-            main_before = is_main & (child_ends < parallel_start)
-            main_after = is_main & (child_df["StartMs"] > parallel_end)
+            # Check for main-thread tasks that don't overlap with the parallel period
+            main_before = is_main & (child_ends <= parallel_start)
+            main_after = is_main & (child_df["StartMs"] >= parallel_end)
+            # Identify any main-thread tasks that overlap with the parallel period
+            main_overlap = is_main & ~(main_before | main_after)
+            if main_overlap.any():
+                # Some main-thread tasks overlap with the parallel region.
+                # This can happen with NCCL operations or other intermediate operations.
+                # Classify them based on where most of their duration falls.
+                overlap_tasks = child_df.loc[main_overlap]
+                for idx in overlap_tasks.index:
+                    task_start = child_df.loc[idx, "StartMs"]
+                    task_end = child_ends.loc[idx]
+                    # Calculate how much time is before, during, and after the parallel region
+                    before_time = max(0, min(task_end, parallel_start) - task_start)
+                    after_time = max(0, task_end - max(task_start, parallel_end))
+                    # Classify based on which is larger
+                    if before_time > after_time:
+                        main_before.loc[idx] = True
+                    else:
+                        main_after.loc[idx] = True
             assert ((main_before | main_after) == is_main).all()
+
             # Aggregate statistics for how the worker threads spend their time and use that
             # distribution to divide up the [parallel_start, parallel_end] range of the overall
             # compilation time.
