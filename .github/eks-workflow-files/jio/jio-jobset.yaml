@@ -1,0 +1,531 @@
+# JobSet for the entire JIO training pipeline
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: jio-training-job
+  namespace: default
+  labels:
+    kueue.x-k8s.io/queue-name: p5-queue
+  annotations:
+    kueue.x-k8s.io/max-exec-time-seconds: "10800"
+spec:
+  failurePolicy:
+    maxRestarts: 3
+  successPolicy:
+    operator: All
+    targetReplicatedJobs:
+      - vllm-controller
+
+  network:
+    enableDNSHostnames: true
+    subdomain: default
+
+  replicatedJobs:
+    # 1. Gateway
+    - name: gateway
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 3
+          template:
+            metadata:
+              labels:
+                app: jio-gateway
+            spec:
+              restartPolicy: OnFailure
+              tolerations:
+                - key: nvidia.com/gpu
+                  operator: Exists
+                  effect: NoSchedule
+              containers:
+                - name: gateway
+                  image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest #ghcr.io/nvidia/jax-toolbox-internal:19496638418-jio-amd64
+                  command: ["/workspace/example.sh"]
+                  env:
+                    - name: K8S_ROLE
+                      value: "gateway"
+                    - name: OUTPUT_DIR
+                      value: "/output"
+                    - name: GATEWAY_PORT
+                      valueFrom:
+                        configMapKeyRef:
+                          name: jio-config
+                          key: GATEWAY_PORT
+                    - name: HF_TOKEN
+                      valueFrom:
+                        secretKeyRef:
+                          name: huggingface-token
+                          key: token
+                          optional: true
+                  envFrom:
+                    - configMapRef:
+                        name: jio-config
+                  resources:
+                    requests:
+                      cpu: "4"
+                      memory: "8Gi"
+                    limits:
+                      cpu: "4"
+                      memory: "8Gi"
+                  volumeMounts:
+                    - name: output
+                      mountPath: /output
+                    - name: entrypoint
+                      mountPath: /workspace/example.sh
+                      subPath: example.sh
+              volumes:
+                - name: output
+                  emptyDir: {}
+                - name: entrypoint
+                  configMap:
+                    name: jio-entrypoint
+                    defaultMode: 0755
+
+    # 2. JAX Trainers
+    - name: jax-trainer
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1  # N_NODES_JAX
+          completions: 1  # N_NODES_JAX
+          completionMode: Indexed
+          backoffLimit: 3
+          template:
+            metadata:
+              labels:
+                app: jio-jax-trainer
+            spec:
+              serviceAccountName: jio-job-sa
+              restartPolicy: OnFailure
+              subdomain: jax-trainer
+              tolerations:
+                - key: nvidia.com/gpu
+                  operator: Exists
+                  effect: NoSchedule
+              nodeSelector:
+                node.kubernetes.io/instance-type: p5.48xlarge
+
+              initContainers:
+                - name: wait-for-gateway
+                  image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+                  command:
+                    - python3
+                    - -c
+                    - |
+                      import socket
+                      import time
+                      import sys
+
+                      host = "jio-training-job-gateway-0-0.default.default.svc.cluster.local"
+                      port = 50051
+                      max_retries = 60
+
+                      print(f"Waiting for gateway at {host}:{port}...")
+
+                      for i in range(max_retries):
+                          try:
+                              sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                              sock.settimeout(2)
+                              sock.connect((host, port))
+                              sock.close()
+                              print(f"Gateway is ready!")
+                              sys.exit(0)
+                          except Exception as e:
+                              print(f"Attempt {i+1}/{max_retries}: {e}")
+                              time.sleep(2)
+
+                      print(f"!!!! Gateway not ready after {max_retries} attempts")
+                      sys.exit(1)
+              containers:
+                - name: jax-trainer
+                  image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest #ghcr.io/nvidia/jax-toolbox-internal:19496638418-jio-amd64
+                  command: ["/workspace/example.sh"]
+                  env:
+                    - name: K8S_ROLE
+                      value: "jax-trainer"
+                    - name: POD_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.name
+                    - name: OUTPUT_DIR
+                      value: "/output"
+                    - name: JAX_COORDINATOR_ADDR
+                      value: "jio-training-job-jax-trainer-0-0-0.default.default.svc.cluster.local"
+                    - name: GATEWAY_URL
+                      value: "jio-training-job-gateway-0-0.default.default.svc.cluster.local:50051"
+                    - name: JAX_REPLICAS
+                      value: "1" # remember to match the completions
+                    - name: HF_TOKEN
+                      valueFrom:
+                        secretKeyRef:
+                          name: huggingface-token
+                          key: token
+                          optional: true
+                  envFrom:
+                    - configMapRef:
+                        name: jio-config
+                  resources:
+                    requests:
+                      nvidia.com/gpu: 8
+                      cpu: "60"
+                      memory: "400Gi"
+                    limits:
+                      nvidia.com/gpu: 8
+                      cpu: "60"
+                      memory: "400Gi"
+                  volumeMounts:
+                    - name: output
+                      mountPath: /output
+                    - name: entrypoint
+                      mountPath: /workspace/example.sh
+                      subPath: example.sh
+                    - name: dshm
+                      mountPath: /dev/shm
+              volumes:
+                - name: output
+                  emptyDir: {}
+                - name: entrypoint
+                  configMap:
+                    name: jio-entrypoint
+                    defaultMode: 0755
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+
+    # 3. Ray Head
+    - name: ray-head
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 3
+          template:
+            metadata:
+              labels:
+                app: jio-ray
+                role: head
+            spec:
+              serviceAccountName: jio-ray-sa
+              restartPolicy: OnFailure
+              subdomain: ray-head
+
+              tolerations:
+                - key: nvidia.com/gpu
+                  operator: Exists
+                  effect: NoSchedule
+              nodeSelector:
+                node.kubernetes.io/instance-type: p5.48xlarge
+
+              initContainers:
+                - name: publish-ip
+                  image: bitnami/kubectl:latest
+                  command:
+                    - bash
+                    - -c
+                    - |
+                      POD_IP=$(hostname -i)
+                      echo "Ray Head IP: ${POD_IP}"
+
+                      # Create a ConfigMap with the IP
+                      kubectl create configmap ray-head-ip \
+                        --from-literal=ip=${POD_IP} \
+                        --namespace=default \
+                        --dry-run=client -o yaml | kubectl apply -f -
+
+                      echo "Published Ray Head IP to ConfigMap"
+                  env:
+                    - name: POD_IP
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: status.podIP
+
+              containers:
+                - name: ray-head
+                  image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest #ghcr.io/nvidia/jax-toolbox-internal:19496638418-jio-amd64
+                  command: ["/workspace/example.sh"]
+                  env:
+                    - name: K8S_ROLE
+                      value: "ray-head"
+                    - name: OUTPUT_DIR
+                      value: "/output"
+                    - name: HF_TOKEN
+                      valueFrom:
+                        secretKeyRef:
+                          name: huggingface-token
+                          key: token
+                          optional: true
+                    - name: POD_IP
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: status.podIP
+                  envFrom:
+                    - configMapRef:
+                        name: jio-config
+                  ports:
+                    - name: ray-port
+                      containerPort: 20527
+                    - name: ray-client
+                      containerPort: 24430
+                  resources:
+                    requests:
+                      nvidia.com/gpu: 8
+                      cpu: "180"
+                      memory: "1000Gi"
+                      vpc.amazonaws.com/efa: 8
+                    limits:
+                      nvidia.com/gpu: 8
+                      cpu: "180"
+                      memory: "1000Gi"
+                      vpc.amazonaws.com/efa: 8
+                  volumeMounts:
+                    - name: output
+                      mountPath: /output
+                    - name: entrypoint
+                      mountPath: /workspace/example.sh
+                      subPath: example.sh
+                    - name: dshm
+                      mountPath: /dev/shm
+              volumes:
+                - name: output
+                  emptyDir: {}
+                - name: entrypoint
+                  configMap:
+                    name: jio-entrypoint
+                    defaultMode: 0755
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+
+    # 4. Ray Workers
+    - name: ray-worker
+      replicas: 1
+      template:
+        spec:
+          parallelism: 0  # N_NODES_VLLM - 1
+          completions: 0  # N_NODES_VLLM - 1
+          completionMode: Indexed
+          backoffLimit: 3
+          template:
+            metadata:
+              labels:
+                app: jio-ray
+                role: worker
+            spec:
+              restartPolicy: OnFailure
+              subdomain: ray-worker
+              tolerations:
+                - key: nvidia.com/gpu
+                  operator: Exists
+                  effect: NoSchedule
+              nodeSelector:
+                node.kubernetes.io/instance-type: p5.48xlarge
+
+              initContainers:
+                - name: wait-for-ray-head
+                  image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+                  command:
+                    - python3
+                    - -c
+                    - |
+                      import socket, time, sys
+
+                      host = "jio-training-job-ray-head-0-0.default.default.svc.cluster.local"
+                      port = 20527
+                      max_retries = 60
+
+                      print(f"Waiting for Ray head at {host}:{port}...")
+
+                      for i in range(max_retries):
+                          try:
+                              sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                              sock.settimeout(2)
+                              sock.connect((host, port))
+                              sock.close()
+                              print("Ray head is ready!")
+                              sys.exit(0)
+                          except Exception as e:
+                              print(f"Attempt {i+1}/{max_retries}: {e}")
+                              time.sleep(2)
+
+                      print(f"!!!! Ray head not ready")
+                      sys.exit(1)
+              containers:
+                - name: ray-worker
+                  image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest #ghcr.io/nvidia/jax-toolbox-internal:19496638418-jio-amd64
+                  command: ["/workspace/example.sh"]
+                  env:
+                    - name: K8S_ROLE
+                      value: "ray-worker"
+                    - name: OUTPUT_DIR
+                      value: "/output"
+                    - name: RAY_HEAD_IP
+                      value: "jio-training-job-ray-head-0-0.default.default.svc.cluster.local"
+                    - name: HF_TOKEN
+                      valueFrom:
+                        secretKeyRef:
+                          name: huggingface-token
+                          key: token
+                          optional: true
+                  envFrom:
+                    - configMapRef:
+                        name: jio-config
+                  resources:
+                    requests:
+                      nvidia.com/gpu: 8
+                      cpu: "180"
+                      memory: "1000Gi"
+                      vpc.amazonaws.com/efa: 32
+                    limits:
+                      nvidia.com/gpu: 8
+                      cpu: "180"
+                      memory: "1000Gi"
+                      vpc.amazonaws.com/efa: 32
+                  volumeMounts:
+                    - name: output
+                      mountPath: /output
+                    - name: entrypoint
+                      mountPath: /workspace/example.sh
+                      subPath: example.sh
+                    - name: dshm
+                      mountPath: /dev/shm
+              volumes:
+                - name: output
+                  emptyDir: {}
+                - name: entrypoint
+                  configMap:
+                    name: jio-entrypoint
+                    defaultMode: 0755
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "64Gi"
+
+    # 5. vLLM Controller
+    - name: vllm-controller
+      replicas: 1
+      template:
+        spec:
+          parallelism: 1
+          completions: 1
+          backoffLimit: 3
+          template:
+            metadata:
+              labels:
+                app: jio-vllm-controller
+            spec:
+              serviceAccountName: jio-job-sa
+              restartPolicy: OnFailure
+              tolerations:
+                - key: nvidia.com/gpu
+                  operator: Exists
+                  effect: NoSchedule
+              initContainers:
+                - name: wait-for-gateway
+                  image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+                  command:
+                    - python3
+                    - -c
+                    - |
+                      import socket, time, sys
+
+                      host = "jio-training-job-gateway-0-0.default.default.svc.cluster.local"
+                      port = 50051
+                      max_retries = 60
+
+                      print(f"Waiting for gateway at {host}:{port}...")
+
+                      for i in range(max_retries):
+                          try:
+                              sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                              sock.settimeout(2)
+                              sock.connect((host, port))
+                              sock.close()
+                              print("Gateway is ready!")
+                              sys.exit(0)
+                          except Exception as e:
+                              print(f"Attempt {i+1}/{max_retries}: {e}")
+                              time.sleep(2)
+
+                      print(f"!!!! Gateway not ready")
+                      sys.exit(1)
+
+                - name: wait-for-ray-ip
+                  image: bitnami/kubectl:latest
+                  command:
+                    - bash
+                    - -c
+                    - |
+                      set -e
+
+                      echo "Waiting for Ray Head IP ConfigMap..."
+                      RAY_IP=$(kubectl get configmap ray-head-ip -n default -o jsonpath='{.data.ip}')
+                      echo "Ray IP found as ${RAY_IP}"
+
+              containers:
+                - name: vllm-controller
+                  image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest #ghcr.io/nvidia/jax-toolbox-internal:19496638418-jio-amd64
+                  command: ["/workspace/example.sh"]
+                  env:
+                    - name: K8S_ROLE
+                      value: "vllm-controller"
+                    - name: OUTPUT_DIR
+                      value: "/output"
+                    - name: RAY_HEAD_IP
+                      value: "jio-training-job-ray-head-0-0.default.default.svc.cluster.local"
+                    - name: RAY_PORT
+                      value: "20527"
+                    - name: GATEWAY_URL
+                      value: "jio-training-job-gateway-0-0.default.default.svc.cluster.local:50051"
+                    - name: VLLM_TENSOR_PARALLEL_SIZE
+                      value: "8"  # N_GPUS_PER_NODE * N_NODES_VLLM
+                    - name: HF_TOKEN
+                      valueFrom:
+                        secretKeyRef:
+                          name: huggingface-token
+                          key: token
+                          optional: true
+                    - name: RAY_HEAD_ACTUAL_IP
+                      valueFrom:
+                        configMapKeyRef:
+                          name: ray-head-ip
+                          key: ip
+                  envFrom:
+                    - configMapRef:
+                        name: jio-config
+                  resources:
+                    requests:
+                      cpu: "4"
+                      memory: "16Gi"
+                    limits:
+                      cpu: "4"
+                      memory: "16Gi"
+                  volumeMounts:
+                    - name: output
+                      mountPath: /output
+                    - name: entrypoint
+                      mountPath: /workspace/example.sh
+                      subPath: example.sh
+                    - name: dshm
+                      mountPath: /dev/shm
+                    - name: rollout-script
+                      mountPath: /workspace/rollout.py
+              volumes:
+                - name: output
+                  emptyDir: {}
+                - name: entrypoint
+                  configMap:
+                    name: jio-entrypoint
+                    defaultMode: 0755
+                - name: rollout-script
+                  configMap:
+                    name: jio-rollout
+                    defaultMode: 0755
+                - name: dshm
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: "16Gi"
