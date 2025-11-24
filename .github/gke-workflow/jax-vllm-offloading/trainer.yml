@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jax-vllm-trainer
+  namespace: default
+  labels:
+    app: jax-vllm-trainer
+spec:
+  imagePullSecrets:
+  - name: jax-toolbox-ghcr
+  containers:
+  - name: jax-vllm-trainer
+    image: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
+    command: ["python", "trainer.py"]
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+    volumeMounts:
+      - mountPath: /dev/shm
+        name: shmem
+    env:
+    - name: VLLM_ENFORCE_EAGER
+      value: "0"
+    - name: VLLM_GPU_MEMORY_UTILIZATION
+      value: "0.6"
+    - name: CUDA_VISIBLE_DEVICES
+      value: "0"
+      #value: "0,1,2,3"
+    - name: VLLM_TENSOR_PARALLEL_SIZE
+      value: "1"
+      #value: "4"
+    - name: VLLM_DISTRIBUTED_BACKEND
+      value: "mp"
+    - name: VLLM_ATTENTION_BACKEND
+      value: "TRITON_ATTN_VLLM_V1"
+    - name: VLLM_LOAD_FORMAT
+      value: "dummy"
+    - name: VLLM_LOGGING_LEVEL
+      value: "DEBUG"
+    - name: VLLM_LOG_STATS_INTERVAL
+      value: "1"
+    - name: CUDA_LAUNCH_BLOCKING
+      value: "1"
+    - name: NCCL_DEBUG
+      value: "TRACE"
+    - name: NCCL_NET_PLUGIN
+      value: "/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so"
+    - name: NCCL_TUNER_PLUGIN
+      value: "none"
+    - name: VLLM_TRACE_FUNCTION
+      value: "1"
+    - name: MODEL_NAME
+      value: "meta-llama/Llama-3.1-8B-Instruct"
+    - name: GATEWAY_URL
+      value: "10.4.0.55:50051"
+    - name: HF_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: hf-token-secret
+          key: token
+    - name: LD_LIBRARY_PATH
+      value: "/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64"
+    - name: GRPC_DNS_RESOLVER
+      value: "native"
+  volumes:
+    - name: output
+      emptyDir: {}
+    - name: shmem
+      emptyDir:
+        medium: Memory
