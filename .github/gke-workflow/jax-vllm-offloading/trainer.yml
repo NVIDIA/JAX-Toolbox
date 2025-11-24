@@ -14,7 +14,7 @@ spec:
     command: ["python", "trainer.py"]
     resources:
       limits:
-        nvidia.com/gpu: 1
+        nvidia.com/gpu: 8
     volumeMounts:
       - mountPath: /dev/shm
         name: shmem
@@ -24,11 +24,9 @@ spec:
     - name: VLLM_GPU_MEMORY_UTILIZATION
       value: "0.6"
     - name: CUDA_VISIBLE_DEVICES
-      value: "0"
-      #value: "0,1,2,3"
+      value: "0,1,2,3,4,5,6,7"
     - name: VLLM_TENSOR_PARALLEL_SIZE
-      value: "1"
-      #value: "4"
+      value: "4"
     - name: VLLM_DISTRIBUTED_BACKEND
       value: "mp"
     - name: VLLM_ATTENTION_BACKEND
