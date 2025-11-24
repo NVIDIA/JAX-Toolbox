@@ -22,7 +22,6 @@ from functools import partial, reduce
 from operator import mul
 from itertools import chain
 from typing import Annotated
-from enum import Enum
 
 import cuda.bindings.driver as cuda
 
@@ -71,6 +70,7 @@ class TensorMode:
     Arguments:
         mode : Specifies the position of each mode in the tensor (M0, M1, ... MN)
     """
+
     mode: tuple[int, ...] | None = field(metadata=dict(static=True), default=None)
     # Indicates the shape and strides will be defined statically. Enabling may enable
     # additional optimization. Kernels that do not support static shapes will generate
