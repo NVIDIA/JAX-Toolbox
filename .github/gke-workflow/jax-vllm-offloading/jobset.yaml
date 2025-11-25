@@ -1,0 +1,231 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  annotations:
+  name: jax-vllm-jobset
+  namespace: default
+spec:
+  network:
+    enableDNSHostnames: true
+    publishNotReadyAddresses: true
+  replicatedJobs:
+  - name: slice-job
+    replicas: 1
+    template:
+      metadata: {}
+      spec:
+        backoffLimit: 0
+        completionMode: Indexed
+        completions: 2
+        parallelism: 2
+        template:
+          metadata:
+            annotations:
+              devices.gke.io/container.tcpxo-daemon: |
+                - path: /dev/nvidia0
+                - path: /dev/nvidia1
+                - path: /dev/nvidia2
+                - path: /dev/nvidia3
+                - path: /dev/nvidia4
+                - path: /dev/nvidia5
+                - path: /dev/nvidia6
+                - path: /dev/nvidia7
+                - path: /dev/nvidiactl
+                - path: /dev/nvidia-uvm
+                - path: /dev/dmabuf_import_helper
+              networking.gke.io/default-interface: eth0
+              networking.gke.io/interfaces: |-
+                [
+                    {"interfaceName":"eth0","network":"default"},
+                    {"interfaceName":"eth1","network":"jtb-2025-10-07-gpunet-0-subnet"},
+                    {"interfaceName":"eth2","network":"jtb-2025-10-07-gpunet-1-subnet"},
+                    {"interfaceName":"eth3","network":"jtb-2025-10-07-gpunet-2-subnet"},
+                    {"interfaceName":"eth4","network":"jtb-2025-10-07-gpunet-3-subnet"},
+                    {"interfaceName":"eth5","network":"jtb-2025-10-07-gpunet-4-subnet"},
+                    {"interfaceName":"eth6","network":"jtb-2025-10-07-gpunet-5-subnet"},
+                    {"interfaceName":"eth7","network":"jtb-2025-10-07-gpunet-6-subnet"},
+                    {"interfaceName":"eth8","network":"jtb-2025-10-07-gpunet-7-subnet"}
+                ]
+          spec:
+            imagePullSecrets:
+            - name: jax-toolbox-ghcr
+            containers:
+            - name: gpu-image
+              image: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
+              imagePullPolicy: Always
+              command:
+              - bash
+              - -c
+              - |
+                pip install jax[k8s]
+                python -c "
+                import jax
+                jax.distributed.initialize()
+                print(jax.devices())
+                print(jax.local_devices())
+                assert jax.process_count() > 1
+                assert len(jax.devices()) > len(jax.local_devices())
+                "
+
+                export GATEWAY_URL="${JOBSET_NAME}:50051"
+
+                PIDS=()
+                # hard-code split of vLLM-JAX on 1x node each on 2x slice jobset
+                if [ ${NODE_RANK} = "0" ]; then
+                  echo "Starting gateway"
+                  cd /opt/jtbx/jax-inference-offloading
+                  python jax_inference_offloading/controller/gateway.py 2>&1 | tee -a gateway.log &
+                  PIDS+=($!)
+
+                  echo "Starting rollout"
+                  cd /opt/jtbx/jax-inference-offloading/examples
+                  python rollout.py 2>&1 | tee -a rollout.log &
+                  PIDS+=($!)
+                else
+                  echo "Starting trainer"
+                  python trainer.py 2>&1 | tee -a trainer.log &
+                  PIDS+=($!)
+                fi
+
+                wait "${PIDS[@]}"
+                echo "All done"
+              env:
+              - name: REPLICATED_JOB_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['jobset.sigs.k8s.io/replicatedjob-name']
+              - name: JOBSET_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['jobset.sigs.k8s.io/jobset-name']
+              - name: NODE_RANK
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+              - name: USE_GPUDIRECT
+                value: tcpxo
+              - name: GPUS_PER_NODE
+                value: "8"
+              - name: JAX_COORDINATOR_PORT
+                value: "3389"
+              - name: JAX_COORDINATOR_ADDRESS
+                value: $(JOBSET_NAME)-$(REPLICATED_JOB_NAME)-0-0.$(JOBSET_NAME):3389
+              - name: LD_LIBRARY_PATH
+                value: "/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64"
+              - name: NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY
+                value: /dev/aperture_devices
+              - name: HF_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: hf-token-secret
+                    key: token
+              - name: VLLM_ENFORCE_EAGER
+                value: "0"
+              - name: VLLM_GPU_MEMORY_UTILIZATION
+                value: "0.6"
+              - name: CUDA_VISIBLE_DEVICES
+                value: "0,1,2,3,4,5,6,7"
+              - name: VLLM_TENSOR_PARALLEL_SIZE
+                value: "4"
+              - name: VLLM_DISTRIBUTED_BACKEND
+                value: "mp"
+              - name: VLLM_ATTENTION_BACKEND
+                value: "TRITON_ATTN_VLLM_V1"
+              - name: VLLM_LOAD_FORMAT
+                value: "dummy"
+              - name: VLLM_LOGGING_LEVEL
+                value: "DEBUG"
+              - name: VLLM_LOG_STATS_INTERVAL
+                value: "1"
+              - name: CUDA_LAUNCH_BLOCKING
+                value: "1"
+              - name: NCCL_DEBUG
+                value: "TRACE"
+              - name: NCCL_NET_PLUGIN
+                value: "/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so"
+              - name: NCCL_TUNER_PLUGIN
+                value: "none"
+              - name: VLLM_TRACE_FUNCTION
+                value: "1"
+              - name: MODEL_NAME
+                value: "meta-llama/Llama-3.1-8B-Instruct"
+              # TODO: XLA args, GKE NCCL env vars
+              ports:
+              - containerPort: 50051
+                protocol: TCP
+              - containerPort: 3389
+                protocol: TCP
+              resources:
+                limits:
+                  nvidia.com/gpu: "8"
+              securityContext:
+                privileged: true
+              volumeMounts:
+              - mountPath: /dev/aperture_devices
+                name: aperture-devices
+              - mountPath: /usr/local/nvidia
+                name: libraries
+              - mountPath: /dev/shm
+                name: dshm
+            dnsPolicy: ClusterFirstWithHostNet
+            initContainers:
+            - args:
+              - |-
+                set -ex
+                chmod 755 /fts/entrypoint_rxdm_container.sh
+                /fts/entrypoint_rxdm_container.sh --num_hops=2 --num_nics=8 --uid= --alsologtostderr
+              command:
+              - /bin/sh
+              - -c
+              env:
+              - name: LD_LIBRARY_PATH
+                value: /usr/local/nvidia/lib64
+              image: us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpxo/tcpgpudmarxd-dev:v1.0.12
+              imagePullPolicy: Always
+              name: tcpxo-daemon
+              resources: {}
+              restartPolicy: Always
+              securityContext:
+                capabilities:
+                  add:
+                  - NET_ADMIN
+                  - NET_BIND_SERVICE
+              volumeMounts:
+              - mountPath: /usr/local/nvidia
+                name: libraries
+              - mountPath: /hostsysfs
+                name: sys
+              - mountPath: /hostprocsysfs
+                name: proc-sys
+            nodeSelector:
+              cloud.google.com/gke-accelerator: nvidia-h100-mega-80gb
+            priorityClassName: high
+            terminationGracePeriodSeconds: 30
+            tolerations:
+            - key: nvidia.com/gpu
+              operator: Exists
+            - effect: NoSchedule
+              key: user-workload
+              operator: Equal
+              value: "true"
+            volumes:
+            - hostPath:
+                path: /home/kubernetes/bin/nvidia
+              name: libraries
+            - hostPath:
+                path: /sys
+              name: sys
+            - hostPath:
+                path: /proc/sys
+              name: proc-sys
+            - hostPath:
+                path: /dev/aperture_devices
+              name: aperture-devices
+            - emptyDir:
+                medium: Memory
+              name: dshm
+  startupPolicy:
+    startupPolicyOrder: AnyOrder
+  successPolicy:
+    operator: All
+  ttlSecondsAfterFinished: 100000
