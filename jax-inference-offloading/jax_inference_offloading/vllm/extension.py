@@ -30,6 +30,7 @@ from vllm.model_executor.layers.linear import (
   MergedColumnParallelLinear,
   QKVParallelLinear,
   RowParallelLinear,
+  WEIGHT_LOADER_V2_SUPPORTED,
 )
 from vllm.model_executor.layers.vocab_parallel_embedding import VocabParallelEmbedding
 
@@ -51,14 +52,24 @@ class VLLMWorkerExtension:
     )
 
   def set_sharding(self):
-    for _, module in self.model_runner.model.named_modules():
+
+    try:
+      if "UnquantizedLinearMethod" in WEIGHT_LOADER_V2_SUPPORTED:
+        WEIGHT_LOADER_V2_SUPPORTED.remove("UnquantizedLinearMethod")
+        logger.warning("Removed UnquantizedLinearMethod from WEIGHT_LOADER_V2_SUPPORTED.")
+    except Exception as e:
+      logger.warning(f"Unable to adjust WEIGHT_LOADER_V2_SUPPORTED: {e}")
+
+    for name, module in self.model_runner.model.named_modules():
       if type(module) in [
         RowParallelLinear,
         ColumnParallelLinear,
         MergedColumnParallelLinear,
         QKVParallelLinear,
       ]:
+        logger.debug(f"Setting sharding for module: {name} of type {type(module)}")
         module.weight.is_sharded_weight = True
+        module.weight.weight_loader = module.weight_loader
 
   def get_tp_sharding_specs(self):
     sharding_specs = {}

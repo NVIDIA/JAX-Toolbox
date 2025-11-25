@@ -63,10 +63,10 @@ setup(
         'grpcio==1.76.*',
         'protobuf==6.33.*',
         'huggingface-hub',
-        'jax==0.8.0',
+        'jax==0.8.1',
         'jaxtyping',
         'kagglehub',
-        'vllm[flashinfer]==0.10.2',
+        'vllm==0.11.2',
     ],
     cmdclass={
         'build_protos': BuildPackageProtos,
