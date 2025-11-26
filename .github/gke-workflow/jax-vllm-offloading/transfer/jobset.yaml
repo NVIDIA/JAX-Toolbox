@@ -90,6 +90,7 @@ spec:
                 wait "${PIDS[@]}"
                 echo "All done"
               env:
+              # jobset
               - name: REPLICATED_JOB_NAME
                 valueFrom:
                   fieldRef:
@@ -106,27 +107,36 @@ spec:
                 value: tcpxo
               - name: GPUS_PER_NODE
                 value: "8"
-              - name: JAX_COORDINATOR_PORT
-                value: "3389"
-              - name: JAX_COORDINATOR_ADDRESS
-                value: $(JOBSET_NAME)-$(REPLICATED_JOB_NAME)-0-0.$(JOBSET_NAME):3389
+
               - name: LD_LIBRARY_PATH
                 value: "/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64"
-              - name: NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY
-                value: /dev/aperture_devices
               - name: HF_TOKEN
                 valueFrom:
                   secretKeyRef:
                     name: hf-token-secret
                     key: token
-              - name: VLLM_ENFORCE_EAGER
-                value: "0"
-              - name: VLLM_GPU_MEMORY_UTILIZATION
-                value: "0.6"
+
+              # JAX
+              - name: JAX_COORDINATOR_PORT
+                value: "3389"
+              - name: JAX_COORDINATOR_ADDRESS
+                value: $(JOBSET_NAME)-$(REPLICATED_JOB_NAME)-0-0.$(JOBSET_NAME):3389
+
+              # CUDA
               - name: CUDA_VISIBLE_DEVICES
                 value: "0,1,2,3,4,5,6,7"
+              - name: CUDA_DEVICE_ORDER
+                value: "PCI_BUS_ID"
+              - name: CUDA_DEVICE_MAX_CONNECTIONS
+                value: "16"
+
+              # vLLM
+              - name: VLLM_ENFORCE_EAGER
+                value: "1"
+              - name: VLLM_GPU_MEMORY_UTILIZATION
+                value: "0.7"
               - name: VLLM_TENSOR_PARALLEL_SIZE
-                value: "4"
+                value: "8"
               - name: VLLM_DISTRIBUTED_BACKEND
                 value: "mp"
               - name: VLLM_ATTENTION_BACKEND
@@ -137,19 +147,44 @@ spec:
                 value: "DEBUG"
               - name: VLLM_LOG_STATS_INTERVAL
                 value: "1"
-              - name: CUDA_LAUNCH_BLOCKING
+              - name: VLLM_TRACE_FUNCTION
                 value: "1"
-              - name: NCCL_DEBUG
-                value: "TRACE"
+
+              # NCCL
               - name: NCCL_NET_PLUGIN
                 value: "/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so"
               - name: NCCL_TUNER_PLUGIN
                 value: "none"
-              - name: VLLM_TRACE_FUNCTION
-                value: "1"
               - name: MODEL_NAME
                 value: "meta-llama/Llama-3.1-8B-Instruct"
-              # TODO: XLA args, GKE NCCL env vars
+              - name: NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY
+                value: /dev/aperture_devices
+              - name: NCCL_CUMEM_ENABLE
+                value: "0"  # https://docs.vllm.ai/en/v0.9.1/usage/troubleshooting.html#known-issues
+              - name: NCCL_BUFFSIZE
+                name: "16777216"
+
+              # XLA
+              - name: XLA_FLAGS
+                value: "--xla_gpu_enable_latency_hiding_scheduler=true
+                  --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL
+                  --xla_gpu_collective_permute_combine_threshold_bytes=8589934592
+                  --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592
+                  --xla_gpu_all_gather_combine_threshold_bytes=8589934592
+                  --xla_gpu_all_reduce_combine_threshold_bytes=8589934592"
+              
+              # trainer
+              - name: TRANSFER_MODE
+                value: "grouped"
+              - name: USE_POLYMORPHIC_MESH
+                value: "0"
+
+              # debug
+              - name: CUDA_LAUNCH_BLOCKING
+                value: "1"
+              - name: NCCL_DEBUG
+                value: "TRACE"
+
               ports:
               - containerPort: 50051
                 protocol: TCP
