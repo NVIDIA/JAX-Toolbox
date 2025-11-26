@@ -1,0 +1,89 @@
+name: ~Test JAX-vLLM offloading transfer (GKE, XPK)
+
+on:
+  workflow_call:
+    inputs:
+      JAX_VLLM_OFFLOADING_IMAGE:
+        type: string
+        description: MaxText image from ghcr.io/nvidia
+        default: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
+        required: false
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+    paths:
+      - '.github/workflows/_test_jax_vllm_offloading.yaml'
+      - '.github/gke-workflow/jax-vllm-offloading/**'
+      - 'jax-inference-offloading/**'
+
+jobs:
+  jax-vllm-offloading-transfer-gke-xpk:
+    runs-on: gke-a3mega
+
+    env:
+      WORKLOAD_NAME_PREFIX: gke-jax-vllm-transfer
+      #JAX_VLLM_OFFLOADING_IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
+      JAX_VLLM_OFFLOADING_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
+      
+      NUM_NODES: 2
+      ENV_FILE: .github/gke-workflow/jax-vllm-offloading/transfer/jobset.env
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: K8s GHCR store and delete token
+      id: store-token
+      uses: ./.github/actions/store-delete-k8s-ghcr
+
+    - name: Run XPK workload on cluster
+      uses: ./.github/actions/gke-xpk
+      with:
+        IMAGE: ${{ env.JAX_VLLM_OFFLOADING_IMAGE }}
+        IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
+        WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
+        ENV_FILE: ${{ env.ENV_FILE }}
+        COMMAND: |
+          pip install jax[k8s];
+          python -c "
+          import jax
+          jax.distributed.initialize()
+          print(jax.devices())
+          print(jax.local_devices())
+          assert jax.process_count() > 1
+          assert len(jax.devices()) > len(jax.local_devices())
+          ";
+
+          export GATEWAY_URL="${JOBSET_NAME}:50051";
+
+          PIDS=();
+
+          # hard-code split of vLLM-JAX on 1x node each on 2x slice jobset
+          if [ ${NODE_RANK} = "0" ]; then
+            echo "Starting gateway";
+            cd /opt/jtbx/jax-inference-offloading;
+            python jax_inference_offloading/controller/gateway.py 2>&1 | tee -a gateway.log &;
+            PIDS+=($!);
+
+            echo "Starting rollout";
+            cd /opt/jtbx/jax-inference-offloading/examples;
+            python rollout.py 2>&1 | tee -a rollout.log &;
+            PIDS+=($!);
+          else
+            echo "Starting trainer";
+            python trainer.py 2>&1 | tee -a trainer.log &;
+            PIDS+=($!);
+          fi
+
+          wait "${PIDS[@]}";
+          echo "All done";
+          EXIT_CODE=\$PIPESTATUS;
