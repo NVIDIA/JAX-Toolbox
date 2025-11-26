@@ -55,6 +55,7 @@ class VLLMWorkerExtension:
     # The vLLM V2 weight loader does not support loading pre-sharded weights
     # for the parallel linear modules.
     # Therefore, we need to force these modules to use the V1 weight loader
+    # Once V2 weight loader supports pre-sharded weights, we can remove this workaround.
 
     # Prevent unquantized linear modules from using V2 weight loader
     if "UnquantizedLinearMethod" in WEIGHT_LOADER_V2_SUPPORTED:
