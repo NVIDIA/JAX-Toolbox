@@ -1,0 +1,521 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: jax-vllm-multinode
+  namespace: default
+spec:
+  network:
+    enableDNSHostnames: true
+    publishNotReadyAddresses: true
+
+  replicatedJobs:
+  # Gateway Pod (separate, no hostNetwork)
+  - name: gateway
+    replicas: 1
+    template:
+      spec:
+        backoffLimit: 0
+        completionMode: Indexed
+        completions: 1
+        parallelism: 1
+        template:
+          metadata:
+            labels:
+              node-role: gateway
+          spec:
+            # NO hostNetwork for gateway
+            containers:
+            - name: gateway-container
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              command:
+              - bash
+              - -c
+              - |
+                set -euo pipefail
+
+                echo "=== Starting Gateway ==="
+                echo "Gateway will listen on 0.0.0.0:50051"
+
+                cd /opt/jtbx/jax-inference-offloading
+                python -u jax_inference_offloading/controller/gateway.py 2>&1 | tee gateway.log
+
+              env:
+              - name: GATEWAY_PORT
+                value: "50051"
+
+              ports:
+              - containerPort: 50051
+                name: gateway
+                protocol: TCP
+
+              resources:
+                requests:
+                  cpu: "4"
+                  memory: "8Gi"
+                limits:
+                  cpu: "8"
+                  memory: "16Gi"
+
+              volumeMounts:
+              - name: dshm
+                mountPath: /dev/shm
+
+            # Prefer CPU nodes if available
+            affinity:
+              nodeAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  preference:
+                    matchExpressions:
+                    - key: node.kubernetes.io/instance-type
+                      operator: NotIn
+                      values:
+                      - p5.48xlarge
+
+            volumes:
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 8Gi
+
+  # vLLM Node (with hostNetwork for EFA)
+  - name: vllm-node
+    replicas: 1
+    template:
+      spec:
+        backoffLimit: 0
+        completionMode: Indexed
+        completions: 1
+        parallelism: 1
+        template:
+          metadata:
+            labels:
+              node-role: vllm
+          spec:
+            hostNetwork: true
+            dnsPolicy: ClusterFirstWithHostNet
+
+            containers:
+            - name: vllm-container
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              command:
+              - bash
+              - -c
+              - |
+                set -euo pipefail
+
+                # Gateway is now a separate service
+                GATEWAY_HOST="${JOBSET_NAME}-gateway-0-0.${JOBSET_NAME}"
+                export GATEWAY_URL="${GATEWAY_HOST}:50051"
+
+                # Get this node's IP for Ray
+                HOST_IP=$(hostname -I | awk '{print $1}')
+                export RAY_HEAD_IP="${HOST_IP}"
+
+                echo "=== Starting on vLLM Node (Node ${JOB_COMPLETION_INDEX}) ==="
+                echo "Host IP: ${HOST_IP}"
+                echo "Gateway URL: ${GATEWAY_URL}"
+                echo "Ray Head IP: ${RAY_HEAD_IP}"
+
+                # Wait for gateway to be ready
+                echo "Waiting for gateway at ${GATEWAY_HOST}:50051..."
+                python3 -c "
+                import socket, time, sys
+                host = '${GATEWAY_HOST}'
+                port = 50051
+                timeout = 120
+                start = time.time()
+
+                while True:
+                    try:
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(5)
+                        if sock.connect_ex((host, port)) == 0:
+                            sock.close()
+                            print(f'Gateway ready at {host}:{port}')
+                            sys.exit(0)
+                    except Exception as e:
+                        pass
+
+                    if time.time() - start > timeout:
+                        print(f'Timeout waiting for gateway')
+                        sys.exit(1)
+                    time.sleep(2)
+                " || exit 1
+
+                PIDS=()
+
+                # Start Ray Head
+                echo "Starting Ray Head..."
+                ray start \
+                  --head \
+                  --node-ip-address=${HOST_IP} \
+                  --port=${RAY_PORT} \
+                  --ray-client-server-port=${RAY_CLIENT_SERVER_PORT} \
+                  --num-cpus=48 \
+                  --num-gpus=8 \
+                  --block \
+                  --disable-usage-stats 2>&1 | tee ray-head.log &
+                PIDS+=($!)
+
+                sleep 15
+
+                # Start vLLM Rollout
+                echo "Starting vLLM Rollout..."
+                cd /opt/jtbx/jax-inference-offloading/examples
+                export RAY_ADDRESS="${HOST_IP}:${RAY_PORT}"
+                CUDA_VISIBLE_DEVICES="" ray status
+                python -u rollout.py 2>&1 | tee rollout.log &
+                PIDS+=($!)
+
+                wait "${PIDS[@]}"
+                echo "vLLM node completed"
+
+              env:
+              - name: JOB_COMPLETION_INDEX
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+              - name: JOBSET_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['jobset.sigs.k8s.io/jobset-name']
+
+              - name: HF_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: huggingface-token
+                    key: token
+              - name: MODEL_NAME
+                value: "meta-llama/Llama-3.1-8B-Instruct"
+              - name: MODEL_PATH
+                value: ""
+
+              - name: GATEWAY_PORT
+                value: "50051"
+              - name: RAY_PORT
+                value: "20527"
+              - name: RAY_CLIENT_SERVER_PORT
+                value: "24430"
+
+              - name: CUDA_DEVICE_ORDER
+                value: "PCI_BUS_ID"
+              - name: CUDA_DEVICE_MAX_CONNECTIONS
+                value: "16"
+              - name: CUDA_VISIBLE_DEVICES
+                value: "0,1,2,3,4,5,6,7"
+
+              - name: VLLM_ENFORCE_EAGER
+                value: "1"
+              - name: VLLM_LOAD_FORMAT
+                value: "dummy"
+              - name: VLLM_GPU_MEMORY_UTILIZATION
+                value: "0.7"
+              - name: VLLM_TENSOR_PARALLEL_SIZE
+                value: "8"
+              - name: VLLM_DISTRIBUTED_BACKEND
+                value: "ray"
+              - name: VLLM_ATTENTION_BACKEND
+                value: "FLASHINFER"
+
+              # NCCL settings for multi-node
+              - name: NCCL_DEBUG
+                value: "INFO"
+              - name: NCCL_SOCKET_IFNAME
+                value: "eth0"
+              - name: NCCL_IB_DISABLE
+                value: "0"
+              - name: NCCL_CUMEM_ENABLE
+                value: "0"
+              - name: NCCL_BUFFSIZE
+                value: "16777216"
+              - name: NCCL_PROTO
+                value: "simple"
+
+              # EFA settings
+              - name: FI_PROVIDER
+                value: "efa"
+              - name: FI_EFA_USE_DEVICE_RDMA
+                value: "1"
+              - name: FI_EFA_FORK_SAFE
+                value: "1"
+
+              # Longer timeouts for multi-node
+              - name: NCCL_COMM_TIMEOUT
+                value: "600"
+              - name: NCCL_TIMEOUT
+                value: "600"
+
+              - name: TRANSFER_MODE
+                value: "grouped"
+              - name: USE_POLYMORPHIC_MESH
+                value: "0"
+
+              - name: TF_CPP_MIN_LOG_LEVEL
+                value: "2"
+              - name: VLLM_CONFIGURE_LOGGING
+                value: "1"
+
+              ports:
+              - containerPort: 20527
+                name: ray
+                protocol: TCP
+              - containerPort: 24430
+                name: ray-client
+                protocol: TCP
+
+              resources:
+                limits:
+                  nvidia.com/gpu: "8"
+                  vpc.amazonaws.com/efa: "32"
+                requests:
+                  nvidia.com/gpu: "8"
+                  vpc.amazonaws.com/efa: "32"
+
+              securityContext:
+                capabilities:
+                  add:
+                  - IPC_LOCK
+                  - SYS_PTRACE
+                  - NET_ADMIN
+                privileged: true
+
+              volumeMounts:
+              - name: dshm
+                mountPath: /dev/shm
+              - name: efa-dev
+                mountPath: /dev/infiniband
+
+            nodeSelector:
+              node.kubernetes.io/instance-type: p5.48xlarge
+
+            tolerations:
+            - key: nvidia.com/gpu
+              operator: Exists
+              effect: NoSchedule
+
+            volumes:
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 100Gi
+            - name: efa-dev
+              hostPath:
+                path: /dev/infiniband
+
+  # JAX Node (with hostNetwork for EFA)
+  - name: jax-node
+    replicas: 1
+    template:
+      spec:
+        backoffLimit: 0
+        completionMode: Indexed
+        completions: 1
+        parallelism: 1
+        template:
+          metadata:
+            labels:
+              node-role: jax
+          spec:
+            hostNetwork: true
+            dnsPolicy: ClusterFirstWithHostNet
+
+            containers:
+            - name: jax-container
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              command:
+              - bash
+              - -c
+              - |
+                set -euo pipefail
+
+                # Gateway is now a separate service
+                GATEWAY_HOST="${JOBSET_NAME}-gateway-0-0.${JOBSET_NAME}"
+                export GATEWAY_URL="${GATEWAY_HOST}:50051"
+
+                # Get this node's IP for JAX coordinator
+                HOST_IP=$(hostname -I | awk '{print $1}')
+                export JAX_COORDINATOR_ADDRESS="${HOST_IP}:${JAX_COORDINATOR_PORT}"
+
+                echo "=== Starting on JAX Node (Node ${JOB_COMPLETION_INDEX}) ==="
+                echo "Host IP: ${HOST_IP}"
+                echo "Gateway URL: ${GATEWAY_URL}"
+                echo "JAX Coordinator: ${JAX_COORDINATOR_ADDRESS}"
+                echo "JAX Process Index: ${JAX_PROCESS_INDEX}"
+                echo "JAX Process Count: ${JAX_NUM_PROCESSES}"
+
+                # Wait for gateway
+                echo "Waiting for gateway at ${GATEWAY_HOST}:50051..."
+                python3 -c "
+                import socket, time, sys
+                host = '${GATEWAY_HOST}'
+                port = 50051
+                timeout = 180
+                start = time.time()
+
+                print(f'Checking connectivity to {host}:{port}...')
+
+                while True:
+                    try:
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(5)
+                        result = sock.connect_ex((host, port))
+                        sock.close()
+
+                        if result == 0:
+                            print(f'Successfully connected to {host}:{port}')
+                            sys.exit(0)
+                    except Exception as e:
+                        pass
+
+                    elapsed = time.time() - start
+                    if elapsed > timeout:
+                        print(f'Timeout after {timeout}s waiting for {host}:{port}')
+                        sys.exit(1)
+
+                    if int(elapsed) % 10 == 0:
+                        print(f'Port not ready yet (elapsed: {elapsed:.1f}s), retrying...')
+                    time.sleep(2)
+                " || exit 1
+
+                echo "Gateway is ready!"
+
+                # Start JAX trainer
+                cd /opt/jtbx/jax-inference-offloading/examples
+                echo "Starting JAX Trainer..."
+                python -u trainer.py 2>&1 | tee trainer-node${JOB_COMPLETION_INDEX}.log
+
+                echo "JAX trainer completed"
+
+              env:
+              - name: JOB_COMPLETION_INDEX
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+              - name: JOBSET_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['jobset.sigs.k8s.io/jobset-name']
+
+              - name: HF_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: huggingface-token
+                    key: token
+              - name: MODEL_NAME
+                value: "meta-llama/Llama-3.1-8B-Instruct"
+              - name: MODEL_PATH
+                value: ""
+
+              - name: JAX_COORDINATOR_PORT
+                value: "12345"
+              - name: JAX_NUM_PROCESSES
+                value: "1"
+              - name: JAX_PROCESS_INDEX
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+              - name: JAX_LOCAL_DEVICE_IDS
+                value: "0,1,2,3,4,5,6,7"
+
+              - name: CUDA_DEVICE_ORDER
+                value: "PCI_BUS_ID"
+              - name: CUDA_DEVICE_MAX_CONNECTIONS
+                value: "16"
+              - name: CUDA_VISIBLE_DEVICES
+                value: "0,1,2,3,4,5,6,7"
+
+              # NCCL settings for multi-node
+              - name: NCCL_DEBUG
+                value: "INFO"
+              - name: NCCL_SOCKET_IFNAME
+                value: "eth0"
+              - name: NCCL_IB_DISABLE
+                value: "0"
+              - name: NCCL_CUMEM_ENABLE
+                value: "0"
+              - name: NCCL_BUFFSIZE
+                value: "16777216"
+              - name: NCCL_PROTO
+                value: "simple"
+
+              # EFA settings
+              - name: FI_PROVIDER
+                value: "efa"
+              - name: FI_EFA_USE_DEVICE_RDMA
+                value: "1"
+              - name: FI_EFA_FORK_SAFE
+                value: "1"
+
+              # Longer timeouts for multi-node
+              - name: NCCL_COMM_TIMEOUT
+                value: "600"
+              - name: NCCL_TIMEOUT
+                value: "600"
+
+              - name: XLA_FLAGS
+                value: >-
+                  --xla_gpu_enable_latency_hiding_scheduler=true
+                  --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL
+                  --xla_gpu_collective_permute_combine_threshold_bytes=8589934592
+                  --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592
+                  --xla_gpu_all_gather_combine_threshold_bytes=8589934592
+                  --xla_gpu_all_reduce_combine_threshold_bytes=8589934592
+
+              - name: TRANSFER_MODE
+                value: "grouped"
+              - name: USE_POLYMORPHIC_MESH
+                value: "0"
+
+              - name: TF_CPP_MIN_LOG_LEVEL
+                value: "2"
+
+              ports:
+              - containerPort: 12345
+                name: jax-coord
+                protocol: TCP
+
+              resources:
+                limits:
+                  nvidia.com/gpu: "8"
+                  vpc.amazonaws.com/efa: "32"
+                requests:
+                  nvidia.com/gpu: "8"
+                  vpc.amazonaws.com/efa: "32"
+
+              securityContext:
+                capabilities:
+                  add:
+                  - IPC_LOCK
+                  - SYS_PTRACE
+                  - NET_ADMIN
+                privileged: true
+
+              volumeMounts:
+              - name: dshm
+                mountPath: /dev/shm
+              - name: efa-dev
+                mountPath: /dev/infiniband
+
+            nodeSelector:
+              node.kubernetes.io/instance-type: p5.48xlarge
+
+            tolerations:
+            - key: nvidia.com/gpu
+              operator: Exists
+              effect: NoSchedule
+
+            volumes:
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 100Gi
+            - name: efa-dev
+              hostPath:
+                path: /dev/infiniband
+
+  successPolicy:
+    operator: All
+
+  startupPolicy:
+    startupPolicyOrder: AnyOrder
