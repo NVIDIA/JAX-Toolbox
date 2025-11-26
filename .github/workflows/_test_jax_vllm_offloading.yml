@@ -54,14 +54,14 @@ jobs:
         ENV_FILE: ${{ env.ENV_FILE }}
         COMMAND: |
           pip install jax[k8s];
-          python -c "
-          import jax
-          jax.distributed.initialize()
-          print(jax.devices())
-          print(jax.local_devices())
-          assert jax.process_count() > 1
-          assert len(jax.devices()) > len(jax.local_devices())
-          ";
+          python -c \"
+          import jax;
+          jax.distributed.initialize();
+          print(jax.devices());
+          print(jax.local_devices());
+          assert jax.process_count() > 1;
+          assert len(jax.devices()) > len(jax.local_devices());
+          \";
 
           export GATEWAY_URL="${JOBSET_NAME}:50051";
 
