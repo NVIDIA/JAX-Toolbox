@@ -143,12 +143,6 @@ spec:
                 value: "TRITON_ATTN_VLLM_V1"
               - name: VLLM_LOAD_FORMAT
                 value: "dummy"
-              - name: VLLM_LOGGING_LEVEL
-                value: "DEBUG"
-              - name: VLLM_LOG_STATS_INTERVAL
-                value: "1"
-              - name: VLLM_TRACE_FUNCTION
-                value: "1"
 
               # NCCL
               - name: NCCL_NET_PLUGIN
@@ -178,12 +172,6 @@ spec:
                 value: "grouped"
               - name: USE_POLYMORPHIC_MESH
                 value: "0"
-
-              # debug
-              - name: CUDA_LAUNCH_BLOCKING
-                value: "1"
-              - name: NCCL_DEBUG
-                value: "TRACE"
 
               ports:
               - containerPort: 50051
