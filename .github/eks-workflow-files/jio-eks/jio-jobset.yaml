@@ -30,7 +30,7 @@ spec:
                 effect: NoSchedule
             containers:
             - name: gateway-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:jax-k8s
               command:
               - bash
               - -c
@@ -84,12 +84,29 @@ spec:
             labels:
               node-role: vllm
           spec:
+            serviceAccountName: jax-worker
             hostNetwork: true  # Important for EFA
             dnsPolicy: ClusterFirstWithHostNet
 
+            affinity:
+              podAntiAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                    - key: node-role
+                      operator: In
+                      values:
+                      - jax
+                  topologyKey: kubernetes.io/hostname
+
             containers:
             - name: vllm-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:jax-k8s
+              env:
+              - name: MY_HOST_IP
+                valueFrom:
+                  fieldRef:
+                    fieldPath: status.hostIP
               command:
               - bash
               - -c
@@ -100,6 +117,15 @@ spec:
                 export GATEWAY_URL="${GATEWAY_HOST}:50051"
                 HOST_IP=$(hostname -I | awk '{print $1}')
                 export RAY_HEAD_IP=${HOST_IP}
+                export JAX_COORDINATOR_ADDRESS="${JAX_COORDINATOR_HOST}:${JAX_COORDINATOR_PORT}"
+                echo "JAX Coordinator Address: ${JAX_COORDINATOR_ADDRESS}"
+
+                echo "EFA devices"
+                ls -la /dev/infiniband/
+                echo "EFA provider:"
+                fi_info -p efa
+
+
 
                 echo "=== Starting on vLLM Node (Node ${JOB_COMPLETION_INDEX}) ==="
                 echo "Gateway URL: ${GATEWAY_URL}"
@@ -132,7 +158,29 @@ spec:
                 " || exit 1
 
                 PIDS=()
+                echo "Test gateway connection"
+                echo "Test gateway connection"
+                python3 -c "
+                import os
+                import sys
+                import grpc
 
+                url = os.environ.get('GATEWAY_URL')
+                print(f'Gateway URL from env: {url}')
+
+                if not url:
+                    print('ERROR: GATEWAY_URL not set in environment')
+                    sys.exit(1)
+
+                try:
+                    print(f'Connecting to {url}...')
+                    channel = grpc.insecure_channel(url)
+                    grpc.channel_ready_future(channel).result(timeout=10)
+                    print(f'Successfully connected to gateway at {url}')
+                except Exception as e:
+                    print(f'Failed to connect to gateway: {e}')
+                    sys.exit(1)
+                "
                 # Start Ray Head
 
 
@@ -163,9 +211,7 @@ spec:
                 echo "All vLLM components started, waiting..."
                 wait "${PIDS[@]}"
                 echo "vLLM node completed"
-
               env:
-              # JobSet metadata
               - name: JOB_COMPLETION_INDEX
                 valueFrom:
                   fieldRef:
@@ -185,10 +231,26 @@ spec:
                 value: "meta-llama/Llama-3.1-8B-Instruct"
               - name: MODEL_PATH
                 value: ""  # or set to a path if using real weights
-
+              # NCCL
+              - name: NCCL_DEBUG
+                value: "INFO"  # Change to WARN after debugging
+              - name: FI_PROVIDER
+                value: "efa"  # Force EFA provider
+              - name: FI_EFA_USE_DEVICE_RDMA
+                value: "1"
+              - name: LD_LIBRARY_PATH
+                value: "/opt/hpxc/nccl_rdma_sharp_plugin/lib/:/usr/local/cuda/compat/lib/:/opt/amazon/efa/lib:/opt/amazon/ofi-nccl/lib:$LD_LIBRARY_PATH"
+              - name: NCCL_SOCKET_IFNAME
+                value: "enp71s0"  # Exclude pod interface, docker, loopback
+              - name: RAY_CGRAPH_get_timeout
+                value: "18000"  # 30 minutes (adjust as needed)
+              - name: TORCH_CUDA_ARCH_LIST
+                value: "9.0"
               # Gateway
               - name: GATEWAY_PORT
                 value: "50051"
+              - name: GATEWAY_URL
+                value: "jax-vllm-multinode-gateway-0-0.jax-vllm-multinode:50051"
 
               # Ray settings
               - name: RAY_PORT
@@ -217,7 +279,6 @@ spec:
                 value: "ray"  # Use Ray for multi-GPU
               - name: VLLM_ATTENTION_BACKEND
                 value: "FLASHINFER"
-
               - name: NCCL_CUMEM_ENABLE
                 value: "0"
               - name: NCCL_BUFFSIZE
@@ -228,6 +289,15 @@ spec:
                 value: "grouped"
               - name: USE_POLYMORPHIC_MESH
                 value: "0"
+              # JAX
+              - name: JAX_COORDINATOR_HOST
+                value: "jax-vllm-multinode-jax-node-0-0"  # JobSet DNS name for JAX node 0
+              - name: JAX_COORDINATOR_PORT
+                value: "12345"
+              - name: MASTER_ADDR
+                value: "10.0.29.169"  # vLLM node IP
+              - name: MASTER_PORT
+                value: "29500"
 
               # Debug
               - name: TF_CPP_MIN_LOG_LEVEL
@@ -250,9 +320,13 @@ spec:
                 limits:
                   nvidia.com/gpu: "8"
                   vpc.amazonaws.com/efa: "32"  # p5 has 32 EFA interfaces
+                  hugepages-2Mi: "5120Mi"  # Added from MPIJob
+                  memory: "32000Mi"
                 requests:
                   nvidia.com/gpu: "8"
                   vpc.amazonaws.com/efa: "32"
+                  hugepages-2Mi: "5120Mi"  # Added from MPIJob
+                  memory: "32000Mi"
 
               securityContext:
                 capabilities:
@@ -294,25 +368,37 @@ spec:
             labels:
               node-role: jax
           spec:
+            serviceAccountName: jax-worker
             hostNetwork: true
             dnsPolicy: ClusterFirstWithHostNet
 
+            affinity:
+              podAntiAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                    - key: node-role
+                      operator: In
+                      values:
+                      - vllm
+                  topologyKey: kubernetes.io/hostname
+
             containers:
             - name: jax-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:jax-k8s
               command:
               - bash
               - -c
               - |
                 set -euo pipefail
-
-                # Gateway is now a separate service
+                # 1. Define Variables FIRST
                 GATEWAY_HOST="${JOBSET_NAME}-gateway-0-0.${JOBSET_NAME}"
                 export GATEWAY_URL="${GATEWAY_HOST}:50051"
 
-                # Get this node's IP for JAX coordinator
+                # Use downward API or hostname -i for safer IP resolution
                 HOST_IP=$(hostname -I | awk '{print $1}')
-                export JAX_COORDINATOR_ADDRESS="${HOST_IP}:${JAX_COORDINATOR_PORT}"
+                export JAX_COORDINATOR_ADDRESS="${HOST_IP}:12345"
+                export JAX_COORDINATOR_PORT="12345"
 
                 echo "=== Starting on JAX Node (Node ${JOB_COMPLETION_INDEX}) ==="
                 echo "Host IP: ${HOST_IP}"
@@ -356,7 +442,6 @@ spec:
                 " || exit 1
 
                 echo "Gateway is ready!"
-
                 # Start JAX trainer
                 cd /opt/jtbx/jax-inference-offloading/examples
                 echo "Starting JAX Trainer..."
@@ -410,6 +495,8 @@ spec:
                 value: "0"
               - name: NCCL_BUFFSIZE
                 value: "16777216"
+              - name: TORCH_CUDA_ARCH_LIST
+                value: "9.0"
 
               # XLA flags
               - name: XLA_FLAGS
@@ -430,19 +517,43 @@ spec:
               # Debug
               - name: TF_CPP_MIN_LOG_LEVEL
                 value: "2"
-
+              # NCCL
+              - name: NCCL_DEBUG
+                value: "INFO"  # Change to WARN after debugging
+              - name: FI_PROVIDER
+                value: "efa"  # Force EFA provider
+              - name: FI_EFA_USE_DEVICE_RDMA
+                value: "1"
+              - name: LD_LIBRARY_PATH
+                value: "/opt/hpxc/nccl_rdma_sharp_plugin/lib/:/usr/local/cuda/compat/lib/:/opt/amazon/efa/lib:/opt/amazon/ofi-nccl/lib:$LD_LIBRARY_PATH"
+              - name: NCCL_SOCKET_IFNAME
+                value: "enp71s0"  # Exclude pod interface, docker, loopback
+              # GATEWAY
+              - name: GATEWAY_URL
+                value: "jax-vllm-multinode-gateway-0-0.jax-vllm-multinode:50051"
+              - name: MASTER_ADDR
+                value: "10.0.29.169"  # vLLM node IP
+              - name: MASTER_PORT
+                value: "29500"
+              - name: RAY_CGRAPH_get_timeout
+                value: "1800"  # 30 minutes (adjust as needed)
               ports:
               - containerPort: 12345
                 name: jax-coord
                 protocol: TCP
 
+
               resources:
                 limits:
                   nvidia.com/gpu: "8"
                   vpc.amazonaws.com/efa: "32"
+                  hugepages-2Mi: "5120Mi"  # Added from MPIJob
+                  memory: "32000Mi"
                 requests:
                   nvidia.com/gpu: "8"
                   vpc.amazonaws.com/efa: "32"
+                  hugepages-2Mi: "5120Mi"  # Added from MPIJob
+                  memory: "32000Mi"
 
               securityContext:
                 capabilities:
@@ -474,4 +585,4 @@ spec:
     operator: All
 
   startupPolicy:
-    startupPolicyOrder: AnyOrder
+    startupPolicyOrder: InOrder
