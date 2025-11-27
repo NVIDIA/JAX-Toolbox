@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: jax-vllm-offloading-transfer-gke-xpk
-        uses: .github/workflows/jax-vllm-offloading-gke_transfer.yml
+        uses: ./.github/workflows/jax-vllm-offloading-gke_transfer.yml
         # needs: build # .github/workflows/jio.yaml
         with:
         # JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_FINAL }}
