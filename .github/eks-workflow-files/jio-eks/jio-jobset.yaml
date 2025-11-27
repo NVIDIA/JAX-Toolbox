@@ -268,17 +268,17 @@ spec:
 
               # vLLM settings
               - name: VLLM_ENFORCE_EAGER
-                value: "1"
+                value: "0"
               - name: VLLM_LOAD_FORMAT
                 value: "dummy"
               - name: VLLM_GPU_MEMORY_UTILIZATION
-                value: "0.7"
+                value: "0.6"
               - name: VLLM_TENSOR_PARALLEL_SIZE
                 value: "8"  # All 8 GPUs on this node
               - name: VLLM_DISTRIBUTED_BACKEND
                 value: "ray"  # Use Ray for multi-GPU
               - name: VLLM_ATTENTION_BACKEND
-                value: "FLASHINFER"
+                value: "TRITON_ATTN_VLLM_V1" # FLASHINFER
               - name: NCCL_CUMEM_ENABLE
                 value: "0"
               - name: NCCL_BUFFSIZE
