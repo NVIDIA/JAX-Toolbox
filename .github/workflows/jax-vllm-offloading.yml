@@ -67,7 +67,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        ARCHITECTURE: [amd64, arm64]
+        ARCHITECTURE: [amd64]
     runs-on: [self-hosted, "${{ matrix.ARCHITECTURE }}", "small"]
     steps:
         - name: Checkout repository
@@ -94,7 +94,13 @@ jobs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-container.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-container.outputs.DOCKER_TAG_FINAL }}
 
-  jax-vllm-offloading-transfer-gke-xpk:
+  transfer-gke-xpk:
+    uses: ./.github/workflows/jax-vllm-offloading-gke-transfer.yml
+    needs: build
+    with:
+     JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_FINAL }}
+
+  grpo-gke-xpk:
     uses: ./.github/workflows/jax-vllm-offloading-gke-transfer.yml
     needs: build
     with:
