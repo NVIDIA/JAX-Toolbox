@@ -232,8 +232,8 @@ spec:
               - name: MODEL_PATH
                 value: ""  # or set to a path if using real weights
               # NCCL
-              - name: NCCL_DEBUG
-                value: "INFO"  # Change to WARN after debugging
+              # - name: NCCL_DEBUG
+              #   value: "INFO"  # Change to WARN after debugging
               - name: FI_PROVIDER
                 value: "efa"  # Force EFA provider
               - name: FI_EFA_USE_DEVICE_RDMA
@@ -242,8 +242,6 @@ spec:
                 value: "/opt/hpxc/nccl_rdma_sharp_plugin/lib/:/usr/local/cuda/compat/lib/:/opt/amazon/efa/lib:/opt/amazon/ofi-nccl/lib:$LD_LIBRARY_PATH"
               - name: NCCL_SOCKET_IFNAME
                 value: "enp71s0"  # Exclude pod interface, docker, loopback
-              - name: RAY_CGRAPH_get_timeout
-                value: "18000"  # 30 minutes (adjust as needed)
               - name: TORCH_CUDA_ARCH_LIST
                 value: "9.0"
               # Gateway
@@ -268,15 +266,15 @@ spec:
 
               # vLLM settings
               - name: VLLM_ENFORCE_EAGER
-                value: "0"
+                value: "1"
               - name: VLLM_LOAD_FORMAT
                 value: "dummy"
               - name: VLLM_GPU_MEMORY_UTILIZATION
-                value: "0.6"
+                value: "0.7"
               - name: VLLM_TENSOR_PARALLEL_SIZE
                 value: "8"  # All 8 GPUs on this node
               - name: VLLM_DISTRIBUTED_BACKEND
-                value: "ray"  # Use Ray for multi-GPU
+                value: "mp"  # Use Ray for multi-GPU
               - name: VLLM_ATTENTION_BACKEND
                 value: "TRITON_ATTN_VLLM_V1" # FLASHINFER
               - name: NCCL_CUMEM_ENABLE
@@ -518,8 +516,8 @@ spec:
               - name: TF_CPP_MIN_LOG_LEVEL
                 value: "2"
               # NCCL
-              - name: NCCL_DEBUG
-                value: "INFO"  # Change to WARN after debugging
+              # - name: NCCL_DEBUG
+              #   value: "INFO"  # Change to WARN after debugging
               - name: FI_PROVIDER
                 value: "efa"  # Force EFA provider
               - name: FI_EFA_USE_DEVICE_RDMA
@@ -535,8 +533,6 @@ spec:
                 value: "10.0.29.169"  # vLLM node IP
               - name: MASTER_PORT
                 value: "29500"
-              - name: RAY_CGRAPH_get_timeout
-                value: "1800"  # 30 minutes (adjust as needed)
               ports:
               - containerPort: 12345
                 name: jax-coord
