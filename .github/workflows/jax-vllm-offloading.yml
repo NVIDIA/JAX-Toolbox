@@ -20,13 +20,9 @@ on:
       - '.github/workflows/jax-vllm-offloading*.yml'
 
 jobs:
-  gke:
-    runs-on: gke-a3mega
-
-    steps:
-      - name: jax-vllm-offloading-transfer-gke-xpk
-        uses: ./.github/workflows/jax-vllm-offloading-gke_transfer.yml
-        # needs: build # .github/workflows/jio.yaml
-        with:
-        # JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_FINAL }}
-          JAX_VLLM_OFFLOADING_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
+  jax-vllm-offloading-transfer-gke-xpk:
+    uses: ./.github/workflows/jax-vllm-offloading-gke-transfer.yml
+    # needs: build # .github/workflows/jio.yaml
+    with:
+    # JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_FINAL }}
+      JAX_VLLM_OFFLOADING_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
