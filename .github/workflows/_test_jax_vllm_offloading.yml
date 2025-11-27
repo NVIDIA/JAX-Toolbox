@@ -53,37 +53,30 @@ jobs:
         WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
         ENV_FILE: ${{ env.ENV_FILE }}
         COMMAND: |
+          set -x;
+          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64;
+          env;
           pip install jax[k8s];
-          python -c \"
-          import jax;
-          jax.distributed.initialize();
-          print(jax.devices());
-          print(jax.local_devices());
-          assert jax.process_count() > 1;
-          assert len(jax.devices()) > len(jax.local_devices());
-          \";
-
-          export GATEWAY_URL="${JOBSET_NAME}:50051";
-
+          python -c 'import jax; jax.distributed.initialize(); print(jax.devices()); print(jax.local_devices()); assert jax.process_count() > 1; assert len(jax.devices()) > len(jax.local_devices());';
+          export GATEWAY_URL=\${JOBSET_NAME}:50051;
+          env;
           PIDS=();
 
-          # hard-code split of vLLM-JAX on 1x node each on 2x slice jobset
-          if [ ${NODE_RANK} = "0" ]; then
-            echo "Starting gateway";
+          if [ \${NODE_RANK} = 0 ]; then
+            echo Starting gateway;
             cd /opt/jtbx/jax-inference-offloading;
-            python jax_inference_offloading/controller/gateway.py 2>&1 | tee -a gateway.log &;
-            PIDS+=($!);
+            python jax_inference_offloading/controller/gateway.py 2>&1 | tee -a gateway.log &
+            PIDS+=(\$!);
 
-            echo "Starting rollout";
+            echo Starting rollout;
             cd /opt/jtbx/jax-inference-offloading/examples;
-            python rollout.py 2>&1 | tee -a rollout.log &;
-            PIDS+=($!);
+            python rollout.py 2>&1 | tee -a rollout.log &
+            PIDS+=(\$!);
           else
-            echo "Starting trainer";
-            python trainer.py 2>&1 | tee -a trainer.log &;
-            PIDS+=($!);
-          fi
+            echo Starting trainer;
+            python trainer.py 2>&1 | tee -a trainer.log &
+            PIDS+=(\$!);
+          fi;
 
-          wait "${PIDS[@]}";
-          echo "All done";
+          wait \${PIDS[@]};
           EXIT_CODE=\$PIPESTATUS;
