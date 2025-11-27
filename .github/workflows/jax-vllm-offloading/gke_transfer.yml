@@ -1,4 +1,4 @@
-name: ~Test JAX-vLLM offloading transfer (GKE, XPK)
+name: JAX-vLLM offloading transfer (GKE, XPK)
 
 on:
   workflow_call:
@@ -8,16 +8,6 @@ on:
         description: MaxText image from ghcr.io/nvidia
         default: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
         required: false
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
-    paths:
-      - '.github/workflows/_test_jax_vllm_offloading.yaml'
-      - '.github/gke-workflow/jax-vllm-offloading/**'
-      - 'jax-inference-offloading/**'
 
 jobs:
   jax-vllm-offloading-transfer-gke-xpk:
@@ -25,8 +15,7 @@ jobs:
 
     env:
       WORKLOAD_NAME_PREFIX: gke-jax-vllm-transfer
-      #JAX_VLLM_OFFLOADING_IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
-      JAX_VLLM_OFFLOADING_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
+      JAX_VLLM_OFFLOADING_IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
       
       NUM_NODES: 2
       ENV_FILE: ../../.github/gke-workflow/jax-vllm-offloading/transfer/jobset.env
