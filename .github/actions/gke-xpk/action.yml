@@ -175,22 +175,21 @@ runs:
           --scheduler=gke.io/topology-aware-auto
       )
 
-      # version_greater() {
-      #   if [[ $(echo -e "$1\n$2" | sort -V | head -n 1) != "$1" ]]; then
-      #     return 0
-      #   fi
-      #   return 1
-      # }
+      version_greater() {
+        if [[ $(echo -e "$1\n$2" | sort -V | head -n 1) != "$1" ]]; then
+          return 0
+        fi
+        return 1
+      }
 
-      # ## --env is incompatible with --env-var in xpk
-      #
-      # if version_greater "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
-      #     args+=(
-      #         --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
-      #         --env="JAX_COORDINATOR_PORT=3389"
-      #         --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
-      #     )
-      # fi
+      # --env is incompatible with --env-var in xpk
+      if version_greater "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
+          args+=(
+              --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
+              # --env="JAX_COORDINATOR_PORT=3389"
+              # --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
+          )
+      fi
 
       if [ -e "${{ inputs.ENV_FILE }}" ]; then
           args+=(
