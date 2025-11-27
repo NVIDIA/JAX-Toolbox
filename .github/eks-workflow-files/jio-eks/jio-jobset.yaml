@@ -61,11 +61,11 @@ spec:
                   memory: "16Gi"
 
               volumeMounts:
-              - name: dshm
+              - name: shmem
                 mountPath: /dev/shm
 
             volumes:
-            - name: dshm
+            - name: shmem
               emptyDir:
                 medium: Memory
                 sizeLimit: 8Gi
@@ -119,14 +119,11 @@ spec:
                 export RAY_HEAD_IP=${HOST_IP}
                 export JAX_COORDINATOR_ADDRESS="${JAX_COORDINATOR_HOST}:${JAX_COORDINATOR_PORT}"
                 echo "JAX Coordinator Address: ${JAX_COORDINATOR_ADDRESS}"
-
-                echo "EFA devices"
-                ls -la /dev/infiniband/
-                echo "EFA provider:"
-                fi_info -p efa
-
-
-
+                ###################################################
+                DEFAULT_IF=$(awk '$2 == 00000000 {print $1}' /proc/net/route | head -n1)
+                export NCCL_SOCKET_IFNAME="${DEFAULT_IF}"
+                echo "NCCL Socket Interface: ${NCCL_SOCKET_IFNAME}"
+                ###################################################
                 echo "=== Starting on vLLM Node (Node ${JOB_COMPLETION_INDEX}) ==="
                 echo "Gateway URL: ${GATEWAY_URL}"
                 echo "Ray Head IP: ${RAY_HEAD_IP}"
@@ -231,17 +228,32 @@ spec:
                 value: "meta-llama/Llama-3.1-8B-Instruct"
               - name: MODEL_PATH
                 value: ""  # or set to a path if using real weights
-              # NCCL
+                #NCCL
               # - name: NCCL_DEBUG
               #   value: "INFO"  # Change to WARN after debugging
+              - name: NCCL_PROTO
+                value: "simple"
+              - name: NCCL_NET_PLUGIN
+                value: "/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so" #"aws-ofi"
+              - name: NCCL_IGNORE_DISABLED_P2P
+                value: "1"
+              # - name: FI_LOG_LEVEL
+              #   value: "info"
               - name: FI_PROVIDER
                 value: "efa"  # Force EFA provider
               - name: FI_EFA_USE_DEVICE_RDMA
                 value: "1"
               - name: LD_LIBRARY_PATH
-                value: "/opt/hpxc/nccl_rdma_sharp_plugin/lib/:/usr/local/cuda/compat/lib/:/opt/amazon/efa/lib:/opt/amazon/ofi-nccl/lib:$LD_LIBRARY_PATH"
-              - name: NCCL_SOCKET_IFNAME
-                value: "enp71s0"  # Exclude pod interface, docker, loopback
+                value: "/usr/lib/x64_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/opt/amazon/efa/lib:/opt/amazon/ofi-nccl/lib:$LD_LIBRARY_PATH"
+              - name: NCCL_CROSS_NIC
+                value: "1"
+              - name: NCCL_MIN_NCHANNELS
+                value: "32"
+              - name: NCCL_NET_GDR_LEVEL
+                value: "5"
+
+              # - name: NCCL_SOCKET_IFNAME
+              #   value: "en"  # Exclude pod interface, docker, loopback
               - name: TORCH_CUDA_ARCH_LIST
                 value: "9.0"
               # Gateway
@@ -274,7 +286,7 @@ spec:
               - name: VLLM_TENSOR_PARALLEL_SIZE
                 value: "8"  # All 8 GPUs on this node
               - name: VLLM_DISTRIBUTED_BACKEND
-                value: "mp"  # Use Ray for multi-GPU
+                value: "ray"  # Use Ray for multi-GPU
               - name: VLLM_ATTENTION_BACKEND
                 value: "TRITON_ATTN_VLLM_V1" # FLASHINFER
               - name: NCCL_CUMEM_ENABLE
@@ -292,10 +304,10 @@ spec:
                 value: "jax-vllm-multinode-jax-node-0-0"  # JobSet DNS name for JAX node 0
               - name: JAX_COORDINATOR_PORT
                 value: "12345"
-              - name: MASTER_ADDR
-                value: "10.0.29.169"  # vLLM node IP
-              - name: MASTER_PORT
-                value: "29500"
+              # - name: MASTER_ADDR
+              #   value: "10.0.29.169"  # vLLM node IP
+              # - name: MASTER_PORT
+              #   value: "29500"
 
               # Debug
               - name: TF_CPP_MIN_LOG_LEVEL
@@ -335,7 +347,7 @@ spec:
                 privileged: true
 
               volumeMounts:
-              - name: dshm
+              - name: shmem
                 mountPath: /dev/shm
 
             nodeSelector:
@@ -347,7 +359,7 @@ spec:
               effect: NoSchedule
 
             volumes:
-            - name: dshm
+            - name: shmem
               emptyDir:
                 medium: Memory
                 sizeLimit: 100Gi
@@ -404,6 +416,12 @@ spec:
                 echo "JAX Coordinator: ${JAX_COORDINATOR_ADDRESS}"
                 echo "JAX Process Index: ${JAX_PROCESS_INDEX}"
                 echo "JAX Process Count: ${JAX_NUM_PROCESSES}"
+
+                ###################################################
+                DEFAULT_IF=$(awk '$2 == 00000000 {print $1}' /proc/net/route | head -n1)
+                export NCCL_SOCKET_IFNAME="${DEFAULT_IF}"
+                echo "NCCL Socket Interface: ${NCCL_SOCKET_IFNAME}"
+                ###################################################
 
                 # Wait for gateway
                 echo "Waiting for gateway at ${GATEWAY_HOST}:50051..."
@@ -518,21 +536,35 @@ spec:
               # NCCL
               # - name: NCCL_DEBUG
               #   value: "INFO"  # Change to WARN after debugging
+              - name: NCCL_PROTO
+                value: "simple"
+              - name: NCCL_NET_PLUGIN
+                value: "/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so" #"aws-ofi"
+              - name: NCCL_IGNORE_DISABLED_P2P
+                value: "1"
+              # - name: FI_LOG_LEVEL
+              #   value: "info"
               - name: FI_PROVIDER
                 value: "efa"  # Force EFA provider
               - name: FI_EFA_USE_DEVICE_RDMA
                 value: "1"
               - name: LD_LIBRARY_PATH
-                value: "/opt/hpxc/nccl_rdma_sharp_plugin/lib/:/usr/local/cuda/compat/lib/:/opt/amazon/efa/lib:/opt/amazon/ofi-nccl/lib:$LD_LIBRARY_PATH"
-              - name: NCCL_SOCKET_IFNAME
-                value: "enp71s0"  # Exclude pod interface, docker, loopback
+                value: "/usr/lib/x64_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/opt/amazon/efa/lib:/opt/amazon/ofi-nccl/lib:$LD_LIBRARY_PATH"
+              - name: NCCL_CROSS_NIC
+                value: "1"
+              - name: NCCL_MIN_NCHANNELS
+                value: "32"
+              - name: NCCL_NET_GDR_LEVEL
+                value: "5"
+              # - name: NCCL_SOCKET_IFNAME
+              #   value: "en"  # Exclude pod interface, docker, loopback
               # GATEWAY
               - name: GATEWAY_URL
                 value: "jax-vllm-multinode-gateway-0-0.jax-vllm-multinode:50051"
-              - name: MASTER_ADDR
-                value: "10.0.29.169"  # vLLM node IP
-              - name: MASTER_PORT
-                value: "29500"
+              # - name: MASTER_ADDR
+              #   value: "10.0.29.169"  # vLLM node IP
+              # - name: MASTER_PORT
+              #   value: "29500"
               ports:
               - containerPort: 12345
                 name: jax-coord
@@ -545,11 +577,13 @@ spec:
                   vpc.amazonaws.com/efa: "32"
                   hugepages-2Mi: "5120Mi"  # Added from MPIJob
                   memory: "32000Mi"
+                  cpu: "48"
                 requests:
                   nvidia.com/gpu: "8"
                   vpc.amazonaws.com/efa: "32"
                   hugepages-2Mi: "5120Mi"  # Added from MPIJob
                   memory: "32000Mi"
+                  cpu: "48"
 
               securityContext:
                 capabilities:
@@ -575,7 +609,7 @@ spec:
             - name: dshm
               emptyDir:
                 medium: Memory
-                sizeLimit: 100Gi
+                sizeLimit: 32Gi
 
   successPolicy:
     operator: All
