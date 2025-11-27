@@ -29,7 +29,7 @@ jobs:
       JAX_VLLM_OFFLOADING_IMAGE: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
       
       NUM_NODES: 2
-      ENV_FILE: .github/gke-workflow/jax-vllm-offloading/transfer/jobset.env
+      ENV_FILE: ../../.github/gke-workflow/jax-vllm-offloading/transfer/jobset.env
 
     steps:
     - uses: actions/checkout@v4
