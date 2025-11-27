@@ -27,6 +27,11 @@ on:
       - 'jax-inference-offloading/**'
       - '.github/gke-workflow/jax-vllm-offloading/**'
       - '.github/workflows/jax-vllm-offloading*.yml'
+  push:
+    paths:
+      - 'jax-inference-offloading/**'
+      - 'jax-inference-offloading/**'
+      - '.github/gke-workflow/jax-vllm-offloading/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -40,7 +45,6 @@ permissions:
 jobs:
   metadata:
     runs-on: ubuntu-22.04
-    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
       PUBLISH: ${{ steps.if-publish.outputs.PUBLISH }}
