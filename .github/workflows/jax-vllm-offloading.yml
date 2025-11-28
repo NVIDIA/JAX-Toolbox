@@ -101,7 +101,7 @@ jobs:
      JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_FINAL }}
 
   grpo-gke-xpk:
-    uses: ./.github/workflows/jax-vllm-offloading-gke-transfer.yml
+    uses: ./.github/workflows/jax-vllm-offloading-gke-grpo.yml
     needs: build
     with:
      JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_FINAL }}

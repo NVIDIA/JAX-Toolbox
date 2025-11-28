@@ -1,4 +1,4 @@
-name: JAX-vLLM offloading transfer (GKE, XPK)
+name: JAX-vLLM offloading GRPO (GKE, XPK)
 
 on:
   workflow_call:
@@ -10,13 +10,13 @@ on:
         required: false
 
 jobs:
-  jax-vllm-offloading-transfer-gke-xpk:
+  jax-vllm-offloading-grpo-gke-xpk:
     runs-on: gke-a3mega
     strategy:
       matrix:
         model: ["meta-llama/Llama-3.1-8B-Instruct", "meta-llama/Llama-3.1-70B-Instruct"]
     env:
-      WORKLOAD_NAME_PREFIX: gke-jax-vllm-transfer
+      WORKLOAD_NAME_PREFIX: gke-jax-vllm-grpo
       JAX_VLLM_OFFLOADING_IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
       
       NUM_NODES: 2
