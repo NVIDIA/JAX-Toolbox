@@ -16,7 +16,7 @@ jobs:
       matrix:
         model: ["meta-llama/Llama-3.1-8B-Instruct", "meta-llama/Llama-3.1-70B-Instruct"]
     env:
-      WORKLOAD_NAME_PREFIX: gke-jax-vllm-grpo
+      WORKLOAD_NAME_PREPREFIX: gke-jax-vllm-grpo
       JAX_VLLM_OFFLOADING_IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
       
       NUM_NODES: 2
@@ -35,6 +35,11 @@ jobs:
     - name: K8s GHCR store and delete token
       id: store-token
       uses: ./.github/actions/store-delete-k8s-ghcr
+
+    - name: Format workload name
+      id: model-name
+      run: |
+        echo "WORKLOAD_NAME_PREFIX=${WORKLOAD_NAME_PREPREFIX}-$(echo "${{ matrix.model }}" | sed 's|.*/\(.*\)-[^-]*|\1|')" >> ${GITHUB_OUTPUT}
 
     - name: Run XPK workload on cluster
       uses: ./.github/actions/gke-xpk
