@@ -14,13 +14,13 @@ jobs:
     runs-on: gke-a3mega
     strategy:
       matrix:
-        model: ["meta-llama/Llama-3.1-8B-Instruct", "meta-llama/Llama-3.1-70B-Instruct"]
+        model: ["meta-llama/Llama-3.1-8B-Instruct"]
     env:
       WORKLOAD_NAME_PREPREFIX: gke-jax-vllm-grpo
       JAX_VLLM_OFFLOADING_IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
       
       NUM_NODES: 2
-      ENV_FILE: ../../.github/gke-workflow/jax-vllm-offloading/transfer/jobset.env
+      ENV_FILE: ../../.github/gke-workflow/jax-vllm-offloading/grpo/jobset.env
 
     steps:
     - uses: actions/checkout@v4
@@ -69,8 +69,10 @@ jobs:
             python rollout.py 2>&1 | tee -a rollout.log &
             PIDS+=(\$!);
           else
-            echo Starting trainer;
-            python trainer.py 2>&1 | tee -a trainer.log &
+            export MODEL_PATH=\$(python download_model.py --hub=hf --model=\${MODEL_NAME} --ignore='*.pth');
+
+            echo Starting GRPO trainer;
+            python trainer_grpo.py 2>&1 | tee -a trainer_grpo.log &
             PIDS+=(\$!);
           fi;
 

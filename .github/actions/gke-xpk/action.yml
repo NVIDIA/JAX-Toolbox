@@ -192,6 +192,9 @@ runs:
           args+=(
               --env-file="${{ inputs.ENV_FILE }}"
           )
+
+          echo "Setting the following environment variables in the ${JOBSET_NAME} JobSet froma ${{ inputs.ENV_FILE }}"
+          cat ${{ inputs.ENV_FILE }}
         else
           args+=(
               --env="JAX_COORDINATOR_PORT=3389"
