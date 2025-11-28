@@ -2,7 +2,7 @@ apiVersion: jobset.x-k8s.io/v1alpha2
 kind: JobSet
 metadata:
   annotations:
-  name: jax-vllm-transfer
+  name: jax-vllm-grpo
   namespace: default
 spec:
   network:
@@ -51,7 +51,7 @@ spec:
             - name: jax-toolbox-ghcr
             containers:
             - name: gpu-image
-              image: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
+              image: ghcr.io/nvidia/jax-toolbox-internal:19751502075-jio-amd64
               imagePullPolicy: Always
               command:
               - bash
@@ -64,10 +64,7 @@ spec:
                 print(jax.devices())
                 print(jax.local_devices())
                 assert jax.process_count() > 1
-                assert len(jax.devices()) > len(jax.local_devices())
-                "
-
-                export GATEWAY_URL="${JOBSET_NAME}:50051"
+                assert len(jax.devices()) > len(jax.local_devices())"
 
                 PIDS=()
                 # hard-code split of vLLM-JAX on 1x node each on 2x slice jobset
@@ -83,7 +80,8 @@ spec:
                   PIDS+=($!)
                 else
                   echo "Starting trainer"
-                  python trainer.py 2>&1 | tee -a trainer.log &
+                  export MODEL_PATH=$(python "download_model.py" --hub=hf --model=${MODEL_NAME} --ignore="*.pth")
+                  python trainer_grpo.py 2>&1 | tee -a trainer_grpo.log &
                   PIDS+=($!)
                 fi
 
@@ -110,11 +108,23 @@ spec:
 
               - name: LD_LIBRARY_PATH
                 value: "/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64"
+
+              # huggingface
               - name: HF_TOKEN
                 valueFrom:
                   secretKeyRef:
                     name: hf-token-secret
                     key: token
+              - name: MODEL_NAME
+                value: "meta-llama/Llama-3.1-8B-Instruct"
+              - name: SCRATCHDIR
+                value: "/opt/scratch"
+
+              # gateway
+              - name: GATEWAY_PORT
+                value: "50051"
+              - name: GATEWAY_URL
+                value: "$(JOBSET_NAME):$(GATEWAY_PORT)"
 
               # JAX
               - name: JAX_COORDINATOR_PORT
@@ -140,7 +150,7 @@ spec:
               - name: VLLM_DISTRIBUTED_BACKEND
                 value: "mp"
               - name: VLLM_ATTENTION_BACKEND
-                value: "TRITON_ATTN_VLLM_V1"
+                value: "TRITON_ATTN"
               - name: VLLM_LOAD_FORMAT
                 value: "dummy"
 
@@ -149,16 +159,16 @@ spec:
                 value: "/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so"
               - name: NCCL_TUNER_PLUGIN
                 value: "none"
-              - name: MODEL_NAME
-                value: "meta-llama/Llama-3.1-8B-Instruct"
               - name: NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY
                 value: /dev/aperture_devices
               - name: NCCL_CUMEM_ENABLE
                 value: "0"  # https://docs.vllm.ai/en/v0.9.1/usage/troubleshooting.html#known-issues
               - name: NCCL_BUFFSIZE
-                name: "16777216"
+                value: "16777216"
 
               # XLA
+              - name: XLA_PYTHON_CLIENT_MEM_FRACTION
+                value: "0.95"
               - name: XLA_FLAGS
                 value: "--xla_gpu_enable_latency_hiding_scheduler=true
                         --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL
@@ -172,6 +182,17 @@ spec:
                 value: "grouped"
               - name: USE_POLYMORPHIC_MESH
                 value: "0"
+              - name: JAX_COMPILATION_CACHE_DIR
+                value: /opt/jax-compilation
+              - name: JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS
+                value: "0.1"
+              - name: RUN_MODE
+                value: "timing"
+              - name: ROLLOUT_ENGINE
+                value: "vllm_gpu"
+              - name: GRPO_TRAIN_MICRO_BATCH_SIZE
+                value: "2"
+
 
               ports:
               - containerPort: 50051
@@ -190,6 +211,8 @@ spec:
                 name: libraries
               - mountPath: /dev/shm
                 name: dshm
+              - mountPath: /opt/scratch
+                name: scratch
             dnsPolicy: ClusterFirstWithHostNet
             initContainers:
             - args:
@@ -247,6 +270,9 @@ spec:
             - emptyDir:
                 medium: Memory
               name: dshm
+            - emptyDir:
+                sizeLimit: 2Gi
+              name: scratch
   startupPolicy:
     startupPolicyOrder: AnyOrder
   successPolicy:
