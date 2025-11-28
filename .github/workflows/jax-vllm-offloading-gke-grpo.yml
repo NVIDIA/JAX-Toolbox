@@ -39,7 +39,7 @@ jobs:
     - name: Format workload name
       id: model-name
       run: |
-        echo "WORKLOAD_NAME_PREFIX=${WORKLOAD_NAME_PREPREFIX}-$(echo "${{ matrix.model }}" | sed 's|.*/\(.*\)-[^-]*|\1|')" >> ${GITHUB_OUTPUT}
+        echo "WORKLOAD_NAME_PREFIX=${WORKLOAD_NAME_PREPREFIX}-$(echo ${{ matrix.model }} | sed 's|.*/\(.*\)-[^-]*|\1|')" >> ${GITHUB_OUTPUT}
 
     - name: Run XPK workload on cluster
       uses: ./.github/actions/gke-xpk
