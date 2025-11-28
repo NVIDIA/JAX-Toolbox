@@ -63,7 +63,7 @@ setup(
         'grpcio==1.76.*',
         'protobuf==6.33.*',
         'huggingface-hub',
-        'jax==0.8.1',
+        'jax==0.8.0',
         'jaxtyping',
         'kagglehub',
         'vllm==0.11.2',

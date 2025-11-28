@@ -245,6 +245,7 @@ python "${DIR}/../jax_inference_offloading/controller/gateway.py" 2>&1 | tee ${O
 PIDS+=($!)
 
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${VLLM_GPU_ARRAY[*]}") \
+MODEL_NAME=${MODEL_PATH:-$MODEL_NAME} \
 python "${DIR}/rollout.py" 2>&1 | tee ${OUTPUT_DIR}/rollout.log &
 PIDS+=($!)
 
