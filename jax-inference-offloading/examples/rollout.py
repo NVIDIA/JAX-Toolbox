@@ -39,7 +39,7 @@ def main():
   load_format = os.environ.get("VLLM_LOAD_FORMAT", "dummy")
   model_name = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
   model_path = os.environ.get("MODEL_PATH", None)
-  model = model_name or model_path
+  model = model_path or model_name
 
   logging.basicConfig(level=logging.INFO)
 
