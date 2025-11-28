@@ -62,12 +62,12 @@ jobs:
         run: |
           echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-  build:
+  build-amd64:
     needs: metadata
     strategy:
       fail-fast: true
       matrix:
-        ARCHITECTURE: [amd64]
+        ARCHITECTURE: [amd64] # arm64 build should be a separate job to avoid race condition on the output setting - in the existing CI, arm64 and amd64 builds are defined in separate pipelines
     runs-on: [self-hosted, "${{ matrix.ARCHITECTURE }}", "small"]
     steps:
         - name: Checkout repository
@@ -105,3 +105,35 @@ jobs:
     needs: build
     with:
      JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build.outputs.DOCKER_TAG_FINAL }}
+
+  build-arm64:
+    needs: metadata
+    strategy:
+      fail-fast: true
+      matrix:
+        ARCHITECTURE: [arm64]
+    runs-on: [self-hosted, "${{ matrix.ARCHITECTURE }}", "small"]
+    steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+        - name: Build container
+          id: build-container
+          uses: ./.github/actions/build-container
+          with:
+            ARCHITECTURE: ${{ matrix.ARCHITECTURE }}
+            ARTIFACT_NAME: artifact-jio-build
+            BADGE_FILENAME: badge-jio-build
+            BASE_IMAGE: nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04
+            BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+            CONTAINER_NAME: jio
+            DOCKERFILE: jax-inference-offloading/dockerfile/oss.dockerfile
+            RUNNER_SIZE: small
+            ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+            ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+            github-token: ${{ secrets.GITHUB_TOKEN }}
+            EXTRA_BUILD_ARGS: |
+              REF_JIO=${{ github.ref }}
+
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-container.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-container.outputs.DOCKER_TAG_FINAL }}
