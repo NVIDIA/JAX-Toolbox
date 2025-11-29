@@ -40,6 +40,7 @@ jobs:
       id: workload-name
       run: |
         WORKLOAD_NAME_PREFIX="${WORKLOAD_NAME_PREPREFIX}-$(echo ${{ matrix.model }} | sed 's|.*/\(.*\)-[^-]*|\1|')"
+        WORKLOAD_NAME_PREFIX=$(echo ${WORKLOAD_NAME_PREFIX} | tr '.' '-')
         echo "WORKLOAD_NAME_PREFIX=${WORKLOAD_NAME_PREFIX,,}" >> ${GITHUB_OUTPUT}
 
     - name: Run XPK workload on cluster
