@@ -16,7 +16,7 @@ jobs:
       matrix:
         model: ["meta-llama/Llama-3.1-8B-Instruct", "meta-llama/Llama-3.1-70B-Instruct"]
     env:
-      WORKLOAD_NAME_PREPREFIX: jax-vllm-transfer
+      WORKLOAD_NAME_PREPREFIX: vllm-transf # due to 40 character workload name limit
       JAX_VLLM_OFFLOADING_IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
       
       NUM_NODES: 2
@@ -54,6 +54,8 @@ jobs:
           set -x;
           export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64;
           export MODEL_NAME=${{ matrix.model }}
+          export JAX_COORDINATOR_ADDRESS=${JOBSET_NAME}-${REPLICATED_JOB_NAME}-0-0.${JOBSET_NAME}:${JAX_COORDINATOR_PORT}
+          export GATEWAY_URL=${JOBSET_NAME}:${GATEWAY_PORT}
           env;
 
           pip install jax[k8s];

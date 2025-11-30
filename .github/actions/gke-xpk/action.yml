@@ -193,7 +193,7 @@ runs:
               --env-file="${{ inputs.ENV_FILE }}"
           )
 
-          echo "Setting the following environment variables in the ${JOBSET_NAME} JobSet froma ${{ inputs.ENV_FILE }}"
+          echo "Setting the following environment variables in the ${WORKLOAD_NAME} JobSet from the env. file at ${{ inputs.ENV_FILE }} "
           cat ${{ inputs.ENV_FILE }}
         else
           args+=(
@@ -201,8 +201,6 @@ runs:
               --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
           )
         fi
-      fi
-
       fi
 
       python xpk.py workload create \
