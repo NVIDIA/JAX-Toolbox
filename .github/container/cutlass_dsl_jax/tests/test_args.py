@@ -82,8 +82,7 @@ class TestConstexprArgs:
             cutlass_call,
             self.launch,
             output_shape_dtype=jax.ShapeDtypeStruct(shape, dtype),
-            input_mode=(TM(static=True), TM(static=True)),
-            output_mode=TM(static=True),
+            use_static_tensors=True,
         )
         c = call(const_a=1.0, const_b=1.0)(a, b)
         c_ref = self.ref_call(a, b, 1.0, 1.0)
@@ -372,8 +371,7 @@ class TestCompileOptionsPassing:
         call = cutlass_call(
             self.launch,
             output_shape_dtype=jax.ShapeDtypeStruct(shape, dtype),
-            input_mode=TM(static=True),
-            output_mode=TM(static=True),
+            use_static_tensors=True,
             compile_options=my_debugging_options,
         )
 

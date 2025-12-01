@@ -58,6 +58,7 @@ def cutlass_call(
     convert_tensors=True,
     allow_cuda_graph=True,
     compile_options=None,
+    use_static_tensors=False,
     **kwargs,
 ):
     """Creates a callable that invokes a @cute.jit function.
@@ -79,6 +80,10 @@ def cutlass_call(
             layout. If disabled the kernel is instead given a JaxArray pointer directly.
         allow_cuda_graph: If false will prevent XLA from building a cuda graph of for this call.
         compile_options: Optional compiler arguments to pass into cute.compile.
+        use_static_tensors: If True, tensor shapes and strides are treated as constexpr values by
+        default. This can improve performance through compiler specialization but may not work
+        properly with all kernels. Specific tensors may be marked static or dynamic using the mode
+        and override this flag.
         kwargs: Optional constexpr parameters to pass into the kernel fn.
 
     Note: This API is experimental and subject to change!
@@ -97,6 +102,7 @@ def cutlass_call(
         convert_tensors=convert_tensors,
         allow_cuda_graph=allow_cuda_graph,
         compile_options=compile_options,
+        use_static_tensors=use_static_tensors,
         **kwargs,
     )
 
@@ -131,6 +137,7 @@ def _cutlass_call_impl(
     convert_tensors,
     allow_cuda_graph,
     compile_options,
+    use_static_tensors,
     **kwargs,
 ):
     multiple_results = isinstance(output_shape_dtype, Sequence)
@@ -227,6 +234,7 @@ def _cutlass_call_impl(
             convert_tensors=convert_tensors,
             allow_cuda_graph=allow_cuda_graph,
             compile_options=compile_options,
+            use_static_tensors=use_static_tensors,
             **kwargs,
         )
 
@@ -255,6 +263,7 @@ def cutlass_call_inner_p_impl(
     convert_tensors,
     allow_cuda_graph,
     compile_options,
+    use_static_tensors,
     **kwargs,
 ):
     input_output_aliases = dict(input_output_aliases)
@@ -275,6 +284,7 @@ def cutlass_call_inner_p_impl(
         input_output_aliases,
         convert_tensors,
         compile_options,
+        use_static_tensors,
         kwargs,
     )
 

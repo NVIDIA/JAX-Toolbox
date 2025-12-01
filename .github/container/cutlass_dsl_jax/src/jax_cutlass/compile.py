@@ -78,6 +78,7 @@ class FunctionSpec:
     output_mode: tuple[TensorMode, ...]
     convert_tensors: bool
     compile_options: str
+    use_static_tensors: bool
     kwargs: tuple[tuple[str, Any]]
 
     def get_compile_args(self):
@@ -122,8 +123,14 @@ def jit_wrapper(
     # split buffer argument into inputs and outputs and return to tree
     ins, outs = args[: len(spec.in_args)], args[(len(spec.in_args)) :]
     if cutlass.const_expr(spec.convert_tensors):
-        ins = [x.get_tensor(a.mode) for x, a in zip(ins, spec.in_args)]
-        outs = [x.get_tensor(a.mode) for x, a in zip(outs, spec.out_args)]
+        ins = [
+            x.get_tensor(a.mode, spec.use_static_tensors)
+            for x, a in zip(ins, spec.in_args)
+        ]
+        outs = [
+            x.get_tensor(a.mode, spec.use_static_tensors)
+            for x, a in zip(outs, spec.out_args)
+        ]
     ins = jax.tree.unflatten(spec.input_tree, ins)
     outs = jax.tree.unflatten(spec.output_tree, outs)
     wrapped_fn(stream, *ins, *outs, **dict(spec.kwargs))
@@ -178,6 +185,7 @@ def build_function_spec(
     input_output_aliases,
     convert_tensors,
     compile_options,
+    use_static_tensors,
     kwargs,
 ):
     # TODO: Improve type checking and validate pytree structures.
@@ -236,6 +244,7 @@ def build_function_spec(
         tuple(output_mode),
         convert_tensors,
         compile_options,
+        use_static_tensors,
         tuple((k, kwargs[k]) for k in kwargs),
     )
 
