@@ -18,11 +18,17 @@
 
           pip install ${PIP_SRC}
 
+          # Clone CUTLASS examples
+          CUTLASS_ROOT="${SRC_ROOT}/cutlass"
+          CUTLASS_EXAMPLES_ROOT="${CUTLASS_ROOT}/examples/python/CuTeDSL"
+          git clone https://github.com/NVIDIA/cutlass.git ${CUTLASS_ROOT}
+
           NGPUS=$(nvidia-smi --list-gpus | wc -l)
 
           # Start MPS daemon
           nvidia-cuda-mps-control -d
 
+          export PYTHONPATH=${CUTLASS_EXAMPLES_ROOT}
           pytest-xdist.sh ${NGPUS} 1 ${LOG_DIR}/pytest-report.jsonl pytest -xsv --log-file=${LOG_DIR}/pytest_log.log --log-file-level=INFO ${PIP_SRC}/tests/ | tee -a ${LOG_DIR}/pytest_stdout_dist.log
 
           touch ${LOG_DIR}/done

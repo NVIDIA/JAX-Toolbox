@@ -39,9 +39,9 @@ def kernel(
     tidx, _, _ = cute.arch.thread_idx()
     bidx, _, _ = cute.arch.block_idx()
 
-    frgA = cute.make_fragment(cute.size(a, mode=[0]), a.element_type)
-    frgB = cute.make_fragment(cute.size(b, mode=[0]), b.element_type)
-    frgC = cute.make_fragment(cute.size(c, mode=[0]), c.element_type)
+    frgA = cute.make_rmem_tensor(cute.size(a, mode=[0]), a.element_type)
+    frgB = cute.make_rmem_tensor(cute.size(b, mode=[0]), b.element_type)
+    frgC = cute.make_rmem_tensor(cute.size(c, mode=[0]), c.element_type)
 
     cute.autovec_copy(a[None, tidx, bidx], frgA)
     cute.autovec_copy(b[None, tidx, bidx], frgB)
