@@ -256,7 +256,7 @@ rl_cluster.sync_weights()
 grpo_trainer = GRPOLearner(
   rl_cluster=rl_cluster,
   reward_fns=[reward_final_answer],
-  grpo_config=GRPOConfig(
+  algo_config=GRPOConfig(
     num_generations=NUM_GENERATIONS,
     num_iterations=NUM_ITERATIONS,
     beta=BETA,
