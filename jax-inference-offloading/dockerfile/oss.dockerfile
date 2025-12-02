@@ -76,7 +76,9 @@ EOF
 RUN <<"EOF" bash -ex -o pipefail
 mkdir -p /opt/pip-tools.d
 pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
-echo "vllm @ https://github.com/vllm-project/vllm/releases/download/v0.11.2/vllm-0.11.2+cu130-cp38-abi3-manylinux1_x86_64.whl" >> /opt/pip-tools.d/requirements.in
+if [[ $(uname -m) == "x86_64" ]]; then
+  echo "vllm @ https://github.com/vllm-project/vllm/releases/download/v0.11.2/vllm-0.11.2+cu130-cp38-abi3-manylinux1_x86_64.whl" >> /opt/pip-tools.d/requirements.in
+fi
 echo "-e file://${SRC_PATH_JIO}" >> /opt/pip-tools.d/requirements.in
 echo "-e file://${SRC_PATH_TUNIX}" >> /opt/pip-tools.d/requirements.in
 cat "${SRC_PATH_JIO}/examples/requirements.in" >> /opt/pip-tools.d/requirements.in
