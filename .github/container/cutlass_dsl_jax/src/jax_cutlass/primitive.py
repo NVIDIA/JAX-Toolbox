@@ -57,6 +57,8 @@ def cutlass_call(
     input_output_aliases={},
     convert_tensors=True,
     allow_cuda_graph=True,
+    compile_options=None,
+    use_static_tensors=False,
     **kwargs,
 ):
     """Creates a callable that invokes a @cute.jit function.
@@ -77,6 +79,11 @@ def cutlass_call(
         convert_tensors: Jax array buffers will be converted to cute.Tensor with static shape and
             layout. If disabled the kernel is instead given a JaxArray pointer directly.
         allow_cuda_graph: If false will prevent XLA from building a cuda graph of for this call.
+        compile_options: Optional compiler arguments to pass into cute.compile.
+        use_static_tensors: If True, tensor shapes and strides are treated as constexpr values by
+        default. This can improve performance through compiler specialization but may not work
+        properly with all kernels. Specific tensors may be marked static or dynamic using the mode
+        and override this flag.
         kwargs: Optional constexpr parameters to pass into the kernel fn.
 
     Note: This API is experimental and subject to change!
@@ -94,6 +101,8 @@ def cutlass_call(
         input_output_aliases=input_output_aliases,
         convert_tensors=convert_tensors,
         allow_cuda_graph=allow_cuda_graph,
+        compile_options=compile_options,
+        use_static_tensors=use_static_tensors,
         **kwargs,
     )
 
@@ -127,6 +136,8 @@ def _cutlass_call_impl(
     input_output_aliases,
     convert_tensors,
     allow_cuda_graph,
+    compile_options,
+    use_static_tensors,
     **kwargs,
 ):
     multiple_results = isinstance(output_shape_dtype, Sequence)
@@ -200,7 +211,9 @@ def _cutlass_call_impl(
         # information we got as input.
         for idx, (arg, mode) in enumerate(zip(args_flat, input_mode_flat)):
             if mode.mode is not None and len(mode.mode) != len(arg.shape):
-                raise ValueError(f"Input #{idx} has invalid mode.")
+                raise ValueError(
+                    f"Input #{idx} has invalid mode {mode.mode} for shape {arg.shape}."
+                )
         for idx, (arg, mode) in enumerate(
             zip(output_shape_dtype_flat, output_mode_flat)
         ):
@@ -220,6 +233,8 @@ def _cutlass_call_impl(
             input_output_aliases=tuple(input_output_aliases.items()),
             convert_tensors=convert_tensors,
             allow_cuda_graph=allow_cuda_graph,
+            compile_options=compile_options,
+            use_static_tensors=use_static_tensors,
             **kwargs,
         )
 
@@ -247,6 +262,8 @@ def cutlass_call_inner_p_impl(
     input_output_aliases,
     convert_tensors,
     allow_cuda_graph,
+    compile_options,
+    use_static_tensors,
     **kwargs,
 ):
     input_output_aliases = dict(input_output_aliases)
@@ -266,6 +283,8 @@ def cutlass_call_inner_p_impl(
         output_mode_flat,
         input_output_aliases,
         convert_tensors,
+        compile_options,
+        use_static_tensors,
         kwargs,
     )
 
