@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04
+ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:25.11-cuda13.0-devel-ubuntu24.04
 ARG URL_JIO=https://github.com/NVIDIA/JAX-Toolbox.git
 ARG REF_JIO=main
 ARG URL_TUNIX=https://github.com/google/tunix.git
@@ -76,7 +76,6 @@ EOF
 RUN <<"EOF" bash -ex -o pipefail
 mkdir -p /opt/pip-tools.d
 pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
-echo "jax[cuda12_local]" >> /opt/pip-tools.d/requirements.in
 echo "-e file://${SRC_PATH_JIO}" >> /opt/pip-tools.d/requirements.in
 echo "-e file://${SRC_PATH_TUNIX}" >> /opt/pip-tools.d/requirements.in
 cat "${SRC_PATH_JIO}/examples/requirements.in" >> /opt/pip-tools.d/requirements.in
@@ -90,8 +89,8 @@ FROM mealkit AS final
 
 # Finalize installation
 RUN <<"EOF" bash -ex -o pipefail
-export PIP_INDEX_URL=https://download.pytorch.org/whl/cu129
-export PIP_EXTRA_INDEX_URL="https://flashinfer.ai/whl/cu129 https://pypi.org/simple"
+export PIP_INDEX_URL=https://download.pytorch.org/whl/cu130
+export PIP_EXTRA_INDEX_URL="https://flashinfer.ai/whl/cu130 https://pypi.org/simple"
 pushd /opt/pip-tools.d
 pip-compile -o requirements.txt $(ls requirements*.in) --constraint overrides.in
 # remove cuda wheels from install list since the container already has them
@@ -99,11 +98,11 @@ sed -i 's/^nvidia-/# nvidia-/g' requirements.txt
 sed -i 's/# nvidia-nvshmem/nvidia-nvshmem/g' requirements.txt
 pip install --no-deps --src /opt -r requirements.txt
 # make pip happy about the missing torch dependencies
-pip-mark-installed nvidia-cublas-cu12 nvidia-cuda-cupti-cu12 \
-  nvidia-cuda-nvrtc-cu12 nvidia-cuda-runtime-cu12 nvidia-cudnn-cu12 \
-  nvidia-cufft-cu12 nvidia-cufile-cu12 nvidia-curand-cu12 nvidia-cusolver-cu12 \
-  nvidia-cusparse-cu12 nvidia-cusparselt-cu12 nvidia-nccl-cu12 \
-  nvidia-nvjitlink-cu12 nvidia-nvtx-cu12
+pip-mark-installed nvidia-cublas-cu13 nvidia-cuda-cupti-cu13 \
+  nvidia-cuda-nvrtc-cu13 nvidia-cuda-runtime-cu13 nvidia-cudnn-cu13 \
+  nvidia-cufft-cu13 nvidia-cufile-cu13 nvidia-curand-cu13 nvidia-cusolver-cu13 \
+  nvidia-cusparse-cu13 nvidia-cusparselt-cu13 nvidia-nccl-cu13 \
+  nvidia-nvjitlink-cu13 nvidia-nvtx-cu13
 popd
 rm -rf ~/.cache/*
 EOF
