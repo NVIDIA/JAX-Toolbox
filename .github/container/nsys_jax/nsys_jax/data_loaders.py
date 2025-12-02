@@ -249,17 +249,50 @@ def _load_nvtx_gpu_proj_trace_single(
         # get the names of the ranges referred to by ModuleId
         mod_id_names = df.loc[mod_ids, "Name"]
         assert mod_ids.shape == mod_id_names.shape
+
         # Get a mask in mod_id_names of entries where ModuleId in the original
         # Thunk is not referring to a Module yet. Intermediate levels of the
         # hierarchy can be other thunks (e.g. an individual graph node may
-        # have a thunk representing the whole graph as a parent).
+        # have a thunk representing the whole graph as a parent) or other
+        # range types like NCCL operations.
         mask = ~mod_id_names.str.startswith(module_prefix)
-        assert (mask == mod_id_names.str.startswith(thunk_prefix)).all()
+
+        # Identify which non-module entries are thunks vs other range types
+        is_thunk = mod_id_names.str.startswith(thunk_prefix)
+        is_module = mod_id_names.str.startswith(module_prefix)
+
+        # Assert that we only have modules, thunks, or known intermediate ranges
+        # This catches unexpected range types in the hierarchy
+        is_recognized = (
+            is_thunk | is_module | mod_id_names.str.contains("nccl", case=False)
+        )
+        assert is_recognized.all(), f"Found unrecognized range types in hierarchy: {mod_id_names[~is_recognized].unique()}"
+
+        # Assert that mask is consistent with module detection
+        assert (mask == ~is_module).all(), "Mask inconsistency with module detection"
+
+        # Convert to numpy arrays for cross-indexing operations
+        # (mod_ids and mask have different pandas indices)
+        mod_ids_array = mod_ids.values
+        mask_array = mask.values
+        is_thunk_array = is_thunk.values
+
+        # Assert that all non-module entries have valid parent IDs to continue navigation
+        non_module_mod_ids = mod_ids_array[mask_array]
+        assert (
+            df.loc[non_module_mod_ids, "ParentId"].notna().all()
+        ), "Found non-module entries without valid parent IDs, cannot navigate up hierarchy"
+
         assert mask.shape == mod_ids.shape
+
         # We want to end up without all_thunks containing thunks with child
-        # thunks, as noted above.
-        thunk_ids_with_child_thunks = mod_ids.array[mask]
-        all_thunks[thunk_ids_with_child_thunks] = False
+        # thunks, as noted above. Only filter out thunks, not other range types.
+        thunk_ids_with_child_thunks = mod_ids_array[mask_array & is_thunk_array]
+        # Only update indices that actually exist in all_thunks to prevent reindexing
+        existing_indices = all_thunks.index.intersection(thunk_ids_with_child_thunks)
+        if len(existing_indices) > 0:
+            all_thunks[existing_indices] = False
+
         # Set thunk_ids to be the (shorter) list of indices (in df) of the
         # Thunks whose ModuleId values need to be updated
         thunk_ids = thunk_ids[mask]
@@ -271,6 +304,10 @@ def _load_nvtx_gpu_proj_trace_single(
 
     # Now all the Thunks should have ModuleId pointing to an XlaModule range.
     mod_ids = sorted(set(df.loc[all_thunks, "ModuleId"].astype(np.int32)))
+
+    # Ensure all_thunks only contains indices that exist in df
+    all_thunks = all_thunks.reindex(df.index, fill_value=False)
+
     assert df.loc[all_thunks, "Name"].str.startswith(thunk_prefix).all()
     assert df.loc[mod_ids, "Name"].str.startswith(module_prefix).all()
 
@@ -397,6 +434,10 @@ def _load_nvtx_gpu_proj_trace_single(
     if "thunk" in frames:
         # At this point there should be no need to look beyond the rows for individual
         # thunks + the protobuf data, and we can further clean up the data.
+
+        # Ensure all_thunks is aligned with df one final time before using it
+        all_thunks = all_thunks.reindex(df.index, fill_value=False)
+
         thunk_df = clean_data_frame(df[all_thunks])
         thunk_df["Name"] = thunk_df["Name"].str.replace(
             pat=f"^{tsl_prefix}Thunk:#(?:name=.*?,|)hlo_op=([a-z0-9._-]+)#$",
