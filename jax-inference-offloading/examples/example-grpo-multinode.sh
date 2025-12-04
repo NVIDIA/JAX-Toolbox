@@ -17,12 +17,11 @@
 set -euo pipefail
 
 DIR="$(dirname "$0")"
-JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR:-/tmp/jax-compilation-cache}
-mkdir -p ${JAX_COMPILATION_CACHE_DIR}
+_ARGS="$*"
 
 # Arguments - General
 DEBUG="false"
-OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -p "$PWD" -d output.XXXXXXXX)}
+OUTPUT_DIR=""
 NSYS_PROFILE_NAME=""
 
 # Arguments - Container runtime
@@ -40,13 +39,12 @@ MODEL_PATH=""
 JAX_USE_DUMMY_WEIGHTS="false"
 
 # Arguments - Dataset
-DATASET_DIR="$(mktemp -du)"
+DATASET_DIR=""
 
 # Arguments - Trainer runtime
-RUN_MODE="timing"              # debug | timing | production
 ROLLOUT_ENGINE="vllm_gpu"      # vllm_gpu | vanilla
 SCRATCHDIR="/content"
-TRANSFER_MODE="grouped"        # grouped | fused | unfused
+JAX_COMPILATION_CACHE_DIR="/tmp/jax-compilation-cache"
 
 # Arguments - Ray settings
 RAY_PORT="20527"
@@ -57,6 +55,10 @@ VLLM_ENFORCE_EAGER="0"
 VLLM_LOAD_FORMAT="dummy"
 VLLM_GPU_MEMORY_UTILIZATION="0.75"
 VLLM_DISTRIBUTED_BACKEND="ray"
+
+# Arguments - Trainer runtime
+TRANSFER_MODE="grouped"
+USE_POLYMORPHIC_MESH="0"
 
 # Arguments - Device assignment
 N_GPUS_PER_NODE="8"
@@ -114,9 +116,6 @@ while [[ $# -gt 0 ]]; do
       ;;
 
     # Trainer runtime
-    --run-mode=*)
-      RUN_MODE="${1#*=}"
-      ;;
     --rollout-engine=*)
       ROLLOUT_ENGINE="${1#*=}"
       ;;
@@ -125,6 +124,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --transfer-mode=*)
       TRANSFER_MODE="${1#*=}"
+      ;;
+    --jax-compilation-cache-dir=*)
+      JAX_COMPILATION_CACHE_DIR="${1#*=}"
       ;;
 
     # GRPO hyperparameter wildcard: --grpo-<key>=<value>
@@ -152,6 +154,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --vllm-distributed-backend=*)
       VLLM_DISTRIBUTED_BACKEND="${1#*=}"
+      ;;
+
+    # Trainer runtime
+    --transfer-mode=*)
+      TRANSFER_MODE="${1#*=}"
       ;;
 
     # Device assignment
@@ -186,20 +193,22 @@ while [[ $# -gt 0 ]]; do
       echo "  --jax-use-dummy-weights    Use dummy weights for JAX (default)."
       echo "  --jax-use-real-weights     Use real model weights for JAX (must be passed in via --model-path)."
       echo ""
-      echo "  --run-mode=MODE            Trainer run mode: debug | timing | production."
       echo "  --rollout-engine=ENGINE    Rollout engine: vllm_gpu | vanilla."
       echo "  --scratchdir=DIR           Scratch directory for checkpoints/logs."
-      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/fused/unfused)."
+      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (unfused/grouped/stacked/stacked_graph/etc.)."
       echo ""
       echo "  --grpo-<key>=<value>       GRPO hyperparameter override; e.g., --grpo-num-epochs=2 (exports GRPO_NUM_EPOCHS=2)."
       echo ""
       echo "  --vllm-enforce-eager       Force vLLM eager mode (sets VLLM_ENFORCE_EAGER=1)."
       echo "  --no-vllm-enforce-eager    Disable vLLM eager mode (sets VLLM_ENFORCE_EAGER=0)."
       echo "  --vllm-load-format=FORMAT  vLLM model load format (e.g., dummy/auto/pt/safetensors)."
-      echo "  --vllm-gpu-memory-utilization=FLOAT vLLM GPU memory utilization (e.g., 0.9)."
+      echo "  --vllm-gpu-memory-utilization=FLOAT vLLM GPU memory utilization (e.g., 0.7)."
       echo "  --vllm-distributed-backend=BACKEND  vLLM distributed backend (ray/mp)."
       echo ""
-      echo "  --n-gpus-per-node=N        Number of GPUs per node for both JAX and vLLM (default: 8)."
+      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/stacked/stacked_graph/fused/unfused)."
+      echo "  --use-polymorphic-mesh     Enable polymorphic mesh for trainer (sets USE_POLYMORPHIC_MESH=1)."
+      echo ""
+      echo "  --n-gpus-per-node=N        Number of GPUs on the target node (default: 8)."
       echo ""
       echo "  --ray-port=PORT            Ray control-plane port (default: 20527)."
       echo "  --ray-client-server-port=PORT Ray client-server port (default: 24430)."
@@ -215,16 +224,39 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -p "$PWD" -d output.XXXXXXXX)}
+mkdir -p "${OUTPUT_DIR}"
+echo "Artifacts will be saved to: ${OUTPUT_DIR}"
+
+# Save job metadata
+{
+  echo "timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  echo "user=${USER}"
+  echo "host_submit=$(hostname -f 2>/dev/null || hostname)"
+  echo "script=$0"
+  echo "args=$_ARGS"
+  echo "container_image=${CONTAINER_IMAGE:-}"
+  echo "slurm_job_id=${SLURM_JOB_ID:-}"
+  echo "slurm_job_name=${SLURM_JOB_NAME:-}"
+  echo "slurm_nnodes=${SLURM_NNODES:-}"
+  echo "slurm_nodelist=${SLURM_NODELIST:-}"
+} > "${OUTPUT_DIR}/job.txt"
+
+if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  scontrol show job "${SLURM_JOB_ID}" > "${OUTPUT_DIR}/scontrol.txt" 2>&1 || true
+fi
+
+env | grep -v TOKEN > "${OUTPUT_DIR}/env.txt" || true
+
 # If no mounts provided, at least mount the output directory
-if [[ -z "${CONTAINER_MOUNTS}" ]]; then
-  MOUNTS="${OUTPUT_DIR}:${OUTPUT_DIR}"
-else
-  MOUNTS="${CONTAINER_MOUNTS},${OUTPUT_DIR}:${OUTPUT_DIR}"
+MOUNTS="${OUTPUT_DIR}:${OUTPUT_DIR}"
+if [[ -n "${CONTAINER_MOUNTS}" ]]; then
+  MOUNTS="${MOUNTS},${CONTAINER_MOUNTS}"
 fi
 
 # If a dataset directory is provided, ensure it exists and mount it
-if [[ -n "${DATASET_DIR}" ]]; then
-  mkdir -p "${DATASET_DIR}"
+if [[ -z "${DATASET_DIR}" ]]; then
+  DATASET_DIR=$(mktemp $PWD -d)
   MOUNTS="${MOUNTS},${DATASET_DIR}:${DATASET_DIR}"
 fi
 
@@ -311,18 +343,29 @@ VLLM_VISIBLE_DEVICES=$(seq -s, 0 $((N_GPUS_PER_NODE - 1)))
 VLLM_TENSOR_PARALLEL_SIZE=$((N_GPUS_PER_NODE * N_NODES_VLLM))
 
 # ------------------------------------------------------------------------------
+# Setup profiling command if enabled
+# ------------------------------------------------------------------------------
+if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
+  NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
+  TRAINER_PROF_CMD="nsys profile -s none -o "${NSYS_OUTPUT}" --force-overwrite true --capture-range=cudaProfilerApi --cuda-graph-trace=node --trace=cuda,nvtx --capture-range-end=stop"
+  echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
+else
+  TRAINER_PROF_CMD=""
+  echo "Nsys profiling not enabled. To enable, use --nsys-profile-name=PROFILE_NAME"
+fi
+
+# ------------------------------------------------------------------------------
 # common environment
 # ------------------------------------------------------------------------------
 export HF_TOKEN
+export OUTPUT_DIR
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_DEVICE_MAX_CONNECTIONS=16
-export NCCL_CUMEM_ENABLE=0  # https://docs.vllm.ai/en/v0.9.1/usage/troubleshooting.html#known-issues
 export NCCL_BUFFSIZE=16777216
 export GATEWAY_PORT=50051
 export GATEWAY_URL="${JAX_COORDINATOR_ADDR}:${GATEWAY_PORT}"
 export MODEL_NAME
 export MODEL_PATH
-export RUN_MODE
 export ROLLOUT_ENGINE
 export SCRATCHDIR
 export TRANSFER_MODE
@@ -337,6 +380,8 @@ export JAX_COORDINATOR_PORT
 export JAX_NODELIST
 export JAX_LOCAL_DEVICE_IDS
 export JAX_NUM_PROCESSES="${#JAX_HOSTS[@]}"
+export JAX_COMPILATION_CACHE_DIR
+export TRAINER_PROF_CMD
 export VLLM_NODELIST
 export VLLM_NUM_PROCESSES="${#VLLM_HOSTS[@]}"
 export VLLM_CONTROLLER_ADDR
@@ -363,20 +408,6 @@ else
 fi
 
 PIDS=()
-
-mkdir -p "${OUTPUT_DIR}"
-
-# Setup profiling command if enabled
-if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
-  NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
-  TRAINER_PROF_CMD="nsys profile -s none -o \"${NSYS_OUTPUT}\" --force-overwrite true --capture-range=cudaProfilerApi --cuda-graph-trace=node --trace=cuda,nvtx --capture-range-end=stop"
-  echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
-else
-  TRAINER_PROF_CMD=""
-  echo "Nsys profiling not enabled. To enable, use --nsys-profile-name=PROFILE_NAME"
-fi
-
-echo "Logs will be saved to: ${OUTPUT_DIR}"
 
 # If debugging, show collected GRPO_* overrides
 if [[ "$DEBUG" == "true" ]]; then

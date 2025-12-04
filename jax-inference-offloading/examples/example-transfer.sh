@@ -17,11 +17,13 @@
 set -euo pipefail
 
 DIR="$(dirname "$0")"
+_ARGS="$*"
 
 # Arguments - General
 DEBUG="false"
-OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -d)}
+OUTPUT_DIR=""
 NSYS_PROFILE_NAME=""
+JAX_PROFILE_NAME=""
 
 # Arguments - Model selection
 MODEL_NAME=""
@@ -30,7 +32,9 @@ USE_REAL_WEIGHTS="false"
 
 # Arguments - vLLM runtime
 VLLM_ENFORCE_EAGER="1"
+VLLM_LOAD_FORMAT="dummy"
 VLLM_GPU_MEMORY_UTILIZATION="0.7"
+VLLM_DISTRIBUTED_BACKEND="mp"
 
 # Arguments - Trainer runtime
 TRANSFER_MODE="grouped"  # grouped | fused | unfused (trainer default: grouped)
@@ -46,63 +50,59 @@ while [[ $# -gt 0 ]]; do
     # General
     --debug)
       DEBUG="true"
-      shift
       ;;
     --output-dir=*)
       OUTPUT_DIR="${1#*=}"
-      shift
       ;;
     --nsys-profile-name=*)
       NSYS_PROFILE_NAME="${1#*=}"
-      shift
+      ;;
+    --jax-profile-name=*)
+      JAX_PROFILE_NAME="${1#*=}"
       ;;
 
     # Model selection
     --model-name=*)
       MODEL_NAME="${1#*=}"
-      shift
       ;;
     --use-real-weights)
       USE_REAL_WEIGHTS="true"
-      shift
       ;;
     --model-path=*)
       MODEL_PATH="${1#*=}"
-      shift
       ;;
 
     # vLLM runtime
     --vllm-enforce-eager)
       VLLM_ENFORCE_EAGER="1"
-      shift
       ;;
     --no-vllm-enforce-eager)
       VLLM_ENFORCE_EAGER="0"
-      shift
+      ;;
+    --vllm-load-format=*)
+      VLLM_LOAD_FORMAT="${1#*=}"
       ;;
     --vllm-gpu-memory-utilization=*)
       VLLM_GPU_MEMORY_UTILIZATION="${1#*=}"
-      shift
+      ;;
+    --vllm-distributed-backend=*)
+      VLLM_DISTRIBUTED_BACKEND="${1#*=}"
       ;;
 
     # Trainer runtime
     --transfer-mode=*)
       TRANSFER_MODE="${1#*=}"
-      shift
       ;;
     --use-polymorphic-mesh)
       USE_POLYMORPHIC_MESH="1"
-      shift
       ;;
 
     # Device assignment
     --n-gpus-vllm=*)
       N_GPUS_VLLM="${1#*=}"
-      shift
       ;;
     --n-gpus-jax=*)
       N_GPUS_JAX="${1#*=}"
-      shift
       ;;
 
     --help)
@@ -112,6 +112,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --debug                    Enable debug mode with verbose logging."
       echo "  --output-dir=DIR           Directory to save logs and outputs. Default is a temporary directory."
       echo "  --nsys-profile-name=NAME   Enable NVIDIA Nsight Systems profiling with the given profile name."
+      echo "  --jax-profile-name=NAME    Enable JAX profiling with the given profile name (mutually exclusive with --nsys-profile-name)."
       echo ""
       echo "  --model-name=NAME          HF repo id or model name (e.g., meta-llama/Llama-3.1-8B-Instruct)."
       echo "  --use-real-weights         Use real model weights instead of dummy weights."
@@ -119,10 +120,12 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "  --vllm-enforce-eager       Force vLLM eager mode (sets VLLM_ENFORCE_EAGER=1)."
       echo "  --no-vllm-enforce-eager    Disable vLLM eager mode (sets VLLM_ENFORCE_EAGER=0)."
-      echo "  --vllm-gpu-memory-utilization=FLOAT  vLLM GPU memory utilization (e.g., 0.7)."
+      echo "  --vllm-load-format=FORMAT  vLLM model load format (e.g., dummy/auto/pt/safetensors)."
+      echo "  --vllm-gpu-memory-utilization=FLOAT vLLM GPU memory utilization (e.g., 0.7)."
+      echo "  --vllm-distributed-backend=BACKEND  vLLM distributed backend (ray/mp)."
       echo ""
-      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/fused/unfused)."
-      echo "  --use-polymorphic-mesh     Enable polymorphic mesh for trainer (sets USE_POLYMORPHIC_MESH=1)."
+      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (unfused/grouped/stacked/stacked_graph/etc.)."
+      echo "  --use-polymorphic-mesh     Enable polymorphic mesh for trainer."
       echo ""
       echo "  --n-gpus-vllm=N            Number of GPUs for vLLM (default: 4)."
       echo "  --n-gpus-jax=N             Number of GPUs for JAX (default: 4)."
@@ -131,11 +134,23 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Unknown argument: $1"
-      shift
+      echo "Unknown argument: $1" >&2
+      exit 1
       ;;
   esac
+  shift
 done
+
+OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -p "$PWD" -d output.XXXXXXXX)}
+mkdir -p "${OUTPUT_DIR}"
+echo "Artifacts will be saved to: ${OUTPUT_DIR}"
+
+# Check mutual exclusivity of profiling options
+if [[ -n "${NSYS_PROFILE_NAME}" && -n "${JAX_PROFILE_NAME}" ]]; then
+  echo "Error: --nsys-profile-name and --jax-profile-name are mutually exclusive." >&2
+  exit 1
+fi
+
 
 # Model selection default
 MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.1-8B-Instruct"}
@@ -148,12 +163,7 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 # ------------------------------------------------------------------------------
 # load environment variables from .env file
 # ------------------------------------------------------------------------------
-if [[ -f ../.env ]]; then
-  echo "Loading environment variables from .env file"
-  set -a && source "${DIR}/../.env" && set +a
-else
-  echo ".env file not found, skipping"
-fi
+dir=$PWD; while [[ $dir != / && ! -f $dir/.env ]]; do dir=${dir%/*}; done; [[ -f $dir/.env ]] && { echo "Loading $dir/.env"; set -a; . "$dir/.env"; set +a; } || echo "No .env found, skipping"
 
 # ------------------------------------------------------------------------------
 # Ensure model is already present on disk (download only when using real weights)
@@ -195,9 +205,10 @@ JAX_GPU_ARRAY=("${CUDA_VISIBLE_DEVICES_ARRAY[@]:N_GPUS_VLLM:N_GPUS}")
 # ------------------------------------------------------------------------------
 # common environment
 # ------------------------------------------------------------------------------
+export HF_TOKEN
+export OUTPUT_DIR
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_DEVICE_MAX_CONNECTIONS=16
-export NCCL_CUMEM_ENABLE=0  # https://docs.vllm.ai/en/v0.9.1/usage/troubleshooting.html#known-issues
 export NCCL_BUFFSIZE=16777216
 export GATEWAY_PORT=50051
 export GATEWAY_URL="localhost:${GATEWAY_PORT}"
@@ -206,8 +217,12 @@ export MODEL_PATH
 export TRANSFER_MODE
 export USE_POLYMORPHIC_MESH
 export VLLM_ENFORCE_EAGER
+export VLLM_LOAD_FORMAT
 export VLLM_GPU_MEMORY_UTILIZATION
-export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
+export NSYS_PROFILE_NAME
+export JAX_PROFILE_NAME
+export XLA_FLAGS="${XLA_FLAGS:-}
+                  --xla_gpu_enable_latency_hiding_scheduler=true
                   --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL
                   --xla_gpu_collective_permute_combine_threshold_bytes=8589934592
                   --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592
@@ -225,32 +240,33 @@ fi
 
 PIDS=()
 
-mkdir -p "${OUTPUT_DIR}"
-
 # Setup profiling command if enabled
 if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
   NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
   TRAINER_PROF_CMD="nsys profile -s none -o "${NSYS_OUTPUT}" --force-overwrite true --capture-range=cudaProfilerApi --cuda-graph-trace=node --trace=cuda,nvtx --capture-range-end=stop"
   echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
+elif [[ -n "${JAX_PROFILE_NAME:-}" ]]; then
+  TRAINER_PROF_CMD=""
+  echo "JAX profiling enabled with name: ${JAX_PROFILE_NAME}"
 else
   TRAINER_PROF_CMD=""
-  echo "Nsys profiling not enabled. To enable, use --nsys-profile-name=PROFILE_NAME"
+  echo "Profiling not enabled. To enable, use --nsys-profile-name=NAME or --jax-profile-name=NAME"
 fi
 
 echo "Logs will be saved to: ${OUTPUT_DIR}"
 
 # todo: python -m jax_inference_offloading.controller_server ...
 CUDA_VISIBLE_DEVICES= \
-python "${DIR}/../jax_inference_offloading/controller/gateway.py" 2>&1 | tee ${OUTPUT_DIR}/gateway.log &
+python -u "${DIR}/../jax_inference_offloading/controller/gateway.py" 2>&1 | tee ${OUTPUT_DIR}/gateway.log &
 PIDS+=($!)
 
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${VLLM_GPU_ARRAY[*]}") \
 MODEL_NAME=${MODEL_PATH:-$MODEL_NAME} \
-python "${DIR}/rollout.py" 2>&1 | tee ${OUTPUT_DIR}/rollout.log &
+python -u "${DIR}/rollout.py" 2>&1 | tee ${OUTPUT_DIR}/rollout.log &
 PIDS+=($!)
 
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${JAX_GPU_ARRAY[*]}") \
-${TRAINER_PROF_CMD} python "${DIR}/trainer.py" 2>&1 | tee ${OUTPUT_DIR}/trainer.log &
+${TRAINER_PROF_CMD} python -u "${DIR}/trainer.py" 2>&1 | tee ${OUTPUT_DIR}/trainer.log &
 PIDS+=($!)
 
 wait "${PIDS[@]}"

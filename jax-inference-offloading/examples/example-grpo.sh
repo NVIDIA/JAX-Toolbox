@@ -32,6 +32,7 @@ MODEL_PATH=""
 RUN_MODE="timing"              # debug | timing | production
 ROLLOUT_ENGINE="vllm_gpu"      # vllm_gpu | vanilla
 SCRATCHDIR="/content"
+TRANSFER_MODE=""
 
 # vLLM runtime
 VLLM_ENFORCE_EAGER="0"
@@ -81,6 +82,10 @@ while [[ $# -gt 0 ]]; do
       SCRATCHDIR="${1#*=}"
       shift
       ;;
+    --transfer-mode=*)
+      TRANSFER_MODE="${1#*=}"
+      shift
+      ;;
     # vLLM runtime
     --vllm-enforce-eager)
       VLLM_ENFORCE_EAGER="1"
@@ -125,6 +130,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --run-mode=MODE            Trainer run mode: debug | timing | production."
       echo "  --rollout-engine=ENGINE    Rollout engine: vllm_gpu | vanilla."
       echo "  --scratchdir=DIR           Scratch directory for checkpoints/logs."
+      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/stacked/stacked_graph/fused/unfused)."
       echo ""
       echo "  --vllm-enforce-eager       Force vLLM eager mode (sets VLLM_ENFORCE_EAGER=1)."
       echo "  --no-vllm-enforce-eager    Disable vLLM eager mode (sets VLLM_ENFORCE_EAGER=0)."
@@ -203,7 +209,6 @@ JAX_GPU_ARRAY=("${CUDA_VISIBLE_DEVICES_ARRAY[@]:N_GPUS_VLLM:N_GPUS}")
 # ------------------------------------------------------------------------------
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_DEVICE_MAX_CONNECTIONS=16
-export NCCL_CUMEM_ENABLE=0  # https://docs.vllm.ai/en/v0.9.1/usage/troubleshooting.html#known-issues
 export NCCL_BUFFSIZE=16777216
 export GATEWAY_PORT
 export GATEWAY_URL="localhost:${GATEWAY_PORT}"
@@ -222,6 +227,9 @@ export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
                   --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592
                   --xla_gpu_all_gather_combine_threshold_bytes=8589934592
                   --xla_gpu_all_reduce_combine_threshold_bytes=8589934592"
+if [[ -n "${TRANSFER_MODE:-}" ]]; then
+  export TRANSFER_MODE
+fi
 
 if [ "$DEBUG" == "true" ]; then
     set -x
