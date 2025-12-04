@@ -1,7 +1,7 @@
 apiVersion: jobset.x-k8s.io/v1alpha2
 kind: JobSet
 metadata:
-  name: jax-vllm-multinode
+  name: jax-vllm-singlenode
   namespace: default
 spec:
   network:
@@ -30,7 +30,7 @@ spec:
                 effect: NoSchedule
             containers:
             - name: gateway-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:patched
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
               command:
               - bash
               - -c
@@ -83,25 +83,15 @@ spec:
           metadata:
             labels:
               node-role: vllm
+              app: jax-vllm
           spec:
             serviceAccountName: jax-worker
             hostNetwork: true
             dnsPolicy: ClusterFirstWithHostNet
 
-            affinity:
-              podAntiAffinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                - labelSelector:
-                    matchExpressions:
-                    - key: node-role
-                      operator: In
-                      values:
-                      - jax
-                  topologyKey: kubernetes.io/hostname
-
             containers:
             - name: vllm-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:patched
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
               command:
               - bash
               - -c
@@ -176,10 +166,10 @@ spec:
                   --port=${RAY_PORT} \
                   --ray-client-server-port=${RAY_CLIENT_SERVER_PORT} \
                   --num-cpus=48 \
-                  --num-gpus=8 \
+                  --num-gpus=4 \
                   --block \
                   --disable-usage-stats 2>&1 | tee ray-head.log &
-                PIDS+=($!)
+                RAY_PID=$!
 
                 sleep 10  # Give time to Ray to settle
 
@@ -189,12 +179,15 @@ spec:
                 export RAY_ADDRESS="${HOST_IP}:${RAY_PORT}"
                 CUDA_VISIBLE_DEVICES="" ray status
                 python -u rollout.py 2>&1 | tee rollout.log &
-                PIDS+=($!)
+                ROLLOUT_PID=$!
 
-                # TODO: modify and check only the latest PID
-                echo "All vLLM components started, waiting..."
-                wait "${PIDS[@]}"
-                echo "vLLM node completed"
+                wait ${ROLLOUT_PID}
+                ROLLOUT_EXIT=$?
+                echo "Rollout.py finished with code ${ROLLOUT_EXIT}"
+                ray stop --force || truekill ${RAY_PID}
+                kill ${RAY_PID} 2>/dev/null || true
+                echo "VLLM completed"
+                exit ${ROLLOUT_EXIT}
               env:
               - name: MY_HOST_IP
                 valueFrom:
@@ -222,18 +215,13 @@ spec:
               # EFA
               - name: FI_PROVIDER
                 value: "efa"  # Force EFA provider
-              # - name: FI_EFA_USE_DEVICE_RDMA
-              #   value: "1"
-              - name: LD_LIBRARY_PATH
-                value: "/usr/lib/x64_64-linux-gnu:/usr/local/cuda-13/compat/lib.real:/opt/amazon/efa/lib:/opt/amazon/aws-ofi-nccl/lib:$LD_LIBRARY_PATH"
-              # # General VLLM
               - name: TORCH_CUDA_ARCH_LIST
                 value: "9.0"
               # Gateway
               - name: GATEWAY_PORT
                 value: "50051"
               - name: GATEWAY_URL
-                value: "jax-vllm-multinode-gateway-0-0.jax-vllm-multinode:50051"
+                value: "jax-vllm-singlenode-gateway-0-0.jax-vllm-singlenode:50051"
               # Ray settings
               - name: RAY_PORT
                 value: "20527"
@@ -245,28 +233,26 @@ spec:
               - name: CUDA_DEVICE_MAX_CONNECTIONS
                 value: "16"
               - name: CUDA_VISIBLE_DEVICES
-                value: "0,1,2,3,4,5,6,7"
+                value: "0,1,2,3"
               # vLLM settings
               - name: VLLM_ENFORCE_EAGER
                 value: "1"
               - name: VLLM_LOAD_FORMAT
                 value: "dummy"
               - name: VLLM_GPU_MEMORY_UTILIZATION
-                value: "0.4"
+                value: "0.5"
               - name: VLLM_TENSOR_PARALLEL_SIZE
-                value: "8"  # All 8 GPUs on this node
+                value: "4"
               - name: VLLM_DISTRIBUTED_BACKEND
-                value: "ray"  # Use Ray for multi-GPU
-              - name: VLLM_ATTENTION_BACKEND
-                value: "TRITON_MLA"
+                value: "mp"  # ray Use Ray for multi-GPU
+              # - name: VLLM_ATTENTION_BACKEND
+              #   value: ""
               - name: NCCL_CUMEM_ENABLE
                 value: "0"
               - name: NCCL_BUFFSIZE
                 value: "16777216"
-              - name: NCCL_DEBUG
-                value: "INFO"
-              # - name: NCCL_DEBUG_SUBSYS
-              #   value: "ALL"
+              - name: NCCL_SOCKET_IFNAME
+                value: "enp71s0"
               - name: VLLM_WORKER_MULTIPROC_METHOD
                 value: "spawn"
               - name: RAY_BACKEND_LOG_LEVEL
@@ -279,7 +265,7 @@ spec:
                 value: "0"
               # JAX
               - name: JAX_COORDINATOR_HOST
-                value: "jax-vllm-multinode-jax-node-0-0"  # JobSet DNS name for JAX node 0
+                value: "jax-vllm-singlenode-jax-node-0-0"  # JobSet DNS name for JAX node 0
               - name: JAX_COORDINATOR_PORT
                 value: "12345"
 
@@ -302,11 +288,11 @@ spec:
 
               resources:
                 limits:
-                  nvidia.com/gpu: "8"
-                  vpc.amazonaws.com/efa: "32"
+                  nvidia.com/gpu: "4"
+                  vpc.amazonaws.com/efa: "16"
                 requests:
-                  nvidia.com/gpu: "8"
-                  vpc.amazonaws.com/efa: "32"
+                  nvidia.com/gpu: "4"
+                  vpc.amazonaws.com/efa: "16"
 
               securityContext:
                 capabilities:
@@ -347,13 +333,14 @@ spec:
           metadata:
             labels:
               node-role: jax
+              app: jax-vllm
           spec:
             serviceAccountName: jax-worker
             hostNetwork: true
             dnsPolicy: ClusterFirstWithHostNet
 
             affinity:
-              podAntiAffinity:
+              podAffinity:
                 requiredDuringSchedulingIgnoredDuringExecution:
                 - labelSelector:
                     matchExpressions:
@@ -365,7 +352,7 @@ spec:
 
             containers:
             - name: jax-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:patched
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
               command:
               - bash
               - -c
@@ -460,7 +447,7 @@ spec:
                   fieldRef:
                     fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
               - name: JAX_LOCAL_DEVICE_IDS
-                value: "0,1,2,3,4,5,6,7"
+                value: "4,5,6,7"
 
               # CUDA settings
               - name: CUDA_DEVICE_ORDER
@@ -468,7 +455,7 @@ spec:
               - name: CUDA_DEVICE_MAX_CONNECTIONS
                 value: "16"
               - name: CUDA_VISIBLE_DEVICES
-                value: "0,1,2,3,4,5,6,7"
+                value: "4,5,6,7"
 
               - name: NCCL_CUMEM_ENABLE
                 value: "0"
@@ -499,17 +486,11 @@ spec:
               # EFA
               - name: FI_PROVIDER
                 value: "efa"  # Force EFA provider
-              # - name: FI_EFA_USE_DEVICE_RDMA
-              #   value: "1"
-              - name: LD_LIBRARY_PATH
-                value: "/usr/lib/x64_64-linux-gnu:/usr/local/cuda-13/compat/lib.real:/opt/amazon/efa/lib:/opt/amazon/aws-ofi-nccl/lib:$LD_LIBRARY_PATH"
-              # # GATEWAY
+              # GATEWAY
               - name: GATEWAY_URL
-                value: "jax-vllm-multinode-gateway-0-0.jax-vllm-multinode:50051"
-              - name: NCCL_DEBUG
-                value: "INFO"
-              # - name: NCCL_DEBUG_SUBSYS
-              #   value: "ALL"
+                value: "jax-vllm-singlenode-gateway-0-0.jax-vllm-singlenode:50051"
+              - name: NCCL_SOCKET_IFNAME
+                value: "enp71s0"
 
               ports:
               - containerPort: 12345
@@ -519,12 +500,12 @@ spec:
 
               resources:
                 limits:
-                  nvidia.com/gpu: "8"
-                  vpc.amazonaws.com/efa: "32"
+                  nvidia.com/gpu: "4"
+                  vpc.amazonaws.com/efa: "16"
 
                 requests:
-                  nvidia.com/gpu: "8"
-                  vpc.amazonaws.com/efa: "32"
+                  nvidia.com/gpu: "4"
+                  vpc.amazonaws.com/efa: "16"
 
 
               securityContext:
