@@ -157,8 +157,8 @@ while [[ $# -gt 0 ]]; do
       ;;
 
     # Trainer runtime
-    --transfer-mode=*)
-      TRANSFER_MODE="${1#*=}"
+    --use-polymorphic-mesh)
+      USE_POLYMORPHIC_MESH="1"
       ;;
 
     # Device assignment
@@ -256,7 +256,7 @@ fi
 
 # If a dataset directory is provided, ensure it exists and mount it
 if [[ -z "${DATASET_DIR}" ]]; then
-  DATASET_DIR=$(mktemp $PWD -d)
+  DATASET_DIR=$(mktemp -p "$PWD" -d)
   MOUNTS="${MOUNTS},${DATASET_DIR}:${DATASET_DIR}"
 fi
 
