@@ -148,6 +148,14 @@ class TrainerClient(ClientBase):
       ctrl.StartWeightUpdateRequest(mode=mode)
     )
 
+  @on_spmd_leader(broadcast_result=False)
+  def start_cuda_profiler(self):
+    self._controller_stub.StartCUDAProfiler(ctrl.StartCUDAProfilerRequest())
+
+  @on_spmd_leader(broadcast_result=False)
+  def stop_cuda_profiler(self):
+    self._controller_stub.StopCUDAProfiler(ctrl.StopCUDAProfilerRequest())
+
   def inference(self, prompts, config=None):
     """Prompts can be one of:
     - str: a single text prompt
