@@ -28,7 +28,7 @@ message VllmParam {
   }
 
   optional TpSharding tp_sharding = 3;
-  optional string dtype = 4;
+  optional string dtype = 4 [default = 'bfloat16'];
 }
 
 message TensorSlice {
