@@ -27,6 +27,9 @@ runs:
           INPUT_JOBSET_CONFIG_FILE=${{ inputs.jobset-config-file }}
 
           echo "Submit K8s JobSet"
+          kubectl auth whoami -o yaml
+          kubectl auth can-i create jobsets
+          kubectl auth can-i get jobsets
           kubectl apply -f "${INPUT_JOBSET_CONFIG_FILE}"
 
           # Wait for JobSet to be created
