@@ -14,9 +14,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import re
 import time
+import numpy as np
 from collections import defaultdict, deque
 from contextlib import contextmanager
+from typing import Callable
 
 
 class Timer:
@@ -39,7 +42,6 @@ class Timer:
     parse            : 0.3017 s
       json           : 0.3017 s
   train              : 2.8344 s
-
   """
 
   def __init__(self) -> None:
@@ -112,6 +114,38 @@ class Timer:
       segment = full_name.split(".")[-1]
       indent = "  " * depth
       print(f"{indent + segment:<{col_width_name}}{col_sep}{t:{col_width_time}.{precision}f}")
+
+  def node_stat(
+      self,
+      pattern: str,
+      stats: str | Callable[[list[float]], float] | list[str | Callable[[list[float]], float]] = 'mean'
+  ) -> float | tuple[float, ...] | None:
+    matcher = re.compile(pattern)
+    vals = [t for name, t in self._times.items() if matcher.fullmatch(name)]
+    if not vals:
+      return None
+
+    def get_op(name):
+      try:
+        return getattr(np, name)
+      except AttributeError:
+        raise ValueError(f"Unsupported statistic function name: {name}")    
+
+    if isinstance(stats, (list, tuple)):
+      return {s: get_op(s)(vals) for s in stats}
+    else:
+      return {stats: get_op(stats)(vals)}
+
+  def ci_metric(
+      self,
+      tag,
+      stats: dict[str, float],
+      unit: str = 's',
+      sep: str = '|',
+  ):
+    return sep.join(
+        [tag] + [f'{k}={v:.6f}' for k, v in stats.items()] + [f'unit={unit}']
+    )
 
   def reset(self) -> None:
     """Clear all recorded data."""
