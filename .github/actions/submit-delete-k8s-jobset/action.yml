@@ -1,0 +1,148 @@
+name: Submit & Delete K8s JobSet
+description: Submit and delete a K8s JobSet, monitoring until one pod terminates
+
+inputs:
+  jobset-name:
+    description: The JobSet name
+    required: true
+  jobset-config-file:
+    description: Path to the Kubernetes JobSet YAML
+    required: true
+  stream-logs:
+    description: Whether to stream logs from all pods (true/false)
+    required: false
+    default: 'true'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Submit and Delete Kubernetes JobSet
+      uses: ./.github/actions/with-post-step
+      with:
+        main: |
+          set -x
+          TIMEOUT_JOBSET_CREATION=60s
+          TIMEOUT_POD_START=600s
+          INPUT_JOBSET_NAME=${{ inputs.jobset-name }}
+          INPUT_JOBSET_CONFIG_FILE=${{ inputs.jobset-config-file }}
+
+          echo "Submit K8s JobSet"
+          kubectl apply -f "${INPUT_JOBSET_CONFIG_FILE}"
+
+          # Wait for JobSet to be created
+          kubectl wait --for=create jobset/${INPUT_JOBSET_NAME} --timeout=$TIMEOUT_JOBSET_CREATION
+
+          echo "Waiting for pods to be created..."
+          sleep 5
+
+          # Wait for at least one pod to be ready
+          echo "Waiting for pods to start..."
+          kubectl wait --for=condition=Ready \
+            --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
+            --timeout=$TIMEOUT_POD_START pod || true
+
+          # Get all pod names associated with this JobSet
+          pods=$(kubectl get pods --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} -o name)
+
+          if [ -z "${pods}" ]; then
+            echo "No pods found for JobSet ${INPUT_JOBSET_NAME}"
+            exit 1
+          fi
+
+          echo "Found pods:"
+          echo "${pods}"
+
+          # Stream logs in background
+          echo "Starting log streaming..."
+          kubectl logs \
+              --all-containers=true \
+              --prefix=true \
+              --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
+              --follow &
+          LOG_PID=$!
+
+          # Monitor pods until one terminates
+          echo "Monitoring pods for termination..."
+          while true; do
+            # Get all pods with their status
+            pod_list=$(kubectl get pods \
+              --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
+              -o json)
+
+            # Check each pod's container statuses
+            terminated_pod=$(echo "${pod_list}" | jq -r '
+              .items[] |
+              select(
+                .status.containerStatuses // [] |
+                any(.state.terminated)
+              ) |
+              .metadata.name
+            ' | head -n 1)
+
+            if [ -n "${terminated_pod}" ]; then
+              echo "Pod ${terminated_pod} has terminated"
+
+              # Stop log streaming if it was started
+              if [ "${STREAM_LOGS}" = "true" ] && [ -n "${LOG_PID}" ]; then
+                kill ${LOG_PID} 2>/dev/null || true
+              fi
+
+              # Get the exit code of the terminated container
+              exit_code=$(echo "${pod_list}" | jq -r "
+                .items[] |
+                select(.metadata.name == \"${terminated_pod}\") |
+                .status.containerStatuses[0].state.terminated.exitCode
+              ")
+
+              echo "Terminated pod exit code: ${exit_code}"
+
+              # Show pod details
+              kubectl describe pod/${terminated_pod}
+
+              if [ "${exit_code}" -ne 0 ]; then
+                echo "Pod terminated with non-zero exit code"
+                # Show logs of failed pod
+                echo "Logs from terminated pod:"
+                kubectl logs ${terminated_pod} --all-containers=true || true
+                exit 1
+              fi
+
+              echo "Pod terminated successfully"
+              break
+            fi
+
+            # Check for pod failures
+            failed_pods=$(echo "${pod_list}" | jq -r '
+              .items[] |
+              select(.status.phase == "Failed") |
+              .metadata.name
+            ')
+
+            if [ -n "${failed_pods}" ]; then
+              echo "Found failed pods:"
+              echo "${failed_pods}"
+
+              # Stop log streaming
+              if [ "${STREAM_LOGS}" = "true" ] && [ -n "${LOG_PID}" ]; then
+                kill ${LOG_PID} 2>/dev/null || true
+              fi
+
+              # Show details of failed pods
+              for pod in ${failed_pods}; do
+                echo "Details for failed pod ${pod}:"
+                kubectl describe pod/${pod}
+                echo "Logs from failed pod:"
+                kubectl logs ${pod} --all-containers=true || true
+              done
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+        post: |
+          echo "Deleting K8s JobSet: ${{ inputs.jobset-name }}"
+          kubectl delete -f "${{ inputs.jobset-config-file }}" || true
+
+          # Ensure all related resources are cleaned up
+          kubectl delete pods --selector=jobset.sigs.k8s.io/jobset-name=${{ inputs.jobset-name }} --force --grace-period=0 || true

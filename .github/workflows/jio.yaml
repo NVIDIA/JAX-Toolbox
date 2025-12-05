@@ -141,10 +141,10 @@ jobs:
         git diff .github/eks-workflow-files/jio-eks/jio-template.yaml
 
     - name: Apply jax-vllm offloading job to EKS cluster
-      uses: ./.github/actions/submit-delete-k8s-job
+      uses: ./.github/actions/submit-delete-k8s-jobset
       with:
-        job-config-file:  ".github/eks-workflow-files/jio-eks/jio-template.yaml"
-        job-name: ${{ env.JOB_NAME }}
+        jobset-config-file:  ".github/eks-workflow-files/jio-eks/jio-template.yaml"
+        jobset-name: ${{ env.JOB_NAME }}
 
   collect-docker-tags:
     runs-on: ubuntu-22.04
