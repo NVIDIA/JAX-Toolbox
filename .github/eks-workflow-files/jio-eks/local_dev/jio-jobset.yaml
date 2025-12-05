@@ -277,14 +277,6 @@ spec:
                   nvidia.com/gpu: "8"
                   vpc.amazonaws.com/efa: "32"
 
-              # securityContext:
-              #   capabilities:
-              #     add:
-              #     - IPC_LOCK
-              #     - SYS_PTRACE
-              #     - NET_ADMIN
-              #   privileged: true
-
               volumeMounts:
               - name: shmem
                 mountPath: /dev/shm
@@ -471,15 +463,6 @@ spec:
                 requests:
                   nvidia.com/gpu: "8"
                   vpc.amazonaws.com/efa: "32"
-
-
-              # securityContext:
-              #   capabilities:
-              #     add:
-              #     - IPC_LOCK
-              #     - SYS_PTRACE
-              #     - NET_ADMIN
-              #   privileged: true
 
               volumeMounts:
               - name: dshm
