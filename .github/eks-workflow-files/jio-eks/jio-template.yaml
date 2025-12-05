@@ -1,7 +1,7 @@
 apiVersion: jobset.x-k8s.io/v1alpha2
 kind: JobSet
 metadata:
-  name: PLACEHOLDER # here we need JOB_NAME
+  name: PLACEHOLDER
   namespace: default
 spec:
   network:
@@ -30,7 +30,7 @@ spec:
                 effect: NoSchedule
             containers:
             - name: gateway-container
-              image: PLACEHOLDER # HERE WE NEED JAX_VLLM_OFFLOADING_IMAGE
+              image: PLACEHOLDER
               command:
               - bash
               - -c
@@ -38,7 +38,7 @@ spec:
                 set -euo pipefail
 
                 echo "=== Starting Gateway ==="
-                echo "Gateway will listen on 0.0.0.0:50051"
+                echo "Gateway will listen on 0.0.0.0:${GATEWAY_PORT}"
 
                 cd /opt/jtbx/jax-inference-offloading
                 python -u jax_inference_offloading/controller/gateway.py 2>&1 | tee gateway.log
@@ -54,11 +54,11 @@ spec:
 
               resources:
                 requests:
-                  cpu: "8"
-                  memory: "16Gi"
+                  cpu: "2"
+                  memory: "8Gi"
                 limits:
-                  cpu: "8"
-                  memory: "16Gi"
+                  cpu: "2"
+                  memory: "8Gi"
 
               volumeMounts:
               - name: shmem
@@ -101,30 +101,23 @@ spec:
 
             containers:
             - name: vllm-container
-              image: PLACEHOLDER # here we need JAX_VLLM_OFFLOADING_IMAGE
+              image: PLACEHOLDER
               command:
               - bash
               - -c
               - |
                 set -euo pipefail
 
-                GATEWAY_HOST="${JOBSET_NAME}-gateway-0-0.${JOBSET_NAME}"
-                export GATEWAY_URL="${GATEWAY_HOST}:50051"
-                HOST_IP=$(hostname -i) #-I | awk '{print $1}')
-                export RAY_HEAD_IP=${HOST_IP}
-                export JAX_COORDINATOR_ADDRESS="${JAX_COORDINATOR_HOST}:${JAX_COORDINATOR_PORT}"
-                echo "JAX Coordinator Address: ${JAX_COORDINATOR_ADDRESS}"
-
-                echo "=== Starting on vLLM Node (Node ${JOB_COMPLETION_INDEX}) ==="
-                echo "Gateway URL: ${GATEWAY_URL}"
-                echo "Ray Head IP: ${RAY_HEAD_IP}"
+                export GATEWAY_HOST="${JOBSET_NAME}-gateway-0-0.${JOBSET_NAME}"
+                export GATEWAY_URL="${GATEWAY_HOST}:${GATEWAY_PORT}"
+                HOST_IP=$(hostname -i)
 
                 # Check for Gateway readiness
-                echo "Waiting for gateway at ${GATEWAY_HOST}:50051..."
+                echo "Waiting for gateway at ${GATEWAY_HOST}:${GATEWAY_PORT}..."
                 python3 -c "
                 import socket, time, sys
                 host = '${GATEWAY_HOST}'
-                port = 50051
+                port = '${GATEWAY_PORT}'
                 timeout = 120
                 start = time.time()
 
@@ -145,9 +138,7 @@ spec:
                     time.sleep(2)
                 " || exit 1
 
-                PIDS=()
-                echo "Test gateway connection"
-                # COnnect to gateway
+                # Connection to gateway
                 python3 -c "
                 import os
                 import sys
@@ -168,6 +159,7 @@ spec:
                     print(f'Failed to connect to gateway: {e}')
                     sys.exit(1)
                 "
+
                 # Start Ray Head
                 echo "Starting Ray Head..."
                 ray start \
@@ -199,27 +191,20 @@ spec:
                 echo "VLLM completed"
                 exit ${ROLLOUT_EXIT}
               env:
-              - name: MY_HOST_IP
-                valueFrom:
-                  fieldRef:
-                    fieldPath: status.hostIP
-              - name: JOB_COMPLETION_INDEX
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+              # Build url for gateway via jobset_name
               - name: JOBSET_NAME
                 valueFrom:
                   fieldRef:
                     fieldPath: metadata.annotations['jobset.sigs.k8s.io/jobset-name']
-
               # General config
               - name: HF_TOKEN
                 valueFrom:
                   secretKeyRef:
                     name: huggingface-token
                     key: token
+              # model info
               - name: MODEL_NAME
-                value: PLACEHOLDER # here we need MODEL
+                value: PLACEHOLDER
               - name: MODEL_PATH
                 value: ""
               # EFA
@@ -256,8 +241,6 @@ spec:
                 value: "8"
               - name: VLLM_DISTRIBUTED_BACKEND
                 value: "ray"
-              - name: NCCL_CUMEM_ENABLE
-                value: "0"
               - name: NCCL_BUFFSIZE
                 value: "16777216"
               # TODO for the moment keep this fixed
@@ -267,17 +250,6 @@ spec:
                 value: "spawn"
               - name: RAY_BACKEND_LOG_LEVEL
                 value: "info"
-              # Trainer settings
-              - name: TRANSFER_MODE
-                value: "grouped"
-              - name: USE_POLYMORPHIC_MESH
-                value: "0"
-              # JAX
-              - name: JAX_COORDINATOR_HOST
-                value: "jax-vllm-multinode-jax-node-0-0"  # JobSet DNS name for JAX node 0
-              - name: JAX_COORDINATOR_PORT
-                value: "12345"
-
               # Debug
               - name: TF_CPP_MIN_LOG_LEVEL
                 value: "2"
@@ -297,9 +269,6 @@ spec:
 
               resources:
                 limits:
-                  nvidia.com/gpu: "8"
-                  vpc.amazonaws.com/efa: "32"
-                requests:
                   nvidia.com/gpu: "8"
                   vpc.amazonaws.com/efa: "32"
 
@@ -360,7 +329,7 @@ spec:
 
             containers:
             - name: jax-container
-              image: PLACEHOLDER # here we need JAX_VLLM_OFFLOADING_IMAGE
+              image: PLACEHOLDER
               command:
               - bash
               - -c
@@ -374,19 +343,12 @@ spec:
                 export JAX_COORDINATOR_ADDRESS="${HOST_IP}:12345"
                 export JAX_COORDINATOR_PORT="12345"
 
-                echo "=== Starting on JAX Node (Node ${JOB_COMPLETION_INDEX}) ==="
-                echo "Host IP: ${HOST_IP}"
-                echo "Gateway URL: ${GATEWAY_URL}"
-                echo "JAX Coordinator: ${JAX_COORDINATOR_ADDRESS}"
-                echo "JAX Process Index: ${JAX_PROCESS_INDEX}"
-                echo "JAX Process Count: ${JAX_NUM_PROCESSES}"
-
                 # Wait for gateway
-                echo "Waiting for gateway at ${GATEWAY_HOST}:50051..."
+                echo "Waiting for gateway at ${GATEWAY_HOST}:${GATEWAY_PORT}..."
                 python3 -c "
                 import socket, time, sys
                 host = '${GATEWAY_HOST}'
-                port = 50051
+                port = '${GATEWAY_PORT}'
                 timeout = 180
                 start = time.time()
 
@@ -424,7 +386,7 @@ spec:
                 echo "JAX trainer completed"
 
               env:
-              # JobSet metadata
+              # JobSet metadata CHECK IF THIS IS ALREADY APPLIED
               - name: JOB_COMPLETION_INDEX
                 valueFrom:
                   fieldRef:
@@ -440,8 +402,9 @@ spec:
                   secretKeyRef:
                     name: huggingface-token
                     key: token
+              # Model
               - name: MODEL_NAME
-                value: PLACEHOLDER # here we need MODEL
+                value: PLACEHOLDER
               - name: MODEL_PATH
                 value: ""
 
@@ -464,13 +427,6 @@ spec:
                 value: "16"
               - name: CUDA_VISIBLE_DEVICES
                 value: "0,1,2,3,4,5,6,7"
-
-              - name: NCCL_CUMEM_ENABLE
-                value: "0"
-              - name: NCCL_BUFFSIZE
-                value: "16777216"
-              - name: TORCH_CUDA_ARCH_LIST
-                value: "9.0"
 
               # XLA flags
               - name: XLA_FLAGS
