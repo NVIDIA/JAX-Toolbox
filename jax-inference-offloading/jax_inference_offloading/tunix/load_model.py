@@ -19,9 +19,8 @@ from dataclasses import asdict, replace
 
 import jax
 
-from tunix.models.dummy_model_creator import create_dummy_model
-
 from jax_inference_offloading.sharding import PolymorphicMesh
+from tunix.models.dummy_model_creator import create_dummy_model
 
 
 def load_model(name, mesh: jax.sharding.Mesh = None, checkpoint_path: str = None, dtype: jax.dtypes = None, random_seed: int = 42):
@@ -48,7 +47,7 @@ def load_model(name, mesh: jax.sharding.Mesh = None, checkpoint_path: str = None
         shd_config=replace(
           config.shd_config,
           **{
-            cls: tuple(map(mesh.rename_axis, sharding_specs))
+            cls: tuple(map(mesh.axis, sharding_specs))
             for cls, sharding_specs in asdict(config.shd_config).items()
           }
         )
@@ -87,7 +86,7 @@ def load_model(name, mesh: jax.sharding.Mesh = None, checkpoint_path: str = None
         shd_config=replace(
           config.shd_config,
           **{
-            cls: tuple(map(mesh.rename_axis, sharding_specs))
+            cls: tuple(map(mesh.axis, sharding_specs))
             for cls, sharding_specs in asdict(config.shd_config).items()
           }
         )
