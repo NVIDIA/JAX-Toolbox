@@ -93,19 +93,10 @@ index 369926e..536af6c 100644
          # pylint: disable-next=redefined-outer-name
          async def _run_serializer():
 diff --git a/axlearn/common/flash_attention/gpu_attention.py b/axlearn/common/flash_attention/gpu_attention.py
-index 689dc65..df11dfe 100644
+index 9026f3a..1d47a26 100644
 --- a/axlearn/common/flash_attention/gpu_attention.py
 +++ b/axlearn/common/flash_attention/gpu_attention.py
-@@ -38,13 +38,14 @@ import jax.numpy as jnp
- import numpy as np
- from absl import logging
- from jax import lax
--from jax._src.cudnn.fused_attention_stablehlo import MaskType
-+from jax._src.cudnn.fused_attention_stablehlo import (
-+    MaskType,
-+)
- from jax._src.cudnn.fused_attention_stablehlo import (
-     dot_product_attention as cudnn_dot_product_attention,
+@@ -44,7 +44,6 @@ from jax._src.cudnn.fused_attention_stablehlo import (
  )
  from jax.ad_checkpoint import checkpoint_name
  from jax.experimental import pallas as pl
@@ -113,7 +104,7 @@ index 689dc65..df11dfe 100644
 
  from axlearn.common.attention_bias import (
      NEG_INF,
-@@ -69,7 +70,14 @@ from axlearn.common.flash_attention.remat import FLASH_ATTN_RESIDUAL_NAME
+@@ -69,7 +68,14 @@ from axlearn.common.flash_attention.remat import FLASH_ATTN_RESIDUAL_NAME
  from axlearn.common.kv_cache.base_kv_cache import BaseKVCache
  from axlearn.common.kv_cache.kv_cache import KVCache
  from axlearn.common.layers import get_dropout_mask
@@ -130,7 +121,7 @@ index 689dc65..df11dfe 100644
 
  def _segment_mask(
 diff --git a/axlearn/common/flash_attention/gpu_decoding.py b/axlearn/common/flash_attention/gpu_decoding.py
-index c56ec08..c3dca5d 100644
+index a29bdcc..1b5b07b 100644
 --- a/axlearn/common/flash_attention/gpu_decoding.py
 +++ b/axlearn/common/flash_attention/gpu_decoding.py
 @@ -49,7 +49,6 @@ from absl import logging
@@ -210,7 +201,7 @@ index cbddb27..5358d90 100644
 
  def _scatter_pages_kernel(
 diff --git a/axlearn/common/optimizers.py b/axlearn/common/optimizers.py
-index 2fa4baa..a0a821d 100644
+index 54e4f0b..c5c1b7b 100644
 --- a/axlearn/common/optimizers.py
 +++ b/axlearn/common/optimizers.py
 @@ -37,7 +37,6 @@ import optax
@@ -238,19 +229,6 @@ index 2fa4baa..a0a821d 100644
      tree_paths,
      vectorized_tree_map,
  )
-@@ -2033,9 +2035,9 @@ def adastar_optimizer(
-                 params, per_param_scale=weight_decay_per_param_scale
-             )
-             updates2 = jax.tree.map(
--                lambda u, p, wds: None
--                if u is None
--                else _update2(u, param=p, weight_decay_scale=wds),
-+                lambda u, p, wds: (
-+                    None if u is None else _update2(u, param=p, weight_decay_scale=wds)
-+                ),
-                 updates,
-                 params,
-                 weight_decay_scales,
 @@ -2072,8 +2074,8 @@ def offload_optimizer(
      optimizer: ConfigOr[PartitionedGradientTransformation],
      *,
@@ -308,7 +286,7 @@ index 6fe4082..761ddee 100644
          self.assertLess(new_loss, loss)
 
 diff --git a/axlearn/common/utils.py b/axlearn/common/utils.py
-index 490fddf..d924664 100644
+index 16a5fe3..776340a 100644
 --- a/axlearn/common/utils.py
 +++ b/axlearn/common/utils.py
 @@ -54,6 +54,7 @@ from jax.ad_checkpoint import Offloadable, Recompute, Saveable
@@ -329,14 +307,13 @@ index 490fddf..d924664 100644
  # New code should use Nested[XX] instead of NestedXX.
  # Old definitions are provided for backwards compatibility.
  _NestedT = TypeVar("_NestedT")
-@@ -118,7 +122,24 @@ class HybridMeshShape:
+@@ -118,7 +122,23 @@ class HybridMeshShape:
  # "pinned_host" = Page locked memory on CPU, which can be address directly by accelerators by
  # direct memory access (DMA). For TPU, "pinned_host" memory layout follows TPU device tile
  # layout and usually cannot be zero-copy converted to a CPU-tensor.
 -MemoryKind = Literal["device", "pinned_host"]
-+
 +if _JAX_MEMORY_SPACE_SUPPORT:
-+    MemoryKind = [jax.memory.Space.Device, jax.memory.Space.Host]  # pylint: disable=invalid-name
++    MemoryKind = [jax.memory.Space.Device, jax.memory.Space.Host]
 +    DEVICE_MEMORY = jax.memory.Space.Device
 +    HOST_MEMORY = jax.memory.Space.Host
 +
@@ -355,46 +332,22 @@ index 490fddf..d924664 100644
 
 
  @dataclasses.dataclass
-@@ -155,8 +176,7 @@ register_validator(
-
-
- class RematPolicy(Protocol):
--    def __call__(self, prim: Primitive, *args: Any, **params: Any) -> Union[RematType, bool]:
--        ...
-+    def __call__(self, prim: Primitive, *args: Any, **params: Any) -> Union[RematType, bool]: ...
-
-
- def save_and_offload_only_these_names_regex(
-@@ -1974,8 +1994,8 @@ def raise_for_cycles(tree: Any):
-         raise ValueError(
-             "Circular reference in args, kwargs, or context.\n"
-             "Descendant refers to ancestor.\n"
--            f"Descendant KeyPath: {cycles['descendant']}.\n"
--            f"Ancestor KeyPath: {cycles['ancestor']}."
-+            f"Descendant KeyPath: {cycles["descendant"]}.\n"
-+            f"Ancestor KeyPath: {cycles["ancestor"]}."
-         )
-
-
 diff --git a/axlearn/experiments/text/gpt/c4_trainer.py b/axlearn/experiments/text/gpt/c4_trainer.py
-index ac373b1..b8e8b22 100644
+index b9103cb..b8e8b22 100644
 --- a/axlearn/experiments/text/gpt/c4_trainer.py
 +++ b/axlearn/experiments/text/gpt/c4_trainer.py
-@@ -49,11 +49,8 @@ from axlearn.common.config import (
+@@ -49,7 +49,7 @@ from axlearn.common.config import (
  from axlearn.common.input_lm import lm_text_preprocessor
  from axlearn.common.utils import get_data_dir
  from axlearn.experiments.text.common import DataMixtureComponent, vocab
--from axlearn.experiments.text.gpt import envy, fuji, gspmd  # pytype: disable=pyi-error
--from axlearn.experiments.text.gpt.common import (  # pytype: disable=pyi-error
--    mixture_train_input_source,
--    tfds_input,
--)
-+from axlearn.experiments.text.gpt import fuji, gspmd
-+from axlearn.experiments.text.gpt.common import mixture_train_input_source, tfds_input
+-from axlearn.experiments.text.gpt import envy, fuji, gspmd
++from axlearn.experiments.text.gpt import fuji, gspmd  # pytype: disable=pyi-error
+ from axlearn.experiments.text.gpt.common import (  # pytype: disable=pyi-error
+     mixture_train_input_source,
+     tfds_input,
  from axlearn.experiments.text.gpt.vocabulary_fuji_v3 import FujiV3Vocabulary
 
-
-@@ -112,5 +109,4 @@ def named_trainer_configs() -> dict[str, TrainerConfigFn]:
+@@ -109,5 +109,4 @@ def named_trainer_configs() -> dict[str, TrainerConfigFn]:
      config_map = {}
      config_map.update(fuji.trainer_configs(_train_input_source, _eval_input_sources))
      config_map.update(gspmd.trainer_configs(_train_input_source, _eval_input_sources))
