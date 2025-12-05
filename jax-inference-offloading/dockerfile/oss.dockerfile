@@ -18,7 +18,7 @@ ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04
 ARG URL_JIO=https://github.com/NVIDIA/JAX-Toolbox.git
 ARG REF_JIO=main
 ARG URL_TUNIX=https://github.com/google/tunix.git
-ARG REF_TUNIX=main
+ARG REF_TUNIX=v0.1.5
 ARG BASE_PATH_JIO=/opt/jtbx
 ARG SUB_PATH_JIO=jax-inference-offloading
 ARG SRC_PATH_TUNIX=/opt/tunix
@@ -91,11 +91,12 @@ FROM mealkit AS final
 # Finalize installation
 RUN <<"EOF" bash -ex -o pipefail
 export PIP_INDEX_URL=https://download.pytorch.org/whl/cu129
-export PIP_EXTRA_INDEX_URL=https://pypi.org/simple
+export PIP_EXTRA_INDEX_URL="https://flashinfer.ai/whl/cu129 https://pypi.org/simple"
 pushd /opt/pip-tools.d
 pip-compile -o requirements.txt $(ls requirements*.in) --constraint overrides.in
 # remove cuda wheels from install list since the container already has them
 sed -i 's/^nvidia-/# nvidia-/g' requirements.txt
+sed -i 's/# nvidia-nvshmem/nvidia-nvshmem/g' requirements.txt
 pip install --no-deps --src /opt -r requirements.txt
 # make pip happy about the missing torch dependencies
 pip-mark-installed nvidia-cublas-cu12 nvidia-cuda-cupti-cu12 \
