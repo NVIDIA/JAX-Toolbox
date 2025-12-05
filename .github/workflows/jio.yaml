@@ -50,13 +50,12 @@ jobs:
         run: |
           echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
-  build:
+  amd64:
     needs: metadata
-    strategy:
-      fail-fast: true
-      matrix:
-        ARCHITECTURE: [amd64, arm64]
-    runs-on: [self-hosted, "${{ matrix.ARCHITECTURE }}", "small"]
+    runs-on: [self-hosted, amd64, small]
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-container.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-container.outputs.DOCKER_TAG_FINAL }}
     steps:
         - name: Checkout repository
           uses: actions/checkout@v4
@@ -64,7 +63,7 @@ jobs:
           id: build-container
           uses: ./.github/actions/build-container
           with:
-            ARCHITECTURE: ${{ matrix.ARCHITECTURE }}
+            ARCHITECTURE: amd64
             ARTIFACT_NAME: artifact-jio-build
             BADGE_FILENAME: badge-jio-build
             BASE_IMAGE: nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04
@@ -78,6 +77,153 @@ jobs:
             EXTRA_BUILD_ARGS: |
               REF_JIO=${{ github.ref }}
 
+  arm64:
+    needs: metadata
+    runs-on: [self-hosted, arm64, small]
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-container.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-container.outputs.DOCKER_TAG_FINAL }}
+    steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+        - name: Build container
+          id: build-container
+          uses: ./.github/actions/build-container
+          with:
+            ARCHITECTURE: arm64
+            ARTIFACT_NAME: artifact-jio-build
+            BADGE_FILENAME: badge-jio-build
+            BASE_IMAGE: nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04
+            BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+            CONTAINER_NAME: jio
+            DOCKERFILE: jax-inference-offloading/dockerfile/oss.dockerfile
+            RUNNER_SIZE: small
+            ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+            ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+            github-token: ${{ secrets.GITHUB_TOKEN }}
+            EXTRA_BUILD_ARGS: |
+              REF_JIO=${{ github.ref }}
+
+  collect-docker-tags:
+    runs-on: ubuntu-22.04
+    if: ${{ !cancelled() }}
+    needs:
+      - amd64
+      - arm64
+    outputs:
+      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
+    steps:
+      - name: Save docker tags as a JSON object
+        id: collect-tags
+        run: |
+          TAGS=$(cat <<EOF | jq -c
+          [\
+            {"flavor": "jax-inference-offloading", "stage": "final",   "priority": 900, "tag": "${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "jax-inference-offloading-mealkit", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.amd64.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "jax-inference-offloading", "stage": "final",   "priority": 900, "tag": "${{ needs.arm64.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "jax-inference-offloading-mealkit", "stage": "mealkit", "priority": 500,  "tag": "${{ needs.arm64.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {}\
+          ]
+          EOF
+          )
+
+          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
+
+  make-publish-configs:
+    runs-on: ubuntu-22.04
+    if:  ${{ !cancelled() }}
+    env:
+      IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax' || 'mock-jax' }}
+    needs:
+      - metadata
+      - collect-docker-tags
+    outputs:
+      PUBLISH_CONFIGS: ${{ steps.generate-configs.outputs.PUBLISH_CONFIGS }}
+    steps:
+      - id: generate-configs
+        shell: bash -eu -o pipefail {0}
+        run: |
+          declare -a FLAVORS=(
+            jax-inference-offloading
+            jax-inference-offloading-mealkit
+          )
+
+          ## create JSON specs for a 1D matrix of container publication jobs
+
+          ALL_TAGS=$(
+            echo '${{ needs.collect-docker-tags.outputs.TAGS }}' | jq -s 'add'
+          )
+          PUBLISH_CONFIGS='[]'
+
+          for flavor in "${FLAVORS[@]}";do
+
+            # collect images for different platforms, e.g. amd64 and arm64
+            matching_tags=$(
+              echo "$ALL_TAGS" |\
+              jq -c ".[] | select(.flavor == \"${flavor}\" and .tag != \"\")"
+            )
+
+            # source_image is a list of all platform-specific tags
+            source_image=$(echo "${matching_tags}" | jq -c "[.tag]" | jq -s 'add')
+            # if the build job failed without producing any images, skip this flavor
+            n_source_images=$(echo "$source_image" | jq 'length')
+            if [[ $n_source_images -gt 0 ]]; then
+              # Determine stage from flavor name
+              if [[ "${flavor}" == *"-mealkit" ]]; then
+                stage="mealkit"
+              else
+                stage="final"
+              fi
+
+              echo "PUBLISH image $flavor with $n_source_images containers"
+
+              # tag priority is the highest priority of all platform-specific tags
+              priority=$(echo "${matching_tags}" | jq -r ".priority" | jq -s 'max')
+
+              # All images go to the same repository (jax or mock-jax)
+              target_image=${IMAGE_REPO}
+
+              PUBLISH_CONFIGS=$(
+                echo ${PUBLISH_CONFIGS} | jq -c ". + [{
+                  \"flavor\": \"${flavor}\",
+                  \"target_image\": \"${target_image}\",
+                  \"priority\": \"${priority}\",
+                  \"source_image\": ${source_image},
+                  \"stage\": \"${stage}\"
+                }]"
+              )
+            else
+              echo "SKIPPED image $flavor with 0 containers"
+            fi
+          done
+
+          PUBLISH_CONFIGS=$(echo "$PUBLISH_CONFIGS" | jq -c '{"config": .}')
+          echo ${PUBLISH_CONFIGS} | jq
+          echo "PUBLISH_CONFIGS=${PUBLISH_CONFIGS}" >> $GITHUB_OUTPUT
+
+  publish-containers:
+    needs:
+      - metadata
+      - make-publish-configs
+    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
+    uses: ./.github/workflows/_publish_container.yaml
+    with:
+      ARTIFACT_NAME: ${{ matrix.config.stage }}-${{ matrix.config.flavor }}
+      ARTIFACT_TAG: ${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }}
+      SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
+      TARGET_IMAGE: ${{ matrix.config.target_image }}
+      TARGET_TAGS: |
+        type=raw,value=${{ matrix.config.flavor }},priority=${{ matrix.config.priority }}
+        type=raw,value=${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
+
+  finalize:
+    needs: [metadata, amd64, arm64, publish-containers]
+    if: "!cancelled()"
+    uses: ./.github/workflows/_finalize.yaml
+    with:
+      BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+      PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
+    secrets: inherit

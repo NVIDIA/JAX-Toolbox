@@ -122,6 +122,11 @@ message ShutdownRequest {
 }
 message ShutdownResponse {}
 
+message StartCUDAProfilerRequest {}
+message StartCUDAProfilerResponse {}
+message StopCUDAProfilerRequest {}
+message StopCUDAProfilerResponse {}
+
 service CouplingController {
   rpc KVPut(KVPutRequest) returns (KVPutResponse) {}
 
@@ -136,6 +141,10 @@ service CouplingController {
   rpc StartWeightUpdate(StartWeightUpdateRequest) returns (StartWeightUpdateResponse) {}
 
   rpc AsyncInference(InferenceRequest) returns (google.protobuf.Empty) {}
+
+  rpc StartCUDAProfiler(StartCUDAProfilerRequest) returns (StartCUDAProfilerResponse) {}
+
+  rpc StopCUDAProfiler(StopCUDAProfilerRequest) returns (StopCUDAProfilerResponse) {}
 
   rpc Shutdown(ShutdownRequest) returns (ShutdownResponse) {}
 }
