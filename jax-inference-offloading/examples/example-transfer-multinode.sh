@@ -17,11 +17,23 @@
 set -euo pipefail
 
 DIR="$(dirname "$0")"
+_ARGS="$*"
+
+# Validate input to prevent command injection
+validate_safe_path() {
+  local value="$1"
+  local name="$2"
+  if [[ ! "$value" =~ ^[a-zA-Z0-9._/%-]+$ ]]; then
+    echo "Error: $name contains unsafe characters. Only alphanumerics, dots, hyphens, underscores, slashes, and percent signs are allowed." >&2
+    exit 1
+  fi
+}
 
 # Arguments - General
 DEBUG="false"
-OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -p "$PWD" -d output.XXXXXXXX)}
+OUTPUT_DIR=""
 NSYS_PROFILE_NAME=""
+JAX_PROFILE_NAME=""
 
 # Arguments - Container runtime
 CONTAINER_IMAGE=""
@@ -66,6 +78,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --nsys-profile-name=*)
       NSYS_PROFILE_NAME="${1#*=}"
+      ;;
+    --jax-profile-name=*)
+      JAX_PROFILE_NAME="${1#*=}"
       ;;
 
     # Container runtime
@@ -146,6 +161,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --debug                    Enable debug mode with verbose logging."
       echo "  --output-dir=DIR           Directory to save logs and outputs. Default is a temporary directory."
       echo "  --nsys-profile-name=NAME   Enable NVIDIA Nsight Systems profiling with the given profile name."
+      echo "  --jax-profile-name=NAME    Enable JAX profiling with the given profile name (mutually exclusive with --nsys-profile-name)."
       echo "  --container-image=IMAGE    Container image to use for all srun segments."
       echo "  --container-name=NAME      Container name for persistence across srun steps (default: main)."
       echo ""
@@ -163,7 +179,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --vllm-gpu-memory-utilization=FLOAT vLLM GPU memory utilization (e.g., 0.7)."
       echo "  --vllm-distributed-backend=BACKEND  vLLM distributed backend (ray/mp)."
       echo ""
-      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/fused/unfused)."
+      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (unfused/grouped/stacked/stacked_graph/etc.)."
       echo "  --use-polymorphic-mesh     Enable polymorphic mesh for trainer (sets USE_POLYMORPHIC_MESH=1)."
       echo ""
       echo "  --n-gpus-per-node-vllm=N   Number of GPUs for vLLM on the target node (default: 8)."
@@ -183,11 +199,47 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -p "$PWD" -d output.XXXXXXXX)}
+validate_safe_path "${OUTPUT_DIR}" "OUTPUT_DIR"
+if [[ -n "${NSYS_PROFILE_NAME}" ]]; then
+  validate_safe_path "${NSYS_PROFILE_NAME}" "NSYS_PROFILE_NAME"
+fi
+if [[ -n "${JAX_PROFILE_NAME}" ]]; then
+  validate_safe_path "${JAX_PROFILE_NAME}" "JAX_PROFILE_NAME"
+fi
+mkdir -p "${OUTPUT_DIR}"
+echo "Artifacts will be saved to: ${OUTPUT_DIR}"
+
+# Check mutual exclusivity of profiling options
+if [[ -n "${NSYS_PROFILE_NAME}" && -n "${JAX_PROFILE_NAME}" ]]; then
+  echo "Error: --nsys-profile-name and --jax-profile-name are mutually exclusive." >&2
+  exit 1
+fi
+
+# Save job metadata
+{
+  echo "timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  echo "user=${USER}"
+  echo "host_submit=$(hostname -f 2>/dev/null || hostname)"
+  echo "script=$0"
+  echo "args=$_ARGS"
+  echo "container_image=${CONTAINER_IMAGE:-}"
+  echo "slurm_job_id=${SLURM_JOB_ID:-}"
+  echo "slurm_job_name=${SLURM_JOB_NAME:-}"
+  echo "slurm_nnodes=${SLURM_NNODES:-}"
+  echo "slurm_nodelist=${SLURM_NODELIST:-}"
+} > "${OUTPUT_DIR}/job.txt"
+
+if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  scontrol show job "${SLURM_JOB_ID}" > "${OUTPUT_DIR}/scontrol.txt" 2>&1 || true
+fi
+
+env | grep -v TOKEN > "${OUTPUT_DIR}/env.txt" || true
+
 # If no mounts provided, at least mount the output directory
-if [[ -z "${CONTAINER_MOUNTS}" ]]; then
-  MOUNTS="${OUTPUT_DIR}:${OUTPUT_DIR}"
-else
-  MOUNTS="${CONTAINER_MOUNTS},${OUTPUT_DIR}:${OUTPUT_DIR}"
+MOUNTS="${OUTPUT_DIR}:${OUTPUT_DIR}"
+if [[ -n "${CONTAINER_MOUNTS}" ]]; then
+  MOUNTS="${MOUNTS},${CONTAINER_MOUNTS}"
 fi
 
 # Determine allocation hosts and partition for JAX/vLLM
@@ -273,12 +325,27 @@ VLLM_VISIBLE_DEVICES=$(seq -s, 0 $((N_GPUS_PER_NODE - 1)))
 VLLM_TENSOR_PARALLEL_SIZE=$((N_GPUS_PER_NODE * N_NODES_VLLM))
 
 # ------------------------------------------------------------------------------
+# Setup profiling command if enabled
+# ------------------------------------------------------------------------------
+if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
+  NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
+  TRAINER_PROF_CMD="nsys profile -s none -o \"${NSYS_OUTPUT}\" --force-overwrite true --capture-range=cudaProfilerApi --cuda-graph-trace=node --trace=cuda,nvtx --capture-range-end=stop"
+  echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
+elif [[ -n "${JAX_PROFILE_NAME:-}" ]]; then
+  TRAINER_PROF_CMD=""
+  echo "JAX profiling enabled with name: ${JAX_PROFILE_NAME}"
+else
+  TRAINER_PROF_CMD=""
+  echo "Profiling not enabled. To enable, use --nsys-profile-name=NAME or --jax-profile-name=NAME"
+fi
+
+# ------------------------------------------------------------------------------
 # common environment
 # ------------------------------------------------------------------------------
 export HF_TOKEN
+export OUTPUT_DIR
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_DEVICE_MAX_CONNECTIONS=16
-export NCCL_CUMEM_ENABLE=0  # https://docs.vllm.ai/en/v0.9.1/usage/troubleshooting.html#known-issues
 export NCCL_BUFFSIZE=16777216
 export GATEWAY_PORT=50051
 export GATEWAY_URL="${JAX_COORDINATOR_ADDR}:${GATEWAY_PORT}"
@@ -296,6 +363,7 @@ export JAX_COORDINATOR_PORT
 export JAX_NODELIST
 export JAX_LOCAL_DEVICE_IDS
 export JAX_NUM_PROCESSES="${#JAX_HOSTS[@]}"
+export TRAINER_PROF_CMD
 export VLLM_NODELIST
 export VLLM_NUM_PROCESSES="${#VLLM_HOSTS[@]}"
 export VLLM_CONTROLLER_ADDR
@@ -305,7 +373,10 @@ export RAY_PORT
 export RAY_CLIENT_SERVER_PORT
 export RAY_PROT_ADDRESS
 export N_GPUS_PER_NODE
-export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
+export NSYS_PROFILE_NAME
+export JAX_PROFILE_NAME
+export XLA_FLAGS="${XLA_FLAGS:-}
+                  --xla_gpu_enable_latency_hiding_scheduler=true
                   --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL
                   --xla_gpu_collective_permute_combine_threshold_bytes=8589934592
                   --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592
@@ -323,20 +394,6 @@ fi
 
 PIDS=()
 
-mkdir -p "${OUTPUT_DIR}"
-
-# Setup profiling command if enabled
-if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
-  NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
-  TRAINER_PROF_CMD="nsys profile -s none -o "${NSYS_OUTPUT}" --force-overwrite true --capture-range=cudaProfilerApi --cuda-graph-trace=node --trace=cuda,nvtx --capture-range-end=stop"
-  echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
-else
-  TRAINER_PROF_CMD=""
-  echo "Nsys profiling not enabled. To enable, use --nsys-profile-name=PROFILE_NAME"
-fi
-
-echo "Logs will be saved to: ${OUTPUT_DIR}"
-
 # Per-segment CPU allocation
 export CPUS_PER_TASK_GATEWAY=4
 export CPUS_PER_TASK_VLLM_CONTROLLER=4
@@ -349,7 +406,7 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
   --ntasks-per-node=1 \
   --cpus-per-task=${SLURM_CPUS_ON_NODE} \
   --container-name="${CONTAINER_NAME}" \
-  --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS:-}" --container-writable \
+  --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS}" --container-writable \
   --export=ALL hostname
 
 # Coordinator gateway on the first JAX node (no GPU required)
@@ -357,7 +414,7 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
 srun --nodes=1 --ntasks=1 --cpus-per-task=${CPUS_PER_TASK_GATEWAY} -w "$JAX_COORDINATOR_ADDR" \
   --label --unbuffered \
   --container-name="${CONTAINER_NAME}" \
-  --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS:-}" --container-writable \
+  --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS}" --container-writable \
   --export=ALL,CUDA_VISIBLE_DEVICES= \
   bash -lc '
   python -u ../jax_inference_offloading/controller/gateway.py |& tee "${OUTPUT_DIR}/gateway.log"
@@ -380,7 +437,7 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
   --nodes=${#JAX_HOSTS[@]} --ntasks=${#JAX_HOSTS[@]} --ntasks-per-node=1 -w "${JAX_HOSTS_CSV}" \
   --cpus-per-task=${CPUS_PER_TASK_JAX} \
   --container-name="${CONTAINER_NAME}" \
-  --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS:-}" --container-writable \
+  --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS}" --container-writable \
   --export=ALL \
   bash -lc '${TRAINER_PROF_CMD} python -u trainer.py |& tee "${OUTPUT_DIR}/trainer-$(hostname -s).log" ' &
 PIDS+=($!)
@@ -392,11 +449,11 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
   --nodes=${#VLLM_HOSTS[@]} --ntasks=${#VLLM_HOSTS[@]} --ntasks-per-node=1 -w "${VLLM_HOSTS_CSV}" \
   --cpus-per-task=${CPUS_PER_TASK_RAY}  \
   --container-name="${CONTAINER_NAME}" \
-  --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS:-}" --container-writable \
+  --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS}" --container-writable \
   --export=ALL \
   bash -lc '
   if [[ "`hostname -s`" == "${RAY_HEAD_HOST}" ]]; then
-    ray start \
+    ${TRAINER_PROF_CMD} ray start \
       --head \
       --port=${RAY_PORT} \
       --ray-client-server-port=${RAY_CLIENT_SERVER_PORT} \
@@ -406,7 +463,7 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
       --disable-usage-stats \
     |& tee "${OUTPUT_DIR}/ray-head.log"
   else
-    ray start \
+    ${TRAINER_PROF_CMD} ray start \
       --address="${RAY_HEAD_IP}:${RAY_PORT}" \
       --num-cpus=${CPUS_PER_TASK_RAY} \
       --num-gpus=${N_GPUS_PER_NODE} \
@@ -414,7 +471,7 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
     |& tee "${OUTPUT_DIR}/ray-worker-$(hostname -s).log"
   fi
   ' &
-PIDS+=($!)
+PIDS+=($!)  # don't wait on Ray, wait on vLLM instead
 
 sleep 10  # wait for Ray to start
 
@@ -424,11 +481,12 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
   --nodes=1 --ntasks=1 --ntasks-per-node=1 -w "${VLLM_CONTROLLER_ADDR}" \
   --cpus-per-task=${CPUS_PER_TASK_VLLM_CONTROLLER} \
   --container-name="${CONTAINER_NAME}" \
-  --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS:-}" --container-writable \
+  --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS}" --container-writable \
   --export=ALL \
   bash -lc '
   ray status
   python -u rollout.py |& tee "${OUTPUT_DIR}/rollout-$(hostname -s).log"
+  ray stop --force
   ' &
 PIDS+=($!)
 
