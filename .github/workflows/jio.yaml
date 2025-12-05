@@ -104,16 +104,12 @@ jobs:
             EXTRA_BUILD_ARGS: |
               REF_JIO=${{ github.ref }}
 
-    outputs:
-      DOCKER_TAG_MEALKIT: ${{ steps.build-container.outputs.DOCKER_TAG_MEALKIT }}
-      DOCKER_TAG_FINAL:   ${{ steps.build-container.outputs.DOCKER_TAG_FINAL }}
-
   jax-vllm-offloading-transfer-eks:
     needs: amd64
     runs-on: eks
     env:
       JOB_NAME: jax-vllm-offloading
-      JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build-amd64.outputs.DOCKER_TAG_FINAL }}
+      JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
       MODEL: "meta-llama/Llama-3.1-8B-Instruct"
 
     steps:
@@ -149,7 +145,7 @@ jobs:
       with:
         job-config-file:  ".github/eks-workflow-files/jio-eks/jio-template.yaml"
         job-name: ${{ env.JOB_NAME }}
-        
+
   collect-docker-tags:
     runs-on: ubuntu-22.04
     if: ${{ !cancelled() }}
