@@ -142,7 +142,7 @@ class TrainerClient(ClientBase):
     )
     return transports, transport_config
 
-  @on_spmd_leader
+  @on_spmd_leader(broadcast_result=False)
   def start_weight_transfer(self, mode: str):
     self._controller_stub.StartWeightUpdate(
       ctrl.StartWeightUpdateRequest(mode=mode)
