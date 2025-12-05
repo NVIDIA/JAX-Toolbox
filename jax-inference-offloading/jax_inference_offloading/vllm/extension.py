@@ -75,6 +75,12 @@ class VLLMWorkerExtension:
         # instruct V1 loader to treat the incoming weight as pre-sharded
         module.weight.is_sharded_weight = True
 
+  def start_cuda_profiler(self):
+    cudart.profilerStart()
+
+  def stop_cuda_profiler(self):
+    cudart.profilerStop()
+
   def get_tp_sharding_specs(self):
     sharding_specs = {}
     tp_rank = get_tensor_model_parallel_rank()
