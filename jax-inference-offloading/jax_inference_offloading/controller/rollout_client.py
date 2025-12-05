@@ -81,6 +81,20 @@ class RolloutServicer:
     )
     logger.warning(f'vLLM coupling transports created: {transport_repr}')
 
+  def start_cuda_profiler(self):
+    self._llm.collective_rpc(
+      "start_cuda_profiler",
+      timeout=None,
+      args=(),
+    )
+
+  def stop_cuda_profiler(self):
+    self._llm.collective_rpc(
+      "stop_cuda_profiler",
+      timeout=None,
+      args=(),
+    )
+
   def update_weights(self, mode: str):
     if mode in ('fused', 'unfused'):
       self._llm.collective_rpc(
@@ -160,6 +174,8 @@ class RolloutClient(ClientBase):
             ctrl_utils.WEIGHT_UPDATES,
             ctrl_utils.INFERENCE_REQUESTS,
             ctrl_utils.SHUTDOWN,
+            ctrl_utils.START_CUDA_PROFILER,
+            ctrl_utils.STOP_CUDA_PROFILER,
           ])
         ):
           if delivery.topic.id == ctrl_utils.HANDSHAKE.id:
@@ -184,6 +200,10 @@ class RolloutClient(ClientBase):
               inference_request.response_topic,
               servicer.inference(inference_request),
             )
+          elif delivery.topic.id == ctrl_utils.START_CUDA_PROFILER.id:
+            servicer.start_cuda_profiler()
+          elif delivery.topic.id == ctrl_utils.STOP_CUDA_PROFILER.id:
+            servicer.stop_cuda_profiler()
           elif delivery.topic.id == ctrl_utils.SHUTDOWN.id:
             servicer.shutdown()
             break
