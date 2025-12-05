@@ -20,6 +20,16 @@ DIR="$(dirname "$0")"
 JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR:-/tmp/jax-compilation-cache}
 mkdir -p ${JAX_COMPILATION_CACHE_DIR}
 
+# Validate input to prevent command injection
+validate_safe_path() {
+  local value="$1"
+  local name="$2"
+  if [[ ! "$value" =~ ^[a-zA-Z0-9._/%-]+$ ]]; then
+    echo "Error: $name contains unsafe characters. Only alphanumerics, dots, hyphens, underscores, slashes, and percent signs are allowed." >&2
+    exit 1
+  fi
+}
+
 # Set default values
 DEBUG="false"
 OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -d)}
@@ -150,6 +160,9 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Validate inputs to prevent command injection
+validate_safe_path "${OUTPUT_DIR}" "OUTPUT_DIR"
 
 # Model selection default
 MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.1-8B-Instruct"}

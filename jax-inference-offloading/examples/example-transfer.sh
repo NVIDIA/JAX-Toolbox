@@ -19,6 +19,16 @@ set -euo pipefail
 DIR="$(dirname "$0")"
 _ARGS="$*"
 
+# Validate input to prevent command injection
+validate_safe_path() {
+  local value="$1"
+  local name="$2"
+  if [[ ! "$value" =~ ^[a-zA-Z0-9._/%-]+$ ]]; then
+    echo "Error: $name contains unsafe characters. Only alphanumerics, dots, hyphens, underscores, slashes, and percent signs are allowed." >&2
+    exit 1
+  fi
+}
+
 # Arguments - General
 DEBUG="false"
 OUTPUT_DIR=""
@@ -142,6 +152,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -p "$PWD" -d output.XXXXXXXX)}
+validate_safe_path "${OUTPUT_DIR}" "OUTPUT_DIR"
+if [[ -n "${NSYS_PROFILE_NAME}" ]]; then
+  validate_safe_path "${NSYS_PROFILE_NAME}" "NSYS_PROFILE_NAME"
+fi
+if [[ -n "${JAX_PROFILE_NAME}" ]]; then
+  validate_safe_path "${JAX_PROFILE_NAME}" "JAX_PROFILE_NAME"
+fi
 mkdir -p "${OUTPUT_DIR}"
 echo "Artifacts will be saved to: ${OUTPUT_DIR}"
 
@@ -244,7 +261,7 @@ PIDS=()
 # Setup profiling command if enabled
 if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
   NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
-  TRAINER_PROF_CMD="nsys profile -s none -o "${NSYS_OUTPUT}" --force-overwrite true --capture-range=cudaProfilerApi --cuda-graph-trace=node --trace=cuda,nvtx --capture-range-end=stop"
+  TRAINER_PROF_CMD="nsys profile -s none -o \"${NSYS_OUTPUT}\" --force-overwrite true --capture-range=cudaProfilerApi --cuda-graph-trace=node --trace=cuda,nvtx --capture-range-end=stop"
   echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
 elif [[ -n "${JAX_PROFILE_NAME:-}" ]]; then
   TRAINER_PROF_CMD=""
