@@ -153,6 +153,16 @@ if jax.process_index() == 0:
 
 if jax.process_index() == 0:
   timer.summary(sort_by='name', precision=3)
+  for metric_name, metric_key in [
+    ('JIO_METRIC_TRANSFER', r'transport\.run\d+$'),
+    ('JIO_METRIC_HANDSHAKE', r'create_bridge\.handshake$'),
+    ('JIO_METRIC_LOADMODEL', r'load_model$'),
+  ]:
+    print(timer.ci_metric(
+      metric_name,
+      timer.node_stat(metric_key, ('mean', 'std', 'min', 'max')),
+      unit='s'
+    ))
 
 if jax.process_index() == 0:
   bridge.gateway.shutdown()

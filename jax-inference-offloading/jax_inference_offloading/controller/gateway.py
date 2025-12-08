@@ -132,6 +132,16 @@ class ControllerServicer(ctrl_grpc.CouplingControllerServicer):
       self._server.stop(0)
     context.add_callback(_callback)
     return ctrl.ShutdownResponse()
+  
+  def StartCUDAProfiler(self, request, context):
+    del context
+    self._queues.publish(ctrl_utils.START_CUDA_PROFILER, request)
+    return ctrl.StartCUDAProfilerResponse()
+  
+  def StopCUDAProfiler(self, request, context):
+    del context
+    self._queues.publish(ctrl_utils.STOP_CUDA_PROFILER, request)
+    return ctrl.StopCUDAProfilerResponse()
 
 class MessageBrokerServicer(broker_grpc.MessageBrokerServicer):
   def __init__(self, queues):
