@@ -196,6 +196,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --rollout-engine=ENGINE    Rollout engine: vllm_gpu | vanilla."
       echo "  --scratchdir=DIR           Scratch directory for checkpoints/logs."
       echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (unfused/grouped/stacked/stacked_graph/etc.)."
+      echo "  --jax-compilation-cache-dir=DIR  JAX compilation cache directory."
       echo ""
       echo "  --grpo-<key>=<value>       GRPO hyperparameter override; e.g., --grpo-num-epochs=2 (exports GRPO_NUM_EPOCHS=2)."
       echo ""
@@ -205,7 +206,6 @@ while [[ $# -gt 0 ]]; do
       echo "  --vllm-gpu-memory-utilization=FLOAT vLLM GPU memory utilization (e.g., 0.7)."
       echo "  --vllm-distributed-backend=BACKEND  vLLM distributed backend (ray/mp)."
       echo ""
-      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/stacked/stacked_graph/fused/unfused)."
       echo "  --use-polymorphic-mesh     Enable polymorphic mesh for trainer (sets USE_POLYMORPHIC_MESH=1)."
       echo ""
       echo "  --n-gpus-per-node=N        Number of GPUs on the target node (default: 8)."
@@ -333,9 +333,6 @@ maybe_run_nsys() {
   fi
 }
 
-# Export function for use in srun subshells
-export -f maybe_run_nsys
-
 # ------------------------------------------------------------------------------
 # Kill all processes when done.
 # ------------------------------------------------------------------------------
@@ -370,7 +367,6 @@ VLLM_TENSOR_PARALLEL_SIZE=$((N_GPUS_PER_NODE * N_NODES_VLLM))
 # ------------------------------------------------------------------------------
 if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
   NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
-  export NSYS_OUTPUT
   echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}-<hostname>"
 else
   echo "Nsys profiling not enabled. To enable, use --nsys-profile-name=PROFILE_NAME"
@@ -379,6 +375,7 @@ fi
 # ------------------------------------------------------------------------------
 # common environment
 # ------------------------------------------------------------------------------
+export -f maybe_run_nsys
 export HF_TOKEN
 export OUTPUT_DIR
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
@@ -412,6 +409,8 @@ export RAY_PORT
 export RAY_CLIENT_SERVER_PORT
 export RAY_PROT_ADDRESS
 export N_GPUS_PER_NODE
+export NSYS_PROFILE_NAME
+export NSYS_OUTPUT
 export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
                   --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL
                   --xla_gpu_collective_permute_combine_threshold_bytes=8589934592

@@ -298,9 +298,6 @@ maybe_run_nsys() {
   fi
 }
 
-# Export function for use in srun subshells
-export -f maybe_run_nsys
-
 # ------------------------------------------------------------------------------
 # Kill all processes when done.
 # ------------------------------------------------------------------------------
@@ -335,7 +332,6 @@ VLLM_TENSOR_PARALLEL_SIZE=$((N_GPUS_PER_NODE * N_NODES_VLLM))
 # ------------------------------------------------------------------------------
 if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
   NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
-  export NSYS_OUTPUT
   echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}-<hostname>"
 elif [[ -n "${JAX_PROFILE_NAME:-}" ]]; then
   echo "JAX profiling enabled with name: ${JAX_PROFILE_NAME}"
@@ -346,6 +342,7 @@ fi
 # ------------------------------------------------------------------------------
 # common environment
 # ------------------------------------------------------------------------------
+export -f maybe_run_nsys
 export HF_TOKEN
 export OUTPUT_DIR
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
@@ -377,6 +374,7 @@ export RAY_CLIENT_SERVER_PORT
 export RAY_PROT_ADDRESS
 export N_GPUS_PER_NODE
 export NSYS_PROFILE_NAME
+export NSYS_OUTPUT
 export JAX_PROFILE_NAME
 export XLA_FLAGS="${XLA_FLAGS:-}
                   --xla_gpu_enable_latency_hiding_scheduler=true
