@@ -79,7 +79,7 @@ runs:
 
             # --- SUCCESS CASE ---
             if [ -n "${terminated_pod}" ]; then
-              echo "✅ Pod ${terminated_pod} has terminated."
+              echo "Pod ${terminated_pod} has terminated."
 
               # Get the exit code
               exit_code=$(echo "${pod_list}" | jq -r "
@@ -106,7 +106,7 @@ runs:
               echo "========================================================"
 
               if [ "${exit_code}" -ne 0 ]; then
-                echo "❌ Pod terminated with non-zero exit code"
+                echo "Pod terminated with non-zero exit code"
                 kubectl describe pod/${terminated_pod}
                 exit 1
               fi
@@ -117,7 +117,7 @@ runs:
 
             # --- FAILURE CASE ---
             if [ -n "${failed_pods}" ]; then
-              echo "❌ Found failed pods: ${failed_pods}"
+              echo "Found failed pods: ${failed_pods}"
 
               echo "========================================================"
               echo "       DEBUG LOGS (Last 100 lines per failed pod)       "
