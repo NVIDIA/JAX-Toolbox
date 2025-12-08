@@ -126,6 +126,7 @@ with timer.section("warmup"):
 # Conditionally enable profiling based on environment
 nsys_profile = os.environ.get('NSYS_PROFILE_NAME', '')
 jax_profile = os.environ.get('JAX_PROFILE_NAME', '')
+assert not (nsys_profile and jax_profile), "Cannot enable Nsys and JAX profiling at the same time"
 
 if nsys_profile:
   bridge.gateway.start_cuda_profiler()

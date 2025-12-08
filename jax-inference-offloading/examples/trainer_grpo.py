@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 timer = Timer()
 
 from jax.experimental.compilation_cache import compilation_cache as cc
-cc.set_cache_dir(os.environ.pop('JAX_COMPILATION_CACHE_DIR', "/tmp/jax_cache"))
+cc.set_cache_dir(os.environ.get('JAX_COMPILATION_CACHE_DIR', "/tmp/jax_cache"))
 
 ROLLOUT_ENGINE = os.environ.get('ROLLOUT_ENGINE', 'vllm_gpu')  # or 'vanilla'
 TRANSFER_MODE = os.environ.get('TRANSFER_MODE', 'grouped')
@@ -51,7 +51,7 @@ TRANSFER_MODE = os.environ.get('TRANSFER_MODE', 'grouped')
 
 # Helper for hyperparameter overrides via environment variables
 def get_env(name, default):
-  raw = os.environ.pop(name, None)
+  raw = os.environ.get(name, None)
   return type(default)(raw) if raw is not None else default
 
 # ====== Data ======
