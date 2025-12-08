@@ -42,9 +42,9 @@ class TestConstexprArgs:
         tidx, _, _ = cute.arch.thread_idx()
         bidx, _, _ = cute.arch.block_idx()
 
-        frgA = cute.make_fragment(cute.size(x, mode=[0]), x.element_type)
-        frgB = cute.make_fragment(cute.size(y, mode=[0]), y.element_type)
-        frgC = cute.make_fragment(cute.size(z, mode=[0]), z.element_type)
+        frgA = cute.make_rmem_tensor(cute.size(x, mode=[0]), x.element_type)
+        frgB = cute.make_rmem_tensor(cute.size(y, mode=[0]), y.element_type)
+        frgC = cute.make_rmem_tensor(cute.size(z, mode=[0]), z.element_type)
 
         cute.autovec_copy(x[None, tidx, bidx], frgA)
         cute.autovec_copy(y[None, tidx, bidx], frgB)
@@ -82,8 +82,7 @@ class TestConstexprArgs:
             cutlass_call,
             self.launch,
             output_shape_dtype=jax.ShapeDtypeStruct(shape, dtype),
-            input_mode=(TM(static=True), TM(static=True)),
-            output_mode=TM(static=True),
+            use_static_tensors=True,
         )
         c = call(const_a=1.0, const_b=1.0)(a, b)
         c_ref = self.ref_call(a, b, 1.0, 1.0)
@@ -111,12 +110,14 @@ class TestListArgs:
         bidx, _, _ = cute.arch.block_idx()
 
         for idx in cutlass.range_constexpr(len(b)):
-            frgA = cute.make_fragment(cute.size(a, mode=[0]), a.element_type)
+            frgA = cute.make_rmem_tensor(cute.size(a, mode=[0]), a.element_type)
             cute.autovec_copy(a[None, tidx, bidx], frgA)
-            frgB = cute.make_fragment(
+            frgB = cute.make_rmem_tensor(
                 cute.size(b[int(idx)], mode=[0]), b[idx].element_type
             )
-            frgC = cute.make_fragment(cute.size(c[idx], mode=[0]), c[idx].element_type)
+            frgC = cute.make_rmem_tensor(
+                cute.size(c[idx], mode=[0]), c[idx].element_type
+            )
             cute.autovec_copy(b[idx][None, tidx, bidx], frgB)
             frgC.store(frgA.load() + frgB.load())
             cute.autovec_copy(frgC, c[idx][None, tidx, bidx])
@@ -177,10 +178,14 @@ class TestListArgsAlias:
 
         # Only write to the even lists
         for idx in cutlass.range_constexpr(0, len(b), 2):
-            frgA = cute.make_fragment(cute.size(a, mode=[0]), a.element_type)
+            frgA = cute.make_rmem_tensor(cute.size(a, mode=[0]), a.element_type)
             cute.autovec_copy(a[None, tidx, bidx], frgA)
-            frgB = cute.make_fragment(cute.size(b[idx], mode=[0]), b[idx].element_type)
-            frgC = cute.make_fragment(cute.size(c[idx], mode=[0]), c[idx].element_type)
+            frgB = cute.make_rmem_tensor(
+                cute.size(b[idx], mode=[0]), b[idx].element_type
+            )
+            frgC = cute.make_rmem_tensor(
+                cute.size(c[idx], mode=[0]), c[idx].element_type
+            )
             cute.autovec_copy(b[idx][None, tidx, bidx], frgB)
             frgC.store(frgA.load() + frgB.load())
             cute.autovec_copy(frgC, c[idx][None, tidx, bidx])
@@ -238,3 +243,137 @@ class TestListArgsAlias:
         c_ref = self.ref_call(a, b)
         for ci, ci_ref in zip(c, c_ref):
             assert jnp.allclose(ci, ci_ref)
+
+
+class TestPartialBoundArgs:
+    @cute.kernel
+    def kernel(
+        self,
+        x: cute.Tensor,
+        y: cute.Tensor,
+        z: cute.Tensor,
+        const_a: cutlass.Constexpr,
+        const_b: cutlass.Constexpr,
+    ):
+        tidx, _, _ = cute.arch.thread_idx()
+        bidx, _, _ = cute.arch.block_idx()
+
+        frgA = cute.make_rmem_tensor(cute.size(x, mode=[0]), x.element_type)
+        frgB = cute.make_rmem_tensor(cute.size(y, mode=[0]), y.element_type)
+        frgC = cute.make_rmem_tensor(cute.size(z, mode=[0]), z.element_type)
+
+        cute.autovec_copy(x[None, tidx, bidx], frgA)
+        cute.autovec_copy(y[None, tidx, bidx], frgB)
+        frgC.store(frgA.load() * const_a + frgB.load() * const_b)
+        cute.autovec_copy(frgC, z[None, tidx, bidx])
+
+    @cute.jit
+    def launch(
+        self,
+        stream: cuda.CUstream,
+        a1: cute.Tensor,
+        b1: cute.Tensor,
+        c1: cute.Tensor,
+        *,
+        const_a: cutlass.Constexpr[float],
+        const_b: cutlass.Constexpr[float]
+    ):
+        self.kernel(a1, b1, c1, const_a, const_b).launch(
+            grid=[a1.shape[-1], 1, 1], block=[a1.shape[-2], 1, 1], stream=stream
+        )
+
+    @partial(jax.jit, static_argnums=[0, 3, 4])
+    def ref_call(self, a, b, const_a, const_b):
+        return a * const_a + b * const_b
+
+    def test(self):
+        shape = (4, 16, 16)
+        dtype = jnp.float32
+        a_key, b_key = jax.random.split(jax.random.key(1123), 2)
+
+        a = create_tensor(shape, dtype, a_key)
+        b = create_tensor(shape, dtype, b_key)
+
+        fn = partial(self.launch, const_a=2.0)
+
+        call = partial(
+            cutlass_call,
+            fn,
+            output_shape_dtype=jax.ShapeDtypeStruct(shape, dtype),
+            input_mode=(TM(static=True), TM(static=True)),
+            output_mode=TM(static=True),
+            const_b=-3.0,
+        )
+        c = call()(a, b)
+        c_ref = self.ref_call(a, b, 2.0, -3.0)
+
+        assert jnp.allclose(c, c_ref)
+
+
+class TestCompileOptionsPassing:
+    @cute.kernel
+    def kernel(self, x: cute.Tensor, z: cute.Tensor):
+        tidx, _, _ = cute.arch.thread_idx()
+        bidx, _, _ = cute.arch.block_idx()
+
+        frgA = cute.make_rmem_tensor(cute.size(x, mode=[0]), x.element_type)
+        frgC = cute.make_rmem_tensor(cute.size(z, mode=[0]), z.element_type)
+
+        cute.autovec_copy(x[None, tidx, bidx], frgA)
+        frgC.store(frgA.load())
+        cute.autovec_copy(frgC, z[None, tidx, bidx])
+
+    @cute.jit
+    def launch(
+        self,
+        stream: cuda.CUstream,
+        a1: cute.Tensor,
+        c1: cute.Tensor,
+    ):
+        self.kernel(a1, c1).launch(
+            grid=[a1.shape[-1], 1, 1], block=[a1.shape[-2], 1, 1], stream=stream
+        )
+
+    def test(self):
+        shape = (4, 16, 16)
+        dtype = jnp.float32
+        a_key = jax.random.key(1123)
+        a = create_tensor(shape, dtype, a_key)
+
+        call = cutlass_call(
+            self.launch,
+            output_shape_dtype=jax.ShapeDtypeStruct(shape, dtype),
+            input_mode=TM(static=True),
+            output_mode=TM(static=True),
+            compile_options="--opt-level=0",
+        )
+
+        c = call(a)
+        assert jnp.allclose(c, a)
+
+        # Combine typed and string
+        from cutlass.cute import (
+            OptLevel,
+            EnableAssertions,
+            GenerateLineInfo,
+            KeepCUBIN,
+            KeepPTX,
+        )
+
+        my_debugging_options = (
+            "--opt-level=1",
+            EnableAssertions,
+            GenerateLineInfo,
+            KeepCUBIN,
+            KeepPTX,
+        )
+
+        call = cutlass_call(
+            self.launch,
+            output_shape_dtype=jax.ShapeDtypeStruct(shape, dtype),
+            use_static_tensors=True,
+            compile_options=my_debugging_options,
+        )
+
+        c = call(a * 2.0)
+        assert jnp.allclose(c, a * 2.0)

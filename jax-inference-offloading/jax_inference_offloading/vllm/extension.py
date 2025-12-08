@@ -30,6 +30,7 @@ from vllm.model_executor.layers.linear import (
   MergedColumnParallelLinear,
   QKVParallelLinear,
   RowParallelLinear,
+  WEIGHT_LOADER_V2_SUPPORTED,
 )
 from vllm.model_executor.layers.vocab_parallel_embedding import VocabParallelEmbedding
 
@@ -51,14 +52,34 @@ class VLLMWorkerExtension:
     )
 
   def set_sharding(self):
-    for _, module in self.model_runner.model.named_modules():
+    # The vLLM V2 weight loader does not support loading pre-sharded weights
+    # for the parallel linear modules.
+    # Therefore, we need to force these modules to use the V1 weight loader
+    # Once V2 weight loader supports pre-sharded weights, we can remove this workaround.
+
+    # Prevent unquantized linear modules from using V2 weight loader
+    if "UnquantizedLinearMethod" in WEIGHT_LOADER_V2_SUPPORTED:
+      WEIGHT_LOADER_V2_SUPPORTED.remove("UnquantizedLinearMethod")
+      logger.warning("Removed UnquantizedLinearMethod from WEIGHT_LOADER_V2_SUPPORTED.")
+
+    for name, module in self.model_runner.model.named_modules():
       if type(module) in [
         RowParallelLinear,
         ColumnParallelLinear,
         MergedColumnParallelLinear,
         QKVParallelLinear,
       ]:
+        logger.debug(f"Setting sharding for module: {name} of type {type(module)}")
+        # force to use the V1 weight_loader
+        module.weight.weight_loader = module.weight_loader
+        # instruct V1 loader to treat the incoming weight as pre-sharded
         module.weight.is_sharded_weight = True
+
+  def start_cuda_profiler(self):
+    cudart.profilerStart()
+
+  def stop_cuda_profiler(self):
+    cudart.profilerStop()
 
   def get_tp_sharding_specs(self):
     sharding_specs = {}
