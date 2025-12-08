@@ -259,8 +259,9 @@ fi
 # If a dataset directory is provided, ensure it exists and mount it
 if [[ -z "${DATASET_DIR}" ]]; then
   DATASET_DIR=$(mktemp -p "$PWD" -d)
-  MOUNTS="${MOUNTS},${DATASET_DIR}:${DATASET_DIR}"
 fi
+mkdir -p "${DATASET_DIR}"
+MOUNTS="${MOUNTS},${DATASET_DIR}:${DATASET_DIR}"
 
 # Determine allocation hosts and partition for JAX/vLLM
 NODELIST="${SLURM_JOB_NODELIST:-${SLURM_NODELIST}}"
