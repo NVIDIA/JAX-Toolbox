@@ -20,19 +20,11 @@ DIR="$(dirname "$0")"
 JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR:-/tmp/jax-compilation-cache}
 mkdir -p ${JAX_COMPILATION_CACHE_DIR}
 
-# Validate input to prevent command injection
-validate_safe_path() {
-  local value="$1"
-  local name="$2"
-  if [[ ! "$value" =~ ^[a-zA-Z0-9._/%-]+$ ]]; then
-    echo "Error: $name contains unsafe characters. Only alphanumerics, dots, hyphens, underscores, slashes, and percent signs are allowed." >&2
-    exit 1
-  fi
-}
-
 # Set default values
 DEBUG="false"
 OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -d)}
+NSYS_PROFILE_NAME=""
+JAX_PROFILE_NAME=""
 
 # Model selection
 MODEL_NAME=""
@@ -68,6 +60,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --output-dir=*)
       OUTPUT_DIR="${1#*=}"
+      shift
+      ;;
+    --nsys-profile-name=*)
+      NSYS_PROFILE_NAME="${1#*=}"
+      shift
+      ;;
+    --jax-profile-name=*)
+      JAX_PROFILE_NAME="${1#*=}"
       shift
       ;;
     # Model selection
@@ -133,6 +133,8 @@ while [[ $# -gt 0 ]]; do
       echo "Options:"
       echo "  --debug                    Enable debug mode with verbose logging."
       echo "  --output-dir=DIR           Directory to save logs and outputs. Default is a temporary directory."
+      echo "  --nsys-profile-name=NAME   Enable NVIDIA Nsight Systems profiling with the given profile name."
+      echo "  --jax-profile-name=NAME    Enable JAX profiling with the given profile name (mutually exclusive with --nsys-profile-name)."
       echo ""
       echo "  --model-name=NAME          HF repo id or model name (e.g., meta-llama/Llama-3.1-8B-Instruct)."
       echo "  --model-path=PATH          HF snapshot directory; if set, vLLM loads from this path."
@@ -161,11 +163,32 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Validate inputs to prevent command injection
-validate_safe_path "${OUTPUT_DIR}" "OUTPUT_DIR"
+# Check mutual exclusivity of profiling options
+if [[ -n "${NSYS_PROFILE_NAME}" && -n "${JAX_PROFILE_NAME}" ]]; then
+  echo "Error: --nsys-profile-name and --jax-profile-name are mutually exclusive." >&2
+  exit 1
+fi
 
 # Model selection default
 MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.1-8B-Instruct"}
+
+# ------------------------------------------------------------------------------
+# Function to (optionally) wrap a command with nsys
+# ------------------------------------------------------------------------------
+maybe_run_nsys() {
+  if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
+    nsys profile -s none \
+      -o "${NSYS_OUTPUT}" \
+      --force-overwrite true \
+      --capture-range=cudaProfilerApi \
+      --cuda-graph-trace=node \
+      --trace=cuda,nvtx \
+      --capture-range-end=stop \
+      "$@"
+  else
+    "$@"
+  fi
+}
 
 # ------------------------------------------------------------------------------
 # Kill all processes when done.
@@ -198,7 +221,7 @@ else
     echo "Using provided MODEL_PATH: ${MODEL_PATH}"
   else
     echo "MODEL_PATH not provided, downloading HF snapshot..."
-    MODEL_PATH=$(python "${DIR}/download_model.py" --hub=hf --model=${MODEL_NAME} --ignore="*.pth")
+    MODEL_PATH=$(python "${DIR}/download_model.py" --hub=hf --model="${MODEL_NAME}" --ignore="*.pth")
   fi
 fi
 
@@ -257,20 +280,33 @@ PIDS=()
 
 mkdir -p "${OUTPUT_DIR}"
 
+# Setup profiling variables if enabled
+if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
+  NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
+  echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
+elif [[ -n "${JAX_PROFILE_NAME:-}" ]]; then
+  echo "JAX profiling enabled with name: ${JAX_PROFILE_NAME}"
+else
+  echo "Profiling not enabled. To enable, use --nsys-profile-name=NAME or --jax-profile-name=NAME"
+fi
+
+export NSYS_PROFILE_NAME
+export JAX_PROFILE_NAME
+
 # todo: python -m jax_inference_offloading.controller_server ...
 CUDA_VISIBLE_DEVICES= \
-python "${DIR}/../jax_inference_offloading/controller/gateway.py" 2>&1 | tee ${OUTPUT_DIR}/gateway.log &
+python "${DIR}/../jax_inference_offloading/controller/gateway.py" 2>&1 | tee "${OUTPUT_DIR}/gateway.log" &
 PIDS+=($!)
 
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${VLLM_GPU_ARRAY[*]}") \
 MODEL_NAME=${MODEL_PATH:-$MODEL_NAME} \
-python "${DIR}/rollout.py" 2>&1 | tee ${OUTPUT_DIR}/rollout.log &
+python "${DIR}/rollout.py" 2>&1 | tee "${OUTPUT_DIR}/rollout.log" &
 PIDS+=($!)
 
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${JAX_GPU_ARRAY[*]}") \
 JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR} \
 JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS=0.1 \
-python "${DIR}/trainer_grpo.py" 2>&1 | tee ${OUTPUT_DIR}/trainer.log &
+maybe_run_nsys python "${DIR}/trainer_grpo.py" 2>&1 | tee "${OUTPUT_DIR}/trainer.log" &
 PIDS+=($!)
 
 wait "${PIDS[@]}"

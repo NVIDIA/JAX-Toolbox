@@ -19,16 +19,6 @@ set -euo pipefail
 DIR="$(dirname "$0")"
 _ARGS="$*"
 
-# Validate input to prevent command injection
-validate_safe_path() {
-  local value="$1"
-  local name="$2"
-  if [[ ! "$value" =~ ^[a-zA-Z0-9._/%-]+$ ]]; then
-    echo "Error: $name contains unsafe characters. Only alphanumerics, dots, hyphens, underscores, slashes, and percent signs are allowed." >&2
-    exit 1
-  fi
-}
-
 # Arguments - General
 DEBUG="false"
 OUTPUT_DIR=""
@@ -199,13 +189,8 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -p "$PWD" -d output.XXXXXXXX)}
-validate_safe_path "${OUTPUT_DIR}" "OUTPUT_DIR"
-if [[ -n "${NSYS_PROFILE_NAME}" ]]; then
-  validate_safe_path "${NSYS_PROFILE_NAME}" "NSYS_PROFILE_NAME"
-fi
-if [[ -n "${JAX_PROFILE_NAME}" ]]; then
-  validate_safe_path "${JAX_PROFILE_NAME}" "JAX_PROFILE_NAME"
+if [[ -z "${OUTPUT_DIR}" ]]; then
+  OUTPUT_DIR=$(mktemp -p "$PWD" -d output.XXXXXXXX)
 fi
 mkdir -p "${OUTPUT_DIR}"
 echo "Artifacts will be saved to: ${OUTPUT_DIR}"
@@ -296,6 +281,27 @@ echo "vLLM nodes (${#VLLM_HOSTS[@]}): ${VLLM_HOSTS[*]}"
 MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.1-8B-Instruct"}
 
 # ------------------------------------------------------------------------------
+# Function to (optionally) wrap a command with nsys
+# ------------------------------------------------------------------------------
+maybe_run_nsys() {
+  if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
+    nsys profile -s none \
+      -o "${NSYS_OUTPUT}-$(hostname -s)" \
+      --force-overwrite true \
+      --capture-range=cudaProfilerApi \
+      --cuda-graph-trace=node \
+      --trace=cuda,nvtx \
+      --capture-range-end=stop \
+      "$@"
+  else
+    "$@"
+  fi
+}
+
+# Export function for use in srun subshells
+export -f maybe_run_nsys
+
+# ------------------------------------------------------------------------------
 # Kill all processes when done.
 # ------------------------------------------------------------------------------
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
@@ -325,17 +331,15 @@ VLLM_VISIBLE_DEVICES=$(seq -s, 0 $((N_GPUS_PER_NODE - 1)))
 VLLM_TENSOR_PARALLEL_SIZE=$((N_GPUS_PER_NODE * N_NODES_VLLM))
 
 # ------------------------------------------------------------------------------
-# Setup profiling command if enabled
+# Setup profiling variables if enabled
 # ------------------------------------------------------------------------------
 if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
   NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
-  TRAINER_PROF_CMD="nsys profile -s none -o \"${NSYS_OUTPUT}\" --force-overwrite true --capture-range=cudaProfilerApi --cuda-graph-trace=node --trace=cuda,nvtx --capture-range-end=stop"
-  echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
+  export NSYS_OUTPUT
+  echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}-<hostname>"
 elif [[ -n "${JAX_PROFILE_NAME:-}" ]]; then
-  TRAINER_PROF_CMD=""
   echo "JAX profiling enabled with name: ${JAX_PROFILE_NAME}"
 else
-  TRAINER_PROF_CMD=""
   echo "Profiling not enabled. To enable, use --nsys-profile-name=NAME or --jax-profile-name=NAME"
 fi
 
@@ -363,7 +367,6 @@ export JAX_COORDINATOR_PORT
 export JAX_NODELIST
 export JAX_LOCAL_DEVICE_IDS
 export JAX_NUM_PROCESSES="${#JAX_HOSTS[@]}"
-export TRAINER_PROF_CMD
 export VLLM_NODELIST
 export VLLM_NUM_PROCESSES="${#VLLM_HOSTS[@]}"
 export VLLM_CONTROLLER_ADDR
@@ -439,7 +442,7 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
   --container-name="${CONTAINER_NAME}" \
   --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS}" --container-writable \
   --export=ALL \
-  bash -lc '${TRAINER_PROF_CMD} python -u trainer.py |& tee "${OUTPUT_DIR}/trainer-$(hostname -s).log" ' &
+  bash -lc 'maybe_run_nsys python -u trainer.py |& tee "${OUTPUT_DIR}/trainer-$(hostname -s).log" ' &
 PIDS+=($!)
 
 # Launch vLLM (multi-node)
@@ -453,7 +456,7 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
   --export=ALL \
   bash -lc '
   if [[ "`hostname -s`" == "${RAY_HEAD_HOST}" ]]; then
-    ${TRAINER_PROF_CMD} ray start \
+    ray start \
       --head \
       --port=${RAY_PORT} \
       --ray-client-server-port=${RAY_CLIENT_SERVER_PORT} \
@@ -463,7 +466,7 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
       --disable-usage-stats \
     |& tee "${OUTPUT_DIR}/ray-head.log"
   else
-    ${TRAINER_PROF_CMD} ray start \
+    ray start \
       --address="${RAY_HEAD_IP}:${RAY_PORT}" \
       --num-cpus=${CPUS_PER_TASK_RAY} \
       --num-gpus=${N_GPUS_PER_NODE} \

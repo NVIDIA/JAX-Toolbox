@@ -19,16 +19,6 @@ set -euo pipefail
 DIR="$(dirname "$0")"
 _ARGS="$*"
 
-# Validate input to prevent command injection
-validate_safe_path() {
-  local value="$1"
-  local name="$2"
-  if [[ ! "$value" =~ ^[a-zA-Z0-9._/%-]+$ ]]; then
-    echo "Error: $name contains unsafe characters. Only alphanumerics, dots, hyphens, underscores, slashes, and percent signs are allowed." >&2
-    exit 1
-  fi
-}
-
 # Arguments - General
 DEBUG="false"
 OUTPUT_DIR=""
@@ -151,13 +141,8 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -p "$PWD" -d output.XXXXXXXX)}
-validate_safe_path "${OUTPUT_DIR}" "OUTPUT_DIR"
-if [[ -n "${NSYS_PROFILE_NAME}" ]]; then
-  validate_safe_path "${NSYS_PROFILE_NAME}" "NSYS_PROFILE_NAME"
-fi
-if [[ -n "${JAX_PROFILE_NAME}" ]]; then
-  validate_safe_path "${JAX_PROFILE_NAME}" "JAX_PROFILE_NAME"
+if [[ -z "${OUTPUT_DIR}" ]]; then
+  OUTPUT_DIR=$(mktemp -p "$PWD" -d output.XXXXXXXX)
 fi
 mkdir -p "${OUTPUT_DIR}"
 echo "Artifacts will be saved to: ${OUTPUT_DIR}"
@@ -168,9 +153,26 @@ if [[ -n "${NSYS_PROFILE_NAME}" && -n "${JAX_PROFILE_NAME}" ]]; then
   exit 1
 fi
 
-
 # Model selection default
 MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.1-8B-Instruct"}
+
+# ------------------------------------------------------------------------------
+# Function to (optionally) wrap a command with nsys
+# ------------------------------------------------------------------------------
+maybe_run_nsys() {
+  if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
+    nsys profile -s none \
+      -o "${NSYS_OUTPUT}" \
+      --force-overwrite true \
+      --capture-range=cudaProfilerApi \
+      --cuda-graph-trace=node \
+      --trace=cuda,nvtx \
+      --capture-range-end=stop \
+      "$@"
+  else
+    "$@"
+  fi
+}
 
 # ------------------------------------------------------------------------------
 # Kill all processes when done.
@@ -194,7 +196,7 @@ if [[ "${USE_REAL_WEIGHTS}" == "true" ]]; then
   echo "Using real weights."
   if [[ -z "${MODEL_PATH}" ]]; then
     echo "MODEL_PATH not provided, downloading HF snapshot..."
-    MODEL_PATH=$(python "${DIR}/download_model.py" --hub=hf --model=${MODEL_NAME} --ignore="*.pth")
+    MODEL_PATH=$(python "${DIR}/download_model.py" --hub=hf --model="${MODEL_NAME}" --ignore="*.pth")
   else
     echo "Using provided MODEL_PATH: ${MODEL_PATH}"
   fi
@@ -258,16 +260,13 @@ fi
 
 PIDS=()
 
-# Setup profiling command if enabled
+# Setup profiling variables if enabled
 if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
   NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
-  TRAINER_PROF_CMD="nsys profile -s none -o \"${NSYS_OUTPUT}\" --force-overwrite true --capture-range=cudaProfilerApi --cuda-graph-trace=node --trace=cuda,nvtx --capture-range-end=stop"
   echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
 elif [[ -n "${JAX_PROFILE_NAME:-}" ]]; then
-  TRAINER_PROF_CMD=""
   echo "JAX profiling enabled with name: ${JAX_PROFILE_NAME}"
 else
-  TRAINER_PROF_CMD=""
   echo "Profiling not enabled. To enable, use --nsys-profile-name=NAME or --jax-profile-name=NAME"
 fi
 
@@ -275,16 +274,16 @@ echo "Logs will be saved to: ${OUTPUT_DIR}"
 
 # todo: python -m jax_inference_offloading.controller_server ...
 CUDA_VISIBLE_DEVICES= \
-python -u "${DIR}/../jax_inference_offloading/controller/gateway.py" 2>&1 | tee ${OUTPUT_DIR}/gateway.log &
+python -u "${DIR}/../jax_inference_offloading/controller/gateway.py" 2>&1 | tee "${OUTPUT_DIR}/gateway.log" &
 PIDS+=($!)
 
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${VLLM_GPU_ARRAY[*]}") \
 MODEL_NAME=${MODEL_PATH:-$MODEL_NAME} \
-python -u "${DIR}/rollout.py" 2>&1 | tee ${OUTPUT_DIR}/rollout.log &
+python -u "${DIR}/rollout.py" 2>&1 | tee "${OUTPUT_DIR}/rollout.log" &
 PIDS+=($!)
 
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${JAX_GPU_ARRAY[*]}") \
-${TRAINER_PROF_CMD} python -u "${DIR}/trainer.py" 2>&1 | tee ${OUTPUT_DIR}/trainer.log &
+maybe_run_nsys python -u "${DIR}/trainer.py" 2>&1 | tee "${OUTPUT_DIR}/trainer.log" &
 PIDS+=($!)
 
 wait "${PIDS[@]}"
