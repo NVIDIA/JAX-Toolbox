@@ -139,7 +139,7 @@ jobs:
           | (.spec.replicatedJobs[].template.spec.template.spec.containers[].env[] | select(.name == "MODEL_NAME").value) = strenv(MODEL)
 
           # 4. Add imagePullSecrets to all replicatedJobs (Gateway, vLLM, and JAX nodes)
-          | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets[].name "${{ steps.store-token.outputs.token-name }}"
+          | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
         ' .github/eks-workflow-files/jio-eks/jio-template.yaml
         git diff .github/eks-workflow-files/jio-eks/jio-template.yaml
 
