@@ -324,11 +324,11 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 # ------------------------------------------------------------------------------
 # load environment variables from .env file
 # ------------------------------------------------------------------------------
-if [[ -f "${DIR}/../.env" ]]; then
-  echo "Loading environment variables from .env file"
-  set -a && source "${DIR}/../.env" && set +a
+if [[ -f "${PWD}/.env" ]]; then
+  echo "Loading ${PWD}/.env"
+  set -a && source "${PWD}/.env" && set +a
 else
-  echo ".env file not found, skipping"
+  echo ".env not found in ${PWD}, skipping"
 fi
 
 # ------------------------------------------------------------------------------

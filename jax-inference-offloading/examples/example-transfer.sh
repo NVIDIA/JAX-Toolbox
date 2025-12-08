@@ -182,7 +182,12 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 # ------------------------------------------------------------------------------
 # load environment variables from .env file
 # ------------------------------------------------------------------------------
-dir=$PWD; while [[ $dir != / && ! -f $dir/.env ]]; do dir=${dir%/*}; done; [[ -f $dir/.env ]] && { echo "Loading $dir/.env"; set -a; . "$dir/.env"; set +a; } || echo "No .env found, skipping"
+if [[ -f "${PWD}/.env" ]]; then
+  echo "Loading ${PWD}/.env"
+  set -a && source "${PWD}/.env" && set +a
+else
+  echo ".env not found in ${PWD}, skipping"
+fi
 
 # ------------------------------------------------------------------------------
 # Ensure model is already present on disk (download only when using real weights)
