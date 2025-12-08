@@ -64,6 +64,8 @@ spec:
               - name: shmem
                 mountPath: /dev/shm
 
+            imagePullSecrets:
+              - name: PLACEHOLDER
             volumes:
             - name: shmem
               emptyDir:
@@ -284,6 +286,9 @@ spec:
               operator: Exists
               effect: NoSchedule
 
+            imagePullSecrets:
+              - name: PLACEHOLDER
+
             volumes:
             - name: shmem
               emptyDir:
@@ -472,6 +477,8 @@ spec:
               operator: Exists
               effect: NoSchedule
 
+            imagePullSecrets:
+              - name: PLACEHOLDER
             volumes:
             - name: dshm
               emptyDir:

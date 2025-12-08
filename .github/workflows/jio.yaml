@@ -137,6 +137,9 @@ jobs:
 
           # 3. Update Model Name (Finds the env var named "MODEL_NAME" and updates its value)
           | (.spec.replicatedJobs[].template.spec.template.spec.containers[].env[] | select(.name == "MODEL_NAME").value) = strenv(MODEL)
+
+          # 4. Add imagePullSecrets to all replicatedJobs (Gateway, vLLM, and JAX nodes)
+          | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets = [{"name": strenv(TOKEN_NAME)}]
         ' .github/eks-workflow-files/jio-eks/jio-template.yaml
         git diff .github/eks-workflow-files/jio-eks/jio-template.yaml
 
