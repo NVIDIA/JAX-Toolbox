@@ -108,7 +108,7 @@ jobs:
     needs: amd64
     runs-on: eks
     env:
-      JOB_NAME: jax-vllm-offloading
+      JOB_NAME: jax-vllm-offloading-${{ github.run_id }}
       JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
       MODEL: "meta-llama/Llama-3.1-8B-Instruct"
 
