@@ -64,6 +64,9 @@ jobs:
                                        max_target_length=4096
                                        use_iota_embed=true
                                        logits_dot_in_fp32=false
+                                       enable_goodput_recording=true
+                                       monitor_goodput=true
+                                       goodput_upload_interval_seconds=5
                                        profiler=nsys
                                        upload_all_profiler_results=true
                                        skip_first_n_steps_for_profiler=3

@@ -103,6 +103,7 @@ runs:
       # install xpk
       git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD_NAME}/xpk
 
+      uv pip install urllib3==2.5.0 # workaround for compatibility with this xpk version
       sed 's@pip install \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD_NAME}/xpk/Makefile
       cd ${WORKLOAD_NAME}/xpk && sudo make install; cd -
 

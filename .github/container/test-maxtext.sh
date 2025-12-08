@@ -282,7 +282,7 @@ export BASE_XLA_FLAGS=${BASE_XLA_FLAGS:---xla_gpu_enable_latency_hiding_schedule
 
 export XLA_FLAGS="$BASE_XLA_FLAGS ${XLA_FLAGS:-}"
 
-RUN_NAME="logdir" ## the RUN_NAME cannot be changed
+RUN_NAME="olupton_test" ## the RUN_NAME cannot be changed
 
 
 if [ -z "$DECODER_BLOCK" ]; then
