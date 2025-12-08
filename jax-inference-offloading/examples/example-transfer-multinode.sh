@@ -219,7 +219,25 @@ if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   scontrol show job "${SLURM_JOB_ID}" > "${OUTPUT_DIR}/scontrol.txt" 2>&1 || true
 fi
 
-env | grep -v TOKEN > "${OUTPUT_DIR}/env.txt" || true
+# Write a scoped allowlist of non-sensitive environment variables
+{
+  echo "PATH=${PATH:-}"
+  echo "PWD=${PWD:-}"
+  echo "SHELL=${SHELL:-}"
+  echo "TERM=${TERM:-}"
+  echo "TMPDIR=${TMPDIR:-}"
+  echo "TMP=${TMP:-}"
+  echo "TEMP=${TEMP:-}"
+  echo "TEMPDIR=${TEMPDIR:-}"
+  echo "HOSTNAME=$(hostname -f 2>/dev/null || hostname)"
+  echo "USER=${USER:-}"
+  [[ -n "${XLA_FLAGS:-}" ]] && echo "XLA_FLAGS=${XLA_FLAGS}"
+  env | grep -E '^SLURM_' | sort || true
+  env | grep -E '^(MPI_|OMPI_|PMIX_|PMI_)' | sort || true
+  env | grep -E '^HF_' | grep -v '^HF_TOKEN=' | sort || true
+  env | grep -E '^(CUDA_|NVIDIA_)' | sort || true
+  env | grep -E '^JAX_' | sort || true
+} > "${OUTPUT_DIR}/env.txt"
 
 # If no mounts provided, at least mount the output directory
 MOUNTS="${OUTPUT_DIR}:${OUTPUT_DIR}"
