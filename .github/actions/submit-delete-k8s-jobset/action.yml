@@ -55,89 +55,42 @@ runs:
           echo "Monitoring pods for termination..."
 
           while true; do
-            # Get all pods with their status in JSON format
-            pod_list=$(kubectl get pods \
-                --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
-                -o json 2>/dev/null)
+            # check if any pods completed
+            succeeded=$(kubectl get pods \
+              --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
+              --field-selector=status.phase=Succeeded \
+              -o name 2>/dev/null | head -n 1)
 
-            if [ -z "${pod_list}" ] || ! echo "${pod_list}" | jq empty 2>/dev/null; then
-              echo "Warning: Could not retrieve valid pod status, retrying..."
-              sleep 5
-              continue
+            # check if any pods failed
+            failed=$(kubectl get pods \
+              --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
+              --field-selector=status.phase=Failed \
+              -o name 2>/dev/null | head -n 1)
+
+            # if we have a failing pod return the error
+            if [ -n "${failed}" ]; then
+              echo "Pod failed: ${failed}"
+              kubectl describe ${failed}
+              kubectl logs ${failed} --all-containers=true --tail=100 || true
+              exit 1
             fi
 
-            # Check if any pod has terminated successfully
-            terminated_pod=$(echo "${pod_list}" | jq -r '
-              .items[] |
-              select(
-                .status.containerStatuses // [] |
-                any(.state.terminated)
-              ) |
-              .metadata.name
-            ' | head -n 1)
-
-            # Check for explicitly Failed pods
-            failed_pods=$(echo "${pod_list}" | jq -r '
-              .items[] |
-              select(.status.phase == "Failed") |
-              .metadata.name
-            ')
-
-            # --- SUCCESS CASE ---
-            if [ -n "${terminated_pod}" ]; then
-              echo "Pod ${terminated_pod} has terminated."
-
-              # Get the exit code
-              exit_code=$(echo "${pod_list}" | jq -r "
-                .items[] |
-                select(.metadata.name == \"${terminated_pod}\") |
-                .status.containerStatuses[0].state.terminated.exitCode
-              ")
-
-              echo "Exit code: ${exit_code}"
-
-              # PRINT LOGS FOR ALL PODS (Tail 100)
-              echo "========================================================"
-              echo "       FINAL LOGS (Last 100 lines per pod)              "
-              echo "========================================================"
-
-              # Refresh pod list just in case
-              final_pods=$(kubectl get pods --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} -o name)
-
-              for p in $final_pods; do
-                echo ""
-                echo "--- Logs for $p ---"
-                kubectl logs $p --all-containers=true --tail=100 || echo "Could not retrieve logs for $p"
-              done
-              echo "========================================================"
-
-              if [ "${exit_code}" -ne 0 ]; then
-                echo "Pod terminated with non-zero exit code"
-                kubectl describe pod/${terminated_pod}
-                exit 1
-              fi
-
+            # if we have a pod that completed, return the last 100 lines of all the pods
+            if [ -n "${succeeded}" ]; then
+              echo "Pod succeeded: ${succeeded}"
+              kubectl get pods \
+                --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
+                -o jsonpath='{range.items[*]}{.metadata.name}{"\n"}{end}' | \
+                while read -r pod_name; do
+                  echo "--- Logs for ${pod_name} ---"
+                  kubectl logs ${pod_name} --all-containers=true --tail=100 || echo "Could not retrieve logs for ${pod_name}"
+                done
               echo "JobSet completed successfully."
               break
             fi
 
-            # --- FAILURE CASE ---
-            if [ -n "${failed_pods}" ]; then
-              echo "Found failed pods: ${failed_pods}"
-
-              echo "========================================================"
-              echo "       DEBUG LOGS (Last 100 lines per failed pod)       "
-              echo "========================================================"
-
-              for pod in ${failed_pods}; do
-                echo "Details for failed pod ${pod}:"
-                kubectl describe pod/${pod}
-                echo "--- Logs for $pod ---"
-                kubectl logs ${pod} --all-containers=true --tail=100 || true
-              done
-              exit 1
-            fi
-
+            # otherwise poll
+            echo "Waiting for pod completion..."
             sleep 30
           done
 
