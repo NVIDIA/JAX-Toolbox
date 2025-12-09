@@ -124,6 +124,7 @@ EOF
 ## Flax
 RUN <<"EOF" bash -ex
 git-clone.sh ${URLREF_FLAX} ${SRC_PATH_FLAX}
+sed -i 's/jax>=0\.8\.1/jax/' ${SRC_PATH_FLAX}/pyproject.toml
 echo "-e file://${SRC_PATH_FLAX}" >> /opt/pip-tools.d/requirements-flax.in
 EOF
 
