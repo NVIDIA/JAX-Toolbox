@@ -208,6 +208,24 @@ def _load_nvtx_gpu_proj_trace_single(
             "variable."
         )
         raise
+
+    # Apply a filter for taking out nccl chunks
+    nccl_mask = df["Name"].str.contains("ncclGroupEnd", na=False) | df[
+        "Name"
+    ].str.contains("NCCL", na=False)
+    if nccl_mask.any():
+        # get the ids to be removed
+        drop_ids = df.index[nccl_mask]
+        # create a map to get where to point the children of the deleted nodes
+        reparent_map = df.loc[drop_ids, "ParentId"]
+        # find all the valid rows whose Parent is one of the rows to delete
+        children_mask = df["ParentId"].isin(drop_ids)
+        # Update the ParentId of these children to skip the NCCL node
+        (df.loc[children_mask, "ParentId"],) = df.loc[children_mask, "ParentId"].map(
+            reparent_map
+        )
+        # drop the nccl rows
+        df = df[~nccl_mask]
     # Due to idiosyncracies of how Nsight tracks CUDA graphs, and because
     # thunks can be nested, the NVTX hierarchy generally looks like:
     #  Iteration -> XlaModule:A [-> XlaModule:B] -> Thunk:C [-> Thunk:D ...]
