@@ -221,7 +221,7 @@ def _load_nvtx_gpu_proj_trace_single(
         # find all the valid rows whose Parent is one of the rows to delete
         children_mask = df["ParentId"].isin(drop_ids)
         # Update the ParentId of these children to skip the NCCL node
-        (df.loc[children_mask, "ParentId"],) = df.loc[children_mask, "ParentId"].map(
+        df.loc[children_mask, "ParentId"] = df.loc[children_mask, "ParentId"].map(
             reparent_map
         )
         # drop the nccl rows
