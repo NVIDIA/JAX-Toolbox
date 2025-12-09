@@ -1,0 +1,102 @@
+name: Submit & Delete K8s JobSet
+description: Submit and delete a K8s JobSet, monitoring until one pod terminates
+
+inputs:
+  jobset-name:
+    description: The JobSet name
+    required: true
+  jobset-config-file:
+    description: Path to the Kubernetes JobSet YAML
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Submit and Delete Kubernetes JobSet
+      uses: ./.github/actions/with-post-step
+      with:
+        main: |
+          # Disable debug mode to prevent loop spam
+          set +x
+          TIMEOUT_JOBSET_CREATION=600s
+          TIMEOUT_POD_START=600s
+          INPUT_JOBSET_NAME=${{ inputs.jobset-name }}
+          INPUT_JOBSET_CONFIG_FILE=${{ inputs.jobset-config-file }}
+
+          echo "Submit K8s JobSet: ${INPUT_JOBSET_NAME}"
+          kubectl apply -f "${INPUT_JOBSET_CONFIG_FILE}"
+
+          # Wait for JobSet to be created
+          kubectl wait --for=create jobset/${INPUT_JOBSET_NAME} --timeout=$TIMEOUT_JOBSET_CREATION
+
+          echo "Waiting for pods to be created..."
+          sleep 5
+
+          # Wait for at least one pod to be ready
+          echo "Waiting for pods to start..."
+          kubectl wait --for=condition=Ready \
+            --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
+            --timeout=$TIMEOUT_POD_START pod
+
+          sleep 20
+
+          # Get all pod names associated with this JobSet
+          pods=$(kubectl get pods --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} -o name)
+
+          if [ -z "${pods}" ]; then
+            echo "No pods found for JobSet ${INPUT_JOBSET_NAME}"
+            exit 1
+          fi
+
+          echo "Found pods:"
+          echo "${pods}"
+
+          # Monitor pods until one terminates
+          echo "Monitoring pods for termination..."
+
+          while true; do
+            # check if any pods completed
+            succeeded=$(kubectl get pods \
+              --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
+              --field-selector=status.phase=Succeeded \
+              -o name 2>/dev/null | head -n 1)
+
+            # check if any pods failed
+            failed=$(kubectl get pods \
+              --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
+              --field-selector=status.phase=Failed \
+              -o name 2>/dev/null | head -n 1)
+
+            # if we have a failing pod return the error
+            if [ -n "${failed}" ]; then
+              echo "Pod failed: ${failed}"
+              kubectl describe ${failed}
+              kubectl logs ${failed} --all-containers=true --tail=100 || true
+              exit 1
+            fi
+
+            # if we have a pod that completed, return the last 100 lines of all the pods
+            if [ -n "${succeeded}" ]; then
+              echo "Pod succeeded: ${succeeded}"
+              kubectl get pods \
+                --selector=jobset.sigs.k8s.io/jobset-name=${INPUT_JOBSET_NAME} \
+                -o jsonpath='{range.items[*]}{.metadata.name}{"\n"}{end}' | \
+                while read -r pod_name; do
+                  echo "--- Logs for ${pod_name} ---"
+                  kubectl logs ${pod_name} --all-containers=true --tail=100 || echo "Could not retrieve logs for ${pod_name}"
+                done
+              echo "JobSet completed successfully."
+              break
+            fi
+
+            # otherwise poll
+            echo "Waiting for pod completion..."
+            sleep 30
+          done
+
+        post: |
+          echo "Deleting K8s JobSet: ${{ inputs.jobset-name }}"
+          kubectl delete -f "${{ inputs.jobset-config-file }}" || true
+
+          # Ensure all related resources are cleaned up
+          kubectl delete pods --selector=jobset.sigs.k8s.io/jobset-name=${{ inputs.jobset-name }} --force --grace-period=0 || true
