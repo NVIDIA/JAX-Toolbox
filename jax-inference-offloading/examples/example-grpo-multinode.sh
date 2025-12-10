@@ -468,6 +468,16 @@ fi
 
 PIDS=()
 
+# Live log mirrors
+( tail -F "${OUTPUT_DIR}/gateway.log" | sed -u 's/^/[gateway] /' ) &
+for h in "${JAX_HOSTS[@]}"; do
+  ( tail -F "${OUTPUT_DIR}/trainer-${h}.log" | sed -u "s/^/[trainer@${h}] /" ) &
+done
+for h in "${VLLM_HOSTS[@]}"; do
+  ( tail -F "${OUTPUT_DIR}/ray-${h}.log" | sed -u "s/^/[ray@${h}] /" ) &
+done
+( tail -F "${OUTPUT_DIR}/rollout-${VLLM_CONTROLLER_ADDR}.log" | sed -u 's/^/[rollout] /' ) &
+
 # If debugging, show collected GRPO_* overrides
 if [[ "$DEBUG" == "true" ]]; then
   echo "GRPO_* env overrides:"
