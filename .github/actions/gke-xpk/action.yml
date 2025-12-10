@@ -132,20 +132,21 @@ runs:
           ./google-cloud-sdk/bin/gcloud init;
   
           mkdir -p /usr/share/workload;
-          mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};
-
-          # Work around GCP's deployment model that munges together three
-          # mostly unrelated things: (1) the host machine's CUDA driver/libs,
-          # (2) the version of NCCL installed on the host machine, and (3)
-          # the GCP-specific NCCL plugins. These are jumbled together and
-          # mounted into the container at /usr/local/nvidia/lib64. We only want
-          # #3, so copy them to a separate directory.
+          mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
+      # Work around GCP's deployment model that munges together three
+      # mostly unrelated things: (1) the host machine's CUDA driver/libs,
+      # (2) the version of NCCL installed on the host machine, and (3)
+      # the GCP-specific NCCL plugins. These are jumbled together and
+      # mounted into the container at /usr/local/nvidia/lib64. We only want
+      # #3, so copy them to a separate directory.
+      PRELUDE+="
           export NCCL_LIB_DIR=/gcp-nccl-plugins;
           mkdir \${NCCL_LIB_DIR};
-          cp -v /usr/local/nvidia/lib64/nccl-env-profile{,-ll128}.sh /usr/local/nvidia/lib64/libnccl-{net,net_internal,tcpx,tcpxo,tuner}.so /usr/local/nvidia/lib64/a3plus_{guest,tuner}_config{,_ll128}.textproto \${NCCL_LIB_DIR};
-          # Prepend NCCL_LIB_DIR to LD_LIBRARY_PATH
-          source \${NCCL_LIB_DIR}/nccl-env-profile.sh;
-          # Make sure #2 above does not interfere with the container's NCCL
+          cp -v /usr/local/nvidia/lib64/nccl-env-profile{,-ll128}.sh /usr/local/nvidia/lib64/libnccl-{net,net_internal,tcpx,tcpxo,tuner}.so /usr/local/nvidia/lib64/a3plus_{guest,tuner}_config{,_ll128}.textproto \${NCCL_LIB_DIR};"
+      # Prepend NCCL_LIB_DIR to LD_LIBRARY_PATH
+      PRELUDE+="source \${NCCL_LIB_DIR}/nccl-env-profile.sh;"
+      # Make sure #2 above does not interfere with the container's NCCL
+      PRELUDE+="
           export LD_LIBRARY_PATH=/opt/nvidia/nccl/lib:\$LD_LIBRARY_PATH;
           env;
       "
