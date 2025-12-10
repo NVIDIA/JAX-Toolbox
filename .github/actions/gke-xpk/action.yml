@@ -141,12 +141,12 @@ runs:
           # mounted into the container at /usr/local/nvidia/lib64. We only want
           # #3, so copy them to a separate directory.
           export NCCL_LIB_DIR=/gcp-nccl-plugins;
-          mkdir ${NCCL_LIB_DIR};
-          cp -v /usr/local/nvidia/lib64/nccl-env-profile{,-ll128}.sh /usr/local/nvidia/lib64/libnccl-{net,net_internal,tcpx,tcpxo,tuner}.so /usr/local/nvidia/lib64/a3plus_{guest,tuner}_config{,_ll128}.textproto ${NCCL_LIB_DIR};
+          mkdir \${NCCL_LIB_DIR};
+          cp -v /usr/local/nvidia/lib64/nccl-env-profile{,-ll128}.sh /usr/local/nvidia/lib64/libnccl-{net,net_internal,tcpx,tcpxo,tuner}.so /usr/local/nvidia/lib64/a3plus_{guest,tuner}_config{,_ll128}.textproto \${NCCL_LIB_DIR};
           # Prepend NCCL_LIB_DIR to LD_LIBRARY_PATH
-          source ${NCCL_LIB_DIR}/nccl-env-profile.sh;
+          source \${NCCL_LIB_DIR}/nccl-env-profile.sh;
           # Make sure #2 above does not interfere with the container's NCCL
-          export LD_LIBRARY_PATH=/opt/nvidia/nccl/lib:$LD_LIBRARY_PATH;
+          export LD_LIBRARY_PATH=/opt/nvidia/nccl/lib:\$LD_LIBRARY_PATH;
           env;
       "
   
