@@ -28,7 +28,7 @@ EOF
 FROM ${BASE_IMAGE} AS ff-image
 # Space separated string where each item is a repo dir JAX-Toolbox installed
 # Example:
-#  --build-arg REPO_DIRS="/opt/t5x /opt/flax"
+#  --build-arg REPO_DIRS="/opt/maxtext /opt/flax"
 ARG REPO_DIRS=""
 
 COPY --from=broken /build_date /build_date

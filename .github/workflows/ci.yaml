@@ -38,7 +38,7 @@ on:
         type: string
         description: |
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
-          PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,axlearn,equinox,T5X,maxtext,TorchAX} (case-insensitive)
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,axlearn,equinox,maxtext,TorchAX} (case-insensitive)
         default: ''
         required: false
       MODE:
@@ -48,10 +48,9 @@ on:
           - full - everything will be run (default)
           - jax - run all the tests related to jax system
           - te - run all the tests related to TE
-          - t5x - run build rosetta
           - maxtext - run only the tests for maxtext
           - axlearn - run only the tests for axlearn
-        options: [full, jax, te, t5x, maxtext, axlearn]
+        options: [full, jax, te, maxtext, axlearn]
         default: full
 
 concurrency:
@@ -358,8 +357,6 @@ jobs:
             jax
             equinox
             maxtext
-            upstream-t5x
-            t5x
             axlearn
             torchax
           )

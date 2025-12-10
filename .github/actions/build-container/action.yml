@@ -15,16 +15,16 @@ inputs:
     required: false
     default: 'NOT SPECIFIED'
   ARTIFACT_NAME:
-    description: 'Name of the artifact zip file, e.g. artifact-t5x-build'
+    description: 'Name of the artifact zip file, e.g. artifact-maxtext-build'
     required: true
   BADGE_FILENAME:
-    description: 'Name of the endpoint JSON file for shields.io badge, e.g. badge-t5x-build'
+    description: 'Name of the endpoint JSON file for shields.io badge, e.g. badge-maxtext-build'
     required: true
   CONTAINER_NAME:
-    description: "Container name, e.g. upstream-t5x"
+    description: "Container name, e.g. maxtext"
     required: true
   DOCKERFILE:
-    description: "Dockerfile to use, e.g. .github/container/Dockerfile.t5x"
+    description: "Dockerfile to use, e.g. .github/container/Dockerfile.maxtext"
     required: true
   DOCKER_CONTEXT:
     description: "Dockerfile context to build"

@@ -146,7 +146,7 @@ The following flags enable overlap of tensor parallel communication with GEMMs/m
 
 ### Profile Guided Latency Estimator (PGLE)
 
-The following flag enables use of PGLE with JAX/XLA. Please see [PGLE notes](https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/docs/PGLE.md) for more details.
+The following flag enables use of PGLE with JAX/XLA. Please see [PGLE notes](PGLE.md) for more details.
 - --xla_gpu_pgle_profile_file_or_directory_path=filename
 
 ## Other XLA Flags 
