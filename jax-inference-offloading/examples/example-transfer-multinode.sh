@@ -289,7 +289,7 @@ JAX_COORDINATOR_ADDR="${JAX_HOSTS[0]}"
 JAX_COORDINATOR_PORT="${JAX_COORDINATOR_PORT:-12345}"
 VLLM_CONTROLLER_ADDR="${VLLM_HOSTS[0]}"
 RAY_HEAD_HOST="${VLLM_HOSTS[0]}"
-RAY_HEAD_IP=$(nslookup -type=a ${RAY_HEAD_HOST} 2>/dev/null | awk '/^Name:/{f=1;next} f && /^Address:/{print $2}')
+RAY_HEAD_IP=$(nslookup -type=a "${RAY_HEAD_HOST}" 2>/dev/null | awk '/^Name:/{f=1;next} f && /^Address:/{print $2}')
 
 echo "Allocation nodes: ${HOSTS[*]}"
 echo "JAX nodes (${#JAX_HOSTS[@]}): ${JAX_HOSTS[*]}"
@@ -313,6 +313,25 @@ maybe_run_nsys() {
       "$@"
   else
     "$@"
+  fi
+}
+
+start_ray() {
+  if [[ "$(hostname -s)" == "${RAY_HEAD_HOST}" ]]; then
+    ray start \
+      --head \
+      --port="${RAY_PORT}" \
+      --ray-client-server-port="${RAY_CLIENT_SERVER_PORT}" \
+      --num-cpus="${CPUS_PER_TASK_RAY}" \
+      --num-gpus="${N_GPUS_PER_NODE}" \
+      --block \
+      --disable-usage-stats
+  else
+    ray start \
+      --address="${RAY_HEAD_IP}:${RAY_PORT}" \
+      --num-cpus="${CPUS_PER_TASK_RAY}" \
+      --num-gpus="${N_GPUS_PER_NODE}" \
+      --block
   fi
 }
 
@@ -361,6 +380,7 @@ fi
 # common environment
 # ------------------------------------------------------------------------------
 export -f maybe_run_nsys
+export -f start_ray
 export HF_TOKEN
 export OUTPUT_DIR
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
@@ -435,9 +455,8 @@ srun --nodes=1 --ntasks=1 --cpus-per-task=${CPUS_PER_TASK_GATEWAY} -w "$JAX_COOR
   --container-name="${CONTAINER_NAME}" \
   --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS}" --container-writable \
   --export=ALL,CUDA_VISIBLE_DEVICES= \
-  bash -lc '
-  python -u ../jax_inference_offloading/controller/gateway.py |& tee "${OUTPUT_DIR}/gateway.log"
-  ' &
+  --output="${OUTPUT_DIR}/gateway.log" \
+  python -u ../jax_inference_offloading/controller/gateway.py &
 PIDS+=($!)
 
 # Launch JAX (multi-node)
@@ -458,7 +477,8 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
   --container-name="${CONTAINER_NAME}" \
   --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS}" --container-writable \
   --export=ALL \
-  bash -lc 'maybe_run_nsys python -u trainer.py |& tee "${OUTPUT_DIR}/trainer-$(hostname -s).log" ' &
+  --output="${OUTPUT_DIR}/trainer-%N.log" \
+  bash -c "maybe_run_nsys python -u trainer.py" &
 PIDS+=($!)
 
 # Launch vLLM (multi-node)
@@ -470,26 +490,8 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
   --container-name="${CONTAINER_NAME}" \
   --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS}" --container-writable \
   --export=ALL \
-  bash -lc '
-  if [[ "`hostname -s`" == "${RAY_HEAD_HOST}" ]]; then
-    ray start \
-      --head \
-      --port=${RAY_PORT} \
-      --ray-client-server-port=${RAY_CLIENT_SERVER_PORT} \
-      --num-cpus=${CPUS_PER_TASK_RAY} \
-      --num-gpus=${N_GPUS_PER_NODE} \
-      --block \
-      --disable-usage-stats \
-    |& tee "${OUTPUT_DIR}/ray-head.log"
-  else
-    ray start \
-      --address="${RAY_HEAD_IP}:${RAY_PORT}" \
-      --num-cpus=${CPUS_PER_TASK_RAY} \
-      --num-gpus=${N_GPUS_PER_NODE} \
-      --block \
-    |& tee "${OUTPUT_DIR}/ray-worker-$(hostname -s).log"
-  fi
-  ' &
+  --output="${OUTPUT_DIR}/ray-%N.log" \
+  bash -c start_ray &
 PIDS+=($!)  # don't wait on Ray, wait on vLLM instead
 
 sleep 10  # wait for Ray to start
@@ -502,11 +504,8 @@ srun --label --unbuffered -K0 --kill-on-bad-exit=1 --mpi=none \
   --container-name="${CONTAINER_NAME}" \
   --container-image="${CONTAINER_IMAGE}" --container-mounts="${MOUNTS}" --container-writable \
   --export=ALL \
-  bash -lc '
-  ray status
-  python -u rollout.py |& tee "${OUTPUT_DIR}/rollout-$(hostname -s).log"
-  ray stop --force
-  ' &
+  --output="${OUTPUT_DIR}/rollout-%N.log" \
+  bash -c "ray status && python -u rollout.py && ray stop --force" &
 PIDS+=($!)
 
 wait "${PIDS[@]}"
