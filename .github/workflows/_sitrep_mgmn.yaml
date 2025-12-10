@@ -36,7 +36,7 @@ jobs:
         id: exit-status
         shell: bash -x -e {0}
         run: |
-          # Glob after inputs.FW_NAME to capture things like rosetta-t5x-vit
+          # Glob after inputs.FW_NAME to capture things like maxtext-llama
           EXIT_STATUSES="${{ inputs.FW_NAME }}*-${GITHUB_RUN_ID}-*/*-status.json"
           EXIT_STATUS_SUMMARY_FILE="exit_status_summary.json"
           echo -e "\n\n## ${{ inputs.FW_NAME }} MGMN+SPMD Test Status" >> $EXIT_STATUS_SUMMARY_FILE
@@ -96,7 +96,7 @@ jobs:
         run: |
           source .github/workflows/scripts/to_json.sh
 
-          # Glob after inputs.FW_NAME to capture things like rosetta-t5x-vit
+          # Glob after inputs.FW_NAME to capture things like maxtext-llama
           EXIT_STATUSES="${{ inputs.FW_NAME }}*-${GITHUB_RUN_ID}-*/*-status.json"
 
           passed_tests=$(jq -r '. | select ((.state == "COMPLETED") and (.exitcode == "0")) | .state' $EXIT_STATUSES | wc -l)
