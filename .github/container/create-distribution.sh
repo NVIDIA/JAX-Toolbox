@@ -15,7 +15,7 @@ Usage: $0 [OPTION]...
   -h, --help                Print usage.
   -m, --manifest=PATH       Path to the manifest. Updates it in-place
   -o, --override_dir=PATH   Use this if there is a custom location of the upstream clone. If not specified, uses /opt/\${PACKAGE}
-  -p, --package=KEY         The package name in the manifest to use, e.g., t5x
+  -p, --package=KEY         The package name in the manifest to use, e.g., flax, maxtext
   -s, --skip-apply          If provided, will only create patches, update manifest, and skip applying. When not provided, applies local patches.
 
 --------------
@@ -25,12 +25,12 @@ This script has two modes of operation:
   2. $0 ...
 
 Assuming you have:
-t5x:
+flax:
   patches:
-   pull/3340/head: file://patches/t5x/pull-3340-head.patch
+   pull/3340/head: file://patches/flax/pull-3340-head.patch
 
-(1) looks at the tracking-refs (pull/3340/head) of the patch and updates the local patch and the filename in the manifest (file://patches/t5x/pull-3340-head.patch)
-(2) looks only at the filename value (file://patches/t5x/pull-3340-head.patch) and applies it
+(1) looks at the tracking-refs (pull/3340/head) of the patch and updates the local patch and the filename in the manifest (file://patches/flax/pull-3340-head.patch)
+(2) looks only at the filename value (file://patches/flax/pull-3340-head.patch) and applies it
 
 --------------
 
@@ -168,15 +168,15 @@ fi
 # Create a local branch to mark the base commit
 git branch --force distribution-base previous-HEAD
 # Create a local branch for the distribution that starts from the base
-git branch --force rosetta-distribution distribution-base
-git switch rosetta-distribution
+git branch --force local-distribution distribution-base
+git switch local-distribution
 
 ####################################
 # Branch patches from a local repo #
 ####################################
 # Create local branches for all remote branches since remotes aren't recognized
 # when adding local repos as remotes. Excludes origin/HEAD and origin/test_\d+
-TMP_BRANCH_SUFFIX='-tmp-rosetta'
+TMP_BRANCH_SUFFIX='-tmp-dist'
 if [[ -n "${EXTRA_DIR+x}" ]] && [[ -d ${EXTRA_DIR} ]]; then
   EXTRA_REMOTE_NAME=extra
   git+extra() {
@@ -185,7 +185,7 @@ if [[ -n "${EXTRA_DIR+x}" ]] && [[ -d ${EXTRA_DIR} ]]; then
   # Removing 'origin/test_[0-9]+' as this is a common remote for forks and will pull in many branches we never use
   for remote_branch in $(git+extra branch --remotes | grep -v 'origin/HEAD' | egrep -v 'origin/test_[0-9]+' | cut -c3-); do
     # Try creating a local tracking branch, but if already exists, then update it to match remote.
-    # appending -tmp-rosetta in case there's already a local tracking branch with that name.
+    # appending -tmp-dist in case there's already a local tracking branch with that name.
     git+extra branch --track --force $(sed 's/origin\///' <<<${remote_branch})${TMP_BRANCH_SUFFIX} ${remote_branch}
   done
   # Now create a tracking branch for all local branches that don't already have a temporary branch
@@ -267,7 +267,7 @@ create-and-maybe-apply-ref-patches() {
     git checkout -b ${to_linear} $to
     # This will create a linear history
     git rebase $from
-    # switch back to the rosetta-distribution branch
+    # switch back to the local-distribution branch
     git checkout -
     to=${to_linear}
   fi
@@ -348,7 +348,7 @@ for git_ref in $(yq e ".${PACKAGE}.patches | keys | .[]" $MANIFEST); do
     REMOTE_NAME=${EXTRA_REMOTE_NAME}
     # Fetch both the feature branch and main so that we can cherry pick the entire branch
     branch=${REMOTE_NAME}/${git_ref}${TMP_BRANCH_SUFFIX}
-    # Use main-tmp-rosetta instead of main b/c remote branches may have been updated and the local main is stale
+    # Use main-tmp-dist instead of main b/c remote branches may have been updated and the local main is stale
     main_branch=${REMOTE_NAME}/${TRACKING_REF}${TMP_BRANCH_SUFFIX}
   fi
   fork_point=$(fork-point ${main_branch} ${branch})
