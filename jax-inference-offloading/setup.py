@@ -16,8 +16,8 @@
 # limitations under the License.
 from setuptools import Command, setup
 from setuptools.command.build_py import build_py as _build_py
-from setuptools.command.sdist import sdist as _sdist
 from setuptools.command.develop import develop as _develop
+from setuptools.command.sdist import sdist as _sdist
 
 
 class BuildPackageProtos(Command):
@@ -63,11 +63,14 @@ setup(
         'grpcio==1.76.*',
         'protobuf==6.33.*',
         'huggingface-hub',
-        'jax==0.8.0',
+        'jax==0.8.1',
         'jaxtyping',
         'kagglehub',
         'vllm==0.11.2',
     ],
+    extras_require={
+        'test': ['pytest>=7.0'],
+    },
     cmdclass={
         'build_protos': BuildPackageProtos,
         'build_py': BuildPy,
