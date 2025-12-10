@@ -43,6 +43,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True, help='Config name like 1N1G. This would correspond to $workflow_id/$artifact_name/$config')
     parser.add_argument('--run_dirs', type=str, required=True, nargs='+', help='One or more workflow run dirs of the form $workflow_id/$artifact_name')
-    parser.add_argument('--output_dir', type=str, required=True, help='Where to place the averaged baseline. E.g., for upstream-pax it would be PAX_MGMN/upstream (relative to this dir)')
+    parser.add_argument('--output_dir', type=str, required=True, help='Where to place the averaged baseline. E.g., for maxtext it would be MAXTEXT/upstream (relative to this dir)')
     args = parser.parse_args()
     main(args.config, args.run_dirs, args.output_dir)

@@ -2,7 +2,7 @@
 get_remote_labels() {
   if [[ $# -ne 3 ]]; then
     echo 'get_remote_labels $IMAGE $OS $ARCH'
-    echo 'Example: get_remote_labels ghcr.io/nvidia/upstream-t5x:latest linux amd64'
+    echo 'Example: get_remote_labels ghcr.io/nvidia/jax:maxtext linux amd64'
     echo 'Returns the opencontainer annotation labels of a tagged remote image (no download)'
     return 1
   fi
