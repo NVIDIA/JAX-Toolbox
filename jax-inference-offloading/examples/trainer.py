@@ -80,7 +80,7 @@ if USE_POLYMORPHIC_MESH:
     primary_shape=(1, len(jax.devices())),
     extra_singleton_dims=0,
   )
-  training_mesh = main_mesh.view((1, len(jax.devices())), ("fsdp", "tp"))
+  training_mesh = main_mesh.view((jax.process_count(), jax.local_device_count()), ("fsdp", "tp"))
 else:
   # main_mesh = jax.make_mesh((1, len(jax.devices())), ("fsdp", "tp"))
   main_mesh = jax.make_mesh((jax.process_count(), jax.local_device_count()), ("fsdp", "tp"))
@@ -107,7 +107,7 @@ with timer.section("load_model"):
 
 with timer.section("create_bridge"):
   gateway_url = os.environ.get("GATEWAY_URL")
-  transfer_mode = os.environ.get('TRANSFER_MODE', 'grouped')  # 'fused' or 'unfused'
+  transfer_mode = os.environ.get('TRANSFER_MODE', 'grouped')  # 'unfused' | 'grouped' | 'stacked' | 'stacked_graph' | etc.
   bridge = OffloadingBridge(
     gateway_url=gateway_url,
     model_name=model_name,
@@ -121,12 +121,28 @@ with timer.section("create_bridge"):
 state = get_named_parameters(model)
 with timer.section("warmup"):
   bridge.transfer(state)
+
 # send model a second time to benchmark
+# Conditionally enable profiling based on environment
+nsys_profile = os.environ.get('NSYS_PROFILE_NAME', '')
+jax_profile = os.environ.get('JAX_PROFILE_NAME', '')
+assert not (nsys_profile and jax_profile), "Cannot enable Nsys and JAX profiling at the same time"
+
+if nsys_profile:
+  bridge.gateway.start_cuda_profiler()
+  cudart.profilerStart()
+elif jax_profile:
+  jax.profiler.start_trace(os.path.join(os.environ.get('OUTPUT_DIR', '/tmp'), jax_profile))
+
 for r in range(5):
   with timer.section(f"transport.run{r}"):
-    cudart.profilerStart()
     bridge.transfer(state)
-    cudart.profilerStop()
+
+if nsys_profile:
+  bridge.gateway.stop_cuda_profiler()
+  cudart.profilerStop()
+elif jax_profile:
+  jax.profiler.stop_trace()
 
 rollout_config = ctrl.RolloutConfig()
 rollout_config.max_tokens = 500
@@ -169,3 +185,4 @@ if jax.process_index() == 0:
 
 if jax.process_index() == 0:
   print('JAX client exiting')
+  
