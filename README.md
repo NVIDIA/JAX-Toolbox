@@ -10,9 +10,7 @@ We support and test the following JAX frameworks and model architectures. More d
 
 | Framework | Models | Use cases | Container |
 | :--- | :---: | :---: | :---: |
-| [maxtext](./rosetta/rosetta/projects/maxtext)| GPT, LLaMA, Gemma, Mistral, Mixtral | pre-training | `ghcr.io/nvidia/jax:maxtext` |
-| [t5x](./rosetta/rosetta/projects/t5x) | T5, ViT | pre-training, fine-tuning | `ghcr.io/nvidia/jax:t5x` |
-| [t5x](./rosetta/rosetta/projects/imagen) | Imagen | pre-training | `ghcr.io/nvidia/t5x:imagen-2023-10-02.v3` |
+| [maxtext](https://github.com/google/maxtext)| GPT, LLaMA, Gemma, Mistral, Mixtral | pre-training | `ghcr.io/nvidia/jax:maxtext` |
 | [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` |
 
 # Build Pipeline Status
@@ -111,52 +109,6 @@ We support and test the following JAX frameworks and model architectures. More d
     </tr>
     <tr>
       <td>
-        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.t5x">
-          <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Upstream%20T5X%3D%7Bcore%2CT5X%7D">
-        </a>
-      </td>
-      <td>
-        <code>ghcr.io/nvidia/jax:upstream-t5x</code>
-      </td>
-      <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-upstream-t5x-md">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-t5x-build-amd64.json&logo=docker&label=amd64">
-        </a>
-        <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-upstream-t5x-md">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-t5x-build-arm64.json&logo=docker&label=arm64">
-        </a>
-      </td>
-      <td>
-        [tests disabled]
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/Dockerfile.t5x">
-          <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=Rosetta%20T5X%3D%7Bcore%2CT5X%7D">
-        </a>
-      </td>
-      <td>
-        <code>ghcr.io/nvidia/jax:t5x</code>
-      </td>
-      <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-t5x-md">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-build-t5x-amd64.json&logo=docker&label=amd64">
-        </a>
-        <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-t5x-md">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-build-t5x-arm64.json&logo=docker&label=arm64">
-        </a>
-      </td>
-      <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-rosetta-t5x-mgmn-test-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-rosetta-t5x-mgmn-test.json&logo=nvidia&label=A100%20distributed">
-        </a>
-      </td>
-    </tr>
-    <tr>
-      <td>
         <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.maxtext">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=MaxText%3D%7Bcore%2CMaxText%7D">
         </a>
@@ -218,14 +170,14 @@ The [JAX image](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) is emb
 | --------- | ----- | ----------- |
 | `--xla_gpu_enable_latency_hiding_scheduler` | `true`  | allows XLA to move communication collectives to increase overlap with compute kernels |
 
-There are various other XLA flags users can set to improve performance. For a detailed explanation of these flags, please refer to the [GPU performance](./rosetta/docs/GPU_performance.md) doc. XLA flags can also be tuned per workload. For example, each script includes a directory [xla_flags](./rosetta/rosetta/projects/maxtext/xla_flags).
+There are various other XLA flags users can set to improve performance. XLA flags can also be tuned per workload based on specific performance needs.
 
-For a list of previously used XLA flags that are no longer needed, please also refer to the [GPU performance](./rosetta/docs/GPU_performance.md#previously-used-xla-flags) page.
 
 ## Versions
 
 | First nightly with new base container | Base container |
 | ------------------------------------- | -------------- |
+| 2025-12-17 | nvcr.io/nvidia/cuda-dl-base:25.11-cuda13.0-devel-ubuntu24.04 |
 | 2025-10-02 | nvcr.io/nvidia/cuda-dl-base:25.09-cuda13.0-devel-ubuntu24.04 |
 | 2025-08-22 | nvcr.io/nvidia/cuda-dl-base:25.08-cuda13.0-devel-ubuntu24.04 |
 | 2025-07-03 | nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04 |
