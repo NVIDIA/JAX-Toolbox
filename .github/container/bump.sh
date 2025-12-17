@@ -100,7 +100,7 @@ for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
         url=$(yq e ".${pkg}.url" $MANIFEST_OUT)
         repo_tmp=$(mktemp -d /tmp/${pkg}.XXXXXX)
         git clone $url $repo_tmp
-        # Skip apply to defer to allow building upstream t5x and rosetta t5x
+        # Skip apply to allow building different package variations with different patch sets
         $SCRIPT_DIR/create-distribution.sh \
           --base-patch-dir $BASE_PATCH_DIR \
           --manifest $MANIFEST_OUT \
