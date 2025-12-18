@@ -20,7 +20,6 @@ jobs:
       JAX_VLLM_OFFLOADING_IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
       
       NUM_NODES: 2
-      ENV_FILE: ../../.github/gke-workflow/jax-vllm-offloading/transfer/jobset.env
 
     steps:
     - uses: actions/checkout@v4
@@ -49,7 +48,27 @@ jobs:
         IMAGE: ${{ env.JAX_VLLM_OFFLOADING_IMAGE }}
         IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
         WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_NAME_PREFIX }}
-        ENV_FILE: ${{ env.ENV_FILE }}
+        ENVS: |
+          CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+          CUDA_DEVICE_ORDER=PCI_BUS_ID
+          CUDA_DEVICE_MAX_CONNECTIONS=16
+          VLLM_ENFORCE_EAGER=1
+          VLLM_GPU_MEMORY_UTILIZATION=0.7
+          VLLM_TENSOR_PARALLEL_SIZE=8
+          VLLM_DISTRIBUTED_BACKEND=mp
+          VLLM_ATTENTION_BACKEND=TRITON_ATTN
+          VLLM_LOAD_FORMAT=dummy
+          NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so
+          NCCL_TUNER_PLUGIN=none
+          NCCL_CUMEM_ENABLE=0
+          NCCL_BUFFSIZE=16777216
+          XLA_FLAGS=--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL --xla_gpu_collective_permute_combine_threshold_bytes=8589934592 --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592 --xla_gpu_all_gather_combine_threshold_bytes=8589934592 --xla_gpu_all_reduce_combine_threshold_bytes=8589934592
+          TRANSFER_MODE=grouped
+          USE_POLYMORPHIC_MESH=0
+          JAX_COORDINATOR_PORT=3389
+          GATEWAY_PORT=50051
+          GATEWAY_URL=\$(JOBSET_NAME):\$(GATEWAY_PORT)
+          OUTPUT_DIR=/opt/output
         COMMAND: |
           set -x;
           export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64;

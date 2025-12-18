@@ -57,8 +57,8 @@ inputs:
     required: false
     default: 'nvidia-smi; free -h;'
     type: string
-  ENV_FILE:
-    description: 'Environment variable file to pass to xpk for setting in JobSet'
+  ENVS:
+    description: 'Environment variables to pass to xpk for setting in JobSet'
     required: false
     default: ''
     type: string
@@ -203,20 +203,23 @@ runs:
             --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
         )
 
-        # --env is incompatible with --env-var in xpk
-        if [ -e "${{ inputs.ENV_FILE }}" ]; then
-          args+=(
-              --env-file="${{ inputs.ENV_FILE }}"
-          )
+        args+=(
+            --env="JAX_COORDINATOR_PORT=3389"
+            --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
+        )
 
-          echo "Setting the following environment variables in the ${WORKLOAD_NAME} JobSet from the env. file at ${{ inputs.ENV_FILE }} "
-          cat ${{ inputs.ENV_FILE }}
-        else
-          args+=(
-              --env="JAX_COORDINATOR_PORT=3389"
-              --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
-          )
-        fi
+        current=""
+        for pair in ${ENVS}; do
+          if [[ "$pair" =~ ^[A-Z_][A-Z0-9_]*= ]]; then
+            [[ -n "$current" ]] && args+=("--env=$current")
+            current="$pair"
+          else
+            current="$current $pair"
+          fi
+        done
+        [[ -n "$current" ]] && args+=("--env=$current")
+        current=""
+
       fi
 
       python xpk.py workload create \
