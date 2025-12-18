@@ -115,13 +115,6 @@ jobs:
     with:
      JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build-amd64.outputs.DOCKER_TAG_FINAL }}
 
-  build-arm64:
-    needs: metadata
-    strategy:
-      fail-fast: true
-      matrix:
-        ARCHITECTURE: [arm64]
-    runs-on: [self-hosted, "${{ matrix.ARCHITECTURE }}", "small"]
   amd64:
     needs: metadata
     runs-on: [self-hosted, amd64, small]
