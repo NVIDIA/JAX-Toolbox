@@ -211,20 +211,13 @@ runs:
             --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
         )
 
-        current=""
-        for pair in ${ENVS}; do
-          if [[ "$pair" =~ ^[A-Z_][A-Z0-9_]*= ]]; then
-            [[ -n "$current" ]] && args+=("--env=$current")
-            current="$pair"
-          else
-            current="$current $pair"
-          fi
+        envs_flat=$(echo "${ENVS}" | tr '\n' ' ')
+        IFS=';' read -ra env_vars <<< "${envs_flat}"
+        for env in "${env_vars[@]}"; do
+            env=$(echo "${env}" | xargs)
+            [[ -n "${env}" ]] && args+=("--env=${env}")
         done
-        [[ -n "$current" ]] && args+=("--env=$current")
-        current=""
-
-      fi
-
+        
       python xpk.py workload create \
         ${args[@]} \
         --command="${PRELUDE} ${CMD} ${POSTLUDE}"
