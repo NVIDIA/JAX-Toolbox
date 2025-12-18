@@ -41,14 +41,17 @@ from jax_inference_offloading.tunix.rollout import VllmGPURollout
 logger = logging.getLogger(__name__)
 timer = Timer()
 
+from jax.experimental.compilation_cache import compilation_cache as cc
+cc.set_cache_dir(os.environ.get('JAX_COMPILATION_CACHE_DIR', "/tmp/jax_cache"))
+
 ROLLOUT_ENGINE = os.environ.get('ROLLOUT_ENGINE', 'vllm_gpu')  # or 'vanilla'
-TRANSFER_MODE = os.environ.get('TRANSFER_MODE', 'grouped')  # 'grouped' | 'fused' | 'unfused' 
+TRANSFER_MODE = os.environ.get('TRANSFER_MODE', 'grouped')
 
 #-------------------------- Config & Hyperparameters --------------------------#
 
 # Helper for hyperparameter overrides via environment variables
 def get_env(name, default):
-  raw = os.environ.pop(name, None)
+  raw = os.environ.get(name, None)
   return type(default)(raw) if raw is not None else default
 
 # ====== Data ======
@@ -78,8 +81,9 @@ BETA = get_env("GRPO_BETA", 0.03)
 EPSILON = get_env("GRPO_EPSILON", 0.15)
 
 # ====== Training ======
-TRAIN_MICRO_BATCH_SIZE = get_env("GRPO_TRAIN_MICRO_BATCH_SIZE", 8)
 NUM_BATCHES = get_env("GRPO_NUM_BATCHES", 5)
+MINI_BATCH_SIZE = get_env("GRPO_MINI_BATCH_SIZE", 8)
+TRAIN_MICRO_BATCH_SIZE = get_env("GRPO_TRAIN_MICRO_BATCH_SIZE", 4)
 # Number of rollouts per prompt per step (`G` in Algo 1); 'group' in GRPO.
 NUM_GENERATIONS = get_env("GRPO_NUM_GENERATIONS", 8)
 EVAL_EVERY_N_STEPS = get_env("GRPO_EVAL_EVERY_N_STEPS", 10)
@@ -177,7 +181,7 @@ def get_dataset(data_dir, split="train") -> grain.MapDataset:
   return dataset
 
 with timer.section("load_dataset"):
-  ds = get_dataset(DATASET_DIR, "train").batch(TRAIN_MICRO_BATCH_SIZE)
+  ds = get_dataset(DATASET_DIR, "train").batch(MINI_BATCH_SIZE)
   dataset = ds[:NUM_BATCHES]
   train_dataset = dataset.repeat(NUM_EPOCHS)
 
@@ -236,7 +240,7 @@ rl_cluster = RLCluster(
       actor_optimizer=optimizer,
       eval_every_n_steps=EVAL_EVERY_N_STEPS,
       max_steps=MAX_STEPS,
-      mini_batch_size=TRAIN_MICRO_BATCH_SIZE,
+      mini_batch_size=MINI_BATCH_SIZE,
       train_micro_batch_size=TRAIN_MICRO_BATCH_SIZE,
     ),
     rollout_config=base_rollout.RolloutConfig(
@@ -271,7 +275,7 @@ with timer.section("training"):
 
 #------------------------------ Report & Finalize ----------------------------#
 
-timer.summary(sort_by='name', precision=1)
+timer.summary(sort_by='name', precision=2)
 
 # Gracefully shutdown the gateway and vLLM (process 0 only)
 if ROLLOUT_ENGINE == 'vllm_gpu' and jax.process_index() == 0:

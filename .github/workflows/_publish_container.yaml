@@ -17,7 +17,7 @@ on:
         required: true
       TARGET_IMAGE:
         type: string
-        description: 'Target docker image (jax/t5x/etc.):'
+        description: 'Target docker image (jax/maxtext/etc.):'
         required: true
       TARGET_TAGS:
         type: string

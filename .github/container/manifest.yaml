@@ -20,36 +20,9 @@ transformer-engine:
   tracking_ref: main
   latest_verified_commit: 1ec33ae1191ae6644365155f8e8f618145c44cd7
   mode: git-clone
-t5x:
-  url: https://github.com/google-research/t5x.git
-  mirror_url: https://github.com/nvjax-svc-0/t5x.git
-  tracking_ref: main
-  latest_verified_commit: 707995a3a8238e0c3557d3cc1318a883215c54c9
-  mode: git-clone
-  patches:
-    mirror/patch/partial-checkpoint-restore: file://patches/t5x/mirror-patch-partial-checkpoint-restore.patch # pull/1392/head  # https://github.com/google-research/t5x/pull/1392: Add support for partial checkpoint restore
-    mirror/patch/dali-support: file://patches/t5x/mirror-patch-dali-support.patch # pull/1393/head  # https://github.com/google-research/t5x/pull/1393: Adds DALI support to t5x
-    mirror/patch/t5x_te_in_contrib_noindent: file://patches/t5x/mirror-patch-t5x_te_in_contrib_noindent.patch # pull/1391/head  # https://github.com/google-research/t5x/pull/1391: Adds transformer engine support and GPU optimizations to T5x (enables H100)
-    mirror/patch/fix-default-vocab: file://patches/t5x/mirror-patch-fix-default-vocab.patch # pull/1609/head  # https://github.com/google-research/t5x/pull/1609: Fixes seqio vocab mismatch
-lingvo:
-  url: https://github.com/tensorflow/lingvo.git
-  tracking_ref: master
-  latest_verified_commit: 05a076b0783a8bbf4a770095966c472bb37bbf65
-  mode: git-clone
 pydantic:
   version: X.Y.Z
   mode: pip-constraint
-# Used by t5x
-airio:
-  url: https://github.com/google/airio.git
-  tracking_ref: main
-  latest_verified_commit: 37109ff0d1059f885b9b11ef9058eca5d219d7cb
-  mode: git-clone
-clu:
-  url: https://github.com/google/CommonLoopUtils.git
-  tracking_ref: main
-  latest_verified_commit: c50acb760902c94a89ad3f605edc2d094bc2a7a1
-  mode: pip-vcs
 dllogger:
   url: https://github.com/NVIDIA/dllogger.git
   tracking_ref: master

@@ -16,7 +16,7 @@ import os
 import gc
 import ctypes
 import inspect
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -77,6 +77,8 @@ class FunctionSpec:
     output_layout: tuple[tuple[int, ...]]
     output_mode: tuple[TensorMode, ...]
     convert_tensors: bool
+    compile_options: str
+    use_static_tensors: bool
     kwargs: tuple[tuple[str, Any]]
 
     def get_compile_args(self):
@@ -121,8 +123,14 @@ def jit_wrapper(
     # split buffer argument into inputs and outputs and return to tree
     ins, outs = args[: len(spec.in_args)], args[(len(spec.in_args)) :]
     if cutlass.const_expr(spec.convert_tensors):
-        ins = [x.get_tensor(a.mode) for x, a in zip(ins, spec.in_args)]
-        outs = [x.get_tensor(a.mode) for x, a in zip(outs, spec.out_args)]
+        ins = [
+            x.get_tensor(a.mode, spec.use_static_tensors)
+            for x, a in zip(ins, spec.in_args)
+        ]
+        outs = [
+            x.get_tensor(a.mode, spec.use_static_tensors)
+            for x, a in zip(outs, spec.out_args)
+        ]
     ins = jax.tree.unflatten(spec.input_tree, ins)
     outs = jax.tree.unflatten(spec.output_tree, outs)
     wrapped_fn(stream, *ins, *outs, **dict(spec.kwargs))
@@ -176,6 +184,8 @@ def build_function_spec(
     output_mode,
     input_output_aliases,
     convert_tensors,
+    compile_options,
+    use_static_tensors,
     kwargs,
 ):
     # TODO: Improve type checking and validate pytree structures.
@@ -233,6 +243,8 @@ def build_function_spec(
         tuple(output_layout),
         tuple(output_mode),
         convert_tensors,
+        compile_options,
+        use_static_tensors,
         tuple((k, kwargs[k]) for k in kwargs),
     )
 
@@ -260,7 +272,11 @@ def get_or_compile_kernel(fn, spec, stream):
     with _compile_lock:
         start = time.time()
         try:
-            compiled_fn = cutlass.cute.compile(
+            cute_compile = cutlass.cute.compile
+            if spec.compile_options:
+                cute_compile = partial(cute_compile, options=spec.compile_options)
+
+            compiled_fn = cute_compile(
                 jit_wrapper,
                 cuda.CUstream(stream),
                 spec.get_compile_args(),
@@ -312,15 +328,6 @@ def initialize_cutlass_dsl():
     global _CUTLASS_DSL_INITIALIZED
     if _CUTLASS_DSL_INITIALIZED:
         return
-
-    # TODO(mgoldfarb-nvidia): There are several runtime libraries that export C++ symbols
-    # which conflict with jax libraries. Initializing cutlass before jax will cause these
-    # symbols to incorrectly interpose. Our WAR is to for loading of jaxlib and its
-    # dependant libraries to ensure all symbols are loaded prior to compiling cutedsl programs.
-    # This linking issue is planed to be resolved in cute DSL 4.3.
-    jaxlib_common = Path(jaxlib.__file__).parent / "libjax_common.so"
-    if jaxlib_common.exists():
-        ctypes.CDLL(str(jaxlib_common), mode=ctypes.RTLD_GLOBAL)
 
     kernel = _DummyInitKernel()
     with _compile_lock:
