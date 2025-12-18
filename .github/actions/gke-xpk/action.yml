@@ -129,6 +129,8 @@ runs:
   - name: Set workload commands
     shell: bash -x -e -u {0}
     run: |
+
+      # install dependencies to enable export artifacts from container to gcs bucket
       PRELUDE="
           apt install -y ripgrep > /dev/null;
           curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
@@ -156,6 +158,7 @@ runs:
           env;
       "
   
+      # gsutil command to export logs from container's /opt/output to bucket
       POSTLUDE="
           ./google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node-0\$NODE_RANK;
           ${{ inputs.EXIT_COMMAND }}

@@ -60,7 +60,7 @@ jobs:
           VLLM_LOAD_FORMAT=dummy
           NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so
           NCCL_TUNER_PLUGIN=none
-          MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
+          MODEL_NAME=${{ matrix.model }}
           NCCL_CUMEM_ENABLE=0
           NCCL_BUFFSIZE=16777216
           XLA_FLAGS=--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL --xla_gpu_collective_permute_combine_threshold_bytes=8589934592 --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592 --xla_gpu_all_gather_combine_threshold_bytes=8589934592 --xla_gpu_all_reduce_combine_threshold_bytes=8589934592
@@ -74,9 +74,6 @@ jobs:
         COMMAND: |
           set -x;
           export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64;
-          export MODEL_NAME=${{ matrix.model }}
-          export JAX_COORDINATOR_ADDRESS=${JOBSET_NAME}-${REPLICATED_JOB_NAME}-0-0.${JOBSET_NAME}:${JAX_COORDINATOR_PORT}
-          export GATEWAY_URL=${JOBSET_NAME}:${GATEWAY_PORT}
           env;
 
           pip install jax[k8s];

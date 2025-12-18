@@ -58,6 +58,7 @@ jobs:
           VLLM_DISTRIBUTED_BACKEND=mp
           VLLM_ATTENTION_BACKEND=TRITON_ATTN
           VLLM_LOAD_FORMAT=dummy
+          MODEL_NAME=${{ matrix.model }}
           NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so
           NCCL_TUNER_PLUGIN=none
           NCCL_CUMEM_ENABLE=0
@@ -72,9 +73,6 @@ jobs:
         COMMAND: |
           set -x;
           export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64;
-          export MODEL_NAME=${{ matrix.model }}
-          export JAX_COORDINATOR_ADDRESS=${JOBSET_NAME}-${REPLICATED_JOB_NAME}-0-0.${JOBSET_NAME}:${JAX_COORDINATOR_PORT}
-          export GATEWAY_URL=${JOBSET_NAME}:${GATEWAY_PORT}
           env;
 
           pip install jax[k8s];
