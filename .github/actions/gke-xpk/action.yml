@@ -28,7 +28,7 @@ inputs:
     required: false
     type: string
   MAIN_CONTAINER_NAME: 
-    description: 'Name of the main contianer in an XPK JobSet (fixed)'
+    description: 'Name of the main contianer in an XPK JobSet (fixed in xpk)'
     default: gpu-image
     required: false
     type: string
@@ -58,7 +58,7 @@ inputs:
     default: 'nvidia-smi; free -h;'
     type: string
   ENVS:
-    description: 'Environment variables to pass to xpk for setting in JobSet'
+    description: 'Environment variables to pass to xpk for setting in JobSet (delimited by ;)'
     required: false
     default: ''
     type: string
@@ -129,7 +129,6 @@ runs:
   - name: Set workload commands
     shell: bash -x -e -u {0}
     run: |
-
       # install dependencies to enable export artifacts from container to gcs bucket
       PRELUDE="
           apt install -y ripgrep > /dev/null;
@@ -140,6 +139,7 @@ runs:
   
           mkdir -p /usr/share/workload;
           mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
+
       # Work around GCP's deployment model that munges together three
       # mostly unrelated things: (1) the host machine's CUDA driver/libs,
       # (2) the version of NCCL installed on the host machine, and (3)
@@ -171,9 +171,7 @@ runs:
       POSTLUDE=$(echo ${POSTLUDE} | sed 's/\n/\ /g')
       CMD=$(echo ${CMD} | sed 's/\n/\ /g')
 
-      echo "PRELUDE=${PRELUDE}" >> ${GITHUB_ENV}
-      echo "CMD=${CMD}" >> ${GITHUB_ENV}
-      echo "POSTLUDE=${POSTLUDE}" >> ${GITHUB_ENV}
+      echo "CMD=${PRELUDE} ${CMD} ${POSTLUDE}" >> ${GITHUB_ENV}
   
   - name: Create workload on cluster with XPK
     shell: bash -x -e -u {0}
@@ -206,11 +204,6 @@ runs:
             --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
         )
 
-        args+=(
-            --env="JAX_COORDINATOR_PORT=3389"
-            --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
-        )
-
         envs_flat=$(echo "${{ inputs.ENVS }}" | tr '\n' ' ')
         IFS=';' read -ra env_vars <<< "${envs_flat}"
         for env in "${env_vars[@]}"; do
@@ -221,7 +214,7 @@ runs:
         
       python xpk.py workload create \
         "${args[@]}" \
-        --command="${PRELUDE} ${CMD} ${POSTLUDE}"
+        --command="${CMD}"
   
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}

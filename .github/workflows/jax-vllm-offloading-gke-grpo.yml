@@ -71,11 +71,10 @@ jobs:
           GATEWAY_PORT=50051;
           GATEWAY_URL=\$(JOBSET_NAME):\$(GATEWAY_PORT);
           OUTPUT_DIR=/opt/output;
+          LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64;
 
         COMMAND: |
           set -x;
-          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:/usr/local/nvidia/lib64;
-          env;
 
           pip install jax[k8s];
           python -c 'import jax; jax.distributed.initialize(); print(jax.devices()); print(jax.local_devices()); assert jax.process_count() > 1; assert len(jax.devices()) > len(jax.local_devices());';
