@@ -102,13 +102,13 @@ jobs:
     uses: ./.github/workflows/jax-vllm-offloading-gke-transfer.yml
     needs: amd64
     with:
-     JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build-amd64.outputs.DOCKER_TAG_FINAL }}
+     JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
 
   grpo-gke-xpk:
     uses: ./.github/workflows/jax-vllm-offloading-gke-grpo.yml
     needs: amd64
     with:
-     JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.build-amd64.outputs.DOCKER_TAG_FINAL }}
+     JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
 
 
   arm64:
