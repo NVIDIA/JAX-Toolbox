@@ -56,7 +56,7 @@ jobs:
           VLLM_GPU_MEMORY_UTILIZATION=0.7;
           VLLM_TENSOR_PARALLEL_SIZE=8;
           VLLM_DISTRIBUTED_BACKEND=mp;
-          VLLM_ATTENTION_BACKEND=TRITON_ATTN_VLLM_V1;
+          VLLM_ATTENTION_BACKEND=TRITON_ATTN;
           VLLM_LOAD_FORMAT=dummy;
           NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so;
           NCCL_TUNER_PLUGIN=none;
