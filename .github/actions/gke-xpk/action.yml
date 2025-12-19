@@ -211,7 +211,7 @@ runs:
             --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
         )
 
-        envs_flat=$(echo "${ENVS}" | tr '\n' ' ')
+        envs_flat=$(echo "${{ inputs.ENVS }}" | tr '\n' ' ')
         IFS=';' read -ra env_vars <<< "${envs_flat}"
         for env in "${env_vars[@]}"; do
             env=$(echo "${env}" | xargs)
