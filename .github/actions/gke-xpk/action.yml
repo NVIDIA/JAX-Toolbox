@@ -217,6 +217,7 @@ runs:
             env=$(echo "${env}" | xargs)
             [[ -n "${env}" ]] && args+=("--env=${env}")
         done
+      fi
         
       python xpk.py workload create \
         ${args[@]} \
