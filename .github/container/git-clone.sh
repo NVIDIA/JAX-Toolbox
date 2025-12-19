@@ -84,7 +84,9 @@ if [[ "${GIT_REPO}" == *"gitlab"* ]]; then
   if grep -q -r gitlab-ci-token .git; then
     grep -r gitlab-ci-token .git | awk -F: '{print $1}' | xargs rm -f
   fi
-  git branch -D main
+  if [[ "${GIT_REF}" != "main" ]]; then
+    git branch -D main
+  fi
 fi
 popd
 
