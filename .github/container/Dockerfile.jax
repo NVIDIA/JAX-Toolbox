@@ -113,12 +113,11 @@ ADD build-jax.sh build-te.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/lo
 RUN mkdir -p /opt/pip-tools.d
 
 ## Editable installations of jax and jaxlib
-# Note that jax now is an independent wheel, extra [k8s] needs to be from build path also
 RUN <<"EOF" bash -ex
 for component in $(ls ${BUILD_PATH_JAXLIB}); do
     echo "-e file://${BUILD_PATH_JAXLIB}/${component}" >> /opt/pip-tools.d/requirements-jax.in;
 done
-echo "-e file://${SRC_PATH_JAX}[k8s]" >> /opt/pip-tools.d/requirements-jax.in
+echo "-e file://${SRC_PATH_JAX}" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax
