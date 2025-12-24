@@ -187,7 +187,7 @@ class VLLMWorkerExtension:
 
         logger.debug(f'vLLM TP rank {tp_rank} receiving {param.vllm_param.name} ...')
         weight = self.transport.gather(
-          shape, param.vllm_param.dtype or 'bfloat16',
+          shape, param.vllm_param.dtype,
           sharding_specs.aux_dim, sharding_specs.aux_parallelism
         )
         logger.debug(f'vLLM TP rank {tp_rank} received {param.vllm_param.name} shape {weight.shape}')
@@ -206,7 +206,7 @@ class VLLMWorkerExtension:
 
         logger.debug(f"vLLM expecting: {param.vllm_param.name} shape {shape.tolist()} raw specs {param}")
 
-        weight = self.transport.recv(shape, param.vllm_param.dtype or 'bfloat16')
+        weight = self.transport.recv(shape, param.vllm_param.dtype)
         self._staged_weights.append((param.vllm_param.name, weight))
 
         # TODO: make it optional
@@ -235,7 +235,7 @@ class VLLMWorkerExtension:
 
         param_specs.append((
           shape,
-          param.vllm_param.dtype or 'bfloat16',
+          param.vllm_param.dtype,
           sharding_specs.aux_dim,
           sharding_specs.aux_parallelism
         ))
@@ -264,7 +264,7 @@ class VLLMWorkerExtension:
         if sharding_specs.parallelism > 0:
           shape[sharding_specs.dim] //= sharding_specs.parallelism
 
-        param_specs.append((shape, param.vllm_param.dtype or 'bfloat16'))
+        param_specs.append((shape, param.vllm_param.dtype))
         param_names.append(param.vllm_param.name)
 
       # Receive all weights in one grouped operation
