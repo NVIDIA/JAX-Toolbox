@@ -51,7 +51,7 @@ jobs:
     runs-on: gke-a3mega
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Set workload name
       shell: bash -x -e -u {0}
