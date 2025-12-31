@@ -36,6 +36,7 @@ apt_packages=(
   curl
   git
   gnupg
+  jq
   liblzma-dev
   ninja-build
   python-is-python3
@@ -43,7 +44,7 @@ apt_packages=(
   rsync
   vim
   wget
-  jq
+  xxd
   zip
   # llvm.sh
   lsb-release 
