@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nccl-tcpx-installer
+  namespace: kube-system
+  labels:
+    k8s-app: nccl-tcpx-installer
+spec:
+  selector:
+    matchLabels:
+      k8s-app: nccl-tcpx-installer
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: nccl-tcpx-installer
+        k8s-app: nccl-tcpx-installer
+    spec:
+      priorityClassName: system-node-critical
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: cloud.google.com/gke-accelerator
+                    operator: In
+                    values:
+                      - nvidia-h100-80gb
+      tolerations:
+        - operator: "Exists"
+      hostNetwork: true
+      hostPID: true
+      volumes:
+        - name: var-lib
+          hostPath:
+            path: /var/lib
+        - name: tcpx
+          hostPath:
+            path: /var/lib/tcpx
+        - name: library-dir-host
+          hostPath:
+            path: /home/kubernetes/bin
+      initContainers:
+        - image: us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpx/nccl-plugin-gpudirecttcpx-dev:v3.1.9
+          name: nccl-tcpx-installer
+          resources:
+            requests:
+              cpu: 150m
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: var-lib
+              mountPath: /var/lib
+            - name: library-dir-host
+              mountPath: /usr/local
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -ex
+              /scripts/container_entry.sh install
+              mkdir -p /usr/local/nvidia/lib64
+              cp -r /var/lib/tcpx/lib64/. /usr/local/nvidia/lib64
+              echo "installation finishes"
+      containers:
+        - image: "gke.gcr.io/pause:3.8@sha256:880e63f94b145e46f1b1082bb71b85e21f16b99b180b9996407d61240ceb9830"
+          name: pause
