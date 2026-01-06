@@ -117,3 +117,8 @@ torchax:
   tracking_ref: main
   latest_verified_commit: f41e3de8526f9d4e8410bfb84660faaaf0b3ba4a
   mode: git-clone
+kubernetes:
+  url: https://github.com/kubernetes-client/python.git
+  tracking_ref: release-34.0
+  latest_verified_commit: df31d90d6c910d6b5c883b98011c93421cac067d
+  mode: pip-vcs

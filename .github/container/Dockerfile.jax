@@ -114,11 +114,14 @@ RUN mkdir -p /opt/pip-tools.d
 
 ## Editable installations of jax and jaxlib
 # Note that jax now is an independent wheel, extra [k8s] needs to be from build path also
+# urllib3>2.6.0 is needed to avoid the CVEs. Details in https://github.com/kubernetes-client/python/issues/2458
 RUN <<"EOF" bash -ex
 for component in $(ls ${BUILD_PATH_JAXLIB}); do
     echo "-e file://${BUILD_PATH_JAXLIB}/${component}" >> /opt/pip-tools.d/requirements-jax.in;
 done
 echo "-e file://${SRC_PATH_JAX}[k8s]" >> /opt/pip-tools.d/requirements-jax.in
+echo "kubernetes @ git+https://github.com/kubernetes-client/python.git#release-34.0" >> /opt/pip-tools.d/requirements-jax.in
+echo "urllib3>2.6.0" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax
