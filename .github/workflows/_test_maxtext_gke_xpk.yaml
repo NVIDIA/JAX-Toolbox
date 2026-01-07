@@ -51,7 +51,9 @@ jobs:
         IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
         WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
         COMMAND: |
-          console=/dev/stdout;
+          export NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so;
+          export NCCL_TUNER_PLUGIN=none;
+
           nsys-jax --capture-range=cudaProfilerApi
                    --capture-range-end=stop
                    -o /opt/output/profile.zip
@@ -72,5 +74,5 @@ jobs:
                                        upload_all_profiler_results=true
                                        skip_first_n_steps_for_profiler=3
                                        profiler_steps=8' |&
-          tee /opt/output/output.log &> \${console};
+          tee /opt/output/output.log &> /dev/stdout;
           EXIT_CODE=\$PIPESTATUS;

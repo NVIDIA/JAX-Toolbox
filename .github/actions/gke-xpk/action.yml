@@ -124,6 +124,7 @@ runs:
   - name: Set workload commands
     shell: bash -x -e -u {0}
     run: |
+      # install dependencies for pod artifact upload to GCS
       PRELUDE="
           apt install -y ripgrep > /dev/null;
           curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
@@ -133,24 +134,8 @@ runs:
   
           mkdir -p /usr/share/workload;
           mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
-      # Work around GCP's deployment model that munges together three
-      # mostly unrelated things: (1) the host machine's CUDA driver/libs,
-      # (2) the version of NCCL installed on the host machine, and (3)
-      # the GCP-specific NCCL plugins. These are jumbled together and
-      # mounted into the container at /usr/local/nvidia/lib64. We only want
-      # #3, so copy them to a separate directory.
-      PRELUDE+="
-          export NCCL_LIB_DIR=/gcp-nccl-plugins;
-          mkdir \${NCCL_LIB_DIR};
-          cp -v /usr/local/nvidia/lib64/nccl-env-profile{,-ll128}.sh /usr/local/nvidia/lib64/libnccl-{net,net_internal,tcpx,tcpxo,tuner}.so /usr/local/nvidia/lib64/a3plus_{guest,tuner}_config{,_ll128}.textproto \${NCCL_LIB_DIR};"
-      # Prepend NCCL_LIB_DIR to LD_LIBRARY_PATH
-      PRELUDE+="source \${NCCL_LIB_DIR}/nccl-env-profile.sh;"
-      # Make sure #2 above does not interfere with the container's NCCL
-      PRELUDE+="
-          export LD_LIBRARY_PATH=/opt/nvidia/nccl/lib:\$LD_LIBRARY_PATH;
-          env;
-      "
   
+      # upload pod artifacts to GCS
       POSTLUDE="
           ./google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node-0\$NODE_RANK;
           ${{ inputs.EXIT_COMMAND }}
@@ -159,13 +144,8 @@ runs:
       CMD="${{ inputs.COMMAND }}"
   
       # set container commands in-line
-      PRELUDE=$(echo ${PRELUDE} | sed 's/\n/\ /g')
-      POSTLUDE=$(echo ${POSTLUDE} | sed 's/\n/\ /g')
-      CMD=$(echo ${CMD} | sed 's/\n/\ /g')
-
-      echo "PRELUDE=${PRELUDE}" >> ${GITHUB_ENV}
+      CMD=$(echo ${PRELUDE} ${CMD} ${POSTLUDE} | sed 's/\n/\ /g')
       echo "CMD=${CMD}" >> ${GITHUB_ENV}
-      echo "POSTLUDE=${POSTLUDE}" >> ${GITHUB_ENV}
   
   - name: Create workload on cluster with XPK
     shell: bash -x -e -u {0}
@@ -206,7 +186,7 @@ runs:
       else
         XPK_COMMAND="python xpk.py"
       fi
-      ${XPK_COMMAND} workload create ${args[@]} --command="${PRELUDE} ${CMD} ${POSTLUDE}"
+      ${XPK_COMMAND} workload create ${args[@]} --command="${CMD}"
   
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}
