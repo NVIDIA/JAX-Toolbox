@@ -12,9 +12,9 @@ inputs:
     default: jtb-2025-10-07
     required: false
     type: string
-  GCP_ZONE:
+  GCP_REGION:
     description: 'GCP zone of the cluster'
-    default: europe-west4-b
+    default: europe-west4
     required: false
     type: string
   CLUSTER_DEVICE: 
@@ -88,7 +88,7 @@ runs:
     run: |
 
       # check cluster exists
-      gcloud container clusters list | grep ${{ inputs.GKE_CLUSTER }} | grep ${{ inputs.GCP_ZONE }} | grep RUNNING > /dev/null
+      gcloud container clusters list | grep ${{ inputs.GKE_CLUSTER }} | grep ${{ inputs.GCP_REGION }} | grep RUNNING > /dev/null
 
       if [[ "$?" == "1" ]]; then
         echo "Cluster ${{ inputs.GKE_CLUSTER }} does not exist"
@@ -97,11 +97,11 @@ runs:
       fi
 
       # get gpu nodepool name
-      GPU_NODEPOOL=$(gcloud container clusters describe ${{ inputs.GKE_CLUSTER }} --zone ${{ inputs.GCP_ZONE }} | yq -r '.nodePools[].name' | grep -v system)
+      GPU_NODEPOOL=$(gcloud container clusters describe ${{ inputs.GKE_CLUSTER }} --region ${{ inputs.GCP_REGION }} | yq -r '.nodePools[].name' | grep -v system)
 
       # get cluster credentials
       gcloud container clusters get-credentials ${{ inputs.GKE_CLUSTER }} \
-        --location=${{ inputs.GCP_ZONE }} \
+        --location=${{ inputs.GCP_REGION }} \
         --dns-endpoint \
         --project=${{ inputs.GCP_PROJECT }} > /dev/null
 
@@ -189,7 +189,7 @@ runs:
       args=(
           --project=${{ inputs.GCP_PROJECT }}
           --cluster=${{ inputs.GKE_CLUSTER }}
-          --zone=${{ inputs.GCP_ZONE }}
+          --zone=${{ inputs.GCP_REGION }}
           --workload=${WORKLOAD_NAME}
           --docker-image=${{ inputs.IMAGE }}
           --device-type=${{ inputs.CLUSTER_DEVICE }}
