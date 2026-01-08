@@ -122,6 +122,7 @@ runs:
 
   - name: Setup environment
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       mkdir -p ${WORKLOAD_NAME}
       uv venv --verbose --python=${{ inputs.XPK_PYTHON }} --directory=${WORKLOAD_NAME}
@@ -283,18 +284,18 @@ runs:
     run: |
       parse_pod_exit_code() {
         local pod=$1
-        MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}/${pod}.log | awk '{ print $3 }' )"
-        echo ${MAYBE_XPK_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
+        MAYBE_JOBSET_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}/${pod}.log | awk '{ print $3 }' )"
+        echo ${MAYBE_JOBSET_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
         
         if [ $? -ne 0 ]; then
           echo "The JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }} did not complete as expected "
-          echo "XPK_EXIT_CODE=1" >> ${GITHUB_ENV}
+          echo "JOBSET_EXIT_CODE=1" >> ${GITHUB_ENV}
           exit 1
         fi
 
-        echo "Pod ${pod} exited with ${MAYBE_XPK_EXIT_CODE}" >&2
+        echo "Pod ${pod} exited with ${MAYBE_JOBSET_EXIT_CODE}" >&2
 
-        eval "export ${MAYBE_XPK_EXIT_CODE}"
+        eval "export ${MAYBE_JOBSET_EXIT_CODE}"
         echo ${EXIT_CODE}
       }
       
@@ -304,7 +305,7 @@ runs:
         ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
       done
 
-      echo "XPK_EXIT_CODE=${ALL_EXIT_CODES}" >> ${GITHUB_ENV}
+      echo "JOBSET_EXIT_CODE=${ALL_EXIT_CODES}" >> ${GITHUB_ENV}
       if [ ${ALL_EXIT_CODES} -gt 0 ]; then
         exit 1
       fi
@@ -345,15 +346,19 @@ runs:
       badge_label="${{ matrix.test }}"
 
       summary="${{ inputs.WORKLOAD_NAME_PREFIX }}"
-      outcome=success
       badge_label="${{ inputs.WORKLOAD_NAME_PREFIX }}"
-      badge_color=brightgreen
 
-      if [ "${XPK_EXIT_CODE}" -gt 0 ]; then
+      if [[ -z "${JOBSET_EXIT_CODE}" ]]; then
+        badge_color=gray
+        outcome=skipped
+        summary+=": skipped"
+      elif [[ "${JOBSET_EXIT_CODE}" -gt 0 ]]; then 
         badge_color=red
         outcome=failed
         summary+=": fail"
       else
+        badge_color=brightgreen
+        outcome=success
         summary+=": pass"
       fi
 
