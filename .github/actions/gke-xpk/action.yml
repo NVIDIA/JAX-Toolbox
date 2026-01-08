@@ -84,7 +84,7 @@ runs:
 
   - name: Check cluster online
     id: cluster-online
-    shell: bash
+    shell: bash -x -e -u {0}
     run: |
 
       # check cluster exists
@@ -93,6 +93,7 @@ runs:
       if [[ "$?" == "1" ]]; then
         echo "Cluster ${{ inputs.GKE_CLUSTER }} does not exist"
         echo "proceed=false" >> $GITHUB_OUTPUT
+        exit 0
       fi
 
       # get gpu nodepool name
@@ -333,7 +334,7 @@ runs:
   
   - name: Clean up xpk environment from runner
     shell: bash -x -u {0}
-    if: ${{ always() }}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       sudo rm -rf ${WORKLOAD_NAME}
 
