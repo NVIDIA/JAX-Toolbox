@@ -30,7 +30,7 @@ spec:
                 effect: NoSchedule
             containers:
             - name: gateway-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:uninstall
               command:
               - bash
               - -c
@@ -101,7 +101,7 @@ spec:
 
             containers:
             - name: vllm-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:uninstall
               command:
               - bash
               - -c
@@ -246,8 +246,9 @@ spec:
               # NCCL
               - name: NCCL_BUFFSIZE
                 value: "16777216"
-              - name: NCCL_SOCKET_IFNAME
-                value: "enp71s0"
+              - name: NCCL_DEBUG
+                value: "INFO"
+
               - name: VLLM_WORKER_MULTIPROC_METHOD
                 value: "spawn"
               - name: RAY_BACKEND_LOG_LEVEL
@@ -326,7 +327,7 @@ spec:
 
             containers:
             - name: jax-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:uninstall
               command:
               - bash
               - -c
@@ -446,8 +447,7 @@ spec:
                 value: "50051"
               - name: GATEWAY_URL
                 value: "jax-vllm-multinode-gateway-0-0.jax-vllm-multinode:50051"
-              - name: NCCL_SOCKET_IFNAME
-                value: "enp71s0"
+
 
               ports:
               - containerPort: 12345
