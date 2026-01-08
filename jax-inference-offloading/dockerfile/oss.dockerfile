@@ -106,6 +106,9 @@ pip-mark-installed nvidia-cublas-cu12 nvidia-cuda-cupti-cu12 \
   nvidia-nvjitlink-cu12 nvidia-nvtx-cu12
 popd
 rm -rf ~/.cache/*
+# perform a general cleaning of tensorflow libraries that are conflicting with nccl
+pip uninstall -y tensorflow_cpu tensorflow-datasets tensorflow-metadata
 EOF
+
 
 WORKDIR ${SRC_PATH_JIO}/examples

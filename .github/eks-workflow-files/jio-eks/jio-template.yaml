@@ -245,9 +245,6 @@ spec:
                 value: "ray"
               - name: NCCL_BUFFSIZE
                 value: "16777216"
-              # TODO for the moment keep this fixed
-              - name: NCCL_SOCKET_IFNAME
-                value: "enp71s0"
               - name: VLLM_WORKER_MULTIPROC_METHOD
                 value: "spawn"
               - name: RAY_BACKEND_LOG_LEVEL
@@ -447,8 +444,6 @@ spec:
                 value: "50051"
               - name: GATEWAY_URL
                 value: "jax-vllm-multinode-gateway-0-0.jax-vllm-multinode:50051"
-              - name: NCCL_SOCKET_IFNAME
-                value: "enp71s0"
 
               ports:
               - containerPort: 12345
