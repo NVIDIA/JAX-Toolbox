@@ -82,8 +82,35 @@ runs:
   using: 'composite'
   steps:
 
+  - name: Check cluster online
+    id: cluster-online
+    shell: bash
+    run: |
+
+      # check cluster exists
+      gcloud container clusters list | grep ${{ inputs.GKE_CLUSTER }} | grep ${{ inputs.GCP_ZONE }} | grep RUNNING > /dev/null
+
+      if [[ "$?" == "1" ]]; then
+        echo "Cluster ${{ inputs.GKE_CLUSTER }} does not exist"
+        echo "proceed=false" >> $GITHUB_OUTPUT
+      fi
+
+      # get gpu nodepool name
+      GPU_NODEPOOL=$(gcloud container clusters describe ${{ inputs.GKE_CLUSTER }} --zone ${{ inputs.GCP_ZONE }} | yq -r '.nodePools[].name' | grep -v system)
+
+      # get cluster credentials
+      gcloud container clusters get-credentials ${{ inputs.GKE_CLUSTER }} \
+        --location=${{ inputs.GCP_ZONE }} \
+        --dns-endpoint \
+        --project=${{ inputs.GCP_PROJECT }} > /dev/null
+
+      # inspect gpu nodes
+      GPU_NODES_ONLINE=$(kubectl get nodes -l cloud.google.com/gke-nodepool=${GPU_NODEPOOL} -o json | jq '.items | length >= '${{ inputs.NUM_NODES }})
+      echo "proceed=${GPU_NODES_ONLINE}" >> $GITHUB_OUTPUT
+
   - name: Set workload name
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       WORKLOAD_NAME="${{ inputs.WORKLOAD_NAME_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
       DATE=$(date +'%Y-%m-%d')
@@ -108,6 +135,7 @@ runs:
 
   - name: Show environment
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       gcloud version
   
@@ -117,12 +145,14 @@ runs:
   
   - name: Apply XPK workload create patch
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
       ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
   
   - name: Set workload commands
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       # install dependencies for pod artifact upload to GCS
       PRELUDE="
@@ -149,6 +179,7 @@ runs:
   
   - name: Create workload on cluster with XPK
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       source ${WORKLOAD_NAME}/.venv/bin/activate
       cd ${WORKLOAD_NAME}/xpk
@@ -190,6 +221,7 @@ runs:
   
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     env:
       POLL_TIMEOUT: 3600
     run: |
@@ -211,11 +243,13 @@ runs:
   
   - name: Set JobSet Pod name
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${WORKLOAD_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
   
   - name: Wait for JobSet Pod readiness
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       POD_READY=false
       while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
@@ -233,6 +267,7 @@ runs:
   
   - name: Stream logs from JobSet Pods
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
       echo "JOBSET_PODS=${JOBSET_PODS[@]}" >> ${GITHUB_ENV}
@@ -244,6 +279,7 @@ runs:
   
   - name: Set exit code from JobSet pods logs
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       parse_pod_exit_code() {
         local pod=$1
@@ -276,12 +312,13 @@ runs:
 
   - name: Clean up JobSet from cluster
     shell: bash -x -u {0}
-    if: ${{ always() }}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       kubectl delete jobset --wait ${WORKLOAD_NAME} || echo "JobSet ${WORKLOAD_NAME} does not exist in ${{ inputs.GKE_CLUSTER }}"
   
   - name: Download artifacts from GCS to runner
     shell: bash -x -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       mkdir -p ${WORKLOAD_NAME}/output
       gsutil cp -r ${GCS_ARTIFACT_PATH} ${WORKLOAD_NAME}/output
