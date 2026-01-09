@@ -327,7 +327,7 @@ runs:
       }
       
       ALL_EXIT_CODES=0
-      for jobset_pod in ${JOBSET_PODS[@]}; do
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
         POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod})
         ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
       done
