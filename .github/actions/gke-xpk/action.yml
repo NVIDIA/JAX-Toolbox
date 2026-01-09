@@ -3,6 +3,14 @@ name: Launch workload on GKE with XPK
 description: "Launch a JobSet workload on GKE with XPK. Upload artifacts from container to GCS and GitHub Actions."
 
 inputs:
+  GITHUB_TOKEN:
+    description: 'GitHub artifact registry login token'
+    type: string
+    required: true
+  NVCR_TOKEN:
+    description: 'NVCR artifact registry login token'
+    type: string
+    required: true
   GCP_PROJECT:
     description: 'GCP project ID'
     default: nv-jaxtoolboxgcp-20240925
@@ -115,7 +123,7 @@ runs:
     with:
       registry: ghcr.io
       username: ${{ github.repository_owner }}
-      password: ${{ secrets.GITHUB_TOKEN }}
+      password: ${{ inputs.GITHUB_TOKEN }}
 
   - name: Login to nvcr.io Container Registry
     if: steps.cluster-online.outputs.proceed == 'true'
@@ -123,7 +131,7 @@ runs:
     with:
       registry: nvcr.io
       username: $oauthtoken
-      password: ${{ secrets.NVCR_TOKEN }}
+      password: ${{ inputs.NVCR_TOKEN }}
 
   - name: K8s GHCR store and delete token
     id: store-token
