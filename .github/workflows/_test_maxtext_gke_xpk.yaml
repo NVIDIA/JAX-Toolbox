@@ -30,7 +30,6 @@ jobs:
       uses: ./.github/actions/gke-xpk
       with:
         IMAGE: ${{ env.MAXTEXT_IMAGE }}
-        IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
         WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
