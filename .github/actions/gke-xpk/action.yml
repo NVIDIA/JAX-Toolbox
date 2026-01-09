@@ -109,6 +109,27 @@ runs:
       GPU_NODES_ONLINE=$(kubectl get nodes -l cloud.google.com/gke-nodepool=${GPU_NODEPOOL} -o json | jq '.items | length >= '${{ inputs.NUM_NODES }})
       echo "proceed=${GPU_NODES_ONLINE}" >> $GITHUB_OUTPUT
 
+  - name: Login to GitHub Container Registry
+    if: steps.cluster-online.outputs.proceed == 'true'
+    uses: docker/login-action@v3
+    with:
+      registry: ghcr.io
+      username: ${{ github.repository_owner }}
+      password: ${{ secrets.GITHUB_TOKEN }}
+
+  - name: Login to nvcr.io Container Registry
+    if: steps.cluster-online.outputs.proceed == 'true'
+    uses: docker/login-action@v3
+    with:
+      registry: nvcr.io
+      username: $oauthtoken
+      password: ${{ secrets.NVCR_TOKEN }}
+
+  - name: K8s GHCR store and delete token
+    id: store-token
+    if: steps.cluster-online.outputs.proceed == 'true'
+    uses: ./.github/actions/store-delete-k8s-ghcr
+
   - name: Set workload name
     shell: bash -x -e -u {0}
     if: steps.cluster-online.outputs.proceed == 'true'
