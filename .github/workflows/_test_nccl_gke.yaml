@@ -52,7 +52,7 @@ jobs:
     env:
       BASE_IMAGE: ${{ needs.build-nccl-gke.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
-      WORKLOAD_NAME_PREFIX: nccl-gke
+      WORKLOAD_PREFIX: nccl-gke
       NHOSTS: 2
       NCCL_MINBYTES: 8
       NCCL_MAXBYTES: 16G
@@ -66,24 +66,24 @@ jobs:
       id: workload-name
       run: |
         TEST_NAME=$(echo "${{ matrix.test }}" | sed 's/_perf_mpi//g' | sed 's/_/-/g')
-        WORKLOAD_PREFIX="${{ env.WORKLOAD_NAME_PREFIX }}-${TEST_NAME}"
+        WORKLOAD_PREFIX="${WORKLOAD_PREFIX}-${TEST_NAME}"
 
         echo "WORKLOAD_PREFIX=${WORKLOAD_PREFIX}" >> ${GITHUB_OUTPUT}
 
     - name: Create NCCL test Services on cluster
       run: |
-        SERVICE_MANIFEST=".github/gke-workflow/gke/nccl-svc-${WORKLOAD_NAME}-${{ matrix.test }}.yaml"
-        WORKLOAD_NAME="${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        SERVICE_MANIFEST=".github/gke-workflow/gke/nccl-svc-${WORKLOAD}-${{ matrix.test }}.yaml"
+        WORKLOAD="${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
         echo "SERVICE_MANIFEST=${SERVICE_MANIFEST}" >> ${GITHUB_ENV}
 
-        cat .github/gke-workflow/gke/nccl-svc.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD_NAME}'"' --yaml-output | tee ${SERVICE_MANIFEST}
+        cat .github/gke-workflow/gke/nccl-svc.yml | yq '.spec.selector."jobset.sigs.k8s.io/jobset-name" = "'${WORKLOAD}'"' --yaml-output | tee ${SERVICE_MANIFEST}
         kubectl apply -f ${SERVICE_MANIFEST}
 
     - name: Run XPK workload on cluster
       uses: ./.github/actions/gke-xpk
       with:
         IMAGE: ${{ env.BASE_IMAGE }}
-        WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
+        WORKLOAD_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
         COMMAND: |

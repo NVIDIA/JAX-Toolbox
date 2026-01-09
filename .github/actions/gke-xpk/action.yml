@@ -35,7 +35,7 @@ inputs:
     default: 2
     required: false
     type: string
-  MAIN_CONTAINER_NAME: 
+  MAIN_CONTAINER: 
     description: 'Name of the main contianer in an XPK JobSet (fixed)'
     default: gpu-image
     required: false
@@ -65,7 +65,7 @@ inputs:
     required: false
     default: 'exit \$EXIT_CODE'
     type: string
-  WORKLOAD_NAME_PREFIX:
+  WORKLOAD_PREFIX:
     description: 'Workload name prefix for XPK, also used to name uploaded artifact'
     required: false
     default: 'xpk'
@@ -137,11 +137,11 @@ runs:
     shell: bash -x -e -u {0}
     if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      WORKLOAD_NAME="${{ inputs.WORKLOAD_NAME_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+      WORKLOAD="${{ inputs.WORKLOAD_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
       DATE=$(date +'%Y-%m-%d')
-      GCS_ARTIFACT_PATH="gs://${{ inputs.GCS_BUCKET }}/${{ inputs.WORKLOAD_NAME_PREFIX }}/${DATE}/${WORKLOAD_NAME}"
+      GCS_ARTIFACT_PATH="gs://${{ inputs.GCS_BUCKET }}/${{ inputs.WORKLOAD_PREFIX }}/${DATE}/${WORKLOAD}"
 
-      echo "WORKLOAD_NAME=${WORKLOAD_NAME}" >> ${GITHUB_ENV}
+      echo "WORKLOAD=${WORKLOAD}" >> ${GITHUB_ENV}
       echo "DATE=${DATE}" >> ${GITHUB_ENV}
       echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
 
@@ -149,15 +149,15 @@ runs:
     shell: bash -x -e -u {0}
     if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      mkdir -p ${WORKLOAD_NAME}
-      uv venv --verbose --python=${{ inputs.XPK_PYTHON }} --directory=${WORKLOAD_NAME}
-      source ${WORKLOAD_NAME}/.venv/bin/activate
+      mkdir -p ${WORKLOAD}
+      uv venv --verbose --python=${{ inputs.XPK_PYTHON }} --directory=${WORKLOAD}
+      source ${WORKLOAD}/.venv/bin/activate
 
       # install xpk
-      git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD_NAME}/xpk
+      git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD}/xpk
 
-      sed 's@pip install -e \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD_NAME}/xpk/Makefile
-      cd ${WORKLOAD_NAME}/xpk && sudo make install; cd -
+      sed 's@pip install -e \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD}/xpk/Makefile
+      cd ${WORKLOAD}/xpk && sudo make install; cd -
 
   - name: Show environment
     shell: bash -x -e -u {0}
@@ -165,7 +165,7 @@ runs:
     run: |
       gcloud version
   
-      source ${WORKLOAD_NAME}/.venv/bin/activate
+      source ${WORKLOAD}/.venv/bin/activate
       python --version
       xpk version
   
@@ -174,7 +174,7 @@ runs:
     if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
-      ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
+      ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD}/xpk
   
   - name: Set workload commands
     shell: bash -x -e -u {0}
@@ -207,14 +207,14 @@ runs:
     shell: bash -x -e -u {0}
     if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      source ${WORKLOAD_NAME}/.venv/bin/activate
-      cd ${WORKLOAD_NAME}/xpk
+      source ${WORKLOAD}/.venv/bin/activate
+      cd ${WORKLOAD}/xpk
 
       args=(
           --project=${{ inputs.GCP_PROJECT }}
           --cluster=${{ inputs.GKE_CLUSTER }}
           --zone=${{ inputs.GCP_REGION }}
-          --workload=${WORKLOAD_NAME}
+          --workload=${WORKLOAD}
           --docker-image=${{ inputs.IMAGE }}
           --device-type=${{ inputs.CLUSTER_DEVICE }}
           --num-nodes=${{ inputs.NUM_NODES }}
@@ -254,52 +254,54 @@ runs:
       START=$(date +%s)
       JOBSET_ACTIVE=false
       while ! ${JOBSET_ACTIVE}  || [ -z ${JOBSET_ACTIVE} ]; do
-        JOBSET_ACTIVE=$(kubectl get jobset -o json | jq -r '.items[] | select(.metadata.name == "'${WORKLOAD_NAME}'").status.replicatedJobsStatus[0] | .active == 1')
+        JOBSET_ACTIVE=$(kubectl get jobset -o json | jq -r '.items[] | select(.metadata.name == "'${WORKLOAD}'").status.replicatedJobsStatus[0] | .active == 1')
         NOW=$(date +%s)
         ELAPSED=$(( NOW - START ))
         if (( ELAPSED > POLL_TIMEOUT )) ; then
-          echo "Timeout after waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
+          echo "Timeout after waiting for JobSet ${WORKLOAD} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
           exit 1
         fi
-        echo "Waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
+        echo "Waiting for JobSet ${WORKLOAD} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
         sleep 5
       done
   
-      echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${{ inputs.GKE_CLUSTER }}"
+      echo "JobSet ${WORKLOAD} has just become active in cluster ${{ inputs.GKE_CLUSTER }}"
   
-  - name: Set JobSet Pod name
+  - name: Set JobSet Pods names
     shell: bash -u {0}
     if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${WORKLOAD_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
+      echo "JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD}'") | .name' | tr '\n' ' '))" >> ${GITHUB_ENV}
   
   - name: Wait for JobSet Pod readiness
     shell: bash -u {0}
     if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      POD_READY=false
-      while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
-        echo "Waiting for pod ${POD} in JobSet ${WORKLOAD_NAME} to become ready"
-        sleep 10
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
+        POD_READY=false
+        while [ ${POD_READY} == "false" ] || [ -z ${POD_READY} ]; do
+          echo "Waiting for pod ${jobset_pod} in JobSet ${WORKLOAD} to become ready"
+          sleep 10
   
-        POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
-        if ${POD_ERROR} ; then
-          echo "There was an issue starting the JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }}"
-          break
-        fi
+          POD_READY=$(kubectl get pod ${jobset_pod} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER }}'").ready')
+
+          if [ ${POD_READY} == "false" ]; then
+            POD_ERROR=$(kubectl get pod ${jobset_pod} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER }}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
+            if ${POD_ERROR} ; then
+              echo "There was an issue starting the JobSet ${WORKLOAD} on ${{ inputs.GKE_CLUSTER }}"
+              break
+            fi
+          fi
   
-        POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'").ready')
+        done;
       done;
   
   - name: Stream logs from JobSet Pods
     shell: bash -u {0}
     if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
-      echo "JOBSET_PODS=${JOBSET_PODS[@]}" >> ${GITHUB_ENV}
-  
-      for jobset_pod in ${JOBSET_PODS[@]}; do
-          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD_NAME}/${jobset_pod}.log &
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
+          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD}/${jobset_pod}.log &
       done
       wait < <(jobs -p)
   
@@ -309,11 +311,11 @@ runs:
     run: |
       parse_pod_exit_code() {
         local pod=$1
-        MAYBE_JOBSET_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}/${pod}.log | awk '{ print $3 }' )"
+        MAYBE_JOBSET_EXIT_CODE="$(tail -n 1 ${WORKLOAD}/${pod}.log | awk '{ print $3 }' )"
         echo ${MAYBE_JOBSET_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
         
         if [ $? -ne 0 ]; then
-          echo "The JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }} did not complete as expected "
+          echo "The JobSet ${WORKLOAD} on ${{ inputs.GKE_CLUSTER }} did not complete as expected "
           echo "JOBSET_EXIT_CODE=1" >> ${GITHUB_ENV}
           exit 1
         fi
@@ -340,27 +342,27 @@ runs:
     shell: bash -x -u {0}
     if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      kubectl delete jobset --wait ${WORKLOAD_NAME} || echo "JobSet ${WORKLOAD_NAME} does not exist in ${{ inputs.GKE_CLUSTER }}"
+      kubectl delete jobset --wait ${WORKLOAD} || echo "JobSet ${WORKLOAD} does not exist in ${{ inputs.GKE_CLUSTER }}"
   
   - name: Download artifacts from GCS to runner
     shell: bash -x -u {0}
     if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      mkdir -p ${WORKLOAD_NAME}/output
-      gsutil cp -r ${GCS_ARTIFACT_PATH} ${WORKLOAD_NAME}/output
-      cp ${WORKLOAD_NAME}/*.log ${WORKLOAD_NAME}/output
+      mkdir -p ${WORKLOAD}/output
+      gsutil cp -r ${GCS_ARTIFACT_PATH} ${WORKLOAD}/output
+      cp ${WORKLOAD}/*.log ${WORKLOAD}/output
   
   - name: Upload artifacts to GitHub Actions from runner
     uses: actions/upload-artifact@v4
     with:
-      name: ${{ inputs.WORKLOAD_NAME_PREFIX }}
-      path: ${{ env.WORKLOAD_NAME }}/output/*
+      name: ${{ inputs.WORKLOAD_PREFIX }}
+      path: ${{ env.WORKLOAD }}/output/*
   
   - name: Clean up xpk environment from runner
     shell: bash -x -u {0}
-    if: steps.cluster-online.outputs.proceed == 'true'
+    if: ${{ always() }}
     run: |
-      sudo rm -rf ${WORKLOAD_NAME}
+      sudo rm -rf ${WORKLOAD}
 
   - name: Generate sitrep
     id: sitrep
@@ -370,8 +372,8 @@ runs:
       source .github/workflows/scripts/to_json.sh
       badge_label="${{ matrix.test }}"
 
-      summary="${{ inputs.WORKLOAD_NAME_PREFIX }}"
-      badge_label="${{ inputs.WORKLOAD_NAME_PREFIX }}"
+      summary="${{ inputs.WORKLOAD_PREFIX }}"
+      badge_label="${{ inputs.WORKLOAD_PREFIX }}"
 
       if [[ -z "${JOBSET_EXIT_CODE}" ]]; then
         badge_color=gray
@@ -397,6 +399,6 @@ runs:
     if: ${{ always() }}
     uses: actions/upload-artifact@v4
     with:
-      name: ${{ inputs.WORKLOAD_NAME_PREFIX }}-sitrep
+      name: ${{ inputs.WORKLOAD_PREFIX }}-sitrep
       path: |
         sitrep.json

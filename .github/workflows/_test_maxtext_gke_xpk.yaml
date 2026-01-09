@@ -14,7 +14,7 @@ jobs:
     runs-on: gke-a3mega
 
     env:
-      WORKLOAD_NAME_PREFIX: gke-maxtext-train
+      WORKLOAD_PREFIX: gke-maxtext-train
       MAXTEXT_MODEL: llama2-7b
       MAXTEXT_ATTENTION_TYPE: cudnn_flash_te
       MAXTEXT_REMAT_POLICY: minimal_flash
@@ -30,7 +30,7 @@ jobs:
       uses: ./.github/actions/gke-xpk
       with:
         IMAGE: ${{ env.MAXTEXT_IMAGE }}
-        WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
+        WORKLOAD_PREFIX: ${{ env.WORKLOAD_PREFIX }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
         COMMAND: |
