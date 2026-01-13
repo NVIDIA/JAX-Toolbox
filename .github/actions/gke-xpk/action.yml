@@ -359,7 +359,7 @@ runs:
       path: ${{ env.WORKLOAD }}/output/*
   
   - name: Clean up xpk environment from runner
-    shell: bash -x -u {0}
+    shell: bash -x {0}
     if: ${{ always() }}
     run: |
       sudo rm -rf ${WORKLOAD}
