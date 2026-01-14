@@ -177,6 +177,7 @@ There are various other XLA flags users can set to improve performance. XLA flag
 
 | First nightly with new base container | Base container |
 | ------------------------------------- | -------------- |
+| 2026-01-15 | nvcr.io/nvidia/cuda-dl-base:25.12-cuda13.1-devel-ubuntu24.04 |
 | 2025-12-17 | nvcr.io/nvidia/cuda-dl-base:25.11-cuda13.0-devel-ubuntu24.04 |
 | 2025-10-02 | nvcr.io/nvidia/cuda-dl-base:25.09-cuda13.0-devel-ubuntu24.04 |
 | 2025-08-22 | nvcr.io/nvidia/cuda-dl-base:25.08-cuda13.0-devel-ubuntu24.04 |
