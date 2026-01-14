@@ -33,9 +33,10 @@ jobs:
         WORKLOAD_PREFIX: ${{ env.WORKLOAD_PREFIX }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+        ENVS:
+          NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so;
+          NCCL_TUNER_PLUGIN=none;
         COMMAND: |
-          export NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so;
-          export NCCL_TUNER_PLUGIN=none;
 
           nsys-jax --capture-range=cudaProfilerApi
                    --capture-range-end=stop
