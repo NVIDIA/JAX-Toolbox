@@ -50,8 +50,11 @@ jobs:
         IMAGE: ${{ env.MAXTEXT_IMAGE }}
         IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
         WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
-        COMMAND: |
+        ENVS: |
+          JAX_COORDINATOR_PORT=3389;
+          JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);
           console=/dev/stdout;
+        COMMAND: |
           nsys-jax --capture-range=cudaProfilerApi
                    --capture-range-end=stop
                    -o /opt/output/profile.zip

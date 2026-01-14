@@ -28,7 +28,7 @@ inputs:
     required: false
     type: string
   MAIN_CONTAINER_NAME: 
-    description: 'Name of the main contianer in an XPK JobSet (fixed)'
+    description: 'Name of the main contianer in an XPK JobSet (fixed in xpk)'
     default: gpu-image
     required: false
     type: string
@@ -56,6 +56,11 @@ inputs:
     description: 'Command to run in main container on JobSet start up'
     required: false
     default: 'nvidia-smi; free -h;'
+    type: string
+  ENVS:
+    description: 'Environment variables to pass to xpk for setting in JobSet (delimited by ;)'
+    required: false
+    default: ''
     type: string
   EXIT_COMMAND:
     description: 'Command to set exit code'
@@ -124,6 +129,7 @@ runs:
   - name: Set workload commands
     shell: bash -x -e -u {0}
     run: |
+      # install dependencies to enable export artifacts from container to gcs bucket
       PRELUDE="
           apt install -y ripgrep > /dev/null;
           curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
@@ -133,6 +139,7 @@ runs:
   
           mkdir -p /usr/share/workload;
           mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
+
       # Work around GCP's deployment model that munges together three
       # mostly unrelated things: (1) the host machine's CUDA driver/libs,
       # (2) the version of NCCL installed on the host machine, and (3)
@@ -151,6 +158,7 @@ runs:
           env;
       "
   
+      # gsutil command to export logs from container's /opt/output to bucket
       POSTLUDE="
           ./google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node-0\$NODE_RANK;
           ${{ inputs.EXIT_COMMAND }}
@@ -163,9 +171,7 @@ runs:
       POSTLUDE=$(echo ${POSTLUDE} | sed 's/\n/\ /g')
       CMD=$(echo ${CMD} | sed 's/\n/\ /g')
 
-      echo "PRELUDE=${PRELUDE}" >> ${GITHUB_ENV}
-      echo "CMD=${CMD}" >> ${GITHUB_ENV}
-      echo "POSTLUDE=${POSTLUDE}" >> ${GITHUB_ENV}
+      echo "CMD=${PRELUDE} ${CMD} ${POSTLUDE}" >> ${GITHUB_ENV}
   
   - name: Create workload on cluster with XPK
     shell: bash -x -e -u {0}
@@ -194,16 +200,21 @@ runs:
       }
 
       if version_greater "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
-          args+=(
-              --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
-              --env="JAX_COORDINATOR_PORT=3389"
-              --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
-          )
-      fi
+        args+=(
+            --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
+        )
 
+        envs_flat=$(echo "${{ inputs.ENVS }}" | tr '\n' ' ')
+        IFS=';' read -ra env_vars <<< "${envs_flat}"
+        for env in "${env_vars[@]}"; do
+            env=$(echo "${env}" | xargs)
+            [[ -n "${env}" ]] && args+=(--env="${env}")
+        done
+      fi
+        
       python xpk.py workload create \
-        ${args[@]} \
-        --command="${PRELUDE} ${CMD} ${POSTLUDE}"
+        "${args[@]}" \
+        --command="${CMD}"
   
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}
