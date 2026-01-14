@@ -36,17 +36,7 @@ apt_packages=(
 apt-get install -y ${apt_packages[@]}
 apt-get clean
 rm -rf /var/lib/apt/lists/*
-
-# There are several python packages (in the list below) that are installed with OS 
-# package manager (the run of `apt-get install` above) and can not be uninstall
-# using pip (in pip-finalize.sh script) during JAX installation. Remove then in
-# advance to avoid JAX installation issue.
-remove_packages=(
-  python3-gi
-)
-
-apt-get remove -y ${remove_packages[@]}
-apt-get autoremove -y  # removes python3-blinker which conflicts with pip-compile in JAX
+apt-get autoremove -y
 EOF
 
 RUN <<"EOF" bash -ex
