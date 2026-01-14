@@ -28,6 +28,7 @@ export TZ=America/Los_Angeles
 apt-get update
 
 apt_packages=(
+  libxml2
   python-is-python3
   python3-pip
   xxd
