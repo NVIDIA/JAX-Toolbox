@@ -88,7 +88,7 @@ if [[ "${GIT_REPO}" == *"gitlab"* ]]; then
   git branch -D main
   rm -f .git/logs/HEAD
   
-  SANITIZED_URL="internal-repo"
+  SANITIZED_URL="n/a"
 fi
 popd
 
