@@ -79,12 +79,16 @@ if [[ -n "${GIT_REF}" ]]; then
 fi
 COMMIT_SHA=$(git rev-parse HEAD)
 git submodule update --init --recursive
+SANITIZED_URL="${GIT_REPO}"
 if [[ "${GIT_REPO}" == *"gitlab"* ]]; then
   git remote remove origin
   if grep -q -r gitlab-ci-token .git; then
     grep -r gitlab-ci-token .git | awk -F: '{print $1}' | xargs rm -f
   fi
   git branch -D main
+  rm -f .git/logs/HEAD
+  
+  SANITIZED_URL="n/a"
 fi
 popd
 
@@ -92,4 +96,4 @@ popd
 mkdir -p $(dirname ${MANIFEST})
 touch ${MANIFEST}
 PACKAGE=$(basename "${DESTINATION}")
-yq eval --inplace ". += {\"${PACKAGE}\": {\"url\": \"${GIT_REPO}\", \"tracking_ref\": \"${GIT_REF}\", \"latest_verified_commit\": \"${COMMIT_SHA}\", \"mode\": \"git-clone\"}}" ${MANIFEST}
+yq eval --inplace ". += {\"${PACKAGE}\": {\"url\": \"${SANITIZED_URL}\", \"tracking_ref\": \"${GIT_REF}\", \"latest_verified_commit\": \"${COMMIT_SHA}\", \"mode\": \"git-clone\"}}" ${MANIFEST}
