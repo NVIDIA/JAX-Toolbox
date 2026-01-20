@@ -25,8 +25,8 @@ RUN <<"EOF" bash -exu
   ${DEST_MANIFEST_DIR}/create-distribution.sh \
     --manifest ${DEST_MANIFEST_DIR}/manifest.yaml \
     --package axlearn
-  # Remove .git so pip freeze shows simple path
-  rm -rf ${SRC_PATH_AXLEARN}/.git
+  cd ${SRC_PATH_AXLEARN}
+  git remote remove origin
 EOF
 
 # these packages are needed to run axlearn tests
