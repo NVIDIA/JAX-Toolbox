@@ -93,7 +93,7 @@ def get_commit_history(
             [
                 "sh",
                 "-c",
-                f"git merge-base {start} {end} && git merge-base {end} {main_branch}",
+                f"git fetch {args.override_remotes.get(package, 'origin')} {main_branch}:{main_branch} && git merge-base {start} {end} && git merge-base {end} {main_branch}",
             ],
             policy="once",
             stderr="separate",
