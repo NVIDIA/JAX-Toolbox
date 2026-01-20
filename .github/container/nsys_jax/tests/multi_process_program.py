@@ -3,12 +3,13 @@ import functools
 import jax
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--port", type=int)
 parser.add_argument("--rank", type=int)
 parser.add_argument("--nranks", type=int)
 args = parser.parse_args()
 
 jax.distributed.initialize(
-    coordinator_address="127.0.0.1:42424",
+    coordinator_address=f"127.0.0.1:{args.port}",
     num_processes=args.nranks,
     process_id=args.rank,
     local_device_ids=[args.rank],
