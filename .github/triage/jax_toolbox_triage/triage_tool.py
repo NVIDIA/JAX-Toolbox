@@ -413,8 +413,8 @@ class TriageTool:
             # rebuilds correctly, so clean the local cache and rely on the remote one.
             build_cmds = [
                 "bazel clean --expunge",
-                f"build-jax.sh --bazel-cache={self.args.bazel_cache}",
-                "build-te.sh",
+                f"build-jax.sh --bazel-cache={self.args.bazel_cache} --sm all",
+                "build-te.sh --sm all",
             ]
             build_result = worker.exec(
                 ["sh", "-c", " && ".join(build_cmds)],
