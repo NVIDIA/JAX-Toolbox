@@ -48,7 +48,9 @@ class DockerContainer(Container):
             stderr="separate",
         )
         if result.returncode != 0:
-            self._logger.error(f"Could not launch {self}, exit code {result.returncode}:")
+            self._logger.error(
+                f"Could not launch {self}, exit code {result.returncode}:"
+            )
             self._logger.error("stdout:")
             self._logger.error(result.stdout)
             self._logger.error("stderr:")
