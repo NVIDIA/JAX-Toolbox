@@ -285,6 +285,8 @@ jobs:
             nsys_package: "cuda-nsight-systems-12-6"
           - container: "nvidia/cuda:12.8.0-base-ubuntu24.04"
             nsys_package: "cuda-nsight-systems-12-8"
+          - container: "nvidia/cuda:13.1.0-base-ubuntu24.04"
+            nsys_package: "cuda-nsight-systems-13-1"
     runs-on: ubuntu-latest
     container: "${{ matrix.container }}"
     steps:
