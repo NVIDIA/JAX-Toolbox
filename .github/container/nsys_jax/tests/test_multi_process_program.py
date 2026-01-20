@@ -5,6 +5,7 @@ from nsys_jax import (
 )
 import os
 import pathlib
+import portpicker
 import pytest  # type: ignore
 import re
 import subprocess
@@ -23,6 +24,7 @@ def individual_results(tmp_path_factory):
     Fixture that yields the .zip files from individual subprocesses.
     """
     num_processes = 2
+    port = portpicker.pick_unused_port()
     return multi_process_nsys_jax(
         num_processes=num_processes,
         command=lambda rank: [
@@ -30,6 +32,8 @@ def individual_results(tmp_path_factory):
             os.path.join(os.path.dirname(__file__), "multi_process_program.py"),
             "--nranks",
             str(num_processes),
+            "--port",
+            str(port),
             "--rank",
             str(rank),
         ],
