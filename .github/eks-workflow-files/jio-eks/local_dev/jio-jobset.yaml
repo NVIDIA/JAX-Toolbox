@@ -1,0 +1,489 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: jax-vllm-multinode
+  namespace: default
+spec:
+  network:
+    enableDNSHostnames: true
+    publishNotReadyAddresses: true
+
+  replicatedJobs:
+  # Gateway Pod (separate, no hostNetwork)
+  - name: gateway
+    replicas: 1
+    template:
+      spec:
+        backoffLimit: 0
+        completionMode: Indexed
+        completions: 1
+        parallelism: 1
+        template:
+          metadata:
+            labels:
+              node-role: gateway
+          spec:
+            # NO hostNetwork for gateway
+            tolerations:
+              - key: nvidia.com/gpu
+                operator: Exists
+                effect: NoSchedule
+            containers:
+            - name: gateway-container
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:uninstall
+              command:
+              - bash
+              - -c
+              - |
+                set -euo pipefail
+
+                echo "=== Starting Gateway ==="
+                echo "Gateway will listen on 0.0.0.0:${GATEWAY_PORT}"
+
+                cd /opt/jtbx/jax-inference-offloading
+                python -u jax_inference_offloading/controller/gateway.py 2>&1 | tee gateway.log
+
+              env:
+              - name: GATEWAY_PORT
+                value: "50051"
+
+              ports:
+              - containerPort: 50051
+                name: gateway
+                protocol: TCP
+
+              resources:
+                requests:
+                  cpu: "2"
+                  memory: "8Gi"
+                limits:
+                  cpu: "2"
+                  memory: "8Gi"
+
+              volumeMounts:
+              - name: shmem
+                mountPath: /dev/shm
+
+            volumes:
+            - name: shmem
+              emptyDir:
+                medium: Memory
+                sizeLimit: 16Gi
+
+  # vLLM Node (Node 0)
+  - name: vllm-node
+    replicas: 1
+    template:
+      spec:
+        backoffLimit: 0
+        completionMode: Indexed
+        completions: 1
+        parallelism: 1
+        template:
+          metadata:
+            labels:
+              node-role: vllm
+          spec:
+            serviceAccountName: jax-worker
+            hostNetwork: true
+            dnsPolicy: ClusterFirstWithHostNet
+
+            affinity:
+              podAntiAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                    - key: node-role
+                      operator: In
+                      values:
+                      - jax
+                  topologyKey: kubernetes.io/hostname
+
+            containers:
+            - name: vllm-container
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:uninstall
+              command:
+              - bash
+              - -c
+              - |
+                set -euo pipefail
+
+                GATEWAY_HOST="${JOBSET_NAME}-gateway-0-0.${JOBSET_NAME}"
+                export GATEWAY_URL="${GATEWAY_HOST}:${GATEWAY_PORT}"
+                HOST_IP=$(hostname -i)
+                export RAY_HEAD_IP=${HOST_IP}
+
+                # Check for Gateway readiness
+                echo "Waiting for gateway at ${GATEWAY_HOST}:${GATEWAY_PORT}..."
+                python3 -c "
+                import socket, time, sys
+                host = '${GATEWAY_HOST}'
+                port = int('${GATEWAY_PORT}')
+                print(f'Checking connectivity to {host}:{port}...')
+                timeout = 120
+                start = time.time()
+
+                while True:
+                    try:
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(5)
+                        if sock.connect_ex((host, port)) == 0:
+                            sock.close()
+                            print(f'Gateway ready at {host}:{port}')
+                            sys.exit(0)
+                    except Exception as e:
+                        pass
+
+                    if time.time() - start > timeout:
+                        print(f'Timeout waiting for gateway')
+                        sys.exit(1)
+                    time.sleep(2)
+                " || exit 1
+
+                PIDS=()
+                echo "Test gateway connection"
+                # Connect to gateway
+                python3 -c "
+                import os
+                import sys
+                import grpc
+
+                url = os.environ.get('GATEWAY_URL')
+                print(f'Gateway URL from env: {url}')
+
+                if not url:
+                    print('ERROR: GATEWAY_URL not set in environment')
+                    sys.exit(1)
+                try:
+                    print(f'Connecting to {url}...')
+                    channel = grpc.insecure_channel(url)
+                    grpc.channel_ready_future(channel).result(timeout=10)
+                    print(f'Successfully connected to gateway at {url}')
+                except Exception as e:
+                    print(f'Failed to connect to gateway: {e}')
+                    sys.exit(1)
+                "
+                # Start Ray Head
+                echo "Starting Ray Head..."
+                ray start \
+                  --head \
+                  --node-ip-address=${HOST_IP} \
+                  --port=${RAY_PORT} \
+                  --ray-client-server-port=${RAY_CLIENT_SERVER_PORT} \
+                  --num-cpus=48 \
+                  --num-gpus=8 \
+                  --block \
+                  --disable-usage-stats 2>&1 | tee ray-head.log &
+                RAY_PID=$!
+
+                sleep 10  # Give time to Ray to settle
+
+                # Start vLLM Rollout Controller
+                echo "Starting vLLM Rollout..."
+                cd /opt/jtbx/jax-inference-offloading/examples
+                export RAY_ADDRESS="${HOST_IP}:${RAY_PORT}"
+                CUDA_VISIBLE_DEVICES="" ray status
+                python -u rollout.py 2>&1 | tee rollout.log &
+                ROLLOUT_PID=$!
+
+                wait ${ROLLOUT_PID}
+                ROLLOUT_EXIT=$?
+                echo "Rollout.py finished with code ${ROLLOUT_EXIT}"
+                ray stop --force || true
+                kill ${RAY_PID} 2>/dev/null || true
+                echo "VLLM completed"
+                exit ${ROLLOUT_EXIT}
+              env:
+              - name: JOBSET_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['jobset.sigs.k8s.io/jobset-name']
+
+              # General config
+              - name: HF_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: huggingface-token
+                    key: token
+              - name: MODEL_NAME
+                value: "meta-llama/Llama-3.1-8B-Instruct"
+              - name: MODEL_PATH
+                value: "" # possibility to have a path for model
+              # EFA
+              - name: FI_PROVIDER
+                value: "efa"
+              # General VLLM
+              - name: TORCH_CUDA_ARCH_LIST
+                value: "9.0"
+              # Gateway
+              - name: GATEWAY_PORT
+                value: "50051"
+              - name: GATEWAY_URL
+                value: "jax-vllm-multinode-gateway-0-0.jax-vllm-multinode:50051"
+              # Ray settings
+              - name: RAY_PORT
+                value: "20527"
+              - name: RAY_CLIENT_SERVER_PORT
+                value: "24430"
+              # CUDA settings
+              - name: CUDA_DEVICE_ORDER
+                value: "PCI_BUS_ID"
+              - name: CUDA_DEVICE_MAX_CONNECTIONS
+                value: "16"
+              - name: CUDA_VISIBLE_DEVICES
+                value: "0,1,2,3,4,5,6,7"
+              # vLLM settings
+              - name: VLLM_ENFORCE_EAGER
+                value: "1"
+              - name: VLLM_LOAD_FORMAT
+                value: "dummy"
+              - name: VLLM_GPU_MEMORY_UTILIZATION
+                value: "0.4"
+              - name: VLLM_TENSOR_PARALLEL_SIZE
+                value: "8"
+              - name: VLLM_DISTRIBUTED_BACKEND
+                value: "ray"
+              # NCCL
+              - name: NCCL_BUFFSIZE
+                value: "16777216"
+              - name: NCCL_DEBUG
+                value: "INFO"
+
+              - name: VLLM_WORKER_MULTIPROC_METHOD
+                value: "spawn"
+              - name: RAY_BACKEND_LOG_LEVEL
+                value: "info"
+              # Debug
+              - name: TF_CPP_MIN_LOG_LEVEL
+                value: "2"
+              - name: VLLM_CONFIGURE_LOGGING
+                value: "1"
+
+              ports:
+              - containerPort: 50051
+                name: gateway
+                protocol: TCP
+              - containerPort: 20527
+                name: ray
+                protocol: TCP
+              - containerPort: 24430
+                name: ray-client
+                protocol: TCP
+
+              resources:
+                limits:
+                  nvidia.com/gpu: "8"
+                  vpc.amazonaws.com/efa: "32"
+                requests:
+                  nvidia.com/gpu: "8"
+                  vpc.amazonaws.com/efa: "32"
+
+              volumeMounts:
+              - name: shmem
+                mountPath: /dev/shm
+
+            nodeSelector:
+              node.kubernetes.io/instance-type: p5.48xlarge
+
+            tolerations:
+            - key: nvidia.com/gpu
+              operator: Exists
+              effect: NoSchedule
+
+            volumes:
+            - name: shmem
+              emptyDir:
+                medium: Memory
+                sizeLimit: 150Gi
+
+  # JAX Node (Node 1)
+  - name: jax-node
+    replicas: 1
+    template:
+      spec:
+        backoffLimit: 0
+        completionMode: Indexed
+        completions: 1
+        parallelism: 1
+        template:
+          metadata:
+            labels:
+              node-role: jax
+          spec:
+            serviceAccountName: jax-worker
+            hostNetwork: true
+            dnsPolicy: ClusterFirstWithHostNet
+
+            affinity:
+              podAntiAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                    - key: node-role
+                      operator: In
+                      values:
+                      - vllm
+                  topologyKey: kubernetes.io/hostname
+
+            containers:
+            - name: jax-container
+              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:uninstall
+              command:
+              - bash
+              - -c
+              - |
+                set -euo pipefail
+                # Define Variables
+                GATEWAY_HOST="${JOBSET_NAME}-gateway-0-0.${JOBSET_NAME}"
+                export GATEWAY_URL="${GATEWAY_HOST}:50051"
+
+                HOST_IP=$(hostname -I | awk '{print $1}')
+                export JAX_COORDINATOR_ADDRESS="${HOST_IP}:12345"
+                export JAX_COORDINATOR_PORT="12345"
+
+                # Wait for gateway
+                echo "Waiting for gateway at ${GATEWAY_HOST}:${GATEWAY_PORT}..."
+                python3 -c "
+                import socket, time, sys
+                host = '${GATEWAY_HOST}'
+                port = int('${GATEWAY_PORT}')
+                timeout = 180
+                start = time.time()
+
+                print(f'Checking connectivity to {host}:{port}...')
+
+                while True:
+                    try:
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(5)
+                        result = sock.connect_ex((host, port))
+                        sock.close()
+
+                        if result == 0:
+                            print(f'Successfully connected to {host}:{port}')
+                            sys.exit(0)
+                    except Exception as e:
+                        pass
+
+                    elapsed = time.time() - start
+                    if elapsed > timeout:
+                        print(f'Timeout after {timeout}s waiting for {host}:{port}')
+                        sys.exit(1)
+
+                    if int(elapsed) % 10 == 0:
+                        print(f'Port not ready yet (elapsed: {elapsed:.1f}s), retrying...')
+                    time.sleep(2)
+                " || exit 1
+
+                echo "Gateway is ready!"
+                # Start JAX trainer
+                cd /opt/jtbx/jax-inference-offloading/examples
+                echo "Starting JAX Trainer..."
+                python -u trainer.py 2>&1 | tee trainer-node${JOB_COMPLETION_INDEX}.log
+
+                echo "JAX trainer completed"
+
+              env:
+              - name: JOBSET_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['jobset.sigs.k8s.io/jobset-name']
+
+              # General config
+              - name: HF_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: huggingface-token
+                    key: token
+              - name: MODEL_NAME
+                value: "meta-llama/Llama-3.1-8B-Instruct"
+              - name: MODEL_PATH
+                value: ""
+
+              # JAX distributed config
+              - name: JAX_COORDINATOR_PORT
+                value: "12345"
+              - name: JAX_NUM_PROCESSES
+                value: "1"  # Single JAX node for now
+              - name: JAX_PROCESS_INDEX
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+              - name: JAX_LOCAL_DEVICE_IDS
+                value: "0,1,2,3,4,5,6,7"
+
+              # CUDA settings
+              - name: CUDA_DEVICE_ORDER
+                value: "PCI_BUS_ID"
+              - name: CUDA_DEVICE_MAX_CONNECTIONS
+                value: "16"
+              - name: CUDA_VISIBLE_DEVICES
+                value: "0,1,2,3,4,5,6,7"
+
+              # XLA flags
+              - name: XLA_FLAGS
+                value: >-
+                  --xla_gpu_enable_latency_hiding_scheduler=true
+                  --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL
+                  --xla_gpu_collective_permute_combine_threshold_bytes=8589934592
+                  --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592
+                  --xla_gpu_all_gather_combine_threshold_bytes=8589934592
+                  --xla_gpu_all_reduce_combine_threshold_bytes=8589934592
+
+              # Trainer settings
+              - name: TRANSFER_MODE
+                value: "grouped"
+              - name: USE_POLYMORPHIC_MESH
+                value: "0"
+
+              # Debug
+              - name: TF_CPP_MIN_LOG_LEVEL
+                value: "2"
+              # EFA
+              - name: FI_PROVIDER
+                value: "efa"
+              # GATEWAY
+              - name: GATEWAY_PORT
+                value: "50051"
+              - name: GATEWAY_URL
+                value: "jax-vllm-multinode-gateway-0-0.jax-vllm-multinode:50051"
+
+
+              ports:
+              - containerPort: 12345
+                name: jax-coord
+                protocol: TCP
+
+
+              resources:
+                limits:
+                  nvidia.com/gpu: "8"
+                  vpc.amazonaws.com/efa: "32"
+
+                requests:
+                  nvidia.com/gpu: "8"
+                  vpc.amazonaws.com/efa: "32"
+
+              volumeMounts:
+              - name: dshm
+                mountPath: /dev/shm
+
+            nodeSelector:
+              node.kubernetes.io/instance-type: p5.48xlarge
+
+            tolerations:
+            - key: nvidia.com/gpu
+              operator: Exists
+              effect: NoSchedule
+
+            volumes:
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 150Gi
+
+  successPolicy:
+    operator: All
+
+  startupPolicy:
+    startupPolicyOrder: InOrder

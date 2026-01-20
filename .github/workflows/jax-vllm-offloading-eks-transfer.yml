@@ -1,0 +1,52 @@
+name: JAX-vLLM offloading transfer (EKS)
+
+on:
+  workflow_call:
+    inputs:
+      JAX_VLLM_OFFLOADING_IMAGE:
+        type: string
+        description: MaxText image from ghcr.io/nvidia
+        default: ghcr.io/nvidia/jax-toolbox-internal:19758308493-jio-amd64
+        required: false
+
+jobs:
+  jax-vllm-offloading-transfer-eks:
+    runs-on: eks
+    env:
+      JOB_NAME: jax-vllm-offloading
+      JAX_VLLM_OFFLOADING_IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
+      MODEL: "meta-llama/Llama-3.1-8B-Instruct"
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: K8s GHCR store and delete token
+      id: store-token
+      uses: ./.github/actions/store-delete-k8s-ghcr
+
+    - name: Configure jax-vllm job
+      run: |
+        yq -i '
+          # 1. Update the JobSet Name
+          .metadata.name = strenv(JOB_NAME)
+
+          # 2. Update Image (Applies to Gateway, vLLM, and JAX nodes)
+          | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = strenv(JAX_VLLM_OFFLOADING_IMAGE)
+
+          # 3. Update Model Name (Finds the env var named "MODEL_NAME" and updates its value)
+          | (.spec.replicatedJobs[].template.spec.template.spec.containers[].env[] | select(.name == "MODEL_NAME").value) = strenv(MODEL)
+        ' .github/eks-workflow-files/jio-eks/jio-template.yaml
+        git diff .github/eks-workflow-files/jio-eks/jio-template.yaml
+
+    - name: Apply jax-vllm offloading job to EKS cluster
+      uses: ./.github/actions/submit-delete-k8s-job
+      with:
+        job-config-file:  ".github/eks-workflow-files/jio-eks/jio-template.yaml"
+        job-name: ${{ env.JOB_NAME }}

@@ -177,6 +177,7 @@ def _load_nvtx_gpu_proj_trace_single(
         "Stack Level": "Lvl",
         "TID": "TID",
     }
+    rename_map_2026_1_1 = alt_rename_map | {"Domain": None}
     if set(df.columns) == alt_rename_map.keys():
         tsl_prefix = ""
         df = df.rename(
@@ -187,7 +188,17 @@ def _load_nvtx_gpu_proj_trace_single(
         df["RangeStack"] = df["RangeStack"].map(
             lambda stack: ":" + ":".join(map(str, stack))
         )
-        # TODO: add OrigDurMs, OrigStartMs
+    elif set(df.columns) == rename_map_2026_1_1.keys():
+        df = df.rename(
+            columns={k: v for k, v in rename_map_2026_1_1.items() if v is not None}
+        )
+        df["ProjDurMs"] = 1e-6 * (df.pop("End") - df["Start"])
+        df["ProjStartMs"] = 1e-6 * df.pop("Start")
+        df["RangeStack"] = df["RangeStack"].map(
+            lambda stack: ":" + ":".join(map(str, stack))
+        )
+        df["Name"] = df.pop("Domain") + ":" + df["Name"]
+        tsl_prefix = "TSL:"
     else:
         tsl_prefix = "TSL:"
         df = df.drop(columns=["Style"])
@@ -208,6 +219,24 @@ def _load_nvtx_gpu_proj_trace_single(
             "variable."
         )
         raise
+
+    # Apply a filter for taking out nccl chunks
+    nccl_mask = df["Name"].str.contains("ncclGroupEnd", na=False) | df[
+        "Name"
+    ].str.contains("NCCL", na=False)
+    if nccl_mask.any():
+        # get the ids to be removed
+        drop_ids = df.index[nccl_mask]
+        # create a map to get where to point the children of the deleted nodes
+        reparent_map = df.loc[drop_ids, "ParentId"]
+        # find all the valid rows whose Parent is one of the rows to delete
+        children_mask = df["ParentId"].isin(drop_ids)
+        # Update the ParentId of these children to skip the NCCL node
+        df.loc[children_mask, "ParentId"] = df.loc[children_mask, "ParentId"].map(
+            reparent_map
+        )
+        # drop the nccl rows
+        df = df[~nccl_mask]
     # Due to idiosyncracies of how Nsight tracks CUDA graphs, and because
     # thunks can be nested, the NVTX hierarchy generally looks like:
     #  Iteration -> XlaModule:A [-> XlaModule:B] -> Thunk:C [-> Thunk:D ...]

@@ -14,6 +14,12 @@ jobs:
     runs-on: [self-hosted, "amd64", "large"]
     steps:
       - uses: actions/checkout@v4
+      - name: Login to nvcr.io Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: nvcr.io
+          username: $oauthtoken
+          password: ${{ secrets.NVCR_TOKEN }}
       - name: Build NCCL image
         id: build
         uses: ./.github/actions/build-container
@@ -90,16 +96,17 @@ jobs:
         IMAGE: ${{ env.BASE_IMAGE }}
         IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
         WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
+        ENVS: |
+          JAX_COORDINATOR_PORT=3389;
+          JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);
+          NHOSTS=${{ env.NHOSTS }};
+          NCCL_LIB_DIR=/opt/nvida/nccl/lib;
+          SCRIPT_DIR=/scripts;
+          NCCL_MINBYTES=${{ env.NCCL_MINBYTES }};
+          NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
+          NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
+          NCCL_ITERS=${{ env.NCCL_ITERS }};
         COMMAND: |
-          export NHOSTS=${{ env.NHOSTS }};
-          export NCCL_LIB_DIR=/opt/nvida/nccl/lib;
-          export SCRIPT_DIR=/scripts;
-
-          export NCCL_MINBYTES=${{ env.NCCL_MINBYTES }};
-          export NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
-          export NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
-          export NCCL_ITERS=${{ env.NCCL_ITERS }};
-
           service ssh restart;
           console=/dev/stdout;
           declare -a hosts=('nccl-test-host-1' 'nccl-test-host-2');

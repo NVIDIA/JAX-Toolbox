@@ -1,0 +1,99 @@
+name: JAX-vLLM offloading transfer (GKE, XPK)
+
+on:
+  workflow_call:
+    inputs:
+      JAX_VLLM_OFFLOADING_IMAGE:
+        type: string
+        description: MaxText image from ghcr.io/nvidia
+        default: ghcr.io/nvidia/jax-toolbox-internal:19461214142-jio-amd64
+        required: false
+
+jobs:
+  jax-vllm-offloading-transfer-gke-xpk:
+    runs-on: gke-a3mega
+    strategy:
+      matrix:
+        model: ["meta-llama/Llama-3.1-8B-Instruct", "meta-llama/Llama-3.1-70B-Instruct"]
+    env:
+      WORKLOAD_NAME_PREPREFIX: vllm-transf # due to 40 character workload name limit
+      JAX_VLLM_OFFLOADING_IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
+      
+      NUM_NODES: 2
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: K8s GHCR store and delete token
+      id: store-token
+      uses: ./.github/actions/store-delete-k8s-ghcr
+
+    - name: Format workload name
+      id: workload-name
+      run: |
+        WORKLOAD_NAME_PREFIX="${WORKLOAD_NAME_PREPREFIX}-$(echo ${{ matrix.model }} | sed 's|.*/\(.*\)-[^-]*|\1|')"
+        WORKLOAD_NAME_PREFIX=$(echo ${WORKLOAD_NAME_PREFIX} | tr '.' '-')
+        echo "WORKLOAD_NAME_PREFIX=${WORKLOAD_NAME_PREFIX,,}" >> ${GITHUB_OUTPUT}
+
+    - name: Run XPK workload on cluster
+      uses: ./.github/actions/gke-xpk
+      with:
+        IMAGE: ${{ env.JAX_VLLM_OFFLOADING_IMAGE }}
+        IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
+        WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_NAME_PREFIX }}
+        ENVS: |
+          CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7;
+          CUDA_DEVICE_ORDER=PCI_BUS_ID;
+          CUDA_DEVICE_MAX_CONNECTIONS=16;
+          VLLM_ENFORCE_EAGER=1;
+          VLLM_GPU_MEMORY_UTILIZATION=0.7;
+          VLLM_TENSOR_PARALLEL_SIZE=8;
+          VLLM_DISTRIBUTED_BACKEND=mp;
+          VLLM_ATTENTION_BACKEND=TRITON_ATTN;
+          VLLM_LOAD_FORMAT=dummy;
+          MODEL_NAME=${{ matrix.model }};
+          NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so;
+          NCCL_TUNER_PLUGIN=none;
+          NCCL_CUMEM_ENABLE=0;
+          NCCL_BUFFSIZE=16777216;
+          XLA_FLAGS=--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL --xla_gpu_collective_permute_combine_threshold_bytes=8589934592 --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592 --xla_gpu_all_gather_combine_threshold_bytes=8589934592 --xla_gpu_all_reduce_combine_threshold_bytes=8589934592;
+          TRANSFER_MODE=grouped;
+          USE_POLYMORPHIC_MESH=0;
+          JAX_COORDINATOR_PORT=3389;
+          JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);
+          GATEWAY_PORT=50051;
+          GATEWAY_URL=\$(JOBSET_NAME):\$(GATEWAY_PORT);
+          OUTPUT_DIR=/opt/output;
+        COMMAND: |
+          set -x;
+
+          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:\${LD_LIBRARY_PATH};
+
+          python -c 'import jax; jax.distributed.initialize(); print(jax.devices()); print(jax.local_devices()); assert jax.process_count() > 1; assert len(jax.devices()) > len(jax.local_devices());';
+
+          PIDS=();
+          if [ \${NODE_RANK} = 0 ]; then
+            echo Starting gateway;
+            cd /opt/jtbx/jax-inference-offloading;
+            python jax_inference_offloading/controller/gateway.py 2>&1 | tee -a gateway.log &
+            PIDS+=(\$!);
+
+            echo Starting rollout;
+            cd /opt/jtbx/jax-inference-offloading/examples;
+            python rollout.py 2>&1 | tee -a rollout.log &
+            PIDS+=(\$!);
+          else
+            echo Starting trainer;
+            python trainer.py 2>&1 | tee -a trainer.log &
+            PIDS+=(\$!);
+          fi;
+
+          wait \${PIDS[@]};
+          EXIT_CODE=\$PIPESTATUS;

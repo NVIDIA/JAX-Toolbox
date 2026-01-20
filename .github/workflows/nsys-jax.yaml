@@ -43,7 +43,7 @@ jobs:
           python-version: '3.10'
       # jax is just a CPU-only build of the latest release for type-checking purposes
       - name: "Install jax / nsys_jax / mypy"
-        run: pip install jax -e JAX-Toolbox/.github/container/nsys_jax matplotlib mypy nbconvert types-protobuf types-requests
+        run: pip install jax -e JAX-Toolbox/.github/container/nsys_jax matplotlib mypy nbconvert types-portpicker types-protobuf types-requests
       - name: "Install protoc"
         # TODO: this could install into the pip prefix as a default
         run: |
@@ -78,10 +78,10 @@ jobs:
 
   # Test nsys-jax-combine and notebook execution; in future perhaps upload the rendered
   # notebook from here too. These input files were generated with something like
-  # srun -n 4 --container-name=XXX --container-image=ghcr.io/nvidia/jax:pax-2024-07-06
+  # srun -n 4 --container-name=XXX --container-image=ghcr.io/nvidia/jax:maxtext-2025-12-10
   #   env NPROC=4 XLA_FLAGS=--xla_gpu_enable_latency_hiding_scheduler\
-  #   --xla_gpu_enable_command_buffer= nsys-jax -o ...-fsdp4-4proc-proc%q{SLURM_PROCID}
-  #   -- test-pax.sh --steps=5 --fsdp=4 --multiprocess
+  #   --xla_gpu_enable_command_buffer= nsys-jax -o ...-fp8-4proc-proc%q{SLURM_PROCID}
+  #   -- test-maxtext.sh -b 2 --model-name=gemma-2b --dtype=fp8
   # with newer nsys-jax components bind-mounted in.
   combine:
     runs-on: ubuntu-24.04
@@ -120,9 +120,9 @@ jobs:
           ipython "${NOTEBOOK}"
 
   # This input file was generated with something like
-  # srun -n 1 --container-name=XXX --container-image=ghcr.io/nvidia/jax:pax-2024-07-06
+  # srun -n 1 --container-name=XXX --container-image=ghcr.io/nvidia/jax:maxtext-2024-07-06
   #   env NPROC=4 XLA_FLAGS=--xla_gpu_enable_latency_hiding_scheduler\
-  #   --xla_gpu_enable_command_buffer= nsys-jax -o ...-fsdp4-1proc -- test-pax.sh
+  #   --xla_gpu_enable_command_buffer= nsys-jax -o ...-fsdp4-1proc -- test-maxtext.sh
   #   --steps=5 --fsdp=4
   notebook:
     env:
@@ -285,6 +285,8 @@ jobs:
             nsys_package: "cuda-nsight-systems-12-6"
           - container: "nvidia/cuda:12.8.0-base-ubuntu24.04"
             nsys_package: "cuda-nsight-systems-12-8"
+          - container: "nvidia/cuda:13.1.0-base-ubuntu24.04"
+            nsys_package: "cuda-nsight-systems-13-1"
     runs-on: ubuntu-latest
     container: "${{ matrix.container }}"
     steps:

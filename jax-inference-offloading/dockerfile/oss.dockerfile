@@ -76,7 +76,7 @@ EOF
 RUN <<"EOF" bash -ex -o pipefail
 mkdir -p /opt/pip-tools.d
 pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
-echo "jax[cuda12_local]" >> /opt/pip-tools.d/requirements.in
+echo "jax[cuda12_local,k8s]" >> /opt/pip-tools.d/requirements.in
 echo "-e file://${SRC_PATH_JIO}" >> /opt/pip-tools.d/requirements.in
 echo "-e file://${SRC_PATH_TUNIX}" >> /opt/pip-tools.d/requirements.in
 cat "${SRC_PATH_JIO}/examples/requirements.in" >> /opt/pip-tools.d/requirements.in
@@ -106,6 +106,9 @@ pip-mark-installed nvidia-cublas-cu12 nvidia-cuda-cupti-cu12 \
   nvidia-nvjitlink-cu12 nvidia-nvtx-cu12
 popd
 rm -rf ~/.cache/*
+# perform a general cleaning of tensorflow libraries that are conflicting with nccl
+pip uninstall -y tensorflow_cpu tensorflow-datasets tensorflow-metadata
 EOF
+
 
 WORKDIR ${SRC_PATH_JIO}/examples
