@@ -177,6 +177,7 @@ def _load_nvtx_gpu_proj_trace_single(
         "Stack Level": "Lvl",
         "TID": "TID",
     }
+    rename_map_2026_1_1 = alt_rename_map | {"Domain": None}
     if set(df.columns) == alt_rename_map.keys():
         tsl_prefix = ""
         df = df.rename(
@@ -187,7 +188,17 @@ def _load_nvtx_gpu_proj_trace_single(
         df["RangeStack"] = df["RangeStack"].map(
             lambda stack: ":" + ":".join(map(str, stack))
         )
-        # TODO: add OrigDurMs, OrigStartMs
+    elif set(df.columns) == rename_map_2026_1_1.keys():
+        df = df.rename(
+            columns={k: v for k, v in rename_map_2026_1_1.items() if v is not None}
+        )
+        df["ProjDurMs"] = 1e-6 * (df.pop("End") - df["Start"])
+        df["ProjStartMs"] = 1e-6 * df.pop("Start")
+        df["RangeStack"] = df["RangeStack"].map(
+            lambda stack: ":" + ":".join(map(str, stack))
+        )
+        df["Name"] = df.pop("Domain") + ":" + df["Name"]
+        tsl_prefix = "TSL:"
     else:
         tsl_prefix = "TSL:"
         df = df.drop(columns=["Style"])
