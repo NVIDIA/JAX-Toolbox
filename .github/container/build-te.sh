@@ -17,15 +17,15 @@ usage() {
     echo "    --sm SM1,SM2,...               Comma-separated list of CUDA SM versions"
     echo "                                   to compile for, e.g. 7.5,8.0 -- PTX will"
     echo "                                   only be emitted for the last one."
-    echo "    --sm local                     Compile for the local GPUs (default)."
-    echo "    --sm all                       Compile for a default set of SM versions."
+    echo "    --sm local                     Compile for the local GPUs."
+    echo "    --sm all                       Compile for a default set of SM versions (default)."
     exit $1
 }
 
 # Set defaults
 CLEAN=0
 INSTALL=1
-SM="local"
+SM="all"
 SRC_PATH_TE="/opt/transformer-engine"
 SRC_PATH_XLA="/opt/xla"
 

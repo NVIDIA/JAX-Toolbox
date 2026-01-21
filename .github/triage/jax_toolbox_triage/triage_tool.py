@@ -413,6 +413,8 @@ class TriageTool:
             # rebuilds correctly, so clean the local cache and rely on the remote one.
             build_cmds = [
                 "bazel clean --expunge",
+                # 2026-01-21: --sm all is now the default, but leave it here
+                # for a while to help triage old containers
                 f"build-jax.sh --bazel-cache={self.args.bazel_cache} --sm all",
                 "build-te.sh --sm all",
             ]

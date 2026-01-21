@@ -60,8 +60,8 @@ usage() {
     echo "    --src-path-jax                 Path to JAX source"
     echo "    --src-path-xla                 Path to XLA source"
     echo "    --sm SM1,SM2,...               Comma-separated list of CUDA SM versions to compile for, e.g. '7.5,8.0'"
-    echo "    --sm local                     Query the SM of available GPUs (default)"
-    echo "    --sm all                       All current SM"
+    echo "    --sm local                     Query the SM of available GPUs"
+    echo "    --sm all                       Default list of SMs taken from the base container (default)"
     echo "                                   If you want to pass a bazel parameter, you must do it like this:"
     echo "                                   --build-param=--bazel_options=..."
     exit $1
@@ -75,7 +75,7 @@ BUILD_PARAM=""
 CLEAN=0
 CLEANONLY=0
 CPU_ARCH="$(dpkg --print-architecture)"
-CUDA_COMPUTE_CAPABILITIES="local"
+CUDA_COMPUTE_CAPABILITIES="all"
 DEBUG=0
 EXTRA_TARGETS=()
 EXTRA_TARGET_DEST=""
