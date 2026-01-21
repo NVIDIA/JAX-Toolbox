@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-set -e
+set -euo pipefail
 
 ## Utility methods
 
@@ -72,6 +72,7 @@ DEBUG=0
 EXTRA_TARGETS=()
 EXTRA_TARGET_DEST=""
 INSTALL=1
+IS_RELEASE=0
 SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 
@@ -190,17 +191,11 @@ elif [[ ! -z "${BAZEL_CACHE}" ]] ; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=${BAZEL_CACHE}"
 fi
 
-# WAR for https://github.com/openxla/xla/issues/28256
-if [[ "${CPU_ARCH}" == "arm64" ]]; then
-    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--config=ci_linux_aarch64_cuda_common"
-fi
-
 if [[ "$DEBUG" == "1" ]]; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=-c --bazel_options=dbg --bazel_options=--strip=never --bazel_options=--cxxopt=-g --bazel_options=--cxxopt=-O0"
 fi
 
 ## Print info
-
 echo "=================================================="
 echo "                  Configuration                   "
 echo "--------------------------------------------------"
@@ -213,7 +208,8 @@ print_var CLEANONLY
 print_var CUDA_COMPUTE_CAPABILITIES
 print_var CUDA_MAJOR_VERSION
 print_var DEBUG
-print_var EXTRA_TARGETS
+# bash -u does not accept set-but-empty arrays in all versions
+echo EXTRA_TARGETS: ${EXTRA_TARGETS[@]+"${EXTRA_TARGETS[@]}"}
 print_var EXTRA_TARGET_DEST
 print_var INSTALL
 print_var PYTHON_VERSION
@@ -242,7 +238,6 @@ pushd ${SRC_PATH_JAX}
 time python "${SRC_PATH_JAX}/build/build.py" build \
     --cuda_major_version=${CUDA_MAJOR_VERSION} \
     --editable \
-    --use_clang \
     --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
     "--cuda_compute_capabilities=${CUDA_COMPUTE_CAPABILITIES}" \
     --bazel_options=--repo_env=LOCAL_CUDA_PATH="/usr/local/cuda" \
@@ -311,10 +306,10 @@ popd
 
 if [[ "${INSTALL}" == "1" ]]; then
     # Uninstall jaxlib in case this script was used before.
-    pip uninstall -y jax jaxlib jax-cuda${CUDA_MAJOR_VERSION}-pjrt jax-cuda${CUDA_MAJOR_VERSION}-plugin
+    time pip uninstall -y jax jaxlib jax-cuda${CUDA_MAJOR_VERSION}-pjrt jax-cuda${CUDA_MAJOR_VERSION}-plugin
 
     # install jax and jaxlib
-    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_plugin -e ${SRC_PATH_JAX}
+    time pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_plugin -e ${SRC_PATH_JAX}
 
     ## after installation (example)
     # jax                     0.6.1.dev20250425+966578b61 /opt/jax
