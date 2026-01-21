@@ -174,7 +174,9 @@ clean() {
 if [ -z ${CUDA_MAJOR_VERSION+x} ]; then
     CUDA_MAJOR_VERSION="${CUDA_VERSION:0:2}"
 fi
-PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
+PYTHON_MAJOR_VERSION=$(python -c 'import sys; print(sys.version_info[0])')
+PYTHON_MINOR_VERSION=$(python -c 'import sys; print(sys.version_info[1])')
+PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
 if [[ "$CUDA_COMPUTE_CAPABILITIES" == "all" ]]; then
     CUDA_COMPUTE_CAPABILITIES=$(supported_compute_capabilities)
 elif [[ "$CUDA_COMPUTE_CAPABILITIES" == "local" ]]; then
@@ -253,24 +255,20 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
-old_hash=($(md5sum build/requirements.in))
+# We do not run the requirements.update target because it is very slow and
+# downloads the pip world
+#
+# Point the jaxlib/jax-cuda*-plugin|pjrt lines in requirements files to the
+# local builds, removing --hash on continued lines.
 for component in jaxlib "jax-cuda${CUDA_MAJOR_VERSION}-pjrt" "jax-cuda${CUDA_MAJOR_VERSION}-plugin"; do
-    sed -i "s|^${component}.*$|${component} @ file://${BUILD_PATH_JAXLIB}/${component//-/_}|" build/requirements.in
+    sed \
+        -i \
+        "/^${component}/{:a;/\\\\$/N;s/\\\\\n\s*/ /;ta;s#.*#${component} @ file://${BUILD_PATH_JAXLIB}/${component//-/_}#;}" \
+        build/requirements.in \
+        build/requirements_lock_${PYTHON_MAJOR_VERSION}_${PYTHON_MINOR_VERSION}.txt
 done
 if [[ "${IS_RELEASE}" == "1" ]]; then
-    jaxlib_version=$(pip show jaxlib | grep Version | tr ':' '\n' | tail -1)
-    sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
-fi
-new_hash=($(md5sum build/requirements.in))
-# Bazel args to avoid cache invalidation
-BAZEL_ARGS=(
-    --config=cuda_libraries_from_stubs
-    --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
-)
-# //build:requirements.update can be quite slow; only run it if we actually
-# modified requirements.in just above.
-if [[ "${old_hash}" != "${new_hash}" ]]; then
-    bazel run "${BAZEL_ARGS[@]}" --verbose_failures=true //build:requirements.update
+    sed -i "s|f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|f'jaxlib>=0.5.0',|" /opt/jax/setup.py
 fi
 if (( "${#EXTRA_TARGETS[@]}" > 0 )); then
     bazel build "${BAZEL_ARGS[@]}" --verbose_failures=true "${EXTRA_TARGETS[@]}"
