@@ -92,6 +92,7 @@ runs:
       with:
         driver-opts: |
           image=moby/buildkit:v0.12.1
+        version: v0.30.1
 
     # MEALKIT BUILD
     - name: Set docker metadata - mealkit

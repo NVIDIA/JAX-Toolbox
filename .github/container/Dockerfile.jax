@@ -62,7 +62,6 @@ RUN mkdir -p /builder/extra-targets && \
     --no-install \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
-    --sm all \
     --clean \
     ${EXTRA_BUILD_JAX_ARGS}
 
@@ -75,7 +74,6 @@ RUN --mount=type=ssh \
 RUN build-te.sh \
     --clean \
     --no-install \
-    --sm all \
     --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \
     --src-path-xla ${SRC_PATH_XLA}
 
