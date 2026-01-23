@@ -18,7 +18,7 @@ import jax_inference_offloading.api.param_mapping_pb2 as mapping
 
 from .gemma import get_gemma_2b_mapping, get_gemma_7b_mapping
 from .gemma3 import get_gemma3_1b_mapping
-from .llama3 import get_llama3_8b_mapping, get_llama3_70b_mapping, get_llama3_405b_mapping
+from .llama3 import get_llama3_1b_mapping, get_llama3_8b_mapping, get_llama3_70b_mapping, get_llama3_405b_mapping
 
 
 def get_tp_model_mapping(model_name, jax_prefix="model", vllm_prefix="model") -> mapping.TpModelMappingSpecs:
@@ -57,4 +57,9 @@ def get_tp_model_mapping(model_name, jax_prefix="model", vllm_prefix="model") ->
     "meta-llama/Llama-3.1-405B-Instruct-FP8",
   ):
     return get_llama3_405b_mapping(jax_prefix, vllm_prefix)
+  elif model_name in (
+    "meta-llama/Llama-3.2-1B",
+    "meta-llama/Llama-3.2-1B-Instruct",
+  ):
+    return get_llama3_1b_mapping(jax_prefix, vllm_prefix)
   raise Exception(f"Unknown model {model_name}.")

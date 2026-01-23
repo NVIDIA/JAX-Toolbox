@@ -30,6 +30,7 @@ def _get_llama3_mapping(
   ffn_size,
   jax_prefix: str = "model",
   vllm_prefix: str = "model",
+  tie_word_embeddings: bool = False,
 ) -> mapping.TpModelMappingSpecs:
   param_mapping = partial(make_mapping, jax_prefix=jax_prefix, vllm_prefix=vllm_prefix)
 
@@ -41,12 +42,17 @@ def _get_llama3_mapping(
       [vocab_size, hidden_size],
     ),
     param_mapping("final_norm.w", "norm.weight", [hidden_size]),
-    make_mapping(
-      "lm_head.w", "lm_head.weight", [vocab_size, hidden_size],
-      transform=make_transform(transpose=[1, 0]),
-      jax_prefix=jax_prefix, vllm_prefix=''
-    ),
   ]
+
+  # Only add lm_head mapping if embeddings are not tied
+  if not tie_word_embeddings:
+    params.append(
+      make_mapping(
+        "lm_head.w", "lm_head.weight", [vocab_size, hidden_size],
+        transform=make_transform(transpose=[1, 0]),
+        jax_prefix=jax_prefix, vllm_prefix=''
+      )
+    )
 
   # per-layer
   for layer_id in range(n_layers):
@@ -115,6 +121,20 @@ def _get_llama3_mapping(
   model_mapping = mapping.TpModelMappingSpecs()
   model_mapping.mappings.extend(params)
   return model_mapping
+
+def get_llama3_1b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
+  return _get_llama3_mapping(
+    vocab_size=128_256,
+    n_layers=16,
+    hidden_size=2048,
+    q_heads=32,
+    kv_heads=8,
+    head_dim=64,
+    ffn_size=8192,
+    jax_prefix=jax_prefix,
+    vllm_prefix=vllm_prefix,
+    tie_word_embeddings=True,
+  )
 
 def get_llama3_8b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
   return _get_llama3_mapping(

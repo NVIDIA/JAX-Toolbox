@@ -35,8 +35,8 @@ from tunix.rl.rl_cluster import Role as ClusterRole
 from tunix.rl.rollout import base_rollout
 
 from jax_inference_offloading.timer import Timer
-from jax_inference_offloading.tunix.load_model import load_model
-from jax_inference_offloading.tunix.rollout import VllmGPURollout
+from jax_inference_offloading.integrations.tunix.load_model import load_model
+from jax_inference_offloading.integrations.tunix.rollout import VllmGPURollout
 
 logger = logging.getLogger(__name__)
 timer = Timer()

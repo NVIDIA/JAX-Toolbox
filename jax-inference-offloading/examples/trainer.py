@@ -29,7 +29,7 @@ import jax_inference_offloading.api.controller_pb2 as ctrl
 from jax_inference_offloading.jax import OffloadingBridge
 from jax_inference_offloading.sharding import PolymorphicMesh
 from jax_inference_offloading.timer import Timer
-from jax_inference_offloading.tunix.load_model import load_model
+from jax_inference_offloading.integrations.tunix.load_model import load_model
 from jax_inference_offloading.models import get_named_parameters
 
 # logging.basicConfig(level=logging.INFO)
