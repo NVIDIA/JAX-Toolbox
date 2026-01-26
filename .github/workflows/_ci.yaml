@@ -81,6 +81,11 @@ jobs:
               bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-
               bazel-${{ inputs.ARCHITECTURE }}-main-
               bazel-${{ inputs.ARCHITECTURE }}-
+        # create the bazel cache directories
+        - name: Create Bazel cache directories - if missing
+          run: |
+                mkdir -p ~/.cache/bazel-disk
+                mkdir -p ~/.cache/bazel-repo
         - name: Build JAX container
           id: build-jax
           uses: ./.github/actions/build-container
