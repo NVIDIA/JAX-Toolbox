@@ -46,6 +46,12 @@ jobs:
 
   build-base:
     uses: ./.github/workflows/_build_base.yaml
+    if: |
+      (inputs.MODE == 'full' || inputs.MODE == 'jax') &&
+      (
+        github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/heads/pull-request/')
+      )
     with:
       ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
       BASE_IMAGE: ${{ inputs.CUDA_IMAGE }}
@@ -63,6 +69,12 @@ jobs:
 
   build-jax:
     needs: build-base
+    if: |
+      (inputs.MODE == 'full' || inputs.MODE == 'jax') &&
+      (
+        github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/heads/pull-request/')
+      )
     runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu32' || 'linux-arm64-cpu32'}}
     steps:
         - name: Checkout repository
