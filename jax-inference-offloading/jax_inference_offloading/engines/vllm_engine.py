@@ -135,8 +135,6 @@ class VLLMRolloutEngine:
     def update_weights(
         self,
         params: Union[Dict[str, jax.Array], "nnx.State", "nnx.Module"],  # noqa: F821
-        *,
-        block: bool = True,
     ) -> None:
         """Transfer model weights to vLLM.
 
@@ -145,9 +143,7 @@ class VLLMRolloutEngine:
                 - Dict[str, jax.Array]: Direct flattened params
                 - flax.nnx.State: Flax state object
                 - flax.nnx.Module: Flax module (state extracted automatically)
-            block: If True, wait for transfer completion (always True currently).
         """
-        del block  # Currently always blocking
 
         with self._timer.section("update_weights"):
             # Handle different input formats

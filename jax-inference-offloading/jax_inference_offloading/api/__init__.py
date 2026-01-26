@@ -20,10 +20,14 @@ from jax_inference_offloading.api.types import (
     CompletionOutput,
     InferenceConfig,
     InferenceOutput,
+    pad_left,
+    pad_right,
 )
 
 __all__ = [
     "CompletionOutput",
     "InferenceConfig",
     "InferenceOutput",
+    "pad_left",
+    "pad_right",
 ]

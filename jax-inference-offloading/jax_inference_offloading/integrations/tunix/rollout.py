@@ -25,7 +25,7 @@ import jax
 import jax.numpy as jnp
 import jaxtyping
 
-from jax_inference_offloading.api import InferenceConfig
+from jax_inference_offloading.api import InferenceConfig, pad_left, pad_right
 from jax_inference_offloading.engines import VLLMRolloutEngine
 from jax_inference_offloading.timer import Timer
 from tunix.rl.rollout.base_rollout import BaseRollout, RolloutConfig, RolloutOutput
@@ -129,31 +129,17 @@ class VllmGPURollout(BaseRollout):
                 input_tokens = []
                 output_tokens = []
 
-                def pad_to_left(original: List[int], length: int, pad_value: int) -> List[int]:
-                    assert len(original) <= length, f"Sequence too long: {len(original)} > {length}"
-                    return [pad_value] * (length - len(original)) + original
-
-                def pad_to_right(original: List[int], length: int, pad_value: int) -> List[int]:
-                    assert len(original) <= length, f"Sequence too long: {len(original)} > {length}"
-                    return original + [pad_value] * (length - len(original))
-
                 for i, completion in enumerate(output.completions):
-                    if i < 1:
-                        print(f"# Rollout {i} of {len(prompts)}")
-                        print(f"## Prompt:\n{prompts[i]}")
-                        print(f"## Response:\n{completion.text}")
-                        print("-" * 80)
-
                     generated_text.append(completion.text)
                     input_tokens.append(
-                        pad_to_left(
+                        pad_left(
                             completion.prompt_token_ids or [],
                             rollout_config.max_prompt_length,
                             self._tokenizer.pad_id(),
                         )
                     )
                     output_tokens.append(
-                        pad_to_right(
+                        pad_right(
                             completion.token_ids,
                             rollout_config.max_tokens_to_generate,
                             self._tokenizer.pad_id(),

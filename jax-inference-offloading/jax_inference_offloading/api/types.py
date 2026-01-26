@@ -17,9 +17,45 @@
 """Framework-agnostic types for inference offloading."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
+
+
+def pad_left(seq: list, length: int, pad_value) -> list:
+    """Left-pad a sequence to the specified length.
+
+    Args:
+        seq: Sequence to pad.
+        length: Target length.
+        pad_value: Value to use for padding.
+
+    Returns:
+        Left-padded sequence.
+
+    Raises:
+        AssertionError: If sequence is longer than target length.
+    """
+    assert len(seq) <= length, f"Sequence too long: {len(seq)} > {length}"
+    return [pad_value] * (length - len(seq)) + list(seq)
+
+
+def pad_right(seq: list, length: int, pad_value) -> list:
+    """Right-pad a sequence to the specified length.
+
+    Args:
+        seq: Sequence to pad.
+        length: Target length.
+        pad_value: Value to use for padding.
+
+    Returns:
+        Right-padded sequence.
+
+    Raises:
+        AssertionError: If sequence is longer than target length.
+    """
+    assert len(seq) <= length, f"Sequence too long: {len(seq)} > {length}"
+    return list(seq) + [pad_value] * (length - len(seq))
 
 
 @dataclass(frozen=True)
@@ -91,7 +127,7 @@ class InferenceOutput:
         self,
         max_prompt_length: int,
         max_completion_length: int,
-        pad_id: int = 0,
+        pad_id: int,
     ) -> Dict[str, np.ndarray]:
         """Convert to padded numpy arrays for training.
 
@@ -105,16 +141,10 @@ class InferenceOutput:
                 - 'prompt_tokens': [batch, max_prompt_length] left-padded
                 - 'completion_tokens': [batch, max_completion_length] right-padded
                 - 'completion_logprobs': [batch, max_completion_length] if available
+
+        Raises:
+            AssertionError: If any sequence exceeds the specified max length.
         """
-
-        def pad_left(seq: List[int], length: int, pad_value: int) -> List[int]:
-            seq = seq[:length]  # Truncate if too long
-            return [pad_value] * (length - len(seq)) + seq
-
-        def pad_right(seq: List[Any], length: int, pad_value: Any) -> List[Any]:
-            seq = seq[:length]  # Truncate if too long
-            return seq + [pad_value] * (length - len(seq))
-
         result: Dict[str, np.ndarray] = {
             "prompt_tokens": np.array(
                 [
