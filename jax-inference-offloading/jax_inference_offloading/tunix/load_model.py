@@ -30,11 +30,11 @@ def load_model(name, mesh: jax.sharding.Mesh = None, checkpoint_path: str = None
     from tunix.models.llama3.model import Llama3, ModelConfig
     from tunix.models.llama3.params import create_model_from_safe_tensors
     config_factory = {
-      '1B': ModelConfig.llama3p2_1b,
-      '3B': ModelConfig.llama3p2_3b,
-      '8B': ModelConfig.llama3p1_8b,
-      '70B': ModelConfig.llama3p1_70b,
-      '405B': ModelConfig.llama3p1_405b,
+      '1B': ModelConfig.llama3_2_1b,
+      '3B': ModelConfig.llama3_2_3b,
+      '8B': ModelConfig.llama3_1_8b,
+      '70B': ModelConfig.llama3_1_70b,
+      '405B': ModelConfig.llama3_1_405b,
     }
     try:
       config = config_factory[m.group('size')]()
