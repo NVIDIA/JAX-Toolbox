@@ -57,9 +57,9 @@ class VLLMRolloutEngine:
     def __init__(
         self,
         gateway_url: str,
-        model_name: str,
         mesh: jax.sharding.Mesh,
         *,
+        model_name: Optional[str] = None,
         transfer_mode: str = "grouped",
         timer: Optional[Timer] = None,
     ):
@@ -67,8 +67,9 @@ class VLLMRolloutEngine:
 
         Args:
             gateway_url: URL of the gateway server (e.g., "localhost:50051").
-            model_name: HuggingFace model name for tensor mapping resolution.
             mesh: JAX device mesh for sharded parameter handling.
+            model_name: HuggingFace model name for tensor mapping resolution.
+                Optional if PARAM_MAPPING_PATH is set on the vLLM side.
             transfer_mode: Weight transfer mode ('fused', 'unfused', 'grouped').
             timer: Optional timer for performance profiling.
         """

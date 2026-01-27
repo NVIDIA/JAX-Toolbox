@@ -14,14 +14,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+
 import jax_inference_offloading.api.param_mapping_pb2 as mapping
 
 from .gemma import get_gemma_2b_mapping, get_gemma_7b_mapping
 from .gemma3 import get_gemma3_1b_mapping
 from .llama3 import get_llama3_1b_mapping, get_llama3_8b_mapping, get_llama3_70b_mapping, get_llama3_405b_mapping
+from .mapping_util import load_mapping_from_json
 
 
-def get_tp_model_mapping(model_name, jax_prefix="model", vllm_prefix="model") -> mapping.TpModelMappingSpecs:
+def get_tp_model_mapping(model_name, jax_prefix="model", vllm_prefix="model", mapping_json_path=None) -> mapping.TpModelMappingSpecs:
+  """Get the parameter mapping for a model.
+
+  Args:
+    model_name: HuggingFace model name (e.g., "meta-llama/Llama-3.1-8B").
+    jax_prefix: Prefix for JAX parameter names.
+    vllm_prefix: Prefix for vLLM parameter names.
+    mapping_json_path: Optional path to a custom param_mapping.json file.
+      If provided and the file exists, it will be used instead of hardcoded mappings.
+
+  Returns:
+    TpModelMappingSpecs protobuf with parameter mappings.
+  """
+  # Check for custom JSON mapping file first
+  if mapping_json_path is not None and os.path.exists(mapping_json_path):
+    return load_mapping_from_json(mapping_json_path)
   if model_name in ("google/gemma-2b", "google/gemma-2b-it"):
     return get_gemma_2b_mapping(jax_prefix, vllm_prefix)
   elif model_name in ("google/gemma-7b", "google/gemma-7b-it"):

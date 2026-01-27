@@ -40,6 +40,8 @@ def main():
   model_name = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
   model_path = os.environ.get("MODEL_PATH", None)
   model = model_path or model_name
+  # Optional: path to custom param_mapping.json for JAX-to-vLLM parameter mapping
+  param_mapping_path = os.environ.get("PARAM_MAPPING_PATH", None)
 
   logging.basicConfig(level=logging.INFO)
 
@@ -58,7 +60,7 @@ def main():
 
   # subscribe to control messages from the gateway
   rollout_client = make_rollout_client(gateway_url)
-  rollout_client.subscribe_to_control_messages(llm)
+  rollout_client.subscribe_to_control_messages(llm, mapping_json_path=param_mapping_path)
 
 
 if __name__ == "__main__":

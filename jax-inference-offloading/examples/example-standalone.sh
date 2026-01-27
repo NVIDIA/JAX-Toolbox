@@ -27,9 +27,10 @@ mkdir -p ${JAX_COMPILATION_CACHE_DIR}
 DEBUG="false"
 OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -d)}
 
-# Model selection
+# Model configuration
 MODEL_NAME=""
 MODEL_PATH=""
+PARAM_MAPPING_PATH=""
 
 # Transfer mode
 TRANSFER_MODE=""
@@ -60,13 +61,17 @@ while [[ $# -gt 0 ]]; do
       OUTPUT_DIR="${1#*=}"
       shift
       ;;
-    # Model selection
+    # Model configuration
     --model-name=*)
       MODEL_NAME="${1#*=}"
       shift
       ;;
     --model-path=*)
       MODEL_PATH="${1#*=}"
+      shift
+      ;;
+    --param-mapping-path=*)
+      PARAM_MAPPING_PATH="${1#*=}"
       shift
       ;;
     # Transfer mode
@@ -108,14 +113,19 @@ while [[ $# -gt 0 ]]; do
     --help)
       echo "Usage: $0 [OPTIONS]"
       echo ""
-      echo "Standalone example: weight transfer + rollout generation without Tunix."
+      echo "Standalone example: weight transfer + rollout generation."
+      echo ""
+      echo "This example uses Tunix for model loading, but trainer_standalone.py"
+      echo "demonstrates how to integrate with custom RL frameworks. See the comments"
+      echo "in trainer_standalone.py for guidance on replacing the model loading code."
       echo ""
       echo "Options:"
       echo "  --debug                    Enable debug mode with verbose logging."
       echo "  --output-dir=DIR           Directory to save logs and outputs. Default is a temporary directory."
       echo ""
-      echo "  --model-name=NAME          HF repo id or model name (e.g., meta-llama/Llama-3.1-8B-Instruct)."
-      echo "  --model-path=PATH          HF snapshot directory; if set, vLLM loads from this path."
+      echo "  --model-name=NAME          HF model name (required by Tunix's loader for architecture selection)."
+      echo "  --model-path=PATH          HF snapshot directory containing model weights."
+      echo "  --param-mapping-path=PATH  Path to JSON param mapping file (optional, uses hardcoded if not set)."
       echo ""
       echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/stacked/fused/unfused)."
       echo ""
@@ -139,7 +149,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Model selection default
-MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.1-8B-Instruct"}
+MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-1B-Instruct"}
 
 # ------------------------------------------------------------------------------
 # Kill all processes when done.
@@ -201,6 +211,7 @@ export GATEWAY_PORT
 export GATEWAY_URL="localhost:${GATEWAY_PORT}"
 export MODEL_NAME
 export MODEL_PATH
+export PARAM_MAPPING_PATH
 export USE_DUMMY_WEIGHT
 export VLLM_ENFORCE_EAGER
 export VLLM_GPU_MEMORY_UTILIZATION

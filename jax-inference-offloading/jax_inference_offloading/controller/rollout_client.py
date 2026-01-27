@@ -36,11 +36,12 @@ logger = logging.getLogger(__name__)
 
 
 class RolloutServicer:
-  def __init__(self, llm):
+  def __init__(self, llm, mapping_json_path=None):
     llm.collective_rpc("set_sharding")
 
     self._llm = llm
     self._tok = llm.get_tokenizer()
+    self._mapping_json_path = mapping_json_path
 
   @staticmethod
   def as_proto(vllm_response) -> ctrl.InferenceResponse:
@@ -62,7 +63,8 @@ class RolloutServicer:
     return response_proto
 
   def handshake(self, request):
-    mapping_specs = get_tp_model_mapping(request.model_name or self._llm.llm_engine.model_config.model)
+    model_name = request.model_name or self._llm.llm_engine.model_config.model
+    mapping_specs = get_tp_model_mapping(model_name, mapping_json_path=self._mapping_json_path)
     mapping_specs, vllm_tp_size = add_sharding_specs(mapping_specs, self._llm,
                                                      request.jax_parallelism.tp)
     self._mapping_specs = mapping_specs
@@ -160,10 +162,10 @@ class RolloutClient(ClientBase):
     super().__init__(executor, controller_stub, broker_stub, channel)
     self._update_future = None
 
-  def subscribe_to_control_messages(self, llm):
+  def subscribe_to_control_messages(self, llm, mapping_json_path=None):
     assert self._update_future is None
 
-    servicer = RolloutServicer(llm)
+    servicer = RolloutServicer(llm, mapping_json_path=mapping_json_path)
 
     def call():
       try:
