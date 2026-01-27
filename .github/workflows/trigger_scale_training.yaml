@@ -1,0 +1,24 @@
+name: Trigger Scale Training branch
+
+on:
+  schedule:
+    - cron: '0 0 * * 6'  # Saturday Midnight UTC
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Scale Training CI
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci.yaml',
+              ref: 'scale-training',
+              inputs: {
+                PUBLISH: true,
+                BUMP_MANIFEST: true
+              }
+            })
