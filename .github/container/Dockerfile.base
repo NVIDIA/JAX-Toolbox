@@ -30,11 +30,10 @@ apt-get update
 apt_packages=(
   libxml2
   python-is-python3
-  python3-pip
   xxd
   zip
 )
-apt-get install -y ${apt_packages[@]}
+apt-get install --no-install-recommends --no-install-suggests -y ${apt_packages[@]}
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
@@ -61,13 +60,17 @@ git add -u
 git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github VCS installs for a package as equivalent. The spec of the last encountered version will be used'
 EOF
 
-# install all python packages system-wide.
+# Install all python packages system-wide.
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
-# An extra flag `--ignore-installed` is added below, because of the following reason: 
-# after upgrading to ver 23.3.1 (from /opt/pip) `pip` tries to uninstall itself (default pip-24.0) 
-# and fails due to pip-24.0 has been installed with system tool `apt` but not `python`. So we keep 
-# both pip-24.0 and pip-23.3.1 in the system, but use 23.3.1 with equivalency patch (see above).
-RUN pip install --upgrade --ignore-installed --no-cache-dir -e /opt/pip "pip-tools==7.4.1" && rm -rf ~/.cache/*
+# Install the pip at /opt/pip using get-pip.py
+RUN <<EOF bash -exo pipefail
+curl -O https://bootstrap.pypa.io/get-pip.py
+python get-pip.py -e /opt/pip
+rm -rf get-pip.py ~/.cache/pip
+EOF
+
+# Install pip-tools, which is used in pip-finalize.sh
+RUN pip install --no-cache-dir pip-tools
 
 # The symlinks for CUDA/cuDNN/NCCL exist to make the container's installations
 # of those components conform to XLA's expectations for local installations.
