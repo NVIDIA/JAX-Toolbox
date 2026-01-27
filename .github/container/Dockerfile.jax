@@ -58,6 +58,7 @@ RUN --mount=type=bind,from=bazel_disk,target=/cache/bazel-disk,rw \
     build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
+    --bazel-options "--jobs=28 --local_ram_resources=HOST_RAM*.8" \
     --extra-targets "${EXTRA_BAZEL_TARGETS}" \
     --extra-target-dest /builder/extra-targets \
     --no-install \
