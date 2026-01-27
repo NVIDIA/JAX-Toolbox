@@ -54,8 +54,8 @@ on:
         default: full
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: scale-training-${{ github.workflow }}
+  cancel-in-progress: true
 
 permissions:
   contents: write       # to fetch code and push branch
@@ -100,7 +100,11 @@ jobs:
         id: if-publish
         shell: bash -x -e {0}
         run: |
-          echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event.inputs.PUBLISH }}" == "true" ]]; then
+            echo "PUBLISH=true" >> $GITHUB_OUTPUT
+          else
+            echo "PUBLISH=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set manifest branch name
         id: manifest-branch
