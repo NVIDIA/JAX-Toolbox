@@ -63,7 +63,7 @@ jobs:
 
   build-jax:
     needs: build-base
-    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu32' || 'linux-arm64-cpu32'}}
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16m' || 'linux-arm64-cpu32'}}
     steps:
         - name: Checkout repository
           uses: actions/checkout@v4
