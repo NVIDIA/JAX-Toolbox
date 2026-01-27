@@ -64,7 +64,8 @@ RUN --mount=type=bind,from=bazel_disk,target=/cache/bazel-disk,rw \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
     --clean \
-    --build-param=--bazel_options="--jobs=28 --local_ram_resources=HOST_RAM*.8" \
+    --build-param=--bazel_options="--jobs=28" \
+    --build-param=--bazel_options="--local_ram_resources=HOST_RAM*.8" \
     ${EXTRA_BUILD_JAX_ARGS}
 
 ## Transformer engine: check out source and build wheel
