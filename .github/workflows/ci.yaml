@@ -105,12 +105,9 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BUMP_MANIFEST="${{ inputs.BUMP_MANIFEST }}"
-          elif [[ "${{ github.event_name }}" == "schedule" ]]; then
+          else
             # these are nightly bump
             BUMP_MANIFEST="true"
-          else
-            # while this is the default for 'push'
-            BUMP_MANIFEST="false"
           fi
           MERGE_BUMPED_MANIFEST=${{ github.event_name == 'schedule' || inputs.MERGE_BUMPED_MANIFEST || 'false' }}
           # Prepend nightly manifest branch with "z" to make it appear at the end
