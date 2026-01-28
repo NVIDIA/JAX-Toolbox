@@ -219,7 +219,7 @@ jobs:
 
           # for scale training we need a specific XLA ref
           if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
-            urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/nvidia/cuda-xla#scale-training"}')
+            urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/sfvaroglu/xla#nv-scale-training/staging"}')
           fi
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
 
