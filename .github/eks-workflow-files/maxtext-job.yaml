@@ -64,6 +64,7 @@ spec:
                     max_target_length=4096 \
                     use_iota_embed=true \
                     logits_dot_in_fp32=false \
+                    packing=false \
                     profiler=nsys \
                     skip_first_n_steps_for_profiler=3 \
                     profiler_steps=8" \
