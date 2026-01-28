@@ -1,5 +1,5 @@
 #!/bin/bash
-set -exuo pipefail
+set -euo pipefail
 
 # Create a prefix with bin/, include/ and lib/ directories containing symlinks
 # to the NVSHMEM version installed at the system level; this is useful to pass
