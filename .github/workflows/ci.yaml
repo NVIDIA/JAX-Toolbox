@@ -2,7 +2,8 @@ name: CI
 
 on:
   schedule:
-    - cron: '0 0 * * 6' #midnight every Saturday UTC
+    - cron: '30 9 * * *' # Pacific Time 01:30 AM in UTC
+    - cron: '0 0 * * 6' #midnight every Saturday UTC for scale-training
   pull_request:
     types:
       - opened
@@ -54,7 +55,7 @@ on:
         default: full
 
 concurrency:
-  group: scale-training-${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.event.schedule || github.run_id }}
   cancel-in-progress: true
 
 permissions:
@@ -78,6 +79,8 @@ jobs:
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
       CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
+      IS_SCALE_TRAINING: ${{ steps.run-type.outputs.IS_SCALE_TRAINING }}
+      SUFFIX: ${{ steps.run-type.outputs.SUFFIX }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
         id: cancel-if-draft
@@ -100,11 +103,7 @@ jobs:
         id: if-publish
         shell: bash -x -e {0}
         run: |
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event.inputs.PUBLISH }}" == "true" ]]; then
-            echo "PUBLISH=true" >> $GITHUB_OUTPUT
-          else
-            echo "PUBLISH=false" >> $GITHUB_OUTPUT
-          fi
+          echo "PUBLISH=${{ github.event_name == 'schedule' || inputs.PUBLISH }}" >> $GITHUB_OUTPUT
 
       - name: Set manifest branch name
         id: manifest-branch
@@ -146,6 +145,21 @@ jobs:
             CUDA_IMAGE="latest"
           fi
           echo "CUDA_IMAGE=${CUDA_IMAGE}" >> $GITHUB_OUTPUT
+
+      - name: Determine if scale-training run
+        id: run-type
+        run: |
+          if [[ "${{ github.event.schedule }}" == "0 0 * * 6" ]]; then
+            echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
+            echo "SUFFIX=-scale-training" >> $GITHUB_OUTPUT
+            # we need to keep fixed the cuda base image
+            echo "CUDA_IMAGE=nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04" >> $GITHUB_OUTPUT
+          else
+            echo "IS_SCALE_TRAINING=false" >> $GITHUB_OUTPUT
+            echo "SUFFIX=" >> $GITHUB_OUTPUT
+            echo "CUDA_IMAGE=latest" >> $GITHUB_OUTPUT
+          fi
+
 
   bump-manifest:
     needs: metadata
@@ -202,6 +216,11 @@ jobs:
             URLREF=$(cut -d= -f 2- <<< "${override}")
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
           done
+
+          # for scale training we need a specific XLA ref
+          if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
+            urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/nvidia/cuda-xla#scale-training"}')
+          fi
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
 
   amd64:
@@ -437,13 +456,13 @@ jobs:
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
     uses: ./.github/workflows/_publish_container.yaml
     with:
-      ARTIFACT_NAME: ${{ matrix.config.stage }}-${{ matrix.config.flavor }}-scale-training
-      ARTIFACT_TAG: ${{ matrix.config.flavor }}-scale-training-${{ needs.metadata.outputs.BUILD_DATE }}
+      ARTIFACT_NAME: ${{ matrix.config.stage }}-${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}
+      ARTIFACT_TAG: ${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}-${{ needs.metadata.outputs.BUILD_DATE }}
       SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
       TARGET_IMAGE: ${{ matrix.config.target_image }}
       TARGET_TAGS: |
-        type=raw,value=${{ matrix.config.flavor }}-scale-training,priority=${{ matrix.config.priority }}
-        type=raw,value=${{ matrix.config.flavor }}-scale-training-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
+        type=raw,value=${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }},priority=${{ matrix.config.priority }}
+        type=raw,value=${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
 
   finalize:
     needs: [metadata, amd64, arm64, publish-containers]
