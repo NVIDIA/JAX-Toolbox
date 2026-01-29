@@ -3,11 +3,15 @@
 # CUDA compiler
 NVCC = nvcc
 
-# Target executable (stream capture with multi-stream + PDL)
+# Target executables
 TARGET = cuda_graph_pdl_stream_capture
+BENCHMARK_TARGET = cuda_graph_pdl_benchmark
+IMPACT_TARGET = cuda_graph_pdl_impact
 
-# Source file
+# Source files
 SRC = cuda_graph_pdl_stream_capture.cu
+BENCHMARK_SRC = cuda_graph_pdl_benchmark.cu
+IMPACT_SRC = cuda_graph_pdl_impact.cu
 
 # CUDA compute capability (adjust for your GPU)
 # SM 10.0 for Blackwell (GB200)
@@ -18,16 +22,32 @@ CUDA_ARCH = sm_90
 # Compiler flags
 NVCC_FLAGS = -arch=$(CUDA_ARCH) -O3
 
-# Default target
-all: $(TARGET)
+# Default target - build all
+all: $(TARGET) $(BENCHMARK_TARGET) $(IMPACT_TARGET)
 
 # Build target
 $(TARGET): $(SRC)
 	$(NVCC) $(NVCC_FLAGS) -o $(TARGET) $(SRC)
 
+# Build benchmark target
+$(BENCHMARK_TARGET): $(BENCHMARK_SRC)
+	$(NVCC) $(NVCC_FLAGS) -o $(BENCHMARK_TARGET) $(BENCHMARK_SRC)
+
+# Build impact demo target
+$(IMPACT_TARGET): $(IMPACT_SRC)
+	$(NVCC) $(NVCC_FLAGS) -o $(IMPACT_TARGET) $(IMPACT_SRC)
+
 # Run the program
 run: $(TARGET)
 	./$(TARGET)
+
+# Run the benchmark
+benchmark-run: $(BENCHMARK_TARGET)
+	./$(BENCHMARK_TARGET)
+
+# Run the PDL impact demo
+impact-run: $(IMPACT_TARGET)
+	./$(IMPACT_TARGET)
 
 # Generate Nsight Systems profile report
 nsys-profile: $(TARGET)
@@ -37,10 +57,20 @@ nsys-profile: $(TARGET)
 ncu-profile: $(TARGET)
 	ncu -o ncu_report_$(TARGET) --set full ./$(TARGET)
 
+# Generate Nsight Systems profile report for benchmark
+benchmark-nsys-profile: $(BENCHMARK_TARGET)
+	nsys profile -o nsys_report_$(BENCHMARK_TARGET) --stats=true ./$(BENCHMARK_TARGET)
+
+# Generate Nsight Compute profile report for benchmark
+benchmark-ncu-profile: $(BENCHMARK_TARGET)
+	ncu -o ncu_report_$(BENCHMARK_TARGET) --set full ./$(BENCHMARK_TARGET)
+
 # Clean build artifacts
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(BENCHMARK_TARGET) $(IMPACT_TARGET)
 	rm -f nsys_report_$(TARGET).* ncu_report_$(TARGET).*
+	rm -f nsys_report_$(BENCHMARK_TARGET).* ncu_report_$(BENCHMARK_TARGET).*
+	rm -f nsys_report_$(IMPACT_TARGET).* ncu_report_$(IMPACT_TARGET).*
 
 # Display CUDA version
 version:
@@ -59,20 +89,25 @@ help:
 	@echo "  - True multi-stream execution (stream1, stream2)"
 	@echo "  - Programmatic Dependent Launch (PDL) edges"
 	@echo "  - Proper cross-stream synchronization"
+	@echo "  - Performance benchmark comparing traditional vs graph launches"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all (default)  - Build the executable"
-	@echo "  run            - Build and run the program"
-	@echo "  nsys-profile   - Generate Nsight Systems profile report"
-	@echo "  ncu-profile    - Generate Nsight Compute profile report"
-	@echo "  clean          - Remove build artifacts and profile reports"
-	@echo "  version        - Display CUDA version"
-	@echo "  gpu-info       - Display GPU information"
-	@echo "  help           - Display this help message"
+	@echo "  all (default)           - Build all executables"
+	@echo "  run                     - Build and run the main program"
+	@echo "  benchmark-run           - Build and run the performance benchmark"
+	@echo "  impact-run              - Build and run the PDL impact demonstration"
+	@echo "  nsys-profile            - Generate Nsight Systems profile for main program"
+	@echo "  ncu-profile             - Generate Nsight Compute profile for main program"
+	@echo "  benchmark-nsys-profile  - Generate Nsight Systems profile for benchmark"
+	@echo "  benchmark-ncu-profile   - Generate Nsight Compute profile for benchmark"
+	@echo "  clean                   - Remove all build artifacts and profile reports"
+	@echo "  version                 - Display CUDA version"
+	@echo "  gpu-info                - Display GPU information"
+	@echo "  help                    - Display this help message"
 	@echo ""
 	@echo "Requirements:"
 	@echo "  - CUDA 12.0+ for PDL support"
 	@echo "  - SM 9.0+ GPU (Hopper, Blackwell) for full PDL features"
 	@echo "  - Adjust CUDA_ARCH variable for your GPU architecture"
 
-.PHONY: all run nsys-profile ncu-profile clean version gpu-info help
+.PHONY: all run benchmark-run impact-run nsys-profile ncu-profile benchmark-nsys-profile benchmark-ncu-profile clean version gpu-info help
