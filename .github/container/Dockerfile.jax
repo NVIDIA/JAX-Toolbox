@@ -63,6 +63,7 @@ RUN --mount=type=bind,from=bazel_disk,target=/cache/bazel-disk,rw \
     --no-install \
     --src-path-jax ${SRC_PATH_JAX} \
     --src-path-xla ${SRC_PATH_XLA} \
+    --build-param=--bazel_options="--jobs=20 " \
     --clean \
     ${EXTRA_BUILD_JAX_ARGS}
 
