@@ -63,6 +63,7 @@ spec:
                 -a "scan_layers=false \
                     max_target_length=4096 \
                     use_iota_embed=true \
+                    max_segments_per_seq=32 \
                     logits_dot_in_fp32=false \
                     profiler=nsys \
                     skip_first_n_steps_for_profiler=3 \
