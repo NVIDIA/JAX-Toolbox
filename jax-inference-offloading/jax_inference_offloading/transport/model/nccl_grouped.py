@@ -26,10 +26,19 @@ from jax.experimental.buffer_callback import buffer_callback
 from jax.experimental.shard_map import shard_map
 from jax.sharding import Mesh, PartitionSpec
 
+from typing import Protocol, runtime_checkable
+
 from jax_inference_offloading.api.param_mapping_pb2 import TpModelMappingSpecs
 from jax_inference_offloading.api.utils import DataclassFor
-from jax_inference_offloading.controller.trainer_client import TrainerClient
 from jax_inference_offloading.sharding import PolymorphicMesh
+
+
+@runtime_checkable
+class WeightTransferGateway(Protocol):
+  """Protocol for objects that can trigger weight transfer."""
+  def start_weight_transfer(self, mode: str) -> None:
+    """Signal the rollout side to start receiving weights."""
+    ...
 from jax_inference_offloading.transport.tensor.nccl_base import nccl_type
 from jax_inference_offloading.transport.tensor.nccl_star import NcclStarTransport
 from jax_inference_offloading.timer import Timer
@@ -53,7 +62,7 @@ class NcclGroupedModelTransport:
     self,
     main_mesh: Union[Mesh, PolymorphicMesh],
     mapping_specs: DataclassFor[TpModelMappingSpecs],
-    gateway: TrainerClient,
+    gateway: WeightTransferGateway,
     transports: List[NcclStarTransport],
     transport_config: Dict[str, Any],
     timer: Timer | None = None,
@@ -144,7 +153,8 @@ class NcclGroupedModelTransport:
               # reshard
               partition_spec = [None] * len(param.vllm_param.shape)
               sharding_specs = param.vllm_param.tp_sharding
-              if sharding_specs.parallelism * transform.replication_count > 1:
+              rep_count = getattr(transform, 'replication_count', 1) if transform else 1
+              if sharding_specs.parallelism * rep_count > 1:
                 partition_spec[sharding_specs.dim] = axis_dst
                 partition_spec[sharding_specs.aux_dim] = axis_src
               elif sharding_specs.parallelism == -1:
@@ -206,7 +216,7 @@ class NcclGroupedModelTransport:
 
             # Group all scatters together for better performance
             nccl.groupStart()
-            for buffers_for_param in all_buffers_list:
+            for param_idx, buffers_for_param in enumerate(all_buffers_list):
               # Each buffers_for_param contains k buffers, one for each vLLM rank
               for peer, buffer_dlpack in zip(range(1, comm.size()), buffers_for_param):
                 buffer = jnp.from_dlpack(buffer_dlpack)

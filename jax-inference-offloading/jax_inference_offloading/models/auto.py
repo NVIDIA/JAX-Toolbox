@@ -24,12 +24,11 @@ from .llama3 import get_llama3_1b_mapping, get_llama3_8b_mapping, get_llama3_70b
 from .mapping_util import load_mapping_from_json
 
 
-def get_tp_model_mapping(model_name, jax_prefix="model", vllm_prefix="model", mapping_json_path=None) -> mapping.TpModelMappingSpecs:
+def get_tp_model_mapping(model_name, vllm_prefix="model", mapping_json_path=None) -> mapping.TpModelMappingSpecs:
   """Get the parameter mapping for a model.
 
   Args:
     model_name: HuggingFace model name (e.g., "meta-llama/Llama-3.1-8B").
-    jax_prefix: Prefix for JAX parameter names.
     vllm_prefix: Prefix for vLLM parameter names.
     mapping_json_path: Optional path to a custom param_mapping.json file.
       If provided and the file exists, it will be used instead of hardcoded mappings.
@@ -41,18 +40,18 @@ def get_tp_model_mapping(model_name, jax_prefix="model", vllm_prefix="model", ma
   if mapping_json_path is not None and os.path.exists(mapping_json_path):
     return load_mapping_from_json(mapping_json_path)
   if model_name in ("google/gemma-2b", "google/gemma-2b-it"):
-    return get_gemma_2b_mapping(jax_prefix, vllm_prefix)
+    return get_gemma_2b_mapping(vllm_prefix)
   elif model_name in ("google/gemma-7b", "google/gemma-7b-it"):
-    return get_gemma_7b_mapping(jax_prefix, vllm_prefix)
+    return get_gemma_7b_mapping(vllm_prefix)
   elif model_name in ("google/gemma-3-1b", "google/gemma-3-1b-it"):
-    return get_gemma3_1b_mapping(jax_prefix, vllm_prefix)
+    return get_gemma3_1b_mapping(vllm_prefix)
   elif model_name in (
     "meta-llama/Meta-Llama-3-8B",
     "meta-llama/Meta-Llama-3-8B-Instruct",
     "meta-llama/Llama-3.1-8B",
     "meta-llama/Llama-3.1-8B-Instruct",
   ):
-    return get_llama3_8b_mapping(jax_prefix, vllm_prefix)
+    return get_llama3_8b_mapping(vllm_prefix)
   elif model_name in (
     # Llama 3.2 covers only 1B/3B
     # Llama 3.3 is instruct-only at 70B
@@ -65,7 +64,7 @@ def get_tp_model_mapping(model_name, jax_prefix="model", vllm_prefix="model", ma
     "meta-llama/Llama-3.1-70B-Instruct",
     "meta-llama/Llama-3.3-70B-Instruct",
   ):
-    return get_llama3_70b_mapping(jax_prefix, vllm_prefix)
+    return get_llama3_70b_mapping(vllm_prefix)
   elif model_name in (
     "meta-llama/Meta-Llama-3.1-405B",
     "meta-llama/Meta-Llama-3.1-405B-Instruct",
@@ -74,10 +73,10 @@ def get_tp_model_mapping(model_name, jax_prefix="model", vllm_prefix="model", ma
     "meta-llama/Llama-3.1-405B-Instruct",
     "meta-llama/Llama-3.1-405B-Instruct-FP8",
   ):
-    return get_llama3_405b_mapping(jax_prefix, vllm_prefix)
+    return get_llama3_405b_mapping(vllm_prefix)
   elif model_name in (
     "meta-llama/Llama-3.2-1B",
     "meta-llama/Llama-3.2-1B-Instruct",
   ):
-    return get_llama3_1b_mapping(jax_prefix, vllm_prefix)
+    return get_llama3_1b_mapping(vllm_prefix)
   raise Exception(f"Unknown model {model_name}.")

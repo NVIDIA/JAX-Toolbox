@@ -60,6 +60,7 @@ message HandshakeRequest {
   reserved 2;
   optional JaxParallelism jax_parallelism = 3;
   optional string model_name = 4;
+  optional string param_mapping_path = 5;
 }
 message HandshakeResponse {
   optional TpModelMappingSpecs mapping_specs = 1;

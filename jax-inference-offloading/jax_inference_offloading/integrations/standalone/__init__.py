@@ -14,9 +14,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Inference engine implementations."""
+"""Standalone model implementations using Flax NNX."""
 
-from jax_inference_offloading.engines.vllm_rollout_engine import VLLMRolloutEngine
-from jax_inference_offloading.engines.vllm_transfer_engine import VLLMTransferEngine
+from jax_inference_offloading.integrations.standalone.model import Llama3
 
-__all__ = ["VLLMRolloutEngine", "VLLMTransferEngine"]
+__all__ = ["Llama3"]

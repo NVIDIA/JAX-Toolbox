@@ -28,11 +28,10 @@ def _get_llama3_mapping(
   kv_heads,
   head_dim,
   ffn_size,
-  jax_prefix: str = "model",
   vllm_prefix: str = "model",
   tie_word_embeddings: bool = False,
 ) -> mapping.TpModelMappingSpecs:
-  param_mapping = partial(make_mapping, jax_prefix=jax_prefix, vllm_prefix=vllm_prefix)
+  param_mapping = partial(make_mapping, vllm_prefix=vllm_prefix)
 
   params = [
     # singletons
@@ -50,7 +49,7 @@ def _get_llama3_mapping(
       make_mapping(
         "lm_head.w", "lm_head.weight", [vocab_size, hidden_size],
         transform=make_transform(transpose=[1, 0]),
-        jax_prefix=jax_prefix, vllm_prefix=''
+        vllm_prefix=''
       )
     )
 
@@ -122,7 +121,7 @@ def _get_llama3_mapping(
   model_mapping.mappings.extend(params)
   return model_mapping
 
-def get_llama3_1b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
+def get_llama3_1b_mapping(vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
   return _get_llama3_mapping(
     vocab_size=128_256,
     n_layers=16,
@@ -131,12 +130,11 @@ def get_llama3_1b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model")
     kv_heads=8,
     head_dim=64,
     ffn_size=8192,
-    jax_prefix=jax_prefix,
     vllm_prefix=vllm_prefix,
     tie_word_embeddings=True,
   )
 
-def get_llama3_8b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
+def get_llama3_8b_mapping(vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
   return _get_llama3_mapping(
     vocab_size=128_256,
     n_layers=32,
@@ -145,11 +143,10 @@ def get_llama3_8b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model")
     kv_heads=8,
     head_dim=128,
     ffn_size=14336,
-    jax_prefix=jax_prefix,
     vllm_prefix=vllm_prefix,
   )
 
-def get_llama3_70b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
+def get_llama3_70b_mapping(vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
   return _get_llama3_mapping(
     vocab_size=128_256,
     n_layers=80,
@@ -158,11 +155,10 @@ def get_llama3_70b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model"
     kv_heads=8,
     head_dim=128,
     ffn_size=28672,
-    jax_prefix=jax_prefix,
     vllm_prefix=vllm_prefix,
   )
 
-def get_llama3_405b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
+def get_llama3_405b_mapping(vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
   return _get_llama3_mapping(
     vocab_size=128_256,
     n_layers=126,
@@ -171,6 +167,5 @@ def get_llama3_405b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model
     kv_heads=8,
     head_dim=128,
     ffn_size=53248,
-    jax_prefix=jax_prefix,
     vllm_prefix=vllm_prefix,
   )

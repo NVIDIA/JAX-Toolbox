@@ -42,6 +42,9 @@ VLLM_GPU_MEMORY_UTILIZATION="0.9"
 # Debug-only: use dummy weights for JAX model
 USE_DUMMY_WEIGHT="0"
 
+# Debug-only: skip weight transfer to test if vLLM is working correctly
+SKIP_TRANSFER="0"
+
 # Device assignment
 N_GPUS_VLLM="4"
 N_GPUS_JAX="4"
@@ -94,6 +97,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --use-dummy-weight)
       USE_DUMMY_WEIGHT="1"
+      shift
+      ;;
+    --skip-transfer)
+      SKIP_TRANSFER="1"
       shift
       ;;
     # Device assignment
@@ -213,6 +220,7 @@ export MODEL_NAME
 export MODEL_PATH
 export PARAM_MAPPING_PATH
 export USE_DUMMY_WEIGHT
+export SKIP_TRANSFER
 export VLLM_ENFORCE_EAGER
 export VLLM_GPU_MEMORY_UTILIZATION
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95

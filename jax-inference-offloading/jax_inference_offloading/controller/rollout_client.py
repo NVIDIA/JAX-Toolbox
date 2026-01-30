@@ -64,7 +64,9 @@ class RolloutServicer:
 
   def handshake(self, request):
     model_name = request.model_name or self._llm.llm_engine.model_config.model
-    mapping_specs = get_tp_model_mapping(model_name, mapping_json_path=self._mapping_json_path)
+    # Use param_mapping_path from request if provided, otherwise fall back to local config
+    mapping_path = getattr(request, 'param_mapping_path', None) or self._mapping_json_path
+    mapping_specs = get_tp_model_mapping(model_name, mapping_json_path=mapping_path)
     mapping_specs, vllm_tp_size = add_sharding_specs(mapping_specs, self._llm,
                                                      request.jax_parallelism.tp)
     self._mapping_specs = mapping_specs

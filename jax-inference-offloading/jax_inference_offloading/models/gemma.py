@@ -29,10 +29,9 @@ def _get_gemma_mapping(
   head_dim,
   ffn_size,
   qkv_merged,
-  jax_prefix="model",
   vllm_prefix="model",
 ) -> mapping.TpModelMappingSpecs:
-  param_mapping = partial(make_mapping, jax_prefix=jax_prefix, vllm_prefix=vllm_prefix)
+  param_mapping = partial(make_mapping, vllm_prefix=vllm_prefix)
 
   def qkv_param(layer_id, jax_name, vllm_name, slice=[], heads=kv_heads, replication_axis=None):
     return param_mapping(
@@ -130,7 +129,7 @@ def _get_gemma_mapping(
   return result
 
 
-def get_gemma_2b_mapping(jax_prefix="model", vllm_prefix="model") -> mapping.TpModelMappingSpecs:
+def get_gemma_2b_mapping(vllm_prefix="model") -> mapping.TpModelMappingSpecs:
   return _get_gemma_mapping(
     vocab_size=256_000,
     n_layers=18,
@@ -139,13 +138,12 @@ def get_gemma_2b_mapping(jax_prefix="model", vllm_prefix="model") -> mapping.TpM
     kv_heads=1,
     head_dim=256,
     ffn_size=16384,
-    jax_prefix=jax_prefix,
     vllm_prefix=vllm_prefix,
     qkv_merged=False,
   )
 
 
-def get_gemma_7b_mapping(jax_prefix="model", vllm_prefix="model") -> mapping.TpModelMappingSpecs:
+def get_gemma_7b_mapping(vllm_prefix="model") -> mapping.TpModelMappingSpecs:
   return _get_gemma_mapping(
     vocab_size=256_000,
     n_layers=28,
@@ -154,7 +152,6 @@ def get_gemma_7b_mapping(jax_prefix="model", vllm_prefix="model") -> mapping.TpM
     kv_heads=16,
     head_dim=256,
     ffn_size=24576,
-    jax_prefix=jax_prefix,
     vllm_prefix=vllm_prefix,
     qkv_merged=True,
   )

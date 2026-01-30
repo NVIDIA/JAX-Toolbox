@@ -15,8 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-from copy import deepcopy
-
 import google.protobuf.text_format as text_format
 import numpy as np
 from vllm import LLM
@@ -60,6 +58,18 @@ def _proto_to_slice(proto: mapping.TensorSlice):
 
 
 def apply_transform(tensor, transform: mapping.JaxParam.Transform):
+  """Apply a JAX -> vLLM transform to a tensor."""
+  if transform.slice.dims:
+    tensor = tensor[_proto_to_slice(transform.slice)]
+  if transform.transpose:
+    tensor = tensor.transpose(transform.transpose)
+  if transform.reshape:
+    tensor = tensor.reshape(transform.reshape)
+  return tensor
+
+
+def apply_vllm_transform(tensor, transform: mapping.VllmParam.Transform):
+  """Apply a vLLM -> JAX transform to a tensor (for checkpoint loading)."""
   if transform.slice.dims:
     tensor = tensor[_proto_to_slice(transform.slice)]
   if transform.transpose:
@@ -105,8 +115,8 @@ def _parse_slice_from_json(slice_list: list) -> mapping.TensorSlice:
   return result
 
 
-def _parse_transform_from_json(transform_dict: dict) -> mapping.JaxParam.Transform:
-  """Parse a JSON transform specification into a Transform proto.
+def _parse_jax_transform_from_json(transform_dict: dict) -> mapping.JaxParam.Transform:
+  """Parse a JSON transform specification into a JaxParam.Transform proto.
 
   Args:
     transform_dict: A dictionary with optional keys:
@@ -139,30 +149,83 @@ def _parse_transform_from_json(transform_dict: dict) -> mapping.JaxParam.Transfo
   return result
 
 
+def _parse_vllm_transform_from_json(transform_dict: dict) -> mapping.VllmParam.Transform:
+  """Parse a JSON transform specification into a VllmParam.Transform proto.
+
+  Used for vLLM -> JAX transforms when loading checkpoints.
+
+  Args:
+    transform_dict: A dictionary with optional keys:
+      - "transpose": list of ints (axis permutation)
+      - "reshape": list of ints (new shape, -1 for inferred)
+      - "slice": list of slice specs
+
+  Returns:
+    A VllmParam.Transform protobuf message.
+  """
+  result = mapping.VllmParam.Transform()
+
+  if "slice" in transform_dict:
+    result.slice.CopyFrom(_parse_slice_from_json(transform_dict["slice"]))
+
+  if "transpose" in transform_dict:
+    result.transpose.extend(transform_dict["transpose"])
+
+  if "reshape" in transform_dict:
+    result.reshape.extend(transform_dict["reshape"])
+
+  return result
+
+
+def _parse_partition_spec_from_json(partition_spec_list: list) -> mapping.JaxParam.PartitionSpecs:
+  """Parse a JSON partition spec into a PartitionSpecs proto.
+
+  Args:
+    partition_spec_list: A list of axis names or null for unsharded dimensions.
+      e.g., ["fsdp", null, "tp"] means shard dim 0 on "fsdp", dim 2 on "tp".
+
+  Returns:
+    A JaxParam.PartitionSpecs protobuf message.
+  """
+  result = mapping.JaxParam.PartitionSpecs()
+  for axis in partition_spec_list:
+    # Use empty string for null/None (unsharded dimensions)
+    result.axes.append(axis if axis is not None else "")
+  return result
+
+
 def load_mapping_from_json(json_path: str) -> mapping.TpModelMappingSpecs:
   """Load parameter mapping from a JSON configuration file.
 
   The JSON schema is:
   {
+    "mesh_axes": ["fsdp", "tp"],
     "num_layers": 32,
     "mappings": [
       {
         "jax_param": {
-          "name": "model.layers.{layer}.attn.q_proj.w",
+          "name": "layers.{layer}.attn.q_proj.w",
+          "partition_spec": ["fsdp", null, "tp"],
           "transform": { "transpose": [1, 2, 0], "reshape": [-1, 4096] }
         },
         "vllm_param": {
           "name": "model.layers.{layer}.self_attn.q_proj.weight",
-          "shape": [4096, 4096]
+          "shape": [4096, 4096],
+          "transform": { "transpose": [1, 0] }
         }
       },
       ...
     ]
   }
 
+  - mesh_axes: Axis names for JAX mesh creation (e.g., ["fsdp", "tp"])
+  - JAX parameter names should match the NNX module structure (no prefix)
+  - vLLM parameter names typically have a "model." prefix (matching vLLM's model structure)
   - Mappings with `{layer}` placeholder are expanded into `num_layers` copies
   - Mappings without `{layer}` are kept as singletons
-  - Transform fields (transpose, reshape, slice, replication_axis) are optional
+  - jax_param.transform: Applied when sending JAX -> vLLM (optional)
+  - jax_param.partition_spec: Sharding spec for checkpoint loading (optional)
+  - vllm_param.transform: Applied when loading vLLM checkpoint -> JAX (optional)
 
   Args:
     json_path: Path to the JSON configuration file.
@@ -174,9 +237,13 @@ def load_mapping_from_json(json_path: str) -> mapping.TpModelMappingSpecs:
     config = json.load(f)
 
   num_layers = config.get("num_layers", 0)
+  mesh_axes = config.get("mesh_axes", [])
   json_mappings = config.get("mappings", [])
 
   model_mapping = mapping.TpModelMappingSpecs()
+
+  # Set mesh axes
+  model_mapping.mesh_axes.extend(mesh_axes)
 
   for json_mapping in json_mappings:
     jax_param_spec = json_mapping["jax_param"]
@@ -208,14 +275,24 @@ def load_mapping_from_json(json_path: str) -> mapping.TpModelMappingSpecs:
       # Set JAX param
       param_mapping.jax_param.name = expanded_jax_name
 
-      # Parse and set transform if present
+      # Parse and set JAX transform if present (JAX -> vLLM)
       if "transform" in jax_param_spec:
-        transform = _parse_transform_from_json(jax_param_spec["transform"])
+        transform = _parse_jax_transform_from_json(jax_param_spec["transform"])
         param_mapping.jax_param.transform.CopyFrom(transform)
+
+      # Parse and set partition spec if present (for checkpoint loading)
+      if "partition_spec" in jax_param_spec:
+        partition_specs = _parse_partition_spec_from_json(jax_param_spec["partition_spec"])
+        param_mapping.jax_param.partition_specs.CopyFrom(partition_specs)
 
       # Set vLLM param
       param_mapping.vllm_param.name = expanded_vllm_name
       param_mapping.vllm_param.shape.extend(vllm_shape)
+
+      # Parse and set vLLM transform if present (vLLM -> JAX for checkpoint loading)
+      if "transform" in vllm_param_spec:
+        vllm_transform = _parse_vllm_transform_from_json(vllm_param_spec["transform"])
+        param_mapping.vllm_param.transform.CopyFrom(vllm_transform)
 
       model_mapping.mappings.append(param_mapping)
 
@@ -242,7 +319,9 @@ def add_sharding_specs(model_mapping: mapping.TpModelMappingSpecs, llm: LLM, jax
         per_tensor_sharding_specs[name] = specs
 
   # convert to VllmTPShardingSpecs
-  augmented_mapping = deepcopy(model_mapping)
+  # Use protobuf's CopyFrom instead of Python's deepcopy for proper message copying
+  augmented_mapping = mapping.TpModelMappingSpecs()
+  augmented_mapping.CopyFrom(model_mapping)
   for param in augmented_mapping.mappings:
     if spec := per_tensor_sharding_specs.get(param.vllm_param.name):
       dim, parallelism = spec["dim"], spec["parallelism"]

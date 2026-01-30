@@ -29,10 +29,9 @@ def _get_gemma3_mapping(
   head_dim,
   ffn_size,
   qkv_merged,
-  jax_prefix: str = "model",
   vllm_prefix: str = "model",
 ) -> mapping.TpModelMappingSpecs:
-  param_mapping = partial(make_mapping, jax_prefix=jax_prefix, vllm_prefix=vllm_prefix)
+  param_mapping = partial(make_mapping, vllm_prefix=vllm_prefix)
 
   def qkv_param(layer_id, jax_name, vllm_name, slice_spec=None, heads=kv_heads, replication_axis=None):
     return param_mapping(
@@ -145,7 +144,7 @@ def _get_gemma3_mapping(
   return model_mapping
 
 
-def get_gemma3_1b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
+def get_gemma3_1b_mapping(vllm_prefix: str = "model") -> mapping.TpModelMappingSpecs:
   return _get_gemma3_mapping(
     vocab_size=262_144,
     n_layers=26,
@@ -155,6 +154,5 @@ def get_gemma3_1b_mapping(jax_prefix: str = "model", vllm_prefix: str = "model")
     head_dim=256,
     ffn_size=6912,
     qkv_merged=False,
-    jax_prefix=jax_prefix,
     vllm_prefix=vllm_prefix,
   )

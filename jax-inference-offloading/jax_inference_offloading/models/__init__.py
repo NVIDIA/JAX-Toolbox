@@ -32,18 +32,18 @@ def make_transform(slice=[], transpose=[], reshape=[], replication_axis=None, re
 
 
 def make_mapping(
-  jax_name, vllm_name, vllm_shape, *, transform=None, jax_prefix="model", vllm_prefix="model"
+  jax_name, vllm_name, vllm_shape, *, transform=None, vllm_prefix="model"
 ):
   result = mapping.ParamMapping()
   result.vllm_param.name = f"{vllm_prefix}.{vllm_name}".lstrip(".")
   result.vllm_param.shape.extend(vllm_shape)
-  result.jax_param.name = f"{jax_prefix}.{jax_name}".lstrip(".")
+  result.jax_param.name = jax_name
   if transform is not None:
     result.jax_param.transform.CopyFrom(transform)
   return result
 
 
-def flatten_state(nnx_state, prefix="model"):
+def flatten_state(nnx_state):
   """Flatten an NNX state tree into a dictionary with dot-separated keys."""
 
   def _flatten_dict(nnx_state, prefix=""):
@@ -51,14 +51,15 @@ def flatten_state(nnx_state, prefix="model"):
       yield prefix, nnx_state.value
     except AttributeError:
       for k in nnx_state.keys():
-        yield from _flatten_dict(nnx_state[k], prefix=".".join([prefix, str(k)]))
+        new_prefix = f"{prefix}.{k}" if prefix else str(k)
+        yield from _flatten_dict(nnx_state[k], prefix=new_prefix)
 
-  return dict(_flatten_dict(nnx_state, prefix=prefix))
+  return dict(_flatten_dict(nnx_state))
 
 
-def get_named_parameters(nnx_model, prefix="model", *filters):
+def get_named_parameters(nnx_model, *filters):
   """Flatten an NNX model into a dictionary with dot-separated keys."""
   from flax import nnx
 
   nnx_state = nnx.state(nnx_model, *filters)
-  return flatten_state(nnx_state, prefix=prefix)
+  return flatten_state(nnx_state)

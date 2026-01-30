@@ -20,16 +20,27 @@ This package provides infrastructure for offloading inference/rollout
 generation from JAX training to vLLM, enabling efficient RL post-training.
 
 Quick Start:
-    >>> from jax_inference_offloading import VLLMRolloutEngine, InferenceConfig
-    >>>
-    >>> engine = VLLMRolloutEngine(
-    ...     gateway_url="localhost:50051",
-    ...     model_name="meta-llama/Llama-3.1-8B-Instruct",
-    ...     mesh=jax.make_mesh((8,), ("tp",)),
+    >>> from jax_inference_offloading import (
+    ...     OffloadingSession,
+    ...     VLLMTransferEngine,
+    ...     VLLMRolloutEngine,
+    ...     InferenceConfig,
     ... )
     >>>
-    >>> engine.update_weights(my_params)
-    >>> output = engine.generate(prompts, InferenceConfig(max_tokens=128))
+    >>> # Create session (handles gRPC connection and handshake)
+    >>> session = OffloadingSession(
+    ...     gateway_url="localhost:50051",
+    ...     mesh=jax.make_mesh((8,), ("tp",)),
+    ...     model_name="meta-llama/Llama-3.1-8B-Instruct",
+    ... )
+    >>>
+    >>> # Create separate engines for transfer and inference
+    >>> transfer_engine = VLLMTransferEngine(session)
+    >>> rollout_engine = VLLMRolloutEngine(session)
+    >>>
+    >>> # Transfer weights and generate
+    >>> transfer_engine.update_weights(my_params)
+    >>> output = rollout_engine.generate(prompts, InferenceConfig(max_tokens=128))
 """
 
 # Core API types
@@ -39,10 +50,13 @@ from jax_inference_offloading.api import (
     InferenceOutput,
 )
 
-# Engine implementations
-from jax_inference_offloading.engines import VLLMRolloutEngine
+# Session
+from jax_inference_offloading.session import OffloadingSession
 
-# Low-level access (for advanced users)
+# Engine implementations
+from jax_inference_offloading.engines import VLLMRolloutEngine, VLLMTransferEngine
+
+# Low-level access (for advanced users / backward compatibility)
 from jax_inference_offloading.jax import OffloadingBridge
 
 __all__ = [
@@ -50,8 +64,11 @@ __all__ = [
     "CompletionOutput",
     "InferenceConfig",
     "InferenceOutput",
+    # Session
+    "OffloadingSession",
     # Engines
     "VLLMRolloutEngine",
-    # Advanced
+    "VLLMTransferEngine",
+    # Advanced / Legacy
     "OffloadingBridge",
 ]

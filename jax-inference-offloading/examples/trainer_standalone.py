@@ -16,11 +16,19 @@
 # limitations under the License.
 """Standalone example: Using jax-inference-offloading without Tunix.
 
-This example demonstrates how to use the VLLMRolloutEngine directly
-without depending on the Tunix RL framework. This is useful for:
+This example demonstrates how to use OffloadingSession, VLLMTransferEngine,
+and VLLMRolloutEngine directly without depending on any external framework.
+This is useful for:
 - Custom RL training loops
-- Integration with other frameworks (OpenRLHF, TRL, etc.)
+- Integration with other frameworks (OpenRLHF, TRL, custom, etc.)
 - Testing and benchmarking
+
+The architecture separates concerns:
+- MappingConfig: Loads mesh_axes and parameter mappings from JSON
+- load_checkpoint_to_jax: Loads HuggingFace checkpoints into JAX arrays
+- OffloadingSession: Handles gRPC connection and handshake
+- VLLMTransferEngine: Handles weight transfer from JAX to vLLM
+- VLLMRolloutEngine: Handles inference/rollout generation
 
 Prerequisites:
 - Gateway server running (python -m jax_inference_offloading.controller.gateway)
@@ -28,9 +36,8 @@ Prerequisites:
 
 Environment variables:
 - GATEWAY_URL: URL of the gateway server (e.g., "localhost:50051")
-- MODEL_NAME: HuggingFace model name (e.g., "meta-llama/Llama-3.2-1B-Instruct")
-- MODEL_PATH: Path to HuggingFace model checkpoint (optional, uses dummy weights if not set)
-- PARAM_MAPPING_PATH: Path to JSON parameter mapping file (optional, uses hardcoded mappings if not set)
+- MODEL_PATH: Path to HuggingFace model checkpoint (required)
+- PARAM_MAPPING_PATH: Path to JSON parameter mapping file (required)
 """
 
 import os
@@ -41,114 +48,120 @@ import jax.numpy as jnp
 # Framework-agnostic imports from jax-inference-offloading
 from jax_inference_offloading import (
     InferenceConfig,
+    OffloadingSession,
     VLLMRolloutEngine,
+    VLLMTransferEngine,
 )
 from jax_inference_offloading.timer import Timer
-from jax_inference_offloading.models import get_named_parameters
+from jax_inference_offloading.models.checkpoint import (
+    load_mapping_config,
+    load_checkpoint_to_jax,
+)
 
 from transformers import AutoTokenizer
-
-# =============================================================================
-# CUSTOM MODEL LOADING
-# =============================================================================
-# IMPORTANT: This example uses the model implementation in Tunix, Thus
-# the model loading below uses Tunix's load_model function.
-# When integrating with your own RL framework (OpenRLHF, TRL, custom, etc.),
-# you MUST replace this with your own model loading code that interfaces with
-# your own model implementation.
-#
-# NOTE: Tunix's load_model requires MODEL_NAME because it uses regex matching
-# on the model name to determine which architecture/config to use. A custom
-# loader could instead read the model type from checkpoint_path/config.json.
-#
-# Your custom load_model function should:
-# 1. Load the model architecture specific to your framework
-# 2. Load checkpoint weights from MODEL_PATH (HuggingFace safetensors format)
-# 3. Return a model object from which parameters can be extracted
-#
-# The key requirement is that parameters must have JAX-compatible shapes that
-# match the parameter mapping (see examples/mappings/ for JSON mapping format).
-# The mapping defines how JAX parameter shapes are transformed to vLLM shapes
-# during weight transfer.
-#
-# Example custom implementation:
-#
-#   def load_model(checkpoint_path, mesh, dtype):
-#       # 1. Create your model architecture (could infer from config.json)
-#       config = json.load(open(f"{checkpoint_path}/config.json"))
-#       model = MyCustomModel(config)
-#
-#       # 2. Load weights from checkpoint
-#       model = load_weights_from_safetensors(model, checkpoint_path)
-#
-#       # 3. Shard across mesh if needed
-#       model = shard_model(model, mesh)
-#
-#       return model
-#
-# =============================================================================
-from jax_inference_offloading.integrations.tunix.load_model import load_model
 
 timer = Timer()
 
 # --- Configuration ---
-model_name = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.2-1B-Instruct")
 model_path = os.environ.get("MODEL_PATH", None)
+param_mapping_path = os.environ.get("PARAM_MAPPING_PATH", None)
 gateway_url = os.environ.get("GATEWAY_URL", "localhost:50051")
 transfer_mode = os.environ.get("TRANSFER_MODE", "grouped")
 
+# Validate: both model_path and param_mapping_path are required
+if model_path is None:
+    raise ValueError("MODEL_PATH environment variable is required")
+if param_mapping_path is None:
+    raise ValueError("PARAM_MAPPING_PATH environment variable is required")
+
 # Load tokenizer for pad_id
-tokenizer = AutoTokenizer.from_pretrained(model_path or model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_path)
 if tokenizer.pad_token_id is None:
     tokenizer.pad_token_id = tokenizer.eos_token_id
 
-# Create mesh
-mesh = jax.make_mesh((jax.process_count(), jax.local_device_count()), ("fsdp", "tp"))
+# --- Load Mapping Config ---
+# This reads the JSON mapping file to get mesh_axes and parameter mappings
+if jax.process_index() == 0:
+    print(f"Loading mapping config from {param_mapping_path}")
 
-# --- Load Model ---
-# NOTE: Replace this section with your own model loading code.
-# The load_model function must return a model compatible with get_named_parameters().
-with timer.section("load_model"):
-    model = load_model(
-        model_name,
-        mesh,
+with timer.section("load_mapping_config"):
+    mapping_config = load_mapping_config(param_mapping_path)
+
+# Create mesh using axis names from the mapping config
+mesh_shape = (jax.process_count(), jax.local_device_count())
+mesh_axes = tuple(mapping_config.mesh_axes)
+if len(mesh_shape) != len(mesh_axes):
+    raise ValueError(
+        f"Mesh shape {mesh_shape} does not match mesh_axes {mesh_axes}. "
+        f"Expected {len(mesh_shape)} axes, got {len(mesh_axes)}."
+    )
+mesh = jax.make_mesh(mesh_shape, mesh_axes)
+
+if jax.process_index() == 0:
+    print(f"Created mesh with shape {mesh_shape} and axes {mesh_axes}")
+
+# --- Load Checkpoint ---
+# Load HuggingFace checkpoint directly into JAX arrays using the mapping
+if jax.process_index() == 0:
+    print(f"Loading checkpoint from {model_path}")
+
+with timer.section("load_checkpoint"):
+    params = load_checkpoint_to_jax(
         checkpoint_path=model_path,
+        mapping_specs=mapping_config.mapping_specs,
+        mesh=mesh,
         dtype=jnp.bfloat16,
-        random_seed=42,
     )
 
-# Extract named parameters for transfer
-# This flattens the model's parameter tree into a dict with dot-separated keys
-# e.g., {"model.layers.0.attn.q_proj.w": array(...), ...}
-params = get_named_parameters(model)
-
-# --- Create VLLMRolloutEngine (framework-agnostic) ---
 if jax.process_index() == 0:
-    print(f"Creating VLLMRolloutEngine with gateway_url={gateway_url}")
+    print(f"Loaded {len(params)} parameters")
 
-with timer.section("create_engine"):
-    engine = VLLMRolloutEngine(
+# --- Create OffloadingSession and Engines ---
+if jax.process_index() == 0:
+    print(f"Creating OffloadingSession with gateway_url={gateway_url}")
+
+with timer.section("create_session"):
+    session = OffloadingSession(
         gateway_url=gateway_url,
         mesh=mesh,
-        model_name=model_name,
+        model_path=model_path,
+        param_mapping_path=param_mapping_path,
+    )
+
+if jax.process_index() == 0:
+    print("Creating VLLMTransferEngine and VLLMRolloutEngine...")
+
+with timer.section("create_engines"):
+    transfer_engine = VLLMTransferEngine(
+        session=session,
         transfer_mode=transfer_mode,
+        timer=timer,
+    )
+    rollout_engine = VLLMRolloutEngine(
+        session=session,
         timer=timer,
     )
 
 # --- Transfer Weights ---
-if jax.process_index() == 0:
-    print("Transferring weights to vLLM...")
+SKIP_TRANSFER = os.environ.get("SKIP_TRANSFER", "0") == "1"
 
-with timer.section("warmup_transfer"):
-    engine.update_weights(params)
+if SKIP_TRANSFER:
+    if jax.process_index() == 0:
+        print("SKIPPING weight transfer (SKIP_TRANSFER=1)")
+else:
+    if jax.process_index() == 0:
+        print("Transferring weights to vLLM...")
 
-if jax.process_index() == 0:
-    print("Weights transferred successfully!")
+    with timer.section("warmup_transfer"):
+        transfer_engine.update_weights(params)
 
-# --- Benchmark weight transfer ---
-for r in range(3):
-    with timer.section(f"transfer.run{r}"):
-        engine.update_weights(params)
+    if jax.process_index() == 0:
+        print("Weights transferred successfully!")
+
+    # --- Benchmark weight transfer ---
+    for r in range(3):
+        with timer.section(f"transfer.run{r}"):
+            transfer_engine.update_weights(params)
 
 # --- Generate Completions ---
 if jax.process_index() == 0:
@@ -162,10 +175,10 @@ if jax.process_index() == 0:
         temperature=0.7,
         top_p=0.95,
     )
-    output = engine.generate(["Quick facts about the moon:"], config)
+    output = rollout_engine.generate(["Messi's barcelona career:"], config)
 
     print("\n--- Text Prompt ---")
-    print(f"Prompt: Quick facts about the moon:")
+    print(f"Prompt: Messi's barcelona career:")
     print(f"Response: {output.texts[0]}")
 
     # Example 2: Multiple prompts with multiple outputs per prompt
@@ -176,10 +189,10 @@ if jax.process_index() == 0:
         n=2,  # Generate 2 completions per prompt
     )
     prompts = [
-        "What is 2 + 2?",
+        "Messi's barcelona career:",
         "Name a color:",
     ]
-    output = engine.generate(prompts, config_multi)
+    output = rollout_engine.generate(prompts, config_multi)
 
     print("\n--- Multiple Prompts (n=2) ---")
     for i, completion in enumerate(output.completions):
@@ -205,6 +218,7 @@ if jax.process_index() == 0:
     timer.summary(sort_by="name", precision=3)
 
 # --- Shutdown ---
+rollout_engine.shutdown()
+session.shutdown()
 if jax.process_index() == 0:
-    engine.shutdown()
-    print("\nEngine shutdown complete. Exiting.")
+    print("\nShutdown complete. Exiting.")

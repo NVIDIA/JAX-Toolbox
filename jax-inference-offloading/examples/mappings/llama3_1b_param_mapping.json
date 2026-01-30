@@ -1,9 +1,10 @@
 {
+  "mesh_axes": ["fsdp", "tp"],
   "num_layers": 16,
   "mappings": [
     {
       "jax_param": {
-        "name": "model.embedder.input_embedding"
+        "name": "embedder.input_embedding"
       },
       "vllm_param": {
         "name": "model.embed_tokens.weight",
@@ -12,7 +13,7 @@
     },
     {
       "jax_param": {
-        "name": "model.final_norm.w"
+        "name": "final_norm.w"
       },
       "vllm_param": {
         "name": "model.norm.weight",
@@ -21,7 +22,7 @@
     },
     {
       "jax_param": {
-        "name": "model.layers.{layer}.input_layernorm.w"
+        "name": "layers.{layer}.input_layernorm.w"
       },
       "vllm_param": {
         "name": "model.layers.{layer}.input_layernorm.weight",
@@ -30,7 +31,7 @@
     },
     {
       "jax_param": {
-        "name": "model.layers.{layer}.post_attention_layernorm.w"
+        "name": "layers.{layer}.post_attention_layernorm.w"
       },
       "vllm_param": {
         "name": "model.layers.{layer}.post_attention_layernorm.weight",
@@ -39,43 +40,52 @@
     },
     {
       "jax_param": {
-        "name": "model.layers.{layer}.mlp.gate_proj.kernel",
+        "name": "layers.{layer}.mlp.gate_proj.kernel",
         "transform": {
           "transpose": [1, 0]
         }
       },
       "vllm_param": {
         "name": "model.layers.{layer}.mlp.gate_proj.weight",
-        "shape": [8192, 2048]
+        "shape": [8192, 2048],
+        "transform": {
+          "transpose": [1, 0]
+        }
       }
     },
     {
       "jax_param": {
-        "name": "model.layers.{layer}.mlp.up_proj.kernel",
+        "name": "layers.{layer}.mlp.up_proj.kernel",
         "transform": {
           "transpose": [1, 0]
         }
       },
       "vllm_param": {
         "name": "model.layers.{layer}.mlp.up_proj.weight",
-        "shape": [8192, 2048]
+        "shape": [8192, 2048],
+        "transform": {
+          "transpose": [1, 0]
+        }
       }
     },
     {
       "jax_param": {
-        "name": "model.layers.{layer}.mlp.down_proj.kernel",
+        "name": "layers.{layer}.mlp.down_proj.kernel",
         "transform": {
           "transpose": [1, 0]
         }
       },
       "vllm_param": {
         "name": "model.layers.{layer}.mlp.down_proj.weight",
-        "shape": [2048, 8192]
+        "shape": [2048, 8192],
+        "transform": {
+          "transpose": [1, 0]
+        }
       }
     },
     {
       "jax_param": {
-        "name": "model.layers.{layer}.attn.q_proj.w",
+        "name": "layers.{layer}.attn.q_proj.w",
         "transform": {
           "transpose": [1, 2, 0],
           "reshape": [-1, 2048]
@@ -83,12 +93,16 @@
       },
       "vllm_param": {
         "name": "model.layers.{layer}.self_attn.q_proj.weight",
-        "shape": [2048, 2048]
+        "shape": [2048, 2048],
+        "transform": {
+          "transpose": [1, 0],
+          "reshape": [2048, 32, 64]
+        }
       }
     },
     {
       "jax_param": {
-        "name": "model.layers.{layer}.attn.k_proj.w",
+        "name": "layers.{layer}.attn.k_proj.w",
         "transform": {
           "transpose": [1, 2, 0],
           "reshape": [-1, 2048],
@@ -97,12 +111,16 @@
       },
       "vllm_param": {
         "name": "model.layers.{layer}.self_attn.k_proj.weight",
-        "shape": [512, 2048]
+        "shape": [512, 2048],
+        "transform": {
+          "transpose": [1, 0],
+          "reshape": [2048, 8, 64]
+        }
       }
     },
     {
       "jax_param": {
-        "name": "model.layers.{layer}.attn.v_proj.w",
+        "name": "layers.{layer}.attn.v_proj.w",
         "transform": {
           "transpose": [1, 2, 0],
           "reshape": [-1, 2048],
@@ -111,12 +129,16 @@
       },
       "vllm_param": {
         "name": "model.layers.{layer}.self_attn.v_proj.weight",
-        "shape": [512, 2048]
+        "shape": [512, 2048],
+        "transform": {
+          "transpose": [1, 0],
+          "reshape": [2048, 8, 64]
+        }
       }
     },
     {
       "jax_param": {
-        "name": "model.layers.{layer}.attn.o_proj.w",
+        "name": "layers.{layer}.attn.o_proj.w",
         "transform": {
           "transpose": [2, 0, 1],
           "reshape": [2048, -1]
@@ -124,7 +146,11 @@
       },
       "vllm_param": {
         "name": "model.layers.{layer}.self_attn.o_proj.weight",
-        "shape": [2048, 2048]
+        "shape": [2048, 2048],
+        "transform": {
+          "transpose": [1, 0],
+          "reshape": [32, 64, 2048]
+        }
       }
     }
   ]

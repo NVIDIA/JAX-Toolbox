@@ -60,7 +60,7 @@ class VLLMWorkerExtension:
     # Prevent unquantized linear modules from using V2 weight loader
     if "UnquantizedLinearMethod" in WEIGHT_LOADER_V2_SUPPORTED:
       WEIGHT_LOADER_V2_SUPPORTED.remove("UnquantizedLinearMethod")
-      logger.warning("Removed UnquantizedLinearMethod from WEIGHT_LOADER_V2_SUPPORTED.")
+      logger.debug("Removed UnquantizedLinearMethod from WEIGHT_LOADER_V2_SUPPORTED.")
 
     for name, module in self.model_runner.model.named_modules():
       if type(module) in [
@@ -69,7 +69,6 @@ class VLLMWorkerExtension:
         MergedColumnParallelLinear,
         QKVParallelLinear,
       ]:
-        logger.debug(f"Setting sharding for module: {name} of type {type(module)}")
         # force to use the V1 weight_loader
         module.weight.weight_loader = module.weight_loader
         # instruct V1 loader to treat the incoming weight as pre-sharded
@@ -214,7 +213,7 @@ class VLLMWorkerExtension:
         self.commit_staged_weights(reset=True)
 
     self.sync()
-    logger.warning("done receiving")
+    logger.debug("done receiving")
     self.commit_staged_weights(reset=True)
 
   def update_weights_grouped(self, mapping_specs: TpModelMappingSpecs):
@@ -242,9 +241,9 @@ class VLLMWorkerExtension:
         param_names.append(param.vllm_param.name)
 
       # Receive all weights in one grouped operation
-      logger.warning(f'vLLM TP rank {tp_rank} receiving {len(param_specs)} weights via grouped gather...')
+      logger.debug(f'vLLM TP rank {tp_rank} receiving {len(param_specs)} weights via grouped gather...')
       weights = self.transport.gather_grouped(param_specs)
-      logger.warning(f'vLLM TP rank {tp_rank} received all weights')
+      logger.debug(f'vLLM TP rank {tp_rank} received all weights')
 
       # Stage all received weights
       for name, weight in zip(param_names, weights):
@@ -268,9 +267,9 @@ class VLLMWorkerExtension:
         param_names.append(param.vllm_param.name)
 
       # Receive all weights in one grouped operation
-      logger.warning(f'vLLM TP rank {tp_rank} receiving {len(param_specs)} weights via grouped recv...')
+      logger.debug(f'vLLM TP rank {tp_rank} receiving {len(param_specs)} weights via grouped recv...')
       weights = self.transport.recv_grouped(param_specs)
-      logger.warning(f'vLLM TP rank {tp_rank} received all weights')
+      logger.debug(f'vLLM TP rank {tp_rank} received all weights')
 
       # Stage all received weights
       for name, weight in zip(param_names, weights):
@@ -280,11 +279,13 @@ class VLLMWorkerExtension:
       self.commit_staged_weights(reset=True)
 
     self.sync()
-    logger.warning("done receiving")
-    self.commit_staged_weights(reset=True)
+    logger.debug("done receiving")
 
   def commit_staged_weights(self, reset=True):
+    logger.debug(f"Committing {len(self._staged_weights)} staged weights")
+    
     loaded_weights = self.model_runner.model.load_weights(weights=self._staged_weights)
+    
     if reset:
       self.reset_stage()
     return loaded_weights
