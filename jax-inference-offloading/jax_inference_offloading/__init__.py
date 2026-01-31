@@ -19,28 +19,11 @@
 This package provides infrastructure for offloading inference/rollout
 generation from JAX training to vLLM, enabling efficient RL post-training.
 
-Quick Start:
-    >>> from jax_inference_offloading import (
-    ...     OffloadingSession,
-    ...     VLLMTransferEngine,
-    ...     VLLMRolloutEngine,
-    ...     InferenceConfig,
-    ... )
-    >>>
-    >>> # Create session (handles gRPC connection and handshake)
-    >>> session = OffloadingSession(
-    ...     gateway_url="localhost:50051",
-    ...     mesh=jax.make_mesh((8,), ("tp",)),
-    ...     model_name="meta-llama/Llama-3.1-8B-Instruct",
-    ... )
-    >>>
-    >>> # Create separate engines for transfer and inference
-    >>> transfer_engine = VLLMTransferEngine(session)
-    >>> rollout_engine = VLLMRolloutEngine(session)
-    >>>
-    >>> # Transfer weights and generate
-    >>> transfer_engine.update_weights(my_params)
-    >>> output = rollout_engine.generate(prompts, InferenceConfig(max_tokens=128))
+Split Architecture:
+    - JAX Controller: Uses VLLMTransferEngine to transfer weights, receives results via gRPC
+    - Prompt Dispatcher: Uses VLLMRolloutRequester to send inference requests
+    - vLLM Worker: Runs vLLM, receives weights and inference requests
+    - Gateway: gRPC message broker coordinating all processes
 """
 
 # Core API types
@@ -54,10 +37,10 @@ from jax_inference_offloading.api import (
 from jax_inference_offloading.session import OffloadingSession
 
 # Engine implementations
-from jax_inference_offloading.engines import VLLMRolloutEngine, VLLMTransferEngine
-
-# Low-level access (for advanced users / backward compatibility)
-from jax_inference_offloading.jax import OffloadingBridge
+from jax_inference_offloading.engines import (
+    VLLMRolloutRequester,
+    VLLMTransferEngine,
+)
 
 __all__ = [
     # Core API types
@@ -67,8 +50,6 @@ __all__ = [
     # Session
     "OffloadingSession",
     # Engines
-    "VLLMRolloutEngine",
+    "VLLMRolloutRequester",
     "VLLMTransferEngine",
-    # Advanced / Legacy
-    "OffloadingBridge",
 ]

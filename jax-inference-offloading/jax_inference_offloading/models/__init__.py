@@ -14,35 +14,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import jax_inference_offloading.api.param_mapping_pb2 as mapping
-from jax_inference_offloading.models.mapping_util import slice_to_proto
-
-
-def make_transform(slice=[], transpose=[], reshape=[], replication_axis=None, replication_count=None):
-  result = mapping.JaxParam.Transform()
-  if slice:
-    result.slice.CopyFrom(slice_to_proto(slice))
-  result.transpose.extend(transpose)
-  result.reshape.extend(reshape)
-  if replication_axis is not None:
-    result.replication_axis = int(replication_axis)
-  if replication_count is not None:
-    result.replication_count = int(replication_count)
-  return result
-
-
-def make_mapping(
-  jax_name, vllm_name, vllm_shape, *, transform=None, vllm_prefix="model"
-):
-  result = mapping.ParamMapping()
-  result.vllm_param.name = f"{vllm_prefix}.{vllm_name}".lstrip(".")
-  result.vllm_param.shape.extend(vllm_shape)
-  result.jax_param.name = jax_name
-  if transform is not None:
-    result.jax_param.transform.CopyFrom(transform)
-  return result
-
-
 def flatten_state(nnx_state):
   """Flatten an NNX state tree into a dictionary with dot-separated keys."""
 

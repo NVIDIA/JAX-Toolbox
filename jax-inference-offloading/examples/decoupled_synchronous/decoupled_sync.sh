@@ -14,8 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Standalone example: weight transfer + rollout generation without Tunix.
-# This script launches the gateway, vLLM rollout worker, and trainer_standalone.py.
+# Split architecture example: Separate transfer and rollout processes.
+#
+# This script launches 4 processes:
+# 1. Gateway (no GPU) - gRPC message broker
+# 2. vLLM Worker (vLLM GPUs) - runs inference
+# 3. JAX Controller (JAX GPUs) - transfers weights, receives results
+# 4. Prompt Dispatcher (no GPU) - sends prompts/inference requests
+#
+# The JAX controller and prompt dispatcher coordinate via pub/sub synchronization.
 
 set -euo pipefail
 
@@ -39,11 +46,8 @@ TRANSFER_MODE=""
 VLLM_ENFORCE_EAGER="0"
 VLLM_GPU_MEMORY_UTILIZATION="0.9"
 
-# Debug-only: use dummy weights for JAX model
-USE_DUMMY_WEIGHT="0"
-
-# Debug-only: skip weight transfer to test if vLLM is working correctly
-SKIP_TRANSFER="0"
+# Training iterations
+NUM_ITERATIONS="3"
 
 # Device assignment
 N_GPUS_VLLM="4"
@@ -95,12 +99,9 @@ while [[ $# -gt 0 ]]; do
       VLLM_GPU_MEMORY_UTILIZATION="${1#*=}"
       shift
       ;;
-    --use-dummy-weight)
-      USE_DUMMY_WEIGHT="1"
-      shift
-      ;;
-    --skip-transfer)
-      SKIP_TRANSFER="1"
+    # Training
+    --num-iterations=*)
+      NUM_ITERATIONS="${1#*=}"
       shift
       ;;
     # Device assignment
@@ -120,27 +121,29 @@ while [[ $# -gt 0 ]]; do
     --help)
       echo "Usage: $0 [OPTIONS]"
       echo ""
-      echo "Standalone example: weight transfer + rollout generation."
+      echo "Split architecture example: Separate transfer and rollout processes."
       echo ""
-      echo "This example uses Tunix for model loading, but trainer_standalone.py"
-      echo "demonstrates how to integrate with custom RL frameworks. See the comments"
-      echo "in trainer_standalone.py for guidance on replacing the model loading code."
+      echo "This example launches 4 processes:"
+      echo "  1. Gateway (no GPU) - gRPC message broker"
+      echo "  2. vLLM Worker (vLLM GPUs) - runs inference"
+      echo "  3. JAX Controller (JAX GPUs) - transfers weights, receives results"
+      echo "  4. Prompt Dispatcher (no GPU) - sends prompts/inference requests"
       echo ""
       echo "Options:"
       echo "  --debug                    Enable debug mode with verbose logging."
       echo "  --output-dir=DIR           Directory to save logs and outputs. Default is a temporary directory."
       echo ""
-      echo "  --model-name=NAME          HF model name (required by Tunix's loader for architecture selection)."
+      echo "  --model-name=NAME          HF model name (for architecture selection)."
       echo "  --model-path=PATH          HF snapshot directory containing model weights."
-      echo "  --param-mapping-path=PATH  Path to JSON param mapping file (optional, uses hardcoded if not set)."
+      echo "  --param-mapping-path=PATH  Path to JSON param mapping file (required)."
       echo ""
-      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/stacked/fused/unfused)."
+      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/fused/unfused)."
       echo ""
       echo "  --vllm-enforce-eager       Force vLLM eager mode (sets VLLM_ENFORCE_EAGER=1)."
       echo "  --no-vllm-enforce-eager    Disable vLLM eager mode (sets VLLM_ENFORCE_EAGER=0)."
       echo "  --vllm-gpu-memory-utilization=FLOAT  vLLM GPU memory utilization (e.g., 0.7)."
-      echo "  --use-dummy-weight         Use randomly initialized JAX weights (DEBUG ONLY)."
       echo ""
+      echo "  --num-iterations=N         Number of training iterations (default: 3)."
       echo "  --n-gpus-vllm=N            Number of GPUs for vLLM (default: 4)."
       echo "  --n-gpus-jax=N             Number of GPUs for JAX (default: 4)."
       echo ""
@@ -174,23 +177,19 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# Ensure model is already present on disk (download only when using real weights)
+# Ensure model is already present on disk
 # ------------------------------------------------------------------------------
-
-if [[ -z "${HF_TOKEN:-}" ]]; then
-  echo "HF_TOKEN is not set. Please set it in the .env file or export it."
+if [[ -n "${MODEL_PATH:-}" ]]; then
+  echo "Using provided MODEL_PATH: ${MODEL_PATH}"
+else
+  echo "MODEL_PATH not provided, aborting"
+  exit 1
 fi
 
-if [[ "${USE_DUMMY_WEIGHT}" == "1" ]]; then
-  echo "Using dummy weights for JAX model (DEBUG ONLY)."
-  MODEL_PATH=
-else
-  if [[ -n "${MODEL_PATH:-}" ]]; then
-    echo "Using provided MODEL_PATH: ${MODEL_PATH}"
-  else
-    echo "MODEL_PATH not provided, downloading HF snapshot..."
-    MODEL_PATH=$(python "${DIR}/download_model.py" --hub=hf --model="${MODEL_NAME}" --ignore="*.pth")
-  fi
+# Validate required param_mapping_path
+if [[ -z "${PARAM_MAPPING_PATH:-}" ]]; then
+  echo "ERROR: --param-mapping-path is required for the split architecture."
+  exit 1
 fi
 
 # ------------------------------------------------------------------------------
@@ -219,8 +218,7 @@ export GATEWAY_URL="localhost:${GATEWAY_PORT}"
 export MODEL_NAME
 export MODEL_PATH
 export PARAM_MAPPING_PATH
-export USE_DUMMY_WEIGHT
-export SKIP_TRANSFER
+export NUM_ITERATIONS
 export VLLM_ENFORCE_EAGER
 export VLLM_GPU_MEMORY_UTILIZATION
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
@@ -247,27 +245,52 @@ PIDS=()
 
 mkdir -p "${OUTPUT_DIR}"
 echo "Logs will be saved to: ${OUTPUT_DIR}"
+echo ""
+echo "=== Split Architecture: 4 Processes ==="
+echo "  1. Gateway (no GPU)"
+echo "  2. vLLM Worker (GPUs: ${VLLM_GPU_ARRAY[*]})"
+echo "  3. JAX Controller (GPUs: ${JAX_GPU_ARRAY[*]})"
+echo "  4. Prompt Dispatcher (no GPU)"
+echo "========================================"
+echo ""
 
 # ------------------------------------------------------------------------------
 # Launch components
 # ------------------------------------------------------------------------------
 
-# Gateway server (no GPU)
+# 1. Gateway server (no GPU)
+echo "Starting Gateway..."
 CUDA_VISIBLE_DEVICES= \
-python "${DIR}/../jax_inference_offloading/controller/gateway.py" 2>&1 | tee "${OUTPUT_DIR}/gateway.log" &
+python "${DIR}/../../jax_inference_offloading/controller/gateway.py" 2>&1 | tee "${OUTPUT_DIR}/gateway.log" &
 PIDS+=($!)
 
-# vLLM rollout worker
+# Give gateway time to start
+sleep 2
+
+# 2. vLLM Worker
+echo "Starting vLLM Worker..."
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${VLLM_GPU_ARRAY[*]}") \
 MODEL_NAME=${MODEL_PATH:-$MODEL_NAME} \
-python "${DIR}/rollout.py" 2>&1 | tee "${OUTPUT_DIR}/rollout.log" &
+python "${DIR}/vllm_worker.py" 2>&1 | tee "${OUTPUT_DIR}/vllm_worker.log" &
 PIDS+=($!)
 
-# Standalone trainer (weight transfer + generation demo)
+# 3. JAX Controller (JAX GPUs)
+echo "Starting JAX Controller..."
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${JAX_GPU_ARRAY[*]}") \
 JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR} \
 JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS=0.1 \
-python "${DIR}/trainer_standalone.py" 2>&1 | tee "${OUTPUT_DIR}/trainer.log" &
+python "${DIR}/jax_controller.py" 2>&1 | tee "${OUTPUT_DIR}/jax_controller.log" &
 PIDS+=($!)
+
+# 4. Prompt Dispatcher (no GPU)
+echo "Starting Prompt Dispatcher..."
+CUDA_VISIBLE_DEVICES= \
+python "${DIR}/prompt_dispatcher.py" 2>&1 | tee "${OUTPUT_DIR}/prompt_dispatcher.log" &
+PIDS+=($!)
+
+echo ""
+echo "All processes started. Waiting for completion..."
+echo "Check logs in: ${OUTPUT_DIR}"
+echo ""
 
 wait "${PIDS[@]}"

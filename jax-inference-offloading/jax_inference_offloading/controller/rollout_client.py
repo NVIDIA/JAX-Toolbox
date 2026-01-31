@@ -29,8 +29,7 @@ from jax_inference_offloading.api.message_broker_pb2 import (
   SubscribeRequest,
 )
 from jax_inference_offloading.controller.client_base import ClientBase
-from jax_inference_offloading.models.auto import get_tp_model_mapping
-from jax_inference_offloading.models.mapping_util import add_sharding_specs
+from jax_inference_offloading.models.mapping_util import add_sharding_specs, load_mapping_from_json
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +62,11 @@ class RolloutServicer:
     return response_proto
 
   def handshake(self, request):
-    model_name = request.model_name or self._llm.llm_engine.model_config.model
     # Use param_mapping_path from request if provided, otherwise fall back to local config
     mapping_path = getattr(request, 'param_mapping_path', None) or self._mapping_json_path
-    mapping_specs = get_tp_model_mapping(model_name, mapping_json_path=mapping_path)
+    if not mapping_path:
+      raise ValueError("param_mapping_path is required but not provided")
+    mapping_specs = load_mapping_from_json(mapping_path)
     mapping_specs, vllm_tp_size = add_sharding_specs(mapping_specs, self._llm,
                                                      request.jax_parallelism.tp)
     self._mapping_specs = mapping_specs

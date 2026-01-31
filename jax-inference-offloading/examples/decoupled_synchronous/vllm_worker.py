@@ -14,7 +14,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Multi-process JAX-vLLM coupling example (vLLM side).
+"""vLLM Worker: Runs vLLM inference engine and receives commands from gateway.
+
+This process is part of a split architecture where:
+- JAX Controller: Transfers weights to vLLM, receives inference results
+- vLLM Worker (this file): Runs vLLM, receives weights, executes inference
+- Prompt Dispatcher: Sends prompts/inference requests
+
 Assumes:
 - JAX and vLLM are running in different processes on the same physical node.
 - JAX and vLLM occupy different GPUs.

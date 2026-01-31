@@ -61,7 +61,7 @@ class OffloadingSession:
         ...     model_path="/path/to/checkpoint",
         ...     param_mapping_path="/path/to/mapping.json",
         ... )
-        >>> # Use session with VLLMTransferEngine and VLLMRolloutEngine
+        >>> # Use session with VLLMTransferEngine
     """
 
     def __init__(
