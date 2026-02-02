@@ -51,8 +51,18 @@ class MessageQueues:
         self._subscriptions[topic.id] = []
       return self._subscriptions[topic.id]
 
-  def subscribe(self, topics):
-    subscription = Queue()
+  def subscribe(self, topics, max_size=0):
+    """Subscribe to topics and return a queue for receiving messages.
+
+    Args:
+        topics: List of topics to subscribe to.
+        max_size: Maximum queue size. 0 means unbounded (default).
+            When bounded, publishers will block if queue is full.
+
+    Returns:
+        A Queue for receiving (topic, message) tuples.
+    """
+    subscription = Queue(maxsize=max_size)
     for topic, message in self._persistent_messages:
       if topic in topics:
         subscription.put((topic, message))
@@ -63,14 +73,24 @@ class MessageQueues:
         subscriptions.append(subscription)
     return subscription
 
-  def publish(self, topic, message, persistent=False):
+  def publish(self, topic, message, persistent=False, block=True, timeout=None):
+    """Publish a message to a topic.
+
+    Args:
+        topic: The topic to publish to.
+        message: The message to publish.
+        persistent: If True, message is stored and delivered to future subscribers.
+        block: If True (default), block if any subscriber queue is full.
+            If False, raise queue.Full if any queue is full.
+        timeout: Timeout in seconds for blocking put. None means wait forever.
+    """
     if persistent:
       self._persistent_messages.append((topic, message))
     subscriptions = self._get_subscriptions(topic)
     # TODO: lock might not be necessary in Python?
     with self._lock:
       for subscription in subscriptions:
-        subscription.put((topic, message))
+        subscription.put((topic, message), block=block, timeout=timeout)
 
 
 class ControllerServicer(ctrl_grpc.CouplingControllerServicer):

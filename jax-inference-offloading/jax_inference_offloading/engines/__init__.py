@@ -16,7 +16,16 @@
 # limitations under the License.
 """Inference engine implementations."""
 
+from jax_inference_offloading.engines.vllm_rollout_accumulator import (
+    RolloutAccumulator,
+    result_consumer_thread,
+)
 from jax_inference_offloading.engines.vllm_rollout_requester import VLLMRolloutRequester
 from jax_inference_offloading.engines.vllm_transfer_engine import VLLMTransferEngine
 
-__all__ = ["VLLMRolloutRequester", "VLLMTransferEngine"]
+__all__ = [
+    "RolloutAccumulator",
+    "result_consumer_thread",
+    "VLLMRolloutRequester",
+    "VLLMTransferEngine",
+]

@@ -132,7 +132,9 @@ class VLLMRolloutRequester:
         self,
         prompts: Union[str, List[str], List[int], List[List[int]], List[dict], List[List[dict]]],
         config: InferenceConfig,
-    ) -> None:
+        batch_id: Optional[str] = None,
+        streaming: bool = False,
+    ) -> str:
         """Send inference request to vLLM (non-blocking, fire-and-forget).
 
         The request is sent to the gateway, which forwards it to vLLM.
@@ -148,7 +150,21 @@ class VLLMRolloutRequester:
                 - List[dict]: Single chat conversation (list of messages)
                 - List[List[dict]]: Multiple chat conversations
             config: Inference configuration (max_tokens, temperature, etc.)
+            batch_id: Optional correlation ID for async mode. If not provided,
+                a unique ID will be generated. Used to correlate streamed
+                RolloutResult messages with their originating request.
+            streaming: If True, vLLM will publish each rollout as a separate
+                RolloutResult message as it completes. If False (default),
+                all results are batched into a single InferenceResponse.
+
+        Returns:
+            The batch_id used for this request (useful for correlation).
         """
+        # Generate batch_id if not provided
+        if batch_id is None:
+            import uuid
+            batch_id = str(uuid.uuid4())
+
         # Build protobuf config
         proto_config = ctrl.RolloutConfig(
             max_tokens=config.max_tokens,
@@ -164,6 +180,8 @@ class VLLMRolloutRequester:
         request = ctrl.InferenceRequest()
         request.response_topic = self._response_topic
         request.config.CopyFrom(proto_config)
+        request.batch_id = batch_id
+        request.streaming = streaming
 
         # Add prompts to request
         self._add_prompts_to_request(prompts, request)
@@ -171,7 +189,12 @@ class VLLMRolloutRequester:
         # Fire-and-forget
         self._controller_stub.AsyncInference(request)
 
-        logger.info(f"Sent inference request with {len(request.prompts)} prompts")
+        logger.info(
+            f"Sent inference request with {len(request.prompts)} prompts, "
+            f"batch_id={batch_id}, streaming={streaming}"
+        )
+
+        return batch_id
 
     def _add_prompts_to_request(
         self,

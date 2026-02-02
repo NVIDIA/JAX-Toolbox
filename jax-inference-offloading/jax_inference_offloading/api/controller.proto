@@ -103,6 +103,10 @@ message InferenceRequest {
   repeated Prompt prompts = 6;
   optional string response_topic = 4;
   optional RolloutConfig config = 5;
+  // Correlation ID for async mode - used to group rollout results
+  optional string batch_id = 7;
+  // If true, publish each rollout as RolloutResult immediately (async mode)
+  optional bool streaming = 8 [default = false];
 }
 
 message InferenceResponse {
@@ -116,6 +120,17 @@ message InferenceResponse {
 
   repeated Output outputs = 1;
   reserved 2;
+}
+
+// Streaming result for async mode - one message per completed rollout
+message RolloutResult {
+  optional string batch_id = 1;          // Correlation ID from InferenceRequest
+  optional int32 prompt_index = 2;       // Index of prompt within the batch (0-based)
+  optional int32 rollout_index = 3;      // Index of rollout for this prompt (0 to num_outputs-1)
+  optional TokenIds prompt_tokens = 4;   // Original prompt tokens
+  optional string generated_text = 5;    // Generated text
+  optional TokenIds generated_tokens = 6; // Generated token IDs
+  repeated float generated_token_logps = 7; // Log probabilities for generated tokens
 }
 
 message ShutdownRequest {
