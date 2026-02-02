@@ -1,10 +1,10 @@
 diff --git a/axlearn/common/array_serialization.py b/axlearn/common/array_serialization.py
-index 369926e..536af6c 100644
+index db78cfa..2bcfb82 100644
 --- a/axlearn/common/array_serialization.py
 +++ b/axlearn/common/array_serialization.py
 @@ -36,6 +36,7 @@ from absl import logging
  from jax._src import array, typing
- from jax._src.layout import Layout
+ from jax._src.layout import Format
  from jax.experimental.array_serialization import serialization
 +from packaging import version
 
@@ -18,14 +18,13 @@ index 369926e..536af6c 100644
 
 
  def _slices_to_tuple(slices: list[slice]) -> tuple[_SliceTuple, ...]:
-@@ -306,10 +308,13 @@ async def _async_serialize(
+@@ -304,8 +306,15 @@ async def _async_serialize(
+         and jax.process_count() > 1
          and arr_inp.is_fully_addressable
      )
-     # pylint: disable=protected-access
--    spec_has_metadata = {
--        "0.6.2": lambda: serialization.ts_impl._spec_has_metadata,
--        "0.5.3": lambda: serialization._spec_has_metadata,
--    }[jax.__version__]()
+-    # pylint: disable-next=protected-access
+-    if not serialization.ts_impl._spec_has_metadata(tensorstore_spec):
++    # pylint: disable=protected-access
 +    if JAX_VERSION >= version.parse("0.6.2"):
 +        spec_has_metadata = serialization.ts_impl._spec_has_metadata
 +    elif JAX_VERSION >= version.parse("0.5.3"):
@@ -33,17 +32,15 @@ index 369926e..536af6c 100644
 +    else:
 +        raise ValueError(f"Unsupported JAX version for spec_has_metadata: {jax.__version__}")
 +
-     if not spec_has_metadata(tensorstore_spec):
++    if not spec_has_metadata(tensorstore_spec):
          # pylint: disable-next=protected-access
          tensorstore_spec["metadata"] = serialization._get_metadata(arr_inp)
-@@ -486,10 +491,14 @@ async def _async_deserialize(
+     if "dtype" not in tensorstore_spec:
+@@ -486,7 +495,15 @@ async def _async_deserialize(
      async def cb(index: array.Index, device: jax.Device):
          requested_domain = ts.IndexTransform(input_shape=shape)[index].domain
          restricted_domain = t.domain.intersect(requested_domain)
--        estimate_read_memory_footprint = {
--            "0.6.2": lambda: serialization.ts_impl.estimate_read_memory_footprint,
--            "0.5.3": lambda: serialization.estimate_read_memory_footprint,
--        }[jax.__version__]()
+-        requested_bytes = serialization.ts_impl.estimate_read_memory_footprint(t, restricted_domain)
 +        if JAX_VERSION >= version.parse("0.6.2"):
 +            estimate_read_memory_footprint = serialization.ts_impl.estimate_read_memory_footprint
 +        elif JAX_VERSION >= version.parse("0.5.3"):
@@ -52,17 +49,19 @@ index 369926e..536af6c 100644
 +            raise ValueError(
 +                f"Unsupported JAX version: {JAX_VERSION}. Version must be 0.5.3 or newer"
 +            )
-         requested_bytes = estimate_read_memory_footprint(t, restricted_domain)
++        requested_bytes = estimate_read_memory_footprint(t, restricted_domain)
          # Limit the bytes read for every shard.
          await byte_limiter.wait_for_bytes(requested_bytes)
-@@ -567,10 +576,13 @@ async def _async_deserialize(
+         read_ts = t[restricted_domain]
+@@ -563,10 +580,15 @@ async def _async_deserialize(
+         await byte_limiter.release_bytes(requested_bytes)
          return result
 
-     # pylint: disable=protected-access
--    create_async_array_from_callback = {
--        "0.6.2": lambda: serialization.ts_impl._create_async_array_from_callback,
--        "0.5.3": lambda: serialization.create_async_array_from_callback,
--    }[jax.__version__]()
+-    # pylint: disable-next=protected-access
+-    return await serialization.ts_impl._create_async_array_from_callback(
+-        shape, dtype, in_sharding, cb
+-    )
++    # pylint: disable=protected-access
 +    if JAX_VERSION >= version.parse("0.6.2"):
 +        create_async_array_from_callback = serialization.ts_impl._create_async_array_from_callback
 +    elif JAX_VERSION >= version.parse("0.5.3"):
@@ -70,17 +69,14 @@ index 369926e..536af6c 100644
 +    else:
 +        raise ValueError("Unsupported JAX version: {JAX_VERSION}. Version must be 0.5.3 or newer.")
 +
-     return await create_async_array_from_callback(shape, in_sharding, cb)
++    return await create_async_array_from_callback(shape, in_sharding, cb)
 
 
-@@ -652,10 +664,14 @@ class GlobalAsyncCheckpointManager(serialization.GlobalAsyncCheckpointManager):
+ # Reference:
+@@ -647,6 +669,15 @@ class GlobalAsyncCheckpointManager(serialization.GlobalAsyncCheckpointManager):
 
          commit_futures = [[] for _ in range(len(tensorstore_specs))]
 
--        async_serialize = {
--            "0.6.2": lambda: serialization.ts_impl.async_serialize,
--            "0.5.3": lambda: serialization.async_serialize,
--        }[jax.__version__]()
 +        if JAX_VERSION >= version.parse("0.6.2"):
 +            async_serialize = serialization.ts_impl.async_serialize
 +        elif JAX_VERSION >= version.parse("0.5.3"):
@@ -89,18 +85,19 @@ index 369926e..536af6c 100644
 +            raise ValueError(
 +                f"Unsupported JAX version: {JAX_VERSION}. Version must be 0.5.3 or newer."
 +            )
-
++
          # pylint: disable-next=redefined-outer-name
          async def _run_serializer():
+             future_writer = jax.tree.map(
 diff --git a/axlearn/common/flash_attention/gpu_attention.py b/axlearn/common/flash_attention/gpu_attention.py
-index 9026f3a..1d47a26 100644
+index c8060dc..59c96af 100644
 --- a/axlearn/common/flash_attention/gpu_attention.py
 +++ b/axlearn/common/flash_attention/gpu_attention.py
 @@ -44,7 +44,6 @@ from jax._src.cudnn.fused_attention_stablehlo import (
  )
  from jax.ad_checkpoint import checkpoint_name
  from jax.experimental import pallas as pl
--from jax.experimental.pallas.triton import TritonCompilerParams
+-from jax.experimental.pallas.triton import CompilerParams as TritonCompilerParams
 
  from axlearn.common.attention_bias import (
      NEG_INF,
@@ -121,14 +118,14 @@ index 9026f3a..1d47a26 100644
 
  def _segment_mask(
 diff --git a/axlearn/common/flash_attention/gpu_decoding.py b/axlearn/common/flash_attention/gpu_decoding.py
-index a29bdcc..1b5b07b 100644
+index 73c5c15..c3dca5d 100644
 --- a/axlearn/common/flash_attention/gpu_decoding.py
 +++ b/axlearn/common/flash_attention/gpu_decoding.py
 @@ -49,7 +49,6 @@ from absl import logging
  from jax import lax
  from jax._src.cudnn.fused_attention_stablehlo import check_compute_capability
  from jax.experimental import pallas as pl
--from jax.experimental.pallas.triton import TritonCompilerParams
+-from jax.experimental.pallas.triton import CompilerParams as TritonCompilerParams
 
  from axlearn.common.attention_bias import (
      NEG_INF,
@@ -149,14 +146,14 @@ index a29bdcc..1b5b07b 100644
 
  # Note: split_k_seq_len must be a multiple of block_k.
 diff --git a/axlearn/common/flash_attention/gpu_paged_attention.py b/axlearn/common/flash_attention/gpu_paged_attention.py
-index a2600de..9a3dd9d 100644
+index fbe17bc..9a3dd9d 100644
 --- a/axlearn/common/flash_attention/gpu_paged_attention.py
 +++ b/axlearn/common/flash_attention/gpu_paged_attention.py
 @@ -19,7 +19,6 @@ import jax
  import jax.numpy as jnp
  from jax import lax
  from jax.experimental import pallas as pl
--from jax.experimental.pallas.triton import TritonCompilerParams
+-from jax.experimental.pallas.triton import CompilerParams as TritonCompilerParams
 
  from axlearn.common.attention_bias import (
      NEG_INF,
@@ -179,14 +176,14 @@ index a2600de..9a3dd9d 100644
 
  def _paged_attention_kernel(
 diff --git a/axlearn/common/kv_cache/paged_kv_cache_gpu_kernel.py b/axlearn/common/kv_cache/paged_kv_cache_gpu_kernel.py
-index cbddb27..5358d90 100644
+index 7483ada..5358d90 100644
 --- a/axlearn/common/kv_cache/paged_kv_cache_gpu_kernel.py
 +++ b/axlearn/common/kv_cache/paged_kv_cache_gpu_kernel.py
 @@ -8,9 +8,15 @@ This kernel is a temporary workaround of occasional performance problems with
  import jax
  import jax.numpy as jnp
  from jax.experimental import pallas as pl
--from jax.experimental.pallas.triton import TritonCompilerParams
+-from jax.experimental.pallas.triton import CompilerParams as TritonCompilerParams
 
 -from axlearn.common.utils import Tensor
 +from axlearn.common.utils import _JAX_MEMORY_SPACE_SUPPORT, Tensor
@@ -201,18 +198,19 @@ index cbddb27..5358d90 100644
 
  def _scatter_pages_kernel(
 diff --git a/axlearn/common/optimizers.py b/axlearn/common/optimizers.py
-index 54e4f0b..c5c1b7b 100644
+index 4c61856..6f044e1 100644
 --- a/axlearn/common/optimizers.py
 +++ b/axlearn/common/optimizers.py
-@@ -37,7 +37,6 @@ import optax
+@@ -37,8 +37,6 @@ import optax
  import typing_extensions
  from absl import logging
  from jax import numpy as jnp
--from jax._src.sharding_impls import TransferToMemoryKind
+-
+-# from jax._src.sharding_impls import TransferToMemoryKind
  from optax._src import numerics
 
  from axlearn.common import flax_struct, schedule
-@@ -53,6 +52,8 @@ from axlearn.common.optimizer_base import (
+@@ -54,6 +52,8 @@ from axlearn.common.optimizer_base import (
      TransformPartitionSpecFn,
  )
  from axlearn.common.utils import (
@@ -221,7 +219,7 @@ index 54e4f0b..c5c1b7b 100644
      MemoryKind,
      Nested,
      NestedTensor,
-@@ -62,6 +63,7 @@ from axlearn.common.utils import (
+@@ -63,6 +63,7 @@ from axlearn.common.utils import (
      expand_vdicts,
      flatten_items,
      register_per_param_settings,
@@ -229,7 +227,7 @@ index 54e4f0b..c5c1b7b 100644
      tree_paths,
      vectorized_tree_map,
  )
-@@ -2072,8 +2074,8 @@ def offload_optimizer(
+@@ -2073,8 +2074,8 @@ def offload_optimizer(
      optimizer: ConfigOr[PartitionedGradientTransformation],
      *,
      pattern: Union[str, re.Pattern] = ".*",
@@ -240,19 +238,25 @@ index 54e4f0b..c5c1b7b 100644
  ) -> PartitionedGradientTransformation:
      """Offload the state of the wrapped optimizer that matches `pattern` to `offload_dst`.
 
-@@ -2145,9 +2147,7 @@ def offload_optimizer(
+@@ -2146,14 +2147,8 @@ def offload_optimizer(
          # released, so we have less memory pressure at that point in time.
+         # memory_kind = sharding.memory_kind(dst)
          return jax.tree.map(
-             lambda path, tensor: (
--                jax.device_put(tensor, TransferToMemoryKind(dst))
--                if re.fullmatch(pattern, path)
+-            lambda path, tensor: (
+-                jax.device_put(tensor, tensor.sharding.with_memory_kind(dst))
+-                if re.fullmatch(pattern, path) and hasattr(tensor, "sharding")
 -                else tensor
-+                transfer_to_memory_kind(tensor, dst) if re.fullmatch(pattern, path) else tensor
-             ),
-             tree_paths(state),
-             state,
+-            ),
+-            tree_paths(state),
+-            state,
+-        )
++            transfer_to_memory_kind(tensor, dst) if re.fullmatch(pattern, path) else tensor
++            )
+
+     def update_fn(updates: optax.Updates, state: optax.OptState, params: NestedOptParam):
+         state = _move_fn(state, offload_src)
 diff --git a/axlearn/common/optimizers_test.py b/axlearn/common/optimizers_test.py
-index 6fe4082..761ddee 100644
+index b142f1f..9cf66a8 100644
 --- a/axlearn/common/optimizers_test.py
 +++ b/axlearn/common/optimizers_test.py
 @@ -60,6 +60,7 @@ from axlearn.common.optimizers import (
@@ -263,30 +267,26 @@ index 6fe4082..761ddee 100644
      NestedPartitionSpec,
      PartitionSpec,
      Tensor,
-@@ -427,10 +428,17 @@ class OptimizerTest(TestCase):
-             return loss, compute_loss(updated_params)
+@@ -428,9 +429,15 @@ class OptimizerTest(TestCase):
 
+         backend = jax.default_backend()
          if offload:
--            self.assertIn(
--                "TransferToMemoryKind(memory_kind='pinned_host')",
--                str(jax.make_jaxpr(jit_fn)(params, state)),
--            )
+-            if backend and backend in ["gpu", "tpu"]:
 +            jaxpr_str = str(jax.make_jaxpr(jit_fn)(params, state))
 +            if _JAX_MEMORY_SPACE_SUPPORT:
-+                self.assertIn(
+                 self.assertIn(
+-                    "MemoryKind='pinned_host'",
 +                    "memory_kind=host",
 +                    jaxpr_str,
 +                )
 +            else:
 +                self.assertIn(
 +                    "TransferToMemoryKind(memory_kind='pinned_host')",
-+                    str(jax.make_jaxpr(jit_fn)(params, state)),
-+                )
+                     str(jax.make_jaxpr(jit_fn)(params, state)),
+                 )
          loss, new_loss = jit_fn(params, state)
-         self.assertLess(new_loss, loss)
-
 diff --git a/axlearn/common/utils.py b/axlearn/common/utils.py
-index 16a5fe3..776340a 100644
+index da904fb..b7e165e 100644
 --- a/axlearn/common/utils.py
 +++ b/axlearn/common/utils.py
 @@ -54,6 +54,7 @@ from jax.ad_checkpoint import Offloadable, Recompute, Saveable
@@ -333,24 +333,27 @@ index 16a5fe3..776340a 100644
 
  @dataclasses.dataclass
 diff --git a/axlearn/experiments/text/gpt/c4_trainer.py b/axlearn/experiments/text/gpt/c4_trainer.py
-index b9103cb..b8e8b22 100644
+index e138a1d..2cc6022 100644
 --- a/axlearn/experiments/text/gpt/c4_trainer.py
 +++ b/axlearn/experiments/text/gpt/c4_trainer.py
-@@ -49,7 +49,7 @@ from axlearn.common.config import (
+@@ -49,11 +49,8 @@ from axlearn.common.config import (
  from axlearn.common.input_lm import lm_text_preprocessor
  from axlearn.common.utils import get_data_dir
  from axlearn.experiments.text.common import DataMixtureComponent, vocab
--from axlearn.experiments.text.gpt import envy, fuji, gspmd  # pytype: disable=pyi-error
-+from axlearn.experiments.text.gpt import fuji, gspmd  # pytype: disable=pyi-error
- from axlearn.experiments.text.gpt.common import (  # pytype: disable=pyi-error
-     mixture_train_input_source,
-     tfds_input,
-
+-from axlearn.experiments.text.gpt import envy, fuji, gspmd, qwen  # pytype: disable=pyi-error
+-from axlearn.experiments.text.gpt.common import (  # pytype: disable=pyi-error
+-    mixture_train_input_source,
+-    tfds_input,
+-)
++from axlearn.experiments.text.gpt import fuji, gspmd
++from axlearn.experiments.text.gpt.common import mixture_train_input_source, tfds_input
  from axlearn.experiments.text.gpt.vocabulary_fuji_v3 import FujiV3Vocabulary
 
-@@ -109,5 +109,4 @@ def named_trainer_configs() -> dict[str, TrainerConfigFn]:
+
+@@ -114,6 +111,4 @@ def named_trainer_configs() -> dict[str, TrainerConfigFn]:
      config_map = {}
      config_map.update(fuji.trainer_configs(_train_input_source, _eval_input_sources))
      config_map.update(gspmd.trainer_configs(_train_input_source, _eval_input_sources))
 -    config_map.update(envy.trainer_configs(_train_input_source, _eval_input_sources))
+-    config_map.update(qwen.trainer_configs(_train_input_source, _eval_input_sources))
      return config_map
