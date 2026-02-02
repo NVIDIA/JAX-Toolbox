@@ -17,17 +17,7 @@ ARG GIT_USER_EMAIL
 ARG URLREF_AXLEARN
 ARG SRC_PATH_AXLEARN
 
-# Run the patch with cloning
-RUN <<"EOF" bash -exu
-  git config --global user.email "${GIT_USER_EMAIL}"
-  git config --global user.name "${GIT_USER_NAME}"
-  git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
-  ${DEST_MANIFEST_DIR}/create-distribution.sh \
-    --manifest ${DEST_MANIFEST_DIR}/manifest.yaml \
-    --package axlearn
-  cd ${SRC_PATH_AXLEARN}
-  git remote remove origin
-EOF
+RUN git-clone.sh "${URLREF_AXLEARN}" "${SRC_PATH_AXLEARN}"
 
 # these packages are needed to run axlearn tests
 # https://github.com/apple/axlearn/blob/main/pyproject.toml as reference
@@ -70,4 +60,5 @@ FROM mealkit AS final
 
 RUN pip-finalize.sh
 
+RUN rm -rf ${SRC_PATH_AXLEARN}/.git
 WORKDIR ${SRC_PATH_AXLEARN}

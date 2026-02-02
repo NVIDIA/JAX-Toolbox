@@ -70,11 +70,11 @@ pathwaysutils:
   mode: pip-vcs
 axlearn:
   url: https://github.com/apple/axlearn.git
-  mirror_url: https://github.com/nvjax-svc-0/axlearn.git
+  #mirror_url: https://github.com/nvjax-svc-0/axlearn.git
   tracking_ref: main
   mode: git-clone
-  patches:
-    pull/1339/head: file://patches/axlearn/PR-1339.patch
+  #patches:
+  #  pull/1339/head: file://patches/axlearn/PR-1339.patch
 qwix:
   url: https://github.com/google/qwix.git
   tracking_ref: main
