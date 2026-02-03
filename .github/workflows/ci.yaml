@@ -152,12 +152,9 @@ jobs:
           if [[ "${{ github.event.schedule }}" == "0 0 * * 6" ]]; then
             echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
             echo "SUFFIX=-scale-training" >> $GITHUB_OUTPUT
-            # we need to keep fixed the cuda base image
-            echo "CUDA_IMAGE=nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04" >> $GITHUB_OUTPUT
           else
             echo "IS_SCALE_TRAINING=false" >> $GITHUB_OUTPUT
             echo "SUFFIX=" >> $GITHUB_OUTPUT
-            echo "CUDA_IMAGE=latest" >> $GITHUB_OUTPUT
           fi
 
 
@@ -219,7 +216,13 @@ jobs:
 
           # for scale training we need a specific XLA ref
           if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
-            urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/sfvaroglu/xla#nv-scale-training/staging"}')
+            XLA_REPO="sfvaroglu/xla"
+            urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/${{ XLA_REPO }}#nv-scale-training/staging"}')
+
+            # Use the JAX commit from the last tag in the repo
+            # TODO: extract this info from tags
+            JAX_COMMIT=1066aa7b8
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"JAX\": \"https://github.com/jax-ml/jax#$JAX_COMMIT\"}")
           fi
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
 
