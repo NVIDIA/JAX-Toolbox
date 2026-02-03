@@ -53,6 +53,11 @@ on:
           - axlearn - run only the tests for axlearn
         options: [full, jax, te, maxtext, axlearn]
         default: full
+      SCALE_TRAINING:
+        type: boolean
+        description: "Whether to run scale-training specific tests."
+        default: false
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.schedule || github.run_id }}
@@ -149,7 +154,7 @@ jobs:
       - name: Determine if scale-training run
         id: run-type
         run: |
-          if [[ "${{ github.event.schedule }}" == "0 0 * * 6" ]]; then
+          if [[ "${{ github.event.schedule }}" == "0 0 * * 6" || "${{ inputs.SCALE_TRAINING }}" == "true" ]]; then
             echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
             echo "SUFFIX=-scale-training" >> $GITHUB_OUTPUT
           else
