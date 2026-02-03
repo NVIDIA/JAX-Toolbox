@@ -1,6 +1,5 @@
 #!/bin/bash
-
-set -ex
+set -euo pipefail
 
 # Create a prefix with include/ and lib/ directories containing symlinks to the cuDNN
 # version that was just installed; this is useful to pass to XLA to avoid it fetching
