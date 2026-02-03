@@ -14,12 +14,26 @@
 
 #define LUT_SIZE 8192  // 32KB
 
-// Producer 1: Generates first dataset
-__global__ void producer1Kernel(const float *input1, float *output1, int n) {
+// ============================================================================
+// SHARED BUFFER APPROACH:
+// Both producers write to DIFFERENT PARTS of the SAME memory buffer
+// Producer1: writes to shared_output[0 .. n/2-1]      (first half)
+// Producer2: writes to shared_output[n/2 .. n-1]      (second half)
+// Consumers: poll/read from BOTH parts of the shared buffer
+// ============================================================================
+
+// Producer 1: Writes to FIRST HALF of shared buffer [0 .. n/2-1]
+__global__ void producer1Kernel(
+    const float *input,
+    float *shared_output,  // SHARED buffer
+    int n,
+    int offset             // Starting offset for this producer
+) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int global_idx = offset + idx;  // Offset into shared buffer
 
     if (idx < n) {
-        float result = input1[idx];
+        float result = input[idx];
 
         // Heavy computation for producer 1
         for (int iter = 0; iter < 800; iter++) {
@@ -28,7 +42,8 @@ __global__ void producer1Kernel(const float *input1, float *output1, int n) {
             result = result * 0.99f;
         }
 
-        output1[idx] = result;
+        // Write to FIRST HALF of shared buffer
+        shared_output[global_idx] = result;
     }
 
     // PDL trigger at 50%
@@ -37,21 +52,28 @@ __global__ void producer1Kernel(const float *input1, float *output1, int n) {
     }
 }
 
-// Producer 2: Generates second dataset
-__global__ void producer2Kernel(const float *input2, float *output2, int n) {
+// Producer 2: Writes to SECOND HALF of shared buffer [n/2 .. n-1]
+__global__ void producer2Kernel(
+    const float *input,
+    float *shared_output,  // SHARED buffer (same as Producer1)
+    int n,
+    int offset             // Starting offset for this producer
+) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int global_idx = offset + idx;  // Offset into shared buffer
 
     if (idx < n) {
-        float result = input2[idx];
+        float result = input[idx];
 
-        // Heavy computation for producer 2
+        // Heavy computation for producer 2 (slightly different)
         for (int iter = 0; iter < 800; iter++) {
             result = result * 1.02f + 0.002f;
             result = sqrtf(result * result + 0.5f);
             result = result * 0.98f;
         }
 
-        output2[idx] = result;
+        // Write to SECOND HALF of shared buffer
+        shared_output[global_idx] = result;
     }
 
     // PDL trigger at 50%
@@ -60,18 +82,18 @@ __global__ void producer2Kernel(const float *input2, float *output2, int n) {
     }
 }
 
-// Consumer 1: Processes output from Producer 1 ONLY
+// Consumer 1: Polls/reads from BOTH PARTS of the shared buffer
 __global__ void consumer1Kernel(
-    const float *producer1_output,
+    const float *shared_output,  // Read from SHARED buffer (both halves)
     const float *weights,
     float *final_output1,
-    int n
+    int total_n                  // Total size of shared buffer
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     // ========================================================================
     // INDEPENDENT WORK: Load lookup table
-    // This can happen while Producer1 is still running!
+    // This can happen while producers are still running
     // ========================================================================
     __shared__ float lut[LUT_SIZE];
 
@@ -91,35 +113,47 @@ __global__ void consumer1Kernel(
     }
 
     // ========================================================================
-    // WAIT FOR PRODUCER 1
+    // WAIT FOR BOTH PRODUCERS!
+    // Both must finish writing their parts of the shared buffer
     // ========================================================================
     cudaGridDependencySynchronize();
 
     // ========================================================================
-    // DEPENDENT WORK: Use output from Producer 1
+    // DEPENDENT WORK: Poll/read from BOTH PARTS of shared buffer
     // ========================================================================
-    if (idx < n) {
-        float value1 = producer1_output[idx];
+    if (idx < total_n) {
+        int half_n = total_n / 2;
 
-        int lut_idx = (int)(value1 * 50.0f) % LUT_SIZE;
-        float transformed = value1 * lut[lut_idx] + independent_result * 0.0001f;
+        // Read from FIRST HALF (Producer1's part)
+        int idx1 = idx % half_n;
+        float value1 = shared_output[idx1];
+
+        // Read from SECOND HALF (Producer2's part)
+        int idx2 = half_n + (idx % half_n);
+        float value2 = shared_output[idx2];
+
+        // Combine data from both producers
+        float combined = value1 + value2;
+
+        int lut_idx = (int)(combined * 50.0f) % LUT_SIZE;
+        float transformed = combined * lut[lut_idx] + independent_result * 0.0001f;
 
         final_output1[idx] = transformed;
     }
 }
 
-// Consumer 2: Processes output from Producer 2 ONLY
+// Consumer 2: Also polls/reads from BOTH PARTS of the shared buffer
 __global__ void consumer2Kernel(
-    const float *producer2_output,
+    const float *shared_output,  // Read from SHARED buffer (both halves)
     const float *weights,
     float *final_output2,
-    int n
+    int total_n                  // Total size of shared buffer
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     // ========================================================================
-    // INDEPENDENT WORK: Load lookup table
-    // This can happen while Producer2 is still running!
+    // INDEPENDENT WORK: Load lookup table (different transformation)
+    // This can happen while producers are still running
     // ========================================================================
     __shared__ float lut[LUT_SIZE];
 
@@ -139,18 +173,30 @@ __global__ void consumer2Kernel(
     }
 
     // ========================================================================
-    // WAIT FOR PRODUCER 2
+    // WAIT FOR BOTH PRODUCERS!
+    // Both must finish writing their parts of the shared buffer
     // ========================================================================
     cudaGridDependencySynchronize();
 
     // ========================================================================
-    // DEPENDENT WORK: Use output from Producer 2
+    // DEPENDENT WORK: Poll/read from BOTH PARTS of shared buffer
     // ========================================================================
-    if (idx < n) {
-        float value2 = producer2_output[idx];
+    if (idx < total_n) {
+        int half_n = total_n / 2;
 
-        int lut_idx = (int)(value2 * 60.0f) % LUT_SIZE;
-        float transformed = value2 * lut[lut_idx] + independent_result * 0.0002f;
+        // Read from FIRST HALF (Producer1's part)
+        int idx1 = idx % half_n;
+        float value1 = shared_output[idx1];
+
+        // Read from SECOND HALF (Producer2's part)
+        int idx2 = half_n + (idx % half_n);
+        float value2 = shared_output[idx2];
+
+        // Combine data from both producers (different formula)
+        float combined = value1 * 1.5f + value2 * 0.5f;
+
+        int lut_idx = (int)(combined * 60.0f) % LUT_SIZE;
+        float transformed = combined * lut[lut_idx] + independent_result * 0.0002f;
 
         final_output2[idx] = transformed;
     }
@@ -161,30 +207,45 @@ int main() {
     CHECK_CUDA(cudaGetDeviceProperties(&prop, 0));
     int SM_COUNT = prop.multiProcessorCount;
 
-    printf("=== PDL with 2 PRODUCERS → 2 CONSUMERS ===\n");
+    printf("=== PDL 2P2C: SHARED BUFFER APPROACH ===\n");
     printf("GPU: %s with %d SMs\n\n", prop.name, SM_COUNT);
 
-    printf("Pattern: Independent 1P1C chains\n");
-    printf("  Chain 1: Producer1 → Consumer1\n");
-    printf("  Chain 2: Producer2 → Consumer2\n");
-    printf("  Expected: BOTH consumers should overlap with their producers\n");
-    printf("  Reason: Each consumer has only 1 incoming PDL edge\n\n");
+    printf("Memory Pattern: SHARED BUFFER with PARTITIONING\n");
+    printf("  Producer1 → writes to shared_output[0 .. N/2-1]      (first half)\n");
+    printf("  Producer2 → writes to shared_output[N/2 .. N-1]      (second half)\n");
+    printf("  Consumer1 → polls/reads from BOTH halves\n");
+    printf("  Consumer2 → polls/reads from BOTH halves\n\n");
+
+    printf("Dependency Pattern:\n");
+    printf("  Producer1 ─┬─→ Consumer1 (PDL edge)\n");
+    printf("             │\n");
+    printf("  Producer2 ─┼─→ Consumer1 (PDL edge)\n");
+    printf("             │\n");
+    printf("  Producer1 ─┤\n");
+    printf("             │\n");
+    printf("  Producer2 ─┴─→ Consumer2 (PDL edge)\n\n");
+    printf("  Each consumer depends on BOTH producers\n\n");
 
     // Configure for 1.5 waves
     int threadsPerBlock = 256;
     int blocksPerGrid = (int)(SM_COUNT * 1.5);
-    int N = blocksPerGrid * threadsPerBlock;
-    int size = N * sizeof(float);
+    int half_N = blocksPerGrid * threadsPerBlock / 2;  // Each producer processes half
+    int total_N = blocksPerGrid * threadsPerBlock;     // Total buffer size
+    int half_size = half_N * sizeof(float);
+    int total_size = total_N * sizeof(float);
 
-    printf("Configuration: %d blocks (%.2f waves), %d elements\n\n",
-           blocksPerGrid, (float)blocksPerGrid / SM_COUNT, N);
+    printf("Configuration:\n");
+    printf("  Total blocks: %d (%.2f waves)\n", blocksPerGrid, (float)blocksPerGrid / SM_COUNT);
+    printf("  Total elements: %d\n", total_N);
+    printf("  Producer1 range: [0 .. %d)  (%d elements)\n", half_N, half_N);
+    printf("  Producer2 range: [%d .. %d) (%d elements)\n\n", half_N, total_N, half_N);
 
     // Allocate memory
-    float *h_input1 = (float*)malloc(size);
-    float *h_input2 = (float*)malloc(size);
+    float *h_input1 = (float*)malloc(half_size);
+    float *h_input2 = (float*)malloc(half_size);
     float *h_weights = (float*)malloc(LUT_SIZE * sizeof(float));
 
-    for (int i = 0; i < N; i++) {
+    for (int i = 0; i < half_N; i++) {
         h_input1[i] = 1.0f + (i % 100) * 0.01f;
         h_input2[i] = 2.0f + (i % 150) * 0.015f;
     }
@@ -192,18 +253,18 @@ int main() {
         h_weights[i] = 2.0f + (i % 1000) * 0.001f;
     }
 
-    float *d_input1, *d_input2, *d_output1, *d_output2;
+    // Device memory: SHARED OUTPUT BUFFER
+    float *d_input1, *d_input2, *d_shared_output;  // ONE shared buffer!
     float *d_final_out1, *d_final_out2, *d_weights;
-    CHECK_CUDA(cudaMalloc(&d_input1, size));
-    CHECK_CUDA(cudaMalloc(&d_input2, size));
-    CHECK_CUDA(cudaMalloc(&d_output1, size));
-    CHECK_CUDA(cudaMalloc(&d_output2, size));
-    CHECK_CUDA(cudaMalloc(&d_final_out1, size));
-    CHECK_CUDA(cudaMalloc(&d_final_out2, size));
+    CHECK_CUDA(cudaMalloc(&d_input1, half_size));
+    CHECK_CUDA(cudaMalloc(&d_input2, half_size));
+    CHECK_CUDA(cudaMalloc(&d_shared_output, total_size));  // SHARED buffer (full size)
+    CHECK_CUDA(cudaMalloc(&d_final_out1, total_size));
+    CHECK_CUDA(cudaMalloc(&d_final_out2, total_size));
     CHECK_CUDA(cudaMalloc(&d_weights, LUT_SIZE * sizeof(float)));
 
-    CHECK_CUDA(cudaMemcpy(d_input1, h_input1, size, cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(d_input2, h_input2, size, cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(d_input1, h_input1, half_size, cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(d_input2, h_input2, half_size, cudaMemcpyHostToDevice));
     CHECK_CUDA(cudaMemcpy(d_weights, h_weights, LUT_SIZE * sizeof(float), cudaMemcpyHostToDevice));
 
     // Create 4 streams for producers and consumers
@@ -227,10 +288,9 @@ int main() {
     const int NUM_ITERS = 20;
 
     // ========================================================================
-    // WITH PDL: 2 Producers → 2 Consumers (Independent Chains)
+    // WITH PDL: Shared Buffer Approach
     // ========================================================================
-    printf("=== WITH PDL: 2P → 2C (Independent Chains) ===\n");
-
+    printf("=== WITH PDL: Shared Buffer with Partitioning ===\n");
     printf("Capturing graph with PDL edges...\n");
 
     cudaGraph_t graph;
@@ -243,21 +303,26 @@ int main() {
     CHECK_CUDA(cudaEventRecord(forkEvent, stream1));
     CHECK_CUDA(cudaStreamWaitEvent(stream2, forkEvent, 0));
 
-    // Producer1 on stream1, Producer2 on stream2 (parallel)
-    producer1Kernel<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(d_input1, d_output1, N);
-    producer2Kernel<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(d_input2, d_output2, N);
+    // Producer1 writes to FIRST HALF [0 .. half_N-1], Producer2 writes to SECOND HALF [half_N .. total_N-1]
+    int blocks_per_producer = blocksPerGrid / 2;
+    producer1Kernel<<<blocks_per_producer, threadsPerBlock, 0, stream1>>>(
+        d_input1, d_shared_output, half_N, 0);           // offset = 0 (first half)
+    producer2Kernel<<<blocks_per_producer, threadsPerBlock, 0, stream2>>>(
+        d_input2, d_shared_output, half_N, half_N);     // offset = half_N (second half)
 
-    // Consumer1 depends on Producer1
+    // Consumer1 depends on BOTH producers
     CHECK_CUDA(cudaEventRecord(event1, stream1));
-    CHECK_CUDA(cudaStreamWaitEvent(stream3, event1, 0));
-    consumer1Kernel<<<blocksPerGrid, threadsPerBlock, 0, stream3>>>(
-        d_output1, d_weights, d_final_out1, N);
-
-    // Consumer2 depends on Producer2
     CHECK_CUDA(cudaEventRecord(event2, stream2));
+    CHECK_CUDA(cudaStreamWaitEvent(stream3, event1, 0));
+    CHECK_CUDA(cudaStreamWaitEvent(stream3, event2, 0));
+    consumer1Kernel<<<blocksPerGrid, threadsPerBlock, 0, stream3>>>(
+        d_shared_output, d_weights, d_final_out1, total_N);  // Read from SHARED buffer
+
+    // Consumer2 also depends on BOTH producers
+    CHECK_CUDA(cudaStreamWaitEvent(stream4, event1, 0));
     CHECK_CUDA(cudaStreamWaitEvent(stream4, event2, 0));
     consumer2Kernel<<<blocksPerGrid, threadsPerBlock, 0, stream4>>>(
-        d_output2, d_weights, d_final_out2, N);
+        d_shared_output, d_weights, d_final_out2, total_N);  // Read from SHARED buffer
 
     // Sync all back to stream1
     CHECK_CUDA(cudaEventRecord(event3, stream3));
@@ -269,7 +334,7 @@ int main() {
     printf("✓ Graph captured\n");
 
     // Configure PDL edges
-    printf("Configuring PDL edges...\n");
+    printf("Configuring PDL edges for shared buffer...\n");
 
     size_t numNodes = 0;
     CHECK_CUDA(cudaGraphGetNodes(graph, NULL, &numNodes));
@@ -297,17 +362,17 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Remove default edges
-    cudaGraphNode_t fromRemove[] = {producer1Node, producer2Node};
-    cudaGraphNode_t toRemove[] = {consumer1Node, consumer2Node};
-    CHECK_CUDA(cudaGraphRemoveDependencies(graph, fromRemove, toRemove, NULL, 2));
+    // Remove default edges (4 edges total)
+    cudaGraphNode_t fromRemove[] = {producer1Node, producer2Node, producer1Node, producer2Node};
+    cudaGraphNode_t toRemove[] = {consumer1Node, consumer1Node, consumer2Node, consumer2Node};
+    CHECK_CUDA(cudaGraphRemoveDependencies(graph, fromRemove, toRemove, NULL, 4));
 
-    // Add TWO INDEPENDENT PDL edges
-    // Edge 1: Producer1 → Consumer1
-    // Edge 2: Producer2 → Consumer2
-    cudaGraphEdgeData edgeData1, edgeData2;
+    // Add FOUR PDL edges (each consumer depends on both producers)
+    cudaGraphEdgeData edgeData1, edgeData2, edgeData3, edgeData4;
     memset(&edgeData1, 0, sizeof(edgeData1));
     memset(&edgeData2, 0, sizeof(edgeData2));
+    memset(&edgeData3, 0, sizeof(edgeData3));
+    memset(&edgeData4, 0, sizeof(edgeData4));
 
     edgeData1.from_port = cudaGraphKernelNodePortProgrammatic;
     edgeData1.to_port = cudaGraphKernelNodePortDefault;
@@ -317,15 +382,25 @@ int main() {
     edgeData2.to_port = cudaGraphKernelNodePortDefault;
     edgeData2.type = cudaGraphDependencyTypeProgrammatic;
 
-    cudaGraphNode_t fromAdd[] = {producer1Node, producer2Node};
-    cudaGraphNode_t toAdd[] = {consumer1Node, consumer2Node};
-    cudaGraphEdgeData edgeArray[] = {edgeData1, edgeData2};
+    edgeData3.from_port = cudaGraphKernelNodePortProgrammatic;
+    edgeData3.to_port = cudaGraphKernelNodePortDefault;
+    edgeData3.type = cudaGraphDependencyTypeProgrammatic;
 
-    CHECK_CUDA(cudaGraphAddDependencies(graph, fromAdd, toAdd, edgeArray, 2));
+    edgeData4.from_port = cudaGraphKernelNodePortProgrammatic;
+    edgeData4.to_port = cudaGraphKernelNodePortDefault;
+    edgeData4.type = cudaGraphDependencyTypeProgrammatic;
+
+    cudaGraphNode_t fromAdd[] = {producer1Node, producer2Node, producer1Node, producer2Node};
+    cudaGraphNode_t toAdd[] = {consumer1Node, consumer1Node, consumer2Node, consumer2Node};
+    cudaGraphEdgeData edgeArray[] = {edgeData1, edgeData2, edgeData3, edgeData4};
+
+    CHECK_CUDA(cudaGraphAddDependencies(graph, fromAdd, toAdd, edgeArray, 4));
     printf("✓ PDL edges configured:\n");
-    printf("  Producer1 → Consumer1 (PDL - independent chain)\n");
-    printf("  Producer2 → Consumer2 (PDL - independent chain)\n");
-    printf("  Each consumer has only 1 incoming PDL edge!\n\n");
+    printf("  Producer1 (writes [0..%d))     → Consumer1 (PDL)\n", half_N);
+    printf("  Producer2 (writes [%d..%d)) → Consumer1 (PDL)\n", half_N, total_N);
+    printf("  Producer1 (writes [0..%d))     → Consumer2 (PDL)\n", half_N);
+    printf("  Producer2 (writes [%d..%d)) → Consumer2 (PDL)\n", half_N, total_N);
+    printf("  Each consumer polls both parts of shared buffer!\n\n");
 
     free(nodes);
 
@@ -356,35 +431,31 @@ int main() {
     // ========================================================================
     // Results
     // ========================================================================
-    printf("=== Expected Behavior ===\n");
-    printf("Each consumer has only 1 incoming PDL edge:\n");
-    printf("  - Consumer1 depends only on Producer1\n");
-    printf("  - Consumer2 depends only on Producer2\n");
-    printf("  - Both should achieve overlap (like 1P1C pattern)\n\n");
+    printf("=== Shared Buffer Benefits ===\n");
+    printf("This approach demonstrates:\n");
+    printf("  ✓ Realistic memory pattern (matrix tiles, data streams)\n");
+    printf("  ✓ Both producers write to NON-OVERLAPPING parts\n");
+    printf("  ✓ Consumers poll from both parts after PDL triggers\n");
+    printf("  ✓ More cache-friendly (single contiguous buffer)\n\n");
 
-    printf("Timeline expectation:\n");
-    printf("  Producer1 (38μs) ────────────────┐\n");
-    printf("              50%% ↓                 │\n");
-    printf("            Consumer1 launches ─────┤ (overlaps)\n");
-    printf("  Producer2 (38μs) ────────────────┐│\n");
-    printf("              50%% ↓                 ││\n");
-    printf("            Consumer2 launches ─────┤│ (overlaps)\n");
-    printf("                                    ↓↓\n");
-    printf("                  Both producers complete\n");
-    printf("                  Consumers finish dependent work\n\n");
+    printf("=== Expected Behavior ===\n");
+    printf("Each consumer has 2 incoming PDL edges:\n");
+    printf("  - Must wait for BOTH producers to trigger\n");
+    printf("  - Expected: NO overlap (multi-dependency semantics)\n\n");
 
     printf("=== Profile with Nsight Systems ===\n");
     printf("nsys profile -t cuda --cuda-graph-trace=node \\\n");
     printf("             -o pdl_2p2c ./cuda_pdl_2p2c\n\n");
     printf("Look for:\n");
-    printf("  1. Consumer1 launching at ~50%% of Producer1 execution\n");
-    printf("  2. Consumer2 launching at ~50%% of Producer2 execution\n");
-    printf("  3. Overlap between consumers and producers\n");
-    printf("  4. All 4 kernels potentially running concurrently\n");
+    printf("  1. Both producers running in parallel\n");
+    printf("  2. Both writing to SAME buffer (different regions)\n");
+    printf("  3. Consumers starting AFTER both producers trigger\n");
+    printf("  4. NO memory conflicts (non-overlapping writes)\n");
 
     // Cleanup
     CHECK_CUDA(cudaGraphExecDestroy(graphExec));
     CHECK_CUDA(cudaGraphDestroy(graph));
+    CHECK_CUDA(cudaEventDestroy(forkEvent));
     CHECK_CUDA(cudaEventDestroy(event1));
     CHECK_CUDA(cudaEventDestroy(event2));
     CHECK_CUDA(cudaEventDestroy(event3));
@@ -397,8 +468,7 @@ int main() {
     CHECK_CUDA(cudaStreamDestroy(stream4));
     CHECK_CUDA(cudaFree(d_input1));
     CHECK_CUDA(cudaFree(d_input2));
-    CHECK_CUDA(cudaFree(d_output1));
-    CHECK_CUDA(cudaFree(d_output2));
+    CHECK_CUDA(cudaFree(d_shared_output));
     CHECK_CUDA(cudaFree(d_final_out1));
     CHECK_CUDA(cudaFree(d_final_out2));
     CHECK_CUDA(cudaFree(d_weights));
