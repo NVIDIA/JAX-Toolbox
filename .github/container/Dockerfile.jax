@@ -42,7 +42,6 @@ ARG GIT_USER_EMAIL
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
-    git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX}
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
@@ -51,19 +50,6 @@ ADD build-jax.sh build-te.sh local_cuda_arch /usr/local/bin/
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
     chmod +x /usr/local/bin/bazel
-# Populate ${BUILD_PATH_JAXLIB} with editable wheels; --no-install because
-# (a) this is the builder stage, and (b) pip-finalize.sh does the install
-RUN mkdir -p /builder/extra-targets && \
-    build-jax.sh \
-    --bazel-cache ${BAZEL_CACHE} \
-    --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
-    --extra-targets "${EXTRA_BAZEL_TARGETS}" \
-    --extra-target-dest /builder/extra-targets \
-    --no-install \
-    --src-path-jax ${SRC_PATH_JAX} \
-    --src-path-xla ${SRC_PATH_XLA} \
-    --clean \
-    ${EXTRA_BUILD_JAX_ARGS}
 
 ## Transformer engine: check out source and build wheel
 RUN --mount=type=ssh \
@@ -97,7 +83,6 @@ ENV XLA_FLAGS=""
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_latency_hiding_scheduler=true"
 
 COPY --from=builder ${BUILD_PATH_JAXLIB} ${BUILD_PATH_JAXLIB}
-COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
 COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
 COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
 COPY --from=builder /builder/extra-targets/bin/* /usr/local/bin
@@ -112,10 +97,10 @@ RUN mkdir -p /opt/pip-tools.d
 ## Editable installations of jax and jaxlib
 # Note that jax now is an independent wheel, extra [k8s] needs to be from build path also
 RUN <<"EOF" bash -ex
-for component in $(ls ${BUILD_PATH_JAXLIB}); do
-    echo "-e file://${BUILD_PATH_JAXLIB}/${component}" >> /opt/pip-tools.d/requirements-jax.in;
-done
-echo "-e file://${SRC_PATH_JAX}[k8s]" >> /opt/pip-tools.d/requirements-jax.in
+echo "https://storage.googleapis.com/jax-release-artifacts/0.9.0.1/rc4/release/jax-0.9.0.1-py3-none-any.whl" >> /opt/pip-tools.d/requirements-jax.in
+echo "https://storage.googleapis.com/jax-release-artifacts/0.9.0.1/rc4/release/jaxlib-0.9.0.1-cp312-cp312-manylinux_2_27_$(uname -m).whl" >> /opt/pip-tools.d/requirements-jax.in
+echo "https://storage.googleapis.com/jax-release-artifacts/0.9.0.1/rc4/release/jax_cuda13_plugin-0.9.0.1-cp312-cp312-manylinux_2_27_$(uname -m).whl" >> /opt/pip-tools.d/requirements-jax.in
+echo "//storage.googleapis.com/jax-release-artifacts/0.9.0.1/rc4/release/jax_cuda13_pjrt-0.9.0.1-py3-none-manylinux_2_27_$(uname -m).whl" >> /opt/pip-tools.d/requirements-jax.in
 EOF
 
 ## Flax
