@@ -2,10 +2,14 @@ name: CI
 
 on:
   schedule:
-    - cron: '30 9 * * *'  # Pacific Time 01:30 AM in UTC
-  push:
-    branches:
-      - "**"
+    - cron: '30 9 * * *' # Pacific Time 01:30 AM in UTC
+    - cron: '0 0 * * 6' #midnight every Saturday UTC for scale-training
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
     paths-ignore:
       - '**.md'
       - '.github/triage/**'
@@ -49,10 +53,15 @@ on:
           - axlearn - run only the tests for axlearn
         options: [full, jax, te, maxtext, axlearn]
         default: full
+      SCALE_TRAINING:
+        type: boolean
+        description: "Whether to run scale-training specific tests."
+        default: false
+        required: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ github.event.schedule || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: write       # to fetch code and push branch
@@ -75,6 +84,8 @@ jobs:
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
       CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
+      IS_SCALE_TRAINING: ${{ steps.run-type.outputs.IS_SCALE_TRAINING }}
+      SUFFIX: ${{ steps.run-type.outputs.SUFFIX }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
         id: cancel-if-draft
@@ -141,6 +152,18 @@ jobs:
           fi
           echo "CUDA_IMAGE=${CUDA_IMAGE}" >> $GITHUB_OUTPUT
 
+      - name: Determine if scale-training run
+        id: run-type
+        run: |
+          if [[ "${{ github.event.schedule }}" == "0 0 * * 6" || "${{ inputs.SCALE_TRAINING }}" == "true" ]]; then
+            echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
+            echo "SUFFIX=-scale-training" >> $GITHUB_OUTPUT
+          else
+            echo "IS_SCALE_TRAINING=false" >> $GITHUB_OUTPUT
+            echo "SUFFIX=" >> $GITHUB_OUTPUT
+          fi
+
+
   bump-manifest:
     needs: metadata
     runs-on: ubuntu-22.04
@@ -196,7 +219,20 @@ jobs:
             URLREF=$(cut -d= -f 2- <<< "${override}")
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
           done
+
+          # for scale training we need a specific XLA ref
+          if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
+            urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/sfvaroglu/xla#nv-scale-training/staging"}')
+
+            # Use the JAX commit from the last tag in the repo
+            # TODO: extract this info from tags
+            JAX_COMMIT=1066aa7b8
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"JAX\": \"https://github.com/jax-ml/jax#${JAX_COMMIT}\"}")
+          fi
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
+          # sanity check
+          echo "Final URLREF going to be used"
+          echo ${urlrefs} | jq -c '.'
 
   amd64:
     needs: [metadata, bump-manifest]
@@ -431,13 +467,13 @@ jobs:
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
     uses: ./.github/workflows/_publish_container.yaml
     with:
-      ARTIFACT_NAME: ${{ matrix.config.stage }}-${{ matrix.config.flavor }}
-      ARTIFACT_TAG: ${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }}
+      ARTIFACT_NAME: ${{ matrix.config.stage }}-${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}
+      ARTIFACT_TAG: ${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}-${{ needs.metadata.outputs.BUILD_DATE }}
       SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
       TARGET_IMAGE: ${{ matrix.config.target_image }}
       TARGET_TAGS: |
-        type=raw,value=${{ matrix.config.flavor }},priority=${{ matrix.config.priority }}
-        type=raw,value=${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
+        type=raw,value=${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }},priority=${{ matrix.config.priority }}
+        type=raw,value=${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
 
   finalize:
     needs: [metadata, amd64, arm64, publish-containers]

@@ -68,7 +68,7 @@ spec:
                     skip_first_n_steps_for_profiler=3 \
                     profiler_steps=8" \
                 |& tee /opt/output/output.$NODE_RANK.log >"${console}"
-              code=$?
+              code=${PIPESTATUS[0]}
               # Should run even on failure
               cat /opt/output/nccl.$NODE_RANK.log >"${console}"
               exit $code
