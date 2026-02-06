@@ -3,6 +3,14 @@ name: Launch workload on GKE with XPK
 description: "Launch a JobSet workload on GKE with XPK. Upload artifacts from container to GCS and GitHub Actions."
 
 inputs:
+  GITHUB_TOKEN:
+    description: 'GitHub artifact registry login token'
+    type: string
+    required: true
+  NVCR_TOKEN:
+    description: 'NVCR artifact registry login token'
+    type: string
+    required: true
   GCP_PROJECT:
     description: 'GCP project ID'
     default: nv-jaxtoolboxgcp-20240925
@@ -12,9 +20,9 @@ inputs:
     default: jtb-2025-10-07
     required: false
     type: string
-  GCP_ZONE:
+  GCP_REGION:
     description: 'GCP zone of the cluster'
-    default: europe-west4-b
+    default: europe-west4
     required: false
     type: string
   CLUSTER_DEVICE: 
@@ -27,8 +35,8 @@ inputs:
     default: 2
     required: false
     type: string
-  MAIN_CONTAINER_NAME: 
-    description: 'Name of the main contianer in an XPK JobSet (fixed in xpk)'
+  MAIN_CONTAINER: 
+    description: 'Name of the main contianer in an XPK JobSet (fixed)'
     default: gpu-image
     required: false
     type: string
@@ -47,11 +55,6 @@ inputs:
     required: false
     default: ghcr.io/nvidia/jax:latest
     type: string
-  IMAGE_PULL_SECRET_NAME:
-    description: 'Name of k8s Secret resource for registry ImagePullSecret'
-    required: false
-    default: jax-toolbox-ghcr
-    type: string
   COMMAND:
     description: 'Command to run in main container on JobSet start up'
     required: false
@@ -67,7 +70,7 @@ inputs:
     required: false
     default: 'exit \$EXIT_CODE'
     type: string
-  WORKLOAD_NAME_PREFIX:
+  WORKLOAD_PREFIX:
     description: 'Workload name prefix for XPK, also used to name uploaded artifact'
     required: false
     default: 'xpk'
@@ -75,7 +78,7 @@ inputs:
   XPK_VERSION:
     description: 'XPK release tag'
     required: false
-    default: 'v0.13.0'
+    default: 'v1.0.0'
     type: string
   XPK_PYTHON:
     description: 'Python version for XPK'
@@ -87,49 +90,102 @@ runs:
   using: 'composite'
   steps:
 
-  - name: Set workload name
+  - name: Check cluster online
+    id: cluster-online
     shell: bash -x -e -u {0}
     run: |
-      WORKLOAD_NAME="${{ inputs.WORKLOAD_NAME_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-      DATE=$(date +'%Y-%m-%d')
-      GCS_ARTIFACT_PATH="gs://${{ inputs.GCS_BUCKET }}/${{ inputs.WORKLOAD_NAME_PREFIX }}/${DATE}/${WORKLOAD_NAME}"
 
-      echo "WORKLOAD_NAME=${WORKLOAD_NAME}" >> ${GITHUB_ENV}
+      # check cluster exists
+      gcloud container clusters list | grep ${{ inputs.GKE_CLUSTER }} | grep ${{ inputs.GCP_REGION }} | grep RUNNING > /dev/null
+
+      if [[ "$?" == "1" ]]; then
+        echo "Cluster ${{ inputs.GKE_CLUSTER }} does not exist"
+        echo "proceed=false" >> $GITHUB_OUTPUT
+        exit 0
+      fi
+
+      # get gpu nodepool name
+      GPU_NODEPOOL=$(gcloud container clusters describe ${{ inputs.GKE_CLUSTER }} --region ${{ inputs.GCP_REGION }} | yq -r '.nodePools[].name' | grep -v system)
+
+      # get cluster credentials
+      gcloud container clusters get-credentials ${{ inputs.GKE_CLUSTER }} \
+        --location=${{ inputs.GCP_REGION }} \
+        --dns-endpoint \
+        --project=${{ inputs.GCP_PROJECT }} > /dev/null
+
+      # inspect gpu nodes
+      GPU_NODES_ONLINE=$(kubectl get nodes -l cloud.google.com/gke-nodepool=${GPU_NODEPOOL} -o json | jq '.items | length >= '${{ inputs.NUM_NODES }})
+      echo "proceed=${GPU_NODES_ONLINE}" >> $GITHUB_OUTPUT
+
+  - name: Login to GitHub Container Registry
+    if: steps.cluster-online.outputs.proceed == 'true'
+    uses: docker/login-action@v3
+    with:
+      registry: ghcr.io
+      username: ${{ github.repository_owner }}
+      password: ${{ inputs.GITHUB_TOKEN }}
+
+  - name: Login to nvcr.io Container Registry
+    if: steps.cluster-online.outputs.proceed == 'true'
+    uses: docker/login-action@v3
+    with:
+      registry: nvcr.io
+      username: $oauthtoken
+      password: ${{ inputs.NVCR_TOKEN }}
+
+  - name: K8s GHCR store and delete token
+    id: store-token
+    if: steps.cluster-online.outputs.proceed == 'true'
+    uses: ./.github/actions/store-delete-k8s-ghcr
+
+  - name: Set workload name
+    shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
+    run: |
+      WORKLOAD="${{ inputs.WORKLOAD_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+      DATE=$(date +'%Y-%m-%d')
+      GCS_ARTIFACT_PATH="gs://${{ inputs.GCS_BUCKET }}/${{ inputs.WORKLOAD_PREFIX }}/${DATE}/${WORKLOAD}"
+
+      echo "WORKLOAD=${WORKLOAD}" >> ${GITHUB_ENV}
       echo "DATE=${DATE}" >> ${GITHUB_ENV}
       echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
 
   - name: Setup environment
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      mkdir -p ${WORKLOAD_NAME}
-      uv venv --verbose --python=${{ inputs.XPK_PYTHON }} --directory=${WORKLOAD_NAME}
-      source ${WORKLOAD_NAME}/.venv/bin/activate
+      mkdir -p ${WORKLOAD}
+      uv venv --verbose --python=${{ inputs.XPK_PYTHON }} --directory=${WORKLOAD}
+      source ${WORKLOAD}/.venv/bin/activate
 
       # install xpk
-      git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD_NAME}/xpk
+      git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD}/xpk
 
-      sed 's@pip install \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD_NAME}/xpk/Makefile
-      cd ${WORKLOAD_NAME}/xpk && sudo make install; cd -
+      sed 's@pip install -e \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD}/xpk/Makefile
+      cd ${WORKLOAD}/xpk && sudo make install; cd -
 
   - name: Show environment
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       gcloud version
   
-      source ${WORKLOAD_NAME}/.venv/bin/activate
+      source ${WORKLOAD}/.venv/bin/activate
       python --version
       xpk version
   
   - name: Apply XPK workload create patch
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
-      ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
+      ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD}/xpk
   
   - name: Set workload commands
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      # install dependencies to enable export artifacts from container to gcs bucket
+      # install dependencies for pod artifact upload to GCS
       PRELUDE="
           apt install -y ripgrep > /dev/null;
           curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
@@ -139,26 +195,8 @@ runs:
   
           mkdir -p /usr/share/workload;
           mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
-
-      # Work around GCP's deployment model that munges together three
-      # mostly unrelated things: (1) the host machine's CUDA driver/libs,
-      # (2) the version of NCCL installed on the host machine, and (3)
-      # the GCP-specific NCCL plugins. These are jumbled together and
-      # mounted into the container at /usr/local/nvidia/lib64. We only want
-      # #3, so copy them to a separate directory.
-      PRELUDE+="
-          export NCCL_LIB_DIR=/gcp-nccl-plugins;
-          mkdir \${NCCL_LIB_DIR};
-          cp -v /usr/local/nvidia/lib64/nccl-env-profile{,-ll128}.sh /usr/local/nvidia/lib64/libnccl-{net,net_internal,tcpx,tcpxo,tuner}.so /usr/local/nvidia/lib64/a3plus_{guest,tuner}_config{,_ll128}.textproto \${NCCL_LIB_DIR};"
-      # Prepend NCCL_LIB_DIR to LD_LIBRARY_PATH
-      PRELUDE+="source \${NCCL_LIB_DIR}/nccl-env-profile.sh;"
-      # Make sure #2 above does not interfere with the container's NCCL
-      PRELUDE+="
-          export LD_LIBRARY_PATH=/opt/nvidia/nccl/lib:\$LD_LIBRARY_PATH;
-          env;
-      "
   
-      # gsutil command to export logs from container's /opt/output to bucket
+      # upload pod artifacts to GCS
       POSTLUDE="
           ./google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node-0\$NODE_RANK;
           ${{ inputs.EXIT_COMMAND }}
@@ -167,23 +205,21 @@ runs:
       CMD="${{ inputs.COMMAND }}"
   
       # set container commands in-line
-      PRELUDE=$(echo ${PRELUDE} | sed 's/\n/\ /g')
-      POSTLUDE=$(echo ${POSTLUDE} | sed 's/\n/\ /g')
-      CMD=$(echo ${CMD} | sed 's/\n/\ /g')
-
-      echo "CMD=${PRELUDE} ${CMD} ${POSTLUDE}" >> ${GITHUB_ENV}
+      CMD=$(echo ${PRELUDE} ${CMD} ${POSTLUDE} | sed 's/\n/\ /g')
+      echo "CMD=${CMD}" >> ${GITHUB_ENV}
   
   - name: Create workload on cluster with XPK
     shell: bash -x -e -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      source ${WORKLOAD_NAME}/.venv/bin/activate
-      cd ${WORKLOAD_NAME}/xpk
+      source ${WORKLOAD}/.venv/bin/activate
+      cd ${WORKLOAD}/xpk
 
       args=(
           --project=${{ inputs.GCP_PROJECT }}
           --cluster=${{ inputs.GKE_CLUSTER }}
-          --zone=${{ inputs.GCP_ZONE }}
-          --workload=${WORKLOAD_NAME}
+          --zone=${{ inputs.GCP_REGION }}
+          --workload=${WORKLOAD}
           --docker-image=${{ inputs.IMAGE }}
           --device-type=${{ inputs.CLUSTER_DEVICE }}
           --num-nodes=${{ inputs.NUM_NODES }}
@@ -192,17 +228,21 @@ runs:
           --scheduler=gke.io/topology-aware-auto
       )
 
-      version_greater() {
-        if [[ $(echo -e "$1\n$2" | sort -V | head -n 1) != "$1" ]]; then
+      version_geq() {
+        if [[ $1 == $2 ]]; then
+          return 0
+        elif [[ $(echo -e "$1\n$2" | sort -V | head -n 1) != "$1" ]]; then
           return 0
         fi
         return 1
       }
 
-      if version_greater "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
-        args+=(
-            --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
-        )
+      if version_geq "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
+          args+=(
+              --docker-image-pull-secret=${{ steps.store-token.outputs.token-name }}
+              --env="JAX_COORDINATOR_PORT=3389"
+              --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
+          )
 
         envs_flat=$(echo "${{ inputs.ENVS }}" | tr '\n' ' ')
         IFS=';' read -ra env_vars <<< "${envs_flat}"
@@ -211,92 +251,102 @@ runs:
             [[ -n "${env}" ]] && args+=(--env="${env}")
         done
       fi
-        
-      python xpk.py workload create \
-        "${args[@]}" \
-        --command="${CMD}"
+
+      if version_geq "${{ inputs.XPK_VERSION }}" "v1.0.0"; then
+        XPK_COMMAND=xpk
+      else
+        XPK_COMMAND="python xpk.py"
+      fi
+      ${XPK_COMMAND} workload create ${args[@]} --command="${CMD}"
   
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     env:
       POLL_TIMEOUT: 3600
     run: |
       START=$(date +%s)
       JOBSET_ACTIVE=false
       while ! ${JOBSET_ACTIVE}  || [ -z ${JOBSET_ACTIVE} ]; do
-        JOBSET_ACTIVE=$(kubectl get jobset -o json | jq -r '.items[] | select(.metadata.name == "'${WORKLOAD_NAME}'").status.replicatedJobsStatus[0] | .active == 1')
+        JOBSET_ACTIVE=$(kubectl get jobset -o json | jq -r '.items[] | select(.metadata.name == "'${WORKLOAD}'").status.replicatedJobsStatus[0] | .active == 1')
         NOW=$(date +%s)
         ELAPSED=$(( NOW - START ))
         if (( ELAPSED > POLL_TIMEOUT )) ; then
-          echo "Timeout after waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
+          echo "Timeout after waiting for JobSet ${WORKLOAD} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
           exit 1
         fi
-        echo "Waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
+        echo "Waiting for JobSet ${WORKLOAD} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
         sleep 5
       done
   
-      echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${{ inputs.GKE_CLUSTER }}"
+      echo "JobSet ${WORKLOAD} has just become active in cluster ${{ inputs.GKE_CLUSTER }}"
   
-  - name: Set JobSet Pod name
+  - name: Set JobSet Pods names
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${WORKLOAD_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
+      echo "JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD}'") | .name' | tr '\n' ' '))" >> ${GITHUB_ENV}
   
   - name: Wait for JobSet Pod readiness
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      POD_READY=false
-      while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
-        echo "Waiting for pod ${POD} in JobSet ${WORKLOAD_NAME} to become ready"
-        sleep 10
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
+        POD_READY=false
+        while [ ${POD_READY} == "false" ] || [ -z ${POD_READY} ]; do
+          echo "Waiting for pod ${jobset_pod} in JobSet ${WORKLOAD} to become ready"
+          sleep 10
   
-        POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
-        if ${POD_ERROR} ; then
-          echo "There was an issue starting the JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }}"
-          break
-        fi
+          POD_READY=$(kubectl get pod ${jobset_pod} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER }}'").ready')
+
+          if [ ${POD_READY} == "false" ]; then
+            POD_ERROR=$(kubectl get pod ${jobset_pod} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER }}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
+            if ${POD_ERROR} ; then
+              echo "There was an issue starting the JobSet ${WORKLOAD} on ${{ inputs.GKE_CLUSTER }}"
+              break
+            fi
+          fi
   
-        POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'").ready')
+        done;
       done;
   
   - name: Stream logs from JobSet Pods
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
-      echo "JOBSET_PODS=${JOBSET_PODS[@]}" >> ${GITHUB_ENV}
-  
-      for jobset_pod in ${JOBSET_PODS[@]}; do
-          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD_NAME}/${jobset_pod}.log &
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
+          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD}/${jobset_pod}.log &
       done
       wait < <(jobs -p)
   
   - name: Set exit code from JobSet pods logs
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
       parse_pod_exit_code() {
         local pod=$1
-        MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}/${pod}.log | awk '{ print $3 }' )"
-        echo ${MAYBE_XPK_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
+        MAYBE_JOBSET_EXIT_CODE="$(tail -n 1 ${WORKLOAD}/${pod}.log | awk '{ print $3 }' )"
+        echo ${MAYBE_JOBSET_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
         
         if [ $? -ne 0 ]; then
-          echo "The JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }} did not complete as expected "
-          echo "XPK_EXIT_CODE=1" >> ${GITHUB_ENV}
+          echo "The JobSet ${WORKLOAD} on ${{ inputs.GKE_CLUSTER }} did not complete as expected "
+          echo "JOBSET_EXIT_CODE=1" >> ${GITHUB_ENV}
           exit 1
         fi
 
-        echo "Pod ${pod} exited with ${MAYBE_XPK_EXIT_CODE}" >&2
+        echo "Pod ${pod} exited with ${MAYBE_JOBSET_EXIT_CODE}" >&2
 
-        eval "export ${MAYBE_XPK_EXIT_CODE}"
+        eval "export ${MAYBE_JOBSET_EXIT_CODE}"
         echo ${EXIT_CODE}
       }
       
       ALL_EXIT_CODES=0
-      for jobset_pod in ${JOBSET_PODS[@]}; do
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
         POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod})
         ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
       done
 
-      echo "XPK_EXIT_CODE=${ALL_EXIT_CODES}" >> ${GITHUB_ENV}
+      echo "JOBSET_EXIT_CODE=${ALL_EXIT_CODES}" >> ${GITHUB_ENV}
       if [ ${ALL_EXIT_CODES} -gt 0 ]; then
         exit 1
       fi
@@ -304,28 +354,29 @@ runs:
 
   - name: Clean up JobSet from cluster
     shell: bash -x -u {0}
-    if: ${{ always() }}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      kubectl delete jobset --wait ${WORKLOAD_NAME} || echo "JobSet ${WORKLOAD_NAME} does not exist in ${{ inputs.GKE_CLUSTER }}"
+      kubectl delete jobset --wait ${WORKLOAD} || echo "JobSet ${WORKLOAD} does not exist in ${{ inputs.GKE_CLUSTER }}"
   
   - name: Download artifacts from GCS to runner
     shell: bash -x -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      mkdir -p ${WORKLOAD_NAME}/output
-      gsutil cp -r ${GCS_ARTIFACT_PATH} ${WORKLOAD_NAME}/output
-      cp ${WORKLOAD_NAME}/*.log ${WORKLOAD_NAME}/output
+      mkdir -p ${WORKLOAD}/output
+      gsutil cp -r ${GCS_ARTIFACT_PATH} ${WORKLOAD}/output
+      cp ${WORKLOAD}/*.log ${WORKLOAD}/output
   
   - name: Upload artifacts to GitHub Actions from runner
     uses: actions/upload-artifact@v4
     with:
-      name: ${{ inputs.WORKLOAD_NAME_PREFIX }}
-      path: ${{ env.WORKLOAD_NAME }}/output/*
+      name: ${{ inputs.WORKLOAD_PREFIX }}
+      path: ${{ env.WORKLOAD }}/output/*
   
   - name: Clean up xpk environment from runner
-    shell: bash -x -u {0}
+    shell: bash -x {0}
     if: ${{ always() }}
     run: |
-      sudo rm -rf ${WORKLOAD_NAME}
+      sudo rm -rf ${WORKLOAD}
 
   - name: Generate sitrep
     id: sitrep
@@ -335,16 +386,20 @@ runs:
       source .github/workflows/scripts/to_json.sh
       badge_label="${{ matrix.test }}"
 
-      summary="${{ inputs.WORKLOAD_NAME_PREFIX }}"
-      outcome=success
-      badge_label="${{ inputs.WORKLOAD_NAME_PREFIX }}"
-      badge_color=brightgreen
+      summary="${{ inputs.WORKLOAD_PREFIX }}"
+      badge_label="${{ inputs.WORKLOAD_PREFIX }}"
 
-      if [ "${XPK_EXIT_CODE}" -gt 0 ]; then
+      if [[ -z "${JOBSET_EXIT_CODE}" ]]; then
+        badge_color=gray
+        outcome=skipped
+        summary+=": skipped"
+      elif [[ "${JOBSET_EXIT_CODE}" -gt 0 ]]; then 
         badge_color=red
         outcome=failed
         summary+=": fail"
       else
+        badge_color=brightgreen
+        outcome=success
         summary+=": pass"
       fi
 
@@ -358,6 +413,6 @@ runs:
     if: ${{ always() }}
     uses: actions/upload-artifact@v4
     with:
-      name: ${{ inputs.WORKLOAD_NAME_PREFIX }}-sitrep
+      name: ${{ inputs.WORKLOAD_PREFIX }}-sitrep
       path: |
         sitrep.json

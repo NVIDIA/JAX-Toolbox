@@ -1,0 +1,14 @@
+diff --git a/data/Dockerfile b/data/Dockerfile
+index 95fd9a4..2820ce9 100644
+--- a/data/Dockerfile
++++ b/data/Dockerfile
+@@ -57,6 +57,9 @@ ENV PATH $PATH:/usr/local/go/bin:$GOPATH/bin
+ 
+ # Clone the Cluster Toolkit repository
+ RUN git clone https://github.com/GoogleCloudPlatform/cluster-toolkit.git /cluster-toolkit
++# (WIP) Replace nccl-tcpxo-installer pod manifest from GCP to modified version without --nccl-install flag
++# there is probably a nicer way to handle this
++RUN sed 's@https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/39308db7574925ea3c14f9113fcf87f70a6fcc26/gpudirect-tcpxo/nccl-tcpxo-installer.yaml@https://raw.githubusercontent.com/NVIDIA/JAX-Toolbox/0eab4c8f4a445b1c71ee3d52ece6d0d3f2b5a28d/.github/gke-workflow/xpk/v1.0.0/nccl-tcpxo-installer.yaml@g -i /cluster-toolkit/modules/compute/gke-node-pool/gpu_direct.tf
+ 
+ # Build the Cluster Toolkit
+ WORKDIR /cluster-toolkit
