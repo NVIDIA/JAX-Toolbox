@@ -73,8 +73,6 @@ axlearn:
   mirror_url: https://github.com/nvjax-svc-0/axlearn.git
   tracking_ref: main
   mode: git-clone
-  patches:
-    pull/1339/head: origin/pull/1339/head
 qwix:
   url: https://github.com/google/qwix.git
   tracking_ref: main
