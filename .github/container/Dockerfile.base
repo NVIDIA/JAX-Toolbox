@@ -127,13 +127,6 @@ ADD symlnk-nvshmem.sh /usr/local/bin
 RUN symlnk-nvshmem.sh
 
 ###############################################################################
-## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
-###############################################################################
-
-ADD install-nsys-jax.sh /usr/local/bin
-RUN install-nsys-jax.sh ${JAX_TOOLBOX_REF}
-
-###############################################################################
 ## Copy manifest file to the container
 ###############################################################################
 

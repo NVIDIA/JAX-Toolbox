@@ -133,6 +133,13 @@ echo "transformer-engine @ file://$(ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl
 EOF
 
 ###############################################################################
+## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
+###############################################################################
+COPY nsys_jax/ /opt/nsys_jax
+ADD install-nsys-jax.sh /usr/local/bin
+RUN install-nsys-jax.sh /opt/nsys_jax
+
+###############################################################################
 ## Install primary packages and transitive dependencies
 ###############################################################################
 
