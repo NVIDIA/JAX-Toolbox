@@ -66,6 +66,7 @@ spec:
                     use_iota_embed=true \
                     logits_dot_in_fp32=false \
                     profiler=nsys \
+                    upload_all_profiler_results=true \
                     skip_first_n_steps_for_profiler=3 \
                     profiler_steps=8" \
                 |& tee /opt/output/output.$NODE_RANK.log >"${console}"
