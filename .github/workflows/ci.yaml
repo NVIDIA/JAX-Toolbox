@@ -224,8 +224,8 @@ jobs:
             urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/sfvaroglu/xla#nv-scale-training/staging"}')
 
             # Use the JAX commit from the last tag in the repo
-            # TODO: extract this info from tags
-            JAX_COMMIT=1066aa7b8
+            JAX_COMMIT=$(gh api repos/sfvaroglu/xla/tags --jq '.[0].name' | awk -F'-' '{print $NF}')
+            echo ${JAX_COMMIT}
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"JAX\": \"https://github.com/jax-ml/jax#${JAX_COMMIT}\"}")
           fi
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
