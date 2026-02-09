@@ -121,195 +121,203 @@ jobs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}
 
-  # build-equinox:
-  #   needs: build-jax
-  #   runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
-  #   outputs:
-  #     DOCKER_TAG_MEALKIT: ${{ steps.build-equinox.outputs.DOCKER_TAG_MEALKIT }}
-  #     DOCKER_TAG_FINAL:   ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #     - name: Build Equinox container
-  #       id: build-equinox
-  #       uses: ./.github/actions/build-container
-  #       with:
-  #         ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-  #         ARTIFACT_NAME: artifact-equinox-build
-  #         BADGE_FILENAME: badge-equinox-build
-  #         BUILD_DATE: ${{ inputs.BUILD_DATE }}
-  #         BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-  #         CONTAINER_NAME: equinox
-  #         DOCKERFILE: .github/container/Dockerfile.equinox
-  #         RUNNER_SIZE: small
-  #         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-  #         ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-  #         github-token: ${{ secrets.GITHUB_TOKEN }}
-  #         bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-  #         EXTRA_BUILD_ARGS: |
-  #           URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
+  build-equinox:
+    needs: build-jax
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-equinox.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build Equinox container
+        id: build-equinox
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-equinox-build
+          BADGE_FILENAME: badge-equinox-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: equinox
+          DOCKERFILE: .github/container/Dockerfile.equinox
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
 
-  # build-maxtext:
-  #   needs: build-jax
-  #   runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
-  #   outputs:
-  #     DOCKER_TAG_MEALKIT: ${{ steps.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}
-  #     DOCKER_TAG_FINAL:   ${{ steps.build-maxtext.outputs.DOCKER_TAG_FINAL }}
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #     - name: Build MaxText container
-  #       id: build-maxtext
-  #       uses: ./.github/actions/build-container
-  #       with:
-  #         ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-  #         ARTIFACT_NAME: artifact-maxtext-build
-  #         BADGE_FILENAME: badge-maxtext-build
-  #         BUILD_DATE: ${{ inputs.BUILD_DATE }}
-  #         BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-  #         CONTAINER_NAME: maxtext
-  #         DOCKERFILE: .github/container/Dockerfile.maxtext
-  #         RUNNER_SIZE: small
-  #         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-  #         ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-  #         github-token: ${{ secrets.GITHUB_TOKEN }}
-  #         bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-  #         EXTRA_BUILD_ARGS: |
-  #           URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
+  build-maxtext:
+    needs: build-jax
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-maxtext.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build MaxText container
+        id: build-maxtext
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-maxtext-build
+          BADGE_FILENAME: badge-maxtext-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: maxtext
+          DOCKERFILE: .github/container/Dockerfile.maxtext
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
 
-  # build-torchax:
-  #   needs: build-jax
-  #   runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
-  #   outputs:
-  #     DOCKER_TAG_MEALKIT: ${{ steps.build-torchax.outputs.DOCKER_TAG_MEALKIT }}
-  #     DOCKER_TAG_FINAL:   ${{ steps.build-torchax.outputs.DOCKER_TAG_FINAL }}
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #     - name: Build TorchAX container
-  #       id: build-torchax
-  #       uses: ./.github/actions/build-container
-  #       with:
-  #         ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-  #         ARTIFACT_NAME: artifact-torchax-build
-  #         BADGE_FILENAME: badge-torchax-build
-  #         BUILD_DATE: ${{ inputs.BUILD_DATE }}
-  #         BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-  #         CONTAINER_NAME: torchax
-  #         DOCKERFILE: .github/container/Dockerfile.torchax
-  #         RUNNER_SIZE: small
-  #         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-  #         ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-  #         github-token: ${{ secrets.GITHUB_TOKEN }}
-  #         bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-  #         EXTRA_BUILD_ARGS: |
-  #           URLREF_TORCHAX=${{ fromJson(inputs.SOURCE_URLREFS).TORCHAX }}
+  build-torchax:
+    needs: build-jax
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-torchax.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-torchax.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build TorchAX container
+        id: build-torchax
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-torchax-build
+          BADGE_FILENAME: badge-torchax-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: torchax
+          DOCKERFILE: .github/container/Dockerfile.torchax
+          RUNNER_SIZE: small
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_TORCHAX=${{ fromJson(inputs.SOURCE_URLREFS).TORCHAX }}
 
-  # build-axlearn:
-  #   needs: build-jax
-  #   runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
-  #   outputs:
-  #     DOCKER_TAG_MEALKIT: ${{ steps.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}
-  #     DOCKER_TAG_FINAL:   ${{ steps.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #     - name: Build AxLearn container
-  #       id: build-axlearn
-  #       uses: ./.github/actions/build-container
-  #       with:
-  #         ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-  #         ARTIFACT_NAME: artifact-axlearn-build
-  #         BADGE_FILENAME: badge-axlearn-build
-  #         BUILD_DATE: ${{ inputs.BUILD_DATE }}
-  #         BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-  #         CONTAINER_NAME: axlearn
-  #         DOCKERFILE: .github/container/Dockerfile.axlearn
-  #         RUNNER_SIZE: large
-  #         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-  #         ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-  #         github-token: ${{ secrets.GITHUB_TOKEN }}
-  #         bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-  #         EXTRA_BUILD_ARGS: |
-  #           URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
+  build-axlearn:
+    needs: build-jax
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:   ${{ steps.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build AxLearn container
+        id: build-axlearn
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-axlearn-build
+          BADGE_FILENAME: badge-axlearn-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: axlearn
+          DOCKERFILE: .github/container/Dockerfile.axlearn
+          RUNNER_SIZE: large
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
 
-  # collect-docker-tags:
-  #   runs-on: ubuntu-22.04
-  #   if: ${{ !cancelled() }}
-  #   needs:
-  #     - build-base
-  #     - build-jax
-  #     - build-equinox
-  #     - build-maxtext
-  #     - build-axlearn
-  #   outputs:
-  #     TAGS: ${{ steps.collect-tags.outputs.TAGS }}
-  #   steps:
-  #     - name: Save docker tags as a JSON object
-  #       id: collect-tags
-  #       run: |
-  #         TAGS=$(cat <<EOF | jq -c
-  #         [\
-  #           {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
-  #           {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-  #           {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
-  #           {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
-  #           {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
-  #           {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-  #           {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
-  #           {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
-  #           {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
+  collect-docker-tags:
+    runs-on: ubuntu-22.04
+    if: ${{ !cancelled() }}
+    needs:
+      - build-base
+      - build-jax
+      - build-equinox
+      - build-maxtext
+      - build-axlearn
+    outputs:
+      TAGS: ${{ steps.collect-tags.outputs.TAGS }}
+    steps:
+      - name: Save docker tags as a JSON object
+        id: collect-tags
+        run: |
+          TAGS=$(cat <<EOF | jq -c
+          [\
+            {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
+            {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
 
-  #           {}\
-  #         ]
-  #         EOF
-  #         )
+            {}\
+          ]
+          EOF
+          )
 
-  #         echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
+          echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
 
-  # test-jax:
-  #   needs: build-jax
-  #   if: >-
-  #     inputs.ARCHITECTURE == 'amd64' &&
-  #     (
-  #       inputs.MODE == 'full' ||
-  #       inputs.MODE == 'jax'
-  #     )
-  #   uses: ./.github/workflows/_test_unit.yaml
-  #   with:
-  #     TEST_NAME: jax
-  #     EXECUTE: |
-  #       docker run -i --shm-size=1g --gpus all \
-  #       ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-  #       bash <<"EOF" |& tee test-backend-independent.log
-  #         test-jax.sh -b backend-independent
-  #       EOF
-  #       docker run -i --shm-size=1g --gpus all \
-  #       ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-  #       bash <<"EOF" |& tee test-single-gpu.log
-  #         nvidia-cuda-mps-control -d
-  #         test-jax.sh -b single-gpu
-  #       EOF
-  #       docker run -i --shm-size=1g --gpus all \
-  #       ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-  #       bash <<"EOF" |& tee test-multi-gpu.log
-  #         nvidia-cuda-mps-control -d
-  #         test-jax.sh -b multi-gpu
-  #       EOF
-  #     STATISTICS_SCRIPT: |
-  #       errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-  #       failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-  #       passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
-  #       total_tests=$((failed_tests + passed_tests))
-  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-  #       echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-  #     ARTIFACTS: |
-  #       test-backend-independent.log
-  #       test-multi-gpu.log
-  #       test-single-gpu.log
-  #   secrets: inherit
+  test-jax:
+    needs: build-jax
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "jax-single-gpu"
+            runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-a100-1gpu' || 'linux-arm64-a100-1gpu'}}
+            command: |
+              # backend ind
+              docker run -i --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+              bash <<"EOF" |& tee test-backend-independent.log
+                test-jax.sh -b backend-independent
+              EOF
+              # run single gpu with mps control
+              docker run -i --shm-size=1g --gpu all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+              bash <<"EOF" |& tee test-single-gpu.log
+                nvidia-cuda-mps-control -d
+                test-jax.sh -b single-gpu
+              EOF
+          - name: "jax-multi-gpu"
+            runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-h100-2gpu' || 'linux-arm64-h100-2gpu'}}
+            command: |
+              docker run -i --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+              bash <<"EOF" |& tee test-multi-gpu.log
+                nvidia-cuda-mps-control -d
+                test-jax.sh -b multi-gpu
+              EOF
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: ${{ matrix.name }}
+      RUNS_ON: ${{ matrix.runner }}
+      EXECUTE: ${{ matrix.command}}
+      STATISTICS_SCRIPT: |
+        errors=$(cat test-*.log | grep -c 'ERROR:' || true)
+        failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
+        passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
+        total_tests=$((failed_tests + passed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-*.log
+    secrets: inherit
 
   # test-nsys-jax:
   #   needs: build-jax
