@@ -32,6 +32,17 @@ EOF
 # these packages are needed to run axlearn tests
 # https://github.com/apple/axlearn/blob/main/pyproject.toml as reference
 WORKDIR /opt/axlearn
+RUN <<"EOF" bash -ex
+  echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
+  cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
+seqio@git+https://github.com/google/seqio.git
+tensorflow==2.18.1
+tensorflow-datasets>=4.8.0
+tensorflow-metadata>=1.15.0
+tensorstore
+REQUIREMENTS
+EOF
+
 ###############################################################################
 ## Add test script to the path
 ###############################################################################
