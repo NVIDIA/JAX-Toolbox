@@ -36,12 +36,12 @@ RUN <<"EOF" bash -ex
   echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
 absl-py>=2.1.0
-aqtp==0.8.2
+aqtp==0.9.0
 cloudpickle
 einops==0.8.0
 nltk==3.7
-optax==0.1.7
-protobuf>=3.19.0
+optax==0.2.6
+protobuf>4
 portpicker
 pytest
 pytest-xdist
