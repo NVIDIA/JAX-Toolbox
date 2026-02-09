@@ -58,7 +58,7 @@ permissions:
 jobs:
 
   build-base:
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
@@ -137,7 +137,7 @@ jobs:
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             JAX_TOOLBOX_REF=${{ github.head_ref || github.sha }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) || '' }}
-        
+
       - name: Generate sitrep
         if: "!cancelled()"
         shell: bash -x -e {0}
