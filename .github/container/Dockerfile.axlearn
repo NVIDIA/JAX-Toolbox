@@ -34,24 +34,16 @@ EOF
 WORKDIR /opt/axlearn
 RUN <<"EOF" bash -ex
   echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
-  cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
-absl-py==2.3.1
-aqtp==0.9.0
-cloudpickle
-einops==0.8.0
-nltk==3.7
-optax==0.2.6
-protobuf>4
-portpicker
-pytest
-pytest-xdist
-pytest-reportlog
-seqio@git+https://github.com/google/seqio.git
-tensorflow==2.18.1
-tensorflow-datasets>=4.8.0
-tensorflow-metadata>=1.15.0
-tensorstore
-REQUIREMENTS
+  # extract the 'core' block from pyproject.toml
+  sed -n '/^core = \[/,/^\]/ {
+    /^core/d;
+    /^\]/d;
+    s/#.*//;
+    s/^[ \t]*"//;
+    s/".*//;
+    /^$/d;
+    p;
+  }' ${SRC_PATH_AXLEARN}/pyproject.toml >> /opt/pip-tools.d/requirements-axlearn.in
 EOF
 
 ###############################################################################
