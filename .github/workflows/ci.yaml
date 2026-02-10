@@ -224,7 +224,7 @@ jobs:
             TAG_INFO=$( GH_TOKEN='${{ github.token }}' gh api repos/sfvaroglu/xla/tags --jq '.[-1]' )
             # extract XLA info
             XLA_SHA=$( echo "${TAG_INFO}" | jq -r '.commit.sha')
-            urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/sfvaroglu/xla/tree/'${XLA_SHA}'"}')
+            urlrefs=$(echo "$urlrefs" | jq -c '. + {"\XLA\": \"https://github.com/sfvaroglu/xla#${XLA_SHA}\ "}')
             # extract the JAX version
             echo "Using XLA sha ${XLA_SHA} for scale-training run"
             # Use the JAX commit from the last tag in the repo
