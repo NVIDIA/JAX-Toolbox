@@ -223,7 +223,7 @@ jobs:
           if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
             TAG_INFO=$( GH_TOKEN='${{ github.token }}' gh api repos/sfvaroglu/xla/tags --jq '.[-1]' )
             # extract XLA info
-            XLA_SHA=$( echo "${TAG_DATA}" | jq -r '.commit.sha')
+            XLA_SHA=$( echo "${TAG_INFO}" | jq -r '.commit.sha')
             urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/sfvaroglu/xla/tree/'${XLA_SHA}'"}')
             # extract the JAX version
             echo "Using XLA sha ${XLA_SHA} for scale-training run"
