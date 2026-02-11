@@ -45,7 +45,7 @@ RUN <<"EOF" bash -ex
     p;
   }' ${SRC_PATH_AXLEARN}/pyproject.toml \
   | sed 's/tensorflow-io==0.37.3/tensorflow-io/' \
-  | grep -vE '^(seqio|tensorflow|tensorflow-datasets|tensorflow-metadata)([<>=!@]|$)' \
+  | grep -vE '^(seqio|tensorflow|tensorflow-datasets|tensorflow-metadata|jax|jaxlib)([<>=!@]|$)' \
   >> /opt/pip-tools.d/requirements-axlearn.in
 
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
@@ -55,6 +55,8 @@ tensorflow-datasets>=4.8.0
 tensorflow-metadata>=1.15.0
 REQUIREMENTS
 EOF
+
+
 
 ###############################################################################
 ## Add test script to the path
