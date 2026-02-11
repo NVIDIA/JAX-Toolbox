@@ -50,7 +50,7 @@ RUN <<"EOF" bash -ex
 
   cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
 seqio@git+https://github.com/google/seqio.git
-tensorflow==2.18.1
+tensorflow>=2.18.1
 tensorflow-datasets>=4.8.0
 tensorflow-metadata>=1.15.0
 REQUIREMENTS
