@@ -66,7 +66,7 @@ setup(
         'jax==0.8.1',
         'jaxtyping',
         'kagglehub',
-        'vllm==0.12.0',
+        'vllm==0.14.1',
     ],
     extras_require={
         'test': ['pytest>=7.0'],
