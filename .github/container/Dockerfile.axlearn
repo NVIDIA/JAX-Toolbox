@@ -48,7 +48,7 @@ RUN <<"EOF" bash -ex
 
   # Add packages missing from pyproject.toml
 cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
-tensorflow==2.18.1
+tensorflow>=2.18.1
 tensorflow-datasets>=4.8.0
 tensorflow-metadata>=1.15.0
 tensorstore
