@@ -221,11 +221,15 @@ jobs:
 
           # for scale training we need a specific XLA ref
           if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
-            urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/sfvaroglu/xla#nv-scale-training/staging"}')
-
+            TAG_INFO=$( GH_TOKEN='${{ github.token }}' gh api repos/sfvaroglu/xla/tags --jq '.[-1]' )
+            # extract XLA info
+            XLA_SHA=$( echo "${TAG_INFO}" | jq -r '.commit.sha')
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"XLA\": \"https://github.com/sfvaroglu/xla#${XLA_SHA}\"}")
+            # extract the JAX version
+            echo "Using XLA sha ${XLA_SHA} for scale-training run"
             # Use the JAX commit from the last tag in the repo
-            # TODO: extract this info from tags
-            JAX_COMMIT=1066aa7b8
+            JAX_COMMIT=$( echo "${TAG_INFO}" | jq -r '.name | split("-") | last')
+            echo ${JAX_COMMIT}
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"JAX\": \"https://github.com/jax-ml/jax#${JAX_COMMIT}\"}")
           fi
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
