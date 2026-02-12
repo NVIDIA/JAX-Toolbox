@@ -33,26 +33,27 @@ EOF
 # https://github.com/apple/axlearn/blob/main/pyproject.toml as reference
 WORKDIR /opt/axlearn
 RUN <<"EOF" bash -ex
-  echo "-e ${SRC_PATH_AXLEARN}" > /opt/pip-tools.d/requirements-axlearn.in
-  # extract the 'core' block from pyproject.toml
-  sed -n '/^core = \[/,/^\]/ {
-    /^core/d;
-    /^\]/d;
-    s/#.*//;
-    s/^[ \t]*"//;
-    s/".*//;
-    /^$/d;
-    p;
-  }' ${SRC_PATH_AXLEARN}/pyproject.toml \
-  | sed 's/tensorflow-io==0.37.3/tensorflow-io/' \
-  | grep -vE '^(seqio|tensorflow|tensorflow-datasets|tensorflow-metadata|jax|jaxlib)([<>=!@]|$)' \
-  >> /opt/pip-tools.d/requirements-axlearn.in
+  # do not include jax and jaxlib from axlearn pyproject.toml
+  sed -i '/"jax==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
+  sed -i '/"jaxlib==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
+  # and fix tensorflow installations
+  sed -i '/"tensorflow==/d' pyproject.toml
+  sed -i '/"tensorflow-datasets==/d' pyproject.toml
+  sed -i '/"tensorflow-metadata==/d' pyproject.toml
+  sed -i '/"tensorstore>=/d' pyproject.toml
+  # Install core and dev dependencies from pyproject.toml
+  echo "-e ${SRC_PATH_AXLEARN}[core]" > /opt/pip-tools.d/requirements-axlearn.in
 
-  cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
-seqio@git+https://github.com/google/seqio.git
-tensorflow>=2.18.1
+  # Add packages missing from pyproject.toml
+cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
+tensorflow==2.18.1
 tensorflow-datasets>=4.8.0
 tensorflow-metadata>=1.15.0
+tensorstore
+cloudpickle
+pytest
+pytest-xdist
+pytest-reportlog
 REQUIREMENTS
 EOF
 
