@@ -59,6 +59,8 @@ pytest-reportlog
 REQUIREMENTS
 EOF
 
+RUN echo "$(cat /opt/pip-tools.d/requirements-axlearn.in)"
+
 
 
 ###############################################################################
