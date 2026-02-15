@@ -32,11 +32,12 @@ def make_transform(slice=[], transpose=[], reshape=[], replication_axis=None, re
 
 
 def make_mapping(
-  jax_name, vllm_name, vllm_shape, *, transform=None, jax_prefix="model", vllm_prefix="model"
+  jax_name, vllm_name, vllm_shape, *, transform=None, jax_prefix="model", vllm_prefix="model", dtype="bfloat16"
 ):
   result = mapping.ParamMapping()
   result.vllm_param.name = f"{vllm_prefix}.{vllm_name}".lstrip(".")
   result.vllm_param.shape.extend(vllm_shape)
+  result.vllm_param.dtype = dtype
   result.jax_param.name = f"{jax_prefix}.{jax_name}".lstrip(".")
   if transform is not None:
     result.jax_param.transform.CopyFrom(transform)
@@ -62,3 +63,4 @@ def get_named_parameters(nnx_model, prefix="model", *filters):
 
   nnx_state = nnx.state(nnx_model, *filters)
   return flatten_state(nnx_state, prefix=prefix)
+
