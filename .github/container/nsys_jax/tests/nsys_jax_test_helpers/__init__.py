@@ -1,6 +1,9 @@
 from nsys_jax import ensure_compiled_protos_are_importable
 import os
 import pathlib
+import psutil
+import re
+import shutil
 import subprocess
 import tempfile
 import typing
@@ -14,10 +17,32 @@ def nsys_jax_with_result(command, *, out_dir):
     instance.
     """
     output = tempfile.NamedTemporaryFile(delete=False, dir=out_dir, suffix=".zip")
-    result = subprocess.run(
+    proc = subprocess.Popen(
         ["nsys-jax", "--force-overwrite", "--output", output.name] + command,
     )
-    return output, result
+    child_process = psutil.Process(proc.pid)
+    descendants = set()  # Poll for descendants while our child is running
+    while True:
+        try:
+            descendants |= set(child_process.children(recursive=True))
+            proc.wait(timeout=0.1)
+            break
+        except subprocess.TimeoutExpired:
+            continue
+    # Wait until all the descendants we saw spawned have exited. Workaround for
+    # nvbug/5912462.
+    while len(descendants):
+
+        def _not_dead(child: psutil.Process) -> bool:
+            try:
+                return child.status() != "dead"
+            except psutil.NoSuchProcess:
+                return False
+
+        descendants = list(filter(_not_dead, descendants))
+    return output, subprocess.CompletedProcess(
+        args=proc.args, returncode=proc.returncode
+    )
 
 
 def nsys_jax(command, *, out_dir):
@@ -80,3 +105,15 @@ def multi_process_nsys_jax(
         child.wait()
         assert child.returncode == 0
     return child_outputs
+
+
+def nsys_version() -> tuple[int]:
+    nsys = shutil.which("nsys")
+    assert nsys is not None, "nsys-jax-patch-nsys expects nsys to be installed"
+    nsys_version = subprocess.check_output([nsys, "--version"], text=True)
+    m = re.match(
+        r"^NVIDIA Nsight Systems version (\d+)\.(\d+)\.(\d+)\.(\d+)-\d+v\d+$",
+        nsys_version,
+    )
+    assert m is not None, f"Could not parse: {nsys_version}"
+    return tuple(map(int, m.groups()))

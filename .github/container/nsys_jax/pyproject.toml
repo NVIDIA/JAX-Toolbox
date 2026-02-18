@@ -24,6 +24,7 @@ jupyter = [
 ]
 test = [
   "portpicker",
+  "psutil",
   "pytest"
 ]
 
@@ -38,9 +39,3 @@ nsys-jax-patch-nsys = "nsys_jax.scripts.patch_nsys:main"
 root = "../../.." # .github/container/nsys_jax
 # written into the git checkout in case of an editable installation
 version_file = "nsys_jax/version.py"
-# __sha__ is not written by default
-version_file_template = """\
-__version__ = version = {version!r}
-__version_tuple__ = version_tuple = {version_tuple!r}
-__sha__ = {scm_version.node!r} # NVIDIA/JAX-Toolbox
-"""

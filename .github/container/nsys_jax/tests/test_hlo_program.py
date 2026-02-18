@@ -8,13 +8,20 @@ import sys
 helper_dir = os.path.join(os.path.dirname(__file__), "nsys_jax_test_helpers")
 if helper_dir not in sys.path:
     sys.path.insert(0, helper_dir)
-from nsys_jax_test_helpers import nsys_jax_archive  # noqa: E402
+from nsys_jax_test_helpers import nsys_jax_archive, nsys_version  # noqa: E402
 
 num_repeats = 2
 hlo_runner_main = shutil.which("hlo_runner_main")
-pytestmark = pytest.mark.skipif(
-    hlo_runner_main is None, reason="HLO runner binary not available"
-)
+nsys_version_tup = nsys_version()
+pytestmark = [
+    pytest.mark.skipif(
+        hlo_runner_main is None, reason="HLO runner binary not available"
+    ),
+    pytest.mark.skipif(
+        nsys_version_tup[:3] == (2026, 1, 1) or nsys_version_tup == (2026, 1, 2, 63),
+        reason="nvbug/5910527",
+    ),
+]
 
 
 @pytest.fixture(scope="module")
