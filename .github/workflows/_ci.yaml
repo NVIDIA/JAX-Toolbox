@@ -239,9 +239,9 @@ jobs:
     needs:
       - build-base
       - build-jax
-      - build-equinox
+      #- build-equinox
       - build-maxtext
-      - build-axlearn
+      #- build-axlearn
     outputs:
       TAGS: ${{ steps.collect-tags.outputs.TAGS }}
     steps:
