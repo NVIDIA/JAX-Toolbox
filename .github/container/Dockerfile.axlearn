@@ -98,7 +98,7 @@ RUN git clone https://github.com/aws/aws-ofi-nccl.git /tmp/aws-ofi-nccl && \
         --with-nccl=/usr \
         --disable-tests && \
     make && \
-    sudo make install && \
+    make install && \
     rm -rf /tmp/aws-ofi-nccl
 
 
