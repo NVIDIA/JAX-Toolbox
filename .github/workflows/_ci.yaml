@@ -76,8 +76,9 @@ jobs:
               ~/.cache/bazel-disk
               ~/.cache/bazel-repo
             # Test: should we add build-jax to the key, so that any new modification to build-jax triggers a new cache creation?
-            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}
+            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}-${{ github.run_id }}
             restore-keys: |
+              bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}
               bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-
               bazel-${{ inputs.ARCHITECTURE }}-main-
               bazel-${{ inputs.ARCHITECTURE }}-
@@ -107,47 +108,46 @@ jobs:
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
-              BAZEL_CACHE=/home/runner/.cache/bazel-disk
         # Save the cache
         - name: Save Bazel cache
           uses: actions/cache/save@v5
-          if: always() && steps.cache-restore.outputs.cache-hit != 'true'
+          if: always()
           with:
             path: |
               ~/.cache/bazel-disk
               ~/.cache/bazel-repo
-            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}
+            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}-${{ github.run_id }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}
 
-  build-equinox:
-    needs: build-jax
-    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
-    outputs:
-      DOCKER_TAG_MEALKIT: ${{ steps.build-equinox.outputs.DOCKER_TAG_MEALKIT }}
-      DOCKER_TAG_FINAL:   ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Build Equinox container
-        id: build-equinox
-        uses: ./.github/actions/build-container
-        with:
-          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-          ARTIFACT_NAME: artifact-equinox-build
-          BADGE_FILENAME: badge-equinox-build
-          BUILD_DATE: ${{ inputs.BUILD_DATE }}
-          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-          CONTAINER_NAME: equinox
-          DOCKERFILE: .github/container/Dockerfile.equinox
-          RUNNER_SIZE: small
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-          EXTRA_BUILD_ARGS: |
-            URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
+  # build-equinox:
+  #   needs: build-jax
+  #   runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
+  #   outputs:
+  #     DOCKER_TAG_MEALKIT: ${{ steps.build-equinox.outputs.DOCKER_TAG_MEALKIT }}
+  #     DOCKER_TAG_FINAL:   ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #     - name: Build Equinox container
+  #       id: build-equinox
+  #       uses: ./.github/actions/build-container
+  #       with:
+  #         ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+  #         ARTIFACT_NAME: artifact-equinox-build
+  #         BADGE_FILENAME: badge-equinox-build
+  #         BUILD_DATE: ${{ inputs.BUILD_DATE }}
+  #         BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+  #         CONTAINER_NAME: equinox
+  #         DOCKERFILE: .github/container/Dockerfile.equinox
+  #         RUNNER_SIZE: small
+  #         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+  #         ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  #         bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+  #         EXTRA_BUILD_ARGS: |
+  #           URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
 
   build-maxtext:
     needs: build-jax
@@ -177,61 +177,61 @@ jobs:
           EXTRA_BUILD_ARGS: |
             URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
 
-  build-torchax:
-    needs: build-jax
-    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
-    outputs:
-      DOCKER_TAG_MEALKIT: ${{ steps.build-torchax.outputs.DOCKER_TAG_MEALKIT }}
-      DOCKER_TAG_FINAL:   ${{ steps.build-torchax.outputs.DOCKER_TAG_FINAL }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Build TorchAX container
-        id: build-torchax
-        uses: ./.github/actions/build-container
-        with:
-          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-          ARTIFACT_NAME: artifact-torchax-build
-          BADGE_FILENAME: badge-torchax-build
-          BUILD_DATE: ${{ inputs.BUILD_DATE }}
-          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-          CONTAINER_NAME: torchax
-          DOCKERFILE: .github/container/Dockerfile.torchax
-          RUNNER_SIZE: small
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-          EXTRA_BUILD_ARGS: |
-            URLREF_TORCHAX=${{ fromJson(inputs.SOURCE_URLREFS).TORCHAX }}
+  # build-torchax:
+  #   needs: build-jax
+  #   runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
+  #   outputs:
+  #     DOCKER_TAG_MEALKIT: ${{ steps.build-torchax.outputs.DOCKER_TAG_MEALKIT }}
+  #     DOCKER_TAG_FINAL:   ${{ steps.build-torchax.outputs.DOCKER_TAG_FINAL }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #     - name: Build TorchAX container
+  #       id: build-torchax
+  #       uses: ./.github/actions/build-container
+  #       with:
+  #         ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+  #         ARTIFACT_NAME: artifact-torchax-build
+  #         BADGE_FILENAME: badge-torchax-build
+  #         BUILD_DATE: ${{ inputs.BUILD_DATE }}
+  #         BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+  #         CONTAINER_NAME: torchax
+  #         DOCKERFILE: .github/container/Dockerfile.torchax
+  #         RUNNER_SIZE: small
+  #         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+  #         ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  #         bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+  #         EXTRA_BUILD_ARGS: |
+  #           URLREF_TORCHAX=${{ fromJson(inputs.SOURCE_URLREFS).TORCHAX }}
 
-  build-axlearn:
-    needs: build-jax
-    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
-    outputs:
-      DOCKER_TAG_MEALKIT: ${{ steps.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}
-      DOCKER_TAG_FINAL:   ${{ steps.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Build AxLearn container
-        id: build-axlearn
-        uses: ./.github/actions/build-container
-        with:
-          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-          ARTIFACT_NAME: artifact-axlearn-build
-          BADGE_FILENAME: badge-axlearn-build
-          BUILD_DATE: ${{ inputs.BUILD_DATE }}
-          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-          CONTAINER_NAME: axlearn
-          DOCKERFILE: .github/container/Dockerfile.axlearn
-          RUNNER_SIZE: large
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-          EXTRA_BUILD_ARGS: |
-            URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
+  # build-axlearn:
+  #   needs: build-jax
+  #   runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16' || 'linux-arm64-cpu16'}}
+  #   outputs:
+  #     DOCKER_TAG_MEALKIT: ${{ steps.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}
+  #     DOCKER_TAG_FINAL:   ${{ steps.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #     - name: Build AxLearn container
+  #       id: build-axlearn
+  #       uses: ./.github/actions/build-container
+  #       with:
+  #         ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+  #         ARTIFACT_NAME: artifact-axlearn-build
+  #         BADGE_FILENAME: badge-axlearn-build
+  #         BUILD_DATE: ${{ inputs.BUILD_DATE }}
+  #         BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+  #         CONTAINER_NAME: axlearn
+  #         DOCKERFILE: .github/container/Dockerfile.axlearn
+  #         RUNNER_SIZE: large
+  #         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+  #         ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  #         bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+  #         EXTRA_BUILD_ARGS: |
+  #           URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
 
   collect-docker-tags:
     runs-on: ubuntu-22.04
@@ -252,13 +252,13 @@ jobs:
           [\
             {"flavor": "base",         "stage": "final",   "priority": 800,  "tag": "${{ needs.build-base.outputs.DOCKER_TAG }}"},\
             {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
+            #{"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
+            #{"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
+            #{"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
+            #{"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
 
             {}\
           ]

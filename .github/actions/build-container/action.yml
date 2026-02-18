@@ -132,8 +132,8 @@ runs:
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         # Map the host paths to named contexts inside the build
         build-contexts: |
-          bazel_disk=${{ inputs.bazel-disk-cache-path }}
-          bazel_repo=${{ inputs.bazel-repo-cache-path }}
+          ${{ inputs.bazel-disk-cache-path != '' && format('bazel_disk={0}', inputs.bazel-disk-cache-path) || '' }}
+          ${{ inputs.bazel-repo-cache-path != '' && format('bazel_repo={0}', inputs.bazel-repo-cache-path) || '' }}
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
@@ -168,8 +168,8 @@ runs:
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         build-contexts: |
-          bazel_disk=${{ inputs.bazel-disk-cache-path }}
-          bazel_repo=${{ inputs.bazel-repo-cache-path }}
+          ${{ inputs.bazel-disk-cache-path != '' && format('bazel_disk={0}', inputs.bazel-disk-cache-path) || '' }}
+          ${{ inputs.bazel-repo-cache-path != '' && format('bazel_repo={0}', inputs.bazel-repo-cache-path) || '' }}
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
