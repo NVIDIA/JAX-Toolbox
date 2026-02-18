@@ -90,6 +90,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN git clone https://github.com/aws/aws-ofi-nccl.git /tmp/aws-ofi-nccl && \
     cd /tmp/aws-ofi-nccl && \
+    ./autogen.sh && \
     ./configure \
         --prefix=/opt/amazon/aws-ofi-nccl \
         --with-libfabric=/opt/amazon/efa \
