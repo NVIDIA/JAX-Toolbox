@@ -99,6 +99,13 @@ runs:
       with:
         name: nsys-jax-version-file
 
+    - name: Move version.py
+      shell: bash
+      run: |
+        ls
+        mv version.py .github/container/nsys_jax/nsys_jax/
+        cat .github/container/nsys_jax/nsys_jax/version.py
+
     # MEALKIT BUILD
     - name: Set docker metadata - mealkit
       id: mealkit-metadata
