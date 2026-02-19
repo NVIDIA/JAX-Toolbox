@@ -116,4 +116,4 @@ def nsys_version() -> tuple[int, int, int, int]:
         nsys_version,
     )
     assert m is not None, f"Could not parse: {nsys_version}"
-    return tuple(map(int, m.groups()))
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
