@@ -281,7 +281,7 @@ jobs:
       matrix:
         include:
           - name: "jax-single-gpu"
-            runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-a100-latest-1' || 'linux-arm64-gpu-a100-latest-1'}}
+            runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-a100-latest-1' || 'linux-arm64-gpu-a100-latest-1' }}
             command: |
               # backend ind
               docker run -i --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
@@ -295,7 +295,7 @@ jobs:
                 test-jax.sh -b single-gpu
               EOF
           - name: "jax-multi-gpu"
-            runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-h100-latest-2' || 'linux-arm64-gpu-h100-latest-2}}
+            runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-h100-latest-2' || 'linux-arm64-gpu-h100-latest-2' }}
             command: |
               docker run -i --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
               bash <<"EOF" |& tee test-multi-gpu.log
