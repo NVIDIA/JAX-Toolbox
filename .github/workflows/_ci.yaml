@@ -108,6 +108,7 @@ jobs:
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+              BAZEL_CACHE=/cache/bazel-disk
         # Save the cache
         - name: Save Bazel cache
           uses: actions/cache/save@v5
