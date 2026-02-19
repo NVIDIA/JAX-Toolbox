@@ -107,7 +107,7 @@ def multi_process_nsys_jax(
     return child_outputs
 
 
-def nsys_version() -> tuple[int]:
+def nsys_version() -> tuple[int, int, int, int]:
     nsys = shutil.which("nsys")
     assert nsys is not None, "nsys-jax-patch-nsys expects nsys to be installed"
     nsys_version = subprocess.check_output([nsys, "--version"], text=True)
