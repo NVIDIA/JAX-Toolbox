@@ -67,14 +67,10 @@ jobs:
     steps:
         - name: Checkout repository
           uses: actions/checkout@v4
-        - name: Create nsys-jax version file
-          shell: bash -xeo pipefail {0}
-          run: |
-            # Write version.py for nsys-jax based on the git history, which is
-            # available here/now but not inside the container.
-            python3 -m venv venv
-            ./venv/bin/pip install setuptools-scm
-            ./venv/bin/python -m setuptools_scm --force-write-version-files --config .github/container/nsys_jax/pyproject.toml
+        - name: Download nsys-jax version.py
+          uses: actions/download-artifact@v4
+          with:
+            name: nsys-jax-version-file
         - name: Build JAX container
           id: build-jax
           uses: ./.github/actions/build-container
