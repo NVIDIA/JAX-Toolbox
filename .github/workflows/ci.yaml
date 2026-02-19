@@ -171,6 +171,8 @@ jobs:
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # for git describe
 
       - name: Generate nsys-jax version file
         id: nsys-jax-version
