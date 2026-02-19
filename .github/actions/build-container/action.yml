@@ -54,6 +54,14 @@ inputs:
     description: "URL of the Bazel remote cache to use for building the image"
     required: true
     default: ""
+  bazel-disk-cache-path:
+    description: "Path to the restored Bazel disk cache on the host"
+    required: false
+    default: ""
+  bazel-repo-cache-path:
+    description: "Path to the restored Bazel repo cache on the host"
+    required: false
+    default: ""
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -122,6 +130,10 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+        # Map the host paths to named contexts inside the build
+        build-contexts: |
+          ${{ inputs.bazel-disk-cache-path != '' && format('bazel_disk={0}', inputs.bazel-disk-cache-path) || '' }}
+          ${{ inputs.bazel-repo-cache-path != '' && format('bazel_repo={0}', inputs.bazel-repo-cache-path) || '' }}
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
@@ -155,6 +167,9 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+        build-contexts: |
+          ${{ inputs.bazel-disk-cache-path != '' && format('bazel_disk={0}', inputs.bazel-disk-cache-path) || '' }}
+          ${{ inputs.bazel-repo-cache-path != '' && format('bazel_repo={0}', inputs.bazel-repo-cache-path) || '' }}
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}

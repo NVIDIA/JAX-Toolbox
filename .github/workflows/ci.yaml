@@ -4,12 +4,9 @@ on:
   schedule:
     - cron: '30 9 * * *' # Pacific Time 01:30 AM in UTC
     - cron: '0 0 * * 6' #midnight every Saturday UTC for scale-training
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
+  push:
+    branches:
+      - "**"
     paths-ignore:
       - '**.md'
       - '.github/triage/**'
@@ -117,6 +114,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BUMP_MANIFEST="${{ inputs.BUMP_MANIFEST }}"
           else
+            # these are nightly bump
             BUMP_MANIFEST="true"
           fi
           MERGE_BUMPED_MANIFEST=${{ github.event_name == 'schedule' || inputs.MERGE_BUMPED_MANIFEST || 'false' }}
