@@ -171,6 +171,23 @@ jobs:
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # for git describe
+
+      - name: Generate nsys-jax version file
+        id: nsys-jax-version
+        run: |
+          # Write version.py for nsys-jax based on the git history, which is
+          # available here/now but not inside the container.
+          python3 -m venv venv
+          ./venv/bin/pip install setuptools-scm
+          ./venv/bin/python -m setuptools_scm --force-write-version-files --config .github/container/nsys_jax/pyproject.toml
+
+      - name: Upload nsys-jax version file
+        uses: actions/upload-artifact@v4
+        with:
+          name: nsys-jax-version-file
+          path: .github/container/nsys_jax/nsys_jax/version.py
 
       - name: Test if manifest bump is functional, and save result to a new file
         working-directory: .github/container
