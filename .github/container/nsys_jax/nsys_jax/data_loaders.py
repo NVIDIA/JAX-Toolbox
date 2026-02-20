@@ -180,6 +180,7 @@ def _load_nvtx_gpu_proj_trace_single(
     rename_map_2026_1_1 = alt_rename_map | {"Domain": None}
     if set(df.columns) == alt_rename_map.keys():
         tsl_prefix = ""
+        nccl_prefix = "nccl"
         df = df.rename(
             columns={k: v for k, v in alt_rename_map.items() if v is not None}
         )
@@ -199,8 +200,10 @@ def _load_nvtx_gpu_proj_trace_single(
         )
         df["Name"] = df.pop("Domain") + ":" + df["Name"]
         tsl_prefix = "TSL:"
+        nccl_prefix = "NCCL:"
     else:
         tsl_prefix = "TSL:"
+        nccl_prefix = "NCCL:"
         df = df.drop(columns=["Style"])
         df["OrigDurMs"] = 1e-6 * df.pop("Orig Duration")
         df["OrigStartMs"] = 1e-6 * df.pop("Orig Start")
@@ -222,9 +225,7 @@ def _load_nvtx_gpu_proj_trace_single(
         raise
 
     # Apply a filter for taking out nccl chunks
-    nccl_mask = df["Name"].str.contains("ncclGroupEnd", na=False) | df[
-        "Name"
-    ].str.contains("NCCL", na=False)
+    nccl_mask = df["Name"].str.startswith(nccl_prefix)
     if nccl_mask.any():
         # get the ids to be removed
         drop_ids = df.index[nccl_mask]
