@@ -4,7 +4,6 @@ ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG JAX_TOOLBOX_REF=main
 ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
-ARG AWS_OFI_NCCL_VERSION=1.18.0
 
 
 ###############################################################################
@@ -19,7 +18,6 @@ ARG JAX_TOOLBOX_REF
 ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
 ENV CUDA_BASE_IMAGE=${BASE_IMAGE}
 ENV JAX_TOOLBOX_REF=${JAX_TOOLBOX_REF}
-ENV AWS_OFI_NCCL_VERSION=1.18.0
 
 ###############################################################################
 ## Install Python and essential tools
@@ -76,6 +74,20 @@ EOF
 
 # Install pip-tools, which is used in pip-finalize.sh
 RUN pip install --no-cache-dir pip-tools
+
+RUN git clone https://github.com/aws/aws-ofi-nccl.git /tmp/aws-ofi-nccl \
+ && cd /tmp/aws-ofi-nccl \
+ && git checkout v1.18.x \
+ && ./autogen.sh \
+ && env CPPFLAGS="-I/tmp/nccl/src/include" \
+    ./configure --prefix=/opt/amazon/efa \
+       --with-libfabric=/opt/amazon/efa/ \
+       --with-cuda=/usr/local/cuda \
+       --with-nccl=/usr \
+       --with-mpi=/usr/local/mpi \
+ && make -j$(nproc) install \
+ && rm -rf /tmp/nccl /tmp/aws-ofi/nccl
+
 
 # The symlinks for CUDA/cuDNN/NCCL exist to make the container's installations
 # of those components conform to XLA's expectations for local installations.
