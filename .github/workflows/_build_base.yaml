@@ -137,7 +137,8 @@ jobs:
             BUILD_DATE=${{ inputs.BUILD_DATE }}
             JAX_TOOLBOX_REF=${{ github.head_ref || github.sha }}
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) || '' }}
-        
+            AWS_OFI_NCCL_VERSION="1.18.0"
+
       - name: Generate sitrep
         if: "!cancelled()"
         shell: bash -x -e {0}
