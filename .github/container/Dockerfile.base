@@ -74,7 +74,12 @@ EOF
 
 # Install pip-tools, which is used in pip-finalize.sh
 RUN pip install --no-cache-dir pip-tools
-
+RUN apt-get update && apt-get install -y \
+    autoconf \
+    automake \
+    libtool \
+    libhwloc-dev \
+    && rm -rf /var/lib/apt/lists/*
 RUN git clone https://github.com/aws/aws-ofi-nccl.git /tmp/aws-ofi-nccl \
  && cd /tmp/aws-ofi-nccl \
  && git checkout v1.18.x \
