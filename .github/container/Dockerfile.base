@@ -4,6 +4,8 @@ ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG JAX_TOOLBOX_REF=main
 ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
+ARG AWS_OFI_NCCL_VERSION=1.18.0
+
 
 ###############################################################################
 ## Build base image

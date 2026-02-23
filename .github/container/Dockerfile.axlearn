@@ -51,7 +51,6 @@ RUN <<"EOF" bash -ex
 cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
 tensorflow==2.20.*
 tensorflow-text==2.20.*
-tensorflow-io
 tensorflow-datasets>=4.8.0
 tensorflow-metadata>=1.15.0
 tensorstore
@@ -78,28 +77,5 @@ ADD test-axlearn.sh fuji-train-perf.py /usr/local/bin/
 FROM mealkit AS final
 
 RUN pip-finalize.sh
-
-# just for axlearn try to install a newer aws-ofi
-RUN rm -rf /opt/amazon/aws-ofi-nccl /etc/ld.so.conf.d/aws-ofi-nccl.conf
-RUN apt-get update && apt-get install -y \
-    autoconf \
-    automake \
-    libtool \
-    libhwloc-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN git clone https://github.com/aws/aws-ofi-nccl.git /tmp/aws-ofi-nccl && \
-    cd /tmp/aws-ofi-nccl && \
-    ./autogen.sh && \
-    ./configure \
-        --prefix=/opt/amazon/aws-ofi-nccl \
-        --with-libfabric=/opt/amazon/efa \
-        --with-cuda=/usr/local/cuda \
-        --with-nccl=/usr \
-        --disable-tests && \
-    make && \
-    make install && \
-    rm -rf /tmp/aws-ofi-nccl
-
 
 WORKDIR ${SRC_PATH_AXLEARN}
