@@ -269,7 +269,7 @@ jobs:
           echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
 
   test-jax:
-    needs: build-jax
+    #needs: build-jax
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
@@ -284,12 +284,12 @@ jobs:
             runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-a100-latest-1' || 'linux-arm64-gpu-a100-latest-1' }}
             command: |
               # backend ind
-              docker run -i --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+              docker run -i --shm-size=1g --privileged --gpus all ghcr.io/nvidia/jax-toolbox-internal:22184133613-jax-amd64 \
               bash <<"EOF" |& tee test-backend-independent.log
                 test-jax.sh -b backend-independent
               EOF
               # run single gpu with mps control
-              docker run -i --shm-size=1g --gpu all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+              docker run -i --shm-size=1g --privileged --gpus all ghcr.io/nvidia/jax-toolbox-internal:22184133613-jax-amd64 \
               bash <<"EOF" |& tee test-single-gpu.log
                 nvidia-cuda-mps-control -d
                 test-jax.sh -b single-gpu
@@ -297,7 +297,7 @@ jobs:
           - name: "jax-multi-gpu"
             runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-h100-latest-2' || 'linux-arm64-gpu-h100-latest-2' }}
             command: |
-              docker run -i --shm-size=1g --gpus all ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+              docker run -i --shm-size=1g --privileged --gpus all ghcr.io/nvidia/jax-toolbox-internal:22184133613-jax-amd64 \
               bash <<"EOF" |& tee test-multi-gpu.log
                 nvidia-cuda-mps-control -d
                 test-jax.sh -b multi-gpu
