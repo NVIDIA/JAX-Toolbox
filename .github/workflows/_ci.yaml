@@ -109,26 +109,6 @@ jobs:
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
               BAZEL_CACHE=/cache/bazel-disk
-        # Save the cache
-        - name: Export Bazel cache from build
-          if: always()
-          run: |
-            docker buildx build \
-              --file .github/container/Dockerfile.jax \
-              --target cache-export \
-              --build-context bazel_disk=/home/runner/.cache/bazel-disk \
-              --build-context bazel_repo=/home/runner/.cache/bazel-repo \
-              --output type=local,dest=/tmp/bazel-cache-export \
-              --build-arg BASE_IMAGE=${{ needs.build-base.outputs.DOCKER_TAG }} \
-              --build-arg BAZEL_CACHE=/cache/bazel-disk \
-              --build-arg URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }} \
-              --build-arg URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }} \
-              --build-arg URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }} \
-              .github/container
-
-            rsync -a --delete /tmp/bazel-cache-export/bazel-disk/ /home/runner/.cache/bazel-disk/
-            rsync -a --delete /tmp/bazel-cache-export/bazel-repo/ /home/runner/.cache/bazel-repo/
-            echo "Cache size: $(du -sh /home/runner/.cache/bazel-disk | cut -f1)"
         - name: Save Bazel cache
           uses: actions/cache/save@v5
           if: always()

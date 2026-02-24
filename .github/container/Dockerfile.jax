@@ -81,11 +81,6 @@ RUN build-te.sh \
     --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \
     --src-path-xla ${SRC_PATH_XLA}
 
-# EXPORT CACHE
-FROM scratch AS cache-export
-COPY --from=builder /cache/bazel-disk /bazel-disk/
-COPY --from=builder /cache/bazel-repo /bazel-repo/
-
 
 ###############################################################################
 ## Pack jaxlib wheel and various source dirs into a pre-installation image

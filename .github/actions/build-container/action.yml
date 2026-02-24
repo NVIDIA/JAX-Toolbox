@@ -62,6 +62,10 @@ inputs:
     description: "Path to the restored Bazel repo cache on the host"
     required: false
     default: ""
+  bazel-save-cache:
+    description: "Whether to save the Bazel cache after building the image"
+    required: false
+    default: false
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -175,7 +179,30 @@ runs:
           BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
+    - name: Export Bazel cache from build
+      if: ${{ inputs.bazel-save-cache == 'true' }}
+      shell: bash
+      run: |
+        echo "Exporting Bazel cache from builder stage..."
+        docker buildx build \
+          --file ${{ inputs.DOCKERFILE }} \
+          --target cache-export \
+          --build-context bazel_disk=${{ inputs.bazel-disk-cache-path }} \
+          --build-context bazel_repo=${{ inputs.bazel-repo-cache-path }} \
+          --output type=local,dest=/tmp/bazel-cache-export \
+          --ssh default \
+          --secret id=SSH_KNOWN_HOSTS,src=${{ steps.setup-ssh.outputs.known-hosts-file }} \
+          --build-arg BASE_IMAGE=${{ inputs.BASE_IMAGE }} \
+          --build-arg BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }} \
+          --build-arg BUILD_DATE=${{ inputs.BUILD_DATE }} \
+          $(echo '${{ inputs.EXTRA_BUILD_ARGS }}' | sed '/^$/d' | sed 's/^/--build-arg /' | tr '\n' ' ') \
+          ${{ inputs.DOCKER_CONTEXT }}
 
+        rsync -a --delete /tmp/bazel-cache-export/bazel-disk/ ${{ inputs.bazel-disk-cache-path }}/
+        rsync -a --delete /tmp/bazel-cache-export/bazel-repo/ ${{ inputs.bazel-repo-cache-path }}/
+        echo "Bazel disk cache size: $(du -sh ${{ inputs.bazel-disk-cache-path }} | cut -f1)"
+        echo "Bazel repo cache size: $(du -sh ${{ inputs.bazel-repo-cache-path }} | cut -f1)"
+        rm -rf /tmp/bazel-cache-export
     # SITREP GENERATION
     - name: Generate sitrep
       if: "!cancelled()"
