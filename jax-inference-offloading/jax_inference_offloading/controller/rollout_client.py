@@ -34,6 +34,34 @@ from jax_inference_offloading.models.mapping_util import add_sharding_specs, loa
 logger = logging.getLogger(__name__)
 
 
+def _get_control_topics(topic_family="default"):
+  if topic_family == "default":
+    return dict(
+      handshake=ctrl_utils.HANDSHAKE,
+      create_transport=ctrl_utils.CREATE_TRANSPORT,
+      weight_updates=ctrl_utils.WEIGHT_UPDATES,
+      inference_requests=ctrl_utils.INFERENCE_REQUESTS,
+      shutdown=ctrl_utils.SHUTDOWN,
+      start_cuda_profiler=ctrl_utils.START_CUDA_PROFILER,
+      stop_cuda_profiler=ctrl_utils.STOP_CUDA_PROFILER,
+    )
+  elif topic_family == "single_controller":
+    return dict(
+      handshake=ctrl_utils.SC_HANDSHAKE,
+      create_transport=ctrl_utils.SC_CREATE_TRANSPORT,
+      weight_updates=ctrl_utils.SC_WEIGHT_UPDATES,
+      inference_requests=ctrl_utils.SC_INFERENCE_REQUESTS,
+      shutdown=ctrl_utils.SC_SHUTDOWN,
+      start_cuda_profiler=ctrl_utils.SC_START_CUDA_PROFILER,
+      stop_cuda_profiler=ctrl_utils.SC_STOP_CUDA_PROFILER,
+    )
+  else:
+    raise ValueError(
+      f"Unknown topic_family: {topic_family}. "
+      "Expected 'default' or 'single_controller'."
+    )
+
+
 class RolloutServicer:
   def __init__(self, llm, mapping_json_path=None):
     llm.collective_rpc("set_sharding")
@@ -269,40 +297,41 @@ class RolloutClient(ClientBase):
     super().__init__(executor, controller_stub, broker_stub, channel)
     self._update_future = None
 
-  def subscribe_to_control_messages(self, llm, mapping_json_path=None):
+  def subscribe_to_control_messages(self, llm, mapping_json_path=None, topic_family="default"):
     assert self._update_future is None
 
     servicer = RolloutServicer(llm, mapping_json_path=mapping_json_path)
+    topics = _get_control_topics(topic_family)
 
     def call():
       try:
         for delivery in self._broker_stub.SubscriptionStream(
           SubscribeRequest(topics=[
-            ctrl_utils.HANDSHAKE,
-            ctrl_utils.CREATE_TRANSPORT,
-            ctrl_utils.WEIGHT_UPDATES,
-            ctrl_utils.INFERENCE_REQUESTS,
-            ctrl_utils.SHUTDOWN,
-            ctrl_utils.START_CUDA_PROFILER,
-            ctrl_utils.STOP_CUDA_PROFILER,
+            topics["handshake"],
+            topics["create_transport"],
+            topics["weight_updates"],
+            topics["inference_requests"],
+            topics["shutdown"],
+            topics["start_cuda_profiler"],
+            topics["stop_cuda_profiler"],
           ])
         ):
-          if delivery.topic.id == ctrl_utils.HANDSHAKE.id:
+          if delivery.topic.id == topics["handshake"].id:
             handshake_request = ctrl.HandshakeRequest()
             delivery.message.payload.Unpack(handshake_request)
             self._publish_result(
               handshake_request.response_topic,
               servicer.handshake(handshake_request),
             )
-          elif delivery.topic.id == ctrl_utils.CREATE_TRANSPORT.id:
+          elif delivery.topic.id == topics["create_transport"].id:
             create_transport_request = ctrl.CreateTransportRequest()
             delivery.message.payload.Unpack(create_transport_request)
             servicer.create_transport(create_transport_request)
-          elif delivery.topic.id == ctrl_utils.WEIGHT_UPDATES.id:
+          elif delivery.topic.id == topics["weight_updates"].id:
             start_weight_update_request = ctrl.StartWeightUpdateRequest()
             delivery.message.payload.Unpack(start_weight_update_request)
             servicer.update_weights(start_weight_update_request.mode)
-          elif delivery.topic.id == ctrl_utils.INFERENCE_REQUESTS.id:
+          elif delivery.topic.id == topics["inference_requests"].id:
             inference_request = ctrl.InferenceRequest()
             delivery.message.payload.Unpack(inference_request)
             if inference_request.streaming:
@@ -318,11 +347,11 @@ class RolloutClient(ClientBase):
                 inference_request.response_topic,
                 servicer.inference(inference_request),
               )
-          elif delivery.topic.id == ctrl_utils.START_CUDA_PROFILER.id:
+          elif delivery.topic.id == topics["start_cuda_profiler"].id:
             servicer.start_cuda_profiler()
-          elif delivery.topic.id == ctrl_utils.STOP_CUDA_PROFILER.id:
+          elif delivery.topic.id == topics["stop_cuda_profiler"].id:
             servicer.stop_cuda_profiler()
-          elif delivery.topic.id == ctrl_utils.SHUTDOWN.id:
+          elif delivery.topic.id == topics["shutdown"].id:
             servicer.shutdown()
             break
           else:
@@ -406,12 +435,13 @@ class AsyncRolloutClient(ClientBase):
       )
     return num_prompts
 
-  def subscribe_to_control_messages(self, llm, mapping_json_path=None):
+  def subscribe_to_control_messages(self, llm, mapping_json_path=None, topic_family="default"):
     """Subscribe to control messages with streaming inference results and staleness control."""
     assert self._update_future is None
 
     servicer = RolloutServicer(llm, mapping_json_path=mapping_json_path)
     max_staleness = self._max_staleness
+    topics = _get_control_topics(topic_family)
 
     def process_prompts(inference_request, start_idx, prompts_since_update):
       """Process prompts from a request, respecting staleness limit.
@@ -461,16 +491,16 @@ class AsyncRolloutClient(ClientBase):
       try:
         for delivery in self._broker_stub.SubscriptionStream(
           SubscribeRequest(topics=[
-            ctrl_utils.HANDSHAKE,
-            ctrl_utils.CREATE_TRANSPORT,
-            ctrl_utils.WEIGHT_UPDATES,
-            ctrl_utils.INFERENCE_REQUESTS,
-            ctrl_utils.SHUTDOWN,
-            ctrl_utils.START_CUDA_PROFILER,
-            ctrl_utils.STOP_CUDA_PROFILER,
+            topics["handshake"],
+            topics["create_transport"],
+            topics["weight_updates"],
+            topics["inference_requests"],
+            topics["shutdown"],
+            topics["start_cuda_profiler"],
+            topics["stop_cuda_profiler"],
           ])
         ):
-          if delivery.topic.id == ctrl_utils.HANDSHAKE.id:
+          if delivery.topic.id == topics["handshake"].id:
             handshake_request = ctrl.HandshakeRequest()
             delivery.message.payload.Unpack(handshake_request)
             self._publish_result(
@@ -478,12 +508,12 @@ class AsyncRolloutClient(ClientBase):
               servicer.handshake(handshake_request),
             )
 
-          elif delivery.topic.id == ctrl_utils.CREATE_TRANSPORT.id:
+          elif delivery.topic.id == topics["create_transport"].id:
             create_transport_request = ctrl.CreateTransportRequest()
             delivery.message.payload.Unpack(create_transport_request)
             servicer.create_transport(create_transport_request)
 
-          elif delivery.topic.id == ctrl_utils.WEIGHT_UPDATES.id:
+          elif delivery.topic.id == topics["weight_updates"].id:
             start_weight_update_request = ctrl.StartWeightUpdateRequest()
             delivery.message.payload.Unpack(start_weight_update_request)
             servicer.update_weights(start_weight_update_request.mode)
@@ -517,7 +547,7 @@ class AsyncRolloutClient(ClientBase):
                 )
                 break
 
-          elif delivery.topic.id == ctrl_utils.INFERENCE_REQUESTS.id:
+          elif delivery.topic.id == topics["inference_requests"].id:
             inference_request = ctrl.InferenceRequest()
             delivery.message.payload.Unpack(inference_request)
             num_prompts = len(inference_request.prompts)
@@ -551,13 +581,13 @@ class AsyncRolloutClient(ClientBase):
                 f"prompts_since_update={prompts_since_weight_update}/{max_staleness}"
               )
 
-          elif delivery.topic.id == ctrl_utils.START_CUDA_PROFILER.id:
+          elif delivery.topic.id == topics["start_cuda_profiler"].id:
             servicer.start_cuda_profiler()
 
-          elif delivery.topic.id == ctrl_utils.STOP_CUDA_PROFILER.id:
+          elif delivery.topic.id == topics["stop_cuda_profiler"].id:
             servicer.stop_cuda_profiler()
 
-          elif delivery.topic.id == ctrl_utils.SHUTDOWN.id:
+          elif delivery.topic.id == topics["shutdown"].id:
             if pending_inference_requests:
               logger.warning(
                 f"Shutting down with {len(pending_inference_requests)} "

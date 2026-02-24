@@ -15,7 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import abc
-import platform
 from array import array
 from base64 import a85decode, a85encode
 from logging import getLogger
@@ -79,12 +78,13 @@ class NcclTransport(abc.ABC):
     return a85encode(array('B', (int(i) & 0xFF for i in unique_id)).tobytes()).decode('ascii')
 
   @staticmethod
-  def decode_nccl_id(compressed_id: str) -> Tuple[int, ...]:
-    """Decode an ASCII A85 NCCL unique ID to a tuple of ints."""
-    if platform.machine().lower() in ('amd64', 'x86_64', 'x64', 'i386', 'i686'):
-      return tuple(array('b', a85decode(compressed_id.encode('ascii'))))
-    else:
-      return tuple(array('B', a85decode(compressed_id.encode('ascii'))))
+  def decode_nccl_id(compressed_id: str) -> bytes:
+    """Decode an ASCII A85 NCCL unique ID to raw bytes.
+
+    Newer CuPy/NCCL bindings expect ``commId`` as bytes when constructing
+    ``nccl.NcclCommunicator``.
+    """
+    return bytes(a85decode(compressed_id.encode('ascii')))
 
   @abc.abstractmethod
   def send(self, buffer: Any, peer: int) -> None:
