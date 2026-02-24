@@ -42,6 +42,9 @@ spec:
                           --write_summary_steps=100 \
                           --output_log_file=${OUTPUT_LOG_FILE} \
                           --world_size=8
+                  env:
+                    - name: OFI_NCCL_PROTOCOL
+                      value: "SENDRECV" # for the moment use this protocol and not efa
                   resources:
                     limits:
                         nvidia.com/gpu: 8
