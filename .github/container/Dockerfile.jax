@@ -52,8 +52,11 @@ RUN ARCH="$(dpkg --print-architecture)" && \
     chmod +x /usr/local/bin/bazel
 # Populate ${BUILD_PATH_JAXLIB} with editable wheels; --no-install because
 # (a) this is the builder stage, and (b) pip-finalize.sh does the install
-RUN --mount=type=cache,from=bazel_disk,target=/cache/bazel-disk,rw \
-    --mount=type=cache,from=bazel_repo,target=/cache/bazel-repo,rw \
+RUN --mount=type=bind,from=bazel_disk,target=/cache/bazel-disk-seed,rw \
+    --mount=type=bind,from=bazel_repo,target=/cache/bazel-repo-seed,rw \
+    mkdir -p /cache/bazel-disk /cache/bazel-repo && \
+    cp -a /cache/bazel-disk-seed/. /cache/bazel-disk/ 2>/dev/null || true && \
+    cp -a /cache/bazel-repo-seed/. /cache/bazel-repo/ 2>/dev/null || true && \
     mkdir -p /builder/extra-targets && \
     build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
@@ -77,6 +80,12 @@ RUN build-te.sh \
     --no-install \
     --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \
     --src-path-xla ${SRC_PATH_XLA}
+
+# EXPORT CACHE
+FROM scratch AS cache-export
+COPY --from=builder /cache/bazel-disk /bazel-disk/
+COPY --from=builder /cache/bazel-repo /bazel-repo/
+
 
 ###############################################################################
 ## Pack jaxlib wheel and various source dirs into a pre-installation image

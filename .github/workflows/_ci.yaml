@@ -68,15 +68,25 @@ jobs:
         - name: Checkout repository
           uses: actions/checkout@v4
         # we need to restore the cache, as GHA actions/cache allows 10GB max
-        - name: Pull Bazel cache image
-          continue-on-error: true
+        - name: Restore Bazel cache
+          uses: actions/cache/restore@v5
+          id: cache-restore
+          with:
+            path: |
+              ~/.cache/bazel-disk
+              ~/.cache/bazel-repo
+            # Test: should we add build-jax to the key, so that any new modification to build-jax triggers a new cache creation?
+            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}-${{ github.run_id }}
+            restore-keys: |
+              bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}
+              bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-
+              bazel-${{ inputs.ARCHITECTURE }}-main-
+              bazel-${{ inputs.ARCHITECTURE }}-
+        # create the bazel cache directories
+        - name: Create Bazel cache directories - if missing
           run: |
-            docker pull ghcr.io/nvidia/jax-toolbox-internal:bazel-cache-${{ inputs.ARCHITECTURE }} \
-              && docker create --name bazel-cache ghcr.io/nvidia/jax-toolbox-internal:bazel-cache-${{ inputs.ARCHITECTURE }} \
-              && mkdir -p ~/.cache/bazel-remote \
-              && docker cp bazel-cache:/cache/. ~/.cache/bazel-remote/ \
-              && docker rm bazel-cache \
-              || echo "No cache image found, starting fresh"
+                mkdir -p ~/.cache/bazel-disk
+                mkdir -p ~/.cache/bazel-repo
         - name: Build JAX container
           id: build-jax
           uses: ./.github/actions/build-container
@@ -99,17 +109,35 @@ jobs:
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
               BAZEL_CACHE=/cache/bazel-disk
-
-        - name: Push updated Bazel cache image
+        # Save the cache
+        - name: Export Bazel cache from build
           if: always()
           run: |
-            cat <<'DOCKERFILE' > /tmp/Dockerfile.cache
-            FROM scratch
-            COPY . /cache/
-            DOCKERFILE
-            docker build -t ghcr.io/nvidia/jax-toolbox-internal:bazel-cache-${{ inputs.ARCHITECTURE }} \
-              -f /tmp/Dockerfile.cache ~/.cache/bazel-remote/
-            docker push ghcr.io/nvidia/jax-toolbox-internal:bazel-cache-${{ inputs.ARCHITECTURE }}
+            docker buildx build \
+              --file .github/container/Dockerfile.jax \
+              --target cache-export \
+              --build-context bazel_disk=/home/runner/.cache/bazel-disk \
+              --build-context bazel_repo=/home/runner/.cache/bazel-repo \
+              --output type=local,dest=/tmp/bazel-cache-export \
+              --build-arg BASE_IMAGE=${{ needs.build-base.outputs.DOCKER_TAG }} \
+              --build-arg BAZEL_CACHE=/cache/bazel-disk \
+              --build-arg URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }} \
+              --build-arg URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }} \
+              --build-arg URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }} \
+              .github/container
+
+            rsync -a --delete /tmp/bazel-cache-export/bazel-disk/ /home/runner/.cache/bazel-disk/
+            rsync -a --delete /tmp/bazel-cache-export/bazel-repo/ /home/runner/.cache/bazel-repo/
+            echo "Cache size: $(du -sh /home/runner/.cache/bazel-disk | cut -f1)"
+        - name: Save Bazel cache
+          uses: actions/cache/save@v5
+          if: always()
+          with:
+            path: |
+              ~/.cache/bazel-disk
+              ~/.cache/bazel-repo
+            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}-${{ github.run_id }}
+
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}
@@ -166,6 +194,7 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
           EXTRA_BUILD_ARGS: |
             URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
 
