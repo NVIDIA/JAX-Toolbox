@@ -80,9 +80,8 @@ RUN apt-get update && apt-get install -y \
     libtool \
     libhwloc-dev \
     && rm -rf /var/lib/apt/lists/*
-RUN git clone https://github.com/aws/aws-ofi-nccl.git /tmp/aws-ofi-nccl \
+RUN git clone https://github.com/Steboss/aws-ofi-nccl.git /tmp/aws-ofi-nccl \
  && cd /tmp/aws-ofi-nccl \
- && git checkout v1.18.x \
  && ./autogen.sh \
  && env CPPFLAGS="-I/tmp/nccl/src/include" \
     ./configure --prefix=/opt/amazon/aws-ofi-nccl \
