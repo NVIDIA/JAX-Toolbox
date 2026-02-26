@@ -39,7 +39,7 @@ RUN <<"EOF" bash -ex
   sed -i '/"tensorstore>=/d' pyproject.toml
   sed -i '/"tensorflow==/d' pyproject.toml
   sed -i '/"tensorflow-io==/d' pyproject.toml
-  sed -i '/"tensorflow-text==/d' pyproject.toml
+  sed -i '/"tensorflow_text==/d' pyproject.toml
   sed -i '/"tensorflow-metadata==/d' pyproject.toml
   # Install core and dev dependencies from pyproject.toml
   echo "-e ${SRC_PATH_AXLEARN}[core]" > /opt/pip-tools.d/requirements-axlearn.in
