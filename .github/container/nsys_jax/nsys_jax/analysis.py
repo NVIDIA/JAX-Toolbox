@@ -250,8 +250,13 @@ def _get_message_size(
             replica_groups = comm_inst.replica_groups
         if len(replica_groups) == 0:
             # perhaps we have the newer format
-            iota_group_list = comm_inst.collective_device_list.iota_replica_group_list
-            collective_size = iota_group_list.num_devices_per_group
+            try:
+                collective_size = comm_inst.collective_device_list.iota_replica_group_list.num_devices_per_group
+            except AttributeError:
+                # Or the even-newer format
+                collective_size = (
+                    comm_inst.iota_collective_device_list.num_devices_per_group
+                )
         else:
             collective_sizes = set(len(group.replica_ids) for group in replica_groups)
             assert len(collective_sizes) == 1, (

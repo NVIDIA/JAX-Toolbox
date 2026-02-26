@@ -2,6 +2,14 @@
 
 set -eoux pipefail
 
+# ${SRC_PATH_NSYS_JAX}/nsys_jax/version.py is not version controlled, and
+# generating it on the fly does not work inside the container, which does not
+# have the relevant .git directory.
+NSYS_JAX_VERSION_FILE="${SRC_PATH_NSYS_JAX}/nsys_jax/version.py"
+[ -f "${NSYS_JAX_VERSION_FILE}" ] || ( echo "${NSYS_JAX_VERSION_FILE} does not exist" && exit 1 )
+NSYS_JAX_VERSION=$(python -c "exec(open('${NSYS_JAX_VERSION_FILE}').read()); print(version)")
+export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_NSYS_JAX=${NSYS_JAX_VERSION}
+
 pushd /opt/pip-tools.d
 
 # If requirements-pinned.txt exists, skip compilation

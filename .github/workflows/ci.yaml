@@ -171,6 +171,23 @@ jobs:
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # for git describe
+
+      - name: Generate nsys-jax version file
+        id: nsys-jax-version
+        run: |
+          # Write version.py for nsys-jax based on the git history, which is
+          # available here/now but not inside the container.
+          python3 -m venv venv
+          ./venv/bin/pip install setuptools-scm
+          ./venv/bin/python -m setuptools_scm --force-write-version-files --config .github/container/nsys_jax/pyproject.toml
+
+      - name: Upload nsys-jax version file
+        uses: actions/upload-artifact@v4
+        with:
+          name: nsys-jax-version-file
+          path: .github/container/nsys_jax/nsys_jax/version.py
 
       - name: Test if manifest bump is functional, and save result to a new file
         working-directory: .github/container
@@ -221,11 +238,15 @@ jobs:
 
           # for scale training we need a specific XLA ref
           if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
-            urlrefs=$(echo "$urlrefs" | jq -c '. + {"XLA": "https://github.com/sfvaroglu/xla#nv-scale-training/staging"}')
-
+            TAG_INFO=$( GH_TOKEN='${{ github.token }}' gh api repos/sfvaroglu/xla/tags --jq '.[-1]' )
+            # extract XLA info
+            XLA_SHA=$( echo "${TAG_INFO}" | jq -r '.commit.sha')
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"XLA\": \"https://github.com/sfvaroglu/xla#${XLA_SHA}\"}")
+            # extract the JAX version
+            echo "Using XLA sha ${XLA_SHA} for scale-training run"
             # Use the JAX commit from the last tag in the repo
-            # TODO: extract this info from tags
-            JAX_COMMIT=1066aa7b8
+            JAX_COMMIT=$( echo "${TAG_INFO}" | jq -r '.name | split("-") | last')
+            echo ${JAX_COMMIT}
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"JAX\": \"https://github.com/jax-ml/jax#${JAX_COMMIT}\"}")
           fi
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
