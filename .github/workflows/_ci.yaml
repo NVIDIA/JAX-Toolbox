@@ -177,7 +177,7 @@ jobs:
             URLREF_TORCHAX=${{ fromJson(inputs.SOURCE_URLREFS).TORCHAX }}
 
   build-axlearn:
-    #needs: build-jax
+    needs: build-jax
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}
@@ -193,7 +193,7 @@ jobs:
           ARTIFACT_NAME: artifact-axlearn-build
           BADGE_FILENAME: badge-axlearn-build
           BUILD_DATE: ${{ inputs.BUILD_DATE }}
-          BASE_IMAGE: "ghcr.io/nvidia/jax-toolbox-internal:22446897195-jax-amd64-mealkit"
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
           CONTAINER_NAME: axlearn
           DOCKERFILE: .github/container/Dockerfile.axlearn
           RUNNER_SIZE: large
