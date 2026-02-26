@@ -38,6 +38,7 @@ RUN <<"EOF" bash -ex
   sed -i '/"jaxlib==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   # and fix tensorflow installations
   sed -i '/"tensorflow==/d' pyproject.toml
+  sed -i '/"tensorflow-io==/d' pyproject.toml
   sed -i '/"tensorflow-datasets==/d' pyproject.toml
   sed -i '/"tensorflow-metadata==/d' pyproject.toml
   sed -i '/"tensorflow-text==/d' pyproject.toml
