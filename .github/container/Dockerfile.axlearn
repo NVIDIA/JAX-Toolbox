@@ -36,7 +36,6 @@ RUN <<"EOF" bash -ex
   # do not include jax and jaxlib from axlearn pyproject.toml
   sed -i '/"jax==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   sed -i '/"jaxlib==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
-  sed -i '/"tensorflow-io==/d' pyproject.toml
   sed -i '/"tensorstore>=/d' pyproject.toml
   sed -i '/"tensorflow==/d' pyproject.toml
   sed -i '/"tensorflow-datasets==/d' pyproject.toml
@@ -47,8 +46,9 @@ RUN <<"EOF" bash -ex
 
   # Add packages missing from pyproject.toml
 cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
-tensorflow==2.20.0
-tensorflow-text==2.20.0
+tensorflow==2.20.*
+tensorflow-text==2.20.*
+tensorflow-io
 tensorflow-datasets>=4.8.0
 tensorflow-metadata>=1.15.0
 tensorstore
