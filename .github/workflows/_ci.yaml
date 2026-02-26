@@ -103,6 +103,7 @@ jobs:
             github-token: ${{ secrets.GITHUB_TOKEN }}
             bazel-disk-cache-path: /home/runner/.cache/bazel-disk
             bazel-repo-cache-path: /home/runner/.cache/bazel-repo
+            bazel-save-cache: true
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
