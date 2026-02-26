@@ -143,3 +143,11 @@ EOF
 
 FROM mealkit AS final
 RUN pip-finalize.sh
+
+###############################################################################
+## Export Bazel caches for GitHub Actions cache/save
+###############################################################################
+
+FROM scratch AS cache-export
+COPY --from=builder /cache/bazel-disk/ /bazel-disk/
+COPY --from=builder /cache/bazel-repo/ /bazel-repo/

@@ -76,9 +76,9 @@ jobs:
               ~/.cache/bazel-disk
               ~/.cache/bazel-repo
             # Test: should we add build-jax to the key, so that any new modification to build-jax triggers a new cache creation?
-            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}-${{ github.run_id }}
+            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}-${{ github.run_id }}
             restore-keys: |
-              bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}
+              bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
               bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-
               bazel-${{ inputs.ARCHITECTURE }}-main-
               bazel-${{ inputs.ARCHITECTURE }}-
@@ -101,6 +101,7 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
+            bazel-remote-cache-url: /cache/bazel-disk
             bazel-disk-cache-path: /home/runner/.cache/bazel-disk
             bazel-repo-cache-path: /home/runner/.cache/bazel-repo
             bazel-save-cache: true
@@ -109,7 +110,7 @@ jobs:
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
-              BAZEL_CACHE=/cache/bazel-disk
+              EXTRA_BUILD_JAX_ARGS=--build-param=--bazel_options=--repository_cache=/cache/bazel-repo
         - name: Save Bazel cache
           uses: actions/cache/save@v5
           if: always()
@@ -117,7 +118,7 @@ jobs:
             path: |
               ~/.cache/bazel-disk
               ~/.cache/bazel-repo
-            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('build-jax.sh') }}-${{ github.run_id }}
+            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}-${{ github.run_id }}
 
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
