@@ -75,8 +75,7 @@ jobs:
             path: |
               ~/.cache/bazel-disk
               ~/.cache/bazel-repo
-            # Test: should we add build-jax to the key, so that any new modification to build-jax triggers a new cache creation?
-            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}-${{ github.run_id }}
+            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
             restore-keys: |
               bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
               bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-
@@ -113,12 +112,12 @@ jobs:
               EXTRA_BUILD_JAX_ARGS=--build-param=--bazel_options=--repository_cache=/cache/bazel-repo
         - name: Save Bazel cache
           uses: actions/cache/save@v5
-          if: always()
+          if: ${{ !cancelled() && steps.build-jax.outcome == 'success' && steps.cache-restore.outputs.cache-hit != 'true' }}
           with:
             path: |
               ~/.cache/bazel-disk
               ~/.cache/bazel-repo
-            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}-${{ github.run_id }}
+            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
 
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}

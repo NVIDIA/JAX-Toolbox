@@ -100,6 +100,7 @@ runs:
         password: ${{ inputs.github-token }}
 
     - name: Set up Docker Buildx
+      id: buildx
       uses: docker/setup-buildx-action@v3
       with:
         driver-opts: |
@@ -124,6 +125,7 @@ runs:
       id: mealkit-build
       uses: docker/build-push-action@v5
       with:
+        builder: ${{ steps.buildx.outputs.name }}
         context: ${{ inputs.DOCKER_CONTEXT }}
         push: true
         file: ${{ inputs.DOCKERFILE }}
@@ -161,6 +163,7 @@ runs:
       id: final-build
       uses: docker/build-push-action@v5
       with:
+        builder: ${{ steps.buildx.outputs.name }}
         context: ${{ inputs.DOCKER_CONTEXT }}
         push: true
         file: ${{ inputs.DOCKERFILE }}
@@ -183,8 +186,12 @@ runs:
       if: ${{ inputs.bazel-save-cache == 'true' }}
       shell: bash
       run: |
+        set -euo pipefail
         echo "Exporting Bazel cache from builder stage..."
         docker buildx build \
+          --builder ${{ steps.buildx.outputs.name }} \
+          --platform linux/${{ inputs.ARCHITECTURE }} \
+          --progress=plain \
           --file ${{ inputs.DOCKERFILE }} \
           --target cache-export \
           --build-context bazel_disk=${{ inputs.bazel-disk-cache-path }} \
