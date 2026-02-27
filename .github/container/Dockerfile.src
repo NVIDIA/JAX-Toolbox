@@ -1,0 +1,88 @@
+# syntax=docker/dockerfile:1-labs
+
+ARG REPO_JAX="https://github.com/google/jax.git"
+ARG REPO_XLA="https://github.com/openxla/xla.git"
+ARG REPO_TE="https://github.com/NVIDIA/TransformerEngine.git"
+ARG REPO_T5X="https://github.com/google-research/t5x.git"
+ARG REPO_PAXML="https://github.com/google/paxml.git"
+ARG REPO_PRAXIS="https://github.com/google/praxis.git"
+ARG REPO_FLAX="https://github.com/google/flax.git"
+ARG REF_JAX=main
+ARG REF_XLA=main
+ARG REF_TE=main
+ARG REF_T5X=main
+ARG REF_PAXML=main
+ARG REF_PRAXIS=main
+ARG REF_FLAX=main
+ARG BASE_DIR=/opt
+ARG DIR_JAX=jax-source
+ARG DIR_XLA=xla-source
+ARG DIR_TE=transformer-engine
+ARG DIR_T5X=t5x
+ARG DIR_PAXML=paxml
+ARG DIR_PRAXIS=praxis
+ARG DIR_FLAX=flax
+ARG BUILD_DATE
+
+FROM alpine/git as jax-source
+ARG REPO_JAX
+ARG REF_JAX
+ARG DIR_JAX
+RUN git clone -b ${REF_JAX} ${REPO_JAX} /${DIR_JAX}
+
+FROM alpine/git as xla-source
+ARG REPO_XLA
+ARG REF_XLA
+ARG DIR_XLA
+RUN git clone -b ${REF_XLA} ${REPO_XLA} /${DIR_XLA}
+
+FROM alpine/git as te-source
+ARG REPO_TE
+ARG REF_TE
+ARG DIR_TE
+RUN git clone -b ${REF_TE} ${REPO_TE} /${DIR_TE}
+
+FROM alpine/git as t5x-source
+ARG REPO_T5X
+ARG REF_T5X
+ARG DIR_T5X
+RUN git clone -b ${REF_T5X} ${REPO_T5X} /${DIR_T5X}
+
+FROM alpine/git as paxml-source
+ARG REPO_PAXML
+ARG REF_PAXML
+ARG DIR_PAXML
+RUN git clone -b ${REF_PAXML} ${REPO_PAXML} /${DIR_PAXML}
+
+FROM alpine/git as praxis-source
+ARG REPO_PRAXIS
+ARG REF_PRAXIS
+ARG DIR_PRAXIS
+RUN git clone -b ${REF_PRAXIS} ${REPO_PRAXIS} /${DIR_PRAXIS}
+
+FROM alpine/git as flax-source
+ARG REPO_FLAX
+ARG REF_FLAX
+ARG DIR_FLAX
+RUN git clone -b ${REF_FLAX} ${REPO_FLAX} /${DIR_FLAX}
+
+################
+# SOURCE IMAGE #
+################
+FROM scratch
+ARG BASE_DIR
+ARG DIR_JAX
+ARG DIR_XLA
+ARG DIR_TE
+ARG DIR_T5X
+ARG DIR_PAXML
+ARG DIR_PRAXIS
+ARG DIR_FLAX
+
+COPY --from=jax-source    / ${BASE_DIR}/${DIR_JAX}
+COPY --from=xla-source    / ${BASE_DIR}/${DIR_XLA}
+COPY --from=te-source     / ${BASE_DIR}/${DIR_TE}
+COPY --from=t5x-source    / ${BASE_DIR}/${DIR_T5X}
+COPY --from=paxml-source  / ${BASE_DIR}/${DIR_PAXML}
+COPY --from=praxis-source / ${BASE_DIR}/${DIR_PRAXIS}
+COPY --from=flax-source   / ${BASE_DIR}/${DIR_FLAX}
