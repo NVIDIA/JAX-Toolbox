@@ -14,7 +14,7 @@ jobs:
     runs-on: gke-a3mega
 
     env:
-      WORKLOAD_NAME_PREFIX: gke-maxtext-train
+      WORKLOAD_PREFIX: gke-maxtext-train
       MAXTEXT_MODEL: llama2-7b
       MAXTEXT_ATTENTION_TYPE: cudnn_flash_te
       MAXTEXT_REMAT_POLICY: minimal_flash
@@ -26,35 +26,18 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Login to nvcr.io Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: nvcr.io
-        username: $oauthtoken
-        password: ${{ secrets.NVCR_TOKEN }}
-
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-
     - name: Run XPK workload on cluster
       uses: ./.github/actions/gke-xpk
       with:
         IMAGE: ${{ env.MAXTEXT_IMAGE }}
-        IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
-        WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
-        ENVS: |
-          JAX_COORDINATOR_PORT=3389;
-          JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);
-          console=/dev/stdout;
+        WORKLOAD_PREFIX: ${{ env.WORKLOAD_PREFIX }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+        ENVS:
+          NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so;
+          NCCL_TUNER_PLUGIN=none;
         COMMAND: |
+
           nsys-jax --capture-range=cudaProfilerApi
                    --capture-range-end=stop
                    -o /opt/output/profile.zip
@@ -75,5 +58,5 @@ jobs:
                                        upload_all_profiler_results=true
                                        skip_first_n_steps_for_profiler=3
                                        profiler_steps=8' |&
-          tee /opt/output/output.log &> \${console};
+          tee /opt/output/output.log &> /dev/stdout;
           EXIT_CODE=\$PIPESTATUS;

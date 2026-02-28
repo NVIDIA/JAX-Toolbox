@@ -13,15 +13,18 @@ runs:
       shell: bash 
       id: token
       run: | 
-        echo "token-name=${RANDOM}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> $GITHUB_OUTPUT
-    - name: Delete GitHub Container Registry token
+        K8S_SECRET_NAME="${RANDOM}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        echo "token-name=${K8S_SECRET_NAME}" >> $GITHUB_OUTPUT
+        echo "K8S_SECRET_NAME=${K8S_SECRET_NAME}" >> ${GITHUB_ENV}
+
+    - name: Store and delete secret on Kubernetes cluster
       uses: ./.github/actions/with-post-step
       with: 
         main: | 
-          # Store GitHub Container Registry token as Kubernetes secret
           kubectl create secret generic \
-          ${{ steps.token.outputs.token-name }} \
+          ${K8S_SECRET_NAME} \
           --from-file=.dockerconfigjson=$HOME/.docker/config.json \
           --type=kubernetes.io/dockerconfigjson
+
         post: |
-          kubectl delete secret ${{ steps.token.outputs.token-name }}
+          kubectl delete secret ${K8S_SECRET_NAME}
