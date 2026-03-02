@@ -72,17 +72,15 @@ jobs:
           id: cache-restore
           with:
             path: |
-              ~/.cache/bazel-disk
               ~/.cache/bazel-repo
-            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
+            key: bazel-repo-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
             restore-keys: |
-              bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
-              bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-
-              bazel-${{ inputs.ARCHITECTURE }}-main-
-              bazel-${{ inputs.ARCHITECTURE }}-
+              bazel-repo-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
+              bazel-repo-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-
+              bazel-repo-${{ inputs.ARCHITECTURE }}-main-
+              bazel-repo-${{ inputs.ARCHITECTURE }}-
         - name: Create Bazel cache directories - if missing
           run: |
-            mkdir -p ~/.cache/bazel-disk
             mkdir -p ~/.cache/bazel-repo
         - name: Build JAX container
           id: build-jax
@@ -99,8 +97,6 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
-            bazel-remote-cache-url: /cache/bazel-disk
-            bazel-disk-cache-path: /home/runner/.cache/bazel-disk
             bazel-repo-cache-path: /home/runner/.cache/bazel-repo
             bazel-save-cache: true
             EXTRA_BUILD_ARGS: |
@@ -114,9 +110,8 @@ jobs:
           if: ${{ !cancelled() && steps.build-jax.outcome == 'success' && steps.cache-restore.outputs.cache-hit != 'true' }}
           with:
             path: |
-              ~/.cache/bazel-disk
               ~/.cache/bazel-repo
-            key: bazel-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
+            key: bazel-repo-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}

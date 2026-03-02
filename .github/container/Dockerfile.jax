@@ -51,15 +51,13 @@ ADD build-jax.sh build-te.sh local_cuda_arch /usr/local/bin/
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
     chmod +x /usr/local/bin/bazel
-# Seed local Bazel caches from build contexts supplied by the GitHub workflow.
-RUN --mount=type=bind,from=bazel_disk,target=/cache/bazel-disk-seed,ro \
-    --mount=type=bind,from=bazel_repo,target=/cache/bazel-repo-seed,ro \
-    mkdir -p /cache/bazel-disk /cache/bazel-repo && \
-    cp -a /cache/bazel-disk-seed/. /cache/bazel-disk/ 2>/dev/null || true && \
+# Seed Bazel repository cache from build context supplied by the GitHub workflow.
+RUN --mount=type=bind,from=bazel_repo,target=/cache/bazel-repo-seed,ro \
+    mkdir -p /cache/bazel-repo && \
     cp -a /cache/bazel-repo-seed/. /cache/bazel-repo/ 2>/dev/null || true
 # Populate ${BUILD_PATH_JAXLIB} with editable wheels; --no-install because
 # (a) this is the builder stage, and (b) pip-finalize.sh does the install
-RUN mkdir -p /builder/extra-targets /cache/bazel-disk /cache/bazel-repo && \
+RUN mkdir -p /builder/extra-targets /cache/bazel-repo && \
     build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
@@ -70,7 +68,7 @@ RUN mkdir -p /builder/extra-targets /cache/bazel-disk /cache/bazel-repo && \
     --src-path-xla ${SRC_PATH_XLA} \
     --clean \
     ${EXTRA_BUILD_JAX_ARGS} && \
-    chmod -R a+rwX /cache/bazel-disk /cache/bazel-repo
+    chmod -R a+rwX /cache/bazel-repo
 
 ## Transformer engine: check out source and build wheel
 RUN --mount=type=ssh \
@@ -151,5 +149,4 @@ RUN pip-finalize.sh
 ###############################################################################
 
 FROM scratch AS cache-export
-COPY --from=builder /cache/bazel-disk/ /bazel-disk/
 COPY --from=builder /cache/bazel-repo/ /bazel-repo/
