@@ -51,9 +51,21 @@ inputs:
     required: true
     default: ""
   bazel-remote-cache-url:
-    description: "URL of the Bazel remote cache to use for building the image"
-    required: true
+    description: "URL of the Bazel cache (remote URL or in-container path)"
+    required: false
     default: ""
+  bazel-disk-cache-path:
+    description: "Host path used to seed/store Bazel disk cache"
+    required: false
+    default: ""
+  bazel-repo-cache-path:
+    description: "Host path used to seed/store Bazel repository cache"
+    required: false
+    default: ""
+  bazel-save-cache:
+    description: "Whether to export Bazel caches from the build back to the host paths"
+    required: false
+    default: "false"
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -72,6 +84,23 @@ runs:
       run: |
         echo 'UPLD_IMAGE=ghcr.io/nvidia/jax-toolbox-internal' >> $GITHUB_ENV
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
+        echo "BAZEL_EXPORT_DIR=${RUNNER_TEMP}/bazel-cache-export" >> $GITHUB_ENV
+
+    - name: Prepare Bazel cache contexts
+      shell: bash
+      run: |
+        disk_context="${{ inputs.bazel-disk-cache-path }}"
+        repo_context="${{ inputs.bazel-repo-cache-path }}"
+        if [[ -z "${disk_context}" ]]; then
+          disk_context="$(mktemp -d)"
+        fi
+        if [[ -z "${repo_context}" ]]; then
+          repo_context="$(mktemp -d)"
+        fi
+        mkdir -p "${disk_context}" "${repo_context}"
+        rm -rf "${RUNNER_TEMP}/bazel-cache-export"
+        echo "BAZEL_DISK_CONTEXT=${disk_context}" >> $GITHUB_ENV
+        echo "BAZEL_REPO_CONTEXT=${repo_context}" >> $GITHUB_ENV
 
     - name: Setup SSH
       id: setup-ssh
@@ -119,6 +148,9 @@ runs:
         target: mealkit
         tags: ${{ steps.mealkit-metadata.outputs.tags }}
         labels: ${{ steps.mealkit-metadata.outputs.labels }}
+        build-contexts: |
+          bazel_disk=${{ env.BAZEL_DISK_CONTEXT }}
+          bazel_repo=${{ env.BAZEL_REPO_CONTEXT }}
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
@@ -152,6 +184,9 @@ runs:
         tags: ${{ steps.final-metadata.outputs.tags }}
         labels: ${{ steps.final-metadata.outputs.labels }}
         target: final
+        build-contexts: |
+          bazel_disk=${{ env.BAZEL_DISK_CONTEXT }}
+          bazel_repo=${{ env.BAZEL_REPO_CONTEXT }}
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
@@ -160,6 +195,41 @@ runs:
           BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    - name: Export Bazel caches
+      if: ${{ inputs.bazel-save-cache == 'true' && success() }}
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ inputs.DOCKER_CONTEXT }}
+        push: false
+        file: ${{ inputs.DOCKERFILE }}
+        platforms: linux/${{ inputs.ARCHITECTURE }}
+        target: cache-export
+        build-contexts: |
+          bazel_disk=${{ env.BAZEL_DISK_CONTEXT }}
+          bazel_repo=${{ env.BAZEL_REPO_CONTEXT }}
+        outputs: type=local,dest=${{ env.BAZEL_EXPORT_DIR }}
+        ssh: default
+        secret-files: |
+          "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+        build-args: |
+          BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          BUILD_DATE=${{ inputs.BUILD_DATE }}
+          ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    - name: Copy exported Bazel caches to host
+      if: ${{ inputs.bazel-save-cache == 'true' && success() }}
+      shell: bash -euo pipefail {0}
+      run: |
+        if [[ -d "${{ env.BAZEL_EXPORT_DIR }}/bazel-disk" && -n "${{ inputs.bazel-disk-cache-path }}" ]]; then
+          mkdir -p "${{ inputs.bazel-disk-cache-path }}"
+          cp -a "${{ env.BAZEL_EXPORT_DIR }}/bazel-disk/." "${{ inputs.bazel-disk-cache-path }}/"
+        fi
+        if [[ -d "${{ env.BAZEL_EXPORT_DIR }}/bazel-repo" && -n "${{ inputs.bazel-repo-cache-path }}" ]]; then
+          mkdir -p "${{ inputs.bazel-repo-cache-path }}"
+          cp -a "${{ env.BAZEL_EXPORT_DIR }}/bazel-repo/." "${{ inputs.bazel-repo-cache-path }}/"
+        fi
 
     # SITREP GENERATION
     - name: Generate sitrep
