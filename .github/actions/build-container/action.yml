@@ -260,6 +260,8 @@ runs:
           mealkit
           final
           ${{ inputs.bazel-save-cache == 'true' && 'cache-export' || '' }}
+        allow: |
+          ssh
 
     - name: Resolve final image digest
       id: final-digest
