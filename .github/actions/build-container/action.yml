@@ -179,6 +179,11 @@ runs:
         mealkit_labels_json="$(kv_lines_to_object "${MEALKIT_LABELS}")"
         final_labels_json="$(kv_lines_to_object "${FINAL_LABELS}")"
         extra_build_args_json="$(kv_lines_to_object "${EXTRA_BUILD_ARGS}")"
+        context_prefix="${DOCKER_CONTEXT%/}/"
+        dockerfile_path="${DOCKERFILE}"
+        if [[ "${dockerfile_path}" == "${context_prefix}"* ]]; then
+          dockerfile_path="${dockerfile_path#${context_prefix}}"
+        fi
 
         build_args_json="$(
           jq -n \
@@ -195,7 +200,7 @@ runs:
 
         jq -n \
           --arg context "${DOCKER_CONTEXT}" \
-          --arg dockerfile "${DOCKERFILE}" \
+          --arg dockerfile "${dockerfile_path}" \
           --arg architecture "${ARCHITECTURE}" \
           --arg bazel_repo_context "${BAZEL_REPO_CONTEXT}" \
           --arg ssh_known_hosts_file "${SSH_KNOWN_HOSTS_FILE}" \
