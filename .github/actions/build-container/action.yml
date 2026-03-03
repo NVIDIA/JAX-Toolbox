@@ -221,8 +221,7 @@ runs:
               ssh: ["default"],
               secret: [("id=SSH_KNOWN_HOSTS,src=" + $ssh_known_hosts_file)],
               args: $build_args,
-              "cache-from": [("type=gha,scope=" + $cache_scope)],
-              "cache-to": [("type=gha,mode=max,scope=" + $cache_scope)]
+              "cache-from": [("type=gha,scope=" + $cache_scope)]
             };
 
           {
@@ -242,7 +241,8 @@ runs:
                     target: "final",
                     tags: $final_tags,
                     labels: $final_labels,
-                    output: ["type=image,push=true"]
+                    output: ["type=image,push=true"],
+                    "cache-to": [("type=gha,mode=max,scope=" + $cache_scope + ",ignore-error=true")]
                   }
               ),
               "cache-export": (
