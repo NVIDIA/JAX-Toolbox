@@ -66,8 +66,7 @@ def main() -> int:
     - mealkit: this target will build the mealkit image and push it to the
     registry with the specified tags and labels
     - final: this target will build the final image and push it to the registry
-    with the specified tags and labels, it will also export the build cache to
-    be used in future builds
+    with the specified tags and labels
     - cache-export: this target will only export the build cache to be used in future builds
     """
     try:
@@ -127,9 +126,6 @@ def main() -> int:
                     "tags": final_tags,
                     "labels": final_labels,
                     "output": ["type=image,push=true"],
-                    "cache-to": [
-                        f"type=gha,mode=max,scope={cache_scope},ignore-error=true"
-                    ],
                 },
                 "cache-export": {
                     **common,
