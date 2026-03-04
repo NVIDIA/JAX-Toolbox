@@ -34,8 +34,9 @@ JOBS_PER_GPU=""
 query_tests() {
     set -e -o pipefail
     cd ${SRC_PATH_JAX}
+    ensure_bazel_cache_dirs
     # FIXME: this ignores .jax_configure.bazelrc lines
-    bazel query tests/... |& grep -F '//tests:'
+    bazel query tests/... 2>&1 | grep -F '//tests:'
     exit 0
 }
 
@@ -51,6 +52,33 @@ set_default() {
 
 print_var() {
     echo "$1: ${!1}"
+}
+
+ensure_bazel_cache_dirs() {
+    local rc_file="${SRC_PATH_JAX}/.jax_configure.bazelrc"
+    if [[ ! -f "${rc_file}" ]]; then
+        return 0
+    fi
+
+    # Create cache directories configured in .jax_configure.bazelrc.
+    while IFS= read -r cache_path; do
+        [[ -z "${cache_path}" ]] && continue
+        mkdir -p "${cache_path}"
+    done < <(
+        grep -oE -- '--(repository_cache|disk_cache)=[^[:space:]]+' "${rc_file}" \
+        | sed -E 's/^--[^=]+=//' \
+        | sort -u
+    )
+
+    # Bazel repository fetches can require this subdirectory to exist.
+    while IFS= read -r repo_cache_path; do
+        [[ -z "${repo_cache_path}" ]] && continue
+        mkdir -p "${repo_cache_path}/content_addressable/sha256"
+    done < <(
+        grep -oE -- '--repository_cache=[^[:space:]]+' "${rc_file}" \
+        | sed -E 's/^--repository_cache=//' \
+        | sort -u
+    )
 }
 
 args=$(getopt -o b:qh --long battery:,build-jaxlib,cache-test-results:,disable-x64,enable-x64,reuse-jaxlib,query,tests-per-gpu:,visible-gpus:,help -- "$@")
@@ -106,7 +134,7 @@ while [ : ]; do
         ;;
     --)
         shift;
-        break 
+        break
         ;;
   esac
 done
@@ -229,5 +257,6 @@ print_var VISIBLE_GPUS
 
 ## Run tests
 cd ${SRC_PATH_JAX}
+ensure_bazel_cache_dirs
 set -ex
 bazel test "${FLAGS[@]}"
