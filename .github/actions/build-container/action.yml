@@ -163,98 +163,7 @@ runs:
         BAZEL_EXPORT_DIR: ${{ env.BAZEL_EXPORT_DIR }}
         BUILDX_GHA_SCOPE: ${{ env.BUILDX_GHA_SCOPE }}
         BAKE_FILE: ${{ env.BAKE_FILE }}
-      run: |
-        lines_to_array() {
-          printf '%s\n' "$1" | sed '/^$/d' | jq -R . | jq -s .
-        }
-
-        kv_lines_to_object() {
-          printf '%s\n' "$1" | sed '/^$/d' | jq -Rn '
-            [inputs | select(length > 0) | split("=") | {(.[0]): (.[1:] | join("="))}] | add // {}
-          '
-        }
-
-        mealkit_tags_json="$(lines_to_array "${MEALKIT_TAGS}")"
-        final_tags_json="$(lines_to_array "${FINAL_TAGS}")"
-        mealkit_labels_json="$(kv_lines_to_object "${MEALKIT_LABELS}")"
-        final_labels_json="$(kv_lines_to_object "${FINAL_LABELS}")"
-        extra_build_args_json="$(kv_lines_to_object "${EXTRA_BUILD_ARGS}")"
-        context_prefix="${DOCKER_CONTEXT%/}/"
-        dockerfile_path="${DOCKERFILE}"
-        if [[ "${dockerfile_path}" == "${context_prefix}"* ]]; then
-          dockerfile_path="${dockerfile_path#${context_prefix}}"
-        fi
-
-        build_args_json="$(
-          jq -n \
-            --arg base_image "${BASE_IMAGE}" \
-            --arg build_date "${BUILD_DATE}" \
-            --arg bazel_cache "${BAZEL_CACHE}" \
-            --argjson extra_args "${extra_build_args_json}" \
-            '
-            {BASE_IMAGE: $base_image, BUILD_DATE: $build_date}
-            + (if $bazel_cache != "" then {BAZEL_CACHE: $bazel_cache} else {} end)
-            + $extra_args
-            '
-        )"
-
-        jq -n \
-          --arg context "${DOCKER_CONTEXT}" \
-          --arg dockerfile "${dockerfile_path}" \
-          --arg architecture "${ARCHITECTURE}" \
-          --arg bazel_repo_context "${BAZEL_REPO_CONTEXT}" \
-          --arg ssh_known_hosts_file "${SSH_KNOWN_HOSTS_FILE}" \
-          --arg bazel_export_dir "${BAZEL_EXPORT_DIR}" \
-          --arg cache_scope "${BUILDX_GHA_SCOPE}" \
-          --argjson build_args "${build_args_json}" \
-          --argjson mealkit_tags "${mealkit_tags_json}" \
-          --argjson final_tags "${final_tags_json}" \
-          --argjson mealkit_labels "${mealkit_labels_json}" \
-          --argjson final_labels "${final_labels_json}" \
-          '
-          def common:
-            {
-              context: $context,
-              dockerfile: $dockerfile,
-              platforms: [("linux/" + $architecture)],
-              contexts: {bazel_repo: $bazel_repo_context},
-              ssh: ["default"],
-              secret: [("id=SSH_KNOWN_HOSTS,src=" + $ssh_known_hosts_file)],
-              args: $build_args,
-              "cache-from": [("type=gha,scope=" + $cache_scope)]
-            };
-
-          {
-            target: {
-              mealkit: (
-                common
-                + {
-                    target: "mealkit",
-                    tags: $mealkit_tags,
-                    labels: $mealkit_labels,
-                    output: ["type=image,push=true"]
-                  }
-              ),
-              final: (
-                common
-                + {
-                    target: "final",
-                    tags: $final_tags,
-                    labels: $final_labels,
-                    output: ["type=image,push=true"],
-                    "cache-to": [("type=gha,mode=max,scope=" + $cache_scope + ",ignore-error=true")]
-                  }
-              ),
-              "cache-export": (
-                common
-                + {
-                    target: "cache-export",
-                    output: [("type=local,dest=" + $bazel_export_dir)]
-                  }
-              )
-            }
-          }
-          ' > "${BAKE_FILE}"
+      run: python3 "${{ github.action_path }}/generate_bake.py"
 
     - name: Build mealkit/final and optionally export Bazel caches
       id: final-build
@@ -276,12 +185,13 @@ runs:
         FINAL_TAGS: ${{ steps.final-metadata.outputs.tags }}
       run: |
         final_tag="$(printf '%s\n' "${FINAL_TAGS}" | sed '/^$/d' | head -n1)"
+        # Use `docker buildx imagetools inspect` to resolve the digest of the built image.
         digest="$(docker buildx imagetools inspect "${final_tag}" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || true)"
         if [[ -z "${digest}" || "${digest}" == "null" ]]; then
           digest="unknown"
         fi
         echo "digest=${digest}" >> "$GITHUB_OUTPUT"
-
+    # this step is needed for saving bazel cache
     - name: Copy exported Bazel caches to host
       if: ${{ inputs.bazel-save-cache == 'true' && success() }}
       shell: bash -euo pipefail {0}
