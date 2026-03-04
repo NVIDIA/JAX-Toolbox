@@ -67,9 +67,9 @@ jobs:
     steps:
         - name: Checkout repository
           uses: actions/checkout@v4
-        - name: Restore Bazel cache
+        - name: Restore Bazel repository cache
           uses: actions/cache/restore@v5
-          id: cache-restore
+          id: cache-restore-repo
           with:
             path: |
               ~/.cache/bazel-repo
@@ -79,9 +79,22 @@ jobs:
               bazel-repo-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-
               bazel-repo-${{ inputs.ARCHITECTURE }}-main-
               bazel-repo-${{ inputs.ARCHITECTURE }}-
+        - name: Restore Bazel disk cache
+          uses: actions/cache/restore@v5
+          id: cache-restore-disk
+          with:
+            path: |
+              ~/.cache/bazel-disk
+            key: bazel-disk-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
+            restore-keys: |
+              bazel-disk-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
+              bazel-disk-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-
+              bazel-disk-${{ inputs.ARCHITECTURE }}-main-
+              bazel-disk-${{ inputs.ARCHITECTURE }}-
         - name: Create Bazel cache directories - if missing
           run: |
             mkdir -p ~/.cache/bazel-repo
+            mkdir -p ~/.cache/bazel-disk
         - name: Build JAX container
           id: build-jax
           uses: ./.github/actions/build-container
@@ -97,7 +110,9 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
+            bazel-remote-cache-url: /cache/bazel-disk
             bazel-repo-cache-path: /home/runner/.cache/bazel-repo
+            bazel-disk-cache-path: /home/runner/.cache/bazel-disk
             bazel-save-cache: true
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
@@ -105,13 +120,20 @@ jobs:
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
               EXTRA_BUILD_JAX_ARGS=--build-param=--bazel_options=--repository_cache=/cache/bazel-repo
-        - name: Save Bazel cache
+        - name: Save Bazel repository cache
           uses: actions/cache/save@v5
-          if: ${{ !cancelled() && steps.build-jax.outcome == 'success' && steps.cache-restore.outputs.cache-hit != 'true' }}
+          if: ${{ !cancelled() && steps.build-jax.outcome == 'success' && steps.cache-restore-repo.outputs.cache-hit != 'true' }}
           with:
             path: |
               ~/.cache/bazel-repo
             key: bazel-repo-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
+        - name: Save Bazel disk cache
+          uses: actions/cache/save@v5
+          if: ${{ !cancelled() && steps.build-jax.outcome == 'success' && steps.cache-restore-disk.outputs.cache-hit != 'true' }}
+          with:
+            path: |
+              ~/.cache/bazel-disk
+            key: bazel-disk-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}
@@ -262,91 +284,104 @@ jobs:
 
           echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
 
-  # test-jax:
-  #   needs: build-jax
-  #   if: >-
-  #     inputs.ARCHITECTURE == 'amd64' &&
-  #     (
-  #       inputs.MODE == 'full' ||
-  #       inputs.MODE == 'jax'
-  #     )
-  #   uses: ./.github/workflows/_test_unit.yaml
-  #   with:
-  #     TEST_NAME: jax
-  #     EXECUTE: |
-  #       docker run -i --shm-size=1g --gpus all \
-  #       ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-  #       bash <<"EOF" |& tee test-backend-independent.log
-  #         test-jax.sh -b backend-independent
-  #       EOF
-  #       docker run -i --shm-size=1g --gpus all \
-  #       ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-  #       bash <<"EOF" |& tee test-single-gpu.log
-  #         nvidia-cuda-mps-control -d
-  #         test-jax.sh -b single-gpu
-  #       EOF
-  #       docker run -i --shm-size=1g --gpus all \
-  #       ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-  #       bash <<"EOF" |& tee test-multi-gpu.log
-  #         nvidia-cuda-mps-control -d
-  #         test-jax.sh -b multi-gpu
-  #       EOF
-  #     STATISTICS_SCRIPT: |
-  #       errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-  #       failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-  #       passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
-  #       total_tests=$((failed_tests + passed_tests))
-  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-  #       echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-  #     ARTIFACTS: |
-  #       test-backend-independent.log
-  #       test-multi-gpu.log
-  #       test-single-gpu.log
-  #   secrets: inherit
+  test-jax:
+    needs: build-jax
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
+    strategy:
+      matrix:
+        include:
+          - name: "jax-single-gpu"
+            runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-a100-latest-1' || 'linux-arm64-gpu-a100-latest-1' }}
+            command: |
+              # backend ind
+              docker run -i --shm-size=1g --gpus all \
+              ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+              bash <<"EOF" |& tee test-backend-independent.log
+                test-jax.sh -b backend-independent
+              EOF
+              # single gpu with mps control
+              docker run -i --shm-size=1g --gpus all \
+              ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+              bash <<"EOF" |& tee test-single-gpu.log
+                nvidia-cuda-mps-control -d
+                test-jax.sh -b single-gpu
+              EOF
+          - name: "jax-multi-gpu"
+            # TODO: either transform this to k8s, or multi A100 if possible
+            runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-h100-latest-2' || 'linux-arm64-gpu-h100-latest-2' }}
+            command: |
+              docker run -i --shm-size=1g --gpus all \
+              ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+              bash <<"EOF" |& tee test-multi-gpu.log
+                nvidia-cuda-mps-control -d
+                test-jax.sh -b multi-gpu
+              EOF
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: ${{ matrix.name }}
+      RUNS_ON: ${{ matrix.runner }}
+      EXECUTE: ${{ matrix.command}}
+      STATISTICS_SCRIPT: |
+        errors=$(cat test-*.log | grep -c 'ERROR:' || true)
+        failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
+        passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
+        total_tests=$((failed_tests + passed_tests))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        test-*.log
+    secrets: inherit
 
-  # test-nsys-jax:
-  #   needs: build-jax
-  #   if: >-
-  #     inputs.ARCHITECTURE == 'amd64' &&
-  #     (
-  #       inputs.MODE == 'full' ||
-  #       inputs.MODE == 'jax'
-  #     )
-  #   uses: ./.github/workflows/_test_unit.yaml
-  #   with:
-  #     TEST_NAME: nsys-jax
-  #     EXECUTE: |
-  #       set -o pipefail
-  #       mkdir -p output-results
-  #       docker run -i --shm-size=1g --gpus all \
-  #         -v $PWD/output-results:/opt/output \
-  #         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-  #         bash <<"EOF" |& tee test-nsys-jax.log
-  #           # nsys-jax is already installed, this is just adding the test dependencies
-  #           pip install pytest-reportlog nsys-jax[test]
-  #           # abuse knowledge that nsys-jax is installed editable, so the tests exist
-  #           test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
-  #           pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "${test_path}"
-  #           chmod -R a+rwX /opt/output
-  #       EOF
-  #     STATISTICS_SCRIPT: |
-  #       summary_line=$(tail -n1 test-nsys-jax.log)
-  #       num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-  #       passed_tests=$(cat output-results/pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-  #       failed_tests=$(cat output-results/pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-  #       total_tests=$(( passed_tests + failed_tests ))
-  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-  #       echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
-  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-  #     ARTIFACTS: |
-  #       # pytest-driven part
-  #       test-nsys-jax.log
-  #       output-results/pytest-report.jsonl
-  #       output-results/pytest-tmp/
-  #   secrets: inherit
+
+  test-nsys-jax:
+    needs: build-jax
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
+    uses: ./.github/workflows/_test_unit.yaml
+    with:
+      TEST_NAME: nsys-jax
+      RUNS_ON: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-a100-latest-1' || 'linux-arm64-gpu-a100-latest-1' }}
+      EXECUTE: |
+        set -o pipefail
+        mkdir -p output-results
+        docker run -i --shm-size=1g --gpus all \
+          -v $PWD/output-results:/opt/output \
+          ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
+          bash <<"EOF" |& tee test-nsys-jax.log
+            # nsys-jax is already installed, this is just adding the test dependencies
+            pip install pytest-reportlog nsys-jax[test]
+            # abuse knowledge that nsys-jax is installed editable, so the tests exist
+            test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
+            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "${test_path}"
+            chmod -R a+rwX /opt/output
+        EOF
+      STATISTICS_SCRIPT: |
+        summary_line=$(tail -n1 test-nsys-jax.log)
+        num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
+        passed_tests=$(cat output-results/pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
+        failed_tests=$(cat output-results/pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
+        total_tests=$(( passed_tests + failed_tests ))
+        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
+        echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
+        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
+      ARTIFACTS: |
+        # pytest-driven part
+        test-nsys-jax.log
+        output-results/pytest-report.jsonl
+        output-results/pytest-tmp/
+    secrets: inherit
 
   # # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
   # # runs on a regular GitHub Actions runner and checks that offline post-processing works in an environment that does

@@ -84,6 +84,7 @@ def main() -> int:
         build_date = getenv("BUILD_DATE")
         extra_build_args = kv_lines_to_object(getenv("EXTRA_BUILD_ARGS"))
         bazel_repo_context = getenv("BAZEL_REPO_CONTEXT")
+        bazel_disk_context = getenv("BAZEL_DISK_CONTEXT")
         ssh_known_hosts_file = getenv("SSH_KNOWN_HOSTS_FILE")
         bazel_export_dir = getenv("BAZEL_EXPORT_DIR")
         cache_scope = getenv("BUILDX_GHA_SCOPE")
@@ -101,7 +102,10 @@ def main() -> int:
             "context": docker_context,
             "dockerfile": dockerfile,
             "platforms": [f"linux/{architecture}"],
-            "contexts": {"bazel_repo": bazel_repo_context},
+            "contexts": {
+                "bazel_repo": bazel_repo_context,
+                "bazel_disk": bazel_disk_context,
+            },
             "ssh": ["default"],
             "secret": [f"id=SSH_KNOWN_HOSTS,src={ssh_known_hosts_file}"],
             "args": build_args,
