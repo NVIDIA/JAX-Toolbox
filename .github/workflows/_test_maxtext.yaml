@@ -40,13 +40,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - RUNNER: nv-gpu-amd64-a100-1gpu
+          - RUNNER: linux-amd64-gpu-h100-latest-1
             TEST_CASE_NAME: 1DP1FSDP1TP1PP_single_process_a100_1gpu
             DP: 1
             FSDP: 1
             TP: 1
             PP: 1
-          - RUNNER: nv-gpu-amd64-h100-2gpu
+          - RUNNER: linux-amd64-gpu-h100-latest-2
             TEST_CASE_NAME: 1DP2FSDP1TP1PP_single_process_h100_2gpu
             DP: 1
             FSDP: 2

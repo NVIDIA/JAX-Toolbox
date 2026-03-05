@@ -300,19 +300,20 @@ jobs:
         inputs.MODE == 'jax'
       )
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: "jax-single-gpu"
             runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-a100-latest-1' || 'linux-arm64-gpu-a100-latest-1' }}
             command: |
               # backend ind
-              docker run -i --shm-size=1g --gpus all \
+              docker run -i --privileged --shm-size=1g --gpus all \
               ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
               bash <<"EOF" |& tee test-backend-independent.log
                 test-jax.sh -b backend-independent --tests-per-gpu 2
               EOF
               # single gpu with mps control
-              docker run -i --shm-size=1g --gpus all \
+              docker run -i --privileged --shm-size=1g --gpus all \
               ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
               bash <<"EOF" |& tee test-single-gpu.log
                 nvidia-cuda-mps-control -d
@@ -322,7 +323,7 @@ jobs:
             # TODO: either transform this to k8s, or multi A100 if possible
             runner: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-gpu-h100-latest-2' || 'linux-arm64-gpu-h100-latest-2' }}
             command: |
-              docker run -i --shm-size=1g --gpus all \
+              docker run --privileged -i --shm-size=1g --gpus all \
               ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
               bash <<"EOF" |& tee test-multi-gpu.log
                 nvidia-cuda-mps-control -d
