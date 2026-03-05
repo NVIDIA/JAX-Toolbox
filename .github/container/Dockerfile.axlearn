@@ -40,7 +40,7 @@ aqtp==0.8.2
 cloudpickle
 einops==0.8.0
 nltk==3.7
-optax==0.1.7
+optax
 protobuf>=3.19.0
 portpicker
 pytest
