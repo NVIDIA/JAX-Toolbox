@@ -24,7 +24,7 @@ index 99b79f2d..bcabd554 100644
 @@ -40,7 +41,6 @@ from flax.typing import (
    DotGeneralT,
  )
- 
+
 -
  def dot_product_attention_weights(
      query: Array,
@@ -44,7 +44,7 @@ index 99b79f2d..bcabd554 100644
 +    decode_axes: a tuple of axis names associated with auroregressive cache.
 +      Only used when decode=True.
    """
- 
+
    num_heads: int
 @@ -336,6 +346,11 @@ class MultiHeadDotProductAttention(Module):
    out_dot_general: Optional[DotGeneralT] = None
@@ -55,7 +55,7 @@ index 99b79f2d..bcabd554 100644
 +  out_proj_kernel_axes: Tuple[str, ...] = None
 +  out_proj_bias_axes: Tuple[str, ...] = None
 +  decode_axes: Tuple[str, ...] = None
- 
+
    @overload
    def __call__(
 @@ -474,6 +489,8 @@ class MultiHeadDotProductAttention(Module):
@@ -96,7 +96,7 @@ index 99b79f2d..bcabd554 100644
 +      bias_axes=self.out_proj_bias_axes,
      )(x)
      return out
- 
+
 diff --git a/flax/linen/linear.py b/flax/linen/linear.py
 index e4901293..27e22325 100644
 --- a/flax/linen/linear.py
@@ -116,7 +116,7 @@ index e4901293..27e22325 100644
 +    kernel_axes: a tuple of axes associated with the kernel.
 +    bias_axes: a tuple of axes associated with the bias.
    """
- 
+
    features: Union[int, Sequence[int]]
 @@ -113,6 +116,8 @@ class DenseGeneral(Module):
    # Deprecated. Will be removed.
@@ -124,7 +124,7 @@ index e4901293..27e22325 100644
    dot_general_cls: Any = None
 +  kernel_axes: Tuple[str, ...] = None
 +  bias_axes: Tuple[str, ...] = None
- 
+
    @compact
    def __call__(self, inputs: Array) -> Array:
 @@ -161,8 +166,9 @@ class DenseGeneral(Module):
@@ -137,12 +137,12 @@ index e4901293..27e22325 100644
 +      'kernel', kernel_init_wrap, batch_shape + kernel_shape,
 +      self.param_dtype, axes=self.kernel_axes
      )
- 
+
      batch_ind = tuple(range(n_batch_dims))
 @@ -180,9 +186,11 @@ class DenseGeneral(Module):
            return meta.replace_boxed(bias, jnp.reshape(bias.unbox(), shape))
          return jnp.reshape(bias, shape)
- 
+
 -      bias = self.param(
 -        'bias', bias_init_wrap, batch_shape + features, self.param_dtype
 +      bias = param_with_axes(
@@ -152,7 +152,7 @@ index e4901293..27e22325 100644
 +
      else:
        bias = None
- 
+
 @@ -230,6 +238,8 @@ class Dense(Module):
        for details.
      kernel_init: initializer function for the weight matrix.
@@ -160,7 +160,7 @@ index e4901293..27e22325 100644
 +    kernel_axes: a tuple of axes associated with the kernel.
 +    bias_axes: a tuple of axes associated with the bias.
    """
- 
+
    features: int
 @@ -242,6 +252,8 @@ class Dense(Module):
    # Deprecated. Will be removed.
@@ -168,7 +168,7 @@ index e4901293..27e22325 100644
    dot_general_cls: Any = None
 +  kernel_axes: Tuple[str, ...] = None
 +  bias_axes: Tuple[str, ...] = None
- 
+
    @compact
    def __call__(self, inputs: Array) -> Array:
 @@ -253,15 +265,18 @@ class Dense(Module):
@@ -200,7 +200,7 @@ index e4901293..27e22325 100644
 +    kernel_axes: a tuple of axes associated with the kernel.
 +    bias_axes: a tuple of axes associated with the bias.
    """
- 
+
    features: int
 @@ -493,6 +510,8 @@ class _Conv(Module):
    # Deprecated. Will be removed.
@@ -208,13 +208,13 @@ index e4901293..27e22325 100644
    conv_general_dilated_cls: Any = None
 +  kernel_axes: Tuple[str, ...] = None
 +  bias_axes: Tuple[str, ...] = None
- 
+
    @property
    def shared_weights(self) -> bool:  # type: ignore
 @@ -634,8 +653,10 @@ class _Conv(Module):
          f'Shapes are: {self.mask.shape}, {kernel_shape}'
        )
- 
+
 -    kernel = self.param(
 -      'kernel', self.kernel_init, kernel_shape, self.param_dtype
 +    kernel = param_with_axes(
@@ -222,24 +222,24 @@ index e4901293..27e22325 100644
 +      self.param_dtype,
 +      axes=self.kernel_axes
      )
- 
+
      if self.mask is not None:
 @@ -649,7 +670,7 @@ class _Conv(Module):
          # One bias weight per output entry, unshared betwen pixels.
          bias_shape = conv_output_shape[1:]
- 
+
 -      bias = self.param('bias', self.bias_init, bias_shape, self.param_dtype)
 +      bias = param_with_axes('bias', self.bias_init, bias_shape, self.param_dtype, axes=self.bias_axes)
      else:
        bias = None
- 
+
 diff --git a/flax/linen/normalization.py b/flax/linen/normalization.py
 index 0680737f..ed241d08 100644
 --- a/flax/linen/normalization.py
 +++ b/flax/linen/normalization.py
 @@ -24,6 +24,7 @@ from jax import lax
  from jax.nn import initializers
- 
+
  from flax.linen import dtypes, module, transforms
 +from flax.linen.partitioning import param_with_axes
  from flax.typing import (
@@ -252,13 +252,13 @@ index 0680737f..ed241d08 100644
 +  axes: Tuple[str, ...] = None,
  ):
    """Normalizes the input of a normalization layer and optionally applies a learned scale and bias.
- 
+
 @@ -178,6 +180,7 @@ def _normalize(
      use_scale: If true, scale the output.
      bias_init: Initialization function for the bias term.
      scale_init: Initialization function for the scaling function.
 +    axes: A tuple of axis names over which to shard parameters.
- 
+
    Returns:
      The normalized input.
 @@ -196,15 +199,17 @@ def _normalize(
@@ -289,14 +289,14 @@ index 0680737f..ed241d08 100644
        calculation for the variance.
 +    pjit_axis_names: A tuple of axis names.
    """
- 
+
    use_running_average: Optional[bool] = None
 @@ -305,6 +311,7 @@ class BatchNorm(Module):
    axis_index_groups: Any = None
    use_fast_variance: bool = True
    force_float32_reductions: bool = True
 +  pjit_axis_name: Tuple[str, ...] = None
- 
+
    @compact
    def __call__(
 @@ -385,6 +392,7 @@ class BatchNorm(Module):
@@ -305,22 +305,22 @@ index 0680737f..ed241d08 100644
        self.scale_init,
 +      self.pjit_axis_name,
      )
- 
- 
+
+
 @@ -448,6 +456,7 @@ class LayerNorm(Module):
        more details.
      use_fast_variance: If true, use a faster, but less numerically stable,
        calculation for the variance.
 +    pjit_axis_names: A tuple of axis names.
    """
- 
+
    epsilon: float = 1e-6
 @@ -463,6 +472,7 @@ class LayerNorm(Module):
    axis_index_groups: Any = None
    use_fast_variance: bool = True
    force_float32_reductions: bool = True
 +  pjit_axis_name: Tuple[str, ...] = None
- 
+
    @compact
    def __call__(self, x, *, mask: Optional[jax.Array] = None):
 @@ -501,6 +511,7 @@ class LayerNorm(Module):
@@ -329,22 +329,22 @@ index 0680737f..ed241d08 100644
        self.scale_init,
 +      self.pjit_axis_name,
      )
- 
- 
+
+
 @@ -549,6 +560,7 @@ class RMSNorm(Module):
        more details.
      use_fast_variance: If true, use a faster, but less numerically stable,
        calculation for the variance.
 +    pjit_axis_names: A tuple of axis names.
    """
- 
+
    epsilon: float = 1e-6
 @@ -562,6 +574,7 @@ class RMSNorm(Module):
    axis_index_groups: Any = None
    use_fast_variance: bool = True
    force_float32_reductions: bool = True
 +  pjit_axis_name: Tuple[str, ...] = None
- 
+
    @compact
    def __call__(self, x, *, mask: Optional[jax.Array] = None):
 @@ -601,6 +614,7 @@ class RMSNorm(Module):
@@ -353,22 +353,22 @@ index 0680737f..ed241d08 100644
        self.scale_init,
 +      self.pjit_axis_name,
      )
- 
- 
+
+
 @@ -671,6 +685,7 @@ class GroupNorm(Module):
        more details.
      use_fast_variance: If true, use a faster, but less numerically stable,
        calculation for the variance.
 +    pjit_axis_names: A tuple of axis names.
    """
- 
+
    num_groups: Optional[int] = 32
 @@ -687,6 +702,7 @@ class GroupNorm(Module):
    axis_index_groups: Any = None
    use_fast_variance: bool = True
    force_float32_reductions: bool = True
 +  pjit_axis_name: Tuple[str, ...] = None
- 
+
    @compact
    def __call__(self, x, *, mask: Optional[jax.Array] = None):
 @@ -904,6 +920,7 @@ class InstanceNorm(Module):
@@ -377,9 +377,9 @@ index 0680737f..ed241d08 100644
        self.scale_init,
 +      self.pjit_axis_name,
      )
- 
- 
--- 
+
+
+--
 2.34.1
 
 
@@ -400,7 +400,7 @@ index 27e22325..d964eefb 100644
 @@ -922,6 +922,21 @@ class ConvTranspose(Module):
    bias_init: Initializer = initializers.zeros_init()
    transpose_kernel: bool = False
- 
+
 +  def param_with_axes(
 +    self,
 +    name: str,
@@ -422,18 +422,18 @@ index 27e22325..d964eefb 100644
 @@ -986,8 +1001,9 @@ class ConvTranspose(Module):
          f'Shapes are: {self.mask.shape}, {kernel_shape}'
        )
- 
+
 -    kernel = self.param(
 -      'kernel', self.kernel_init, kernel_shape, self.param_dtype
 +    kernel = self.param_with_axes(
 +      'kernel', self.kernel_init, kernel_shape, self.param_dtype,
 +      axes=('height', 'width', 'input', 'embed')
      )
- 
+
      if self.mask is not None:
 @@ -998,8 +1014,8 @@ class ConvTranspose(Module):
        padding_lax = 'VALID'
- 
+
      if self.use_bias:
 -      bias = self.param(
 -        'bias', self.bias_init, (self.features,), self.param_dtype
@@ -442,7 +442,7 @@ index 27e22325..d964eefb 100644
        )
      else:
        bias = None
--- 
+--
 2.34.1
 
 
@@ -467,7 +467,7 @@ index bcabd554..b594add9 100644
    DotGeneralT,
 +  Tuple,
  )
- 
+
  def dot_product_attention_weights(
 diff --git a/flax/linen/linear.py b/flax/linen/linear.py
 index d964eefb..e1c2751e 100644
@@ -479,8 +479,8 @@ index d964eefb..e1c2751e 100644
    LaxPadding,
 +  Tuple,
  )
- 
- 
+
+
 diff --git a/flax/linen/normalization.py b/flax/linen/normalization.py
 index ed241d08..30a5b0fe 100644
 --- a/flax/linen/normalization.py
@@ -491,8 +491,7 @@ index ed241d08..30a5b0fe 100644
    Axes,
 +  Tuple,
  )
- 
- field = dataclasses.field
--- 
-2.34.1
 
+ field = dataclasses.field
+--
+2.34.1

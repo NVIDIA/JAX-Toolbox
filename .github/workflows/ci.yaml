@@ -221,6 +221,8 @@ jobs:
       - name: Create URL ref build args
         id: source-urlrefs
         shell: bash -x -e {0}
+        env:
+          GH_TOKEN: ${{ github.token}}
         run: |
           # converts manifest yaml to a json object of {SOFTWARE_NAME: URL#REF, ...}
           urlrefs=$(
@@ -238,19 +240,17 @@ jobs:
 
           # for scale training we need a specific XLA ref
           if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
-            TAG_INFO=$( GH_TOKEN='${{ github.token }}' gh api repos/sfvaroglu/xla/tags --jq '.[-1]' )
-            # extract XLA info
-            XLA_SHA=$( echo "${TAG_INFO}" | jq -r '.commit.sha')
+            TAG_INFO=$(python3 .github/workflows/scripts/extract_commits.py)
+            echo ${TAG_INFO} | jq
+            XLA_SHA=$(jq -r '.commit.sha' <<< "$TAG_INFO")
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"XLA\": \"https://github.com/sfvaroglu/xla#${XLA_SHA}\"}")
-            # extract the JAX version
-            echo "Using XLA sha ${XLA_SHA} for scale-training run"
-            # Use the JAX commit from the last tag in the repo
-            JAX_COMMIT=$( echo "${TAG_INFO}" | jq -r '.name | split("-") | last')
-            echo ${JAX_COMMIT}
+            JAX_COMMIT=$(jq -r '.name | split("-") | last' <<< "$TAG_INFO")
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"JAX\": \"https://github.com/jax-ml/jax#${JAX_COMMIT}\"}")
+
+            echo "Using XLA sha ${XLA_SHA} for scale-training run"
+            echo "Using JAX commit ${JAX_COMMIT} for scale-training run"
           fi
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
-          # sanity check
           echo "Final URLREF going to be used"
           echo ${urlrefs} | jq -c '.'
 
