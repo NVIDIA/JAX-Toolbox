@@ -55,6 +55,11 @@ if not tags:
     print("No tags found in the repository.")
     exit(1)
 
+print(f"Found {len(tags)} tags in the repository.")
+for tag in tags:
+    print(f"Tag: {tag['name']}, Commit SHA: {tag['commit']['sha']}")
+    current_time_info = commit_date(tag["commit"]["sha"])
+    print(f"Commit date for tag {tag['name']}: {current_time_info}")
 # sort the tags by commit date
 tags.sort(key=lambda tag: commit_date(tag["commit"]["sha"]), reverse=True)
 latest = tags[0]
