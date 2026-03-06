@@ -221,6 +221,8 @@ jobs:
       - name: Create URL ref build args
         id: source-urlrefs
         shell: bash -x -e {0}
+        env:
+          GH_TOKEN: ${{ github.token}}
         run: |
           # converts manifest yaml to a json object of {SOFTWARE_NAME: URL#REF, ...}
           urlrefs=$(
