@@ -68,6 +68,12 @@ jobs:
           JOB_NAME="${{ inputs.FW_NAME }}-${GITHUB_RUN_ID}-${TEST_CASE_NAME}"
           echo "TEST_CASE_NAME=${TEST_CASE_NAME}" >> "$GITHUB_OUTPUT"
           echo "JOB_NAME=${JOB_NAME}" >> "$GITHUB_OUTPUT"
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run MaxText test in Docker
         shell: bash -euo pipefail {0}
