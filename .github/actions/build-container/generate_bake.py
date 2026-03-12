@@ -62,12 +62,11 @@ def normalize_dockerfile_path(docker_context: str, dockerfile: str) -> str:
 def main() -> int:
     """Main function to generate the bake definition for the build container action
     Here we are creating the json file for docker/bake.
-    The bake definition will have 3 targets:
+    The bake definition will have 2 targets:
     - mealkit: this target will build the mealkit image and push it to the
     registry with the specified tags and labels
     - final: this target will build the final image and push it to the registry
     with the specified tags and labels
-    - cache-export: this target will only export the build cache to be used in future builds
     """
     try:
         mealkit_tags = non_empty_lines(getenv("MEALKIT_TAGS"))
@@ -82,12 +81,13 @@ def main() -> int:
         bazel_cache = getenv("BAZEL_CACHE")
         build_date = getenv("BUILD_DATE")
         extra_build_args = kv_lines_to_object(getenv("EXTRA_BUILD_ARGS"))
-        bazel_repo_context = getenv("BAZEL_REPO_CONTEXT")
-        bazel_disk_context = getenv("BAZEL_DISK_CONTEXT")
         ssh_known_hosts_file = getenv("SSH_KNOWN_HOSTS_FILE")
-        bazel_export_dir = getenv("BAZEL_EXPORT_DIR")
-        cache_scope = getenv("BUILDX_GHA_SCOPE")
+        cache_repo = getenv("BUILDKIT_CACHE_REPO")
+        cache_key_prefix = getenv("BUILDKIT_CACHE_KEY_PREFIX")
+        cache_branch = getenv("BUILDKIT_CACHE_BRANCH")
         bake_file = getenv("BAKE_FILE")
+        branch_cache_ref = f"{cache_repo}:{cache_key_prefix}-{cache_branch}"
+        main_cache_ref = f"{cache_repo}:{cache_key_prefix}-main"
 
         build_args: Dict[str, str] = {
             "BASE_IMAGE": base_image,
@@ -101,14 +101,13 @@ def main() -> int:
             "context": docker_context,
             "dockerfile": dockerfile,
             "platforms": [f"linux/{architecture}"],
-            "contexts": {
-                "bazel_repo": bazel_repo_context,
-                "bazel_disk": bazel_disk_context,
-            },
             "ssh": ["default"],
             "secret": [f"id=SSH_KNOWN_HOSTS,src={ssh_known_hosts_file}"],
             "args": build_args,
-            "cache-from": [f"type=gha,scope={cache_scope}"],
+            "cache-from": [
+                f"type=registry,ref={branch_cache_ref},ignore-error=true",
+                f"type=registry,ref={main_cache_ref},ignore-error=true",
+            ],
         }
         # create the json file for the bake action
         bake_definition = {
@@ -126,11 +125,12 @@ def main() -> int:
                     "tags": final_tags,
                     "labels": final_labels,
                     "output": ["type=image,push=true"],
-                },
-                "cache-export": {
-                    **common,
-                    "target": "cache-export",
-                    "output": [f"type=local,dest={bazel_export_dir}"],
+                    "cache-to": [
+                        "type=registry,"
+                        f"ref={branch_cache_ref},"
+                        "mode=max,oci-mediatypes=true,image-manifest=true,"
+                        "compression=zstd,ignore-error=true"
+                    ],
                 },
             }
         }

@@ -67,41 +67,6 @@ jobs:
     steps:
         - name: Checkout repository
           uses: actions/checkout@v4
-        - name: Detect Dockerfile.jax change in HEAD commit
-          id: dockerfile-jax-change
-          shell: bash -euo pipefail {0}
-          run: |
-            if git show --name-only --pretty='' HEAD | grep -Fxq '.github/container/Dockerfile.jax'; then
-              echo "changed=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "changed=false" >> "$GITHUB_OUTPUT"
-            fi
-        - name: Restore Bazel repository cache
-          uses: actions/cache/restore@v5
-          id: cache-restore-repo
-          with:
-            path: |
-              ~/.cache/bazel-repo
-            key: bazel-repo-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
-            restore-keys: |
-              bazel-repo-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
-              bazel-repo-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-
-              bazel-repo-${{ inputs.ARCHITECTURE }}-main-
-              bazel-repo-${{ inputs.ARCHITECTURE }}-
-        - name: Restore Bazel disk cache
-          uses: actions/cache/restore@v5
-          id: cache-restore-disk
-          if: ${{ github.ref_name == 'main' && steps.dockerfile-jax-change.outputs.changed == 'true' }}
-          with:
-            path: |
-              ~/.cache/bazel-disk
-            key: bazel-disk-${{ inputs.ARCHITECTURE }}-main-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
-            restore-keys: |
-              bazel-disk-${{ inputs.ARCHITECTURE }}-main-
-        - name: Create Bazel cache directories - if missing
-          run: |
-            mkdir -p ~/.cache/bazel-repo
-            mkdir -p ~/.cache/bazel-disk
         - name: Build JAX container
           id: build-jax
           uses: ./.github/actions/build-container
@@ -117,30 +82,11 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
-            bazel-remote-cache-url: ${{ github.ref_name == 'main' && steps.dockerfile-jax-change.outputs.changed == 'true' && '/cache/bazel-disk' || '' }}
-            bazel-repo-cache-path: /home/runner/.cache/bazel-repo
-            bazel-disk-cache-path: /home/runner/.cache/bazel-disk
-            bazel-save-cache: ${{ steps.cache-restore-repo.outputs.cache-hit != 'true' || (github.ref_name == 'main' && steps.dockerfile-jax-change.outputs.changed == 'true' && steps.cache-restore-disk.outputs.cache-hit != 'true') }}
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
-              EXTRA_BUILD_JAX_ARGS=--build-param=--bazel_options=--repository_cache=/cache/bazel-repo
-        - name: Save Bazel repository cache
-          uses: actions/cache/save@v5
-          if: ${{ !cancelled() && steps.build-jax.outcome == 'success' && steps.cache-restore-repo.outputs.cache-hit != 'true' }}
-          with:
-            path: |
-              ~/.cache/bazel-repo
-            key: bazel-repo-${{ inputs.ARCHITECTURE }}-${{ github.ref_name }}-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
-        - name: Save Bazel disk cache
-          uses: actions/cache/save@v5
-          if: ${{ !cancelled() && steps.build-jax.outcome == 'success' && github.ref_name == 'main' && steps.dockerfile-jax-change.outputs.changed == 'true' && steps.cache-restore-disk.outputs.cache-hit != 'true' }}
-          with:
-            path: |
-              ~/.cache/bazel-disk
-            key: bazel-disk-${{ inputs.ARCHITECTURE }}-main-${{ hashFiles('.github/container/build-jax.sh', '.github/container/Dockerfile.jax', '.github/actions/build-container/action.yml') }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}

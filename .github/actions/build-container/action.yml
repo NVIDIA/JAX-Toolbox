@@ -84,26 +84,14 @@ runs:
       run: |
         echo 'UPLD_IMAGE=ghcr.io/nvidia/jax-toolbox-internal' >> $GITHUB_ENV
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
-        echo "BAZEL_EXPORT_DIR=${RUNNER_TEMP}/bazel-cache-export" >> $GITHUB_ENV
         echo "BAKE_FILE=${RUNNER_TEMP}/docker-bake.json" >> $GITHUB_ENV
-        echo "BUILDX_GHA_SCOPE=${{ inputs.CONTAINER_NAME }}-${{ inputs.ARCHITECTURE }}" >> $GITHUB_ENV
-
-    - name: Prepare Bazel cache contexts
-      shell: bash
-      run: |
-        repo_context="${{ inputs.bazel-repo-cache-path }}"
-        if [[ -z "${repo_context}" ]]; then
-          repo_context="$(mktemp -d)"
+        echo "BUILDKIT_CACHE_REPO=ghcr.io/nvidia/jax-toolbox-internal-cache" >> $GITHUB_ENV
+        echo "BUILDKIT_CACHE_KEY_PREFIX=${{ inputs.CONTAINER_NAME }}-${{ inputs.ARCHITECTURE }}" >> $GITHUB_ENV
+        cache_branch="$(printf '%s' "${GITHUB_REF_NAME}" | tr '/:@ ' '-' | tr -cd '[:alnum:]._-')"
+        if [[ -z "${cache_branch}" ]]; then
+          cache_branch="detached-head"
         fi
-        disk_context="${{ inputs.bazel-disk-cache-path }}"
-        if [[ -z "${disk_context}" ]]; then
-          disk_context="$(mktemp -d)"
-        fi
-        mkdir -p "${repo_context}"
-        mkdir -p "${disk_context}"
-        rm -rf "${RUNNER_TEMP}/bazel-cache-export"
-        echo "BAZEL_REPO_CONTEXT=${repo_context}" >> $GITHUB_ENV
-        echo "BAZEL_DISK_CONTEXT=${disk_context}" >> $GITHUB_ENV
+        echo "BUILDKIT_CACHE_BRANCH=${cache_branch}" >> $GITHUB_ENV
 
     - name: Setup SSH
       id: setup-ssh
@@ -168,15 +156,14 @@ runs:
         BAZEL_CACHE: ${{ inputs.bazel-remote-cache-url }}
         BUILD_DATE: ${{ inputs.BUILD_DATE }}
         EXTRA_BUILD_ARGS: ${{ inputs.EXTRA_BUILD_ARGS }}
-        BAZEL_REPO_CONTEXT: ${{ env.BAZEL_REPO_CONTEXT }}
-        BAZEL_DISK_CONTEXT: ${{ env.BAZEL_DISK_CONTEXT }}
         SSH_KNOWN_HOSTS_FILE: ${{ steps.setup-ssh.outputs.known-hosts-file }}
-        BAZEL_EXPORT_DIR: ${{ env.BAZEL_EXPORT_DIR }}
-        BUILDX_GHA_SCOPE: ${{ env.BUILDX_GHA_SCOPE }}
+        BUILDKIT_CACHE_REPO: ${{ env.BUILDKIT_CACHE_REPO }}
+        BUILDKIT_CACHE_KEY_PREFIX: ${{ env.BUILDKIT_CACHE_KEY_PREFIX }}
+        BUILDKIT_CACHE_BRANCH: ${{ env.BUILDKIT_CACHE_BRANCH }}
         BAKE_FILE: ${{ env.BAKE_FILE }}
       run: python3 "${{ github.action_path }}/generate_bake.py"
 
-    - name: Build mealkit/final and optionally export Bazel caches
+    - name: Build mealkit/final
       id: final-build
       uses: docker/bake-action@v5
       with:
@@ -184,7 +171,6 @@ runs:
         targets: |
           mealkit
           final
-          ${{ inputs.bazel-save-cache == 'true' && 'cache-export' || '' }}
         allow: |
           ssh
 
@@ -202,19 +188,6 @@ runs:
           digest="unknown"
         fi
         echo "digest=${digest}" >> "$GITHUB_OUTPUT"
-    # this step is needed for saving bazel cache
-    - name: Copy exported Bazel caches to host
-      if: ${{ inputs.bazel-save-cache == 'true' && success() }}
-      shell: bash -euo pipefail {0}
-      run: |
-        if [[ -d "${{ env.BAZEL_EXPORT_DIR }}/bazel-repo" && -n "${{ inputs.bazel-repo-cache-path }}" ]]; then
-          mkdir -p "${{ inputs.bazel-repo-cache-path }}"
-          cp -a "${{ env.BAZEL_EXPORT_DIR }}/bazel-repo/." "${{ inputs.bazel-repo-cache-path }}/"
-        fi
-        if [[ -d "${{ env.BAZEL_EXPORT_DIR }}/bazel-disk" && -n "${{ inputs.bazel-disk-cache-path }}" ]]; then
-          mkdir -p "${{ inputs.bazel-disk-cache-path }}"
-          cp -a "${{ env.BAZEL_EXPORT_DIR }}/bazel-disk/." "${{ inputs.bazel-disk-cache-path }}/"
-        fi
 
     # SITREP GENERATION
     - name: Generate sitrep
