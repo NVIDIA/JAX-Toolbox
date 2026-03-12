@@ -85,7 +85,7 @@ runs:
         echo 'UPLD_IMAGE=ghcr.io/nvidia/jax-toolbox-internal' >> $GITHUB_ENV
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
         echo "BAKE_FILE=${RUNNER_TEMP}/docker-bake.json" >> $GITHUB_ENV
-        echo "BUILDKIT_CACHE_REPO=ghcr.io/nvidia/jax-toolbox-internal-cache" >> $GITHUB_ENV
+        echo "BUILDKIT_CACHE_REPO=ghcr.io/nvidia/jax-toolbox-internal" >> $GITHUB_ENV
         echo "BUILDKIT_CACHE_KEY_PREFIX=${{ inputs.CONTAINER_NAME }}-${{ inputs.ARCHITECTURE }}" >> $GITHUB_ENV
         cache_branch="$(printf '%s' "${GITHUB_REF_NAME}" | tr '/:@ ' '-' | tr -cd '[:alnum:]._-')"
         if [[ -z "${cache_branch}" ]]; then
