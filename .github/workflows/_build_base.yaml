@@ -62,7 +62,7 @@ jobs:
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
-      DOCKER_TAG: ${{ steps.meta.outputs.tags }}
+      DOCKER_TAG: ${{ steps.base-tag.outputs.tag }}
     steps:
       - name: Print environment variables
         run: env
@@ -106,37 +106,78 @@ jobs:
             image=moby/buildkit:v0.12.1
           version: v0.30.1
 
-      - name: Set docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ env.UPLD_IMAGE }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=${{ github.run_id }}-base-${{ inputs.ARCHITECTURE }}
-          labels:
-            org.opencontainers.image.created=${{ inputs.BUILD_DATE }}
+      - name: Compute base image tag
+        id: base-tag
+        shell: bash -euo pipefail {0}
+        run: |
+          hash_inputs=(
+            ".github/container/Dockerfile.base"
+            ".github/container/manifest.yaml"
+            ".github/container/git-clone.sh"
+            ".github/container/pip-finalize.sh"
+            ".github/container/pip-vcs-equivalency.patch"
+            ".github/container/create-distribution.sh"
+            ".github/container/bump.sh"
+            ".github/container/jax-nccl-test"
+            ".github/container/parallel-launch"
+            ".github/container/nccl-sanity-check.cu"
+          )
+          while IFS= read -r -d '' file; do
+            hash_inputs+=("${file}")
+          done < <(find .github/container -maxdepth 1 -type f \( -name 'install-*.sh' -o -name 'symlnk-*.sh' \) -print0 | sort -z)
+          while IFS= read -r -d '' file; do
+            hash_inputs+=("${file}")
+          done < <(find .github/container/patches -type f -print0 2>/dev/null | sort -z || true)
 
-      - name: Build docker images
+          combined_hash="$(
+            {
+              printf 'BASE_IMAGE=%s\n' "${{ inputs.BASE_IMAGE }}"
+              printf 'ARCHITECTURE=%s\n' "${{ inputs.ARCHITECTURE }}"
+              for f in "${hash_inputs[@]}"; do
+                printf 'FILE=%s\n' "${f}"
+                sha256sum "${f}"
+              done
+            } | sha256sum | cut -c1-20
+          )"
+          echo "tag=${UPLD_IMAGE}:base-${{ inputs.ARCHITECTURE }}-${combined_hash}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if base image already exists
+        id: base-exists
+        shell: bash -euo pipefail {0}
+        run: |
+          if docker buildx imagetools inspect "${{ steps.base-tag.outputs.tag }}" >/dev/null 2>&1; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build base image
         id: build
+        if: steps.base-exists.outputs.hit != 'true'
         uses: docker/build-push-action@v5
         with:
           context: .github/container
           push: true
           file: .github/container/Dockerfile.base
           platforms: linux/${{ inputs.ARCHITECTURE }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # head_ref is the PR source branch for pull_request pipelines, which avoids
-          # baking in the SHA of a merge commit than cannot be checked out later
+          tags: |
+            ${{ steps.base-tag.outputs.tag }}
           build-args: |
             GIT_USER_NAME=${{ inputs.GIT_USER_NAME }}
             GIT_USER_EMAIL=${{ inputs.GIT_USER_EMAIL }}
             BUILD_DATE=${{ inputs.BUILD_DATE }}
-            JAX_TOOLBOX_REF=${{ github.head_ref || github.sha }}
+            JAX_TOOLBOX_REF=main
             ${{ inputs.BASE_IMAGE != 'latest' && format('BASE_IMAGE={0}', inputs.BASE_IMAGE) || '' }}
+
+      - name: Resolve base image digest
+        id: base-digest
+        shell: bash -euo pipefail {0}
+        run: |
+          digest="$(docker buildx imagetools inspect "${{ steps.base-tag.outputs.tag }}" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || true)"
+          if [[ -z "${digest}" || "${digest}" == "null" ]]; then
+            digest="unknown"
+          fi
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       - name: Generate sitrep
         if: "!cancelled()"
@@ -146,11 +187,15 @@ jobs:
           source .github/workflows/scripts/to_json.sh
 
           badge_label='Base image ${{ inputs.ARCHITECTURE }} build'
-          tags="${{ steps.meta.outputs.tags }}"
-          digest="${{ steps.build.outputs.digest }}"
-          outcome="${{ steps.build.outcome }}"
+          tags="${{ steps.base-tag.outputs.tag }}"
+          digest="${{ steps.base-digest.outputs.digest }}"
+          if [[ "${{ steps.base-exists.outputs.hit }}" == "true" ]]; then
+            outcome="cache-hit"
+          else
+            outcome="${{ steps.build.outcome }}"
+          fi
 
-          if [[ ${outcome} == "success" ]]; then
+          if [[ "${outcome}" == "success" || "${outcome}" == "cache-hit" ]]; then
             badge_message="pass"
             badge_color=brightgreen
             summary="Base image build on ${{ inputs.ARCHITECTURE }}: $badge_message"
