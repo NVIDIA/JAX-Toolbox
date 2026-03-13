@@ -62,11 +62,12 @@ def normalize_dockerfile_path(docker_context: str, dockerfile: str) -> str:
 def main() -> int:
     """Main function to generate the bake definition for the build container action
     Here we are creating the json file for docker/bake.
-    The bake definition will have 2 targets:
+    The bake definition will have 3 targets:
     - mealkit: this target will build the mealkit image and push it to the
     registry with the specified tags and labels
     - final: this target will build the final image and push it to the registry
     with the specified tags and labels
+    - cache-export: this target exports Bazel cache directories to local output
     """
     try:
         mealkit_tags = non_empty_lines(getenv("MEALKIT_TAGS"))
@@ -82,6 +83,9 @@ def main() -> int:
         build_date = getenv("BUILD_DATE")
         extra_build_args = kv_lines_to_object(getenv("EXTRA_BUILD_ARGS"))
         ssh_known_hosts_file = getenv("SSH_KNOWN_HOSTS_FILE")
+        bazel_repo_context = getenv("BAZEL_REPO_CONTEXT")
+        bazel_disk_context = getenv("BAZEL_DISK_CONTEXT")
+        bazel_export_dir = getenv("BAZEL_EXPORT_DIR")
         cache_repo = getenv("BUILDKIT_CACHE_REPO")
         cache_key_prefix = getenv("BUILDKIT_CACHE_KEY_PREFIX")
         cache_branch = getenv("BUILDKIT_CACHE_BRANCH")
@@ -101,6 +105,10 @@ def main() -> int:
             "context": docker_context,
             "dockerfile": dockerfile,
             "platforms": [f"linux/{architecture}"],
+            "contexts": {
+                "bazel_repo": bazel_repo_context,
+                "bazel_disk": bazel_disk_context,
+            },
             "ssh": ["default"],
             "secret": [f"id=SSH_KNOWN_HOSTS,src={ssh_known_hosts_file}"],
             "args": build_args,
@@ -131,6 +139,11 @@ def main() -> int:
                         "mode=max,oci-mediatypes=true,image-manifest=true,"
                         "compression=zstd,ignore-error=true"
                     ],
+                },
+                "cache-export": {
+                    **common,
+                    "target": "cache-export",
+                    "output": [f"type=local,dest={bazel_export_dir}"],
                 },
             }
         }

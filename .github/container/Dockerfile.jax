@@ -52,6 +52,14 @@ ADD build-jax.sh build-te.sh local_cuda_arch /usr/local/bin/
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
     chmod +x /usr/local/bin/bazel
+# Seed Bazel repository cache from build context supplied by the GitHub workflow.
+RUN --mount=type=cache,id=bazel-repo-${TARGETARCH},target=/cache/bazel-repo,sharing=locked \
+    --mount=type=bind,from=bazel_repo,target=/cache/bazel-repo-seed,ro \
+    cp -a /cache/bazel-repo-seed/. /cache/bazel-repo/ 2>/dev/null || true
+# Seed Bazel disk cache from build context supplied by the GitHub workflow.
+RUN --mount=type=cache,id=bazel-disk-${TARGETARCH},target=/cache/bazel-disk,sharing=locked \
+    --mount=type=bind,from=bazel_disk,target=/cache/bazel-disk-seed,ro \
+    cp -a /cache/bazel-disk-seed/. /cache/bazel-disk/ 2>/dev/null || true
 # Populate ${BUILD_PATH_JAXLIB} with editable wheels; --no-install because
 # (a) this is the builder stage, and (b) pip-finalize.sh does the install
 RUN --mount=type=cache,id=bazel-repo-${TARGETARCH},target=/cache/bazel-repo,sharing=locked \
@@ -88,6 +96,14 @@ RUN build-te.sh \
     --no-install \
     --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \
     --src-path-xla ${SRC_PATH_XLA}
+
+FROM ${BASE_IMAGE} AS cache-export
+ARG TARGETARCH
+RUN --mount=type=cache,id=bazel-repo-${TARGETARCH},target=/cache/bazel-repo,sharing=locked \
+    --mount=type=cache,id=bazel-disk-${TARGETARCH},target=/cache/bazel-disk,sharing=locked \
+    mkdir -p /bazel-repo /bazel-disk && \
+    cp -a /cache/bazel-repo/. /bazel-repo/ 2>/dev/null || true && \
+    cp -a /cache/bazel-disk/. /bazel-disk/ 2>/dev/null || true
 
 ###############################################################################
 ## Pack jaxlib wheel and various source dirs into a pre-installation image
