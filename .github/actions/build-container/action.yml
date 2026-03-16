@@ -57,7 +57,7 @@ inputs:
   CACHE_REGISTRY:
     description: "OCI registry used for BuildKit layer cache (cache-to/cache-from). Must be writable by the GITHUB_TOKEN."
     required: false
-    default: "ghcr.io/nvidia/jax-toolbox-buildcache"
+    default: "ghcr.io/nvidia/jax-toolbox-internal"
   ENABLE_BAZEL_REPO_CACHE:
     description: "Enable Bazel repository-cache save/restore via actions/cache and build-context injection. Set to 'true' only for containers that run Bazel (i.e. build-jax)."
     required: false
