@@ -29,7 +29,7 @@ def commit_date(sha: str) -> str:
     """
     url = f"https://api.github.com/repos/{OWNER}/{REPO}/commits/{sha}"
     commit_data = return_json_from_url(url)
-    return commit_data["commit"]["author"]["date"]
+    return commit_data["commit"]["committer"]["date"]
 
 
 H = {
