@@ -98,15 +98,17 @@ jobs:
         if ! [ $CLUSTER_EXISTS = true  ]; then
           cd $HOME/xpk
           source $HOME/.venv/bin/activate
-           python xpk.py cluster create \
-                  --cluster ${{ inputs.CLUSTER_NAME }} \
-                  --gke-version ${{ inputs.GKE_VERSION }} \
-                  --device-type ${{ inputs.DEVICE_TYPE }} \
-                  --num-nodes ${{ inputs.NUM_NODES }} \
-                  --default-pool-cpu-machine-type=${{ inputs.DEFAULT_CPU_MACHINE }} \
-                  --project=${{ inputs.GCP_PROJECT }} \
-                  --reservation ${{ inputs.GCP_GCE_RESERVATION }} \
-                  --zone ${{ inputs.GCP_ZONE }}
+          xpk cluster create --cluster ${{ inputs.CLUSTER_NAME }} \
+                             --gke-version ${{ inputs.GKE_VERSION }} \
+                             --device-type ${{ inputs.DEVICE_TYPE }} \
+                             --num-nodes ${{ inputs.NUM_NODES }} \
+                             --default-pool-cpu-machine-type=${{ inputs.DEFAULT_CPU_MACHINE }} \
+                             --project=${{ inputs.GCP_PROJECT }} \
+                             --reservation ${{ inputs.GCP_GCE_RESERVATION }} \
+                             --zone ${{ inputs.GCP_ZONE }} \
+                             --custom-cluster-arguments="--enable-private-nodes" \
+                             --custom-nodepool-arguments="--enable-private-nodes" \
+                             --private
         else
           echo "Cluster ${{ inputs.CLUSTER_NAME }} already exists, skipping creation"
         fi
