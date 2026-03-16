@@ -37,8 +37,9 @@ usage() {
     echo "  Usage: $0 [OPTIONS]"
     echo ""
     echo "    OPTIONS                        DESCRIPTION"
-    echo "    --bazel-cache URI              Path for local bazel cache or URL of remote bazel cache"
+    echo "    --bazel-cache URI              Path for local bazel disk cache or URL of remote bazel cache"
     echo "    --bazel-cache-namespace NAME   Namespace for bazel cache content"
+    echo "    --bazel-repo-cache PATH        Path for local bazel repository cache (--repository_cache)"
     echo "    --build-param PARAM            Param passed to the jaxlib build command. Can be passed many times."
     echo "    --build-path-jaxlib PATH       Editable install prefix for jaxlib and plugins"
     echo "    --clean                        Delete local configuration and bazel cache"
@@ -63,6 +64,7 @@ usage() {
 # Set defaults
 BAZEL_CACHE=""
 BAZEL_CACHE_NAMESPACE="jax${CUDA_BASE_IMAGE:+:}${CUDA_BASE_IMAGE}"
+BAZEL_REPO_CACHE=""
 BUILD_PATH_JAXLIB="/opt/jaxlibs"
 BUILD_PARAM=""
 CLEAN=0
@@ -76,7 +78,7 @@ IS_RELEASE=0
 SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 
-args=$(getopt -o h,r --long bazel-cache:,bazel-cache-namespace:,build-param:,build-path-jaxlib:,clean,release,cpu-arch:,debug,extra-targets:,extra-target-dest:,no-clean,clean-only,help,install,no-install,src-path-jax:,src-path-xla:,sm: -- "$@")
+args=$(getopt -o h,r --long bazel-cache:,bazel-cache-namespace:,bazel-repo-cache:,build-param:,build-path-jaxlib:,clean,release,cpu-arch:,debug,extra-targets:,extra-target-dest:,no-clean,clean-only,help,install,no-install,src-path-jax:,src-path-xla:,sm: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -90,6 +92,10 @@ while [ : ]; do
             ;;
         --bazel-cache-namespace)
             BAZEL_CACHE_NAMESPACE=$2
+            shift 2
+            ;;
+        --bazel-repo-cache)
+            BAZEL_REPO_CACHE=$2
             shift 2
             ;;
         --build-param)
@@ -193,6 +199,10 @@ elif [[ ! -z "${BAZEL_CACHE}" ]] ; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=${BAZEL_CACHE}"
 fi
 
+if [[ -n "${BAZEL_REPO_CACHE}" ]]; then
+    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--repository_cache=${BAZEL_REPO_CACHE}"
+fi
+
 if [[ "$DEBUG" == "1" ]]; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=-c --bazel_options=dbg --bazel_options=--strip=never --bazel_options=--cxxopt=-g --bazel_options=--cxxopt=-O0"
 fi
@@ -203,6 +213,7 @@ echo "                  Configuration                   "
 echo "--------------------------------------------------"
 
 print_var BAZEL_CACHE
+print_var BAZEL_REPO_CACHE
 print_var BUILD_PATH_JAXLIB
 print_var BUILD_PARAM
 print_var CLEAN

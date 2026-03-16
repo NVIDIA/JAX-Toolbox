@@ -51,9 +51,17 @@ inputs:
     required: true
     default: ""
   bazel-remote-cache-url:
-    description: "URL of the Bazel remote cache to use for building the image"
-    required: true
+    description: "URL of the Bazel remote cache to use for building the image (http/grpc). Leave empty to use Dockerfile-default cache mount paths."
+    required: false
     default: ""
+  CACHE_REGISTRY:
+    description: "OCI registry used for BuildKit layer cache (cache-to/cache-from). Must be writable by the GITHUB_TOKEN."
+    required: false
+    default: "ghcr.io/nvidia/jax-toolbox-buildcache"
+  ENABLE_BAZEL_REPO_CACHE:
+    description: "Enable Bazel repository-cache save/restore via actions/cache and build-context injection. Set to 'true' only for containers that run Bazel (i.e. build-jax)."
+    required: false
+    default: "false"
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -72,6 +80,60 @@ runs:
       run: |
         echo 'UPLD_IMAGE=ghcr.io/nvidia/jax-toolbox-internal' >> $GITHUB_ENV
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
+
+    - name: Set up build cache environment
+      id: cache-env
+      shell: bash
+      run: |
+        # Sanitize branch name: replace / and non-tag chars, cap at 100 chars
+        BRANCH=$(echo "${{ github.ref_name }}" \
+          | sed 's|/|-|g' \
+          | tr -cs 'a-zA-Z0-9._-' '-' \
+          | sed 's/^-//;s/-$//' \
+          | cut -c1-100)
+
+        CONTAINER="${{ inputs.CONTAINER_NAME }}"
+        ARCH="${{ inputs.ARCHITECTURE }}"
+        REGISTRY="${{ inputs.CACHE_REGISTRY }}"
+
+        echo "CACHE_REF_MEALKIT_BRANCH=${REGISTRY}:${CONTAINER}-${ARCH}-${BRANCH}-mealkit" >> $GITHUB_ENV
+        echo "CACHE_REF_MEALKIT_MAIN=${REGISTRY}:${CONTAINER}-${ARCH}-main-mealkit"         >> $GITHUB_ENV
+        echo "CACHE_REF_FINAL_BRANCH=${REGISTRY}:${CONTAINER}-${ARCH}-${BRANCH}-final"     >> $GITHUB_ENV
+        echo "CACHE_REF_FINAL_MAIN=${REGISTRY}:${CONTAINER}-${ARCH}-main-final"             >> $GITHUB_ENV
+
+        # Bazel repo-cache key: keyed on arch only so that restore-keys
+        # always finds the most recent cache for this architecture, regardless of
+        # which JAX/XLA commit is being built. EXTRA_BUILD_ARGS contains
+        # URLREF_JAX=...#<commit> which changes every upstream push; including
+        # it would cause a primary-key miss on every single run.
+        echo "BAZEL_REPO_CACHE_KEY=bazel-repo-${ARCH}" >> $GITHUB_ENV
+
+        # Pass BAZEL_CACHE build-arg only when a remote URL is explicitly given;
+        # otherwise the Dockerfile default (/cache/bazel-disk) applies.
+        if [[ -n "${{ inputs.bazel-remote-cache-url }}" ]]; then
+          echo "BAZEL_CACHE_BUILD_ARG=BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}" >> $GITHUB_ENV
+        else
+          echo "BAZEL_CACHE_BUILD_ARG=" >> $GITHUB_ENV
+        fi
+
+    # Ensure the directory exists regardless of whether we restore a cache.
+    # An empty directory fed via --build-context is equivalent to FROM scratch.
+    - name: Prepare Bazel repo cache directory
+      shell: bash
+      run: mkdir -p /tmp/bazel-repo-cache
+
+    - name: Restore Bazel repo cache
+      id: restore-bazel-repo-cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: /tmp/bazel-repo-cache
+        # Key: arch-scoped + run_id so each successful run saves a fresh entry.
+        # restore-keys falls back to the most recent cache for this arch,
+        # giving a warm repo cache even when the exact SHA differs.
+        key: ${{ env.BAZEL_REPO_CACHE_KEY }}-${{ github.run_id }}
+        restore-keys: |
+          ${{ env.BAZEL_REPO_CACHE_KEY }}-
 
     - name: Setup SSH
       id: setup-ssh
@@ -136,9 +198,23 @@ runs:
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
+          ${{ env.BAZEL_CACHE_BUILD_ARG }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
+        # Inject pre-restored Bazel repo cache as a named build context.
+        # The Dockerfile declares `FROM scratch AS bazel-repo-seed`; passing this
+        # context overrides that stage with the contents of the local directory.
+        # When the directory is empty (cold start) the bind-mount is a no-op.
+        build-contexts: |
+          bazel-repo-seed=/tmp/bazel-repo-cache
+        cache-from: |
+          type=registry,ref=${{ env.CACHE_REF_MEALKIT_BRANCH }}
+          type=registry,ref=${{ env.CACHE_REF_MEALKIT_MAIN }}
+        # mode=max: cache ALL intermediate stages (builder, mealkit) so
+        # full Bazel layer is reusable on the next run.
+        # ignore-error=true: cache push failure must never kill the build.
+        cache-to: type=registry,ref=${{ env.CACHE_REF_MEALKIT_BRANCH }},mode=max,oci-mediatypes=true,image-manifest=true,compression=zstd,ignore-error=true
+
     # FINAL IMAGE BUILD
     - name: Set docker metadata - final
       id: final-metadata
@@ -169,9 +245,76 @@ runs:
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
+          ${{ env.BAZEL_CACHE_BUILD_ARG }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
+        build-contexts: |
+          bazel-repo-seed=/tmp/bazel-repo-cache
+        cache-from: |
+          type=registry,ref=${{ env.CACHE_REF_FINAL_BRANCH }}
+          type=registry,ref=${{ env.CACHE_REF_FINAL_MAIN }}
+          type=registry,ref=${{ env.CACHE_REF_MEALKIT_BRANCH }}
+          type=registry,ref=${{ env.CACHE_REF_MEALKIT_MAIN }}
+        # mode=min: builder+mealkit layers are already cached under CACHE_REF_MEALKIT_BRANCH
+        # (mode=max above).  Only cache the final stage's unique layers here.
+        cache-to: type=registry,ref=${{ env.CACHE_REF_FINAL_BRANCH }},mode=min,oci-mediatypes=true,image-manifest=true,compression=zstd,ignore-error=true
+
+    # BAZEL REPO CACHE EXPORT
+    # This step extracts /cache/bazel-repo from the builder stage back to the
+    # runner so it can be saved via actions/cache.
+    #
+    # It builds only the lightweight `bazel-repo-export` stage (FROM scratch +
+    # COPY --from=builder), pulling the already-cached builder layer from the
+    # registry.  No Bazel re-invocation occurs.
+    #
+    # Cost: one registry pull of the builder layer + a local copy.
+    # This is bounded (repo cache only, NOT disk cache) and will NOT trigger
+    # the multi-hour `[cache-export] exporting to client directory` stall that
+    # afflicted the old type=local full-cache-export path.
+    - name: Export Bazel repo cache
+      id: export-bazel-repo-cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true' && steps.mealkit-build.outcome == 'success'
+      shell: bash
+      env:
+        EXTRA_BUILD_ARGS: ${{ inputs.EXTRA_BUILD_ARGS }}
+      run: |
+        # Convert newline-separated build args into individual --build-arg flags
+        BUILD_ARG_FLAGS=()
+        while IFS= read -r line; do
+          [[ -z "$line" ]] && continue
+          BUILD_ARG_FLAGS+=(--build-arg "$line")
+        done <<< "$EXTRA_BUILD_ARGS"
+
+        # Export to a staging dir to avoid a read/write collision:
+        # the build reads /tmp/bazel-repo-cache via --build-context and
+        # would corrupt the seed if we wrote to the same path concurrently.
+        rm -rf /tmp/bazel-repo-cache-new
+
+        docker buildx build \
+          --platform "linux/${{ inputs.ARCHITECTURE }}" \
+          --file "${{ inputs.DOCKERFILE }}" \
+          --target bazel-repo-export \
+          --output "type=local,dest=/tmp/bazel-repo-cache-new" \
+          --cache-from "type=registry,ref=${{ env.CACHE_REF_MEALKIT_BRANCH }}" \
+          --cache-from "type=registry,ref=${{ env.CACHE_REF_MEALKIT_MAIN }}" \
+          --build-arg "BASE_IMAGE=${{ inputs.BASE_IMAGE }}" \
+          --build-arg "BUILD_DATE=${{ inputs.BUILD_DATE }}" \
+          --build-context "bazel-repo-seed=/tmp/bazel-repo-cache" \
+          "${BUILD_ARG_FLAGS[@]}" \
+          "${{ inputs.DOCKER_CONTEXT }}"
+
+        # Swap staging into the canonical location for actions/cache/save
+        rm -rf /tmp/bazel-repo-cache
+        mv /tmp/bazel-repo-cache-new /tmp/bazel-repo-cache
+
+    - name: Save Bazel repo cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true' && steps.export-bazel-repo-cache.outcome == 'success'
+      uses: actions/cache/save@v4
+      with:
+        path: /tmp/bazel-repo-cache
+        # Same key as restore: arch + run_id.  Each successful run overwrites
+        # the previous entry, keeping the cache fresh without unbounded growth.
+        key: ${{ env.BAZEL_REPO_CACHE_KEY }}-${{ github.run_id }}
 
     # SITREP GENERATION
     - name: Generate sitrep
