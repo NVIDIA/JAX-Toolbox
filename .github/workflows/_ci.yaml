@@ -90,6 +90,8 @@ jobs:
             bazel-remote-cache-url: ""
             # Enable Bazel repository-cache save/restore for this Bazel-heavy job.
             ENABLE_BAZEL_REPO_CACHE: 'true'
+            # Enable Bazel disk-cache export/restore via OCI registry image.
+            ENABLE_BAZEL_DISK_CACHE: 'true'
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}

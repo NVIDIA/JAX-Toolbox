@@ -62,6 +62,10 @@ inputs:
     description: "Enable Bazel repository-cache save/restore via actions/cache and build-context injection. Set to 'true' only for containers that run Bazel (i.e. build-jax)."
     required: false
     default: "false"
+  ENABLE_BAZEL_DISK_CACHE:
+    description: "Enable Bazel disk-cache save/restore via OCI registry image. Set to 'true' only for containers that run Bazel (i.e. build-jax). The cache image is pushed to CACHE_REGISTRY and seeded on subsequent runs via docker-image:// build context."
+    required: false
+    default: "false"
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -100,6 +104,9 @@ runs:
         echo "CACHE_REF_MEALKIT_MAIN=${REGISTRY}:${CONTAINER}-${ARCH}-main-mealkit"         >> $GITHUB_ENV
         echo "CACHE_REF_FINAL_BRANCH=${REGISTRY}:${CONTAINER}-${ARCH}-${BRANCH}-final"     >> $GITHUB_ENV
         echo "CACHE_REF_FINAL_MAIN=${REGISTRY}:${CONTAINER}-${ARCH}-main-final"             >> $GITHUB_ENV
+        # Dedicated OCI tag for the Bazel disk-cache snapshot image.
+        # Keyed on container+arch+branch so branch builds don't pollute main's cache.
+        echo "BAZEL_DISK_CACHE_REF=${REGISTRY}:bazel-disk-${CONTAINER}-${ARCH}-${BRANCH}" >> $GITHUB_ENV
 
         # Bazel repo-cache key: keyed on arch only so that restore-keys
         # always finds the most recent cache for this architecture, regardless of
@@ -134,6 +141,20 @@ runs:
         key: ${{ env.BAZEL_REPO_CACHE_KEY }}-${{ github.run_id }}
         restore-keys: |
           ${{ env.BAZEL_REPO_CACHE_KEY }}-
+
+    # Check whether a disk-cache OCI image from a previous run exists.
+    # If yes, it will be injected as --build-context bazel-disk-seed=docker-image://...
+    # so BuildKit seeds the cache mount before invoking Bazel.
+    - name: Check Bazel disk cache image
+      id: disk-cache-check
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
+      shell: bash
+      run: |
+        if docker manifest inspect "${BAZEL_DISK_CACHE_REF}" > /dev/null 2>&1; then
+          echo "available=true" >> $GITHUB_OUTPUT
+        else
+          echo "available=false" >> $GITHUB_OUTPUT
+        fi
 
     - name: Setup SSH
       id: setup-ssh
@@ -205,8 +226,12 @@ runs:
         # The Dockerfile declares `FROM scratch AS bazel-repo-seed`; passing this
         # context overrides that stage with the contents of the local directory.
         # When the directory is empty (cold start) the bind-mount is a no-op.
+        # Inject disk cache OCI image when available (pushed by a previous run).
+        # Empty string when ENABLE_BAZEL_DISK_CACHE is false or image is absent,
+        # which leaves the bazel-disk-seed stage as FROM scratch (no-op seed).
         build-contexts: |
           bazel-repo-seed=/tmp/bazel-repo-cache
+          ${{ inputs.ENABLE_BAZEL_DISK_CACHE == 'true' && steps.disk-cache-check.outputs.available == 'true' && format('bazel-disk-seed=docker-image://{0}', env.BAZEL_DISK_CACHE_REF) || '' }}
         cache-from: |
           type=registry,ref=${{ env.CACHE_REF_MEALKIT_BRANCH }}
           type=registry,ref=${{ env.CACHE_REF_MEALKIT_MAIN }}
@@ -250,6 +275,7 @@ runs:
           ${{ inputs.EXTRA_BUILD_ARGS }}
         build-contexts: |
           bazel-repo-seed=/tmp/bazel-repo-cache
+          ${{ inputs.ENABLE_BAZEL_DISK_CACHE == 'true' && steps.disk-cache-check.outputs.available == 'true' && format('bazel-disk-seed=docker-image://{0}', env.BAZEL_DISK_CACHE_REF) || '' }}
         cache-from: |
           type=registry,ref=${{ env.CACHE_REF_FINAL_BRANCH }}
           type=registry,ref=${{ env.CACHE_REF_FINAL_MAIN }}
@@ -315,6 +341,49 @@ runs:
         # Same key as restore: arch + run_id.  Each successful run overwrites
         # the previous entry, keeping the cache fresh without unbounded growth.
         key: ${{ env.BAZEL_REPO_CACHE_KEY }}-${{ github.run_id }}
+
+    # BAZEL DISK CACHE EXPORT
+    # Pushes a snapshot of /cache/bazel-disk (from the BuildKit cache mount) to
+    # a dedicated OCI registry image.  Uses the bazel-disk-export Dockerfile
+    # target which inherits via bazel-disk-snapshot-builder → builder.
+    #
+    # The snapshot is NOT part of the mealkit/final dependency graph, so it does
+    # NOT bloat the mode=max layer cache.  The same BuildKit daemon that ran the
+    # mealkit build holds the cache mount, so this step sees the current run's
+    # disk cache without re-invoking Bazel.
+    #
+    # continue-on-error: disk cache export failure must never block the build.
+    - name: Export Bazel disk cache
+      id: export-bazel-disk-cache
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true' && steps.mealkit-build.outcome == 'success'
+      continue-on-error: true
+      shell: bash
+      env:
+        EXTRA_BUILD_ARGS: ${{ inputs.EXTRA_BUILD_ARGS }}
+      run: |
+        BUILD_ARG_FLAGS=()
+        while IFS= read -r line; do
+          [[ -z "$line" ]] && continue
+          BUILD_ARG_FLAGS+=(--build-arg "$line")
+        done <<< "$EXTRA_BUILD_ARGS"
+
+        # Pass empty seed contexts so BuildKit can resolve bazel-{repo,disk}-seed
+        # build-arg references when computing cache keys for the builder stage.
+        mkdir -p /tmp/bazel-disk-seed-empty
+
+        docker buildx build \
+          --platform "linux/${{ inputs.ARCHITECTURE }}" \
+          --file "${{ inputs.DOCKERFILE }}" \
+          --target bazel-disk-export \
+          --output "type=image,push=true,name=${BAZEL_DISK_CACHE_REF},compression=zstd,oci-mediatypes=true,image-manifest=true" \
+          --cache-from "type=registry,ref=${{ env.CACHE_REF_MEALKIT_BRANCH }}" \
+          --cache-from "type=registry,ref=${{ env.CACHE_REF_MEALKIT_MAIN }}" \
+          --build-arg "BASE_IMAGE=${{ inputs.BASE_IMAGE }}" \
+          --build-arg "BUILD_DATE=${{ inputs.BUILD_DATE }}" \
+          --build-context "bazel-repo-seed=/tmp/bazel-repo-cache" \
+          --build-context "bazel-disk-seed=/tmp/bazel-disk-seed-empty" \
+          "${BUILD_ARG_FLAGS[@]}" \
+          "${{ inputs.DOCKER_CONTEXT }}"
 
     # SITREP GENERATION
     - name: Generate sitrep
