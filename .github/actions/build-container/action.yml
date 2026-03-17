@@ -285,76 +285,19 @@ runs:
         # (mode=max above).  Only cache the final stage's unique layers here.
         cache-to: type=registry,ref=${{ env.CACHE_REF_FINAL_BRANCH }},mode=min,oci-mediatypes=true,image-manifest=true,compression=zstd,ignore-error=true
 
-    # BAZEL REPO CACHE EXPORT
-    # This step extracts /cache/bazel-repo from the builder stage back to the
-    # runner so it can be saved via actions/cache.
-    #
-    # It builds only the lightweight `bazel-repo-export` stage (FROM scratch +
-    # COPY --from=builder), pulling the already-cached builder layer from the
-    # registry.  No Bazel re-invocation occurs.
-    #
-    # Cost: one registry pull of the builder layer + a local copy.
-    # This is bounded (repo cache only, NOT disk cache) and will NOT trigger
-    # the multi-hour `[cache-export] exporting to client directory` stall that
-    # afflicted the old type=local full-cache-export path.
-    - name: Export Bazel repo cache
-      id: export-bazel-repo-cache
-      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true' && steps.mealkit-build.outcome == 'success'
-      shell: bash
-      env:
-        EXTRA_BUILD_ARGS: ${{ inputs.EXTRA_BUILD_ARGS }}
-      run: |
-        # Convert newline-separated build args into individual --build-arg flags
-        BUILD_ARG_FLAGS=()
-        while IFS= read -r line; do
-          [[ -z "$line" ]] && continue
-          BUILD_ARG_FLAGS+=(--build-arg "$line")
-        done <<< "$EXTRA_BUILD_ARGS"
-
-        # Export to a staging dir to avoid a read/write collision:
-        # the build reads /tmp/bazel-repo-cache via --build-context and
-        # would corrupt the seed if we wrote to the same path concurrently.
-        rm -rf /tmp/bazel-repo-cache-new
-
-        # Bazel disk-seed context must match what the mealkit build used so that
-        # BuildKit finds the builder stage layers in the registry cache and does
-        # NOT re-run Bazel.  Different context → different layer hash → cache miss.
-        DISK_SEED_CONTEXT_FLAGS=()
-        if [[ "${{ inputs.ENABLE_BAZEL_DISK_CACHE }}" == "true" && "${{ steps.disk-cache-check.outputs.available }}" == "true" ]]; then
-          DISK_SEED_CONTEXT_FLAGS+=(--build-context "bazel-disk-seed=docker-image://${BAZEL_DISK_CACHE_REF}")
-        fi
-
-        docker buildx build \
-          --platform "linux/${{ inputs.ARCHITECTURE }}" \
-          --file "${{ inputs.DOCKERFILE }}" \
-          --target bazel-repo-export \
-          --output "type=local,dest=/tmp/bazel-repo-cache-new" \
-          --cache-from "type=registry,ref=${{ env.CACHE_REF_MEALKIT_BRANCH }}" \
-          --cache-from "type=registry,ref=${{ env.CACHE_REF_MEALKIT_MAIN }}" \
-          --build-arg "BASE_IMAGE=${{ inputs.BASE_IMAGE }}" \
-          --build-arg "BUILD_DATE=${{ inputs.BUILD_DATE }}" \
-          --build-context "bazel-repo-seed=/tmp/bazel-repo-cache" \
-          "${DISK_SEED_CONTEXT_FLAGS[@]}" \
-          "${BUILD_ARG_FLAGS[@]}" \
-          "${{ inputs.DOCKER_CONTEXT }}"
-
-        # Swap staging into the canonical location for actions/cache/save
-        rm -rf /tmp/bazel-repo-cache
-        mv /tmp/bazel-repo-cache-new /tmp/bazel-repo-cache
-
-    - name: Save Bazel repo cache
-      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true' && steps.export-bazel-repo-cache.outcome == 'success'
-      uses: actions/cache/save@v4
-      with:
-        path: /tmp/bazel-repo-cache
-        # Same key as restore: arch + run_id.  Each successful run overwrites
-        # the previous entry, keeping the cache fresh without unbounded growth.
-        key: ${{ env.BAZEL_REPO_CACHE_KEY }}-${{ github.run_id }}
-
     # BAZEL DISK CACHE EXPORT
     # Pushes a snapshot of /cache/bazel-disk (from the BuildKit cache mount) to
     # a dedicated OCI registry image.  Uses the bazel-disk-export Dockerfile
     # target which inherits via bazel-disk-snapshot-builder → builder.
+    #
+    # IMPORTANT: this step runs BEFORE Export Bazel repo cache.  The repo-cache
+    # export step swaps /tmp/bazel-repo-cache with the freshly-exported version,
+    # which changes the bazel-repo-seed build context hash.  If disk-export ran
+    # after that swap, BuildKit would see a different bazel-repo-seed → different
+    # builder layer hash → cache miss → full Bazel + TransformerEngine re-run
+    # (~20 min wasted).  Running disk-export first keeps the context identical to
+    # the mealkit build, so BuildKit reuses the cached builder layers and only
+    # executes the fast bazel-disk-snapshot-builder cp step.
     #
     # The snapshot is NOT part of the mealkit/final dependency graph, so it does
     # NOT bloat the mode=max layer cache.  The same BuildKit daemon that ran the
@@ -399,6 +342,68 @@ runs:
           "${DISK_SEED_CONTEXT_FLAGS[@]}" \
           "${BUILD_ARG_FLAGS[@]}" \
           "${{ inputs.DOCKER_CONTEXT }}"
+
+    # BAZEL REPO CACHE EXPORT
+    # This step extracts /cache/bazel-repo from the builder stage back to the
+    # runner so it can be saved via actions/cache.
+    #
+    # IMPORTANT: runs AFTER Export Bazel disk cache (see comment there).
+    # At this point /tmp/bazel-repo-cache still has the same content as the
+    # mealkit build → builder layer cache hit → only the COPY runs (~1 min).
+    #
+    # Cost: one registry pull of the builder layer + a local copy.
+    - name: Export Bazel repo cache
+      id: export-bazel-repo-cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true' && steps.mealkit-build.outcome == 'success'
+      shell: bash
+      env:
+        EXTRA_BUILD_ARGS: ${{ inputs.EXTRA_BUILD_ARGS }}
+      run: |
+        # Convert newline-separated build args into individual --build-arg flags
+        BUILD_ARG_FLAGS=()
+        while IFS= read -r line; do
+          [[ -z "$line" ]] && continue
+          BUILD_ARG_FLAGS+=(--build-arg "$line")
+        done <<< "$EXTRA_BUILD_ARGS"
+
+        # Export to a staging dir to avoid a read/write collision:
+        # the build reads /tmp/bazel-repo-cache via --build-context and
+        # would corrupt the seed if we wrote to the same path concurrently.
+        rm -rf /tmp/bazel-repo-cache-new
+
+        # Disk-seed context must match the mealkit build (same as disk-export step)
+        # so BuildKit finds the cached builder layers.
+        DISK_SEED_CONTEXT_FLAGS=()
+        if [[ "${{ inputs.ENABLE_BAZEL_DISK_CACHE }}" == "true" && "${{ steps.disk-cache-check.outputs.available }}" == "true" ]]; then
+          DISK_SEED_CONTEXT_FLAGS+=(--build-context "bazel-disk-seed=docker-image://${BAZEL_DISK_CACHE_REF}")
+        fi
+
+        docker buildx build \
+          --platform "linux/${{ inputs.ARCHITECTURE }}" \
+          --file "${{ inputs.DOCKERFILE }}" \
+          --target bazel-repo-export \
+          --output "type=local,dest=/tmp/bazel-repo-cache-new" \
+          --cache-from "type=registry,ref=${{ env.CACHE_REF_MEALKIT_BRANCH }}" \
+          --cache-from "type=registry,ref=${{ env.CACHE_REF_MEALKIT_MAIN }}" \
+          --build-arg "BASE_IMAGE=${{ inputs.BASE_IMAGE }}" \
+          --build-arg "BUILD_DATE=${{ inputs.BUILD_DATE }}" \
+          --build-context "bazel-repo-seed=/tmp/bazel-repo-cache" \
+          "${DISK_SEED_CONTEXT_FLAGS[@]}" \
+          "${BUILD_ARG_FLAGS[@]}" \
+          "${{ inputs.DOCKER_CONTEXT }}"
+
+        # Swap staging into the canonical location for actions/cache/save
+        rm -rf /tmp/bazel-repo-cache
+        mv /tmp/bazel-repo-cache-new /tmp/bazel-repo-cache
+
+    - name: Save Bazel repo cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true' && steps.export-bazel-repo-cache.outcome == 'success'
+      uses: actions/cache/save@v4
+      with:
+        path: /tmp/bazel-repo-cache
+        # Same key as restore: arch + run_id.  Each successful run overwrites
+        # the previous entry, keeping the cache fresh without unbounded growth.
+        key: ${{ env.BAZEL_REPO_CACHE_KEY }}-${{ github.run_id }}
 
     # SITREP GENERATION
     - name: Generate sitrep
