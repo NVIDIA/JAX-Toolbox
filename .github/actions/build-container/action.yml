@@ -316,6 +316,14 @@ runs:
         # would corrupt the seed if we wrote to the same path concurrently.
         rm -rf /tmp/bazel-repo-cache-new
 
+        # Bazel disk-seed context must match what the mealkit build used so that
+        # BuildKit finds the builder stage layers in the registry cache and does
+        # NOT re-run Bazel.  Different context → different layer hash → cache miss.
+        DISK_SEED_CONTEXT_FLAGS=()
+        if [[ "${{ inputs.ENABLE_BAZEL_DISK_CACHE }}" == "true" && "${{ steps.disk-cache-check.outputs.available }}" == "true" ]]; then
+          DISK_SEED_CONTEXT_FLAGS+=(--build-context "bazel-disk-seed=docker-image://${BAZEL_DISK_CACHE_REF}")
+        fi
+
         docker buildx build \
           --platform "linux/${{ inputs.ARCHITECTURE }}" \
           --file "${{ inputs.DOCKERFILE }}" \
@@ -326,6 +334,7 @@ runs:
           --build-arg "BASE_IMAGE=${{ inputs.BASE_IMAGE }}" \
           --build-arg "BUILD_DATE=${{ inputs.BUILD_DATE }}" \
           --build-context "bazel-repo-seed=/tmp/bazel-repo-cache" \
+          "${DISK_SEED_CONTEXT_FLAGS[@]}" \
           "${BUILD_ARG_FLAGS[@]}" \
           "${{ inputs.DOCKER_CONTEXT }}"
 
@@ -367,9 +376,15 @@ runs:
           BUILD_ARG_FLAGS+=(--build-arg "$line")
         done <<< "$EXTRA_BUILD_ARGS"
 
-        # Pass empty seed contexts so BuildKit can resolve bazel-{repo,disk}-seed
-        # build-arg references when computing cache keys for the builder stage.
-        mkdir -p /tmp/bazel-disk-seed-empty
+        # Disk-seed context must match the mealkit build so BuildKit finds the
+        # builder stage layers in the registry cache (no Bazel re-run).
+        # The bazel-disk-snapshot-builder step still re-executes (ARG BUILD_DATE
+        # in the Dockerfile busts its layer cache) to snapshot the current run's
+        # disk cache from the BuildKit cache mount.
+        DISK_SEED_CONTEXT_FLAGS=()
+        if [[ "${{ steps.disk-cache-check.outputs.available }}" == "true" ]]; then
+          DISK_SEED_CONTEXT_FLAGS+=(--build-context "bazel-disk-seed=docker-image://${BAZEL_DISK_CACHE_REF}")
+        fi
 
         docker buildx build \
           --platform "linux/${{ inputs.ARCHITECTURE }}" \
@@ -381,7 +396,7 @@ runs:
           --build-arg "BASE_IMAGE=${{ inputs.BASE_IMAGE }}" \
           --build-arg "BUILD_DATE=${{ inputs.BUILD_DATE }}" \
           --build-context "bazel-repo-seed=/tmp/bazel-repo-cache" \
-          --build-context "bazel-disk-seed=/tmp/bazel-disk-seed-empty" \
+          "${DISK_SEED_CONTEXT_FLAGS[@]}" \
           "${BUILD_ARG_FLAGS[@]}" \
           "${{ inputs.DOCKER_CONTEXT }}"
 

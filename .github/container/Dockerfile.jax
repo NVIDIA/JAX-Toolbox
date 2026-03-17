@@ -226,6 +226,11 @@ COPY --from=builder /cache/bazel-repo /
 
 FROM builder AS bazel-disk-snapshot-builder
 ARG TARGETARCH
+# BUILD_DATE changes every run, ensuring this layer never gets a registry cache hit.
+# That forces the RUN step to always re-execute so it captures the *current* run's
+# disk cache from the BuildKit cache mount (populated by the mealkit build above),
+# rather than returning a stale snapshot from a previous run.
+ARG BUILD_DATE
 RUN --mount=type=cache,id=bazel-disk-${TARGETARCH},target=/cache/bazel-disk,sharing=locked,readonly \
     mkdir -p /cache/bazel-disk-snapshot && \
     (cp -a /cache/bazel-disk/. /cache/bazel-disk-snapshot/ \
