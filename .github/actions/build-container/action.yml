@@ -166,6 +166,21 @@ runs:
       run: |
         if docker manifest inspect "${BAZEL_DISK_CACHE_REF}" > /dev/null 2>&1; then
           echo "available=true" >> $GITHUB_OUTPUT
+          # Capture the immutable digest of the current image.  We must pin to the
+          # digest (not the tag) because the disk-export step later overwrites this
+          # same tag with a new snapshot.  If mealkit, disk-export, and repo-export
+          # all reference the tag, they see different image content after the tag is
+          # updated → different bazel-disk-seed layer hash → builder cache miss →
+          # full cold Bazel rebuild in repo-export (~70 min wasted).
+          REGISTRY_BASE="${BAZEL_DISK_CACHE_REF%:*}"
+          DIGEST=$(docker buildx imagetools inspect "${BAZEL_DISK_CACHE_REF}" \
+            --format '{{.Manifest.Digest}}' 2>/dev/null || echo "")
+          if [[ -n "${DIGEST}" ]]; then
+            echo "seed-context=docker-image://${REGISTRY_BASE}@${DIGEST}" >> $GITHUB_OUTPUT
+          else
+            # Fallback: tag is still correct here (disk-export hasn't run yet)
+            echo "seed-context=docker-image://${BAZEL_DISK_CACHE_REF}" >> $GITHUB_OUTPUT
+          fi
         else
           echo "available=false" >> $GITHUB_OUTPUT
         fi
@@ -231,7 +246,7 @@ runs:
         # which leaves the bazel-disk-seed stage as FROM scratch (no-op seed).
         build-contexts: |
           bazel-repo-seed=/tmp/bazel-repo-cache
-          ${{ inputs.ENABLE_BAZEL_DISK_CACHE == 'true' && steps.disk-cache-check.outputs.available == 'true' && format('bazel-disk-seed=docker-image://{0}', env.BAZEL_DISK_CACHE_REF) || '' }}
+          ${{ inputs.ENABLE_BAZEL_DISK_CACHE == 'true' && steps.disk-cache-check.outputs.available == 'true' && format('bazel-disk-seed={0}', steps.disk-cache-check.outputs.seed-context) || '' }}
         cache-from: |
           type=registry,ref=${{ env.CACHE_REF_MEALKIT_BRANCH }}
           type=registry,ref=${{ env.CACHE_REF_MEALKIT_MAIN }}
@@ -275,7 +290,7 @@ runs:
           ${{ inputs.EXTRA_BUILD_ARGS }}
         build-contexts: |
           bazel-repo-seed=/tmp/bazel-repo-cache
-          ${{ inputs.ENABLE_BAZEL_DISK_CACHE == 'true' && steps.disk-cache-check.outputs.available == 'true' && format('bazel-disk-seed=docker-image://{0}', env.BAZEL_DISK_CACHE_REF) || '' }}
+          ${{ inputs.ENABLE_BAZEL_DISK_CACHE == 'true' && steps.disk-cache-check.outputs.available == 'true' && format('bazel-disk-seed={0}', steps.disk-cache-check.outputs.seed-context) || '' }}
         cache-from: |
           type=registry,ref=${{ env.CACHE_REF_FINAL_BRANCH }}
           type=registry,ref=${{ env.CACHE_REF_FINAL_MAIN }}
@@ -326,7 +341,7 @@ runs:
         # disk cache from the BuildKit cache mount.
         DISK_SEED_CONTEXT_FLAGS=()
         if [[ "${{ steps.disk-cache-check.outputs.available }}" == "true" ]]; then
-          DISK_SEED_CONTEXT_FLAGS+=(--build-context "bazel-disk-seed=docker-image://${BAZEL_DISK_CACHE_REF}")
+          DISK_SEED_CONTEXT_FLAGS+=(--build-context "bazel-disk-seed=${{ steps.disk-cache-check.outputs.seed-context }}")
         fi
 
         docker buildx build \
@@ -375,7 +390,7 @@ runs:
         # so BuildKit finds the cached builder layers.
         DISK_SEED_CONTEXT_FLAGS=()
         if [[ "${{ inputs.ENABLE_BAZEL_DISK_CACHE }}" == "true" && "${{ steps.disk-cache-check.outputs.available }}" == "true" ]]; then
-          DISK_SEED_CONTEXT_FLAGS+=(--build-context "bazel-disk-seed=docker-image://${BAZEL_DISK_CACHE_REF}")
+          DISK_SEED_CONTEXT_FLAGS+=(--build-context "bazel-disk-seed=${{ steps.disk-cache-check.outputs.seed-context }}")
         fi
 
         docker buildx build \
