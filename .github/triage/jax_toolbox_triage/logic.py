@@ -355,7 +355,10 @@ def _version_search(
         else:
             err = f"Could not reproduce success with 'good' versions ({check_pass.result})"
             logger.fatal(err)
-            logger.fatal(check_pass.stdouterr)
+            if check_pass.result == TestExecutionOutcome.BUILD_FAILURE:
+                logger.fatal(check_pass.build_stdouterr)
+            else:
+                logger.fatal(check_pass.stdouterr)
             raise CouldNotReproduceSuccess(err)
 
     if skip_precondition_checks:
@@ -381,7 +384,10 @@ def _version_search(
                 f"Could not reproduce failure with 'bad' versions ({check_fail.result})"
             )
             logger.fatal(err)
-            logger.fatal(check_fail.stdouterr)
+            if check_fail.result == TestExecutionOutcome.BUILD_FAILURE:
+                logger.fatal(check_fail.build_stdouterr)
+            else:
+                logger.fatal(check_fail.stdouterr)
             raise CouldNotReproduceFailure(err)
 
     # Make sure that the primary package (zeroth entry in `versions`) has
