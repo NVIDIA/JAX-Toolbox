@@ -173,8 +173,9 @@ runs:
           # updated → different bazel-disk-seed layer hash → builder cache miss →
           # full cold Bazel rebuild in repo-export (~70 min wasted).
           REGISTRY_BASE="${BAZEL_DISK_CACHE_REF%:*}"
-          DIGEST=$(docker buildx imagetools inspect "${BAZEL_DISK_CACHE_REF}" \
-            --format '{{.Manifest.Digest}}' 2>/dev/null || echo "")
+          # docker manifest inspect --verbose includes the manifest digest in the
+          # Descriptor block, which works for both single-arch and index manifests.
+          DIGEST=$(docker manifest inspect --verbose "${BAZEL_DISK_CACHE_REF}" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); d=d[0] if isinstance(d,list) else d; print(d.get('Descriptor',{}).get('digest',''))" 2>/dev/null || echo "")
           if [[ -n "${DIGEST}" ]]; then
             echo "seed-context=docker-image://${REGISTRY_BASE}@${DIGEST}" >> $GITHUB_OUTPUT
           else
