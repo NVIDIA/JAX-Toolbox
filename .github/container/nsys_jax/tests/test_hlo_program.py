@@ -18,7 +18,7 @@ pytestmark = [
         hlo_runner_main is None, reason="HLO runner binary not available"
     ),
     pytest.mark.skipif(
-        nsys_version_tup[:3] == (2026, 1, 1) or nsys_version_tup == (2026, 1, 2, 63),
+        nsys_version_tup[:2] == (2026, 1) or nsys_version_tup[:2] == (2026, 2),
         reason="nvbug/5910527",
     ),
 ]
