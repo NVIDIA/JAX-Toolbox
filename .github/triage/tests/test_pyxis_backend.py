@@ -8,7 +8,7 @@ import tempfile
 
 
 from jax_toolbox_triage.args import compulsory_software, parse_args
-from jax_toolbox_triage.triage_tool import TriageTool
+from jax_toolbox_triage.triage_tool import InconsistentResults, TriageTool
 
 mock_scripts_path = pathlib.Path(__file__).parent / "mock_scripts"
 
@@ -369,3 +369,48 @@ def test_triage_with_installation_scripts(
         #        that we can assert this value is in {"new", "old"} instead
         assert "PACKAGE_WITHOUT_SCRIPT_ref" not in summary_data["result"]
         assert summary_data["result"]["STATIC_PACKAGE_WITHOUT_SCRIPT_ref"] == "fixed"
+
+
+def test_mock_container_precondition_checks(
+    monkeypatch,
+    passing_container,
+    failing_container,
+):
+    # Make sure that if we have a `good` version that passes in the `good` container
+    # but fails in the `bad` container that the tool signals that inconsistency.
+    bad_package = compulsory_software[0]
+    # Tell the mock `srun` how to behave
+    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", "1")
+    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", "1")
+    # Ensure bazel, build-jax.sh, srun etc. stubs can be found.
+    monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
+    with tempfile.TemporaryDirectory() as output_prefix:
+        arg_list = pyxis_args + [
+            "--output-prefix",
+            output_prefix,
+            "--passing-container",
+            str(passing_container["prefix"]),
+            "--failing-container",
+            str(failing_container["prefix"]),
+            "--",
+            "sh",
+            "-c",
+            " && ".join(
+                [
+                    # Test case is well-behaved in the 'passing' container but always fails in the 'failing' container.
+                    f"[ $JAX_TOOLBOX_TRIAGE_MOCK_SRUN_CONTAINER_IMAGE = {passing_container['prefix']} ]",
+                    f"test-case.sh /opt/{bad_package} {failing_container[f'{bad_package}_bad']}",
+                ]
+            ),
+        ]
+        args = parse_args(arg_list)
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+        tool = TriageTool(args, logger)
+        # Check the correct versions are extracted from the two pseudocontainers
+        passing_versions, failing_versions = tool.gather_version_info(
+            args.passing_container, args.failing_container
+        )
+        # Run the bisection
+        with pytest.raises(InconsistentResults):
+            tool.run_version_bisection(passing_versions, failing_versions)

@@ -108,10 +108,10 @@ def get_commit_history(
         passing_main_commit, failing_main_commit = passing_and_failing_cmd.splitlines()
 
         # 2. find commits to cherry-pick from the failing branch
-        cherry_pick_ranges += [
-            f"{failing_main_commit}..{end}",
-            f"{passing_main_commit}..{start}",
-        ]
+        if failing_main_commit != end:
+            cherry_pick_ranges.append(f"{failing_main_commit}..{end}")
+        if passing_main_commit != start:
+            cherry_pick_ranges.append(f"{passing_main_commit}..{start}")
 
         # 3. now we can use the main branch commits for bisection
         start = passing_main_commit

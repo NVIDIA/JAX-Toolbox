@@ -103,6 +103,23 @@ def triage_env():
         l3_rehashed = git_cmd("rev-parse", "HEAD")
         assert l3_rehashed != l3_failing_linear
 
+        # Non-linear history when the feature branch gets merged; this is similar to
+        # the first non-linear case but where the failing/new commit is on the default
+        # branch, because the feature branch was merged. i.e.
+        # so now we have:
+        # M0--M1 --- M2 --- M3 -- (M4=F1) -- M5
+        #     |
+        #     F1
+        # where F1 = passing
+        # and M4 or M5 = failing (i.e. the feature commit F1 got merged into main, and
+        # there might be another commit on top of it)
+        git_cmd("checkout", "main")  # M3
+        assert git_cmd("rev-parse", "HEAD") == m3
+        git_cmd("cherry-pick", passing_nonlinear)  # Cherry-pick F1
+        failing_merged_nonlinear_1 = git_cmd("rev-parse", "HEAD")  # M4
+        git_cmd("commit", "--allow-empty", "-m", "M5")
+        failing_merged_nonlinear_2 = git_cmd("rev-parse", "HEAD")  # M5
+
         # yield all the info
         yield {
             "paths": {
@@ -120,6 +137,8 @@ def triage_env():
                 "failing_linear": l3_failing_linear,
                 "good_linear_rehashed": l1_rehashed,
                 "failing_linear_rehashed": l3_rehashed,
+                "failing_merged_nonlinear_1": failing_merged_nonlinear_1,
+                "failing_merged_nonlinear_2": failing_merged_nonlinear_2,
             },
         }
 
@@ -155,6 +174,22 @@ def triage_env():
                 "--workaround-buggy-container",
                 "jax",
             ],
+        ),
+        # Non-linear history with merged feature branch
+        (
+            "passing_nonlinear",
+            "failing_merged_nonlinear_1",
+            "bad_main",
+            "good_main",
+            [],
+        ),
+        # Non-linear history with merged feature branch and extra commit
+        (
+            "passing_nonlinear",
+            "failing_merged_nonlinear_2",
+            "bad_main",
+            "good_main",
+            [],
         ),
     ],
 )

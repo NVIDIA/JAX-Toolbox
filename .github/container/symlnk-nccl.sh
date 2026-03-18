@@ -1,6 +1,5 @@
 #!/bin/bash
-
-set -ex -o pipefail
+set -euo pipefail
 
 # Create a prefix with include/ and lib/ directories containing symlinks to the NCCL
 # version installed at the system level; this is useful to pass to XLA to avoid it

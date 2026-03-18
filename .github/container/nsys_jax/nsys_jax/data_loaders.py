@@ -180,6 +180,7 @@ def _load_nvtx_gpu_proj_trace_single(
     rename_map_2026_1_1 = alt_rename_map | {"Domain": None}
     if set(df.columns) == alt_rename_map.keys():
         tsl_prefix = ""
+        nccl_prefix = "nccl"
         df = df.rename(
             columns={k: v for k, v in alt_rename_map.items() if v is not None}
         )
@@ -199,8 +200,10 @@ def _load_nvtx_gpu_proj_trace_single(
         )
         df["Name"] = df.pop("Domain") + ":" + df["Name"]
         tsl_prefix = "TSL:"
+        nccl_prefix = "NCCL:"
     else:
         tsl_prefix = "TSL:"
+        nccl_prefix = "NCCL:"
         df = df.drop(columns=["Style"])
         df["OrigDurMs"] = 1e-6 * df.pop("Orig Duration")
         df["OrigStartMs"] = 1e-6 * df.pop("Orig Start")
@@ -208,7 +211,8 @@ def _load_nvtx_gpu_proj_trace_single(
         df["ProjStartMs"] = 1e-6 * df.pop("Projected Start")
         df = df.dropna(subset=["RangeId"])
     try:
-        df = df.set_index(df.pop("RangeId").astype(np.int32), verify_integrity=True)
+        df = df.set_index(df.pop("RangeId").astype(np.int32))
+        assert df.index.is_unique
     except ValueError:
         print(
             "A duplicate key related error may indicate that you are using "
@@ -221,9 +225,7 @@ def _load_nvtx_gpu_proj_trace_single(
         raise
 
     # Apply a filter for taking out nccl chunks
-    nccl_mask = df["Name"].str.contains("ncclGroupEnd", na=False) | df[
-        "Name"
-    ].str.contains("NCCL", na=False)
+    nccl_mask = df["Name"].str.startswith(nccl_prefix)
     if nccl_mask.any():
         # get the ids to be removed
         drop_ids = df.index[nccl_mask]
@@ -357,14 +359,6 @@ def _load_nvtx_gpu_proj_trace_single(
         df.loc[all_thunks, "ModuleId"]
     ].array
 
-    # Add a new column describing which (0th, 1st, ...) execution of the module
-    # each module/thunk range corresponds to.
-    mod_exec_indices = df.loc[mod_ids, :].groupby(["TID", "ProgramId"]).cumcount()
-    df.loc[mod_ids, "ProgramExecution"] = mod_exec_indices
-    df.loc[all_thunks, "ProgramExecution"] = mod_exec_indices[
-        df.loc[all_thunks, "ModuleId"]
-    ].array
-
     # Associate thunk executions with the local/global device ID, global process index,
     # and slice index. A given module should have N threads submitting work to N
     # devices, but if N=1 the main thread is used instead of a named execution thread
@@ -374,33 +368,34 @@ def _load_nvtx_gpu_proj_trace_single(
     # when executing modules that do not use multiple devices, just take the 0th one.
     # This might be slightly wrong; FIXME by storing the LocalDevice ID directly in
     # the nvtx_gpu_proj_trace output file.
-    main_pid_tid_candidates = set()
-    for _, module_df in df[all_thunks].groupby("ProgramId"):
-        unique_pid_tid_pairs = module_df.loc[:, ("PID", "TID")].drop_duplicates()
-        if len(unique_pid_tid_pairs) == 1:
-            main_pid_tid_candidates.add(tuple(unique_pid_tid_pairs.iloc[0]))
-    # If the profile only includes N>1 modules, we may still be able to identify the
-    # main thread as the one responsible for XlaCompile ranges projected onto the GPU
-    # timeline
-    compile_ranges = df.loc[~all_thunks, "Name"].str.startswith(
-        tsl_prefix + compile_prefix
+    threads_to_associate_with_zeroth_device = set()
+    threads_with_known_device_associations = set(
+        map(tuple, device_by_pid_tid.index.to_flat_index())
     )
-    compile_range_ids = compile_ranges[compile_ranges].index
-    unique_pid_tid_pairs = df.loc[compile_range_ids, ("PID", "TID")].drop_duplicates()
-    if len(unique_pid_tid_pairs) == 1:
-        main_pid_tid_candidates.add(tuple(unique_pid_tid_pairs.iloc[0]))
-    assert len(main_pid_tid_candidates) < 2
-    if len(main_pid_tid_candidates) == 1:
-        # Possibly not correct if len(device_by_pid_tid) > 1
-        assert len(device_by_pid_tid) > 0
-        # Associate the main thread with the 0th device in device_by_pid_tid
-        main_thread_df = device_by_pid_tid.iloc[:1]
-        main_thread_df.index = pd.MultiIndex.from_tuples(
-            main_pid_tid_candidates, names=["PID", "TID"]
+    for module_id, module_df in df[all_thunks].groupby("ProgramId"):
+        # Get the PID/TIDs associated to this module
+        unique_pid_tid_pairs = set(
+            map(
+                tuple,
+                module_df.loc[:, ("PID", "TID")]
+                .drop_duplicates()
+                .itertuples(index=False),
+            )
         )
-        device_by_pid_tid = pd.concat([device_by_pid_tid, main_thread_df])
-
+        # Discard the ones that already have a known device association from the thread names
+        unique_pid_tid_pairs -= threads_with_known_device_associations
+        if module_id == "unknown" or len(unique_pid_tid_pairs) == 1:
+            # Assume that this is all of the autotuning executions lumped together if
+            # module_id is "unknown" (these might have been distributed across many
+            # worker threads), or otherwise that it's an N=1 module from the main thread
+            threads_to_associate_with_zeroth_device |= unique_pid_tid_pairs
+    # Associate `threads_to_associate_with_zeroth_device` with device_by_pid_tid.iloc[0]
+    for pid_tid in threads_to_associate_with_zeroth_device:
+        zeroth_device = device_by_pid_tid.iloc[:1]
+        zeroth_device.index = pd.MultiIndex.from_tuples([pid_tid], names=["PID", "TID"])
+        device_by_pid_tid = pd.concat([device_by_pid_tid, zeroth_device])
     assert device_by_pid_tid.index.names == ["PID", "TID"]
+    old_length = len(df)
     df = pd.merge(
         df,
         device_by_pid_tid,
@@ -408,6 +403,18 @@ def _load_nvtx_gpu_proj_trace_single(
         right_index=True,
         validate="many_to_one",
     )
+    assert len(df) == old_length, f"df changed from {old_length} to {len(df)}"
+
+    # Add a new column describing which (0th, 1st, ...) execution of the module
+    # each module/thunk range corresponds to. This needs to be done by Device instead
+    # of by TID because we can have many "unknown" modules corresponding to many
+    # autotuner executions in many threads, which would result in duplicate
+    # ProgramExecution values for a given Device/ProgramId.
+    mod_exec_indices = df.loc[mod_ids, :].groupby(["Device", "ProgramId"]).cumcount()
+    df.loc[mod_ids, "ProgramExecution"] = mod_exec_indices
+    df.loc[all_thunks, "ProgramExecution"] = mod_exec_indices[
+        df.loc[all_thunks, "ModuleId"]
+    ].array
 
     def clean_data_frame(d):
         return d.drop(
@@ -556,7 +563,10 @@ def _splice_parallel_ranges(compile_df: pd.DataFrame) -> pd.DataFrame:
         assert (compile_main_thread_child_mask & worker_mask).sum() == 0
         compile_child_mask = compile_main_thread_child_mask.copy()
         for worker_range in slice_df[worker_mask].itertuples():
-            assert worker_range.Name.startswith("TSL:Xla")
+            # There used to be an assertion here that the worker_range.Name started
+            # with TSL:Xla (i.e. all worker activity was XLA). This started failing
+            # when cuBLAS started emitting more of its own ranges.
+
             # Find the deepest still-open range in the main thread
             mask = (
                 compile_main_thread_child_mask

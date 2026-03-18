@@ -8,7 +8,14 @@ import time
 from typing import Dict, Tuple, Union, Any, Optional, Set
 
 from .container import Container
-from .logic import container_search, TestExecutionOutcome, TestResult, version_search
+from .logic import (
+    container_search,
+    TestExecutionOutcome,
+    TestResult,
+    version_search,
+    CouldNotReproduceFailure,
+    CouldNotReproduceSuccess,
+)
 from .versions import get_versions_dirs_env
 from .summary import add_summary_record, create_output_symlinks
 from .bisect import get_commit_history
@@ -17,6 +24,10 @@ from .utils import (
     prepare_bazel_cache_mounts,
 )
 from .container_factory import make_container
+
+
+class InconsistentResults(Exception):
+    pass
 
 
 class TriageTool:
@@ -219,24 +230,18 @@ class TriageTool:
                     f"  {key}: {env1[key]} ({url1}) vs. {env2[key]} ({url2})"
                 )
 
-    def _check_container_by_date(
-        self, date: datetime.date, *, test_output_log_level: int = logging.DEBUG
+    def _check_container_by_url(
+        self, container_url: str, *, test_output_log_level: int = logging.DEBUG
     ) -> TestResult:
         """
-        See if the test passes in the given dated container.
+        See if the test passes in the given container.
 
         Args:
-            date (datetime.date): The date of the container to check.
+            container_url (str): The URL of the container to check.
             test_output_log_level (int): The log level for test output.
         Returns:
             TestResult: The result of the test, including whether it passed and the output.
         """
-        container_url = container_url_base(
-            date,
-            container=self.args.container,
-            template=self.args.container_url_template,
-        )
-
         before = time.monotonic()
         out_dir = self._test_output_directory(container_url, None)
 
@@ -275,6 +280,27 @@ class TriageTool:
             if test_pass
             else TestExecutionOutcome.TEST_FAILURE,
             stdouterr=result.stdout,
+        )
+
+    def _check_container_by_date(
+        self, date: datetime.date, *, test_output_log_level: int = logging.DEBUG
+    ) -> TestResult:
+        """
+        See if the test passes in the given dated container.
+
+        Args:
+            date (datetime.date): The date of the container to check.
+            test_output_log_level (int): The log level for test output.
+        Returns:
+            TestResult: The result of the test, including whether it passed and the output.
+        """
+        container_url = container_url_base(
+            date,
+            container=self.args.container,
+            template=self.args.container_url_template,
+        )
+        return self._check_container_by_url(
+            container_url, test_output_log_level=test_output_log_level
         )
 
     def _check_installation_scripts(self, worker: Container) -> Set[str]:
@@ -413,6 +439,8 @@ class TriageTool:
             # rebuilds correctly, so clean the local cache and rely on the remote one.
             build_cmds = [
                 "bazel clean --expunge",
+                # 2026-01-21: --sm all is now the default, but leave it here
+                # for a while to help triage old containers
                 f"build-jax.sh --bazel-cache={self.args.bazel_cache} --sm all",
                 "build-te.sh --sm all",
             ]
@@ -629,12 +657,58 @@ class TriageTool:
 
         # Run the version-level bisection
         self.logger.info("Running version-level bisection...")
-        result, last_known_good, first_known_bad = version_search(
-            versions=package_versions,
-            build_and_test=self._build_and_test,
-            logger=self.logger,
-            skip_precondition_checks=self.args.skip_precondition_checks,
-        )
+        try:
+            result, last_known_good, first_known_bad = version_search(
+                versions=package_versions,
+                build_and_test=self._build_and_test,
+                logger=self.logger,
+                skip_precondition_checks=self.args.skip_precondition_checks,
+            )
+        except CouldNotReproduceFailure as e:
+            if (
+                self.args.failing_container is not None
+                and self.bisection_url == self.args.passing_container
+            ):
+                # Could not reproduce failing with 'bad' versions in the 'good' container. Triage
+                # will not succeed, but before exiting we can check if we can even reproduce
+                # failure in the 'bad' container.
+                self.logger.fatal(
+                    f"Checking if failure can be reproduced in {self.args.failing_container}..."
+                )
+                check_fail = self._check_container_by_url(
+                    self.args.failing_container, test_output_log_level=logging.INFO
+                )
+                if check_fail.result == TestExecutionOutcome.TEST_FAILURE:
+                    self.logger.fatal(
+                        f"Reproduced failure in {self.args.failing_container} after failing to "
+                        f"reproduce in {self.bisection_url}. This may mean the failure is due to "
+                        "a variable not visible to the bisection tool."
+                    )
+                    raise InconsistentResults(
+                        f"Reproduced failure in {self.args.failing_container} but not {self.bisection_url}"
+                    ) from e
+            raise
+        except CouldNotReproduceSuccess as e:
+            if (
+                self.args.passing_container is not None
+                and self.bisection_url == self.args.failing_container
+            ):
+                # Could not reproduce pass with 'good' versions in the 'bad' container. Triage
+                # will not succeed, but before exiting we can check if success is reproducible
+                # in the 'good' container.
+                check_pass = self._check_container_by_url(
+                    self.args.passing_container, test_output_log_level=logging.INFO
+                )
+                if check_pass.result == TestExecutionOutcome.TEST_SUCCESS:
+                    self.logger.fatal(
+                        f"Reproduced success in {self.args.passing_container} after failing to "
+                        f"reproduce in {self.bisection_url}. This may mean the failure is due to "
+                        "a variable not visible to the bisection tool."
+                    )
+                    raise InconsistentResults(
+                        f"Reproduced success in {self.args.passing_container} but not {self.bisection_url}"
+                    ) from e
+            raise
         # Write final summary
         create_output_symlinks(
             self.args.output_prefix, last_known_good, first_known_bad

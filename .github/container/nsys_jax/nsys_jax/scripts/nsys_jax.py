@@ -22,7 +22,7 @@ from typing import Optional
 import zipfile
 
 from .utils import execute_analysis_script, shuffle_analysis_arg
-from ..version import __sha__ as jax_toolbox_sha_with_prefix
+from ..version import version_tuple as jax_toolbox_version_tuple
 
 
 # Expand %q{ENV_VAR} if the variable is defined.
@@ -94,7 +94,7 @@ def create_install_script(output_queue):
     version/commit that the current execution is using.
     """
     # setuptools_scm produces a shortened sha with a `g` prefix (for git)
-    jax_toolbox_sha = jax_toolbox_sha_with_prefix[1:]
+    jax_toolbox_sha = jax_toolbox_version_tuple[3].split(".", 1)[0][1:]
     install_script = install_script_template.format(jax_toolbox_commit=jax_toolbox_sha)
     output_queue.put(("install.sh", install_script.encode(), COMPRESS_DEFLATE))
 

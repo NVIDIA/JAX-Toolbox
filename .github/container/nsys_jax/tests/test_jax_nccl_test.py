@@ -72,20 +72,22 @@ def test_jax_nccl_multi_process(monkeypatch, tmp_path, process_count, collection
     set_env(monkeypatch)
     outputs = multi_process_nsys_jax(
         process_count,
-        lambda rank: capture_args(collection)
-        + [
-            "--",
-            "jax-nccl-test",
-            "--process-id",
-            str(rank),
-            "--process-count",
-            str(process_count),
-            "--coordinator-address",
-            "127.0.0.1:12345",
-            "--gpus-per-process",
-            str(gpus_per_process),
-            "--distributed",
-        ],
+        lambda rank: (
+            capture_args(collection)
+            + [
+                "--",
+                "jax-nccl-test",
+                "--process-id",
+                str(rank),
+                "--process-count",
+                str(process_count),
+                "--coordinator-address",
+                "127.0.0.1:12345",
+                "--gpus-per-process",
+                str(gpus_per_process),
+                "--distributed",
+            ]
+        ),
         out_dir=tmp_path,
     )
     combined_output = tempfile.NamedTemporaryFile(suffix=".zip")

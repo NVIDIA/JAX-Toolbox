@@ -15,6 +15,7 @@ parser.add_argument("--no-container-mount-home", action="store_true")
 parser.add_argument("--ntasks", type=int)
 parser.add_argument("--ntasks-per-node", type=int)
 args, test_cmd = parser.parse_known_args()
+os.environ["JAX_TOOLBOX_TRIAGE_MOCK_SRUN_CONTAINER_IMAGE"] = args.container_image
 num_nodes = int(os.environ["JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES"])
 procs_per_node = int(os.environ["JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE"])
 if args.ntasks_per_node is not None:

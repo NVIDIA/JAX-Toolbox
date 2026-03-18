@@ -278,6 +278,8 @@ def main(parsed_args):
         f"======================\n"
     )
 
+    # Call AXLearn Jax setup
+    launch.setup()
     # Build the model config
     config_fn = c4_trainer.named_trainer_configs()[config_name]
     trainer_config: SpmdTrainer.Config = config_for_function(config_fn).fn()
@@ -320,8 +322,6 @@ def main(parsed_args):
     if trace_steps is not None:
         trainer_config.start_trace_steps = trace_steps
 
-    # Call AXLearn Jax setup
-    launch.setup()
     # Setup the config
     trainer_config.set(
         recorder=config_for_function(lambda: measurement.global_recorder)

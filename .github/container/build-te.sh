@@ -17,15 +17,15 @@ usage() {
     echo "    --sm SM1,SM2,...               Comma-separated list of CUDA SM versions"
     echo "                                   to compile for, e.g. 7.5,8.0 -- PTX will"
     echo "                                   only be emitted for the last one."
-    echo "    --sm local                     Compile for the local GPUs (default)."
-    echo "    --sm all                       Compile for a default set of SM versions."
+    echo "    --sm local                     Compile for the local GPUs."
+    echo "    --sm all                       Compile for a default set of SM versions (default)."
     exit $1
 }
 
 # Set defaults
 CLEAN=0
 INSTALL=1
-SM="local"
+SM="all"
 SRC_PATH_TE="/opt/transformer-engine"
 SRC_PATH_XLA="/opt/xla"
 
@@ -70,24 +70,6 @@ while [ : ]; do
     esac
 done
 
-# Return a default list of CUDA SM architectures to compile for, in 1.2,3.4,5.6 format.
-# If CUDA_ARCH_LIST is set, respect that, otherwise use hard-coded cpu-arch-specific lists.
-default_compute_capabilities() {
-    CPU_ARCH="$(dpkg --print-architecture)"
-    # Infer the compute capabilities from the CUDA_ARCH_LIST variable if it is set;
-    # this is in 1.2 3.4 5.6 format
-    if [[ -n "${CUDA_ARCH_LIST}" ]]; then
-        echo ${CUDA_ARCH_LIST// /,}
-    elif [[ "${CPU_ARCH}" == "amd64" ]]; then
-        echo "7.5,8.0,8.6,9.0,10.0,12.0"
-    elif [[ "${CPU_ARCH}" == "arm64" ]]; then
-        echo "8.0,8.6,9.0,10.0,12.0"
-    else
-        echo "Invalid arch '$CPU_ARCH' (expected 'amd64' or 'arm64')" 1>&2
-        return 1
-    fi
-}
-
 print_var() {
     echo "$1: ${!1}"
 }
@@ -100,7 +82,13 @@ clean() {
 
 # This should standardise on 1.2,3.4,5.6 format
 if [[ "$SM" == "all" ]]; then
-    SM_LIST=$(default_compute_capabilities)
+    if [[ -z "${CUDA_ARCH_LIST}" ]]; then
+        echo "CUDA_ARCH_LIST was not set; this is defined by the dl-cuda-base image"
+        return 1
+    fi
+    # Infer the compute capabilities from the CUDA_ARCH_LIST variable if it is set;
+    # this is in 1.2 3.4 5.6 format
+    SM_LIST=${CUDA_ARCH_LIST// /,}
 elif [[ "$SM" == "local" ]]; then
     SM_LIST=$("${SCRIPT_DIR}/local_cuda_arch")
     if [[ -z "${SM_LIST}" ]]; then

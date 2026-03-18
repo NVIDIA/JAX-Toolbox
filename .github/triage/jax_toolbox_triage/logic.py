@@ -8,6 +8,14 @@ import pathlib
 import typing
 
 
+class CouldNotReproduceFailure(Exception):
+    pass
+
+
+class CouldNotReproduceSuccess(Exception):
+    pass
+
+
 class TestExecutionOutcome(Enum):
     """
     Enumerate the possible outcomes of a build + test run. This might be extended in
@@ -347,8 +355,11 @@ def _version_search(
         else:
             err = f"Could not reproduce success with 'good' versions ({check_pass.result})"
             logger.fatal(err)
-            logger.fatal(check_pass.stdouterr)
-            raise Exception(err)
+            if check_pass.result == TestExecutionOutcome.BUILD_FAILURE:
+                logger.fatal(check_pass.build_stdouterr)
+            else:
+                logger.fatal(check_pass.stdouterr)
+            raise CouldNotReproduceSuccess(err)
 
     if skip_precondition_checks:
         logger.info("Skipping check that 'bad' versions reproduce failure")
@@ -373,8 +384,11 @@ def _version_search(
                 f"Could not reproduce failure with 'bad' versions ({check_fail.result})"
             )
             logger.fatal(err)
-            logger.fatal(check_fail.stdouterr)
-            raise Exception(err)
+            if check_fail.result == TestExecutionOutcome.BUILD_FAILURE:
+                logger.fatal(check_fail.build_stdouterr)
+            else:
+                logger.fatal(check_fail.stdouterr)
+            raise CouldNotReproduceFailure(err)
 
     # Make sure that the primary package (zeroth entry in `versions`) has
     # multiple versions. If it doesn't, we can permute it to the end straight

@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-set -e
+set -euo pipefail
 
 ## Utility methods
 
@@ -11,28 +11,22 @@ print_var() {
 # CUDA_ARCH_LIST comes from the dl-cuda-base image starting with CUDA 12.9
 # It is a space-separated list of compute capabilities, e.g. "7.5 8.0 12.0"
 supported_compute_capabilities() {
-    ARCH=$1
     # Infer the compute capabilities from the CUDA_ARCH_LIST variable if it is set
     # Example: "7.5 8.0 12.0" -> "sm_75,sm_80,compute_120"
-    if [[ -n "${CUDA_ARCH_LIST}" ]]; then
-        read -r -a _CUDA_ARCH_LIST <<< "${CUDA_ARCH_LIST}"
-        SM_LIST=""
-        for _ARCH in "${_CUDA_ARCH_LIST[@]}"; do
-            if [[ "${_ARCH}" == "${_CUDA_ARCH_LIST[-1]}" ]]; then
-                SM_LIST="${SM_LIST}compute_${_ARCH//./}"
-            else
-                SM_LIST="${SM_LIST}sm_${_ARCH//./},"
-            fi
-        done
-        echo "${SM_LIST}"
-    elif [[ "${ARCH}" == "amd64" ]]; then
-        echo "sm_75,sm_80,sm_86,sm_90,sm_100,compute_120"
-    elif [[ "${ARCH}" == "arm64" ]]; then
-        echo "sm_80,sm_86,sm_90,sm_100,compute_120"
-    else
-        echo "Invalid arch '$ARCH' (expected 'amd64' or 'arm64')" 1>&2
+    if [[ -z "${CUDA_ARCH_LIST}" ]]; then
+        echo "CUDA_ARCH_LIST was not set; this is defined by the dl-cuda-base image"
         return 1
     fi
+    read -r -a _CUDA_ARCH_LIST <<< "${CUDA_ARCH_LIST}"
+    SM_LIST=""
+    for _ARCH in "${_CUDA_ARCH_LIST[@]}"; do
+        if [[ "${_ARCH}" == "${_CUDA_ARCH_LIST[-1]}" ]]; then
+            SM_LIST="${SM_LIST}compute_${_ARCH//./}"
+        else
+            SM_LIST="${SM_LIST}sm_${_ARCH//./},"
+        fi
+    done
+    echo "${SM_LIST}"
 }
 
 ## Parse command-line arguments
@@ -49,7 +43,6 @@ usage() {
     echo "    --build-path-jaxlib PATH       Editable install prefix for jaxlib and plugins"
     echo "    --clean                        Delete local configuration and bazel cache"
     echo "    --clean-only                   Do not build, just cleanup"
-    echo "    --cpu-arch                     Target CPU architecture, e.g. amd64, arm64, etc."
     echo "    --debug                        Build in debug mode"
     echo "    --extra-targets T1[,T2[...]    Extra bazel targets that will be built and copied to --extra-target-dest."
     echo "    --extra-target-dest PATH       Where extra target output files will be copied to."
@@ -60,8 +53,8 @@ usage() {
     echo "    --src-path-jax                 Path to JAX source"
     echo "    --src-path-xla                 Path to XLA source"
     echo "    --sm SM1,SM2,...               Comma-separated list of CUDA SM versions to compile for, e.g. '7.5,8.0'"
-    echo "    --sm local                     Query the SM of available GPUs (default)"
-    echo "    --sm all                       All current SM"
+    echo "    --sm local                     Query the SM of available GPUs"
+    echo "    --sm all                       Default list of SMs taken from the base container (default)"
     echo "                                   If you want to pass a bazel parameter, you must do it like this:"
     echo "                                   --build-param=--bazel_options=..."
     exit $1
@@ -74,12 +67,12 @@ BUILD_PATH_JAXLIB="/opt/jaxlibs"
 BUILD_PARAM=""
 CLEAN=0
 CLEANONLY=0
-CPU_ARCH="$(dpkg --print-architecture)"
-CUDA_COMPUTE_CAPABILITIES="local"
+CUDA_COMPUTE_CAPABILITIES="all"
 DEBUG=0
 EXTRA_TARGETS=()
 EXTRA_TARGET_DEST=""
 INSTALL=1
+IS_RELEASE=0
 SRC_PATH_JAX="/opt/jax"
 SRC_PATH_XLA="/opt/xla"
 
@@ -114,10 +107,6 @@ while [ : ]; do
         --clean-only)
             CLEANONLY=1
             shift 1
-            ;;
-        --cpu-arch)
-            CPU_ARCH="$2"
-            shift 2
             ;;
         --no-clean)
             CLEAN=0
@@ -185,9 +174,11 @@ clean() {
 if [ -z ${CUDA_MAJOR_VERSION+x} ]; then
     CUDA_MAJOR_VERSION="${CUDA_VERSION:0:2}"
 fi
-PYTHON_VERSION=$(python -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')
+PYTHON_MAJOR_VERSION=$(python -c 'import sys; print(sys.version_info[0])')
+PYTHON_MINOR_VERSION=$(python -c 'import sys; print(sys.version_info[1])')
+PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
 if [[ "$CUDA_COMPUTE_CAPABILITIES" == "all" ]]; then
-    CUDA_COMPUTE_CAPABILITIES=$(supported_compute_capabilities ${CPU_ARCH})
+    CUDA_COMPUTE_CAPABILITIES=$(supported_compute_capabilities)
 elif [[ "$CUDA_COMPUTE_CAPABILITIES" == "local" ]]; then
     CUDA_COMPUTE_CAPABILITIES=$("${SCRIPT_DIR}/local_cuda_arch")
 fi
@@ -202,17 +193,11 @@ elif [[ ! -z "${BAZEL_CACHE}" ]] ; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--disk_cache=${BAZEL_CACHE}"
 fi
 
-# WAR for https://github.com/openxla/xla/issues/28256
-if [[ "${CPU_ARCH}" == "arm64" ]]; then
-    BUILD_PARAM="${BUILD_PARAM} --bazel_options=--config=ci_linux_aarch64_cuda_common"
-fi
-
 if [[ "$DEBUG" == "1" ]]; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=-c --bazel_options=dbg --bazel_options=--strip=never --bazel_options=--cxxopt=-g --bazel_options=--cxxopt=-O0"
 fi
 
 ## Print info
-
 echo "=================================================="
 echo "                  Configuration                   "
 echo "--------------------------------------------------"
@@ -222,11 +207,11 @@ print_var BUILD_PATH_JAXLIB
 print_var BUILD_PARAM
 print_var CLEAN
 print_var CLEANONLY
-print_var CPU_ARCH
 print_var CUDA_COMPUTE_CAPABILITIES
 print_var CUDA_MAJOR_VERSION
 print_var DEBUG
-print_var EXTRA_TARGETS
+# bash -u does not accept set-but-empty arrays in all versions
+echo EXTRA_TARGETS: ${EXTRA_TARGETS[@]+"${EXTRA_TARGETS[@]}"}
 print_var EXTRA_TARGET_DEST
 print_var INSTALL
 print_var PYTHON_VERSION
@@ -255,7 +240,6 @@ pushd ${SRC_PATH_JAX}
 time python "${SRC_PATH_JAX}/build/build.py" build \
     --cuda_major_version=${CUDA_MAJOR_VERSION} \
     --editable \
-    --use_clang \
     --wheels=jaxlib,jax-cuda-plugin,jax-cuda-pjrt \
     "--cuda_compute_capabilities=${CUDA_COMPUTE_CAPABILITIES}" \
     --bazel_options=--repo_env=LOCAL_CUDA_PATH="/usr/local/cuda" \
@@ -271,24 +255,20 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
 
 # Make sure that JAX depends on the local jaxlib installation
 # https://jax.readthedocs.io/en/latest/developer.html#specifying-dependencies-on-local-wheels
-old_hash=($(md5sum build/requirements.in))
+# We do not run the requirements.update target because it is very slow and
+# downloads the pip world
+#
+# Point the jaxlib/jax-cuda*-plugin|pjrt lines in requirements files to the
+# local builds, removing --hash on continued lines.
 for component in jaxlib "jax-cuda${CUDA_MAJOR_VERSION}-pjrt" "jax-cuda${CUDA_MAJOR_VERSION}-plugin"; do
-    sed -i "s|^${component}.*$|${component} @ file://${BUILD_PATH_JAXLIB}/${component//-/_}|" build/requirements.in
+    sed \
+        -i \
+        "/^${component}/{:a;/\\\\$/N;s/\\\\\n\s*/ /;ta;s#.*#${component} @ file://${BUILD_PATH_JAXLIB}/${component//-/_}#;}" \
+        build/requirements.in \
+        build/requirements_lock_${PYTHON_MAJOR_VERSION}_${PYTHON_MINOR_VERSION}.txt
 done
 if [[ "${IS_RELEASE}" == "1" ]]; then
-    jaxlib_version=$(pip show jaxlib | grep Version | tr ':' '\n' | tail -1)
-    sed -i "s|      f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|      f'jaxlib>=0.5.0',|" /opt/jax/setup.py
-fi
-new_hash=($(md5sum build/requirements.in))
-# Bazel args to avoid cache invalidation
-BAZEL_ARGS=(
-    --config=cuda_libraries_from_stubs
-    --repo_env=HERMETIC_PYTHON_VERSION="${PYTHON_VERSION}"
-)
-# //build:requirements.update can be quite slow; only run it if we actually
-# modified requirements.in just above.
-if [[ "${old_hash}" != "${new_hash}" ]]; then
-    bazel run "${BAZEL_ARGS[@]}" --verbose_failures=true //build:requirements.update
+    sed -i "s|f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|f'jaxlib>=0.5.0',|" /opt/jax/setup.py
 fi
 if (( "${#EXTRA_TARGETS[@]}" > 0 )); then
     bazel build "${BAZEL_ARGS[@]}" --verbose_failures=true "${EXTRA_TARGETS[@]}"
@@ -324,10 +304,10 @@ popd
 
 if [[ "${INSTALL}" == "1" ]]; then
     # Uninstall jaxlib in case this script was used before.
-    pip uninstall -y jax jaxlib jax-cuda${CUDA_MAJOR_VERSION}-pjrt jax-cuda${CUDA_MAJOR_VERSION}-plugin
+    time pip uninstall -y jax jaxlib jax-cuda${CUDA_MAJOR_VERSION}-pjrt jax-cuda${CUDA_MAJOR_VERSION}-plugin
 
     # install jax and jaxlib
-    pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_plugin -e ${SRC_PATH_JAX}
+    time pip --disable-pip-version-check install -e ${BUILD_PATH_JAXLIB}/jaxlib -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_pjrt -e ${BUILD_PATH_JAXLIB}/jax_cuda${CUDA_MAJOR_VERSION}_plugin -e ${SRC_PATH_JAX}
 
     ## after installation (example)
     # jax                     0.6.1.dev20250425+966578b61 /opt/jax
