@@ -82,6 +82,13 @@ runs:
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
         # Cap Docker client API version to match the daemon on NVKS runners
         echo 'DOCKER_API_VERSION=1.43' >> $GITHUB_ENV
+        # When disk cache is enabled use the BuildKit cache mount path;
+        # otherwise fall back to the remote cache URL (internal infra runners).
+        if [[ "${{ inputs.ENABLE_BAZEL_DISK_CACHE }}" == "true" ]]; then
+          echo 'BAZEL_CACHE_ARG=BAZEL_CACHE=/cache/bazel-disk' >> $GITHUB_ENV
+        else
+          echo 'BAZEL_CACHE_ARG=BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}' >> $GITHUB_ENV
+        fi
 
     - name: Setup SSH
       id: setup-ssh
@@ -173,7 +180,7 @@ runs:
           bazel-disk-seed=/tmp/bazel-disk-cache
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          ${{ env.BAZEL_CACHE_ARG }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
     # FINAL IMAGE BUILD
@@ -206,7 +213,7 @@ runs:
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          ${{ env.BAZEL_CACHE_ARG }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
 
