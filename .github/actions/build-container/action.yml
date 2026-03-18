@@ -80,6 +80,8 @@ runs:
       run: |
         echo 'UPLD_IMAGE=ghcr.io/nvidia/jax-toolbox-internal' >> $GITHUB_ENV
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
+        # Cap Docker client API version to match the daemon on NVKS runners
+        echo 'DOCKER_API_VERSION=1.43' >> $GITHUB_ENV
 
     - name: Setup SSH
       id: setup-ssh
@@ -97,8 +99,6 @@ runs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      env:
-        DOCKER_API_VERSION: '1.43'
       with:
         driver-opts: |
           image=moby/buildkit:v0.12.1
