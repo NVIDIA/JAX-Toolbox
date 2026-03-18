@@ -93,8 +93,8 @@ jobs:
             # Enable Bazel disk-cache export/restore via OCI registry image.
             ENABLE_BAZEL_DISK_CACHE: 'true'
             EXTRA_BUILD_ARGS: |
-              URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
-              URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
+              URLREF_JAX=https://github.com/google/jax.git#297a27dd6213f44112ca6bebd4aefe2191786246
+              URLREF_XLA=https://github.com/openxla/xla.git#5123273288dfdfa3a6c8fd7eb70307ace4bc38b2
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
     outputs:
