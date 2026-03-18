@@ -44,10 +44,32 @@ FROM scratch AS bazel-repo-seed
 FROM scratch AS bazel-disk-seed
 
 ###############################################################################
+## Disk-cache seeder stage
+##
+## Copies the OCI seed image into the BuildKit cache mount.
+## Key property: the RUN step writes ONLY to --mount=type=cache (no filesystem
+## output), so this stage's image layer digest equals BASE_IMAGE + empty diff,
+## which is CONSTANT regardless of the seed image content.
+##
+## By having `builder` inherit from this stage instead of from BASE_IMAGE
+## directly, the builder's layer cache key does NOT include the bazel-disk-seed
+## image digest.  Without this, the builder cache key changed on every run
+## (because each run produces a new disk-cache OCI image with a new digest),
+## preventing BuildKit's mode=max registry cache from ever hitting and forcing
+## a full cold Bazel build every time.
+###############################################################################
+
+FROM ${BASE_IMAGE} AS disk-seeder
+ARG TARGETARCH
+RUN --mount=type=cache,id=bazel-disk-${TARGETARCH},target=/cache/bazel-disk,sharing=locked \
+    --mount=type=bind,from=bazel-disk-seed,source=.,target=/tmp/bazel-disk-seed,readonly \
+    cp -a /tmp/bazel-disk-seed/. /cache/bazel-disk/ 2>/dev/null || true
+
+###############################################################################
 ## Build JAX
 ###############################################################################
 
-FROM ${BASE_IMAGE} AS builder
+FROM disk-seeder AS builder
 ARG TARGETARCH
 ARG URLREF_JAX
 ARG URLREF_TRANSFORMER_ENGINE
@@ -80,20 +102,17 @@ RUN ARCH="$(dpkg --print-architecture)" && \
 #
 # Cache mounts:
 #   bazel-disk  – arch-scoped BuildKit cache for Bazel --disk_cache.
-#                 Seeded from bazel-disk-seed build context when available
-#                 (docker-image:// ref pushed by a previous run's export step).
-#                 Falls back to empty scratch stage on first run.
+#                 Pre-seeded by the disk-seeder stage above (which inherits
+#                 from BASE_IMAGE with an empty-output RUN, keeping its layer
+#                 digest stable so this stage's cache key stays constant).
 #   bazel-repo-seed bind-mount – read-only snapshot restored from actions/cache
 #                 via --build-context bazel-repo-seed=<dir> on the runner.
 #                 Falls back to empty scratch stage when no context is provided.
 RUN --mount=type=cache,id=bazel-disk-${TARGETARCH},target=/cache/bazel-disk,sharing=locked \
     --mount=type=bind,from=bazel-repo-seed,source=.,target=/cache/bazel-repo-seed,readonly \
-    --mount=type=bind,from=bazel-disk-seed,source=.,target=/cache/bazel-disk-seed,readonly \
     mkdir -p /cache/bazel-repo /builder/extra-targets/{bin,python} && \
     (cp -a /cache/bazel-repo-seed/. /cache/bazel-repo/ \
       || echo "WARNING: bazel-repo-seed copy failed; proceeding with empty repo cache" >&2) && \
-    (cp -a /cache/bazel-disk-seed/. /cache/bazel-disk/ \
-      || echo "WARNING: bazel-disk-seed copy failed; proceeding with empty disk cache" >&2) && \
     build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --bazel-repo-cache ${BAZEL_REPO_CACHE} \
