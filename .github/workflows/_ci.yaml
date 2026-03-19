@@ -82,7 +82,7 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
-            bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+            bazel-remote-cache-url: ""
             ENABLE_BAZEL_DISK_CACHE: 'true'
             ENABLE_BAZEL_REPO_CACHE: 'true'
             EXTRA_BUILD_ARGS: |
