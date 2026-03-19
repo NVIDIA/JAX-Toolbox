@@ -34,8 +34,7 @@ import jax_inference_offloading.api.message_broker_pb2_grpc as broker_grpc
 import jax_inference_offloading.controller.utils as ctrl_utils
 
 logger = logging.getLogger(__name__)
-logging.basicConfig()
-logging.getLogger().setLevel(logging.DEBUG)
+logger.addHandler(logging.NullHandler())
 
 
 class MessageQueues:

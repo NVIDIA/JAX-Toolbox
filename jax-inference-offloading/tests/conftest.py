@@ -10,9 +10,12 @@ from __future__ import annotations
 
 from concurrent import futures
 import json
+import os
 from pathlib import Path
 from queue import Empty, Queue
+import subprocess
 import sys
+import time
 from types import SimpleNamespace
 import threading
 import types
@@ -339,4 +342,86 @@ def close_rollout_client(client) -> None:
         client._executor.shutdown(wait=True, cancel_futures=True)
     except TypeError:
         client._executor.shutdown(wait=True)
+
+
+def visible_cuda_device_ids() -> list[str]:
+    """Return the CUDA device identifiers visible to the current process."""
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if visible:
+        return [device_id.strip() for device_id in visible.split(",") if device_id.strip()]
+
+    try:
+        import jax
+
+        return [str(index) for index, _ in enumerate(jax.devices("gpu"))]
+    except Exception:
+        return []
+
+
+@pytest.fixture
+def gpu_device_partitions() -> dict[str, str]:
+    """Split eight visible GPUs into JAX and rollout groups for subprocess tests."""
+    device_ids = visible_cuda_device_ids()
+    if len(device_ids) < 8:
+        pytest.skip("GPU grouped transfer tests require at least 8 visible CUDA devices.")
+
+    return {
+        "jax": ",".join(device_ids[:4]),
+        "rollout": ",".join(device_ids[4:8]),
+    }
+
+
+@pytest.fixture
+def gpu_test_script() -> Path:
+    """Return the helper script used by the GPU subprocess test."""
+    return Path(__file__).with_name("gpu_test_utils.py")
+
+
+def build_gpu_subprocess_env(cuda_visible_devices: str) -> dict[str, str]:
+    """Create a subprocess environment pinned to a specific GPU subset."""
+    env = os.environ.copy()
+    env["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+    return env
+
+
+def wait_for_path(path: Path, timeout: float = 30.0) -> None:
+    """Poll until a path exists or raise a TimeoutError."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if path.exists():
+            return
+        time.sleep(0.1)
+
+    raise TimeoutError(f"{path} was not created within {timeout} seconds.")
+
+
+def format_subprocess_failure(
+    command: list[str], stdout: str | None, stderr: str | None
+) -> str:
+    """Build a compact failure message for subprocess-based test helpers."""
+    rendered = [
+        f"Command failed: {' '.join(command)}",
+        f"stdout:\n{stdout or '<empty>'}",
+        f"stderr:\n{stderr or '<empty>'}",
+    ]
+    return "\n\n".join(rendered)
+
+
+def wait_for_process(
+    process: subprocess.Popen[str], timeout: float, command: list[str]
+) -> tuple[str, str]:
+    """Wait for a subprocess and raise a readable assertion on failure."""
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        stdout, stderr = process.communicate()
+        raise AssertionError(
+            format_subprocess_failure(command, stdout, stderr)
+        ) from None
+
+    if process.returncode != 0:
+        raise AssertionError(format_subprocess_failure(command, stdout, stderr))
+
+    return stdout, stderr
 

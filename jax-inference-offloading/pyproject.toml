@@ -2,11 +2,40 @@
 requires = [
   "setuptools>=69",
   "wheel",
-  "grpcio-tools==1.76.*",
-  "protobuf==6.33.*"
+  "grpcio-tools>=1.76,<1.77",
+  "protobuf>=6.31.1,<7"
 ]
 build-backend = "pep517_backend"
 backend-path = ["."]
+
+[project]
+name = "jax-inference-offloading"
+version = "0.0.1"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "cloudpickle",
+  "cupy-cuda12x",
+  "flax>=0.8.2",
+  "grpcio>=1.76,<2",
+  "jax>=0.8.1,<0.9",
+  "jaxtyping",
+  "numpy",
+  "packaging",
+  "protobuf>=6.31.1,<7",
+  "vllm>=0.14.1,<0.15",
+]
+
+[project.optional-dependencies]
+checkpoint = [
+  "safetensors>=0.4",
+]
+test = [
+  "pytest>=7",
+]
+
+[tool.setuptools.packages.find]
+include = ["jax_inference_offloading*"]
 
 [tool.ruff]
 indent-width = 2
@@ -39,6 +68,9 @@ per-file-ignores = { "__init__.py" = ["F401"], "tests/*" = ["D"] }
 
 [tool.pytest.ini_options]
 cache_dir = "/tmp/pytest-cache"
+markers = [
+  "gpu: requires visible CUDA devices and the real NCCL runtime",
+]
 filterwarnings = [
   "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
   "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
