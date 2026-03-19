@@ -21,9 +21,8 @@ from typing import Any, Dict, List, Tuple, Union
 
 import jax
 import jax.numpy as jnp
-from jax import lax
+from jax import lax, shard_map
 from jax.experimental.buffer_callback import buffer_callback
-from jax.experimental.shard_map import shard_map
 from jax.sharding import Mesh, PartitionSpec
 
 from typing import Protocol, runtime_checkable

@@ -36,3 +36,11 @@ ignore = ["E203"]
 
 # File-specific relaxations
 per-file-ignores = { "__init__.py" = ["F401"], "tests/*" = ["D"] }
+
+[tool.pytest.ini_options]
+cache_dir = "/tmp/pytest-cache"
+filterwarnings = [
+  "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
+  "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
+  "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+]
