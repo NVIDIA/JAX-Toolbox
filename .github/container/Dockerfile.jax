@@ -72,6 +72,7 @@ RUN --mount=type=cache,id=bazel-disk-${TARGETARCH},target=/cache/bazel-disk,shar
     build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
     --build-param --bazel_options=--repository_cache=/cache/bazel-repo \
+    --build-param --bazel_options=--disk_cache_max_size=32212254720 \
     --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
     --extra-targets "${EXTRA_BAZEL_TARGETS}" \
     --extra-target-dest /builder/extra-targets \

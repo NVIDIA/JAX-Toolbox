@@ -127,7 +127,7 @@ runs:
       if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
       uses: actions/cache/restore@v4
       with:
-        path: /tmp/bazel-disk-cache
+        path: /tmp/bazel-disk.tar
         key: bazel-disk-cache-${{ inputs.ARCHITECTURE }}-${{ github.run_id }}
         restore-keys: |
           bazel-disk-cache-${{ inputs.ARCHITECTURE }}-
@@ -136,17 +136,23 @@ runs:
       if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
       uses: actions/cache/restore@v4
       with:
-        path: /tmp/bazel-repo-cache
+        path: /tmp/bazel-repo.tar
         key: bazel-repo-cache-${{ inputs.ARCHITECTURE }}-${{ github.run_id }}
         restore-keys: |
           bazel-repo-cache-${{ inputs.ARCHITECTURE }}-
 
-    # Always create the seed dirs so --build-context is always valid (no-op if empty)
+    # Extract restored tars into seed dirs; create empty dirs on first run
     - name: Prepare Bazel cache seed directories
       shell: bash
       run: |
         mkdir -p /tmp/bazel-disk-cache
+        if [[ -f /tmp/bazel-disk.tar ]]; then
+          tar -xf /tmp/bazel-disk.tar -C /tmp/bazel-disk-cache
+        fi
         mkdir -p /tmp/bazel-repo-cache
+        if [[ -f /tmp/bazel-repo.tar ]]; then
+          tar -xf /tmp/bazel-repo.tar -C /tmp/bazel-repo-cache
+        fi
 
     # MEALKIT BUILD
     - name: Set docker metadata - mealkit
@@ -218,6 +224,9 @@ runs:
           ${{ inputs.EXTRA_BUILD_ARGS }}
 
     # BAZEL CACHE EXPORT
+    # type=tar,compression=zstd streams a single archive instead of per-file
+    # copies — avoids the O(N-files) overhead that caused 3h+ timeouts with
+    # type=local on a large Bazel disk cache.
     - name: Export Bazel disk cache
       if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
       uses: docker/build-push-action@v5
@@ -227,7 +236,7 @@ runs:
         file: ${{ inputs.DOCKERFILE }}
         platforms: linux/${{ inputs.ARCHITECTURE }}
         target: bazel-disk-export
-        outputs: type=local,dest=/tmp/bazel-disk-cache-new
+        outputs: type=tar,dest=/tmp/bazel-disk.tar,compression=zstd,compression-level=3
         build-contexts: |
           bazel-disk-seed=/tmp/bazel-disk-cache
         build-args: |
@@ -239,7 +248,7 @@ runs:
       if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
       uses: actions/cache/save@v4
       with:
-        path: /tmp/bazel-disk-cache-new
+        path: /tmp/bazel-disk.tar
         key: bazel-disk-cache-${{ inputs.ARCHITECTURE }}-${{ github.run_id }}
 
     - name: Export Bazel repo cache
@@ -251,7 +260,7 @@ runs:
         file: ${{ inputs.DOCKERFILE }}
         platforms: linux/${{ inputs.ARCHITECTURE }}
         target: bazel-repo-export
-        outputs: type=local,dest=/tmp/bazel-repo-cache-new
+        outputs: type=tar,dest=/tmp/bazel-repo.tar,compression=zstd,compression-level=3
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
@@ -261,7 +270,7 @@ runs:
       if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
       uses: actions/cache/save@v4
       with:
-        path: /tmp/bazel-repo-cache-new
+        path: /tmp/bazel-repo.tar
         key: bazel-repo-cache-${{ inputs.ARCHITECTURE }}-${{ github.run_id }}
 
     # SITREP GENERATION
