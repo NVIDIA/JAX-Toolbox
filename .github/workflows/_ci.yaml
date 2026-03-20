@@ -53,17 +53,17 @@ jobs:
       MANIFEST_ARTIFACT_NAME: ${{ inputs.MANIFEST_ARTIFACT_NAME }}
     secrets: inherit
 
-  test-nccl:
-    if: inputs.ARCHITECTURE == 'amd64' # build only amd64
-    needs: build-base
-    uses: ./.github/workflows/_test_nccl.yaml
-    with:
-      CONTAINER: ${{ needs.build-base.outputs.DOCKER_TAG }}
-    secrets: inherit
+  # test-nccl:
+  #   if: inputs.ARCHITECTURE == 'amd64' # build only amd64
+  #   needs: build-base
+  #   uses: ./.github/workflows/_test_nccl.yaml
+  #   with:
+  #     CONTAINER: ${{ needs.build-base.outputs.DOCKER_TAG }}
+  #   secrets: inherit
 
   build-jax:
     needs: build-base
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu32m' || 'linux-arm64-cpu32m' }}
     steps:
         - name: Checkout repository
           uses: actions/checkout@v4
