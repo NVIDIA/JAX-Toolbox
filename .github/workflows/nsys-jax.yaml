@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: JAX-Toolbox
           sparse-checkout: |
@@ -50,7 +50,7 @@ jobs:
           install-protoc local/
           echo "$PWD/local/bin" >> "${GITHUB_PATH}"
       - name: "Fetch XLA .proto files"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: xla
           repository: openxla/xla
@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "Setup Python 3.12"
         uses: actions/setup-python@v5
         with:
@@ -134,7 +134,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Extract the post-processed profile data from a real .zip file (no .nsys-rep)
         run: |
           # Get the actual test data from a real archive, minus the .nsys-rep file
@@ -257,7 +257,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: JAX-Toolbox
           sparse-checkout: |
