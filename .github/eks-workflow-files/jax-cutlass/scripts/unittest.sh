@@ -7,17 +7,6 @@
 
           pip install pytest-reportlog pytest-xdist
 
-          # nvidia-cutlass-dsl-jax is not yet installed to the container by default.
-          # Clone if not already present locally as indicated by SRC_ROOT
-          if [[ ! -d ${SRC_ROOT} ]]; then
-            git clone https://github.com/NVIDIA/JAX-Toolbox.git --branch ${JAX_TOOLBOX_REF} ${SRC_ROOT}
-            PIP_SRC=${SRC_ROOT}/.github/container/cutlass_dsl_jax
-          else
-            PIP_SRC=${SRC_ROOT}
-          fi
-
-          pip install ${PIP_SRC}
-
           # Clone CUTLASS examples
           CUTLASS_ROOT="${SRC_ROOT}/cutlass"
           CUTLASS_EXAMPLES_ROOT="${CUTLASS_ROOT}/examples/python/CuTeDSL"
@@ -29,6 +18,11 @@
           nvidia-cuda-mps-control -d
 
           export PYTHONPATH=${CUTLASS_EXAMPLES_ROOT}
-          pytest-xdist.sh ${NGPUS} 1 ${LOG_DIR}/pytest-report.jsonl pytest -xsv --log-file=${LOG_DIR}/pytest_log.log --log-file-level=INFO ${PIP_SRC}/tests/ | tee -a ${LOG_DIR}/pytest_stdout_dist.log
+
+          # Run the examples
+		  for f in ${CUTLASS_ROOT}/examples/python/CuTeDSL/jax/*.py; do
+		    echo "[Executing] $f"
+		  	python $f
+		  done
 
           touch ${LOG_DIR}/done

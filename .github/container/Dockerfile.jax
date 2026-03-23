@@ -142,6 +142,9 @@ COPY nsys_jax/ ${SRC_PATH_NSYS_JAX}
 ADD install-nsys-jax.sh /usr/local/bin
 RUN install-nsys-jax.sh ${SRC_PATH_NSYS_JAX}
 
+## nvidia-cutlass-dsl
+RUN echo "nvidia-cutlass-dsl" >> /opt/pip-tools.d/requirements-cutlass-dsl.in
+
 ###############################################################################
 ## Install primary packages and transitive dependencies
 ###############################################################################
