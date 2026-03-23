@@ -224,9 +224,12 @@ runs:
           ${{ inputs.EXTRA_BUILD_ARGS }}
 
     # BAZEL CACHE EXPORT
-    # type=tar,compression=zstd streams a single archive instead of per-file
-    # copies — avoids the O(N-files) overhead that caused 3h+ timeouts with
-    # type=local on a large Bazel disk cache.
+    - name: Prune BuildKit cache to free space for export
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true' || inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      shell: bash
+      run: docker buildx prune --force
+
+    # type=tar streams a single archive instead of per-file copies
     - name: Export Bazel disk cache
       if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
       uses: docker/build-push-action@v5
