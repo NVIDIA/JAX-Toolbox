@@ -54,6 +54,14 @@ inputs:
     description: "URL of the Bazel remote cache to use for building the image"
     required: true
     default: ""
+  ENABLE_BAZEL_DISK_CACHE:
+    description: "Enable Bazel disk cache via actions/cache"
+    required: false
+    default: "false"
+  ENABLE_BAZEL_REPO_CACHE:
+    description: "Enable Bazel repository cache via actions/cache"
+    required: false
+    default: "false"
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -72,6 +80,15 @@ runs:
       run: |
         echo 'UPLD_IMAGE=ghcr.io/nvidia/jax-toolbox-internal' >> $GITHUB_ENV
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
+        # Cap Docker client API version to match the daemon on NVKS runners
+        echo 'DOCKER_API_VERSION=1.43' >> $GITHUB_ENV
+        # When disk cache is enabled use the BuildKit cache mount path;
+        # otherwise fall back to the remote cache URL (internal infra runners).
+        if [[ "${{ inputs.ENABLE_BAZEL_DISK_CACHE }}" == "true" ]]; then
+          echo 'BAZEL_CACHE_ARG=BAZEL_CACHE=/cache/bazel-disk' >> $GITHUB_ENV
+        else
+          echo 'BAZEL_CACHE_ARG=BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}' >> $GITHUB_ENV
+        fi
 
     - name: Setup SSH
       id: setup-ssh
@@ -91,8 +108,7 @@ runs:
       uses: docker/setup-buildx-action@v3
       with:
         driver-opts: |
-          image=moby/buildkit:v0.12.1
-        version: v0.30.1
+          image=moby/buildkit:v0.19.0
 
     - name: Download nsys-jax version.py
       uses: actions/download-artifact@v4
@@ -105,6 +121,38 @@ runs:
         ls
         mv version.py .github/container/nsys_jax/nsys_jax/
         cat .github/container/nsys_jax/nsys_jax/version.py
+
+    # BAZEL CACHE RESTORE
+    - name: Restore Bazel disk cache
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: /tmp/bazel-disk.tar
+        key: bazel-disk-cache-${{ inputs.ARCHITECTURE }}-${{ github.run_id }}
+        restore-keys: |
+          bazel-disk-cache-${{ inputs.ARCHITECTURE }}-
+
+    - name: Restore Bazel repo cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: /tmp/bazel-repo.tar
+        key: bazel-repo-cache-${{ inputs.ARCHITECTURE }}-${{ github.run_id }}
+        restore-keys: |
+          bazel-repo-cache-${{ inputs.ARCHITECTURE }}-
+
+    # Extract restored tars into seed dirs; create empty dirs on first run
+    - name: Prepare Bazel cache seed directories
+      shell: bash
+      run: |
+        mkdir -p /tmp/bazel-disk-cache
+        if [[ -f /tmp/bazel-disk.tar ]]; then
+          tar -xf /tmp/bazel-disk.tar -C /tmp/bazel-disk-cache
+        fi
+        mkdir -p /tmp/bazel-repo-cache
+        if [[ -f /tmp/bazel-repo.tar ]]; then
+          tar -xf /tmp/bazel-repo.tar -C /tmp/bazel-repo-cache
+        fi
 
     # MEALKIT BUILD
     - name: Set docker metadata - mealkit
@@ -134,9 +182,11 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+        build-contexts: |
+          bazel-disk-seed=/tmp/bazel-disk-cache
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          ${{ env.BAZEL_CACHE_ARG }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
     # FINAL IMAGE BUILD
@@ -169,9 +219,59 @@ runs:
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          ${{ env.BAZEL_CACHE_ARG }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    # BAZEL CACHE EXPORT
+    # type=tar,compression=zstd streams a single archive instead of per-file
+    # copies — avoids the O(N-files) overhead that caused 3h+ timeouts with
+    # type=local on a large Bazel disk cache.
+    - name: Export Bazel disk cache
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ inputs.DOCKER_CONTEXT }}
+        push: false
+        file: ${{ inputs.DOCKERFILE }}
+        platforms: linux/${{ inputs.ARCHITECTURE }}
+        target: bazel-disk-export
+        outputs: type=tar,dest=/tmp/bazel-disk.tar
+        build-contexts: |
+          bazel-disk-seed=/tmp/bazel-disk-cache
+        build-args: |
+          BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+          BUILD_DATE=${{ inputs.BUILD_DATE }}
+          ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    - name: Save Bazel disk cache
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: /tmp/bazel-disk.tar
+        key: bazel-disk-cache-${{ inputs.ARCHITECTURE }}-${{ github.run_id }}
+
+    - name: Export Bazel repo cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ inputs.DOCKER_CONTEXT }}
+        push: false
+        file: ${{ inputs.DOCKERFILE }}
+        platforms: linux/${{ inputs.ARCHITECTURE }}
+        target: bazel-repo-export
+        outputs: type=tar,dest=/tmp/bazel-repo.tar
+        build-args: |
+          BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+          BUILD_DATE=${{ inputs.BUILD_DATE }}
+          ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    - name: Save Bazel repo cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: /tmp/bazel-repo.tar
+        key: bazel-repo-cache-${{ inputs.ARCHITECTURE }}-${{ github.run_id }}
 
     # SITREP GENERATION
     - name: Generate sitrep
