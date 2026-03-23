@@ -134,6 +134,9 @@ ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl)" > /opt/pip-tools.d/requirements-te.in
 EOF
 
+## nvidia-cutlass-dsl
+RUN echo "nvidia-cutlass-dsl" >> /opt/pip-tools.d/requirements-cutlass-dsl.in
+
 ###############################################################################
 ## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
 ###############################################################################
@@ -141,9 +144,6 @@ ENV SRC_PATH_NSYS_JAX=${SRC_PATH_NSYS_JAX}
 COPY nsys_jax/ ${SRC_PATH_NSYS_JAX}
 ADD install-nsys-jax.sh /usr/local/bin
 RUN install-nsys-jax.sh ${SRC_PATH_NSYS_JAX}
-
-## nvidia-cutlass-dsl
-RUN echo "nvidia-cutlass-dsl" >> /opt/pip-tools.d/requirements-cutlass-dsl.in
 
 ###############################################################################
 ## Install primary packages and transitive dependencies
