@@ -237,6 +237,11 @@ fi
 
 ## Build the compiled parts of JAX
 pushd ${SRC_PATH_JAX}
+# --force_pic does not affect the JAX build, which builds position-independent code and
+# shared libraries anyway. However, it does mean that building XLA tool executables
+# afterwards will hit the cache populated by the JAX build. Passing --force_pic in
+# BAZEL_ARGS below also works, but has the slight downside of invalidating Bazel's
+# analysis cache.
 time python "${SRC_PATH_JAX}/build/build.py" build \
     --cuda_major_version=${CUDA_MAJOR_VERSION} \
     --editable \
@@ -249,6 +254,7 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --bazel_options=--test_env=MOSAIC_GPU_NVSHMEM_BC_PATH="/opt/nvidia/nvshmem/lib/libnvshmem_device.bc" \
     --bazel_options=--test_env=MOSAIC_GPU_NVSHMEM_SO_PATH="/opt/nvidia/nvshmem/lib/libnvshmem_host.so" \
     --bazel_options=--linkopt=-fuse-ld=lld \
+    --bazel_options=--force_pic \
     "--local_xla_path=${SRC_PATH_XLA}" \
     "--output_path=${BUILD_PATH_JAXLIB}" \
     $BUILD_PARAM
@@ -271,7 +277,10 @@ if [[ "${IS_RELEASE}" == "1" ]]; then
     sed -i "s|f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|f'jaxlib>=0.5.0',|" /opt/jax/setup.py
 fi
 if (( "${#EXTRA_TARGETS[@]}" > 0 )); then
-    bazel build "${BAZEL_ARGS[@]}" --verbose_failures=true "${EXTRA_TARGETS[@]}"
+    BAZEL_ARGS=(
+        --config=cuda_libraries_from_stubs # build.py always passes this
+    )
+    time bazel build "${BAZEL_ARGS[@]}" --verbose_failures=true "${EXTRA_TARGETS[@]}"
     if [[ -n "${EXTRA_TARGET_DEST}" ]]; then
         mkdir -p ${EXTRA_TARGET_DEST}/bin ${EXTRA_TARGET_DEST}/lib ${EXTRA_TARGET_DEST}/python
         for target in "${EXTRA_TARGETS[@]}"; do

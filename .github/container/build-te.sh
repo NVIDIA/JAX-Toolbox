@@ -11,6 +11,7 @@ usage() {
     echo "    OPTIONS                        DESCRIPTION"
     echo "    --clean                        Clear build caches under --src-path-te."
     echo "    -h, --help                     Print usage."
+    echo "    --ccache                       Use ccache to build TransformerEngine. It will be installed, but the caller should configure it."
     echo "    --no-install                   Only build a wheel; do not install."
     echo "    --src-path-te                  Path to TransformerEngine source code."
     echo "    --src-path-xla                 Path to XLA source code."
@@ -23,13 +24,14 @@ usage() {
 }
 
 # Set defaults
+CCACHE=0
 CLEAN=0
 INSTALL=1
 SM="all"
 SRC_PATH_TE="/opt/transformer-engine"
 SRC_PATH_XLA="/opt/xla"
 
-args=$(getopt -o h --long clean,help,no-install,src-path-te:,src-path-xla:,sm: -- "$@")
+args=$(getopt -o h --long ccache,clean,help,no-install,src-path-te:,src-path-xla:,sm: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -43,6 +45,10 @@ while [ : ]; do
             ;;
         -h | --help)
             usage 1
+            ;;
+        --ccache)
+            CCACHE=1
+            shift 1
             ;;
         --no-install)
             INSTALL=0
@@ -140,6 +146,15 @@ subprocess.run(
     + [r for r in data["build-system"]["requires"]
        if r.startswith("pybind11") or r.startswith("cmake") or r.startswith("ninja")])
 EOF
+if [[ "${CCACHE}" == "1" ]]; then
+    # Install ccache if not present (needs >= 4.1 for Redis remote storage support)
+    if ! command -v ccache &> /dev/null; then
+        apt-get update && apt-get install -y --no-install-recommends ccache
+    fi
+    export CXX="ccache g++"
+    export NVTE_USE_CCACHE=1
+    ccache --zero-stats
+fi
 
 # The wheel filename includes the TE commit; if this has changed since the last
 # incremental build then we would end up with multiple wheels.
@@ -147,6 +162,10 @@ rm -fv dist/*.whl
 python setup.py bdist_wheel
 ls dist/
 popd
+
+if [[ "${CCACHE}" == "1" ]]; then
+    ccache --show-stats --verbose
+fi
 
 ## Install the built packages
 if [[ "${INSTALL}" == "1" ]]; then
