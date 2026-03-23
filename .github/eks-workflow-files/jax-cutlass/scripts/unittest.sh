@@ -17,8 +17,8 @@
 
           export PYTHONPATH=${CUTLASS_EXAMPLES_ROOT}
 
-          # Run the examples
-		  for f in ${CUTLASS_ROOT}/examples/python/CuTeDSL/jax/*.py; do
+          # Run the examples; if they complete then everything is working.
+		  for f in ${CUTLASS_EXAMPLES_ROOT}/jax/*.py; do
 		    echo "[Executing] $f"
 		  	python $f
 		  done
