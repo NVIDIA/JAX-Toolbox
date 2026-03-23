@@ -81,21 +81,21 @@ runs:
         ssh-known-hosts: ${{ inputs.ssh-known-hosts }}
 
     - name: Login to GHCR
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ inputs.github-token }}
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
       with:
         driver-opts: |
           image=moby/buildkit:v0.12.1
         version: v0.30.1
 
     - name: Download nsys-jax version.py
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: nsys-jax-version-file
 
@@ -109,7 +109,7 @@ runs:
     # MEALKIT BUILD
     - name: Set docker metadata - mealkit
       id: mealkit-metadata
-      uses: docker/metadata-action@v5
+      uses: docker/metadata-action@v6
       with:
         images: |
           ${{ env.UPLD_IMAGE }}
@@ -122,7 +122,7 @@ runs:
 
     - name: Build mealkit image
       id: mealkit-build
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v7
       with:
         context: ${{ inputs.DOCKER_CONTEXT }}
         push: true
@@ -142,7 +142,7 @@ runs:
     # FINAL IMAGE BUILD
     - name: Set docker metadata - final
       id: final-metadata
-      uses: docker/metadata-action@v5
+      uses: docker/metadata-action@v6
       with:
         images: |
           ${{ env.UPLD_IMAGE }}
@@ -155,7 +155,7 @@ runs:
 
     - name: Build final image
       id: final-build
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v7
       with:
         context: ${{ inputs.DOCKER_CONTEXT }}
         push: true
@@ -210,7 +210,7 @@ runs:
 
     - name: Upload sitrep and badge
       if: "!cancelled()"
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ inputs.ARTIFACT_NAME }}-${{ inputs.ARCHITECTURE }}
         path: |

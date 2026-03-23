@@ -27,7 +27,7 @@ jobs:
       BADGE_FILENAME: 'badge-workflow-metadata.json'
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Generate badge
         shell: bash -x -e {0}
@@ -50,7 +50,7 @@ jobs:
           > ${{ env.BADGE_FILENAME }}
 
       - name: Upload sitrep and badge
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: |
@@ -67,7 +67,7 @@ jobs:
       GIST_ID: ${{ steps.extract-id.outputs.GIST_ID }}
     steps:
       - name: Download artifacts specified by input
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       - name: Collect all badge files to temporary folder
         id: collect
@@ -127,7 +127,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       - name: Write output to step summary
         shell: bash -x -e {0}
@@ -207,7 +207,7 @@ jobs:
           echo "$combinedJson" | jq '.' > "$output"
 
       - name: Upload training logs as artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.ARTIFACT_NAME }}
           path: |

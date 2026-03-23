@@ -66,7 +66,7 @@ jobs:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
     steps:
         - name: Checkout repository
-          uses: actions/checkout@v4
+          uses: actions/checkout@v6
         - name: Build JAX container
           id: build-jax
           uses: ./.github/actions/build-container
@@ -100,7 +100,7 @@ jobs:
       DOCKER_TAG_FINAL:   ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Build Equinox container
         id: build-equinox
         uses: ./.github/actions/build-container
@@ -128,7 +128,7 @@ jobs:
       DOCKER_TAG_FINAL:   ${{ steps.build-maxtext.outputs.DOCKER_TAG_FINAL }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Build MaxText container
         id: build-maxtext
         uses: ./.github/actions/build-container
@@ -156,7 +156,7 @@ jobs:
       DOCKER_TAG_FINAL:   ${{ steps.build-torchax.outputs.DOCKER_TAG_FINAL }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Build TorchAX container
         id: build-torchax
         uses: ./.github/actions/build-container
@@ -184,7 +184,7 @@ jobs:
       DOCKER_TAG_FINAL:   ${{ steps.build-axlearn.outputs.DOCKER_TAG_FINAL }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Build AxLearn container
         id: build-axlearn
         uses: ./.github/actions/build-container
@@ -341,7 +341,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - name: Download nsys-jax output .zip files
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: nsys-jax-unit-test-A100
     - name: Extract archives and execute install scripts
@@ -377,9 +377,9 @@ jobs:
       POSTPROCESS_JOB_NAME: ${{ github.run_id }}-nsys-jax-postprocess
     steps:
     - name: Check out the repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -557,9 +557,9 @@ jobs:
       JOB_NAME: axlearn-${{ github.run_id }}
     steps:
     - name: Check out the repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -640,7 +640,7 @@ jobs:
 
     - name: Upload artifacts
       if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: "artifact-axlearn-test"
         path: |
@@ -663,9 +663,9 @@ jobs:
       JOB_NAME: axlearn-fuji-3b-${{ github.run_id }}
     steps:
     - name: Check out the repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}

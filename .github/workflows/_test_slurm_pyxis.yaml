@@ -91,7 +91,7 @@ jobs:
         run: env
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup SSH
         id: setup-ssh
@@ -99,7 +99,7 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-          
+
       - name: Labels and metadata
         id: meta
         shell: bash -x -e {0}
@@ -110,7 +110,7 @@ jobs:
           for var in IMAGE LOG_FILE OUTPUT_PATH; do
             echo "$var=${!var}" >> $GITHUB_OUTPUT
           done
-          
+
       - name: Submit SLURM jobs over SSH
         id: submit
         shell: bash -O expand_aliases -x -e {0}
@@ -133,7 +133,7 @@ jobs:
             --container-name=runtime \
             --container-image=${{ steps.meta.outputs.IMAGE }} \
             true
-            
+
           # run single-task preambles for, e.g., dependencies installation
           time srun \
             --ntasks-per-node=1 \
@@ -226,7 +226,7 @@ jobs:
 
       - name: Upload training logs as artifacts
         if: "!cancelled()"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.NAME }}
           path: artifacts/*

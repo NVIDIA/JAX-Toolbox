@@ -42,7 +42,7 @@ jobs:
       PACKAGE_URL: ${{ steps.github-meta.package_url }}
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -50,7 +50,7 @@ jobs:
 
       - name: Set docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.DOCKER_REGISTRY }}/${{ inputs.TARGET_IMAGE }}
           flavor: latest=false
@@ -65,7 +65,7 @@ jobs:
             repo=$(echo $src_img | cut -d: -f1)
             media_type=$(docker manifest inspect $src_img | jq -r '.mediaType')
             case "$media_type" in
-              
+
               # OCI image index
               "application/vnd.oci.image.index.v1+json")
                 manifest=$(
@@ -120,7 +120,7 @@ jobs:
 
       - name: Upload link file
         if: "!cancelled()"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.ARTIFACT_NAME }}
           path: ${{ inputs.ARTIFACT_NAME }}.md

@@ -9,29 +9,29 @@ on:
         required: true
       GKE_VERSION:
         type: string
-        default: 1.31.6-gke.1221000 
+        default: 1.31.6-gke.1221000
         required: false
-      DEVICE_TYPE: 
+      DEVICE_TYPE:
         type: string
         default: h100-mega-80gb-8
         required: false
-      DEFAULT_CPU_MACHINE: 
+      DEFAULT_CPU_MACHINE:
         type: string
         default: e2-standard-8
         required: false
-      NUM_NODES: 
+      NUM_NODES:
         type: string
         default: 2
         required: false
-      GCP_PROJECT: 
+      GCP_PROJECT:
         type: string
         default: nv-jaxtoolboxgcp-20240925
         required: false
-      GCP_ZONE: 
+      GCP_ZONE:
         type: string
         default: us-central1-a
         required: false
-      GCP_GCE_RESERVATION: 
+      GCP_GCE_RESERVATION:
         type: string
         default: jtb-reservation
         required: false
@@ -51,7 +51,7 @@ jobs:
     runs-on: gke-a3mega
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Set workload name
       shell: bash -x -e -u {0}
@@ -83,8 +83,8 @@ jobs:
 
     - name: Show environment
       run: |
-        set -x 
-        
+        set -x
+
         gcloud version
 
         source $HOME/.venv/bin/activate
@@ -94,7 +94,7 @@ jobs:
     - name: Create cluster from compute reservation with xpk
       run: |
         CLUSTER_EXISTS=$(gcloud container clusters list  --format=json | jq -r  'any(.[].name; . == "'${{ inputs.CLUSTER_NAME }}'")')
-        
+
         if ! [ $CLUSTER_EXISTS = true  ]; then
           cd $HOME/xpk
           source $HOME/.venv/bin/activate
@@ -113,7 +113,7 @@ jobs:
 
     - name: Configure cluster ServiceAccount
       run: |
-  
+
         # not configured in xpk pre v0.10.0
         if [[ "${{ inputs.XPK_VERSION }}" == "v0.8.0" ]]; then
           kubectl apply -f .github/gke-workflow/xpk/v0.8.0/xpk-sa-rbac.yml
