@@ -206,18 +206,20 @@ class NcclStarTransport(NcclTransport):
     assert self._comm.rank_id() == 0, \
       "Star gather must converge on the root (rank 0)."
 
-    gathered_tensors = []
-
+    # Pre-allocate all shard buffers and collect recv operations
+    all_shards = []  # List of shard lists, one per parameter
+    
     with cuda.Device(self._comm.device_id()):
-      # For each parameter, we need to receive shards from all peers
+      stream = cuda.get_current_stream().ptr
+      
+      # Single NCCL group for ALL receives to match JAX's single send group
+      nccl.groupStart()
       for shape, dtype, dim, parallelism in param_specs:
         shards = []
         shard_shape = np.array(shape, dtype=np.int32)
         shard_shape[dim] //= parallelism
         shard_shape = shard_shape.tolist()
 
-        # Start grouped NCCL operations for this parameter across all peers
-        nccl.groupStart()
         for peer in range(1, self._comm.size()):  # rank 0 is the current GPU
           shard = torch.empty(shard_shape, dtype=getattr(torch, dtype), device=torch.cuda.current_device())
           self._comm.recv(
@@ -225,15 +227,16 @@ class NcclStarTransport(NcclTransport):
             count=shard.numel(),
             datatype=nccl_type(dtype),
             peer=peer,
-            stream=cuda.get_current_stream().ptr,
+            stream=stream,
           )
           shards.append(shard)
-        nccl.groupEnd()
-
-        gathered_tensors.append(torch.cat(shards, dim=dim))
+        all_shards.append((shards, dim))
+      nccl.groupEnd()
 
       cudart.deviceSynchronize()
 
+    # Concatenate shards for each parameter
+    gathered_tensors = [torch.cat(shards, dim=dim) for shards, dim in all_shards]
     return gathered_tensors
 
   def scatter(self, buffers: List[Any]) -> None:

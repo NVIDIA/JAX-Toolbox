@@ -14,3 +14,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Standalone model implementations using Flax NNX."""
+
+from jax_inference_offloading.integrations.standalone.model import Llama3
+
+__all__ = ["Llama3"]

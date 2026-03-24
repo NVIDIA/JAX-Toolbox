@@ -53,24 +53,6 @@ class Develop(_develop):  # legacy/compat editable installs only
         super().run()
 
 setup(
-    name='jax-inference-offloading',
-    version='0.0.1',
-    packages=['jax_inference_offloading'],
-    install_requires=[
-        'cupy-cuda12x',
-        'cloudpickle',
-        'flax',
-        'grpcio==1.76.*',
-        'protobuf==6.33.*',
-        'huggingface-hub',
-        'jax==0.8.1',
-        'jaxtyping',
-        'kagglehub',
-        'vllm==0.14.1',
-    ],
-    extras_require={
-        'test': ['pytest>=7.0'],
-    },
     cmdclass={
         'build_protos': BuildPackageProtos,
         'build_py': BuildPy,
