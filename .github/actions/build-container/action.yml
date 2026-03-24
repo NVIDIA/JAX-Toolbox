@@ -153,7 +153,7 @@ runs:
         cache-to: type=local,dest=/tmp/buildkit-layer-cache,mode=max
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          ${{ inputs.bazel-remote-cache-url != '' && format('BAZEL_CACHE={0}', inputs.bazel-remote-cache-url) || '' }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
     # FINAL IMAGE BUILD
@@ -188,7 +188,7 @@ runs:
         cache-to: type=local,dest=/tmp/buildkit-layer-cache,mode=max
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          ${{ inputs.bazel-remote-cache-url != '' && format('BAZEL_CACHE={0}', inputs.bazel-remote-cache-url) || '' }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
 
