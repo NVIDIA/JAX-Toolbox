@@ -8,7 +8,7 @@ ARG SRC_PATH_EQUINOX=/opt/equinox
 ## Download source and add auxiliary scripts
 ###############################################################################
 
-FROM ${BASE_IMAGE} as mealkit
+FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_EQUINOX
 ARG SRC_PATH_EQUINOX
 
@@ -22,6 +22,6 @@ EOF
 ## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
-FROM mealkit as final
+FROM mealkit AS final
 
 RUN pip-finalize.sh

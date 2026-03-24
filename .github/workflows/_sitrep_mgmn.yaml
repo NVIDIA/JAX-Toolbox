@@ -27,10 +27,10 @@ jobs:
       STATUS: ${{ steps.gen-sitrep.outputs.STATUS }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download all artifacts from the previous jobs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       - name: Write exit status summary
         id: exit-status
@@ -158,7 +158,7 @@ jobs:
           fi
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.ARTIFACT_NAME }}
           path: |

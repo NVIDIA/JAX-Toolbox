@@ -17,7 +17,7 @@ inputs:
     default: europe-west4-b
     required: false
     type: string
-  CLUSTER_DEVICE: 
+  CLUSTER_DEVICE:
     description: 'GPU device type in the cluster'
     default: h100-mega-80gb-8
     required: false
@@ -27,7 +27,7 @@ inputs:
     default: 2
     required: false
     type: string
-  MAIN_CONTAINER_NAME: 
+  MAIN_CONTAINER_NAME:
     description: 'Name of the main contianer in an XPK JobSet (fixed in xpk)'
     default: gpu-image
     required: false
@@ -115,17 +115,17 @@ runs:
     shell: bash -x -e -u {0}
     run: |
       gcloud version
-  
+
       source ${WORKLOAD_NAME}/.venv/bin/activate
       python --version
       xpk version
-  
+
   - name: Apply XPK workload create patch
     shell: bash -x -e -u {0}
     run: |
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
       ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
-  
+
   - name: Set workload commands
     shell: bash -x -e -u {0}
     run: |
@@ -136,7 +136,7 @@ runs:
           tar xf google-cloud-cli-linux-x86_64.tar.gz;
           ./google-cloud-sdk/install.sh --quiet > /dev/null;
           ./google-cloud-sdk/bin/gcloud init;
-  
+
           mkdir -p /usr/share/workload;
           mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
 
@@ -157,22 +157,22 @@ runs:
           export LD_LIBRARY_PATH=/opt/nvidia/nccl/lib:\$LD_LIBRARY_PATH;
           env;
       "
-  
+
       # gsutil command to export logs from container's /opt/output to bucket
       POSTLUDE="
           ./google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node-0\$NODE_RANK;
           ${{ inputs.EXIT_COMMAND }}
       "
-  
+
       CMD="${{ inputs.COMMAND }}"
-  
+
       # set container commands in-line
       PRELUDE=$(echo ${PRELUDE} | sed 's/\n/\ /g')
       POSTLUDE=$(echo ${POSTLUDE} | sed 's/\n/\ /g')
       CMD=$(echo ${CMD} | sed 's/\n/\ /g')
 
       echo "CMD=${PRELUDE} ${CMD} ${POSTLUDE}" >> ${GITHUB_ENV}
-  
+
   - name: Create workload on cluster with XPK
     shell: bash -x -e -u {0}
     run: |
@@ -211,11 +211,11 @@ runs:
             [[ -n "${env}" ]] && args+=(--env="${env}")
         done
       fi
-        
+
       python xpk.py workload create \
         "${args[@]}" \
         --command="${CMD}"
-  
+
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}
     env:
@@ -234,14 +234,14 @@ runs:
         echo "Waiting for JobSet ${WORKLOAD_NAME} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
         sleep 5
       done
-  
+
       echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${{ inputs.GKE_CLUSTER }}"
-  
+
   - name: Set JobSet Pod name
     shell: bash -u {0}
     run: |
       echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${WORKLOAD_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
-  
+
   - name: Wait for JobSet Pod readiness
     shell: bash -u {0}
     run: |
@@ -249,27 +249,27 @@ runs:
       while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
         echo "Waiting for pod ${POD} in JobSet ${WORKLOAD_NAME} to become ready"
         sleep 10
-  
+
         POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
         if ${POD_ERROR} ; then
           echo "There was an issue starting the JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }}"
           break
         fi
-  
+
         POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'").ready')
       done;
-  
+
   - name: Stream logs from JobSet Pods
     shell: bash -u {0}
     run: |
       JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
       echo "JOBSET_PODS=${JOBSET_PODS[@]}" >> ${GITHUB_ENV}
-  
+
       for jobset_pod in ${JOBSET_PODS[@]}; do
           kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${WORKLOAD_NAME}/${jobset_pod}.log &
       done
       wait < <(jobs -p)
-  
+
   - name: Set exit code from JobSet pods logs
     shell: bash -u {0}
     run: |
@@ -277,7 +277,7 @@ runs:
         local pod=$1
         MAYBE_XPK_EXIT_CODE="$(tail -n 1 ${WORKLOAD_NAME}/${pod}.log | awk '{ print $3 }' )"
         echo ${MAYBE_XPK_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
-        
+
         if [ $? -ne 0 ]; then
           echo "The JobSet ${WORKLOAD_NAME} on ${{ inputs.GKE_CLUSTER }} did not complete as expected "
           echo "XPK_EXIT_CODE=1" >> ${GITHUB_ENV}
@@ -289,7 +289,7 @@ runs:
         eval "export ${MAYBE_XPK_EXIT_CODE}"
         echo ${EXIT_CODE}
       }
-      
+
       ALL_EXIT_CODES=0
       for jobset_pod in ${JOBSET_PODS[@]}; do
         POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod})
@@ -307,20 +307,20 @@ runs:
     if: ${{ always() }}
     run: |
       kubectl delete jobset --wait ${WORKLOAD_NAME} || echo "JobSet ${WORKLOAD_NAME} does not exist in ${{ inputs.GKE_CLUSTER }}"
-  
+
   - name: Download artifacts from GCS to runner
     shell: bash -x -u {0}
     run: |
       mkdir -p ${WORKLOAD_NAME}/output
       gsutil cp -r ${GCS_ARTIFACT_PATH} ${WORKLOAD_NAME}/output
       cp ${WORKLOAD_NAME}/*.log ${WORKLOAD_NAME}/output
-  
+
   - name: Upload artifacts to GitHub Actions from runner
-    uses: actions/upload-artifact@v4
+    uses: actions/upload-artifact@v6
     with:
       name: ${{ inputs.WORKLOAD_NAME_PREFIX }}
       path: ${{ env.WORKLOAD_NAME }}/output/*
-  
+
   - name: Clean up xpk environment from runner
     shell: bash -x -u {0}
     if: ${{ always() }}
@@ -356,7 +356,7 @@ runs:
 
   - name: Upload sitrep to GitHub Actions from runner
     if: ${{ always() }}
-    uses: actions/upload-artifact@v4
+    uses: actions/upload-artifact@v6
     with:
       name: ${{ inputs.WORKLOAD_NAME_PREFIX }}-sitrep
       path: |

@@ -44,7 +44,7 @@ jobs:
           - GPU_ARCH: A100
             EXTRA_LABEL: "${{ github.run_id }}"
     name: ${{ inputs.TEST_NAME }}-${{ matrix.GPU_ARCH }}-unit-test
-    runs-on: 
+    runs-on:
       - self-hosted
       - "${{ matrix.GPU_ARCH }}"
       - "${{ matrix.EXTRA_LABEL }}"
@@ -56,13 +56,13 @@ jobs:
         run: env
 
       - name: Print GPU information
-        run: nvidia-smi  
+        run: nvidia-smi
 
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -141,7 +141,7 @@ jobs:
 
       - name: Upload artifacts
         if: "!cancelled()"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ env.ARTIFACT_NAME_FULL }}
           path: |

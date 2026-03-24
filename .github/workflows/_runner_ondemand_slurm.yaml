@@ -26,7 +26,7 @@ jobs:
         run: env
 
       - name: Check out the repository under ${GITHUB_WORKSPACE}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup SSH
         id: setup-ssh

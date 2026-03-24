@@ -24,13 +24,13 @@ jobs:
     runs-on: [self-hosted, "amd64", "large"]
     steps:
       - name: Login to nvcr.io Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: nvcr.io
           username: $oauthtoken
           password: ${{ secrets.NVCR_TOKEN }}
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Build MPI operator compatible base container
         id: build
         uses: ./.github/actions/build-container
@@ -62,9 +62,9 @@ jobs:
       TEST_NAME: ${{ matrix.test }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}

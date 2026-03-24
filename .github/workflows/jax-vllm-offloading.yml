@@ -60,7 +60,7 @@ jobs:
       DOCKER_TAG_FINAL:   ${{ steps.build-container.outputs.DOCKER_TAG_FINAL }}
     steps:
         - name: Checkout repository
-          uses: actions/checkout@v4
+          uses: actions/checkout@v6
         - name: Build container
           id: build-container
           uses: ./.github/actions/build-container
@@ -87,7 +87,7 @@ jobs:
       DOCKER_TAG_FINAL:   ${{ steps.build-container.outputs.DOCKER_TAG_FINAL }}
     steps:
         - name: Checkout repository
-          uses: actions/checkout@v4
+          uses: actions/checkout@v6
         - name: Build container
           id: build-container
           uses: ./.github/actions/build-container
@@ -251,10 +251,10 @@ jobs:
       MODEL: "meta-llama/Llama-3.1-8B-Instruct"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
