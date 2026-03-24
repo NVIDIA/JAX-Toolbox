@@ -73,6 +73,7 @@ class PyxisContainer(Container):
                 f"--container-name={self._name}",
                 "--container-remap-root",
                 "--no-container-mount-home",
+                "--export=JAX_ENABLE_COMPILATION_CACHE=false",
             ]
             + self._mount_args
             + policy_args
