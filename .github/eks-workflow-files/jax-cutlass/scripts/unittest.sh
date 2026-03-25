@@ -1,34 +1,32 @@
-          set -xu -o pipefail
+         set -xu -o pipefail
 
-          LOG_DIR=${LOG_DIR:-/opt/output}
+         LOG_DIR=${LOG_DIR:-/opt/output}
 
-          SRC_ROOT=${SRC_ROOT:-$PWD/jax-cutlass-src}
-          SRC_ROOT=$(realpath $SRC_ROOT)
+         SRC_ROOT=${SRC_ROOT:-$PWD/jax-cutlass-src}
+         SRC_ROOT=$(realpath $SRC_ROOT)
 
-          pip install pytest-reportlog pytest-xdist
+         # Clone CUTLASS examples
+         CUTLASS_ROOT="${SRC_ROOT}/cutlass"
+         CUTLASS_EXAMPLES_ROOT="${CUTLASS_ROOT}/examples/python/CuTeDSL"
+         git clone https://github.com/NVIDIA/cutlass.git ${CUTLASS_ROOT}
 
-          # nvidia-cutlass-dsl-jax is not yet installed to the container by default.
-          # Clone if not already present locally as indicated by SRC_ROOT
-          if [[ ! -d ${SRC_ROOT} ]]; then
-            git clone https://github.com/NVIDIA/JAX-Toolbox.git --branch ${JAX_TOOLBOX_REF} ${SRC_ROOT}
-            PIP_SRC=${SRC_ROOT}/.github/container/cutlass_dsl_jax
-          else
-            PIP_SRC=${SRC_ROOT}
-          fi
+         NGPUS=$(nvidia-smi --list-gpus | wc -l)
 
-          pip install ${PIP_SRC}
+         # Start MPS daemon
+         nvidia-cuda-mps-control -d
 
-          # Clone CUTLASS examples
-          CUTLASS_ROOT="${SRC_ROOT}/cutlass"
-          CUTLASS_EXAMPLES_ROOT="${CUTLASS_ROOT}/examples/python/CuTeDSL"
-          git clone https://github.com/NVIDIA/cutlass.git ${CUTLASS_ROOT}
+         export PYTHONPATH=${CUTLASS_EXAMPLES_ROOT}
 
-          NGPUS=$(nvidia-smi --list-gpus | wc -l)
+         # Run the examples
+         for f in ${CUTLASS_ROOT}/examples/python/CuTeDSL/jax/*.py; do
+             echo "[Executing] $f"
+             log_output=$(python $f 2>&1)
+             exit_code=$?
+             outcome=$( [ $exit_code -eq 0 ] && echo "passed" || echo "failed" )
+             echo "=== ${f} ===" | tee -a ${LOG_DIR}/pytest_stdout.log
+             echo "${log_output}" | tee -a ${LOG_DIR}/pytest_stdout.log
+             python3 -c "import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))" \
+                 "${outcome}" "${f}" "${log_output}" >> ${LOG_DIR}/pytest-report.jsonl
+         done
 
-          # Start MPS daemon
-          nvidia-cuda-mps-control -d
-
-          export PYTHONPATH=${CUTLASS_EXAMPLES_ROOT}
-          pytest-xdist.sh ${NGPUS} 1 ${LOG_DIR}/pytest-report.jsonl pytest -xsv --log-file=${LOG_DIR}/pytest_log.log --log-file-level=INFO ${PIP_SRC}/tests/ | tee -a ${LOG_DIR}/pytest_stdout_dist.log
-
-          touch ${LOG_DIR}/done
+         touch ${LOG_DIR}/done
