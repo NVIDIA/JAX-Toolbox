@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: PLACEHOLDER
+    labels:
+        kueue.x-k8s.io/queue-name: p5-queue
+        kueue.x-k8s.io/max-exec-time-seconds: "10800"
+spec:
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: nsys-jax
+                  image: PLACEHOLDER
+                  command:
+                    - bash
+                    - -c
+                    - |
+                      set -exo pipefail
+
+                      LOG_DIR="/output/${RUN_ID}"
+                      mkdir -p ${LOG_DIR}
+
+                      # nsys-jax is already installed, this is just adding the test dependencies
+                      pip install pytest-reportlog nsys-jax[test]
+                      # abuse knowledge that nsys-jax is installed editable, so the tests exist
+                      test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
+                      pytest \
+                          --basetemp=${LOG_DIR}/pytest-tmp \
+                          --report-log=${LOG_DIR}/pytest-report.jsonl \
+                          "${test_path}" \
+                          2>&1 | tee ${LOG_DIR}/test-nsys-jax.log
+                  env:
+                    - name: RUN_ID
+                      value: PLACEHOLDER
+                  resources:
+                    limits:
+                        nvidia.com/gpu: 8
+                  volumeMounts:
+                    - name: s3-storage
+                      mountPath: /output
+                      subPath: nsys-jax
+            imagePullSecrets:
+                - name: PLACEHOLDER
+            volumes:
+                - name: s3-storage
+                  persistentVolumeClaim:
+                    claimName: s3-pvc
