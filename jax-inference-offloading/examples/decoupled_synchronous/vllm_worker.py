@@ -14,7 +14,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Multi-process JAX-vLLM coupling example (vLLM side).
+"""vLLM Worker: Runs vLLM inference engine and receives commands from gateway.
+
+This process is part of a split architecture where:
+- JAX Controller: Transfers weights to vLLM, receives inference results
+- vLLM Worker (this file): Runs vLLM, receives weights, executes inference
+- Prompt Dispatcher: Sends prompts/inference requests
+
 Assumes:
 - JAX and vLLM are running in different processes on the same physical node.
 - JAX and vLLM occupy different GPUs.
@@ -40,6 +46,8 @@ def main():
   model_name = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
   model_path = os.environ.get("MODEL_PATH", None)
   model = model_path or model_name
+  # Optional: path to custom param_mapping.json for JAX-to-vLLM parameter mapping
+  param_mapping_path = os.environ.get("PARAM_MAPPING_PATH", None)
 
   logging.basicConfig(level=logging.INFO)
 
@@ -58,7 +66,7 @@ def main():
 
   # subscribe to control messages from the gateway
   rollout_client = make_rollout_client(gateway_url)
-  rollout_client.subscribe_to_control_messages(llm)
+  rollout_client.subscribe_to_control_messages(llm, mapping_json_path=param_mapping_path)
 
 
 if __name__ == "__main__":

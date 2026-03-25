@@ -14,6 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Async split architecture example: Autonomous prompt dispatch with opportunistic weight updates.
+#
+# This script launches 4 processes:
+# 1. Gateway (no GPU) - gRPC message broker
+# 2. vLLM Worker (vLLM GPUs) - runs inference, checks for weight updates between batches
+# 3. JAX Controller (JAX GPUs) - accumulates rollouts, pushes weight updates
+# 4. Prompt Dispatcher (no GPU) - continuously sends prompts (autonomous)
+#
+# Key differences from synchronous version:
+# - Prompt dispatcher does NOT wait for sync signals from JAX controller
+# - vLLM worker checks for weight updates between batches (opportunistic)
+# - JAX controller accumulates streamed rollout results
+# - Results are streamed per-rollout instead of batched
+
 set -euo pipefail
 
 DIR="$(dirname "$0")"
@@ -23,25 +37,27 @@ mkdir -p ${JAX_COMPILATION_CACHE_DIR}
 # Set default values
 DEBUG="false"
 OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -d)}
-NSYS_PROFILE_NAME=""
-JAX_PROFILE_NAME=""
 
-# Model selection
+# Model configuration
 MODEL_NAME=""
 MODEL_PATH=""
+PARAM_MAPPING_PATH=""
 
-# Trainer runtime
-RUN_MODE="timing"              # debug | timing | production
-ROLLOUT_ENGINE="vllm_gpu"      # vllm_gpu | vanilla
-SCRATCHDIR="/content"
+# Transfer mode
 TRANSFER_MODE=""
 
 # vLLM runtime
 VLLM_ENFORCE_EAGER="0"
 VLLM_GPU_MEMORY_UTILIZATION="0.9"
 
-# Debug-only: use dummy weights for JAX model
-USE_DUMMY_WEIGHT="0"
+# Async configuration
+NUM_BATCHES="10"
+BATCH_SIZE="3"
+NUM_ROLLOUTS="4"
+UPDATE_INTERVAL="1"
+MAX_STALENESS="1"  # 0 = unlimited staleness; should be >= UPDATE_INTERVAL to avoid deadlock
+MAX_COMPLETED_PROMPTS="30"
+DISPATCH_DELAY="0.0"
 
 # Device assignment
 N_GPUS_VLLM="4"
@@ -62,15 +78,7 @@ while [[ $# -gt 0 ]]; do
       OUTPUT_DIR="${1#*=}"
       shift
       ;;
-    --nsys-profile-name=*)
-      NSYS_PROFILE_NAME="${1#*=}"
-      shift
-      ;;
-    --jax-profile-name=*)
-      JAX_PROFILE_NAME="${1#*=}"
-      shift
-      ;;
-    # Model selection
+    # Model configuration
     --model-name=*)
       MODEL_NAME="${1#*=}"
       shift
@@ -79,19 +87,11 @@ while [[ $# -gt 0 ]]; do
       MODEL_PATH="${1#*=}"
       shift
       ;;
-    # Trainer runtime
-    --run-mode=*)
-      RUN_MODE="${1#*=}"
+    --param-mapping-path=*)
+      PARAM_MAPPING_PATH="${1#*=}"
       shift
       ;;
-    --rollout-engine=*)
-      ROLLOUT_ENGINE="${1#*=}"
-      shift
-      ;;
-    --scratchdir=*)
-      SCRATCHDIR="${1#*=}"
-      shift
-      ;;
+    # Transfer mode
     --transfer-mode=*)
       TRANSFER_MODE="${1#*=}"
       shift
@@ -109,8 +109,33 @@ while [[ $# -gt 0 ]]; do
       VLLM_GPU_MEMORY_UTILIZATION="${1#*=}"
       shift
       ;;
-    --use-dummy-weight)
-      USE_DUMMY_WEIGHT="1"
+    # Async configuration
+    --num-batches=*)
+      NUM_BATCHES="${1#*=}"
+      shift
+      ;;
+    --batch-size=*)
+      BATCH_SIZE="${1#*=}"
+      shift
+      ;;
+    --num-rollouts=*)
+      NUM_ROLLOUTS="${1#*=}"
+      shift
+      ;;
+    --update-interval=*)
+      UPDATE_INTERVAL="${1#*=}"
+      shift
+      ;;
+    --max-staleness=*)
+      MAX_STALENESS="${1#*=}"
+      shift
+      ;;
+    --max-completed-prompts=*)
+      MAX_COMPLETED_PROMPTS="${1#*=}"
+      shift
+      ;;
+    --dispatch-delay=*)
+      DISPATCH_DELAY="${1#*=}"
       shift
       ;;
     # Device assignment
@@ -130,24 +155,36 @@ while [[ $# -gt 0 ]]; do
     --help)
       echo "Usage: $0 [OPTIONS]"
       echo ""
+      echo "Async split architecture example: Autonomous prompt dispatch with opportunistic weight updates."
+      echo ""
+      echo "This example launches 4 processes:"
+      echo "  1. Gateway (no GPU) - gRPC message broker"
+      echo "  2. vLLM Worker (vLLM GPUs) - runs inference, checks for weight updates"
+      echo "  3. JAX Controller (JAX GPUs) - accumulates rollouts, pushes weight updates"
+      echo "  4. Prompt Dispatcher (no GPU) - continuously sends prompts"
+      echo ""
       echo "Options:"
       echo "  --debug                    Enable debug mode with verbose logging."
-      echo "  --output-dir=DIR           Directory to save logs and outputs. Default is a temporary directory."
-      echo "  --nsys-profile-name=NAME   Enable NVIDIA Nsight Systems profiling with the given profile name."
-      echo "  --jax-profile-name=NAME    Enable JAX profiling with the given profile name (mutually exclusive with --nsys-profile-name)."
+      echo "  --output-dir=DIR           Directory to save logs and outputs."
       echo ""
-      echo "  --model-name=NAME          HF repo id or model name (e.g., meta-llama/Llama-3.1-8B-Instruct)."
-      echo "  --model-path=PATH          HF snapshot directory; if set, vLLM loads from this path."
+      echo "  --model-name=NAME          HF model name (for architecture selection)."
+      echo "  --model-path=PATH          HF snapshot directory containing model weights."
+      echo "  --param-mapping-path=PATH  Path to JSON param mapping file (required)."
       echo ""
-      echo "  --run-mode=MODE            Trainer run mode: debug | timing | production."
-      echo "  --rollout-engine=ENGINE    Rollout engine: vllm_gpu | vanilla."
-      echo "  --scratchdir=DIR           Scratch directory for checkpoints/logs."
-      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/stacked/stacked_graph/fused/unfused)."
+      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/fused/unfused)."
       echo ""
       echo "  --vllm-enforce-eager       Force vLLM eager mode (sets VLLM_ENFORCE_EAGER=1)."
       echo "  --no-vllm-enforce-eager    Disable vLLM eager mode (sets VLLM_ENFORCE_EAGER=0)."
       echo "  --vllm-gpu-memory-utilization=FLOAT  vLLM GPU memory utilization (e.g., 0.7)."
-      echo "  --use-dummy-weight         Use randomly initialized JAX weights (DEBUG ONLY)."
+      echo ""
+      echo "  --num-batches=N            Number of batches to dispatch (default: 10, 0 for infinite)."
+      echo "  --batch-size=N             Number of prompts per batch (default: 3)."
+      echo "  --num-rollouts=N           Number of rollouts per prompt (default: 4)."
+      echo "  --update-interval=N        Push weight update after N prompts (default: 10)."
+      echo "  --max-staleness=N          Max prompts vLLM processes before weight update (default: 0=unlimited)."
+      echo "                             Must be >= update-interval to avoid deadlock."
+      echo "  --max-completed-prompts=N  Stop after N completed prompts (default: 100)."
+      echo "  --dispatch-delay=FLOAT     Delay between dispatches in seconds (default: 0.0)."
       echo ""
       echo "  --n-gpus-vllm=N            Number of GPUs for vLLM (default: 4)."
       echo "  --n-gpus-jax=N             Number of GPUs for JAX (default: 4)."
@@ -163,32 +200,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Check mutual exclusivity of profiling options
-if [[ -n "${NSYS_PROFILE_NAME}" && -n "${JAX_PROFILE_NAME}" ]]; then
-  echo "Error: --nsys-profile-name and --jax-profile-name are mutually exclusive." >&2
-  exit 1
-fi
-
 # Model selection default
-MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.1-8B-Instruct"}
-
-# ------------------------------------------------------------------------------
-# Function to (optionally) wrap a command with nsys
-# ------------------------------------------------------------------------------
-maybe_run_nsys() {
-  if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
-    nsys profile -s none \
-      -o "${NSYS_OUTPUT}" \
-      --force-overwrite true \
-      --capture-range=cudaProfilerApi \
-      --cuda-graph-trace=node \
-      --trace=cuda,nvtx \
-      --capture-range-end=stop \
-      "$@"
-  else
-    "$@"
-  fi
-}
+MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-1B-Instruct"}
 
 # ------------------------------------------------------------------------------
 # Kill all processes when done.
@@ -206,23 +219,19 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# Ensure model is already present on disk (download only when using real weights)
+# Ensure model is already present on disk
 # ------------------------------------------------------------------------------
-
-if [[ -z "${HF_TOKEN:-}" ]]; then
-  echo "HF_TOKEN is not set. Please set it in the .env file or export it."
+if [[ -n "${MODEL_PATH:-}" ]]; then
+  echo "Using provided MODEL_PATH: ${MODEL_PATH}"
+else
+  echo "MODEL_PATH not provided, aborting"
+  exit 1
 fi
 
-if [[ "${USE_DUMMY_WEIGHT}" == "1" ]]; then
-  echo "Using dummy weights for JAX model (DEBUG ONLY)."
-  MODEL_PATH=
-else
-  if [[ -n "${MODEL_PATH:-}" ]]; then
-    echo "Using provided MODEL_PATH: ${MODEL_PATH}"
-  else
-    echo "MODEL_PATH not provided, downloading HF snapshot..."
-    MODEL_PATH=$(python "${DIR}/download_model.py" --hub=hf --model="${MODEL_NAME}" --ignore="*.pth")
-  fi
+# Validate required param_mapping_path
+if [[ -z "${PARAM_MAPPING_PATH:-}" ]]; then
+  echo "ERROR: --param-mapping-path is required for the async architecture."
+  exit 1
 fi
 
 # ------------------------------------------------------------------------------
@@ -250,10 +259,14 @@ export GATEWAY_PORT
 export GATEWAY_URL="localhost:${GATEWAY_PORT}"
 export MODEL_NAME
 export MODEL_PATH
-export USE_DUMMY_WEIGHT
-export RUN_MODE
-export ROLLOUT_ENGINE
-export SCRATCHDIR
+export PARAM_MAPPING_PATH
+export NUM_BATCHES
+export BATCH_SIZE
+export NUM_ROLLOUTS
+export UPDATE_INTERVAL
+export MAX_STALENESS
+export MAX_COMPLETED_PROMPTS
+export DISPATCH_DELAY
 export VLLM_ENFORCE_EAGER
 export VLLM_GPU_MEMORY_UTILIZATION
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
@@ -279,34 +292,61 @@ fi
 PIDS=()
 
 mkdir -p "${OUTPUT_DIR}"
+echo "Logs will be saved to: ${OUTPUT_DIR}"
+echo ""
+echo "=== Async Split Architecture: 4 Processes ==="
+echo "  1. Gateway (no GPU)"
+echo "  2. vLLM Worker (GPUs: ${VLLM_GPU_ARRAY[*]}) - opportunistic weight updates"
+echo "  3. JAX Controller (GPUs: ${JAX_GPU_ARRAY[*]}) - accumulates rollouts"
+echo "  4. Prompt Dispatcher (no GPU) - autonomous dispatch"
+echo ""
+echo "Async Configuration:"
+echo "  Batches to dispatch: ${NUM_BATCHES}"
+echo "  Batch size: ${BATCH_SIZE}"
+echo "  Rollouts per prompt: ${NUM_ROLLOUTS}"
+echo "  Weight update interval: ${UPDATE_INTERVAL} prompts"
+echo "  Max staleness: ${MAX_STALENESS} prompts (0=unlimited)"
+echo "  Max completed prompts: ${MAX_COMPLETED_PROMPTS}"
+echo "================================================"
+echo ""
 
-# Setup profiling variables if enabled
-if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
-  NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
-  echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
-elif [[ -n "${JAX_PROFILE_NAME:-}" ]]; then
-  echo "JAX profiling enabled with name: ${JAX_PROFILE_NAME}"
-else
-  echo "Profiling not enabled. To enable, use --nsys-profile-name=NAME or --jax-profile-name=NAME"
-fi
+# ------------------------------------------------------------------------------
+# Launch components
+# ------------------------------------------------------------------------------
 
-export NSYS_PROFILE_NAME
-export JAX_PROFILE_NAME
-
-# todo: python -m jax_inference_offloading.controller_server ...
+# 1. Gateway server (no GPU)
+echo "Starting Gateway..."
 CUDA_VISIBLE_DEVICES= \
-python "${DIR}/../jax_inference_offloading/controller/gateway.py" 2>&1 | tee "${OUTPUT_DIR}/gateway.log" &
+python "${DIR}/../../jax_inference_offloading/controller/gateway.py" 2>&1 | tee "${OUTPUT_DIR}/gateway.log" &
 PIDS+=($!)
 
+# Give gateway time to start
+sleep 2
+
+# 2. vLLM Worker (async version with weight update checks)
+echo "Starting Async vLLM Worker..."
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${VLLM_GPU_ARRAY[*]}") \
 MODEL_NAME=${MODEL_PATH:-$MODEL_NAME} \
-python "${DIR}/rollout.py" 2>&1 | tee "${OUTPUT_DIR}/rollout.log" &
+python "${DIR}/vllm_worker.py" 2>&1 | tee "${OUTPUT_DIR}/vllm_worker.log" &
 PIDS+=($!)
 
+# 3. JAX Controller (async version with accumulation)
+echo "Starting Async JAX Controller..."
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${JAX_GPU_ARRAY[*]}") \
 JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR} \
 JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS=0.1 \
-maybe_run_nsys python "${DIR}/trainer_grpo.py" 2>&1 | tee "${OUTPUT_DIR}/trainer.log" &
+python "${DIR}/jax_controller.py" 2>&1 | tee "${OUTPUT_DIR}/jax_controller.log" &
 PIDS+=($!)
+
+# 4. Prompt Dispatcher (async version - autonomous)
+echo "Starting Async Prompt Dispatcher..."
+CUDA_VISIBLE_DEVICES= \
+python "${DIR}/prompt_dispatcher.py" 2>&1 | tee "${OUTPUT_DIR}/prompt_dispatcher.log" &
+PIDS+=($!)
+
+echo ""
+echo "All processes started. Waiting for completion..."
+echo "Check logs in: ${OUTPUT_DIR}"
+echo ""
 
 wait "${PIDS[@]}"
