@@ -37,6 +37,11 @@ class TriageTool:
 
     def __init__(self, args, logger):
         self.args = args
+        # prefix test_command with jax cache option
+        self.args.test_command = [
+            "env",
+            "JAX_ENABLE_COMPILATION_CACHE=false",
+        ] + self.args.test_command
         self.logger = logger
         self.bisection_url = None
         self.bisection_versions = {}

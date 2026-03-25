@@ -14,35 +14,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Split architecture example: Separate transfer and rollout processes.
+#
+# This script launches 4 processes:
+# 1. Gateway (no GPU) - gRPC message broker
+# 2. vLLM Worker (vLLM GPUs) - runs inference
+# 3. JAX Controller (JAX GPUs) - transfers weights, receives results
+# 4. Prompt Dispatcher (no GPU) - sends prompts/inference requests
+#
+# The JAX controller and prompt dispatcher coordinate via pub/sub synchronization.
+
 set -euo pipefail
 
 DIR="$(dirname "$0")"
-_ARGS="$*"
+JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR:-/tmp/jax-compilation-cache}
+mkdir -p ${JAX_COMPILATION_CACHE_DIR}
 
-# Arguments - General
+# Set default values
 DEBUG="false"
-OUTPUT_DIR=""
-NSYS_PROFILE_NAME=""
-JAX_PROFILE_NAME=""
+OUTPUT_DIR=${OUTPUT_DIR:-$(mktemp -d)}
 
-# Arguments - Model selection
+# Model configuration
 MODEL_NAME=""
 MODEL_PATH=""
-USE_REAL_WEIGHTS="false"
+PARAM_MAPPING_PATH=""
 
-# Arguments - vLLM runtime
-VLLM_ENFORCE_EAGER="1"
-VLLM_LOAD_FORMAT="dummy"
-VLLM_GPU_MEMORY_UTILIZATION="0.7"
-VLLM_DISTRIBUTED_BACKEND="mp"
+# Transfer mode
+TRANSFER_MODE=""
 
-# Arguments - Trainer runtime
-TRANSFER_MODE="grouped"  # grouped | fused | unfused (trainer default: grouped)
-USE_POLYMORPHIC_MESH="0"
+# vLLM runtime
+VLLM_ENFORCE_EAGER="0"
+VLLM_GPU_MEMORY_UTILIZATION="0.9"
 
-# Arguments - Device assignment
+# Training iterations
+NUM_ITERATIONS="3"
+
+# Device assignment
 N_GPUS_VLLM="4"
 N_GPUS_JAX="4"
+
+# Gateway
+GATEWAY_PORT="50051"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -50,129 +62,104 @@ while [[ $# -gt 0 ]]; do
     # General
     --debug)
       DEBUG="true"
+      shift
       ;;
     --output-dir=*)
       OUTPUT_DIR="${1#*=}"
+      shift
       ;;
-    --nsys-profile-name=*)
-      NSYS_PROFILE_NAME="${1#*=}"
-      ;;
-    --jax-profile-name=*)
-      JAX_PROFILE_NAME="${1#*=}"
-      ;;
-
-    # Model selection
+    # Model configuration
     --model-name=*)
       MODEL_NAME="${1#*=}"
-      ;;
-    --use-real-weights)
-      USE_REAL_WEIGHTS="true"
+      shift
       ;;
     --model-path=*)
       MODEL_PATH="${1#*=}"
+      shift
       ;;
-
+    --param-mapping-path=*)
+      PARAM_MAPPING_PATH="${1#*=}"
+      shift
+      ;;
+    # Transfer mode
+    --transfer-mode=*)
+      TRANSFER_MODE="${1#*=}"
+      shift
+      ;;
     # vLLM runtime
     --vllm-enforce-eager)
       VLLM_ENFORCE_EAGER="1"
+      shift
       ;;
     --no-vllm-enforce-eager)
       VLLM_ENFORCE_EAGER="0"
-      ;;
-    --vllm-load-format=*)
-      VLLM_LOAD_FORMAT="${1#*=}"
+      shift
       ;;
     --vllm-gpu-memory-utilization=*)
       VLLM_GPU_MEMORY_UTILIZATION="${1#*=}"
+      shift
       ;;
-    --vllm-distributed-backend=*)
-      VLLM_DISTRIBUTED_BACKEND="${1#*=}"
+    # Training
+    --num-iterations=*)
+      NUM_ITERATIONS="${1#*=}"
+      shift
       ;;
-
-    # Trainer runtime
-    --transfer-mode=*)
-      TRANSFER_MODE="${1#*=}"
-      ;;
-    --use-polymorphic-mesh)
-      USE_POLYMORPHIC_MESH="1"
-      ;;
-
     # Device assignment
     --n-gpus-vllm=*)
       N_GPUS_VLLM="${1#*=}"
+      shift
       ;;
     --n-gpus-jax=*)
       N_GPUS_JAX="${1#*=}"
+      shift
       ;;
-
+    # Gateway
+    --gateway-port=*)
+      GATEWAY_PORT="${1#*=}"
+      shift
+      ;;
     --help)
       echo "Usage: $0 [OPTIONS]"
+      echo ""
+      echo "Split architecture example: Separate transfer and rollout processes."
+      echo ""
+      echo "This example launches 4 processes:"
+      echo "  1. Gateway (no GPU) - gRPC message broker"
+      echo "  2. vLLM Worker (vLLM GPUs) - runs inference"
+      echo "  3. JAX Controller (JAX GPUs) - transfers weights, receives results"
+      echo "  4. Prompt Dispatcher (no GPU) - sends prompts/inference requests"
       echo ""
       echo "Options:"
       echo "  --debug                    Enable debug mode with verbose logging."
       echo "  --output-dir=DIR           Directory to save logs and outputs. Default is a temporary directory."
-      echo "  --nsys-profile-name=NAME   Enable NVIDIA Nsight Systems profiling with the given profile name."
-      echo "  --jax-profile-name=NAME    Enable JAX profiling with the given profile name (mutually exclusive with --nsys-profile-name)."
       echo ""
-      echo "  --model-name=NAME          HF repo id or model name (e.g., meta-llama/Llama-3.1-8B-Instruct)."
-      echo "  --use-real-weights         Use real model weights instead of dummy weights."
-      echo "  --model-path=PATH          HF snapshot directory; if set, vLLM loads from this path."
+      echo "  --model-name=NAME          HF model name (for architecture selection)."
+      echo "  --model-path=PATH          HF snapshot directory containing model weights."
+      echo "  --param-mapping-path=PATH  Path to JSON param mapping file (required)."
+      echo ""
+      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (grouped/fused/unfused)."
       echo ""
       echo "  --vllm-enforce-eager       Force vLLM eager mode (sets VLLM_ENFORCE_EAGER=1)."
       echo "  --no-vllm-enforce-eager    Disable vLLM eager mode (sets VLLM_ENFORCE_EAGER=0)."
-      echo "  --vllm-load-format=FORMAT  vLLM model load format (e.g., dummy/auto/pt/safetensors)."
-      echo "  --vllm-gpu-memory-utilization=FLOAT vLLM GPU memory utilization (e.g., 0.7)."
-      echo "  --vllm-distributed-backend=BACKEND  vLLM distributed backend (ray/mp)."
+      echo "  --vllm-gpu-memory-utilization=FLOAT  vLLM GPU memory utilization (e.g., 0.7)."
       echo ""
-      echo "  --transfer-mode=MODE       Transfer mode for trainer->vLLM weights (unfused/grouped/stacked/stacked_graph/etc.)."
-      echo "  --use-polymorphic-mesh     Enable polymorphic mesh for trainer."
-      echo ""
+      echo "  --num-iterations=N         Number of training iterations (default: 3)."
       echo "  --n-gpus-vllm=N            Number of GPUs for vLLM (default: 4)."
       echo "  --n-gpus-jax=N             Number of GPUs for JAX (default: 4)."
       echo ""
+      echo "  --gateway-port=PORT        gRPC gateway port (default: 50051)."
       echo "  --help                     Show this help message and exit."
       exit 0
       ;;
     *)
-      echo "Unknown argument: $1" >&2
-      exit 1
+      echo "Unknown argument: $1"
+      shift
       ;;
   esac
-  shift
 done
 
-if [[ -z "${OUTPUT_DIR}" ]]; then
-  OUTPUT_DIR=$(mktemp -p "$PWD" -d output.XXXXXXXX)
-fi
-mkdir -p "${OUTPUT_DIR}"
-echo "Artifacts will be saved to: ${OUTPUT_DIR}"
-
-# Check mutual exclusivity of profiling options
-if [[ -n "${NSYS_PROFILE_NAME}" && -n "${JAX_PROFILE_NAME}" ]]; then
-  echo "Error: --nsys-profile-name and --jax-profile-name are mutually exclusive." >&2
-  exit 1
-fi
-
 # Model selection default
-MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.1-8B-Instruct"}
-
-# ------------------------------------------------------------------------------
-# Function to (optionally) wrap a command with nsys
-# ------------------------------------------------------------------------------
-maybe_run_nsys() {
-  if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
-    nsys profile -s none \
-      -o "${NSYS_OUTPUT}" \
-      --force-overwrite true \
-      --capture-range=cudaProfilerApi \
-      --cuda-graph-trace=node \
-      --trace=cuda,nvtx \
-      --capture-range-end=stop \
-      "$@"
-  else
-    "$@"
-  fi
-}
+MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-1B-Instruct"}
 
 # ------------------------------------------------------------------------------
 # Kill all processes when done.
@@ -190,37 +177,31 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# Ensure model is already present on disk (download only when using real weights)
+# Ensure model is already present on disk
 # ------------------------------------------------------------------------------
-
-if [[ -z "${HF_TOKEN:-}" ]]; then
-  echo "HF_TOKEN is not set. Please set it in the .env file or export it."
-fi
-
-if [[ "${USE_REAL_WEIGHTS}" == "true" ]]; then
-  echo "Using real weights."
-  if [[ -z "${MODEL_PATH}" ]]; then
-    echo "MODEL_PATH not provided, downloading HF snapshot..."
-    MODEL_PATH=$(python "${DIR}/download_model.py" --hub=hf --model="${MODEL_NAME}" --ignore="*.pth")
-  else
-    echo "Using provided MODEL_PATH: ${MODEL_PATH}"
-  fi
+if [[ -n "${MODEL_PATH:-}" ]]; then
+  echo "Using provided MODEL_PATH: ${MODEL_PATH}"
 else
-  echo "Using dummy weights for JAX model. No download will be performed."
+  echo "MODEL_PATH not provided, aborting"
+  exit 1
 fi
-  
+
+# Validate required param_mapping_path
+if [[ -z "${PARAM_MAPPING_PATH:-}" ]]; then
+  echo "ERROR: --param-mapping-path is required for the split architecture."
+  exit 1
+fi
+
 # ------------------------------------------------------------------------------
 # assign GPUs to vLLM and JAX
 # ------------------------------------------------------------------------------
-N_GPUS_VLLM=${N_GPUS_VLLM:-4}
-N_GPUS_JAX=${N_GPUS_JAX:-4}
 N_GPUS=$((N_GPUS_VLLM + N_GPUS_JAX))
 
 # Derive CUDA_VISIBLE_DEVICES_ARRAY
 if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then
-  CUDA_VISIBLE_DEVICES_ARRAY=($(seq 0 $((N_GPUS - 1))))
+    CUDA_VISIBLE_DEVICES_ARRAY=($(seq 0 $((N_GPUS - 1))))
 else
-  IFS=',' read -r -a CUDA_VISIBLE_DEVICES_ARRAY <<< "$CUDA_VISIBLE_DEVICES"
+    IFS=',' read -r -a CUDA_VISIBLE_DEVICES_ARRAY <<< "$CUDA_VISIBLE_DEVICES"
 fi
 
 VLLM_GPU_ARRAY=("${CUDA_VISIBLE_DEVICES_ARRAY[@]:0:N_GPUS_VLLM}")
@@ -229,30 +210,27 @@ JAX_GPU_ARRAY=("${CUDA_VISIBLE_DEVICES_ARRAY[@]:N_GPUS_VLLM:N_GPUS}")
 # ------------------------------------------------------------------------------
 # common environment
 # ------------------------------------------------------------------------------
-export HF_TOKEN
-export OUTPUT_DIR
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_DEVICE_MAX_CONNECTIONS=16
 export NCCL_BUFFSIZE=16777216
-export GATEWAY_PORT=50051
+export GATEWAY_PORT
 export GATEWAY_URL="localhost:${GATEWAY_PORT}"
 export MODEL_NAME
 export MODEL_PATH
-export TRANSFER_MODE
-export USE_POLYMORPHIC_MESH
+export PARAM_MAPPING_PATH
+export NUM_ITERATIONS
 export VLLM_ENFORCE_EAGER
-export VLLM_LOAD_FORMAT
 export VLLM_GPU_MEMORY_UTILIZATION
-export VLLM_DISTRIBUTED_BACKEND
-export NSYS_PROFILE_NAME
-export JAX_PROFILE_NAME
-export XLA_FLAGS="${XLA_FLAGS:-}
-                  --xla_gpu_enable_latency_hiding_scheduler=true
+export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
+export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
                   --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL
                   --xla_gpu_collective_permute_combine_threshold_bytes=8589934592
                   --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592
                   --xla_gpu_all_gather_combine_threshold_bytes=8589934592
                   --xla_gpu_all_reduce_combine_threshold_bytes=8589934592"
+if [[ -n "${TRANSFER_MODE:-}" ]]; then
+  export TRANSFER_MODE
+fi
 
 if [ "$DEBUG" == "true" ]; then
     set -x
@@ -265,30 +243,54 @@ fi
 
 PIDS=()
 
-# Setup profiling variables if enabled
-if [[ -n "${NSYS_PROFILE_NAME:-}" ]]; then
-  NSYS_OUTPUT="${OUTPUT_DIR}/${NSYS_PROFILE_NAME}"
-  echo "Nsys outputs will be saved to: ${NSYS_OUTPUT}"
-elif [[ -n "${JAX_PROFILE_NAME:-}" ]]; then
-  echo "JAX profiling enabled with name: ${JAX_PROFILE_NAME}"
-else
-  echo "Profiling not enabled. To enable, use --nsys-profile-name=NAME or --jax-profile-name=NAME"
-fi
-
+mkdir -p "${OUTPUT_DIR}"
 echo "Logs will be saved to: ${OUTPUT_DIR}"
+echo ""
+echo "=== Split Architecture: 4 Processes ==="
+echo "  1. Gateway (no GPU)"
+echo "  2. vLLM Worker (GPUs: ${VLLM_GPU_ARRAY[*]})"
+echo "  3. JAX Controller (GPUs: ${JAX_GPU_ARRAY[*]})"
+echo "  4. Prompt Dispatcher (no GPU)"
+echo "========================================"
+echo ""
 
-# todo: python -m jax_inference_offloading.controller_server ...
+# ------------------------------------------------------------------------------
+# Launch components
+# ------------------------------------------------------------------------------
+
+# 1. Gateway server (no GPU)
+echo "Starting Gateway..."
 CUDA_VISIBLE_DEVICES= \
-python -u "${DIR}/../jax_inference_offloading/controller/gateway.py" 2>&1 | tee "${OUTPUT_DIR}/gateway.log" &
+python "${DIR}/../../jax_inference_offloading/controller/gateway.py" 2>&1 | tee "${OUTPUT_DIR}/gateway.log" &
 PIDS+=($!)
 
+# Give gateway time to start
+sleep 2
+
+# 2. vLLM Worker
+echo "Starting vLLM Worker..."
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${VLLM_GPU_ARRAY[*]}") \
 MODEL_NAME=${MODEL_PATH:-$MODEL_NAME} \
-python -u "${DIR}/rollout.py" 2>&1 | tee "${OUTPUT_DIR}/rollout.log" &
+python "${DIR}/vllm_worker.py" 2>&1 | tee "${OUTPUT_DIR}/vllm_worker.log" &
 PIDS+=($!)
 
+# 3. JAX Controller (JAX GPUs)
+echo "Starting JAX Controller..."
 CUDA_VISIBLE_DEVICES=$(IFS=','; echo "${JAX_GPU_ARRAY[*]}") \
-maybe_run_nsys python -u "${DIR}/trainer.py" 2>&1 | tee "${OUTPUT_DIR}/trainer.log" &
+JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR} \
+JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS=0.1 \
+python "${DIR}/jax_controller.py" 2>&1 | tee "${OUTPUT_DIR}/jax_controller.log" &
 PIDS+=($!)
+
+# 4. Prompt Dispatcher (no GPU)
+echo "Starting Prompt Dispatcher..."
+CUDA_VISIBLE_DEVICES= \
+python "${DIR}/prompt_dispatcher.py" 2>&1 | tee "${OUTPUT_DIR}/prompt_dispatcher.log" &
+PIDS+=($!)
+
+echo ""
+echo "All processes started. Waiting for completion..."
+echo "Check logs in: ${OUTPUT_DIR}"
+echo ""
 
 wait "${PIDS[@]}"

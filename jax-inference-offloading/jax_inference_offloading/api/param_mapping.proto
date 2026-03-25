@@ -29,6 +29,16 @@ message VllmParam {
 
   optional TpSharding tp_sharding = 3;
   optional string dtype = 4;
+
+  // Transformation from the vLLM/HuggingFace parameter to the JAX parameter.
+  // Used when loading checkpoints into JAX model state.
+  message Transform {
+    optional TensorSlice slice = 1;
+    repeated int32 transpose = 2;
+    repeated int32 reshape = 3;
+  }
+
+  optional Transform transform = 5;
 }
 
 message TensorSlice {
@@ -72,7 +82,9 @@ message JaxParam {
     repeated string axes = 1;
   }
 
-  optional PartitionSpecs partition_specs = 3;  // TODO: maybe not needed
+  // Partition spec for sharding the JAX parameter when loading from checkpoint.
+  // Each element is an axis name from mesh_axes, or empty string for unsharded dimensions.
+  optional PartitionSpecs partition_specs = 3;
 }
 
 message ParamMapping {
@@ -82,4 +94,6 @@ message ParamMapping {
 
 message TpModelMappingSpecs {
   repeated ParamMapping mappings = 1;
+  // Axis names for JAX mesh creation, e.g., ["fsdp", "tp"]
+  repeated string mesh_axes = 2;
 }
