@@ -1,7 +1,0 @@
-google-tunix==0.1.5
-datasets
-tensorflow-datasets
-tensorflow-cpu; platform_machine == "x86_64"
-tensorflow; platform_machine == "aarch64"
-grain
-ray

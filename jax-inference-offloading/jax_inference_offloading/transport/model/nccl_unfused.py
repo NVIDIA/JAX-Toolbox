@@ -25,10 +25,19 @@ import jax.numpy as jnp
 from jax import lax
 from jax.sharding import Mesh, PartitionSpec
 
+from typing import Protocol, runtime_checkable
+
 from jax_inference_offloading.api.param_mapping_pb2 import TpModelMappingSpecs
 from jax_inference_offloading.api.utils import DataclassFor
-from jax_inference_offloading.controller.trainer_client import TrainerClient
 from jax_inference_offloading.sharding import PolymorphicMesh
+
+
+@runtime_checkable
+class WeightTransferGateway(Protocol):
+  """Protocol for objects that can trigger weight transfer."""
+  def start_weight_transfer(self, mode: str) -> None:
+    """Signal the rollout side to start receiving weights."""
+    ...
 from jax_inference_offloading.transport.tensor.nccl_star import NcclStarTransport
 from jax_inference_offloading.timer import Timer
 
@@ -65,7 +74,7 @@ class NcclUnfusedModelTransport:
     self,
     main_mesh: Union[Mesh, PolymorphicMesh],
     mapping_specs: DataclassFor[TpModelMappingSpecs],
-    gateway: TrainerClient,
+    gateway: WeightTransferGateway,
     transports: List[NcclStarTransport],
     transport_config: Dict[str, Any],
     timer: Timer | None = None,
