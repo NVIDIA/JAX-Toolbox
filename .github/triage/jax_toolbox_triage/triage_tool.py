@@ -37,6 +37,11 @@ class TriageTool:
 
     def __init__(self, args, logger):
         self.args = args
+        # prefix test_command with jax cache option
+        self.args.test_command = [
+            "env",
+            "JAX_ENABLE_COMPILATION_CACHE=false",
+        ] + self.args.test_command
         self.logger = logger
         self.bisection_url = None
         self.bisection_versions = {}
@@ -73,9 +78,7 @@ class TriageTool:
         )
 
         out_dir = self.args.output_prefix / out_dirname
-        assert not out_dir.exists(), (
-            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
-        )
+        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
@@ -119,9 +122,9 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert container_url is not None, (
-            "Container URL must be provided if explicit versions are not set."
-        )
+        assert (
+            container_url is not None
+        ), "Container URL must be provided if explicit versions are not set."
 
         with self._make_container(container_url) as worker:
             url_versions, dirs, env = get_versions_dirs_env(worker, versions_from_env)
