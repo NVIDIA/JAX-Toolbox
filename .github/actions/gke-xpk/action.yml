@@ -47,11 +47,6 @@ inputs:
     required: false
     default: ghcr.io/nvidia/jax:latest
     type: string
-  IMAGE_PULL_SECRET_NAME:
-    description: 'Name of k8s Secret resource for registry ImagePullSecret'
-    required: false
-    default: jax-toolbox-ghcr
-    type: string
   COMMAND:
     description: 'Command to run in main container on JobSet start up'
     required: false
@@ -112,6 +107,11 @@ runs:
       # inspect gpu nodes
       GPU_NODES_ONLINE=$(kubectl get nodes -l cloud.google.com/gke-nodepool=${GPU_NODEPOOL} -o json | jq '.items | length >= '${{ inputs.NUM_NODES }})
       echo "proceed=${GPU_NODES_ONLINE}" >> $GITHUB_OUTPUT
+
+  - name: K8s GHCR store and delete token
+    id: store-token
+    if: steps.cluster-online.outputs.proceed == 'true'
+    uses: ./.github/actions/store-delete-k8s-ghcr
 
   - name: Set workload name
     if: steps.cluster-online.outputs.proceed == 'true'
@@ -233,7 +233,7 @@ runs:
 
       if version_greater "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
         args+=(
-            --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
+            --docker-image-pull-secret=${{ steps.store-token.outputs.token-name }}
         )
 
         envs_flat=$(echo "${{ inputs.ENVS }}" | tr '\n' ' ')
