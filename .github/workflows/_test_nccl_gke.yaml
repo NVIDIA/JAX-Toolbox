@@ -79,6 +79,13 @@ jobs:
 
     - name: Create NCCL test Services on cluster
       run: |
+        gcloud container clusters list | grep ${{ inputs.GKE_CLUSTER }} | grep ${{ inputs.GCP_REGION }} | grep RUNNING > /dev/null
+
+        if [[ "$?" == "1" ]]; then
+          echo "Cluster ${{ inputs.GKE_CLUSTER }} does not exist"
+          exit 0
+        fi
+
         SERVICE_MANIFEST=".github/gke-workflow/gke/nccl-svc-${WORKLOAD_NAME}-${{ matrix.test }}.yaml"
         WORKLOAD_NAME="${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
         echo "SERVICE_MANIFEST=${SERVICE_MANIFEST}" >> ${GITHUB_ENV}
