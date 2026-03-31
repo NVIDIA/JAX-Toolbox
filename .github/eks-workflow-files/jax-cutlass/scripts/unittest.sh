@@ -15,8 +15,6 @@
          # Start MPS daemon
          nvidia-cuda-mps-control -d
 
-         export PYTHONPATH=${CUTLASS_EXAMPLES_ROOT}
-
          # Run the examples
          for f in ${CUTLASS_ROOT}/examples/python/CuTeDSL/jax/*.py; do
              echo "[Executing] $f"
