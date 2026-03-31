@@ -4,7 +4,7 @@
 
          SRC_ROOT=${SRC_ROOT:-$PWD/jax-cutlass-src}
          SRC_ROOT=$(realpath $SRC_ROOT)
-         pip install pytest-reportlog pytest-xdist
+         pip install pytest-reportlog pytest-xdist flatbuffers
           
          # Clone CUTLASS examples
          CUTLASS_ROOT="${SRC_ROOT}/cutlass"
