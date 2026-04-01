@@ -16,6 +16,7 @@ ARG SRC_PATH_XLA=/opt/xla
 ARG SRC_PATH_FLAX=/opt/flax
 ARG SRC_PATH_NSYS_JAX=/opt/nsys_jax
 ARG SRC_PATH_TRANSFORMER_ENGINE=/opt/transformer-engine
+ARG CUTILE_PYTHON_VERSION=1.2.0
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 
@@ -141,6 +142,13 @@ ENV SRC_PATH_NSYS_JAX=${SRC_PATH_NSYS_JAX}
 COPY nsys_jax/ ${SRC_PATH_NSYS_JAX}
 ADD install-nsys-jax.sh /usr/local/bin
 RUN install-nsys-jax.sh ${SRC_PATH_NSYS_JAX}
+
+###############################################################################
+## cuTile Python (cuda-tile)
+###############################################################################
+ARG CUTILE_PYTHON_VERSION
+ENV CUTILE_PYTHON_VERSION=${CUTILE_PYTHON_VERSION}
+RUN echo "cuda-tile==${CUTILE_PYTHON_VERSION}" > /opt/pip-tools.d/requirements-cuda-tile.in
 
 ###############################################################################
 ## Install primary packages and transitive dependencies
