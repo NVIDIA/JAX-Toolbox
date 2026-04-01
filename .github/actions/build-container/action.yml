@@ -224,11 +224,7 @@ runs:
           ${{ inputs.EXTRA_BUILD_ARGS }}
 
     # BAZEL CACHE EXPORT
-    - name: Prune BuildKit cache to free space for export
-      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true' || inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
-      shell: bash
-      run: docker buildx prune --force
-
+    # Snapshots are captured first; prune runs after to free space before upload.
     # type=tar streams a single archive instead of per-file copies
     - name: Export Bazel disk cache
       if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
@@ -247,13 +243,6 @@ runs:
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
 
-    - name: Save Bazel disk cache
-      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: /tmp/bazel-disk.tar
-        key: bazel-disk-cache-${{ inputs.ARCHITECTURE }}-${{ github.run_id }}
-
     - name: Export Bazel repo cache
       if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
       uses: docker/build-push-action@v5
@@ -268,6 +257,19 @@ runs:
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    # Prune layer cache after snapshots are captured to free disk space before upload
+    - name: Prune BuildKit layer cache before upload
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true' || inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      shell: bash
+      run: docker buildx prune --force
+
+    - name: Save Bazel disk cache
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: /tmp/bazel-disk.tar
+        key: bazel-disk-cache-${{ inputs.ARCHITECTURE }}-${{ github.run_id }}
 
     - name: Save Bazel repo cache
       if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
