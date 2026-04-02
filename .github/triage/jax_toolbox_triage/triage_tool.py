@@ -49,6 +49,7 @@ class TriageTool:
         self.dynamic_packages = set()
         self.packages_with_scripts = set()
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
+        self.check_success_before_failure = True
 
         self.logger.info("Arguments:")
         for k, v in vars(self.args).items():
@@ -591,6 +592,9 @@ class TriageTool:
             self.package_dirs = failing_package_dirs
         elif failing_url is not None:
             self.bisection_url = failing_url
+            # If we are using the "bad" container for bisection, check we can reproduce failure
+            # in it first -- before checking out the "good" versions in it
+            self.check_success_before_failure = False
             self.bisection_versions = original_failing_versions
             self.package_dirs = failing_package_dirs
         else:
@@ -678,6 +682,7 @@ class TriageTool:
                 build_and_test=self._build_and_test,
                 logger=self.logger,
                 skip_precondition_checks=self.args.skip_precondition_checks,
+                check_success_before_failure=self.check_success_before_failure,
             )
         except CouldNotReproduceFailure as e:
             if (

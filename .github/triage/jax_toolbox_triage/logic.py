@@ -326,6 +326,7 @@ def _version_search(
     logger: logging.Logger,
     skip_precondition_checks: bool,
     result_cache: typing.Dict[FlatVersionDict, TestResult],
+    check_success_before_failure: bool = True,
 ) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
     assert all(len(version_list) for version_list in versions.values()), (
         "Not enough versions: need at least one version for each package",
@@ -341,9 +342,7 @@ def _version_search(
     ) -> FlatVersionDict:
         return tuple(sorted(_strip_build_failures(versions).items()))
 
-    if skip_precondition_checks:
-        logger.info("Skipping check that 'good' versions reproduce success")
-    else:
+    def _check_success():
         # Verify that we can build successfully and that the test succeeds as expected.
         logger.info("Verifying test success using 'good' versions")
         passing_versions = _earliest_versions(versions)
@@ -361,9 +360,7 @@ def _version_search(
                 logger.fatal(check_pass.stdouterr)
             raise CouldNotReproduceSuccess(err)
 
-    if skip_precondition_checks:
-        logger.info("Skipping check that 'bad' versions reproduce failure")
-    else:
+    def _check_failure():
         # Verify we can build successfully and that the test fails as expected.
         logger.info("Verifying test failure using 'bad' versions")
         failing_versions = _latest_versions(versions)
@@ -389,6 +386,15 @@ def _version_search(
             else:
                 logger.fatal(check_fail.stdouterr)
             raise CouldNotReproduceFailure(err)
+
+    if skip_precondition_checks:
+        logger.info("Skipping check that 'good' and 'bad' versions reproduce success")
+    elif check_success_before_failure:
+        _check_success()
+        _check_failure()
+    else:
+        _check_failure()
+        _check_success()
 
     # Make sure that the primary package (zeroth entry in `versions`) has
     # multiple versions. If it doesn't, we can permute it to the end straight
@@ -653,6 +659,7 @@ def version_search(
     build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
+    check_success_before_failure: bool = True,
 ) -> typing.Tuple[
     typing.Dict[str, str],
     TestResult,
@@ -670,6 +677,7 @@ def version_search(
     logger: instance to log output to
     skip_precondition_checks: if True, some tests that should pass/fail by
         construction are skipped
+    check_success_before_failure: choose the order of precondition checks
 
     Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
     where the last element can be None if skip_precondition_checks=True. The
@@ -682,5 +690,6 @@ def version_search(
         build_and_test=build_and_test,
         logger=logger,
         skip_precondition_checks=skip_precondition_checks,
+        check_success_before_failure=check_success_before_failure,
         result_cache={},
     )
