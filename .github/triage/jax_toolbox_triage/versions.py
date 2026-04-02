@@ -27,7 +27,7 @@ def get_env(worker: Container) -> typing.Dict[str, str]:
 
 def get_commits_and_dirs(
     worker: Container,
-    optional_software: list[str],
+    optional_software: typing.List[str],
 ) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str]]:
     """
     Get the git repository paths and current HEAD commits in the given environment of
@@ -64,7 +64,7 @@ def get_versions_dirs_env(
     *,
     worker: Container,
     versions_from_env: bool,
-    optional_software: list[str],
+    optional_software: typing.List[str],
 ) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str], typing.Dict[str, str]]:
     """
     Get software versions in the given [container] environment, git repository paths
