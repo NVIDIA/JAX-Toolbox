@@ -9,7 +9,6 @@ import warnings
 
 # Software we know may exist in the containers that we might be able to triage
 # We know how to recompile JAX/XLA, so it's OK that they include C++ code
-# TransformerEngine is intentionally excluded because build-te.sh is not plumbed yet.
 # Flax and MaxText are pure Python, so it's OK we don't have a way of compiling them,
 # but they are not always installed in containers we want to triage.
 # Note this is not a `set` for the sake of run-to-run determinism.
@@ -264,6 +263,16 @@ def parse_args(args=None) -> argparse.Namespace:
         "--exclude-transformer-engine",
         action="store_true",
         help="Exclude transformer-engine from the list of optional software to triage.",
+    )
+    version_search_args.add_argument(
+        "--transformer-engine-ccache-env",
+        action="append",
+        default=[],
+        help="""
+            Takes a ENV_VAR=val format value and propagates it to the build-te.sh execution
+            environment. Can be passed multiple times. If used, --cache will be passed to
+            build-te.sh. This is intended to allow configuration of a remote ccache cache.
+        """,
     )
     parser.add_argument(
         "-v",

@@ -444,11 +444,15 @@ class TriageTool:
             # rebuilds correctly, so clean the local cache and rely on the remote one.
             build_cmds = [
                 "bazel clean --expunge",
-                # 2026-01-21: --sm all is now the default, but leave it here
-                # for a while to help triage old containers
-                f"build-jax.sh --bazel-cache={self.args.bazel_cache} --sm all",
-                "build-te.sh --sm all",
+                f"build-jax.sh --bazel-cache={self.args.bazel_cache}",
             ]
+            if not self.args.exclude_transformer_engine:
+                if len(self.args.transformer_engine_ccache_env):
+                    build_cmds.append(
+                        f"env {' '.join(self.args.transformer_engine_ccache_env)} build-te.sh --ccache"
+                    )
+                else:
+                    build_cmds.append("build-te.sh")
             build_result = worker.exec(
                 ["sh", "-c", " && ".join(build_cmds)],
                 policy="once_per_container",
