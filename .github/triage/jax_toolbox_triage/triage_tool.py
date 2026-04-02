@@ -9,6 +9,7 @@ from typing import Dict, Tuple, Union, Any, Optional, Set
 
 from .container import Container
 from .logic import (
+    _REPETITION_KEY,
     container_search,
     TestExecutionOutcome,
     TestResult,
@@ -370,6 +371,7 @@ class TriageTool:
         self,
         *,
         versions: Dict[str, str],
+        test_repetition: int = 0,
         test_output_log_level: int = logging.DEBUG,
     ) -> TestResult:
         """
@@ -429,7 +431,8 @@ class TriageTool:
             p: ver for p, ver in versions.items() if p in self.dynamic_packages
         }
         out_dir = self._test_output_directory(
-            self.bisection_url, versions=brief_versions
+            self.bisection_url,
+            versions=brief_versions | {_REPETITION_KEY: str(test_repetition)},
         )
 
         with self._make_container(
@@ -466,6 +469,8 @@ class TriageTool:
                 workdir=self.package_dirs["jax"],
             )
             build_pass = build_result.returncode == 0
+            with open(out_dir / "build.log", "w") as log:
+                log.write(build_result.stdout)
             middle = time.monotonic()
             build_time = middle - before
             self.logger.info(
@@ -483,6 +488,8 @@ class TriageTool:
                 )
                 test_output = test_result.stdout
                 test_time = time.monotonic() - middle
+                with open(out_dir / "test.log", "w") as log:
+                    log.write(test_output)
                 test_result_enum = (
                     TestExecutionOutcome.TEST_SUCCESS
                     if test_result.returncode == 0
@@ -591,6 +598,8 @@ class TriageTool:
             self.bisection_versions = original_failing_versions
             self.package_dirs = failing_package_dirs
         elif failing_url is not None:
+            # Prefer to use the newer/failing container if both are available, as it will usually
+            # already have the required git history and will, therefore, not need to git fetch.
             self.bisection_url = failing_url
             # If we are using the "bad" container for bisection, check we can reproduce failure
             # in it first -- before checking out the "good" versions in it
@@ -683,6 +692,7 @@ class TriageTool:
                 logger=self.logger,
                 skip_precondition_checks=self.args.skip_precondition_checks,
                 check_success_before_failure=self.check_success_before_failure,
+                confirmation_iterations=self.args.confirmation_iterations,
             )
         except CouldNotReproduceFailure as e:
             if (

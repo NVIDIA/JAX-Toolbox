@@ -274,6 +274,16 @@ def parse_args(args=None) -> argparse.Namespace:
             build-te.sh. This is intended to allow configuration of a remote ccache cache.
         """,
     )
+    version_search_args.add_argument(
+        "--confirmation-iterations",
+        default=1,
+        type=int,
+        help="""
+            When the version level search converges, re-check the last-known-good and
+            first-known-bad versions this many times. This is a final line of defence
+            against flaky test cases.
+        """,
+    )
     parser.add_argument(
         "-v",
         "--container-mount",

@@ -230,6 +230,7 @@ class BuildAndTest(typing.Protocol):
         self,
         *,
         versions: typing.Dict[str, str],
+        test_repetition: int = 0,
         test_output_log_level: int = logging.DEBUG,
     ) -> TestResult:
         """
@@ -317,6 +318,9 @@ def _strip_build_failures(versions: typing.Dict[str, str]) -> typing.Dict[str, s
     return {k: remove_build_failures(v) for k, v in versions.items()}
 
 
+_REPETITION_KEY = "#rep"
+
+
 def _version_search(
     *,
     versions: typing.OrderedDict[
@@ -326,6 +330,7 @@ def _version_search(
     logger: logging.Logger,
     skip_precondition_checks: bool,
     result_cache: typing.Dict[FlatVersionDict, TestResult],
+    confirmation_iterations: int,
     check_success_before_failure: bool = True,
 ) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
     assert all(len(version_list) for version_list in versions.values()), (
@@ -339,53 +344,84 @@ def _version_search(
 
     def _cache_key(
         versions: typing.Dict[str, str],
+        *,
+        repetition: int = 0,
     ) -> FlatVersionDict:
-        return tuple(sorted(_strip_build_failures(versions).items()))
+        return tuple(
+            sorted(_strip_build_failures(versions).items())
+            + [(_REPETITION_KEY, str(repetition))]
+        )
+
+    def build_cached(
+        bisect_versions,
+        *,
+        assert_miss: bool = False,
+        test_output_log_level: int = logging.DEBUG,
+        repetition: int = 0,
+    ):
+        cache_key = _cache_key(bisect_versions, repetition=repetition)
+        bisect_result = result_cache.get(cache_key)
+        if bisect_result is not None:
+            if assert_miss:
+                raise Exception("Unexpected cache hit!")
+            return bisect_result
+        bisect_result = build_and_test(
+            versions=_strip_build_failures(bisect_versions),
+            test_output_log_level=test_output_log_level,
+            test_repetition=repetition,
+        )
+        result_cache[cache_key] = bisect_result
+        return bisect_result
 
     def _check_success():
         # Verify that we can build successfully and that the test succeeds as expected.
-        logger.info("Verifying test success using 'good' versions")
-        passing_versions = _earliest_versions(versions)
-        check_pass = build_and_test(versions=passing_versions)
-        assert _cache_key(passing_versions) not in result_cache
-        result_cache[_cache_key(passing_versions)] = check_pass
-        if check_pass.result == TestExecutionOutcome.TEST_SUCCESS:
-            logger.info("Verified test passes using 'good' versions")
-        else:
-            err = f"Could not reproduce success with 'good' versions ({check_pass.result})"
-            logger.fatal(err)
-            if check_pass.result == TestExecutionOutcome.BUILD_FAILURE:
-                logger.fatal(check_pass.build_stdouterr)
+        logger.info(
+            f"Verifying test success using 'good' versions {confirmation_iterations + 1} times"
+        )
+        for n in range(confirmation_iterations + 1):
+            check_pass = build_cached(
+                _earliest_versions(versions),
+                assert_miss=True,
+                repetition=-n,
+            )
+            if check_pass.result == TestExecutionOutcome.TEST_SUCCESS:
+                logger.info("Verified test passes using 'good' versions")
             else:
-                logger.fatal(check_pass.stdouterr)
-            raise CouldNotReproduceSuccess(err)
+                err = f"Could not reproduce success with 'good' versions ({check_pass.result}, attempt {n})"
+                logger.fatal(err)
+                if check_pass.result == TestExecutionOutcome.BUILD_FAILURE:
+                    logger.fatal(check_pass.build_stdouterr)
+                else:
+                    logger.fatal(check_pass.stdouterr)
+                raise CouldNotReproduceSuccess(err)
 
     def _check_failure():
         # Verify we can build successfully and that the test fails as expected.
-        logger.info("Verifying test failure using 'bad' versions")
-        failing_versions = _latest_versions(versions)
-        check_fail = build_and_test(
-            versions=failing_versions, test_output_log_level=logging.INFO
+        logger.info(
+            f"Verifying test failure using 'bad' versions {confirmation_iterations + 1} times"
         )
-        assert _cache_key(failing_versions) not in result_cache
-        result_cache[_cache_key(failing_versions)] = check_fail
-        if check_fail.result == TestExecutionOutcome.TEST_FAILURE:
-            logger.info(
-                "Verified test failure using 'bad' versions. IMPORTANT: you should "
-                "check that the test output above shows the *expected* failure of your "
-                "test case. It is very easy to accidentally provide a test case that "
-                "fails for the wrong reason, which will not triage the correct issue!"
+        for n in range(confirmation_iterations + 1):
+            check_fail = build_cached(
+                _latest_versions(versions),
+                assert_miss=True,
+                repetition=-n,
+                test_output_log_level=logging.INFO if n == 0 else logging.DEBUG,
             )
-        else:
-            err = (
-                f"Could not reproduce failure with 'bad' versions ({check_fail.result})"
-            )
-            logger.fatal(err)
-            if check_fail.result == TestExecutionOutcome.BUILD_FAILURE:
-                logger.fatal(check_fail.build_stdouterr)
+            if check_fail.result == TestExecutionOutcome.TEST_FAILURE:
+                logger.info(
+                    "Verified test failure using 'bad' versions. IMPORTANT: you should "
+                    "check that the test output above shows the *expected* failure of your "
+                    "test case. It is very easy to accidentally provide a test case that "
+                    "fails for the wrong reason, which will not triage the correct issue!"
+                )
             else:
-                logger.fatal(check_fail.stdouterr)
-            raise CouldNotReproduceFailure(err)
+                err = f"Could not reproduce failure with 'bad' versions ({check_fail.result}, attempt {n})"
+                logger.fatal(err)
+                if check_fail.result == TestExecutionOutcome.BUILD_FAILURE:
+                    logger.fatal(check_fail.build_stdouterr)
+                else:
+                    logger.fatal(check_fail.stdouterr)
+                raise CouldNotReproduceFailure(err)
 
     if skip_precondition_checks:
         logger.info("Skipping check that 'good' and 'bad' versions reproduce success")
@@ -409,15 +445,6 @@ def _version_search(
     # first package.
     primary = _first(versions.keys())
     get_versions = functools.partial(_get_versions, logger=logger, primary=primary)
-
-    def build_cached(bisect_versions):
-        cache_key = _cache_key(bisect_versions)
-        bisect_result = result_cache.get(cache_key)
-        if bisect_result is not None:
-            return bisect_result
-        bisect_result = build_and_test(versions=_strip_build_failures(bisect_versions))
-        result_cache[cache_key] = bisect_result
-        return bisect_result
 
     def find_successful_build(versions):
         # Try to find a set of versions where the build does not fail, starting with
@@ -634,6 +661,18 @@ def _version_search(
                     "Did not find a cached result for the first-known-bad "
                     f"configuration {first_known_bad}, this is unexpected!"
                 )
+        # Run the test case a few more times as a final line of defence against flakiness.
+        # `blame_versions` are last-known-good, `first_known_bad` are what they say.
+        # We just tested `blame_versions`, so start with `first_known_bad`.
+        for n in range(confirmation_iterations):
+            confirm_bad = build_cached(
+                first_known_bad, assert_miss=True, repetition=n + 1
+            )
+            assert confirm_bad.result == TestExecutionOutcome.TEST_FAILURE
+            confirm_good = build_cached(
+                blame_versions, assert_miss=True, repetition=n + 1
+            )
+            assert confirm_good.result == TestExecutionOutcome.TEST_SUCCESS
         return ret, blame, first_known_bad_result
     else:
         # Test failed with both {pX, sZ, tZ, ...} and {pZ, sZ, tZ, ...}, so
@@ -648,6 +687,7 @@ def _version_search(
             logger=logger,
             skip_precondition_checks=True,
             result_cache=result_cache,
+            confirmation_iterations=confirmation_iterations,
         )
 
 
@@ -660,6 +700,7 @@ def version_search(
     logger: logging.Logger,
     skip_precondition_checks: bool,
     check_success_before_failure: bool = True,
+    confirmation_iterations: int = 1,
 ) -> typing.Tuple[
     typing.Dict[str, str],
     TestResult,
@@ -678,6 +719,8 @@ def version_search(
     skip_precondition_checks: if True, some tests that should pass/fail by
         construction are skipped
     check_success_before_failure: choose the order of precondition checks
+    confirmation_iterations: after convergence, re-run the first-known-bad and
+        last-known-good versions this many extra times to build confidence
 
     Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
     where the last element can be None if skip_precondition_checks=True. The
@@ -691,5 +734,6 @@ def version_search(
         logger=logger,
         skip_precondition_checks=skip_precondition_checks,
         check_success_before_failure=check_success_before_failure,
+        confirmation_iterations=confirmation_iterations,
         result_cache={},
     )
