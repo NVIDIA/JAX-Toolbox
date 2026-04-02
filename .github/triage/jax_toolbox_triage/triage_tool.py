@@ -129,7 +129,11 @@ class TriageTool:
         )
 
         with self._make_container(container_url) as worker:
-            url_versions, dirs, env = get_versions_dirs_env(worker, versions_from_env)
+            url_versions, dirs, env = get_versions_dirs_env(
+                worker=worker,
+                versions_from_env=versions_from_env,
+                optional_software=self.args.optional_software,
+            )
         overriden_versions = url_versions.copy()
         if explicit_versions is not None:
             overriden_versions.update(explicit_versions)
@@ -254,7 +258,9 @@ class TriageTool:
             container_url, test_output_directory=out_dir
         ) as worker:
             versions, _, _ = get_versions_dirs_env(
-                worker, self.args.build_scripts_path is not None
+                worker=worker,
+                versions_from_env=self.args.build_scripts_path is not None,
+                optional_software=self.args.optional_software,
             )
             result = worker.exec(
                 self.args.test_command, log_level=test_output_log_level

@@ -1,6 +1,6 @@
 import typing
 from .container import Container
-from .args import compulsory_software, optional_software
+from .args import compulsory_software
 
 
 def get_env(worker: Container) -> typing.Dict[str, str]:
@@ -27,6 +27,7 @@ def get_env(worker: Container) -> typing.Dict[str, str]:
 
 def get_commits_and_dirs(
     worker: Container,
+    optional_software: list[str],
 ) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str]]:
     """
     Get the git repository paths and current HEAD commits in the given environment of
@@ -60,8 +61,10 @@ def get_commits_and_dirs(
 
 
 def get_versions_dirs_env(
+    *,
     worker: Container,
     versions_from_env: bool,
+    optional_software: list[str],
 ) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str], typing.Dict[str, str]]:
     """
     Get software versions in the given [container] environment, git repository paths
@@ -76,7 +79,7 @@ def get_versions_dirs_env(
       env: {env_var: value}
     """
     # Get the git repository paths and commits from the container.
-    versions, dirs = get_commits_and_dirs(worker)
+    versions, dirs = get_commits_and_dirs(worker, optional_software=optional_software)
 
     # Get the environment variables from the container.
     env = get_env(worker)

@@ -389,7 +389,8 @@ def parse_args(args=None) -> argparse.Namespace:
             "--container must be passed for the container-level search"
         )
 
+    args.optional_software = optional_software.copy()
     if args.exclude_transformer_engine:
-        optional_software.remove("transformer-engine")
+        args.optional_software.remove("transformer-engine")
 
     return args
