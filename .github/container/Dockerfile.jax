@@ -143,6 +143,11 @@ ADD install-nsys-jax.sh /usr/local/bin
 RUN install-nsys-jax.sh ${SRC_PATH_NSYS_JAX}
 
 ###############################################################################
+## cuTile Python (cuda-tile)
+###############################################################################
+RUN echo "cuda-tile==${CUTILE_PYTHON_VERSION}" > /opt/pip-tools.d/requirements-cuda-tile.in
+
+###############################################################################
 ## Install primary packages and transitive dependencies
 ###############################################################################
 
