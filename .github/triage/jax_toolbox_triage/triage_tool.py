@@ -430,9 +430,10 @@ class TriageTool:
         brief_versions = {
             p: ver for p, ver in versions.items() if p in self.dynamic_packages
         }
+        brief_versions[_REPETITION_KEY] = str(test_repetition)
         out_dir = self._test_output_directory(
             self.bisection_url,
-            versions=brief_versions | {_REPETITION_KEY: str(test_repetition)},
+            versions=brief_versions,
         )
 
         with self._make_container(
