@@ -1,0 +1,65 @@
+name: Setup sccache credentials
+description: >
+  Authenticates with NVIDIA's OIDC infrastructure to generate temporary AWS
+  credentials for the rapids-sccache-devs S3 bucket and a dist auth token for
+  the RAPIDS sccache distributed build cluster. Writes both to known paths so
+  they can be injected as Docker build secrets.
+
+inputs:
+  github-token:
+    description: "GitHub token for authenticating with nv-gha-aws (requires read:org scope)"
+    required: true
+  idp-url:
+    description: "OIDC identity provider URL (IDP_URL secret)"
+    required: true
+  sccache-role:
+    description: "AWS IAM role ARN to assume for sccache S3 access (SCCACHE_ROLE secret)"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install gh CLI
+      shell: bash
+      run: |
+        curl -fsSL --compressed "https://cli.github.com/packages/githubcli-archive-keyring.gpg" \
+          | gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/githubcli-archive-keyring.gpg
+        cat <<EOF >/etc/apt/sources.list.d/github-cli.list
+        deb [arch=$(dpkg --print-architecture)] https://cli.github.com/packages stable main
+        EOF
+        apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gh
+
+    - name: Install nv-gha-aws plugin
+      shell: bash
+      run: |
+        mkdir -p ~/.local/share/gh/extensions/gh-nv-gha-aws
+        wget --no-hsts -q -O- https://api.github.com/repos/nv-gha-runners/gh-nv-gha-aws/releases/latest \
+          | jq -r ".assets[] | select(.name | test(\"^gh-nv-gha-aws_v.*?_linux-$(dpkg --print-architecture)\$\")) | .browser_download_url" \
+          | wget --no-hsts -q -i- -O ~/.local/share/gh/extensions/gh-nv-gha-aws/gh-nv-gha-aws
+        chmod +x ~/.local/share/gh/extensions/gh-nv-gha-aws/gh-nv-gha-aws
+        cat > ~/.local/share/gh/extensions/gh-nv-gha-aws/manifest.yml <<EOF
+        owner: nv-gha-runners
+        name: gh-nv-gha-aws
+        host: github.com
+        tag: $(~/.local/share/gh/extensions/gh-nv-gha-aws/gh-nv-gha-aws --version | cut -d' ' -f3)
+        ispinned: false
+        path: $HOME/.local/share/gh/extensions/gh-nv-gha-aws/gh-nv-gha-aws
+        EOF
+
+    - name: Generate AWS credentials and dist token
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        mkdir -p /tmp/sccache-secrets
+        gh nv-gha-aws org nvidia \
+          --duration 43200 \
+          --profile default \
+          --output creds-file \
+          --aud sts.amazonaws.com \
+          --idp-url ${{ inputs.idp-url }} \
+          --role-arn ${{ inputs.sccache-role }} \
+          > /tmp/sccache-secrets/aws-credentials
+        # The dist scheduler authenticates via the same GitHub token
+        gh auth token > /tmp/sccache-secrets/dist-token
+        echo "sccache credentials written to /tmp/sccache-secrets/"

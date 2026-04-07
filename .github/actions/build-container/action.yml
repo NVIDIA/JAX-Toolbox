@@ -54,6 +54,18 @@ inputs:
     description: "URL of the Bazel remote cache to use for building the image"
     required: true
     default: ""
+  ENABLE_SCCACHE:
+    description: "Enable sccache via NVIDIA's S3 bucket and distributed build cluster"
+    required: false
+    default: "false"
+  sccache-idp-url:
+    description: "OIDC identity provider URL for nv-gha-aws (IDP_URL secret)"
+    required: false
+    default: ""
+  sccache-role:
+    description: "AWS IAM role ARN for sccache S3 access (SCCACHE_ROLE secret)"
+    required: false
+    default: ""
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -72,6 +84,13 @@ runs:
       run: |
         echo 'UPLD_IMAGE=ghcr.io/nvidia/jax-toolbox-internal' >> $GITHUB_ENV
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
+        # When sccache is enabled, clear the Bazel remote cache URL so build-jax.sh
+        # does not add --remote_cache; sccache handles object caching instead.
+        if [[ "${{ inputs.ENABLE_SCCACHE }}" == "true" ]]; then
+          echo 'BAZEL_CACHE_ARG=' >> $GITHUB_ENV
+        else
+          echo 'BAZEL_CACHE_ARG=${{ inputs.bazel-remote-cache-url }}' >> $GITHUB_ENV
+        fi
 
     - name: Setup SSH
       id: setup-ssh
@@ -106,6 +125,25 @@ runs:
         mv version.py .github/container/nsys_jax/nsys_jax/
         cat .github/container/nsys_jax/nsys_jax/version.py
 
+    # SCCACHE SETUP
+    # Always create placeholder files so the Docker --secret flags are always
+    # valid. When ENABLE_SCCACHE=false the files are empty and the Dockerfile
+    # ignores them (required=false on both secret mounts).
+    - name: Prepare sccache secret placeholders
+      shell: bash
+      run: |
+        mkdir -p /tmp/sccache-secrets
+        touch /tmp/sccache-secrets/aws-credentials
+        touch /tmp/sccache-secrets/dist-token
+
+    - name: Setup sccache credentials
+      if: inputs.ENABLE_SCCACHE == 'true'
+      uses: ./.github/actions/setup-sccache
+      with:
+        github-token: ${{ inputs.github-token }}
+        idp-url: ${{ inputs.sccache-idp-url }}
+        sccache-role: ${{ inputs.sccache-role }}
+
     # MEALKIT BUILD
     - name: Set docker metadata - mealkit
       id: mealkit-metadata
@@ -134,9 +172,12 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+          "SCCACHE_AWS_CREDENTIALS=/tmp/sccache-secrets/aws-credentials"
+          "SCCACHE_DIST_TOKEN=/tmp/sccache-secrets/dist-token"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          BAZEL_CACHE=${{ env.BAZEL_CACHE_ARG }}
+          ENABLE_SCCACHE=${{ inputs.ENABLE_SCCACHE }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
     # FINAL IMAGE BUILD
@@ -167,9 +208,12 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+          "SCCACHE_AWS_CREDENTIALS=/tmp/sccache-secrets/aws-credentials"
+          "SCCACHE_DIST_TOKEN=/tmp/sccache-secrets/dist-token"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          BAZEL_CACHE=${{ env.BAZEL_CACHE_ARG }}
+          ENABLE_SCCACHE=${{ inputs.ENABLE_SCCACHE }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
 

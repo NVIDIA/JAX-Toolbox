@@ -63,10 +63,10 @@ jobs:
 
   build-jax:
     needs: build-base
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu32m' || 'linux-arm64-cpu32m' }}
     steps:
         - name: Checkout repository
-          uses: actions/checkout@v6
+          uses: actions/checkout@v4
         - name: Build JAX container
           id: build-jax
           uses: ./.github/actions/build-container
@@ -82,7 +82,10 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
-            bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+            bazel-remote-cache-url: ''
+            ENABLE_SCCACHE: 'true'
+            sccache-idp-url: ${{ secrets.IDP_URL }}
+            sccache-role: ${{ secrets.SCCACHE_ROLE }}
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}

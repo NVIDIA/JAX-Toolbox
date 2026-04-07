@@ -21,6 +21,7 @@ ARG GIT_USER_EMAIL=jax@nvidia.com
 
 ARG BAZEL_CACHE=/tmp
 ARG BUILD_DATE
+ARG ENABLE_SCCACHE=false
 
 ###############################################################################
 ## Build JAX
@@ -39,6 +40,7 @@ ARG EXTRA_BAZEL_TARGETS
 ARG EXTRA_BUILD_JAX_ARGS
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
+ARG ENABLE_SCCACHE
 
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
@@ -52,19 +54,77 @@ ADD build-jax.sh build-te.sh local_cuda_arch /usr/local/bin/
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
     chmod +x /usr/local/bin/bazel
+# Install sccache and compiler wrapper scripts.
+# Wrappers shadow gcc, g++, and nvcc so Bazel uses sccache when
+# ENABLE_SCCACHE=true and --action_env=PATH includes /usr/local/sccache-wrappers.
+RUN wget --no-hsts -q -O- \
+        "https://github.com/rapidsai/sccache/releases/latest/download/sccache-$(uname -m)-unknown-linux-musl.tar.gz" \
+    | tar -C /usr/local/bin --wildcards --strip-components=1 -xzf - '*/sccache' && \
+    mkdir -p /usr/local/sccache-wrappers && \
+    for compiler in gcc g++; do \
+        printf '#!/bin/sh\nexec sccache /usr/bin/%s "$@"\n' "$compiler" \
+            > /usr/local/sccache-wrappers/$compiler && \
+        chmod +x /usr/local/sccache-wrappers/$compiler; \
+    done && \
+    printf '#!/bin/sh\nexec sccache /usr/local/cuda/bin/nvcc "$@"\n' \
+        > /usr/local/sccache-wrappers/nvcc && \
+    chmod +x /usr/local/sccache-wrappers/nvcc
 # Populate ${BUILD_PATH_JAXLIB} with editable wheels; --no-install because
 # (a) this is the builder stage, and (b) pip-finalize.sh does the install
-RUN mkdir -p /builder/extra-targets/{bin,python} && \
+RUN --mount=type=secret,id=SCCACHE_AWS_CREDENTIALS,target=/root/.aws/credentials,required=false \
+    --mount=type=secret,id=SCCACHE_DIST_TOKEN,required=false \
+<<"EOF" bash -ex
+    # Configure and start sccache when enabled.
+    # --spawn_strategy=local disables Bazel's Linux sandbox so the sccache
+    # daemon socket is reachable from within Bazel actions (safe here because
+    # Docker itself provides process isolation).
+    SCCACHE_BAZEL_PARAMS=()
+    if [[ "${ENABLE_SCCACHE}" == "true" ]]; then
+        DIST_TOKEN=$(cat /run/secrets/SCCACHE_DIST_TOKEN)
+        ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+        mkdir -p /root/.config/sccache
+        cat > /root/.config/sccache/config <<SCCACHE_CONF
+[cache.s3]
+bucket = "rapids-sccache-devs"
+region = "us-east-2"
+key_prefix = "object-cache"
+[dist]
+scheduler_url = "https://${ARCH}.linux.sccache.rapids.nvidia.com"
+fallback_to_local_compile = true
+max_retries = 4
+[dist.auth]
+type = "token"
+token = "${DIST_TOKEN}"
+SCCACHE_CONF
+        ulimit -n $(ulimit -Hn)
+        SCCACHE_IDLE_TIMEOUT=0 SCCACHE_ERROR_LOG=/tmp/sccache.log sccache --start-server
+        sccache --show-stats
+        SCCACHE_BAZEL_PARAMS=(
+            --build-param --bazel_options=--spawn_strategy=local
+            --build-param --bazel_options=--action_env=CC=/usr/local/sccache-wrappers/gcc
+            --build-param --bazel_options=--action_env=CXX=/usr/local/sccache-wrappers/g++
+            # Prepend wrapper dir to PATH so nvcc calls go through sccache
+            --build-param "--bazel_options=--action_env=PATH=/usr/local/sccache-wrappers:/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/bin"
+        )
+    fi
+
+    mkdir -p /builder/extra-targets/{bin,python}
     build-jax.sh \
-    --bazel-cache ${BAZEL_CACHE} \
-    --build-path-jaxlib ${BUILD_PATH_JAXLIB} \
-    --extra-targets "${EXTRA_BAZEL_TARGETS}" \
-    --extra-target-dest /builder/extra-targets \
-    --no-install \
-    --src-path-jax ${SRC_PATH_JAX} \
-    --src-path-xla ${SRC_PATH_XLA} \
-    --clean \
-    ${EXTRA_BUILD_JAX_ARGS}
+        --bazel-cache "${BAZEL_CACHE}" \
+        --build-path-jaxlib "${BUILD_PATH_JAXLIB}" \
+        --extra-targets "${EXTRA_BAZEL_TARGETS}" \
+        --extra-target-dest /builder/extra-targets \
+        --no-install \
+        --src-path-jax "${SRC_PATH_JAX}" \
+        --src-path-xla "${SRC_PATH_XLA}" \
+        --clean \
+        "${SCCACHE_BAZEL_PARAMS[@]}" \
+        ${EXTRA_BUILD_JAX_ARGS}
+
+    if [[ "${ENABLE_SCCACHE}" == "true" ]]; then
+        sccache --show-stats
+    fi
+EOF
 
 ## Transformer engine: check out source and build wheel
 RUN --mount=type=ssh \
