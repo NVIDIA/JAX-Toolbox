@@ -9,6 +9,7 @@ from typing import Dict, Tuple, Union, Any, Optional, Set
 
 from .container import Container
 from .logic import (
+    _REPETITION_KEY,
     container_search,
     TestExecutionOutcome,
     TestResult,
@@ -49,6 +50,7 @@ class TriageTool:
         self.dynamic_packages = set()
         self.packages_with_scripts = set()
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
+        self.check_success_before_failure = True
 
         self.logger.info("Arguments:")
         for k, v in vars(self.args).items():
@@ -129,7 +131,11 @@ class TriageTool:
         )
 
         with self._make_container(container_url) as worker:
-            url_versions, dirs, env = get_versions_dirs_env(worker, versions_from_env)
+            url_versions, dirs, env = get_versions_dirs_env(
+                worker=worker,
+                versions_from_env=versions_from_env,
+                optional_software=self.args.optional_software,
+            )
         overriden_versions = url_versions.copy()
         if explicit_versions is not None:
             overriden_versions.update(explicit_versions)
@@ -254,7 +260,9 @@ class TriageTool:
             container_url, test_output_directory=out_dir
         ) as worker:
             versions, _, _ = get_versions_dirs_env(
-                worker, self.args.build_scripts_path is not None
+                worker=worker,
+                versions_from_env=self.args.build_scripts_path is not None,
+                optional_software=self.args.optional_software,
             )
             result = worker.exec(
                 self.args.test_command, log_level=test_output_log_level
@@ -363,6 +371,7 @@ class TriageTool:
         self,
         *,
         versions: Dict[str, str],
+        test_repetition: int = 0,
         test_output_log_level: int = logging.DEBUG,
     ) -> TestResult:
         """
@@ -421,8 +430,10 @@ class TriageTool:
         brief_versions = {
             p: ver for p, ver in versions.items() if p in self.dynamic_packages
         }
+        brief_versions[_REPETITION_KEY] = str(test_repetition)
         out_dir = self._test_output_directory(
-            self.bisection_url, versions=brief_versions
+            self.bisection_url,
+            versions=brief_versions,
         )
 
         with self._make_container(
@@ -444,17 +455,23 @@ class TriageTool:
             # rebuilds correctly, so clean the local cache and rely on the remote one.
             build_cmds = [
                 "bazel clean --expunge",
-                # 2026-01-21: --sm all is now the default, but leave it here
-                # for a while to help triage old containers
-                f"build-jax.sh --bazel-cache={self.args.bazel_cache} --sm all",
-                "build-te.sh --sm all",
+                f"build-jax.sh --bazel-cache={self.args.bazel_cache}",
             ]
+            if not self.args.exclude_transformer_engine:
+                if len(self.args.transformer_engine_ccache_env):
+                    build_cmds.append(
+                        f"env {' '.join(self.args.transformer_engine_ccache_env)} build-te.sh --ccache"
+                    )
+                else:
+                    build_cmds.append("build-te.sh")
             build_result = worker.exec(
                 ["sh", "-c", " && ".join(build_cmds)],
                 policy="once_per_container",
                 workdir=self.package_dirs["jax"],
             )
             build_pass = build_result.returncode == 0
+            with open(out_dir / "build.log", "w") as log:
+                log.write(build_result.stdout)
             middle = time.monotonic()
             build_time = middle - before
             self.logger.info(
@@ -472,6 +489,8 @@ class TriageTool:
                 )
                 test_output = test_result.stdout
                 test_time = time.monotonic() - middle
+                with open(out_dir / "test.log", "w") as log:
+                    log.write(test_output)
                 test_result_enum = (
                     TestExecutionOutcome.TEST_SUCCESS
                     if test_result.returncode == 0
@@ -580,7 +599,12 @@ class TriageTool:
             self.bisection_versions = original_failing_versions
             self.package_dirs = failing_package_dirs
         elif failing_url is not None:
+            # Prefer to use the newer/failing container if both are available, as it will usually
+            # already have the required git history and will, therefore, not need to git fetch.
             self.bisection_url = failing_url
+            # If we are using the "bad" container for bisection, check we can reproduce failure
+            # in it first -- before checking out the "good" versions in it
+            self.check_success_before_failure = False
             self.bisection_versions = original_failing_versions
             self.package_dirs = failing_package_dirs
         else:
@@ -668,6 +692,8 @@ class TriageTool:
                 build_and_test=self._build_and_test,
                 logger=self.logger,
                 skip_precondition_checks=self.args.skip_precondition_checks,
+                check_success_before_failure=self.check_success_before_failure,
+                confirmation_iterations=self.args.confirmation_iterations,
             )
         except CouldNotReproduceFailure as e:
             if (

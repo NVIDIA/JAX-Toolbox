@@ -28,57 +28,47 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: .github/triage
-      - name: "Setup Python 3.12"
-        uses: actions/setup-python@v5
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
         with:
-          python-version: '3.12'
-      - name: "Install mypy"
-        run: pip install mypy pytest types-psutil
+          working-directory: .github/triage
       - name: "Run mypy checks"
-        shell: bash -x -e {0}
-        run: |
-          mypy .github/triage
+        working-directory: .github/triage
+        run: uv run mypy .
   pytest:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        PYTHON_VERSION: ["3.8", "3.12"]
+        python-version: ["3.8", "3.14"]
       fail-fast: false
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v6
         with:
           sparse-checkout: .github/triage
-      - name: "Setup Python ${{ matrix.PYTHON_VERSION}}"
-        uses: actions/setup-python@v5
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
         with:
-          python-version: '${{ matrix.PYTHON_VERSION }}'
-      - name: "Install jax-toolbox-triage"
-        run: pip install pytest .github/triage
+          python-version: '${{ matrix.python-version }}'
+          working-directory: .github/triage
       - name: "Run tests"
-        shell: bash -x -e {0}
-        run: |
-          pytest .github/triage/tests
+        working-directory: .github/triage
+        run: uv run python -m pytest
   ruff:
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        tool: ["check", "format"]
+      fail-fast: false
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v6
         with:
           sparse-checkout: .github/triage
-      - name: "Setup Python 3.12"
-        uses: actions/setup-python@v5
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
         with:
-          python-version: '3.12'
-      - name: "Install ruff"
-        run: pip install ruff
-      - name: "Run ruff checks"
-        shell: bash -x {0}
-        run: |
-          ruff check .github/triage
-          check_status=$?
-          ruff format --check .github/triage
-          format_status=$?
-          if [[ $format_status != 0 || $check_status != 0 ]]; then
-            exit 1
-          fi
+          working-directory: .github/triage
+      - name: "Run ruff ${{ matrix.tool }}"
+        working-directory: .github/triage
+        run: uv run ruff ${{ matrix.tool }}

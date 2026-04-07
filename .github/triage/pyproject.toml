@@ -9,3 +9,11 @@ dependencies = [
 requires-python = ">= 3.8"
 [project.scripts]
 jax-toolbox-triage = "jax_toolbox_triage:main"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14.1",
+    "pytest>=8.3.5",
+    "ruff>=0.15.8",
+    "types-psutil>=6.1.0.20241221",
+]
