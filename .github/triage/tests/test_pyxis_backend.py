@@ -414,3 +414,57 @@ def test_mock_container_precondition_checks(
         # Run the bisection
         with pytest.raises(InconsistentResults):
             tool.run_version_bisection(passing_versions, failing_versions)
+
+
+@pytest.mark.parametrize("ccache_mode", ["configured", "excluded"])
+def test_build_te_ccache_arguments(
+    monkeypatch,
+    passing_container,
+    failing_container,
+    ccache_mode,
+):
+    # Doesn't really add anything to test both values
+    bad_package = compulsory_software[0]
+    # Tell the mock `srun` how to behave
+    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", "1")
+    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", "1")
+    # Ensure bazel, build-te.sh, srun etc. stubs can be found.
+    monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
+    if ccache_mode == "excluded":
+        ccache_args = ["--exclude-transformer-engine"]
+        # Make build-te.sh error out if called
+        monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_BUILD_TE_POISON_PILL", "1")
+    else:
+        assert ccache_mode == "configured", ccache_mode
+        # Dummy build-te.sh will check CCACHE_SENTINEL if --ccache is passed
+        ccache_args = [
+            "--transformer-engine-ccache-env",
+            "CCACHE_SENTINEL=42",
+        ]
+    with tempfile.TemporaryDirectory() as output_prefix:
+        arg_list = (
+            pyxis_args
+            + ccache_args
+            + [
+                "--output-prefix",
+                output_prefix,
+                "--passing-container",
+                str(passing_container["prefix"]),
+                "--failing-container",
+                str(failing_container["prefix"]),
+                "--",
+                "test-case.sh",
+                f"/opt/{bad_package}",
+                failing_container[f"{bad_package}_bad"],
+            ]
+        )
+        args = parse_args(arg_list)
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+        tool = TriageTool(args, logger)
+        # Check the correct versions are extracted from the two pseudocontainers
+        passing_versions, failing_versions = tool.gather_version_info(
+            args.passing_container, args.failing_container
+        )
+        # Run the bisection
+        tool.run_version_bisection(passing_versions, failing_versions)
