@@ -23,11 +23,10 @@ runs:
       shell: bash
       run: |
         curl -fsSL --compressed "https://cli.github.com/packages/githubcli-archive-keyring.gpg" \
-          | gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/githubcli-archive-keyring.gpg
-        cat <<EOF >/etc/apt/sources.list.d/github-cli.list
-        deb [arch=$(dpkg --print-architecture)] https://cli.github.com/packages stable main
-        EOF
-        apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gh
+          | sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture)] https://cli.github.com/packages stable main" \
+          | sudo tee /etc/apt/sources.list.d/github-cli.list
+        sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gh
 
     - name: Install nv-gha-aws plugin
       shell: bash
