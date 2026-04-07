@@ -58,6 +58,10 @@ inputs:
     description: "Enable sccache via NVIDIA's S3 bucket and distributed build cluster"
     required: false
     default: "false"
+  sccache-github-token:
+    description: "PAT with read:org scope for nv-gha-aws and sccache-dist (JTB_TEST_TOKEN secret)"
+    required: false
+    default: ""
   sccache-idp-url:
     description: "OIDC identity provider URL for nv-gha-aws (IDP_URL secret)"
     required: false
@@ -140,6 +144,7 @@ runs:
       if: inputs.ENABLE_SCCACHE == 'true'
       uses: ./.github/actions/setup-sccache
       with:
+        github-token: ${{ inputs.sccache-github-token }}
         idp-url: ${{ inputs.sccache-idp-url }}
         sccache-role: ${{ inputs.sccache-role }}
 

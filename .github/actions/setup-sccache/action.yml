@@ -6,6 +6,9 @@ description: >
   they can be injected as Docker build secrets.
 
 inputs:
+  github-token:
+    description: "PAT with read:org scope for authenticating with nv-gha-aws and sccache-dist"
+    required: true
   idp-url:
     description: "OIDC identity provider URL (IDP_URL secret)"
     required: true
@@ -44,6 +47,8 @@ runs:
 
     - name: Generate AWS credentials and dist token
       shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
       run: |
         mkdir -p /tmp/sccache-secrets
         gh nv-gha-aws org nvidia \

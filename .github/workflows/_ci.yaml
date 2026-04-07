@@ -84,6 +84,7 @@ jobs:
             github-token: ${{ secrets.GITHUB_TOKEN }}
             bazel-remote-cache-url: ''
             ENABLE_SCCACHE: 'true'
+            sccache-github-token: ${{ secrets.JTB_TEST_TOKEN }}
             sccache-idp-url: ${{ secrets.IDP_URL }}
             sccache-role: ${{ secrets.SCCACHE_ROLE }}
             EXTRA_BUILD_ARGS: |
