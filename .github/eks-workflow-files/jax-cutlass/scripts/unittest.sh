@@ -1,15 +1,19 @@
          set -xu -o pipefail
 
          LOG_DIR=${LOG_DIR:-/opt/output}
+         mkdir -p ${LOG_DIR}
 
          SRC_ROOT=${SRC_ROOT:-$PWD/jax-cutlass-src}
          SRC_ROOT=$(realpath $SRC_ROOT)
          pip install pytest-reportlog pytest-xdist flatbuffers
           
-         # Clone CUTLASS examples
+         # Clone CUTLASS examples (use branch)
+         # TODO: Support dev release which likely use main branch
          CUTLASS_ROOT="${SRC_ROOT}/cutlass"
          CUTLASS_EXAMPLES_ROOT="${CUTLASS_ROOT}/examples/python/CuTeDSL"
-         git clone https://github.com/NVIDIA/cutlass.git ${CUTLASS_ROOT}
+         [[ -d ${CUTLASS_ROOT} ]] && rm -rf ${CUTLASS_ROOT}
+         CUTEDSL_VERSION=$(python -c 'import cutlass; print(cutlass.__version__);')
+         git clone -b v${CUTEDSL_VERSION} --single-branch --depth 1 https://github.com/NVIDIA/cutlass.git ${CUTLASS_ROOT}
 
          NGPUS=$(nvidia-smi --list-gpus | wc -l)
 
