@@ -140,7 +140,6 @@ runs:
       if: inputs.ENABLE_SCCACHE == 'true'
       uses: ./.github/actions/setup-sccache
       with:
-        github-token: ${{ inputs.github-token }}
         idp-url: ${{ inputs.sccache-idp-url }}
         sccache-role: ${{ inputs.sccache-role }}
 
