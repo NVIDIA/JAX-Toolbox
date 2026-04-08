@@ -101,10 +101,10 @@ SCCACHE_CONF
         sccache --show-stats
         SCCACHE_BAZEL_PARAMS=(
             --build-param --bazel_options=--spawn_strategy=local
-            --build-param --bazel_options=--action_env=CC=/usr/local/sccache-wrappers/gcc
-            --build-param --bazel_options=--action_env=CXX=/usr/local/sccache-wrappers/g++
-            # Prepend wrapper dir to PATH so nvcc calls go through sccache
-            --build-param "--bazel_options=--action_env=PATH=/usr/local/sccache-wrappers:/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/bin"
+            # --cc_compiler_launcher wraps every C/C++ compiler call with sccache,
+            # including XLA's hermetic Clang toolchain which ignores CC/CXX env vars.
+            --build-param --bazel_options=--cc_compiler_launcher=/usr/local/bin/sccache
+            --build-param --bazel_options=--host_cc_compiler_launcher=/usr/local/bin/sccache
         )
     fi
 
