@@ -54,21 +54,11 @@ ADD build-jax.sh build-te.sh local_cuda_arch /usr/local/bin/
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
     chmod +x /usr/local/bin/bazel
-# Install sccache and compiler wrapper scripts.
-# Wrappers shadow gcc, g++, and nvcc so Bazel uses sccache when
-# ENABLE_SCCACHE=true and --action_env=PATH includes /usr/local/sccache-wrappers.
+# Install sccache. Compiler binary wrapping happens at build time (inside the
+# build RUN step below) when ENABLE_SCCACHE=true, so we only need the binary here.
 RUN wget --no-hsts -q -O- \
         "https://github.com/rapidsai/sccache/releases/latest/download/sccache-$(uname -m)-unknown-linux-musl.tar.gz" \
-    | tar -C /usr/local/bin --wildcards --strip-components=1 -xzf - '*/sccache' && \
-    mkdir -p /usr/local/sccache-wrappers && \
-    for compiler in gcc g++; do \
-        printf '#!/bin/sh\nexec sccache /usr/bin/%s "$@"\n' "$compiler" \
-            > /usr/local/sccache-wrappers/$compiler && \
-        chmod +x /usr/local/sccache-wrappers/$compiler; \
-    done && \
-    printf '#!/bin/sh\nexec sccache /usr/local/cuda/bin/nvcc "$@"\n' \
-        > /usr/local/sccache-wrappers/nvcc && \
-    chmod +x /usr/local/sccache-wrappers/nvcc
+    | tar -C /usr/local/bin --wildcards --strip-components=1 -xzf - '*/sccache'
 # Populate ${BUILD_PATH_JAXLIB} with editable wheels; --no-install because
 # (a) this is the builder stage, and (b) pip-finalize.sh does the install
 RUN --mount=type=secret,id=SCCACHE_AWS_CREDENTIALS,target=/root/.aws/credentials,required=false \
@@ -99,12 +89,23 @@ SCCACHE_CONF
         ulimit -n $(ulimit -Hn)
         SCCACHE_IDLE_TIMEOUT=0 SCCACHE_ERROR_LOG=/tmp/sccache.log sccache --start-server
         sccache --show-stats
+        # Wrap compiler binaries in-place so the toolchain's hard-coded paths go
+        # through sccache. XLA's hermetic toolchain ignores CC/CXX env vars and
+        # --cc_compiler_launcher is not recognised by the Bazel version it ships.
+        for compiler in gcc g++; do
+            canonical=$(readlink -f /usr/bin/${compiler})
+            mv "${canonical}" "${canonical}.real"
+            printf '#!/bin/sh\nexec sccache %s.real "$@"\n' "${canonical}" > "${canonical}"
+            chmod +x "${canonical}"
+        done
+        if [[ -f /usr/local/cuda/bin/nvcc ]]; then
+            mv /usr/local/cuda/bin/nvcc /usr/local/cuda/bin/nvcc.real
+            printf '#!/bin/sh\nexec sccache /usr/local/cuda/bin/nvcc.real "$@"\n' \
+                > /usr/local/cuda/bin/nvcc
+            chmod +x /usr/local/cuda/bin/nvcc
+        fi
         SCCACHE_BAZEL_PARAMS=(
             --build-param --bazel_options=--spawn_strategy=local
-            # --cc_compiler_launcher wraps every C/C++ compiler call with sccache,
-            # including XLA's hermetic Clang toolchain which ignores CC/CXX env vars.
-            --build-param --bazel_options=--cc_compiler_launcher=/usr/local/bin/sccache
-            --build-param --bazel_options=--host_cc_compiler_launcher=/usr/local/bin/sccache
         )
     fi
 
