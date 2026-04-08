@@ -122,6 +122,19 @@ SCCACHE_CONF
 
     if [[ "${ENABLE_SCCACHE}" == "true" ]]; then
         sccache --show-stats
+        # Restore compiler binaries so subsequent RUN steps (e.g. TE build) use
+        # the real compilers without sccache. The sccache daemon does not survive
+        # across Docker RUN boundaries, but the wrapped binaries and the S3 config
+        # do — without restoration, the next step's sccache client startup would
+        # try (and fail) to reach S3 because credentials are not mounted there.
+        for compiler in gcc g++; do
+            canonical=$(readlink -f /usr/bin/${compiler})
+            if [[ -f "${canonical}.real" ]]; then
+                mv "${canonical}.real" "${canonical}"
+            fi
+        done
+        rm -f /root/.config/sccache/config
+        sccache --stop-server || true
     fi
 EOF
 
