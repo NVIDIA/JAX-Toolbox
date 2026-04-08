@@ -98,12 +98,10 @@ SCCACHE_CONF
             printf '#!/bin/sh\nexec sccache %s.real "$@"\n' "${canonical}" > "${canonical}"
             chmod +x "${canonical}"
         done
-        if [[ -f /usr/local/cuda/bin/nvcc ]]; then
-            mv /usr/local/cuda/bin/nvcc /usr/local/cuda/bin/nvcc.real
-            printf '#!/bin/sh\nexec sccache /usr/local/cuda/bin/nvcc.real "$@"\n' \
-                > /usr/local/cuda/bin/nvcc
-            chmod +x /usr/local/cuda/bin/nvcc
-        fi
+        # nvcc is NOT wrapped: the hermetic nvcc uses relative paths
+        # (external/llvm18_linux_aarch64/bin/clang) for its host compiler,
+        # and sccache probes the compiler from a different CWD so those
+        # relative paths fail. C++ compilation is covered by the gcc/g++ wrappers.
         SCCACHE_BAZEL_PARAMS=(
             --build-param --bazel_options=--spawn_strategy=local
         )
