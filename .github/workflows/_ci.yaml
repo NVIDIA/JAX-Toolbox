@@ -111,16 +111,24 @@ jobs:
 
         - name: Verify bazel-remote sidecar
           env:
+            BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
             BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
             BAZEL_REMOTE_PORT: 9090
           run: |
             set -euxo pipefail
+            ready=0
             for _ in $(seq 1 30); do
               if curl -sSf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/status" > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/status-before.json"; then
                 break
               fi
               sleep 1
             done
+
+            if [[ "${ready}" != "1" ]]; then
+              docker ps -a
+              docker logs "${BAZEL_REMOTE_CONTAINER}" || true
+              exit 1
+            fi
             curl -sSIf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" \
               > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/empty-cas-head.txt"
 
