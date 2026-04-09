@@ -184,7 +184,9 @@ elif [[ "$CUDA_COMPUTE_CAPABILITIES" == "local" ]]; then
 fi
 
 if [[ "${BAZEL_CACHE}" == http://* ]] || \
-   [[ "${BAZEL_CACHE}" == grpc://* ]]; then
+   [[ "${BAZEL_CACHE}" == https://* ]] || \
+   [[ "${BAZEL_CACHE}" == grpc://* ]] || \
+   [[ "${BAZEL_CACHE}" == grpcs://* ]]; then
     BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_cache=${BAZEL_CACHE}"
     if [[ -n "${BAZEL_CACHE_NAMESPACE}" ]]; then
         BUILD_PARAM="${BUILD_PARAM} --bazel_options=--remote_instance_name=${BAZEL_CACHE_NAMESPACE}"

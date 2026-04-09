@@ -51,9 +51,17 @@ inputs:
     required: true
     default: ""
   bazel-remote-cache-url:
-    description: "URL of the Bazel remote cache to use for building the image"
+    description: "URL of the Bazel cache endpoint to use for building the image"
     required: true
     default: ""
+  docker-build-allow:
+    description: "Optional BuildKit entitlements to allow during docker/build-push-action"
+    required: false
+    default: ""
+  docker-build-network:
+    description: "Network mode to use for docker/build-push-action"
+    required: false
+    default: "default"
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -124,9 +132,11 @@ runs:
       id: mealkit-build
       uses: docker/build-push-action@v7
       with:
+        allow: ${{ inputs.docker-build-allow }}
         context: ${{ inputs.DOCKER_CONTEXT }}
         push: true
         file: ${{ inputs.DOCKERFILE }}
+        network: ${{ inputs.docker-build-network }}
         platforms: linux/${{ inputs.ARCHITECTURE }}
         target: mealkit
         tags: ${{ steps.mealkit-metadata.outputs.tags }}
@@ -157,9 +167,11 @@ runs:
       id: final-build
       uses: docker/build-push-action@v7
       with:
+        allow: ${{ inputs.docker-build-allow }}
         context: ${{ inputs.DOCKER_CONTEXT }}
         push: true
         file: ${{ inputs.DOCKERFILE }}
+        network: ${{ inputs.docker-build-network }}
         platforms: linux/${{ inputs.ARCHITECTURE }}
         tags: ${{ steps.final-metadata.outputs.tags }}
         labels: ${{ steps.final-metadata.outputs.labels }}

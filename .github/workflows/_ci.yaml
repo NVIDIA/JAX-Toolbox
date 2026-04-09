@@ -65,44 +65,64 @@ jobs:
     needs: build-base
     runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu32m' || 'linux-arm64-cpu32m' }}
     steps:
-
         - name: Checkout repository
           uses: actions/checkout@v6
-        - name: Probe AWS identity on runner
-          env:
-            AWS_REGION: us-east-1
-            AWS_DEFAULT_REGION: us-east-1
-          run: |
-            set -euxo pipefail
-            aws --version
-            aws sts get-caller-identity
 
-        - name: Probe S3 bucket access on runner
-          env:
-            AWS_REGION: us-east-1
-            AWS_DEFAULT_REGION: us-east-1
-            BUCKET: jax-toolbox-bazel-cache-test-941377147396-us-east-1-an
-            PREFIX: ${{ inputs.ARCHITECTURE }}
-            PROBE_KEY: ${{ inputs.ARCHITECTURE }}/_probe/${{ github.run_id }}-${{ github.run_attempt }}.txt
-          run: |
-            set -euxo pipefail
-            aws s3api head-bucket --bucket "$BUCKET"
-            printf 'probe\n' > /tmp/bazel-cache-probe.txt
-            aws s3api put-object --bucket "$BUCKET" --key "$PROBE_KEY" --body /tmp/bazel-cache-probe.txt
-            aws s3api head-object --bucket "$BUCKET" --key "$PROBE_KEY"
-            aws s3api delete-object --bucket "$BUCKET" --key "$PROBE_KEY"
+        - name: Setup NVIDIA AWS credentials
+          id: nv-aws-creds
+          uses: ./.github/actions/setup-nv-aws-credentials
+          with:
+            github-token: ${{ secrets.JTB_TEST_TOKEN }}
+            idp-url: ${{ secrets.IDP_URL }}
+            role-arn: ${{ secrets.SCCACHE_ROLE }}
 
-        - name: Probe AWS identity inside Docker
+        - name: Start bazel-remote sidecar
           env:
-            AWS_REGION: us-east-1
-            AWS_DEFAULT_REGION: us-east-1
+            BAZEL_REMOTE_AWS_CREDENTIALS: ${{ steps.nv-aws-creds.outputs.aws-credentials-file }}
+            BAZEL_REMOTE_BUCKET: rapids-sccache-devs
+            BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
+            BAZEL_REMOTE_DISK_DIR: /tmp/bazel-remote-cache
+            BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
+            BAZEL_REMOTE_PORT: 9090
+            BAZEL_REMOTE_PREFIX: object-cache/bazel-remote/${{ inputs.ARCHITECTURE }}
+            BAZEL_REMOTE_REGION: us-east-2
           run: |
             set -euxo pipefail
-            docker run --rm --network host \
-              -e AWS_REGION \
-              -e AWS_DEFAULT_REGION \
-              amazon/aws-cli \
-              sts get-caller-identity
+            mkdir -p "${BAZEL_REMOTE_DIAGNOSTICS_DIR}" "${BAZEL_REMOTE_DISK_DIR}"
+            docker rm -f "${BAZEL_REMOTE_CONTAINER}" >/dev/null 2>&1 || true
+            docker pull buchgr/bazel-remote-cache
+            docker run -d \
+              --name "${BAZEL_REMOTE_CONTAINER}" \
+              --publish "127.0.0.1:${BAZEL_REMOTE_PORT}:8080" \
+              --volume "${BAZEL_REMOTE_DISK_DIR}:/data" \
+              --volume "${BAZEL_REMOTE_AWS_CREDENTIALS}:/aws-config/credentials:ro" \
+              buchgr/bazel-remote-cache \
+              --dir /data \
+              --max_size 50 \
+              --http_address=0.0.0.0:8080 \
+              --s3.auth_method=aws_credentials_file \
+              --s3.aws_profile=default \
+              --s3.aws_shared_credentials_file=/aws-config/credentials \
+              --s3.bucket="${BAZEL_REMOTE_BUCKET}" \
+              --s3.endpoint="s3.${BAZEL_REMOTE_REGION}.amazonaws.com" \
+              --s3.prefix="${BAZEL_REMOTE_PREFIX}" \
+              --s3.region="${BAZEL_REMOTE_REGION}" \
+              --s3.update_timestamps
+
+        - name: Verify bazel-remote sidecar
+          env:
+            BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
+            BAZEL_REMOTE_PORT: 9090
+          run: |
+            set -euxo pipefail
+            for _ in $(seq 1 30); do
+              if curl -sSf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/status" > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/status-before.json"; then
+                break
+              fi
+              sleep 1
+            done
+            curl -sSIf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" \
+              > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/empty-cas-head.txt"
 
         - name: Build JAX container
           id: build-jax
@@ -119,12 +139,37 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
-            bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+            bazel-remote-cache-url: http://127.0.0.1:9090
+            docker-build-allow: network.host
+            docker-build-network: host
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+
+        - name: Collect bazel-remote diagnostics
+          if: always()
+          env:
+            BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
+            BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
+            BAZEL_REMOTE_PORT: 9090
+          run: |
+            set -euxo pipefail
+            mkdir -p "${BAZEL_REMOTE_DIAGNOSTICS_DIR}"
+            curl -sSf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/status" > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/status-after.json" || true
+            docker logs "${BAZEL_REMOTE_CONTAINER}" > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/container.log" 2>&1 || true
+
+        - name: Upload bazel-remote diagnostics
+          if: always()
+          uses: actions/upload-artifact@v6
+          with:
+            name: bazel-remote-diagnostics-${{ inputs.ARCHITECTURE }}
+            path: /tmp/bazel-remote-diagnostics
+
+        - name: Stop bazel-remote sidecar
+          if: always()
+          run: docker rm -f "bazel-remote-cache-${{ inputs.ARCHITECTURE }}" || true
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}
