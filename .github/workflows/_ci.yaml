@@ -121,6 +121,7 @@ jobs:
             ready=0
             for _ in $(seq 1 30); do
               if curl -sSf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/status" > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/status-before.json"; then
+                ready=1
                 break
               fi
               sleep 1
