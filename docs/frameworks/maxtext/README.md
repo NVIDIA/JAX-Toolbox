@@ -28,12 +28,12 @@ where `WORKSPACE_PATH` is the path to the directory where you would like to stor
 #### Interactive: Single node
 Once the container is up and running, you can quickly launch a job with the following command
 ```
-python3 -m MaxText.train src/MaxText/configs/base.yml hardware=gpu run_name=$YOUR_JOB_NAME
+python3 -m maxtext.trainers.pre_train.train src/maxtext/configs/base.yml hardware=gpu run_name=$YOUR_JOB_NAME
 ```
 You can similarly launch a llama2-7b training job with following command:
 ```
-python3 -m MaxText.train \
-    src/MaxText/configs/base.yml \
+python3 -m maxtext.trainers.pre_train.train \
+    src/maxtext/configs/base.yml \
     model_name=llama2-7b \
     per_device_batch_size=2 \
     max_target_length=4096 \
