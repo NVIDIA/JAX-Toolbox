@@ -74,6 +74,8 @@ EOF
 # Install pip-tools, which is used in pip-finalize.sh
 RUN pip install --no-cache-dir pip-tools
 
+RUN pip install --no-cache-dir uv
+
 # The symlinks for CUDA/cuDNN/NCCL exist to make the container's installations
 # of those components conform to XLA's expectations for local installations.
 
