@@ -13,7 +13,7 @@ usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "  OPTIONS                    DESCRIPTION"
-    echo "  -a, --additional-args      Additional args to pass to MaxText/train.py. Can be passed many times."
+    echo "  -a, --additional-args      Additional args to pass to maxtext.trainers.pre_train.train. Can be passed many times."
     echo "  --mem-fraction             Specify the percentage of memory to preallocate for XLA. Example: 0.90, 0.85, 0.65". Default to 0.90, contradicting JAX default of 0.75.
     echo "  --model-name               Specify the model names to run [Preferred]. If you specify model name then you do not need to specify decoder-block. Currently supported ootb models:
                                        gemma-2b, gemma-7b, gpt3-175b, gpt3-22b, gpt3-52k, gpt3-6b, llama2-13b, llama2-70b, llama2-7b, llama3-70b, llama3-8b, mistral-7b, mixtral-8x7b"
@@ -345,6 +345,6 @@ else
 fi
 
 echo "Command: python3 $RUN_SETTINGS"
-python3 -m MaxText.train $RUN_SETTINGS
+python3 -m maxtext.trainers.pre_train.train $RUN_SETTINGS
 
 echo "Output at ${OUTPUT}"

@@ -79,7 +79,7 @@ read -r -d '' cmd <<EOF
 echo "*******STARTING********" \
 && cd $MAXTEXT_DIR \
 && nvidia-smi \
-&& python3 -m MaxText.train \
+&& python3 -m maxtext.trainers.pre_train.train \
     src/MaxText/configs/base.yml \
     model_name=${MODEL} \
     per_device_batch_size=2 \
