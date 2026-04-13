@@ -106,7 +106,7 @@ while [ : ]; do
         ;;
     --)
         shift;
-        break 
+        break
         ;;
   esac
 done
@@ -181,6 +181,9 @@ case "${BATTERY}" in
             "//tests:gpu_tests"
             "//tests/pallas:gpu_tests"
             "//tests/mosaic:gpu_tests"
+            "//tests/multiprocess:all"
+            # avoid this test that runs on tpu, that's likely to fail
+            "-//tests/multiprocess:tpu_device_test_tpu"
         )
         ;;
     single-gpu)
