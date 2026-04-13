@@ -47,11 +47,6 @@ inputs:
     required: false
     default: ghcr.io/nvidia/jax:latest
     type: string
-  IMAGE_PULL_SECRET_NAME:
-    description: 'Name of k8s Secret resource for registry ImagePullSecret'
-    required: false
-    default: jax-toolbox-ghcr
-    type: string
   COMMAND:
     description: 'Command to run in main container on JobSet start up'
     required: false
@@ -86,8 +81,40 @@ inputs:
 runs:
   using: 'composite'
   steps:
+  - name: Check cluster online
+    id: cluster-online
+    shell: bash -x -e -u {0}
+    run: |
+
+      # check cluster exists
+      gcloud container clusters list | grep ${{ inputs.GKE_CLUSTER }} | grep ${{ inputs.GCP_REGION }} | grep RUNNING > /dev/null
+
+      if [[ "$?" == "1" ]]; then
+        echo "Cluster ${{ inputs.GKE_CLUSTER }} does not exist"
+        echo "proceed=false" >> $GITHUB_OUTPUT
+        exit 0
+      fi
+
+      # get gpu nodepool name
+      GPU_NODEPOOL=$(gcloud container clusters describe ${{ inputs.GKE_CLUSTER }} --region ${{ inputs.GCP_REGION }} | yq -r '.nodePools[].name' | grep -v system)
+
+      # get cluster credentials
+      gcloud container clusters get-credentials ${{ inputs.GKE_CLUSTER }} \
+        --location=${{ inputs.GCP_REGION }} \
+        --dns-endpoint \
+        --project=${{ inputs.GCP_PROJECT }} > /dev/null
+
+      # inspect gpu nodes
+      GPU_NODES_ONLINE=$(kubectl get nodes -l cloud.google.com/gke-nodepool=${GPU_NODEPOOL} -o json | jq '.items | length >= '${{ inputs.NUM_NODES }})
+      echo "proceed=${GPU_NODES_ONLINE}" >> $GITHUB_OUTPUT
+
+  - name: K8s GHCR store and delete token
+    id: store-token
+    if: steps.cluster-online.outputs.proceed == 'true'
+    uses: ./.github/actions/store-delete-k8s-ghcr
 
   - name: Set workload name
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -x -e -u {0}
     run: |
       WORKLOAD_NAME="${{ inputs.WORKLOAD_NAME_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
@@ -99,6 +126,7 @@ runs:
       echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
 
   - name: Setup environment
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -x -e -u {0}
     run: |
       mkdir -p ${WORKLOAD_NAME}
@@ -112,6 +140,7 @@ runs:
       cd ${WORKLOAD_NAME}/xpk && sudo make install; cd -
 
   - name: Show environment
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -x -e -u {0}
     run: |
       gcloud version
@@ -121,12 +150,14 @@ runs:
       xpk version
 
   - name: Apply XPK workload create patch
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -x -e -u {0}
     run: |
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
       ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
 
   - name: Set workload commands
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -x -e -u {0}
     run: |
       # install dependencies to enable export artifacts from container to gcs bucket
@@ -174,6 +205,7 @@ runs:
       echo "CMD=${PRELUDE} ${CMD} ${POSTLUDE}" >> ${GITHUB_ENV}
 
   - name: Create workload on cluster with XPK
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -x -e -u {0}
     run: |
       source ${WORKLOAD_NAME}/.venv/bin/activate
@@ -201,7 +233,7 @@ runs:
 
       if version_greater "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
         args+=(
-            --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
+            --docker-image-pull-secret=${{ steps.store-token.outputs.token-name }}
         )
 
         envs_flat=$(echo "${{ inputs.ENVS }}" | tr '\n' ' ')
@@ -217,6 +249,7 @@ runs:
         --command="${CMD}"
 
   - name: Wait for JobSet to unsuspend on cluster
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -u {0}
     env:
       POLL_TIMEOUT: 3600
@@ -238,11 +271,13 @@ runs:
       echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${{ inputs.GKE_CLUSTER }}"
 
   - name: Set JobSet Pod name
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -u {0}
     run: |
       echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${WORKLOAD_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
 
   - name: Wait for JobSet Pod readiness
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -u {0}
     run: |
       POD_READY=false
@@ -260,6 +295,7 @@ runs:
       done;
 
   - name: Stream logs from JobSet Pods
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -u {0}
     run: |
       JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
@@ -271,6 +307,7 @@ runs:
       wait < <(jobs -p)
 
   - name: Set exit code from JobSet pods logs
+    if: steps.cluster-online.outputs.proceed == 'true'
     shell: bash -u {0}
     run: |
       parse_pod_exit_code() {
