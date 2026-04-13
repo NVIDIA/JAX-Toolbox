@@ -51,9 +51,17 @@ inputs:
     required: true
     default: ""
   bazel-remote-cache-url:
-    description: "URL of the Bazel cache endpoint to use for building the image"
-    required: true
+    description: "URL of the Bazel cache endpoint to use when disk cache is disabled"
+    required: false
     default: ""
+  ENABLE_BAZEL_DISK_CACHE:
+    description: "Enable Bazel disk cache via actions/cache"
+    required: false
+    default: "false"
+  ENABLE_BAZEL_REPO_CACHE:
+    description: "Enable Bazel repository cache via actions/cache"
+    required: false
+    default: "false"
   docker-build-allow:
     description: "Optional BuildKit entitlements to allow during docker/build-push-action"
     required: false
@@ -80,6 +88,31 @@ runs:
       run: |
         echo 'UPLD_IMAGE=ghcr.io/nvidia/jax-toolbox-internal' >> $GITHUB_ENV
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
+        if [[ "${{ inputs.ENABLE_BAZEL_DISK_CACHE }}" == "true" ]]; then
+          echo 'BAZEL_CACHE_VALUE=/cache/bazel-disk' >> "$GITHUB_ENV"
+        else
+          echo 'BAZEL_CACHE_VALUE=${{ inputs.bazel-remote-cache-url }}' >> "$GITHUB_ENV"
+        fi
+
+    - name: Resolve Bazel cache metadata
+      id: bazel-cache-metadata
+      shell: bash
+      env:
+        CACHE_BRANCH_RAW: ${{ github.head_ref || github.ref_name }}
+      run: |
+        branch="${CACHE_BRANCH_RAW:-detached}"
+        branch="$(printf '%s' "${branch}" | sed -E 's/[^A-Za-z0-9._-]+/-/g')"
+        echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+        {
+          echo "build_contexts<<EOF"
+          if [[ "${{ inputs.ENABLE_BAZEL_DISK_CACHE }}" == "true" ]]; then
+            echo "bazel-disk-seed=/tmp/bazel-disk-cache"
+          fi
+          if [[ "${{ inputs.ENABLE_BAZEL_REPO_CACHE }}" == "true" ]]; then
+            echo "bazel-repo-seed=/tmp/bazel-repo-cache"
+          fi
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
 
     - name: Setup SSH
       id: setup-ssh
@@ -115,6 +148,38 @@ runs:
         mv version.py .github/container/nsys_jax/nsys_jax/
         cat .github/container/nsys_jax/nsys_jax/version.py
 
+    - name: Restore Bazel disk cache
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: /tmp/bazel-disk.tar
+        key: bazel-disk-cache-${{ inputs.ARCHITECTURE }}-${{ steps.bazel-cache-metadata.outputs.branch }}-${{ github.run_id }}
+        restore-keys: |
+          bazel-disk-cache-${{ inputs.ARCHITECTURE }}-${{ steps.bazel-cache-metadata.outputs.branch }}-
+
+    - name: Restore Bazel repo cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: /tmp/bazel-repo.tar
+        key: bazel-repo-cache-${{ inputs.ARCHITECTURE }}-${{ steps.bazel-cache-metadata.outputs.branch }}-${{ github.run_id }}
+        restore-keys: |
+          bazel-repo-cache-${{ inputs.ARCHITECTURE }}-${{ steps.bazel-cache-metadata.outputs.branch }}-
+
+    - name: Prepare Bazel cache seed directories
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true' || inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        rm -rf /tmp/bazel-disk-cache /tmp/bazel-repo-cache
+        mkdir -p /tmp/bazel-disk-cache /tmp/bazel-repo-cache
+        if [[ -f /tmp/bazel-disk.tar ]]; then
+          tar -xf /tmp/bazel-disk.tar -C /tmp/bazel-disk-cache
+        fi
+        if [[ -f /tmp/bazel-repo.tar ]]; then
+          tar -xf /tmp/bazel-repo.tar -C /tmp/bazel-repo-cache
+        fi
+
     # MEALKIT BUILD
     - name: Set docker metadata - mealkit
       id: mealkit-metadata
@@ -134,6 +199,7 @@ runs:
       uses: docker/build-push-action@v7
       with:
         allow: ${{ inputs.docker-build-allow }}
+        build-contexts: ${{ steps.bazel-cache-metadata.outputs.build_contexts }}
         context: ${{ inputs.DOCKER_CONTEXT }}
         push: true
         file: ${{ inputs.DOCKERFILE }}
@@ -147,7 +213,7 @@ runs:
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          BAZEL_CACHE=${{ env.BAZEL_CACHE_VALUE }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
     # FINAL IMAGE BUILD
@@ -169,6 +235,7 @@ runs:
       uses: docker/build-push-action@v7
       with:
         allow: ${{ inputs.docker-build-allow }}
+        build-contexts: ${{ steps.bazel-cache-metadata.outputs.build_contexts }}
         context: ${{ inputs.DOCKER_CONTEXT }}
         push: true
         file: ${{ inputs.DOCKERFILE }}
@@ -182,9 +249,57 @@ runs:
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
-          BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
+          BAZEL_CACHE=${{ env.BAZEL_CACHE_VALUE }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    - name: Export Bazel disk cache
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
+      uses: docker/build-push-action@v7
+      with:
+        build-contexts: ${{ steps.bazel-cache-metadata.outputs.build_contexts }}
+        context: ${{ inputs.DOCKER_CONTEXT }}
+        push: false
+        file: ${{ inputs.DOCKERFILE }}
+        platforms: linux/${{ inputs.ARCHITECTURE }}
+        target: bazel-disk-export
+        outputs: type=tar,dest=/tmp/bazel-disk.tar
+        build-args: |
+          BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+          BUILD_DATE=${{ inputs.BUILD_DATE }}
+          CACHE_EXPORT_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
+          ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    - name: Export Bazel repo cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      uses: docker/build-push-action@v7
+      with:
+        build-contexts: ${{ steps.bazel-cache-metadata.outputs.build_contexts }}
+        context: ${{ inputs.DOCKER_CONTEXT }}
+        push: false
+        file: ${{ inputs.DOCKERFILE }}
+        platforms: linux/${{ inputs.ARCHITECTURE }}
+        target: bazel-repo-export
+        outputs: type=tar,dest=/tmp/bazel-repo.tar
+        build-args: |
+          BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+          BUILD_DATE=${{ inputs.BUILD_DATE }}
+          CACHE_EXPORT_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
+          ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    - name: Save Bazel disk cache
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: /tmp/bazel-disk.tar
+        key: bazel-disk-cache-${{ inputs.ARCHITECTURE }}-${{ steps.bazel-cache-metadata.outputs.branch }}-${{ github.run_id }}
+
+    - name: Save Bazel repo cache
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: /tmp/bazel-repo.tar
+        key: bazel-repo-cache-${{ inputs.ARCHITECTURE }}-${{ steps.bazel-cache-metadata.outputs.branch }}-${{ github.run_id }}
 
     # SITREP GENERATION
     - name: Generate sitrep
