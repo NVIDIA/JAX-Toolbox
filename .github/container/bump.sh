@@ -4,8 +4,8 @@
 
 usage() {
 cat <<EOF
-This script is a utility for updating source references in a manifest YAML file for building 
-JAX-Toolbox images. It either updates the 'latest_verified_commit' for each package in the 
+This script is a utility for updating source references in a manifest YAML file for building
+JAX-Toolbox images. It either updates the 'latest_verified_commit' for each package in the
 manifest based on its current tracking reference, or, if specified, creates local patches that
 freeze git-refs (which can point to different SHAs).
 
@@ -52,7 +52,7 @@ while [ : ]; do
         ;;
     --)
         shift;
-        break 
+        break
         ;;
   esac
 done
@@ -88,7 +88,8 @@ for pkg in $(yq e 'keys | .[]' $MANIFEST_OUT); do
     if [[ $mode == git-clone || $mode == pip-vcs ]] && [[ $SKIP_BUMP_REFS -eq 0 ]]; then
         url=$(yq e ".${pkg}.url" $MANIFEST_OUT)
         tracking_ref=$(yq e ".${pkg}.tracking_ref" $MANIFEST_OUT)
-        if ! new_ref=$(git ls-remote --exit-code $url $tracking_ref | awk '{print $1}'); then
+        ref="refs/heads/${tracking_ref}"
+        if ! new_ref=$(git ls-remote --exit-code $url $ref | awk '{print $1}'); then
 	    echo "Could not fetch $tracking_ref from $url"
 	    exit 1
 	fi
