@@ -57,11 +57,7 @@ class SlurmJobContainer(PyxisContainer):
     def __repr__(self) -> str:
         return f"SlurmJob({self._url})"
 
-    # ------------------------------------------------------------------
-    # Shared sbatch header builder
-    # ------------------------------------------------------------------
-
-    def _sbatch_headers(self, use_gpu: bool = True) -> typing.List[str]:
+    def _sbatch_headers(self) -> typing.List[str]:
         """Return the #SBATCH directive lines common to all job scripts."""
         cfg = self._slurm_config
         lines: typing.List[str] = []
@@ -81,7 +77,6 @@ class SlurmJobContainer(PyxisContainer):
         stages: typing.List[typing.Dict[str, typing.Any]],
         job_n: int,
         sbatch_log: pathlib.Path,
-        use_gpu: bool = True,
     ) -> str:
         """
         Return a bash script that runs every stage in *stages* as a separate
@@ -101,7 +96,7 @@ class SlurmJobContainer(PyxisContainer):
             <job_dir>/<instance>/job_N-stage-K.exit
         """
         lines = ["#!/bin/bash"]
-        lines += self._sbatch_headers(use_gpu=use_gpu)
+        lines += self._sbatch_headers()
         lines.append(f"#SBATCH --output={sbatch_log}")
         lines.append(f"#SBATCH --error={sbatch_log}")
         lines.append("")
@@ -274,8 +269,6 @@ class SlurmJobContainer(PyxisContainer):
     def exec_sequence(
         self,
         stages: typing.List[typing.Dict[str, typing.Any]],
-        *,
-        use_gpu: bool = True,
     ) -> typing.List[typing.Optional[subprocess.CompletedProcess]]:
         """
         Submit all *stages* as a SINGLE sbatch job and return one result per stage.
@@ -300,7 +293,7 @@ class SlurmJobContainer(PyxisContainer):
         sbatch_log = self._job_dir / f"job_{n}-sbatch.log"
 
         script_path.write_text(
-            self._generate_sequence_job_script(stages, n, sbatch_log, use_gpu=use_gpu)
+            self._generate_sequence_job_script(stages, n, sbatch_log)
         )
         self._logger.debug(f"Wrote sequence job script to {script_path}")
 
@@ -342,7 +335,6 @@ class SlurmJobContainer(PyxisContainer):
         try:
             results = self.exec_sequence(
                 [{"command": ["true"], "policy": "once"}],
-                use_gpu=False,
             )
         except Exception as exc:
             self._logger.debug(f"exists() job failed: {exc}")
