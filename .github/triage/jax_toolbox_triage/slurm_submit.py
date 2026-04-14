@@ -69,18 +69,12 @@ class SlurmJobContainer(PyxisContainer):
             lines.append(f"#SBATCH --account={cfg['account']}")
         if cfg.get("partition"):
             lines.append(f"#SBATCH --partition={cfg['partition']}")
-        if use_gpu and cfg.get("num_gpus", 0) > 0:
-            lines.append(f"#SBATCH --gres=gpu:{cfg['num_gpus']}")
-        lines.append("#SBATCH --nodes=1")
+        lines.append(f"#SBATCH --nodes={cfg['num_nodes']}")
+        lines.append(f"#SBATCH --ntasks-per-node={cfg['ntasks_per_node']}")
         if cfg.get("time_limit"):
             lines.append(f"#SBATCH --time={cfg['time_limit']}")
-        for flag in cfg.get("extra_flags", []):
-            lines.append(f"#SBATCH {flag}")
-        return lines
 
-    # ------------------------------------------------------------------
-    # Job script builder
-    # ------------------------------------------------------------------
+        return lines
 
     def _generate_sequence_job_script(
         self,
@@ -143,10 +137,6 @@ class SlurmJobContainer(PyxisContainer):
 
         return "\n".join(lines) + "\n"
 
-    # ------------------------------------------------------------------
-    # Job submission and polling
-    # ------------------------------------------------------------------
-
     def _submit_job(self, script_path: pathlib.Path) -> str:
         """Submit *script_path* via sbatch and return the assigned job ID."""
         sbatch_cmd = ["sbatch", "--parsable", str(script_path)]
@@ -169,7 +159,7 @@ class SlurmJobContainer(PyxisContainer):
         state.  Cancels the job and raises TimeoutError if the configured
         timeout is exceeded.
         """
-        poll_interval = self._slurm_config.get("poll_interval", 30)
+        poll_interval = self._slurm_config.get("poll_interval", 60)
         job_timeout = self._slurm_config.get("job_timeout", 14400)
         start = time.monotonic()
 
@@ -222,10 +212,6 @@ class SlurmJobContainer(PyxisContainer):
             final_state = sacct.stdout.strip().split("\n")[0].strip()
             self._logger.debug(f"SLURM job {job_id}: final state={final_state}")
 
-    # ------------------------------------------------------------------
-    # Result reader
-    # ------------------------------------------------------------------
-
     def _read_stage_output(
         self,
         job_n: int,
@@ -256,10 +242,6 @@ class SlurmJobContainer(PyxisContainer):
             stdout=stdout,
             stderr="",
         )
-
-    # ------------------------------------------------------------------
-    # Container ABC overrides
-    # ------------------------------------------------------------------
 
     def exec(
         self,

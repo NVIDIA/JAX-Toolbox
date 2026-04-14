@@ -321,35 +321,22 @@ def parse_args(args=None) -> argparse.Namespace:
         help="SLURM partition to submit jobs to (#SBATCH --partition).",
     )
     slurm_args.add_argument(
-        "--slurm-num-gpus",
+        "--slurm-num-nodes",
         default=1,
         type=int,
-        help="Number of GPUs to request per job (#SBATCH --gres=gpu:N). Default: 1.",
+        help="Number of nodes (#SBATCH --nodes). Default: 1.",
     )
     slurm_args.add_argument(
-        "--slurm-time-limit",
-        default="4:00:00",
-        help="Wall-clock time limit for each submitted job (#SBATCH --time). Default: 4:00:00.",
+        "--slurm-ntasks-per-node",
+        default=8,
+        type=int,
+        help="Number of tasks per node (#SBATCH --ntasks-per-node). Default: 8.",
     )
     slurm_args.add_argument(
         "--slurm-poll-interval",
         default=30,
         type=int,
         help="Seconds between squeue polls when waiting for a job to finish. Default: 30.",
-    )
-    slurm_args.add_argument(
-        "--slurm-job-timeout",
-        default=14400,
-        type=int,
-        help="Maximum seconds to wait for a single job before cancelling it. Default: 14400.",
-    )
-    slurm_args.add_argument(
-        "--slurm-flags",
-        nargs="*",
-        default=[],
-        help="""
-            Additional raw #SBATCH directives to include in every job script,
-            e.g. --slurm-flags='--exclude=bad-node' '--mail-type=FAIL'.""",
     )
     slurm_args.add_argument(
         "--slurm-job-dir",
