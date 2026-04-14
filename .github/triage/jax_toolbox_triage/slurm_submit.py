@@ -57,6 +57,11 @@ class SlurmJobContainer(PyxisContainer):
     def __repr__(self) -> str:
         return f"SlurmJob({self._url})"
 
+    def __enter__(self):
+        # Pre-built containers need no bazelrc workaround; skip the parent's
+        # check_exec() call and return self directly.
+        return self
+
     def _sbatch_headers(self) -> typing.List[str]:
         """Return the #SBATCH directive lines common to all job scripts."""
         cfg = self._slurm_config

@@ -333,6 +333,15 @@ def parse_args(args=None) -> argparse.Namespace:
         help="Number of tasks per node (#SBATCH --ntasks-per-node). Default: 8.",
     )
     slurm_args.add_argument(
+        "--slurm-container-url-template",
+        default=None,
+        help="""
+            Template for the per-commit container URL used at each bisection step.
+            Use {package} placeholders matching the bisected package names, e.g.
+            /scratch/containers/jax-{xla}-{jax}.sqsh.  Required when
+            --container-runtime=slurm.""",
+    )
+    slurm_args.add_argument(
         "--slurm-poll-interval",
         default=30,
         type=int,

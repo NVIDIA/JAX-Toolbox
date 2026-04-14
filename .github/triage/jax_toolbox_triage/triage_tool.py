@@ -403,6 +403,61 @@ class TriageTool:
         Returns:
             TestResult: The result of the test, including whether it passed and the output.
         """
+        # SLURM runtime: container is pre-built per commit; only submit the test.
+        if self.args.container_runtime == "slurm":
+            if not self.args.slurm_container_url_template:
+                raise ValueError(
+                    "--slurm-container-url-template is required with --container-runtime=slurm"
+                )
+            container_url = self.args.slurm_container_url_template.format(**versions)
+            brief_versions = {
+                p: ver for p, ver in versions.items() if p in self.dynamic_packages
+            }
+            brief_versions[_REPETITION_KEY] = str(test_repetition)
+            out_dir = self._test_output_directory(
+                container_url, versions=brief_versions
+            )
+
+            with self._make_container(
+                container_url, test_output_directory=out_dir
+            ) as worker:
+                before = time.monotonic()
+                (test_result,) = worker.exec_sequence(
+                    [
+                        {
+                            "command": self.args.test_command,
+                            "log_level": test_output_log_level,
+                        }
+                    ]
+                )
+                total_time = time.monotonic() - before
+
+            test_output = test_result.stdout if test_result is not None else None
+            test_result_enum = (
+                TestExecutionOutcome.TEST_SUCCESS
+                if test_result is not None and test_result.returncode == 0
+                else TestExecutionOutcome.TEST_FAILURE
+            )
+            with open(out_dir / "test.log", "w") as log:
+                log.write(test_output or "")
+            self.logger.info(
+                f"Test completed in {total_time:.1f}s ({test_result_enum})"
+            )
+            summary = {
+                "test_time": total_time,
+                "container": container_url,
+                "output_directory": out_dir.as_posix(),
+            }
+            summary.update(versions)
+            summary["result"] = str(test_result_enum)
+            add_summary_record(self.args.output_prefix, "versions", summary)
+            return TestResult(
+                build_stdouterr="",
+                host_output_directory=out_dir,
+                result=test_result_enum,
+                stdouterr=test_output,
+            )
+
         # Amortise container startup overhead by batching together git commands
         git_commands, changed, skipped = [], [], []
         for package in sorted(self.dynamic_packages):

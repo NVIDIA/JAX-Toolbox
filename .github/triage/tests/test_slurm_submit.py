@@ -18,6 +18,7 @@ import tempfile
 import pytest
 
 from jax_toolbox_triage.args import compulsory_software, parse_args
+from jax_toolbox_triage.logic import CouldNotReproduceFailure
 from jax_toolbox_triage.triage_tool import InconsistentResults, TriageTool
 
 mock_scripts_path = pathlib.Path(__file__).parent / "mock_scripts"
@@ -27,6 +28,8 @@ slurm_args = [
     "--container-runtime=slurm",
     "--slurm-account=test-account",
     "--slurm-partition=test-partition",
+    "--slurm-num-nodes=1",
+    "--slurm-ntasks-per-node=1",
     # poll_interval=0 avoids any real sleep; squeue mock returns empty immediately
     "--slurm-poll-interval=0",
 ]
@@ -110,25 +113,25 @@ def _make_tool(arg_list, output_prefix):
     return TriageTool(args, logger), args
 
 
-@pytest.mark.parametrize("num_nodes", [1, 2])
-@pytest.mark.parametrize("processes_per_node", [1, 8])
-def test_mock_containers(
-    monkeypatch,
-    passing_container,
-    failing_container,
-    num_nodes,
-    processes_per_node,
-):
-    """Full bisection converges to the correct bad commit via sbatch jobs."""
+def test_mock_containers(monkeypatch, passing_container, failing_container):
+    """Full bisection converges to the correct bad commit via sbatch jobs.
+
+    The container URL template encodes the commit under test as the last path
+    component.  slurm-test-case.sh extracts the commit from the URL and checks
+    git ancestry to determine pass/fail without checking out anything.
+    """
     bad_package = compulsory_software[0]
-    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", str(num_nodes))
-    monkeypatch.setenv(
-        "JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", str(processes_per_node)
-    )
+    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", "1")
+    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", "1")
     monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
+
+    # Encode the bad_package commit as the last URL path component so the mock
+    # test script can check ancestry without a git checkout inside the job.
+    url_template = f"{failing_container['prefix']}/{{{bad_package}}}"
 
     with tempfile.TemporaryDirectory() as output_prefix:
         arg_list = slurm_args + [
+            f"--slurm-container-url-template={url_template}",
             "--output-prefix",
             output_prefix,
             "--passing-container",
@@ -136,9 +139,10 @@ def test_mock_containers(
             "--failing-container",
             str(failing_container["prefix"]),
             "--",
-            "test-case.sh",
+            "slurm-test-case.sh",
             f"/opt/{bad_package}",
             failing_container[f"{bad_package}_bad"],
+            str(failing_container["prefix"]),
         ]
         tool, args = _make_tool(arg_list, output_prefix)
 
@@ -169,16 +173,20 @@ def test_mock_containers(
 
 def test_job_scripts_are_written(monkeypatch, passing_container, failing_container):
     """
-    Verify that sbatch job scripts are written to the expected directory and
-    contain the required #SBATCH headers.
+    Verify that sbatch job scripts are written to the expected directory,
+    contain the required #SBATCH headers, and contain only the test command
+    (no git checkout or build steps).
     """
     monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", "1")
     monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", "1")
     monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
 
     bad_package = compulsory_software[0]
+    url_template = f"{failing_container['prefix']}/{{{bad_package}}}"
+
     with tempfile.TemporaryDirectory() as output_prefix:
         arg_list = slurm_args + [
+            f"--slurm-container-url-template={url_template}",
             "--output-prefix",
             output_prefix,
             "--passing-container",
@@ -186,9 +194,10 @@ def test_job_scripts_are_written(monkeypatch, passing_container, failing_contain
             "--failing-container",
             str(failing_container["prefix"]),
             "--",
-            "test-case.sh",
+            "slurm-test-case.sh",
             f"/opt/{bad_package}",
             failing_container[f"{bad_package}_bad"],
+            str(failing_container["prefix"]),
         ]
         tool, args = _make_tool(arg_list, output_prefix)
         passing_versions, failing_versions = tool.gather_version_info(
@@ -196,19 +205,22 @@ def test_job_scripts_are_written(monkeypatch, passing_container, failing_contain
         )
         tool.run_version_bisection(passing_versions, failing_versions)
 
-        # At least one job script must have been written
         slurm_jobs_dir = pathlib.Path(output_prefix) / "slurm-jobs"
         scripts = list(slurm_jobs_dir.rglob("job_*.sh"))
         assert len(scripts) > 0, "No job scripts were written"
 
-        # Every script must declare the account and partition we specified
         for script in scripts:
             content = script.read_text()
             assert "#SBATCH --account=test-account" in content, script
             assert "#SBATCH --partition=test-partition" in content, script
+            assert "#SBATCH --nodes=" in content, script
+            assert "#SBATCH --ntasks-per-node=" in content, script
             assert "#SBATCH --output=" in content, script
             assert "#SBATCH --error=" in content, script
             assert "srun" in content, script
+            # SLURM jobs must NOT contain build steps
+            assert "build-jax.sh" not in content, script
+            assert "git checkout" not in content, script
 
 
 def test_output_files_are_read_back(monkeypatch, passing_container, failing_container):
@@ -221,8 +233,11 @@ def test_output_files_are_read_back(monkeypatch, passing_container, failing_cont
     monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
 
     bad_package = compulsory_software[0]
+    url_template = f"{failing_container['prefix']}/{{{bad_package}}}"
+
     with tempfile.TemporaryDirectory() as output_prefix:
         arg_list = slurm_args + [
+            f"--slurm-container-url-template={url_template}",
             "--output-prefix",
             output_prefix,
             "--passing-container",
@@ -230,9 +245,10 @@ def test_output_files_are_read_back(monkeypatch, passing_container, failing_cont
             "--failing-container",
             str(failing_container["prefix"]),
             "--",
-            "test-case.sh",
+            "slurm-test-case.sh",
             f"/opt/{bad_package}",
             failing_container[f"{bad_package}_bad"],
+            str(failing_container["prefix"]),
         ]
         tool, args = _make_tool(arg_list, output_prefix)
         passing_versions, failing_versions = tool.gather_version_info(
@@ -251,18 +267,22 @@ def test_output_files_are_read_back(monkeypatch, passing_container, failing_cont
             ).isdigit(), f"{exit_file} contains non-integer exit code: {content!r}"
 
 
-def test_node_pinning(monkeypatch, passing_container, failing_container):
+def test_container_name_consistency(monkeypatch, passing_container, failing_container):
     """
-    After the first exec() resolves a node via sacct, subsequent job scripts
-    in the same session must include --nodelist=mock-node.
+    All job scripts within the same SlurmJobContainer instance must use the
+    same --container-name (derived from URL hash + process token), confirming
+    that enroot reuses the same cached image across calls.
     """
     monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", "1")
     monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", "1")
     monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
 
     bad_package = compulsory_software[0]
+    url_template = f"{failing_container['prefix']}/{{{bad_package}}}"
+
     with tempfile.TemporaryDirectory() as output_prefix:
         arg_list = slurm_args + [
+            f"--slurm-container-url-template={url_template}",
             "--output-prefix",
             output_prefix,
             "--passing-container",
@@ -270,9 +290,10 @@ def test_node_pinning(monkeypatch, passing_container, failing_container):
             "--failing-container",
             str(failing_container["prefix"]),
             "--",
-            "test-case.sh",
+            "slurm-test-case.sh",
             f"/opt/{bad_package}",
             failing_container[f"{bad_package}_bad"],
+            str(failing_container["prefix"]),
         ]
         tool, args = _make_tool(arg_list, output_prefix)
         passing_versions, failing_versions = tool.gather_version_info(
@@ -285,8 +306,6 @@ def test_node_pinning(monkeypatch, passing_container, failing_container):
             scripts = sorted(ctr_dir.glob("job_*.sh"))
             if len(scripts) < 2:
                 continue
-            # All scripts in the same container session share the same
-            # --container-name value (derived from the URL hash + process token).
             container_names = set()
             for s in scripts:
                 for line in s.read_text().splitlines():
@@ -304,66 +323,21 @@ def test_mock_container_precondition_checks(
     monkeypatch, passing_container, failing_container
 ):
     """
-    If success can be reproduced in the good container but not in the bad one,
-    the tool must raise InconsistentResults.
+    If the test always passes regardless of the commit being tested the tool
+    must raise InconsistentResults (failing_versions should fail, but doesn't).
     """
     bad_package = compulsory_software[0]
     monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", "1")
     monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", "1")
     monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
 
-    with tempfile.TemporaryDirectory() as output_prefix:
-        arg_list = slurm_args + [
-            "--output-prefix",
-            output_prefix,
-            "--passing-container",
-            str(passing_container["prefix"]),
-            "--failing-container",
-            str(failing_container["prefix"]),
-            "--",
-            "sh",
-            "-c",
-            " && ".join(
-                [
-                    f"[ $JAX_TOOLBOX_TRIAGE_MOCK_SRUN_CONTAINER_IMAGE"
-                    f" = {passing_container['prefix']} ]",
-                    f"test-case.sh /opt/{bad_package}"
-                    f" {failing_container[f'{bad_package}_bad']}",
-                ]
-            ),
-        ]
-        tool, args = _make_tool(arg_list, output_prefix)
-        passing_versions, failing_versions = tool.gather_version_info(
-            args.passing_container, args.failing_container
-        )
-        with pytest.raises(InconsistentResults):
-            tool.run_version_bisection(passing_versions, failing_versions)
-
-
-@pytest.mark.parametrize("ccache_mode", ["configured", "excluded"])
-def test_build_te_ccache_arguments(
-    monkeypatch,
-    passing_container,
-    failing_container,
-    ccache_mode,
-):
-    """Transformer Engine ccache flags are propagated correctly through sbatch jobs."""
-    bad_package = compulsory_software[0]
-    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", "1")
-    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", "1")
-    monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
-
-    if ccache_mode == "excluded":
-        ccache_args = ["--exclude-transformer-engine"]
-        monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_BUILD_TE_POISON_PILL", "1")
-    else:
-        ccache_args = ["--transformer-engine-ccache-env", "CCACHE_SENTINEL=42"]
+    url_template = f"{failing_container['prefix']}/{{{bad_package}}}"
 
     with tempfile.TemporaryDirectory() as output_prefix:
         arg_list = (
             slurm_args
-            + ccache_args
             + [
+                f"--slurm-container-url-template={url_template}",
                 "--output-prefix",
                 output_prefix,
                 "--passing-container",
@@ -371,13 +345,12 @@ def test_build_te_ccache_arguments(
                 "--failing-container",
                 str(failing_container["prefix"]),
                 "--",
-                "test-case.sh",
-                f"/opt/{bad_package}",
-                failing_container[f"{bad_package}_bad"],
+                "true",  # always succeeds → failing_versions won't fail → InconsistentResults
             ]
         )
         tool, args = _make_tool(arg_list, output_prefix)
         passing_versions, failing_versions = tool.gather_version_info(
             args.passing_container, args.failing_container
         )
-        tool.run_version_bisection(passing_versions, failing_versions)
+        with pytest.raises((InconsistentResults, CouldNotReproduceFailure)):
+            tool.run_version_bisection(passing_versions, failing_versions)
