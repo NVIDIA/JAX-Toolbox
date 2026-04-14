@@ -301,7 +301,7 @@ def parse_args(args=None) -> argparse.Namespace:
         help="Container runtime used, can be docker, pyxis, slurm, or local.",
         type=lambda s: s.lower(),
     )
-
+    # SLURM specific inputs
     slurm_args = parser.add_argument_group(
         title="SLURM job submission (--container-runtime=slurm)",
         description="""
@@ -321,10 +321,16 @@ def parse_args(args=None) -> argparse.Namespace:
         help="SLURM partition to submit jobs to (#SBATCH --partition).",
     )
     slurm_args.add_argument(
-        "--slurm-num-gpus",
+        "--slurm-nodes",
         default=1,
         type=int,
-        help="Number of GPUs to request per job (#SBATCH --gres=gpu:N). Default: 1.",
+        help="Number of nodes to request per job (#SBATCH --nodes). Default: 1.",
+    )
+    slurm_args.add_argument(
+        "--slurm-ntasks-per-node",
+        default=8,
+        type=int,
+        help="ntsks per node per container policy in SLURM (#SBATCH ntasks-per-node). Default: 8.",
     )
     slurm_args.add_argument(
         "--slurm-time-limit",

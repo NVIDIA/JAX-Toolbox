@@ -85,9 +85,7 @@ class SlurmJobContainer(PyxisContainer):
             lines.append(f"#SBATCH --account={cfg['account']}")
         if cfg.get("partition"):
             lines.append(f"#SBATCH --partition={cfg['partition']}")
-        if use_gpu and cfg.get("num_gpus", 0) > 0:
-            lines.append(f"#SBATCH --gres=gpu:{cfg['num_gpus']}")
-        lines.append("#SBATCH --nodes=1")
+        lines.append(f"#SBATCH --nodes={cfg['num_nodes']}")
         lines.append(f"#SBATCH --output={stdout_path}")
         lines.append(f"#SBATCH --error={stderr_path}")
         if cfg.get("time_limit"):
@@ -98,9 +96,7 @@ class SlurmJobContainer(PyxisContainer):
         lines.append("")
         lines.append(shlex.join(srun_cmd))
         # Write the exit code to a dedicated file so the login node can read it
-        # after the job finishes.  We do this explicitly rather than relying on
-        # sacct's ExitCode field, which reflects signals/OOM kills rather than
-        # the application's own exit status.
+        # after the job finishes.
         lines.append(f"echo $? > {exit_code_path}")
 
         return "\n".join(lines) + "\n"

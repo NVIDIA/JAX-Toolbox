@@ -105,11 +105,12 @@ class TriageTool:
             slurm_config = {
                 "account": self.args.slurm_account,
                 "partition": self.args.slurm_partition,
-                "num_gpus": self.args.slurm_num_gpus,
+                "num_nodes": self.args.slurm_nodes,
                 "time_limit": self.args.slurm_time_limit,
                 "poll_interval": self.args.slurm_poll_interval,
                 "job_timeout": self.args.slurm_job_timeout,
                 "extra_flags": self.args.slurm_flags,
+                "ntasks_per_node": self.args.slurm_ntasks_per_node,
                 "job_dir": (
                     self.args.slurm_job_dir or self.args.output_prefix / "slurm-jobs"
                 ),
