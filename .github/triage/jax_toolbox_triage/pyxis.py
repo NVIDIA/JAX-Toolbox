@@ -48,25 +48,23 @@ class PyxisContainer(Container):
     def __repr__(self):
         return f"Pyxis({self._url})"
 
-    def exec(
+    def _build_srun_command(
         self,
         command: typing.List[str],
-        *,
-        policy: typing.Literal["once", "once_per_container", "default"] = "default",
-        stderr: typing.Literal["interleaved", "separate"] = "interleaved",
-        workdir: typing.Optional[str] = None,
-        log_level: int = logging.DEBUG,
-    ) -> subprocess.CompletedProcess:
+        policy: typing.Literal["once", "once_per_container", "default"],
+        workdir: typing.Optional[str],
+    ) -> typing.List[str]:
         """
-        Run a command inside a persistent container.
+        Build the srun invocation for this container without executing it.
+        Shared by PyxisContainer.exec() and SlurmJobContainer._generate_job_script().
         """
-        wd_arg = [] if workdir is None else [f"--container-workdir={workdir}"]
         policy_args = {
             "once": ["--ntasks=1"],
             "once_per_container": ["--ntasks-per-node=1"],
             "default": [],
         }[policy]
-        command = (
+        wd_arg = [] if workdir is None else [f"--container-workdir={workdir}"]
+        return (
             [
                 "srun",
                 f"--container-image={self._url}",
@@ -79,8 +77,24 @@ class PyxisContainer(Container):
             + wd_arg
             + command
         )
+
+    def exec(
+        self,
+        command: typing.List[str],
+        *,
+        policy: typing.Literal["once", "once_per_container", "default"] = "default",
+        stderr: typing.Literal["interleaved", "separate"] = "interleaved",
+        workdir: typing.Optional[str] = None,
+        log_level: int = logging.DEBUG,
+    ) -> subprocess.CompletedProcess:
+        """
+        Run a command inside a persistent container.
+        """
         return run_and_log(
-            command, logger=self._logger, log_level=log_level, stderr=stderr
+            self._build_srun_command(command, policy, workdir),
+            logger=self._logger,
+            log_level=log_level,
+            stderr=stderr,
         )
 
     def exists(self) -> bool:

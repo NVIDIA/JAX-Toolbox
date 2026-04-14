@@ -1,35 +1,38 @@
-import hashlib
 import itertools
 import logging
 import pathlib
-import secrets
 import shlex
 import subprocess
 import time
 import typing
 
-from .container import Container
-
-# Makes container names process-unique (same intent as in pyxis.py)
-_process_token = secrets.token_bytes()
+from .pyxis import PyxisContainer
 
 # Monotonic counter so every SlurmJobContainer instance gets its own job directory,
 # even when multiple containers share the same URL within a single process.
 _instance_counter = itertools.count()
 
 
-class SlurmJobContainer(Container):
+class SlurmJobContainer(PyxisContainer):
     """
-    Container backend that submits each exec() call as an sbatch job.
+    Pyxis/enroot container backend that submits each exec() call as an sbatch job.
 
-    Intended for use on login nodes where srun/salloc would be inappropriate.
+    Extends PyxisContainer, reusing its container-naming scheme, mount-argument
+    construction, srun-command building, __enter__ bazelrc workaround, and
+    __exit__ no-op.  The only behavioural difference is *how the srun command is
+    dispatched*:
+
+    - PyxisContainer  → calls srun directly (requires an existing salloc allocation)
+    - SlurmJobContainer → wraps the same srun call in an sbatch script and polls
+                          for completion (runs from the login node, no prior salloc)
+
     GPUs are requested only for the duration of each individual job, so no
     resources are held between bisection steps.
 
     Container state (git checkouts, build artefacts) persists across jobs because
-    enroot stores named containers on the node's local filesystem between allocations.
-    Subsequent exec() calls within the same context manager are pinned to the first
-    node that was assigned by SLURM, ensuring state continuity.
+    enroot stores named containers on the node's local filesystem between
+    allocations.  Subsequent exec() calls within the same context-manager session
+    are pinned to the first node assigned by SLURM, ensuring state continuity.
     """
 
     def __init__(
@@ -40,13 +43,12 @@ class SlurmJobContainer(Container):
         mounts: typing.List[typing.Tuple[pathlib.Path, pathlib.Path]],
         slurm_config: typing.Dict[str, typing.Any],
     ):
-        super().__init__(logger=logger)
-        mount_str = ",".join(f"{src}:{dst}" for src, dst in mounts)
-        self._mount_args = [f"--container-mounts={mount_str}"] if mount_str else []
-        self._name = hashlib.sha256(url.encode() + _process_token).hexdigest()
-        self._url = url
+        # Delegate container naming, mount construction, and url storage to the
+        # parent; __enter__ (bazelrc workaround) and __exit__ (no-op) are also
+        # inherited unchanged.
+        super().__init__(url, logger=logger, mounts=mounts)
         self._slurm_config = slurm_config
-        # Node to which subsequent jobs in this session are pinned (set after first job)
+        # Node to which subsequent jobs in this session are pinned (set on first job)
         self._node: typing.Optional[str] = None
         self._job_counter = 0
         # Each instance gets its own subdirectory so concurrent container objects
@@ -55,24 +57,6 @@ class SlurmJobContainer(Container):
         base_job_dir = pathlib.Path(slurm_config["job_dir"])
         self._job_dir = base_job_dir / f"ctr{instance_id:04d}"
         self._job_dir.mkdir(parents=True, exist_ok=True)
-
-    def __enter__(self) -> "SlurmJobContainer":
-        self._logger.debug(f"Launching {self}")
-        # Workaround for pyxis backend with some bazel versions
-        # https://github.com/bazelbuild/bazel/issues/22955#issuecomment-2293899428
-        self.check_exec(
-            [
-                "sh",
-                "-c",
-                "echo 'startup --host_jvm_args=-XX:-UseContainerSupport' > ${JAX_TOOLBOX_TRIAGE_PREFIX}/root/.bazelrc",
-            ]
-        )
-        return self
-
-    def __exit__(self, *exc_info) -> None:
-        # Container files remain on the pinned node; enroot cleans them up on its own
-        # schedule.  Nothing to do here.
-        pass
 
     def __repr__(self) -> str:
         return f"SlurmJob({self._url})"
@@ -92,26 +76,8 @@ class SlurmJobContainer(Container):
         use_gpu: bool = True,
     ) -> str:
         """Return a bash script suitable for submission via sbatch."""
-        policy_args: typing.List[str] = {
-            "once": ["--ntasks=1"],
-            "once_per_container": ["--ntasks-per-node=1"],
-            "default": [],
-        }[policy]
-        wd_arg = [] if workdir is None else [f"--container-workdir={workdir}"]
-
-        srun_cmd = (
-            [
-                "srun",
-                f"--container-image={self._url}",
-                f"--container-name={self._name}",
-                "--container-remap-root",
-                "--no-container-mount-home",
-            ]
-            + self._mount_args
-            + policy_args
-            + wd_arg
-            + command
-        )
+        # Reuse the parent's srun-command builder — no duplication of flags
+        srun_cmd = self._build_srun_command(command, policy, workdir)
 
         cfg = self._slurm_config
         lines = ["#!/bin/bash"]
@@ -147,7 +113,7 @@ class SlurmJobContainer(Container):
         sbatch_cmd.append(str(script_path))
 
         self._logger.debug(f"Submitting: {shlex.join(sbatch_cmd)}")
-        result = subprocess.run(sbatch_cmd, capture_output=True, text=True)
+        result = subprocess.run(sbatch_cmd, capture_output=True, text=True, check=False)
         if result.returncode != 0:
             raise RuntimeError(
                 f"sbatch submission failed (exit {result.returncode}):\n"
@@ -159,10 +125,12 @@ class SlurmJobContainer(Container):
 
     def _wait_for_job(self, job_id: str) -> typing.Optional[str]:
         """
-        Block until *job_id* leaves the SLURM queue, then return the node it ran on.
+        Block until *job_id* leaves the SLURM queue, then return the node it
+        ran on.
 
-        Uses squeue for live polling and sacct for the authoritative final state.
-        Cancels the job and raises TimeoutError if the configured timeout is exceeded.
+        Uses squeue for live polling and sacct for the authoritative final
+        state.  Cancels the job and raises TimeoutError if the configured
+        timeout is exceeded.
         """
         poll_interval = self._slurm_config.get("poll_interval", 30)
         job_timeout = self._slurm_config.get("job_timeout", 14400)
@@ -182,7 +150,7 @@ class SlurmJobContainer(Container):
         while True:
             elapsed = time.monotonic() - start
             if elapsed > job_timeout:
-                subprocess.run(["scancel", job_id], capture_output=True)
+                subprocess.run(["scancel", job_id], capture_output=True, check=False)
                 raise TimeoutError(
                     f"SLURM job {job_id} exceeded timeout of {job_timeout}s; cancelled"
                 )
@@ -190,6 +158,7 @@ class SlurmJobContainer(Container):
             squeue = subprocess.run(
                 ["squeue", "--job", job_id, "--noheader", "--format=%T|%N"],
                 capture_output=True,
+                check=False,
                 text=True,
             )
 
@@ -224,6 +193,7 @@ class SlurmJobContainer(Container):
                 "--parsable2",
             ],
             capture_output=True,
+            check=False,
             text=True,
         )
         if sacct.stdout.strip():
@@ -271,7 +241,7 @@ class SlurmJobContainer(Container):
         )
 
     # ------------------------------------------------------------------
-    # Container ABC implementation
+    # Container ABC overrides
     # ------------------------------------------------------------------
 
     def exec(
