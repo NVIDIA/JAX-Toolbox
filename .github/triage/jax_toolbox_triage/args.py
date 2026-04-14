@@ -321,16 +321,10 @@ def parse_args(args=None) -> argparse.Namespace:
         help="SLURM partition to submit jobs to (#SBATCH --partition).",
     )
     slurm_args.add_argument(
-        "--slurm-nodes",
+        "--slurm-num-gpus",
         default=1,
         type=int,
-        help="Number of nodes to request per job (#SBATCH --nodes). Default: 1.",
-    )
-    slurm_args.add_argument(
-        "--slurm-ntasks-per-node",
-        default=8,
-        type=int,
-        help="ntsks per node per container policy in SLURM (#SBATCH ntasks-per-node). Default: 8.",
+        help="Number of GPUs to request per job (#SBATCH --gres=gpu:N). Default: 1.",
     )
     slurm_args.add_argument(
         "--slurm-time-limit",

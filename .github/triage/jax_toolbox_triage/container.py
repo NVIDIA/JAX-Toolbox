@@ -65,6 +65,45 @@ class Container(ABC):
             result.check_returncode()
         return result
 
+    def exec_sequence(
+        self,
+        stages: typing.List[typing.Dict[str, typing.Any]],
+    ) -> typing.List[typing.Optional[subprocess.CompletedProcess]]:
+        """
+        Run a list of command stages sequentially, returning one result per stage.
+
+        Each stage is a dict with:
+          "command"         List[str]  — required
+          "policy"          str        — forwarded to exec() (default "default")
+          "stderr"          str        — forwarded to exec() (default "interleaved")
+          "workdir"         str|None   — forwarded to exec()
+          "log_level"       int        — forwarded to exec()
+          "check"           bool       — raise CalledProcessError on non-zero exit
+          "stop_on_failure" bool       — skip remaining stages on non-zero exit
+
+        Stages that were not reached (because a prior stop_on_failure stage failed)
+        are represented as None in the returned list.
+
+        Subclasses may override this to submit all stages as a single batch job.
+        """
+        _EXEC_KEYS = {"policy", "stderr", "workdir", "log_level"}
+        results: typing.List[typing.Optional[subprocess.CompletedProcess]] = []
+        for stage in stages:
+            kwargs = {k: v for k, v in stage.items() if k in _EXEC_KEYS}
+            result = self.exec(stage["command"], **kwargs)
+            results.append(result)
+            if stage.get("check", False) and result.returncode != 0:
+                self._logger.fatal(
+                    f"{' '.join(stage['command'])} exited with return code "
+                    f"{result.returncode}"
+                )
+                self._logger.fatal(result.stdout)
+                result.check_returncode()
+            if stage.get("stop_on_failure", False) and result.returncode != 0:
+                results.extend([None] * (len(stages) - len(results)))
+                break
+        return results
+
     @abstractmethod
     def exists(self) -> bool:
         """

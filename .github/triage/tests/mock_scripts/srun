@@ -14,25 +14,30 @@ parser.add_argument("--container-workdir")
 parser.add_argument("--no-container-mount-home", action="store_true")
 parser.add_argument("--ntasks", type=int)
 parser.add_argument("--ntasks-per-node", type=int)
+parser.add_argument("--output", default=None)
+parser.add_argument("--error", default=None)
 args, test_cmd = parser.parse_known_args()
 os.environ["JAX_TOOLBOX_TRIAGE_MOCK_SRUN_CONTAINER_IMAGE"] = args.container_image
 num_nodes = int(os.environ["JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES"])
 procs_per_node = int(os.environ["JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE"])
 if args.ntasks_per_node is not None:
     procs_per_node = args.ntasks_per_node
-procs = []
+
+# Build list of (node_index, task_index, prefix) for each process
+task_list = []
 if num_nodes > 1:
-    # Make node-local copies
     for node in range(num_nodes):
         node_prefix = f"{args.container_image}-node{node}of{num_nodes}"
         if not os.path.isdir(node_prefix):
             shutil.copytree(args.container_image, node_prefix)
-        procs += [node_prefix] * procs_per_node
+        for task in range(procs_per_node):
+            task_list.append((node, task, node_prefix))
 else:
-    # Use the original
-    procs += [args.container_image] * procs_per_node
+    for task in range(procs_per_node):
+        task_list.append((0, task, args.container_image))
+
 if args.ntasks is not None:
-    procs = procs[: args.ntasks]
+    task_list = task_list[: args.ntasks]
 
 
 # JAX_TOOLBOX_TRIAGE_PREFIX is a lazy alternative to making something chroot-like work
@@ -40,20 +45,40 @@ def env(prefix):
     assert len(prefix)
     if prefix[:-1] != "/":
         prefix += "/"
-    env = os.environ.copy()
-    env["JAX_TOOLBOX_TRIAGE_PREFIX"] = prefix
+    e = os.environ.copy()
+    e["JAX_TOOLBOX_TRIAGE_PREFIX"] = prefix
     try:
         with open(f"{prefix}.env") as env_file:
             for line in env_file:
                 k, v = line.strip().split("=", 1)
-                env[k] = v
+                e[k] = v
     except OSError:
         pass
-    return env
+    return e
 
-print("srun: warning: sometimes srun likes to print warnings on stderr", file=sys.stderr)
-results = [
-    subprocess.Popen(
+
+def expand_pattern(pattern, node, task):
+    if pattern is None:
+        return None
+    return pattern.replace("%n", str(node)).replace("%t", str(task))
+
+
+print(
+    "srun: warning: sometimes srun likes to print warnings on stderr", file=sys.stderr
+)
+
+handles = []
+for node, task, prefix in task_list:
+    out_path = expand_pattern(args.output, node, task)
+    err_path = expand_pattern(args.error, node, task)
+
+    out_file = open(out_path, "w") if out_path else None
+    if err_path and err_path != out_path:
+        err_file = open(err_path, "w")
+    else:
+        err_file = out_file
+
+    proc = subprocess.Popen(
         test_cmd,
         cwd=(
             f"{prefix}/{args.container_workdir}"
@@ -61,9 +86,18 @@ results = [
             else None
         ),
         env=env(prefix),
+        stdout=out_file if out_file is not None else None,
+        stderr=err_file if err_file is not None else None,
     )
-    for prefix in procs
-]
-for res in results:
-    res.wait()
+    handles.append((proc, out_file, err_file))
+
+results = []
+for proc, out_file, err_file in handles:
+    proc.wait()
+    results.append(proc)
+    if out_file is not None:
+        out_file.close()
+    if err_file is not None and err_file is not out_file:
+        err_file.close()
+
 sys.exit(any(x.returncode != 0 for x in results))

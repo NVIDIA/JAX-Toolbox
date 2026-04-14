@@ -44,7 +44,7 @@ subprocess.run(
     ["bash", args.script],
     stdout=out_file,
     stderr=err_file,
-    env=os.environ,
+    env={**os.environ, "SLURM_JOB_ID": "12345"},
 )
 
 if out_file is not None:

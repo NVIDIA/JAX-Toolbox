@@ -105,12 +105,11 @@ class TriageTool:
             slurm_config = {
                 "account": self.args.slurm_account,
                 "partition": self.args.slurm_partition,
-                "num_nodes": self.args.slurm_nodes,
+                "num_gpus": self.args.slurm_num_gpus,
                 "time_limit": self.args.slurm_time_limit,
                 "poll_interval": self.args.slurm_poll_interval,
                 "job_timeout": self.args.slurm_job_timeout,
                 "extra_flags": self.args.slurm_flags,
-                "ntasks_per_node": self.args.slurm_ntasks_per_node,
                 "job_dir": (
                     self.args.slurm_job_dir or self.args.output_prefix / "slurm-jobs"
                 ),
@@ -463,13 +462,8 @@ class TriageTool:
             if len(skipped):
                 info_str += f", leaving {' '.join(skipped)} unchanged"
             self.logger.info(info_str)
-            worker.check_exec(
-                ["sh", "-c", " && ".join(git_commands)],
-                policy="once_per_container",
-            )
             # Build JAX
             # TODO: do not build JAX/XLA/TransformerEngine if we know their versions did not change?
-            before = time.monotonic()
             # Unfortunately the build system does not always seem to handle incremental
             # rebuilds correctly, so clean the local cache and rely on the remote one.
             build_cmds = [
@@ -483,31 +477,40 @@ class TriageTool:
                     )
                 else:
                     build_cmds.append("build-te.sh")
-            build_result = worker.exec(
-                ["sh", "-c", " && ".join(build_cmds)],
-                policy="once_per_container",
-                workdir=self.package_dirs["jax"],
-            )
-            build_pass = build_result.returncode == 0
+            stages = [
+                {
+                    "command": ["sh", "-c", " && ".join(git_commands)],
+                    "policy": "once_per_container",
+                    "check": True,
+                    "stop_on_failure": True,
+                },
+                {
+                    "command": ["sh", "-c", " && ".join(build_cmds)],
+                    "policy": "once_per_container",
+                    "workdir": self.package_dirs["jax"],
+                    "stop_on_failure": True,
+                },
+                {
+                    "command": self.args.test_command,
+                    "log_level": test_output_log_level,
+                },
+            ]
+            before = time.monotonic()
+            _, build_result, test_result = worker.exec_sequence(stages)
+            total_time = time.monotonic() - before
+            build_pass = build_result is not None and build_result.returncode == 0
             with open(out_dir / "build.log", "w") as log:
-                log.write(build_result.stdout)
-            middle = time.monotonic()
-            build_time = middle - before
+                log.write(build_result.stdout if build_result is not None else "")
             self.logger.info(
-                f"Build {'succeeded' if build_pass else 'failed'} in {build_time:.1f}s"
+                f"Build {'succeeded' if build_pass else 'failed'} in {total_time:.1f}s"
             )
             summary = {
-                "build_time": build_time,
+                "build_time": total_time,
                 "container": self.bisection_url,
             }
             summary.update(versions)
-            if build_pass:
-                # Run the test
-                test_result = worker.exec(
-                    self.args.test_command, log_level=test_output_log_level
-                )
+            if build_pass and test_result is not None:
                 test_output = test_result.stdout
-                test_time = time.monotonic() - middle
                 with open(out_dir / "test.log", "w") as log:
                     log.write(test_output)
                 test_result_enum = (
@@ -516,10 +519,7 @@ class TriageTool:
                     else TestExecutionOutcome.TEST_FAILURE
                 )
                 summary["output_directory"] = out_dir.as_posix()
-                summary["test_time"] = test_time
-                self.logger.info(
-                    f"Test completed in {test_time:.1f}s ({test_result_enum})"
-                )
+                self.logger.info(f"Test completed ({test_result_enum})")
             else:
                 test_output = None
                 test_result_enum = TestExecutionOutcome.BUILD_FAILURE
