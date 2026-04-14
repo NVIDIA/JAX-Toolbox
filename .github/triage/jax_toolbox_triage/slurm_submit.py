@@ -26,13 +26,9 @@ class SlurmJobContainer(PyxisContainer):
     - SlurmJobContainer → wraps srun in sbatch scripts submitted from the login
                           node; GPUs are held only for the duration of each job
 
-    exec() submits one job per call (used for lightweight operations such as
-    version gathering and git history queries).
-
-    exec_sequence() submits ONE job for the entire checkout → build → test
-    pipeline, so no resources are held between bisection steps and no node
-    pinning is required.  Each srun step within that job writes its output to
-    per-rank log files named:
+    All commands — whether a single exec() call or a multi-stage exec_sequence()
+    — are submitted as a single sbatch job via the same code path.  Each srun
+    step within that job writes its output to per-rank log files named:
 
         <job_dir>/<instance>/job_N-<slurm_job_id>/stage-K-node-M-rank-R.log
     """
@@ -83,32 +79,7 @@ class SlurmJobContainer(PyxisContainer):
         return lines
 
     # ------------------------------------------------------------------
-    # Single-command job script  (used by exec() and exists())
-    # ------------------------------------------------------------------
-
-    def _generate_job_script(
-        self,
-        command: typing.List[str],
-        policy: typing.Literal["once", "once_per_container", "default"],
-        workdir: typing.Optional[str],
-        stdout_path: pathlib.Path,
-        stderr_path: pathlib.Path,
-        exit_code_path: pathlib.Path,
-        use_gpu: bool = True,
-    ) -> str:
-        """Return a single-command bash script suitable for sbatch submission."""
-        srun_cmd = self._build_srun_command(command, policy, workdir)
-        lines = ["#!/bin/bash"]
-        lines += self._sbatch_headers(use_gpu)
-        lines.append(f"#SBATCH --output={stdout_path}")
-        lines.append(f"#SBATCH --error={stderr_path}")
-        lines.append("")
-        lines.append(shlex.join(srun_cmd))
-        lines.append(f"echo $? > {exit_code_path}")
-        return "\n".join(lines) + "\n"
-
-    # ------------------------------------------------------------------
-    # Multi-stage job script  (used by exec_sequence())
+    # Job script builder
     # ------------------------------------------------------------------
 
     def _generate_sequence_job_script(
@@ -116,6 +87,7 @@ class SlurmJobContainer(PyxisContainer):
         stages: typing.List[typing.Dict[str, typing.Any]],
         job_n: int,
         sbatch_log: pathlib.Path,
+        use_gpu: bool = True,
     ) -> str:
         """
         Return a bash script that runs every stage in *stages* as a separate
@@ -135,7 +107,7 @@ class SlurmJobContainer(PyxisContainer):
             <job_dir>/<instance>/job_N-stage-K.exit
         """
         lines = ["#!/bin/bash"]
-        lines += self._sbatch_headers(use_gpu=True)
+        lines += self._sbatch_headers(use_gpu=use_gpu)
         lines.append(f"#SBATCH --output={sbatch_log}")
         lines.append(f"#SBATCH --error={sbatch_log}")
         lines.append("")
@@ -251,39 +223,8 @@ class SlurmJobContainer(PyxisContainer):
             self._logger.debug(f"SLURM job {job_id}: final state={final_state}")
 
     # ------------------------------------------------------------------
-    # Result readers
+    # Result reader
     # ------------------------------------------------------------------
-
-    def _read_single_output(
-        self,
-        job_n: int,
-        stdout_path: pathlib.Path,
-        stderr_path: pathlib.Path,
-        exit_code_path: pathlib.Path,
-        stderr_mode: str,
-    ) -> subprocess.CompletedProcess:
-        """Read output files from a single-command job."""
-        stdout = stdout_path.read_text(errors="replace") if stdout_path.exists() else ""
-        stderr = ""
-        if stderr_mode == "separate" and stderr_path.exists():
-            stderr = stderr_path.read_text(errors="replace")
-
-        if exit_code_path.exists():
-            returncode = int(exit_code_path.read_text().strip())
-        else:
-            self._logger.warning(
-                f"Exit code file missing for job_{job_n} — "
-                "job was likely killed before the command completed "
-                "(OOM, preemption, or node failure)"
-            )
-            returncode = -1
-
-        return subprocess.CompletedProcess(
-            args=[],
-            returncode=returncode,
-            stdout=stdout,
-            stderr=stderr,
-        )
 
     def _read_stage_output(
         self,
@@ -330,56 +271,34 @@ class SlurmJobContainer(PyxisContainer):
         log_level: int = logging.DEBUG,
     ) -> subprocess.CompletedProcess:
         """
-        Submit *command* as a single sbatch job and block until it finishes.
+        Submit *command* as a single-stage sbatch job and block until it finishes.
 
-        Used for lightweight operations (version gathering, git history queries)
-        that do not require state to persist across exec() calls.  For the
-        checkout → build → test pipeline use exec_sequence() instead.
+        Delegates to exec_sequence() so all submissions share one code path.
+        The stderr parameter is accepted for interface compatibility but ignored:
+        output is always written to per-rank log files.
         """
-        n = self._job_counter
-        self._job_counter += 1
-
-        script_path = self._job_dir / f"job_{n}.sh"
-        stdout_path = self._job_dir / f"job_{n}.out"
-        stderr_path = self._job_dir / f"job_{n}.err"
-        exit_code_path = self._job_dir / f"job_{n}.exit"
-        sbatch_stderr_path = stdout_path if stderr == "interleaved" else stderr_path
-
-        script_path.write_text(
-            self._generate_job_script(
-                command,
-                policy,
-                workdir,
-                stdout_path,
-                sbatch_stderr_path,
-                exit_code_path,
-            )
+        results = self.exec_sequence(
+            [
+                {
+                    "command": command,
+                    "policy": policy,
+                    "workdir": workdir,
+                    "log_level": log_level,
+                }
+            ]
         )
-        self._logger.debug(f"Wrote job script to {script_path}")
-
-        job_id = self._submit_job(script_path)
-        self._wait_for_job(job_id)
-
-        result = self._read_single_output(
-            n, stdout_path, stderr_path, exit_code_path, stderr
-        )
-        self._logger.log(
-            log_level,
-            f"SLURM job {job_id} finished: returncode={result.returncode}",
-        )
-        for line in result.stdout.splitlines():
-            self._logger.log(log_level, line)
-        return result
+        return results[0]
 
     def exec_sequence(
         self,
         stages: typing.List[typing.Dict[str, typing.Any]],
+        *,
+        use_gpu: bool = True,
     ) -> typing.List[typing.Optional[subprocess.CompletedProcess]]:
         """
         Submit all *stages* as a SINGLE sbatch job and return one result per stage.
 
-        This is the primary execution path for the checkout → build → test
-        pipeline.  Because all three steps run inside one job:
+        Because all stages run inside one job:
 
         - No node pinning is needed (SLURM guarantees one job = one node set)
         - GPUs are released as soon as the whole pipeline finishes
@@ -399,7 +318,7 @@ class SlurmJobContainer(PyxisContainer):
         sbatch_log = self._job_dir / f"job_{n}-sbatch.log"
 
         script_path.write_text(
-            self._generate_sequence_job_script(stages, n, sbatch_log)
+            self._generate_sequence_job_script(stages, n, sbatch_log, use_gpu=use_gpu)
         )
         self._logger.debug(f"Wrote sequence job script to {script_path}")
 
@@ -438,30 +357,14 @@ class SlurmJobContainer(PyxisContainer):
         container.  Used by the container-level search to skip dates for which
         no nightly build was published.
         """
-        n = self._job_counter
-        self._job_counter += 1
-
-        script_path = self._job_dir / f"job_{n}.sh"
-        stdout_path = self._job_dir / f"job_{n}.out"
-        exit_code_path = self._job_dir / f"job_{n}.exit"
-
-        script_path.write_text(
-            self._generate_job_script(
-                ["true"],
-                "once",
-                None,
-                stdout_path,
-                stdout_path,
-                exit_code_path,
+        try:
+            results = self.exec_sequence(
+                [{"command": ["true"], "policy": "once"}],
                 use_gpu=False,
             )
-        )
-
-        try:
-            job_id = self._submit_job(script_path)
-            self._wait_for_job(job_id)
         except Exception as exc:
             self._logger.debug(f"exists() job failed: {exc}")
             return False
 
-        return exit_code_path.exists() and exit_code_path.read_text().strip() == "0"
+        result = results[0]
+        return result is not None and result.returncode == 0
