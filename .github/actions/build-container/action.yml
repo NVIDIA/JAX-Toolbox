@@ -172,7 +172,9 @@ runs:
       run: |
         set -euxo pipefail
         rm -rf /tmp/bazel-disk-cache /tmp/bazel-repo-cache
+        rm -rf /tmp/bazel-disk-export /tmp/bazel-repo-export
         mkdir -p /tmp/bazel-disk-cache /tmp/bazel-repo-cache
+        mkdir -p /tmp/bazel-disk-export /tmp/bazel-repo-export
         if [[ -f /tmp/bazel-disk.tar ]]; then
           tar -xf /tmp/bazel-disk.tar -C /tmp/bazel-disk-cache
         fi
@@ -263,12 +265,19 @@ runs:
         file: ${{ inputs.DOCKERFILE }}
         platforms: linux/${{ inputs.ARCHITECTURE }}
         target: bazel-disk-export
-        outputs: type=tar,dest=/tmp/bazel-disk.tar
+        outputs: type=local,dest=/tmp/bazel-disk-export
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           CACHE_EXPORT_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    - name: Pack Bazel disk cache tarball
+      if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        tar -cf /tmp/bazel-disk.tar -C /tmp/bazel-disk-export .
 
     - name: Export Bazel repo cache
       if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
@@ -280,12 +289,19 @@ runs:
         file: ${{ inputs.DOCKERFILE }}
         platforms: linux/${{ inputs.ARCHITECTURE }}
         target: bazel-repo-export
-        outputs: type=tar,dest=/tmp/bazel-repo.tar
+        outputs: type=local,dest=/tmp/bazel-repo-export
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           CACHE_EXPORT_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
+
+    - name: Pack Bazel repo cache tarball
+      if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        tar -cf /tmp/bazel-repo.tar -C /tmp/bazel-repo-export .
 
     - name: Save Bazel disk cache
       if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
