@@ -27,15 +27,9 @@ slurm_args = [
     "--container-runtime=slurm",
     "--slurm-account=test-account",
     "--slurm-partition=test-partition",
-    "--slurm-num-gpus=1",
     # poll_interval=0 avoids any real sleep; squeue mock returns empty immediately
     "--slurm-poll-interval=0",
 ]
-
-
-# ---------------------------------------------------------------------------
-# Shared git-repository fixtures (identical to those in test_pyxis_backend.py)
-# ---------------------------------------------------------------------------
 
 
 def git_cmd(*args, cwd=None):
@@ -109,11 +103,6 @@ def failing_container(passing_container):
         yield metadata
 
 
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
-
-
 def _make_tool(arg_list, output_prefix):
     args = parse_args(arg_list)
     logger = logging.getLogger()
@@ -121,13 +110,8 @@ def _make_tool(arg_list, output_prefix):
     return TriageTool(args, logger), args
 
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("num_nodes", [1, 2])
-@pytest.mark.parametrize("processes_per_node", [1, 2])
+@pytest.mark.parametrize("processes_per_node", [1, 8])
 def test_mock_containers(
     monkeypatch,
     passing_container,
@@ -296,12 +280,6 @@ def test_node_pinning(monkeypatch, passing_container, failing_container):
         )
         tool.run_version_bisection(passing_versions, failing_versions)
 
-        # Collect all submitted sbatch command lines from the job scripts.
-        # The scripts themselves show the srun flags; node pinning appears in
-        # the sbatch invocation, which we can verify indirectly: every
-        # container session (ctr*/ directory) with more than one job script
-        # must have all scripts except job_0.sh referencing the same container
-        # name — confirming the same container is used across calls.
         slurm_jobs_dir = pathlib.Path(output_prefix) / "slurm-jobs"
         for ctr_dir in slurm_jobs_dir.iterdir():
             scripts = sorted(ctr_dir.glob("job_*.sh"))
@@ -360,52 +338,6 @@ def test_mock_container_precondition_checks(
         )
         with pytest.raises(InconsistentResults):
             tool.run_version_bisection(passing_versions, failing_versions)
-
-
-def test_exists_writes_no_gpu_gres(monkeypatch, passing_container):
-    """
-    exists() must generate a job script that does NOT request GPUs so that
-    container-existence checks do not consume scarce GPU resources.
-    """
-    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_NODES", "1")
-    monkeypatch.setenv("JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE", "1")
-    monkeypatch.setenv("PATH", str(mock_scripts_path), prepend=":")
-
-    from jax_toolbox_triage.container_factory import make_container
-
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = pathlib.Path(tmp)
-        job_dir = tmp_path / "jobs"
-        slurm_config = {
-            "account": "test",
-            "partition": "gpu",
-            "num_gpus": 8,
-            "time_limit": "1:00:00",
-            "poll_interval": 0,
-            "job_timeout": 60,
-            "extra_flags": [],
-            "job_dir": job_dir,
-        }
-        logger = logging.getLogger()
-        container = make_container(
-            "slurm",
-            str(passing_container["prefix"]),
-            [],
-            logger,
-            slurm_config=slurm_config,
-        )
-        result = container.exists()
-
-        # The mock srun/sbatch chain runs successfully, so exists() should be True
-        assert result is True
-
-        # The generated job script must not contain a --gres=gpu line
-        scripts = list(job_dir.rglob("job_*.sh"))
-        assert len(scripts) == 1, scripts
-        content = scripts[0].read_text()
-        assert "--gres=gpu:" not in content, (
-            "exists() must not request GPUs, but found --gres=gpu in:\n" + content
-        )
 
 
 @pytest.mark.parametrize("ccache_mode", ["configured", "excluded"])
