@@ -106,7 +106,7 @@ while [ : ]; do
         ;;
     --)
         shift;
-        break 
+        break
         ;;
   esac
 done
@@ -181,6 +181,7 @@ case "${BATTERY}" in
             "//tests:gpu_tests"
             "//tests/pallas:gpu_tests"
             "//tests/mosaic:gpu_tests"
+            "//tests/multiprocess:gpu_tests"
         )
         ;;
     single-gpu)
