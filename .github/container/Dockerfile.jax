@@ -176,19 +176,19 @@ ARG TARGETARCH
 ARG CACHE_EXPORT_STAMP
 RUN --mount=type=cache,id=bazel-disk-${TARGETARCH},target=/cache/bazel-disk,sharing=locked,readonly \
     test -n "${CACHE_EXPORT_STAMP}" && \
-    mkdir -p /bazel-disk-snapshot && \
-    cp -rp /cache/bazel-disk/. /bazel-disk-snapshot/
+    mkdir -p /bazel-cache-export && \
+    tar -cpf /bazel-cache-export/bazel-disk.tar -C /cache/bazel-disk .
 
 FROM scratch AS bazel-disk-export
-COPY --from=bazel-disk-snapshot /bazel-disk-snapshot/ /
+COPY --from=bazel-disk-snapshot /bazel-cache-export/bazel-disk.tar /bazel-disk.tar
 
 FROM ${BASE_IMAGE} AS bazel-repo-snapshot
 ARG TARGETARCH
 ARG CACHE_EXPORT_STAMP
 RUN --mount=type=cache,id=bazel-repo-${TARGETARCH},target=/cache/bazel-repo,sharing=locked,readonly \
     test -n "${CACHE_EXPORT_STAMP}" && \
-    mkdir -p /bazel-repo-snapshot && \
-    cp -rp /cache/bazel-repo/. /bazel-repo-snapshot/
+    mkdir -p /bazel-cache-export && \
+    tar -cpf /bazel-cache-export/bazel-repo.tar -C /cache/bazel-repo .
 
 FROM scratch AS bazel-repo-export
-COPY --from=bazel-repo-snapshot /bazel-repo-snapshot/ /
+COPY --from=bazel-repo-snapshot /bazel-cache-export/bazel-repo.tar /bazel-repo.tar

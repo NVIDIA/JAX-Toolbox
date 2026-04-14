@@ -272,12 +272,12 @@ runs:
           CACHE_EXPORT_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
 
-    - name: Pack Bazel disk cache tarball
+    - name: Collect Bazel disk cache tarball
       if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
       shell: bash
       run: |
         set -euxo pipefail
-        tar -cf /tmp/bazel-disk.tar -C /tmp/bazel-disk-export .
+        cp /tmp/bazel-disk-export/bazel-disk.tar /tmp/bazel-disk.tar
 
     - name: Export Bazel repo cache
       if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
@@ -296,12 +296,12 @@ runs:
           CACHE_EXPORT_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
           ${{ inputs.EXTRA_BUILD_ARGS }}
 
-    - name: Pack Bazel repo cache tarball
+    - name: Collect Bazel repo cache tarball
       if: inputs.ENABLE_BAZEL_REPO_CACHE == 'true'
       shell: bash
       run: |
         set -euxo pipefail
-        tar -cf /tmp/bazel-repo.tar -C /tmp/bazel-repo-export .
+        cp /tmp/bazel-repo-export/bazel-repo.tar /tmp/bazel-repo.tar
 
     - name: Save Bazel disk cache
       if: inputs.ENABLE_BAZEL_DISK_CACHE == 'true'
