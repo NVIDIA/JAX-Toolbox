@@ -1,0 +1,3 @@
+#!/bin/bash
+# Mock scancel — no-op; used when a job exceeds the configured timeout.
+exit 0

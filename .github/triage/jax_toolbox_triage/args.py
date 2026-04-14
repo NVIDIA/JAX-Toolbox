@@ -298,8 +298,67 @@ def parse_args(args=None) -> argparse.Namespace:
     parser.add_argument(
         "--container-runtime",
         default="docker",
-        help="Container runtime used, can be docker, pyxis, or local.",
+        help="Container runtime used, can be docker, pyxis, slurm, or local.",
         type=lambda s: s.lower(),
+    )
+
+    slurm_args = parser.add_argument_group(
+        title="SLURM job submission (--container-runtime=slurm)",
+        description="""
+            When --container-runtime=slurm is used the triage tool runs on the login
+            node and submits one sbatch job per container execution.  GPUs are held
+            only for the duration of each individual job, so no resources are wasted
+            between bisection steps.""",
+    )
+    slurm_args.add_argument(
+        "--slurm-account",
+        default=None,
+        help="SLURM account to charge jobs to (#SBATCH --account).",
+    )
+    slurm_args.add_argument(
+        "--slurm-partition",
+        default=None,
+        help="SLURM partition to submit jobs to (#SBATCH --partition).",
+    )
+    slurm_args.add_argument(
+        "--slurm-num-gpus",
+        default=1,
+        type=int,
+        help="Number of GPUs to request per job (#SBATCH --gres=gpu:N). Default: 1.",
+    )
+    slurm_args.add_argument(
+        "--slurm-time-limit",
+        default="4:00:00",
+        help="Wall-clock time limit for each submitted job (#SBATCH --time). Default: 4:00:00.",
+    )
+    slurm_args.add_argument(
+        "--slurm-poll-interval",
+        default=30,
+        type=int,
+        help="Seconds between squeue polls when waiting for a job to finish. Default: 30.",
+    )
+    slurm_args.add_argument(
+        "--slurm-job-timeout",
+        default=14400,
+        type=int,
+        help="Maximum seconds to wait for a single job before cancelling it. Default: 14400.",
+    )
+    slurm_args.add_argument(
+        "--slurm-flags",
+        nargs="*",
+        default=[],
+        help="""
+            Additional raw #SBATCH directives to include in every job script,
+            e.g. --slurm-flags='--exclude=bad-node' '--mail-type=FAIL'.""",
+    )
+    slurm_args.add_argument(
+        "--slurm-job-dir",
+        default=None,
+        type=pathlib.Path,
+        help="""
+            Directory on a shared filesystem where job scripts and output files are
+            written.  Must be readable from both the login node and compute nodes.
+            Defaults to <output-prefix>/slurm-jobs/.""",
     )
     parser.add_argument(
         "--main-branch",
@@ -311,6 +370,7 @@ def parse_args(args=None) -> argparse.Namespace:
     assert args.container_runtime in {
         "docker",
         "pyxis",
+        "slurm",
         "local",
     }, args.container_runtime
     args.workaround_buggy_container = set(args.workaround_buggy_container)
@@ -333,10 +393,10 @@ def parse_args(args=None) -> argparse.Namespace:
                 f"--{prefix}-commits is deprecated - please remove it."
             )
 
-    if args.container_runtime == "pyxis":
+    if args.container_runtime in {"pyxis", "slurm"}:
         assert args.bazel_cache is not None, (
-            "For pyxis runtime, --bazel-cache must be provided explicitly. You likely "
-            "want to use a remote cache URL."
+            f"For {args.container_runtime} runtime, --bazel-cache must be provided "
+            "explicitly. You likely want to use a remote cache URL."
         )
     elif args.container_runtime == "docker" and args.bazel_cache is None:
         # In this case we can share a cache across containers by mounting in a
@@ -348,9 +408,7 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), (
-            "For local runtime, --passing-versions and --failing-versions must be provided."
-        )
+        ), "For local runtime, --passing-versions and --failing-versions must be provided."
         assert (
             args.container is None
             and args.start_date is None
@@ -395,9 +453,9 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert args.container is not None, (
-            "--container must be passed for the container-level search"
-        )
+        assert (
+            args.container is not None
+        ), "--container must be passed for the container-level search"
 
     args.optional_software = optional_software.copy()
     if args.exclude_transformer_engine:

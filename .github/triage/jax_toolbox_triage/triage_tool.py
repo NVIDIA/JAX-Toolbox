@@ -80,9 +80,7 @@ class TriageTool:
         )
 
         out_dir = self.args.output_prefix / out_dirname
-        assert not out_dir.exists(), (
-            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
-        )
+        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
@@ -103,6 +101,26 @@ class TriageTool:
         if test_output_directory is not None:
             mounts.append((test_output_directory, "/triage-tool-output"))
 
+        if self.args.container_runtime == "slurm":
+            slurm_config = {
+                "account": self.args.slurm_account,
+                "partition": self.args.slurm_partition,
+                "num_gpus": self.args.slurm_num_gpus,
+                "time_limit": self.args.slurm_time_limit,
+                "poll_interval": self.args.slurm_poll_interval,
+                "job_timeout": self.args.slurm_job_timeout,
+                "extra_flags": self.args.slurm_flags,
+                "job_dir": (
+                    self.args.slurm_job_dir or self.args.output_prefix / "slurm-jobs"
+                ),
+            }
+            return make_container(
+                self.args.container_runtime,
+                url,
+                mounts,
+                self.logger,
+                slurm_config=slurm_config,
+            )
         return make_container(self.args.container_runtime, url, mounts, self.logger)
 
     def _get_versions(
@@ -126,9 +144,9 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert container_url is not None, (
-            "Container URL must be provided if explicit versions are not set."
-        )
+        assert (
+            container_url is not None
+        ), "Container URL must be provided if explicit versions are not set."
 
         with self._make_container(container_url) as worker:
             url_versions, dirs, env = get_versions_dirs_env(

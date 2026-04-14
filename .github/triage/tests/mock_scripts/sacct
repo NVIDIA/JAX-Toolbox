@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""
+Mock sacct for testing the SlurmJobContainer backend.
+
+Returns a single COMPLETED record with a synthetic node name so that
+_wait_for_job can resolve the node and pin subsequent jobs.
+"""
+
+print("COMPLETED|mock-node")

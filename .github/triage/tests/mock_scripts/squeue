@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+"""
+Mock squeue for testing the SlurmJobContainer backend.
+
+Always returns empty output, signalling to _wait_for_job that the job has
+already finished (no polling delay needed in tests).
+"""
+
+import sys
+
+sys.exit(0)

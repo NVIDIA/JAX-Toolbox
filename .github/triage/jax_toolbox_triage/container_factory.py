@@ -3,6 +3,7 @@ from .container import Container
 from .docker import DockerContainer
 from .pyxis import PyxisContainer
 from .local import LocalContainer
+from .slurm_submit import SlurmJobContainer
 
 
 def make_container(
@@ -12,11 +13,13 @@ def make_container(
     This function creates a container object, based on the specified runtime
 
     Args:
-        runtime (str): The container runtime to use (e.g., 'docker', 'pyxis', 'local').
+        runtime (str): The container runtime to use (e.g., 'docker', 'pyxis', 'slurm',
+            'local').
         url (str): The URL of the container.
         mounts (list): List of mounts to be used in the container.
         logger (logging.Logger): Logger instance for logging messages.
         **kwargs: Additional keyword arguments for specific container types.
+            For the 'slurm' runtime, pass slurm_config=<dict>.
 
     Returns:
         Container: A container class associated with the specified runtime.
@@ -24,5 +27,10 @@ def make_container(
     if runtime == "local":
         return LocalContainer(logger=logger)
 
+    if runtime == "slurm":
+        return SlurmJobContainer(
+            url, logger=logger, mounts=mounts, slurm_config=kwargs["slurm_config"]
+        )
+
     container_impl = DockerContainer if runtime == "docker" else PyxisContainer
-    return container_impl(url, logger=logger, mounts=mounts, **kwargs)
+    return container_impl(url, logger=logger, mounts=mounts)
