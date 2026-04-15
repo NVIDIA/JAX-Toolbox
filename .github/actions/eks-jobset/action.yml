@@ -246,7 +246,7 @@ runs:
     if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
     shell: bash -x -u {0}
     run: |
-      eval ${{ inputs.STATISTICS_SCRIPT }}
+      bash -c "${{ inputs.STATISTICS_SCRIPT }}"
       
       if [[ ${NUM_ERRORS} > 0 ]] || [[ ${NUM_TESTS} == 0 ]]; then
         BADGE_COLOR=red
