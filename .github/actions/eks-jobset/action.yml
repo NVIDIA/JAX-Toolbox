@@ -258,6 +258,7 @@ runs:
       fi
       
       source .github/workflows/scripts/to_json.sh
+      BADGE_LABEL="${{ inputs.NAME }} ${{ inputs.GPU_ARCH }} Unit"
       to_json \
         SUMMARY \
         NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED \
