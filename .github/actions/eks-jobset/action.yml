@@ -52,7 +52,7 @@ inputs:
     description: 'Command to set exit code'
     required: false
     default: 'exit \$EXIT_CODE'
-    type: stringC
+    type: string
   GITHUB_TOKEN:
     description: 'GitHub artifact registry login token'
     type: string
@@ -83,7 +83,7 @@ runs:
     shell: bash -x -e -u {0}
     run: |
       PRELUDE="set -xe -o pipefail; nvidia-smi"
-      POSTLUDE="sleep 30; EXIT_CODE=\$?; ${{ input.EXIT_COMMAND }}"
+      POSTLUDE="EXIT_CODE=\$?; sleep 30; ${{ input.EXIT_COMMAND }}"
 
       CMD="${{ inputs.COMMAND }}"
       CMD=$(echo ${CMD} | sed 's/\n/\ /g')
