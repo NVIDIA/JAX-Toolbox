@@ -73,10 +73,16 @@ runs:
       echo "JOBSET_NAME=${JOBSET_NAME}" >> ${GITHUB_ENV}
       echo "JOBSET_YAML=${JOBSET_YAML}" >> ${GITHUB_ENV}
 
+  - name: Set JobSet resources
+    shell: bash -x -e -u {0}
+    run: |
+      NUM_EFA=$((${{ inputs.NUM_GPUS }} * 4))
+      echo "NUM_EFA=${NUM_EFA}" >> ${GITHUB_ENV}
+
   - name: Set job command
     shell: bash -x -e -u {0}
     run: |
-      PRELUDE="nvidia-smi"
+      PRELUDE="set -xe -o pipefail; nvidia-smi"
       POSTLUDE="sleep 30; EXIT_CODE=\$?; ${{ input.EXIT_COMMAND }}"
 
       CMD="${{ inputs.COMMAND }}"
@@ -111,6 +117,7 @@ runs:
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].name = "${{ inputs.MAIN_CONTAINER_NAME }}"
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = "${{ inputs.IMAGE }}"
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
+          | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."vpc.amazonaws.com/efa" = env(NUM_EFA)
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].command[2] = env(CMD)' | \
         tee ${JOBSET_YAML}
 
@@ -184,7 +191,7 @@ runs:
         echo ${MAYBE_JOBSET_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
 
         if [ $? -ne 0 ]; then
-          echo "The JobSet ${JOBSET_NAME} did not complete as expected "
+          echo "The JobSet ${JOBSET_NAME} did not complete as expected " >&2
           echo "JOBSET_EXIT_CODE=1" >> ${GITHUB_ENV}
           exit 1
         fi
@@ -213,13 +220,9 @@ runs:
     run: |
       kubectl delete jobset --wait ${JOBSET_NAME} || echo "JobSet ${JOBSET_NAME} does not exist"
 
-  - name: Download artifacts from s3 to runner
-    shell: bash -x -u {0}
-    run: |
-      mkdir -p ${JOBSET_NAME}/output
-
   - name: Upload artifacts to GitHub Actions from runner
     uses: actions/upload-artifact@v6
+    if: ${{ always() }}
     with:
       name: ${{ inputs.JOBSET_NAME }}
       path: ${{ env.JOBSET_NAME }}/output/*
