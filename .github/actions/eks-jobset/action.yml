@@ -53,6 +53,14 @@ inputs:
     required: false
     default: 'exit \$EXIT_CODE'
     type: string
+  GITHUB_TOKEN:
+    description: 'GitHub artifact registry login token'
+    type: string
+    required: true
+  NVCR_TOKEN:
+    description: 'NVCR artifact registry login token'
+    type: string
+    required: true
 runs:
   using: 'composite'
   steps:
@@ -91,11 +99,6 @@ runs:
   - name: Write JobSet manifest
     shell: bash -x -e -u {0}
     run : |
-      envs_flat=$(echo "${{ inputs.ENVS }}" | tr '\n' ' ')
-      IFS=';' read -ra env_vars <<< "${envs_flat}"
-      for env in "${env_vars[@]}"; do
-          env=$(echo "${env}" | xargs)
-          [[ -n "${env}" ]] && args+=(--env="${env}")
       done
       cat ${{ inputs.JOBSET_TEMPLATE }} | \
         yq '.metadata.name = "${JOBSET_NAME}"
@@ -123,14 +126,14 @@ runs:
         NOW=$(date +%s)
         ELAPSED=$(( NOW - START ))
         if (( ELAPSED > POLL_TIMEOUT )) ; then
-          echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
+          echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in cluster"
           exit 1
         fi
-        echo "Waiting for JobSet ${JOBSET_NAME} to become active in cluster ${{ inputs.GKE_CLUSTER }}"
+        echo "Waiting for JobSet ${JOBSET_NAME} to become active in cluster"
         sleep 5
       done
 
-      echo "JobSet ${JOBSET_NAME} has just become active in cluster ${{ inputs.GKE_CLUSTER }}"
+      echo "JobSet ${JOBSET_NAME} has just become active in cluster"
 
   - name: Set JobSet Pod name
     shell: bash -u {0}
@@ -147,7 +150,7 @@ runs:
 
         POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
         if ${POD_ERROR} ; then
-          echo "There was an issue starting the JobSet ${JOBSET_NAME} on ${{ inputs.GKE_CLUSTER }}"
+          echo "There was an issue starting the JobSet ${JOBSET_NAME}"
           break
         fi
 
@@ -176,7 +179,7 @@ runs:
         echo ${MAYBE_JOBSET_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
 
         if [ $? -ne 0 ]; then
-          echo "The JobSet ${JOBSET_NAME} on ${{ inputs.GKE_CLUSTER }} did not complete as expected "
+          echo "The JobSet ${JOBSET_NAME} did not complete as expected "
           echo "JOBSET_EXIT_CODE=1" >> ${GITHUB_ENV}
           exit 1
         fi
@@ -203,7 +206,7 @@ runs:
     shell: bash -x -u {0}
     if: ${{ always() }}
     run: |
-      kubectl delete jobset --wait ${JOBSET_NAME} || echo "JobSet ${JOBSET_NAME} does not exist in ${{ inputs.GKE_CLUSTER }}"
+      kubectl delete jobset --wait ${JOBSET_NAME} || echo "JobSet ${JOBSET_NAME} does not exist"
 
   - name: Download artifacts from s3 to runner
     shell: bash -x -u {0}
@@ -213,5 +216,5 @@ runs:
   - name: Upload artifacts to GitHub Actions from runner
     uses: actions/upload-artifact@v6
     with:
-      name: ${{ inputs.JOBSET_NAME_PREFIX }}
+      name: ${{ inputs.JOBSET_NAME }}
       path: ${{ env.JOBSET_NAME }}/output/*

@@ -266,6 +266,8 @@ jobs:
           IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           COMMAND: |
             test-jax.sh -b ${{ matrix.test }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
   test-nsys-jax:
     needs: build-jax
