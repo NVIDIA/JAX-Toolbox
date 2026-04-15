@@ -1,0 +1,38 @@
+name: EKS JobSet
+
+on:
+  on:
+  push:
+    branches:
+      - aybchan/eks-jobset-test
+
+permissions:
+  contents: read        # to fetch code
+  actions:  write       # to cancel previous workflows
+  packages: write       # to upload containers
+
+jobs:
+  test-jax:
+    needs: build-jax
+    strategy:
+      matrix:
+        test:
+          - test: backend-independent
+            gpus: 1
+          - test: single-gpu
+            gpus: 1
+          - test: multi-gpu
+            gpus: 8
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: jax-unit-${{ matrix.test }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-jax-amd64
+          COMMAND: |
+            test-jax.sh -b ${{ matrix.test }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
