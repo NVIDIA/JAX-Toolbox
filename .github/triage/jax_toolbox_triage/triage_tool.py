@@ -25,6 +25,11 @@ from .utils import (
     prepare_bazel_cache_mounts,
 )
 from .container_factory import make_container
+from .candidate_image import (
+    candidate_image_from_versions,
+    materialize_candidate_image,
+)
+from .slurm_submit import SlurmJobRunner, make_slurm_config
 
 
 class InconsistentResults(Exception):
@@ -51,6 +56,9 @@ class TriageTool:
         self.packages_with_scripts = set()
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
         self.check_success_before_failure = True
+        self.slurm_config = (
+            make_slurm_config(args) if self.args.container_runtime == "slurm" else None
+        )
 
         self.logger.info("Arguments:")
         for k, v in vars(self.args).items():
@@ -80,14 +88,15 @@ class TriageTool:
         )
 
         out_dir = self.args.output_prefix / out_dirname
-        assert not out_dir.exists(), (
-            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
-        )
+        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
     def _make_container(
-        self, url: str, test_output_directory: Optional[pathlib.Path] = None
+        self,
+        url: str,
+        test_output_directory: Optional[pathlib.Path] = None,
+        purpose: str = "test",
     ) -> Container:
         """
         Wrapper for make_container factory
@@ -103,7 +112,15 @@ class TriageTool:
         if test_output_directory is not None:
             mounts.append((test_output_directory, "/triage-tool-output"))
 
-        return make_container(self.args.container_runtime, url, mounts, self.logger)
+        kwargs = {}
+        if self.args.container_runtime == "slurm":
+            kwargs = {
+                "slurm_config": self.slurm_config,
+                "resource_kind": "utility" if purpose == "utility" else "test",
+            }
+        return make_container(
+            self.args.container_runtime, url, mounts, self.logger, **kwargs
+        )
 
     def _get_versions(
         self,
@@ -126,11 +143,11 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert container_url is not None, (
-            "Container URL must be provided if explicit versions are not set."
-        )
+        assert (
+            container_url is not None
+        ), "Container URL must be provided if explicit versions are not set."
 
-        with self._make_container(container_url) as worker:
+        with self._make_container(container_url, purpose="utility") as worker:
             url_versions, dirs, env = get_versions_dirs_env(
                 worker=worker,
                 versions_from_env=versions_from_env,
@@ -335,7 +352,7 @@ class TriageTool:
             [
                 "sh",
                 "-c",
-                f'find ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.args.build_scripts_path} -maxdepth 1 -type f -and -executable -print0 | sed -e "s|^${{JAX_TOOLBOX_TRIAGE_PREFIX}}||"',
+                f'find ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.args.build_scripts_path} -maxdepth 1 -type f -perm -u+x -print0 | sed -e "s|^${{JAX_TOOLBOX_TRIAGE_PREFIX}}||"',
             ],
             policy="once",
             stderr="separate",
@@ -367,6 +384,159 @@ class TriageTool:
         packages_missing_scripts = packages_needing_scripts - self.packages_with_scripts
         return packages_missing_scripts
 
+    def _slurm_build_commands(self, versions: Dict[str, str]) -> Tuple[list, list]:
+        assert self.package_dirs is not None
+        git_commands = [
+            "echo 'startup --host_jvm_args=-XX:-UseContainerSupport' > ${JAX_TOOLBOX_TRIAGE_PREFIX}/root/.bazelrc"
+        ]
+        changed = []
+        for package in sorted(self.dynamic_packages):
+            version = versions[package]
+            changed.append(f"{package}@{version}")
+            if package in self.package_dirs:
+                remote = self.args.override_remotes.get(package, "origin")
+                git_commands.append(
+                    f"cd ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.package_dirs[package]}"
+                )
+                git_commands.append(
+                    f"(git cat-file commit {version} > /dev/null 2>&1 || git fetch {remote} {version})"
+                )
+                git_commands.append("git stash")
+                git_commands.append(f"git checkout {version}")
+                for cherry_pick_range in self.args.cherry_pick.get(package, []):
+                    fetch_refs = (
+                        cherry_pick_range.split("..", 1)
+                        if ".." in cherry_pick_range
+                        else [cherry_pick_range]
+                    )
+                    for ref in fetch_refs:
+                        git_commands.append(
+                            f"(git cat-file commit {ref} > /dev/null 2>&1 || git fetch {remote} {ref})"
+                        )
+                    git_commands.append(
+                        f"(git cherry-pick {cherry_pick_range} || git cherry-pick --abort)"
+                    )
+            else:
+                assert self.args.build_scripts_path is not None
+                assert package in self.packages_with_scripts, (
+                    package,
+                    self.packages_with_scripts,
+                )
+                extra_env = {
+                    "NVSHMEM": "DEVEL=1 STATIC=1",
+                }.get(package, "DEVEL=1")
+                git_commands.append(
+                    f"{extra_env} ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.args.build_scripts_path}/install{package}.sh {version}"
+                )
+
+        build_cmds = [
+            f"cd ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.package_dirs['jax']}",
+            "bazel clean --expunge",
+            f"build-jax.sh --bazel-cache={self.args.bazel_cache}",
+        ]
+        if not self.args.exclude_transformer_engine:
+            if len(self.args.transformer_engine_ccache_env):
+                build_cmds.append(
+                    f"env {' '.join(self.args.transformer_engine_ccache_env)} build-te.sh --ccache"
+                )
+            else:
+                build_cmds.append("build-te.sh")
+        return git_commands, build_cmds
+
+    def _materialize_candidate_image(
+        self,
+        versions: Dict[str, str],
+    ):
+        assert self.slurm_config is not None
+        assert self.bisection_url is not None
+        git_commands, build_cmds = self._slurm_build_commands(versions)
+        candidate = candidate_image_from_versions(
+            config=self.slurm_config,
+            base_image=self.bisection_url,
+            versions=versions,
+            cherry_picks=self.args.cherry_pick,
+            exclude_transformer_engine=self.args.exclude_transformer_engine,
+            build_scripts_path=self.args.build_scripts_path,
+        )
+        runner = SlurmJobRunner(
+            logger=self.logger,
+            config=self.slurm_config,
+            base_dir=candidate.directory / "jobs",
+        )
+        return materialize_candidate_image(
+            logger=self.logger,
+            config=self.slurm_config,
+            runner=runner,
+            candidate=candidate,
+            base_image=self.bisection_url,
+            container_name=f"triage-{candidate.key}",
+            mount_args=[
+                f"--container-mounts={','.join(f'{src}:{dst}' for src, dst in self.bazel_cache_mounts + self.args.container_mount)}"
+            ]
+            if (self.bazel_cache_mounts + self.args.container_mount)
+            else [],
+            build_script_lines=git_commands + build_cmds,
+            metadata={
+                "base_image": self.bisection_url,
+                "versions": versions,
+                "cherry_pick": self.args.cherry_pick,
+                "dynamic_packages": sorted(self.dynamic_packages),
+            },
+        )
+
+    def _test_candidate_image_on_slurm(
+        self,
+        *,
+        candidate_image_path: pathlib.Path,
+        versions: Dict[str, str],
+        test_repetition: int,
+        test_output_log_level: int,
+    ) -> TestResult:
+        brief_versions = {
+            p: ver for p, ver in versions.items() if p in self.dynamic_packages
+        }
+        brief_versions[_REPETITION_KEY] = str(test_repetition)
+        out_dir = self._test_output_directory(
+            candidate_image_path.as_posix(),
+            versions=brief_versions,
+        )
+        before = time.monotonic()
+        with self._make_container(
+            candidate_image_path.as_posix(),
+            test_output_directory=out_dir,
+            purpose="test",
+        ) as worker:
+            test_result = worker.exec(
+                self.args.test_command, log_level=test_output_log_level
+            )
+        test_output = test_result.stdout
+        test_time = time.monotonic() - before
+        with open(out_dir / "test.log", "w") as log:
+            log.write(test_output)
+        test_result_enum = (
+            TestExecutionOutcome.TEST_SUCCESS
+            if test_result.returncode == 0
+            else TestExecutionOutcome.TEST_FAILURE
+        )
+        self.logger.info(f"Test completed in {test_time:.1f}s ({test_result_enum})")
+        add_summary_record(
+            self.args.output_prefix,
+            "versions",
+            {
+                "container": candidate_image_path.as_posix(),
+                "output_directory": out_dir.as_posix(),
+                "result": str(test_result_enum),
+                "test_time": test_time,
+                **versions,
+            },
+        )
+        return TestResult(
+            build_stdouterr="",
+            host_output_directory=out_dir,
+            result=test_result_enum,
+            stdouterr=test_output,
+        )
+
     def _build_and_test(
         self,
         *,
@@ -386,6 +556,87 @@ class TriageTool:
         Returns:
             TestResult: The result of the test, including whether it passed and the output.
         """
+        if self.args.container_runtime == "slurm":
+            candidate_build = self._materialize_candidate_image(versions)
+            brief_versions = {
+                p: ver for p, ver in versions.items() if p in self.dynamic_packages
+            }
+            brief_versions[_REPETITION_KEY] = str(test_repetition)
+            out_dir = self._test_output_directory(
+                candidate_build.candidate.image_path.as_posix(),
+                versions=brief_versions,
+            )
+            build_log = candidate_build.stdout
+            with open(out_dir / "build.log", "w") as log:
+                log.write(build_log)
+            if candidate_build.stderr:
+                with open(out_dir / "build.err", "w") as log:
+                    log.write(candidate_build.stderr)
+            if not candidate_build.candidate.image_path.exists():
+                self.logger.info(
+                    f"Build failed in {candidate_build.build_time:.1f}s "
+                    f"(candidate {candidate_build.candidate.key})"
+                )
+                add_summary_record(
+                    self.args.output_prefix,
+                    "versions",
+                    {
+                        "build_time": candidate_build.build_time,
+                        "container": self.bisection_url,
+                        "output_directory": out_dir.as_posix(),
+                        "result": str(TestExecutionOutcome.BUILD_FAILURE),
+                        **versions,
+                    },
+                )
+                return TestResult(
+                    build_stdouterr=build_log,
+                    host_output_directory=out_dir,
+                    result=TestExecutionOutcome.BUILD_FAILURE,
+                    stdouterr=None,
+                )
+
+            test_before = time.monotonic()
+            with self._make_container(
+                candidate_build.candidate.image_path.as_posix(),
+                test_output_directory=out_dir,
+                purpose="test",
+            ) as worker:
+                test_result = worker.exec(
+                    self.args.test_command, log_level=test_output_log_level
+                )
+            test_time = time.monotonic() - test_before
+            test_output = test_result.stdout
+            with open(out_dir / "test.log", "w") as log:
+                log.write(test_output)
+            test_result_enum = (
+                TestExecutionOutcome.TEST_SUCCESS
+                if test_result.returncode == 0
+                else TestExecutionOutcome.TEST_FAILURE
+            )
+            self.logger.info(
+                f"Build {'reused' if candidate_build.reused_existing else 'succeeded'} "
+                f"in {candidate_build.build_time:.1f}s, test completed in "
+                f"{test_time:.1f}s ({test_result_enum})"
+            )
+            add_summary_record(
+                self.args.output_prefix,
+                "versions",
+                {
+                    "build_time": candidate_build.build_time,
+                    "container": candidate_build.candidate.image_path.as_posix(),
+                    "output_directory": out_dir.as_posix(),
+                    "result": str(test_result_enum),
+                    "test_time": test_time,
+                    **versions,
+                },
+            )
+            return TestResult(
+                build_stdouterr=build_log,
+                host_output_directory=out_dir,
+                result=test_result_enum,
+                stdouterr=test_output,
+            )
+
         # Amortise container startup overhead by batching together git commands
         git_commands, changed, skipped = [], [], []
         for package in sorted(self.dynamic_packages):
@@ -533,11 +784,8 @@ class TriageTool:
         if self.args.passing_container is None and self.args.failing_container is None:
             self.logger.info("Launching container-level search")
             range_start, range_end = container_search(
-                container_exists=lambda date: make_container(
-                    self.args.container_runtime,
-                    container_url_func(date),
-                    [],
-                    self.logger,
+                container_exists=lambda date: self._make_container(
+                    container_url_func(date), purpose="utility"
                 ).exists(),
                 container_passes=self._check_container_by_date,
                 start_date=self.args.start_date,
@@ -668,7 +916,7 @@ class TriageTool:
             Tuple[dict, TestResult]: The final versions and the test result.
         """
         # Prepare the container for the bisection
-        with self._make_container(self.bisection_url) as worker:
+        with self._make_container(self.bisection_url, purpose="utility") as worker:
             package_versions = self._gather_histories(
                 worker, passing_versions, failing_versions
             )

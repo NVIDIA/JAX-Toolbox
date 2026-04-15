@@ -15,6 +15,44 @@ from .utils import run_and_log
 _process_token = secrets.token_bytes()
 
 
+def build_srun_command(
+    *,
+    container_image: str,
+    container_name: str,
+    mount_args: typing.List[str],
+    command: typing.List[str],
+    policy: typing.Literal["once", "once_per_container", "default"] = "default",
+    workdir: typing.Optional[str] = None,
+    container_writable: bool = False,
+    container_save: typing.Optional[pathlib.Path] = None,
+) -> typing.List[str]:
+    wd_arg = [] if workdir is None else [f"--container-workdir={workdir}"]
+    policy_args = {
+        "once": ["--ntasks=1"],
+        "once_per_container": ["--ntasks-per-node=1"],
+        "default": [],
+    }[policy]
+    mutable_args = ["--container-writable"] if container_writable else []
+    save_args = (
+        [f"--container-save={container_save}"] if container_save is not None else []
+    )
+    return (
+        [
+            "srun",
+            f"--container-image={container_image}",
+            f"--container-name={container_name}",
+            "--container-remap-root",
+            "--no-container-mount-home",
+        ]
+        + mount_args
+        + policy_args
+        + mutable_args
+        + save_args
+        + wd_arg
+        + command
+    )
+
+
 class PyxisContainer(Container):
     def __init__(
         self,
@@ -60,24 +98,13 @@ class PyxisContainer(Container):
         """
         Run a command inside a persistent container.
         """
-        wd_arg = [] if workdir is None else [f"--container-workdir={workdir}"]
-        policy_args = {
-            "once": ["--ntasks=1"],
-            "once_per_container": ["--ntasks-per-node=1"],
-            "default": [],
-        }[policy]
-        command = (
-            [
-                "srun",
-                f"--container-image={self._url}",
-                f"--container-name={self._name}",
-                "--container-remap-root",
-                "--no-container-mount-home",
-            ]
-            + self._mount_args
-            + policy_args
-            + wd_arg
-            + command
+        command = build_srun_command(
+            container_image=self._url,
+            container_name=self._name,
+            mount_args=self._mount_args,
+            command=command,
+            policy=policy,
+            workdir=workdir,
         )
         return run_and_log(
             command, logger=self._logger, log_level=log_level, stderr=stderr

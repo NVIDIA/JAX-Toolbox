@@ -298,8 +298,129 @@ def parse_args(args=None) -> argparse.Namespace:
     parser.add_argument(
         "--container-runtime",
         default="docker",
-        help="Container runtime used, can be docker, pyxis, or local.",
+        help="Container runtime used, can be docker, pyxis, slurm, or local.",
         type=lambda s: s.lower(),
+    )
+    slurm_args = parser.add_argument_group(
+        title="SLURM submission (--container-runtime=slurm)",
+        description="""
+            When --container-runtime=slurm is used the triage tool runs on the login
+            node. Read-only inspection commands and tests are submitted as batch jobs,
+            while version-level builds materialize per-candidate `.sqsh` container
+            images on a shared filesystem via Pyxis `--container-save`.
+        """,
+    )
+    slurm_args.add_argument(
+        "--slurm-account",
+        default=None,
+        help="SLURM account for test jobs (#SBATCH --account).",
+    )
+    slurm_args.add_argument(
+        "--slurm-partition",
+        default=None,
+        help="SLURM partition for test jobs (#SBATCH --partition).",
+    )
+    slurm_args.add_argument(
+        "--slurm-num-nodes",
+        default=1,
+        type=int,
+        help="Number of nodes for test jobs (#SBATCH --nodes). Default: 1.",
+    )
+    slurm_args.add_argument(
+        "--slurm-ntasks-per-node",
+        default=1,
+        type=int,
+        help="Tasks per node for test jobs (#SBATCH --ntasks-per-node). Default: 1.",
+    )
+    slurm_args.add_argument(
+        "--slurm-gpus-per-node",
+        default=None,
+        type=int,
+        help="GPUs per node for test jobs (#SBATCH --gpus-per-node).",
+    )
+    slurm_args.add_argument(
+        "--slurm-cpus-per-task",
+        default=None,
+        type=int,
+        help="CPUs per task for test jobs (#SBATCH --cpus-per-task).",
+    )
+    slurm_args.add_argument(
+        "--slurm-mem",
+        default=None,
+        help="Memory request for test jobs (#SBATCH --mem).",
+    )
+    slurm_args.add_argument(
+        "--slurm-time-limit",
+        default=None,
+        help="Time limit for test jobs (#SBATCH --time).",
+    )
+    slurm_args.add_argument(
+        "--slurm-build-account",
+        default=None,
+        help="SLURM account for candidate-image build jobs. Defaults to --slurm-account.",
+    )
+    slurm_args.add_argument(
+        "--slurm-build-partition",
+        default=None,
+        help="SLURM partition for candidate-image build jobs. Defaults to --slurm-partition.",
+    )
+    slurm_args.add_argument(
+        "--slurm-build-num-nodes",
+        default=1,
+        type=int,
+        help="Number of nodes for build jobs (#SBATCH --nodes). Default: 1.",
+    )
+    slurm_args.add_argument(
+        "--slurm-build-ntasks-per-node",
+        default=1,
+        type=int,
+        help="Tasks per node for build jobs (#SBATCH --ntasks-per-node). Default: 1.",
+    )
+    slurm_args.add_argument(
+        "--slurm-build-gpus-per-node",
+        default=None,
+        type=int,
+        help="GPUs per node for build jobs (#SBATCH --gpus-per-node).",
+    )
+    slurm_args.add_argument(
+        "--slurm-build-cpus-per-task",
+        default=None,
+        type=int,
+        help="CPUs per task for build jobs (#SBATCH --cpus-per-task).",
+    )
+    slurm_args.add_argument(
+        "--slurm-build-mem",
+        default=None,
+        help="Memory request for build jobs (#SBATCH --mem).",
+    )
+    slurm_args.add_argument(
+        "--slurm-build-time-limit",
+        default=None,
+        help="Time limit for build jobs (#SBATCH --time).",
+    )
+    slurm_args.add_argument(
+        "--slurm-poll-interval",
+        default=30,
+        type=int,
+        help="Seconds between squeue polls when waiting for a job to finish. Default: 30.",
+    )
+    slurm_args.add_argument(
+        "--slurm-job-dir",
+        default=None,
+        type=pathlib.Path,
+        help="""
+            Shared directory where sbatch scripts, logs, and exit files are written.
+            Defaults to <output-prefix>/slurm-jobs/.
+        """,
+    )
+    slurm_args.add_argument(
+        "--slurm-image-dir",
+        default=None,
+        type=pathlib.Path,
+        help="""
+            Shared directory where per-candidate `.sqsh` images are materialized.
+            Defaults to <output-prefix>/slurm-images/.
+        """,
     )
     parser.add_argument(
         "--main-branch",
@@ -311,6 +432,7 @@ def parse_args(args=None) -> argparse.Namespace:
     assert args.container_runtime in {
         "docker",
         "pyxis",
+        "slurm",
         "local",
     }, args.container_runtime
     args.workaround_buggy_container = set(args.workaround_buggy_container)
@@ -333,10 +455,10 @@ def parse_args(args=None) -> argparse.Namespace:
                 f"--{prefix}-commits is deprecated - please remove it."
             )
 
-    if args.container_runtime == "pyxis":
+    if args.container_runtime in {"pyxis", "slurm"}:
         assert args.bazel_cache is not None, (
-            "For pyxis runtime, --bazel-cache must be provided explicitly. You likely "
-            "want to use a remote cache URL."
+            f"For {args.container_runtime} runtime, --bazel-cache must be provided "
+            "explicitly. You likely want to use a remote cache URL."
         )
     elif args.container_runtime == "docker" and args.bazel_cache is None:
         # In this case we can share a cache across containers by mounting in a
@@ -345,12 +467,21 @@ def parse_args(args=None) -> argparse.Namespace:
             tempfile.gettempdir(), f"{getpass.getuser()}-bazel-triage-cache"
         )
 
+    if args.container_runtime == "slurm":
+        args.slurm_job_dir = args.slurm_job_dir or (args.output_prefix / "slurm-jobs")
+        args.slurm_image_dir = args.slurm_image_dir or (
+            args.output_prefix / "slurm-images"
+        )
+        args.slurm_build_account = args.slurm_build_account or args.slurm_account
+        args.slurm_build_partition = args.slurm_build_partition or args.slurm_partition
+        args.slurm_build_time_limit = (
+            args.slurm_build_time_limit or args.slurm_time_limit
+        )
+
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), (
-            "For local runtime, --passing-versions and --failing-versions must be provided."
-        )
+        ), "For local runtime, --passing-versions and --failing-versions must be provided."
         assert (
             args.container is None
             and args.start_date is None
@@ -395,9 +526,9 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert args.container is not None, (
-            "--container must be passed for the container-level search"
-        )
+        assert (
+            args.container is not None
+        ), "--container must be passed for the container-level search"
 
     args.optional_software = optional_software.copy()
     if args.exclude_transformer_engine:
