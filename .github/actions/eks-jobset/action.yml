@@ -71,6 +71,15 @@ inputs:
     type: string
     default: 'false'
     required: false
+  STATISTICS_SCRIPT:
+    description: 'Commands to extract NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED values from logs'
+    type: string
+    default: |
+      NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true)
+      NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true)
+      NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true)
+      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED))
+    required: false
 
 runs:
   using: 'composite'
@@ -237,10 +246,7 @@ runs:
     if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
     shell: bash -x -u {0}
     run: |
-      NUM_ERRORS=$(cat ${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true)
-      NUM_FAILED=$(cat ${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true)
-      NUM_PASSED=$(cat ${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true)
-      NUM_TESTS=$((NUM_FAILED + NUM_PASSED))
+      eval ${{ inputs.STATISTICS_SCRIPT }}
       
       if [[ ${NUM_ERRORS} > 0 ]] || [[ ${NUM_TESTS} == 0 ]]; then
         BADGE_COLOR=red
