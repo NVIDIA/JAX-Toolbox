@@ -99,7 +99,6 @@ runs:
   - name: Write JobSet manifest
     shell: bash -x -e -u {0}
     run : |
-      done
       cat ${{ inputs.JOBSET_TEMPLATE }} | \
         yq '.metadata.name = "${JOBSET_NAME}"
           | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets = "${{ steps.store-token.outputs.token-name }}"
