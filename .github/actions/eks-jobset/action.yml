@@ -103,7 +103,7 @@ runs:
         yq '.metadata.name = "${JOBSET_NAME}"
           | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets = "${{ steps.store-token.outputs.token-name }}"
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = "${{ inputs.IMAGE }}"
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
+          | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."nvidia.com/gpu" = "${{ inputs.NUM_GPUS }}"
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].command[2] = "${CMD}"'
           ' | \
         tee ${JOBSET_YAML}
