@@ -151,7 +151,7 @@ runs:
     shell: bash -u {0}
     if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      echo "JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD}'") | .name' | tr '\n' ' '))" >> ${GITHUB_ENV}
+      echo "JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${JOBSET_NAME}'") | .name' | tr '\n' ' '))" >> ${GITHUB_ENV}
 
   - name: Wait for JobSet readiness
     shell: bash
