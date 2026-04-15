@@ -14,6 +14,7 @@ jobs:
   test-jax:
     strategy:
       matrix:
+        fail-fast: false
         include:
           - test: backend-independent
             gpus: 1
