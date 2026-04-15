@@ -75,10 +75,10 @@ inputs:
     description: 'Commands to extract NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED values from logs'
     type: string
     default: |
-      NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true)
-      NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true)
-      NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true)
-      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED))
+      NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
+      NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
+      NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
+      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
     required: false
 
 runs:
@@ -246,7 +246,9 @@ runs:
     if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
     shell: bash -x -u {0}
     run: |
-      bash -c "${{ inputs.STATISTICS_SCRIPT }}"
+      STATISTICS_SCRIPT="${{ inputs.STATISTICS_SCRIPT }}"
+      STATISTICS_SCRIPT=$(echo ${STATISTICS_SCRIPT} | sed 's/\n/\ /g')
+      bash -c "${STATISTICS_SCRIPT}"
       
       if [[ ${NUM_ERRORS} > 0 ]] || [[ ${NUM_TESTS} == 0 ]]; then
         BADGE_COLOR=red
