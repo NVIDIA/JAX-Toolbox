@@ -18,6 +18,11 @@ inputs:
     default: 8
     required: false
     type: string
+  GPU_ARCH:
+    description: 'GPU architecture name'
+    default: H100
+    required: false
+    type: string
   MAIN_CONTAINER_NAME:
     description: 'Name of the main contianer in JobSet'
     default: gpu-image
@@ -61,6 +66,12 @@ inputs:
     description: 'NVCR artifact registry login token'
     type: string
     required: true
+  STATISTICS:
+    description: 'Emit unit test statistics'
+    type: string
+    default: 'false'
+    required: false
+
 runs:
   using: 'composite'
   steps:
@@ -222,9 +233,56 @@ runs:
     run: |
       kubectl delete jobset --wait ${JOBSET_NAME} || echo "JobSet ${JOBSET_NAME} does not exist"
 
-  - name: Upload artifacts to GitHub Actions from runner
+  - name: Emit unit test statistics
+    if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
+    shell: bash -x -u {0}
+    run: |
+      NUM_ERRORS=$(cat jax-unit-${{ matrix.test }}*.log | grep -c 'ERROR:' || true)
+      NUM_FAILED=$(CAT jax-unit-${{ matrix.test }}*.log | grep -c 'FAILED in' || true)
+      NUM_PASSED=$(cat jax-unit-${{ matrix.test }}*.log | grep -c 'PASSED in' || true)
+      NUM_TESTS=$((NUM_FAILED + NUM_PASSED))
+      
+      if [[ ${NUM_ERRORS} > 0 ]] || [[ ${NUM_TESTS} == 0 ]]; then
+        BADGE_COLOR=red
+        BADGE_MESSAGE=error
+        SUMMARY="${{ inputs.NAME }} unit test on ${{ inputs.GPU_ARCH }} did not complete due to errors."
+        continue
+      else
+        if [[ ${NUM_FAILED} == 0 ]]; then
+          BADGE_COLOR=brightgreen
+        else
+          BADGE_COLOR=yellow
+        fi
+        BADGE_MESSAGE="${NUM_PASSED}/${NUM_TESTS} passed"
+        SUMMARY="${{ inputs.NAME }} on ${{ inputs.GPU_ARCH }}: ${NUM_TESTS} total tests, ${NUM_ERRORS} errors, ${NUM_PASSED} passed, ${NUM_FAILED} failed."
+      fi
+      
+      source .github/workflows/scripts/to_json.sh
+      to_json \
+        SUMMARY \
+        NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED \
+        BADGE_LABEL BADGE_COLOR BADGE_MESSAGE \
+      > sitrep.json
+      
+      schemaVersion=1 \
+      label="${BADGE_LABEL}" \
+      message="${BADGE_MESSAGE}" \
+      color="${BADGE_COLOR}" \
+      to_json schemaVersion label message color \
+      > badge-${{ inputs.NAME }}-${{ inputs.GPU_ARCH }}.json
+
+  - name: Upload logs artifacts to GitHub Actions from runner
     uses: actions/upload-artifact@v6
     if: ${{ always() }}
     with:
       name: ${{ inputs.NAME }}
       path: ${{ env.JOBSET_NAME }}/*
+
+  - name: Upload statistics artifacts
+    if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
+    uses: actions/upload-artifact@v6
+    with:
+      name: ${{ inputs.NAME }}-${{ inputs.GPU_ARCH }}
+      path: |
+        sitrep.json
+        badge-${{ inputs.NAME }}-${{ inputs.GPU_ARCH }}.json

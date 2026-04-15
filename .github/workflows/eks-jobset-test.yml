@@ -35,3 +35,4 @@ jobs:
             test-jax.sh -b ${{ matrix.test }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
