@@ -147,37 +147,30 @@ runs:
 
       echo "JobSet ${JOBSET_NAME} has just become active in cluster"
 
-  - name: Set JobSet Pod name
+  - name: Set JobSet Pods
     shell: bash -u {0}
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${JOBSET_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
+      echo "JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD}'") | .name' | tr '\n' ' '))" >> ${GITHUB_ENV}
 
-  - name: Wait for JobSet Pod readiness
-    shell: bash -u {0}
+  - name: Wait for JobSet readiness
+    shell: bash
+    if: steps.cluster-online.outputs.proceed == 'true'
     run: |
-      POD_READY=false
-      while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
-        echo "Waiting for pod ${POD} in JobSet ${JOBSET_NAME} to become ready"
-        sleep 25
+      set -euo pipefail
 
-        POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
-        if ${POD_ERROR} ; then
-          echo "There was an issue starting the JobSet ${JOBSET_NAME}"
-          break
-        fi
-
-        POD_READY=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'").ready')
-      done;
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
+        [[ -z "$jobset_pod" ]] && continue
+        echo "Waiting for pod $jobset_pod in JobSet $JOBSET_NAME to become ready"
+        kubectl wait --for=condition=Ready "pod/$jobset_pod" --timeout=30m
+      done
 
   - name: Stream logs from JobSet Pods
     shell: bash -u {0}
     run: |
       mkdir -p ${JOBSET_NAME}
 
-      JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${JOBSET_NAME}'") | .name' | tr '\n' ' '))
-      echo "JOBSET_PODS=${JOBSET_PODS[@]}" >> ${GITHUB_ENV}
-
-      for jobset_pod in ${JOBSET_PODS[@]}; do
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
           kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${JOBSET_NAME}/${jobset_pod}.log &
       done
       wait < <(jobs -p)
@@ -202,7 +195,7 @@ runs:
       }
 
       ALL_EXIT_CODES=0
-      for jobset_pod in ${JOBSET_PODS[@]}; do
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
         POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod})
         ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
       done
