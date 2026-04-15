@@ -248,7 +248,7 @@ runs:
     run: |
       STATISTICS_SCRIPT="${{ inputs.STATISTICS_SCRIPT }}"
       STATISTICS_SCRIPT=$(echo ${STATISTICS_SCRIPT} | sed 's/\n/\ /g')
-      bash -c "${STATISTICS_SCRIPT}"
+      eval "${STATISTICS_SCRIPT}"
       
       if [[ ${NUM_ERRORS} > 0 ]] || [[ ${NUM_TESTS} == 0 ]]; then
         BADGE_COLOR=red
