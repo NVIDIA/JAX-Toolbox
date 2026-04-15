@@ -71,6 +71,7 @@ runs:
       JOBSET_YAML=.github/eks-workflow-files/${JOBSET_NAME}-jobset.yml
 
       echo "JOBSET_NAME=${JOBSET_NAME}" >> ${GITHUB_ENV}
+      echo "JOBSET_YAML=${JOBSET_YAML}" >> ${GITHUB_ENV}
 
   - name: Set job command
     shell: bash -x -e -u {0}
@@ -100,7 +101,7 @@ runs:
     shell: bash -x -e -u {0}
     run : |
       cat ${{ inputs.JOBSET_TEMPLATE }} | \
-        yq '.metadata.name = "${JOBSET_NAME}"
+        yq '.metadata.name = "'${JOBSET_NAME}'"
           | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets = "${{ steps.store-token.outputs.token-name }}"
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = "${{ inputs.IMAGE }}"
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."nvidia.com/gpu" = "${{ inputs.NUM_GPUS }}"
