@@ -12,7 +12,6 @@ permissions:
 
 jobs:
   test-jax:
-    needs: build-jax
     strategy:
       matrix:
         test:
