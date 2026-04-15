@@ -28,9 +28,10 @@ runs:
           --from-file=.dockerconfigjson=$HOME/.docker/config.json \
           --type=kubernetes.io/dockerconfigjson
         post: |
-          if [[ -n "${STATE_TOKEN_NAME:-}" ]]; then
+          if [ -n "${STATE_TOKEN_NAME:-}" ]; then
             kubectl delete secret "$STATE_TOKEN_NAME" --ignore-not-found=true
           else
             echo "Skipping secret cleanup: STATE_TOKEN_NAME is empty"
           fi
-
+        
+        
