@@ -77,15 +77,10 @@ runs:
     shell: bash -x -e -u {0}
     run: |
       PRELUDE="nvidia-smi"
-      {
-        echo 'CMD<<EOF'
-        printf '%s\n' "${PRELUDE}"
-        printf '%s\n' "${{ input.COMMAND }}"
-        printf '%s\n' 'EXIT_CODE=$?'
-        printf '%s\n' "${{ input.EXIT_COMMAND }}"
-        echo 'EOF'
-      } >> "$GITHUB_ENV"
+      POSTLUDE="EXIT_CODE=\$?; ${{ input.EXIT_COMMAND }}"
+      CMD=$(echo ${CMD} | sed 's/\n/\ /g')
 
+      echo "CMD=${PRELUDE}; ${CMD}; ${POSTLUDE}" >> ${GITHUB_ENV}
 
   - name: Login to GitHub Container Registry
     uses: docker/login-action@v3
