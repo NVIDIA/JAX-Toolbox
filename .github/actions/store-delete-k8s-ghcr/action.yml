@@ -16,12 +16,21 @@ runs:
         echo "token-name=${RANDOM}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> $GITHUB_OUTPUT
     - name: Delete GitHub Container Registry token
       uses: ./.github/actions/with-post-step
+      env:
+        TOKEN_NAME: ${{ steps.token.outputs.token-name }}
       with: 
         main: | 
+          echo "TOKEN_NAME=$TOKEN_NAME" >> "$GITHUB_STATE"
+
           # Store GitHub Container Registry token as Kubernetes secret
           kubectl create secret generic \
           ${{ steps.token.outputs.token-name }} \
           --from-file=.dockerconfigjson=$HOME/.docker/config.json \
           --type=kubernetes.io/dockerconfigjson
         post: |
-          kubectl delete secret ${{ steps.token.outputs.token-name }}
+          if [[ -n "${STATE_TOKEN_NAME:-}" ]]; then
+            kubectl delete secret "$STATE_TOKEN_NAME" --ignore-not-found=true
+          else
+            echo "Skipping secret cleanup: STATE_TOKEN_NAME is empty"
+          fi
+

@@ -83,7 +83,7 @@ runs:
     shell: bash -x -e -u {0}
     run: |
       PRELUDE="set -xe -o pipefail; nvidia-smi"
-      POSTLUDE="EXIT_CODE=\$?; sleep 30; ${{ input.EXIT_COMMAND }}"
+      POSTLUDE="EXIT_CODE=\$?; sleep 30; ${{ inputs.EXIT_COMMAND }}"
 
       CMD="${{ inputs.COMMAND }}"
       CMD=$(echo ${CMD} | sed 's/\n/\ /g')
@@ -131,21 +131,33 @@ runs:
     env:
       POLL_TIMEOUT: 3600
     run: |
+      set -euo pipefail
+  
       START=$(date +%s)
-      JOBSET_ACTIVE=false
-      while ! ${JOBSET_ACTIVE}  || [ -z ${JOBSET_ACTIVE} ]; do
-        JOBSET_ACTIVE=$(kubectl get jobset -o json | jq -r '.items[] | select(.metadata.name == "'${JOBSET_NAME}'").status.replicatedJobsStatus[0] | .active == 1')
+      JOBSET_ACTIVE=""
+  
+      while [[ "${JOBSET_ACTIVE:-}" != "true" ]]; do
+        JOBSET_ACTIVE="$(
+          kubectl get jobset -o json | jq -r '
+            .items[]
+            | select(.metadata.name == "'"${JOBSET_NAME}"'")
+            | .status.replicatedJobsStatus[0].active == 1
+          '
+        )"
+  
         NOW=$(date +%s)
         ELAPSED=$(( NOW - START ))
-        if (( ELAPSED > POLL_TIMEOUT )) ; then
+        if (( ELAPSED > POLL_TIMEOUT )); then
           echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in cluster"
           exit 1
         fi
+  
         echo "Waiting for JobSet ${JOBSET_NAME} to become active in cluster"
         sleep 15
       done
-
+  
       echo "JobSet ${JOBSET_NAME} has just become active in cluster"
+
 
   - name: Set JobSet Pods
     shell: bash -u {0}
