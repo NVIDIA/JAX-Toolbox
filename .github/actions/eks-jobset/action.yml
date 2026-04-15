@@ -105,13 +105,13 @@ runs:
           | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets = "${{ steps.store-token.outputs.token-name }}"
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = "${{ inputs.IMAGE }}"
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."nvidia.com/gpu" = "${{ inputs.NUM_GPUS }}"
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].command[2] = "${CMD}"' | \
+          | .spec.replicatedJobs[].template.spec.template.spec.containers[].command[2] = "${CMD}"'
         tee ${JOBSET_YAML}
 
   - name: Create JobSet on cluster
     shell: bash -x -e -u {0}
     run: |
-      kubetctl apply -f ${JOBSET_YAML}
+      kubectl apply -f ${JOBSET_YAML}
 
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}
