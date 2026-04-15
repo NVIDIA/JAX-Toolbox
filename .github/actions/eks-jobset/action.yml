@@ -183,7 +183,7 @@ runs:
       wait < <(jobs -p)
 
   - name: Set exit code from JobSet pods logs
-    shell: bash -u {0}
+    shell: bash -x -u {0}
     run: |
       parse_pod_exit_code() {
         local pod=$1
@@ -225,4 +225,4 @@ runs:
     if: ${{ always() }}
     with:
       name: ${{ inputs.JOBSET_NAME }}
-      path: ${{ env.JOBSET_NAME }}/output/*
+      path: ${{ env.JOBSET_NAME }}/*
