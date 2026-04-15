@@ -187,8 +187,7 @@ runs:
     run: |
       parse_pod_exit_code() {
         local pod=$1
-        MAYBE_JOBSET_EXIT_CODE="$(tail -n 1 ${JOBSET_NAME}/${pod}.log | awk '{ print $3 }' )"
-        echo ${MAYBE_JOBSET_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
+        MAYBE_JOBSET_EXIT_CODE="$(tail -n 10 ${JOBSET_NAME}/${pod}.log | grep -oE 'EXIT\_CODE=[0-9]+$')"
 
         if [ $? -ne 0 ]; then
           echo "The JobSet ${JOBSET_NAME} did not complete as expected " >&2
