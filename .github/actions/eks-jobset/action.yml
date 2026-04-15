@@ -78,7 +78,9 @@ runs:
     run: |
       PRELUDE="nvidia-smi"
       POSTLUDE="sleep 30; EXIT_CODE=\$?; ${{ input.EXIT_COMMAND }}"
-      CMD=$(echo ${{ inputs.COMMAND }} | sed 's/\n/\ /g')
+
+      CMD="${{ inputs.COMMAND }}"
+      CMD=$(echo ${CMD} | sed 's/\n/\ /g')
 
       echo "CMD=${PRELUDE}; ${CMD}; ${POSTLUDE}" >> ${GITHUB_ENV}
 
