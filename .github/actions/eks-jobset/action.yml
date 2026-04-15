@@ -142,7 +142,7 @@ runs:
           exit 1
         fi
         echo "Waiting for JobSet ${JOBSET_NAME} to become active in cluster"
-        sleep 5
+        sleep 15
       done
 
       echo "JobSet ${JOBSET_NAME} has just become active in cluster"
@@ -158,7 +158,7 @@ runs:
       POD_READY=false
       while ! ${POD_READY}  || [ -z ${POD_READY} ]; do
         echo "Waiting for pod ${POD} in JobSet ${JOBSET_NAME} to become ready"
-        sleep 10
+        sleep 25
 
         POD_ERROR=$(kubectl get pod ${POD} -o json | jq -r '.status.containerStatuses[]? | select(.name == "'${{ inputs.MAIN_CONTAINER_NAME }}'") | .state | ( has("terminated") and (.terminated.reason == "Error" ))')
         if ${POD_ERROR} ; then
