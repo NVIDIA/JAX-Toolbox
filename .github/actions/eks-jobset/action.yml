@@ -237,9 +237,9 @@ runs:
     if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
     shell: bash -x -u {0}
     run: |
-      NUM_ERRORS=$(cat jax-unit-${{ matrix.test }}*.log | grep -c 'ERROR:' || true)
-      NUM_FAILED=$(CAT jax-unit-${{ matrix.test }}*.log | grep -c 'FAILED in' || true)
-      NUM_PASSED=$(cat jax-unit-${{ matrix.test }}*.log | grep -c 'PASSED in' || true)
+      NUM_ERRORS=$(cat ${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true)
+      NUM_FAILED=$(cat ${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true)
+      NUM_PASSED=$(cat ${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true)
       NUM_TESTS=$((NUM_FAILED + NUM_PASSED))
       
       if [[ ${NUM_ERRORS} > 0 ]] || [[ ${NUM_TESTS} == 0 ]]; then
