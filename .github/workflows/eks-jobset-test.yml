@@ -13,8 +13,8 @@ permissions:
 jobs:
   test-jax:
     strategy:
+      fail-fast: false
       matrix:
-        fail-fast: false
         include:
           - test: backend-independent
             gpus: 1
