@@ -62,6 +62,10 @@ inputs:
     description: "Enable Bazel repository cache via actions/cache"
     required: false
     default: "false"
+  JAX_BUILD:
+    description: "Use the JAX-specific final image flow that builds final from the pushed mealkit image"
+    required: false
+    default: "false"
   docker-build-allow:
     description: "Optional BuildKit entitlements to allow during docker/build-push-action"
     required: false
@@ -243,14 +247,15 @@ runs:
         file: ${{ inputs.DOCKERFILE }}
         network: ${{ inputs.docker-build-network }}
         platforms: linux/${{ inputs.ARCHITECTURE }}
+        target: ${{ inputs.JAX_BUILD == 'true' && 'final-from-image' || 'final' }}
         tags: ${{ steps.final-metadata.outputs.tags }}
         labels: ${{ steps.final-metadata.outputs.labels }}
-        target: final
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
+          ${{ inputs.JAX_BUILD == 'true' && format('MEALKIT_IMAGE={0}', steps.mealkit-metadata.outputs.tags) || '' }}
           BAZEL_CACHE=${{ env.BAZEL_CACHE_VALUE }}
           BUILD_DATE=${{ inputs.BUILD_DATE }}
           ${{ inputs.EXTRA_BUILD_ARGS }}

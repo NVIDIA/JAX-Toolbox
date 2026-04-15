@@ -84,7 +84,8 @@ jobs:
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
             ENABLE_BAZEL_DISK_CACHE: "true"
-            ENABLE_BAZEL_REPO_CACHE: "true"
+            ENABLE_BAZEL_REPO_CACHE: "false"
+            JAX_BUILD: "true"
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
