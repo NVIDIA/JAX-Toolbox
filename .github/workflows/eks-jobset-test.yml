@@ -1,8 +1,7 @@
 name: EKS JobSet
 
 on:
-  on:
-  push:
+ push:
     branches:
       - aybchan/eks-jobset-test
 
