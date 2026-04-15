@@ -14,13 +14,12 @@ jobs:
   test-jax:
     strategy:
       matrix:
-        test:
-          - test: backend-independent
-            gpus: 1
-          - test: single-gpu
-            gpus: 1
-          - test: multi-gpu
-            gpus: 8
+        - test: backend-independent
+          gpus: 1
+        - test: single-gpu
+          gpus: 1
+        - test: multi-gpu
+          gpus: 8
     runs-on: eks
     steps:
       - uses: actions/checkout@v4
