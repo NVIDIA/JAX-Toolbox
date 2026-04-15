@@ -223,5 +223,5 @@ runs:
     uses: actions/upload-artifact@v6
     if: ${{ always() }}
     with:
-      name: ${{ inputs.JOBSET_NAME }}
+      name: ${{ inputs.NAME }}
       path: ${{ env.JOBSET_NAME }}/*
