@@ -79,10 +79,10 @@ runs:
       PRELUDE="nvidia-smi"
       {
         echo 'CMD<<EOF'
-        printf '%s\n' "$PRELUDE"
-        printf '%s\n' "$USER_COMMAND"
+        printf '%s\n' "${PRELUDE}"
+        printf '%s\n' "${{ input.COMMAND }}"
         printf '%s\n' 'EXIT_CODE=$?'
-        printf '%s\n' "$EXIT_COMMAND"
+        printf '%s\n' "${{ input.EXIT_COMMAND }}"
         echo 'EOF'
       } >> "$GITHUB_ENV"
 
