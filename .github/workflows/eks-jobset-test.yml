@@ -98,7 +98,7 @@ jobs:
           # abuse knowledge that nsys-jax is installed editable, so the tests exist
           COMMAND: |
             pip install pytest-reportlog nsys-jax[test];
-            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files(\"nsys_jax\").joinpath(\"..\", "tests").resolve())');
+            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files(\"nsys_jax\").joinpath(\"..\", \"tests\").resolve())');
             pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
