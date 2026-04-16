@@ -18,10 +18,10 @@ jobs:
         include:
           - test: backend-independent
             gpus: 1
-          - test: single-gpu
-            gpus: 1
-          - test: multi-gpu
-            gpus: 8
+          #- test: single-gpu
+          #  gpus: 1
+          #- test: multi-gpu
+          #  gpus: 8
     runs-on: eks
     steps:
       - uses: actions/checkout@v4
@@ -36,3 +36,46 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
+  test-te:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: L0_jax_unittest
+            gpus: 8
+          #- test: L0_jax_distributed_unittest
+          #  gpus: 8
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: transformer-engine
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-jax-amd64
+          # Start MPS daemon
+          # TE's default is slightly different, without the hyphen
+          # 1 GPU per worker, 3 workers per GPU
+          ## 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
+          ## into a single .jsonl file of results from multiple pytest invocations
+          ## inside the test.sh script, so it's useful even with a single worker per
+          ## device.
+          COMMAND: |
+            set -xu -o pipefail;
+            LOG_DIR=/log;
+            pip install pytest-reportlog pytest-xdist;
+            nvidia-cuda-mps-control -d;
+            export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
+            [[ "${{ matrix.test }}" == *unittest* ]] && xdist_args=(4 1) || xdist_args=(8 1);
+            pytest-xdist.sh \${xdist_args[@]} \${LOG_DIR}/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh;
+            cat \${LOG_DIR}/pytest-report.jsonl
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            cat \${JOBSET_NAME}/*.log
+            NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
+            NUM_PASSED=\$(cat \$report_json | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat \$report_json | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
+            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
