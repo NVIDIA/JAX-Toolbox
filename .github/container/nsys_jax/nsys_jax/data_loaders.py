@@ -601,7 +601,9 @@ def _splice_parallel_ranges(compile_df: pd.DataFrame) -> pd.DataFrame:
     return compile_df[retain_mask]
 
 
-def _add_program_id_and_name(compile_df: pd.DataFrame) -> pd.DataFrame:
+def _add_program_id_and_name(
+    prefix: pathlib.Path, replica: str | None, compile_df: pd.DataFrame
+) -> pd.DataFrame:
     # XlaCompileBackend always has the name and program ID, while one code path
     # produces XlaCompile annotations that don't have the program ID. Also, the
     # auto-tuner produces nested XlaCompileBackend ranges with different names
@@ -651,6 +653,18 @@ def _add_program_id_and_name(compile_df: pd.DataFrame) -> pd.DataFrame:
         # If not, look one generation higher above the row
         ancestor_rows = compile_df.loc[ancestor_rows.array[~good_mask], "ParentId"]
         rows_to_fill = rows_to_fill[~good_mask]
+    # Re-map integer program IDs to hashes to match the other data frames
+    if len(compile_df):
+        compile_df["ProgramId"] = compile_df.apply(
+            lambda row: _remap_program_id(
+                old_id_str=row.ProgramId,
+                name=row.ProgramName,
+                prefix=prefix,
+                replica=replica,
+                allow_missing_protobuf=True,
+            ),
+            axis=1,
+        )
     return compile_df
 
 
@@ -689,7 +703,9 @@ def _read_nvtx_pushpop_trace_file(file: pathlib.Path) -> pd.DataFrame:
         )
 
 
-def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
+def _load_nvtx_pushpop_trace_single(
+    prefix: pathlib.Path, replica: str | None, name: pathlib.Path
+) -> pd.DataFrame:
     compile_df = _read_nvtx_pushpop_trace_file(name)
     compile_df["StartMs"] = 1e-6 * compile_df.pop("Start (ns)")
     compile_df["EndMs"] = 1e-6 * compile_df.pop("End (ns)")
@@ -701,7 +717,7 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
     # is not descended from XlaCompile ranges
     compile_df = _splice_parallel_ranges(compile_df)
     # Add ProgramId and ProgramName columns
-    compile_df = _add_program_id_and_name(compile_df)
+    compile_df = _add_program_id_and_name(prefix, replica, compile_df)
     # It makes analysis confusing to have ranges from cuBLAS appear as
     # children of XLA ranges, so fold non-TSL ranges into their TSL parents
     compile_df = _drop_non_tsl(compile_df)
@@ -716,7 +732,7 @@ def _load_nvtx_pushpop_trace_single(name: pathlib.Path) -> pd.DataFrame:
             .replace(f":#module={row.ProgramName}#", "")
         )
 
-    compile_df = compile_df.drop(columns=["EndMs"]).astype({"ProgramId": np.int32})
+    compile_df = compile_df.drop(columns=["EndMs"])
     if len(compile_df):
         compile_df["Name"] = compile_df.apply(
             remove_program_id_and_name, axis="columns"
@@ -728,6 +744,7 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
     new_path = prefix / "report_nvtx_pushpop_trace.parquet"
     legacy_path = prefix / "report_nvtx_pushpop_trace.csv.xz"
     path = new_path if new_path.exists() else legacy_path
+    keys: list[str | None]
     if path.is_dir():
         # We're looking at the output of nsys-jax-combine
         filenames = sorted(path.iterdir())
@@ -735,13 +752,24 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
     else:
         # We're looking at the output of nsys-jax
         filenames = [path]
-        keys = [prefix.name]
+        keys = [None]
 
     if len(filenames) > 1:
         with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
-            chunks = pool.map(_load_nvtx_pushpop_trace_single, filenames)
+            chunks = pool.starmap(
+                _load_nvtx_pushpop_trace_single,
+                zip(
+                    itertools.repeat(prefix),
+                    keys,
+                    filenames,
+                ),
+            )
     else:
-        chunks = [_load_nvtx_pushpop_trace_single(filenames[0])]
+        chunks = [
+            _load_nvtx_pushpop_trace_single(
+                prefix=prefix, replica=keys[0], name=filenames[0]
+            )
+        ]
     return pd.concat(
         chunks,
         keys=keys,

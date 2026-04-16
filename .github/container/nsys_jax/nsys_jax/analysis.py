@@ -257,12 +257,26 @@ def _get_message_size(
                 collective_size = (
                     comm_inst.iota_collective_device_list.num_devices_per_group
                 )
+            if len(replica_groups) == 0:
+                # Or the EVEN-newer format. It seems that process_allgather emits this. The default print(axes) is unhelpful, beware.
+                mesh = comm_inst.mesh_axes_replica_group_list.mesh
+                axes = comm_inst.mesh_axes_replica_group_list.axes
+                assert len(axes), axes
+                assert not any(ax.HasField("sub_axis_info") for ax in axes), (
+                    f"sub_axis_info not supported: {axes}"
+                )
+                collective_size = np.prod(
+                    [mesh.axes[ax.mesh_axis_index].size for ax in axes]
+                )
         else:
             collective_sizes = set(len(group.replica_ids) for group in replica_groups)
             assert len(collective_sizes) == 1, (
                 f"Heterogeneous collective {comm_inst} could not be interpreted"
             )
             collective_size = next(iter(collective_sizes))
+        assert collective_size > 0, (
+            f"Could not extract collective size from: {comm_inst}"
+        )
     total_msg_size = 0
     for operand_id in comm_inst.operand_ids:
         _, operand = module_proto.find_instruction_by_id(operand_id)

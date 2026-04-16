@@ -284,7 +284,11 @@ def _match_module(name) -> tuple[int | None, str | None, str | None]:
 
 @functools.cache
 def _remap_program_id(
-    old_id_str: str | None, name: str, prefix: pathlib.Path, replica: str | None
+    old_id_str: str | None,
+    name: str,
+    prefix: pathlib.Path,
+    replica: str | None,
+    allow_missing_protobuf: bool = False,
 ) -> str:
     """ """
     # In multi-input mode, we will have something like:
@@ -317,9 +321,13 @@ def _remap_program_id(
         if _match_module(candidate.name)[:2] == (old_id, name)
     ]
     if len(candidates) == 0:
-        raise Exception(
-            f"Could not find protobuf input for XlaModule {old_id} ({name}) in {dump_dir}"
-        )
+        if allow_missing_protobuf:
+            # Autotuning candidate HLOs are not dumped.
+            return "unknown"
+        else:
+            raise Exception(
+                f"Could not find protobuf input for XlaModule {old_id} ({name}) in {dump_dir}"
+            )
     elif len(candidates) > 1:
         raise Exception(
             f"Could not find unique protobuf input for XlaModule {old_id} ({name}) in {dump_dir}: {candidates}"
