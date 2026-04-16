@@ -63,13 +63,12 @@ jobs:
           ## device.
           COMMAND: |
             set -xu -o pipefail;
-            LOG_DIR=/log;
             pip install pytest-reportlog pytest-xdist;
             nvidia-cuda-mps-control -d;
             export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
             [[ "${{ matrix.test }}" == *unittest* ]] && xdist_args=(4 1) || xdist_args=(8 1);
-            pytest-xdist.sh \${xdist_args[@]} \${LOG_DIR}/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh;
-            cat \${LOG_DIR}/pytest-report.jsonl
+            pytest-xdist.sh \${xdist_args[@]} /logs/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh;
+            cat /logs/pytest-report.jsonl
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
