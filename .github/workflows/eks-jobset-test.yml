@@ -51,7 +51,7 @@ jobs:
       - name: Run eks-jobset action
         uses: ./.github/actions/eks-jobset
         with:
-          NAME: transformer-engine-${{ matrix.test }}
+          NAME: te-${{ matrix.test }}
           NUM_GPUS: ${{ matrix.gpus }}
           IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-jax-amd64
           # Start MPS daemon
