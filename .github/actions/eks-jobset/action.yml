@@ -139,7 +139,6 @@ runs:
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].name = "${{ inputs.MAIN_CONTAINER_NAME }}"
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = "${{ inputs.IMAGE }}"
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."vpc.amazonaws.com/efa" = env(NUM_EFA)
           | .spec.replicatedJobs[].template.spec.template.spec.containers[].command[2] = env(CMD)' | \
         tee ${JOBSET_YAML}
 
