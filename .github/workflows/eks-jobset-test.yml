@@ -43,8 +43,8 @@ jobs:
         include:
           - test: L0_jax_unittest
             gpus: 8
-          #- test: L0_jax_distributed_unittest
-          #  gpus: 8
+          - test: L0_jax_distributed_unittest
+            gpus: 8
     runs-on: eks
     steps:
       - uses: actions/checkout@v4
@@ -73,8 +73,40 @@ jobs:
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
           STATISTICS_SCRIPT: |
-            cat \${JOBSET_NAME}/*.log
+            cat \${JOBSET_NAME}/*.logyy
             NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
             NUM_PASSED=\$(cat \$report_json | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
             NUM_FAILED=\$(cat \$report_json | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
             NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
+
+  test-nsys-jax:
+    runs-on: eks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - gpus: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: nsys-jax
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-jax-amd64
+          # nsys-jax is already installed, this is just adding the test dependencies
+          # abuse knowledge that nsys-jax is installed editable, so the tests exist
+          COMMAND: |
+            pip install pytest-reportlog nsys-jax[test];
+            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())');
+            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "\${test_path}"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            cat \${JOBSET_NAME}/*.log
+            summary_line=\$(tail -n1 test-nsys-jax.log)
+            NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
+            NUM_PASSED=\$(cat output-results/pytest-report.jsonl | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat output-results/pytest-report.jsonl | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
+            NUM_TESTS=\$(( NUM_PASSED + NUM_FAILED ))
