@@ -88,6 +88,8 @@ runs:
     shell: bash -x -e -u {0}
     run: |
       JOBSET_NAME=${{ inputs.NAME }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}
+      JOBSET_NAME="$(echo "${JOBSET_NAME}" | tr '[:upper:]_' '[:lower:]-')"
+
       JOBSET_YAML=.github/eks-workflow-files/${JOBSET_NAME}-jobset.yml
 
       echo "JOBSET_NAME=${JOBSET_NAME}" >> ${GITHUB_ENV}

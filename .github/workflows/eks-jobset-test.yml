@@ -51,7 +51,7 @@ jobs:
       - name: Run eks-jobset action
         uses: ./.github/actions/eks-jobset
         with:
-          NAME: transformer-engine
+          NAME: transformer-engine-${{ matrix.test }}
           NUM_GPUS: ${{ matrix.gpus }}
           IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-jax-amd64
           # Start MPS daemon
@@ -98,8 +98,8 @@ jobs:
           # abuse knowledge that nsys-jax is installed editable, so the tests exist
           COMMAND: |
             pip install pytest-reportlog nsys-jax[test];
-            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())');
-            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "\${test_path}"
+            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files(\"nsys_jax\").joinpath(\"..\", "tests").resolve())');
+            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
