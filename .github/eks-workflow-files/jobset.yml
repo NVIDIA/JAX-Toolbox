@@ -34,4 +34,3 @@ spec:
                   resources:
                     limits:
                       nvidia.com/gpu: 8
-                      vpc.amazonaws.com/efa: 32
