@@ -105,7 +105,7 @@ runs:
     shell: bash -x -e -u {0}
     run: |
       PRELUDE="set -xe -o pipefail; nvidia-smi"
-      POSTLUDE="EXIT_CODE=\$?; sleep 30; ${{ inputs.EXIT_COMMAND }}"
+      POSTLUDE="EXIT_CODE=\$?; ${{ inputs.EXIT_COMMAND }}"
 
       CMD="${{ inputs.COMMAND }}"
       CMD=$(echo ${CMD} | sed 's/\n/\ /g')
@@ -169,15 +169,15 @@ runs:
         NOW=$(date +%s)
         ELAPSED=$(( NOW - START ))
         if (( ELAPSED > POLL_TIMEOUT )); then
-          echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in cluster"
+          echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in the cluster"
           exit 1
         fi
   
-        echo "Waiting for JobSet ${JOBSET_NAME} to become active in cluster"
-        sleep 15
+        echo "Waiting for JobSet ${JOBSET_NAME} to become active in the cluster"
+        sleep 10
       done
   
-      echo "JobSet ${JOBSET_NAME} has just become active in cluster"
+      echo "JobSet ${JOBSET_NAME} has just become active in the cluster"
 
 
   - name: Set JobSet Pods
