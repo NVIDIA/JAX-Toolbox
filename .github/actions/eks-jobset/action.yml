@@ -1,0 +1,297 @@
+name: Run JobSet on EKS
+
+description: "Launch a JobSet workload on EKS"
+
+inputs:
+  NAME:
+    description: 'JobSet name'
+    default: jobset
+    required: false
+    type: string
+  NUM_NODES:
+    description: 'Number of nodes to use in JobSet'
+    default: 1
+    required: false
+    type: string
+  NUM_GPUS:
+    description: 'Number of GPUs to use in JobSet'
+    default: 8
+    required: false
+    type: string
+  GPU_ARCH:
+    description: 'GPU architecture name'
+    default: H100
+    required: false
+    type: string
+  MAIN_CONTAINER_NAME:
+    description: 'Name of the main contianer in JobSet'
+    default: gpu-image
+    required: false
+    type: string
+  JOBSET_TEMPLATE:
+    description: 'JobSet template path'
+    default: .github/eks-workflow-files/jobset.yml
+    required: false
+    type: string
+  CONTAINER_OUTPUT_PATH:
+    description: 'Output directory for artifacts'
+    default: /opt/output
+    required: false
+    type: string
+  IMAGE:
+    description: 'URI of image to use in JobSet'
+    required: false
+    default: ghcr.io/nvidia/jax:latest
+    type: string
+  COMMAND:
+    description: 'Command to run in main container on JobSet start up (delimited by ;)'
+    required: false
+    default: 'nvidia-smi; free -h;'
+    type: string
+  ENVS:
+    description: 'Environment variables to set in JobSet (delimited by ;)'
+    required: false
+    default: ''
+    type: string
+  EXIT_COMMAND:
+    description: 'Command to set exit code'
+    required: false
+    default: 'exit \$EXIT_CODE'
+    type: string
+  GITHUB_TOKEN:
+    description: 'GitHub artifact registry login token'
+    type: string
+    required: true
+  NVCR_TOKEN:
+    description: 'NVCR artifact registry login token'
+    type: string
+    required: true
+  STATISTICS:
+    description: 'Emit unit test statistics'
+    type: string
+    default: 'false'
+    required: false
+  STATISTICS_SCRIPT:
+    description: 'Commands to extract NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED values from logs'
+    type: string
+    default: |
+      NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
+      NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
+      NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
+      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+  - name: Set workload name
+    shell: bash -x -e -u {0}
+    run: |
+      JOBSET_NAME=${{ inputs.NAME }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}
+      JOBSET_YAML=.github/eks-workflow-files/${JOBSET_NAME}-jobset.yml
+
+      echo "JOBSET_NAME=${JOBSET_NAME}" >> ${GITHUB_ENV}
+      echo "JOBSET_YAML=${JOBSET_YAML}" >> ${GITHUB_ENV}
+
+  - name: Set JobSet resources
+    shell: bash -x -e -u {0}
+    run: |
+      NUM_EFA=$((${{ inputs.NUM_GPUS }} * 4))
+      echo "NUM_EFA=${NUM_EFA}" >> ${GITHUB_ENV}
+
+  - name: Set job command
+    shell: bash -x -e -u {0}
+    run: |
+      PRELUDE="set -xe -o pipefail; nvidia-smi"
+      POSTLUDE="EXIT_CODE=\$?; sleep 30; ${{ inputs.EXIT_COMMAND }}"
+
+      CMD="${{ inputs.COMMAND }}"
+      CMD=$(echo ${CMD} | sed 's/\n/\ /g')
+
+      echo "CMD=${PRELUDE}; ${CMD}; ${POSTLUDE}" >> ${GITHUB_ENV}
+
+  - name: Login to GitHub Container Registry
+    uses: docker/login-action@v3
+    with:
+      registry: ghcr.io
+      username: ${{ github.repository_owner }}
+      password: ${{ inputs.GITHUB_TOKEN }}
+
+  - name: Login to nvcr.io Container Registry
+    uses: docker/login-action@v3
+    with:
+      registry: nvcr.io
+      username: $oauthtoken
+      password: ${{ inputs.NVCR_TOKEN }}
+
+  - name: k8s store and delete image secret
+    id: store-token
+    uses: ./.github/actions/store-delete-k8s-ghcr
+
+  - name: Write JobSet manifest
+    shell: bash -x -e -u {0}
+    run : |
+      cat ${{ inputs.JOBSET_TEMPLATE }} | \
+        yq '.metadata.name = env(JOBSET_NAME)
+          | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets[0].name = "${{ steps.store-token.outputs.token-name }}"
+          | .spec.replicatedJobs[].template.spec.template.spec.containers[].name = "${{ inputs.MAIN_CONTAINER_NAME }}"
+          | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = "${{ inputs.IMAGE }}"
+          | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
+          | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."vpc.amazonaws.com/efa" = env(NUM_EFA)
+          | .spec.replicatedJobs[].template.spec.template.spec.containers[].command[2] = env(CMD)' | \
+        tee ${JOBSET_YAML}
+
+  - name: Create JobSet on cluster
+    shell: bash -x -e -u {0}
+    run: |
+      kubectl apply -f ${JOBSET_YAML}
+
+  - name: Wait for JobSet to unsuspend on cluster
+    shell: bash -u {0}
+    env:
+      POLL_TIMEOUT: 3600
+    run: |
+      set -euo pipefail
+
+      START=$(date +%s)
+      JOBSET_ACTIVE=""
+
+      while [[ "${JOBSET_ACTIVE:-}" != "true" ]]; do
+        JOBSET_ACTIVE="$(
+          kubectl get jobset -o json | jq -r '
+            .items[]
+            | select(.metadata.name == "'"${JOBSET_NAME}"'")
+            | .status.replicatedJobsStatus[0].active == 1
+          '
+        )"
+
+        NOW=$(date +%s)
+        ELAPSED=$(( NOW - START ))
+        if (( ELAPSED > POLL_TIMEOUT )); then
+          echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in cluster"
+          exit 1
+        fi
+
+        echo "Waiting for JobSet ${JOBSET_NAME} to become active in cluster"
+        sleep 15
+      done
+
+      echo "JobSet ${JOBSET_NAME} has just become active in cluster"
+
+
+  - name: Set JobSet Pods
+    shell: bash -u {0}
+    run: |
+      echo "JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${JOBSET_NAME}'") | .name' | tr '\n' ' '))" >> ${GITHUB_ENV}
+
+  - name: Wait for JobSet readiness
+    shell: bash
+    run: |
+      set -euo pipefail
+
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
+        [[ -z "$jobset_pod" ]] && continue
+        echo "Waiting for pod $jobset_pod in JobSet $JOBSET_NAME to become ready"
+        kubectl wait --for=condition=Ready "pod/$jobset_pod" --timeout=30m
+      done
+
+  - name: Stream logs from JobSet Pods
+    shell: bash -u {0}
+    run: |
+      mkdir -p ${JOBSET_NAME}
+
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
+          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${JOBSET_NAME}/${jobset_pod}.log &
+      done
+      wait < <(jobs -p)
+
+  - name: Set exit code from JobSet pods logs
+    shell: bash -x -u {0}
+    run: |
+      parse_pod_exit_code() {
+        local pod=$1
+        MAYBE_JOBSET_EXIT_CODE="$(tail -n 10 ${JOBSET_NAME}/${pod}.log | grep -oE 'EXIT\_CODE=[0-9]+$')"
+
+        if [ $? -ne 0 ]; then
+          echo "The JobSet ${JOBSET_NAME} did not complete as expected " >&2
+          echo "JOBSET_EXIT_CODE=1" >> ${GITHUB_ENV}
+          exit 1
+        fi
+
+        echo "Pod ${pod} exited with ${MAYBE_JOBSET_EXIT_CODE}" >&2
+
+        eval "export ${MAYBE_JOBSET_EXIT_CODE}"
+        echo ${EXIT_CODE}
+      }
+
+      ALL_EXIT_CODES=0
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
+        POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod})
+        ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
+      done
+
+      echo "JOBSET_EXIT_CODE=${ALL_EXIT_CODES}" >> ${GITHUB_ENV}
+      if [ ${ALL_EXIT_CODES} -gt 0 ]; then
+        exit 1
+      fi
+      exit 0
+
+  - name: Clean up JobSet from cluster
+    shell: bash -x -u {0}
+    if: ${{ always() }}
+    run: |
+      kubectl delete jobset --wait ${JOBSET_NAME} || echo "JobSet ${JOBSET_NAME} does not exist"
+
+  - name: Emit unit test statistics
+    if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
+    shell: bash -x -u {0}
+    run: |
+      STATISTICS_SCRIPT="${{ inputs.STATISTICS_SCRIPT }}"
+      STATISTICS_SCRIPT=$(echo ${STATISTICS_SCRIPT} | sed 's/\n/\ /g')
+      eval "${STATISTICS_SCRIPT}"
+
+      if [[ ${NUM_ERRORS} > 0 ]] || [[ ${NUM_TESTS} == 0 ]]; then
+        BADGE_COLOR=red
+        BADGE_MESSAGE=error
+        SUMMARY="${{ inputs.NAME }} unit test on ${{ inputs.GPU_ARCH }} did not complete due to errors."
+        continue
+      else
+        if [[ ${NUM_FAILED} == 0 ]]; then
+          BADGE_COLOR=brightgreen
+        else
+          BADGE_COLOR=yellow
+        fi
+        BADGE_MESSAGE="${NUM_PASSED}/${NUM_TESTS} passed"
+        SUMMARY="${{ inputs.NAME }} on ${{ inputs.GPU_ARCH }}: ${NUM_TESTS} total tests, ${NUM_ERRORS} errors, ${NUM_PASSED} passed, ${NUM_FAILED} failed."
+      fi
+
+      source .github/workflows/scripts/to_json.sh
+      BADGE_LABEL="${{ inputs.NAME }} ${{ inputs.GPU_ARCH }} Unit"
+      to_json \
+        SUMMARY \
+        NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED \
+        BADGE_LABEL BADGE_COLOR BADGE_MESSAGE \
+      > sitrep.json
+
+      schemaVersion=1 \
+      label="${BADGE_LABEL}" \
+      message="${BADGE_MESSAGE}" \
+      color="${BADGE_COLOR}" \
+      to_json schemaVersion label message color \
+      > badge-${{ inputs.NAME }}-${{ inputs.GPU_ARCH }}.json
+
+  - name: Upload logs artifacts to GitHub Actions from runner
+    uses: actions/upload-artifact@v6
+    if: ${{ always() }}
+    with:
+      name: ${{ inputs.NAME }}
+      path: ${{ env.JOBSET_NAME }}/*
+
+  - name: Upload statistics artifacts
+    if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
+    uses: actions/upload-artifact@v6
+    with:
+      name: ${{ inputs.NAME }}-${{ inputs.GPU_ARCH }}
+      path: |
+        sitrep.json
+        badge-${{ inputs.NAME }}-${{ inputs.GPU_ARCH }}.json

@@ -246,41 +246,30 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: jax
-      EXECUTE: |
-        docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-backend-independent.log
-          test-jax.sh -b backend-independent
-        EOF
-        docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-single-gpu.log
-          nvidia-cuda-mps-control -d
-          test-jax.sh -b single-gpu
-        EOF
-        docker run -i --shm-size=1g --gpus all \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-multi-gpu.log
-          nvidia-cuda-mps-control -d
-          test-jax.sh -b multi-gpu
-        EOF
-      STATISTICS_SCRIPT: |
-        errors=$(cat test-*.log | grep -c 'ERROR:' || true)
-        failed_tests=$(cat test-*.log | grep -c 'FAILED in' || true)
-        passed_tests=$(cat test-*.log | grep -c 'PASSED in' || true)
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        test-backend-independent.log
-        test-multi-gpu.log
-        test-single-gpu.log
-    secrets: inherit
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: backend-independent
+            gpus: 1
+          - test: single-gpu
+            gpus: 1
+          - test: multi-gpu
+            gpus: 8
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: jax-unit-${{ matrix.test }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            test-jax.sh -b ${{ matrix.test }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
 
   test-nsys-jax:
     needs: build-jax
@@ -290,39 +279,31 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: nsys-jax
-      EXECUTE: |
-        set -o pipefail
-        mkdir -p output-results
-        docker run -i --shm-size=1g --gpus all \
-          -v $PWD/output-results:/opt/output \
-          ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-          bash <<"EOF" |& tee test-nsys-jax.log
-            # nsys-jax is already installed, this is just adding the test dependencies
-            pip install pytest-reportlog nsys-jax[test]
-            # abuse knowledge that nsys-jax is installed editable, so the tests exist
-            test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
-            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "${test_path}"
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: nsys-jax
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+          # nsys-jax is already installed, this is just adding the test dependencies
+          # abuse knowledge that nsys-jax is installed editable, so the tests exist
+          COMMAND: |
+            pip install pytest-reportlog nsys-jax[test];
+            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())');
+            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "\${test_path}"
             chmod -R a+rwX /opt/output
-        EOF
-      STATISTICS_SCRIPT: |
-        summary_line=$(tail -n1 test-nsys-jax.log)
-        num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(cat output-results/pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-        failed_tests=$(cat output-results/pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-        total_tests=$(( passed_tests + failed_tests ))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-      ARTIFACTS: |
-        # pytest-driven part
-        test-nsys-jax.log
-        output-results/pytest-report.jsonl
-        output-results/pytest-tmp/
-    secrets: inherit
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            summary_line=\$(tail -n1 test-nsys-jax.log)
+            NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
+            NUM_PASSED=\$(cat output-results/pytest-report.jsonl | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat output-results/pytest-report.jsonl | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
+            NUM_TESTS=\$(( NUM_PASSED + NUM_FAILED ))
 
   # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
   # runs on a regular GitHub Actions runner and checks that offline post-processing works in an environment that does
@@ -453,69 +434,51 @@ jobs:
 
   test-te-a100:
     needs: build-jax
-    secrets: inherit
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
         inputs.MODE == 'full' ||
         inputs.MODE == 'te'
       )
-    uses: ./.github/workflows/_test_unit.yaml
-    with:
-      TEST_NAME: te
-      EXECUTE: |
-        docker run -i --gpus all --shm-size=1g -v $PWD:/log \
-        ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-        bash <<"EOF" |& tee test-te.log
-          set -xu -o pipefail
-
-          LOG_DIR=/log
-
-          pip install pytest-reportlog pytest-xdist
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: te
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           # Start MPS daemon
-          nvidia-cuda-mps-control -d
           # TE's default is slightly different, without the hyphen
-          export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
           # 1 GPU per worker, 3 workers per GPU
-          pytest-xdist.sh 1 3 ${LOG_DIR}/pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
           ## 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
           ## into a single .jsonl file of results from multiple pytest invocations
           ## inside the test.sh script, so it's useful even with a single worker per
           ## device.
-          pytest-xdist.sh 8 1 ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh
-
           # merge the log files
-          cat \
-            ${LOG_DIR}/pytest-report-L0-unittest.jsonl \
-            ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl \
-            > ${LOG_DIR}/pytest-report.jsonl
-
-        EOF
-      STATISTICS_SCRIPT: |
-        report_json=pytest-report.jsonl
-        summary_line=$(tail -n1 test-te.log)
-        errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-        passed_tests=$(cat $report_json | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-        failed_tests=$(cat $report_json | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-        total_tests=$((failed_tests + passed_tests))
-        echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-        echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-        echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-
-        echo "$failed_tests tests failed"
-        if [[ $failed_tests -gt 0 ]]; then
-            exit 1
-        else
-            exit 0
-        fi
-
-      TIMEOUT_MINUTES: 120
-      ARTIFACTS: |
-        test-te.log
-        pytest-report.jsonl
-        pytest-report-L0-unittest.jsonl
-        pytest-report-L0-distributed-unittest.jsonl
+          COMMAND: |
+            set -xu -o pipefail;
+            LOG_DIR=/log;
+            pip install pytest-reportlog pytest-xdist;
+            nvidia-cuda-mps-control -d;
+            export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
+            pytest-xdist.sh 1 3 \${LOG_DIR}/pytest-report-L0-unittest.jsonl bash \${TE_PATH}/qa/L0_jax_unittest/test.sh;
+            pytest-xdist.sh 8 1 \${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl bash \${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh;
+            cat \
+              \${LOG_DIR}/pytest-report-L0-unittest.jsonl \
+              \${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl \
+              > \${LOG_DIR}/pytest-report.jsonl
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            report_json=pytest-report.jsonl;
+            summary_line=\$(tail -n1 test-te.log);
+            NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
+            NUM_PASSED=\$(cat \$report_json | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat \$report_json | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
+            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
   test-maxtext:
     needs: build-maxtext
