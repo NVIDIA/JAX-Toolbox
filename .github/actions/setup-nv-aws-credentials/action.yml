@@ -1,0 +1,85 @@
+name: Setup NVIDIA AWS credentials
+description: >
+  Authenticates with NVIDIA's OIDC infrastructure via the nv-gha-aws GitHub CLI
+  extension and writes temporary AWS credentials to a known file for later use.
+
+inputs:
+  github-token:
+    description: "PAT with read:org scope for authenticating with nv-gha-aws"
+    required: true
+  idp-url:
+    description: "OIDC identity provider URL"
+    required: true
+  role-arn:
+    description: "AWS IAM role ARN to assume"
+    required: true
+  output-dir:
+    description: "Directory where the AWS credentials file should be written"
+    required: false
+    default: /tmp/nv-aws-secrets
+  duration-seconds:
+    description: "Lifetime of the temporary AWS credentials in seconds"
+    required: false
+    default: "43200"
+
+outputs:
+  aws-credentials-file:
+    description: "Path to the generated AWS shared credentials file"
+    value: ${{ steps.generate.outputs.aws-credentials-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install gh CLI
+      shell: bash
+      run: |
+        if command -v gh >/dev/null 2>&1; then
+          gh --version
+          exit 0
+        fi
+
+        curl -fsSL --compressed "https://cli.github.com/packages/githubcli-archive-keyring.gpg" \
+          | sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture)] https://cli.github.com/packages stable main" \
+          | sudo tee /etc/apt/sources.list.d/github-cli.list
+        sudo apt-get update -q
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gh
+
+    - name: Install nv-gha-aws plugin
+      shell: bash
+      run: |
+        mkdir -p ~/.local/share/gh/extensions/gh-nv-gha-aws
+        wget --no-hsts -q -O- https://api.github.com/repos/nv-gha-runners/gh-nv-gha-aws/releases/latest \
+          | jq -r ".assets[] | select(.name | test(\"^gh-nv-gha-aws_v.*?_linux-$(dpkg --print-architecture)\$\")) | .browser_download_url" \
+          | wget --no-hsts -q -i- -O ~/.local/share/gh/extensions/gh-nv-gha-aws/gh-nv-gha-aws
+        chmod +x ~/.local/share/gh/extensions/gh-nv-gha-aws/gh-nv-gha-aws
+        cat > ~/.local/share/gh/extensions/gh-nv-gha-aws/manifest.yml <<EOF
+        owner: nv-gha-runners
+        name: gh-nv-gha-aws
+        host: github.com
+        tag: $(~/.local/share/gh/extensions/gh-nv-gha-aws/gh-nv-gha-aws --version | cut -d' ' -f3)
+        ispinned: false
+        path: $HOME/.local/share/gh/extensions/gh-nv-gha-aws/gh-nv-gha-aws
+        EOF
+
+    - name: Generate AWS credentials
+      id: generate
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        output_dir=${{ inputs.output-dir }}
+        creds_file="${output_dir}/aws-credentials"
+
+        mkdir -p "${output_dir}"
+        gh nv-gha-aws org nvidia \
+          --duration "${{ inputs.duration-seconds }}" \
+          --profile default \
+          --output creds-file \
+          --aud sts.amazonaws.com \
+          --idp-url "${{ inputs.idp-url }}" \
+          --role-arn "${{ inputs.role-arn }}" \
+          > "${creds_file}"
+
+        chmod 600 "${creds_file}"
+        echo "aws-credentials-file=${creds_file}" >> "$GITHUB_OUTPUT"
