@@ -33,9 +33,14 @@ inputs:
     default: .github/eks-workflow-files/jobset.yml
     required: false
     type: string
-  CONTAINER_OUTPUT_PATH:
-    description: 'Output directory for artifacts'
+  JOBSET_OUTPUT_DIR:
+    description: 'JobSet main container output path for artifact upload to s3'
     default: /opt/output
+    required: false
+    type: string
+  S3_BUCKET:
+    description: 'Artifact upload destination s3 bucket '
+    default: jax-toolbox-eks-output
     required: false
     type: string
   IMAGE:
@@ -104,8 +109,11 @@ runs:
   - name: Set job command
     shell: bash -x -e -u {0}
     run: |
-      PRELUDE="set -xe -o pipefail; nvidia-smi"
-      POSTLUDE="EXIT_CODE=\$?; ${{ inputs.EXIT_COMMAND }}"
+      PRELUDE="set -x -o pipefail; nvidia-smi;"
+      PRELUDE+="curl 'https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip' -o 'awscliv2.zip'; unzip awscliv2.zip; ./aws/install"
+
+      POSTLUDE="aws s3 cp ${{ inputs.JOBSET_OUTPUT_DIR }}/ s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ --recursive;"
+      POSTLUDE+="EXIT_CODE=\$?; ${{ inputs.EXIT_COMMAND }}"
 
       CMD="${{ inputs.COMMAND }}"
       CMD=$(echo ${CMD} | sed 's/\n/\ /g')
@@ -179,7 +187,6 @@ runs:
   
       echo "JobSet ${JOBSET_NAME} has just become active in the cluster"
 
-
   - name: Set JobSet Pods
     shell: bash -u {0}
     run: |
@@ -243,6 +250,11 @@ runs:
     run: |
       kubectl delete jobset --wait ${JOBSET_NAME} || echo "JobSet ${JOBSET_NAME} does not exist"
 
+  - name: Download and process logs from S3
+    shell: bash -x -u {0}
+    run: |
+      aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ ${JOBSET_NAME}/ --recursive 
+  
   - name: Emit unit test statistics
     if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
     shell: bash -x -u {0}
