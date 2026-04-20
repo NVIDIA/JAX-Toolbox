@@ -79,8 +79,8 @@ jobs:
             report_json=\${JOBSET_NAME}/pytest-report.jsonl
             summary_line=$(tail -n1 \${JOBSET_NAME}/*.log);
             NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
-            NUM_PASSED=\$(cat \$report_json | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
-            NUM_FAILED=\$(cat \$report_json | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
+            NUM_PASSED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
             NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
   test-nsys-jax:
@@ -111,6 +111,6 @@ jobs:
             report_json=\${JOBSET_NAME}/pytest-report.jsonl
             summary_line=\$(tail -n1 \${JOBSET_NAME}/*.log);
             NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
-            NUM_PASSED=\$(cat \${report_json} | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
-            NUM_FAILED=\$(cat \${report_json} | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
+            NUM_PASSED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
             NUM_TESTS=\$(( NUM_PASSED + NUM_FAILED ))
