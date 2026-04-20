@@ -19,6 +19,13 @@ EOF
 RUN <<"EOF" bash -ex -o pipefail
 echo "-e file://${SRC_PATH_MAXTEXT}" >> /opt/pip-tools.d/requirements-maxtext.in
 echo "-r ${SRC_PATH_MAXTEXT}/src/dependencies/requirements/base_requirements/requirements.txt" >> /opt/pip-tools.d/requirements-maxtext.in
+
+# MaxText's base_requirements/requirements.txt (above) does not include google-jetstream,
+# but inference code paths (maxtext.inference.maxengine, maxtext.input_pipeline.packing.prefill_packing)
+# import the `jetstream` package at module load time and DECOUPLE_GCLOUD=TRUE does not
+# unblock prefill_packing. Now re-add this dependency
+grep -E '^google-jetstream' ${SRC_PATH_MAXTEXT}/src/dependencies/requirements/requirements.txt \
+  >> /opt/pip-tools.d/requirements-maxtext.in
 EOF
 
 RUN <<"EOF" bash -exuo pipefail
