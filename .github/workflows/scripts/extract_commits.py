@@ -1,8 +1,10 @@
 import json
 import os
+import re
 import urllib.request
 
-OWNER, REPO = "sfvaroglu", "xla"
+OWNER, REPO = "openxla", "xla"
+BRANCH_PATTERN = re.compile(r"^nv-staging/(\d{4}-\d{2}-\d{2})$")
 
 
 def return_json_from_url(url: str) -> dict:
@@ -20,16 +22,12 @@ def return_json_from_url(url: str) -> dict:
     return json.loads(data)
 
 
-def commit_date(sha: str) -> str:
-    """Return the commit date for a given commit sha
-    Args:
-        sha (str): The commit sha
-    Returns:
-        str: The commit date in ISO format
-    """
-    url = f"https://api.github.com/repos/{OWNER}/{REPO}/commits/{sha}"
-    commit_data = return_json_from_url(url)
-    return commit_data["commit"]["committer"]["date"]
+def branch_date(branch_name: str) -> str:
+    """Extract the ISO date suffix from an nv-staging branch name."""
+    match = BRANCH_PATTERN.match(branch_name)
+    if match is None:
+        raise ValueError(f"Unexpected branch name: {branch_name}")
+    return match.group(1)
 
 
 H = {
@@ -39,24 +37,28 @@ H = {
 }
 
 
-tags = []
+branches = []
 page = 1
-# here we're analysing the pages and retrieve the tags
+# here we're analysing the pages and retrieve the branches
 while True:
     batch = return_json_from_url(
-        f"https://api.github.com/repos/{OWNER}/{REPO}/tags?per_page=100&page={page}"
+        f"https://api.github.com/repos/{OWNER}/{REPO}/branches?per_page=100&page={page}"
     )
     if not batch:
         break
-    tags.extend(batch)
+    branches.extend(batch)
     page += 1
 
-if not tags:
-    print("No tags found in the repository.")
+matching_branches = [
+    branch for branch in branches if BRANCH_PATTERN.match(branch["name"]) is not None
+]
+
+if not matching_branches:
+    print("No nv-staging branches found in the repository.")
     exit(1)
 
-# sort the tags by commit date
-tags.sort(key=lambda tag: commit_date(tag["commit"]["sha"]), reverse=True)
-latest = tags[0]
+# sort the branches by the date embedded in the branch name
+matching_branches.sort(key=lambda branch: branch_date(branch["name"]), reverse=True)
+latest = matching_branches[0]
 # return to the gha
 print(json.dumps({"name": latest["name"], "commit": {"sha": latest["commit"]["sha"]}}))
