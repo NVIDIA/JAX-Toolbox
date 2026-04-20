@@ -109,7 +109,7 @@ runs:
   - name: Set job command
     shell: bash -x -e -u {0}
     run: |
-      PRELUDE="set -x -o pipefail; nvidia-smi;"
+      PRELUDE="set -x -o pipefail; nvidia-smi; mkdir -p ${{ inputs.JOBSET_OUTPUT_DIR }};"
       PRELUDE+="curl 'https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip' -o 'awscliv2.zip'; unzip awscliv2.zip; ./aws/install"
 
       POSTLUDE="aws s3 cp ${{ inputs.JOBSET_OUTPUT_DIR }}/ s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ --recursive;"
