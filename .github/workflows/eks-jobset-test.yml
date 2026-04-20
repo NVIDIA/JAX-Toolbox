@@ -18,8 +18,8 @@ jobs:
         include:
           - test: backend-independent
             gpus: 1
-          #- test: single-gpu
-          #  gpus: 1
+          - test: single-gpu
+            gpus: 1
           #- test: multi-gpu
           #  gpus: 8
     runs-on: eks
@@ -36,6 +36,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
+          STATISTICS_SCRIPT: |
+            NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
+            NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
+            NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
+            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
   test-te:
     strategy:
       fail-fast: false

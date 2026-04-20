@@ -80,10 +80,6 @@ inputs:
     description: 'Commands to extract NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED values from logs'
     type: string
     default: |
-      NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
-      NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
-      NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
-      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
     required: false
 
 runs:
@@ -107,16 +103,17 @@ runs:
       echo "NUM_EFA=${NUM_EFA}" >> ${GITHUB_ENV}
 
   - name: Set job command
-    shell: bash -x -e -u {0}
+    shell: bash -x -u {0}
     run: |
       PRELUDE="set -x -o pipefail; nvidia-smi; mkdir -p ${{ inputs.JOBSET_OUTPUT_DIR }};"
       PRELUDE+="curl 'https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip' -o 'awscliv2.zip'; unzip awscliv2.zip > /dev/null; ./aws/install"
 
-      POSTLUDE="aws s3 cp ${{ inputs.JOBSET_OUTPUT_DIR }}/ s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ --recursive;"
-      POSTLUDE+="EXIT_CODE=\$?; ${{ inputs.EXIT_COMMAND }}"
-
       CMD="${{ inputs.COMMAND }}"
       CMD=$(echo ${CMD} | sed 's/\n/\ /g')
+
+      POSTLUDE="EXIT_CODE=\$?;"
+      POSTLUDE+="aws s3 cp ${{ inputs.JOBSET_OUTPUT_DIR }}/ s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ --recursive;"
+      POSTLUDE+="${{ inputs.EXIT_COMMAND }}"
 
       echo "CMD=${PRELUDE}; ${CMD}; ${POSTLUDE}" >> ${GITHUB_ENV}
 
