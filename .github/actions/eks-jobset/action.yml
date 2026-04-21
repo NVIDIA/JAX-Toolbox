@@ -248,8 +248,9 @@ runs:
     run: |
       kubectl delete jobset --wait ${JOBSET_NAME} || echo "JobSet ${JOBSET_NAME} does not exist"
 
-  - name: Download and process logs from S3
+  - name: Download JobSet Pod artifacts from S3
     shell: bash -x -u {0}
+    if: ${{ !cancelled() }}
     run: |
       aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ ${JOBSET_NAME}/ --recursive
 
