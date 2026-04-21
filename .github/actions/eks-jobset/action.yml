@@ -1,4 +1,4 @@
-name: Run JobSet on EKS
+name: Launch JobSet on EKS
 
 description: "Launch a JobSet workload on EKS"
 
@@ -33,9 +33,14 @@ inputs:
     default: .github/eks-workflow-files/jobset.yml
     required: false
     type: string
-  CONTAINER_OUTPUT_PATH:
-    description: 'Output directory for artifacts'
+  JOBSET_OUTPUT_DIR:
+    description: 'JobSet main container output path for artifact upload to s3'
     default: /opt/output
+    required: false
+    type: string
+  S3_BUCKET:
+    description: 'Artifact upload destination s3 bucket '
+    default: jax-toolbox-eks-output
     required: false
     type: string
   IMAGE:
@@ -74,11 +79,6 @@ inputs:
   STATISTICS_SCRIPT:
     description: 'Commands to extract NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED values from logs'
     type: string
-    default: |
-      NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
-      NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
-      NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
-      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
     required: false
 
 runs:
@@ -88,6 +88,8 @@ runs:
     shell: bash -x -e -u {0}
     run: |
       JOBSET_NAME=${{ inputs.NAME }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}
+      JOBSET_NAME="$(echo "${JOBSET_NAME}" | tr '[:upper:]_' '[:lower:]-')"
+
       JOBSET_YAML=.github/eks-workflow-files/${JOBSET_NAME}-jobset.yml
 
       echo "JOBSET_NAME=${JOBSET_NAME}" >> ${GITHUB_ENV}
@@ -100,13 +102,17 @@ runs:
       echo "NUM_EFA=${NUM_EFA}" >> ${GITHUB_ENV}
 
   - name: Set job command
-    shell: bash -x -e -u {0}
+    shell: bash -x -u {0}
     run: |
-      PRELUDE="set -xe -o pipefail; nvidia-smi"
-      POSTLUDE="EXIT_CODE=\$?; sleep 30; ${{ inputs.EXIT_COMMAND }}"
+      PRELUDE="set -x -o pipefail; nvidia-smi; mkdir -p ${{ inputs.JOBSET_OUTPUT_DIR }};"
+      PRELUDE+="curl 'https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip' -o 'awscliv2.zip'; unzip awscliv2.zip > /dev/null; ./aws/install"
 
       CMD="${{ inputs.COMMAND }}"
       CMD=$(echo ${CMD} | sed 's/\n/\ /g')
+
+      POSTLUDE="EXIT_CODE=\$?;"
+      POSTLUDE+="aws s3 cp ${{ inputs.JOBSET_OUTPUT_DIR }}/ s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ --recursive;"
+      POSTLUDE+="${{ inputs.EXIT_COMMAND }}"
 
       echo "CMD=${PRELUDE}; ${CMD}; ${POSTLUDE}" >> ${GITHUB_ENV}
 
@@ -168,16 +174,15 @@ runs:
         NOW=$(date +%s)
         ELAPSED=$(( NOW - START ))
         if (( ELAPSED > POLL_TIMEOUT )); then
-          echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in cluster"
+          echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in the cluster"
           exit 1
         fi
 
-        echo "Waiting for JobSet ${JOBSET_NAME} to become active in cluster"
-        sleep 15
+        echo "Waiting for JobSet ${JOBSET_NAME} to become active in the cluster"
+        sleep 10
       done
 
-      echo "JobSet ${JOBSET_NAME} has just become active in cluster"
-
+      echo "JobSet ${JOBSET_NAME} has just become active in the cluster"
 
   - name: Set JobSet Pods
     shell: bash -u {0}
@@ -210,7 +215,7 @@ runs:
     run: |
       parse_pod_exit_code() {
         local pod=$1
-        MAYBE_JOBSET_EXIT_CODE="$(tail -n 10 ${JOBSET_NAME}/${pod}.log | grep -oE 'EXIT\_CODE=[0-9]+$')"
+        MAYBE_JOBSET_EXIT_CODE="$(cat ${JOBSET_NAME}/${pod}.log | grep -oE 'EXIT\_CODE=[0-9]+$')"
 
         if [ $? -ne 0 ]; then
           echo "The JobSet ${JOBSET_NAME} did not complete as expected " >&2
@@ -227,6 +232,7 @@ runs:
       ALL_EXIT_CODES=0
       for jobset_pod in ${JOBSET_PODS//[()]/}; do
         POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod})
+        echo "Pod ${jobset_pod} had exit code ${POD_EXIT_CODE}"
         ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
       done
 
@@ -242,9 +248,14 @@ runs:
     run: |
       kubectl delete jobset --wait ${JOBSET_NAME} || echo "JobSet ${JOBSET_NAME} does not exist"
 
+  - name: Download and process logs from S3
+    shell: bash -x -u {0}
+    run: |
+      aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ ${JOBSET_NAME}/ --recursive
+
   - name: Emit unit test statistics
     if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
-    shell: bash -x -u {0}
+    shell: bash -xe -u {0}
     run: |
       STATISTICS_SCRIPT="${{ inputs.STATISTICS_SCRIPT }}"
       STATISTICS_SCRIPT=$(echo ${STATISTICS_SCRIPT} | sed 's/\n/\ /g')
