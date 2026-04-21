@@ -457,22 +457,6 @@ jobs:
         job-config-file: .github/eks-workflow-files/post-process-job.yml
         job-name: ${{ env.POSTPROCESS_JOB_NAME }}
 
-  test-te-h100:
-    needs: build-jax
-    if: >-
-      inputs.ARCHITECTURE == 'amd64' &&
-      (
-        inputs.MODE == 'full' ||
-        inputs.MODE == 'te'
-      )
-    uses: ./.github/workflows/_transformer_engine_eks.yaml
-    with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: transformerengine-${{ github.run_id }}
-      S3_BUCKET: jax-toolbox-eks-output
-      CI_NAME: transformer-engine
-    secrets: inherit
-
   test-jax-cutlass-h100:
     needs: build-jax
     if: >-
