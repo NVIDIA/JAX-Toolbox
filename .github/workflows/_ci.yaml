@@ -270,9 +270,60 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
+          STATISTICS_SCRIPT: |
+                      NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
+                      NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
+                      NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
+                      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
+
+  test-te:
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'te'
+      )
+    needs: build-jax
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: L0_jax_unittest
+            gpus: 8
+          - test: L0_jax_distributed_unittest
+            gpus: 8
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: te-${{ matrix.test }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            set -xu -o pipefail;
+
+            mkdir -p /opt/output;
+
+            pip install pytest-reportlog pytest-xdist;
+            nvidia-cuda-mps-control -d;
+            export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
+
+            [[ "${{ matrix.test }}" == *unittest* ]] && xdist_args=(4 1) || xdist_args=(8 1);
+            pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            report_json=\${JOBSET_NAME}/pytest-report.jsonl
+            summary_line=$(tail -n1 \${JOBSET_NAME}/*.log);
+            NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
+            NUM_PASSED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
+            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
   test-nsys-jax:
-    needs: build-jax
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
@@ -280,6 +331,12 @@ jobs:
         inputs.MODE == 'jax'
       )
     runs-on: eks
+    needs: build-jax
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - gpus: 8
     steps:
       - uses: actions/checkout@v4
       - name: Run eks-jobset action
@@ -292,17 +349,17 @@ jobs:
           # abuse knowledge that nsys-jax is installed editable, so the tests exist
           COMMAND: |
             pip install pytest-reportlog nsys-jax[test];
-            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())');
-            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "\${test_path}"
-            chmod -R a+rwX /opt/output
+            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files(\"nsys_jax\").joinpath(\"..\", \"tests\").resolve())');
+            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
           STATISTICS_SCRIPT: |
-            summary_line=\$(tail -n1 test-nsys-jax.log)
+            report_json=\${JOBSET_NAME}/pytest-report.jsonl
+            summary_line=\$(tail -n1 \${JOBSET_NAME}/*.log);
             NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
-            NUM_PASSED=\$(cat output-results/pytest-report.jsonl | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
-            NUM_FAILED=\$(cat output-results/pytest-report.jsonl | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
+            NUM_PASSED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
             NUM_TESTS=\$(( NUM_PASSED + NUM_FAILED ))
 
   # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
@@ -324,7 +381,7 @@ jobs:
     - name: Download nsys-jax output .zip files
       uses: actions/download-artifact@v8
       with:
-        name: nsys-jax-unit-test-A100
+        name: nsys-jax
     - name: Extract archives and execute install scripts
       run: |
         pip install virtualenv # for install.sh
@@ -431,54 +488,6 @@ jobs:
       S3_BUCKET: jax-toolbox-eks-output
       CI_NAME: jax-cutlass
     secrets: inherit
-
-  test-te-a100:
-    needs: build-jax
-    if: >-
-      inputs.ARCHITECTURE == 'amd64' &&
-      (
-        inputs.MODE == 'full' ||
-        inputs.MODE == 'te'
-      )
-    runs-on: eks
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
-        with:
-          NAME: te
-          NUM_GPUS: ${{ matrix.gpus }}
-          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-          # Start MPS daemon
-          # TE's default is slightly different, without the hyphen
-          # 1 GPU per worker, 3 workers per GPU
-          ## 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
-          ## into a single .jsonl file of results from multiple pytest invocations
-          ## inside the test.sh script, so it's useful even with a single worker per
-          ## device.
-          # merge the log files
-          COMMAND: |
-            set -xu -o pipefail;
-            LOG_DIR=/log;
-            pip install pytest-reportlog pytest-xdist;
-            nvidia-cuda-mps-control -d;
-            export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
-            pytest-xdist.sh 1 3 \${LOG_DIR}/pytest-report-L0-unittest.jsonl bash \${TE_PATH}/qa/L0_jax_unittest/test.sh;
-            pytest-xdist.sh 8 1 \${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl bash \${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh;
-            cat \
-              \${LOG_DIR}/pytest-report-L0-unittest.jsonl \
-              \${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl \
-              > \${LOG_DIR}/pytest-report.jsonl
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
-          STATISTICS_SCRIPT: |
-            report_json=pytest-report.jsonl;
-            summary_line=\$(tail -n1 test-te.log);
-            NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
-            NUM_PASSED=\$(cat \$report_json | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
-            NUM_FAILED=\$(cat \$report_json | jq -r 'select(."\$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
-            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
   test-maxtext:
     needs: build-maxtext
