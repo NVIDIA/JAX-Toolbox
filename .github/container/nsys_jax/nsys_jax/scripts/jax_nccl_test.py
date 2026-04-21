@@ -15,7 +15,7 @@ from cuda.bindings.driver import (
     CUevent,
     CUevent_flags,
     CUresult,
-) # type: ignore
+)  # type: ignore
 from functools import partial
 import jax
 from jax.experimental.buffer_callback import buffer_callback
