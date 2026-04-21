@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import argparse
-from cuda.bindings.driver import (
+from cuda.bindings.driver import (  # type: ignore
     cuCtxGetDevice_v2,
     cuDeviceGetCount,
     cuEventCreate,
@@ -15,7 +15,7 @@ from cuda.bindings.driver import (
     CUevent,
     CUevent_flags,
     CUresult,
-)  # type: ignore
+)
 from functools import partial
 import jax
 from jax.experimental.buffer_callback import buffer_callback
