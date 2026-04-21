@@ -25,7 +25,6 @@ defaults:
 env:
   NSYS_JAX_PYTHON_FILES: |
     JAX-Toolbox/.github/container/nsys_jax
-    JAX-Toolbox/.github/container/jax-nccl-test
 
 jobs:
   mypy:

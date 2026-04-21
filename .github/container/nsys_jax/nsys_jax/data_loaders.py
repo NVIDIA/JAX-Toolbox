@@ -752,7 +752,7 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
     else:
         # We're looking at the output of nsys-jax
         filenames = [path]
-        keys = [None]
+        keys = [prefix.name]
 
     if len(filenames) > 1:
         with multiprocessing.Pool(processes=_enough_processes(len(filenames))) as pool:
