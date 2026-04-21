@@ -79,7 +79,6 @@ inputs:
   STATISTICS_SCRIPT:
     description: 'Commands to extract NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED values from logs'
     type: string
-    default: |
     required: false
 
 runs:
@@ -215,7 +214,7 @@ runs:
     run: |
       parse_pod_exit_code() {
         local pod=$1
-        MAYBE_JOBSET_EXIT_CODE="$(tail -n 10 ${JOBSET_NAME}/${pod}.log | grep -oE 'EXIT\_CODE=[0-9]+$')"
+        MAYBE_JOBSET_EXIT_CODE="$(cat ${JOBSET_NAME}/${pod}.log | grep -oE 'EXIT\_CODE=[0-9]+$')"
 
         if [ $? -ne 0 ]; then
           echo "The JobSet ${JOBSET_NAME} did not complete as expected " >&2
@@ -232,6 +231,7 @@ runs:
       ALL_EXIT_CODES=0
       for jobset_pod in ${JOBSET_PODS//[()]/}; do
         POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod})
+        echo "Pod ${jobset_pod} had exit code ${POD_EXIT_CODE}"
         ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
       done
 
