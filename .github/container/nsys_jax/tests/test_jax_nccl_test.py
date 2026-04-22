@@ -49,7 +49,7 @@ if device_count >= 4:
 
 
 MIN_SIZE_POWER = 4
-MAX_SIZE_POWER = 30
+MAX_SIZE_POWER = 28
 NUM_ITERATIONS = 4
 
 
