@@ -311,16 +311,16 @@ jobs:
             export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
 
             [[ "${{ matrix.test }}" == *unittest* ]] && xdist_args=(4 1) || xdist_args=(8 1);
-            pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh
+            pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh | tee /opt/output/pytest.log
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
           STATISTICS_SCRIPT: |
-            report_json=\${JOBSET_NAME}/pytest-report.jsonl
-            summary_line=\$(tail -n1 \${JOBSET_NAME}/*.log);
+            report_json=\${JOBSET_NAME}/pytest-report.jsonl;
+            summary_line=\$(tail -n1 \${JOBSET_NAME}/pytest.log);
             NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
-            NUM_PASSED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
-            NUM_FAILED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
+            NUM_PASSED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == \"TestReport\" and .when == \"call\" and .outcome == \"passed\") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == \"TestReport\" and .when == \"call\" and .outcome == \"failed\") | .outcome' | wc -l);
             NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
   test-nsys-jax:
@@ -350,16 +350,16 @@ jobs:
           COMMAND: |
             pip install pytest-reportlog nsys-jax[test];
             test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files(\"nsys_jax\").joinpath(\"..\", \"tests\").resolve())');
-            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\"
+            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\" | tee /opt/output/pytest.log
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
           STATISTICS_SCRIPT: |
-            report_json=\${JOBSET_NAME}/pytest-report.jsonl
-            summary_line=\$(tail -n1 \${JOBSET_NAME}/*.log);
+            report_json=\${JOBSET_NAME}/pytest-report.jsonl;
+            summary_line=\$(tail -n1 \${JOBSET_NAME}/pytest.log);
             NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
-            NUM_PASSED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
-            NUM_FAILED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
+            NUM_PASSED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == \"TestReport\" and .when == \"call\" and .outcome == \"passed\") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == \"TestReport\" and .when == \"call\" and .outcome == \"failed\") | .outcome' | wc -l);
             NUM_TESTS=\$(( NUM_PASSED + NUM_FAILED ))
 
   # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
