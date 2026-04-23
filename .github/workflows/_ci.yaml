@@ -73,12 +73,11 @@ jobs:
           with:
             role-to-assume: ${{ secrets.TEST_ROLE_FOR_AWS_S3 }}
             aws-region: us-east-1
-            aws-profile: default
-            overwrite-aws-profile: true
             allowed-account-ids: "941377147396"
         - name: Start bazel-remote sidecar
           env:
             BAZEL_REMOTE_BUCKET: jax-toolbox-bazel-cache-test
+            BAZEL_REMOTE_AWS_DIR: /tmp/bazel-remote-aws
             BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
             BAZEL_REMOTE_DISK_DIR: /tmp/bazel-remote-cache
             BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
@@ -87,9 +86,20 @@ jobs:
             BAZEL_REMOTE_REGION: us-east-1
           run: |
             set -euxo pipefail
-            BAZEL_REMOTE_AWS_CREDENTIALS="${HOME}/.aws/credentials"
-            test -f "${BAZEL_REMOTE_AWS_CREDENTIALS}"
-            mkdir -p "${BAZEL_REMOTE_DIAGNOSTICS_DIR}" "${BAZEL_REMOTE_DISK_DIR}"
+            : "${AWS_ACCESS_KEY_ID:?missing AWS_ACCESS_KEY_ID}"
+            : "${AWS_SECRET_ACCESS_KEY:?missing AWS_SECRET_ACCESS_KEY}"
+            : "${AWS_SESSION_TOKEN:?missing AWS_SESSION_TOKEN}"
+            BAZEL_REMOTE_AWS_CREDENTIALS="${BAZEL_REMOTE_AWS_DIR}/credentials"
+            mkdir -p "${BAZEL_REMOTE_DIAGNOSTICS_DIR}" "${BAZEL_REMOTE_DISK_DIR}" "${BAZEL_REMOTE_AWS_DIR}"
+            set +x
+            umask 077
+            {
+              printf '[default]\n'
+              printf 'aws_access_key_id=%s\n' "${AWS_ACCESS_KEY_ID}"
+              printf 'aws_secret_access_key=%s\n' "${AWS_SECRET_ACCESS_KEY}"
+              printf 'aws_session_token=%s\n' "${AWS_SESSION_TOKEN}"
+            } > "${BAZEL_REMOTE_AWS_CREDENTIALS}"
+            set -x
             docker rm -f "${BAZEL_REMOTE_CONTAINER}" >/dev/null 2>&1 || true
             docker pull buchgr/bazel-remote-cache
             docker run -d \
@@ -165,7 +175,9 @@ jobs:
             path: /tmp/bazel-remote-diagnostics
         - name: Stop bazel-remote sidecar
           if: always()
-          run: docker rm -f "bazel-remote-cache-${{ inputs.ARCHITECTURE }}" || true
+          run: |
+            docker rm -f "bazel-remote-cache-${{ inputs.ARCHITECTURE }}" || true
+            rm -rf /tmp/bazel-remote-aws
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}
