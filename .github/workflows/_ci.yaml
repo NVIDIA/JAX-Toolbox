@@ -91,6 +91,8 @@ jobs:
             : "${AWS_SESSION_TOKEN:?missing AWS_SESSION_TOKEN}"
             BAZEL_REMOTE_AWS_CREDENTIALS="${BAZEL_REMOTE_AWS_DIR}/credentials"
             mkdir -p "${BAZEL_REMOTE_DIAGNOSTICS_DIR}" "${BAZEL_REMOTE_DISK_DIR}" "${BAZEL_REMOTE_AWS_DIR}"
+            BAZEL_REMOTE_UID="$(id -u)"
+            BAZEL_REMOTE_GID="$(id -g)"
             set +x
             umask 077
             {
@@ -104,6 +106,7 @@ jobs:
             docker pull buchgr/bazel-remote-cache
             docker run -d \
               --name "${BAZEL_REMOTE_CONTAINER}" \
+              --user "${BAZEL_REMOTE_UID}:${BAZEL_REMOTE_GID}" \
               --publish "127.0.0.1:${BAZEL_REMOTE_PORT}:8080" \
               --volume "${BAZEL_REMOTE_DISK_DIR}:/data" \
               --volume "${BAZEL_REMOTE_AWS_CREDENTIALS}:/aws-config/credentials:ro" \
@@ -119,18 +122,32 @@ jobs:
               --s3.prefix="${BAZEL_REMOTE_PREFIX}" \
               --s3.region="${BAZEL_REMOTE_REGION}" \
               --s3.update_timestamps
+            sleep 2
+            if [[ "$(docker inspect -f '{{.State.Running}}' "${BAZEL_REMOTE_CONTAINER}")" != "true" ]]; then
+              docker ps -a
+              docker logs "${BAZEL_REMOTE_CONTAINER}" || true
+              exit 1
+            fi
         - name: Verify bazel-remote sidecar
           env:
+            BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
             BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
             BAZEL_REMOTE_PORT: 9090
           run: |
             set -euxo pipefail
+            ready=0
             for _ in $(seq 1 30); do
               if curl -sSf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/status" > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/status-before.json"; then
+                ready=1
                 break
               fi
               sleep 1
             done
+            if [[ "${ready}" != "1" ]]; then
+              docker ps -a
+              docker logs "${BAZEL_REMOTE_CONTAINER}" || true
+              exit 1
+            fi
             curl -sSIf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" \
               > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/empty-cas-head.txt"
         - name: Build JAX container
