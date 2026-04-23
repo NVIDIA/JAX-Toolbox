@@ -73,7 +73,6 @@ jobs:
           with:
             role-to-assume: ${{ secrets.TEST_ROLE_FOR_AWS_S3 }}
             aws-region: us-east-1
-            allowed-account-ids: "941377147396"
         - name: Start bazel-remote sidecar
           env:
             BAZEL_REMOTE_BUCKET: jax-toolbox-bazel-cache-test
