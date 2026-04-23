@@ -54,6 +54,14 @@ inputs:
     description: "URL of the Bazel remote cache to use for building the image"
     required: true
     default: ""
+  docker-build-allow:
+    description: "Additional BuildKit entitlements to allow during docker build"
+    required: false
+    default: ""
+  docker-build-network:
+    description: "Networking mode for RUN instructions during docker build"
+    required: false
+    default: default
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -134,6 +142,8 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+        allow: ${{ inputs.docker-build-allow }}
+        network: ${{ inputs.docker-build-network }}
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
@@ -167,6 +177,8 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+        allow: ${{ inputs.docker-build-allow }}
+        network: ${{ inputs.docker-build-network }}
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
