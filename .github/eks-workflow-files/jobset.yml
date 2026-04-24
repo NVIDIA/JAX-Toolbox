@@ -23,8 +23,6 @@ spec:
               containers:
                 - name: maxtext
                   image: ghcr.io/nvidia/jax:maxtext
-                  securityContext:
-                    privileged: true
                   command:
                     - bash
                     - -c 
