@@ -1,0 +1,69 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: PLACEHOLDER
+    labels:
+        kueue.x-k8s.io/queue-name: p5-queue
+        kueue.x-k8s.io/max-exec-time-seconds: "10800"
+spec:
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: maxtext
+                  image: PLACEHOLDER
+                  command:
+                    - bash
+                    - -c
+                    - |
+                      set -exo pipefail
+
+                      LOG_DIR="/output/${RUN_ID}"
+                      mkdir -p ${LOG_DIR}
+
+                      # single-process-multi-device: PP=1, DP=1, FSDP=2, TP=4
+                      test-maxtext.sh \
+                          --output ${LOG_DIR}/1DP2FSDP4TP1PP_single_process \
+                          --dtype bfloat16 \
+                          --mem-fraction 0.65 \
+                          --decoder-block default \
+                          --attn-type dot_product \
+                          --batch-per-gpu 2 \
+                          --steps 10 \
+                          --pipeline-parallel 1 \
+                          --data-parallel 1 \
+                          --fsdp 2 \
+                          --tensor-parallel 4 \
+                          --nodes 1
+
+                      # multi-process: PP=1, DP=2, FSDP=2, TP=2
+                      test-maxtext.sh \
+                          --output ${LOG_DIR}/2DP2FSDP2TP1PP \
+                          --dtype bfloat16 \
+                          --mem-fraction 0.65 \
+                          --decoder-block default \
+                          --attn-type dot_product \
+                          --batch-per-gpu 2 \
+                          --steps 10 \
+                          --pipeline-parallel 1 \
+                          --data-parallel 2 \
+                          --fsdp 2 \
+                          --tensor-parallel 2 \
+                          --nodes 1 \
+                          --multiprocess
+                  env:
+                    - name: RUN_ID
+                      value: PLACEHOLDER
+                  resources:
+                    limits:
+                        nvidia.com/gpu: 8
+                  volumeMounts:
+                    - name: s3-storage
+                      mountPath: /output
+                      subPath: maxtext
+            imagePullSecrets:
+                - name: PLACEHOLDER
+            volumes:
+                - name: s3-storage
+                  persistentVolumeClaim:
+                    claimName: s3-pvc
