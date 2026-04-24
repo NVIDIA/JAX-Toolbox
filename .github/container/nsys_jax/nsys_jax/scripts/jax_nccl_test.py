@@ -3,12 +3,14 @@ import argparse
 from cuda.bindings.driver import (  # type: ignore
     cuCtxGetDevice_v2,
     cuDeviceGetCount,
+    cuDevicePrimaryCtxRetain,
     cuEventCreate,
     cuEventElapsedTime,
     cuEventRecord,
     cuEventSynchronize,
     cuGetErrorName,
     cuInit,
+    cuMemGetInfo,
     cuProfilerStart,
     cuProfilerStop,
     cuStreamGetCtx,
@@ -25,6 +27,7 @@ import jax.numpy as jnp
 from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
 import numpy as np
 import os
+import random
 import time
 from uncertainties import ufloat  # type: ignore
 
@@ -227,6 +230,12 @@ def stream_event_timer_data(events, callback=None):
     return collective_sizes, collective_timings
 
 
+def _get_total_memory(dev: jax.Device) -> int:
+    checkCudaErrors(cuDevicePrimaryCtxRetain(dev.local_hardware_id))
+    _, total_mem = checkCudaErrors(cuMemGetInfo())
+    return total_mem
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Pure-JAX implementation of a NCCL performance test"
@@ -298,6 +307,16 @@ def main() -> None:
         type=int,
         default=30,
     )
+    parser.add_argument(
+        "--process-id-permutation-seed",
+        help=(
+            "Apply a permutation between the set of process IDs passed via --process-id "
+            "and the set of process IDs passed to jax.distributed.initialize with this "
+            "seed. --process-id=0 is always re-mapped to 0 to simplify configuring the "
+            "coordinator address."
+        ),
+        type=int,
+    )
     args = parser.parse_args()
     assert args.replica_count >= 1, args.replica_count
     assert args.num_iterations >= 1, args.num_iterations
@@ -333,18 +352,30 @@ def main() -> None:
             local_device_ids = list(
                 range(first_local_device, first_local_device + args.gpus_per_process)
             )
+            process_id = args.process_id
+            if args.process_id_permutation_seed is not None:
+                # Test whether JAX/XLA can successfully make sense of being launched with a
+                # strange ordering of nominal process IDs.
+                process_ids = list(range(1, args.process_count))
+                random.seed(args.process_id_permutation_seed)
+                random.shuffle(process_ids)
+                # Make sure that --process-id=0 is unchanged so it's possible to reason about
+                # the coordinator address.
+                process_ids = [0] + process_ids
+                process_id = process_ids[process_id]
             print(
                 f"Rank {args.process_id} has local rank {local_process_id} and "
                 f"devices {local_device_ids} from a total of {visible_devices} "
                 f"visible on this node, {args.process_count} processes and "
-                f"{args.process_count * args.gpus_per_process} total devices.",
+                f"{args.process_count * args.gpus_per_process} total devices. "
+                f"JAX is being told it is rank {process_id}.",
                 flush=True,
             )
             jax.distributed.initialize(
                 coordinator_address=args.coordinator_address,
                 local_device_ids=local_device_ids,
                 num_processes=args.process_count,
-                process_id=args.process_id,
+                process_id=process_id,
             )
     elif args.gpus_per_process is not None:
         # Respect --gpus-per-process even without --distributed
@@ -353,8 +384,22 @@ def main() -> None:
             ",".join(str(x) for x in range(args.gpus_per_process)),
         )
 
+    # log2 because process_allgather silently returns zeroes for values that don't fit in int32
+    local_total_mems_log2 = np.log2(
+        np.array([_get_total_memory(d) for d in jax.local_devices()])
+    )
+    global_total_mems_log2 = process_allgather(local_total_mems_log2)
+    smallest_total_mem = 2 ** np.min(global_total_mems_log2)
+    max_elements_per_device = (0.9 * smallest_total_mem) // jnp.dtype(
+        _MEASUREMENT_DTYPE
+    ).itemsize
+    max_per_device_output_size = max_elements_per_device - 2**args.max_size_power
     if jax.process_index() == 0:
         print(f"JAX devices: {jax.devices()}")
+        print(f"Partition IDs: {[d.slice_index for d in jax.devices()]}")
+        print(
+            f"Smallest global memory size: {smallest_total_mem / (1024 * 1024 * 1024):.1f}GiB"
+        )
     n_devices = jax.device_count()
     assert (
         args.gpus_per_process is None
@@ -431,14 +476,15 @@ def main() -> None:
                 return jax.lax.dynamic_update_slice(input, result, (0, 0, 0))
 
             # Trigger the collective we want to measure
-            buffer = measure(
-                "all_gather",
-                buffer,
-                lambda buf: jax.lax.all_gather(buf, "i"),
-                # `result` gains a new 0th dimension of size `n_devices_per_rep`,
-                # reduce over it to match other ops
-                epilogue=lambda result: jnp.sum(jnp.sqrt(result), axis=0),
-            )
+            if values_per_device * n_devices_per_rep <= max_per_device_output_size:
+                buffer = measure(
+                    "all_gather",
+                    buffer,
+                    lambda buf: jax.lax.all_gather(buf, "i"),
+                    # `result` gains a new 0th dimension of size `n_devices_per_rep`,
+                    # reduce over it to match other ops
+                    epilogue=lambda result: jnp.sum(jnp.sqrt(result), axis=0),
+                )
             buffer = measure("all_reduce", buffer, lambda buf: jax.lax.psum(buf, "i"))
             buffer = measure(
                 "broadcast", buffer, lambda buf: jax.lax.pbroadcast(buf, "i", 0)
@@ -460,7 +506,7 @@ def main() -> None:
             # Use the NCCL tests' convention where the element count for reduce
             # scatter is the number of output elements and the input buffer needs
             # to be n_devices_per_rep times larger than that.
-            if values_per_device * n_devices_per_rep <= input.shape[-1]:
+            if values_per_device * n_devices_per_rep <= buffer.shape[-1]:
                 buffer = measure(
                     "reduce_scatter",
                     buffer,
