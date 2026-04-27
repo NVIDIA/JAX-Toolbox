@@ -201,7 +201,7 @@ See [this page](./docs/profiling.md) for more information about how to profile J
 JAX-Toolbox staging container hosts pending NVIDIA-authored XLA and JAX changes that are awaiting upstream review and merge in OSS OpenXLA and JAX repositories.
 For this initiative, we are publishing `scale-training` tagged containers (e.g. [jax-scale-training](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/820220988?tag=jax-scale-training-2026-04-24)).
 From the 18th April 2026, these containers are published every 2 weeks, on Saturday, at 6 AM GMT.
-Refer to this page [STAGING.md] (https://github.com/openxla/xla/blob/nv-staging/latest/STAGING.md) for more information on the underlying XLA staging branch, the pending PRs included. The page also lists the corresponding JAX commit used.
+Refer to this page [STAGING.md](https://github.com/openxla/xla/blob/nv-staging/latest/STAGING.md) for more information on the underlying XLA staging branch, the pending PRs included. The page also lists the corresponding JAX commit used.
 
 Current versions:
 | CI run date | Nightly container | XLA branch |
