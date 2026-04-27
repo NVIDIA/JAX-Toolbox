@@ -195,6 +195,17 @@ There are various other XLA flags users can set to improve performance. XLA flag
 ## Profiling
 See [this page](./docs/profiling.md) for more information about how to profile JAX programs on GPU.
 
+
+## NVIDIA Staging Containers
+
+As part of a collaboration with Google, we are introducing enhancements in the XLA compiler, to allow scalability of large-scale GPU training and inference workloads.
+For this initiative, we are publishing `scale-training` tagged containers (e.g. [jax-scale-training](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/820220988?tag=jax-scale-training-2026-04-24)).
+From the 18th April 2026, these containers are published every 2 weeks, on Saturday, at 6 AM GMT.
+
+The base container is `nvcr.io/nvidia/cuda-dl-base:26.02-cuda13.1-devel-ubuntu24.04`, while for the underlying JAX commit you can refer to the following [STAGING.md] (https://github.com/openxla/xla/blob/nv-staging/latest/STAGING.md) file.
+
+
+
 ## Frequently asked questions (FAQ)
 
 <details>
