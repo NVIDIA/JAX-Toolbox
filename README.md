@@ -209,7 +209,7 @@ Current versions:
 | 2026-04-24 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-24](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/820220988?tag=jax-scale-training-2026-04-24) | [5dfe2147](https://github.com/openxla/xla/blob/5dfe2147cbdd54b2fa1d76da817c64a1847373ca/STAGING.md)
 | 2026-04-18 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-18](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/805313885?tag=jax-scale-training-2026-04-18) | [8147118](https://github.com/sfvaroglu/xla#8147118a7b9707d26dcb747767a9c0dd9081325f)
 
-The underlying container for CUDA can be seen in [Versions](#versions)
+The underlying CUDA container, used for building `-scale-training` containers,  can be seen from the corresponding dated version in the [Versions](#versions) tab.
 
 To check the CUDA info, you can simply run:
 ```bash
