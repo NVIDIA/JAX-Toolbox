@@ -198,7 +198,7 @@ See [this page](./docs/profiling.md) for more information about how to profile J
 
 ## NVIDIA Staging Containers
 
-As part of a collaboration with Google, we are introducing enhancements in the XLA compiler, to allow scalability of large-scale GPU training and inference workloads.
+JAX-Toolbox staging container hosts pending NVIDIA-authored XLA and JAX changes that are awaiting upstream review and merge in OSS OpenXLA and JAX repositories.
 For this initiative, we are publishing `scale-training` tagged containers (e.g. [jax-scale-training](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/820220988?tag=jax-scale-training-2026-04-24)).
 From the 18th April 2026, these containers are published every 2 weeks, on Saturday, at 6 AM GMT.
 
