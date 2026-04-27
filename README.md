@@ -198,20 +198,21 @@ See [this page](./docs/profiling.md) for more information about how to profile J
 
 ## NVIDIA Staging Containers
 
-JAX-Toolbox staging container hosts pending NVIDIA-authored XLA and JAX changes that are awaiting upstream review and merge in OSS OpenXLA and JAX repositories.
+JAX-Toolbox staging container hosts pending NVIDIA-authored XLA and JAX enhancements for NVIDIA GPU. These are pending PRs that are awaiting upstream review and merge in OSS OpenXLA and JAX repositories.
 For this initiative, we are publishing `scale-training` tagged containers - `jax-scale-training`.
+
 From the 18th April 2026, these containers are published every 2 weeks, on Saturday, at 6 AM GMT.
 Refer to this page [STAGING.md](https://github.com/openxla/xla/blob/nv-staging/latest/STAGING.md) for more information on the underlying XLA staging branch, the pending PRs included. The page also lists the corresponding JAX commit used.
 
-Current versions:
-| CI run date | Nightly container | XLA branch |
+Staging releases:
+| Release date | Nightly container | XLA branch |
 | ------------------------------------- | -------------- |-------------- |
 | 2026-04-24 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-24](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/820220988?tag=jax-scale-training-2026-04-24) | [5dfe2147](https://github.com/openxla/xla/blob/5dfe2147cbdd54b2fa1d76da817c64a1847373ca/STAGING.md)
 | 2026-04-18 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-18](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/805313885?tag=jax-scale-training-2026-04-18) | [8147118](https://github.com/sfvaroglu/xla#8147118a7b9707d26dcb747767a9c0dd9081325f)
 
 The underlying CUDA container, used for building `-scale-training` containers,  can be seen from the corresponding dated version in the [Versions](#versions) tab.
 
-To check the CUDA info, you can simply run:
+To check the versions of libraries in the container, you can simply run:
 ```bash
 docker run --rm --gpus all ghcr.io/nvidia/jax:jax-scale-training-2026-04-24 -c '
 echo "=== CUDA Toolkit ===" && echo ${CUDA_VERSION}
