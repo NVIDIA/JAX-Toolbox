@@ -389,13 +389,15 @@ def main() -> None:
             ",".join(str(x) for x in range(args.gpus_per_process)),
         )
 
+    jax.config.update("jax_compiler_enable_remat_pass", False)
+
     # log2 because process_allgather silently returns zeroes for values that don't fit in int32
     local_total_mems_log2 = np.log2(
         np.array([_get_total_memory(d) for d in jax.local_devices()])
     )
     global_total_mems_log2 = process_allgather(local_total_mems_log2)
     smallest_total_mem = 2 ** np.min(global_total_mems_log2)
-    max_elements_per_device = (0.9 * smallest_total_mem) // jnp.dtype(
+    max_elements_per_device = (0.8 * smallest_total_mem) // jnp.dtype(
         _MEASUREMENT_DTYPE
     ).itemsize
     max_per_device_output_size = max_elements_per_device - 2**args.max_size_power
