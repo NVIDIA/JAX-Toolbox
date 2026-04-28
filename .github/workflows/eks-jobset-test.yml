@@ -23,6 +23,20 @@ jobs:
             data-parallel: 1
             fsdp: 2
             tensor-parallel: 4
+            envs: |-
+              NCCL_IB_DISABLE=1
+              NCCL_P2P_DISABLE=1
+              NCCL_NET_PLUGIN=none
+              NCCL_NET=Socket
+          - test: multi-node
+            nodes: 2
+            gpus: 8
+            pipeline-parallel: 1
+            data-parallel: 4
+            fsdp: 2
+            tensor-parallel: 2
+            envs: |-
+              OFI_NCCL_PROTOCOL=SENDRECV
     runs-on: eks
     steps:
       - uses: actions/checkout@v4
@@ -33,10 +47,7 @@ jobs:
           NUM_GPUS: ${{ matrix.gpus }}
           IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-maxtext-amd64
           ENVS: |
-            NCCL_IB_DISABLE=1
-            NCCL_P2P_DISABLE=1
-            NCCL_NET_PLUGIN=none
-            NCCL_NET=Socket
+            ${{ matrix.envs }}
           COMMAND: |
             test-maxtext.sh \
               --output /opt/output \
@@ -52,48 +63,6 @@ jobs:
               --nodes ${{ matrix.num_nodes }} \
               -a 'scan_layers=false 
                   max_target_length=1024 
-                  use_iota_embed=true
-                  logits_dot_in_fp32=false 
-                  max_segments_per_seq=32'
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-  test-maxtext-multi-node:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - test: multi-node
-            nodes: 2
-            gpus: 8
-            pipeline-parallel: 1
-            data-parallel: 4
-            fsdp: 2
-            tensor-parallel: 2
-    runs-on: eks
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
-        with:
-          NAME: maxtext-${{ matrix.test }}
-          NUM_GPUS: ${{ matrix.gpus }}
-          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-maxtext-amd64
-          ENVS: |
-            OFI_NCCL_PROTOCOL=SENDRECV
-          COMMAND: |
-            test-maxtext.sh \
-              --model llama2-7b \
-              --attn-type cudnn_flash_te   \
-              --remat-policy minimal_with_context \
-              --batch-per-gpu 2 \
-              --steps 10 \
-              --pipeline-parallel ${{ matrix.pipeline-parallel }} \
-              --data-parallel ${{ matrix.data-parallel }} \
-              --fsdp ${{ matrix.fsdp }} \
-              --tensor-parallel ${{ matrix.tensor-parallel }} \
-              --nodes ${{ matrix.nodes }} \
-              -a 'scan_layers=false
-                  max_target_length=2048
                   use_iota_embed=true
                   logits_dot_in_fp32=false 
                   max_segments_per_seq=32'
