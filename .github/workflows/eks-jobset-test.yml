@@ -44,6 +44,7 @@ jobs:
         uses: ./.github/actions/eks-jobset
         with:
           NAME: maxtext-${{ matrix.test }}
+          NUM_NODES: ${{ matrix.nodes }}
           NUM_GPUS: ${{ matrix.gpus }}
           IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-maxtext-amd64
           ENVS: |
