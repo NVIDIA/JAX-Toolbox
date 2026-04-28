@@ -155,7 +155,7 @@ runs:
             [[ -z "$name" ]] && continue
             jq -n --arg name "$name" --arg value "$value" \
               '{name: $name, value: $value}'
-          done <<< "${{ input.ENVS }}" | jq -s -c .
+          done <<< "${{ inputs.ENVS }}" | jq -s -c .
         )
         
         yq -iP '.spec.replicatedJobs[].template.spec.template.spec.containers[0].env = env(envs_json)' ${JOBSET_YAML}
