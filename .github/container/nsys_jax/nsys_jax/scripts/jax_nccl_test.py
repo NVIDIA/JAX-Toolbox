@@ -328,7 +328,13 @@ def main() -> None:
         "--process-id is only relevant with --distributed"
     )
     if args.collectives is None:
-        args.collectives = ["all_gather", "all_reduce", "broadcast", "permute", "reduce_scatter"]
+        args.collectives = [
+            "all_gather",
+            "all_reduce",
+            "broadcast",
+            "permute",
+            "reduce_scatter",
+        ]
     if args.distributed:
         null_args = {
             args.coordinator_address is None,
