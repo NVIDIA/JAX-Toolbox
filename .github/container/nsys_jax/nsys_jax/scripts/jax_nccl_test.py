@@ -276,16 +276,20 @@ def main() -> None:
     parser.add_argument(
         "--replica-count",
         help=(
-            "Divide the GPUs into this many parallel groups that do not communicate with one another. For example with 8 GPUs and a replica count of 2, the emitted collectives will be for 2 groups of 4 GPUs."
+            "Divide the GPUs into this many parallel groups that do not communicate "
+            "with one another. For example with 8 GPUs and a replica count of 2, the "
+            "emitted collectives will be for 2 groups of 4 GPUs."
         ),
         type=int_or_env,
         default=1,
     )
     parser.add_argument(
         "--collectives",
-        help="Which collectives to profile.",
+        help=(
+            "Which collectives to profile. Recognised values: all_gather, "
+            "all_reduce, broadcast, permute, reduce_scatter."
+        ),
         action="append",
-        default=["all_gather", "all_reduce", "broadcast", "permute", "reduce_scatter"],
         type=str,
     )
     parser.add_argument(
@@ -320,10 +324,11 @@ def main() -> None:
     args = parser.parse_args()
     assert args.replica_count >= 1, args.replica_count
     assert args.num_iterations >= 1, args.num_iterations
-
     assert args.process_id is None or args.distributed, (
         "--process-id is only relevant with --distributed"
     )
+    if args.collectives is None:
+        args.collectives = ["all_gather", "all_reduce", "broadcast", "permute", "reduce_scatter"]
     if args.distributed:
         null_args = {
             args.coordinator_address is None,
