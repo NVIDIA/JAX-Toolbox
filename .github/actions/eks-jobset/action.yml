@@ -139,12 +139,26 @@ runs:
     run : |
       cat ${{ inputs.JOBSET_TEMPLATE }} | \
         yq '.metadata.name = env(JOBSET_NAME)
-          | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets[0].name = "${{ steps.store-token.outputs.token-name }}"
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].name = "${{ inputs.MAIN_CONTAINER_NAME }}"
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = "${{ inputs.IMAGE }}"
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].command[2] = env(CMD)' | \
+          | .spec.replicatedJobs[0].template.spec.parallelism = "${{ inputs.NUM_NODES }}"
+          | .spec.replicatedJobs[0].template.spec.completions = "${{ inputs.NUM_NODES }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.imagePullSecrets[0].name = "${{ steps.store-token.outputs.token-name }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].name = "${{ inputs.MAIN_CONTAINER_NAME }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].image = "${{ inputs.IMAGE }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[3] = "${{ inputs.NUM_NODES }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[5] = "${{ inputs.NUM_GPUS }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].command[2] = env(CMD)' | \
         tee ${JOBSET_YAML}
+
+        export envs_json=$(
+          while IFS='=' read -r name value; do
+            [[ -z "$name" ]] && continue
+            jq -n --arg name "$name" --arg value "$value" \
+              '{name: $name, value: $value}'
+          done <<< "${{ input.ENVS }}" | jq -s -c .
+        )
+        
+        yq -iP '.spec.replicatedJobs[].template.spec.template.spec.containers[0].env = env(json)' ${JOBSET_YAML}
 
   - name: Create JobSet on cluster
     shell: bash -x -e -u {0}

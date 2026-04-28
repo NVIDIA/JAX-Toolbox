@@ -5,6 +5,16 @@ metadata:
   labels:
     kueue.x-k8s.io/queue-name: p5-queue
 spec:
+  network:
+    enableDNSHostnames: true
+    subdomain: maxtext
+    publishNotReadyAddresses: true
+
+  coordinator:
+    replicatedJob: slice
+    jobIndex: 0
+    podIndex: 0
+
   replicatedJobs:
     - name: slice
       replicas: 1
@@ -15,9 +25,15 @@ spec:
           backoffLimit: 0
           template:
             spec:
+              restartPolicy: Never
               serviceAccountName: jax-job-sa
               hostNetwork: true
               dnsPolicy: ClusterFirstWithHostNet
+              volumes:
+              - name: dshm
+                emptyDir:
+                  medium: Memory
+                  sizeLimit: 64Gi
               containers:
                 - name: maxtext
                   image: ghcr.io/nvidia/jax:maxtext
@@ -33,3 +49,23 @@ spec:
                     limits:
                       nvidia.com/gpu: 8
                       vpc.amazonaws.com/efa: 32
+                  volumeMounts:
+                  - name: dshm
+                    mountPath: /dev/shm
+                  env:
+                  - name: JAX_COORDINATOR_PORT
+                    value: '3389'
+                  - name: JAX_COORDINATOR_HOST
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/coordinator']
+                  - name: JAX_COORDINATOR_ADDRESS
+                    value: "$(JAX_COORDINATOR_HOST):$(JAX_COORDINATOR_PORT)"
+                  - name: NNODES
+                    value: "1"
+                  - name: NODE_RANK
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                  - name: GPUS_PER_NODE
+                    value: "8"

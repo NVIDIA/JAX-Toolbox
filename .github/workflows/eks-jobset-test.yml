@@ -11,111 +11,91 @@ permissions:
   packages: write       # to upload containers
 
 jobs:
-  test-jax:
+  test-maxtext-single-node:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - test: backend-independent
-            gpus: 1
-          - test: single-gpu
-            gpus: 1
-          #- test: multi-gpu
-          #  gpus: 8
-    runs-on: eks
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
-        with:
-          NAME: jax-unit-${{ matrix.test }}
-          NUM_GPUS: ${{ matrix.gpus }}
-          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-jax-amd64
-          COMMAND: |
-            test-jax.sh -b ${{ matrix.test }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
-          STATISTICS_SCRIPT: |
-            NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
-            NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
-            NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
-            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
-  test-te:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - test: L0_jax_unittest
+          - test: single-node
+            nodes: 1
             gpus: 8
-          - test: L0_jax_distributed_unittest
-            gpus: 8
+            pipeline-parallel: 1
+            data-parallel: 1
+            fsdp: 2
+            tensor-parallel: 4
     runs-on: eks
     steps:
       - uses: actions/checkout@v4
       - name: Run eks-jobset action
         uses: ./.github/actions/eks-jobset
         with:
-          NAME: te-${{ matrix.test }}
+          NAME: maxtext-${{ matrix.test }}
           NUM_GPUS: ${{ matrix.gpus }}
-          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-jax-amd64
-          # Start MPS daemon
-          # TE's default is slightly different, without the hyphen
-          # 1 GPU per worker, 3 workers per GPU
-          ## 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
-          ## into a single .jsonl file of results from multiple pytest invocations
-          ## inside the test.sh script, so it's useful even with a single worker per
-          ## device.
+          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-maxtext-amd64
+          ENVS: |
+            NCCL_IB_DISABLE=1
+            NCCL_P2P_DISABLE=1
+            NCCL_NET_PLUGIN=none
+            NCCL_NET=Socket
           COMMAND: |
-            set -xu -o pipefail;
-
-            mkdir -p /opt/output;
-
-            pip install pytest-reportlog pytest-xdist;
-            nvidia-cuda-mps-control -d;
-            export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
-
-            [[ "${{ matrix.test }}" == *unittest* ]] && xdist_args=(4 1) || xdist_args=(8 1);
-            pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh
+            test-maxtext.sh \
+              --output /opt/output \
+              --batch-per-gpu 2 \
+              --steps 10 \
+              --model-name=llama2-7b \
+              --attn-type cudnn_flash_te \
+              --remat-policy=minimal_with_context \
+              --pipeline-parallel ${{ matrix.pipeline-parallel }} \
+              --data-parallel ${{ matrix.data-parallel }} \
+              --fsdp ${{ matrix.fsdp }} \
+              --tensor-parallel ${{ matrix.tensor-parallel }} \
+              --nodes ${{ matrix.num_nodes }} \
+              -a 'scan_layers=false 
+                  max_target_length=1024 
+                  use_iota_embed=true
+                  logits_dot_in_fp32=false 
+                  max_segments_per_seq=32'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
-          STATISTICS_SCRIPT: |
-            report_json=\${JOBSET_NAME}/pytest-report.jsonl
-            summary_line=$(tail -n1 \${JOBSET_NAME}/*.log);
-            NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
-            NUM_PASSED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
-            NUM_FAILED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
-            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
-
-  test-nsys-jax:
-    runs-on: eks
+  test-maxtext-multi-node:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - gpus: 8
+          - test: multi-node
+            nodes: 2
+            gpus: 8
+            pipeline-parallel: 1
+            data-parallel: 4
+            fsdp: 2
+            tensor-parallel: 2
+    runs-on: eks
     steps:
       - uses: actions/checkout@v4
       - name: Run eks-jobset action
         uses: ./.github/actions/eks-jobset
         with:
-          NAME: nsys-jax
+          NAME: maxtext-${{ matrix.test }}
           NUM_GPUS: ${{ matrix.gpus }}
-          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-jax-amd64
-          # nsys-jax is already installed, this is just adding the test dependencies
-          # abuse knowledge that nsys-jax is installed editable, so the tests exist
+          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:24448213493-maxtext-amd64
+          ENVS: |
+            OFI_NCCL_PROTOCOL=SENDRECV
           COMMAND: |
-            pip install pytest-reportlog nsys-jax[test];
-            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files(\"nsys_jax\").joinpath(\"..\", \"tests\").resolve())');
-            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\"
+            test-maxtext.sh \
+              --model llama2-7b \
+              --attn-type cudnn_flash_te   \
+              --remat-policy minimal_with_context \
+              --batch-per-gpu 2 \
+              --steps 10 \
+              --pipeline-parallel ${{ matrix.pipeline-parallel }} \
+              --data-parallel ${{ matrix.data-parallel }} \
+              --fsdp ${{ matrix.fsdp }} \
+              --tensor-parallel ${{ matrix.tensor-parallel }} \
+              --nodes ${{ matrix.nodes }} \
+              -a 'scan_layers=false
+                  max_target_length=2048
+                  use_iota_embed=true
+                  logits_dot_in_fp32=false 
+                  max_segments_per_seq=32'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
-          STATISTICS_SCRIPT: |
-            report_json=\${JOBSET_NAME}/pytest-report.jsonl
-            summary_line=\$(tail -n1 \${JOBSET_NAME}/*.log);
-            NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
-            NUM_PASSED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l);
-            NUM_FAILED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l);
-            NUM_TESTS=\$(( NUM_PASSED + NUM_FAILED ))
