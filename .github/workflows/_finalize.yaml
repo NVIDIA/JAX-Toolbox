@@ -13,6 +13,16 @@ on:
         description: Update the landing page badges with run outcomes
         default: false
         required: false
+      WORKFLOW_BADGE_FILENAME:
+        type: string
+        description: 'Workflow metadata badge filename'
+        default: 'badge-workflow-metadata.json'
+        required: false
+      WORKFLOW_BADGE_LABEL:
+        type: string
+        description: 'Workflow metadata badge label'
+        default: 'workflow metadata'
+        required: false
       ARTIFACT_NAME:
         type: string
         description: 'Name of the artifact zip file'
@@ -24,7 +34,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       ARTIFACT_NAME: 'artifact-workflow-metadata'
-      BADGE_FILENAME: 'badge-workflow-metadata.json'
+      BADGE_FILENAME: ${{ inputs.WORKFLOW_BADGE_FILENAME }}
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v6
@@ -35,7 +45,7 @@ jobs:
           # bring in utility functions
           source .github/workflows/scripts/to_json.sh
 
-          badge_label='workflow metadata'
+          badge_label='${{ inputs.WORKFLOW_BADGE_LABEL }}'
           if [[ -n "${{ inputs.BUILD_DATE }}" ]]; then
             badge_message="${{ inputs.BUILD_DATE }}: run #${{ github.run_id }}"
           else

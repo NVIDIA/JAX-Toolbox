@@ -1,18 +1,8 @@
-name: CI
+name: SCALE_TRAINING
 
 on:
   schedule:
-    - cron: "30 9 * * *" # every day at 09:30 UTC
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
-    paths-ignore:
-      - "**.md"
-      - ".github/triage/**"
-      - ".github/workflows/triage-ci.yaml"
+    - cron: "0 0 * * 6" # every Saturday at 00:00 UTC; workflow gates to biweekly runs
   workflow_dispatch:
     inputs:
       PUBLISH:
@@ -64,11 +54,15 @@ permissions:
   packages: write       # to upload container
   pull-requests: write  # to make pull request for manifest bump
 
+env:
+  SCALE_TRAINING_BIWEEKLY_ANCHOR_BUILD_DATE: 2026-04-18
+
 jobs:
   prepare:
     runs-on: ubuntu-22.04
     outputs:
       BUILD_DATE: ${{ steps.date.outputs.BUILD_DATE }}
+      SHOULD_RUN_WORKFLOW: ${{ steps.run-type.outputs.SHOULD_RUN_WORKFLOW }}
     steps:
       - name: Set build date
         id: date
@@ -77,8 +71,30 @@ jobs:
           BUILD_DATE=$(date -u '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
+      - name: Determine if scale-training run
+        id: run-type
+        shell: bash -x -e {0}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual scale-training run requested"
+            echo "SHOULD_RUN_WORKFLOW=true" >> $GITHUB_OUTPUT
+          else
+            anchor_epoch=$(date -u -d "${{ env.SCALE_TRAINING_BIWEEKLY_ANCHOR_BUILD_DATE }}" +%s)
+            build_epoch=$(date -u -d "${{ steps.date.outputs.BUILD_DATE }}" +%s)
+            days_since_anchor=$(( (build_epoch - anchor_epoch) / 86400 ))
+
+            if (( days_since_anchor >= 0 && days_since_anchor % 14 == 0 )); then
+              echo "Scheduled biweekly scale-training run for build date ${{ steps.date.outputs.BUILD_DATE }}"
+              echo "SHOULD_RUN_WORKFLOW=true" >> $GITHUB_OUTPUT
+            else
+              echo "Skipping off-week scale-training schedule for build date ${{ steps.date.outputs.BUILD_DATE }}"
+              echo "SHOULD_RUN_WORKFLOW=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
   pipeline:
     needs: prepare
+    if: ${{ needs.prepare.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
     uses: ./.github/workflows/_ci_orchestrator.yaml
     with:
       BUILD_DATE: ${{ needs.prepare.outputs.BUILD_DATE }}
@@ -88,10 +104,10 @@ jobs:
       CUDA_IMAGE: ${{ github.event_name == 'workflow_dispatch' && inputs.CUDA_IMAGE || 'latest' }}
       SOURCE_OVERRIDES: ${{ github.event_name == 'workflow_dispatch' && inputs.SOURCE_OVERRIDES || '' }}
       MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.MODE || 'full' }}
-      IS_SCALE_TRAINING: false
-      IS_DRAFT_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
-      WORKFLOW_BADGE_FILENAME: badge-workflow-metadata.json
-      WORKFLOW_BADGE_LABEL: workflow metadata
-      MANIFEST_BRANCH_PREFIX: znightly
-      MANIFEST_BUMP_LABEL: Nightly Manifest Bump
+      IS_SCALE_TRAINING: true
+      IS_DRAFT_PR: false
+      WORKFLOW_BADGE_FILENAME: badge-workflow-metadata-scale-training.json
+      WORKFLOW_BADGE_LABEL: scale-training metadata
+      MANIFEST_BRANCH_PREFIX: zscale-training
+      MANIFEST_BUMP_LABEL: Scale-Training Manifest Bump
     secrets: inherit
