@@ -60,7 +60,7 @@ jobs:
               --data-parallel ${{ matrix.data-parallel }} \
               --fsdp ${{ matrix.fsdp }} \
               --tensor-parallel ${{ matrix.tensor-parallel }} \
-              --nodes ${{ matrix.num_nodes }} \
+              --nodes ${{ matrix.nodes }} \
               -a 'scan_layers=false 
                   max_target_length=1024 
                   use_iota_embed=true
