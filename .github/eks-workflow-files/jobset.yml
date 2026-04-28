@@ -59,6 +59,10 @@ spec:
                     valueFrom:
                       fieldRef:
                         fieldPath: metadata.labels['jobset.sigs.k8s.io/coordinator']
+                  - name: JAX_COORDINATOR_IP
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['jobset.sigs.k8s.io/coordinator']
                   - name: JAX_COORDINATOR_ADDRESS
                     value: "$(JAX_COORDINATOR_HOST):$(JAX_COORDINATOR_PORT)"
                   - name: NNODES

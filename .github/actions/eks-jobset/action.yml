@@ -145,8 +145,8 @@ runs:
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].name = "${{ inputs.MAIN_CONTAINER_NAME }}"
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].image = "${{ inputs.IMAGE }}"
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
-          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[3].value = "${{ inputs.NUM_NODES }}"
-          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[5].value = "${{ inputs.NUM_GPUS }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[4].value = "${{ inputs.NUM_NODES }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[6].value = "${{ inputs.NUM_GPUS }}"
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].command[2] = env(CMD)' | \
         tee ${JOBSET_YAML}
 
@@ -158,7 +158,7 @@ runs:
           done <<< "${{ inputs.ENVS }}" | jq -s -c .
         )
         
-        yq -iP '.spec.replicatedJobs[].template.spec.template.spec.containers[0].env = env(envs_json)' ${JOBSET_YAML}
+        yq -iP '.spec.replicatedJobs[].template.spec.template.spec.containers[0].env += env(envs_json)' ${JOBSET_YAML}
 
   - name: Create JobSet on cluster
     shell: bash -x -e -u {0}
