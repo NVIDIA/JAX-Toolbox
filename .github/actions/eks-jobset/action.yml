@@ -139,13 +139,26 @@ runs:
     run : |
       cat ${{ inputs.JOBSET_TEMPLATE }} | \
         yq '.metadata.name = env(JOBSET_NAME)
-          | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets[0].name = "${{ steps.store-token.outputs.token-name }}"
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].name = "${{ inputs.MAIN_CONTAINER_NAME }}"
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = "${{ inputs.IMAGE }}"
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].resources.limits."vpc.amazonaws.com/efa" = env(NUM_EFA)
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].command[2] = env(CMD)' | \
+          | .spec.replicatedJobs[0].template.spec.parallelism = ${{ inputs.NUM_NODES }}
+          | .spec.replicatedJobs[0].template.spec.completions = ${{ inputs.NUM_NODES }}
+          | .spec.replicatedJobs[0].template.spec.template.spec.imagePullSecrets[0].name = "${{ steps.store-token.outputs.token-name }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].name = "${{ inputs.MAIN_CONTAINER_NAME }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].image = "${{ inputs.IMAGE }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[4].value = "${{ inputs.NUM_NODES }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[6].value = "${{ inputs.NUM_GPUS }}"
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].command[2] = env(CMD)' | \
         tee ${JOBSET_YAML}
+
+        export envs_json=$(
+          while IFS='=' read -r name value; do
+            [[ -z "$name" ]] && continue
+            jq -n --arg name "$name" --arg value "$value" \
+              '{name: $name, value: $value}'
+          done <<< "${{ inputs.ENVS }}" | jq -s -c .
+        )
+        
+        yq -iP '.spec.replicatedJobs[].template.spec.template.spec.containers[0].env += env(envs_json)' ${JOBSET_YAML}
 
   - name: Create JobSet on cluster
     shell: bash -x -e -u {0}
@@ -158,10 +171,10 @@ runs:
       POLL_TIMEOUT: 3600
     run: |
       set -euo pipefail
-
+  
       START=$(date +%s)
       JOBSET_ACTIVE=""
-
+  
       while [[ "${JOBSET_ACTIVE:-}" != "true" ]]; do
         JOBSET_ACTIVE="$(
           kubectl get jobset -o json | jq -r '
@@ -170,18 +183,18 @@ runs:
             | .status.replicatedJobsStatus[0].active == 1
           '
         )"
-
+  
         NOW=$(date +%s)
         ELAPSED=$(( NOW - START ))
         if (( ELAPSED > POLL_TIMEOUT )); then
           echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in the cluster"
           exit 1
         fi
-
+  
         echo "Waiting for JobSet ${JOBSET_NAME} to become active in the cluster"
         sleep 10
       done
-
+  
       echo "JobSet ${JOBSET_NAME} has just become active in the cluster"
 
   - name: Set JobSet Pods
@@ -248,12 +261,11 @@ runs:
     run: |
       kubectl delete jobset --wait ${JOBSET_NAME} || echo "JobSet ${JOBSET_NAME} does not exist"
 
-  - name: Download JobSet Pod artifacts from S3
+  - name: Download and process logs from S3
     shell: bash -x -u {0}
-    if: ${{ !cancelled() }}
     run: |
-      aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ ${JOBSET_NAME}/ --recursive
-
+      aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ ${JOBSET_NAME}/ --recursive 
+  
   - name: Emit unit test statistics
     if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
     shell: bash -xe -u {0}
@@ -261,7 +273,7 @@ runs:
       STATISTICS_SCRIPT="${{ inputs.STATISTICS_SCRIPT }}"
       STATISTICS_SCRIPT=$(echo ${STATISTICS_SCRIPT} | sed 's/\n/\ /g')
       eval "${STATISTICS_SCRIPT}"
-
+      
       if [[ ${NUM_ERRORS} > 0 ]] || [[ ${NUM_TESTS} == 0 ]]; then
         BADGE_COLOR=red
         BADGE_MESSAGE=error
@@ -276,7 +288,7 @@ runs:
         BADGE_MESSAGE="${NUM_PASSED}/${NUM_TESTS} passed"
         SUMMARY="${{ inputs.NAME }} on ${{ inputs.GPU_ARCH }}: ${NUM_TESTS} total tests, ${NUM_ERRORS} errors, ${NUM_PASSED} passed, ${NUM_FAILED} failed."
       fi
-
+      
       source .github/workflows/scripts/to_json.sh
       BADGE_LABEL="${{ inputs.NAME }} ${{ inputs.GPU_ARCH }} Unit"
       to_json \
@@ -284,7 +296,7 @@ runs:
         NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED \
         BADGE_LABEL BADGE_COLOR BADGE_MESSAGE \
       > sitrep.json
-
+      
       schemaVersion=1 \
       label="${BADGE_LABEL}" \
       message="${BADGE_MESSAGE}" \
