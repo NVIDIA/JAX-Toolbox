@@ -11,6 +11,37 @@ permissions:
   packages: write       # to upload containers
 
 jobs:
+  test-nsys-jax-nccl:
+    runs-on: eks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nodes: 2
+            gpus: 8
+            
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: nsys-jax-nccl
+          NUM_NODES: ${{ matrix.nodes }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ghcr.io/nvidia/jax-toolbox-internal:25104098695-jax-amd64
+          COMMAND: |
+            nsys-jax \
+              --output=/opt/output/nsys-rank\${NODE_RANK}.zip \
+              -- \
+              jax-nccl-test \
+              --coordinator-address \${JAX_COORDINATOR_ADDRESS} \
+              --distributed \
+              --gpus-per-process=${{ matrix.gpus }} \
+              --process-count=${{ matrix.nodes }} \
+              --process-id=\${NODE_RANK}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+
   test-cutlass:
     runs-on: eks
     strategy:
