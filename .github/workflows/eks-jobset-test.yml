@@ -43,7 +43,7 @@ jobs:
               outcome=\$( [ \${exit_code} -eq 0 ] && echo \"passed\" || echo \"failed\" );
               echo \"=== \${f} ===\" | tee -a /opt/output/pytest_stdout.log;
               echo \"\${log_output}\" | tee -a /opt/output/pytest_stdout.log;
-              python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \"\${outcome}\" \"\${f}\" \"\${log_output}" >> /opt/output/pytest-report.jsonl;
+              python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \"\${outcome}\" \"\${f}\" \"\${log_output}\" >> /opt/output/pytest-report.jsonl;
             done
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
