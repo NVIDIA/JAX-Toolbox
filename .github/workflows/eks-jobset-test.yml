@@ -49,6 +49,7 @@ jobs:
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
           STATISTICS_SCRIPT: |
+            NUM_ERRORS=0;
             NUM_PASSED=\$(cat \${JOBSET_NAME}/pytest-report.jsonl | jq --slurp | jq '.[] | select(.outcome == \"passed\") | .outcome' | wc -l || true);
             NUM_FAILED=\$(cat \${JOBSET_NAME}/pytest-report.jsonl | jq --slurp | jq '.[] | select(.outcome == \"failed\") | .outcome' | wc -l || true);
             NUM_TESTS=\$(( NUM_PASSED + NUM_FAILED ));
