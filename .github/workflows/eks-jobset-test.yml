@@ -32,7 +32,7 @@ jobs:
           COMMAND: |
             pip install pytest-reportlog pytest-xdist flatbuffers;
             CUTEDSL_VERSION=\$(python -c 'import cutlass; print(cutlass.__version__);');
-            git clone -b v\${CUTEDSL_VERSION} --single-branch --depth 1 https://github.com/NVIDIA/cutlass.git /cutlass
+            git clone -b v\${CUTEDSL_VERSION} --single-branch --depth 1 https://github.com/NVIDIA/cutlass.git /cutlass;
             NGPUS=\$(nvidia-smi --list-gpus | wc -l);
             nvidia-cuda-mps-control -d;
             
@@ -43,7 +43,7 @@ jobs:
               outcome=\$( [ \${exit_code} -eq 0 ] && echo \"passed\" || echo \"failed\" );
               echo \"=== \${f} ===\" | tee -a /opt/output/pytest_stdout.log;
               echo \"\${log_output}\" | tee -a /opt/output/pytest_stdout.log;
-              python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \${outcome} \${f} \${log_output} >> /opt/output/pytest-report.jsonl;
+              python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \"\${outcome}\" \"\${f}\" \"\${log_output}" >> /opt/output/pytest-report.jsonl;
             done
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
