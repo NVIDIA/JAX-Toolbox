@@ -147,7 +147,7 @@ runs:
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[4].value = "${{ inputs.NUM_NODES }}"
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[6].value = "${{ inputs.NUM_GPUS }}"
-          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].command[2] = env(CMD)' \
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].command[2] = strenv(CMD)' \
         > ${JOBSET_YAML}
 
         export envs_json=$(

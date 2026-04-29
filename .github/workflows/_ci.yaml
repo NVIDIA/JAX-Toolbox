@@ -398,7 +398,7 @@ jobs:
           popd
         done
 
-  test-nsys-jax-eks:
+  test-nsys-jax-nccl:
     needs: build-jax
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
@@ -407,57 +407,36 @@ jobs:
         inputs.MODE == 'jax'
       )
     runs-on: eks
-    env:
-      JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: ${{ github.run_id }}-nsys-jax
-      # Service name cannot start with a number
-      SERVICE_NAME: svc-${{ github.run_id}}-nsys-jax
-      POSTPROCESS_JOB_NAME: ${{ github.run_id }}-nsys-jax-postprocess
-    steps:
-    - name: Check out the repository
-      uses: actions/checkout@v6
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-    - name: Configure Kubernetes job
-      run: |
-        yq -i ea 'select(di == 0).spec.selector.job-name = strenv(JOB_NAME)
-          | select(di == 0).metadata.name = strenv(SERVICE_NAME)
-          | select(di == 1).metadata.name = strenv(JOB_NAME)
-          | select(di == 1).spec.template.spec.subdomain = strenv(SERVICE_NAME)
-          | select(di == 1).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
-          | select(di == 1).spec.template.spec.containers[0].image = strenv(JAX_DOCKER_IMAGE)
-          | select(di == 1).spec.template.spec.containers[0].env[0].value = strenv(JOB_NAME)
-          | select(di == 1).spec.template.spec.containers[0].env[1].value = strenv(SERVICE_NAME)' \
-          .github/eks-workflow-files/job.yml
-        git diff .github/eks-workflow-files/job.yml
-    - name: Submit Kubernetes job
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file: .github/eks-workflow-files/job.yml
-        job-name: ${{ env.JOB_NAME }}
-    - name: Configure post-processing job
-      run: |
-        export JOB_OUTPUT_PATTERN="${JOB_NAME}-rank*.zip"
-        yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
-          | .spec.template.spec.containers[].image = strenv(JAX_DOCKER_IMAGE)
-          | .spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
-          | .spec.template.spec.initContainers[].command[7] = strenv(JOB_OUTPUT_PATTERN)' \
-          .github/eks-workflow-files/post-process-job.yml
-        git diff .github/eks-workflow-files/post-process-job.yml
-    - name: Submit post process Kubernetes job
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file: .github/eks-workflow-files/post-process-job.yml
-        job-name: ${{ env.POSTPROCESS_JOB_NAME }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nodes: 2
+            gpus: 8
 
-  test-jax-cutlass-h100:
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: nsys-jax-nccl
+          NUM_NODES: ${{ matrix.nodes }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            nsys-jax \
+              --output=/opt/output/nsys-rank\${NODE_RANK}.zip \
+              -- \
+              jax-nccl-test \
+              --coordinator-address \${JAX_COORDINATOR_ADDRESS} \
+              --distributed \
+              --gpus-per-process=${{ matrix.gpus }} \
+              --process-count=${{ matrix.nodes }} \
+              --process-id=\${NODE_RANK}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+
+  test-cutlass:
     needs: build-jax
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
@@ -465,13 +444,46 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax-cutlass'
       )
-    uses: ./.github/workflows/_jax_cutlass_eks.yaml
-    with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: jax-cutlass-${{ github.run_id }}
-      S3_BUCKET: jax-toolbox-eks-output
-      CI_NAME: jax-cutlass
-    secrets: inherit
+    runs-on: eks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nodes: 1
+            gpus: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: jax-cutlass
+          NUM_NODES: ${{ matrix.nodes }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            pip install pytest-reportlog pytest-xdist flatbuffers;
+            CUTEDSL_VERSION=\$(python -c 'import cutlass; print(cutlass.__version__);');
+            git clone -b v\${CUTEDSL_VERSION} --single-branch --depth 1 https://github.com/NVIDIA/cutlass.git /cutlass;
+            NGPUS=\$(nvidia-smi --list-gpus | wc -l);
+            nvidia-cuda-mps-control -d;
+
+            for f in /cutlass/examples/python/CuTeDSL/jax/*.py; do
+              echo \"[Executing] \${f}\";
+              log_output=\$(python \${f} 2>&1);
+              exit_code=\${?};
+              outcome=\$( [ \${exit_code} -eq 0 ] && echo \"passed\" || echo \"failed\" );
+              echo \"=== \${f} ===\" | tee -a /opt/output/pytest_stdout.log;
+              echo \"\${log_output}\" | tee -a /opt/output/pytest_stdout.log;
+              python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \"\${outcome}\" \"\${f}\" \"\${log_output}\" >> /opt/output/pytest-report.jsonl;
+            done
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            NUM_ERRORS=0;
+            NUM_PASSED=\$(cat \${JOBSET_NAME}/pytest-report.jsonl | jq --slurp | jq '.[] | select(.outcome == \"passed\") | .outcome' | wc -l || true);
+            NUM_FAILED=\$(cat \${JOBSET_NAME}/pytest-report.jsonl | jq --slurp | jq '.[] | select(.outcome == \"failed\") | .outcome' | wc -l || true);
+            NUM_TESTS=\$(( NUM_PASSED + NUM_FAILED ));
 
   test-maxtext:
     needs: build-maxtext
@@ -599,7 +611,6 @@ jobs:
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/summary.txt axlearn-output/
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.log"
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.xml"
-
 
         passed_tests=$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
         failed_tests=$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
