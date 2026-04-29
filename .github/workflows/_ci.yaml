@@ -310,7 +310,7 @@ jobs:
             nvidia-cuda-mps-control -d;
             export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
 
-            [[ "${{ matrix.test }}" == *unittest* ]] && xdist_args=(1 4) || xdist_args=(8 1);
+            [[ "${{ matrix.test }}" == *distributed* ]] && xdist_args=(8 1) || xdist_args=(4 1);
             pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh | tee /opt/output/pytest.log
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}

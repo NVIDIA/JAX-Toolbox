@@ -148,7 +148,7 @@ runs:
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[4].value = "${{ inputs.NUM_NODES }}"
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[6].value = "${{ inputs.NUM_GPUS }}"
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].command[2] = env(CMD)' | \
-        tee ${JOBSET_YAML}
+        > ${JOBSET_YAML}
 
         export envs_json=$(
           while IFS='=' read -r name value; do
@@ -159,6 +159,7 @@ runs:
         )
         
         yq -iP '.spec.replicatedJobs[].template.spec.template.spec.containers[0].env += env(envs_json)' ${JOBSET_YAML}
+        cat ${JOBSET_YAML}
 
   - name: Create JobSet on cluster
     shell: bash -x -e -u {0}
@@ -168,7 +169,7 @@ runs:
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}
     env:
-      POLL_TIMEOUT: 3600
+      POLL_TIMEOUT: 10800
     run: |
       set -euo pipefail
   
