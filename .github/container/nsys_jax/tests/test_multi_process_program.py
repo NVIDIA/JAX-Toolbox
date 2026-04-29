@@ -266,8 +266,7 @@ def test_metadata_consistency(
 @pytest.mark.parametrize("recipe", ["summary", "communication"])
 def test_analysis_recipes(individual_results, recipe):
     """
-    Fixture that yields the extracted .zip files from individual subprocesses and the
-    merged result from nsys-jax-combine.
+    Check that the analysis recipes work.
     """
     with tempfile.NamedTemporaryFile(suffix=".zip") as combined_output:
         subprocess.run(
