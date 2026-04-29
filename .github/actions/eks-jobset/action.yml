@@ -147,7 +147,7 @@ runs:
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].resources.limits."nvidia.com/gpu" = ${{ inputs.NUM_GPUS }}
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[4].value = "${{ inputs.NUM_NODES }}"
           | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].env[6].value = "${{ inputs.NUM_GPUS }}"
-          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].command[2] = env(CMD)' | \
+          | .spec.replicatedJobs[0].template.spec.template.spec.containers[0].command[2] = env(CMD)' \
         > ${JOBSET_YAML}
 
         export envs_json=$(
@@ -264,6 +264,7 @@ runs:
 
   - name: Download and process logs from S3
     shell: bash -x -u {0}
+    if: ${{ !cancelled() }}
     run: |
       aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ ${JOBSET_NAME}/ --recursive 
   
