@@ -264,15 +264,19 @@ jobs:
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
           done
 
-          # for scale training we need a specific XLA ref
+          # for scale training we need specific XLA and JAX refs
           if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
             BRANCH_INFO=$(python3 .github/workflows/scripts/extract_commits.py)
             echo ${BRANCH_INFO} | jq
             XLA_BRANCH=$(jq -r '.name' <<< "$BRANCH_INFO")
             XLA_SHA=$(jq -r '.commit.sha' <<< "$BRANCH_INFO")
+            JAX_REPO=$(jq -r '.jax.repo' <<< "$BRANCH_INFO")
+            JAX_COMMIT=$(jq -r '.jax.commit' <<< "$BRANCH_INFO")
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"XLA\": \"https://github.com/openxla/xla.git#${XLA_SHA}\"}")
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"JAX\": \"${JAX_REPO}#${JAX_COMMIT}\"}")
 
             echo "Using XLA branch ${XLA_BRANCH} at sha ${XLA_SHA} for scale-training run"
+            echo "Using JAX repo ${JAX_REPO} at commit ${JAX_COMMIT} from STAGING.md for scale-training run"
           fi
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
           echo "Final URLREF going to be used"
