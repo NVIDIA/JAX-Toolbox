@@ -3,7 +3,7 @@ name: CI
 on:
   schedule:
     - cron: '30 9 * * *' # Pacific Time 01:30 AM in UTC
-    - cron: '0 0 * * 6' #midnight every Saturday UTC for scale-training
+    - cron: '0 0 * * 6' # midnight every Saturday UTC; workflow gates to biweekly scale-training runs
   pull_request:
     types:
       - opened
@@ -13,6 +13,7 @@ on:
     paths-ignore:
       - '**.md'
       - '.github/triage/**'
+      - '.github/workflows/triage-ci.yaml'
   workflow_dispatch:
     inputs:
       PUBLISH:
@@ -71,6 +72,7 @@ permissions:
 
 env:
   DEFAULT_MANIFEST_ARTIFACT_NAME: bumped-manifest
+  SCALE_TRAINING_BIWEEKLY_ANCHOR_BUILD_DATE: 2026-04-17
 
 jobs:
 
@@ -84,6 +86,7 @@ jobs:
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
       CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
+      SHOULD_RUN_WORKFLOW: ${{ steps.run-type.outputs.SHOULD_RUN_WORKFLOW }}
       IS_SCALE_TRAINING: ${{ steps.run-type.outputs.IS_SCALE_TRAINING }}
       SUFFIX: ${{ steps.run-type.outputs.SUFFIX }}
     steps:
@@ -153,11 +156,33 @@ jobs:
 
       - name: Determine if scale-training run
         id: run-type
+        shell: bash -x -e {0}
         run: |
-          if [[ "${{ github.event.schedule }}" == "0 0 * * 6" || "${{ inputs.SCALE_TRAINING }}" == "true" ]]; then
+          SCALE_TRAINING_SCHEDULE='0 0 * * 6'
+
+          if [[ "${{ inputs.SCALE_TRAINING }}" == "true" ]]; then
+            echo "Manual scale-training run requested"
+            echo "SHOULD_RUN_WORKFLOW=true" >> $GITHUB_OUTPUT
             echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
             echo "SUFFIX=-scale-training" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.schedule }}" == "${SCALE_TRAINING_SCHEDULE}" ]]; then
+            anchor_epoch=$(date -u -d "${{ env.SCALE_TRAINING_BIWEEKLY_ANCHOR_BUILD_DATE }}" +%s)
+            build_epoch=$(date -u -d "${{ steps.date.outputs.BUILD_DATE }}" +%s)
+            days_since_anchor=$(( (build_epoch - anchor_epoch) / 86400 ))
+
+            if (( days_since_anchor >= 0 && days_since_anchor % 14 == 0 )); then
+              echo "Scheduled biweekly scale-training run for build date ${{ steps.date.outputs.BUILD_DATE }}"
+              echo "SHOULD_RUN_WORKFLOW=true" >> $GITHUB_OUTPUT
+              echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
+              echo "SUFFIX=-scale-training" >> $GITHUB_OUTPUT
+            else
+              echo "Skipping off-week scale-training schedule for build date ${{ steps.date.outputs.BUILD_DATE }}"
+              echo "SHOULD_RUN_WORKFLOW=false" >> $GITHUB_OUTPUT
+              echo "IS_SCALE_TRAINING=false" >> $GITHUB_OUTPUT
+              echo "SUFFIX=" >> $GITHUB_OUTPUT
+            fi
           else
+            echo "SHOULD_RUN_WORKFLOW=true" >> $GITHUB_OUTPUT
             echo "IS_SCALE_TRAINING=false" >> $GITHUB_OUTPUT
             echo "SUFFIX=" >> $GITHUB_OUTPUT
           fi
@@ -165,6 +190,7 @@ jobs:
 
   bump-manifest:
     needs: metadata
+    if: ${{ needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
     runs-on: ubuntu-22.04
     outputs:
       SOURCE_URLREFS: ${{ steps.source-urlrefs.outputs.SOURCE_URLREFS }}
@@ -238,17 +264,19 @@ jobs:
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
           done
 
-          # for scale training we need a specific XLA ref
+          # for scale training we need specific XLA and JAX refs
           if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
-            TAG_INFO=$(python3 .github/workflows/scripts/extract_commits.py)
-            echo ${TAG_INFO} | jq
-            XLA_SHA=$(jq -r '.commit.sha' <<< "$TAG_INFO")
-            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"XLA\": \"https://github.com/sfvaroglu/xla#${XLA_SHA}\"}")
-            JAX_COMMIT=$(jq -r '.name | split("-") | last' <<< "$TAG_INFO")
-            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"JAX\": \"https://github.com/jax-ml/jax#${JAX_COMMIT}\"}")
+            BRANCH_INFO=$(python3 .github/workflows/scripts/extract_commits.py)
+            echo ${BRANCH_INFO} | jq
+            XLA_BRANCH=$(jq -r '.name' <<< "$BRANCH_INFO")
+            XLA_SHA=$(jq -r '.commit.sha' <<< "$BRANCH_INFO")
+            JAX_REPO=$(jq -r '.jax.repo' <<< "$BRANCH_INFO")
+            JAX_COMMIT=$(jq -r '.jax.commit' <<< "$BRANCH_INFO")
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"XLA\": \"https://github.com/openxla/xla.git#${XLA_SHA}\"}")
+            urlrefs=$(echo "$urlrefs" | jq -c ". + {\"JAX\": \"${JAX_REPO}#${JAX_COMMIT}\"}")
 
-            echo "Using XLA sha ${XLA_SHA} for scale-training run"
-            echo "Using JAX commit ${JAX_COMMIT} for scale-training run"
+            echo "Using XLA branch ${XLA_BRANCH} at sha ${XLA_SHA} for scale-training run"
+            echo "Using JAX repo ${JAX_REPO} at commit ${JAX_COMMIT} from STAGING.md for scale-training run"
           fi
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
           echo "Final URLREF going to be used"
@@ -256,6 +284,7 @@ jobs:
 
   amd64:
     needs: [metadata, bump-manifest]
+    if: ${{ needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: amd64
@@ -268,6 +297,7 @@ jobs:
 
   arm64:
     needs: [metadata, bump-manifest]
+    if: ${{ needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: arm64
@@ -281,7 +311,7 @@ jobs:
   # Only merge if everything succeeds
   merge-new-manifest:
     runs-on: ubuntu-22.04
-    if: ${{ !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
+    if: ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
     needs:
       - metadata
       - amd64
@@ -392,7 +422,7 @@ jobs:
 
   make-publish-configs:
     runs-on: ubuntu-22.04
-    if:  ${{ !cancelled() }}
+    if:  ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
     env:
       MEALKIT_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax-mealkit' || 'mock-jax-mealkit' }}
       FINAL_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax' || 'mock-jax' }}
@@ -481,7 +511,7 @@ jobs:
     needs:
       - metadata
       - make-publish-configs
-    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
+    if:  ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
@@ -497,7 +527,7 @@ jobs:
 
   finalize:
     needs: [metadata, amd64, arm64, publish-containers]
-    if: "!cancelled()"
+    if: ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
     uses: ./.github/workflows/_finalize.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
