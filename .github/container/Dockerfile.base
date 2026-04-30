@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:26.02-cuda13.1-devel-ubuntu24.04
+ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:26.04-cuda13.2-devel-ubuntu24.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG JAX_TOOLBOX_REF=main
@@ -115,10 +115,9 @@ ADD install-nsight-systems.sh /usr/local/bin
 RUN if [[ -n "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}" ]]; then install-nsight-systems.sh "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}"; fi
 
 ##############################################################################
-## Install NVSHMEM
+## Remove CUDA NVSHMEM symlinks
 ##############################################################################
-ADD install-nvshmem.sh /usr/local/bin
-RUN install-nvshmem.sh
+RUN cat /usr/local/cuda/nvshmem_symlinks_*.txt 2>/dev/null | while read -r f; do rm -vf "$f"; done && rm -f /usr/local/cuda/nvshmem_symlinks_*.txt
 
 ##############################################################################
 ## Create symlinks to help XLA find NVSHMEM
