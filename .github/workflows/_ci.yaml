@@ -251,9 +251,9 @@ jobs:
       matrix:
         include:
           - test: backend-independent
-            gpus: 4
+            gpus: 1
           - test: single-gpu
-            gpus: 4
+            gpus: 1
           - test: multi-gpu
             gpus: 8
     runs-on: eks
@@ -310,7 +310,7 @@ jobs:
             nvidia-cuda-mps-control -d;
             export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
 
-            [[ "${{ matrix.test }}" == *distributed* ]] && xdist_args=(8 1) || xdist_args=(4 1);
+            [[ "${{ matrix.test }}" == *distributed* ]] && xdist_args=(8 1) || xdist_args=(1 4);
             pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh | tee /opt/output/pytest.log
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
@@ -505,8 +505,6 @@ jobs:
             fsdp: 2
             tensor-parallel: 4
             envs: |-
-              NCCL_IB_DISABLE=1
-              NCCL_P2P_DISABLE=1
               NCCL_NET_PLUGIN=none
               NCCL_NET=Socket
           - test: multi-node
