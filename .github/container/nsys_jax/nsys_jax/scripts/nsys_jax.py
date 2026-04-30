@@ -65,8 +65,8 @@ SCRIPT_DIR=$(cd -- "$( dirname -- "${{BASH_SOURCE[0]}}" )" &> /dev/null && pwd)
 VIRTUALENV="${{SCRIPT_DIR}}/nsys_jax_venv"
 BIN="${{VIRTUALENV}}/bin"
 if [[ ! -d "${{VIRTUALENV}}" ]]; then
-  # Let `virtualenv` find/choose a Python. Currently >=3.10 is supported.
-  virtualenv -p 3.13 -p 3.12 -p 3.11 -p 3.10 "$@" "${{VIRTUALENV}}"
+  # Let `virtualenv` find/choose a Python. Currently >=3.12 is supported.
+  virtualenv -p 3.14 -p 3.13 -p 3.12 "$@" "${{VIRTUALENV}}"
   "${{BIN}}/pip" install -U pip
   "${{BIN}}/pip" install 'nsys-jax[jupyter] @ git+https://github.com/NVIDIA/JAX-Toolbox.git@{jax_toolbox_commit}#subdirectory=.github/container/nsys_jax'
   "${{BIN}}/install-flamegraph" "${{VIRTUALENV}}"
