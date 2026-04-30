@@ -115,10 +115,9 @@ ADD install-nsight-systems.sh /usr/local/bin
 RUN if [[ -n "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}" ]]; then install-nsight-systems.sh "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}"; fi
 
 ##############################################################################
-## Install NVSHMEM
+## Remove CUDA NVSHMEM symlinks
 ##############################################################################
-ADD install-nvshmem.sh /usr/local/bin
-RUN install-nvshmem.sh
+RUN cat /usr/local/cuda/nvshmem_symlinks_*.txt 2>/dev/null | while read -r f; do rm -vf "$f"; done && rm -f /usr/local/cuda/nvshmem_symlinks_*.txt
 
 ##############################################################################
 ## Create symlinks to help XLA find NVSHMEM
