@@ -340,7 +340,7 @@ jobs:
 
           echo "TAGS=${TAGS}" >> $GITHUB_OUTPUT
 
-  test-jax-eks:
+  test-jax:
     needs: build-jax
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
@@ -348,247 +348,197 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: backend-independent
+            gpus: 1
+          - test: single-gpu
+            gpus: 1
+          - test: multi-gpu
+            gpus: 8
     runs-on: eks
-    env:
-      JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: jax-${{ github.run_id }}
     steps:
-    - name: Check out the repository
-      uses: actions/checkout@v6
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-    - name: Configure JAX test job
-      run: |
-        yq -i ea '
-           select(di == 0).metadata.name = strenv(JOB_NAME)
-          | select(di == 0).spec.template.spec.containers[0].image = strenv(JAX_DOCKER_IMAGE)
-          | select(di == 0).spec.template.spec.containers[0].env[0].value = "${{ github.run_id }}"
-          | select(di == 0).spec.template.spec.imagePullSecrets[0].name = "${{ steps.store-token.outputs.token-name }}"' \
-        .github/eks-workflow-files/jax/test.yml
-        git diff .github/eks-workflow-files/jax/test.yml
-    - name: Submit & delete JAX unit test job
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file: ".github/eks-workflow-files/jax/test.yml"
-        job-name: ${{ env.JOB_NAME }}
-    - name: Download logs from S3
-      id: log-s3
-      if: ${{ !cancelled() }}
-      run: |
-        mkdir -p jax-output
-        aws s3 cp s3://jax-toolbox-eks-output/jax/${{ github.run_id }}/ jax-output/ --recursive
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: jax-unit-${{ matrix.test }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            test-jax.sh -b ${{ matrix.test }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+                      NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
+                      NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
+                      NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
+                      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
-        errors=$(cat jax-output/test-*.log | grep -c 'ERROR:' || true)
-        failed_tests=$(cat jax-output/test-*.log | grep -c 'FAILED in' || true)
-        passed_tests=$(cat jax-output/test-*.log | grep -c 'PASSED in' || true)
-        total_tests=$((failed_tests + passed_tests))
-
-        echo "Passed tests: $passed_tests"
-        echo "Failed tests: $failed_tests"
-        echo "Total tests: $total_tests"
-        echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
-        echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
-        echo "ERRORS=$errors" >> $GITHUB_OUTPUT
-
-        if [[ $failed_tests -gt 0 ]] || [[ $errors -gt 0 ]]; then
-          exit 1
-        fi
-    - name: Generate sitrep
-      id: sitrep
-      if: ${{ !cancelled() }}
-      shell: bash -x -e {0}
-      run: |
-        # bring in utility functions
-        source .github/workflows/scripts/to_json.sh
-
-        badge_label='JAX EKS unittest (8)'
-
-        total_tests=${{ steps.log-s3.outputs.TOTAL_TESTS }} \
-        failed_tests=${{ steps.log-s3.outputs.FAILED_TESTS }} \
-        passed_tests=${{ steps.log-s3.outputs.PASSED_TESTS }} \
-        errors=${{ steps.log-s3.outputs.ERRORS }} \
-        summary="All tests: $total_tests. Passed: $passed_tests. Failed: $failed_tests." \
-        badge_message="Passed $passed_tests out of $total_tests." \
-        badge_color="brightgreen"
-        if [ "$failed_tests" -gt 0 ] || [ "$errors" -gt 0 ]; then
-          badge_color="red"
-        fi \
-
-        to_json \
-          summary \
-          errors total_tests passed_tests failed_tests \
-          badge_label badge_color badge_message \
-        > sitrep.json
-
-        schemaVersion=1 \
-        label="${badge_label}" \
-        message="Passed $passed_tests out of $total_tests." \
-        color=$badge_color \
-        to_json schemaVersion label message color \
-        > badge-jax-unit-test-eks.json
-
-  # test-nsys-jax:
-  #   needs: build-jax
-  #   if: >-
-  #     inputs.ARCHITECTURE == 'amd64' &&
-  #     (
-  #       inputs.MODE == 'full' ||
-  #       inputs.MODE == 'jax'
-  #     )
-  #   uses: ./.github/workflows/_test_unit.yaml
-  #   with:
-  #     TEST_NAME: nsys-jax
-  #     EXECUTE: |
-  #       set -o pipefail
-  #       mkdir -p output-results
-  #       docker run -i --shm-size=1g --gpus all \
-  #         -v $PWD/output-results:/opt/output \
-  #         ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-  #         bash <<"EOF" |& tee test-nsys-jax.log
-  #           # nsys-jax is already installed, this is just adding the test dependencies
-  #           pip install pytest-reportlog nsys-jax[test]
-  #           # abuse knowledge that nsys-jax is installed editable, so the tests exist
-  #           test_path=$(python -c 'import importlib.resources; print(importlib.resources.files("nsys_jax").joinpath("..", "tests").resolve())')
-  #           pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl "${test_path}"
-  #           chmod -R a+rwX /opt/output
-  #       EOF
-  #     STATISTICS_SCRIPT: |
-  #       summary_line=$(tail -n1 test-nsys-jax.log)
-  #       num_errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-  #       passed_tests=$(cat output-results/pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-  #       failed_tests=$(cat output-results/pytest-report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-  #       total_tests=$(( passed_tests + failed_tests ))
-  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-  #       echo "ERRORS=${num_errors}" >> $GITHUB_OUTPUT
-  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-  #     ARTIFACTS: |
-  #       # pytest-driven part
-  #       test-nsys-jax.log
-  #       output-results/pytest-report.jsonl
-  #       output-results/pytest-tmp/
-  #   secrets: inherit
-
-  # # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
-  # # runs on a regular GitHub Actions runner and checks that offline post-processing works in an environment that does
-  # # not already have nsys-jax installed
-  # test-nsys-jax-archive:
-  #   needs: test-nsys-jax
-  #   if: >-
-  #     inputs.ARCHITECTURE == 'amd64' &&
-  #     (
-  #       inputs.MODE == 'full' ||
-  #       inputs.MODE == 'jax'
-  #     )
-  #   strategy:
-  #     matrix:
-  #       os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
-  #   runs-on: ${{ matrix.os }}
-  #   steps:
-  #   - name: Download nsys-jax output .zip files
-  #     uses: actions/download-artifact@v8
-  #     with:
-  #       name: nsys-jax-unit-test-A100
-  #   - name: Extract archives and execute install scripts
-  #     run: |
-  #       pip install virtualenv # for install.sh
-  #       for zip in $(ls *.zip); do
-  #         ZIP="${PWD}/${zip}"
-  #         pushd $(mktemp -d)
-  #         unzip "${ZIP}"
-  #         ls -l
-  #         # TODO: verify this isn't needed, or make sure it isn't needed
-  #         chmod 755 install.sh
-  #         # Run the notebook with IPython, not Jupyter Lab, so it exits and prints something informative to stdout
-  #         # Skip executing Jupyter lab
-  #         NSYS_JAX_JUPYTER_EXECUTE_NOT_LAB=1 ./install.sh
-  #         popd
-  #       done
-
-  test-nsys-jax-eks:
-    needs: build-jax
-    if: >-
-      inputs.ARCHITECTURE == 'amd64' &&
-      (
-        inputs.MODE == 'full' ||
-        inputs.MODE == 'jax'
-      )
-    runs-on: eks
-    env:
-      JAX_DOCKER_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: ${{ github.run_id }}-nsys-jax
-      # Service name cannot start with a number
-      SERVICE_NAME: svc-${{ github.run_id}}-nsys-jax
-      POSTPROCESS_JOB_NAME: ${{ github.run_id }}-nsys-jax-postprocess
-    steps:
-    - name: Check out the repository
-      uses: actions/checkout@v6
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-    - name: Configure Kubernetes job
-      run: |
-        yq -i ea 'select(di == 0).spec.selector.job-name = strenv(JOB_NAME)
-          | select(di == 0).metadata.name = strenv(SERVICE_NAME)
-          | select(di == 1).metadata.name = strenv(JOB_NAME)
-          | select(di == 1).spec.template.spec.subdomain = strenv(SERVICE_NAME)
-          | select(di == 1).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
-          | select(di == 1).spec.template.spec.containers[0].image = strenv(JAX_DOCKER_IMAGE)
-          | select(di == 1).spec.template.spec.containers[0].env[0].value = strenv(JOB_NAME)
-          | select(di == 1).spec.template.spec.containers[0].env[1].value = strenv(SERVICE_NAME)' \
-          .github/eks-workflow-files/job.yml
-        git diff .github/eks-workflow-files/job.yml
-    - name: Submit Kubernetes job
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file: .github/eks-workflow-files/job.yml
-        job-name: ${{ env.JOB_NAME }}
-    - name: Configure post-processing job
-      run: |
-        export JOB_OUTPUT_PATTERN="${JOB_NAME}-rank*.zip"
-        yq -i '.metadata.name = strenv(POSTPROCESS_JOB_NAME)
-          | .spec.template.spec.containers[].image = strenv(JAX_DOCKER_IMAGE)
-          | .spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
-          | .spec.template.spec.initContainers[].command[7] = strenv(JOB_OUTPUT_PATTERN)' \
-          .github/eks-workflow-files/post-process-job.yml
-        git diff .github/eks-workflow-files/post-process-job.yml
-    - name: Submit post process Kubernetes job
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file: .github/eks-workflow-files/post-process-job.yml
-        job-name: ${{ env.POSTPROCESS_JOB_NAME }}
-
-  test-te-h100:
-    needs: build-jax
+  test-te:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
         inputs.MODE == 'full' ||
         inputs.MODE == 'te'
       )
-    uses: ./.github/workflows/_transformer_engine_eks.yaml
-    with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: transformerengine-${{ github.run_id }}
-      S3_BUCKET: jax-toolbox-eks-output
-      CI_NAME: transformer-engine
-    secrets: inherit
+    needs: build-jax
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: L0_jax_unittest
+            gpus: 8
+          - test: L0_jax_distributed_unittest
+            gpus: 8
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: te-${{ matrix.test }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            set -xu -o pipefail;
 
-  test-jax-cutlass-h100:
+            mkdir -p /opt/output;
+
+            pip install pytest-reportlog pytest-xdist;
+            nvidia-cuda-mps-control -d;
+            export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
+
+            [[ "${{ matrix.test }}" == *distributed* ]] && xdist_args=(8 1) || xdist_args=(1 4);
+            pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh | tee /opt/output/pytest.log
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            report_json=\${JOBSET_NAME}/pytest-report.jsonl;
+            summary_line=\$(tail -n1 \${JOBSET_NAME}/pytest.log);
+            NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
+            NUM_PASSED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == \"TestReport\" and .when == \"call\" and .outcome == \"passed\") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == \"TestReport\" and .when == \"call\" and .outcome == \"failed\") | .outcome' | wc -l);
+            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
+
+  test-nsys-jax:
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
+    runs-on: eks
+    needs: build-jax
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - gpus: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: nsys-jax
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+          # nsys-jax is already installed, this is just adding the test dependencies
+          # abuse knowledge that nsys-jax is installed editable, so the tests exist
+          COMMAND: |
+            pip install pytest-reportlog nsys-jax[test];
+            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files(\"nsys_jax\").joinpath(\"..\", \"tests\").resolve())');
+            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\" | tee /opt/output/pytest.log
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            report_json=\${JOBSET_NAME}/pytest-report.jsonl;
+            summary_line=\$(tail -n1 \${JOBSET_NAME}/pytest.log);
+            NUM_ERRORS=\$(echo \$summary_line | grep -oE '[0-9]+ error' | awk '{print \$1} END { if (!NR) print 0}');
+            NUM_PASSED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == \"TestReport\" and .when == \"call\" and .outcome == \"passed\") | .outcome' | wc -l);
+            NUM_FAILED=\$(cat \${report_json} | jq -r 'select(.\"\$report_type\" == \"TestReport\" and .when == \"call\" and .outcome == \"failed\") | .outcome' | wc -l);
+            NUM_TESTS=\$(( NUM_PASSED + NUM_FAILED ))
+
+  # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
+  # runs on a regular GitHub Actions runner and checks that offline post-processing works in an environment that does
+  # not already have nsys-jax installed
+  test-nsys-jax-archive:
+    needs: test-nsys-jax
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Download nsys-jax output .zip files
+      uses: actions/download-artifact@v8
+      with:
+        name: nsys-jax
+    - name: Extract archives and execute install scripts
+      run: |
+        pip install virtualenv # for install.sh
+        for zip in $(ls *.zip); do
+          ZIP="${PWD}/${zip}"
+          pushd $(mktemp -d)
+          unzip "${ZIP}"
+          ls -l
+          # TODO: verify this isn't needed, or make sure it isn't needed
+          chmod 755 install.sh
+          # Run the notebook with IPython, not Jupyter Lab, so it exits and prints something informative to stdout
+          # Skip executing Jupyter lab
+          NSYS_JAX_JUPYTER_EXECUTE_NOT_LAB=1 ./install.sh
+          popd
+        done
+
+  test-nsys-jax-nccl:
+    needs: build-jax
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'jax'
+      )
+    runs-on: eks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nodes: 2
+            gpus: 8
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: nsys-jax-nccl
+          NUM_NODES: ${{ matrix.nodes }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            nsys-jax \
+              --output=/opt/output/nsys-rank\${NODE_RANK}.zip \
+              -- \
+              jax-nccl-test \
+              --coordinator-address \${JAX_COORDINATOR_ADDRESS} \
+              --distributed \
+              --gpus-per-process=${{ matrix.gpus }} \
+              --process-count=${{ matrix.nodes }} \
+              --process-id=\${NODE_RANK}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+
+  test-cutlass:
     needs: build-jax
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
@@ -596,82 +546,48 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax-cutlass'
       )
-    uses: ./.github/workflows/_jax_cutlass_eks.yaml
-    with:
-      JAX_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: jax-cutlass-${{ github.run_id }}
-      S3_BUCKET: jax-toolbox-eks-output
-      CI_NAME: jax-cutlass
-    secrets: inherit
+    runs-on: eks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nodes: 1
+            gpus: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: jax-cutlass
+          NUM_NODES: ${{ matrix.nodes }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            pip install pytest-reportlog pytest-xdist flatbuffers;
+            CUTEDSL_VERSION=\$(python -c 'import cutlass; print(cutlass.__version__);');
+            git clone -b v\${CUTEDSL_VERSION} --single-branch --depth 1 https://github.com/NVIDIA/cutlass.git /cutlass;
+            NGPUS=\$(nvidia-smi --list-gpus | wc -l);
+            nvidia-cuda-mps-control -d;
 
-  # test-te-a100:
-  #   needs: build-jax
-  #   secrets: inherit
-  #   if: >-
-  #     inputs.ARCHITECTURE == 'amd64' &&
-  #     (
-  #       inputs.MODE == 'full' ||
-  #       inputs.MODE == 'te'
-  #     )
-  #   uses: ./.github/workflows/_test_unit.yaml
-  #   with:
-  #     TEST_NAME: te
-  #     EXECUTE: |
-  #       docker run -i --gpus all --shm-size=1g -v $PWD:/log \
-  #       ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }} \
-  #       bash <<"EOF" |& tee test-te.log
-  #         set -xu -o pipefail
+            for f in /cutlass/examples/python/CuTeDSL/jax/*.py; do
+              echo \"[Executing] \${f}\";
+              log_output=\$(python \${f} 2>&1);
+              exit_code=\${?};
+              outcome=\$( [ \${exit_code} -eq 0 ] && echo \"passed\" || echo \"failed\" );
+              echo \"=== \${f} ===\" | tee -a /opt/output/pytest_stdout.log;
+              echo \"\${log_output}\" | tee -a /opt/output/pytest_stdout.log;
+              python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \"\${outcome}\" \"\${f}\" \"\${log_output}\" >> /opt/output/pytest-report.jsonl;
+            done
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            NUM_ERRORS=0;
+            NUM_PASSED=\$(cat \${JOBSET_NAME}/pytest-report.jsonl | jq --slurp | jq '.[] | select(.outcome == \"passed\") | .outcome' | wc -l || true);
+            NUM_FAILED=\$(cat \${JOBSET_NAME}/pytest-report.jsonl | jq --slurp | jq '.[] | select(.outcome == \"failed\") | .outcome' | wc -l || true);
+            NUM_TESTS=\$(( NUM_PASSED + NUM_FAILED ));
 
-  #         LOG_DIR=/log
-
-  #         pip install pytest-reportlog pytest-xdist
-  #         # Start MPS daemon
-  #         nvidia-cuda-mps-control -d
-  #         # TE's default is slightly different, without the hyphen
-  #         export TE_PATH=${SRC_PATH_TRANSFORMER_ENGINE}
-  #         # 1 GPU per worker, 3 workers per GPU
-  #         pytest-xdist.sh 1 3 ${LOG_DIR}/pytest-report-L0-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_unittest/test.sh
-  #         ## 8 GPUs per worker, 1 worker per GPU. pytest-xdist.sh allows aggregation
-  #         ## into a single .jsonl file of results from multiple pytest invocations
-  #         ## inside the test.sh script, so it's useful even with a single worker per
-  #         ## device.
-  #         pytest-xdist.sh 8 1 ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl bash ${TE_PATH}/qa/L0_jax_distributed_unittest/test.sh
-
-  #         # merge the log files
-  #         cat \
-  #           ${LOG_DIR}/pytest-report-L0-unittest.jsonl \
-  #           ${LOG_DIR}/pytest-report-L0-distributed-unittest.jsonl \
-  #           > ${LOG_DIR}/pytest-report.jsonl
-
-  #       EOF
-  #     STATISTICS_SCRIPT: |
-  #       report_json=pytest-report.jsonl
-  #       summary_line=$(tail -n1 test-te.log)
-  #       errors=$(echo $summary_line | grep -oE '[0-9]+ error' | awk '{print $1} END { if (!NR) print 0}')
-  #       passed_tests=$(cat $report_json | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-  #       failed_tests=$(cat $report_json | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-  #       total_tests=$((failed_tests + passed_tests))
-  #       echo "TOTAL_TESTS=${total_tests}" >> $GITHUB_OUTPUT
-  #       echo "ERRORS=${errors}" >> $GITHUB_OUTPUT
-  #       echo "PASSED_TESTS=${passed_tests}" >> $GITHUB_OUTPUT
-  #       echo "FAILED_TESTS=${failed_tests}" >> $GITHUB_OUTPUT
-
-  #       echo "$failed_tests tests failed"
-  #       if [[ $failed_tests -gt 0 ]]; then
-  #           exit 1
-  #       else
-  #           exit 0
-  #       fi
-
-  #     TIMEOUT_MINUTES: 120
-  #     ARTIFACTS: |
-  #       test-te.log
-  #       pytest-report.jsonl
-  #       pytest-report-L0-unittest.jsonl
-  #       pytest-report-L0-distributed-unittest.jsonl
-
-
-  test-maxtext-eks:
+  test-maxtext:
     needs: build-maxtext
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
@@ -679,97 +595,61 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'maxtext'
       )
-    runs-on: [eks]
-    env:
-      MAXTEXT_DOCKER_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: maxtext-${{ github.run_id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: single-node
+            nodes: 1
+            gpus: 8
+            pipeline-parallel: 1
+            data-parallel: 1
+            fsdp: 2
+            tensor-parallel: 4
+            envs: |-
+              NCCL_NET_PLUGIN=none
+              NCCL_NET=Socket
+          - test: multi-node
+            nodes: 2
+            gpus: 8
+            pipeline-parallel: 1
+            data-parallel: 4
+            fsdp: 2
+            tensor-parallel: 2
+            envs: |-
+              OFI_NCCL_PROTOCOL=SENDRECV
+    runs-on: eks
     steps:
-    - name: Check out the repository
-      uses: actions/checkout@v4
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-    - name: Configure maxtext test job
-      run: |
-        yq -i ea '
-           select(di == 0).metadata.name = strenv(JOB_NAME)
-          | select(di == 0).spec.template.spec.containers[0].image = strenv(MAXTEXT_DOCKER_IMAGE)
-          | select(di == 0).spec.template.spec.containers[0].env[0].value = "${{ github.run_id }}"
-          | select(di == 0).spec.template.spec.imagePullSecrets[0].name = "${{ steps.store-token.outputs.token-name }}"' \
-        .github/eks-workflow-files/maxtext/test.yml
-        git diff .github/eks-workflow-files/maxtext/test.yml
-    - name: Submit & delete maxtext test job
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file: ".github/eks-workflow-files/maxtext/test.yml"
-        job-name: ${{ env.JOB_NAME }}
-    - name: Download results from S3
-      id: s3-download
-      if: ${{ !cancelled() }}
-      run: |
-        mkdir -p maxtext-output
-        aws s3 cp s3://jax-toolbox-eks-output/maxtext/${{ github.run_id }}/ maxtext-output/ --recursive
-    - name: Run metrics
-      id: metrics
-      if: ${{ !cancelled() }}
-      run: |
-        pip install 'numpy<2.0.0' pytest pytest-reportlog tensorboard
-        RESULTS_DIR=maxtext-output BASELINES_DIR=MAXTEXT/upstream \
-          pytest --report-log=report.jsonl .github/workflows/baselines/test_maxtext_metrics.py || true
-    - name: Generate sitrep
-      id: sitrep
-      if: ${{ !cancelled() }}
-      shell: bash -x -e {0}
-      run: |
-        # bring in utility functions
-        source .github/workflows/scripts/to_json.sh
-
-        badge_label='MaxText EKS'
-
-        passed_tests=$(cat report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "passed") | .outcome' | wc -l)
-        failed_tests=$(cat report.jsonl | jq -r 'select(."$report_type" == "TestReport" and .when == "call" and .outcome == "failed") | .outcome' | wc -l)
-        total_tests=$(( passed_tests + failed_tests ))
-        errors=0
-        badge_color="brightgreen"
-        if [ "$failed_tests" -gt 0 ]; then
-          badge_color="red"
-        fi
-
-        total_tests=$total_tests \
-        failed_tests=$failed_tests \
-        passed_tests=$passed_tests \
-        errors=$errors \
-        summary="All metrics tests: $total_tests. Passed: $passed_tests. Failed: $failed_tests." \
-        badge_message="Passed $passed_tests out of $total_tests." \
-        badge_color=$badge_color \
-        to_json \
-          summary errors total_tests passed_tests failed_tests \
-          badge_label badge_color badge_message \
-        > sitrep.json
-
-        schemaVersion=1 \
-        label="${badge_label}" \
-        message="Passed $passed_tests out of $total_tests." \
-        color=$badge_color \
-        to_json schemaVersion label message color \
-        > badge-maxtext-test-eks.json
-
-    - name: Upload artifacts
-      if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: "maxtext-test-H100-eks"
-        path: |
-          sitrep.json
-          badge-maxtext-test-eks.json
-          maxtext-output/
-          report.jsonl
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: maxtext-${{ matrix.test }}
+          NUM_NODES: ${{ matrix.nodes }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
+          ENVS: |
+            ${{ matrix.envs }}
+          COMMAND: |
+            test-maxtext.sh \
+              --output /opt/output \
+              --batch-per-gpu 2 \
+              --steps 10 \
+              --model-name=llama2-7b \
+              --attn-type cudnn_flash_te \
+              --remat-policy=minimal_with_context \
+              --pipeline-parallel ${{ matrix.pipeline-parallel }} \
+              --data-parallel ${{ matrix.data-parallel }} \
+              --fsdp ${{ matrix.fsdp }} \
+              --tensor-parallel ${{ matrix.tensor-parallel }} \
+              --nodes ${{ matrix.nodes }} \
+              -a 'scan_layers=false
+                  max_target_length=1024
+                  use_iota_embed=true
+                  logits_dot_in_fp32=false
+                  max_segments_per_seq=32'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
   test-maxtext-gke:
     needs: build-maxtext
@@ -831,7 +711,6 @@ jobs:
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/summary.txt axlearn-output/
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.log"
         aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.xml"
-
 
         passed_tests=$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
         failed_tests=$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
