@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '30 9 * * *' # Pacific Time 01:30 AM in UTC
     - cron: '0 0 * * 6' # midnight every Saturday UTC; workflow gates to biweekly scale-training runs
-  pull_request:
+  push:
     branches:
       - "**"
     paths-ignore:
