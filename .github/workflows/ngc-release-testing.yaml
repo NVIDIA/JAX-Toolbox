@@ -24,7 +24,7 @@ permissions:
   packages: write # to upload container
 
 jobs:
-  test-nccl:
+  test-nccl-eks:
     if: inputs.JAX_IMAGE != ''
     uses: ./.github/workflows/_test_nccl.yaml
     with:
@@ -33,20 +33,63 @@ jobs:
 
   test-maxtext-eks:
     if: inputs.MAXTEXT_IMAGE != ''
-    uses: ./.github/workflows/_test_maxtext_k8s.yaml
-    with:
-      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
-    secrets: inherit
-
-  test-maxtext-gke:
-    if: inputs.MAXTEXT_IMAGE != ''
-    uses: ./.github/workflows/_test_maxtext_gke_xpk.yaml
-    with:
-      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
-    secrets: inherit
-
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: single-node
+            nodes: 1
+            gpus: 8
+            pipeline-parallel: 1
+            data-parallel: 1
+            fsdp: 2
+            tensor-parallel: 4
+            envs: |-
+              NCCL_NET_PLUGIN=none
+              NCCL_NET=Socket
+          - test: multi-node
+            nodes: 2
+            gpus: 8
+            pipeline-parallel: 1
+            data-parallel: 4
+            fsdp: 2
+            tensor-parallel: 2
+            envs: |-
+              OFI_NCCL_PROTOCOL=SENDRECV
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: maxtext-${{ matrix.test }}
+          NUM_NODES: ${{ matrix.nodes }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+          ENVS: |
+            ${{ matrix.envs }}
+          COMMAND: |
+            test-maxtext.sh \
+              --output /opt/output \
+              --batch-per-gpu 2 \
+              --steps 10 \
+              --model-name=llama2-7b \
+              --attn-type cudnn_flash_te \
+              --remat-policy=minimal_with_context \
+              --pipeline-parallel ${{ matrix.pipeline-parallel }} \
+              --data-parallel ${{ matrix.data-parallel }} \
+              --fsdp ${{ matrix.fsdp }} \
+              --tensor-parallel ${{ matrix.tensor-parallel }} \
+              --nodes ${{ matrix.nodes }} \
+              -a 'scan_layers=false
+                  max_target_length=1024
+                  use_iota_embed=true
+                  logits_dot_in_fp32=false
+                  max_segments_per_seq=32'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
   finalize:
-    needs: [ test-nccl, test-maxtext-eks, test-maxtext-gke ]
+    needs: [ test-nccl, test-maxtext-eks ] 
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
