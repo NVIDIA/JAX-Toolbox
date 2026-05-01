@@ -77,7 +77,7 @@ We support and test the following JAX frameworks and model architectures. More d
         </a>
         <br>
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-jax-unit-multi-gpu-h100-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-te-L0_jax_unittest-H100.json&logo=nvidia&label=JAX%20multi-GPU%20(H100)">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-multi-gpu-H100.json&logo=nvidia&label=JAX%20multi-GPU%20(H100)">
         </a>
         <br>
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-te-l0_jax_unittest-h100-json">
