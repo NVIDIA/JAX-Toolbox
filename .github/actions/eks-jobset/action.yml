@@ -80,6 +80,16 @@ inputs:
     description: 'Commands to extract NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED values from logs'
     type: string
     required: false
+    default: |
+      NUM_ERRORS=0;
+      if [ \${JOBSET_EXIT_CODE} -ne 0 ]; then
+        NUM_FAILED=1;
+        NUM_PASSED=0;
+      else
+        NUM_FAILED=0;
+        NUM_PASSED=1;
+      fi
+      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
 runs:
   using: 'composite'
