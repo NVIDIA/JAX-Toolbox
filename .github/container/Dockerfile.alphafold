@@ -3,9 +3,6 @@
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
 ARG URLREF_AF=https://github.com/google-deepmind/alphafold3#main
 ARG SRC_PATH_AF=/opt/alphafold
-# TODO
-ARG HMMER_VERSION=3.4
-ARG HMMER_SHA256=ca70d94fd0cf271bd7063423aabb116d42de533117343a9b27a65c17ff06fbf3
 
 ###############################################################################
 ## Download source and add auxiliary scripts
@@ -14,30 +11,16 @@ ARG HMMER_SHA256=ca70d94fd0cf271bd7063423aabb116d42de533117343a9b27a65c17ff06fbf
 FROM ${BASE_IMAGE} AS mealkit
 ARG URLREF_AF
 ARG SRC_PATH_AF
-ARG HMMR_VERSION
-ARG HMMER_SHA256
 
 
 RUN <<"EOF" bash -ex -o pipefail
 git-clone.sh ${URLREF_AF} ${SRC_PATH_AF}
 EOF
 
-RUN <<"EOF" bash -ex -o pipefail
-apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  build-essential \
-  cmake \
-  ninja-build \
-  git \
-  patch \
-  python3.12-dev \
-  wget \
-  zlib1g-dev \
-  zstd
-rm -rf /var/lib/apt/lists/*
-EOF
 
-WORKDIR /opt/alphafold
+RUN <<"EOF" bash -ex -o pipefail
+echo "-e file://${SRC_PATH_AF}" >> /opt/pip-tools.d/requirements-af.in
+EOF
 
 ###############################################################################
 ## Add test script to the path
