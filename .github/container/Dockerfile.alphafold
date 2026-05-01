@@ -19,6 +19,8 @@ EOF
 
 
 RUN <<"EOF" bash -ex -o pipefail
+sed -i '/"jax==/d' ${SRC_PATH_AF}/pyproject.toml
+sed -i '/"jax[cuda12]==/d' ${SRC_PATH_AF}/pyproject.toml
 echo "-e file://${SRC_PATH_AF}" >> /opt/pip-tools.d/requirements-af.in
 EOF
 
