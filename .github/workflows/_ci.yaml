@@ -306,7 +306,7 @@ jobs:
 
             mkdir -p /opt/output;
 
-            pip install pytest-reportlog pytest-xdist;
+            pip install pytest-reportlog pytest-xdist triton;
             nvidia-cuda-mps-control -d;
             export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
 
