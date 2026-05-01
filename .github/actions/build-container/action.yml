@@ -111,11 +111,11 @@ runs:
           image=moby/buildkit:v0.12.1
           network=host
         version: v0.30.1
-        config-inline: |
+        buildkitd-config-inline: |
           [worker.oci]
             gc = true
             reservedSpace = "30GB"
-            maxParallelism = 4
+            max-parallelism = 4
             [[worker.oci.gcpolicy]]
               all = true
               keepDuration = "24h"
