@@ -89,3 +89,8 @@ torchax:
   tracking_ref: main
   latest_verified_commit: f41e3de8526f9d4e8410bfb84660faaaf0b3ba4a
   mode: git-clone
+alphafold:
+  url: https://github.com/google-deepmind/alphafold3.git
+  tracking_ref: main
+  latest_verified_commit: 3dfc5a91beee404474d614df1031fbdefaef3277
+  mode: git-clone
