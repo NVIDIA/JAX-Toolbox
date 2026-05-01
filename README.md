@@ -88,8 +88,12 @@ We support and test the following JAX frameworks and model architectures. More d
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-te-L0_jax_distributed_unittest-H100.json&logo=nvidia&label=TransformerEngine%20-%20distributed%20(H100)">
         </a>
         <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-nsys-jax-h100-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-nsys-jax-H100.json&logo=nvidia&label=nsys-jax%20(H100)">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-nsys-jax-unit-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-nsys-jax-unit-H100.json&logo=nvidia&label=nsys-jax-unit%20(H100)">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-nsys-jax-nccl-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-nsys-jax-nccl-H100.json&logo=nvidia&label=nsys-jax-nccl%20(H100)">
         </a>
         <br>
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-jax-cutlass-h100-json">
@@ -138,6 +142,14 @@ We support and test the following JAX frameworks and model architectures. More d
         </a>
       </td>
       <td>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-maxtext-single-node-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-maxtext-single-node-H100.json&logo=nvidia&label=MaxText%20-%20single-node%20(H100)">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-maxtext-multi-node-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-maxtext-multi-node-H100.json&logo=nvidia&label=MaxText%20-%20multi-node%20(H100)">
+        </a>
       </td>
     </tr>
     <tr>
