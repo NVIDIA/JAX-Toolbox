@@ -89,7 +89,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
   finalize:
-    needs: [ test-nccl, test-maxtext-eks ] 
+    needs: [ test-nccl-eks, test-maxtext-eks ] 
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
