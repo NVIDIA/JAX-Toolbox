@@ -54,6 +54,14 @@ inputs:
     description: "URL of the Bazel remote cache to use for building the image"
     required: true
     default: ""
+  docker-build-allow:
+    description: "Additional BuildKit entitlements to allow during docker build"
+    required: false
+    default: ""
+  docker-build-network:
+    description: "Networking mode for RUN instructions during docker build"
+    required: false
+    default: default
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -72,6 +80,7 @@ runs:
       run: |
         echo 'UPLD_IMAGE=ghcr.io/nvidia/jax-toolbox-internal' >> $GITHUB_ENV
         echo "BADGE_FILENAME_FULL=${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json" >> $GITHUB_ENV
+        echo "BUILDX_BUILDER_NAME=jax-toolbox-${{ inputs.CONTAINER_NAME }}-${{ inputs.ARCHITECTURE }}-${{ inputs.docker-build-network }}" >> $GITHUB_ENV
 
     - name: Setup SSH
       id: setup-ssh
@@ -88,11 +97,33 @@ runs:
         password: ${{ inputs.github-token }}
 
     - name: Set up Docker Buildx
+      if: ${{ inputs.docker-build-network != 'host' }}
       uses: docker/setup-buildx-action@v4
       with:
+        name: ${{ env.BUILDX_BUILDER_NAME }}
         driver-opts: |
-          image=moby/buildkit:v0.12.1
+          image=moby/buildkit:v0.13.2
+          default-load=true
+        keep-state: true
         version: v0.30.1
+
+    - name: Set up Docker Buildx with host network
+      if: ${{ inputs.docker-build-network == 'host' }}
+      uses: docker/setup-buildx-action@v4
+      with:
+        name: ${{ env.BUILDX_BUILDER_NAME }}
+        driver-opts: |
+          image=moby/buildkit:v0.13.2
+          default-load=true
+          network=host
+        keep-state: true
+        version: v0.30.1
+        buildkitd-config-inline: |
+          [worker.oci]
+            gc = true
+            reservedSpace = "30GB"
+            maxUsedSpace = "80%"
+            minFreeSpace = "10GB"
 
     - name: Download nsys-jax version.py
       uses: actions/download-artifact@v8
@@ -124,7 +155,9 @@ runs:
       id: mealkit-build
       uses: docker/build-push-action@v7
       with:
+        builder: ${{ env.BUILDX_BUILDER_NAME }}
         context: ${{ inputs.DOCKER_CONTEXT }}
+        load: true
         push: true
         file: ${{ inputs.DOCKERFILE }}
         platforms: linux/${{ inputs.ARCHITECTURE }}
@@ -134,6 +167,8 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+        allow: ${{ inputs.docker-build-allow }}
+        network: ${{ inputs.docker-build-network }}
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}
@@ -157,6 +192,7 @@ runs:
       id: final-build
       uses: docker/build-push-action@v7
       with:
+        builder: ${{ env.BUILDX_BUILDER_NAME }}
         context: ${{ inputs.DOCKER_CONTEXT }}
         push: true
         file: ${{ inputs.DOCKERFILE }}
@@ -167,6 +203,8 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+        allow: ${{ inputs.docker-build-allow }}
+        network: ${{ inputs.docker-build-network }}
         build-args: |
           BASE_IMAGE=${{ inputs.BASE_IMAGE }}
           BAZEL_CACHE=${{ inputs.bazel-remote-cache-url }}

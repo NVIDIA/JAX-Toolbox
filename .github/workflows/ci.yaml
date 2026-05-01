@@ -4,12 +4,9 @@ on:
   schedule:
     - cron: '30 9 * * *' # Pacific Time 01:30 AM in UTC
     - cron: '0 0 * * 6' # midnight every Saturday UTC; workflow gates to biweekly scale-training runs
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - ready_for_review
-      - synchronize
+  push:
+    branches:
+      - "**"
     paths-ignore:
       - '**.md'
       - '.github/triage/**'
@@ -67,6 +64,7 @@ concurrency:
 permissions:
   contents: write       # to fetch code and push branch
   actions:  write       # to cancel previous workflows
+  id-token: write       # to assume the AWS role for bazel-remote cache
   packages: write       # to upload container
   pull-requests: write  # to make pull request for manifest bump
 
