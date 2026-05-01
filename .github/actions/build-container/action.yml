@@ -115,14 +115,8 @@ runs:
           [worker.oci]
             gc = true
             reservedSpace = "30GB"
-            max-parallelism = 4
-            [[worker.oci.gcpolicy]]
-              all = true
-              keepDuration = "24h"
-              reservedSpace = "30GB"
-            [[worker.oci.gcpolicy]]
-              all = true
-              reservedSpace = "30GB"
+            maxUsedSpace = "80%"
+            minFreeSpace = "10GB"
 
     - name: Download nsys-jax version.py
       uses: actions/download-artifact@v8
