@@ -114,16 +114,17 @@ runs:
         name: ${{ env.BUILDX_BUILDER_NAME }}
         driver-opts: |
           image=moby/buildkit:v0.13.2
-          default-load=true
           network=host
-        keep-state: true
-        version: v0.30.1
         buildkitd-config-inline: |
           [worker.oci]
             gc = true
-            reservedSpace = "30GB"
-            maxUsedSpace = "80%"
-            minFreeSpace = "10GB"
+          [[worker.oci.gcpolicy]]
+            all = true
+            keepDuration = "168h"
+            reserverdSpace = "60GB"
+          [[worker.oci.gcpolicy]]
+            all = true
+            reservedSpace = "40GB"
 
     - name: Download nsys-jax version.py
       uses: actions/download-artifact@v8
