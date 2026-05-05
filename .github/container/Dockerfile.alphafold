@@ -26,13 +26,16 @@ EOF
 RUN cat ${SRC_PATH_AF}/pyproject.toml
 
 ###############################################################################
-## Add test script to the path
+## Add all the needed scripts
 ###############################################################################
 
-#ADD test-af3.sh /usr/local/bin
+ADD alphafold_files/generate_af_parameters.py /usr/local/bin
+ADD alphafold_files/input_sequences /opt/alphafold/input_sequences
+ADD alphafold_files/af3_inference_benchmark.py /usr/local/bin
+ADD alphafold_files/model_parameters.md /opt/alphafold/models_parameters.md
 
 ###############################################################################
-## Install accumulated packages from the base image and the previous åstage
+## Install accumulated packages from the base image and the previous stage
 ###############################################################################
 
 FROM mealkit AS final
