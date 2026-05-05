@@ -365,7 +365,7 @@ jobs:
   # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
   # runs on a regular GitHub Actions runner and checks that offline post-processing works in an environment that does
   # not already have nsys-jax installed
-  test-nsys-jax-archive:
+  test-nsys-jax-unit-archive:
     needs: test-nsys-jax-unit
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
@@ -378,10 +378,10 @@ jobs:
         os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Download nsys-jax output .zip files
+    - name: Download nsys-jax-unit output .zip files
       uses: actions/download-artifact@v8
       with:
-        name: nsys-jax
+        name: nsys-jax-unit
     - name: Extract archives and execute install scripts
       run: |
         pip install virtualenv # for install.sh
