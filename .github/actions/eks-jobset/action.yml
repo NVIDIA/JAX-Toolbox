@@ -88,7 +88,7 @@ inputs:
       else
         NUM_FAILED=0;
         NUM_PASSED=1;
-      fi
+      fi;
       NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
 runs:
