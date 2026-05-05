@@ -19,10 +19,11 @@ EOF
 
 
 RUN <<"EOF" bash -ex -o pipefail
-sed -i '/"jax==/d' ${SRC_PATH_AF}/pyproject.toml
-sed -i '/"jax[cuda12]==/d' ${SRC_PATH_AF}/pyproject.toml
+sed -i '/"jax==.*"/d' ${SRC_PATH_AF}/pyproject.toml
+sed -i '/"jax\[cuda1\2]==.*"/d' ${SRC_PATH_AF}/pyproject.toml
 echo "-e file://${SRC_PATH_AF}" >> /opt/pip-tools.d/requirements-af.in
 EOF
+RUN cat ${SRC_PATH_AF}/pyproject.toml
 
 ###############################################################################
 ## Add test script to the path
@@ -39,3 +40,4 @@ FROM mealkit AS final
 RUN pip-finalize.sh
 
 WORKDIR ${SRC_PATH_AF}
+RUN build_data
