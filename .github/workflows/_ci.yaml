@@ -208,8 +208,8 @@ jobs:
     #needs: build-jax
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
     outputs:
-      DOCKER_TAG_MEALKIT: "ghcr.io/nvidia/jax-toolbox-internal:25218898481-jax-amd64-mealkit" #${{ steps.build-alphafold.outputs.DOCKER_TAG_MEALKIT }}
-      DOCKER_TAG_FINAL:   "ghcr.io/nvidia/jax-toolbox-internal:25218898481-jax-amd64" #${{ steps.build-alphafold.outputs.DOCKER_TAG_FINAL }}
+      DOCKER_TAG_MEALKIT: ${{ steps.build-alphafold.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:  ${{ steps.build-alphafold.outputs.DOCKER_TAG_FINAL }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -221,7 +221,7 @@ jobs:
           ARTIFACT_NAME: artifact-alphafold-build
           BADGE_FILENAME: badge-alphafold-build
           BUILD_DATE: ${{ inputs.BUILD_DATE }}
-          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          BASE_IMAGE: "ghcr.io/nvidia/jax-toolbox-internal:25218898481-jax-amd64-mealkit"  # ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
           CONTAINER_NAME: alphafold
           DOCKERFILE: .github/container/Dockerfile.alphafold
           RUNNER_SIZE: large
