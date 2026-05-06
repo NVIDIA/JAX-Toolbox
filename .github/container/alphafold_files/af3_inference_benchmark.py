@@ -10,8 +10,8 @@ import haiku as hk
 import jax
 from jax import numpy as jnp
 import numpy as np
+import tokamax
 
-import run_alphafold as af3run  # pylint: disable=import-error
 from alphafold3.common import folding_input  # pylint: disable=import-error
 from alphafold3.constants import chemical_components  # pylint: disable=import-error
 from alphafold3.data import featurisation  # pylint: disable=import-error
@@ -65,6 +65,24 @@ def _extract_flops(cost_analysis: Any) -> float | None:
                 except Exception:
                     pass
     return None
+
+
+def make_model_config(
+    *,
+    flash_attention_implementation: tokamax.DotProductAttentionImplementation = "triton",
+    num_diffusion_samples: int = 5,
+    num_recycles: int = 10,
+    return_embeddings: bool = False,
+    return_distogram: bool = False,
+) -> af3model.Model.Config:
+    """Returns a model config with some defaults overridden."""
+    config = af3model.Model.Config()
+    config.global_config.flash_attention_implementation = flash_attention_implementation
+    config.heads.diffusion.eval.num_samples = num_diffusion_samples
+    config.num_recycles = num_recycles
+    config.return_embeddings = return_embeddings
+    config.return_distogram = return_distogram
+    return config
 
 
 def main() -> None:
@@ -155,7 +173,7 @@ def main() -> None:
     # For benchmark purposes we can keep only the first featurised example (as they have the same shape)
     example = featurised_examples[0]
     # now call the main function for AF3 inference and create the model
-    config = af3run.make_model_config(
+    config = make_model_config(
         flash_attention_implementation=args.flash_attention_implementation,
         num_diffusion_samples=args.num_diffusion_samples,
         num_recycles=args.num_recycles,
@@ -190,9 +208,11 @@ def main() -> None:
     lowering_time_s = time.perf_counter() - lower_t0
 
     compile_t0 = time.perf_counter()
+    # and here we are compiling the model based on the hardware
     compiled = lowered.compile()
     compile_time_s = time.perf_counter() - compile_t0
-
+    # we can then measure the JAX compilation time
+    jax_compilation_time = lowering_time_s + compile_time_s
     cost_analysis = None
     for obj in (compiled, lowered):
         try:
@@ -203,12 +223,11 @@ def main() -> None:
             continue
     # here we estimate the TFLOPs
     estimated_flops = _extract_flops(cost_analysis)
-
-    first_t0 = time.perf_counter()
+    # now we can run the model once to make sure compilation is done
+    # and we are not including it in the benchmark time,
+    # and also to have a warm start for the following runs
     first_result = compiled(model_params_dev, rng_key, batch_dev)
     jax.block_until_ready(first_result)
-    first_execute_time_s = time.perf_counter() - first_t0
-
     # compilation is done, now run 3 times
     warm_times: list[float] = []
     warm_result = None
@@ -271,13 +290,10 @@ def main() -> None:
         "num_diffusion_samples": args.num_diffusion_samples,
         "warm_runs": args.warm_runs,
         "jax_compilation_cache_dir": args.jax_compilation_cache_dir,
-        "tested_tokens": buckets,
-        "bucket_used": bucket_used,
-        "lowering_time_s": lowering_time_s,
-        "compile_time_s": compile_time_s,
-        "first_execute_time_s": first_execute_time_s,
+        "tokens_used": bucket_used,  # in our case tokens used = the bucket size
+        "jax_compilation_time_s": jax_compilation_time,
         "warm_execute_times_s": warm_times,
-        "warm_execute_mean_s": warm_mean_s,
+        "warm_execute_mean_s": warm_mean_s,  # this is the compile-free gpu seconds, since we're using 1 GPU
         "warm_execute_std_s": warm_std_s,
         "compile_free_inference_time_s": warm_mean_s,
         "compile_free_gpu_seconds": compile_free_gpu_seconds,

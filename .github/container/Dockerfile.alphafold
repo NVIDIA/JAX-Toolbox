@@ -32,7 +32,7 @@ RUN cat ${SRC_PATH_AF}/pyproject.toml
 ADD alphafold_files/generate_af_parameters.py /usr/local/bin
 ADD alphafold_files/input_sequences /opt/alphafold/input_sequences
 ADD alphafold_files/af3_inference_benchmark.py /usr/local/bin
-ADD alphafold_files/model_parameters.dat /opt/alphafold/models_parameters.dat
+ADD alphafold_files/model_parameters.md /opt/alphafold/model_parameters.md
 
 ###############################################################################
 ## Install accumulated packages from the base image and the previous stage

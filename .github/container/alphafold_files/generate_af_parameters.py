@@ -11,7 +11,7 @@ LINE_RE = re.compile(r"^\s*name=(.*?)\s+dtype=([A-Za-z0-9_]+)\s+shape=\((.*?)\)\
 
 
 def parse_dtype(dtype_name: str):
-    return ml_dtypes.blfloat16 if dtype_name == "bfloat16" else np.dtype(dtype_name)
+    return ml_dtypes.bfloat16 if dtype_name == "bfloat16" else np.dtype(dtype_name)
 
 
 def parse_shape(shape_text: str) -> tuple[int, ...]:
