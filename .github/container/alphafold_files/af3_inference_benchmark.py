@@ -116,11 +116,6 @@ def main() -> None:
         default=0,
         help="Index of the GPU to use for benchmarking (default: 0)",
     )  # AF3 runs on process per GPU. We can run multiple different jobs on different gpu-indexes
-    ap.add_argument(
-        "--extract-results",
-        action="store_true",
-        help="Run AF3 output extraction once to recover true num_tokens",
-    )
     args = ap.parse_args()
     # Tokamax uses absl.flags internally and may parse sys.argv lazily during
     # JAX lowering/compilation. Remove this script's argparse flags so absl does
@@ -244,31 +239,31 @@ def main() -> None:
     true_num_tokens = None
     extraction_time_s = None
     num_samples = None
-    if args.extract_results and warm_result is not None:
-        extract_t0 = time.perf_counter()
-        # here is the run inference
-        # https://github.com/google-deepmind/alphafold3/blob/main/run_alphafold.py#L433-L453
-        host_result = jax.tree.map(np.asarray, warm_result)
-        host_result = jax.tree.map(
-            lambda x: x.astype(np.float32)
-            if getattr(x, "dtype", None) == jnp.bfloat16
-            else x,
-            host_result,
+
+    extract_t0 = time.perf_counter()
+    # here is the run inference
+    # https://github.com/google-deepmind/alphafold3/blob/main/run_alphafold.py#L433-L453
+    host_result = jax.tree.map(np.asarray, warm_result)
+    host_result = jax.tree.map(
+        lambda x: x.astype(np.float32)
+        if getattr(x, "dtype", None) == jnp.bfloat16
+        else x,
+        host_result,
+    )
+    host_result = dict(host_result)
+    identifier = np.asarray(model_params["__meta__"]["__identifier__"]).tobytes()
+    host_result["__identifier__"] = identifier
+    inference_results = list(
+        af3model.Model.get_inference_result(
+            batch=example,
+            result=host_result,
+            target_name=fold_input.name,
         )
-        host_result = dict(host_result)
-        identifier = np.asarray(model_params["__meta__"]["__identifier__"]).tobytes()
-        host_result["__identifier__"] = identifier
-        inference_results = list(
-            af3model.Model.get_inference_result(
-                batch=example,
-                result=host_result,
-                target_name=fold_input.name,
-            )
-        )
-        extraction_time_s = time.perf_counter() - extract_t0
-        if inference_results:
-            true_num_tokens = int(len(inference_results[0].metadata["token_chain_ids"]))
-            num_samples = int(len(inference_results))
+    )
+    extraction_time_s = time.perf_counter() - extract_t0
+    if inference_results:
+        true_num_tokens = int(len(inference_results[0].metadata["token_chain_ids"]))
+        num_samples = int(len(inference_results))
 
     if true_num_tokens is None:
         true_num_tokens = nominal_tokens_proxy

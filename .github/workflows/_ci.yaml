@@ -96,8 +96,8 @@ jobs:
     needs: build-jax
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
     outputs:
-      DOCKER_TAG_MEALKIT:  ${{ steps.build-equinox.outputs.DOCKER_TAG_MEALKIT }}
-      DOCKER_TAG_FINAL:   ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
+      DOCKER_TAG_MEALKIT: ${{ steps.build-equinox.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL: ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
