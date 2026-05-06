@@ -47,8 +47,6 @@ spec:
               value: PLACEHOLDER
             - name: SERVICE_NAME
               value: PLACEHOLDER
-            - name: XLA_FLAGS
-              value: --xla_gpu_enable_command_buffer=
           resources:
             limits:
               nvidia.com/gpu: 8
