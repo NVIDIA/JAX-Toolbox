@@ -299,10 +299,10 @@ jobs:
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
           STATISTICS_SCRIPT: |
-                      NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
-                      NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
-                      NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
-                      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
+            NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
+            NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
+            NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
+            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
   test-te:
     if: >-
@@ -351,7 +351,7 @@ jobs:
             NUM_FAILED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == \"TestReport\" and .when == \"call\" and .outcome == \"failed\") | .outcome' | wc -l);
             NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
-  test-nsys-jax:
+  test-nsys-jax-unit:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
@@ -370,7 +370,7 @@ jobs:
       - name: Run eks-jobset action
         uses: ./.github/actions/eks-jobset
         with:
-          NAME: nsys-jax
+          NAME: nsys-jax-unit
           NUM_GPUS: ${{ matrix.gpus }}
           IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           # nsys-jax is already installed, this is just adding the test dependencies
@@ -393,8 +393,8 @@ jobs:
   # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
   # runs on a regular GitHub Actions runner and checks that offline post-processing works in an environment that does
   # not already have nsys-jax installed
-  test-nsys-jax-archive:
-    needs: test-nsys-jax
+  test-nsys-jax-unit-archive:
+    needs: test-nsys-jax-unit
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
@@ -406,10 +406,10 @@ jobs:
         os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Download nsys-jax output .zip files
+    - name: Download nsys-jax-unit output .zip files
       uses: actions/download-artifact@v8
       with:
-        name: nsys-jax
+        name: nsys-jax-unit
     - name: Extract archives and execute install scripts
       run: |
         pip install virtualenv # for install.sh
@@ -461,6 +461,7 @@ jobs:
               --gpus-per-process=${{ matrix.gpus }} \
               --process-count=${{ matrix.nodes }} \
               --process-id=\${NODE_RANK}
+          STATISTICS: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
@@ -574,6 +575,7 @@ jobs:
                   use_iota_embed=true
                   logits_dot_in_fp32=false
                   max_segments_per_seq=32'
+          STATISTICS: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
