@@ -109,13 +109,6 @@ def main() -> None:
     ap.add_argument(
         "--warm-runs", type=int, default=3
     )  # we are going to run 3 times the main benchmark and report stats from there. There's an additional run on top to avoid compilation time impacting the bench.
-    ap.add_argument("--jax-compilation-cache-dir", default=None)
-    ap.add_argument(
-        "--gpu-index",
-        type=int,
-        default=0,
-        help="Index of the GPU to use for benchmarking (default: 0)",
-    )  # AF3 runs on process per GPU. We can run multiple different jobs on different gpu-indexes
     args = ap.parse_args()
     # Tokamax uses absl.flags internally and may parse sys.argv lazily during
     # JAX lowering/compilation. Remove this script's argparse flags so absl does
@@ -128,20 +121,13 @@ def main() -> None:
     # should we move this as an int argument to take, and test just as part of JET with multiple arguments?
     buckets = [512, 1024, 2048, 4096, 5120]
 
-    if args.jax_compilation_cache_dir:
-        jax.config.update("jax_compilation_cache_dir", args.jax_compilation_cache_dir)
-
     devices = jax.local_devices(backend="gpu")
     if not devices:
         raise RuntimeError(
             "No GPU devices visible to JAX. This benchmark expects a GPU."
         )
-    if args.gpu_index < 0 or args.gpu_index >= len(devices):
-        raise ValueError(
-            f"gpu-index {args.gpu_index} out of range for {len(devices)} visible GPU(s)"
-        )
     # pick one single GPU per job
-    device = devices[args.gpu_index]
+    device = devices[0]
 
     fold_inputs = list(folding_input.load_fold_inputs_from_path(input_json_path))
     if len(fold_inputs) != 1:
@@ -284,7 +270,6 @@ def main() -> None:
         "num_recycles": args.num_recycles,
         "num_diffusion_samples": args.num_diffusion_samples,
         "warm_runs": args.warm_runs,
-        "jax_compilation_cache_dir": args.jax_compilation_cache_dir,
         "tokens_used": bucket_used,  # in our case tokens used = the bucket size
         "jax_compilation_time_s": jax_compilation_time,
         "warm_execute_times_s": warm_times,
