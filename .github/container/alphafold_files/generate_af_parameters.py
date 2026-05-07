@@ -43,7 +43,9 @@ def main():
     ap = argparse.ArgumentParser()
     # keep the `--repo` in case we want to test this locally
     ap.add_argument(
-        "--repo", required=True, help="Path to local alphafold3 repo checkout"
+        "--input-parameters-file",
+        required=True,
+        help="Path to local model parameters file",
     )
     ap.add_argument(
         "--out-model-dir",
@@ -53,8 +55,7 @@ def main():
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
-    repo = pathlib.Path(args.repo)
-    model_params_md = repo / "model_parameters.md"
+    input_parameters_file = pathlib.Path(args.input_parameters_file)
     out_model_dir = pathlib.Path(args.out_model_dir)
     out_model_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_model_dir / "random_weights.bin.zst"
@@ -62,7 +63,7 @@ def main():
     rng = np.random.default_rng(args.seed)
 
     with zstandard.open(out_path, "wb") as f:
-        for full_name, scope, name, dtype, shape in iter_schema(model_params_md):
+        for full_name, scope, name, dtype, shape in iter_schema(input_parameters_file):
             arr = make_array(full_name, shape, dtype, rng)
             f.write(params.encode_record(scope, name, arr))
 
