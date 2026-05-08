@@ -1,29 +1,29 @@
 # syntax=docker/dockerfile:1-labs
 
 ARG BASE_IMAGE=ghcr.io/nvidia/jax-mealkit:jax
-ARG URLREF_AF=https://github.com/google-deepmind/alphafold3#main
-ARG SRC_PATH_AF=/opt/alphafold
+ARG URLREF_ALPHAFOLD=https://github.com/google-deepmind/alphafold3#main
+ARG SRC_PATH_ALPHAFOLD=/opt/alphafold
 
 ###############################################################################
 ## Download source and add auxiliary scripts
 ###############################################################################
 
 FROM ${BASE_IMAGE} AS mealkit
-ARG URLREF_AF
-ARG SRC_PATH_AF
+ARG URLREF_ALPHAFOLD
+ARG SRC_PATH_ALPHAFOLD
 
 
 RUN <<"EOF" bash -ex -o pipefail
-git-clone.sh ${URLREF_AF} ${SRC_PATH_AF}
+git-clone.sh ${URLREF_ALPHAFOLD} ${SRC_PATH_ALPHAFOLD}
 EOF
 
 
 RUN <<"EOF" bash -ex -o pipefail
-sed -i '/"jax==.*"/d' ${SRC_PATH_AF}/pyproject.toml
-sed -i '/"jax\[cuda12\]==.*"/d' ${SRC_PATH_AF}/pyproject.toml
-echo "-e file://${SRC_PATH_AF}" >> /opt/pip-tools.d/requirements-af.in
+sed -i '/"jax==.*"/d' ${SRC_PATH_ALPHAFOLD}/pyproject.toml
+sed -i '/"jax\[cuda12\]==.*"/d' ${SRC_PATH_ALPHAFOLD}/pyproject.toml
+echo "-e file://${SRC_PATH_ALPHAFOLD}" >> /opt/pip-tools.d/requirements-af.in
 EOF
-RUN cat ${SRC_PATH_AF}/pyproject.toml
+RUN cat ${SRC_PATH_ALPHAFOLD}/pyproject.toml
 
 ###############################################################################
 ## Add all the needed scripts
@@ -42,4 +42,4 @@ FROM mealkit AS final
 
 RUN pip-finalize.sh
 
-WORKDIR ${SRC_PATH_AF}
+WORKDIR ${SRC_PATH_ALPHAFOLD}
