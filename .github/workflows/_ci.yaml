@@ -37,7 +37,7 @@ on:
         value: ${{ jobs.collect-docker-tags.outputs.TAGS }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.ARCHITECTURE }}
   cancel-in-progress: true
 
 permissions:
