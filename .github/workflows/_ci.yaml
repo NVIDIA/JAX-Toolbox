@@ -167,6 +167,7 @@ jobs:
             bazel-remote-cache-url: http://127.0.0.1:9090
             docker-build-allow: network.host
             docker-build-network: host
+            local-registry-build-context-name: mealkit
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
