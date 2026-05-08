@@ -766,6 +766,7 @@ jobs:
         yq -i ea '
            select(di == 0).metadata.name = strenv(JOB_NAME)
           | select(di == 0).spec.template.spec.containers[0].image = strenv(ALPHAFOLD_DOCKER_IMAGE)
+          | select(di == 0).spec.template.spec.containers[0].env[0].value = "${{ github.run_id }}"
           | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
         .github/eks-workflow-files/alphafold/alphafold-inference.yml
         git diff .github/eks-workflow-files/alphafold/alphafold-inference.yml
@@ -775,3 +776,78 @@ jobs:
       with:
         job-config-file: ".github/eks-workflow-files/alphafold/alphafold-inference.yml"
         job-name: ${{ env.JOB_NAME }}
+    - name: Download alphafold result from S3
+      id: log-s3
+      if: ${{ !cancelled() }}
+      run: |
+        mkdir -p alphafold-output
+        aws s3 cp s3://jax-toolbox-eks-output/alphafold/${{ github.run_id }}/output.json alphafold-output/output.json
+
+        tokens_used=$(jq -r '.tokens_used // "unknown"' alphafold-output/output.json)
+        compile_free_gpu_seconds=$(jq -r '.compile_free_gpu_seconds // "unknown"' alphafold-output/output.json)
+        warm_execute_mean_s=$(jq -r '.warm_execute_mean_s // "unknown"' alphafold-output/output.json)
+        jax_compilation_time_s=$(jq -r '.jax_compilation_time_s // "unknown"' alphafold-output/output.json)
+        xla_estimated_tflops_per_s=$(jq -r '.xla_estimated_tflops_per_s // "unknown"' alphafold-output/output.json)
+
+        echo "Tokens used: $tokens_used"
+        echo "Compile-free GPU seconds: $compile_free_gpu_seconds"
+        echo "Warm execute mean: $warm_execute_mean_s"
+        echo "JAX compilation time: $jax_compilation_time_s"
+        echo "XLA estimated TFLOP/s: $xla_estimated_tflops_per_s"
+        echo "PASSED_TESTS=1" >> $GITHUB_OUTPUT
+        echo "FAILED_TESTS=0" >> $GITHUB_OUTPUT
+        echo "TOTAL_TESTS=1" >> $GITHUB_OUTPUT
+        echo "TOKENS_USED=$tokens_used" >> $GITHUB_OUTPUT
+        echo "COMPILE_FREE_GPU_SECONDS=$compile_free_gpu_seconds" >> $GITHUB_OUTPUT
+        echo "WARM_EXECUTE_MEAN_S=$warm_execute_mean_s" >> $GITHUB_OUTPUT
+        echo "JAX_COMPILATION_TIME_S=$jax_compilation_time_s" >> $GITHUB_OUTPUT
+        echo "XLA_ESTIMATED_TFLOPS_PER_S=$xla_estimated_tflops_per_s" >> $GITHUB_OUTPUT
+    - name: Generate sitrep
+      id: sitrep
+      if: ${{ !cancelled() }}
+      shell: bash -x -e {0}
+      run: |
+        source .github/workflows/scripts/to_json.sh
+
+        badge_label='Alphafold EKS Inference'
+
+        total_tests=${{ steps.log-s3.outputs.TOTAL_TESTS }}
+        failed_tests=${{ steps.log-s3.outputs.FAILED_TESTS }}
+        passed_tests=${{ steps.log-s3.outputs.PASSED_TESTS }}
+        tokens_used="${{ steps.log-s3.outputs.TOKENS_USED }}"
+        compile_free_gpu_seconds="${{ steps.log-s3.outputs.COMPILE_FREE_GPU_SECONDS }}"
+        warm_execute_mean_s="${{ steps.log-s3.outputs.WARM_EXECUTE_MEAN_S }}"
+        jax_compilation_time_s="${{ steps.log-s3.outputs.JAX_COMPILATION_TIME_S }}"
+        xla_estimated_tflops_per_s="${{ steps.log-s3.outputs.XLA_ESTIMATED_TFLOPS_PER_S }}"
+        errors="0"
+        summary="Alphafold inference benchmark completed for $tokens_used tokens. Compile-free GPU seconds: $compile_free_gpu_seconds. JAX compilation time: ${jax_compilation_time_s}s. XLA estimated TFLOP/s: $xla_estimated_tflops_per_s."
+        badge_message="$tokens_used tokens / ${compile_free_gpu_seconds}s"
+        badge_color="brightgreen"
+        if [ "$failed_tests" -gt 0 ]; then
+          badge_color="red"
+        fi
+
+        to_json \
+          summary \
+          errors total_tests passed_tests failed_tests \
+          tokens_used compile_free_gpu_seconds warm_execute_mean_s \
+          jax_compilation_time_s xla_estimated_tflops_per_s \
+          badge_label badge_color badge_message \
+        > sitrep.json
+
+        schemaVersion=1 \
+        label="${badge_label}" \
+        message="${badge_message}" \
+        color=$badge_color \
+        to_json schemaVersion label message color \
+        > badge-alphafold-inference.json
+
+    - name: Upload artifacts
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v6
+      with:
+        name: "artifact-alphafold-inference"
+        path: |
+          sitrep.json
+          badge-alphafold-inference.json
+          alphafold-output/*

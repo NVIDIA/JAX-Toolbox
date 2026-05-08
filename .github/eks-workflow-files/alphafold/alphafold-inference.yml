@@ -16,9 +16,11 @@ spec:
           image: PLACEHOLDER
           command:
             - bash
-            - -c
+             - -c
             - |
               set -exo pipefail
+              OUTPUT_DIR="/output/${RUN_ID}"
+              mkdir -p "${OUTPUT_DIR}"
 
               # generate chemical data
               python -c "from alphafold3.build_data import build_data; build_data()"
@@ -32,9 +34,20 @@ spec:
               python /usr/local/bin/af3_inference_benchmark.py \
                 --input-json-path /opt/alphafold_input_data/input_sequences/bench_L00512.json \
                 --model-dir /opt/alphafold/model \
-                --output-json output.json
+                --output-json "${OUTPUT_DIR}/output.json"
+          env:
+            - name: RUN_ID
+              value: PLACEHOLDER
           resources:
             limits:
               nvidia.com/gpu: 1
+          volumeMounts:
+            - name: s3-storage
+              mountPath: /output
+              subPath: alphafold
       imagePullSecrets:
         - name: PLACEHOLDER
+      volumes:
+        - name: s3-storage
+          persistentVolumeClaim:
+            claimName: s3-pvc
