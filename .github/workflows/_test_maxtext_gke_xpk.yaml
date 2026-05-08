@@ -26,24 +26,6 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Login to nvcr.io Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: nvcr.io
-        username: $oauthtoken
-        password: ${{ secrets.NVCR_TOKEN }}
-
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-
     - name: Run XPK workload on cluster
       uses: ./.github/actions/gke-xpk
       with:
@@ -77,3 +59,5 @@ jobs:
                                        profiler_steps=8' |&
           tee /opt/output/output.log &> \${console};
           EXIT_CODE=\$PIPESTATUS;
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
