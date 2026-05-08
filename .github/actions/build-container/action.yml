@@ -121,7 +121,7 @@ runs:
           [[worker.oci.gcpolicy]]
             all = true
             keepDuration = "168h"
-            reserverdSpace = "60GB"
+            reservedSpace = "60GB"
           [[worker.oci.gcpolicy]]
             all = true
             reservedSpace = "40GB"
