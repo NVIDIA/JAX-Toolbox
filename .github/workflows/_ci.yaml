@@ -97,7 +97,7 @@ jobs:
     runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-equinox.outputs.DOCKER_TAG_MEALKIT }}
-      DOCKER_TAG_FINAL:   ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
+      DOCKER_TAG_FINAL: ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -204,6 +204,34 @@ jobs:
           EXTRA_BUILD_ARGS: |
             URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
 
+  build-alphafold:
+    needs: build-jax
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-alphafold.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:  ${{ steps.build-alphafold.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Build Alphafold container
+        id: build-alphafold
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-alphafold-build
+          BADGE_FILENAME: badge-alphafold-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: alphafold
+          DOCKERFILE: .github/container/Dockerfile.alphafold
+          RUNNER_SIZE: large
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_ALPHAFOLD=${{ fromJson(inputs.SOURCE_URLREFS).ALPHAFOLD }}
+
   collect-docker-tags:
     runs-on: ubuntu-22.04
     if: ${{ !cancelled() }}
@@ -213,6 +241,7 @@ jobs:
       - build-equinox
       - build-maxtext
       - build-axlearn
+      - build-alphafold
     outputs:
       TAGS: ${{ steps.collect-tags.outputs.TAGS }}
     steps:
@@ -230,7 +259,7 @@ jobs:
             {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
-
+            {"flavor": "alphafold",    "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-alphafold.outputs.DOCKER_TAG_MEALKIT }}"},\
             {}\
           ]
           EOF
@@ -707,3 +736,36 @@ jobs:
       with:
         job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
         job-name: ${{ env.JOB_NAME }}
+
+  test-alphafold-inference-eks:
+    needs: build-alphafold
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'alphafold'
+      )
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: alphafold-inference
+          NUM_GPUS: 1
+          IMAGE: ${{ needs.build-alphafold.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            set -e
+
+            python -c "from alphafold3.build_data import build_data; build_data()"
+
+            python /usr/local/bin/generate_af_parameters.py \
+              --input-parameters-file /opt/alphafold_input_data/model_parameters.md \
+              --out-model-dir /opt/alphafold/model
+
+            python /usr/local/bin/af3_inference_benchmark.py \
+              --input-json-path /opt/alphafold_input_data/input_sequences/bench_L00512.json \
+              --model-dir /opt/alphafold/model \
+              --output-json /opt/output/output.json
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
