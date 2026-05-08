@@ -12,6 +12,7 @@ We support and test the following JAX frameworks and model architectures. More d
 | :--- | :---: | :---: | :---: |
 | [maxtext](https://github.com/google/maxtext)| GPT, LLaMA, Gemma, Mistral, Mixtral | pre-training | `ghcr.io/nvidia/jax:maxtext` |
 | [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` |
+| [alphafold3](https://github.com/google-deepmind/alphafold3) | EvoFormer | inference | `ghcr.io/nvidia/jax:alphafold` |
 
 # Build Pipeline Status
 <table>
@@ -166,14 +167,29 @@ We support and test the following JAX frameworks and model architectures. More d
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-build-amd64.json&logo=docker&label=amd64">
         </a>
         <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-maxtext-md">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-axlearn-md">
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-build-arm64.json&logo=docker&label=arm64">
         </a>
       </td>
       <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-maxtext-test-json">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-axlearn-test-json">
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-test.json&logo=nvidia&label=H100%20distributed">
         </a>
+      </td>
+      <td>
+        <code>ghcr.io/nvidia/jax:alphafold</code>
+      </td>
+      <td>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-alphafold-md">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-alphafold-build-amd64.json&logo=docker&label=amd64">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-alphafold-md">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-alphafold-build-arm64.json&logo=docker&label=arm64">
+        </a>
+      </td>
+      <td>
+        [no tests]
       </td>
     </tr>
   </tbody>
