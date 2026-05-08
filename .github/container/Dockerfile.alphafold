@@ -43,4 +43,3 @@ FROM mealkit AS final
 RUN pip-finalize.sh
 
 WORKDIR ${SRC_PATH_AF}
-RUN build_data
