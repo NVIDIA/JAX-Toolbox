@@ -97,7 +97,7 @@ runs:
 
   - name: Check cluster online
     id: check
-    shell: bash -x -e -u {0}
+    shell: bash -x -u {0}
     run: |
       gcloud container clusters list | grep ${{ inputs.GKE_CLUSTER }} | grep RUNNING > /dev/null 
 
