@@ -746,33 +746,26 @@ jobs:
         inputs.MODE == 'alphafold'
       )
     runs-on: eks
-    env:
-      ALPHAFOLD_DOCKER_IMAGE: ${{ needs.build-alphafold.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: alphafold-inference-${{ github.run_id }}
     steps:
-    - name: Check out the repository
-      uses: actions/checkout@v6
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-    - name: Configure alphafold inference job
-      run: |
-        yq -i ea '
-           select(di == 0).metadata.name = strenv(JOB_NAME)
-          | select(di == 0).spec.template.spec.containers[0].image = strenv(ALPHAFOLD_DOCKER_IMAGE)
-          | select(di == 0).spec.template.spec.containers[0].env[0].value = "${{ github.run_id }}"
-          | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
-        .github/eks-workflow-files/alphafold/alphafold-inference.yml
-        git diff .github/eks-workflow-files/alphafold/alphafold-inference.yml
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: alphafold-inference
+          NUM_GPUS: 1
+          IMAGE: ${{ needs.build-alphafold.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            set -e
 
-    - name: Submit & delete alphafold inference job
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file: ".github/eks-workflow-files/alphafold/alphafold-inference.yml"
-        job-name: ${{ env.JOB_NAME }}
+            python -c "from alphafold3.build_data import build_data; build_data()"
+
+            python /usr/local/bin/generate_af_parameters.py \
+              --input-parameters-file /opt/alphafold_input_data/model_parameters.md \
+              --out-model-dir /opt/alphafold/model
+
+            python /usr/local/bin/af3_inference_benchmark.py \
+              --input-json-path /opt/alphafold_input_data/input_sequences/bench_L00512.json \
+              --model-dir /opt/alphafold/model \
+              --output-json /opt/output/output.json
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
