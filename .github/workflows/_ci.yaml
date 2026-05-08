@@ -230,7 +230,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
           EXTRA_BUILD_ARGS: |
-            URLREF_ALPHAFOLD=${{ fromJson(inputs.SOURCE_URLREFS).ALPHAFOLD }}
+            URLREF_AF=${{ fromJson(inputs.SOURCE_URLREFS).ALPHAFOLD }}
 
   collect-docker-tags:
     runs-on: ubuntu-22.04
