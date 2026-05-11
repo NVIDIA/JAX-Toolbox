@@ -100,8 +100,6 @@ jobs:
           JAX_COORDINATOR_PORT=3389;
           JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);
           NHOSTS=${{ env.NHOSTS }};
-          NCCL_LIB_DIR=/opt/nvida/nccl/lib;
-          SCRIPT_DIR=/scripts;
           NCCL_MINBYTES=${{ env.NCCL_MINBYTES }};
           NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
           NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
@@ -109,7 +107,7 @@ jobs:
         COMMAND: |
           service ssh restart;
           console=/dev/stdout;
-          declare -a hosts=('nccl-test-host-1' 'nccl-test-host-2');
+          declare -a hosts=(\${JOBSET_NAME}-slice-job-0-0.\${JOBSET_NAME} \${JOBSET_NAME}-slice-job-0-1.\${JOBSET_NAME});
 
           /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
           tee /opt/output/output.log &> \${console};
