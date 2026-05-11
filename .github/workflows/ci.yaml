@@ -73,8 +73,7 @@ permissions:
 
 env:
   DEFAULT_MANIFEST_ARTIFACT_NAME: bumped-manifest
-  SCALE_TRAINING_BIWEEKLY_ANCHOR_BUILD_DATE: 2026-04-17
-  SCALE_TRAINING_SCHEDULE: '0 6 * * 6'
+  SCALE_TRAINING_BIWEEKLY_ANCHOR_BUILD_DATE: 2026-04-18
 
 jobs:
 
@@ -106,8 +105,8 @@ jobs:
         id: date
         shell: bash -x -e {0}
         run: |
-          if [[ "${{ github.event.schedule }}" == "${{ env.SCALE_TRAINING_SCHEDULE }}" ]]; then
-            BUILD_DATE=$(TZ='Europe/London' date -d 'yesterday' '+%Y-%m-%d')
+          if [[ "${{ github.event.schedule }}" == "0 6 * * 6" ]]; then
+            BUILD_DATE=$(TZ='Europe/London' date '+%Y-%m-%d')
           else
             BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           fi
@@ -164,14 +163,12 @@ jobs:
         id: run-type
         shell: bash -x -e {0}
         run: |
-          SCALE_TRAINING_SCHEDULE='${{ env.SCALE_TRAINING_SCHEDULE }}'
-
           if [[ "${{ inputs.SCALE_TRAINING }}" == "true" ]]; then
             echo "Manual scale-training run requested"
             echo "SHOULD_RUN_WORKFLOW=true" >> $GITHUB_OUTPUT
             echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
             echo "SUFFIX=-scale-training" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event.schedule }}" == "${SCALE_TRAINING_SCHEDULE}" ]]; then
+          elif [[ "${{ github.event.schedule }}" == "0 6 * * 6" ]]; then
             anchor_epoch=$(date -u -d "${{ env.SCALE_TRAINING_BIWEEKLY_ANCHOR_BUILD_DATE }}" +%s)
             build_epoch=$(date -u -d "${{ steps.date.outputs.BUILD_DATE }}" +%s)
             days_since_anchor=$(( (build_epoch - anchor_epoch) / 86400 ))
