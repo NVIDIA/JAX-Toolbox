@@ -75,7 +75,7 @@ inputs:
   XPK_VERSION:
     description: 'XPK release tag'
     required: false
-    default: 'v1.0.0
+    default: 'v1.0.0'
     type: string
   XPK_PYTHON:
     description: 'Python version for XPK'
@@ -104,11 +104,15 @@ runs:
       mkdir -p ${WORKLOAD_NAME}
       uv venv --verbose --python=${{ inputs.XPK_PYTHON }} --directory=${WORKLOAD_NAME}
       source ${WORKLOAD_NAME}/.venv/bin/activate
+     
+      git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD_NAME}/xpk
+     
+      # apply XPK workload patch
+      PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
+      ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
 
       # install xpk
-      git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD_NAME}/xpk
-
-      sed 's@pip install \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD_NAME}/xpk/Makefile
+      sed 's@pip install -e \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD_NAME}/xpk/Makefile
       cd ${WORKLOAD_NAME}/xpk && sudo make pip-install; cd -
 
   - name: Show environment
@@ -119,12 +123,6 @@ runs:
       source ${WORKLOAD_NAME}/.venv/bin/activate
       python --version
       xpk version
-
-  - name: Apply XPK workload create patch
-    shell: bash -x -e -u {0}
-    run: |
-      PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
-      ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
 
   - name: Set workload commands
     shell: bash -x -e -u {0}
@@ -190,7 +188,7 @@ runs:
 
       if version_geq "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
           args+=(
-              --docker-image-pull-secret=${{ steps.store-token.outputs.token-name }}
+              --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
               --env="JAX_COORDINATOR_PORT=3389"
               --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
           )
