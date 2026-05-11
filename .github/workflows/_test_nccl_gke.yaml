@@ -104,6 +104,7 @@ jobs:
           NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
           NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
           NCCL_ITERS=${{ env.NCCL_ITERS }};
+          NCCL_LIB_DIR=/opt/tcpxo/lib64;
         COMMAND: |
           service ssh restart;
           console=/dev/stdout;
