@@ -75,7 +75,7 @@ inputs:
   XPK_VERSION:
     description: 'XPK release tag'
     required: false
-    default: 'v0.13.0'
+    default: 'v1.0.0
     type: string
   XPK_PYTHON:
     description: 'Python version for XPK'
@@ -109,7 +109,7 @@ runs:
       git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${WORKLOAD_NAME}/xpk
 
       sed 's@pip install \.@'$(which uv)' pip install \.@g' -i ${WORKLOAD_NAME}/xpk/Makefile
-      cd ${WORKLOAD_NAME}/xpk && sudo make install; cd -
+      cd ${WORKLOAD_NAME}/xpk && sudo make pip-install; cd -
 
   - name: Show environment
     shell: bash -x -e -u {0}
@@ -179,17 +179,21 @@ runs:
           --scheduler=gke.io/topology-aware-auto
       )
 
-      version_greater() {
-        if [[ $(echo -e "$1\n$2" | sort -V | head -n 1) != "$1" ]]; then
+      version_geq() {
+        if [[ $1 == $2 ]]; then
+          return 0
+        elif [[ $(echo -e "$1\n$2" | sort -V | head -n 1) != "$1" ]]; then
           return 0
         fi
         return 1
       }
 
-      if version_greater "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
-        args+=(
-            --docker-image-pull-secret=${{ inputs.IMAGE_PULL_SECRET_NAME }}
-        )
+      if version_geq "${{ inputs.XPK_VERSION }}" "v0.10.0"; then
+          args+=(
+              --docker-image-pull-secret=${{ steps.store-token.outputs.token-name }}
+              --env="JAX_COORDINATOR_PORT=3389"
+              --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
+          )
 
         envs_flat=$(echo "${{ inputs.ENVS }}" | tr '\n' ' ')
         IFS=';' read -ra env_vars <<< "${envs_flat}"
@@ -199,9 +203,12 @@ runs:
         done
       fi
 
-      python xpk.py workload create \
-        "${args[@]}" \
-        --command="${CMD}"
+      if version_geq "${{ inputs.XPK_VERSION }}" "v1.0.0"; then
+        XPK_COMMAND=xpk
+      else
+        XPK_COMMAND="python xpk.py"
+      fi
+      ${XPK_COMMAND} workload create ${args[@]} --command="${CMD}"
 
   - name: Wait for JobSet to unsuspend on cluster
     shell: bash -u {0}
