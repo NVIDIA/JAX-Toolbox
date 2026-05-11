@@ -23,6 +23,10 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Trigger CI workflow on PR branch
         env:
           GH_TOKEN: ${{ github.token }}
