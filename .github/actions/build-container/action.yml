@@ -61,7 +61,11 @@ inputs:
   docker-build-network:
     description: "Networking mode for RUN instructions during docker build"
     required: false
-    default: default
+    default: "auto"
+  registry-build-context-name:
+    description: "Optional named build context to source from a runner registry for the final image handoff"
+    required: false
+    default: ""
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -105,7 +109,6 @@ runs:
           image=moby/buildkit:v0.13.2
           default-load=true
         keep-state: true
-        version: v0.30.1
 
     - name: Set up Docker Buildx with host network
       if: ${{ inputs.docker-build-network == 'host' }}
@@ -115,6 +118,8 @@ runs:
         driver-opts: |
           image=moby/buildkit:v0.13.2
           network=host
+        keep-state: true
+        # TODO: can we figure out if we need these?
         buildkitd-config-inline: |
           [worker.oci]
             gc = true
@@ -158,7 +163,7 @@ runs:
       with:
         builder: ${{ env.BUILDX_BUILDER_NAME }}
         context: ${{ inputs.DOCKER_CONTEXT }}
-        load: true
+        load: ${{inputs.registry-build-context-name == ''}}
         push: true
         file: ${{ inputs.DOCKERFILE }}
         platforms: linux/${{ inputs.ARCHITECTURE }}
@@ -195,6 +200,7 @@ runs:
       with:
         builder: ${{ env.BUILDX_BUILDER_NAME }}
         context: ${{ inputs.DOCKER_CONTEXT }}
+        build-contexts: ${{ inputs.registry-build-context-name != '' && format('{0}=docker-image://{1}@{2}', inputs.registry-build-context-name, env.UPLD_IMAGE, steps.mealkit-build.outputs.digest) || '' }}
         push: true
         file: ${{ inputs.DOCKERFILE }}
         platforms: linux/${{ inputs.ARCHITECTURE }}

@@ -121,12 +121,6 @@ jobs:
               --s3.prefix="${BAZEL_REMOTE_PREFIX}" \
               --s3.region="${BAZEL_REMOTE_REGION}" \
               --s3.update_timestamps
-            sleep 2
-            if [[ "$(docker inspect -f '{{.State.Running}}' "${BAZEL_REMOTE_CONTAINER}")" != "true" ]]; then
-              docker ps -a
-              docker logs "${BAZEL_REMOTE_CONTAINER}" || true
-              exit 1
-            fi
         - name: Verify bazel-remote sidecar
           env:
             BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
@@ -139,6 +133,12 @@ jobs:
               if curl -sSf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/status" > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/status-before.json"; then
                 ready=1
                 break
+              fi
+              container_running="$(docker inspect -f '{{.State.Running}}' "${BAZEL_REMOTE_CONTAINER}" 2>/dev/null || echo false)"
+              if [[ "${container_running}" != "true" ]]; then
+                docker ps -a
+                docker logs "${BAZEL_REMOTE_CONTAINER}" || true
+                exit 1
               fi
               sleep 1
             done
@@ -167,6 +167,7 @@ jobs:
             bazel-remote-cache-url: http://127.0.0.1:9090
             docker-build-allow: network.host
             docker-build-network: host
+            registry-build-context-name: mealkit
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}

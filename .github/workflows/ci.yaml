@@ -6,7 +6,8 @@ on:
     - cron: '0 0 * * 6' # midnight every Saturday UTC; workflow gates to biweekly scale-training runs
   push:
     branches:
-      - "**"
+      - main
+      - 'pull-request/[0-9]+'
     paths-ignore:
       - '**.md'
       - '.github/triage/**'
