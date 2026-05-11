@@ -78,23 +78,17 @@ spec:
           volumeMounts:
             - name: var-lib
               mountPath: /var/lib
-            - name: library-dir-host
-              mountPath: /usr/localhost
           command: ["/bin/sh", "-c"]
           args:
             - |
               set -ex
               chmod 755 /scripts/container_entry.sh
               
-              # install plugin only, disable libnccl install
+              # install plugin only to host at /var/lib/tcpxo/lib64, disable libnccl install
               /scripts/container_entry.sh install
               
               # libnccl-net_internal.so dependency
               cp /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudart.so.12 /var/lib/tcpxo/lib64
-
-              # install tcpxo plugin binaries to directory other than /usr/local/nvidia/lib64
-              mkdir -p /usr/localhost/tcpxo/lib64
-              cp -r /var/lib/tcpxo/lib64/. /usr/localhost/tcpxo/lib64
 
               echo "installation finishes"
       containers:
