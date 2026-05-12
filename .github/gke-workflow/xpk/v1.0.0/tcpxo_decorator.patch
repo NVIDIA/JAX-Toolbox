@@ -1,5 +1,5 @@
 diff --git a/src/xpk/core/workload_decorators/tcpxo_decorator.py b/src/xpk/core/workload_decorators/tcpxo_decorator.py
-index 93a2c0b..18842e6 100644
+index 93a2c0b..6a10aa8 100644
 --- a/src/xpk/core/workload_decorators/tcpxo_decorator.py
 +++ b/src/xpk/core/workload_decorators/tcpxo_decorator.py
 @@ -146,7 +146,8 @@ def add_tcpxo_daemon_container(job_manifest):
@@ -24,16 +24,17 @@ index 93a2c0b..18842e6 100644
        container.setdefault('env', [])
        container['env'].append(
 -          {'name': 'LD_LIBRARY_PATH', 'value': '/usr/local/nvidia/lib64'}
-+          {'name': 'LD_LIBRARY_PATH', 'value': '/opt/tcpxo/lib64:/usr/local/nvidia/lib64'}
++          {'name': 'LD_LIBRARY_PATH', 'value': '/opt/tcpxo/lib64:/opt/nvidia/nccl/lib:/usr/local/nvidia/lib64'}
        )
        container['env'].append({
            'name': 'NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY',
-@@ -176,7 +180,7 @@ def update_gpu_containers(job_manifest):
-           {'name': 'aperture-devices', 'mountPath': '/dev/aperture_devices'}
-       )
+@@ -178,6 +182,9 @@ def update_gpu_containers(job_manifest):
        container['volumeMounts'].append(
--          {'name': 'libraries', 'mountPath': '/usr/local/nvidia'}
-+          {'name': 'tcpxo', 'mountPath': '/opt/tcpxo', 'readOnly': True}
+           {'name': 'libraries', 'mountPath': '/usr/local/nvidia'}
        )
++      container['volumeMounts'].append(
++          {'name': 'tcpxo', 'mountPath': '/opt/tcpxo', 'readOnly': True}
++      )
        container['volumeMounts'].append(
            {'name': 'dshm', 'mountPath': '/dev/shm'}
+       )
