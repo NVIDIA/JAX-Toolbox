@@ -61,7 +61,7 @@ inputs:
   docker-build-network:
     description: "Networking mode for RUN instructions during docker build"
     required: false
-    default: "auto"
+    default: default
   registry-build-context-name:
     description: "Optional named build context to source from a runner registry for the final image handoff"
     required: false
