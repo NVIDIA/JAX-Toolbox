@@ -36,15 +36,17 @@ on:
         description: 'JSON object containing tags of all docker images built'
         value: ${{ jobs.collect-docker-tags.outputs.TAGS }}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.ARCHITECTURE }}
+  cancel-in-progress: true
+
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
   id-token: write # to assume the AWS role for bazel-remote cache
   packages: write # to upload container
 
-
 jobs:
-
   build-base:
     uses: ./.github/workflows/_build_base.yaml
     with:

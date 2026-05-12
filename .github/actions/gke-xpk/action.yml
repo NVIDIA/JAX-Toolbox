@@ -82,12 +82,40 @@ inputs:
     required: false
     default: '3.12.10'
     type: string
+  GITHUB_TOKEN:
+    description: 'GitHub artifact registry login token'
+    type: string
+    required: true
+  NVCR_TOKEN:
+    description: 'NVCR artifact registry login token'
+    type: string
+    required: true
 
 runs:
   using: 'composite'
   steps:
 
+  - name: Check cluster online
+    id: check
+    shell: bash -x -u {0}
+    run: |
+      gcloud container clusters list | grep ${{ inputs.GKE_CLUSTER }} | grep RUNNING > /dev/null 
+
+      if [[ "$?" == "1" ]]; then
+        echo "Cluster ${{ inputs.GKE_CLUSTER }} does not exist"
+        echo "online=false" >> ${GITHUB_OUTPUT}
+        exit 0
+      fi
+
+      # get gpu nodepool name
+      GPU_NODEPOOL=$(gcloud container clusters describe ${{ inputs.GKE_CLUSTER }} --zone ${{ inputs.GCP_ZONE }} | yq -r '.nodePools[1].name' | grep -v system)
+
+      # inspect gpu nodes
+      GPU_NODES_ONLINE=$(kubectl get nodes -l cloud.google.com/gke-nodepool=${GPU_NODEPOOL} -o json | jq '.items | length >= '${{ inputs.NUM_NODES }})
+      echo "online=${GPU_NODES_ONLINE}" >> ${GITHUB_OUTPUT}
+
   - name: Set workload name
+    if: steps.check.outputs.online == 'true'
     shell: bash -x -e -u {0}
     run: |
       WORKLOAD_NAME="${{ inputs.WORKLOAD_NAME_PREFIX }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
@@ -98,7 +126,29 @@ runs:
       echo "DATE=${DATE}" >> ${GITHUB_ENV}
       echo "GCS_ARTIFACT_PATH=${GCS_ARTIFACT_PATH}" >> ${GITHUB_ENV}
 
+  - name: Login to GitHub Container Registry
+    if: steps.check.outputs.online == 'true'
+    uses: docker/login-action@v3
+    with:
+      registry: ghcr.io
+      username: ${{ github.repository_owner }}
+      password: ${{ inputs.GITHUB_TOKEN }}
+
+  - name: Login to nvcr.io Container Registry
+    if: steps.check.outputs.online == 'true'
+    uses: docker/login-action@v3
+    with:
+      registry: nvcr.io
+      username: $oauthtoken
+      password: ${{ inputs.NVCR_TOKEN }}
+
+  - name: k8s store and delete image secret
+    if: steps.check.outputs.online == 'true'
+    id: store-token
+    uses: ./.github/actions/store-delete-k8s-ghcr
+
   - name: Setup environment
+    if: steps.check.outputs.online == 'true'
     shell: bash -x -e -u {0}
     run: |
       mkdir -p ${WORKLOAD_NAME}
@@ -112,6 +162,7 @@ runs:
       cd ${WORKLOAD_NAME}/xpk && sudo make install; cd -
 
   - name: Show environment
+    if: steps.check.outputs.online == 'true'
     shell: bash -x -e -u {0}
     run: |
       gcloud version
@@ -121,12 +172,14 @@ runs:
       xpk version
 
   - name: Apply XPK workload create patch
+    if: steps.check.outputs.online == 'true'
     shell: bash -x -e -u {0}
     run: |
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
       ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${WORKLOAD_NAME}/xpk
 
   - name: Set workload commands
+    if: steps.check.outputs.online == 'true'
     shell: bash -x -e -u {0}
     run: |
       # install dependencies to enable export artifacts from container to gcs bucket
@@ -174,6 +227,7 @@ runs:
       echo "CMD=${PRELUDE} ${CMD} ${POSTLUDE}" >> ${GITHUB_ENV}
 
   - name: Create workload on cluster with XPK
+    if: steps.check.outputs.online == 'true'
     shell: bash -x -e -u {0}
     run: |
       source ${WORKLOAD_NAME}/.venv/bin/activate
@@ -217,6 +271,7 @@ runs:
         --command="${CMD}"
 
   - name: Wait for JobSet to unsuspend on cluster
+    if: steps.check.outputs.online == 'true'
     shell: bash -u {0}
     env:
       POLL_TIMEOUT: 3600
@@ -238,11 +293,13 @@ runs:
       echo "JobSet ${WORKLOAD_NAME} has just become active in cluster ${{ inputs.GKE_CLUSTER }}"
 
   - name: Set JobSet Pod name
+    if: steps.check.outputs.online == 'true'
     shell: bash -u {0}
     run: |
       echo "POD=$(kubectl get pods -o json | jq -r '.items[] | select(.metadata.labels."'jobset.sigs.k8s.io/jobset-name'" == "'${WORKLOAD_NAME}'") | .metadata.name ' | sort | head -n1 )" >> ${GITHUB_ENV}
 
   - name: Wait for JobSet Pod readiness
+    if: steps.check.outputs.online == 'true'
     shell: bash -u {0}
     run: |
       POD_READY=false
@@ -260,6 +317,7 @@ runs:
       done;
 
   - name: Stream logs from JobSet Pods
+    if: steps.check.outputs.online == 'true'
     shell: bash -u {0}
     run: |
       JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${WORKLOAD_NAME}'") | .name' | tr '\n' ' '))
@@ -271,6 +329,7 @@ runs:
       wait < <(jobs -p)
 
   - name: Set exit code from JobSet pods logs
+    if: steps.check.outputs.online == 'true'
     shell: bash -u {0}
     run: |
       parse_pod_exit_code() {
@@ -303,12 +362,13 @@ runs:
       exit 0
 
   - name: Clean up JobSet from cluster
+    if: steps.check.outputs.online == 'true'
     shell: bash -x -u {0}
-    if: ${{ always() }}
     run: |
       kubectl delete jobset --wait ${WORKLOAD_NAME} || echo "JobSet ${WORKLOAD_NAME} does not exist in ${{ inputs.GKE_CLUSTER }}"
 
   - name: Download artifacts from GCS to runner
+    if: steps.check.outputs.online == 'true'
     shell: bash -x -u {0}
     run: |
       mkdir -p ${WORKLOAD_NAME}/output
@@ -316,21 +376,22 @@ runs:
       cp ${WORKLOAD_NAME}/*.log ${WORKLOAD_NAME}/output
 
   - name: Upload artifacts to GitHub Actions from runner
+    if: steps.check.outputs.online == 'true'
     uses: actions/upload-artifact@v6
     with:
       name: ${{ inputs.WORKLOAD_NAME_PREFIX }}
       path: ${{ env.WORKLOAD_NAME }}/output/*
 
   - name: Clean up xpk environment from runner
+    if: steps.check.outputs.online == 'true'
     shell: bash -x -u {0}
-    if: ${{ always() }}
     run: |
       sudo rm -rf ${WORKLOAD_NAME}
 
   - name: Generate sitrep
+    if: steps.check.outputs.online == 'true'
     id: sitrep
     shell: bash -x -e {0}
-    if: ${{ always() }}
     run: |
       source .github/workflows/scripts/to_json.sh
       badge_label="${{ matrix.test }}"
@@ -355,7 +416,7 @@ runs:
       tee sitrep.json
 
   - name: Upload sitrep to GitHub Actions from runner
-    if: ${{ always() }}
+    if: steps.check.outputs.online == 'true'
     uses: actions/upload-artifact@v6
     with:
       name: ${{ inputs.WORKLOAD_NAME_PREFIX }}-sitrep
