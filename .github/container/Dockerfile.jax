@@ -135,7 +135,7 @@ echo "transformer-engine @ file://$(ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl
 EOF
 
 ## nvidia-cutlass-dsl[cu13]
-RUN echo "nvidia-cutlass-dsl[cu13]" >> /opt/pip-tools.d/requirements-cutlass-dsl.in
+RUN echo "nvidia-cutlass-dsl[cu13]==${CUTLASS_DSL_VERSION}" > /opt/pip-tools.d/requirements-cutlass-dsl.in
 
 ###############################################################################
 ## Install the nsys-jax JAX/XLA-aware profiling scripts, patch Nsight Systems
