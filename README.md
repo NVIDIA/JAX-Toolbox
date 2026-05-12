@@ -266,7 +266,8 @@ For this initiative, we are publishing `scale-training` tagged containers - `jax
   </tbody>
 </table>
 
-The dedicated scale-training workflow runs every Saturday at 00:00 UTC and publishes containers every other Saturday, starting on April 18, 2026.
+The table belowed shows all the produced `scale-training` containers.
+From Saturday 23rd May, `scale-training` container will be generated and published every other Saturday at 00:00 UTC.
 Refer to this page [STAGING.md](https://github.com/openxla/xla/blob/nv-staging/latest/STAGING.md) for more information on the underlying XLA staging branch, the pending PRs included. The page also lists the corresponding JAX commit used.
 
 Staging releases:
