@@ -71,18 +71,18 @@ jobs:
         - name: Configure AWS credentials via OIDC
           uses: aws-actions/configure-aws-credentials@v4
           with:
-            role-to-assume: ${{ secrets.TEST_ROLE_FOR_AWS_S3 }}
-            aws-region: us-east-1
+            role-to-assume: ${{ secrets.S3_CACHE_ROLE }}
+            aws-region: ${{ secrets.AWS_REGION}}
         - name: Start bazel-remote sidecar
           env:
-            BAZEL_REMOTE_BUCKET: jax-toolbox-bazel-cache-test
+            BAZEL_REMOTE_BUCKET: ${{ secrets.BAZEL_REMOTE_BUCKET }}
             BAZEL_REMOTE_AWS_DIR: /tmp/bazel-remote-aws
             BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
             BAZEL_REMOTE_DISK_DIR: /tmp/bazel-remote-cache
             BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
             BAZEL_REMOTE_PORT: 9090
             BAZEL_REMOTE_PREFIX: bazel-remote/${{ inputs.ARCHITECTURE }}
-            BAZEL_REMOTE_REGION: us-east-1
+            BAZEL_REMOTE_REGION: ${{ secrets.AWS_REGION }}
           run: |
             set -euxo pipefail
             : "${AWS_ACCESS_KEY_ID:?missing AWS_ACCESS_KEY_ID}"
