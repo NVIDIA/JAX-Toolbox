@@ -273,12 +273,14 @@ For this initiative, we are publishing `scale-training` tagged containers - `jax
   </tbody>
 </table>
 
-The dedicated scale-training workflow runs every Saturday at 00:00 UTC and publishes containers every other Saturday, starting on April 18, 2026.
+The table belowed shows all the produced `scale-training` containers.
+From Saturday 23rd May, `scale-training` container will be generated and published every other Saturday at 00:00 UTC.
 Refer to this page [STAGING.md](https://github.com/openxla/xla/blob/nv-staging/latest/STAGING.md) for more information on the underlying XLA staging branch, the pending PRs included. The page also lists the corresponding JAX commit used.
 
 Staging releases:
 | Release date | Container | XLA branch (includes pending PRs) |
 | ------------------------------------- | -------------- |-------------- |
+| 2026-05-11 | [ghcr.io/nvidia/jax:jax-scale-training-2026-05-11](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/856082965?tag=jax-scale-training-2026-05-11) | [5dfe2147](https://github.com/openxla/xla/blob/552b0a3ef06453c74de9f62f778a0f3a960d7e6d/STAGING.md)
 | 2026-04-24 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-24](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/820220988?tag=jax-scale-training-2026-04-24) | [5dfe2147](https://github.com/openxla/xla/blob/5dfe2147cbdd54b2fa1d76da817c64a1847373ca/STAGING.md)
 | 2026-04-18 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-18](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/805313885?tag=jax-scale-training-2026-04-18) | [8147118](https://github.com/sfvaroglu/xla/tree/8147118a7b9707d26dcb747767a9c0dd9081325f)
 
