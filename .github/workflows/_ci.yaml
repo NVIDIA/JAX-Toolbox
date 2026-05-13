@@ -739,7 +739,7 @@ jobs:
         job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
         job-name: ${{ env.JOB_NAME }}
 
-  test-alphafold-inference-eks:
+  test-alphafold-inference:
     needs: build-alphafold
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
@@ -768,7 +768,7 @@ jobs:
             python /usr/local/bin/af3_inference_benchmark.py \
               --input-json-path /opt/alphafold_input_data/input_sequences/bench_L00512.json \
               --model-dir /opt/alphafold/model \
-              --output-json /opt/output/output.json;
+              --output-json /opt/output/output.json
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS: true
