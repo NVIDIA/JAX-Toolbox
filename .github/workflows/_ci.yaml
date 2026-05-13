@@ -862,7 +862,7 @@ jobs:
           COMMAND: |
             set -e
 
-            python -c "from alphafold3.build_data import build_data; build_data()"
+            python -c 'from alphafold3.build_data import build_data; build_data()'
 
             python /usr/local/bin/generate_af_parameters.py \
               --input-parameters-file /opt/alphafold_input_data/model_parameters.md \
