@@ -102,7 +102,6 @@ jobs:
             } > "${BAZEL_REMOTE_AWS_CREDENTIALS}"
             set -x
             docker rm -f "${BAZEL_REMOTE_CONTAINER}" >/dev/null 2>&1 || true
-            docker pull buchgr/bazel-remote-cache
             docker run -d \
               --name "${BAZEL_REMOTE_CONTAINER}" \
               --user "${BAZEL_REMOTE_UID}:${BAZEL_REMOTE_GID}" \

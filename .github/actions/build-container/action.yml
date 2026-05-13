@@ -61,7 +61,7 @@ inputs:
   docker-build-network:
     description: "Networking mode for RUN instructions during docker build"
     required: false
-    default: default
+    default: "auto"
   registry-build-context-name:
     description: "Optional named build context to source from a runner registry for the final image handoff"
     required: false
@@ -101,35 +101,16 @@ runs:
         password: ${{ inputs.github-token }}
 
     - name: Set up Docker Buildx
-      if: ${{ inputs.docker-build-network != 'host' }}
       uses: docker/setup-buildx-action@v4
       with:
         name: ${{ env.BUILDX_BUILDER_NAME }}
         driver-opts: |
           image=moby/buildkit:v0.13.2
-          default-load=true
+          network=${{ inputs.docker-build-network }}
         keep-state: true
+        # TODO: check whether we need the oci.worker specification
 
-    - name: Set up Docker Buildx with host network
-      if: ${{ inputs.docker-build-network == 'host' }}
-      uses: docker/setup-buildx-action@v4
-      with:
-        name: ${{ env.BUILDX_BUILDER_NAME }}
-        driver-opts: |
-          image=moby/buildkit:v0.13.2
-          network=host
-        keep-state: true
-        # TODO: can we figure out if we need these?
-        buildkitd-config-inline: |
-          [worker.oci]
-            gc = true
-          [[worker.oci.gcpolicy]]
-            all = true
-            keepDuration = "168h"
-            reservedSpace = "60GB"
-          [[worker.oci.gcpolicy]]
-            all = true
-            reservedSpace = "40GB"
+
 
     - name: Download nsys-jax version.py
       uses: actions/download-artifact@v8
