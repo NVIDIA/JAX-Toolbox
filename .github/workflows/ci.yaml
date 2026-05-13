@@ -2,7 +2,8 @@ name: CI
 
 on:
   schedule:
-    - cron: '30 9 * * *' # Pacific Time 01:30 AM in UTC
+    - cron: '0 7 * * *'
+      timezone: "Europe/London"
     - cron: '0 6 * * 6' # 06:00 Saturday Europe/London; workflow gates to biweekly scale-training runs
       timezone: "Europe/London"
   push:
