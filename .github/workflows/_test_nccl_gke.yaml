@@ -52,7 +52,7 @@ jobs:
     env:
       BASE_IMAGE: ${{ needs.build-nccl-gke.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
-      WORKLOAD_NAME_PREFIX: nccl-gke
+      NAME: nccl-gke
       NHOSTS: 2
       NCCL_MINBYTES: 8
       NCCL_MAXBYTES: 16G
@@ -66,15 +66,15 @@ jobs:
       id: workload-name
       run: |
         TEST_NAME=$(echo "${{ matrix.test }}" | sed 's/_perf_mpi//g' | sed 's/_/-/g')
-        WORKLOAD_PREFIX="${{ env.WORKLOAD_NAME_PREFIX }}-${TEST_NAME}"
+        JOBSET_PREFIX="${{ env.NAME }}-${TEST_NAME}"
 
-        echo "WORKLOAD_PREFIX=${WORKLOAD_PREFIX}" >> ${GITHUB_OUTPUT}
+        echo "JOBSET_PREFIX=${JOBSET_PREFIX}" >> ${GITHUB_OUTPUT}
 
     - name: Run XPK workload on cluster
       uses: ./.github/actions/gke-xpk
       with:
         IMAGE: ${{ env.BASE_IMAGE }}
-        WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
+        NAME: ${{ steps.workload-name.outputs.JOBSET_PREFIX }}
         ENVS: |
           JAX_COORDINATOR_PORT=3389;
           JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);

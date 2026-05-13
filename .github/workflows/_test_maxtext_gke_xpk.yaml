@@ -14,7 +14,7 @@ jobs:
     runs-on: gke-a3mega
 
     env:
-      WORKLOAD_NAME_PREFIX: gke-maxtext-train
+      NAME: gke-maxtext-train
       MAXTEXT_MODEL: llama2-7b
       MAXTEXT_ATTENTION_TYPE: cudnn_flash_te
       MAXTEXT_REMAT_POLICY: minimal_flash
@@ -30,7 +30,7 @@ jobs:
       uses: ./.github/actions/gke-xpk
       with:
         IMAGE: ${{ env.MAXTEXT_IMAGE }}
-        WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
+        NAME: ${{ env.NAME }}
         ENVS: |
           JAX_COORDINATOR_PORT=3389;
           JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);
