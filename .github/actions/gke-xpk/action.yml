@@ -12,9 +12,9 @@ inputs:
     default: jtb-2026-05-06
     required: false
     type: string
-  GCP_ZONE:
-    description: 'GCP zone of the cluster'
-    default: europe-west4-b
+  GCP_REGION:
+    description: 'GCP region of the cluster'
+    default: europe-west4
     required: false
     type: string
   CLUSTER_DEVICE:
@@ -103,7 +103,7 @@ runs:
       fi
 
       # get gpu nodepool name
-      GPU_NODEPOOL=$(gcloud container clusters describe ${{ inputs.GKE_CLUSTER }} --zone ${{ inputs.GCP_ZONE }} | yq -r '.nodePools[1].name' | grep -v system)
+      GPU_NODEPOOL=$(gcloud container clusters describe ${{ inputs.GKE_CLUSTER }} --zone ${{ inputs.GCP_REGION }} | yq -r '.nodePools[1].name' | grep -v system)
 
       # inspect gpu nodes
       GPU_NODES_ONLINE=$(kubectl get nodes -l cloud.google.com/gke-nodepool=${GPU_NODEPOOL} -o json | jq '.items | length >= '${{ inputs.NUM_NODES }})
@@ -215,7 +215,7 @@ runs:
       args=(
           --project=${{ inputs.GCP_PROJECT }}
           --cluster=${{ inputs.GKE_CLUSTER }}
-          --zone=${{ inputs.GCP_ZONE }}
+          --zone=${{ inputs.GCP_REGION }}
           --workload=${WORKLOAD_NAME}
           --docker-image=${{ inputs.IMAGE }}
           --device-type=${{ inputs.CLUSTER_DEVICE }}
