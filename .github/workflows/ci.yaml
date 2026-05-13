@@ -16,9 +16,6 @@ on:
       - '**.md'
       - '.github/triage/**'
       - '.github/workflows/triage-ci.yaml'
-  push:
-    branches:
-      - aybchan/gke-update
   workflow_dispatch:
     inputs:
       PUBLISH:
