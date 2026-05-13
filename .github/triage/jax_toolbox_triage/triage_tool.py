@@ -718,6 +718,11 @@ class TriageTool:
                     raise InconsistentResults(
                         f"Reproduced failure in {self.args.failing_container} but not {self.bisection_url}"
                     ) from e
+                else:
+                    raise CouldNotReproduceFailure(
+                        f"Could not reproduce failure with 'bad' container ({self.args.failing_container}, {check_fail.result})"
+                    ) from e
+
             raise
         except CouldNotReproduceSuccess as e:
             if (
@@ -727,6 +732,9 @@ class TriageTool:
                 # Could not reproduce pass with 'good' versions in the 'bad' container. Triage
                 # will not succeed, but before exiting we can check if success is reproducible
                 # in the 'good' container.
+                self.logger.fatal(
+                    f"Checking if success can be reproduced in {self.args.passing_container}..."
+                )
                 check_pass = self._check_container_by_url(
                     self.args.passing_container, test_output_log_level=logging.INFO
                 )
@@ -738,6 +746,10 @@ class TriageTool:
                     )
                     raise InconsistentResults(
                         f"Reproduced success in {self.args.passing_container} but not {self.bisection_url}"
+                    ) from e
+                else:
+                    raise CouldNotReproduceSuccess(
+                        f"Could not reproduce success with 'good' container ({self.args.passing_container}, {check_pass.result})"
                     ) from e
             raise
         # Write final summary
