@@ -35,3 +35,6 @@ index 93a2c0b..4a701f3 100644
        container['volumeMounts'].append(
 -          {'name': 'libraries', 'mountPath': '/usr/local/nvidia'}
 +          {'name': 'tcpxo', 'mountPath': '/opt/tcpxo', 'readOnly': True}
+       )
+       container['volumeMounts'].append(
+           {'name': 'dshm', 'mountPath': '/dev/shm'}
