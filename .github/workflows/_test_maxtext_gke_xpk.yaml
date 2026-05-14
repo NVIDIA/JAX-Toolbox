@@ -45,8 +45,6 @@ jobs:
       with:
         IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
         NAME: ${{ matrix.test }}
-        ENVS: |
-          NCCL_LIB_DIR=/opt/tcpxo/lib64;
         COMMAND: |
           nsys-jax --capture-range=cudaProfilerApi \
                    --capture-range-end=stop \
