@@ -68,7 +68,6 @@ We support and test the following JAX frameworks and model architectures. More d
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-jax-md"><img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-build-arm64.json&logo=docker&label=arm64"></a>
       </td>
       <td>
-        <br>
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-jax-unit-backend-independent-h100-json">
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-backend-independent-H100.json&logo=nvidia&label=JAX%20-%20backend%20independent%20(H100)">
         </a>
@@ -196,7 +195,9 @@ We support and test the following JAX frameworks and model architectures. More d
         </a>
       </td>
       <td>
-        [no tests]
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-alphafold-inference-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-alphafold-inference-H100.json&logo=nvidia&label=AlphaFold%20inference%20(H100)">
+        </a>
       </td>
     </tr>
   </tbody>
