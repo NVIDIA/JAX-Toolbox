@@ -141,25 +141,14 @@ jobs:
         run: |
           # combine all sitreps files into a single file, where each sitrep json sits
           # in a field named by the folder that contained it
-          echo "[" >> fsitrep.json
-          sitrep_files=($(find . -name "sitrep.json"))
-          total_files=${#sitrep_files[@]}
-
-          # parse all the sitrep files and consolidate them into one
-          for ((i=0; i<total_files; i++)); do
-            FILE=${sitrep_files[$i]}
-            # Extract directory name
+          find . -name "sitrep.json" | while read -r FILE; do
             key=$(dirname "$FILE")
-            # Extract the summary field from the JSON files and append the content to the output JSON file.
-            value=$(cat "$FILE" |  jq -r '.summary' )
-
-            jq -n --arg key "$key" --arg value "$value" '{ ($key): $value }' >> fsitrep.json
-            if [ $i != $((total_files-1)) ]; then
-              echo -n "," >> fsitrep.json
+            value=$(jq -r 'if type == "object" and has("summary") then .summary else empty end' "$FILE")
+          
+            if [[ -n "$value" ]]; then
+              jq -n --arg key "$key" --arg value "$value" '{ ($key): $value }'
             fi
-          done
-          echo "]" >> fsitrep.json
-          mv fsitrep.json sitrep.json
+          done | jq -s '.' > sitrep.json
 
       - name: Combine all json into final summary
         shell: bash -x -e {0}
