@@ -76,9 +76,6 @@ jobs:
         IMAGE: ${{ env.BASE_IMAGE }}
         NAME: ${{ steps.workload-name.outputs.JOBSET_PREFIX }}
         ENVS: |
-          JAX_COORDINATOR_PORT=3389;
-          JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);
-          NHOSTS=${{ env.NHOSTS }};
           NCCL_MINBYTES=${{ env.NCCL_MINBYTES }};
           NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
           NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
@@ -86,11 +83,10 @@ jobs:
           NCCL_LIB_DIR=/opt/tcpxo/lib64;
         COMMAND: |
           service ssh restart;
-          console=/dev/stdout;
-          declare -a hosts=(\${JOBSET_NAME}-slice-job-0-0.\${JOBSET_NAME} \${JOBSET_NAME}-slice-job-0-1.\${JOBSET_NAME});
+          declare -a hosts=(\${JOBSET_NAME}-\${REPLICATED_JOB_NAME}-0-0.\${JOBSET_NAME} \${JOBSET_NAME}-\${REPLICATED_JOB_NAME}-0-1.\${JOBSET_NAME});
 
           /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
-          tee /opt/output/output.log &> \${console};
+          tee /opt/output/output.log &> /dev/stdout;
 
           MAYBE_MPI_EXIT_CODE=\$(tail /opt/output/output.log | rg 'Exit code:[ ]+([0-9]+)' -or '\$1');
           if [ -z \${MAYBE_MPI_EXIT_CODE} ]; then

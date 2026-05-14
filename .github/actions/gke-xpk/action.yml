@@ -258,6 +258,7 @@ runs:
               --docker-image-pull-secret=${{ steps.store-token.outputs.token-name }}
               --env="JAX_COORDINATOR_PORT=3389"
               --env="JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):3389"
+              --env="NHOSTS=${{ inputs.NUM_NODES }}"
           )
 
         envs_flat=$(echo "${{ inputs.ENVS }}" | tr '\n' ' ')
