@@ -12,6 +12,7 @@ We support and test the following JAX frameworks and model architectures. More d
 | :--- | :---: | :---: | :---: |
 | [maxtext](https://github.com/google/maxtext)| GPT, LLaMA, Gemma, Mistral, Mixtral | pre-training | `ghcr.io/nvidia/jax:maxtext` |
 | [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` |
+| [alphafold3](https://github.com/google-deepmind/alphafold3) | EvoFormer | inference | `ghcr.io/nvidia/jax:alphafold` |
 
 # Build Pipeline Status
 <table>
@@ -68,20 +69,36 @@ We support and test the following JAX frameworks and model architectures. More d
       </td>
       <td>
         <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-jax-unit-test-a100-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-test-A100.json&logo=nvidia&label=A100">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-jax-unit-backend-independent-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-backend-independent-H100.json&logo=nvidia&label=JAX%20-%20backend%20independent%20(H100)">
         </a>
         <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-te-unit-test-a100-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-te-unit-test-A100.json&logo=nvidia&label=TransformerEngine%20A100">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-jax-unit-single-gpu-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-single-gpu-H100.json&logo=nvidia&label=JAX%20-%20single%20GPU%20(H100)">
         </a>
         <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-transformer-engine-test-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-transformer-engine-test.json&logo=nvidia&label=TransformerEngine%20H100">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-jax-unit-multi-gpu-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-unit-multi-gpu-H100.json&logo=nvidia&label=JAX%20multi-GPU%20(H100)">
         </a>
         <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-nsys-jax-unit-test-a100-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-nsys-jax-unit-test-A100.json&logo=nvidia&label=nsys-jax%20A100">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-te-l0_jax_unittest-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-te-L0_jax_unittest-H100.json&logo=nvidia&label=TransformerEngine%20-%20unit%20(H100)">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-te-l0_jax_distributed_unittest-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-te-L0_jax_distributed_unittest-H100.json&logo=nvidia&label=TransformerEngine%20-%20distributed%20(H100)">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-nsys-jax-unit-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-nsys-jax-unit-H100.json&logo=nvidia&label=nsys-jax-unit%20(H100)">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-nsys-jax-nccl-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-nsys-jax-nccl-H100.json&logo=nvidia&label=nsys-jax-nccl%20(H100)">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-jax-cutlass-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-jax-cutlass-H100.json&logo=nvidia&label=CUTLASS%20(H100)">
         </a>
       </td>
     </tr>
@@ -126,8 +143,13 @@ We support and test the following JAX frameworks and model architectures. More d
         </a>
       </td>
       <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-maxtext-test-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-maxtext-test.json&logo=nvidia&label=A100%20distributed">
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-maxtext-single-node-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-maxtext-single-node-H100.json&logo=nvidia&label=MaxText%20-%20single-node%20(H100)">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-maxtext-multi-node-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-maxtext-multi-node-H100.json&logo=nvidia&label=MaxText%20-%20multi-node%20(H100)">
         </a>
       </td>
     </tr>
@@ -145,14 +167,36 @@ We support and test the following JAX frameworks and model architectures. More d
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-build-amd64.json&logo=docker&label=amd64">
         </a>
         <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-maxtext-md">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-axlearn-md">
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-build-arm64.json&logo=docker&label=arm64">
         </a>
       </td>
       <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-maxtext-test-json">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-axlearn-test-json">
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-test.json&logo=nvidia&label=H100%20distributed">
         </a>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.alphafold">
+          <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=AlphaFold%3D%7Bcore%2CAlphaFold%7D">
+        </a>
+      </td>
+      <td>
+        <code>ghcr.io/nvidia/jax:alphafold</code>
+      </td>
+      <td>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-alphafold-md">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-alphafold-build-amd64.json&logo=docker&label=amd64">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-alphafold-md">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-alphafold-build-arm64.json&logo=docker&label=arm64">
+        </a>
+      </td>
+      <td>
+        [no tests]
       </td>
     </tr>
   </tbody>
@@ -160,7 +204,7 @@ We support and test the following JAX frameworks and model architectures. More d
 
 In all cases, `ghcr.io/nvidia/jax:XXX` points to latest nightly build of the container for `XXX`. For a stable reference, use `ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`.
 
-In addition to the public CI, we also run internal CI tests on H100 SXM 80GB and A100 SXM 80GB.
+In addition to the public CI, we also run internal CI nightlies on GB300, B300, GB200, B200, DGX Spark, RTX PRO 6000 Blackwell, Jetson AGX Thor, H100 SXM 80GB, A100 SXM 80GB.
 
 ## Environment Variables
 
@@ -177,6 +221,7 @@ There are various other XLA flags users can set to improve performance. XLA flag
 
 | First nightly with new base container | Base container |
 | ------------------------------------- | -------------- |
+| 2026-05-01 | nvcr.io/nvidia/cuda-dl-base:26.04-cuda13.2-devel-ubuntu24.04 |
 | 2026-03-12 | nvcr.io/nvidia/cuda-dl-base:26.02-cuda13.1-devel-ubuntu24.04 |
 | 2025-12-17 | nvcr.io/nvidia/cuda-dl-base:25.11-cuda13.0-devel-ubuntu24.04 |
 | 2025-10-02 | nvcr.io/nvidia/cuda-dl-base:25.09-cuda13.0-devel-ubuntu24.04 |
@@ -194,6 +239,63 @@ There are various other XLA flags users can set to improve performance. XLA flag
 
 ## Profiling
 See [this page](./docs/profiling.md) for more information about how to profile JAX programs on GPU.
+
+
+## NVIDIA Staging Containers
+
+JAX-Toolbox staging container hosts pending NVIDIA-authored XLA and JAX enhancements for NVIDIA GPU. These are pending PRs that are awaiting upstream review and merge in OSS OpenXLA and JAX repositories.
+For this initiative, we are publishing `scale-training` tagged containers - `jax-scale-training`.
+
+<table>
+  <thead>
+    <tr>
+      <th colspan=3 style="text-align:center;">
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/scale-training.yaml?query=event%3Aschedule+branch%3Amain">
+        <img
+          style="height: 1.5em;"
+          src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-workflow-metadata-scale-training.json&logo=github-actions&logoColor=white"
+        />
+        </a>
+      </th>
+    </tr>
+    <tr>
+      <th>Pipeline</th>
+      <th>Container</th>
+      <th>Schedule</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>scale-training.yaml</code></td>
+      <td><code>ghcr.io/nvidia/jax:jax-scale-training</code></td>
+      <td>Every other Saturday, 00:00 UTC</td>
+    </tr>
+  </tbody>
+</table>
+
+The table belowed shows all the produced `scale-training` containers.
+From Saturday 23rd May, `scale-training` container will be generated and published every other Saturday at 00:00 UTC.
+Refer to this page [STAGING.md](https://github.com/openxla/xla/blob/nv-staging/latest/STAGING.md) for more information on the underlying XLA staging branch, the pending PRs included. The page also lists the corresponding JAX commit used.
+
+Staging releases:
+| Release date | Container | XLA branch (includes pending PRs) |
+| ------------------------------------- | -------------- |-------------- |
+| 2026-05-11 | [ghcr.io/nvidia/jax:jax-scale-training-2026-05-11](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/856082965?tag=jax-scale-training-2026-05-11) | [5dfe2147](https://github.com/openxla/xla/blob/552b0a3ef06453c74de9f62f778a0f3a960d7e6d/STAGING.md)
+| 2026-04-24 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-24](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/820220988?tag=jax-scale-training-2026-04-24) | [5dfe2147](https://github.com/openxla/xla/blob/5dfe2147cbdd54b2fa1d76da817c64a1847373ca/STAGING.md)
+| 2026-04-18 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-18](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/805313885?tag=jax-scale-training-2026-04-18) | [8147118](https://github.com/sfvaroglu/xla/tree/8147118a7b9707d26dcb747767a9c0dd9081325f)
+
+The underlying CUDA container, used for building `-scale-training` containers,  can be seen from the corresponding dated version in the [Versions](#versions) tab.
+
+To check the versions of libraries in the container, you can simply run:
+```bash
+docker run --rm --gpus all ghcr.io/nvidia/jax:jax-scale-training-2026-04-24 -c '
+echo "=== CUDA Toolkit ===" && echo ${CUDA_VERSION}
+echo "=== cuDNN ===" && echo ${CUDNN_VERSION}
+echo "=== NCCL ===" &&  echo ${NCCL_VERSION}
+echo "=== Python Packages ===" && pip list | grep -iE "jax|flax|equinox|optax|chex|orbax|numpy|scipy|nvidia-"
+'
+```
+
 
 ## Frequently asked questions (FAQ)
 
