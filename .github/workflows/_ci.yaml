@@ -604,101 +604,29 @@ jobs:
         inputs.MODE == 'axlearn'
       )
     runs-on: eks
-    env:
-      AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: axlearn-${{ github.run_id }}
     steps:
-    - name: Check out the repository
-      uses: actions/checkout@v6
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-    - name: Configure axlearn test job
-      run: |
-        # Replace placeholders in axlearn-job.yml with environment variables
-        yq -i ea '
-           select(di == 0).metadata.name = strenv(JOB_NAME)
-          | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
-          | select(di == 0).spec.template.spec.containers[0].env[0].value = "${{ github.run_id }}"
-          | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
-        .github/eks-workflow-files/axlearn/axlearn-job.yml
-        git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
-    - name: Submit & delete axlearn test
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
-        job-name: ${{ env.JOB_NAME }}
-    - name: Download logs from S3
-      id: log-s3
-      if: ${{ !cancelled() }}
-      run: |
-        mkdir -p axlearn-output
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/summary.txt axlearn-output/
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.log"
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.xml"
-
-        passed_tests=$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
-        failed_tests=$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
-        skipped_tests=$(grep -Eo 'SKIPPED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
-        total_tests=$((failed_tests + passed_tests + skipped_tests))
-
-        echo "Passed tests: $passed_tests"
-        echo "Failed tests: $failed_tests"
-        echo "Skipped tests: $skipped_tests"
-        echo "Total tests: $total_tests"
-        echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
-        echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
-    - name: Generate sitrep
-      id: sitrep
-      if: ${{ !cancelled() }}
-      shell: bash -x -e {0}
-      run: |
-        # bring in utility functions
-        source .github/workflows/scripts/to_json.sh
-
-        badge_label='Axlearn EKS Unit'
-
-        total_tests=${{ steps.log-s3.outputs.TOTAL_TESTS }} \
-        failed_tests=${{ steps.log-s3.outputs.FAILED_TESTS }} \
-        passed_tests=${{ steps.log-s3.outputs.PASSED_TESTS }} \
-        errors="0" \
-        summary="All tests: $total_tests. Passed: $passed_tests. Failed: $failed_tests." \
-        badge_message="Passed $passed_tests out of $total_tests." \
-        badge_color="brightgreen"
-        if [ "$failed_tests" -gt 0 ]; then
-          badge_color="red"
-        fi \
-
-        to_json \
-          summary \
-          errors total_tests passed_tests failed_tests \
-          badge_label badge_color badge_message \
-        > sitrep.json
-
-        schemaVersion=1 \
-        label="${badge_label}" \
-        message="Passed $passed_tests out of $total_tests." \
-        color=$badge_color \
-        to_json schemaVersion label message color \
-        > badge-axlearn-test.json
-
-    - name: Upload artifacts
-      if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v6
-      with:
-        name: "artifact-axlearn-test"
-        path: |
-          sitrep.json
-          badge-axlearn-test.json
-          axlearn-unittests.jsonl
-          axlearn-output/*
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: axlearn-unit
+          NUM_GPUS: 8
+          IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            pip install pytest-reportlog pytest-xdist;
+            LOG_DIR=/opt/output;
+            mkdir -p \${LOG_DIR};
+            pytest-xdist.sh 8 4 \${LOG_DIR}/axlearn-unittests.jsonl test-axlearn.sh --directory . --output \${LOG_DIR} --test-files '/opt/axlearn/axlearn/common/*_test.py'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            summary_file=\${JOBSET_NAME}/logs/summary.txt;
+            NUM_ERRORS=0;
+            NUM_PASSED=\$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' \${summary_file} | grep -Eo '[0-9]+' || echo 0);
+            NUM_FAILED=\$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' \${summary_file} | grep -Eo '[0-9]+' || echo 0);
+            NUM_SKIPPED=\$(grep -Eo 'SKIPPED:[[:space:]]*[0-9]+' \${summary_file} | grep -Eo '[0-9]+' || echo 0);
+            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED + NUM_SKIPPED));
 
   test-axlearn-fuji-models-eks:
     needs: build-axlearn
@@ -709,35 +637,25 @@ jobs:
         inputs.MODE == 'axlearn'
       )
     runs-on: eks
-    env:
-      AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: axlearn-fuji-3b-${{ github.run_id }}
     steps:
-    - name: Check out the repository
-      uses: actions/checkout@v6
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-    - name: Configure axlearn test job
-      run: |
-        yq -i ea '
-           select(di == 0).metadata.name = strenv(JOB_NAME)
-          | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
-          | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
-        .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
-        git diff .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
-
-    - name: Submit & delete axlearn fuji model test
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
-        job-name: ${{ env.JOB_NAME }}
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: axlearn-fuji-3b
+          NUM_GPUS: 8
+          IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+          ENVS: |
+            OFI_NCCL_PROTOCOL=SENDRECV
+          COMMAND: |
+            CONFIG=fuji-3B-v3-flash;
+            LOG_DIR=/opt/output;
+            TRAINER_DIR=\${LOG_DIR}/\${CONFIG}-eks/trainer-dir;
+            mkdir -p \${TRAINER_DIR};
+            OUTPUT_LOG_FILE=\${TRAINER_DIR}/output.log;
+            python3 /usr/local/bin/fuji-train-perf.py --module=text.gpt.c4_trainer --config=\${CONFIG} --jax_backend=gpu --trainer_dir=\${TRAINER_DIR} --data_dir=gs://axlearn-public/tensorflow_datasets --ici_fsdp=8 --dcn_dp=1 --gbs=16 --ga=1 --seq_len=4096 --max_step=301 --save_checkpoint_steps=100 --write_summary_steps=100 --output_log_file=\${OUTPUT_LOG_FILE} --world_size=8
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
   test-alphafold-inference:
     needs: build-alphafold
