@@ -499,7 +499,7 @@ jobs:
             NGPUS=\$(nvidia-smi --list-gpus | wc -l);
             nvidia-cuda-mps-control -d;
 
-            for f in /cutlass/examples/python/CuTeDSL/jax/*.py; do
+            for f in /cutlass/examples/python/CuTeDSL/dsl_tutorials/jax/*.py; do
               echo \"[Executing] \${f}\";
               log_output=\$(python \${f} 2>&1);
               exit_code=\${?};
