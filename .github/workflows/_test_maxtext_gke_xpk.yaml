@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - test: maxtext-gke
+          - test: maxtext-dot-product-gke
             nodes: 2
             gpus: 8
             model: llama2-7b
@@ -26,7 +26,7 @@ jobs:
             tensor-parallel: 4
             attention: dot_product
             remat-policy: minimal_with_context
-          - test: maxtext-te-flash-gke
+          - test: maxtext-cudnn-flash-te-gke
             nodes: 2
             gpus: 8
             model: llama2-7b
@@ -34,7 +34,7 @@ jobs:
             data-parallel: 1
             fsdp: 2
             tensor-parallel: 4
-            attention: cudnn_te_flash
+            attention: cudnn_flash_te
             remat-policy: minimal_with_context
 
     steps:
@@ -46,6 +46,7 @@ jobs:
         IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
         NAME: ${{ matrix.test }}
         COMMAND: |
+          source \${NCCL_LIB_DIR}/nccl-env-profile.sh;
           nsys-jax --capture-range=cudaProfilerApi \
                    --capture-range-end=stop \
                    -o /opt/output/profile.zip \
