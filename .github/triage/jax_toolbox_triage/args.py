@@ -100,13 +100,30 @@ def parse_args(args=None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-prefix",
-        default=datetime.datetime.now().strftime("triage-%Y-%m-%d-%H-%M-%S"),
+        default=None,
         help="""
             Prefix for output log and JSON files. Default: triage-YYYY-MM-DD-HH-MM-SS.
             An INFO-and-above log is written as PREFIX.log, a DEBUG-and-above log is
             written as PREFIX-debug.log, and a JSON summary is written as
             PREFIX-summary.json""",
         type=pathlib.Path,
+    )
+    parser.add_argument(
+        "--restart",
+        action="store_true",
+        help="""
+            Restart a previous triage run by loading completed records from
+            --restart-folder/summary.json. The summary file is the source of truth;
+            incomplete output directories without summary records are ignored.
+        """,
+    )
+    parser.add_argument(
+        "--restart-folder",
+        type=pathlib.Path,
+        help="""
+            Output folder from a previous triage run. Must contain summary.json and is
+            used as --output-prefix during --restart.
+        """,
     )
     parser.add_argument(
         "--skip-precondition-checks",
@@ -308,6 +325,31 @@ def parse_args(args=None) -> argparse.Namespace:
         help="The name of the main branch (e.g. main) to derive cherry-picks from",
     )
     args = parser.parse_args(args=args)
+    if args.restart:
+        if args.restart_folder is None:
+            raise Exception("--restart requires --restart-folder")
+        args.restart_folder = args.restart_folder.resolve()
+        summary_file = args.restart_folder / "summary.json"
+        if not summary_file.exists():
+            raise Exception(
+                f"--restart-folder must contain summary.json: {summary_file}"
+            )
+        if (
+            args.output_prefix is not None
+            and args.output_prefix.resolve() != args.restart_folder
+        ):
+            raise Exception(
+                "--output-prefix must match --restart-folder when restarting"
+            )
+        args.output_prefix = args.restart_folder
+    else:
+        if args.restart_folder is not None:
+            raise Exception("--restart-folder requires --restart")
+        if args.output_prefix is None:
+            args.output_prefix = pathlib.Path(
+                datetime.datetime.now().strftime("triage-%Y-%m-%d-%H-%M-%S")
+            )
+
     assert args.container_runtime in {
         "docker",
         "pyxis",
@@ -348,9 +390,7 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), (
-            "For local runtime, --passing-versions and --failing-versions must be provided."
-        )
+        ), "For local runtime, --passing-versions and --failing-versions must be provided."
         assert (
             args.container is None
             and args.start_date is None
@@ -395,9 +435,9 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert args.container is not None, (
-            "--container must be passed for the container-level search"
-        )
+        assert (
+            args.container is not None
+        ), "--container must be passed for the container-level search"
 
     args.optional_software = optional_software.copy()
     if args.exclude_transformer_engine:

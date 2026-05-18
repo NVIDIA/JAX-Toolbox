@@ -321,6 +321,17 @@ def _strip_build_failures(versions: typing.Dict[str, str]) -> typing.Dict[str, s
 _REPETITION_KEY = "#rep"
 
 
+def version_cache_key(
+    versions: typing.Dict[str, str],
+    *,
+    repetition: int = 0,
+) -> FlatVersionDict:
+    return tuple(
+        sorted(_strip_build_failures(versions).items())
+        + [(_REPETITION_KEY, str(repetition))]
+    )
+
+
 def _version_search(
     *,
     versions: typing.OrderedDict[
@@ -330,6 +341,7 @@ def _version_search(
     logger: logging.Logger,
     skip_precondition_checks: bool,
     result_cache: typing.Dict[FlatVersionDict, TestResult],
+    preloaded_cache_keys: typing.Set[FlatVersionDict],
     confirmation_iterations: int,
     check_success_before_failure: bool = True,
 ) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
@@ -342,16 +354,6 @@ def _version_search(
         versions,
     )
 
-    def _cache_key(
-        versions: typing.Dict[str, str],
-        *,
-        repetition: int = 0,
-    ) -> FlatVersionDict:
-        return tuple(
-            sorted(_strip_build_failures(versions).items())
-            + [(_REPETITION_KEY, str(repetition))]
-        )
-
     def build_cached(
         bisect_versions,
         *,
@@ -359,11 +361,12 @@ def _version_search(
         test_output_log_level: int = logging.DEBUG,
         repetition: int = 0,
     ):
-        cache_key = _cache_key(bisect_versions, repetition=repetition)
+        cache_key = version_cache_key(bisect_versions, repetition=repetition)
         bisect_result = result_cache.get(cache_key)
         if bisect_result is not None:
-            if assert_miss:
+            if assert_miss and cache_key not in preloaded_cache_keys:
                 raise Exception("Unexpected cache hit!")
+            logger.info(f"Reusing cached result for {dict(cache_key)}")
             return bisect_result
         bisect_result = build_and_test(
             versions=_strip_build_failures(bisect_versions),
@@ -477,20 +480,20 @@ def _version_search(
         # succeeds so we can do the same. The somewhat arbitrary logic here is to take
         # the shorter y??????n run and refine it in the hope one of the ? is a y.
         assert (
-            result_cache.get(_cache_key(_earliest_versions(versions))).result
+            result_cache.get(version_cache_key(_earliest_versions(versions))).result
             == TestExecutionOutcome.TEST_SUCCESS
         )
         build_statuses = [(True, {p: 0 for p in versions})]
         for n in range(1, len(versions[primary]) - 1):
             versions_n, indices_n = get_versions(primary_index=n, versions=versions)
-            result_n = result_cache.get(_cache_key(versions_n))
+            result_n = result_cache.get(version_cache_key(versions_n))
             assert (
                 result_n is None
                 or result_n.result == TestExecutionOutcome.BUILD_FAILURE
             )
             build_statuses.append((None if result_n is None else False, indices_n))
         assert (
-            result_cache.get(_cache_key(_latest_versions(versions))).result
+            result_cache.get(version_cache_key(_latest_versions(versions))).result
             == TestExecutionOutcome.TEST_FAILURE
         )
         build_statuses.append((True, {p: len(vs) - 1 for p, vs in versions.items()}))
@@ -565,9 +568,9 @@ def _version_search(
             for package, index in indices.items():
                 versions[package] = versions[package][: index + 1]
         else:
-            assert bisect_result.result == TestExecutionOutcome.BUILD_FAILURE, (
-                bisect_result
-            )
+            assert (
+                bisect_result.result == TestExecutionOutcome.BUILD_FAILURE
+            ), bisect_result
             # Did not succeed in finding a version of `primary` that builds. This does
             # not quite mean that all versions fail, as the algorithm will not try all
             # versions in ranges with failures at both ends
@@ -586,11 +589,11 @@ def _version_search(
             for n in range(1, n_primary - 1):
                 versions_n, _ = get_versions(primary_index=n, versions=versions)
                 # Should have been a build failure if tested.
-                result_n = result_cache.get(_cache_key(versions_n))
+                result_n = result_cache.get(version_cache_key(versions_n))
                 if result_n is not None:
-                    assert result_n.result == TestExecutionOutcome.BUILD_FAILURE, (
-                        result_n
-                    )
+                    assert (
+                        result_n.result == TestExecutionOutcome.BUILD_FAILURE
+                    ), result_n
                 build_fail_commits.append(versions_n[primary])
             logger.warning(
                 f"Could not triage {primary} to a single version due to build "
@@ -648,7 +651,7 @@ def _version_search(
         # `blame` represents the last-known-good test result, first-known-bad was seen
         # earlier, or possibly not at all e.g. if `skip_precondition_checks` is True
         # and first-known-bad was the end of the search range.
-        first_known_bad_result = result_cache.get(_cache_key(first_known_bad))
+        first_known_bad_result = result_cache.get(version_cache_key(first_known_bad))
         if first_known_bad_result is None:
             if skip_precondition_checks:
                 logger.info(
@@ -687,6 +690,7 @@ def _version_search(
             logger=logger,
             skip_precondition_checks=True,
             result_cache=result_cache,
+            preloaded_cache_keys=preloaded_cache_keys,
             confirmation_iterations=confirmation_iterations,
         )
 
@@ -701,6 +705,8 @@ def version_search(
     skip_precondition_checks: bool,
     check_success_before_failure: bool = True,
     confirmation_iterations: int = 1,
+    result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
+    preloaded_cache_keys: typing.Optional[typing.Set[FlatVersionDict]] = None,
 ) -> typing.Tuple[
     typing.Dict[str, str],
     TestResult,
@@ -728,6 +734,10 @@ def version_search(
     False, but the other fields can be used to obtain stdout+stderr and
     output files from those test invocations.
     """
+    if result_cache is None:
+        result_cache = {}
+    if preloaded_cache_keys is None:
+        preloaded_cache_keys = set(result_cache.keys())
     return _version_search(
         versions=versions,
         build_and_test=build_and_test,
@@ -735,5 +745,6 @@ def version_search(
         skip_precondition_checks=skip_precondition_checks,
         check_success_before_failure=check_success_before_failure,
         confirmation_iterations=confirmation_iterations,
-        result_cache={},
+        result_cache=result_cache,
+        preloaded_cache_keys=preloaded_cache_keys,
     )
