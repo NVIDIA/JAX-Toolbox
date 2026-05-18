@@ -3,7 +3,6 @@ import datetime
 import getpass
 import os
 import pathlib
-import sys
 import tempfile
 import typing
 import warnings
@@ -54,11 +53,6 @@ def parse_override_remotes(s: str) -> typing.Dict[str, str]:
 
 
 def parse_args(args=None) -> argparse.Namespace:
-    raw_args = sys.argv[1:] if args is None else args
-    output_prefix_supplied = any(
-        arg == "--output-prefix" or arg.startswith("--output-prefix=")
-        for arg in raw_args
-    )
     parser = argparse.ArgumentParser(
         description="""
             Triage failures in JAX/XLA-related tests. The expectation is that the given
@@ -341,8 +335,7 @@ def parse_args(args=None) -> argparse.Namespace:
                 f"--restart-folder must contain summary.json: {summary_file}"
             )
         if (
-            output_prefix_supplied
-            and args.output_prefix is not None
+            args.output_prefix is not None
             and args.output_prefix.resolve() != args.restart_folder
         ):
             raise Exception(
