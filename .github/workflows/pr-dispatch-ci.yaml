@@ -1,0 +1,43 @@
+name: Dispatch CI For PR
+
+# Given
+# https://docs.gha-runners.nvidia.com/platform/onboarding/pull-request-testing/
+# this is a dispatch for PRs
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+
+jobs:
+  dispatch:
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository under ${GITHUB_WORKSPACE}
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Trigger CI workflow on PR branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          gh workflow run ci.yaml \
+            --ref "${PR_BRANCH}" \
+            -f PUBLISH=false \
+            -f BUMP_MANIFEST=true \
+            -f MERGE_BUMPED_MANIFEST=false \
+            -f CUDA_IMAGE=latest \
+            -f SOURCE_OVERRIDES= \
+            -f MODE=full \
+            -f SCALE_TRAINING=false
