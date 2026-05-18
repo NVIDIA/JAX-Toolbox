@@ -8,7 +8,7 @@ on:
       timezone: "Europe/London"
   push:
     branches:
-      - main
+      - 'pull-request/[0-9]+'
     paths-ignore:
       - '**.md'
       - '.github/triage/**'
