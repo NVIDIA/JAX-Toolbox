@@ -645,8 +645,6 @@ jobs:
           NAME: axlearn-fuji-3b
           NUM_GPUS: 8
           IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-          ENVS: |
-            OFI_NCCL_PROTOCOL=SENDRECV
           COMMAND: |
             CONFIG=fuji-3B-v3-flash;
             LOG_DIR=/opt/output;
