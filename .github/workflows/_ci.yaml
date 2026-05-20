@@ -546,8 +546,6 @@ jobs:
             data-parallel: 4
             fsdp: 2
             tensor-parallel: 2
-            envs: |-
-              OFI_NCCL_PROTOCOL=SENDRECV
     runs-on: eks
     steps:
       - uses: actions/checkout@v4
