@@ -109,20 +109,12 @@ def parse_args(args=None) -> argparse.Namespace:
         type=pathlib.Path,
     )
     parser.add_argument(
-        "--restart",
-        action="store_true",
-        help="""
-            Restart a previous triage run by loading completed records from
-            --restart-folder/summary.json. The summary file is the source of truth;
-            incomplete output directories without summary records are ignored.
-        """,
-    )
-    parser.add_argument(
         "--restart-folder",
         type=pathlib.Path,
         help="""
-            Output folder from a previous triage run. Must contain summary.json and is
-            used as --output-prefix during --restart.
+            Restart a previous triage run from this output folder. The folder must
+            contain summary.json, which is used as the source of truth for completed
+            records. Incomplete output directories without summary records are ignored.
         """,
     )
     parser.add_argument(
@@ -325,9 +317,7 @@ def parse_args(args=None) -> argparse.Namespace:
         help="The name of the main branch (e.g. main) to derive cherry-picks from",
     )
     args = parser.parse_args(args=args)
-    if args.restart:
-        if args.restart_folder is None:
-            raise Exception("--restart requires --restart-folder")
+    if args.restart_folder is not None:
         args.restart_folder = args.restart_folder.resolve()
         summary_file = args.restart_folder / "summary.json"
         if not summary_file.exists():
@@ -343,8 +333,6 @@ def parse_args(args=None) -> argparse.Namespace:
             )
         args.output_prefix = args.restart_folder
     else:
-        if args.restart_folder is not None:
-            raise Exception("--restart-folder requires --restart")
         if args.output_prefix is None:
             args.output_prefix = pathlib.Path(
                 datetime.datetime.now().strftime("triage-%Y-%m-%d-%H-%M-%S")

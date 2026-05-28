@@ -29,9 +29,6 @@ def get_logger(output_prefix: pathlib.Path, append: bool = False) -> logging.Log
     output_prefix.mkdir(exist_ok=append)
     logger = logging.getLogger("triage")
     logger.setLevel(logging.DEBUG)
-    for handler in logger.handlers:
-        handler.close()
-    logger.handlers.clear()
     formatter = logging.Formatter(
         fmt="[%(levelname)s] %(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )

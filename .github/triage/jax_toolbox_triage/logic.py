@@ -341,7 +341,6 @@ def _version_search(
     logger: logging.Logger,
     skip_precondition_checks: bool,
     result_cache: typing.Dict[FlatVersionDict, TestResult],
-    preloaded_cache_keys: typing.Set[FlatVersionDict],
     confirmation_iterations: int,
     check_success_before_failure: bool = True,
 ) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
@@ -357,15 +356,12 @@ def _version_search(
     def build_cached(
         bisect_versions,
         *,
-        assert_miss: bool = False,
         test_output_log_level: int = logging.DEBUG,
         repetition: int = 0,
     ):
         cache_key = version_cache_key(bisect_versions, repetition=repetition)
         bisect_result = result_cache.get(cache_key)
         if bisect_result is not None:
-            if assert_miss and cache_key not in preloaded_cache_keys:
-                raise Exception("Unexpected cache hit!")
             logger.info(f"Reusing cached result for {dict(cache_key)}")
             return bisect_result
         bisect_result = build_and_test(
@@ -384,7 +380,6 @@ def _version_search(
         for n in range(confirmation_iterations + 1):
             check_pass = build_cached(
                 _earliest_versions(versions),
-                assert_miss=True,
                 repetition=-n,
             )
             if check_pass.result == TestExecutionOutcome.TEST_SUCCESS:
@@ -406,7 +401,6 @@ def _version_search(
         for n in range(confirmation_iterations + 1):
             check_fail = build_cached(
                 _latest_versions(versions),
-                assert_miss=True,
                 repetition=-n,
                 test_output_log_level=logging.INFO if n == 0 else logging.DEBUG,
             )
@@ -668,13 +662,9 @@ def _version_search(
         # `blame_versions` are last-known-good, `first_known_bad` are what they say.
         # We just tested `blame_versions`, so start with `first_known_bad`.
         for n in range(confirmation_iterations):
-            confirm_bad = build_cached(
-                first_known_bad, assert_miss=True, repetition=n + 1
-            )
+            confirm_bad = build_cached(first_known_bad, repetition=n + 1)
             assert confirm_bad.result == TestExecutionOutcome.TEST_FAILURE
-            confirm_good = build_cached(
-                blame_versions, assert_miss=True, repetition=n + 1
-            )
+            confirm_good = build_cached(blame_versions, repetition=n + 1)
             assert confirm_good.result == TestExecutionOutcome.TEST_SUCCESS
         return ret, blame, first_known_bad_result
     else:
@@ -690,7 +680,6 @@ def _version_search(
             logger=logger,
             skip_precondition_checks=True,
             result_cache=result_cache,
-            preloaded_cache_keys=preloaded_cache_keys,
             confirmation_iterations=confirmation_iterations,
         )
 
@@ -705,8 +694,7 @@ def version_search(
     skip_precondition_checks: bool,
     check_success_before_failure: bool = True,
     confirmation_iterations: int = 1,
-    result_cache: typing.Dict[FlatVersionDict, TestResult] = {},
-    preloaded_cache_keys: typing.Optional[typing.Set[FlatVersionDict]] = None,
+    result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
 ) -> typing.Tuple[
     typing.Dict[str, str],
     TestResult,
@@ -736,8 +724,6 @@ def version_search(
     """
     if result_cache is None:
         result_cache = {}
-    if preloaded_cache_keys is None:
-        preloaded_cache_keys = set(result_cache.keys())
     return _version_search(
         versions=versions,
         build_and_test=build_and_test,
@@ -746,5 +732,4 @@ def version_search(
         check_success_before_failure=check_success_before_failure,
         confirmation_iterations=confirmation_iterations,
         result_cache=result_cache,
-        preloaded_cache_keys=preloaded_cache_keys,
     )

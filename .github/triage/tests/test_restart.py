@@ -8,10 +8,13 @@ import pytest
 from jax_toolbox_triage.args import parse_args
 from jax_toolbox_triage.logic import (
     TestExecutionOutcome,
-    TestResult,
     version_search,
 )
-from jax_toolbox_triage.summary import version_result_cache_from_summary
+from jax_toolbox_triage.summary import (
+    CONTAINER_CACHE_SECTION,
+    result_cache_from_summary,
+    VERSION_CACHE_SECTION,
+)
 from jax_toolbox_triage.triage_tool import TriageTool
 
 
@@ -33,33 +36,10 @@ def make_commits():
     )
 
 
-def make_result(output_directory, outcome):
-    return TestResult(
-        build_stdouterr=None,
-        host_output_directory=output_directory,
-        result=outcome,
-        stdouterr=None,
-    )
-
-
-def test_restart_requires_summary_json(tmp_path):
-    with pytest.raises(Exception, match="--restart requires --restart-folder"):
-        parse_args(
-            [
-                "--restart",
-                "--container-runtime=local",
-                "--passing-versions",
-                "jax:jax-good,xla:xla-good",
-                "--failing-versions",
-                "jax:jax-bad,xla:xla-good",
-                "test-command",
-            ]
-        )
-
+def test_restart_folder_requires_summary_json(tmp_path):
     with pytest.raises(Exception, match="summary.json"):
         parse_args(
             [
-                "--restart",
                 "--restart-folder",
                 str(tmp_path),
                 "--container-runtime=local",
@@ -77,7 +57,6 @@ def test_restart_uses_restart_folder_as_output_prefix(tmp_path):
 
     args = parse_args(
         [
-            "--restart",
             "--restart-folder",
             str(tmp_path),
             "--container-runtime=local",
@@ -116,7 +95,12 @@ def test_version_search_reuses_preloaded_restart_cache(tmp_path):
         ]
     }
     (tmp_path / "summary.json").write_text(json.dumps(summary))
-    result_cache = version_result_cache_from_summary(tmp_path, make_commits().keys())
+    summary_cache = result_cache_from_summary(tmp_path, make_commits().keys())
+    result_cache = {
+        key: result
+        for (section, key), result in summary_cache.items()
+        if section == VERSION_CACHE_SECTION
+    }
 
     def build_and_test(**kwargs):
         raise AssertionError(f"Unexpected build/test during restart: {kwargs}")
@@ -139,11 +123,31 @@ def test_version_search_reuses_preloaded_restart_cache(tmp_path):
     assert first_known_bad.result == TestExecutionOutcome.TEST_FAILURE
 
 
+def test_summary_cache_loads_container_records(tmp_path):
+    out_dir = tmp_path / "container-output"
+    out_dir.mkdir()
+    summary = {
+        "container": [
+            {
+                "container": "container-url",
+                "output_directory": str(out_dir),
+                "result": True,
+            }
+        ]
+    }
+    (tmp_path / "summary.json").write_text(json.dumps(summary))
+
+    summary_cache = result_cache_from_summary(tmp_path)
+
+    cached_result = summary_cache[(CONTAINER_CACHE_SECTION, "container-url")]
+    assert cached_result.result == TestExecutionOutcome.TEST_SUCCESS
+    assert cached_result.host_output_directory == out_dir
+
+
 def test_restart_suffixed_stale_output_directory(tmp_path):
     (tmp_path / "summary.json").write_text("{}")
     args = parse_args(
         [
-            "--restart",
             "--restart-folder",
             str(tmp_path),
             "--container-runtime=local",
@@ -189,7 +193,6 @@ def test_triage_tool_loads_restart_cache(tmp_path):
     (tmp_path / "summary.json").write_text(json.dumps(summary))
     args = parse_args(
         [
-            "--restart",
             "--restart-folder",
             str(tmp_path),
             "--container-runtime=local",

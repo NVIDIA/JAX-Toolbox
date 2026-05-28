@@ -20,10 +20,11 @@ from .logic import (
 from .versions import get_versions_dirs_env
 from .summary import (
     add_summary_record,
-    container_result_cache_from_summary,
+    CONTAINER_CACHE_SECTION,
     create_output_symlinks,
     load_summary,
-    version_result_cache_from_summary,
+    result_cache_from_summary,
+    VERSION_CACHE_SECTION,
 )
 from .bisect import get_commit_history
 from .utils import (
@@ -58,13 +59,13 @@ class TriageTool:
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
         self.check_success_before_failure = True
         self.restart_summary = (
-            load_summary(self.args.restart_folder) if args.restart else {}
+            load_summary(self.args.restart_folder) if args.restart_folder else {}
         )
-        self.container_result_cache = (
-            container_result_cache_from_summary(
-                self.args.restart_folder, self.restart_summary
+        self.restart_cache = (
+            result_cache_from_summary(
+                self.args.restart_folder, summary=self.restart_summary
             )
-            if args.restart
+            if args.restart_folder
             else {}
         )
 
@@ -96,7 +97,7 @@ class TriageTool:
         )
 
         out_dir = self.args.output_prefix / out_dirname
-        if out_dir.exists() and self.args.restart:
+        if out_dir.exists() and self.args.restart_folder is not None:
             base_out_dir = out_dir
             n = 1
             while out_dir.exists():
@@ -274,7 +275,7 @@ class TriageTool:
             TestResult: The result of the test, including whether it passed and the output.
         """
         before = time.monotonic()
-        cached_result = self.container_result_cache.get(container_url)
+        cached_result = self.restart_cache.get((CONTAINER_CACHE_SECTION, container_url))
         if cached_result is not None:
             self.logger.info(f"Reusing cached container result for {container_url}")
             return cached_result
@@ -714,14 +715,19 @@ class TriageTool:
         # Run the version-level bisection
         self.logger.info("Running version-level bisection...")
         result_cache = {}
-        preloaded_cache_keys = set()
-        if self.args.restart:
-            result_cache = version_result_cache_from_summary(
-                self.args.restart_folder,
-                package_versions.keys(),
-                self.restart_summary,
+        if self.args.restart_folder is not None:
+            self.restart_cache.update(
+                result_cache_from_summary(
+                    self.args.restart_folder,
+                    package_versions.keys(),
+                    self.restart_summary,
+                )
             )
-            preloaded_cache_keys = set(result_cache.keys())
+            result_cache = {
+                key: result
+                for (section, key), result in self.restart_cache.items()
+                if section == VERSION_CACHE_SECTION
+            }
             self.logger.info(
                 f"Loaded {len(result_cache)} completed version-level result(s) "
                 f"from {self.args.restart_folder / 'summary.json'}"
@@ -735,7 +741,6 @@ class TriageTool:
                 check_success_before_failure=self.check_success_before_failure,
                 confirmation_iterations=self.args.confirmation_iterations,
                 result_cache=result_cache,
-                preloaded_cache_keys=preloaded_cache_keys,
             )
         except CouldNotReproduceFailure as e:
             if (
