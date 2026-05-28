@@ -705,7 +705,7 @@ def version_search(
     skip_precondition_checks: bool,
     check_success_before_failure: bool = True,
     confirmation_iterations: int = 1,
-    result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
+    result_cache: typing.Dict[FlatVersionDict, TestResult] = {},
     preloaded_cache_keys: typing.Optional[typing.Set[FlatVersionDict]] = None,
 ) -> typing.Tuple[
     typing.Dict[str, str],
