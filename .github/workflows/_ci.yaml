@@ -402,7 +402,6 @@ jobs:
             test-jax.sh -b ${{ matrix.test }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
           STATISTICS_SCRIPT: |
             NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
             NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
@@ -447,7 +446,6 @@ jobs:
             pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh | tee /opt/output/pytest.log
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
           STATISTICS_SCRIPT: |
             report_json=\${JOBSET_NAME}/pytest-report.jsonl;
             summary_line=\$(tail -n1 \${JOBSET_NAME}/pytest.log);
@@ -486,7 +484,6 @@ jobs:
             pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\" | tee /opt/output/pytest.log
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
           STATISTICS_SCRIPT: |
             report_json=\${JOBSET_NAME}/pytest-report.jsonl;
             summary_line=\$(tail -n1 \${JOBSET_NAME}/pytest.log);
@@ -566,7 +563,6 @@ jobs:
               --gpus-per-process=${{ matrix.gpus }} \
               --process-count=${{ matrix.nodes }} \
               --process-id=\${NODE_RANK}
-          STATISTICS: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
@@ -617,7 +613,6 @@ jobs:
 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
           STATISTICS_SCRIPT: |
             NUM_ERRORS=0;
             NUM_PASSED=\$(cat \${JOBSET_NAME}/pytest-report.jsonl | jq --slurp | jq '.[] | select(.outcome == \"passed\") | .outcome' | wc -l || true);
@@ -685,7 +680,6 @@ jobs:
                   use_iota_embed=true
                   logits_dot_in_fp32=false
                   max_segments_per_seq=32'
-          STATISTICS: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
