@@ -597,7 +597,7 @@ jobs:
             NGPUS=\$(nvidia-smi --list-gpus | wc -l);
             nvidia-cuda-mps-control -d;
 
-            any_failed=0
+            any_failed=0;
             for f in /cutlass/examples/python/CuTeDSL/dsl_tutorials/jax/*.py; do
               echo \"[Executing] \${f}\";
               log_output=\$(python \${f} 2>&1);
@@ -608,7 +608,7 @@ jobs:
               echo \"=== \${f} ===\" | tee -a /opt/output/pytest_stdout.log;
               echo \"\${log_output}\" | tee -a /opt/output/pytest_stdout.log;
               python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \"\${outcome}\" \"\${f}\" \"\${log_output}\" >> /opt/output/pytest-report.jsonl;
-            done
+            done;
             if [[ \"\${any_failed}\" -ne 0 ]]; then false; else true; fi
 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
