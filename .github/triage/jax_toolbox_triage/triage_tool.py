@@ -394,8 +394,19 @@ class TriageTool:
                 # If the existing version is the desired one, do nothing.
                 skipped.append(f"{package}@{version}")
                 continue
-            # Cache which version is now going to be checked out in the container
-            self.bisection_versions[package] = version
+            # We used to update bisection_versions here, which used to work with the
+            # pyxis backend because it used to be the case that:
+            #
+            # with make_container(blah) as worker:
+            #   worker.exec(echo foo > /bar)
+            # with make_container(blah) as worker:
+            #   worker.exec(cat /bar) # prints foo
+            #
+            # but now each new context manager is a fresh instance of `blah`, which was
+            # how the docker backend already worked. This is also how the intended
+            # build-a-container-and-push-it-to-registry-before-pulling-it-when-testing
+            # backend will want to work. It does mean that e.g. bazel repository caching
+            # does not work as well as it otherwise would out of the box.
             changed.append(f"{package}@{version}")
             if package in self.package_dirs:
                 git_commands.append(

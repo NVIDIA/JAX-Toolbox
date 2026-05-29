@@ -21,16 +21,13 @@ procs_per_node = int(os.environ["JAX_TOOLBOX_TRIAGE_MOCK_SRUN_PROCS_PER_NODE"])
 if args.ntasks_per_node is not None:
     procs_per_node = args.ntasks_per_node
 procs = []
-if num_nodes > 1:
-    # Make node-local copies
-    for node in range(num_nodes):
-        node_prefix = f"{args.container_image}-node{node}of{num_nodes}"
-        if not os.path.isdir(node_prefix):
-            shutil.copytree(args.container_image, node_prefix)
-        procs += [node_prefix] * procs_per_node
-else:
-    # Use the original
-    procs += [args.container_image] * procs_per_node
+# Always copy to make sure instances with different names are independent. Also make
+# sure that instances on different nodes are independent.
+for node in range(num_nodes):
+    node_prefix = f"{args.container_image}-{args.container_name}-node{node}of{num_nodes}"
+    if not os.path.isdir(node_prefix):
+        shutil.copytree(args.container_image, node_prefix)
+    procs += [node_prefix] * procs_per_node
 if args.ntasks is not None:
     procs = procs[: args.ntasks]
 
