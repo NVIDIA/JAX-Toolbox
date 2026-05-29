@@ -48,7 +48,7 @@ RUN <<"EOF" bash -ex
   # Add packages missing from pyproject.toml
 cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
 tf-nightly
-tf-text-nightly
+tensorflow-text-nightly
 tensorflow-metadata
 pyarrow
 tensorstore
