@@ -23,7 +23,7 @@ dependencies = [
   "numpy",
   "packaging",
   "protobuf>=6.31.1,<7",
-  "vllm>=0.14.1,<0.15",
+  "vllm>=0.21.0",
 ]
 
 [project.optional-dependencies]
