@@ -592,20 +592,23 @@ jobs:
           IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           COMMAND: |
             pip install pytest-reportlog pytest-xdist flatbuffers;
-            CUTEDSL_VERSION=\$(python -c 'import cutlass; print(cutlass.__version__);');
-            git clone -b v\${CUTEDSL_VERSION} --single-branch --depth 1 https://github.com/NVIDIA/cutlass.git /cutlass;
-            NGPUS=\$(nvidia-smi --list-gpus | wc -l);
+            git clone -b main --single-branch --depth 1 https://github.com/NVIDIA/cutlass.git /cutlass;
             nvidia-cuda-mps-control -d;
 
-            for f in /cutlass/examples/python/CuTeDSL/jax/*.py; do
+            any_failed=0;
+            for f in /cutlass/examples/python/CuTeDSL/dsl_tutorials/jax/*.py; do
               echo \"[Executing] \${f}\";
               log_output=\$(python \${f} 2>&1);
               exit_code=\${?};
+              if [[ "\${exit_code}" -ne 0 ]]; then any_failed=1; fi;
+
               outcome=\$( [ \${exit_code} -eq 0 ] && echo \"passed\" || echo \"failed\" );
               echo \"=== \${f} ===\" | tee -a /opt/output/pytest_stdout.log;
               echo \"\${log_output}\" | tee -a /opt/output/pytest_stdout.log;
               python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \"\${outcome}\" \"\${f}\" \"\${log_output}\" >> /opt/output/pytest-report.jsonl;
-            done
+            done;
+            if [[ \"\${any_failed}\" -ne 0 ]]; then false; else true; fi
+
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS_SCRIPT: |
