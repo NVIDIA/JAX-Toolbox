@@ -47,7 +47,7 @@ RUN --mount=type=ssh \
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
-ADD build-jax.sh build-te.sh local_cuda_arch /usr/local/bin/
+ADD build-jax.sh build-te.sh local_cuda_arch cudnn_frontend.patch /usr/local/bin/
 # Install bazelisk
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
@@ -70,6 +70,7 @@ RUN mkdir -p /builder/extra-targets/{bin,python} && \
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
+RUN pushd ${SRC_PATH_TRANSFORMER_ENGINE}/3rdparty/cudnn-frontend && git apply /usr/local/bin/cudnn_frontend.patch && popd
 # Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
 # because (a) this is the builder stage, and (b) pip-finalize.sh does the install
 RUN build-te.sh \
