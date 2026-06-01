@@ -109,12 +109,13 @@ def parse_args(args=None) -> argparse.Namespace:
         type=pathlib.Path,
     )
     parser.add_argument(
-        "--restart-folder",
-        type=pathlib.Path,
+        "--restart",
+        action="store_true",
         help="""
-            Restart a previous triage run from this output folder. The folder must
-            contain summary.json, which is used as the source of truth for completed
-            records. Incomplete output directories without summary records are ignored.
+            Restart a previous triage run from --output-prefix. The output directory
+            must contain summary.json, which is used as the source of truth for
+            completed records. Incomplete output directories without summary records
+            are ignored.
         """,
     )
     parser.add_argument(
@@ -317,21 +318,15 @@ def parse_args(args=None) -> argparse.Namespace:
         help="The name of the main branch (e.g. main) to derive cherry-picks from",
     )
     args = parser.parse_args(args=args)
-    if args.restart_folder is not None:
-        args.restart_folder = args.restart_folder.resolve()
-        summary_file = args.restart_folder / "summary.json"
+    if args.restart:
+        if args.output_prefix is None:
+            raise Exception("--restart requires --output-prefix")
+        args.output_prefix = args.output_prefix.resolve()
+        summary_file = args.output_prefix / "summary.json"
         if not summary_file.exists():
             raise Exception(
-                f"--restart-folder must contain summary.json: {summary_file}"
+                f"--output-prefix must contain summary.json: {summary_file}"
             )
-        if (
-            args.output_prefix is not None
-            and args.output_prefix.resolve() != args.restart_folder
-        ):
-            raise Exception(
-                "--output-prefix must match --restart-folder when restarting"
-            )
-        args.output_prefix = args.restart_folder
     else:
         if args.output_prefix is None:
             args.output_prefix = pathlib.Path(

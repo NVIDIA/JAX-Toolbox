@@ -332,7 +332,7 @@ def version_cache_key(
     )
 
 
-def _version_search(
+def version_search(
     *,
     versions: typing.OrderedDict[
         str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
@@ -340,10 +340,36 @@ def _version_search(
     build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
-    result_cache: typing.Dict[FlatVersionDict, TestResult],
-    confirmation_iterations: int,
     check_success_before_failure: bool = True,
+    confirmation_iterations: int = 1,
+    result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
 ) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
+    """
+    Bisect a failure back to a single version of a single component.
+
+    Arguments:
+    versions: *ordered* dictionary of version sequences for different software
+        packages, e.g. versions["jax"][0] is (commit_hash, date) of the passing JAX
+        version. The ordering of packages has implications for precisely how
+        the triage proceeds.
+    build_and_test: callable that tests if a given vector of versions passes
+    logger: instance to log output to
+    skip_precondition_checks: if True, some tests that should pass/fail by
+        construction are skipped
+    check_success_before_failure: choose the order of precondition checks
+    confirmation_iterations: after convergence, re-run the first-known-bad and
+        last-known-good versions this many extra times to build confidence
+    result_cache: previously completed build/test results to reuse
+
+    Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
+    where the last element can be None if skip_precondition_checks=True. The
+    last two elements' .result fields will always be, respectively, True and
+    False, but the other fields can be used to obtain stdout+stderr and
+    output files from those test invocations.
+    """
+    if result_cache is None:
+        result_cache = {}
+
     assert all(len(version_list) for version_list in versions.values()), (
         "Not enough versions: need at least one version for each package",
         versions,
@@ -674,7 +700,7 @@ def _version_search(
         # package (p) moved to the end.
         assert blame.result == TestExecutionOutcome.TEST_FAILURE, blame.result
         versions[primary] = [versions.pop(primary)[0]]
-        return _version_search(
+        return version_search(
             build_and_test=build_and_test,
             versions=versions,
             logger=logger,
@@ -682,54 +708,3 @@ def _version_search(
             result_cache=result_cache,
             confirmation_iterations=confirmation_iterations,
         )
-
-
-def version_search(
-    *,
-    versions: typing.OrderedDict[
-        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
-    ],
-    build_and_test: BuildAndTest,
-    logger: logging.Logger,
-    skip_precondition_checks: bool,
-    check_success_before_failure: bool = True,
-    confirmation_iterations: int = 1,
-    result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
-) -> typing.Tuple[
-    typing.Dict[str, str],
-    TestResult,
-    typing.Optional[TestResult],
-]:
-    """
-    Bisect a failure back to a single version of a single component.
-
-    Arguments:
-    versions: *ordered* dictionary of version sequences for different software
-        packages, e.g. versions["jax"][0] is (commit_hash, date) of the passing JAX
-        version. The ordering of packages has implications for precisely how
-        the triage proceeds.
-    build_and_test: callable that tests if a given vector of versions passes
-    logger: instance to log output to
-    skip_precondition_checks: if True, some tests that should pass/fail by
-        construction are skipped
-    check_success_before_failure: choose the order of precondition checks
-    confirmation_iterations: after convergence, re-run the first-known-bad and
-        last-known-good versions this many extra times to build confidence
-
-    Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
-    where the last element can be None if skip_precondition_checks=True. The
-    last two elements' .result fields will always be, respectively, True and
-    False, but the other fields can be used to obtain stdout+stderr and
-    output files from those test invocations.
-    """
-    if result_cache is None:
-        result_cache = {}
-    return _version_search(
-        versions=versions,
-        build_and_test=build_and_test,
-        logger=logger,
-        skip_precondition_checks=skip_precondition_checks,
-        check_success_before_failure=check_success_before_failure,
-        confirmation_iterations=confirmation_iterations,
-        result_cache=result_cache,
-    )

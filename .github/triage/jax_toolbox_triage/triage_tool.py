@@ -59,13 +59,13 @@ class TriageTool:
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
         self.check_success_before_failure = True
         self.restart_summary = (
-            load_summary(self.args.restart_folder) if args.restart_folder else {}
+            load_summary(self.args.output_prefix) if args.restart else {}
         )
         self.restart_cache = (
             result_cache_from_summary(
-                self.args.restart_folder, summary=self.restart_summary
+                self.args.output_prefix, summary=self.restart_summary
             )
-            if args.restart_folder
+            if args.restart
             else {}
         )
 
@@ -97,7 +97,7 @@ class TriageTool:
         )
 
         out_dir = self.args.output_prefix / out_dirname
-        if out_dir.exists() and self.args.restart_folder is not None:
+        if out_dir.exists() and self.args.restart:
             base_out_dir = out_dir
             n = 1
             while out_dir.exists():
@@ -715,22 +715,20 @@ class TriageTool:
         # Run the version-level bisection
         self.logger.info("Running version-level bisection...")
         result_cache = {}
-        if self.args.restart_folder is not None:
-            self.restart_cache.update(
-                result_cache_from_summary(
-                    self.args.restart_folder,
-                    package_versions.keys(),
-                    self.restart_summary,
-                )
+        if self.args.restart:
+            summary_cache = result_cache_from_summary(
+                self.args.output_prefix,
+                package_versions.keys(),
+                self.restart_summary,
             )
             result_cache = {
                 key: result
-                for (section, key), result in self.restart_cache.items()
+                for (section, key), result in summary_cache.items()
                 if section == VERSION_CACHE_SECTION
             }
             self.logger.info(
                 f"Loaded {len(result_cache)} completed version-level result(s) "
-                f"from {self.args.restart_folder / 'summary.json'}"
+                f"from {self.args.output_prefix / 'summary.json'}"
             )
         try:
             result, last_known_good, first_known_bad = version_search(

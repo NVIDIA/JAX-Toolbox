@@ -36,11 +36,25 @@ def make_commits():
     )
 
 
-def test_restart_folder_requires_summary_json(tmp_path):
+def test_restart_requires_output_prefix_and_summary_json(tmp_path):
+    with pytest.raises(Exception, match="--restart requires --output-prefix"):
+        parse_args(
+            [
+                "--restart",
+                "--container-runtime=local",
+                "--passing-versions",
+                "jax:jax-good,xla:xla-good",
+                "--failing-versions",
+                "jax:jax-bad,xla:xla-good",
+                "test-command",
+            ]
+        )
+
     with pytest.raises(Exception, match="summary.json"):
         parse_args(
             [
-                "--restart-folder",
+                "--restart",
+                "--output-prefix",
                 str(tmp_path),
                 "--container-runtime=local",
                 "--passing-versions",
@@ -52,12 +66,13 @@ def test_restart_folder_requires_summary_json(tmp_path):
         )
 
 
-def test_restart_uses_restart_folder_as_output_prefix(tmp_path):
+def test_restart_uses_output_prefix(tmp_path):
     (tmp_path / "summary.json").write_text("{}")
 
     args = parse_args(
         [
-            "--restart-folder",
+            "--restart",
+            "--output-prefix",
             str(tmp_path),
             "--container-runtime=local",
             "--passing-versions",
@@ -68,6 +83,7 @@ def test_restart_uses_restart_folder_as_output_prefix(tmp_path):
         ]
     )
 
+    assert args.restart
     assert args.output_prefix == tmp_path.resolve()
 
 
@@ -148,7 +164,8 @@ def test_restart_suffixed_stale_output_directory(tmp_path):
     (tmp_path / "summary.json").write_text("{}")
     args = parse_args(
         [
-            "--restart-folder",
+            "--restart",
+            "--output-prefix",
             str(tmp_path),
             "--container-runtime=local",
             "--passing-versions",
@@ -193,7 +210,8 @@ def test_triage_tool_loads_restart_cache(tmp_path):
     (tmp_path / "summary.json").write_text(json.dumps(summary))
     args = parse_args(
         [
-            "--restart-folder",
+            "--restart",
+            "--output-prefix",
             str(tmp_path),
             "--container-runtime=local",
             "--passing-versions",

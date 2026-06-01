@@ -8,10 +8,9 @@ def main() -> None:
     Main entry point for the triage tool.
     """
     args = parse_args()
-    restart = args.restart_folder is not None
-    logger = get_logger(args.output_prefix, append=restart)
-    if restart:
-        logger.info(f"Restarting from {args.restart_folder}")
+    logger = get_logger(args.output_prefix, append=args.restart)
+    if args.restart:
+        logger.info(f"Restarting from {args.output_prefix}")
     tool = TriageTool(args, logger)
     passing_url, failing_url = tool.find_container_range()
     passing_versions, failing_versions = tool.gather_version_info(
