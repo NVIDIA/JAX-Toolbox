@@ -725,18 +725,12 @@ class TriageTool:
 
         # Run the version-level bisection
         self.logger.info("Running version-level bisection...")
-        result_cache = {}
+        result_cache = {
+            key: result
+            for (section, key), result in self.restart_cache.items()
+            if section == VERSION_CACHE_SECTION
+        }
         if self.args.restart:
-            summary_cache = result_cache_from_summary(
-                self.args.output_prefix,
-                package_versions.keys(),
-                self.restart_summary,
-            )
-            result_cache = {
-                key: result
-                for (section, key), result in summary_cache.items()
-                if section == VERSION_CACHE_SECTION
-            }
             self.logger.info(
                 f"Loaded {len(result_cache)} completed version-level result(s) "
                 f"from {self.args.output_prefix / 'summary.json'}"

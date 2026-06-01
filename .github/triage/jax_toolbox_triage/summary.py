@@ -11,6 +11,14 @@ from .logic import (
 SummaryCacheKey = typing.Tuple[str, typing.Any]
 CONTAINER_CACHE_SECTION = "container"
 VERSION_CACHE_SECTION = "versions"
+VERSION_RECORD_METADATA = {
+    "build_time",
+    "container",
+    "output_directory",
+    "result",
+    "test_repetition",
+    "test_time",
+}
 
 
 def add_summary_record(
@@ -76,7 +84,6 @@ def _record_output_directory(
 
 def result_cache_from_summary(
     output_prefix: pathlib.Path,
-    packages: typing.Iterable[str] = (),
     summary: typing.Optional[typing.Dict[str, typing.Any]] = None,
 ) -> typing.Dict[SummaryCacheKey, TestResult]:
     """
@@ -106,23 +113,23 @@ def result_cache_from_summary(
             stdouterr=None,
         )
 
-    packages = set(packages)
-    if not packages:
-        return cache
-
     for record in summary.get("versions", []):
         if not isinstance(record, dict):
-            continue
-        if not packages <= record.keys():
-            logging.warning(
-                "Ignoring restart summary record that is missing package keys: %s",
-                sorted(packages - record.keys()),
-            )
             continue
         if "result" not in record or "output_directory" not in record:
             logging.warning("Ignoring incomplete restart summary record: %s", record)
             continue
-        versions = {package: record[package] for package in packages}
+        versions = {
+            key: value
+            for key, value in record.items()
+            if key not in VERSION_RECORD_METADATA
+        }
+        if not versions:
+            logging.warning(
+                "Ignoring restart summary record that is missing package keys: %s",
+                record,
+            )
+            continue
         repetition = int(record.get("test_repetition", 0))
         key = version_cache_key(versions, repetition=repetition)
         result_name = record["result"].rsplit(".", 1)[-1]

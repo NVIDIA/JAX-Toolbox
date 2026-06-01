@@ -111,7 +111,7 @@ def test_version_search_reuses_preloaded_restart_cache(tmp_path):
         ]
     }
     (tmp_path / "summary.json").write_text(json.dumps(summary))
-    summary_cache = result_cache_from_summary(tmp_path, make_commits().keys())
+    summary_cache = result_cache_from_summary(tmp_path)
     result_cache = {
         key: result
         for (section, key), result in summary_cache.items()
