@@ -281,7 +281,7 @@ Refer to this page [STAGING.md](https://github.com/openxla/xla/blob/nv-staging/l
 Staging releases:
 | Release date | Container | XLA branch (includes pending PRs) |
 | ------------------------------------- | -------------- |-------------- |
-| 2026-05-30 | [ghcr.io/nvidia/jax:jax-scale-training-2026-05-30](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/906936355?tag=jax-scale-training-2026-05-30) | [00de6b34](https://github.com/openxla/xla#00de6b342f7f02f1b306121dab98706ae1d180b4)
+| 2026-05-30 | [ghcr.io/nvidia/jax:jax-scale-training-2026-05-30](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/906936355?tag=jax-scale-training-2026-05-30) | [00de6b34](https://github.com/openxla/xla/blob/00de6b342f7f02f1b306121dab98706ae1d180b4)
 | 2026-05-11 | [ghcr.io/nvidia/jax:jax-scale-training-2026-05-11](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/856082965?tag=jax-scale-training-2026-05-11) | [552b0a3e](https://github.com/openxla/xla/blob/552b0a3ef06453c74de9f62f778a0f3a960d7e6d/STAGING.md)
 | 2026-04-24 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-24](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/820220988?tag=jax-scale-training-2026-04-24) | [5dfe2147](https://github.com/openxla/xla/blob/5dfe2147cbdd54b2fa1d76da817c64a1847373ca/STAGING.md)
 | 2026-04-18 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-18](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/805313885?tag=jax-scale-training-2026-04-18) | [8147118](https://github.com/sfvaroglu/xla/tree/8147118a7b9707d26dcb747767a9c0dd9081325f)
