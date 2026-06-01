@@ -114,8 +114,7 @@ def parse_args(args=None) -> argparse.Namespace:
         help="""
             Restart a previous triage run from --output-prefix. The output directory
             must contain summary.json, which is used as the source of truth for
-            completed records. Incomplete output directories without summary records
-            are ignored.
+            completed records.
         """,
     )
     parser.add_argument(
