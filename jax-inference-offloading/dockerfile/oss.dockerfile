@@ -55,7 +55,9 @@ ARG SUB_PATH_JIO
 ENV SRC_PATH_JIO=${BASE_PATH_JIO}/${SUB_PATH_JIO}
 
 # Check out source code
-RUN <<"EOF" bash -ex -o pipefail
+RUN --mount=type=ssh <<"EOF" bash -ex -o pipefail
+mkdir -p -m 0700 ~/.ssh
+ssh-keyscan github.com >> ~/.ssh/known_hosts
 git clone --no-checkout ${URL_JIO} ${BASE_PATH_JIO}
 pushd ${BASE_PATH_JIO}
 git sparse-checkout init --cone
