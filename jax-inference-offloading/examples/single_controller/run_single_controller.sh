@@ -175,7 +175,7 @@ done
 
 MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-1B-Instruct"}
 
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+trap "trap - SIGTERM EXIT && kill -- -$$ 2>/dev/null || true" SIGINT SIGTERM EXIT
 
 if [[ -f "${PWD}/.env" ]]; then
   echo "Loading ${PWD}/.env"

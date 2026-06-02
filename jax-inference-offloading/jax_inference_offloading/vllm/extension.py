@@ -172,7 +172,7 @@ class VLLMWorkerExtension:
     """
     self._staged_weights = []
 
-  def update_weights(self, mapping_specs: TpModelMappingSpecs):
+  def jio_update_weights(self, mapping_specs: TpModelMappingSpecs):
     self.reset_stage()
 
     tp_rank = get_tensor_model_parallel_rank()

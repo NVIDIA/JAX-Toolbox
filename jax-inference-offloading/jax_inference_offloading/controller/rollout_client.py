@@ -136,7 +136,7 @@ class RolloutServicer:
     logger.info(f"Receiving weight update via NCCL (mode={mode})...")
     if mode in ('fused', 'unfused'):
       self._llm.collective_rpc(
-        "update_weights",
+        "jio_update_weights",
         timeout=None,
         args=(self._mapping_specs, ),
       )
