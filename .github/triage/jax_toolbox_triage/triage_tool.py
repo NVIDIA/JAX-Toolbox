@@ -1,22 +1,30 @@
 import collections
+import contextlib
 import datetime
 import functools
 import hashlib
+import json
 import logging
 import pathlib
+import platform
 import time
 from typing import Dict, Tuple, Union, Any, Optional, Set
 
 from .container import Container
 from .logic import (
+    _EXIT_CODE_METRIC,
     _REPETITION_KEY,
+    _WORKLOAD_VERSION_KEY,
+    ClassifiedTestOutcome,
     container_search,
+    ExitCodeClassifier,
     TestExecutionOutcome,
     TestResult,
     version_search,
     CouldNotReproduceFailure,
     CouldNotReproduceSuccess,
 )
+from .metric_classifier import MetricClassifier
 from .versions import get_versions_dirs_env
 from .summary import (
     add_summary_record,
@@ -27,9 +35,11 @@ from .summary import (
     VERSION_CACHE_SECTION,
 )
 from .bisect import get_commit_history
+from .docker import DockerContainer
 from .utils import (
     container_url as container_url_base,
     prepare_bazel_cache_mounts,
+    run_and_log,
 )
 from .container_factory import make_container
 
@@ -74,6 +84,12 @@ class TriageTool:
             f"to {(self.args.output_prefix / 'debug.log').resolve()}"
         )
 
+    def _version_slug(self, url: str, versions: Dict[str, str]) -> str:
+        hash_chars = 8
+        components = {"container": hashlib.sha1(url.encode()).hexdigest()}
+        components.update(versions)
+        return "-".join(f"{k}-{v[:hash_chars]}" for k, v in components.items())
+
     def _test_output_directory(
         self, url: str, versions: Union[Dict[str, str], None]
     ) -> pathlib.Path:
@@ -86,13 +102,7 @@ class TriageTool:
         Returns:
             pathlib.Path: The path to the output directory.
         """
-        hash_chars = 8
-        urlhash = f"container-{hashlib.sha1(url.encode()).hexdigest()[:hash_chars]}"
-        out_dirname = "-".join(
-            [urlhash]
-            + [f"{k}-{v[:hash_chars]}" for k, v in sorted((versions or {}).items())]
-        )
-
+        out_dirname = self._version_slug(url=url, versions=versions or {})
         out_dir = self.args.output_prefix / out_dirname
         if out_dir.exists() and self.args.restart:
             base_out_dir = out_dir
@@ -100,7 +110,9 @@ class TriageTool:
             while out_dir.exists():
                 out_dir = base_out_dir.with_name(f"{base_out_dir.name}-restart-{n}")
                 n += 1
-        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
+        assert not out_dir.exists(), (
+            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
+        )
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
@@ -120,8 +132,10 @@ class TriageTool:
         mounts = self.bazel_cache_mounts + self.args.container_mount
         if test_output_directory is not None:
             mounts.append((test_output_directory, "/triage-tool-output"))
-
-        return make_container(self.args.container_runtime, url, mounts, self.logger)
+        runtime = self.args.container_runtime
+        if runtime == "plugin":
+            runtime = "docker"
+        return make_container(runtime, url, mounts, self.logger)
 
     def _get_versions(
         self,
@@ -144,9 +158,9 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert (
-            container_url is not None
-        ), "Container URL must be provided if explicit versions are not set."
+        assert container_url is not None, (
+            "Container URL must be provided if explicit versions are not set."
+        )
 
         with self._make_container(container_url) as worker:
             url_versions, dirs, env = get_versions_dirs_env(
@@ -271,7 +285,6 @@ class TriageTool:
         Returns:
             TestResult: The result of the test, including whether it passed and the output.
         """
-        before = time.monotonic()
         cached_result = self.restart_cache.get((CONTAINER_CACHE_SECTION, container_url))
         if cached_result is not None:
             self.logger.info(f"Reusing cached container result for {container_url}")
@@ -287,14 +300,49 @@ class TriageTool:
                 versions_from_env=self.args.build_scripts_path is not None,
                 optional_software=self.args.optional_software,
             )
-            result = worker.exec(
-                self.args.test_command, log_level=test_output_log_level
-            )
-            test_time = time.monotonic() - before
-            test_pass = result.returncode == 0
-            self.logger.info(
-                f"Ran test case in {worker} in {test_time:.1f}s, pass={test_pass}"
-            )
+            if self.args.container_runtime == "plugin":
+                workload_version = None
+                if self.args.passing_container == container_url:
+                    workload_version = (self.args.passing_versions or {}).get(
+                        _WORKLOAD_VERSION_KEY
+                    )
+                elif self.args.failing_container == container_url:
+                    workload_version = (self.args.failing_versions or {}).get(
+                        _WORKLOAD_VERSION_KEY
+                    )
+                elif (
+                    _WORKLOAD_VERSION_KEY
+                    in (self.args.passing_versions or {}).keys()
+                    | (self.args.failing_versions or {}).keys()
+                ):
+                    self.logger.warning(
+                        f"{_WORKLOAD_VERSION_KEY} was passed explicitly for some "
+                        f"containers but not {container_url}"
+                    )
+
+                def _test():
+                    return (
+                        self._run_plugin(
+                            container_url=container_url,
+                            output_prefix=out_dir,
+                            log_level=test_output_log_level,
+                            workload_version=workload_version,
+                        ),
+                        out_dir,
+                        container_url,
+                    )
+            else:
+
+                def _test():
+                    return (
+                        worker.exec(
+                            self.args.test_command, log_level=test_output_log_level
+                        ),
+                        out_dir,
+                        container_url,
+                    )
+
+            test_result = self._run_test(_test)
 
         add_summary_record(
             self.args.output_prefix,
@@ -302,21 +350,15 @@ class TriageTool:
             {
                 **{
                     "container": container_url,
-                    "output_directory": out_dir.as_posix(),
-                    "result": test_pass,
-                    "test_time": test_time,
+                    "output_directory": test_result.host_output_directory.as_posix(),
+                    "result": str(test_result.result),
+                    "test_time": test_result.time,
+                    "metrics": test_result.metrics,
                 },
                 **versions,
             },
         )
-        return TestResult(
-            build_stdouterr=None,
-            host_output_directory=out_dir,
-            result=TestExecutionOutcome.TEST_SUCCESS
-            if test_pass
-            else TestExecutionOutcome.TEST_FAILURE,
-            stdouterr=result.stdout,
-        )
+        return test_result
 
     def _check_container_by_date(
         self, date: datetime.date, *, test_output_log_level: int = logging.DEBUG
@@ -390,6 +432,61 @@ class TriageTool:
         packages_missing_scripts = packages_needing_scripts - self.packages_with_scripts
         return packages_missing_scripts
 
+    def _run_plugin(
+        self,
+        container_url: str,
+        output_prefix: pathlib.Path,
+        log_level: int,
+        workload_version: Optional[str] = None,
+    ):
+        assert self.args.container_runtime == "plugin"
+        test_cmd = self.args.test_command + [
+            "--container",
+            container_url,
+            "--output-prefix",
+            str(output_prefix),
+        ]
+        if workload_version is not None:
+            test_cmd += ["--workload-version", workload_version]
+        return run_and_log(
+            test_cmd,
+            log_level=log_level,
+            logger=self.logger,
+            stderr="interleaved",
+        )
+
+    def _run_test(self, kernel):
+        before = time.monotonic()
+        result, out_dir, container_url = kernel()
+        duration = time.monotonic() - before
+        with open(out_dir / "test.log", "w") as log:
+            log.write(result.stdout)
+        metrics = {_EXIT_CODE_METRIC: result.returncode}
+        if self.args.metric_name is None:
+            # For non-metric triage there is always a result: the exit code
+            result_enum = TestExecutionOutcome.TEST_YIELDED_RESULTS
+        else:
+            # metric-based triage
+            metrics_file = out_dir / "metrics.json"
+            try:
+                with open(metrics_file) as ifile:
+                    metrics.update(json.load(ifile))
+                result_enum = TestExecutionOutcome.TEST_YIELDED_RESULTS
+            except Exception as e:
+                result_enum = TestExecutionOutcome.TEST_ERROR
+                self.logger.fatal(f"Failed to extract metrics: {e}")
+        self.logger.info(
+            f"Test completed in {duration:.1f}s with metric values {metrics} in {container_url}"
+        )
+        return TestResult(
+            build_stdouterr=None,  # May be filled in by the caller
+            host_output_directory=out_dir,
+            result=result_enum,
+            stdouterr=result.stdout,
+            metrics=metrics,
+            time=duration,
+        )
+
     def _build_and_test(
         self,
         *,
@@ -426,10 +523,9 @@ class TriageTool:
             #   worker.exec(cat /bar) # prints foo
             #
             # but now each new context manager is a fresh instance of `blah`, which was
-            # how the docker backend already worked. This is also how the intended
-            # build-a-container-and-push-it-to-registry-before-pulling-it-when-testing
-            # backend will want to work. It does mean that e.g. bazel repository caching
-            # does not work as well as it otherwise would out of the box.
+            # how the docker backend already worked. This is also how the "plugin"
+            # backend works. It does mean that e.g. bazel repository caching does not
+            # work as well as it otherwise would out of the box.
             changed.append(f"{package}@{version}")
             if package in self.package_dirs:
                 git_commands.append(
@@ -442,8 +538,9 @@ class TriageTool:
                     git_commands.append(
                         f"(git cherry-pick {cherry_pick_range} || git cherry-pick --abort)"
                     )
-
             else:
+                if package == _WORKLOAD_VERSION_KEY:
+                    continue
                 # Another software package, `version` is probably a version number.
                 # Installation of this version is delegated to an installPACKAGE.sh
                 # script that is assumed to be available in `args.build_scripts_path`.
@@ -462,35 +559,39 @@ class TriageTool:
         # Keep the pathnames shorter by only including packages that actually have
         # multiple versions in the bisection range.
         brief_versions = {
-            p: ver for p, ver in versions.items() if p in self.dynamic_packages
+            p: ver
+            for p, ver in versions.items()
+            if p in self.dynamic_packages and p != _WORKLOAD_VERSION_KEY
         }
         brief_versions[_REPETITION_KEY] = str(test_repetition)
         out_dir = self._test_output_directory(
             self.bisection_url,
             versions=brief_versions,
         )
-
-        with self._make_container(
-            self.bisection_url, test_output_directory=out_dir
+        change_str = " ".join(changed) if len(changed) else "<nothing>"
+        info_str = f"Checking out {change_str}"
+        if len(skipped):
+            info_str += f", leaving {' '.join(skipped)} unchanged"
+        push_intermediate_containers = self.args.container_runtime == "plugin"
+        with (
+            contextlib.nullcontext()
+            if push_intermediate_containers
+            else self._make_container(self.bisection_url, test_output_directory=out_dir)
         ) as worker:
-            change_str = " ".join(changed) if len(changed) else "<nothing>"
-            info_str = f"Checking out {change_str} in {worker}"
-            if len(skipped):
-                info_str += f", leaving {' '.join(skipped)} unchanged"
-            self.logger.info(info_str)
-            worker.check_exec(
-                ["sh", "-c", " && ".join(git_commands)],
-                policy="once_per_container",
-            )
+            self.logger.info(f"{info_str}")
             # Build JAX
-            # TODO: do not build JAX/XLA/TransformerEngine if we know their versions did not change?
-            before = time.monotonic()
-            # Unfortunately the build system does not always seem to handle incremental
-            # rebuilds correctly, so clean the local cache and rely on the remote one.
-            build_cmds = [
-                "bazel clean --expunge",
-                f"build-jax.sh --bazel-cache={self.args.bazel_cache}",
-            ]
+            # TODO: include a dependency graph and do not re-build components if they and their dependencies did not change
+            build_cmds = []
+            if not push_intermediate_containers:
+                # Unfortunately the build system does not always seem to handle incremental
+                # rebuilds correctly, so clean the local cache and rely on the remote one.
+                # Not needed if we are pushing a container, because the local cache is not
+                # included in it.
+                build_cmds.append("bazel clean --expunge")
+            if self.args.bazel_cache:
+                build_cmds.append(f"build-jax.sh --bazel-cache={self.args.bazel_cache}")
+            else:
+                build_cmds.append("build-jax.sh")
             if not self.args.exclude_transformer_engine:
                 if len(self.args.transformer_engine_ccache_env):
                     build_cmds.append(
@@ -498,56 +599,125 @@ class TriageTool:
                     )
                 else:
                     build_cmds.append("build-te.sh")
-            build_result = worker.exec(
-                ["sh", "-c", " && ".join(build_cmds)],
-                policy="once_per_container",
-                workdir=self.package_dirs["jax"],
-            )
+            summary = {}
+            if push_intermediate_containers:
+                # Build a new layer on top of `bisection_url` that includes running `build_cmds` as a new layer.
+                tag_suffix = self._version_slug(
+                    self.bisection_url,
+                    versions={
+                        k: v for k, v in brief_versions.items() if k != _REPETITION_KEY
+                    },
+                ) + f"-{platform.machine()}"
+                if self.args.container_registry is None:
+                    # Do not push, everything local.
+                    container_name = tag_suffix
+                elif ":" in self.args.container_registry:
+                    # gitlab.com/USER/containers:PREFIX-
+                    container_name = f"{self.args.container_registry}{tag_suffix}"
+                else:
+                    # gitlab.com/USER/containers
+                    container_name = f"{self.args.container_registry}:{tag_suffix}"
+                data_files_dir = pathlib.Path(__file__).parent / "data_files"
+
+                def _build():
+                    if DockerContainer(
+                        container_name, logger=self.logger, mounts=[]
+                    ).exists():
+                        command = [
+                            "echo",
+                            f"Skipping building {container_name} because it already exists",
+                        ]
+                    else:
+                        # TODO: organise this better to encourage layer sharing
+                        command = [
+                            "docker",
+                            "buildx",
+                            "build",
+                            f"--build-arg=BASE_IMAGE={self.bisection_url}",
+                            f"--build-arg=GIT_CMD={' && '.join(git_commands)}",
+                            f"--build-arg=BUILD_CMD={' && '.join(build_cmds)}",
+                            "--tag",
+                            container_name,
+                            "--file",
+                            str(data_files_dir / "Dockerfile.triage-tool"),
+                            str(data_files_dir),
+                        ]
+                        if self.args.container_registry is not None:
+                            command.append("--push")
+                    return run_and_log(
+                        command,
+                        logger=self.logger,
+                        stderr="interleaved",
+                    )
+
+                def _test():
+                    return (
+                        self._run_plugin(
+                            container_url=container_name,
+                            output_prefix=out_dir,
+                            log_level=test_output_log_level,
+                            workload_version=versions.get(_WORKLOAD_VERSION_KEY),
+                        ),
+                        out_dir,
+                        container_name,
+                    )
+            else:
+                container_name = self.bisection_url
+
+                def _build():
+                    worker.check_exec(
+                        ["sh", "-c", " && ".join(git_commands)],
+                        policy="once_per_container",
+                    )
+                    return worker.exec(
+                        ["sh", "-c", " && ".join(build_cmds)],
+                        policy="once_per_container",
+                        workdir=self.package_dirs["jax"],
+                    )
+
+                def _test():
+                    return (
+                        worker.exec(
+                            self.args.test_command, log_level=test_output_log_level
+                        ),
+                        out_dir,
+                        container_name,
+                    )
+
+            before = time.monotonic()
+            build_result = _build()
             build_pass = build_result.returncode == 0
+            middle = time.monotonic()
             with open(out_dir / "build.log", "w") as log:
                 log.write(build_result.stdout)
-            middle = time.monotonic()
             build_time = middle - before
             self.logger.info(
-                f"Build {'succeeded' if build_pass else 'failed'} in {build_time:.1f}s"
+                f"Container {container_name} build {'succeeded' if build_pass else 'failed'} in {build_time:.1f}s"
             )
-            summary = {
-                "build_time": build_time,
-                "container": self.bisection_url,
-                "output_directory": out_dir.as_posix(),
-                "test_repetition": test_repetition,
-            }
-            summary.update(versions)
             if build_pass:
-                # Run the test
-                test_result = worker.exec(
-                    self.args.test_command, log_level=test_output_log_level
-                )
-                test_output = test_result.stdout
-                test_time = time.monotonic() - middle
-                with open(out_dir / "test.log", "w") as log:
-                    log.write(test_output)
-                test_result_enum = (
-                    TestExecutionOutcome.TEST_SUCCESS
-                    if test_result.returncode == 0
-                    else TestExecutionOutcome.TEST_FAILURE
-                )
-                summary["output_directory"] = out_dir.as_posix()
-                summary["test_time"] = test_time
-                self.logger.info(
-                    f"Test completed in {test_time:.1f}s ({test_result_enum})"
-                )
+                # Time and run the test, extract metrics
+                test_result = self._run_test(_test)
+                test_result.build_stdouterr = build_result.stdout
             else:
-                test_output = None
-                test_result_enum = TestExecutionOutcome.BUILD_FAILURE
-        summary["result"] = str(test_result_enum)
+                test_result = TestResult(
+                    build_stdouterr=build_result.stdout,
+                    host_output_directory=out_dir,
+                    result=TestExecutionOutcome.BUILD_FAILURE,
+                    stdouterr=None,
+                    time=None,
+                    metrics={},
+                )
+        summary = {
+            "build_time": build_time,
+            "container": container_name,
+            "output_directory": out_dir.as_posix(),
+            "result": str(test_result.result),
+            "test_repetition": test_repetition,
+            "test_time": test_result.time,
+        }
+        summary.update(versions)
         add_summary_record(self.args.output_prefix, "versions", summary)
-        return TestResult(
-            build_stdouterr=build_result.stdout,
-            host_output_directory=out_dir,
-            result=test_result_enum,
-            stdouterr=test_output,
-        )
+        return test_result
 
     def find_container_range(self) -> Tuple[str, str]:
         """
@@ -666,7 +836,11 @@ class TriageTool:
         unknown_initial_packages = (
             passing_versions.keys() - self.bisection_versions.keys()
         )
-        assert len(unknown_initial_packages) == 0, (
+        # With a build+test plugin, we can allow the plugin to handle this case.
+        assert (
+            len(unknown_initial_packages) == 0
+            or self.args.container_runtime == "plugin"
+        ), (
             passing_versions.keys(),
             self.bisection_versions.keys(),
         )
@@ -703,6 +877,14 @@ class TriageTool:
         Returns:
             Tuple[dict, TestResult]: The final versions and the test result.
         """
+        if self.args.metric_name:
+            classifier = MetricClassifier(
+                metric_name=self.args.metric_name,
+                passing_values=self.args.passing_metric,
+                failing_values=self.args.failing_metric,
+            )
+        else:
+            classifier = ExitCodeClassifier()
         # Prepare the container for the bisection
         with self._make_container(self.bisection_url) as worker:
             package_versions = self._gather_histories(
@@ -741,6 +923,7 @@ class TriageTool:
                 check_success_before_failure=self.check_success_before_failure,
                 confirmation_iterations=self.args.confirmation_iterations,
                 result_cache=result_cache,
+                classifier=classifier,
             )
         except CouldNotReproduceFailure as e:
             if (
@@ -756,7 +939,8 @@ class TriageTool:
                 check_fail = self._check_container_by_url(
                     self.args.failing_container, test_output_log_level=logging.INFO
                 )
-                if check_fail.result == TestExecutionOutcome.TEST_FAILURE:
+                check_fail_outcome = classifier([check_fail])
+                if check_fail_outcome == ClassifiedTestOutcome.FAIL:
                     self.logger.fatal(
                         f"Reproduced failure in {self.args.failing_container} after failing to "
                         f"reproduce in {self.bisection_url}. This may mean the failure is due to "
@@ -766,6 +950,9 @@ class TriageTool:
                         f"Reproduced failure in {self.args.failing_container} but not {self.bisection_url}"
                     ) from e
                 else:
+                    assert check_fail_outcome == ClassifiedTestOutcome.PASS, (
+                        check_fail_outcome
+                    )
                     raise CouldNotReproduceFailure(
                         f"Could not reproduce failure with 'bad' container ({self.args.failing_container}, {check_fail.result})"
                     ) from e
@@ -785,7 +972,8 @@ class TriageTool:
                 check_pass = self._check_container_by_url(
                     self.args.passing_container, test_output_log_level=logging.INFO
                 )
-                if check_pass.result == TestExecutionOutcome.TEST_SUCCESS:
+                check_pass_outcome = classifier([check_pass])
+                if check_pass_outcome == ClassifiedTestOutcome.PASS:
                     self.logger.fatal(
                         f"Reproduced success in {self.args.passing_container} after failing to "
                         f"reproduce in {self.bisection_url}. This may mean the failure is due to "
@@ -795,6 +983,9 @@ class TriageTool:
                         f"Reproduced success in {self.args.passing_container} but not {self.bisection_url}"
                     ) from e
                 else:
+                    assert check_pass_outcome == ClassifiedTestOutcome.FAIL, (
+                        check_pass_outcome
+                    )
                     raise CouldNotReproduceSuccess(
                         f"Could not reproduce success with 'good' container ({self.args.passing_container}, {check_pass.result})"
                     ) from e

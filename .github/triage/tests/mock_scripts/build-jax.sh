@@ -1,5 +1,5 @@
 #!/bin/bash
-
+cd /opt/jax
 if [ ! -f "feature_file.txt" ]; then
     echo "Build FAILED: The feature commit was not applied (feature_file.txt is missing)."
     exit 1

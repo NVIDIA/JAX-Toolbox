@@ -2,7 +2,9 @@
 name = "jax-toolbox-triage"
 dynamic = ["version"]
 dependencies = [
+    "numpy",
     "psutil",
+    "uncertainties",
 ]
 # Because this script needs to run on compute clusters *outside* the containers that it
 # orchestrates, it tries to tolerate old Python versions
