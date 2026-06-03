@@ -2,40 +2,43 @@ name: "~Sandbox"
 
 on:
   workflow_dispatch:
+    inputs:
+      JAX_VLLM_OFFLOADING_IMAGE:
+        type: string
+        description: JIO image to smoke test
+        default: ghcr.io/nvidia/jax-toolbox-internal:26901322130-jio-amd64
+        required: false
 
 jobs:
-  sandbox:
-    runs-on: ubuntu-22.04
+  jio-single-controller-smoke:
+    runs-on: gke-a3mega
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+      - uses: actions/checkout@v6
+
+      - name: Run JIO single-controller smoke
+        uses: ./.github/actions/gke-xpk
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Print usage
-        run: |
-          cat << EOF
-          This is an empty workflow file located in the main branch of your
-          repository. It serves as a testing ground for new GitHub Actions on
-          development branches before merging them to the main branch. By
-          defining and overloading this workflow on your development branch,
-          you can test new actions without affecting your main branch, ensuring
-          a smooth integration process once the changes are ready to be merged.
-
-          Usage:
-
-          1. In your development branch, modify the sandbox.yml workflow file
-             to include the new actions you want to test. Make sure to commit
-             the changes to the development branch.
-          2. Navigate to the 'Actions' tab in your repository, select the
-             '~Sandbox' workflow, and choose your development branch from the
-             branch dropdown menu. Click on 'Run workflow' to trigger the
-             workflow on your development branch.
-          3. Once you have tested and verified the new actions in the Sandbox
-             workflow, you can incorporate them into your main workflow(s) and
-             merge the development branch into the main branch. Remember to
-             revert the changes to the sandbox.yml file in the main branch to
-             keep it empty for future testing.
-          EOF
+          NAME: jio-sc-smoke
+          IMAGE: ${{ inputs.JAX_VLLM_OFFLOADING_IMAGE }}
+          NUM_NODES: 1
+          ENVS: |
+            CUDA_VISIBLE_DEVICES=0,1,2,3;
+            MODEL_NAME=meta-llama/Llama-3.2-1B-Instruct;
+            NCCL_CUMEM_ENABLE=0;
+          COMMAND: |
+            set -x;
+            cd /opt/jtbx/jax-inference-offloading/examples/single_controller;
+            timeout --kill-after=10s 120s bash ./run_single_controller.sh \
+              --mode=sync \
+              --model-path=/Llama-3.2-1B-Instruct \
+              --param-mapping-path=../mappings/llama3_1b_param_mapping.json \
+              --num-iterations=1 \
+              --transfer-mode=grouped \
+              --n-gpus-vllm=2 \
+              --n-gpus-jax=2 \
+              --vllm-enforce-eager \
+              --vllm-gpu-memory-utilization=0.7 \
+              --output-dir=/opt/output/jio-single-controller;
+            EXIT_CODE=$?;
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
