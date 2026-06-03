@@ -52,6 +52,7 @@ num_batches = int(os.environ.get("NUM_BATCHES", "10"))
 batch_size = int(os.environ.get("BATCH_SIZE", "3"))
 num_rollouts = int(os.environ.get("NUM_ROLLOUTS", "4"))
 dispatch_delay = float(os.environ.get("DISPATCH_DELAY", "0.0"))
+response_topic = os.environ.get("JIO_RESPONSE_TOPIC", "inference/results/shared")
 
 
 def get_prompts(batch_idx: int):
@@ -95,10 +96,12 @@ def main():
     print(f"Number of batches: {num_batches if num_batches > 0 else 'infinite'}")
 
     # --- Create VLLMRolloutRequester ---
-    # This will automatically wait for the JAX controller to complete setup
-    # by polling the gateway KV store for the response topic.
-    print("Creating VLLMRolloutRequester (waiting for JAX controller setup)...")
-    requester = VLLMRolloutRequester(gateway_url=gateway_url)
+    print("Creating VLLMRolloutRequester...")
+    print(f"Using response topic: {response_topic}")
+    requester = VLLMRolloutRequester(
+        gateway_url=gateway_url,
+        response_topic=response_topic,
+    )
     print("VLLMRolloutRequester ready.")
 
     # --- Create inference config ---

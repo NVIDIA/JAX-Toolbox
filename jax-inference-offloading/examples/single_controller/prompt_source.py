@@ -119,7 +119,13 @@ def main():
     raise ValueError("SC_MODE must be either 'sync' or 'async'.")
 
   print(f"Starting prompt source: mode={mode} gateway={gateway_url}")
-  requester = VLLMRolloutRequester(gateway_url=gateway_url)
+  response_topic = os.environ.get("SC_JAX_RESULTS_TOPIC")
+  if response_topic:
+    print(f"Using response topic: {response_topic}")
+  requester = VLLMRolloutRequester(
+    gateway_url=gateway_url,
+    response_topic=response_topic,
+  )
 
   try:
     if mode == "sync":

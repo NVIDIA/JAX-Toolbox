@@ -77,7 +77,7 @@ update_interval = int(os.environ.get("UPDATE_INTERVAL", "5"))
 max_completed_prompts = int(os.environ.get("MAX_COMPLETED_PROMPTS", "100"))
 
 # Shared topic for results
-RESULTS_TOPIC = "inference/results/shared"
+RESULTS_TOPIC = os.environ.get("JIO_RESPONSE_TOPIC", "inference/results/shared")
 
 # Validate required environment variables
 if model_path is None:

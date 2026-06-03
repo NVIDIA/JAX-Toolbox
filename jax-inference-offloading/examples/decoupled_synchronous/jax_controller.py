@@ -68,7 +68,7 @@ transfer_mode = os.environ.get("TRANSFER_MODE", "grouped")
 num_iterations = int(os.environ.get("NUM_ITERATIONS", "3"))
 
 # Shared topic IDs for cross-process coordination
-RESULTS_TOPIC = "inference/results/shared"
+RESULTS_TOPIC = os.environ.get("JIO_RESPONSE_TOPIC", "inference/results/shared")
 SYNC_TOPIC = "sync/weights_ready"
 
 # Validate required environment variables

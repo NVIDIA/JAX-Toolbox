@@ -264,6 +264,40 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
+  jio-decoupled-sync-8b-gke-smoke:
+    needs: amd64
+    runs-on: gke-a3mega
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Run JIO decoupled sync 8B smoke
+      uses: ./.github/actions/gke-xpk
+      with:
+        NAME: jio-dec-sync-8b
+        IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+        NUM_NODES: 1
+        ENVS: |
+          CUDA_VISIBLE_DEVICES=0,1,2,3;
+          JIO_RESPONSE_TOPIC=inference/results/shared;
+          MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct;
+          NCCL_CUMEM_ENABLE=0;
+        COMMAND: |
+          set -x;
+          cd /opt/jtbx/jax-inference-offloading/examples/decoupled_synchronous;
+          timeout --kill-after=30s 900s bash ./decoupled_sync.sh \
+            --model-path=/Llama-3.1-8B-Instruct \
+            --param-mapping-path=../mappings/llama3_8b_param_mapping.json \
+            --num-iterations=1 \
+            --transfer-mode=grouped \
+            --n-gpus-vllm=2 \
+            --n-gpus-jax=2 \
+            --vllm-enforce-eager \
+            --vllm-gpu-memory-utilization=0.7 \
+            --output-dir=/opt/output/jio-decoupled-sync-8b;
+          EXIT_CODE=$?;
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+
   # TODO: Port these legacy 8B/70B transfer, GRPO, and EKS checks to the
   # current JIO example structure before re-enabling them.
   #
