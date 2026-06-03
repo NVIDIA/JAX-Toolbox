@@ -72,23 +72,11 @@ def find_library(pattern: str, lib_dirs: tuple[str, ...]) -> pathlib.Path | None
     return None
 
 
-def verify_base_libraries(packages: list[SkippedPackage], lib_dirs: tuple[str, ...]) -> None:
-    missing: list[str] = []
-    seen: set[str] = set()
-    for package in packages:
-        normalized = normalize_name(package.name)
-        if normalized in seen:
-            continue
-        seen.add(normalized)
-        for pattern in PACKAGE_SKIPLIST[normalized]:
-            if find_library(pattern, lib_dirs) is None:
-                missing.append(f"{package.name}: {pattern}")
-    if missing:
-        joined = "\n  ".join(missing)
-        raise SystemExit(
-            "Cannot skip CUDA wheel payload packages because the base image is "
-            f"missing required libraries:\n  {joined}"
-        )
+def has_base_libraries(package_name: str, lib_dirs: tuple[str, ...]) -> bool:
+    return all(
+        find_library(pattern, lib_dirs) is not None
+        for pattern in PACKAGE_SKIPLIST[normalize_name(package_name)]
+    )
 
 
 def filter_requirements(input_path: pathlib.Path, output_path: pathlib.Path, skipped_path: pathlib.Path,
@@ -99,18 +87,19 @@ def filter_requirements(input_path: pathlib.Path, output_path: pathlib.Path, ski
     for line in input_path.read_text().splitlines(keepends=True):
         match = REQ_LINE_RE.match(line.strip())
         if match and normalize_name(match.group(1)) in PACKAGE_SKIPLIST:
-            skipped.append(
-                SkippedPackage(
-                    name=match.group(1),
-                    version=match.group(2),
-                    requirement=line.strip(),
-                )
+            package = SkippedPackage(
+                name=match.group(1),
+                version=match.group(2),
+                requirement=line.strip(),
             )
-            output_lines.append(f"# skipped CUDA wheel payload: {line}")
+            if has_base_libraries(package.name, lib_dirs):
+                skipped.append(package)
+                output_lines.append(f"# skipped CUDA wheel payload: {line}")
+            else:
+                output_lines.append(line)
             continue
         output_lines.append(line)
 
-    verify_base_libraries(skipped, lib_dirs)
     output_path.write_text("".join(output_lines))
     with skipped_path.open("w", newline="") as file:
         writer = csv.writer(file)
