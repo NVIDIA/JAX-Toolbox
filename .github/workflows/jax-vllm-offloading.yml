@@ -235,12 +235,14 @@ jobs:
     needs: amd64
     with:
      JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
 
   grpo-gke-xpk:
     uses: ./.github/workflows/jax-vllm-offloading-gke-grpo.yml
     needs: amd64
     with:
      JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+    secrets: inherit
 
   jax-vllm-offloading-transfer-eks:
     needs: amd64
