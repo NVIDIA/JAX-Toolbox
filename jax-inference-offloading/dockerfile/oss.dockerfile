@@ -42,6 +42,8 @@ pip install pip-tools
 rm -rf ~/.cache/pip
 EOF
 
+COPY --chmod=755 dockerfile/cuda_package_skiplist.py /usr/local/bin/cuda-package-skiplist
+
 ###############################################################################
 ## Download source and configure pip-tools
 ###############################################################################
@@ -71,7 +73,7 @@ EOF
 RUN <<"EOF" bash -ex -o pipefail
 mkdir -p /opt/pip-tools.d
 pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
-echo "jax[cuda13_local,k8s]>=0.8.3,<0.9" >> /opt/pip-tools.d/requirements.in
+echo "jax[cuda13-local,k8s]>=0.8.3,<0.9" >> /opt/pip-tools.d/requirements.in
 echo "-e file://${SRC_PATH_JIO}[checkpoint]" >> /opt/pip-tools.d/requirements.in
 EOF
 
@@ -83,9 +85,17 @@ FROM mealkit AS final
 
 # Finalize installation
 RUN <<"EOF" bash -ex -o pipefail
+export PIP_INDEX_URL=https://download.pytorch.org/whl/cu130
+export PIP_EXTRA_INDEX_URL="https://flashinfer.ai/whl/cu130 https://pypi.org/simple"
 pushd /opt/pip-tools.d
 pip-compile -o requirements.txt $(ls requirements*.in) --constraint overrides.in
-pip install --no-deps --src /opt -r requirements.txt
+cuda-package-skiplist filter \
+  --input requirements.txt \
+  --output requirements.runtime.txt \
+  --skipped cuda-wheel-payload-skipped.csv
+pip install --no-deps --src /opt -r requirements.runtime.txt
+cuda-package-skiplist mark-installed --skipped cuda-wheel-payload-skipped.csv
+pip check
 popd
 rm -rf ~/.cache/*
 EOF
