@@ -27,19 +27,33 @@ CUDA_LIB_DIRS = (
 # Package skiplist: these Python wheel packages only carry CUDA runtime payloads
 # that the CUDA DL base image already owns under /usr/local/cuda.
 PACKAGE_SKIPLIST = {
+    "nvidia-cublas": ("libcublas.so*",),
     "nvidia-cublas-cu13": ("libcublas.so*",),
+    "nvidia-cuda-cupti": ("libcupti.so*",),
     "nvidia-cuda-cupti-cu13": ("libcupti.so*",),
+    "nvidia-cuda-nvrtc": ("libnvrtc.so*",),
     "nvidia-cuda-nvrtc-cu13": ("libnvrtc.so*",),
+    "nvidia-cuda-runtime": ("libcudart.so.13*",),
     "nvidia-cuda-runtime-cu13": ("libcudart.so.13*",),
+    "nvidia-cudnn": ("libcudnn.so*",),
     "nvidia-cudnn-cu13": ("libcudnn.so*",),
+    "nvidia-cufft": ("libcufft.so*",),
     "nvidia-cufft-cu13": ("libcufft.so*",),
+    "nvidia-cufile": ("libcufile.so*",),
     "nvidia-cufile-cu13": ("libcufile.so*",),
+    "nvidia-curand": ("libcurand.so*",),
     "nvidia-curand-cu13": ("libcurand.so*",),
+    "nvidia-cusolver": ("libcusolver.so*",),
     "nvidia-cusolver-cu13": ("libcusolver.so*",),
+    "nvidia-cusparse": ("libcusparse.so*",),
     "nvidia-cusparse-cu13": ("libcusparse.so*",),
+    "nvidia-cusparselt": ("libcusparseLt.so*",),
     "nvidia-cusparselt-cu13": ("libcusparseLt.so*",),
+    "nvidia-nccl": ("libnccl.so*",),
     "nvidia-nccl-cu13": ("libnccl.so*",),
+    "nvidia-nvjitlink": ("libnvJitLink.so*",),
     "nvidia-nvjitlink-cu13": ("libnvJitLink.so*",),
+    "nvidia-nvtx": ("libnvToolsExt.so*",),
     "nvidia-nvtx-cu13": ("libnvToolsExt.so*",),
 }
 
