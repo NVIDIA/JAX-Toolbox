@@ -18,7 +18,14 @@ from .logic import (
     CouldNotReproduceSuccess,
 )
 from .versions import get_versions_dirs_env
-from .summary import add_summary_record, create_output_symlinks
+from .summary import (
+    add_summary_record,
+    CONTAINER_CACHE_SECTION,
+    create_output_symlinks,
+    load_summary,
+    result_cache_from_summary,
+    VERSION_CACHE_SECTION,
+)
 from .bisect import get_commit_history
 from .utils import (
     container_url as container_url_base,
@@ -51,6 +58,13 @@ class TriageTool:
         self.packages_with_scripts = set()
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
         self.check_success_before_failure = True
+        self.restart_cache = (
+            result_cache_from_summary(
+                self.args.output_prefix, summary=load_summary(self.args.output_prefix)
+            )
+            if args.restart
+            else {}
+        )
 
         self.logger.info("Arguments:")
         for k, v in vars(self.args).items():
@@ -80,9 +94,13 @@ class TriageTool:
         )
 
         out_dir = self.args.output_prefix / out_dirname
-        assert not out_dir.exists(), (
-            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
-        )
+        if out_dir.exists() and self.args.restart:
+            base_out_dir = out_dir
+            n = 1
+            while out_dir.exists():
+                out_dir = base_out_dir.with_name(f"{base_out_dir.name}-restart-{n}")
+                n += 1
+        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
@@ -126,9 +144,9 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert container_url is not None, (
-            "Container URL must be provided if explicit versions are not set."
-        )
+        assert (
+            container_url is not None
+        ), "Container URL must be provided if explicit versions are not set."
 
         with self._make_container(container_url) as worker:
             url_versions, dirs, env = get_versions_dirs_env(
@@ -254,6 +272,11 @@ class TriageTool:
             TestResult: The result of the test, including whether it passed and the output.
         """
         before = time.monotonic()
+        cached_result = self.restart_cache.get((CONTAINER_CACHE_SECTION, container_url))
+        if cached_result is not None:
+            self.logger.info(f"Reusing cached container result for {container_url}")
+            return cached_result
+
         out_dir = self._test_output_directory(container_url, None)
 
         with self._make_container(
@@ -491,6 +514,8 @@ class TriageTool:
             summary = {
                 "build_time": build_time,
                 "container": self.bisection_url,
+                "output_directory": out_dir.as_posix(),
+                "test_repetition": test_repetition,
             }
             summary.update(versions)
             if build_pass:
@@ -697,6 +722,16 @@ class TriageTool:
 
         # Run the version-level bisection
         self.logger.info("Running version-level bisection...")
+        result_cache = {
+            key: result
+            for (section, key), result in self.restart_cache.items()
+            if section == VERSION_CACHE_SECTION
+        }
+        if self.args.restart:
+            self.logger.info(
+                f"Loaded {len(result_cache)} completed version-level result(s) "
+                f"from {self.args.output_prefix / 'summary.json'}"
+            )
         try:
             result, last_known_good, first_known_bad = version_search(
                 versions=package_versions,
@@ -705,6 +740,7 @@ class TriageTool:
                 skip_precondition_checks=self.args.skip_precondition_checks,
                 check_success_before_failure=self.check_success_before_failure,
                 confirmation_iterations=self.args.confirmation_iterations,
+                result_cache=result_cache,
             )
         except CouldNotReproduceFailure as e:
             if (
