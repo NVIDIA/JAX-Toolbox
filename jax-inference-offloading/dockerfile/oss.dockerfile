@@ -75,6 +75,7 @@ mkdir -p /opt/pip-tools.d
 pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
 echo "jax[cuda13-local,k8s]>=0.8.3,<0.9" >> /opt/pip-tools.d/requirements.in
 echo "-e file://${SRC_PATH_JIO}[checkpoint]" >> /opt/pip-tools.d/requirements.in
+echo "setuptools>=77.0.3,<81.0.0" >> /opt/pip-tools.d/requirements.in
 EOF
 
 ###############################################################################
@@ -88,7 +89,7 @@ RUN <<"EOF" bash -ex -o pipefail
 export PIP_INDEX_URL=https://download.pytorch.org/whl/cu130
 export PIP_EXTRA_INDEX_URL="https://flashinfer.ai/whl/cu130 https://pypi.org/simple"
 pushd /opt/pip-tools.d
-pip-compile -o requirements.txt $(ls requirements*.in) --constraint overrides.in
+pip-compile --allow-unsafe -o requirements.txt $(ls requirements*.in) --constraint overrides.in
 cuda-package-skiplist filter \
   --input requirements.txt \
   --output requirements.runtime.txt \
