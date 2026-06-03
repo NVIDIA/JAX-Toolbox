@@ -58,12 +58,9 @@ class TriageTool:
         self.packages_with_scripts = set()
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
         self.check_success_before_failure = True
-        self.restart_summary = (
-            load_summary(self.args.output_prefix) if args.restart else {}
-        )
         self.restart_cache = (
             result_cache_from_summary(
-                self.args.output_prefix, summary=self.restart_summary
+                self.args.output_prefix, summary=load_summary(self.args.output_prefix)
             )
             if args.restart
             else {}
