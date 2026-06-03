@@ -68,6 +68,7 @@ jobs:
             ARCHITECTURE: amd64
             ARTIFACT_NAME: artifact-jio-build
             BADGE_FILENAME: badge-jio-build
+            BASE_IMAGE: nvcr.io/nvidia/cuda-dl-base:26.05-cuda13.2-devel-ubuntu24.04
             BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
             CONTAINER_NAME: jio
             DOCKERFILE: jax-inference-offloading/dockerfile/oss.dockerfile
@@ -94,6 +95,7 @@ jobs:
             ARCHITECTURE: arm64
             ARTIFACT_NAME: artifact-jio-build
             BADGE_FILENAME: badge-jio-build
+            BASE_IMAGE: nvcr.io/nvidia/cuda-dl-base:26.05-cuda13.2-devel-ubuntu24.04
             BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
             CONTAINER_NAME: jio
             DOCKERFILE: jax-inference-offloading/dockerfile/oss.dockerfile
