@@ -265,7 +265,7 @@ runs:
         IFS=';' read -ra env_vars <<< "${envs_flat}"
         for env in "${env_vars[@]}"; do
             env=$(echo "${env}" | xargs)
-            [[ -n "${env}" ]] && args+=('--env=${env}')
+            [[ -n "${env}" ]] && args+=("--env=${env}")
         done
       fi
 
