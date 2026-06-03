@@ -84,3 +84,5 @@ jobs:
 
           wait \${PIDS[@]};
           EXIT_CODE=\$PIPESTATUS;
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
