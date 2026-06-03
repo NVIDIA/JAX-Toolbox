@@ -265,7 +265,7 @@ runs:
         IFS=';' read -ra env_vars <<< "${envs_flat}"
         for env in "${env_vars[@]}"; do
             env=$(echo "${env}" | xargs)
-            [[ -n "${env}" ]] && args+=(--env="${env}")
+            [[ -n "${env}" ]] && args+=("--env=${env}")
         done
       fi
 
@@ -274,7 +274,7 @@ runs:
       else
         XPK_COMMAND="python xpk.py"
       fi
-      ${XPK_COMMAND} workload create ${args[@]} --command="${CMD}"
+      ${XPK_COMMAND} workload create "${args[@]}" --command="${CMD}"
 
   - name: Show JobSet manifest
     if: steps.check.outputs.online == 'true'

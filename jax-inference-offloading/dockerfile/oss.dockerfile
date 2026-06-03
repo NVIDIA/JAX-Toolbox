@@ -71,7 +71,7 @@ EOF
 # Aggregate requirements for pip-tools
 RUN <<"EOF" bash -ex -o pipefail
 mkdir -p /opt/pip-tools.d
-pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
+pip freeze --all | grep wheel >> /opt/pip-tools.d/overrides.in
 echo "jax[cuda13-local,k8s]>=0.8.3,<0.9" >> /opt/pip-tools.d/requirements.in
 echo "-e file://${SRC_PATH_JIO}[checkpoint]" >> /opt/pip-tools.d/requirements.in
 echo "setuptools>=77.0.3,<81.0.0" >> /opt/pip-tools.d/requirements.in
