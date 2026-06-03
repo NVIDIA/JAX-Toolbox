@@ -42,8 +42,6 @@ pip install pip-tools
 rm -rf ~/.cache/pip
 EOF
 
-COPY --chmod=755 dockerfile/cuda_package_skiplist.py /usr/local/bin/cuda-package-skiplist
-
 ###############################################################################
 ## Download source and configure pip-tools
 ###############################################################################
@@ -67,6 +65,7 @@ git sparse-checkout set ${SUB_PATH_JIO}
 git fetch origin ${REF_JIO}
 git checkout FETCH_HEAD
 popd
+install -D -m 0755 ${SRC_PATH_JIO}/dockerfile/cuda_package_skiplist.py /usr/local/bin/cuda-package-skiplist
 EOF
 
 # Aggregate requirements for pip-tools
