@@ -205,18 +205,10 @@ runs:
           mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
 
       PRELUDE+="
-          if [ -n \"\${NCCL_LIB_DIR}\" ]; then
-              if [ -f \"\${NCCL_LIB_DIR}/nccl-env-profile.sh\" ]; then
-                  NCCL_LIB_DIR=\${NCCL_LIB_DIR} . \${NCCL_LIB_DIR}/nccl-env-profile.sh;
-              fi;
-              export LD_LIBRARY_PATH=\${NCCL_LIB_DIR}:\${LD_LIBRARY_PATH};
-              if [ -z \"\${NCCL_TUNER_CONFIG_PATH}\" ]; then
-                  export NCCL_TUNER_CONFIG_PATH=\${NCCL_LIB_DIR}/a3plus_tuner_config.textproto;
-              fi;
-              if [ -z \"\${NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE}\" ]; then
-                  export NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=\${NCCL_LIB_DIR}/a3plus_guest_config.textproto;
-              fi;
-          fi;
+          test -f \${NCCL_LIB_DIR}/nccl-env-profile.sh && NCCL_LIB_DIR=\${NCCL_LIB_DIR} . \${NCCL_LIB_DIR}/nccl-env-profile.sh;
+          export LD_LIBRARY_PATH=\${NCCL_LIB_DIR}:\${LD_LIBRARY_PATH};
+          export NCCL_TUNER_CONFIG_PATH=\${NCCL_LIB_DIR}/a3plus_tuner_config.textproto;
+          export NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=\${NCCL_LIB_DIR}/a3plus_guest_config.textproto;
       "
 
       # gsutil command to export logs from container's /opt/output to bucket
