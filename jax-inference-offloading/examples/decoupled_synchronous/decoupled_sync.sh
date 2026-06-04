@@ -212,7 +212,7 @@ JAX_GPU_ARRAY=("${CUDA_VISIBLE_DEVICES_ARRAY[@]:N_GPUS_VLLM:N_GPUS}")
 # ------------------------------------------------------------------------------
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_DEVICE_MAX_CONNECTIONS=16
-export NCCL_BUFFSIZE=16777216
+export NCCL_BUFFSIZE=${NCCL_BUFFSIZE:-16777216}
 export GATEWAY_PORT
 export GATEWAY_URL="localhost:${GATEWAY_PORT}"
 export MODEL_NAME
