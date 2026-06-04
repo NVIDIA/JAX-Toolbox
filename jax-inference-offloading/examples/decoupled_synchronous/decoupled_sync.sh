@@ -293,4 +293,14 @@ echo "All processes started. Waiting for completion..."
 echo "Check logs in: ${OUTPUT_DIR}"
 echo ""
 
-wait "${PIDS[@]}"
+EXIT_STATUS=0
+for pid in "${PIDS[@]}"; do
+  if wait "${pid}"; then
+    continue
+  else
+    child_status=$?
+    EXIT_STATUS=${child_status}
+  fi
+done
+
+exit "${EXIT_STATUS}"
