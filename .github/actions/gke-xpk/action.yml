@@ -205,15 +205,15 @@ runs:
           mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
 
       PRELUDE+="
-          if [ -n \"\${NCCL_LIB_DIR:-}\" ]; then
+          if [ -n \"\${NCCL_LIB_DIR}\" ]; then
               if [ -f \"\${NCCL_LIB_DIR}/nccl-env-profile.sh\" ]; then
                   NCCL_LIB_DIR=\${NCCL_LIB_DIR} . \${NCCL_LIB_DIR}/nccl-env-profile.sh;
               fi;
               export LD_LIBRARY_PATH=\${NCCL_LIB_DIR}:\${LD_LIBRARY_PATH};
-              if [ -z \"\${NCCL_TUNER_CONFIG_PATH:-}\" ]; then
+              if [ -z \"\${NCCL_TUNER_CONFIG_PATH}\" ]; then
                   export NCCL_TUNER_CONFIG_PATH=\${NCCL_LIB_DIR}/a3plus_tuner_config.textproto;
               fi;
-              if [ -z \"\${NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE:-}\" ]; then
+              if [ -z \"\${NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE}\" ]; then
                   export NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=\${NCCL_LIB_DIR}/a3plus_guest_config.textproto;
               fi;
           fi;
