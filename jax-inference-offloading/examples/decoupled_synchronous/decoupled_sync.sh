@@ -164,7 +164,7 @@ MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-1B-Instruct"}
 # ------------------------------------------------------------------------------
 # Kill all processes when done.
 # ------------------------------------------------------------------------------
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+trap "trap - SIGTERM && kill -- -$$ 2>/dev/null || true" SIGINT SIGTERM EXIT
 
 # ------------------------------------------------------------------------------
 # load environment variables from .env file
@@ -294,12 +294,14 @@ echo "Check logs in: ${OUTPUT_DIR}"
 echo ""
 
 EXIT_STATUS=0
-for pid in "${PIDS[@]}"; do
-  if wait "${pid}"; then
+for _ in "${PIDS[@]}"; do
+  if wait -n; then
     continue
   else
     child_status=$?
+    echo "A component exited with status ${child_status}; terminating remaining processes."
     EXIT_STATUS=${child_status}
+    exit "${EXIT_STATUS}"
   fi
 done
 
