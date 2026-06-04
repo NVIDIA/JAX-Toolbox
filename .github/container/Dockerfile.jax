@@ -70,7 +70,7 @@ RUN mkdir -p /builder/extra-targets/{bin,python} && \
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
-RUN pushd ${SRC_PATH_TRANSFORMER_ENGINE}/3rdparty/cudnn-frontend && git apply fetch && git checkout f06a0766b664b73860c48f7aea2b6b09499cea8d && popd
+RUN pushd ${SRC_PATH_TRANSFORMER_ENGINE}/3rdparty/cudnn-frontend && git fetch && git checkout f06a0766b664b73860c48f7aea2b6b09499cea8d && popd
 # Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
 # because (a) this is the builder stage, and (b) pip-finalize.sh does the install
 RUN build-te.sh \
