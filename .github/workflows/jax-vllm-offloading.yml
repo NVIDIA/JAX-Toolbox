@@ -249,7 +249,8 @@ jobs:
           NCCL_CUMEM_ENABLE=0;
         COMMAND: |
           set -x;
-          MODEL_PATH=\$(python -c 'import os; from huggingface_hub import snapshot_download; print(snapshot_download(os.environ["MODEL_NAME"]))');
+          python -m pip install --upgrade huggingface_hub==0.34.4;
+          MODEL_PATH=\$(hf download \${MODEL_NAME} --quiet);
           cd /opt/jtbx/jax-inference-offloading/examples/decoupled_synchronous;
           timeout --kill-after=30s 900s bash ./decoupled_sync.sh \
             --model-path=\${MODEL_PATH} \
