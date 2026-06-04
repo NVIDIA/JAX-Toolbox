@@ -238,7 +238,6 @@ if [ "$DEBUG" == "true" ]; then
     export NCCL_DEBUG=INFO  # Enable NCCL debug logs
 else
     export TF_CPP_MIN_LOG_LEVEL=2  # Suppress TensorFlow debug logs
-    export VLLM_CONFIGURE_LOGGING=0  # Suppress vLLM logging
 fi
 
 PIDS=()
