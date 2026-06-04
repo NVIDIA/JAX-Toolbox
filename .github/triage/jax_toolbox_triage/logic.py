@@ -321,7 +321,18 @@ def _strip_build_failures(versions: typing.Dict[str, str]) -> typing.Dict[str, s
 _REPETITION_KEY = "#rep"
 
 
-def _version_search(
+def version_cache_key(
+    versions: typing.Dict[str, str],
+    *,
+    repetition: int = 0,
+) -> FlatVersionDict:
+    return tuple(
+        sorted(_strip_build_failures(versions).items())
+        + [(_REPETITION_KEY, str(repetition))]
+    )
+
+
+def version_search(
     *,
     versions: typing.OrderedDict[
         str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
@@ -329,10 +340,36 @@ def _version_search(
     build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
-    result_cache: typing.Dict[FlatVersionDict, TestResult],
-    confirmation_iterations: int,
     check_success_before_failure: bool = True,
+    confirmation_iterations: int = 1,
+    result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
 ) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
+    """
+    Bisect a failure back to a single version of a single component.
+
+    Arguments:
+    versions: *ordered* dictionary of version sequences for different software
+        packages, e.g. versions["jax"][0] is (commit_hash, date) of the passing JAX
+        version. The ordering of packages has implications for precisely how
+        the triage proceeds.
+    build_and_test: callable that tests if a given vector of versions passes
+    logger: instance to log output to
+    skip_precondition_checks: if True, some tests that should pass/fail by
+        construction are skipped
+    check_success_before_failure: choose the order of precondition checks
+    confirmation_iterations: after convergence, re-run the first-known-bad and
+        last-known-good versions this many extra times to build confidence
+    result_cache: previously completed build/test results to reuse
+
+    Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
+    where the last element can be None if skip_precondition_checks=True. The
+    last two elements' .result fields will always be, respectively, True and
+    False, but the other fields can be used to obtain stdout+stderr and
+    output files from those test invocations.
+    """
+    if result_cache is None:
+        result_cache = {}
+
     assert all(len(version_list) for version_list in versions.values()), (
         "Not enough versions: need at least one version for each package",
         versions,
@@ -342,28 +379,16 @@ def _version_search(
         versions,
     )
 
-    def _cache_key(
-        versions: typing.Dict[str, str],
-        *,
-        repetition: int = 0,
-    ) -> FlatVersionDict:
-        return tuple(
-            sorted(_strip_build_failures(versions).items())
-            + [(_REPETITION_KEY, str(repetition))]
-        )
-
     def build_cached(
         bisect_versions,
         *,
-        assert_miss: bool = False,
         test_output_log_level: int = logging.DEBUG,
         repetition: int = 0,
     ):
-        cache_key = _cache_key(bisect_versions, repetition=repetition)
+        cache_key = version_cache_key(bisect_versions, repetition=repetition)
         bisect_result = result_cache.get(cache_key)
         if bisect_result is not None:
-            if assert_miss:
-                raise Exception("Unexpected cache hit!")
+            logger.info(f"Reusing cached result for {dict(cache_key)}")
             return bisect_result
         bisect_result = build_and_test(
             versions=_strip_build_failures(bisect_versions),
@@ -381,7 +406,6 @@ def _version_search(
         for n in range(confirmation_iterations + 1):
             check_pass = build_cached(
                 _earliest_versions(versions),
-                assert_miss=True,
                 repetition=-n,
             )
             if check_pass.result == TestExecutionOutcome.TEST_SUCCESS:
@@ -403,7 +427,6 @@ def _version_search(
         for n in range(confirmation_iterations + 1):
             check_fail = build_cached(
                 _latest_versions(versions),
-                assert_miss=True,
                 repetition=-n,
                 test_output_log_level=logging.INFO if n == 0 else logging.DEBUG,
             )
@@ -477,20 +500,20 @@ def _version_search(
         # succeeds so we can do the same. The somewhat arbitrary logic here is to take
         # the shorter y??????n run and refine it in the hope one of the ? is a y.
         assert (
-            result_cache.get(_cache_key(_earliest_versions(versions))).result
+            result_cache.get(version_cache_key(_earliest_versions(versions))).result
             == TestExecutionOutcome.TEST_SUCCESS
         )
         build_statuses = [(True, {p: 0 for p in versions})]
         for n in range(1, len(versions[primary]) - 1):
             versions_n, indices_n = get_versions(primary_index=n, versions=versions)
-            result_n = result_cache.get(_cache_key(versions_n))
+            result_n = result_cache.get(version_cache_key(versions_n))
             assert (
                 result_n is None
                 or result_n.result == TestExecutionOutcome.BUILD_FAILURE
             )
             build_statuses.append((None if result_n is None else False, indices_n))
         assert (
-            result_cache.get(_cache_key(_latest_versions(versions))).result
+            result_cache.get(version_cache_key(_latest_versions(versions))).result
             == TestExecutionOutcome.TEST_FAILURE
         )
         build_statuses.append((True, {p: len(vs) - 1 for p, vs in versions.items()}))
@@ -565,9 +588,9 @@ def _version_search(
             for package, index in indices.items():
                 versions[package] = versions[package][: index + 1]
         else:
-            assert bisect_result.result == TestExecutionOutcome.BUILD_FAILURE, (
-                bisect_result
-            )
+            assert (
+                bisect_result.result == TestExecutionOutcome.BUILD_FAILURE
+            ), bisect_result
             # Did not succeed in finding a version of `primary` that builds. This does
             # not quite mean that all versions fail, as the algorithm will not try all
             # versions in ranges with failures at both ends
@@ -586,11 +609,11 @@ def _version_search(
             for n in range(1, n_primary - 1):
                 versions_n, _ = get_versions(primary_index=n, versions=versions)
                 # Should have been a build failure if tested.
-                result_n = result_cache.get(_cache_key(versions_n))
+                result_n = result_cache.get(version_cache_key(versions_n))
                 if result_n is not None:
-                    assert result_n.result == TestExecutionOutcome.BUILD_FAILURE, (
-                        result_n
-                    )
+                    assert (
+                        result_n.result == TestExecutionOutcome.BUILD_FAILURE
+                    ), result_n
                 build_fail_commits.append(versions_n[primary])
             logger.warning(
                 f"Could not triage {primary} to a single version due to build "
@@ -648,7 +671,7 @@ def _version_search(
         # `blame` represents the last-known-good test result, first-known-bad was seen
         # earlier, or possibly not at all e.g. if `skip_precondition_checks` is True
         # and first-known-bad was the end of the search range.
-        first_known_bad_result = result_cache.get(_cache_key(first_known_bad))
+        first_known_bad_result = result_cache.get(version_cache_key(first_known_bad))
         if first_known_bad_result is None:
             if skip_precondition_checks:
                 logger.info(
@@ -665,13 +688,9 @@ def _version_search(
         # `blame_versions` are last-known-good, `first_known_bad` are what they say.
         # We just tested `blame_versions`, so start with `first_known_bad`.
         for n in range(confirmation_iterations):
-            confirm_bad = build_cached(
-                first_known_bad, assert_miss=True, repetition=n + 1
-            )
+            confirm_bad = build_cached(first_known_bad, repetition=n + 1)
             assert confirm_bad.result == TestExecutionOutcome.TEST_FAILURE
-            confirm_good = build_cached(
-                blame_versions, assert_miss=True, repetition=n + 1
-            )
+            confirm_good = build_cached(blame_versions, repetition=n + 1)
             assert confirm_good.result == TestExecutionOutcome.TEST_SUCCESS
         return ret, blame, first_known_bad_result
     else:
@@ -681,7 +700,7 @@ def _version_search(
         # package (p) moved to the end.
         assert blame.result == TestExecutionOutcome.TEST_FAILURE, blame.result
         versions[primary] = [versions.pop(primary)[0]]
-        return _version_search(
+        return version_search(
             build_and_test=build_and_test,
             versions=versions,
             logger=logger,
@@ -689,51 +708,3 @@ def _version_search(
             result_cache=result_cache,
             confirmation_iterations=confirmation_iterations,
         )
-
-
-def version_search(
-    *,
-    versions: typing.OrderedDict[
-        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
-    ],
-    build_and_test: BuildAndTest,
-    logger: logging.Logger,
-    skip_precondition_checks: bool,
-    check_success_before_failure: bool = True,
-    confirmation_iterations: int = 1,
-) -> typing.Tuple[
-    typing.Dict[str, str],
-    TestResult,
-    typing.Optional[TestResult],
-]:
-    """
-    Bisect a failure back to a single version of a single component.
-
-    Arguments:
-    versions: *ordered* dictionary of version sequences for different software
-        packages, e.g. versions["jax"][0] is (commit_hash, date) of the passing JAX
-        version. The ordering of packages has implications for precisely how
-        the triage proceeds.
-    build_and_test: callable that tests if a given vector of versions passes
-    logger: instance to log output to
-    skip_precondition_checks: if True, some tests that should pass/fail by
-        construction are skipped
-    check_success_before_failure: choose the order of precondition checks
-    confirmation_iterations: after convergence, re-run the first-known-bad and
-        last-known-good versions this many extra times to build confidence
-
-    Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
-    where the last element can be None if skip_precondition_checks=True. The
-    last two elements' .result fields will always be, respectively, True and
-    False, but the other fields can be used to obtain stdout+stderr and
-    output files from those test invocations.
-    """
-    return _version_search(
-        versions=versions,
-        build_and_test=build_and_test,
-        logger=logger,
-        skip_precondition_checks=skip_precondition_checks,
-        check_success_before_failure=check_success_before_failure,
-        confirmation_iterations=confirmation_iterations,
-        result_cache={},
-    )
