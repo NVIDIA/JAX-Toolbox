@@ -25,16 +25,17 @@ def container_url(
         return f"ghcr.io/nvidia/{container}:nightly-{date_str}"
 
 
-def get_logger(output_prefix: pathlib.Path) -> logging.Logger:
-    output_prefix.mkdir()
+def get_logger(output_prefix: pathlib.Path, append: bool = False) -> logging.Logger:
+    output_prefix.mkdir(exist_ok=append)
     logger = logging.getLogger("triage")
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
         fmt="[%(levelname)s] %(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
+    mode = "a" if append else "w"
     console = logging.StreamHandler()
-    trace_file = logging.FileHandler(filename=output_prefix / "info.log", mode="w")
-    debug_file = logging.FileHandler(filename=output_prefix / "debug.log", mode="w")
+    trace_file = logging.FileHandler(filename=output_prefix / "info.log", mode=mode)
+    debug_file = logging.FileHandler(filename=output_prefix / "debug.log", mode=mode)
     console.setLevel(logging.INFO)
     trace_file.setLevel(logging.INFO)
     debug_file.setLevel(logging.DEBUG)
