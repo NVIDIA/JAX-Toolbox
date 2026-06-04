@@ -205,8 +205,7 @@ runs:
           mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
 
       PRELUDE+="
-          export LD_LIBRARY_PATH=/opt/nvidia/nccl/lib:\${NCCL_LIB_DIR}:\${LD_LIBRARY_PATH};
-          env;
+          export LD_LIBRARY_PATH=\${NCCL_LIB_DIR}:\${LD_LIBRARY_PATH};
       "
 
       # gsutil command to export logs from container's /opt/output to bucket
