@@ -247,6 +247,8 @@ jobs:
           JIO_RESPONSE_TOPIC=inference/results/shared;
           MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct;
           NCCL_CUMEM_ENABLE=0;
+          NCCL_DEBUG=INFO;
+          NCCL_DEBUG_SUBSYS=INIT,ENV,NET;
         COMMAND: |
           set -x;
           python -m pip install --upgrade huggingface-hub==1.17.0;
