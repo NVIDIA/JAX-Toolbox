@@ -164,7 +164,16 @@ MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-1B-Instruct"}
 # ------------------------------------------------------------------------------
 # Kill all processes when done.
 # ------------------------------------------------------------------------------
-trap "trap - SIGTERM && kill -- -$$ 2>/dev/null || true" SIGINT SIGTERM EXIT
+cleanup() {
+  local status=$?
+  trap - SIGINT EXIT
+  trap '' SIGTERM
+  kill -- -$$ 2>/dev/null || true
+  wait 2>/dev/null || true
+  exit "${status}"
+}
+
+trap cleanup SIGINT SIGTERM EXIT
 
 # ------------------------------------------------------------------------------
 # load environment variables from .env file
