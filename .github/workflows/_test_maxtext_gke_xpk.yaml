@@ -48,7 +48,7 @@ jobs:
         ENVS: |
           CUDNN_FRONTEND_CUDART_LIB_NAME=libcudart.so.13;
         COMMAND: |
-          source \${NCCL_LIB_DIR}/nccl-env-profile.sh;
+          NCCL_LIB_DIR=\${NCCL_LIB_DIR} . \${NCCL_LIB_DIR}/nccl-env-profile.sh;
           nsys-jax --capture-range=cudaProfilerApi \
                    --capture-range-end=stop \
                    -o /opt/output/profile.zip \
