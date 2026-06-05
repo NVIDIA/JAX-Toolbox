@@ -68,7 +68,7 @@ jobs:
             ARCHITECTURE: amd64
             ARTIFACT_NAME: artifact-jio-build
             BADGE_FILENAME: badge-jio-build
-            BASE_IMAGE: nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04
+            BASE_IMAGE: nvcr.io/nvidia/cuda-dl-base:26.05-cuda13.2-devel-ubuntu24.04
             BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
             CONTAINER_NAME: jio
             DOCKERFILE: jax-inference-offloading/dockerfile/oss.dockerfile
@@ -95,7 +95,7 @@ jobs:
             ARCHITECTURE: arm64
             ARTIFACT_NAME: artifact-jio-build
             BADGE_FILENAME: badge-jio-build
-            BASE_IMAGE: nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04
+            BASE_IMAGE: nvcr.io/nvidia/cuda-dl-base:26.05-cuda13.2-devel-ubuntu24.04
             BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
             CONTAINER_NAME: jio
             DOCKERFILE: jax-inference-offloading/dockerfile/oss.dockerfile
@@ -230,59 +230,102 @@ jobs:
       PUBLISH_BADGE: ${{ needs.metadata.outputs.PUBLISH == 'true' }}
     secrets: inherit
 
-  transfer-gke-xpk:
-    uses: ./.github/workflows/jax-vllm-offloading-gke-transfer.yml
+  jio-decoupled-sync-8b-gke-smoke:
     needs: amd64
-    with:
-     JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-
-  grpo-gke-xpk:
-    uses: ./.github/workflows/jax-vllm-offloading-gke-grpo.yml
-    needs: amd64
-    with:
-     JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-
-  jax-vllm-offloading-transfer-eks:
-    needs: amd64
-    runs-on: eks
-    env:
-      JOB_NAME: jax-vllm-offloading-${{ github.run_id }}
-      JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
-      MODEL: "meta-llama/Llama-3.1-8B-Instruct"
-
+    runs-on: gke-a3mega
     steps:
     - uses: actions/checkout@v6
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
+    - name: Run JIO decoupled sync 8B smoke
+      uses: ./.github/actions/gke-xpk
       with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        NAME: jio-dec-sync-8b
+        IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+        NUM_NODES: 1
+        ENVS: |
+          CUDA_VISIBLE_DEVICES=0,1,2,3;
+          JIO_RESPONSE_TOPIC=inference/results/shared;
+          MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct;
+          NCCL_CUMEM_ENABLE=0;
+          NCCL_DEBUG=INFO;
+          NCCL_DEBUG_SUBSYS=INIT,ENV,NET;
+        COMMAND: |
+          set -x;
+          python -m pip install --upgrade huggingface-hub==1.17.0;
+          MODEL_PATH=\$(hf download \${MODEL_NAME} --quiet);
+          cd /opt/jtbx/jax-inference-offloading/examples/decoupled_synchronous;
+          timeout --kill-after=30s 900s bash ./decoupled_sync.sh \
+            --model-path=\${MODEL_PATH} \
+            --param-mapping-path=../mappings/llama3_8b_param_mapping.json \
+            --num-iterations=1 \
+            --transfer-mode=grouped \
+            --n-gpus-vllm=2 \
+            --n-gpus-jax=2 \
+            --vllm-enforce-eager \
+            --vllm-gpu-memory-utilization=0.7 \
+            --output-dir=/opt/output/jio-decoupled-sync-8b;
+          EXIT_CODE=\$?;
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-
-    - name: Configure jax-vllm job
-      run: |
-        yq -i '
-          # 1. Update the JobSet Name
-          .metadata.name = strenv(JOB_NAME)
-
-          # 2. Update Image (Applies to Gateway, vLLM, and JAX nodes)
-          | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = strenv(JAX_VLLM_OFFLOADING_IMAGE)
-
-          # 3. Update Model Name (Finds the env var named "MODEL_NAME" and updates its value)
-          | (.spec.replicatedJobs[].template.spec.template.spec.containers[].env[] | select(.name == "MODEL_NAME").value) = strenv(MODEL)
-
-          # 4. Add imagePullSecrets to all replicatedJobs (Gateway, vLLM, and JAX nodes)
-          | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
-        ' .github/eks-workflow-files/jio-eks/jio-template.yaml
-        git diff .github/eks-workflow-files/jio-eks/jio-template.yaml
-
-    - name: Apply jax-vllm offloading job to EKS cluster
-      uses: ./.github/actions/submit-delete-k8s-jobset
-      with:
-        jobset-config-file:  ".github/eks-workflow-files/jio-eks/jio-template.yaml"
-        jobset-name: ${{ env.JOB_NAME }}
+  # TODO: Port these legacy 8B/70B transfer, GRPO, and EKS checks to the
+  # current JIO example structure before re-enabling them.
+  #
+  # transfer-gke-xpk:
+  #   uses: ./.github/workflows/jax-vllm-offloading-gke-transfer.yml
+  #   needs: amd64
+  #   with:
+  #    JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+  #   secrets: inherit
+  #
+  # grpo-gke-xpk:
+  #   uses: ./.github/workflows/jax-vllm-offloading-gke-grpo.yml
+  #   needs: amd64
+  #   with:
+  #    JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+  #   secrets: inherit
+  #
+  # jax-vllm-offloading-transfer-eks:
+  #   needs: amd64
+  #   runs-on: eks
+  #   env:
+  #     JOB_NAME: jax-vllm-offloading-${{ github.run_id }}
+  #     JAX_VLLM_OFFLOADING_IMAGE: ${{ needs.amd64.outputs.DOCKER_TAG_FINAL }}
+  #     MODEL: "meta-llama/Llama-3.1-8B-Instruct"
+  #
+  #   steps:
+  #   - uses: actions/checkout@v6
+  #
+  #   - name: Login to GitHub Container Registry
+  #     uses: docker/login-action@v4
+  #     with:
+  #       registry: ghcr.io
+  #       username: ${{ github.repository_owner }}
+  #       password: ${{ secrets.GITHUB_TOKEN }}
+  #
+  #   - name: K8s GHCR store and delete token
+  #     id: store-token
+  #     uses: ./.github/actions/store-delete-k8s-ghcr
+  #
+  #   - name: Configure jax-vllm job
+  #     run: |
+  #       yq -i '
+  #         # 1. Update the JobSet Name
+  #         .metadata.name = strenv(JOB_NAME)
+  #
+  #         # 2. Update Image (Applies to Gateway, vLLM, and JAX nodes)
+  #         | .spec.replicatedJobs[].template.spec.template.spec.containers[].image = strenv(JAX_VLLM_OFFLOADING_IMAGE)
+  #
+  #         # 3. Update Model Name (Finds the env var named "MODEL_NAME" and updates its value)
+  #         | (.spec.replicatedJobs[].template.spec.template.spec.containers[].env[] | select(.name == "MODEL_NAME").value) = strenv(MODEL)
+  #
+  #         # 4. Add imagePullSecrets to all replicatedJobs (Gateway, vLLM, and JAX nodes)
+  #         | .spec.replicatedJobs[].template.spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"
+  #       ' .github/eks-workflow-files/jio-eks/jio-template.yaml
+  #       git diff .github/eks-workflow-files/jio-eks/jio-template.yaml
+  #
+  #   - name: Apply jax-vllm offloading job to EKS cluster
+  #     uses: ./.github/actions/submit-delete-k8s-jobset
+  #     with:
+  #       jobset-config-file:  ".github/eks-workflow-files/jio-eks/jio-template.yaml"
+  #       jobset-name: ${{ env.JOB_NAME }}

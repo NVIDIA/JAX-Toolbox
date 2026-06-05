@@ -205,8 +205,10 @@ runs:
           mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
 
       PRELUDE+="
-          export LD_LIBRARY_PATH=/opt/nvidia/nccl/lib:\${NCCL_LIB_DIR}:\${LD_LIBRARY_PATH};
-          env;
+          test -f \${NCCL_LIB_DIR}/nccl-env-profile.sh && NCCL_LIB_DIR=\${NCCL_LIB_DIR} . \${NCCL_LIB_DIR}/nccl-env-profile.sh;
+          export LD_LIBRARY_PATH=\${NCCL_LIB_DIR}:\${LD_LIBRARY_PATH};
+          export NCCL_TUNER_CONFIG_PATH=\${NCCL_LIB_DIR}/a3plus_tuner_config.textproto;
+          export NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=\${NCCL_LIB_DIR}/a3plus_guest_config.textproto;
       "
 
       # gsutil command to export logs from container's /opt/output to bucket
@@ -265,7 +267,7 @@ runs:
         IFS=';' read -ra env_vars <<< "${envs_flat}"
         for env in "${env_vars[@]}"; do
             env=$(echo "${env}" | xargs)
-            [[ -n "${env}" ]] && args+=(--env="${env}")
+            [[ -n "${env}" ]] && args+=("--env=${env}")
         done
       fi
 
@@ -274,7 +276,7 @@ runs:
       else
         XPK_COMMAND="python xpk.py"
       fi
-      ${XPK_COMMAND} workload create ${args[@]} --command="${CMD}"
+      ${XPK_COMMAND} workload create "${args[@]}" --command="${CMD}"
 
   - name: Show JobSet manifest
     if: steps.check.outputs.online == 'true'
@@ -449,4 +451,3 @@ runs:
     shell: bash -x -u {0}
     run: |
       sudo rm -rf ${JOBSET_NAME}
-

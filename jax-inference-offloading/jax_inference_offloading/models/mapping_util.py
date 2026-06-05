@@ -325,15 +325,16 @@ def add_sharding_specs(model_mapping: mapping.TpModelMappingSpecs, llm: LLM, jax
   for param in augmented_mapping.mappings:
     if spec := per_tensor_sharding_specs.get(param.vllm_param.name):
       dim, parallelism = spec["dim"], spec["parallelism"]
-      assert parallelism > 1, (
-        f'Unsharded or singleton sharding parallelism {parallelism} does not '
-        f'need explicit specification for {param.vllm_param.name}.'
-      )
-      # find auxiliary dim for sharding, if JAX TP size is larger than VLLM TP size
-      masked_shape = np.array(param.vllm_param.shape)
-      masked_shape[dim] = 0
-      aux_dim = np.argmax(masked_shape)
-      replication_count = spec.get('replication_count', 1)
+      if parallelism > 1:
+        # find auxiliary dim for sharding, if JAX TP size is larger than VLLM TP size
+        masked_shape = np.array(param.vllm_param.shape)
+        masked_shape[dim] = 0
+        aux_dim = np.argmax(masked_shape)
+        replication_count = spec.get('replication_count', 1)
+      else:
+        dim, parallelism = 999999, -1
+        aux_dim = np.argmax(param.vllm_param.shape)
+        replication_count = 1
     else:
       dim, parallelism = 999999, -1  # 999999 is an ugly sentinel value but likely never used in reality
       aux_dim = np.argmax(param.vllm_param.shape)
