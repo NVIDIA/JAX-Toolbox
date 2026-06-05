@@ -421,16 +421,19 @@ jobs:
       matrix:
         include:
           - test: L0_jax_unittest
+            nodes: 1
             gpus: 8
           - test: L0_jax_distributed_unittest
+            nodes: 1
             gpus: 8
-    runs-on: eks
+    runs-on: gke-a3mega
     steps:
       - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
+      - name: Run XPK workload on cluster
+        uses: ./.github/actions/gke-xpk
         with:
           NAME: te-${{ matrix.test }}
+          NUM_NODES: ${{ matrix.nodes }}
           NUM_GPUS: ${{ matrix.gpus }}
           IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           COMMAND: |
@@ -443,7 +446,7 @@ jobs:
             export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
 
             [[ "${{ matrix.test }}" == *distributed* ]] && xdist_args=(8 1) || xdist_args=(1 4);
-            pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh | tee /opt/output/pytest.log
+            pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh | tee /opt/output/pytest.log;
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS_SCRIPT: |
@@ -461,19 +464,21 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
-    runs-on: eks
+    runs-on: gke-a3mega
     needs: build-jax
     strategy:
       fail-fast: false
       matrix:
         include:
-          - gpus: 8
+          - nodes: 1
+            gpus: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
+      - name: Run XPK workload on cluster
+        uses: ./.github/actions/gke-xpk
         with:
           NAME: nsys-jax-unit
+          NUM_NODES: ${{ matrix.nodes }}
           NUM_GPUS: ${{ matrix.gpus }}
           IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           # nsys-jax is already installed, this is just adding the test dependencies
@@ -481,7 +486,8 @@ jobs:
           COMMAND: |
             pip install pytest-reportlog nsys-jax[test];
             test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files(\"nsys_jax\").joinpath(\"..\", \"tests\").resolve())');
-            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\" | tee /opt/output/pytest.log
+            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\" | tee /opt/output/pytest.log;
+            EXIT_CODE=\${PIPESTATUS[0]};
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS_SCRIPT: |
@@ -536,7 +542,7 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
-    runs-on: eks
+    runs-on: gke-a3mega
     strategy:
       fail-fast: false
       matrix:
@@ -546,8 +552,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
+      - name: Run XPK workload on cluster
+        uses: ./.github/actions/gke-xpk
         with:
           NAME: nsys-jax-nccl
           NUM_NODES: ${{ matrix.nodes }}
@@ -562,7 +568,7 @@ jobs:
               --distributed \
               --gpus-per-process=${{ matrix.gpus }} \
               --process-count=${{ matrix.nodes }} \
-              --process-id=\${NODE_RANK}
+              --process-id=\${NODE_RANK};
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
@@ -574,7 +580,7 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax-cutlass'
       )
-    runs-on: eks
+    runs-on: gke-a3mega
     strategy:
       fail-fast: false
       matrix:
@@ -583,8 +589,8 @@ jobs:
             gpus: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
+      - name: Run XPK workload on cluster
+        uses: ./.github/actions/gke-xpk
         with:
           NAME: jax-cutlass
           NUM_NODES: ${{ matrix.nodes }}
@@ -607,7 +613,7 @@ jobs:
               echo \"\${log_output}\" | tee -a /opt/output/pytest_stdout.log;
               python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \"\${outcome}\" \"\${f}\" \"\${log_output}\" >> /opt/output/pytest-report.jsonl;
             done;
-            if [[ \"\${any_failed}\" -ne 0 ]]; then false; else true; fi
+            if [[ \"\${any_failed}\" -ne 0 ]]; then false; else true; fi;
 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
