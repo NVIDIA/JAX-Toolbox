@@ -207,19 +207,15 @@ runs:
           /opt/google-cloud-sdk/bin/gcloud init;
 
           mkdir -p /usr/share/workload;
-          mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
+          mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};
 
-      PRELUDE+="
-          test -f \${NCCL_LIB_DIR}/nccl-env-profile.sh && NCCL_LIB_DIR=\${NCCL_LIB_DIR} . \${NCCL_LIB_DIR}/nccl-env-profile.sh;
-          export LD_LIBRARY_PATH=\${NCCL_LIB_DIR}:\${LD_LIBRARY_PATH};
-          export NCCL_TUNER_CONFIG_PATH=\${NCCL_LIB_DIR}/a3plus_tuner_config.textproto;
-          export NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=\${NCCL_LIB_DIR}/a3plus_guest_config.textproto;
+          NCCL_LIB_DIR=\${NCCL_LIB_DIR} . \${NCCL_LIB_DIR}/nccl-env-profile.sh;
       "
 
       # gsutil command to export logs from container's /opt/output to bucket
       POSTLUDE="
           COMMAND_EXIT_CODE=\$?;
-          if [ -z \"\${EXIT_CODE:-}\" ]; then EXIT_CODE=\${COMMAND_EXIT_CODE}; fi;
+          if [ -z \${EXIT_CODE:-} ]; then EXIT_CODE=\${COMMAND_EXIT_CODE}; fi;
           /opt/google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node-0\$NODE_RANK;
           ${{ inputs.EXIT_COMMAND }}
       "
@@ -227,9 +223,9 @@ runs:
       CMD="${{ inputs.COMMAND }}"
 
       # set container commands in-line
-      PRELUDE=$(echo ${PRELUDE} | sed 's/\n/\ /g')
-      POSTLUDE=$(echo ${POSTLUDE} | sed 's/\n/\ /g')
-      CMD=$(echo ${CMD} | sed 's/\n/\ /g')
+      PRELUDE=$(printf '%s\n' "${PRELUDE}" | paste -sd ' ' - )
+      POSTLUDE=$(printf '%s\n' "${POSTLUDE}" | paste -sd ' ' - )
+      CMD=$(printf '%s\n' "${CMD}" | paste -sd ' ' - )
 
       echo "CMD=${PRELUDE} ${CMD} ${POSTLUDE}" >> ${GITHUB_ENV}
 
