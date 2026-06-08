@@ -164,7 +164,16 @@ MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-3.2-1B-Instruct"}
 # ------------------------------------------------------------------------------
 # Kill all processes when done.
 # ------------------------------------------------------------------------------
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+cleanup() {
+  local status=$?
+  trap - SIGINT EXIT
+  trap '' SIGTERM
+  kill -- -$$ 2>/dev/null || true
+  wait 2>/dev/null || true
+  exit "${status}"
+}
+
+trap cleanup SIGINT SIGTERM EXIT
 
 # ------------------------------------------------------------------------------
 # load environment variables from .env file
@@ -212,7 +221,7 @@ JAX_GPU_ARRAY=("${CUDA_VISIBLE_DEVICES_ARRAY[@]:N_GPUS_VLLM:N_GPUS}")
 # ------------------------------------------------------------------------------
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_DEVICE_MAX_CONNECTIONS=16
-export NCCL_BUFFSIZE=16777216
+export NCCL_BUFFSIZE=${NCCL_BUFFSIZE:-16777216}
 export GATEWAY_PORT
 export GATEWAY_URL="localhost:${GATEWAY_PORT}"
 export MODEL_NAME
@@ -238,7 +247,6 @@ if [ "$DEBUG" == "true" ]; then
     export NCCL_DEBUG=INFO  # Enable NCCL debug logs
 else
     export TF_CPP_MIN_LOG_LEVEL=2  # Suppress TensorFlow debug logs
-    export VLLM_CONFIGURE_LOGGING=0  # Suppress vLLM logging
 fi
 
 PIDS=()
@@ -293,4 +301,16 @@ echo "All processes started. Waiting for completion..."
 echo "Check logs in: ${OUTPUT_DIR}"
 echo ""
 
-wait "${PIDS[@]}"
+EXIT_STATUS=0
+for _ in "${PIDS[@]}"; do
+  if wait -n; then
+    continue
+  else
+    child_status=$?
+    echo "A component exited with status ${child_status}; terminating remaining processes."
+    EXIT_STATUS=${child_status}
+    exit "${EXIT_STATUS}"
+  fi
+done
+
+exit "${EXIT_STATUS}"

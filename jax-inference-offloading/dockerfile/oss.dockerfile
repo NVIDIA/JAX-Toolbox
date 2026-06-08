@@ -14,14 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:25.06-cuda12.9-devel-ubuntu24.04
+ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:26.05-cuda13.2-devel-ubuntu24.04
 ARG URL_JIO=https://github.com/NVIDIA/JAX-Toolbox.git
 ARG REF_JIO=main
-ARG URL_TUNIX=https://github.com/google/tunix.git
-ARG REF_TUNIX=v0.1.5
 ARG BASE_PATH_JIO=/opt/jtbx
 ARG SUB_PATH_JIO=jax-inference-offloading
-ARG SRC_PATH_TUNIX=/opt/tunix
 
 ###############################################################################
 ## Install system dependencies and pip-tools
@@ -41,7 +38,7 @@ apt-get clean
 apt-get autoremove -y
 rm -rf /var/lib/apt/lists/*
 
-pip install pip-tools pip-mark-installed
+pip install pip-tools
 rm -rf ~/.cache/pip
 EOF
 
@@ -52,16 +49,15 @@ EOF
 FROM base AS mealkit
 ARG URL_JIO
 ARG REF_JIO
-ARG URL_TUNIX
-ARG REF_TUNIX
 ARG BASE_PATH_JIO
 ARG SUB_PATH_JIO
-ARG SRC_PATH_TUNIX
 
 ENV SRC_PATH_JIO=${BASE_PATH_JIO}/${SUB_PATH_JIO}
 
 # Check out source code
-RUN <<"EOF" bash -ex -o pipefail
+RUN --mount=type=ssh <<"EOF" bash -ex -o pipefail
+mkdir -p -m 0700 ~/.ssh
+ssh-keyscan github.com >> ~/.ssh/known_hosts
 git clone --no-checkout ${URL_JIO} ${BASE_PATH_JIO}
 pushd ${BASE_PATH_JIO}
 git sparse-checkout init --cone
@@ -69,17 +65,16 @@ git sparse-checkout set ${SUB_PATH_JIO}
 git fetch origin ${REF_JIO}
 git checkout FETCH_HEAD
 popd
-git clone --branch ${REF_TUNIX} ${URL_TUNIX} ${SRC_PATH_TUNIX}
+install -D -m 0755 ${SRC_PATH_JIO}/dockerfile/cuda_package_skiplist.py /usr/local/bin/cuda-package-skiplist
 EOF
 
 # Aggregate requirements for pip-tools
 RUN <<"EOF" bash -ex -o pipefail
 mkdir -p /opt/pip-tools.d
-pip freeze | grep wheel >> /opt/pip-tools.d/overrides.in
-echo "jax[cuda12_local,k8s]" >> /opt/pip-tools.d/requirements.in
-echo "-e file://${SRC_PATH_JIO}" >> /opt/pip-tools.d/requirements.in
-echo "-e file://${SRC_PATH_TUNIX}" >> /opt/pip-tools.d/requirements.in
-cat "${SRC_PATH_JIO}/examples/requirements.in" >> /opt/pip-tools.d/requirements.in
+pip freeze --all | grep wheel >> /opt/pip-tools.d/overrides.in
+echo "jax[cuda13-local,k8s]>=0.8.3,<0.9" >> /opt/pip-tools.d/requirements.in
+echo "-e file://${SRC_PATH_JIO}[checkpoint]" >> /opt/pip-tools.d/requirements.in
+echo "setuptools>=77.0.3,<81.0.0" >> /opt/pip-tools.d/requirements.in
 EOF
 
 ###############################################################################
@@ -90,24 +85,19 @@ FROM mealkit AS final
 
 # Finalize installation
 RUN <<"EOF" bash -ex -o pipefail
-export PIP_INDEX_URL=https://download.pytorch.org/whl/cu129
-export PIP_EXTRA_INDEX_URL="https://flashinfer.ai/whl/cu129 https://pypi.org/simple"
+export PIP_INDEX_URL=https://download.pytorch.org/whl/cu130
+export PIP_EXTRA_INDEX_URL="https://flashinfer.ai/whl/cu130 https://pypi.org/simple"
 pushd /opt/pip-tools.d
-pip-compile -o requirements.txt $(ls requirements*.in) --constraint overrides.in
-# remove cuda wheels from install list since the container already has them
-sed -i 's/^nvidia-/# nvidia-/g' requirements.txt
-sed -i 's/# nvidia-nvshmem/nvidia-nvshmem/g' requirements.txt
-pip install --no-deps --src /opt -r requirements.txt
-# make pip happy about the missing torch dependencies
-pip-mark-installed nvidia-cublas-cu12 nvidia-cuda-cupti-cu12 \
-  nvidia-cuda-nvrtc-cu12 nvidia-cuda-runtime-cu12 nvidia-cudnn-cu12 \
-  nvidia-cufft-cu12 nvidia-cufile-cu12 nvidia-curand-cu12 nvidia-cusolver-cu12 \
-  nvidia-cusparse-cu12 nvidia-cusparselt-cu12 nvidia-nccl-cu12 \
-  nvidia-nvjitlink-cu12 nvidia-nvtx-cu12
+pip-compile --allow-unsafe -o requirements.txt $(ls requirements*.in) --constraint overrides.in
+cuda-package-skiplist filter \
+  --input requirements.txt \
+  --output requirements.runtime.txt \
+  --skipped cuda-wheel-payload-skipped.csv
+pip install --no-deps --src /opt -r requirements.runtime.txt
+cuda-package-skiplist mark-installed --skipped cuda-wheel-payload-skipped.csv
+pip check
 popd
 rm -rf ~/.cache/*
-# perform a general cleaning of tensorflow libraries that are conflicting with nccl
-pip uninstall -y tensorflow_cpu tensorflow-datasets tensorflow-metadata
 EOF
 
 

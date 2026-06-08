@@ -1,5 +1,5 @@
 diff --git a/src/xpk/core/workload_decorators/tcpxo_decorator.py b/src/xpk/core/workload_decorators/tcpxo_decorator.py
-index 93a2c0b..4a701f3 100644
+index 93a2c0b..d380def 100644
 --- a/src/xpk/core/workload_decorators/tcpxo_decorator.py
 +++ b/src/xpk/core/workload_decorators/tcpxo_decorator.py
 @@ -146,7 +146,8 @@ def add_tcpxo_daemon_container(job_manifest):
@@ -29,7 +29,7 @@ index 93a2c0b..4a701f3 100644
        )
        container['env'].append({
            'name': 'NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY',
-@@ -176,7 +181,7 @@ def update_gpu_containers(job_manifest):
+@@ -176,8 +181,11 @@ def update_gpu_containers(job_manifest):
            {'name': 'aperture-devices', 'mountPath': '/dev/aperture_devices'}
        )
        container['volumeMounts'].append(
@@ -38,3 +38,7 @@ index 93a2c0b..4a701f3 100644
        )
        container['volumeMounts'].append(
            {'name': 'dshm', 'mountPath': '/dev/shm'}
+       )
++      container['env'].append(
++          {'name': 'HF_TOKEN', 'valueFrom': {'secretKeyRef': {'name': 'hf-token-secret', 'key': 'token'}}}
++      )
