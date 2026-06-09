@@ -1,1 +1,0 @@
-OpenXLA's profiler — trace viewer, HLO op profile, memory viewer, and roofline analysis. On NVIDIA GPUs it collects traces via CUPTI and shares the XLA HLO graph view; NVIDIA contributes to the GPU path.

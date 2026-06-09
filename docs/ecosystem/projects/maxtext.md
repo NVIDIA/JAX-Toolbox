@@ -1,1 +1,0 @@
-A scalable, high-performance JAX LLM framework (GPT, Llama, Gemma, Mistral, Mixtral). NVIDIA actively tests and contributes to MaxText and publishes a tuned container, making it the reference pre-training framework for JAX on NVIDIA GPUs.

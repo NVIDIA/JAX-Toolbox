@@ -1,1 +1,0 @@
-Accelerator-oriented array computation with composable transforms — `jit`, `grad`, `vmap`, `pmap`. Hardware-agnostic and the foundation of the whole stack; runs on NVIDIA GPUs through XLA's CUDA backend.

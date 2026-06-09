@@ -7,15 +7,13 @@
     "node": ">=18"
   },
   "scripts": {
-    "docs:ecosystem": "node scripts/build-ecosystem.mjs",
-    "docs:dev": "npm run docs:ecosystem && fern docs dev",
-    "docs:check": "npm run docs:ecosystem && fern check",
-    "docs:preview": "npm run docs:ecosystem && fern generate --docs --preview",
-    "docs:publish": "npm run docs:ecosystem && fern generate --docs",
-    "fern": "fern"
+    "docs:dev":     "fern docs dev",
+    "docs:check":   "fern check",
+    "docs:preview": "fern generate --docs --preview",
+    "docs:publish": "fern generate --docs",
+    "fern":         "fern"
   },
   "devDependencies": {
-    "fern-api": "5.44.3",
-    "js-yaml": "4.2.0"
+    "fern-api": "5.44.3"
   }
 }

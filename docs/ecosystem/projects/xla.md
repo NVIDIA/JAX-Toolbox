@@ -1,1 +1,0 @@
-The shared JIT compiler behind JAX. Programs trace to StableHLO, which XLA:GPU lowers via LLVM NVPTX to PTX/SASS, calling cuBLAS and cuDNN as library ops. OpenXLA is co-developed by NVIDIA alongside Google and others.

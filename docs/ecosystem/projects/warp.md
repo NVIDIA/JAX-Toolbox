@@ -1,1 +1,0 @@
-NVIDIA Warp is a Python framework for writing high-performance, differentiable GPU kernels (simulation, geometry, custom ops). Warp kernels can be called from JAX through the foreign-function interface.
