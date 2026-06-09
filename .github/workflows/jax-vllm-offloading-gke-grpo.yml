@@ -24,17 +24,6 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-
     - name: Format workload name
       id: workload-name
       run: |
@@ -46,8 +35,7 @@ jobs:
       uses: ./.github/actions/gke-xpk
       with:
         IMAGE: ${{ env.JAX_VLLM_OFFLOADING_IMAGE }}
-        IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
-        WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_NAME_PREFIX }}
+        NAME: ${{ steps.workload-name.outputs.WORKLOAD_NAME_PREFIX }}
         ENVS: |
           CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7;
           CUDA_DEVICE_ORDER=PCI_BUS_ID;
@@ -58,24 +46,18 @@ jobs:
           VLLM_DISTRIBUTED_BACKEND=mp;
           VLLM_ATTENTION_BACKEND=TRITON_ATTN;
           VLLM_LOAD_FORMAT=dummy;
-          NCCL_NET_PLUGIN=/opt/hpcx/nccl_rdma_sharp_plugin/lib/libnccl-net.so;
-          NCCL_TUNER_PLUGIN=none;
           MODEL_NAME=${{ matrix.model }};
           NCCL_CUMEM_ENABLE=0;
           NCCL_BUFFSIZE=16777216;
           XLA_FLAGS=--xla_gpu_enable_latency_hiding_scheduler=true --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL --xla_gpu_collective_permute_combine_threshold_bytes=8589934592 --xla_gpu_reduce_scatter_combine_threshold_bytes=8589934592 --xla_gpu_all_gather_combine_threshold_bytes=8589934592 --xla_gpu_all_reduce_combine_threshold_bytes=8589934592;
           TRANSFER_MODE=grouped;
           USE_POLYMORPHIC_MESH=0;
-          JAX_COORDINATOR_PORT=3389;
-          JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);
           GATEWAY_PORT=50051;
           GATEWAY_URL=\$(JOBSET_NAME):\$(GATEWAY_PORT);
           OUTPUT_DIR=/opt/output;
 
         COMMAND: |
           set -x;
-
-          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.9/compat/lib.real:\${LD_LIBRARY_PATH};
 
           pip install tensorflow_datasets;
 
@@ -102,3 +84,5 @@ jobs:
 
           wait \${PIDS[@]};
           EXIT_CODE=\$PIPESTATUS;
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}

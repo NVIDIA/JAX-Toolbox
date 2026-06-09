@@ -8,7 +8,9 @@ def main() -> None:
     Main entry point for the triage tool.
     """
     args = parse_args()
-    logger = get_logger(args.output_prefix)
+    logger = get_logger(args.output_prefix, append=args.restart)
+    if args.restart:
+        logger.info(f"Restarting from {args.output_prefix}")
     tool = TriageTool(args, logger)
     passing_url, failing_url = tool.find_container_range()
     passing_versions, failing_versions = tool.gather_version_info(

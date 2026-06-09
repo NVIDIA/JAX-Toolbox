@@ -3,7 +3,7 @@ requires = [
   "setuptools>=69",
   "wheel",
   "grpcio-tools>=1.76,<1.77",
-  "protobuf>=6.31.1,<7"
+  "protobuf>=6.33.5,<7"
 ]
 build-backend = "pep517_backend"
 backend-path = ["."]
@@ -15,15 +15,15 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "cloudpickle",
-  "cupy-cuda12x",
+  "cupy-cuda13x",
   "flax>=0.8.2",
   "grpcio>=1.76,<2",
-  "jax>=0.8.1,<0.9",
+  "jax>=0.8.3,<0.9",
   "jaxtyping",
   "numpy",
   "packaging",
-  "protobuf>=6.31.1,<7",
-  "vllm>=0.14.1,<0.15",
+  "protobuf>=6.33.5,<7",
+  "vllm>=0.22.0,<0.23",
 ]
 
 [project.optional-dependencies]
