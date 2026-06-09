@@ -47,6 +47,7 @@ jobs:
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          require-nsys-jax-version-artifact: "false"
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
