@@ -47,16 +47,16 @@ RUN <<"EOF" bash -ex
 
   # Add packages missing from pyproject.toml
 cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
-tensorflow
-tensorflow-text-nightly
-tensorflow-metadata
+tf-nightly==2.22.0.dev20260531
+tfds-nightly==4.9.9.dev202510250044
+tensorflow-text-nightly==2.20.0.dev20250619
 pyarrow
 tensorstore
 cloudpickle
 pytest
 pytest-xdist
 pytest-reportlog
-protobuf<6
+protobuf>=6.31.1<7
 REQUIREMENTS
 EOF
 

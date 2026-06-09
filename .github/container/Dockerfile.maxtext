@@ -29,15 +29,17 @@ grep -E '^google-jetstream' ${SRC_PATH_MAXTEXT}/src/dependencies/requirements/re
 EOF
 
 RUN <<"EOF" bash -exuo pipefail
-# Avoid old tensorboard constraint from google-cloud-aiplatform[tensorboard].
-sed -i "/^cloud-accelerator-diagnostics/d" \
-  ${SRC_PATH_MAXTEXT}/src/dependencies/requirements/base_requirements/requirements.txt
+REQ=${SRC_PATH_MAXTEXT}/src/dependencies/requirements/base_requirements/requirements.txt
+# Remove stable TF-family pins so nightlies can take over
+sed -i -E '/^(tensorflow|tensorflow-datasets|tensorflow-metadata|tensorflow-text)([<>=!~ ].*)?$/d' "${REQ}"
 
-# remove custom build hook that conflicts with our dependencies introduced in
-# https://github.com/AI-Hypercomputer/maxtext/commit/de886f9a918d17cfb025a353e7da2bc4d64c26b5
-sed -i -e '/^\[tool\.hatch\.build\.targets\.wheel\.hooks\.custom\]$/d' \
-       -e '/^path = "build_hooks\.py"$/d' \
-       ${SRC_PATH_MAXTEXT}/pyproject.toml
+# Force the TF family to nightly + protobuf 6
+cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-maxtext.in
+tf-nightly==2.22.0.dev20260531
+tfds-nightly==4.9.9.dev202510250044
+tensorflow-text-nightly==2.20.0.dev20250619
+protobuf>=6.31.1,<7
+REQUIREMENTS
 EOF
 
 ###############################################################################
