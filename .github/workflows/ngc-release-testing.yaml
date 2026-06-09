@@ -24,7 +24,7 @@ permissions:
   packages: write # to upload container
 
 jobs:
-  test-nccl-eks:
+  test-nccl:
     if: inputs.JAX_IMAGE != ''
     uses: ./.github/workflows/_test_nccl.yaml
     with:
@@ -89,7 +89,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
   finalize:
-    needs: [ test-nccl-eks, test-maxtext-eks ] 
+    needs: [ test-nccl, test-maxtext-eks ] 
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
