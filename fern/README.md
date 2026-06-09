@@ -25,12 +25,23 @@ docs/
 
 ## Local environment
 
-The Fern CLI is managed as a **project-local** dev dependency — no global
-install required. From the repository root:
+The Fern CLI is a **project-local** dev dependency — the `npm run docs:*`
+scripts resolve it from `node_modules/.bin/fern` automatically. From the
+repository root:
 
 ```bash
 nvm use        # optional: switch to the Node version pinned in .nvmrc (Node 22)
 npm install    # installs fern-api into ./node_modules (one-time setup)
+```
+
+**Authentication:** `fern login` must be run before previewing or publishing,
+and requires the CLI to be available on your PATH. Either install it globally
+or invoke it via npx:
+
+```bash
+npm install -g fern-api   # global install (one-time, any machine)
+# or
+npx fern login            # no global install needed
 ```
 
 ## npm scripts
