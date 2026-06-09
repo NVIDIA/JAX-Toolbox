@@ -1,18 +1,11 @@
-import hashlib
 import logging
 import pathlib
-import secrets
 import subprocess
 import typing
+import uuid
 
 from .container import Container
 from .utils import run_and_log
-
-# Used to make sure the {url: name} mapping is consistent within a process, but that
-# names are not re-used by different invocations of the triage tool. Using a consistent
-# mapping is a simple way of avoiding re-creating the container multiple times, e.g.
-# for .exists()
-_process_token = secrets.token_bytes()
 
 
 class PyxisContainer(Container):
@@ -26,7 +19,7 @@ class PyxisContainer(Container):
         super().__init__(logger=logger)
         mount_str = ",".join(map(lambda t: f"{t[0]}:{t[1]}", mounts))
         self._mount_args = [f"--container-mounts={mount_str}"] if mount_str else []
-        self._name = hashlib.sha256(url.encode() + _process_token).hexdigest()
+        self._name = uuid.uuid1().hex
         self._url = url
 
     def __enter__(self):
@@ -84,4 +77,7 @@ class PyxisContainer(Container):
         )
 
     def exists(self) -> bool:
-        return self.exec(["true"]).returncode == 0
+        # TODO: optimise to avoid an extra container creation (local-only,
+        # nothing is re-downloaded) for each call to exists().
+        with self as worker:
+            return worker.exec(["true"]).returncode == 0

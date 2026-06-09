@@ -10,18 +10,32 @@ on:
         required: false
 
 jobs:
-  maxtext-gke-xpk:
+  maxtext-gke:
     runs-on: gke-a3mega
-
-    env:
-      WORKLOAD_NAME_PREFIX: gke-maxtext-train
-      MAXTEXT_MODEL: llama2-7b
-      MAXTEXT_ATTENTION_TYPE: cudnn_flash_te
-      MAXTEXT_REMAT_POLICY: minimal_flash
-      MAXTEXT_TRAIN_STEPS: 20
-      MAXTEXT_FSDP: 16
-      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
-      NUM_NODES: 2
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: maxtext-dot-product-gke
+            nodes: 2
+            gpus: 8
+            model: llama2-7b
+            pipeline-parallel: 1
+            data-parallel: 1
+            fsdp: 2
+            tensor-parallel: 4
+            attention: dot_product
+            remat-policy: minimal_with_context
+          - test: maxtext-cudnn-flash-te-gke
+            nodes: 2
+            gpus: 8
+            model: llama2-7b
+            pipeline-parallel: 1
+            data-parallel: 1
+            fsdp: 2
+            tensor-parallel: 4
+            attention: cudnn_flash_te
+            remat-policy: minimal_with_context
 
     steps:
     - uses: actions/checkout@v6
@@ -29,26 +43,25 @@ jobs:
     - name: Run XPK workload on cluster
       uses: ./.github/actions/gke-xpk
       with:
-        IMAGE: ${{ env.MAXTEXT_IMAGE }}
-        IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
-        WORKLOAD_NAME_PREFIX: ${{ env.WORKLOAD_NAME_PREFIX }}
-        ENVS: |
-          JAX_COORDINATOR_PORT=3389;
-          JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);
-          console=/dev/stdout;
+        IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+        NAME: ${{ matrix.test }}
         COMMAND: |
-          nsys-jax --capture-range=cudaProfilerApi
-                   --capture-range-end=stop
-                   -o /opt/output/profile.zip
-                   --
-                   test-maxtext.sh -n ${{ env.NUM_NODES }}
-                                   -b ${{ env.NUM_NODES }}
-                                   --model-name=${{ env.MAXTEXT_MODEL }}
-                                   --attn-type=${{ env.MAXTEXT_ATTENTION_TYPE }}
-                                   --remat-policy=${{ env.MAXTEXT_REMAT_POLICY }}
-                                   --steps=${{ env.MAXTEXT_TRAIN_STEPS }}
-                                   --fsdp=${{ env.MAXTEXT_FSDP }}
-                                   --multiprocess
+          source \${NCCL_LIB_DIR}/nccl-env-profile.sh;
+          nsys-jax --capture-range=cudaProfilerApi \
+                   --capture-range-end=stop \
+                   -o /opt/output/profile.zip \
+                   -- \
+                   test-maxtext.sh --nodes ${{ matrix.nodes }} \
+                                   --batch-per-gpu 2 \
+                                   --model-name=${{ matrix.model }} \
+                                   --attn-type=${{ matrix.attention }} \
+                                   --remat-policy=${{ matrix.remat-policy }} \
+                                   --steps=10 \
+                                   --pipeline-parallel ${{ matrix.pipeline-parallel }} \
+                                   --data-parallel ${{ matrix.data-parallel }} \
+                                   --fsdp ${{ matrix.fsdp }} \
+                                   --tensor-parallel ${{ matrix.tensor-parallel }} \
+                                   --multiprocess \
                                    -a 'scan_layers=false
                                        max_target_length=4096
                                        use_iota_embed=true
@@ -57,7 +70,7 @@ jobs:
                                        upload_all_profiler_results=true
                                        skip_first_n_steps_for_profiler=3
                                        profiler_steps=8' |&
-          tee /opt/output/output.log &> \${console};
-          EXIT_CODE=\$PIPESTATUS;
+          tee /opt/output/output.log &> /dev/stdout;
+          EXIT_CODE=\${PIPESTATUS[0]};
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
