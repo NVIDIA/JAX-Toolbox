@@ -14,59 +14,75 @@
 # limitations under the License.
 
 navigation:
-  - page: Overview
-    path: overview.md
-    slug: /
-
-  - section: Performance
-    skip-slug: true
+  # ==================== Getting Started ====================
+  - section: Getting Started
     contents:
-      - page: GPU Performance Tips
-        path: GPU_performance.md
-        slug: gpu-performance
-      - page: Native FP8
-        path: NATIVE_FP8.md
-        slug: native-fp8
-      - page: PGLE
-        path: PGLE.md
-        slug: pgle
+      - page: Introduction
+        path: getting-started/introduction.md
+        slug: /
+      - page: Frameworks & Supported Models
+        path: getting-started/frameworks.md
+      - page: Build Pipeline Status
+        path: getting-started/build-status.md
+      - page: Environment Variables
+        path: getting-started/environment-variables.md
 
-  - section: Profiling
-    skip-slug: true
-    contents:
-      - page: Profiling Guide
-        path: profiling.md
-        slug: profiling
-      - page: nsys-jax
-        path: nsys-jax.md
-        slug: nsys-jax
-
+  # ==================== Frameworks ====================
   - section: Frameworks
-    skip-slug: true
     contents:
-      - page: MaxText
-        path: frameworks/maxtext/README.md
-        slug: frameworks/maxtext
-      - page: MaxText NVFP4
-        path: frameworks/maxtext/nvfp4/README.md
-        slug: frameworks/maxtext-nvfp4
+      - section: MaxText
+        contents:
+          - page: Overview
+            path: frameworks/maxtext/README.md
+          - page: NVFP4 Training Example
+            path: frameworks/maxtext/nvfp4/README.md
       - page: AXLearn
         path: frameworks/axlearn/README.md
-        slug: frameworks/axlearn
 
-  - section: Resiliency
-    skip-slug: true
+  # ==================== Performance & Profiling ====================
+  - section: Performance & Profiling
     contents:
-      - page: Ray Resilient JAX
-        path: resiliency/ray_resilient_jax.md
-        slug: resiliency/ray
-      - page: Running the Example
-        path: resiliency/example/run_example.md
-        slug: resiliency/example
+      - page: Profiling
+        path: profiling.md
+      - page: GPU Performance
+        path: GPU_performance.md
+      - page: PGLE (Profile-Guided Latency Estimation)
+        path: PGLE.md
+      - page: Native FP8
+        path: NATIVE_FP8.md
+      - page: nsys-jax
+        path: nsys-jax.md
 
+  # ==================== Resiliency ====================
+  - section: Resiliency
+    contents:
+      - page: Resilient JAX with Ray
+        path: resiliency/ray_resilient_jax.md
+      - page: Example Walkthrough
+        path: resiliency/example/run_example.md
+
+  # ==================== Inference ====================
+  - section: Inference
+    contents:
+      - page: JAX-vLLM Rollout Offloading Bridge
+        path: inference/jax-inference-offloading.md
+
+  # ==================== Tools ====================
   - section: Tools
-    skip-slug: true
     contents:
       - page: Triage Tool
         path: triage-tool.md
-        slug: tools/triage-tool
+
+  # ==================== Reference ====================
+  - section: Reference
+    contents:
+      - page: Container Versions
+        path: reference/container-versions.md
+      - page: Staging Containers
+        path: reference/staging-containers.md
+      - page: Cloud Providers
+        path: reference/cloud-providers.md
+      - page: FAQ
+        path: reference/faq.md
+      - page: Resources & Videos
+        path: reference/resources.md
