@@ -191,7 +191,7 @@ Fine-grain control to improve performance by initializing a NCCL communicator to
 ### Miscellaneous flags 
 - --xla_gpu_cudnn_gemm_fusion=true (enables GEMM/bias fusion via cuDNN)
 - --xla_gpu_enable_cudnn_fmha=false (enables XLA pattern matcher to detect multi-headed attention pattern in JAX)
-- --xla_disable_hlo_passes=<> (turns off specific HLO passes; can be used for debugging)
+- --xla_disable_hlo_passes=\<value\> (turns off specific HLO passes; can be used for debugging)
 
 ## Previously used XLA Flags
 

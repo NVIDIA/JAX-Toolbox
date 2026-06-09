@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+navigation:
+  - page: Overview
+    path: overview.md
+    slug: /
+
+  - section: Performance
+    skip-slug: true
+    contents:
+      - page: GPU Performance Tips
+        path: GPU_performance.md
+        slug: gpu-performance
+      - page: Native FP8
+        path: NATIVE_FP8.md
+        slug: native-fp8
+      - page: PGLE
+        path: PGLE.md
+        slug: pgle
+
+  - section: Profiling
+    skip-slug: true
+    contents:
+      - page: Profiling Guide
+        path: profiling.md
+        slug: profiling
+      - page: nsys-jax
+        path: nsys-jax.md
+        slug: nsys-jax
+
+  - section: Frameworks
+    skip-slug: true
+    contents:
+      - page: MaxText
+        path: frameworks/maxtext/README.md
+        slug: frameworks/maxtext
+      - page: MaxText NVFP4
+        path: frameworks/maxtext/nvfp4/README.md
+        slug: frameworks/maxtext-nvfp4
+      - page: AXLearn
+        path: frameworks/axlearn/README.md
+        slug: frameworks/axlearn
+
+  - section: Resiliency
+    skip-slug: true
+    contents:
+      - page: Ray Resilient JAX
+        path: resiliency/ray_resilient_jax.md
+        slug: resiliency/ray
+      - page: Running the Example
+        path: resiliency/example/run_example.md
+        slug: resiliency/example
+
+  - section: Tools
+    skip-slug: true
+    contents:
+      - page: Triage Tool
+        path: triage-tool.md
+        slug: tools/triage-tool
