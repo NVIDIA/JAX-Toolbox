@@ -50,6 +50,7 @@ from jax_inference_offloading.controller.utils import create_topic
 # --- Configuration ---
 gateway_url = os.environ.get("GATEWAY_URL", "localhost:50051")
 num_iterations = int(os.environ.get("NUM_ITERATIONS", "3"))
+response_topic = os.environ.get("JIO_RESPONSE_TOPIC", "inference/results/shared")
 
 # Shared topic ID for synchronization
 SYNC_TOPIC = "sync/weights_ready"
@@ -73,10 +74,12 @@ def main():
     print(f"Gateway URL: {gateway_url}")
 
     # --- Create VLLMRolloutRequester ---
-    # This will automatically wait for the JAX controller to complete setup
-    # by polling the gateway KV store for the response topic.
-    print("Creating VLLMRolloutRequester (waiting for JAX controller setup)...")
-    requester = VLLMRolloutRequester(gateway_url=gateway_url)
+    print("Creating VLLMRolloutRequester...")
+    print(f"Using response topic: {response_topic}")
+    requester = VLLMRolloutRequester(
+        gateway_url=gateway_url,
+        response_topic=response_topic,
+    )
     print("VLLMRolloutRequester ready.")
 
     # --- Setup gRPC connection for sync subscription ---
