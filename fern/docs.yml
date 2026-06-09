@@ -50,6 +50,8 @@ metadata:
   canonical-host: "nvidia-jax-toolbox.docs.buildwithfern.com"
 
 experimental:
+  mdx-components:
+    - ../docs/_components
   basepath-aware: true
 
 colors:

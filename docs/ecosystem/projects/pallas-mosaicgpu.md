@@ -1,0 +1,1 @@
+Pallas is JAX's kernel-authoring API; on NVIDIA GPUs it lowers primarily to the Mosaic GPU backend (Hopper+), exposing the GMEM to SMEM to registers pipeline, TMA async copies, and warp specialization. A Triton backend remains as an Ampere+ fallback.

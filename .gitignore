@@ -1,0 +1,11 @@
+# Node / npm (project-local tooling environment for docs)
+node_modules/
+npm-debug.log*
+.npm/
+
+# Fern build output & cache
+.fern/
+.preview/
+
+# OS / editor
+.DS_Store

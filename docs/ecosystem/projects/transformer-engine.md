@@ -1,0 +1,1 @@
+NVIDIA's mixed-precision training library. The JAX extension delivers FP8, MXFP8, and NVFP4 training on Hopper and Blackwell Tensor Cores and ships inside NVIDIA's NGC JAX container, unlocking low-precision paths that reach deeper into NVIDIA silicon than framework-agnostic quantization.

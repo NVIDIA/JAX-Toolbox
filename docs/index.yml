@@ -20,6 +20,8 @@ navigation:
       - page: Introduction
         path: getting-started/introduction.md
         slug: /
+      - page: JAX on NVIDIA GPU Stack
+        path: ecosystem/jax-on-nvidia-gpu-stack.mdx
       - page: Frameworks & Supported Models
         path: getting-started/frameworks.md
       - page: Build Pipeline Status
