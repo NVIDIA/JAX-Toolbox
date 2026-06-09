@@ -71,15 +71,20 @@ inputs:
     description: 'NVCR artifact registry login token'
     type: string
     required: true
-  STATISTICS:
-    description: 'Emit unit test statistics'
-    type: string
-    default: 'false'
-    required: false
   STATISTICS_SCRIPT:
     description: 'Commands to extract NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED values from logs'
     type: string
     required: false
+    default: |
+      NUM_ERRORS=0;
+      if [ \${JOBSET_EXIT_CODE} -ne 0 ]; then
+        NUM_FAILED=1;
+        NUM_PASSED=0;
+      else
+        NUM_FAILED=0;
+        NUM_PASSED=1;
+      fi;
+      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
 runs:
   using: 'composite'
@@ -270,7 +275,7 @@ runs:
       aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ ${JOBSET_NAME}/ --recursive 
   
   - name: Emit unit test statistics
-    if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
+    if: ${{ !cancelled() }}
     shell: bash -xe -u {0}
     run: |
       STATISTICS_SCRIPT="${{ inputs.STATISTICS_SCRIPT }}"
@@ -315,7 +320,7 @@ runs:
       path: ${{ env.JOBSET_NAME }}/*
 
   - name: Upload statistics artifacts
-    if: ${{ inputs.STATISTICS == 'true' && !cancelled() }}
+    if: ${{ !cancelled() }}
     uses: actions/upload-artifact@v6
     with:
       name: ${{ inputs.NAME }}-${{ inputs.GPU_ARCH }}

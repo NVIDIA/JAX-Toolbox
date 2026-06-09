@@ -74,7 +74,9 @@ For more fine-grained control over which collectives should be asynchronous or n
 
 - --xla_gpu_disable_async_collectives=allreduce,allgather,reducescatter,collectivebroadcast,alltoall,collectivepermute
 
-## Optimization level ([XLA doc](https://openxla.org/xla/gpu_optimization_levels))
+## Optimization level
+
+ ([XLA doc](https://openxla.org/xla/effort_levels))
 
 Optimization level is a high-level knob that enables a bundle of XLA GPU optimizations that generally improve runtime perfomance at the cost of increasing compile time. Using optimization level reduces manual flag tuning, increases compute/communication overlap, and improves out-of-the-box performance while keeping behavior predictable.
 

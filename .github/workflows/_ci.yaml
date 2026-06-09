@@ -36,14 +36,17 @@ on:
         description: 'JSON object containing tags of all docker images built'
         value: ${{ jobs.collect-docker-tags.outputs.TAGS }}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.ARCHITECTURE }}
+  cancel-in-progress: true
+
 permissions:
   contents: read  # to fetch code
   actions:  write # to cancel previous workflows
+  id-token: write # to assume the AWS role for bazel-remote cache
   packages: write # to upload container
 
-
 jobs:
-
   build-base:
     uses: ./.github/workflows/_build_base.yaml
     with:
@@ -63,10 +66,90 @@ jobs:
 
   build-jax:
     needs: build-base
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu32m' || 'linux-arm64-cpu32m' }}
     steps:
         - name: Checkout repository
           uses: actions/checkout@v6
+        - name: Configure AWS credentials via OIDC
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            role-to-assume: ${{ secrets.S3_CACHE_ROLE }}
+            aws-region: ${{ secrets.AWS_REGION}}
+        - name: Start bazel-remote sidecar
+          env:
+            BAZEL_REMOTE_BUCKET: ${{ secrets.BAZEL_REMOTE_BUCKET }}
+            BAZEL_REMOTE_AWS_DIR: /tmp/bazel-remote-aws
+            BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
+            BAZEL_REMOTE_DISK_DIR: /tmp/bazel-remote-cache
+            BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
+            BAZEL_REMOTE_PORT: 9090
+            BAZEL_REMOTE_PREFIX: bazel-remote/${{ inputs.ARCHITECTURE }}
+            BAZEL_REMOTE_REGION: ${{ secrets.AWS_REGION }}
+          run: |
+            set -euxo pipefail
+            : "${AWS_ACCESS_KEY_ID:?missing AWS_ACCESS_KEY_ID}"
+            : "${AWS_SECRET_ACCESS_KEY:?missing AWS_SECRET_ACCESS_KEY}"
+            : "${AWS_SESSION_TOKEN:?missing AWS_SESSION_TOKEN}"
+            BAZEL_REMOTE_AWS_CREDENTIALS="${BAZEL_REMOTE_AWS_DIR}/credentials"
+            mkdir -p "${BAZEL_REMOTE_DIAGNOSTICS_DIR}" "${BAZEL_REMOTE_DISK_DIR}" "${BAZEL_REMOTE_AWS_DIR}"
+            BAZEL_REMOTE_UID="$(id -u)"
+            BAZEL_REMOTE_GID="$(id -g)"
+            set +x
+            umask 077
+            {
+              printf '[default]\n'
+              printf 'aws_access_key_id=%s\n' "${AWS_ACCESS_KEY_ID}"
+              printf 'aws_secret_access_key=%s\n' "${AWS_SECRET_ACCESS_KEY}"
+              printf 'aws_session_token=%s\n' "${AWS_SESSION_TOKEN}"
+            } > "${BAZEL_REMOTE_AWS_CREDENTIALS}"
+            set -x
+            docker rm -f "${BAZEL_REMOTE_CONTAINER}" >/dev/null 2>&1 || true
+            docker run -d \
+              --name "${BAZEL_REMOTE_CONTAINER}" \
+              --user "${BAZEL_REMOTE_UID}:${BAZEL_REMOTE_GID}" \
+              --publish "127.0.0.1:${BAZEL_REMOTE_PORT}:8080" \
+              --volume "${BAZEL_REMOTE_DISK_DIR}:/data" \
+              --volume "${BAZEL_REMOTE_AWS_CREDENTIALS}:/aws-config/credentials:ro" \
+              buchgr/bazel-remote-cache \
+              --dir /data \
+              --max_size 50 \
+              --http_address=0.0.0.0:8080 \
+              --s3.auth_method=aws_credentials_file \
+              --s3.aws_profile=default \
+              --s3.aws_shared_credentials_file=/aws-config/credentials \
+              --s3.bucket="${BAZEL_REMOTE_BUCKET}" \
+              --s3.endpoint="s3.${BAZEL_REMOTE_REGION}.amazonaws.com" \
+              --s3.prefix="${BAZEL_REMOTE_PREFIX}" \
+              --s3.region="${BAZEL_REMOTE_REGION}" \
+              --s3.update_timestamps
+        - name: Verify bazel-remote sidecar
+          env:
+            BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
+            BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
+            BAZEL_REMOTE_PORT: 9090
+          run: |
+            set -euxo pipefail
+            ready=0
+            for _ in $(seq 1 30); do
+              if curl -sSf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/status" > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/status-before.json"; then
+                ready=1
+                break
+              fi
+              container_running="$(docker inspect -f '{{.State.Running}}' "${BAZEL_REMOTE_CONTAINER}" 2>/dev/null || echo false)"
+              if [[ "${container_running}" != "true" ]]; then
+                docker ps -a
+                docker logs "${BAZEL_REMOTE_CONTAINER}" || true
+                exit 1
+              fi
+              sleep 1
+            done
+            if [[ "${ready}" != "1" ]]; then
+              docker ps -a
+              docker logs "${BAZEL_REMOTE_CONTAINER}" || true
+              exit 1
+            fi
+            curl -sSIf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" \
+              > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/empty-cas-head.txt"
         - name: Build JAX container
           id: build-jax
           uses: ./.github/actions/build-container
@@ -82,22 +165,47 @@ jobs:
             ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
             ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
             github-token: ${{ secrets.GITHUB_TOKEN }}
-            bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+            bazel-remote-cache-url: http://127.0.0.1:9090
+            docker-build-allow: network.host
+            docker-build-network: host
+            registry-build-context-name: mealkit
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+        - name: Collect bazel-remote diagnostics
+          if: always()
+          env:
+            BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
+            BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
+            BAZEL_REMOTE_PORT: 9090
+          run: |
+            set -euxo pipefail
+            mkdir -p "${BAZEL_REMOTE_DIAGNOSTICS_DIR}"
+            curl -sSf "http://127.0.0.1:${BAZEL_REMOTE_PORT}/status" > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/status-after.json" || true
+            docker logs "${BAZEL_REMOTE_CONTAINER}" > "${BAZEL_REMOTE_DIAGNOSTICS_DIR}/container.log" 2>&1 || true
+        - name: Upload bazel-remote diagnostics
+          if: always()
+          uses: actions/upload-artifact@v6
+          with:
+            name: bazel-remote-diagnostics-${{ inputs.ARCHITECTURE }}
+            path: /tmp/bazel-remote-diagnostics
+        - name: Stop bazel-remote sidecar
+          if: always()
+          run: |
+            docker rm -f "bazel-remote-cache-${{ inputs.ARCHITECTURE }}" || true
+            rm -rf /tmp/bazel-remote-aws
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}
 
   build-equinox:
     needs: build-jax
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16m' || 'linux-arm64-cpu16m' }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-equinox.outputs.DOCKER_TAG_MEALKIT }}
-      DOCKER_TAG_FINAL:   ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
+      DOCKER_TAG_FINAL: ${{ steps.build-equinox.outputs.DOCKER_TAG_FINAL }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -116,13 +224,12 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
           EXTRA_BUILD_ARGS: |
             URLREF_EQUINOX=${{ fromJson(inputs.SOURCE_URLREFS).EQUINOX }}
 
   build-maxtext:
     needs: build-jax
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16m' || 'linux-arm64-cpu16m' }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-maxtext.outputs.DOCKER_TAG_FINAL }}
@@ -144,13 +251,12 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
           EXTRA_BUILD_ARGS: |
             URLREF_MAXTEXT=${{ fromJson(inputs.SOURCE_URLREFS).MAXTEXT }}
 
   build-torchax:
     needs: build-jax
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "small"]
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16m' || 'linux-arm64-cpu16m' }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-torchax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-torchax.outputs.DOCKER_TAG_FINAL }}
@@ -172,13 +278,12 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
           EXTRA_BUILD_ARGS: |
             URLREF_TORCHAX=${{ fromJson(inputs.SOURCE_URLREFS).TORCHAX }}
 
   build-axlearn:
     needs: build-jax
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16m' || 'linux-arm64-cpu16m' }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-axlearn.outputs.DOCKER_TAG_FINAL }}
@@ -200,9 +305,36 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
           EXTRA_BUILD_ARGS: |
             URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
+
+  build-alphafold:
+    needs: build-jax
+    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
+    outputs:
+      DOCKER_TAG_MEALKIT: ${{ steps.build-alphafold.outputs.DOCKER_TAG_MEALKIT }}
+      DOCKER_TAG_FINAL:  ${{ steps.build-alphafold.outputs.DOCKER_TAG_FINAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Build Alphafold container
+        id: build-alphafold
+        uses: ./.github/actions/build-container
+        with:
+          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
+          ARTIFACT_NAME: artifact-alphafold-build
+          BADGE_FILENAME: badge-alphafold-build
+          BUILD_DATE: ${{ inputs.BUILD_DATE }}
+          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
+          CONTAINER_NAME: alphafold
+          DOCKERFILE: .github/container/Dockerfile.alphafold
+          RUNNER_SIZE: large
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          EXTRA_BUILD_ARGS: |
+            URLREF_ALPHAFOLD=${{ fromJson(inputs.SOURCE_URLREFS).ALPHAFOLD }}
 
   collect-docker-tags:
     runs-on: ubuntu-22.04
@@ -213,6 +345,7 @@ jobs:
       - build-equinox
       - build-maxtext
       - build-axlearn
+      - build-alphafold
     outputs:
       TAGS: ${{ steps.collect-tags.outputs.TAGS }}
     steps:
@@ -230,7 +363,7 @@ jobs:
             {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
-
+            {"flavor": "alphafold",    "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-alphafold.outputs.DOCKER_TAG_MEALKIT }}"},\
             {}\
           ]
           EOF
@@ -269,12 +402,11 @@ jobs:
             test-jax.sh -b ${{ matrix.test }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
           STATISTICS_SCRIPT: |
-                      NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
-                      NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
-                      NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
-                      NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
+            NUM_ERRORS=\$(cat \${JOBSET_NAME}/*.log | grep -c 'ERROR:' || true);
+            NUM_FAILED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'FAILED in' || true);
+            NUM_PASSED=\$(cat \${JOBSET_NAME}/*.log | grep -c 'PASSED in' || true);
+            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
   test-te:
     if: >-
@@ -314,7 +446,6 @@ jobs:
             pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh | tee /opt/output/pytest.log
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
           STATISTICS_SCRIPT: |
             report_json=\${JOBSET_NAME}/pytest-report.jsonl;
             summary_line=\$(tail -n1 \${JOBSET_NAME}/pytest.log);
@@ -323,7 +454,7 @@ jobs:
             NUM_FAILED=\$(cat \$report_json | jq -r 'select(.\"\$report_type\" == \"TestReport\" and .when == \"call\" and .outcome == \"failed\") | .outcome' | wc -l);
             NUM_TESTS=\$((NUM_FAILED + NUM_PASSED));
 
-  test-nsys-jax:
+  test-nsys-jax-unit:
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
@@ -342,7 +473,7 @@ jobs:
       - name: Run eks-jobset action
         uses: ./.github/actions/eks-jobset
         with:
-          NAME: nsys-jax
+          NAME: nsys-jax-unit
           NUM_GPUS: ${{ matrix.gpus }}
           IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           # nsys-jax is already installed, this is just adding the test dependencies
@@ -353,7 +484,6 @@ jobs:
             pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\" | tee /opt/output/pytest.log
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
           STATISTICS_SCRIPT: |
             report_json=\${JOBSET_NAME}/pytest-report.jsonl;
             summary_line=\$(tail -n1 \${JOBSET_NAME}/pytest.log);
@@ -365,8 +495,8 @@ jobs:
   # test-nsys-jax generates several fresh .zip archive outputs by running nsys-jax with real GPU hardware; this test
   # runs on a regular GitHub Actions runner and checks that offline post-processing works in an environment that does
   # not already have nsys-jax installed
-  test-nsys-jax-archive:
-    needs: test-nsys-jax
+  test-nsys-jax-unit-archive:
+    needs: test-nsys-jax-unit
     if: >-
       inputs.ARCHITECTURE == 'amd64' &&
       (
@@ -378,10 +508,10 @@ jobs:
         os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Download nsys-jax output .zip files
+    - name: Download nsys-jax-unit output .zip files
       uses: actions/download-artifact@v8
       with:
-        name: nsys-jax
+        name: nsys-jax-unit
     - name: Extract archives and execute install scripts
       run: |
         pip install virtualenv # for install.sh
@@ -462,23 +592,25 @@ jobs:
           IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           COMMAND: |
             pip install pytest-reportlog pytest-xdist flatbuffers;
-            CUTEDSL_VERSION=\$(python -c 'import cutlass; print(cutlass.__version__);');
-            git clone -b v\${CUTEDSL_VERSION} --single-branch --depth 1 https://github.com/NVIDIA/cutlass.git /cutlass;
-            NGPUS=\$(nvidia-smi --list-gpus | wc -l);
+            git clone -b main --single-branch --depth 1 https://github.com/NVIDIA/cutlass.git /cutlass;
             nvidia-cuda-mps-control -d;
 
-            for f in /cutlass/examples/python/CuTeDSL/jax/*.py; do
+            any_failed=0;
+            for f in /cutlass/examples/python/CuTeDSL/dsl_tutorials/jax/*.py; do
               echo \"[Executing] \${f}\";
               log_output=\$(python \${f} 2>&1);
               exit_code=\${?};
+              if [[ "\${exit_code}" -ne 0 ]]; then any_failed=1; fi;
+
               outcome=\$( [ \${exit_code} -eq 0 ] && echo \"passed\" || echo \"failed\" );
               echo \"=== \${f} ===\" | tee -a /opt/output/pytest_stdout.log;
               echo \"\${log_output}\" | tee -a /opt/output/pytest_stdout.log;
               python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \"\${outcome}\" \"\${f}\" \"\${log_output}\" >> /opt/output/pytest-report.jsonl;
-            done
+            done;
+            if [[ \"\${any_failed}\" -ne 0 ]]; then false; else true; fi
+
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS: true
           STATISTICS_SCRIPT: |
             NUM_ERRORS=0;
             NUM_PASSED=\$(cat \${JOBSET_NAME}/pytest-report.jsonl | jq --slurp | jq '.[] | select(.outcome == \"passed\") | .outcome' | wc -l || true);
@@ -571,101 +703,29 @@ jobs:
         inputs.MODE == 'axlearn'
       )
     runs-on: eks
-    env:
-      AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: axlearn-${{ github.run_id }}
     steps:
-    - name: Check out the repository
-      uses: actions/checkout@v6
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-    - name: Configure axlearn test job
-      run: |
-        # Replace placeholders in axlearn-job.yml with environment variables
-        yq -i ea '
-           select(di == 0).metadata.name = strenv(JOB_NAME)
-          | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
-          | select(di == 0).spec.template.spec.containers[0].env[0].value = "${{ github.run_id }}"
-          | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
-        .github/eks-workflow-files/axlearn/axlearn-job.yml
-        git diff .github/eks-workflow-files/axlearn/axlearn-job.yml
-    - name: Submit & delete axlearn test
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file: ".github/eks-workflow-files/axlearn/axlearn-job.yml"
-        job-name: ${{ env.JOB_NAME }}
-    - name: Download logs from S3
-      id: log-s3
-      if: ${{ !cancelled() }}
-      run: |
-        mkdir -p axlearn-output
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/summary.txt axlearn-output/
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.log"
-        aws s3 cp s3://jax-toolbox-eks-output/axlearn/${{ github.run_id }}/logs/ axlearn-output/ --recursive --exclude "*" --include "*.xml"
-
-        passed_tests=$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
-        failed_tests=$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
-        skipped_tests=$(grep -Eo 'SKIPPED:[[:space:]]*[0-9]+' axlearn-output/summary.txt | grep -Eo '[0-9]+' )
-        total_tests=$((failed_tests + passed_tests + skipped_tests))
-
-        echo "Passed tests: $passed_tests"
-        echo "Failed tests: $failed_tests"
-        echo "Skipped tests: $skipped_tests"
-        echo "Total tests: $total_tests"
-        echo "PASSED_TESTS=$passed_tests" >> $GITHUB_OUTPUT
-        echo "FAILED_TESTS=$failed_tests" >> $GITHUB_OUTPUT
-        echo "TOTAL_TESTS=$total_tests" >> $GITHUB_OUTPUT
-    - name: Generate sitrep
-      id: sitrep
-      if: ${{ !cancelled() }}
-      shell: bash -x -e {0}
-      run: |
-        # bring in utility functions
-        source .github/workflows/scripts/to_json.sh
-
-        badge_label='Axlearn EKS Unit'
-
-        total_tests=${{ steps.log-s3.outputs.TOTAL_TESTS }} \
-        failed_tests=${{ steps.log-s3.outputs.FAILED_TESTS }} \
-        passed_tests=${{ steps.log-s3.outputs.PASSED_TESTS }} \
-        errors="0" \
-        summary="All tests: $total_tests. Passed: $passed_tests. Failed: $failed_tests." \
-        badge_message="Passed $passed_tests out of $total_tests." \
-        badge_color="brightgreen"
-        if [ "$failed_tests" -gt 0 ]; then
-          badge_color="red"
-        fi \
-
-        to_json \
-          summary \
-          errors total_tests passed_tests failed_tests \
-          badge_label badge_color badge_message \
-        > sitrep.json
-
-        schemaVersion=1 \
-        label="${badge_label}" \
-        message="Passed $passed_tests out of $total_tests." \
-        color=$badge_color \
-        to_json schemaVersion label message color \
-        > badge-axlearn-test.json
-
-    - name: Upload artifacts
-      if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v6
-      with:
-        name: "artifact-axlearn-test"
-        path: |
-          sitrep.json
-          badge-axlearn-test.json
-          axlearn-unittests.jsonl
-          axlearn-output/*
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: axlearn-unit
+          NUM_GPUS: 8
+          IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            pip install pytest-reportlog pytest-xdist;
+            LOG_DIR=/opt/output;
+            mkdir -p \${LOG_DIR};
+            pytest-xdist.sh 8 4 \${LOG_DIR}/axlearn-unittests.jsonl test-axlearn.sh --directory . --output \${LOG_DIR} --test-files '/opt/axlearn/axlearn/common/*_test.py'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true
+          STATISTICS_SCRIPT: |
+            summary_file=\${JOBSET_NAME}/logs/summary.txt;
+            NUM_ERRORS=0;
+            NUM_PASSED=\$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' \${summary_file} | grep -Eo '[0-9]+' || echo 0);
+            NUM_FAILED=\$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' \${summary_file} | grep -Eo '[0-9]+' || echo 0);
+            NUM_SKIPPED=\$(grep -Eo 'SKIPPED:[[:space:]]*[0-9]+' \${summary_file} | grep -Eo '[0-9]+' || echo 0);
+            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED + NUM_SKIPPED));
 
   test-axlearn-fuji-models-eks:
     needs: build-axlearn
@@ -676,32 +736,56 @@ jobs:
         inputs.MODE == 'axlearn'
       )
     runs-on: eks
-    env:
-      AXLEARN_DOCKER_IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-      JOB_NAME: axlearn-fuji-3b-${{ github.run_id }}
     steps:
-    - name: Check out the repository
-      uses: actions/checkout@v6
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: K8s GHCR store and delete token
-      id: store-token
-      uses: ./.github/actions/store-delete-k8s-ghcr
-    - name: Configure axlearn test job
-      run: |
-        yq -i ea '
-           select(di == 0).metadata.name = strenv(JOB_NAME)
-          | select(di == 0).spec.template.spec.containers[0].image = strenv(AXLEARN_DOCKER_IMAGE)
-          | select(di == 0).spec.template.spec.imagePullSecrets[].name = "${{ steps.store-token.outputs.token-name }}"' \
-        .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
-        git diff .github/eks-workflow-files/axlearn/axlearn-fuji-model.yml
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: axlearn-fuji-3b
+          NUM_GPUS: 8
+          IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
+          ENVS: |
+            OFI_NCCL_PROTOCOL=SENDRECV
+          COMMAND: |
+            CONFIG=fuji-3B-v3-flash;
+            LOG_DIR=/opt/output;
+            TRAINER_DIR=\${LOG_DIR}/\${CONFIG}-eks/trainer-dir;
+            mkdir -p \${TRAINER_DIR};
+            OUTPUT_LOG_FILE=\${TRAINER_DIR}/output.log;
+            python3 /usr/local/bin/fuji-train-perf.py --module=text.gpt.c4_trainer --config=\${CONFIG} --jax_backend=gpu --trainer_dir=\${TRAINER_DIR} --data_dir=gs://axlearn-public/tensorflow_datasets --ici_fsdp=8 --dcn_dp=1 --gbs=16 --ga=1 --seq_len=4096 --max_step=301 --save_checkpoint_steps=100 --write_summary_steps=100 --output_log_file=\${OUTPUT_LOG_FILE} --world_size=8
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
-    - name: Submit & delete axlearn fuji model test
-      uses: ./.github/actions/submit-delete-k8s-job
-      with:
-        job-config-file:  ".github/eks-workflow-files/axlearn/axlearn-fuji-model.yml"
-        job-name: ${{ env.JOB_NAME }}
+  test-alphafold-inference:
+    needs: build-alphafold
+    if: >-
+      inputs.ARCHITECTURE == 'amd64' &&
+      (
+        inputs.MODE == 'full' ||
+        inputs.MODE == 'alphafold'
+      )
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: alphafold-inference
+          NUM_GPUS: 1
+          IMAGE: ${{ needs.build-alphafold.outputs.DOCKER_TAG_FINAL }}
+          COMMAND: |
+            set -e;
+
+            python -c 'from alphafold3.build_data import build_data; build_data()';
+
+            python /usr/local/bin/generate_af_parameters.py \
+              --input-parameters-file /opt/alphafold_input_data/model_parameters.md \
+              --out-model-dir /opt/alphafold/model;
+
+            python /usr/local/bin/af3_inference_benchmark.py \
+              --input-json-path /opt/alphafold_input_data/input_sequences/bench_L00512.json \
+              --model-dir /opt/alphafold/model \
+              --output-json /opt/output/output.json
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
+          STATISTICS: true

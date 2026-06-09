@@ -4,7 +4,7 @@ export SCRIPT_DIR=/scripts
 
 ulimit -n 1048576
 
-NCCL_LIB_DIR=${NCCL_LIB_DIR} . /usr/local/nvidia/lib64/nccl-env-profile.sh
+NCCL_LIB_DIR=${NCCL_LIB_DIR} . ${NCCL_LIB_DIR}/nccl-env-profile.sh
 
 : "${NCCL_BENCHMARK:?Must set NCCL_BENCHMARK}"
 NCCL_MINBYTES="${NCCL_MINBYTES:-8G}"
@@ -12,10 +12,12 @@ NCCL_MAXBYTES="${NCCL_MAXBYTES:-16G}"
 NCCL_STEPFACTOR="${NCCL_STEPFACTOR:-2}"
 NCCL_ITERS="${NCCL_ITERS:-100}"
 NCCL_WARMUP_ITERS="${NCCL_WARMUP_ITERS:-0}"
+NCCL_NVLSTREE_MAX_CHUNKSIZE="${NCCL_NVLSTREE_MAX_CHUNKSIZE:-131072}"
 
 run_nccl() {
   mpirun --mca btl tcp,self \
          --mca btl_tcp_if_include eth0 \
+         --mca orte_keep_fqdn_hostnames 1 \
          --allow-run-as-root \
          -np $(( GPUS_PER_NODE * "${NHOSTS}" )) \
          --hostfile "${SCRIPT_DIR}/hostfiles${NHOSTS}/hostfile${GPUS_PER_NODE}"     \
@@ -44,10 +46,10 @@ run_nccl() {
          -x NCCL_NET_GDR_LEVEL=${NCCL_NET_GDR_LEVEL} \
          -x NCCL_FASTRAK_ENABLE_HOTPATH_LOGGING=${NCCL_FASTRAK_ENABLE_HOTPATH_LOGGING} \
          -x NCCL_TUNER_PLUGIN=${NCCL_TUNER_PLUGIN} \
-         -x NCCL_TUNER_CONFIG_PATH=/usr/local/nvidia/lib64/a3plus_tuner_config.textproto \
-         -x NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=/usr/local/nvidia/lib64/a3plus_guest_config.textproto \
+         -x NCCL_TUNER_CONFIG_PATH=${NCCL_LIB_DIR}/a3plus_tuner_config.textproto \
+         -x NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=${NCCL_LIB_DIR}/a3plus_guest_config.textproto \
          -x NCCL_FASTRAK_PLUGIN_ACCEPT_TIMEOUT_MS=${NCCL_FASTRAK_PLUGIN_ACCEPT_TIMEOUT_MS} \
-         -x NCCL_NVLS_ENABLE=${NCCL_NVLS_ENABLE} \
+         -x NCCL_NVLSTREE_MAX_CHUNKSIZE=${NCCL_NVLSTREE_MAX_CHUNKSIZE} \
          ${NCCL_BENCHMARK} --minbytes ${NCCL_MINBYTES} \
                            --maxbytes ${NCCL_MAXBYTES} \
                            --stepfactor ${NCCL_STEPFACTOR} \
