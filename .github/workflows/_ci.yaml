@@ -740,6 +740,7 @@ jobs:
         uses: ./.github/actions/eks-jobset
         with:
           NAME: axlearn-fuji-3b
+          ENVS: "NCCL_DEBUG=INFO"
           NUM_GPUS: 8
           IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
           COMMAND: |
