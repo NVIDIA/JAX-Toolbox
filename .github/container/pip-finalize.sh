@@ -58,15 +58,17 @@ else
     exit 1
   fi
 
-  # Replace any tensorflow==X with tensorflow-cpu==X in requirements.txt only on amd64
-  if grep -Eq '^tf-nightly([=<>!~ ]|$)' requirements.txt; then
-    echo "tf-nightly detected: removing stable tensorflow/tensorflow-cpu from requirements.txt"
-    sed -i -E '/^tensorflow(-cpu)?==/d' requirements.txt
-  elif [[ "$(uname -m)" = "x86_64" ]]; then
-    sed -i 's/^tensorflow==\([0-9.*]\+\)$/tensorflow-cpu==\1/' requirements.txt
-  else
-    echo "Skipping TF on $(uname -m)"
+  if grep -RqsE '^tf-nightly([=<>!~ ]|$)' requirements-*.in; then
+    if ! grep -Eq '^tf-nightly==' requirements.txt; then
+      echo "ERROR: tf-nightly was requested but is missing from compiled requirements.txt"
+      echo "Requested:"
+      grep -RnsE '^tf-nightly' requirements-*.in || true
+      echo "Compiled TF packages:"
+      grep -Ei 'tf-nightly|tensorflow|tfds|protobuf|metadata' requirements.txt || true
+      exit 1
+    fi
   fi
+
 
 fi
 
