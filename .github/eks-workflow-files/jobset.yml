@@ -55,16 +55,18 @@ spec:
                   env:
                   - name: JAX_COORDINATOR_PORT
                     value: '3389'
+                  - name: POD_NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
                   - name: JAX_COORDINATOR_HOST
                     valueFrom:
                       fieldRef:
                         fieldPath: metadata.labels['jobset.sigs.k8s.io/coordinator']
                   - name: JAX_COORDINATOR_IP
-                    valueFrom:
-                      fieldRef:
-                        fieldPath: metadata.labels['jobset.sigs.k8s.io/coordinator']
+                    value: "$(JAX_COORDINATOR_HOST).$(POD_NAMESPACE).svc.cluster.local"
                   - name: JAX_COORDINATOR_ADDRESS
-                    value: "$(JAX_COORDINATOR_HOST):$(JAX_COORDINATOR_PORT)"
+                    value: "$(JAX_COORDINATOR_IP):$(JAX_COORDINATOR_PORT)"
                   - name: NNODES
                     value: "1"
                   - name: NODE_RANK
