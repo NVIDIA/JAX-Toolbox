@@ -37,6 +37,7 @@ jobs:
           ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           bazel-remote-cache-url: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+          require-nsys-jax-version-artifact: "false"
     outputs:
       DOCKER_TAG_FINAL:   ${{ steps.build.outputs.DOCKER_TAG_FINAL }}
 
@@ -52,8 +53,9 @@ jobs:
     env:
       BASE_IMAGE: ${{ needs.build-nccl-gke.outputs.DOCKER_TAG_FINAL }}
       TEST_NAME: ${{ matrix.test }}
-      WORKLOAD_NAME_PREFIX: nccl-gke
+      NAME: nccl-gke
       NHOSTS: 2
+      NUM_GPUS: 8
       NCCL_MINBYTES: 8
       NCCL_MAXBYTES: 16G
       NCCL_STEPFACTOR: 2
@@ -66,33 +68,33 @@ jobs:
       id: workload-name
       run: |
         TEST_NAME=$(echo "${{ matrix.test }}" | sed 's/_perf_mpi//g' | sed 's/_/-/g')
-        WORKLOAD_PREFIX="${{ env.WORKLOAD_NAME_PREFIX }}-${TEST_NAME}"
+        JOBSET_PREFIX="${{ env.NAME }}-${TEST_NAME}"
 
-        echo "WORKLOAD_PREFIX=${WORKLOAD_PREFIX}" >> ${GITHUB_OUTPUT}
+        echo "JOBSET_PREFIX=${JOBSET_PREFIX}" >> ${GITHUB_OUTPUT}
 
     - name: Run XPK workload on cluster
       uses: ./.github/actions/gke-xpk
       with:
         IMAGE: ${{ env.BASE_IMAGE }}
-        IMAGE_PULL_SECRET_NAME: ${{ steps.store-token.outputs.token-name }}
-        WORKLOAD_NAME_PREFIX: ${{ steps.workload-name.outputs.WORKLOAD_PREFIX }}
+        NAME: ${{ steps.workload-name.outputs.JOBSET_PREFIX }}
         ENVS: |
-          JAX_COORDINATOR_PORT=3389;
-          JAX_COORDINATOR_ADDRESS=\$(JOBSET_NAME)-\$(REPLICATED_JOB_NAME)-0-0.\$(JOBSET_NAME):\$(JAX_COORDINATOR_PORT);
-          NHOSTS=${{ env.NHOSTS }};
-          NCCL_LIB_DIR=/opt/nvida/nccl/lib;
-          SCRIPT_DIR=/scripts;
+          OMPI_MCA_orte_keep_fqdn_hostnames=1;
+          PRTE_MCA_prte_keep_fqdn_hostnames=1;
+          MPI_MCA_orte_default_hostfile=/scripts/hostfiles${{ env.NHOSTS }}/hostfile${{ env.NUM_GPUS }};
+          PRTE_MCA_prte_default_hostfile=/scripts/hostfiles${{ env.NHOSTS }}/hostfile${{ env.NUM_GPUS }};
           NCCL_MINBYTES=${{ env.NCCL_MINBYTES }};
           NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
           NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
           NCCL_ITERS=${{ env.NCCL_ITERS }};
         COMMAND: |
+          mpirun --version;
+          ompi_info --version;
+
           service ssh restart;
-          console=/dev/stdout;
-          declare -a hosts=(\${JOBSET_NAME}-slice-job-0-0.\${JOBSET_NAME} \${JOBSET_NAME}-slice-job-0-1.\${JOBSET_NAME});
+          declare -a hosts=(\${JOBSET_NAME}-\${REPLICATED_JOB_NAME}-0-0.\${JOBSET_NAME} \${JOBSET_NAME}-\${REPLICATED_JOB_NAME}-0-1.\${JOBSET_NAME});
 
           /scripts/nccl-test-launch.sh ${{ matrix.test }} \${hosts[@]} |&
-          tee /opt/output/output.log &> \${console};
+          tee /opt/output/output.log &> /dev/stdout;
 
           MAYBE_MPI_EXIT_CODE=\$(tail /opt/output/output.log | rg 'Exit code:[ ]+([0-9]+)' -or '\$1');
           if [ -z \${MAYBE_MPI_EXIT_CODE} ]; then

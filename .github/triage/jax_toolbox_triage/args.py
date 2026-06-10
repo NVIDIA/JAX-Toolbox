@@ -100,13 +100,22 @@ def parse_args(args=None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-prefix",
-        default=datetime.datetime.now().strftime("triage-%Y-%m-%d-%H-%M-%S"),
+        default=None,
         help="""
             Prefix for output log and JSON files. Default: triage-YYYY-MM-DD-HH-MM-SS.
             An INFO-and-above log is written as PREFIX.log, a DEBUG-and-above log is
             written as PREFIX-debug.log, and a JSON summary is written as
             PREFIX-summary.json""",
         type=pathlib.Path,
+    )
+    parser.add_argument(
+        "--restart",
+        action="store_true",
+        help="""
+            Restart a previous triage run from --output-prefix. The output directory
+            must contain summary.json, which is used as the source of truth for
+            completed records.
+        """,
     )
     parser.add_argument(
         "--skip-precondition-checks",
@@ -308,6 +317,21 @@ def parse_args(args=None) -> argparse.Namespace:
         help="The name of the main branch (e.g. main) to derive cherry-picks from",
     )
     args = parser.parse_args(args=args)
+    if args.restart:
+        if args.output_prefix is None:
+            raise Exception("--restart requires --output-prefix")
+        args.output_prefix = args.output_prefix.resolve()
+        summary_file = args.output_prefix / "summary.json"
+        if not summary_file.exists():
+            raise Exception(
+                f"--output-prefix must contain summary.json: {summary_file}"
+            )
+    else:
+        if args.output_prefix is None:
+            args.output_prefix = pathlib.Path(
+                datetime.datetime.now().strftime("triage-%Y-%m-%d-%H-%M-%S")
+            )
+
     assert args.container_runtime in {
         "docker",
         "pyxis",
@@ -348,9 +372,7 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), (
-            "For local runtime, --passing-versions and --failing-versions must be provided."
-        )
+        ), "For local runtime, --passing-versions and --failing-versions must be provided."
         assert (
             args.container is None
             and args.start_date is None
@@ -395,9 +417,9 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert args.container is not None, (
-            "--container must be passed for the container-level search"
-        )
+        assert (
+            args.container is not None
+        ), "--container must be passed for the container-level search"
 
     args.optional_software = optional_software.copy()
     if args.exclude_transformer_engine:

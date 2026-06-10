@@ -66,6 +66,10 @@ inputs:
     description: "Optional named build context to source from a runner registry for the final image handoff"
     required: false
     default: ""
+  require-nsys-jax-version-artifact:
+    description: "Whether this container build requires the nsys-jax version.py artifact"
+    required: false
+    default: "true"
 
 outputs:
   DOCKER_TAG_MEALKIT:
@@ -113,11 +117,13 @@ runs:
 
 
     - name: Download nsys-jax version.py
+      if: ${{ inputs.require-nsys-jax-version-artifact == 'true' && inputs.CONTAINER_NAME != 'jio' }}
       uses: actions/download-artifact@v8
       with:
         name: nsys-jax-version-file
 
     - name: Move version.py
+      if: ${{ inputs.require-nsys-jax-version-artifact == 'true' && inputs.CONTAINER_NAME != 'jio' }}
       shell: bash
       run: |
         ls
