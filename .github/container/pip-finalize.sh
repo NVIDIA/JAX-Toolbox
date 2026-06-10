@@ -59,11 +59,15 @@ else
   fi
 
   # Replace any tensorflow==X with tensorflow-cpu==X in requirements.txt only on amd64
-  if [[ "$(uname -m)" = "x86_64" ]]; then
+  if grep -Eq '^tf-nightly([=<>!~ ]|$)' requirements.txt; then
+    echo "tf-nightly detected: removing stable tensorflow/tensorflow-cpu from requirements.txt"
+    sed -i -E '/^tensorflow(-cpu)?==/d' requirements.txt
+  elif [[ "$(uname -m)" = "x86_64" ]]; then
     sed -i 's/^tensorflow==\([0-9.*]\+\)$/tensorflow-cpu==\1/' requirements.txt
   else
     echo "Skipping TF on $(uname -m)"
   fi
+
 fi
 
 # --no-deps is required since conflicts can still appear during pip-sync
