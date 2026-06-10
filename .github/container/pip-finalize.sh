@@ -58,18 +58,12 @@ else
     exit 1
   fi
 
-  if grep -RqsE '^tf-nightly([=<>!~ ]|$)' requirements-*.in; then
-    if ! grep -Eq '^tf-nightly==' requirements.txt; then
-      echo "ERROR: tf-nightly was requested but is missing from compiled requirements.txt"
-      echo "Requested:"
-      grep -RnsE '^tf-nightly' requirements-*.in || true
-      echo "Compiled TF packages:"
-      grep -Ei 'tf-nightly|tensorflow|tfds|protobuf|metadata' requirements.txt || true
-      exit 1
-    fi
+  # Replace any tensorflow==X with tensorflow-cpu==X in requirements.txt only on amd64
+  if [[ "$(uname -m)" = "x86_64" ]]; then
+    sed -i 's/^tensorflow==\([0-9.*]\+\)$/tf-nightly-cpu==2.22.0.dev20260530' requirements.txt
+  else
+    echo "Skipping TF on $(uname -m)"
   fi
-
-
 fi
 
 # --no-deps is required since conflicts can still appear during pip-sync

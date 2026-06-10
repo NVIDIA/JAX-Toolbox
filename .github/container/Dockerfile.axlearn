@@ -38,22 +38,19 @@ RUN <<"EOF" bash -ex
   sed -i '/"jaxlib==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   sed -i '/"pyarrow</d' ${SRC_PATH_AXLEARN}/pyproject.toml
   sed -i '/"tensorstore>=/d' ${SRC_PATH_AXLEARN}/pyproject.toml
-  sed -i -E '/"tensorflow([<>=!~ ]|==|-)/d' ${SRC_PATH_AXLEARN}/pyproject.toml
-  sed -i -E '/"tensorflow-cpu([<>=!~ ]|==|-)/d' ${SRC_PATH_AXLEARN}/pyproject.toml
-  sed -i -E '/"tensorflow-io([<>=!~ ]|==|-)/d' ${SRC_PATH_AXLEARN}/pyproject.toml
-  sed -i -E '/"tensorflow[_-]text([<>=!~ ]|==|-)/d' ${SRC_PATH_AXLEARN}/pyproject.toml
-  sed -i -E '/"tensorflow-datasets([<>=!~ ]|==|-)/d' ${SRC_PATH_AXLEARN}/pyproject.toml
-  sed -i -E '/"tensorflow-metadata([<>=!~ ]|==|-)/d' ${SRC_PATH_AXLEARN}/pyproject.toml
-
+  sed -i '/"tensorflow==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
+  sed -i '/"tensorflow-io==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
+  sed -i '/"tensorflow_text==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
+  sed -i '/"tensorflow-metadata==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   # Install core and dev dependencies from pyproject.toml
   echo "-e ${SRC_PATH_AXLEARN}[core]" > /opt/pip-tools.d/requirements-axlearn.in
 
   # Add packages missing from pyproject.toml
 cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
-tf-nightly==2.22.0.dev20260530
-tfds-nightly
-tensorflow-text-nightly
+tensorflow
+tensorflow-text
 pyarrow
+tensorflow-metadata
 tensorstore
 cloudpickle
 pytest
