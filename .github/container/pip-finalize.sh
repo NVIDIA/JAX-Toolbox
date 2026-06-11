@@ -60,7 +60,7 @@ else
 
   # Replace any tensorflow==X with tensorflow-cpu==X in requirements.txt only on amd64
   if [[ "$(uname -m)" = "x86_64" ]]; then
-    sed -i 's/^tensorflow==\([0-9.*]\+\)$/tf-nightly-cpu==2.22.0.dev20260530' requirements.txt
+    sed -i 's/^tensorflow==.*/tf-nightly-cpu==2.22.0.dev20260530/' requirements.txt
   else
     echo "Skipping TF on $(uname -m)"
   fi
