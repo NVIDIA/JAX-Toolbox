@@ -44,20 +44,20 @@ export const STACK = {
     {
       id: "core", label: "JAX · XLA",
       cells: [
-        { width: 12, projects: ["jax", "xla"] },
+        { width: 12, label: "Runtime & Compiler", projects: ["jax", "xla"] },
       ],
     },
     {
       id: "native-xla", label: "Native XLA",
       cells: [
-        { width: 2,  projects: ["cupti"] },
-        { width: 10, projects: ["cudnn", "cublas", "nccl", "nvshmem"] },
+        { width: 2,  label: "NVIDIA Profiling", projects: ["cupti"] },
+        { width: 10, label: "NVIDIA Libraries", projects: ["cudnn", "cublas", "nccl", "nvshmem"] },
       ],
     },
     {
       id: "hardware", label: "Hardware",
       cells: [
-        { width: 12, projects: ["hw-datacenter", "hw-workstation", "hw-rtx", "hw-jetson"] },
+        { width: 12, label: "Hardware", projects: ["hw-datacenter", "hw-workstation", "hw-rtx", "hw-jetson"] },
       ],
     },
   ],
