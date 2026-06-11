@@ -27,8 +27,8 @@ export const STACK = {
       id: "frameworks", label: "Frameworks",
       cells: [
         { width: 2, label: "NVIDIA Profiling", projects: ["nsight", "nsys-jax"] },
-        { width: 8, label: "Frameworks", projects: ["maxtext", "maxdiffusion"] },
-        { width: 2, projects: [] }, 
+        { width: 7, label: "Frameworks", projects: ["maxtext", "maxdiffusion"] },
+        { width: 3, projects: [] }, 
       ],
     },
     {
