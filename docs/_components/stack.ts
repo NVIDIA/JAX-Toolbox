@@ -26,26 +26,25 @@ export const STACK = {
     {
       id: "frameworks", label: "Frameworks",
       cells: [
-        { width: 2, projects: ["nsight", "nsys-jax"] },
-        { width: 6, projects: ["maxtext", "maxdiffusion", "axlearn"] },
-        { width: 2, projects: ["tokamax"] },
-        { width: 2, projects: ["alphafold3"] },
+        { width: 2, label: "NVIDIA Profiling", projects: ["nsight", "nsys-jax"] },
+        { width: 8, label: "Frameworks", projects: ["maxtext", "maxdiffusion"] },
+        { width: 2, projects: [] }, 
       ],
     },
     {
       id: "ecosystem", label: "JAX ecosystem",
       cells: [
-        { width: 2, label: "Profiling",          projects: ["xprof"] },
-        { width: 3, label: "Training libraries", projects: ["grain", "optax", "orbax", "tunix", "qwix", "flax", "pallas-mosaicgpu"] },
-        { width: 3, label: "Scale & precision",  projects: ["jaxpp", "te"] },
-        { width: 2, label: "Kernels",            projects: ["warp", "cuequivariance", "cutile", "cutlass"] },
-        { width: 2, label: "Inference",          projects: ["flashinfer", "mlir-trt"] },
+        { width: 2, label: "Native Profiling",    projects: ["xprof"] },
+        { width: 3, label: "Native Libraries", projects: ["grain", "optax", "orbax", "tunix", "qwix", "flax", "pallas-mosaicgpu", "tokamax"] },
+        { width: 3, label: "NVIDIA Libraries",  projects: ["jaxpp", "te"] },
+        { width: 2, label: "NVIDIA Kernels",            projects: ["warp", "cuequivariance", "cutile", "cutlass"] },
+        { width: 2, label: "NVIDIA Inference",          projects: ["flashinfer", "mlir-trt"] },
       ],
     },
     {
-      id: "core", label: "JAX · XLA · Pathways",
+      id: "core", label: "JAX · XLA",
       cells: [
-        { width: 12, projects: ["jax", "xla", "pathways"] },
+        { width: 12, projects: ["jax", "xla"] },
       ],
     },
     {

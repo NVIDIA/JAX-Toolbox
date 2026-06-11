@@ -77,10 +77,10 @@ function catStyle(project: ProjectDef): { bg: string; ring: string } {
 
 function Legend() {
   const items = [
-    { bg: "rgba(118,185,0,0.12)",   ring: NV_GREEN,   label: "NVIDIA-developed / optimized" },
-    { bg: "rgba(94,155,240,0.12)",  ring: JAX_BLUE,   label: "JAX-native / OSS ecosystem" },
+    { bg: "rgba(118,185,0,0.12)",   ring: NV_GREEN,   label: "NVIDIA-developed" },
+    { bg: "rgba(94,155,240,0.12)",  ring: JAX_BLUE,   label: "JAX / OSS ecosystem" },
     { bg: "rgba(107,114,128,0.14)", ring: OTHER_GRAY,  label: "Other / runtime" },
-    { bg: "rgba(94,155,240,0.12)",  ring: NV_GREEN,   label: "NVIDIA participates" },
+    { bg: "rgba(94,155,240,0.12)",  ring: NV_GREEN,   label: "NVIDIA optimized" },
   ];
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", margin: "0 0 10px", fontSize: "0.68rem" }}>
@@ -301,7 +301,7 @@ function OverviewPanel({
         </span>
         {project.nvidia_participates && (
           <span style={{ fontSize: "0.75rem", color: NV_GREEN }}>
-            NVIDIA participates
+            NVIDIA optimized
           </span>
         )}
       </strong>
