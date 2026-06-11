@@ -35,9 +35,9 @@ export const STACK = {
       id: "ecosystem", label: "JAX ecosystem",
       cells: [
         { width: 2, label: "Native Profiling",    projects: ["xprof"] },
-        { width: 3, label: "Native Libraries", projects: ["grain", "optax", "orbax", "tunix", "qwix", "flax", "pallas-mosaicgpu", "tokamax"] },
-        { width: 3, label: "NVIDIA Libraries",  projects: ["jaxpp", "te"] },
-        { width: 2, label: "NVIDIA Kernels",            projects: ["warp", "cuequivariance", "cutile", "cutlass"] },
+        { width: 4, label: "Native Libraries", projects: ["grain", "optax", "orbax", "tunix", "qwix", "flax", "pallas-mosaicgpu", "tokamax"] },
+        { width: 4, label: "NVIDIA Libraries & kernel DSLs",  projects: ["jaxpp", "te", "warp", "cuequivariance", "cutile", "cutlass"] },
+
         { width: 2, label: "NVIDIA Inference",          projects: ["flashinfer", "mlir-trt"] },
       ],
     },
