@@ -247,7 +247,7 @@ export const STACK = {
       id: "mlir-trt", name: "MLIR-TRT", category: "nvidia",
       href: "https://github.com/NVIDIA/TensorRT-Incubator",
       description: `MLIR-TensorRT — an MLIR-based compiler path that lowers StableHLO
-        to optimized TensorRT engines for NVIDIA inference.`,
+        to optimized TensorRT engines for inference workflows.`,
     },
 
     // Core row
