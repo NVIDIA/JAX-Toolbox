@@ -42,20 +42,21 @@ RUN <<"EOF" bash -ex
   sed -i '/"tensorflow-io==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   sed -i '/"tensorflow_text==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   sed -i '/"tensorflow-metadata==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
+  sed -i '/"seqio==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   # Install core and dev dependencies from pyproject.toml
   echo "-e ${SRC_PATH_AXLEARN}[core]" > /opt/pip-tools.d/requirements-axlearn.in
 
   # Add packages missing from pyproject.toml
 cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
-tensorflow==2.20.0
-tensorflow-text==2.20.0
+tensorflow
+seqio
 pyarrow
-tensorflow-metadata
 tensorstore
 cloudpickle
 pytest
 pytest-xdist
 pytest-reportlog
+protobuf>=6.31.1,<7
 REQUIREMENTS
 EOF
 
