@@ -263,9 +263,9 @@ export const STACK = {
       id: "xla", name: "XLA", category: "jax",
       href: "https://github.com/openxla/xla",
       nvidia_participates: true,
-      description: `The shared JIT compiler behind JAX. Programs trace to StableHLO,
-        which XLA:GPU lowers via LLVM NVPTX to PTX/SASS, calling cuBLAS and cuDNN as
-        library ops. OpenXLA is co-developed by NVIDIA alongside Google and others.`,
+      description: `XLA (Accelerated Linear Algebra) is an open-source machine learning (ML) compiler, 
+      powering JAX. JAX programs are traced to StableHLO, which XLA:GPU lowers to NVIDIA CUDA stack 
+      libraries such as cuBLAS, cuDNN, NCCL, among others.`,
     },
 
     // Native XLA row
