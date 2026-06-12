@@ -1,0 +1,23 @@
+diff --git a/include/cudnn_frontend_shim.h b/include/cudnn_frontend_shim.h
+index ea838d3..c8f9de7 100644
+--- a/include/cudnn_frontend_shim.h
++++ b/include/cudnn_frontend_shim.h
+@@ -96,12 +96,12 @@ load_cudart_so() {
+         const char *error = reinterpret_cast<const char *>(dlerror());
+ 
+         if (handle && !error) {
+-            if (lib_handle) {
+-                // Already loaded one -> multiple found
+-                dlclose(handle);
+-                throw std::runtime_error("Multiple libcudart libraries found: " + std::string(libs[loaded_index]) +
+-                                         " and " + std::string(libs[i]));
+-            }
++            // if (lib_handle) {
++            //     // Already loaded one -> multiple found
++            //     dlclose(handle);
++            //     throw std::runtime_error("Multiple libcudart libraries found: " + std::string(libs[loaded_index]) +
++            //                              " and " + std::string(libs[i]));
++            // }
+             lib_handle   = handle;
+             loaded_index = static_cast<int>(i);
+         }
