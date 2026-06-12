@@ -315,6 +315,12 @@ export const STACK = {
         communication. Integrates with Mosaic GPU kernels to hide latency,
         complementing NCCL's bulk collectives.`,
     },
+    {
+      id: "RAPIDS", name: "RAPIDS", category: "nvidia",
+      href: "https://docs.nvidia.com/rapids/index.html",
+      description: `The RAPIDS data science framework is a collection of libraries for
+              running end-to-end data science pipelines completely on the GPU.`,
+    },
 
     // Hardware row (static — no overview panel)
     { id: "hw-datacenter",  name: "Datacenter",  category: "nvidia", isStatic: true },
