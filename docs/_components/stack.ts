@@ -111,13 +111,7 @@ export const STACK = {
         more) exposed through Pallas, with per-hardware autotuned implementations on
         NVIDIA GPUs.`,
     },
-    {
-      id: "alphafold3", name: "AlphaFold3", category: "nvidia",
-      href: "https://github.com/google-deepmind/alphafold3",
-      description: `DeepMind's protein-structure model. NVIDIA provides an optimized
-        inference container (ghcr.io/nvidia/jax:alphafold) for running AlphaFold3 on
-        GPUs.`,
-    },
+
 
     // Tooling
     {
@@ -272,12 +266,6 @@ export const STACK = {
       description: `The shared JIT compiler behind JAX. Programs trace to StableHLO,
         which XLA:GPU lowers via LLVM NVPTX to PTX/SASS, calling cuBLAS and cuDNN as
         library ops. OpenXLA is co-developed by NVIDIA alongside Google and others.`,
-    },
-    {
-      id: "pathways", name: "Pathways", category: "other",
-      description: `Google's proprietary single-controller runtime for orchestrating
-        large TPU pods. Shown for context — it is not part of the NVIDIA GPU path,
-        where multi-node JAX uses HPC-X/OpenMPI, Ray, or SLURM.`,
     },
 
     // Native XLA row
