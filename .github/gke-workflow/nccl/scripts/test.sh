@@ -17,7 +17,6 @@ NCCL_NVLSTREE_MAX_CHUNKSIZE="${NCCL_NVLSTREE_MAX_CHUNKSIZE:-131072}"
 run_nccl() {
   mpirun --mca btl tcp,self \
          --mca btl_tcp_if_include eth0 \
-         --mca orte_keep_fqdn_hostnames 1 \
          --allow-run-as-root \
          -np $(( GPUS_PER_NODE * "${NHOSTS}" )) \
          --hostfile "${SCRIPT_DIR}/hostfiles${NHOSTS}/hostfile${GPUS_PER_NODE}"     \

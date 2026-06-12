@@ -55,6 +55,7 @@ jobs:
       TEST_NAME: ${{ matrix.test }}
       NAME: nccl-gke
       NHOSTS: 2
+      NUM_GPUS: 8
       NCCL_MINBYTES: 8
       NCCL_MAXBYTES: 16G
       NCCL_STEPFACTOR: 2
@@ -77,11 +78,18 @@ jobs:
         IMAGE: ${{ env.BASE_IMAGE }}
         NAME: ${{ steps.workload-name.outputs.JOBSET_PREFIX }}
         ENVS: |
+          OMPI_MCA_orte_keep_fqdn_hostnames=1;
+          PRTE_MCA_prte_keep_fqdn_hostnames=1;
+          MPI_MCA_orte_default_hostfile=/scripts/hostfiles${{ env.NHOSTS }}/hostfile${{ env.NUM_GPUS }};
+          PRTE_MCA_prte_default_hostfile=/scripts/hostfiles${{ env.NHOSTS }}/hostfile${{ env.NUM_GPUS }};
           NCCL_MINBYTES=${{ env.NCCL_MINBYTES }};
           NCCL_MAXBYTES=${{ env.NCCL_MAXBYTES }};
           NCCL_STEPFACTOR=${{ env.NCCL_STEPFACTOR }};
           NCCL_ITERS=${{ env.NCCL_ITERS }};
         COMMAND: |
+          mpirun --version;
+          ompi_info --version;
+
           service ssh restart;
           declare -a hosts=(\${JOBSET_NAME}-\${REPLICATED_JOB_NAME}-0-0.\${JOBSET_NAME} \${JOBSET_NAME}-\${REPLICATED_JOB_NAME}-0-1.\${JOBSET_NAME});
 
