@@ -16,6 +16,7 @@ interface CellDef {
   width: number;
   label?: string;
   projects: string[];
+  rowSpan?: number;
 }
 
 interface RowDef {
@@ -194,6 +195,7 @@ function Cell({
     <div
       style={{
         gridColumn: `span ${cell.width}`,
+        gridRow: `span ${cell.rowSpan ?? 1}`,
         position: "relative",
         display: "flex",
         flexWrap: "wrap",
