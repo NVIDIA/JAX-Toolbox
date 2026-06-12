@@ -77,7 +77,7 @@ function catStyle(project: ProjectDef): { bg: string; ring: string } {
 
 function Legend() {
   const items = [
-    { bg: "rgba(118,185,0,0.12)",   ring: NV_GREEN,   label: "NVIDIA-developed" },
+    { bg: "rgba(118,185,0,0.12)",   ring: NV_GREEN,   label: "NVIDIA-developed JAX-compatible" },
     { bg: "rgba(94,155,240,0.12)",  ring: JAX_BLUE,   label: "JAX / OSS ecosystem" },
     { bg: "rgba(94,155,240,0.12)",  ring: NV_GREEN,   label: "NVIDIA optimized" },
   ];
