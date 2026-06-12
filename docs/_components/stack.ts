@@ -44,7 +44,7 @@ export const STACK = {
     {
       id: "core", label: "JAX",
       cells: [
-        { width: 12, label: "RuntimE", projects: ["jax"] },
+        { width: 12, label: "Framework", projects: ["jax"] },
       ],
     },
     {
