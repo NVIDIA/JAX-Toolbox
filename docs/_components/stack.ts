@@ -58,7 +58,7 @@ export const STACK = {
       id: "native-xla", label: "Native XLA",
       cells: [
         { width: 2,  label: "NVIDIA Profiling", projects: ["cupti"] },
-        { width: 10, label: "NVIDIA Libraries", projects: ["cudnn", "cublas", "nccl", "nvshmem"] },
+        { width: 10, label: "NVIDIA Libraries", projects: ["cudnn", "cublas", "nccl", "nvshmem", "RAPIDS"] },
       ],
     },
     {
@@ -318,8 +318,8 @@ export const STACK = {
 
     // Hardware row (static — no overview panel)
     { id: "hw-datacenter",  name: "Datacenter",  category: "nvidia", isStatic: true },
-    { id: "hw-workstation", name: "Workstations", category: "nvidia", isStatic: true },
-    { id: "hw-rtx",         name: "RTX series",  category: "nvidia", isStatic: true },
+    { id: "hw-workstation", name: "Workstation", category: "nvidia", isStatic: true },
+    { id: "hw-rtx",         name: "GeForce RTX",  category: "nvidia", isStatic: true },
     { id: "hw-jetson",      name: "Jetson",       category: "nvidia", isStatic: true },
   ],
 };
