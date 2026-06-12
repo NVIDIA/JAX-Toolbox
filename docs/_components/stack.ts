@@ -26,18 +26,16 @@ export const STACK = {
     {
       id: "frameworks", label: "Frameworks",
       cells: [
-        { width: 2, label: "NVIDIA Profiling", projects: ["nsight", "nsys-jax"] },
-        { width: 7, label: "Frameworks", projects: ["maxtext", "maxdiffusion"] },
+        { width: 2, label: "Profiling", rowSpan: 2, projects: ["nsight", "nsys-jax", "xprof"] },
+	{ width: 7, label: "Frameworks", projects: ["maxtext", "maxdiffusion"] },
         { width: 3, projects: [] }, 
       ],
     },
     {
       id: "ecosystem", label: "JAX ecosystem",
       cells: [
-        { width: 2, label: "Native Profiling",    projects: ["xprof"] },
         { width: 4, label: "Native Libraries", projects: ["grain", "optax", "orbax", "tunix", "qwix", "flax", "pallas-mosaicgpu", "tokamax"] },
         { width: 4, label: "NVIDIA Libraries & kernel DSLs",  projects: ["jaxpp", "te", "warp", "cuequivariance", "cutile", "cutlass"] },
-
         { width: 2, label: "NVIDIA Libraries",          projects: ["flashinfer", "mlir-trt"] },
       ],
     },
@@ -53,7 +51,6 @@ export const STACK = {
         { width: 12, label: "Compiler", projects: ["xla"] },
       ],
     },
-
     {
       id: "native-xla", label: "Native XLA",
       cells: [
@@ -111,7 +108,13 @@ export const STACK = {
         more) exposed through Pallas, with per-hardware autotuned implementations on
         NVIDIA GPUs.`,
     },
-
+    {
+      id: "alphafold3", name: "AlphaFold3", category: "nvidia",
+      href: "https://github.com/google-deepmind/alphafold3",
+      description: `DeepMind's protein-structure model. NVIDIA provides an optimized
+        inference container (ghcr.io/nvidia/jax:alphafold) for running AlphaFold3 on
+        GPUs.`,
+    },
 
     // Tooling
     {
@@ -265,7 +268,7 @@ export const STACK = {
       nvidia_participates: true,
       description: `XLA (Accelerated Linear Algebra) is an open-source machine learning (ML) compiler, 
       powering JAX. JAX programs are traced to StableHLO, which XLA:GPU lowers to NVIDIA CUDA stack 
-      libraries such as cuBLAS, cuDNN, NCCL, among others.`,
+      libraries such as cuBLAS, cuDNN, NCCL, among others.`,    
     },
 
     // Native XLA row
@@ -306,8 +309,8 @@ export const STACK = {
     {
       id: "RAPIDS", name: "RAPIDS", category: "nvidia",
       href: "https://docs.nvidia.com/rapids/index.html",
-      description: `The RAPIDS data science framework is a collection of libraries for
-              running end-to-end data science pipelines completely on the GPU.`,
+      description: `The RAPIDS data science framework is a collection of libraries for 
+	      running end-to-end data science pipelines completely on the GPU.`,
     },
 
     // Hardware row (static — no overview panel)
