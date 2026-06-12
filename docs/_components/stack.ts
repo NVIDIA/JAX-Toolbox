@@ -42,11 +42,18 @@ export const STACK = {
       ],
     },
     {
-      id: "core", label: "JAX · XLA",
+      id: "core", label: "JAX",
       cells: [
-        { width: 12, label: "Runtime & Compiler", projects: ["jax", "xla"] },
+        { width: 12, label: "RuntimE", projects: ["jax"] },
       ],
     },
+    {
+      id: "core", label: "XLA",
+      cells: [
+        { width: 12, label: "Compiler", projects: ["xla"] },
+      ],
+    },
+
     {
       id: "native-xla", label: "Native XLA",
       cells: [
