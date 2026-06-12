@@ -79,7 +79,7 @@ function Legend() {
   const items = [
     { bg: "rgba(118,185,0,0.12)",   ring: NV_GREEN,   label: "NVIDIA-developed JAX-compatible" },
     { bg: "rgba(94,155,240,0.12)",  ring: JAX_BLUE,   label: "JAX / OSS ecosystem" },
-    { bg: "rgba(94,155,240,0.12)",  ring: NV_GREEN,   label: "NVIDIA optimized" },
+    { bg: "rgba(94,155,240,0.12)",  ring: NV_GREEN,   label: "NVIDIA-optimized JAX-native" },
   ];
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", margin: "0 0 10px", fontSize: "0.68rem" }}>
