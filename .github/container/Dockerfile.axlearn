@@ -42,6 +42,9 @@ RUN <<"EOF" bash -ex
   sed -i '/"tensorflow-io==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   sed -i '/"tensorflow_text==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   sed -i '/"tensorflow-metadata==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
+  sed -i '/"tensorflow-datasets==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
+  sed -i '/"tensorboard-plugin-profile==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
+  sed -i '/"protobuf>/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   sed -i '/"seqio==/d' ${SRC_PATH_AXLEARN}/pyproject.toml
   # Install core and dev dependencies from pyproject.toml
   echo "-e ${SRC_PATH_AXLEARN}[core]" > /opt/pip-tools.d/requirements-axlearn.in
@@ -49,7 +52,11 @@ RUN <<"EOF" bash -ex
   # Add packages missing from pyproject.toml
 cat <<REQUIREMENTS >> /opt/pip-tools.d/requirements-axlearn.in
 tensorflow
-seqio
+tensorflow-datasets==4.9.10
+tensorflow-io
+tensorflow-metadata==1.21.0
+tensorflow-text==2.20.1
+seqio-nightly
 pyarrow
 tensorstore
 cloudpickle
@@ -58,7 +65,6 @@ pytest-xdist
 pytest-reportlog
 protobuf>=6.31.1,<7
 REQUIREMENTS
-EOF
 
 RUN echo "$(cat /opt/pip-tools.d/requirements-axlearn.in)"
 
