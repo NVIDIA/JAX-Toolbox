@@ -15,8 +15,7 @@ export const STACK = {
   // ------------------------------------------------------------------
   columns: [
     { id: "tooling",   label: "Tooling",                 width: 2 },
-    { id: "training",  label: "Training / Post-Training", width: 7 },
-    { id: "inference", label: "Inference",                width: 3 },
+    { id: "training",  label: "Training / Post-Training / Inference", width: 10 },
   ],
 
   // ------------------------------------------------------------------
@@ -35,7 +34,7 @@ export const STACK = {
       cells: [
         { width: 4, label: "Native Libraries", projects: ["grain", "optax", "orbax", "tunix", "qwix", "flax", "pallas-mosaicgpu", "tokamax"] },
         { width: 4, label: "NVIDIA Libraries & kernel DSLs",  projects: ["jaxpp", "te", "warp", "cuequivariance", "cutile", "cutlass"] },
-        { width: 2, label: "NVIDIA Libraries",          projects: ["flashinfer", "mlir-trt"] },
+        { width: 2, label: "NVIDIA Inference Libraries",          projects: ["flashinfer", "mlir-trt"] },
       ],
     },
     {
@@ -312,10 +311,34 @@ export const STACK = {
 	      running end-to-end data science pipelines completely on the GPU.`,
     },
 
-    // Hardware row (static — no overview panel)
-    { id: "hw-datacenter",  name: "Datacenter",  category: "nvidia", isStatic: true },
-    { id: "hw-workstation", name: "Workstation", category: "nvidia", isStatic: true },
-    { id: "hw-rtx",         name: "GeForce RTX",  category: "nvidia", isStatic: true },
-    { id: "hw-jetson",      name: "Jetson",       category: "nvidia", isStatic: true },
+    // Hardware row
+    {
+      id: "hw-datacenter", name: "Datacenter", category: "nvidia",
+      href: "https://www.nvidia.com/en-us/data-center/products/",
+      description: `NVIDIA's data center GPU platform — Hopper (H-series) and Blackwell
+        (B-series) accelerators and NVLink-connected NVL systems — delivers the memory
+        bandwidth and compute density required for large-scale JAX training and inference.`,
+    },
+    {
+      id: "hw-workstation", name: "Workstation", category: "nvidia",
+      href: "https://www.nvidia.com/en-us/design-visualization/rtx/",
+      description: `NVIDIA RTX workstation GPUs bring data center-class Tensor Cores and
+        large VRAM to local development environments, enabling full-fidelity JAX model
+        development and fine-tuning without a cluster.`,
+    },
+    {
+      id: "hw-rtx", name: "GeForce RTX", category: "nvidia",
+      href: "https://www.nvidia.com/en-us/geforce/graphics-cards/",
+      description: `NVIDIA's consumer GPU line supports JAX development and inference on
+        personal hardware, with Tensor Core acceleration available across the RTX product
+        family.`,
+    },
+    {
+      id: "hw-jetson", name: "Jetson", category: "nvidia",
+      href: "https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/",
+      description: `NVIDIA's edge AI compute platform — Orin and Thor modules — deploys
+        trained JAX models at the edge with integrated GPU, CPU, and DLA compute in
+        power-efficient form factors.`,
+    },
   ],
 };
