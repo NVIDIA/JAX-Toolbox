@@ -44,16 +44,16 @@ const DATA = STACK as unknown as { columns: ColumnDef[]; rows: RowDef[]; project
 // ---------------------------------------------------------------------------
 
 const NV_GREEN = "#76B900";
-const JAX_BLUE = "#5e9bf0";
+const JAX_BLUE = "#a78bfa";
 const OTHER_GRAY = "#6b7280";
 
 // background tint + inset ring color per category
 const CAT_STYLE: Record<string, { bg: string; ring: string }> = {
-  nvidia: { bg: "rgba(118,185,0,0.12)",   ring: NV_GREEN   },
-  jax:    { bg: "rgba(94,155,240,0.12)",  ring: JAX_BLUE   },
-  other:  { bg: "rgba(107,114,128,0.14)", ring: OTHER_GRAY },
+  nvidia: { bg: "rgba(118,185,0,0.20)",   ring: NV_GREEN   },
+  jax:    { bg: "rgba(167,139,250,0.20)", ring: JAX_BLUE   },
+  other:  { bg: "rgba(107,114,128,0.20)", ring: OTHER_GRAY },
 };
-const CAT_DEFAULT = { bg: "rgba(107,114,128,0.10)", ring: OTHER_GRAY };
+const CAT_DEFAULT = { bg: "rgba(107,114,128,0.20)", ring: OTHER_GRAY };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -78,9 +78,9 @@ function catStyle(project: ProjectDef): { bg: string; ring: string } {
 
 function Legend() {
   const items = [
-    { bg: "rgba(118,185,0,0.12)",   ring: NV_GREEN,   label: "NVIDIA-developed JAX-compatible" },
-    { bg: "rgba(94,155,240,0.12)",  ring: JAX_BLUE,   label: "JAX / OSS ecosystem" },
-    { bg: "rgba(94,155,240,0.12)",  ring: NV_GREEN,   label: "NVIDIA-optimized JAX-native" },
+    { bg: "rgba(118,185,0,0.20)",   ring: NV_GREEN,   label: "NVIDIA-developed JAX-compatible" },
+    { bg: "rgba(167,139,250,0.20)", ring: JAX_BLUE,   label: "JAX / OSS ecosystem" },
+    { bg: "rgba(167,139,250,0.20)", ring: NV_GREEN,   label: "NVIDIA-optimized JAX-native" },
   ];
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", margin: "0 0 10px", fontSize: "0.68rem" }}>
@@ -120,7 +120,7 @@ function ColumnHeaders({ columns }: { columns: ColumnDef[] }) {
             fontSize: "0.64rem",
             padding: "3px 6px",
             borderRadius: "2px",
-            background: "rgba(118,185,0,0.10)",
+            background: "rgba(118,185,0,0.20)",
             border: "1px solid rgba(118,185,0,0.45)",
           }}
         >
@@ -204,7 +204,7 @@ function Cell({
         alignContent: "center",
         alignItems: "center",
         padding: hasLabel ? "1.5rem 5px 8px" : "7px 5px 8px",
-        border: "1px dashed rgba(128,128,128,0.32)",
+        border: "1px dashed rgba(128,128,128,0.60)",
         borderRadius: "2px",
         minHeight: "1.8rem",
       }}
@@ -253,7 +253,7 @@ function OverviewPanel({
   project: ProjectDef;
   onClose: () => void;
 }) {
-  const { ring } = catStyle(project);
+  const { bg, ring } = catStyle(project);
   return (
     <div
       style={{
@@ -290,7 +290,7 @@ function OverviewPanel({
         <span
           style={{
             display: "inline-block",
-            background: "rgba(0,0,0,0.08)",
+            background: bg,
             boxShadow: `inset 0 0 0 2px ${ring}`,
             borderRadius: "2px",
             padding: "2px 7px",
