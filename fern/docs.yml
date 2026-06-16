@@ -17,7 +17,7 @@
 
 instances:
   - url: nvidia-jax-toolbox.docs.buildwithfern.com/jax-toolbox
-    # custom-domain: docs.nvidia.com/jax-toolbox/
+    custom-domain: docs.nvidia.com/jax-toolbox/
 
 title: JAX Toolbox
 

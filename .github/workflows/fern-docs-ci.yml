@@ -1,0 +1,30 @@
+# Validates Fern docs configuration and checks for broken internal links on PRs.
+# Runs without a FERN_TOKEN — suitable for untrusted forks.
+name: Fern Docs CI
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'fern/**'
+      - 'package.json'
+
+jobs:
+  validate:
+    name: Validate docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: fern check
+        run: npm run docs:check
+
+      - name: Check broken links
+        run: npx fern docs broken-links

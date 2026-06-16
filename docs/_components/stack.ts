@@ -26,7 +26,7 @@ export const STACK = {
       id: "frameworks", label: "Frameworks",
       cells: [
         { width: 2, label: "Profiling", rowSpan: 2, projects: ["nsight", "nsys-jax", "xprof"] },
-	{ width: 10, label: "Frameworks", projects: ["maxtext", "maxdiffusion"] },
+	      { width: 10, label: "Frameworks", projects: ["maxtext", "maxdiffusion"] },
       ],
     },
     {
@@ -34,7 +34,7 @@ export const STACK = {
       cells: [
         { width: 4, label: "Native Libraries", projects: ["grain", "optax", "orbax", "tunix", "qwix", "flax", "pallas-mosaicgpu", "tokamax"] },
         { width: 4, label: "NVIDIA Libraries & kernel DSLs",  projects: ["jaxpp", "te", "warp", "cuequivariance", "cutile", "cutlass"] },
-        { width: 2, label: "NVIDIA Inference Libraries",          projects: ["flashinfer", "mlir-trt"] },
+        { width: 2, label: "NVIDIA Inference Libraries", projects: ["flashinfer", "mlir-trt"] },
       ],
     },
     {
