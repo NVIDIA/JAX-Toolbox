@@ -91,14 +91,6 @@ export const STACK = {
         stack.`,
     },
     {
-      id: "axlearn", name: "AXLearn", category: "jax",
-      href: "../frameworks/axlearn/README.md",
-      nvidia_participates: true,
-      description: `Apple's deep-learning framework built on JAX and XLA for large-scale
-        models such as the Fuji family. NVIDIA validates AXLearn on GPU clusters and
-        publishes an axlearn container.`,
-    },
-    {
       id: "tokamax", name: "Tokamax", category: "jax",
       href: "https://github.com/google/tokamax",
       nvidia_participates: true,
@@ -106,14 +98,6 @@ export const STACK = {
         more) exposed through Pallas, with per-hardware autotuned implementations on
         NVIDIA GPUs.`,
     },
-    {
-      id: "alphafold3", name: "AlphaFold3", category: "nvidia",
-      href: "https://github.com/google-deepmind/alphafold3",
-      description: `DeepMind's protein-structure model. NVIDIA provides an optimized
-        inference container (ghcr.io/nvidia/jax:alphafold) for running AlphaFold3 on
-        GPUs.`,
-    },
-
     // Tooling
     {
       id: "nsight", name: "Nsight", category: "nvidia",
