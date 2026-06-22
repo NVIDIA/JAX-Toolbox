@@ -8,7 +8,7 @@ JAX Toolbox is NVIDIA's home for JAX and XLA on GPUs, including the latest updat
 [![License Apache 2.0](https://badgen.net/badge/license/apache2.0/blue)](https://github.com/NVIDIA/JAX-Toolbox/blob/main/LICENSE.md)
 [![Build](https://badgen.net/badge/build/check-status/blue)](#build-pipeline-status)
 
-[**Latest news**](https://github.com/NVIDIA/JAX-Toolbox/#latest-news)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Tech blogs**](https://github.com/NVIDIA/JAX-Toolbox/#tech-blogs)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Documentation**](https://github.com/NVIDIA/JAX-Toolbox/#tutorials)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Resources**](https://github.com/NVIDIA/JAX-Toolbox/#resources)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Containers**](https://github.com/NVIDIA/JAX-Toolbox/#containers)
+[**Latest news**](https://github.com/NVIDIA/JAX-Toolbox/#latest-news)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Tech blogs**](https://github.com/NVIDIA/JAX-Toolbox/#tech-blogs)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Documentation**](https://github.com/NVIDIA/JAX-Toolbox/#tutorials)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Resources**](https://github.com/NVIDIA/JAX-Toolbox/#resources)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Container images**](https://github.com/NVIDIA/JAX-Toolbox/#container-images)
 
 ---
 <div align="left">
@@ -25,7 +25,7 @@ JAX Toolbox is NVIDIA's home for JAX and XLA on GPUs, including the latest updat
 
 - **Resources**: Talks, presentations and ecosystem references
 
-- **Containers**: Nightly builds, monthly NGC releases, and staging containers for JAX on GPU projects
+- **Container images**: Nightly builds, monthly NGC releases, and staging containers for JAX on GPU projects
 
 - **Experimental projects**: Experimental projects for developers to evaluate and provide feedback on
 
@@ -69,69 +69,23 @@ Detailed release notes for NGC JAX containers are published in the [**NGC JAX re
 - [GTC 2025] [**Horizontal Scaling of LLM Training with JAX**](https://www.nvidia.com/en-us/on-demand/session/gtc25-s73266/)
 - [GTC 2025] [**Scaling Transformers: Navigating Challenges and Innovations in Long-Context Modeling**](https://www.nvidia.com/gtc/session-catalog/?search=&tab.catalogallsessionstab=16566177511100015Kus&search.sessiontype=option_1614028602338#/session/1727994825598001BAtq)
 
-## Containers
+## Container images
 ### Frameworks and supported models
-We support and test the following JAX frameworks and model architectures. More details about each model and available containers can be found in their respective READMEs.
+We support and test the following JAX-based frameworks and model architectures. More details about each model and available containers can be found in their respective READMEs.
 
-| Framework | Models | Use cases | Container |
-| :--- | :---: | :---: | :---: |
-| [maxtext](https://github.com/google/maxtext)| GPT, LLaMA, Gemma, Mistral, Mixtral | pre-training | `ghcr.io/nvidia/jax:maxtext` |
-| [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` |
-| [alphafold3](https://github.com/google-deepmind/alphafold3) | Evoformer | inference | `ghcr.io/nvidia/jax:alphafold` |
+Nightly image builds use the latest JAX and XLA and are published to the `ghcr.io/nvidia/jax` image registry. The plain image tag `ghcr.io/nvidia/jax:jax` or `ghcr.io/nvidia/jax:maxtext` is simply the latest image. Append a date suffix to any image tag to specify a particular nightly build, e.g `ghcr.io/nvidia/jax:jax-2026-06-01`.
 
-### Staging containers
-JAX-Toolbox staging containers host pending NVIDIA-authored XLA and JAX enhancements for NVIDIA GPUs. These are pending PRs that are awaiting upstream review and merge in OSS OpenXLA and JAX repositories. For this initiative, we are publishing `scale-training` tagged containers - `jax-scale-training`.
+Stable builds are released at the end of each month to NVIDIA's [**NGC Catalog**](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax) at the `nvcr.io/nvidia/jax` image registry. NGC images pin specific [**JAX releases**](https://github.com/jax-ml/jax/releases). See [**NGC JAX release notes**](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/index.html) for more details.
 
-<table>
-  <thead>
-    <tr>
-      <th colspan=3 style="text-align:center;">
-        <a href="https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/scale-training.yaml?query=event%3Aschedule+branch%3Amain">
-        <img
-          style="height: 1.5em;"
-          src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-workflow-metadata-scale-training.json&logo=github-actions&logoColor=white"
-        />
-        </a>
-      </th>
-    </tr>
-    <tr>
-      <th>Pipeline</th>
-      <th>Container</th>
-      <th>Schedule</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>scale-training.yaml</code></td>
-      <td><code>ghcr.io/nvidia/jax:jax-scale-training</code></td>
-      <td>Every other Saturday, 00:00 UTC</td>
-    </tr>
-  </tbody>
-</table>
+| Framework | Models | Use cases | Container image (nightly build) | Container image (NGC release) |
+| :--- | :---: | :---: | :---: | :---: |
+| [jax](https://github.com/jax-ml/jax)|  | pre-training | `ghcr.io/nvidia/jax:jax` | [`nvcr.io/nvidia/jax:YY.MM-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-py3) |
+| [maxtext](https://github.com/google/maxtext)| [**DeepSeek V3.2**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#deepseek), [**Gemma 4**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#gemma), [**Llama 4**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#llama), [**Qwen3**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#qwen3), [**Qwen 3.5**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#qwen3-5), [**Mixtral**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#mistral-mixtral), [**Kimi K2.6**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#kimi) | pre-training | `ghcr.io/nvidia/jax:maxtext` | [`nvcr.io/nvidia/jax:YY.MM-maxtext-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-maxtext-py3) |
+| [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` | |
+| [alphafold3](https://github.com/google-deepmind/alphafold3) | Evoformer | inference | `ghcr.io/nvidia/jax:alphafold` | |
 
-#### Staging releases
-The table below shows all `scale-training` containers. From Saturday 23rd May, `scale-training` containers will be generated and published every other Saturday at 00:00 UTC. Refer to [**STAGING.md**](https://github.com/openxla/xla/blob/nv-staging/latest/STAGING.md) for more information on the underlying XLA staging branch, the pending PRs included, and corresponding JAX commit used.
 
-| Release date | Container | XLA branch (includes pending PRs) |
-| ------------------------------------- | -------------- |-------------- |
-| 2026-05-30 | [ghcr.io/nvidia/jax:jax-scale-training-2026-05-30](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/906936355?tag=jax-scale-training-2026-05-30) | [00de6b34](https://github.com/openxla/xla/blob/00de6b342f7f02f1b306121dab98706ae1d180b4)
-| 2026-05-11 | [ghcr.io/nvidia/jax:jax-scale-training-2026-05-11](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/856082965?tag=jax-scale-training-2026-05-11) | [552b0a3e](https://github.com/openxla/xla/blob/552b0a3ef06453c74de9f62f778a0f3a960d7e6d/STAGING.md)
-| 2026-04-24 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-24](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/820220988?tag=jax-scale-training-2026-04-24) | [5dfe2147](https://github.com/openxla/xla/blob/5dfe2147cbdd54b2fa1d76da817c64a1847373ca/STAGING.md)
-| 2026-04-18 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-18](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/805313885?tag=jax-scale-training-2026-04-18) | [8147118](https://github.com/sfvaroglu/xla/tree/8147118a7b9707d26dcb747767a9c0dd9081325f)
-
-The base CUDA image used in `-scale-training` image builds is listed by dated version in the [Versions](#versions) tab.
-
-To check the versions of libraries in the container, you can simply run:
-```bash
-docker run --rm --gpus all ghcr.io/nvidia/jax:jax-scale-training-2026-04-24 -c '
-echo "=== CUDA Toolkit ===" && echo ${CUDA_VERSION}
-echo "=== cuDNN ===" && echo ${CUDNN_VERSION}
-echo "=== NCCL ===" &&  echo ${NCCL_VERSION}
-echo "=== Python Packages ===" && pip list | grep -iE "jax|flax|equinox|optax|chex|orbax|numpy|scipy|nvidia-"
-'
-```
-
-### Build pipeline status
+### Nightly build pipeline status
 <table>
   <thead>
     <tr>
@@ -320,9 +274,59 @@ echo "=== Python Packages ===" && pip list | grep -iE "jax|flax|equinox|optax|ch
   </tbody>
 </table>
 
-In all cases, `ghcr.io/nvidia/jax:XXX` points to the latest nightly build of the container for `XXX`. For a stable reference, use `ghcr.io/nvidia/jax:XXX-YYYY-MM-DD`.
-
 In addition to the public CI, we also run internal CI nightlies on [**GB300**](https://www.nvidia.com/en-us/data-center/gb300-nvl72/), [**B300 SXM6**](https://www.nvidia.com/en-us/data-center/dgx-b300/), [**GB200**](https://www.nvidia.com/en-us/data-center/gb200-nvl72/), [**B200**](https://www.nvidia.com/en-us/data-center/dgx-b200/), [**DGX Spark**](https://www.nvidia.com/en-us/products/workstations/dgx-spark/), [**RTX PRO 6000 Blackwell**](https://www.nvidia.com/en-us/products/workstations/professional-desktop-gpus/rtx-pro-6000/), [**Jetson AGX Thor**](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-thor/), [**H100 SXM 80GB**](https://www.nvidia.com/en-us/data-center/h100/), A100 SXM 80GB.
+
+### Staging containers
+JAX-Toolbox staging containers host pending NVIDIA-authored XLA and JAX enhancements for NVIDIA GPUs. These are pending PRs that are awaiting upstream review and merge in OSS OpenXLA and JAX repositories. For this initiative, we are publishing `scale-training` tagged containers - `jax-scale-training`.
+
+<table>
+  <thead>
+    <tr>
+      <th colspan=3 style="text-align:center;">
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/scale-training.yaml?query=event%3Aschedule+branch%3Amain">
+        <img
+          style="height: 1.5em;"
+          src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-workflow-metadata-scale-training.json&logo=github-actions&logoColor=white"
+        />
+        </a>
+      </th>
+    </tr>
+    <tr>
+      <th>Pipeline</th>
+      <th>Container</th>
+      <th>Schedule</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>scale-training.yaml</code></td>
+      <td><code>ghcr.io/nvidia/jax:jax-scale-training</code></td>
+      <td>Every other Saturday, 00:00 UTC</td>
+    </tr>
+  </tbody>
+</table>
+
+#### Staging releases
+The table below shows all `scale-training` containers. From Saturday 23rd May, `scale-training` containers will be generated and published every other Saturday at 00:00 UTC. Refer to [**STAGING.md**](https://github.com/openxla/xla/blob/nv-staging/latest/STAGING.md) for more information on the underlying XLA staging branch, the pending PRs included, and corresponding JAX commit used.
+
+| Release date | Container | XLA branch (includes pending PRs) |
+| ------------------------------------- | -------------- |-------------- |
+| 2026-05-30 | [ghcr.io/nvidia/jax:jax-scale-training-2026-05-30](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/906936355?tag=jax-scale-training-2026-05-30) | [00de6b34](https://github.com/openxla/xla/blob/00de6b342f7f02f1b306121dab98706ae1d180b4)
+| 2026-05-11 | [ghcr.io/nvidia/jax:jax-scale-training-2026-05-11](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/856082965?tag=jax-scale-training-2026-05-11) | [552b0a3e](https://github.com/openxla/xla/blob/552b0a3ef06453c74de9f62f778a0f3a960d7e6d/STAGING.md)
+| 2026-04-24 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-24](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/820220988?tag=jax-scale-training-2026-04-24) | [5dfe2147](https://github.com/openxla/xla/blob/5dfe2147cbdd54b2fa1d76da817c64a1847373ca/STAGING.md)
+| 2026-04-18 | [ghcr.io/nvidia/jax:jax-scale-training-2026-04-18](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax/805313885?tag=jax-scale-training-2026-04-18) | [8147118](https://github.com/sfvaroglu/xla/tree/8147118a7b9707d26dcb747767a9c0dd9081325f)
+
+The base CUDA image used in `-scale-training` image builds is listed by dated version in the [Versions](#versions) tab.
+
+To check the versions of libraries in the container, you can simply run:
+```bash
+docker run --rm --gpus all ghcr.io/nvidia/jax:jax-scale-training-2026-04-24 -c '
+echo "=== CUDA Toolkit ===" && echo ${CUDA_VERSION}
+echo "=== cuDNN ===" && echo ${CUDNN_VERSION}
+echo "=== NCCL ===" &&  echo ${NCCL_VERSION}
+echo "=== Python Packages ===" && pip list | grep -iE "jax|flax|equinox|optax|chex|orbax|numpy|scipy|nvidia-"
+'
+```
 
 ## Experimental projects
 - [**JAX-vLLM Rollout Offloading Bridge**](https://github.com/NVIDIA/JAX-Toolbox/tree/main/jax-inference-offloading#readme)
