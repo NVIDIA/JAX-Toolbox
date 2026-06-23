@@ -14,9 +14,9 @@ fits.
 
 ## How the layers fit together
 
-Read the diagram bottom-up: each layer builds on the one beneath it, and the
-three columns — **Tooling**, **Training / Post-Training**, and **Inference** —
-are the workflows that cut across those layers.
+Read the diagram bottom-up: each layer builds on the one beneath it. The two
+columns — **Tooling** and **Training / Post-Training / Inference** — are the
+workflows that cut across those layers.
 
 ### Hardware
 
@@ -39,9 +39,8 @@ This is the shared core. You write JAX (`jit`, `grad`, `vmap`, `pmap`); JAX
 traces your program to **StableHLO**, and **XLA:GPU** lowers it through LLVM
 NVPTX to PTX/SASS, fusing operations and dispatching the CUDA library calls
 above. OpenXLA is co-developed by NVIDIA alongside Google and others, so GPU
-support lives upstream rather than in a fork. (Pathways, shown for context, is
-Google's TPU runtime and is not part of the NVIDIA path — multi-node JAX on GPUs
-uses HPC-X/OpenMPI, Ray, or SLURM.)
+support lives upstream rather than in a fork. Multi-node JAX on GPUs uses
+HPC-X/OpenMPI, Ray, or SLURM.
 
 ### JAX ecosystem
 
@@ -54,11 +53,10 @@ and **JaxPP** for pipeline parallelism. Profilers — **Nsight**, **nsys-jax**,
 
 ### Frameworks
 
-At the top are the things you launch: **MaxText** and **MaxDiffusion** for
-scalable LLM and diffusion pre-training, **AXLearn** for large-scale models, and
-**AlphaFold3** for inference. NVIDIA tests these on GPUs and publishes
-ready-to-run containers, so the whole stack underneath them is already wired
-together.
+At the top are the things you launch: **MaxText** for scalable LLM pre-training
+(Llama, Gemma, Mistral, Mixtral) and **MaxDiffusion** for diffusion model
+training. NVIDIA tests these on GPUs and publishes ready-to-run containers, so
+the whole stack underneath them is already wired together.
 
 ## Explore further
 
