@@ -53,8 +53,8 @@ on:
         default: full
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.schedule || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: write       # to fetch code and push branch
@@ -78,7 +78,6 @@ jobs:
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
       CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
-      SHOULD_RUN_WORKFLOW: ${{ steps.run-type.outputs.SHOULD_RUN_WORKFLOW }}
       SUFFIX: ${{ steps.run-type.outputs.SUFFIX }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
@@ -151,7 +150,6 @@ jobs:
 
   bump-manifest:
     needs: metadata
-    if: ${{ needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
     runs-on: ubuntu-22.04
     outputs:
       SOURCE_URLREFS: ${{ steps.source-urlrefs.outputs.SOURCE_URLREFS }}
@@ -208,8 +206,6 @@ jobs:
       - name: Create URL ref build args
         id: source-urlrefs
         shell: bash -x -e {0}
-        env:
-          GH_TOKEN: ${{ github.token}}
         run: |
           # converts manifest yaml to a json object of {SOFTWARE_NAME: URL#REF, ...}
           urlrefs=$(
@@ -231,7 +227,6 @@ jobs:
 
   amd64:
     needs: [metadata, bump-manifest]
-    if: ${{ needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: amd64
@@ -244,7 +239,6 @@ jobs:
 
   arm64:
     needs: [metadata, bump-manifest]
-    if: ${{ needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
     uses: ./.github/workflows/_ci.yaml
     with:
       ARCHITECTURE: arm64
@@ -258,7 +252,7 @@ jobs:
   # Only merge if everything succeeds
   merge-new-manifest:
     runs-on: ubuntu-22.04
-    if: ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
+    if: ${{ !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
     needs:
       - metadata
       - amd64
@@ -369,7 +363,7 @@ jobs:
 
   make-publish-configs:
     runs-on: ubuntu-22.04
-    if:  ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
+    if:  ${{ !cancelled() }}
     env:
       MEALKIT_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax-mealkit' || 'mock-jax-mealkit' }}
       FINAL_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax' || 'mock-jax' }}
@@ -458,7 +452,7 @@ jobs:
     needs:
       - metadata
       - make-publish-configs
-    if:  ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
+    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
@@ -474,7 +468,7 @@ jobs:
 
   finalize:
     needs: [metadata, amd64, arm64, publish-containers]
-    if: ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN_WORKFLOW == 'true' }}
+    if: ${{ !cancelled() }}
     uses: ./.github/workflows/_finalize.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
