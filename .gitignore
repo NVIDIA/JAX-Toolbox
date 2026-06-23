@@ -9,3 +9,7 @@ npm-debug.log*
 
 # OS / editor
 .DS_Store
+
+# Local working files (not for commit)
+docs/ecosystem/*-outline.md
+guides/
