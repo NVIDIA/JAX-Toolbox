@@ -25,7 +25,7 @@ title: JAX Toolbox
 global-theme: nvidia
 
 agents:
-  page-directive: "For clean Markdown content of this page, append .md to this URL. For the complete documentation index, see https://nvidia-jax-toolbox.docs.buildwithfern.com/jax-toolbox/llms.txt"
+  page-directive: "For clean Markdown content of this page, append .md to this URL. For the complete documentation index, see https://docs.nvidia.com/jax-toolbox/llms.txt"
 
 products:
   - display-name: JAX Toolbox
