@@ -647,6 +647,8 @@ jobs:
             envs: |-
               NCCL_NET_PLUGIN=none
               NCCL_NET=Socket
+            maxtext-args: |-
+              skip_jax_distributed_system=true
           - test: multi-node
             nodes: 2
             gpus: 8
@@ -656,6 +658,8 @@ jobs:
             tensor-parallel: 2
             envs: |-
               OFI_NCCL_PROTOCOL=SENDRECV
+            maxtext-args: |-
+              jax_distributed_initialization_timeout=60
     runs-on: eks
     steps:
       - uses: actions/checkout@v4
@@ -685,7 +689,9 @@ jobs:
                   max_target_length=1024
                   use_iota_embed=true
                   logits_dot_in_fp32=false
-                  max_segments_per_seq=32'
+                  max_segments_per_seq=32
+                  ${{ matrix.maxtext-args }}
+                  '
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 

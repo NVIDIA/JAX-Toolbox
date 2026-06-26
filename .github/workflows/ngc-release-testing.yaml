@@ -33,20 +33,116 @@ jobs:
 
   test-maxtext-eks:
     if: inputs.MAXTEXT_IMAGE != ''
-    uses: ./.github/workflows/_test_maxtext_k8s.yaml
-    with:
-      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
-    secrets: inherit
-
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: single-node
+            nodes: 1
+            gpus: 8
+            pipeline-parallel: 1
+            data-parallel: 1
+            fsdp: 2
+            tensor-parallel: 4
+            envs: |-
+              NCCL_NET_PLUGIN=none
+              NCCL_NET=Socket
+          - test: multi-node
+            nodes: 2
+            gpus: 8
+            pipeline-parallel: 1
+            data-parallel: 4
+            fsdp: 2
+            tensor-parallel: 2
+            envs: |-
+              OFI_NCCL_PROTOCOL=SENDRECV
+    runs-on: eks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eks-jobset action
+        uses: ./.github/actions/eks-jobset
+        with:
+          NAME: maxtext-${{ matrix.test }}
+          NUM_NODES: ${{ matrix.nodes }}
+          NUM_GPUS: ${{ matrix.gpus }}
+          IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+          ENVS: |
+            ${{ matrix.envs }}
+          COMMAND: |
+            test-maxtext.sh \
+              --output /opt/output \
+              --batch-per-gpu 2 \
+              --steps 10 \
+              --model-name=llama2-7b \
+              --attn-type cudnn_flash_te \
+              --remat-policy=minimal_with_context \
+              --pipeline-parallel ${{ matrix.pipeline-parallel }} \
+              --data-parallel ${{ matrix.data-parallel }} \
+              --fsdp ${{ matrix.fsdp }} \
+              --tensor-parallel ${{ matrix.tensor-parallel }} \
+              --nodes ${{ matrix.nodes }} \
+              -a 'scan_layers=false
+                  max_target_length=1024
+                  use_iota_embed=true
+                  logits_dot_in_fp32=false
+                  max_segments_per_seq=32'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
   test-maxtext-gke:
-    if: inputs.MAXTEXT_IMAGE != ''
-    uses: ./.github/workflows/_test_maxtext_gke_xpk.yaml
-    with:
-      MAXTEXT_IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
-    secrets: inherit
+    runs-on: gke-a3mega
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: maxtext-dot-product-gke
+            nodes: 2
+            gpus: 8
+            model: llama2-7b
+            pipeline-parallel: 1
+            data-parallel: 1
+            fsdp: 2
+            tensor-parallel: 4
+            attention: dot_product
+            remat-policy: minimal_with_context
+    steps:
+    - uses: actions/checkout@v6
 
+    - name: Run XPK workload on cluster
+      uses: ./.github/actions/gke-xpk
+      with:
+        IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
+        NAME: ${{ matrix.test }}
+        COMMAND: |
+          source \${NCCL_LIB_DIR}/nccl-env-profile.sh;
+          nsys-jax --capture-range=cudaProfilerApi \
+                   --capture-range-end=stop \
+                   -o /opt/output/profile.zip \
+                   -- \
+                   test-maxtext.sh --nodes ${{ matrix.nodes }} \
+                                   --batch-per-gpu 2 \
+                                   --model-name=${{ matrix.model }} \
+                                   --attn-type=${{ matrix.attention }} \
+                                   --remat-policy=${{ matrix.remat-policy }} \
+                                   --steps=10 \
+                                   --pipeline-parallel ${{ matrix.pipeline-parallel }} \
+                                   --data-parallel ${{ matrix.data-parallel }} \
+                                   --fsdp ${{ matrix.fsdp }} \
+                                   --tensor-parallel ${{ matrix.tensor-parallel }} \
+                                   --multiprocess \
+                                   -a 'scan_layers=false
+                                       max_target_length=4096
+                                       use_iota_embed=true
+                                       logits_dot_in_fp32=false
+                                       profiler=nsys
+                                       upload_all_profiler_results=true
+                                       skip_first_n_steps_for_profiler=3
+                                       profiler_steps=8' |&
+          tee /opt/output/output.log &> /dev/stdout;
+          EXIT_CODE=\${PIPESTATUS[0]};
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
   finalize:
-    needs: [ test-nccl, test-maxtext-eks, test-maxtext-gke ]
+    needs: [ test-nccl, test-maxtext-eks, test-maxtext-gke ] 
     if: "!cancelled()"
     uses: ./.github/workflows/_finalize.yaml
     secrets: inherit
