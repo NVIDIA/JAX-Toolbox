@@ -104,6 +104,18 @@ jobs:
             tensor-parallel: 4
             attention: dot_product
             remat-policy: minimal_with_context
+          - test: maxtext-cudnn-flash-te-gke
+            nodes: 2
+            gpus: 8
+            model: llama2-7b
+            pipeline-parallel: 1
+            data-parallel: 1
+            fsdp: 2
+            tensor-parallel: 4
+            attention: cudnn_flash_te
+            remat-policy: minimal_with_context
+            envs: |-
+              CUDNN_FRONTEND_CUDART_LIB_NAME=libcudart.so.13
     steps:
     - uses: actions/checkout@v6
 
@@ -112,6 +124,8 @@ jobs:
       with:
         IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
         NAME: ${{ matrix.test }}
+        ENVS: |
+          ${{ matrix.envs }}
         COMMAND: |
           source \${NCCL_LIB_DIR}/nccl-env-profile.sh;
           nsys-jax --capture-range=cudaProfilerApi \
