@@ -437,6 +437,8 @@ jobs:
           NAME: te-${{ matrix.name }}
           NUM_NODES: ${{ matrix.nodes }}
           NUM_GPUS: ${{ matrix.gpus }}
+          ENVS: |
+            CUDNN_FRONTEND_CUDART_LIB_NAME=libcudart.so.13
           IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           COMMAND: |
             set -xu -o pipefail;

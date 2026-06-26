@@ -45,6 +45,8 @@ jobs:
       with:
         IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
         NAME: ${{ matrix.test }}
+        ENVS: |
+            CUDNN_FRONTEND_CUDART_LIB_NAME=libcudart.so.13
         COMMAND: |
           source \${NCCL_LIB_DIR}/nccl-env-profile.sh;
           nsys-jax --capture-range=cudaProfilerApi \
