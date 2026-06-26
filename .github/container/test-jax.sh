@@ -177,7 +177,7 @@ case "${BATTERY}" in
         # TODO: unclear if JOBS_PER_GPU>1 will cause deadlocks for any tests in the suite
         set_default VISIBLE_GPUS all
         FLAGS+=(
-            "--test_tag_filters=multiaccelerator"
+            "--test_tag_filters=multiaccelerator,multiaccelerator-only"
             "//tests:gpu_tests"
             "//tests/pallas:gpu_tests"
             "//tests/mosaic:gpu_tests"
@@ -187,7 +187,7 @@ case "${BATTERY}" in
     single-gpu)
         set_default VISIBLE_GPUS 1
         FLAGS+=(
-            "--test_tag_filters=-multiaccelerator"
+            "--test_tag_filters=-multiaccelerator,-multiaccelerator-only"
             "//tests:gpu_tests"
             "//tests/pallas:gpu_tests"
             "//tests/mosaic:gpu_tests"
