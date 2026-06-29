@@ -151,7 +151,7 @@ if [[ "${CCACHE}" == "1" ]]; then
     if ! command -v ccache &> /dev/null; then
         apt-get update && apt-get install -y --no-install-recommends ccache
     fi
-    export CXX="ccache g++"
+    #export CXX="ccache g++"
     export NVTE_USE_CCACHE=1
     ccache --zero-stats
 fi
