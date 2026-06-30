@@ -216,7 +216,7 @@ runs:
       POSTLUDE="
           COMMAND_EXIT_CODE=\$?;
           if [ -z \${EXIT_CODE:-} ]; then EXIT_CODE=\${COMMAND_EXIT_CODE}; fi;
-          /opt/google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node-0\$NODE_RANK;
+          /opt/google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/;
           ${{ inputs.EXIT_COMMAND }}
       "
 
@@ -393,7 +393,7 @@ runs:
     shell: bash -x -u {0}
     run: |
       mkdir -p ${JOBSET_NAME}/output
-      gsutil cp -r ${GCS_ARTIFACT_PATH} ${JOBSET_NAME}/output
+      gsutil cp -r ${GCS_ARTIFACT_PATH} ${JOBSET_NAME}
       cp ${JOBSET_NAME}/*.log ${JOBSET_NAME}/output
 
   - name: Upload artifacts to GitHub Actions from runner
