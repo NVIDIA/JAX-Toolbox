@@ -14,6 +14,6 @@
     "fern":         "fern"
   },
   "devDependencies": {
-    "fern-api": "5.44.3"
+    "fern-api": "5.56.3"
   }
 }
