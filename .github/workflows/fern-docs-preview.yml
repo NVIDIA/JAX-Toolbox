@@ -33,7 +33,11 @@ jobs:
         run: |
           output=$(npm run docs:preview 2>&1)
           echo "$output"
-          url=$(echo "$output" | grep -oP 'https://[^\s]+buildwithfern\.com[^\s]+' | tail -1)
+          url=$(printf '%s\n' "$output" \
+            | grep -oP 'https://[A-Za-z0-9./?&=_:%#~+-]*buildwithfern\.com[A-Za-z0-9./?&=_:%#~+-]*' \
+            | tail -n 1 \
+            | perl -CS -pe 's/\x{200B}//g; s/%E2%80%8B$//i')
+      
           echo "url=$url" >> "$GITHUB_OUTPUT"
         env:
           FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
@@ -47,5 +51,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `📖 **Docs preview:** ${{ steps.preview.outputs.url }}`
+              body: '📖 **Docs preview:** ${{ steps.preview.outputs.url }}'
             })
