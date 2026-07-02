@@ -127,9 +127,8 @@ launch_trainer.run_trainer(
 trainer_config=trainer_config,
 )
 ```
-In particular, `launch.setup()` refers to [this code in AXLearn](https://github.com/apple/axlearn/blob/main/axlearn/common/launch.py), wher ether'es the main call to `jax` and its [distributed initialization](https://docs.jax.dev/en/latest/_autosummary/jax.distributed.initialize.html).
-[Here](../../../.github/eks-workflow-files/axlearn/axlearn-fuji-model.yml) you can find an example of deployment to EKS, with the above script, that uses `fuji-3B-v3-flash` model.
-
+In particular, `launch.setup()` refers to [this code in AXLearn](https://github.com/apple/axlearn/blob/main/axlearn/common/launch.py), where the main call to `jax` and its [distributed initialization](https://docs.jax.dev/en/latest/_autosummary/jax.distributed.initialize.html) happens.
 
 ## Testing
-[Here is the YAML file](../../../.github/eks-workflow-files/axlearn/axlearn-job.yml) used for testing AXLearn funcitonalities. In particular, this test makes uses of [`test_axlearn.sh` script](../../../.github/container/test-axlearn.sh). The test runs `pytest` against all the tests contains in `/opt/axlearn/axlearn/common` folder.
+
+Container validation runs `pytest` against all tests in `/opt/axlearn/axlearn/common` using the `test_axlearn.sh` script bundled in the JAX-Toolbox container. See the repository's CI workflows for example job definitions.

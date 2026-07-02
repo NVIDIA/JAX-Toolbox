@@ -1,0 +1,19 @@
+{
+  "name": "jax-toolbox-docs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local tooling environment for the JAX-Toolbox Fern documentation site",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "docs:dev":     "fern docs dev",
+    "docs:check":   "fern check",
+    "docs:preview": "fern generate --docs --preview",
+    "docs:publish": "fern generate --docs",
+    "fern":         "fern"
+  },
+  "devDependencies": {
+    "fern-api": "5.56.3"
+  }
+}
