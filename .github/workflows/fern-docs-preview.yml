@@ -1,5 +1,7 @@
 # Generates a shareable Fern preview URL for every docs PR and posts it as a comment.
 # Requires the FERN_TOKEN repository secret.
+# Runs on pull_request events (internal contributors) and on push to pull-request/*
+# branches created by copy-pr-bot (external contributors), where secrets are accessible.
 name: Fern Docs Preview
 
 on:
@@ -43,8 +45,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const prNumber = context.eventName === 'pull_request'
+              ? context.issue.number
+              : parseInt(process.env.GITHUB_REF_NAME.split('/')[1]);
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `📖 **Docs preview:** ${{ steps.preview.outputs.url }}`
