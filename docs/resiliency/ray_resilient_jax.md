@@ -8,7 +8,7 @@ This guide demonstrates how resilient training of models written in libraries bu
 
 
 
-For a full runnable example of resilient JAX training using Ray see the [simple toy example](./example/), which includes a Docker image you can try out on a single node with a least two GPUs. The guide below gives an overview of the example code and how you might want to extend it to your own model.
+For a full runnable example of resilient JAX training using Ray see the [simple toy example](./example/run_example.md), which includes a Docker image you can try out on a single node with a least two GPUs. The guide below gives an overview of the example code and how you might want to extend it to your own model.
 
 ### Why Ray?
 

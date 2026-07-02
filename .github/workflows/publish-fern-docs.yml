@@ -1,0 +1,32 @@
+# Publishes docs to production on every push to main that touches docs/fern,
+# and on manual dispatch. Requires the FERN_TOKEN repository secret.
+name: Publish Fern Docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'fern/**'
+      - 'package.json'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Publish docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Publish
+        run: npm run docs:publish
+        env:
+          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}

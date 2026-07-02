@@ -1,0 +1,56 @@
+# Generates a shareable Fern preview URL for every docs PR and posts it as a comment.
+# Requires the FERN_TOKEN repository secret.
+# Runs on pull_request events (internal contributors) and on push to pull-request/*
+# branches created by copy-pr-bot (external contributors), where secrets are accessible.
+name: Fern Docs Preview
+
+on:
+  push:
+    branches:
+      - "pull-request/[0-9]+"
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'fern/**'
+      - 'package.json'
+
+jobs:
+  preview:
+    name: Generate preview
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate preview
+        id: preview
+        run: |
+          output=$(npm run docs:preview 2>&1)
+          echo "$output"
+          url=$(echo "$output" | grep -oP 'https://[^\s]+buildwithfern\.com[^\s]+' | tail -1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+        env:
+          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
+
+      - name: Post preview URL
+        if: steps.preview.outputs.url != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.eventName === 'pull_request'
+              ? context.issue.number
+              : parseInt(process.env.GITHUB_REF_NAME.split('/')[1]);
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `📖 **Docs preview:** ${{ steps.preview.outputs.url }}`
+            })
