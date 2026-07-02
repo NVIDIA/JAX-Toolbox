@@ -85,9 +85,10 @@ def remove_autotuning_detail(
         data.compile.loc[mask, "Name"] = "XlaAutotunerMeasurement"
         data.compile = remove_child_ranges(data.compile, mask)
     if compilation and data.compile is not None and len(data.compile):
-        # Remove the detail of the constituent parts (EmitLlvmIr etc.) of autotuner
-        # compilation
-        data.compile = remove_child_ranges(
-            data.compile, data.compile["Name"] == "XlaAutotunerCompilation"
+        # since openxla/xla ecf19f5 the pass-based autotuner surfaces as "XlaPass:#name=autotuner..."
+        autotuner = data.compile["Name"].str.match(
+            r"XlaAutotunerCompilation|XlaPass:#name=autotuner[,#]"
         )
+        data.compile.loc[autotuner, "Name"] = "XlaAutotunerCompilation"
+        data.compile = remove_child_ranges(data.compile, autotuner)
     return data
