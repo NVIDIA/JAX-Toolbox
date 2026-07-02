@@ -3,6 +3,9 @@
 name: Fern Docs CI
 
 on:
+  push:
+    branches:
+      - "pull-request/[0-9]+"
   pull_request:
     paths:
       - 'docs/**'
