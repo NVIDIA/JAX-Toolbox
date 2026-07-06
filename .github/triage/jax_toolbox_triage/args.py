@@ -368,8 +368,18 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.metric_name is not None:
         if container_search_options_passed:
             raise Exception(
-                "--metric-name is only supported in version-level search; use --{passing,failing}-{container,versions}."
+                "--metric-name is only supported in version-level search; use "
+                "--{passing,failing}-{container,versions}."
             )
+        if not args.passing_metric or not args.failing_metric:
+            raise Exception(
+                "You should pass seed metric values via --passing-metric and "
+                "--failing-metric if --metric-name is passed."
+            )
+    if (args.passing_metric or args.failing_metric) and args.metric_name is None:
+        raise Exception(
+            "--metric-name must be passed if --passing-metric or --failing-metric is."
+        )
 
     args.workaround_buggy_container = set(args.workaround_buggy_container)
     # --{passing,failing}-commits are deprecated aliases for --{passing,failing}-versions.

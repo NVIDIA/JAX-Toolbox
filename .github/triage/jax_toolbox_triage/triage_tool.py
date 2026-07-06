@@ -17,6 +17,7 @@ from .logic import (
     _WORKLOAD_VERSION_KEY,
     ClassifiedTestOutcome,
     container_search,
+    ExecutionClassifier,
     ExitCodeClassifier,
     TestExecutionOutcome,
     TestResult,
@@ -602,12 +603,17 @@ class TriageTool:
             summary = {}
             if push_intermediate_containers:
                 # Build a new layer on top of `bisection_url` that includes running `build_cmds` as a new layer.
-                tag_suffix = self._version_slug(
-                    self.bisection_url,
-                    versions={
-                        k: v for k, v in brief_versions.items() if k != _REPETITION_KEY
-                    },
-                ) + f"-{platform.machine()}"
+                tag_suffix = (
+                    self._version_slug(
+                        self.bisection_url,
+                        versions={
+                            k: v
+                            for k, v in brief_versions.items()
+                            if k != _REPETITION_KEY
+                        },
+                    )
+                    + f"-{platform.machine()}"
+                )
                 if self.args.container_registry is None:
                     # Do not push, everything local.
                     container_name = tag_suffix
@@ -710,6 +716,7 @@ class TriageTool:
         summary = {
             "build_time": build_time,
             "container": container_name,
+            "metrics": test_result.metrics,
             "output_directory": out_dir.as_posix(),
             "result": str(test_result.result),
             "test_repetition": test_repetition,
@@ -877,6 +884,7 @@ class TriageTool:
         Returns:
             Tuple[dict, TestResult]: The final versions and the test result.
         """
+        classifier: ExecutionClassifier
         if self.args.metric_name:
             classifier = MetricClassifier(
                 metric_name=self.args.metric_name,

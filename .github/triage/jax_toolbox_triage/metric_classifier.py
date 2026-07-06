@@ -16,8 +16,8 @@ class MetricClassifier(ExecutionClassifier):
         self,
         *,
         metric_name: str,
-        passing_values: typing.Sequence[float],
-        failing_values: typing.Sequence[float],
+        passing_values: typing.List[float],
+        failing_values: typing.List[float],
         threshold: float = 0.997,
         common_variance: bool = True,
     ):
@@ -58,13 +58,13 @@ class MetricClassifier(ExecutionClassifier):
             "b": 0.5 * ss,
         }
 
-    def _scale(self, s):
+    def _scale(self, s) -> float:
         a = s.get("a", self._shared.get("a"))
         b = s.get("b", self._shared.get("b"))
         assert a is not None and b is not None
         return math.sqrt(b * (s["k"] + 1) / (a * s["k"]))
 
-    def _log_evidence(self, s, xs):
+    def _log_evidence(self, s, xs) -> float:
         n = len(xs)
         xb = sum(xs) / n
         ss = sum((x - xb) ** 2 for x in xs)
@@ -84,7 +84,7 @@ class MetricClassifier(ExecutionClassifier):
             - n / 2 * math.log(math.pi)
         )
 
-    def _log_ratio(self, xs) -> ClassifiedTestOutcome:
+    def _log_ratio(self, xs) -> float:
         return self._log_evidence(self._pass, xs) - self._log_evidence(self._fail, xs)
 
     def _update(self, s, xs):
@@ -107,7 +107,9 @@ class MetricClassifier(ExecutionClassifier):
         s["k"] = k
         _add_to("a", n / 2)
 
-    def __call__(self, test_results: typing.Sequence[TestResult]):
+    def __call__(
+        self, test_results: typing.Sequence[TestResult]
+    ) -> ClassifiedTestOutcome:
         assert len(test_results)
 
         if any(
@@ -181,6 +183,7 @@ class MetricClassifier(ExecutionClassifier):
                 output.append(sep.join(chars))
 
         low_edges, high_edges = bin_edges[:-1], bin_edges[1:]
+
         def _print_label(*, low, mean, high, char):
             row = np.asarray([" "] * columns)
             row[(low_edges > low) & (high_edges < high)] = char
@@ -197,7 +200,7 @@ class MetricClassifier(ExecutionClassifier):
             f"fail={fail_uf} (n={len(self._fail_history)})"
         )
         _print_hist(fail_hist)
-        _print_label(low=fail_lo, high=fail_hi, mean=fail_mean, char='F')
+        _print_label(low=fail_lo, high=fail_hi, mean=fail_mean, char="F")
         _print_hist(pass_hist)
         _print_label(low=pass_lo, high=pass_hi, mean=pass_mean, char="P")
         return output

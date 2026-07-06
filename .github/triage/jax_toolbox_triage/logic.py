@@ -124,6 +124,15 @@ class ExitCodeClassifier(ExecutionClassifier):
             return ClassifiedTestOutcome.FAIL
         return ClassifiedTestOutcome.ERROR
 
+    def add_data_with_label(
+        self, results: typing.Sequence[TestResult], label: ClassifiedTestOutcome
+    ):
+        if label == ClassifiedTestOutcome.PASS:
+            assert all(r.exit_code_based_pass() for r in results), results
+        else:
+            assert label == ClassifiedTestOutcome.FAIL, label
+            assert all(r.exit_code_based_fail() for r in results)
+
     def text_summary(self, *, columns: int = 120, rows: int = 3) -> typing.List[str]:
         return []
 
@@ -438,7 +447,9 @@ def version_search(
     max_repetitions: typing.Optional[int] = None,
     result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
     classifier: ExecutionClassifier = ExitCodeClassifier(),
-) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
+) -> typing.Tuple[
+    typing.Dict[str, str], typing.Sequence[TestResult], typing.Sequence[TestResult]
+]:
     """
     Bisect a failure back to a single version of a single component.
 
@@ -515,7 +526,7 @@ def version_search(
     ):
         # Verify that we can build successfully and that the test gives the expected results.
         logger.info(
-            f"Verifying test success using {good_or_bad} versions "
+            f"Verifying test outcome using {good_or_bad} versions "
             f"{confirmation_iterations + 1} times"
         )
         # Run `confirmation_iterations + 1` runs to confirm non-flakiness (boolean

@@ -215,3 +215,25 @@ def test_container_search_with_metric():
         Exception, match="--metric-name is only supported in version-level search"
     ):
         parse_args(["--container=jax", "--metric-name=sumptiousness"] + test_command)
+
+
+def test_metric_triage_without_seed_values():
+    with pytest.raises(
+        Exception,
+        match="You should pass seed metric values",
+    ):
+        parse_args(
+            valid_start_end_container + ["--metric-name=sumptiousness"] + test_command
+        )
+
+
+def test_metric_seed_values_without_metric_name():
+    with pytest.raises(
+        Exception,
+        match="--metric-name must be passed if --passing-metric or --failing-metric is",
+    ):
+        parse_args(
+            valid_start_end_container
+            + ["--passing-metric=42", "--failing-metric=24"]
+            + test_command
+        )
