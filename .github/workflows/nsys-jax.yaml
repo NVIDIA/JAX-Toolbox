@@ -11,29 +11,13 @@ on:
       - reopened
       - ready_for_review
       - synchronize
-    paths-ignore:
-      - '**.md'
-      - '.github/triage/**'
-      - 'docs/**'
-      - 'fern/**'
-      - 'package*.json'
-      - 'Makefile'
-      - '.npmrc'
-      - '.nvmrc'
-      - '.github/workflows/*fern*.yml'
+    paths:
+      - '.github/container/nsys_jax/**'
   push:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - '.github/triage/**'
-      - 'docs/**'
-      - 'fern/**'
-      - 'package*.json'
-      - 'Makefile'
-      - '.npmrc'
-      - '.nvmrc'
-      - '.github/workflows/*fern*.yml'
+    paths:
+      - '.github/container/nsys_jax/**'
 
 defaults:
   run:
