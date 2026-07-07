@@ -1,27 +1,24 @@
 # Validates Fern docs configuration and checks for broken internal links on PRs.
 # Runs without a FERN_TOKEN — suitable for untrusted forks.
-name: Fern Docs CI
+name: Fern Docs Validate
 
 on:
-  push:
-    branches:
-      - "pull-request/[0-9]+"
   pull_request:
+    types: [synchronize]
     paths:
       - 'docs/**'
       - 'fern/**'
       - 'package.json'
+      - '.github/workflows/*fern*.yml'
 
 jobs:
   validate:
     name: Validate docs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - uses: actions/setup-node@v6
 
       - name: Install dependencies
         run: npm install
