@@ -30,6 +30,12 @@ JAX Toolbox is NVIDIA's home for JAX and XLA on GPUs, including the latest updat
 - **Experimental projects**: Experimental projects for developers to evaluate and provide feedback on
 
 ## Latest news
+- [**NGC JAX 26.06**](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.06-py3) container image released
+  - Added support for Kimi K2-Thinking, K2.5, and K2.6 (text) models, including checkpoint conversion scripts.
+  - Added Qwen3-30B-A3B-Base tokenizer and Qwen3.5 text-only decoder layer.
+  - Added OLMo 3 7B/32B HuggingFace configs, stage-1 pretraining scripts, and numpy pretrain data pipeline.
+  - Extended Gemma4 support: HuggingFace checkpoint conversion, vLLM adapter, layer-wise unit tests, MoE inference performance improvements, and multimodal evaluation (ChartQA).
+  - Implemented DeepSeek, Gemma3, and Llama4 decoder layers in NNX.
 - [**NGC JAX 26.05**](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-py3) container image released
   - performant `jax.ragged_dot`; XLA’s `nvfp4` kernel codegen improvements; multi-stream collective support in XLA; PDL (programmatic dependent launch) enablement in XLA and improved D2H & H2D copy overlap with compute
 - [**NGC JAX 26.04**](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.04-py3) container image released
