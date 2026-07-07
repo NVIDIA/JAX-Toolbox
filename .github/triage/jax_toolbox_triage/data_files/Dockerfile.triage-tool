@@ -1,0 +1,9 @@
+# syntax=docker/dockerfile:1
+ARG BASE_IMAGE
+ARG BUILD_CMD
+ARG GIT_CMD
+FROM ${BASE_IMAGE}
+ARG BUILD_CMD
+ARG GIT_CMD
+RUN sh -c "${GIT_CMD}"
+RUN --mount=type=cache,target=/root/.cache sh -c "${BUILD_CMD}"

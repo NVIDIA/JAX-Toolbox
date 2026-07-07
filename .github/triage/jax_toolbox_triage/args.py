@@ -98,6 +98,16 @@ def parse_args(args=None) -> argparse.Namespace:
             `date` will be substituted, e.g. ghcr.io/nvidia/jax:{container}-{date} for
             the JAX-Toolbox public nightlies.""",
     )
+    parser.add_argument("--metric-name", type=str, help="Example: tflops_per_sec")
+    parser.add_argument(
+        "--passing-metric",
+        action="append",
+        type=float,
+        help="Good value for the metric",
+    )
+    parser.add_argument(
+        "--failing-metric", action="append", type=float, help="Bad value for the metric"
+    )
     parser.add_argument(
         "--output-prefix",
         default=None,
@@ -316,6 +326,14 @@ def parse_args(args=None) -> argparse.Namespace:
         default="main",
         help="The name of the main branch (e.g. main) to derive cherry-picks from",
     )
+    parser.add_argument(
+        "--container-registry",
+        type=str,
+        help="""
+            Remote registry for use with the plugin backend. This can optionally
+            include a tag prefix, i.e. gitlab.com/USER/containers and
+            gitlab.com/USER/containers:PREFIX- are both valid.""",
+    )
     args = parser.parse_args(args=args)
     if args.restart:
         if args.output_prefix is None:
@@ -331,12 +349,38 @@ def parse_args(args=None) -> argparse.Namespace:
             args.output_prefix = pathlib.Path(
                 datetime.datetime.now().strftime("triage-%Y-%m-%d-%H-%M-%S")
             )
-
+    args.optional_software = optional_software.copy()
+    if args.exclude_transformer_engine:
+        args.optional_software.remove("transformer-engine")
     assert args.container_runtime in {
         "docker",
         "pyxis",
         "local",
+        "plugin",
     }, args.container_runtime
+
+    # Metric-based triage checks
+    container_search_options_passed = (
+        args.container is not None
+        or args.start_date is not None
+        or args.end_date is not None
+    )
+    if args.metric_name is not None:
+        if container_search_options_passed:
+            raise Exception(
+                "--metric-name is only supported in version-level search; use "
+                "--{passing,failing}-{container,versions}."
+            )
+        if not args.passing_metric or not args.failing_metric:
+            raise Exception(
+                "You should pass seed metric values via --passing-metric and "
+                "--failing-metric if --metric-name is passed."
+            )
+    if (args.passing_metric or args.failing_metric) and args.metric_name is None:
+        raise Exception(
+            "--metric-name must be passed if --passing-metric or --failing-metric is."
+        )
+
     args.workaround_buggy_container = set(args.workaround_buggy_container)
     # --{passing,failing}-commits are deprecated aliases for --{passing,failing}-versions.
     for prefix in ["passing", "failing"]:
@@ -393,9 +437,7 @@ def parse_args(args=None) -> argparse.Namespace:
         # If the container-level search is being skipped, because a valid combination
         # of --{passing,failing}-{versions,container} is passed, then no container-level
         # search options should be passed.
-        assert (
-            args.container is None and args.start_date is None and args.end_date is None
-        ), (
+        assert not container_search_options_passed, (
             "No container-level search options should be passed if the passing/failing"
             " containers/versions have been passed explicitly."
         )
@@ -417,12 +459,7 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert (
-            args.container is not None
-        ), "--container must be passed for the container-level search"
-
-    args.optional_software = optional_software.copy()
-    if args.exclude_transformer_engine:
-        args.optional_software.remove("transformer-engine")
-
+        assert args.container is not None, (
+            "--container must be passed for the container-level search"
+        )
     return args

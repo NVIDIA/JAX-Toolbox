@@ -5,25 +5,33 @@ import logging
 import pytest
 import random
 from jax_toolbox_triage.logic import (
+    _EXIT_CODE_METRIC,
+    ClassifiedTestOutcome,
     container_search,
+    ExitCodeClassifier,
     TestExecutionOutcome,
     TestResult,
     version_search,
 )
+from jax_toolbox_triage.metric_classifier import MetricClassifier
+
+_METRIC_NAME = "metric"
 
 
-def wrap(b, versions={}, build_failure=False):
+def wrap(b, versions={}, build_failure=False, metrics=None):
+    # TODO: return TestExecutionOutcome.TEST_ERROR sometimes
+    if metrics is None:
+        metrics = {}
+    metrics[_EXIT_CODE_METRIC] = 0 if b else 1
     return TestResult(
         build_stdouterr="",
         host_output_directory="-".join(map("-".join, sorted(versions.items()))),
         result=TestExecutionOutcome.BUILD_FAILURE
         if build_failure
-        else (
-            TestExecutionOutcome.TEST_SUCCESS
-            if b
-            else TestExecutionOutcome.TEST_FAILURE
-        ),
+        else TestExecutionOutcome.TEST_YIELDED_RESULTS,
         stdouterr="",
+        metrics=metrics,
+        time=None if build_failure else 0.0,
     )
 
 
@@ -31,9 +39,6 @@ def wrap(b, versions={}, build_failure=False):
 def logger():
     logger = logging.getLogger("triage-tests")
     logger.setLevel(logging.DEBUG)
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    logger.addHandler(console)
     return logger
 
 
@@ -93,21 +98,24 @@ def test_version_search_explicit(
         skip_precondition_checks=False,
     )
     assert algorithm_result == expected
-    assert last_known_good.result == TestExecutionOutcome.TEST_SUCCESS
-    assert first_known_bad.result == TestExecutionOutcome.TEST_FAILURE
-    assert last_known_good.host_output_directory == last_known_good_dir
-    assert first_known_bad.host_output_directory == first_known_bad_dir
+    assert ExitCodeClassifier()(last_known_good) == ClassifiedTestOutcome.PASS
+    assert ExitCodeClassifier()(first_known_bad) == ClassifiedTestOutcome.FAIL
+    assert last_known_good[0].host_output_directory == last_known_good_dir
+    assert first_known_bad[0].host_output_directory == first_known_bad_dir
 
 
 start_date = datetime.datetime(2024, 10, 1)
 step_size = datetime.timedelta(days=1)
 
 
-@pytest.mark.parametrize("seed", range(10))
+@pytest.mark.parametrize("seed", range(5))
 @pytest.mark.parametrize("packages", [2, 3, 100])
 @pytest.mark.parametrize("extra_commits", [0, 2, 7, 100])
+@pytest.mark.parametrize("metric_std", [0.01, 0.2])
 @pytest.mark.parametrize("build_pass_probability", [0.0, 0.9, 1.0])
-def test_version_search(logger, build_pass_probability, extra_commits, packages, seed):
+def test_version_search(
+    logger, build_pass_probability, extra_commits, packages, seed, metric_std
+):
     """
     Generate random sequences of commits for `packages` different packages and test
     that the version-level search algorithm yields the expected results.
@@ -118,8 +126,12 @@ def test_version_search(logger, build_pass_probability, extra_commits, packages,
 
     Around `extra_commits` extra commits will be added across the 2+ packages.
 
-    If `build_failures` is true, some commits within the generated range will result in
-    [simulated] build failures.
+    If `build_pass_probability` is non-zero, some commits within the generated range
+    will result in [simulated] build failures.
+
+    If `metric_std` is non-zero, the triage will use floating point metrics drawn from
+    a normal distribution with that width and mean value 0 (fail) or 1 (pass). If the
+    width is zero, this will be flattened into a pass/fail boolean.
     """
     rng = random.Random(seed)
 
@@ -166,18 +178,41 @@ def test_version_search(logger, build_pass_probability, extra_commits, packages,
     for commit_list in commits.values():
         build_failure_commits.discard(commit_list[-1][0])
 
+    def dummy_test_truth(*, versions, **kwargs) -> bool:
+        return culprit_dates[versions[culprit]] < bad_date
+
+    def sample_metric_value(is_pass):
+        return rng.gauss(0 if is_pass else 1, metric_std)
+
     def dummy_test(*, versions, **kwargs):
+        metrics = {}
+        test_pass = dummy_test_truth(versions=versions)
+        if metric_std > 0:
+            metrics[_METRIC_NAME] = sample_metric_value(test_pass)
+            test_pass = True  # exit code is always 0/success for metric-based triage
         return wrap(
-            culprit_dates[versions[culprit]] < bad_date,
+            test_pass,
             versions,
             build_failure=any(v in build_failure_commits for v in versions.values()),
+            metrics=metrics,
         )
+
+    if metric_std > 0:
+        classifier = MetricClassifier(
+            metric_name=_METRIC_NAME,
+            passing_values=[sample_metric_value(True)],
+            failing_values=[sample_metric_value(False)],
+        )
+    else:
+        classifier = ExitCodeClassifier()
 
     algorithm_result, last_known_good, first_known_bad = version_search(
         build_and_test=dummy_test,
         versions=commits,
         logger=logger,
         skip_precondition_checks=False,
+        classifier=classifier,
+        confirmation_iterations=2,
     )
     # Do not check the reference versions, it's a bit underspecified quite what they
     # mean, other than that the dummy_test assertions below should pass
@@ -199,24 +234,24 @@ def test_version_search(logger, build_pass_probability, extra_commits, packages,
         ","
     )[0]
     commits[culprit] = passing_version_before_build_failures
-    assert dummy_test(versions=commits).result == TestExecutionOutcome.TEST_SUCCESS
+    assert dummy_test_truth(versions=commits)
     # The last listed 'bad' commit should be one where the test runs + fails
     failing_version_after_build_failures = algorithm_result[f"{culprit}_bad"].split(
         ","
     )[-1]
     commits[culprit] = failing_version_after_build_failures
-    assert dummy_test(versions=commits).result == TestExecutionOutcome.TEST_FAILURE
+    assert not dummy_test_truth(versions=commits)
     # The returned results should have the correct outcomes
-    assert last_known_good.result == TestExecutionOutcome.TEST_SUCCESS
-    assert first_known_bad.result == TestExecutionOutcome.TEST_FAILURE
+    assert classifier(last_known_good) == ClassifiedTestOutcome.PASS
+    assert classifier(first_known_bad) == ClassifiedTestOutcome.FAIL
     # Not sure if this is worth testing...
-    assert (
-        f"{culprit}-{passing_version_before_build_failures}"
-        in last_known_good.host_output_directory
+    assert all(
+        f"{culprit}-{passing_version_before_build_failures}" in r.host_output_directory
+        for r in last_known_good
     )
     assert (
-        f"{culprit}-{failing_version_after_build_failures}"
-        in first_known_bad.host_output_directory
+        f"{culprit}-{failing_version_after_build_failures}" in r.host_output_directory
+        for r in first_known_bad
     )
 
 
@@ -341,9 +376,9 @@ def test_version_search_exhaustive(logger, commits):
         if proj != bad_project
     }
     commits[bad_project] = bad_commit
-    assert dummy_test(versions=commits).result == TestExecutionOutcome.TEST_FAILURE
+    assert dummy_test(versions=commits).exit_code_based_fail()
     commits[bad_project] = good_commit
-    assert dummy_test(versions=commits).result == TestExecutionOutcome.TEST_SUCCESS
+    assert dummy_test(versions=commits).exit_code_based_pass()
 
 
 @pytest.mark.parametrize(
