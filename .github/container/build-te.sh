@@ -138,13 +138,15 @@ pushd ${SRC_PATH_TE}
 # JAX, or the wheel-based installation of CUDA. Note that when we build TE as
 # part of building the JAX containers, JAX and XLA are not yet installed.
 python - << EOF
-import subprocess, sys, tomllib
+import os, subprocess, sys, tomllib
 with open("pyproject.toml", "rb") as ifile:
     data = tomllib.load(ifile)
 subprocess.run(
     [sys.executable, "-m", "pip", "install"]
     + [r for r in data["build-system"]["requires"]
-       if r.startswith("pybind11") or r.startswith("cmake") or r.startswith("ninja")])
+       if r.startswith("pybind11") or r.startswith("cmake") or r.startswith("ninja")]
+    + [f"nvidia-cudnn-frontend=={os.environ['CUDNN_FRONTEND_VERSION']}"]
+)
 EOF
 if [[ "${CCACHE}" == "1" ]]; then
     # Install ccache if not present (needs >= 4.1 for Redis remote storage support)
