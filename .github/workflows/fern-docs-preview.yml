@@ -6,12 +6,13 @@ on:
   push:
     branches:
       - "pull-request/[0-9]+"
-    paths:
-      - 'docs/**'
-      - 'fern/**'
-      - 'package.json'
-      - '.github/workflows/*fern*.yml'
-
+env:
+  PREVIEW_PATHS: |
+      docs/**
+      fern/**
+      package.json
+      .github/workflows/*fern*.yml
+      .github/workflows/*fern*.yaml
 jobs:
   preview:
     name: Generate preview
@@ -21,13 +22,37 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Check docs-related changes vs main
+        id: changes
+        shell: bash
+        run: |
+          git fetch origin main
+
+          mapfile -t paths <<< "$PREVIEW_PATHS"
+          
+          pathspecs=()
+          for path in "${paths[@]}"; do
+            [[ -z "$path" ]] && continue
+            pathspecs+=(":(glob)$path")
+          done
+      
+          if git diff --quiet origin/main...HEAD -- "${pathspecs[@]}"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-node@v6
+        if: steps.changes.outputs.changed == 'true'
+
 
       - name: Install dependencies
+        if: steps.changes.outputs.changed == 'true'
         run: npm install
 
       - name: Generate preview
         id: preview
+        if: steps.changes.outputs.changed == 'true'
         run: |
           output=$(npm run docs:preview 2>&1)
           echo "$output"
@@ -41,7 +66,7 @@ jobs:
           FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
 
       - name: Post preview URL
-        if: steps.preview.outputs.url != ''
+        if: steps.changes.outputs.changed == 'true' && steps.preview.outputs.url != ''
         uses: actions/github-script@v7
         with:
           script: |
