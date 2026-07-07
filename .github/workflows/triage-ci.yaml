@@ -11,8 +11,8 @@ on:
       - reopened
       - ready_for_review
       - synchronize
-    paths-ignore:
-      - '**.md'
+    paths:
+      - '.github/triage/**'
   push:
     branches:
       - main

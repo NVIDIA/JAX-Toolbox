@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+navigation:
+  # ==================== Getting Started ====================
+  - section: Getting Started
+    contents:
+      - page: Introduction
+        path: getting-started/introduction.md
+        slug: /
+      - page: JAX on NVIDIA GPU Stack
+        path: ecosystem/jax-on-nvidia-gpu-stack.mdx
+      - page: Frameworks & Supported Models
+        path: getting-started/frameworks.md
+      - page: Build Pipeline Status
+        path: getting-started/build-status.md
+      - page: Environment Variables
+        path: getting-started/environment-variables.md
+
+  # ==================== Frameworks ====================
+  - section: Frameworks
+    contents:
+      - section: MaxText
+        contents:
+          - page: Overview
+            path: frameworks/maxtext/README.md
+          - page: NVFP4 Training Example
+            path: frameworks/maxtext/nvfp4/README.md
+      - page: AXLearn
+        path: frameworks/axlearn/README.md
+
+  # ==================== Performance & Profiling ====================
+  - section: Performance & Profiling
+    contents:
+      - page: Profiling
+        path: profiling.md
+      - page: GPU Performance
+        path: GPU_performance.md
+      - page: PGLE (Profile-Guided Latency Estimation)
+        path: PGLE.md
+      - page: Native FP8
+        path: NATIVE_FP8.md
+      - page: nsys-jax
+        path: nsys-jax.md
+
+  # ==================== Resiliency ====================
+  - section: Resiliency
+    contents:
+      - page: Resilient JAX with Ray
+        path: resiliency/ray_resilient_jax.md
+      - page: Example Walkthrough
+        path: resiliency/example/run_example.md
+
+  # ==================== Inference ====================
+  - section: Inference
+    contents:
+      - page: JAX-vLLM Rollout Offloading Bridge
+        path: inference/jax-inference-offloading.md
+
+  # ==================== Tools ====================
+  - section: Tools
+    contents:
+      - page: Triage Tool
+        path: triage-tool.md
+
+  # ==================== Reference ====================
+  - section: Reference
+    contents:
+      - page: Container Versions
+        path: reference/container-versions.md
+      - page: Staging Containers
+        path: reference/staging-containers.md
+      - page: Cloud Providers
+        path: reference/cloud-providers.md
+      - page: FAQ
+        path: reference/faq.md
+      - page: Resources & Videos
+        path: reference/resources.md

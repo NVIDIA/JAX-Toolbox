@@ -11,6 +11,13 @@ on:
       - '**.md'
       - '.github/triage/**'
       - '.github/workflows/triage-ci.yaml'
+      - 'docs/**'
+      - 'fern/**'
+      - 'package*.json'
+      - 'Makefile'
+      - '.npmrc'
+      - '.nvmrc'
+      - '.github/workflows/*fern*.yml'
   workflow_dispatch:
     inputs:
       PUBLISH:
