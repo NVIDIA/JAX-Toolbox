@@ -204,3 +204,36 @@ def test_combining_deprecated_args_with_their_replacements(args):
 def test_warning_on_deprecated_args(args):
     with pytest.deprecated_call():
         parse_args(args + test_command)
+
+
+def test_container_search_with_metric():
+    # Trying to do a metric-based container-level search could easily be supported for
+    # closed ranges, but it isn't yet. Attempting it should fail. Container-level
+    # search with an open range (i.e. backwards from today) would be harder and would
+    # lean more on externally provided pass/fail metric values.
+    with pytest.raises(
+        Exception, match="--metric-name is only supported in version-level search"
+    ):
+        parse_args(["--container=jax", "--metric-name=sumptiousness"] + test_command)
+
+
+def test_metric_triage_without_seed_values():
+    with pytest.raises(
+        Exception,
+        match="You should pass seed metric values",
+    ):
+        parse_args(
+            valid_start_end_container + ["--metric-name=sumptiousness"] + test_command
+        )
+
+
+def test_metric_seed_values_without_metric_name():
+    with pytest.raises(
+        Exception,
+        match="--metric-name must be passed if --passing-metric or --failing-metric is",
+    ):
+        parse_args(
+            valid_start_end_container
+            + ["--passing-metric=42", "--failing-metric=24"]
+            + test_command
+        )

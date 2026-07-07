@@ -1,11 +1,8 @@
 import argparse
-import ast
 import datetime
 import getpass
 import os
 import pathlib
-import re
-import sys
 import tempfile
 import typing
 import warnings
@@ -17,90 +14,6 @@ import warnings
 # Note this is not a `set` for the sake of run-to-run determinism.
 compulsory_software = ["xla", "jax"]
 optional_software = ["flax", "maxtext", "transformer-engine"]
-
-
-_INFO_LOG_ARGUMENTS_RE = re.compile(
-    r"^\[INFO\]\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+Arguments:\s*$"
-)
-_INFO_LOG_ARGUMENT_RE = re.compile(
-    r"^\[INFO\]\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+"
-    r"(?P<name>[A-Za-z_][A-Za-z0-9_]*):\s*(?P<value>.*)$"
-)
-
-
-def logged_arg_value(s: str) -> typing.Any:
-    try:
-        return ast.literal_eval(s)
-    except (SyntaxError, ValueError):
-        return s
-
-
-def load_args_from_info_log(info_log: pathlib.Path) -> typing.Dict[str, str]:
-    ret: typing.Dict[str, str] = {}
-    in_arguments = False
-    with info_log.open("r", encoding="utf-8") as f:
-        for line in f:
-            if not in_arguments:
-                if _INFO_LOG_ARGUMENTS_RE.match(line):
-                    in_arguments = True
-                continue
-            match = _INFO_LOG_ARGUMENT_RE.match(line)
-            if not match:
-                if ret:
-                    break
-                continue
-            ret[match.group("name")] = match.group("value")
-    if not ret:
-        raise Exception(f"Could not read arguments from {info_log}")
-    return ret
-
-
-def parser_actions_by_dest(parser: argparse.ArgumentParser) -> typing.Dict[str, argparse.Action]:
-    return {
-        action.dest: action
-        for action in parser._actions
-        if action.dest != argparse.SUPPRESS
-    }
-
-
-def provided_arg_dests(
-    parser: argparse.ArgumentParser, args: typing.Sequence[str]
-) -> typing.Set[str]:
-    option_actions = {
-        option: action for action in parser._actions for option in action.option_strings
-    }
-    ret: typing.Set[str] = set()
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        if arg == "--":
-            if i + 1 < len(args):
-                ret.add("test_command")
-            break
-        option = arg.split("=", 1)[0]
-        action = option_actions.get(option)
-        if action is None:
-            ret.add("test_command")
-            break
-        ret.add(action.dest)
-        if "=" in arg or action.nargs == 0:
-            i += 1
-        elif action.nargs is None:
-            i += 2
-        elif isinstance(action.nargs, int):
-            i += 1 + action.nargs
-        else:
-            i += 1
-    return ret
-
-
-def coerce_logged_arg(
-    action: argparse.Action, value: str
-) -> typing.Any:
-    value = logged_arg_value(value)
-    if isinstance(value, str) and action.type is not None:
-        return action.type(value)
-    return value
 
 
 def parse_cherry_picks(s: str) -> typing.Dict[str, typing.List[str]]:
@@ -185,6 +98,16 @@ def parse_args(args=None) -> argparse.Namespace:
             `date` will be substituted, e.g. ghcr.io/nvidia/jax:{container}-{date} for
             the JAX-Toolbox public nightlies.""",
     )
+    parser.add_argument("--metric-name", type=str, help="Example: tflops_per_sec")
+    parser.add_argument(
+        "--passing-metric",
+        action="append",
+        type=float,
+        help="Good value for the metric",
+    )
+    parser.add_argument(
+        "--failing-metric", action="append", type=float, help="Bad value for the metric"
+    )
     parser.add_argument(
         "--output-prefix",
         default=None,
@@ -216,15 +139,8 @@ def parse_args(args=None) -> argparse.Namespace:
             --threshold-days, allows the container-level search to be skipped.""",
     )
     parser.add_argument(
-        "--no-skip-precondition-checks",
-        dest="skip_precondition_checks",
-        action="store_false",
-        default=False,
-        help="Re-enable precondition checks when restarting from a run that skipped them.",
-    )
-    parser.add_argument(
         "test_command",
-        nargs="*",
+        nargs="+",
         help="""
             Command to execute inside the container. This should be as targeted as
             possible.""",
@@ -368,13 +284,6 @@ def parse_args(args=None) -> argparse.Namespace:
         help="Exclude transformer-engine from the list of optional software to triage.",
     )
     version_search_args.add_argument(
-        "--no-exclude-transformer-engine",
-        dest="exclude_transformer_engine",
-        action="store_false",
-        default=False,
-        help="Include transformer-engine when restarting from a run that excluded it.",
-    )
-    version_search_args.add_argument(
         "--transformer-engine-ccache-env",
         action="append",
         default=[],
@@ -417,9 +326,15 @@ def parse_args(args=None) -> argparse.Namespace:
         default="main",
         help="The name of the main branch (e.g. main) to derive cherry-picks from",
     )
-    raw_args = sys.argv[1:] if args is None else list(args)
-    provided_args = provided_arg_dests(parser, raw_args)
-    args = parser.parse_args(args=raw_args)
+    parser.add_argument(
+        "--container-registry",
+        type=str,
+        help="""
+            Remote registry for use with the plugin backend. This can optionally
+            include a tag prefix, i.e. gitlab.com/USER/containers and
+            gitlab.com/USER/containers:PREFIX- are both valid.""",
+    )
+    args = parser.parse_args(args=args)
     if args.restart:
         if args.output_prefix is None:
             raise Exception("--restart requires --output-prefix")
@@ -429,27 +344,43 @@ def parse_args(args=None) -> argparse.Namespace:
             raise Exception(
                 f"--output-prefix must contain summary.json: {summary_file}"
             )
-        info_log = args.output_prefix / "info.log"
-        if not info_log.exists():
-            raise Exception(f"--output-prefix must contain info.log: {info_log}")
-        actions_by_dest = parser_actions_by_dest(parser)
-        for arg, value in load_args_from_info_log(info_log).items():
-            if arg in provided_args or arg not in actions_by_dest:
-                continue
-            setattr(args, arg, coerce_logged_arg(actions_by_dest[arg], value))
     else:
         if args.output_prefix is None:
             args.output_prefix = pathlib.Path(
                 datetime.datetime.now().strftime("triage-%Y-%m-%d-%H-%M-%S")
             )
-    if not args.test_command:
-        raise Exception("test_command must be passed or restored from info.log")
-
+    args.optional_software = optional_software.copy()
+    if args.exclude_transformer_engine:
+        args.optional_software.remove("transformer-engine")
     assert args.container_runtime in {
         "docker",
         "pyxis",
         "local",
+        "plugin",
     }, args.container_runtime
+
+    # Metric-based triage checks
+    container_search_options_passed = (
+        args.container is not None
+        or args.start_date is not None
+        or args.end_date is not None
+    )
+    if args.metric_name is not None:
+        if container_search_options_passed:
+            raise Exception(
+                "--metric-name is only supported in version-level search; use "
+                "--{passing,failing}-{container,versions}."
+            )
+        if not args.passing_metric or not args.failing_metric:
+            raise Exception(
+                "You should pass seed metric values via --passing-metric and "
+                "--failing-metric if --metric-name is passed."
+            )
+    if (args.passing_metric or args.failing_metric) and args.metric_name is None:
+        raise Exception(
+            "--metric-name must be passed if --passing-metric or --failing-metric is."
+        )
+
     args.workaround_buggy_container = set(args.workaround_buggy_container)
     # --{passing,failing}-commits are deprecated aliases for --{passing,failing}-versions.
     for prefix in ["passing", "failing"]:
@@ -506,9 +437,7 @@ def parse_args(args=None) -> argparse.Namespace:
         # If the container-level search is being skipped, because a valid combination
         # of --{passing,failing}-{versions,container} is passed, then no container-level
         # search options should be passed.
-        assert (
-            args.container is None and args.start_date is None and args.end_date is None
-        ), (
+        assert not container_search_options_passed, (
             "No container-level search options should be passed if the passing/failing"
             " containers/versions have been passed explicitly."
         )
@@ -530,13 +459,7 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert (
-            args.container is not None
-        ), "--container must be passed for the container-level search"
-
-    args.optional_software = optional_software.copy()
-    if args.exclude_transformer_engine:
-        args.optional_software.remove("transformer-engine")
-
+        assert args.container is not None, (
+            "--container must be passed for the container-level search"
+        )
     return args
-

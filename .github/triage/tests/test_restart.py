@@ -7,7 +7,9 @@ import pytest
 
 from jax_toolbox_triage.args import parse_args
 from jax_toolbox_triage.logic import (
-    TestExecutionOutcome,
+    _EXIT_CODE_METRIC,
+    ClassifiedTestOutcome,
+    ExitCodeClassifier,
     version_search,
 )
 from jax_toolbox_triage.summary import (
@@ -99,14 +101,16 @@ def test_version_search_reuses_preloaded_restart_cache(tmp_path):
                 "xla": "xla-good",
                 "jax": "jax-good",
                 "output_directory": str(good_dir),
-                "result": "TestExecutionOutcome.TEST_SUCCESS",
+                "result": "TestExecutionOutcome.TEST_YIELDED_RESULTS",
+                "metrics": {_EXIT_CODE_METRIC: 0},
             },
             {
                 "container": "container-url",
                 "xla": "xla-good",
                 "jax": "jax-bad",
                 "output_directory": str(bad_dir),
-                "result": "TestExecutionOutcome.TEST_FAILURE",
+                "result": "TestExecutionOutcome.TEST_YIELDED_RESULTS",
+                "metrics": {_EXIT_CODE_METRIC: 1},
             },
         ]
     }
@@ -135,8 +139,9 @@ def test_version_search_reuses_preloaded_restart_cache(tmp_path):
         "jax_good": "jax-good",
         "xla_ref": "xla-good",
     }
-    assert last_known_good.result == TestExecutionOutcome.TEST_SUCCESS
-    assert first_known_bad.result == TestExecutionOutcome.TEST_FAILURE
+    classifier = ExitCodeClassifier()
+    assert classifier(last_known_good) == ClassifiedTestOutcome.PASS
+    assert classifier(first_known_bad) == ClassifiedTestOutcome.FAIL
 
 
 def test_summary_cache_loads_container_records(tmp_path):
@@ -147,7 +152,8 @@ def test_summary_cache_loads_container_records(tmp_path):
             {
                 "container": "container-url",
                 "output_directory": str(out_dir),
-                "result": True,
+                "result": "TestExecutionOutcome.TEST_YIELDED_RESULTS",
+                "metrics": {_EXIT_CODE_METRIC: 0},
             }
         ]
     }
@@ -156,7 +162,7 @@ def test_summary_cache_loads_container_records(tmp_path):
     summary_cache = result_cache_from_summary(tmp_path)
 
     cached_result = summary_cache[(CONTAINER_CACHE_SECTION, "container-url")]
-    assert cached_result.result == TestExecutionOutcome.TEST_SUCCESS
+    assert cached_result.exit_code_based_pass()
     assert cached_result.host_output_directory == out_dir
 
 
@@ -196,14 +202,16 @@ def test_triage_tool_loads_restart_cache(tmp_path):
                 "xla": "xla-good",
                 "jax": "jax-good",
                 "output_directory": str(good_dir),
-                "result": "TestExecutionOutcome.TEST_SUCCESS",
+                "result": "TestExecutionOutcome.TEST_YIELDED_RESULTS",
+                "metrics": {_EXIT_CODE_METRIC: 0},
             },
             {
                 "container": "local",
                 "xla": "xla-good",
                 "jax": "jax-bad",
                 "output_directory": str(bad_dir),
-                "result": "TestExecutionOutcome.TEST_FAILURE",
+                "result": "TestExecutionOutcome.TEST_YIELDED_RESULTS",
+                "metrics": {_EXIT_CODE_METRIC: 1},
             },
         ]
     }

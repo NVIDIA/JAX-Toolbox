@@ -14,6 +14,7 @@ VERSION_CACHE_SECTION = "versions"
 VERSION_RECORD_METADATA = {
     "build_time",
     "container",
+    "metrics",
     "output_directory",
     "result",
     "test_repetition",
@@ -101,51 +102,51 @@ def result_cache_from_summary(
         if not {"container", "result", "output_directory"} <= record.keys():
             logging.warning("Ignoring incomplete restart container record: %s", record)
             continue
-        result = (
-            TestExecutionOutcome.TEST_SUCCESS
-            if record["result"]
-            else TestExecutionOutcome.TEST_FAILURE
+        result_name = record["result"].rsplit(".", 1)[-1]
+        result_enum = TestExecutionOutcome[result_name]
+        assert (
+            "metrics" in record
+            or result_enum != TestExecutionOutcome.TEST_YIELDED_RESULTS
         )
         cache[(CONTAINER_CACHE_SECTION, record["container"])] = TestResult(
             build_stdouterr=None,
             host_output_directory=_record_output_directory(output_prefix, record),
-            result=result,
+            result=result_enum,
             stdouterr=None,
+            metrics=record.get("metrics", {}),
+            time=record.get("test_time"),  # Might not exist for build failures
         )
 
     for record in summary.get("versions", []):
-        if not isinstance(record, dict):
-            continue
-        if "result" not in record or "output_directory" not in record:
-            logging.warning("Ignoring incomplete restart summary record: %s", record)
-            continue
         versions = {
             key: value
             for key, value in record.items()
             if key not in VERSION_RECORD_METADATA
         }
-        if not versions:
-            logging.warning(
-                "Ignoring restart summary record that is missing package keys: %s",
-                record,
-            )
-            continue
         repetition = int(record.get("test_repetition", 0))
         key = version_cache_key(versions, repetition=repetition)
         result_name = record["result"].rsplit(".", 1)[-1]
+        result_enum = TestExecutionOutcome[result_name]
+        assert (
+            "metrics" in record
+            or result_enum != TestExecutionOutcome.TEST_YIELDED_RESULTS
+        )
+        out_dir = _record_output_directory(output_prefix, record)
         cache[(VERSION_CACHE_SECTION, key)] = TestResult(
             build_stdouterr=None,
-            host_output_directory=_record_output_directory(output_prefix, record),
-            result=TestExecutionOutcome[result_name],
+            host_output_directory=out_dir,
+            result=result_enum,
             stdouterr=None,
+            metrics=record.get("metrics", {}),
+            time=record.get("test_time"),  # Might not exist for build failures
         )
     return cache
 
 
 def create_output_symlinks(
     output_prefix: pathlib.Path,
-    last_known_good: typing.Optional[TestResult],
-    first_known_bad: typing.Optional[TestResult],
+    last_known_good: typing.Sequence[TestResult],
+    first_known_bad: typing.Sequence[TestResult],
 ):
     """
     Create symlinks to the last-good and first-bad output directories.
@@ -153,16 +154,14 @@ def create_output_symlinks(
 
     Args:
         output_prefix (pathlib.Path): The prefix for the output directory.
-        last_known_good (TestResult): The last known good test result.
-        first_known_bad (TestResult): The first known bad test result.
+        last_known_good (TestResult): The last known good test result(s).
+        first_known_bad (TestResult): The first known bad test result(s).
 
     Returns:
         None
     """
 
-    def symlink(result: typing.Optional[TestResult], symlink_name: str) -> None:
-        if result is None:
-            return
+    def symlink(result: TestResult, symlink_name: str) -> None:
         symlink_path = (output_prefix / symlink_name).resolve()
         assert not symlink_path.exists(), symlink_path
         assert symlink_path.parent == result.host_output_directory.parent, (
@@ -171,5 +170,7 @@ def create_output_symlinks(
         )
         symlink_path.symlink_to(result.host_output_directory)
 
-    symlink(last_known_good, "last-known-good")
-    symlink(first_known_bad, "first-known-bad")
+    for n, result in enumerate(last_known_good):
+        symlink(result, f"last-known-good-{n}")
+    for n, result in enumerate(first_known_bad):
+        symlink(result, f"first-known-bad-{n}")

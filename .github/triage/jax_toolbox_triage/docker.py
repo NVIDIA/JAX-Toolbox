@@ -24,10 +24,15 @@ class DockerContainer(Container):
 
     def __enter__(self):
         self._logger.debug(f"Launching {self}")
-        have_gpus = shutil.which("nvidia-smi") is not None
+        have_gpus = (
+            shutil.which("nvidia-smi") is not None
+            and subprocess.run(["nvidia-smi"]).returncode == 0
+        )
         if not have_gpus:
             self._logger.warning("No GPUs detected!")
-        gpu_args = ["--gpus=all"] if have_gpus else []
+        gpu_args = (
+            ["--gpus=all"] if have_gpus else ["-e", "NVIDIA_VISIBLE_DEVICES=void"]
+        )
         result = run_and_log(
             [
                 "docker",
@@ -93,6 +98,7 @@ class DockerContainer(Container):
         """
         Check if the given container exists.
         """
+        # TODO: check without pulling; docker manifest inspect
         result = run_and_log(
             ["docker", "pull", self._url],
             logger=self._logger,
