@@ -27,6 +27,7 @@ extraScrapeConfigs: |
       target_label: __address__
       regex: (.*):\d+
       replacement: $1:9100
+
 server:
   tolerations:
     - key: "components.gke.io/gke-managed-components"
