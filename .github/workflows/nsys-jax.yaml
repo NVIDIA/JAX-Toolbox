@@ -11,12 +11,13 @@ on:
       - reopened
       - ready_for_review
       - synchronize
-    paths-ignore:
-      - '**.md'
-      - '.github/triage/**'
+    paths:
+      - '.github/container/nsys_jax/**'
   push:
     branches:
       - main
+    paths:
+      - '.github/container/nsys_jax/**'
 
 defaults:
   run:

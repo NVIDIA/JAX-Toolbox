@@ -2,7 +2,9 @@
 name = "jax-toolbox-triage"
 dynamic = ["version"]
 dependencies = [
+    "numpy",
     "psutil",
+    "uncertainties",
 ]
 # Because this script needs to run on compute clusters *outside* the containers that it
 # orchestrates, it tries to tolerate old Python versions
@@ -17,3 +19,7 @@ dev = [
     "ruff>=0.15.8",
     "types-psutil>=6.1.0.20241221",
 ]
+
+[[tool.mypy.overrides]]
+module = ["uncertainties.*"]
+follow_untyped_imports = true

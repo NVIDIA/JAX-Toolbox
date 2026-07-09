@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1-labs
-ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:26.05-cuda13.2-devel-ubuntu24.04
+ARG BASE_IMAGE=nvcr.io/nvidia/cuda-dl-base:26.06-cuda13.3-devel-ubuntu24.04
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG JAX_TOOLBOX_REF=main
@@ -133,3 +133,7 @@ ENV MANIFEST_FILE="/opt/manifest.d/manifest.yaml"
 ADD manifest.yaml create-distribution.sh bump.sh /opt/manifest.d/
 
 COPY patches/ /opt/manifest.d/patches/
+
+# Temporary workaround for TransformerEngine, which added a >=1.25.0 requirement
+# when no public cuda-dl-base container had that CUDNN_FRONTEND_VERSION.
+ENV CUDNN_FRONTEND_VERSION=1.25.0

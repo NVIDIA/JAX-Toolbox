@@ -25,18 +25,22 @@ class TestExecutionOutcome(Enum):
 
     __test__ = False  # stop pytest gathering this
     BUILD_FAILURE = auto()
-    TEST_FAILURE = auto()
-    TEST_SUCCESS = auto()
+    TEST_ERROR = auto()  # test could not be run, no results
+    TEST_YIELDED_RESULTS = auto()  # ran, yielded results
+
+
+_EXIT_CODE_METRIC = "exit_code"
 
 
 @dataclass
 class TestResult:
     """
-    Hold the pass/fail result and the interleaved stdout/stderr of a test run.
+    Hold the outcome and the interleaved stdout/stderr of a test run.
 
     `build_stdouterr` can be None if there was no build, e.g. running the test case in
     an existing container.
     `stdouterr` can be None if the build did not succeed, so the test was not run.
+    `metrics` is empty unless `result` is `TestExecutionOutcome.TEST_YIELDED_RESULTS`
     """
 
     __test__ = False  # stop pytest gathering this
@@ -44,6 +48,93 @@ class TestResult:
     host_output_directory: pathlib.Path
     result: TestExecutionOutcome
     stdouterr: typing.Optional[str]
+    time: typing.Optional[float]
+    metrics: typing.Dict[str, typing.Any]
+
+    def exit_code_based_pass(self):
+        exit_code = self.metrics.get(_EXIT_CODE_METRIC)
+        return (
+            self.result == TestExecutionOutcome.TEST_YIELDED_RESULTS
+            and isinstance(exit_code, int)
+            and exit_code == 0
+        )
+
+    def exit_code_based_fail(self):
+        exit_code = self.metrics.get(_EXIT_CODE_METRIC)
+        return (
+            self.result == TestExecutionOutcome.TEST_YIELDED_RESULTS
+            and isinstance(exit_code, int)
+            and exit_code != 0
+        )
+
+
+class ClassifiedTestOutcome(Enum):
+    """
+    Enumerate the possible outcomes of a build + test run (+ possible re-runs)
+    followed by classification of its results.
+    """
+
+    __test__ = False  # stop pytest gathering this
+    AMBIGUOUS = auto()
+    ERROR = auto()
+    FAIL = auto()
+    PASS = auto()
+
+
+class ExecutionClassifier(typing.Protocol):
+    def __call__(
+        self, test_results: typing.Sequence[TestResult]
+    ) -> ClassifiedTestOutcome:
+        """
+        Classify the given results. If the classifier returns that the results are
+        ambiguous, it should not update its internal state and should expect to be
+        called again with a longer `test_results` list.
+        """
+        ...
+
+    def add_data_with_label(
+        self, results: typing.Sequence[TestResult], label: ClassifiedTestOutcome
+    ):
+        """
+        Add the given data to the internal state of the classifier. This can be used to
+        add more samples from a known population after initialisation.
+        """
+        ...
+
+    def text_summary(
+        self, *, columns: int = 120, rows: int = 3
+    ) -> typing.Sequence[str]:
+        """
+        Return some lines of text summarising the state of the classifier.
+        """
+        ...
+
+
+class ExitCodeClassifier(ExecutionClassifier):
+    """
+    A simple classifier with no fuzziness and no retries.
+    """
+
+    def __call__(
+        self, test_results: typing.Sequence[TestResult]
+    ) -> ClassifiedTestOutcome:
+        if all(r.exit_code_based_pass() for r in test_results):
+            return ClassifiedTestOutcome.PASS
+        elif all(r.exit_code_based_fail() for r in test_results):
+            return ClassifiedTestOutcome.FAIL
+        return ClassifiedTestOutcome.ERROR
+
+    def add_data_with_label(
+        self, results: typing.Sequence[TestResult], label: ClassifiedTestOutcome
+    ):
+        if label == ClassifiedTestOutcome.PASS:
+            assert all(r.exit_code_based_pass() for r in results), results
+        else:
+            assert label == ClassifiedTestOutcome.FAIL, label
+            assert all(r.exit_code_based_fail() for r in results)
+
+    def text_summary(self, *, columns: int = 120, rows: int = 3) -> typing.List[str]:
+        return []
 
 
 def as_datetime(date: datetime.date) -> datetime.datetime:
@@ -144,7 +235,7 @@ def container_search(
         logger.info(f"Checking end-of-range failure in {end_date}")
         # Print context for the IMPORTANT .info(...) to the console
         test_end_date = container_passes(end_date, test_output_log_level=logging.INFO)
-        if test_end_date.result != TestExecutionOutcome.TEST_FAILURE:
+        if not test_end_date.exit_code_based_fail():
             raise Exception(f"Could not reproduce failure in {end_date}")
         logger.info(
             "IMPORTANT: you should check that the test output above shows the "
@@ -185,11 +276,12 @@ def container_search(
                 f"Starting coarse search with {search_date} based on --start-date"
             )
 
+    classifier = ExitCodeClassifier()
     if skip_first_phase:
         logger.info(f"Skipping check that the test passes on start_date={start_date}")
     else:
         # While condition prints an info message
-        while container_passes(search_date).result != TestExecutionOutcome.TEST_SUCCESS:
+        while classifier([container_passes(search_date)]) != ClassifiedTestOutcome.PASS:
             # Test failed on `search_date`, go further into the past
             earliest_failure = search_date
             new_search_date = adjust(
@@ -217,9 +309,11 @@ def container_search(
         if range_mid is None:
             # It wasn't possible to refine further.
             break
-        if container_passes(range_mid).result == TestExecutionOutcome.TEST_SUCCESS:
+        outcome = classifier([container_passes(range_mid)])
+        if outcome == ClassifiedTestOutcome.PASS:
             range_start = range_mid
         else:
+            assert outcome == ClassifiedTestOutcome.FAIL
             range_end = range_mid
         logger.info(f"Refined container-level range to [{range_start}, {range_end}]")
     return range_start, range_end
@@ -318,7 +412,15 @@ def _strip_build_failures(versions: typing.Dict[str, str]) -> typing.Dict[str, s
     return {k: remove_build_failures(v) for k, v in versions.items()}
 
 
+# Fake version key used to distinguish between intentional repeated measurements of the
+# same thing
 _REPETITION_KEY = "#rep"
+
+# Special version key used to denote versions of the test command itself. This has
+# special treatment because, while it is included in the multi-project triage along
+# with the various software versions, it is passed to the test command rather than
+# being checked out/built/baked into the test container.
+_WORKLOAD_VERSION_KEY = "WORKLOAD"
 
 
 def version_cache_key(
@@ -342,8 +444,12 @@ def version_search(
     skip_precondition_checks: bool,
     check_success_before_failure: bool = True,
     confirmation_iterations: int = 1,
+    max_repetitions: typing.Optional[int] = None,
     result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
-) -> typing.Tuple[typing.Dict[str, str], TestResult, typing.Optional[TestResult]]:
+    classifier: ExecutionClassifier = ExitCodeClassifier(),
+) -> typing.Tuple[
+    typing.Dict[str, str], typing.Sequence[TestResult], typing.Sequence[TestResult]
+]:
     """
     Bisect a failure back to a single version of a single component.
 
@@ -357,8 +463,12 @@ def version_search(
     skip_precondition_checks: if True, some tests that should pass/fail by
         construction are skipped
     check_success_before_failure: choose the order of precondition checks
-    confirmation_iterations: after convergence, re-run the first-known-bad and
-        last-known-good versions this many extra times to build confidence
+    confirmation_iterations: check the known-bad/known-good inputs and the
+        first-known-bad/last-known-good output at least this many *extra* times
+    max_repetitions: if the classifier returns an ambiguous result and requests more
+        data, this is the maximum number of extra runs, i.e. the maximum total number
+        of times any given set of versions will be executed is `max_repetitions + 1`.
+        Defaults to be `confirmation_iterations + 2`.
     result_cache: previously completed build/test results to reuse
 
     Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
@@ -367,6 +477,12 @@ def version_search(
     False, but the other fields can be used to obtain stdout+stderr and
     output files from those test invocations.
     """
+    if max_repetitions is None:
+        max_repetitions = confirmation_iterations + 2
+    assert max_repetitions >= confirmation_iterations, (
+        max_repetitions,
+        confirmation_iterations,
+    )
     if result_cache is None:
         result_cache = {}
 
@@ -388,63 +504,98 @@ def version_search(
         cache_key = version_cache_key(bisect_versions, repetition=repetition)
         bisect_result = result_cache.get(cache_key)
         if bisect_result is not None:
-            logger.info(f"Reusing cached result for {dict(cache_key)}")
+            logger.info(
+                f"Reusing cached result for {dict(cache_key)}: "
+                f"{bisect_result.result}: {bisect_result.metrics}"
+            )
             return bisect_result
         bisect_result = build_and_test(
             versions=_strip_build_failures(bisect_versions),
             test_output_log_level=test_output_log_level,
             test_repetition=repetition,
         )
+        logger.info(
+            f"New result for {dict(cache_key)}: {bisect_result.result}: "
+            f"{bisect_result.metrics}"
+        )
         result_cache[cache_key] = bisect_result
         return bisect_result
 
-    def _check_success():
-        # Verify that we can build successfully and that the test succeeds as expected.
+    def _check(
+        good_or_bad, check_versions, desired_outcome, CouldNotReproduceDesiredOutcome
+    ):
+        # Verify that we can build successfully and that the test gives the expected results.
         logger.info(
-            f"Verifying test success using 'good' versions {confirmation_iterations + 1} times"
+            f"Verifying test outcome using {good_or_bad} versions "
+            f"{confirmation_iterations + 1} times"
         )
+        # Run `confirmation_iterations + 1` runs to confirm non-flakiness (boolean
+        # triage) and/or seed the classifier state (metric-based triage)
         for n in range(confirmation_iterations + 1):
-            check_pass = build_cached(
-                _earliest_versions(versions),
-                repetition=-n,
+            test_output_log_level = (
+                logging.INFO
+                if n == 0 and desired_outcome == ClassifiedTestOutcome.FAIL
+                else logging.DEBUG
             )
-            if check_pass.result == TestExecutionOutcome.TEST_SUCCESS:
-                logger.info("Verified test passes using 'good' versions")
-            else:
-                err = f"Could not reproduce success with 'good' versions ({check_pass.result}, attempt {n})"
+            check = build_cached(
+                check_versions,
+                repetition=n,
+                test_output_log_level=test_output_log_level,
+            )
+            if check.result == TestExecutionOutcome.BUILD_FAILURE:
+                err = f"Build failure attempting to reproduce result with {good_or_bad} versions"
                 logger.fatal(err)
-                if check_pass.result == TestExecutionOutcome.BUILD_FAILURE:
-                    logger.fatal(check_pass.build_stdouterr)
+                logger.fatal(check.build_stdouterr)
+                raise CouldNotReproduceDesiredOutcome(err)
+            outcome = classifier([check])
+            assert outcome != ClassifiedTestOutcome.ERROR
+            if outcome == ClassifiedTestOutcome.AMBIGUOUS:
+                # For metric-based triage, these up-front checking loops are important
+                # to help initialise the classifier state. Rather than spending a long
+                # time looping, force ambiguous results to resolve in the direction of
+                # our expectations
+                logger.info(
+                    f"Ambiguous result when attempting {good_or_bad} version "
+                    "verification, forcing it into the classifier as labelled data..."
+                )
+                classifier.add_data_with_label([check], desired_outcome)
+            classifier_status = classifier.text_summary()
+            if len(classifier_status):
+                logger.info("Updated classifier status:")
+                for row in classifier_status:
+                    logger.info(row)
+            if outcome == desired_outcome:
+                if desired_outcome == ClassifiedTestOutcome.FAIL:
+                    logger.log(
+                        test_output_log_level,
+                        "Verified test failure using 'bad' versions. IMPORTANT: you should "
+                        "check that the test output above shows the *expected* failure of your "
+                        "test case. It is very easy to accidentally provide a test case that "
+                        "fails for the wrong reason, which will not triage the correct issue!",
+                    )
                 else:
-                    logger.fatal(check_pass.stdouterr)
-                raise CouldNotReproduceSuccess(err)
+                    logger.info(f"Verified test result using {good_or_bad} versions.")
+            elif outcome in {ClassifiedTestOutcome.PASS, ClassifiedTestOutcome.FAIL}:
+                err = f"Could not reproduce results with {good_or_bad} versions ({outcome}, iteration {n})"
+                logger.fatal(err)
+                logger.fatal(check.stdouterr)
+                raise CouldNotReproduceDesiredOutcome(err)
+
+    def _check_success():
+        _check(
+            "'good'",
+            _earliest_versions(versions),
+            ClassifiedTestOutcome.PASS,
+            CouldNotReproduceSuccess,
+        )
 
     def _check_failure():
-        # Verify we can build successfully and that the test fails as expected.
-        logger.info(
-            f"Verifying test failure using 'bad' versions {confirmation_iterations + 1} times"
+        _check(
+            "'bad'",
+            _latest_versions(versions),
+            ClassifiedTestOutcome.FAIL,
+            CouldNotReproduceFailure,
         )
-        for n in range(confirmation_iterations + 1):
-            check_fail = build_cached(
-                _latest_versions(versions),
-                repetition=-n,
-                test_output_log_level=logging.INFO if n == 0 else logging.DEBUG,
-            )
-            if check_fail.result == TestExecutionOutcome.TEST_FAILURE:
-                logger.info(
-                    "Verified test failure using 'bad' versions. IMPORTANT: you should "
-                    "check that the test output above shows the *expected* failure of your "
-                    "test case. It is very easy to accidentally provide a test case that "
-                    "fails for the wrong reason, which will not triage the correct issue!"
-                )
-            else:
-                err = f"Could not reproduce failure with 'bad' versions ({check_fail.result}, attempt {n})"
-                logger.fatal(err)
-                if check_fail.result == TestExecutionOutcome.BUILD_FAILURE:
-                    logger.fatal(check_fail.build_stdouterr)
-                else:
-                    logger.fatal(check_fail.stdouterr)
-                raise CouldNotReproduceFailure(err)
 
     if skip_precondition_checks:
         logger.info("Skipping check that 'good' and 'bad' versions reproduce success")
@@ -478,7 +629,7 @@ def version_search(
             return bisect_result, bisect_versions
         logger.info(
             f"Encountered build failure using index={indices[primary]} of "
-            f"the remaining {primary} versions"
+            f"the remaining {len(versions[primary])} {primary} versions"
         )
         # Versions based on the middle of the remaining `primary` commits led to a
         # build failure (n), but the endpoints build OK (y).
@@ -500,9 +651,9 @@ def version_search(
         # succeeds so we can do the same. The somewhat arbitrary logic here is to take
         # the shorter y??????n run and refine it in the hope one of the ? is a y.
         assert (
-            result_cache.get(version_cache_key(_earliest_versions(versions))).result
-            == TestExecutionOutcome.TEST_SUCCESS
-        )
+            result_cache[version_cache_key(_earliest_versions(versions))].result
+            != TestExecutionOutcome.BUILD_FAILURE
+        ), result_cache[version_cache_key(_earliest_versions(versions))].result
         build_statuses = [(True, {p: 0 for p in versions})]
         for n in range(1, len(versions[primary]) - 1):
             versions_n, indices_n = get_versions(primary_index=n, versions=versions)
@@ -513,9 +664,9 @@ def version_search(
             )
             build_statuses.append((None if result_n is None else False, indices_n))
         assert (
-            result_cache.get(version_cache_key(_latest_versions(versions))).result
-            == TestExecutionOutcome.TEST_FAILURE
-        )
+            result_cache[version_cache_key(_latest_versions(versions))].result
+            != TestExecutionOutcome.BUILD_FAILURE
+        ), result_cache.get(version_cache_key(_latest_versions(versions))).result
         build_statuses.append((True, {p: len(vs) - 1 for p, vs in versions.items()}))
         assert len(build_statuses) == len(versions[primary])
         # build_statuses is something like [True, None, False, None, True]; identify
@@ -568,6 +719,25 @@ def version_search(
                 }
         return bisect_result, bisect_versions
 
+    def _outcome_with_retries(test_versions, *, min_runs, max_runs):
+        results = [build_cached(test_versions, repetition=n) for n in range(min_runs)]
+        outcome = classifier(results)
+        if outcome == ClassifiedTestOutcome.AMBIGUOUS:
+            logger.info(
+                f"Ambiguous result from {len(results)} measurements, running "
+                f"up to {max_runs - min_runs} extra measurements to disambiguate."
+            )
+            for n in range(min_runs, max_runs):
+                results.append(build_cached(test_versions, repetition=n))
+                outcome = classifier(results)
+                if outcome != ClassifiedTestOutcome.AMBIGUOUS:
+                    logger.info(
+                        f"Got non-ambiguous outcome {outcome} from {len(results)} "
+                        "measurements."
+                    )
+                    break
+        return outcome, results
+
     while len(versions[primary]) > 2:
         bisect_result, bisect_versions = find_successful_build(versions=versions)
 
@@ -579,21 +749,31 @@ def version_search(
             assert False
 
         indices = {pkg: _index(pkg, ver) for pkg, ver in bisect_versions.items()}
-        if bisect_result.result == TestExecutionOutcome.TEST_SUCCESS:
+        outcome, _ = _outcome_with_retries(
+            bisect_versions, min_runs=1, max_runs=max_repetitions + 1
+        )
+        classifier_status = classifier.text_summary()
+        if len(classifier_status):
+            logger.info("Updated classifier status:")
+            for row in classifier_status:
+                logger.info(row)
+        if outcome == ClassifiedTestOutcome.PASS:
             # Test passed, continue searching in the second half
             for package, index in indices.items():
                 versions[package] = versions[package][index:]
-        elif bisect_result.result == TestExecutionOutcome.TEST_FAILURE:
+        elif outcome == ClassifiedTestOutcome.FAIL:
             # Test failed, continue searching in the first half
             for package, index in indices.items():
                 versions[package] = versions[package][: index + 1]
+        elif outcome == ClassifiedTestOutcome.AMBIGUOUS:
+            err = f"Could not reach an unambiguous result with {max_repetitions + 1} measurements."
+            logger.fatal(err)
+            raise Exception(err)
         else:
-            assert (
-                bisect_result.result == TestExecutionOutcome.BUILD_FAILURE
-            ), bisect_result
-            # Did not succeed in finding a version of `primary` that builds. This does
-            # not quite mean that all versions fail, as the algorithm will not try all
-            # versions in ranges with failures at both ends
+            assert outcome == ClassifiedTestOutcome.ERROR, outcome
+            # Did not succeed in finding a version of `primary` that gives results.
+            # This does not quite mean that all versions fail, as the algorithm will
+            # not try all versions in ranges with failures at both ends
             #
             #       might
             #          \
@@ -604,16 +784,15 @@ def version_search(
             # as given middle=fail, and Q1=fail the points between Q1 and middle will
             # not be checked.
             n_primary = len(versions[primary])
-            logger.info(n_primary)
             build_fail_commits = []
             for n in range(1, n_primary - 1):
                 versions_n, _ = get_versions(primary_index=n, versions=versions)
                 # Should have been a build failure if tested.
                 result_n = result_cache.get(version_cache_key(versions_n))
                 if result_n is not None:
-                    assert (
-                        result_n.result == TestExecutionOutcome.BUILD_FAILURE
-                    ), result_n
+                    assert result_n.result == TestExecutionOutcome.BUILD_FAILURE, (
+                        result_n
+                    )
                 build_fail_commits.append(versions_n[primary])
             logger.warning(
                 f"Could not triage {primary} to a single version due to build "
@@ -651,9 +830,13 @@ def version_search(
         f"Two {primary} versions remain, checking if {versions[primary][-1][0]} is the "
         "culprit"
     )
-    # It's possible that this combination has already been tested at this point
-    blame = build_cached(blame_versions)
-    if blame.result == TestExecutionOutcome.TEST_SUCCESS:
+    # FIXME: It's possible that this combination has already been tested at this point,
+    # so the classifier may have seen some values before and they may, therefore, get
+    # double counted in its internal state.
+    blame_outcome, _ = _outcome_with_retries(
+        blame_versions, min_runs=1, max_runs=max_repetitions + 1
+    )
+    if blame_outcome == ClassifiedTestOutcome.PASS:
         # Test passed with {pX, sZ, tZ, ...} but was known to fail with
         # {pZ, sZ, tZ, ...}. Therefore pZ is the culprit version.
         log_str = f"Bisected failure to {primary} {bad_version} with"
@@ -687,18 +870,29 @@ def version_search(
         # Run the test case a few more times as a final line of defence against flakiness.
         # `blame_versions` are last-known-good, `first_known_bad` are what they say.
         # We just tested `blame_versions`, so start with `first_known_bad`.
-        for n in range(confirmation_iterations):
-            confirm_bad = build_cached(first_known_bad, repetition=n + 1)
-            assert confirm_bad.result == TestExecutionOutcome.TEST_FAILURE
-            confirm_good = build_cached(blame_versions, repetition=n + 1)
-            assert confirm_good.result == TestExecutionOutcome.TEST_SUCCESS
-        return ret, blame, first_known_bad_result
-    else:
+        # FIXME: as above this may double-count in the classifier state.
+        bad_outcome, confirm_bad = _outcome_with_retries(
+            first_known_bad,
+            min_runs=1 + confirmation_iterations,
+            max_runs=1 + max_repetitions,
+        )
+        for row in classifier.text_summary():
+            logger.info(row)
+        assert bad_outcome == ClassifiedTestOutcome.FAIL, (bad_outcome, confirm_bad)
+        good_outcome, confirm_good = _outcome_with_retries(
+            blame_versions,
+            min_runs=1 + confirmation_iterations,
+            max_runs=1 + max_repetitions,
+        )
+        for row in classifier.text_summary():
+            logger.info(row)
+        assert good_outcome == ClassifiedTestOutcome.PASS, (good_outcome, confirm_good)
+        return ret, confirm_good, confirm_bad
+    elif blame_outcome == ClassifiedTestOutcome.FAIL:
         # Test failed with both {pX, sZ, tZ, ...} and {pZ, sZ, tZ, ...}, so
         # we can fix the primary package to pX and recurse with the old
         # secondary package (s) as the new primary, and the old primary
         # package (p) moved to the end.
-        assert blame.result == TestExecutionOutcome.TEST_FAILURE, blame.result
         versions[primary] = [versions.pop(primary)[0]]
         return version_search(
             build_and_test=build_and_test,
@@ -707,4 +901,9 @@ def version_search(
             skip_precondition_checks=True,
             result_cache=result_cache,
             confirmation_iterations=confirmation_iterations,
+            classifier=classifier,
         )
+    else:
+        err = f"Could not handle blame outcome {blame_outcome}"
+        logger.fatal(err)
+        raise Exception(err)
