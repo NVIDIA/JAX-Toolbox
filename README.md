@@ -6,7 +6,7 @@ JAX Toolbox
 JAX Toolbox is NVIDIA's home for JAX and XLA on GPUs, including the latest updates, containers and educational resources.
 
 [![License Apache 2.0](https://badgen.net/badge/license/apache2.0/blue)](https://github.com/NVIDIA/JAX-Toolbox/blob/main/LICENSE.md)
-[![Build](https://badgen.net/badge/build/check-status/blue)](#build-pipeline-status)
+[![Build](https://badgen.net/badge/build/check-status/blue)](#nightly-build-pipeline-status)
 
 [**Latest news**](https://github.com/NVIDIA/JAX-Toolbox/#latest-news)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Tech blogs**](https://github.com/NVIDIA/JAX-Toolbox/#tech-blogs)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Documentation**](https://github.com/NVIDIA/JAX-Toolbox/#tutorials)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Resources**](https://github.com/NVIDIA/JAX-Toolbox/#resources)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Container images**](https://github.com/NVIDIA/JAX-Toolbox/#container-images)
 
@@ -88,6 +88,8 @@ Stable builds are released at the end of each month to NVIDIA's [**NGC Catalog**
 | [jax](https://github.com/jax-ml/jax)|  | pre-training | `ghcr.io/nvidia/jax:jax` | [`nvcr.io/nvidia/jax:YY.MM-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-py3) |
 | [maxtext](https://github.com/google/maxtext)| [**DeepSeek V3.2**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#deepseek), [**Gemma 4**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#gemma), [**Llama 4**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#llama), [**Qwen3**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#qwen3), [**Qwen 3.5**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#qwen3-5), [**Mixtral**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#mistral-mixtral), [**Kimi K2.6**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#kimi) | pre-training | `ghcr.io/nvidia/jax:maxtext` | [`nvcr.io/nvidia/jax:YY.MM-maxtext-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-maxtext-py3) |
 | [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` | |
+| [equinox](https://github.com/patrick-kidger/equinox) |  | pre-training | `ghcr.io/nvidia/jax:equinox` | |
+| [torchax](https://github.com/google/torchax) |  | running PyTorch models on JAX | `ghcr.io/nvidia/jax:torchax` | |
 | [alphafold3](https://github.com/google-deepmind/alphafold3) | Evoformer | inference | `ghcr.io/nvidia/jax:alphafold` | |
 
 
@@ -231,6 +233,28 @@ Stable builds are released at the end of each month to NVIDIA's [**NGC Catalog**
     </tr>
     <tr>
       <td>
+        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.torchax">
+          <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=TorchAX%3D%7Bcore%2CTorchAX%7D">
+        </a>
+      </td>
+      <td>
+        <code>ghcr.io/nvidia/jax:torchax</code>
+      </td>
+      <td>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-torchax-md">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-torchax-build-amd64.json&logo=docker&label=amd64">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-torchax-md">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-torchax-build-arm64.json&logo=docker&label=arm64">
+        </a>
+      </td>
+      <td>
+        [no tests]
+      </td>
+    </tr>
+    <tr>
+      <td>
         <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.axlearn">
           <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=AXLearn%3D%7Bcore%2CAXLearn%7D">
         </a>
@@ -248,8 +272,12 @@ Stable builds are released at the end of each month to NVIDIA's [**NGC Catalog**
         </a>
       </td>
       <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-axlearn-test-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-test.json&logo=nvidia&label=H100%20distributed">
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-axlearn-unit-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-unit-H100.json&logo=nvidia&label=AXLearn%20-%20unit%20(H100)">
+        </a>
+        <br>
+        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-axlearn-fuji-3b-h100-json">
+          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-fuji-3b-H100.json&logo=nvidia&label=AXLearn%20-%20Fuji%203B%20(H100)">
         </a>
       </td>
     </tr>

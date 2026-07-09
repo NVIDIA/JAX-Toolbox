@@ -51,6 +51,9 @@ ADD test-maxtext.sh /usr/local/bin
 ###############################################################################
 
 FROM mealkit AS final
+# Global ARGs are not visible inside a stage unless re-declared: without this
+# the WORKDIR below expands to "" and is a silent no-op
+ARG SRC_PATH_MAXTEXT
 
 RUN pip-finalize.sh
 

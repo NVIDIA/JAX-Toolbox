@@ -13,7 +13,7 @@ on:
         default: NOT SPECIFIED
       CUDA_IMAGE:
         type: string
-        description: CUDA image to use as base, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04
+        description: CUDA image to use as base, e.g. nvcr.io/nvidia/cuda-dl-base:26.06-cuda13.3-devel-ubuntu24.04; 'latest' uses the Dockerfile.base default
         default: 'latest'
         required: false
       MANIFEST_ARTIFACT_NAME:
@@ -28,7 +28,7 @@ on:
         default: '{}'
       MODE:
         type: string
-        description: 'Mode selection for running specific tests only'
+        description: 'Mode selection for running specific tests only (full, jax, te, jax-cutlass, maxtext, axlearn, alphafold)'
         required: false
         default: full
     outputs:
@@ -37,8 +37,10 @@ on:
         value: ${{ jobs.collect-docker-tags.outputs.TAGS }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.ARCHITECTURE }}
-  cancel-in-progress: true
+  # On main (nightly/manual publish runs) key on run_id so a manual dispatch can
+  # never cancel an in-flight nightly; on PR branches new pushes cancel older runs.
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}-${{ inputs.ARCHITECTURE }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read  # to fetch code
@@ -344,6 +346,7 @@ jobs:
       - build-jax
       - build-equinox
       - build-maxtext
+      - build-torchax
       - build-axlearn
       - build-alphafold
     outputs:
@@ -358,10 +361,13 @@ jobs:
             {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "torchax",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-torchax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
+            {"flavor": "alphafold",    "stage": "final",   "priority": 900,  "tag": "${{ needs.build-alphafold.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
+            {"flavor": "torchax",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-torchax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "alphafold",    "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-alphafold.outputs.DOCKER_TAG_MEALKIT }}"},\
             {}\
@@ -505,7 +511,9 @@ jobs:
       )
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04, macOS-latest]
+        # macOS coverage dropped: this only smoke-tests unzip + install.sh, and a
+        # macOS runner per CI run is expensive relative to that signal
+        os: [ubuntu-22.04, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     steps:
     - name: Download nsys-jax-unit output .zip files

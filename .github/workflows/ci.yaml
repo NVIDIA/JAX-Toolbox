@@ -2,8 +2,7 @@ name: CI
 
 on:
   schedule:
-    - cron: '0 7 * * *'
-      timezone: "Europe/London"
+    - cron: '0 7 * * *'  # 07:00 UTC; GitHub Actions crons do not support timezones
   push:
     branches:
       - 'pull-request/[0-9]+'
@@ -37,7 +36,7 @@ on:
         required: false
       CUDA_IMAGE:
         type: string
-        description: CUDA image, e.g. nvcr.io/nvidia/cuda-dl-base:25.01-cuda12.8-devel-ubuntu24.04 or latest.
+        description: CUDA image, e.g. nvcr.io/nvidia/cuda-dl-base:26.06-cuda13.3-devel-ubuntu24.04, or 'latest' to use the Dockerfile.base default.
         default: 'latest'
         required: false
       SOURCE_OVERRIDES:
@@ -54,13 +53,18 @@ on:
           - full - everything will be run (default)
           - jax - run all the tests related to jax system
           - te - run all the tests related to TE
+          - jax-cutlass - run only the CUTLASS DSL tests
           - maxtext - run only the tests for maxtext
           - axlearn - run only the tests for axlearn
-        options: [full, jax, te, maxtext, axlearn]
+          - alphafold - run only the tests for alphafold
+        options: [full, jax, te, jax-cutlass, maxtext, axlearn, alphafold]
         default: full
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  # head_ref is always empty here: PRs arrive as pushes to pull-request/N branches
+  # (copy-pr-bot), not pull_request events. Key on github.ref so new pushes to the
+  # same PR branch cancel the in-flight run; runs on main stay independent (run_id).
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
@@ -85,27 +89,12 @@ jobs:
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
       CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
-      SUFFIX: ${{ steps.run-type.outputs.SUFFIX }}
     steps:
-      - name: Cancel workflow run if the trigger is a draft PR
-        id: cancel-if-draft
-        if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
-        run: |
-          echo "Cancelling workflow for draft PR"
-          curl -X POST -H "Authorization: token ${{ github.token }}" \
-                -H "Accept: application/vnd.github.v3+json" \
-                "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
-          while true; do sleep 1; done  # blocks execution in case workflow cancellation takes time
-
       - name: Set build date
         id: date
         shell: bash -x -e {0}
         run: |
-          if [[ "${{ github.event.schedule }}" == "0 6 * * 6" ]]; then
-            BUILD_DATE=$(TZ='Europe/London' date '+%Y-%m-%d')
-          else
-            BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
-          fi
+          BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
           echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
       - name: Determine whether results will be 'published'
@@ -391,6 +380,7 @@ jobs:
             maxtext
             axlearn
             torchax
+            alphafold
           )
           declare -a STAGES=(
             mealkit
@@ -459,19 +449,21 @@ jobs:
     needs:
       - metadata
       - make-publish-configs
-    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
+    # outputs are strings: compare the serialized JSON itself, so an empty config
+    # list skips this job instead of failing the matrix expansion
+    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS != '{"config":[]}' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
     uses: ./.github/workflows/_publish_container.yaml
     with:
-      ARTIFACT_NAME: ${{ matrix.config.stage }}-${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}
-      ARTIFACT_TAG: ${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}-${{ needs.metadata.outputs.BUILD_DATE }}
+      ARTIFACT_NAME: ${{ matrix.config.stage }}-${{ matrix.config.flavor }}
+      ARTIFACT_TAG: ${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }}
       SOURCE_IMAGE: ${{ join(matrix.config.source_image, ' ') }}
       TARGET_IMAGE: ${{ matrix.config.target_image }}
       TARGET_TAGS: |
-        type=raw,value=${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }},priority=${{ matrix.config.priority }}
-        type=raw,value=${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
+        type=raw,value=${{ matrix.config.flavor }},priority=${{ matrix.config.priority }}
+        type=raw,value=${{ matrix.config.flavor }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
 
   finalize:
     needs: [metadata, amd64, arm64, publish-containers]

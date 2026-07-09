@@ -113,7 +113,7 @@ runs:
     id: check
     shell: bash -x -u {0}
     run: |
-      gcloud container clusters list | grep ${{ inputs.GKE_CLUSTER }} | grep RUNNING > /dev/null 
+      gcloud container clusters list | grep ${{ inputs.GKE_CLUSTER }} | grep RUNNING > /dev/null
 
       if [[ "$?" == "1" ]]; then
         echo "Cluster ${{ inputs.GKE_CLUSTER }} does not exist"
@@ -168,9 +168,9 @@ runs:
       mkdir -p ${JOBSET_NAME}
       uv venv --verbose --python=${{ inputs.XPK_PYTHON }} --directory=${JOBSET_NAME}
       source ${JOBSET_NAME}/.venv/bin/activate
-     
+
       git clone --depth=1 --branch=${{ inputs.XPK_VERSION }} https://github.com/AI-Hypercomputer/xpk.git ${JOBSET_NAME}/xpk
-     
+
       # apply XPK workload patch
       PATCH_PATH=.github/gke-workflow/xpk/${{ inputs.XPK_VERSION}}
       ls ${PATCH_PATH}/*.patch | xargs -I {} git apply --unsafe-paths {} --directory ${JOBSET_NAME}/xpk
@@ -291,10 +291,10 @@ runs:
       POLL_TIMEOUT: 10800
     run: |
       set -euo pipefail
-  
+
       START=$(date +%s)
       JOBSET_ACTIVE=""
-  
+
       while [[ "${JOBSET_ACTIVE:-}" != "true" ]]; do
         JOBSET_ACTIVE="$(
           kubectl get jobset -o json | jq -r '
@@ -303,18 +303,18 @@ runs:
             | .status.replicatedJobsStatus[0].active == 1
           '
         )"
-  
+
         NOW=$(date +%s)
         ELAPSED=$(( NOW - START ))
         if (( ELAPSED > POLL_TIMEOUT )); then
           echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in the cluster"
           exit 1
         fi
-  
+
         echo "Waiting for JobSet ${JOBSET_NAME} to become active in the cluster"
         sleep 10
       done
-  
+
       echo "JobSet ${JOBSET_NAME} has just become active in the cluster"
 
   - name: Set JobSet Pods
@@ -351,25 +351,26 @@ runs:
     run: |
       parse_pod_exit_code() {
         local pod=$1
-        MAYBE_JOBSET_EXIT_CODE="$(cat ${JOBSET_NAME}/${pod}.log | grep -oE 'EXIT\_CODE=[0-9]+$')"
-        echo ${MAYBE_JOBSET_EXIT_CODE} | grep -E 'EXIT\_CODE=[0-9]+$' > /dev/null
-
-        if [ $? -ne 0 ]; then
-          echo "The JobSet ${JOBSET_NAME} did not complete as expected " >&2
-          echo "JOBSET_EXIT_CODE=1" >> ${GITHUB_ENV}
-          exit 1
+        local match
+        # tail -n1: a pod can print EXIT_CODE= more than once; the last one wins
+        match="$(grep -oE 'EXIT_CODE=[0-9]+$' ${JOBSET_NAME}/${pod}.log | tail -n1)"
+        if [ -z "${match}" ]; then
+          return 1
         fi
-
-        echo "Pod ${pod} exited with ${MAYBE_JOBSET_EXIT_CODE}" >&2
-
-        eval "export ${MAYBE_JOBSET_EXIT_CODE}"
-        echo ${EXIT_CODE}
+        echo "${match#EXIT_CODE=}"
       }
 
       ALL_EXIT_CODES=0
       for jobset_pod in ${JOBSET_PODS//[()]/}; do
-        POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod})
-        ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
+        # check the substitution's status in the parent shell: an exit inside
+        # $( ) only kills the subshell and cannot fail this step by itself
+        if POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod}); then
+          echo "Pod ${jobset_pod} had exit code ${POD_EXIT_CODE}"
+          ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
+        else
+          echo "Pod ${jobset_pod} has no EXIT_CODE= marker in its log: the JobSet ${JOBSET_NAME} did not complete as expected" >&2
+          ALL_EXIT_CODES=$(( ALL_EXIT_CODES + 1 ))
+        fi
       done
 
       echo "JOBSET_EXIT_CODE=${ALL_EXIT_CODES}" >> ${GITHUB_ENV}
@@ -429,7 +430,7 @@ runs:
         NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED \
         BADGE_LABEL BADGE_COLOR BADGE_MESSAGE \
       > sitrep.json
-      
+
       schemaVersion=1 \
       label="${BADGE_LABEL}" \
       message="${BADGE_MESSAGE}" \

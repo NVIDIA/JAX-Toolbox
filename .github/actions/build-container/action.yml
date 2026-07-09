@@ -150,7 +150,9 @@ runs:
       with:
         builder: ${{ env.BUILDX_BUILDER_NAME }}
         context: ${{ inputs.DOCKER_CONTEXT }}
-        load: ${{inputs.registry-build-context-name == ''}}
+        # no load: nothing on the runner consumes the multi-GB mealkit image
+        # locally — the final build resolves the mealkit stage from the
+        # keep-state builder cache (or the registry digest via build-contexts)
         push: true
         file: ${{ inputs.DOCKERFILE }}
         platforms: linux/${{ inputs.ARCHITECTURE }}

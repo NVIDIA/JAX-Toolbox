@@ -66,8 +66,14 @@ jobs:
     outputs:
       GIST_ID: ${{ steps.extract-id.outputs.GIST_ID }}
     steps:
-      - name: Download artifacts specified by input
+      - name: Download badge/sitrep/link artifacts
         uses: actions/download-artifact@v8
+        with:
+          # Only the small badge/sitrep/link artifacts: the bare-NAME test
+          # artifacts hold multi-GB logs/profiles this job never reads. *-H100
+          # matches the eks-jobset/gke-xpk GPU_ARCH suffix (the only value in
+          # use); extend the braces if a new GPU_ARCH label is introduced.
+          pattern: '{artifact-*,final-*,mealkit-*,*-H100}'
 
       - name: Collect all badge files to temporary folder
         id: collect
@@ -126,8 +132,11 @@ jobs:
   report:
     runs-on: ubuntu-22.04
     steps:
-      - name: Download artifacts
+      - name: Download badge/sitrep/link artifacts
         uses: actions/download-artifact@v8
+        with:
+          # see the comment on the equivalent filter in the upload-badge job
+          pattern: '{artifact-*,final-*,mealkit-*,*-H100}'
 
       - name: Write output to step summary
         shell: bash -x -e {0}
