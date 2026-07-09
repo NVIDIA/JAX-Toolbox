@@ -116,6 +116,12 @@ jobs:
 
     - name: Configure cluster ServiceAccount
       run: |
+
+        # not configured in xpk pre v0.10.0
+        if [[ "${{ inputs.XPK_VERSION }}" == "v0.8.0" ]]; then
+          kubectl apply -f .github/gke-workflow/xpk/v0.8.0/xpk-sa-rbac.yml
+        fi
+
         # enable GCS interactivity from pods
         kubectl apply -f .github/gke-workflow/gke/xpk-gcs-sa.yml
 

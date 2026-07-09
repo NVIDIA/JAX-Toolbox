@@ -6,8 +6,7 @@ on:
       JAX_IMAGE:
         type: string
         description: JAX image from ghcr.io/nvidia
-        # public latest-base tag: run-id-scoped internal tags get garbage-collected
-        default: ghcr.io/nvidia/jax:base
+        default: ghcr.io/nvidia/jax-toolbox-internal:15729070690-base-amd64
         required: false
 
 jobs:
