@@ -1,0 +1,13 @@
+tolerations:
+  - key: "components.gke.io/gke-managed-components"
+    operator: "Exists"
+    effect: "NoSchedule"
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      url: http://prometheus-server.monitoring.svc
+      access: proxy
+      isDefault: true
