@@ -1,12 +1,12 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 8f4658ecdbe40cde0c43a9ab127359347943c076
+  latest_verified_commit: b560a81a387abcab9c7f154c9e37b46783062224
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 6de79c2c931374dfa7e403c0626d8dd1ec0ed398
+  latest_verified_commit: c40eca1f083b5e06fe70d5c80e1836b7739877f4
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
@@ -15,10 +15,11 @@ flax:
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
+  latest_verified_commit: a31129e2f8a2f5ca6ccc8492e536d2b28359f747
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  latest_verified_commit: 1ec33ae1191ae6644365155f8e8f618145c44cd7
+  latest_verified_commit: 645c4af74eab0c59c29467d20e97464c2c0f82bd
   mode: git-clone
 pydantic:
   version: X.Y.Z
@@ -26,47 +27,47 @@ pydantic:
 dllogger:
   url: https://github.com/NVIDIA/dllogger.git
   tracking_ref: master
-  latest_verified_commit: 0540a43971f4a8a16693a9de9de73c1072020769
+  latest_verified_commit: 0478734ff7be75adde8d160e04872664d1c62e5f
   mode: pip-vcs
 jestimator:
   url: https://github.com/google-research/jestimator.git
   tracking_ref: main
-  latest_verified_commit: 6a57d35539f5193a9756a7cb846654e9b221b2e7
+  latest_verified_commit: 326824a477feef6d92e6f44175000907a72899ca
   mode: pip-vcs
 optax:
   url: https://github.com/google-deepmind/optax.git
   tracking_ref: main
-  latest_verified_commit: b4acf8eed4fe26f4b7be5337a8b72cde0ffbc3cf
+  latest_verified_commit: 015563f090da8d802005bb384261902bf34a425e
   mode: pip-vcs
 seqio:
   url: https://github.com/google/seqio.git
   tracking_ref: main
-  latest_verified_commit: 11706e4a1e01a81ea6b3e02c5ad147028d5b94bb
+  latest_verified_commit: aaa0e111c5e9d8fb49bfa992f2272a121a95f741
   mode: pip-vcs
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
-  latest_verified_commit: 78daad198544def8274dbd656d122fbe6a0e1129
+  latest_verified_commit: 96a71e75396a6b2ebb6c2bd889fd656cb2a19bd1
   mode: git-clone
 mlperf-logging:
   url: https://github.com/mlcommons/logging.git
   tracking_ref: master
-  latest_verified_commit: 99ba37ac267c870d7c6c17e1837aa9180a37cdc1
+  latest_verified_commit: 7162c29326645231a27357c0c345997207c486c3
   mode: pip-vcs
 equinox:
   url: https://github.com/patrick-kidger/equinox.git
   tracking_ref: main
-  latest_verified_commit: 1e601672d38d2c4d483535070a3572d8e8508a20
+  latest_verified_commit: 9336d820b2ef66b360fc6cb3611b3da5cefbb14d
   mode: git-clone
 orbax-checkpoint:
   url: https://github.com/google/orbax.git
   tracking_ref: main
-  latest_verified_commit: 16c2d409e365576284dbaf190ac002b24c1f927f
+  latest_verified_commit: 4f2db70c4f1d04662391e24db633bb1ace2a4ed4
   mode: pip-vcs
 pathwaysutils:
   url: https://github.com/google/pathways-utils.git
   tracking_ref: main
-  latest_verified_commit: 359776d454940ffaa337c36d1df16308d44a95a9
+  latest_verified_commit: 830499914021cab052e4203cecc25a613f529cd8
   mode: pip-vcs
 axlearn:
   url: https://github.com/apple/axlearn.git
@@ -74,23 +75,24 @@ axlearn:
   tracking_ref: main
   mode: git-clone
   patches: {}
+  latest_verified_commit: 34aed43c1b6e581c4753d06d7cbeedd5010ef26b
 qwix:
   url: https://github.com/google/qwix.git
   tracking_ref: main
-  latest_verified_commit: 9ca25462e0342d29ebf214c78624fc262c9f6871
+  latest_verified_commit: 3e494844bb07cab5649452b3bab2812b89687a36
   mode: git-clone
 tunix:
   url: https://github.com/google/tunix.git
   tracking_ref: main
-  latest_verified_commit: d799a45d48027e27b6a08aaf7cb15e6a4f495c01
+  latest_verified_commit: 5c0a30123d7b776e66e2ddb97aaacc571657fa35
   mode: git-clone
 torchax:
   url: https://github.com/google/torchax.git
   tracking_ref: main
-  latest_verified_commit: f41e3de8526f9d4e8410bfb84660faaaf0b3ba4a
+  latest_verified_commit: ac59e3d2becf079b336a8caa831746bb0326e6d4
   mode: git-clone
 alphafold:
   url: https://github.com/google-deepmind/alphafold3.git
   tracking_ref: main
-  latest_verified_commit: 3dfc5a91beee404474d614df1031fbdefaef3277
+  latest_verified_commit: cbdd42023dd0007ce605f047a389cdf1ebc22386
   mode: git-clone
