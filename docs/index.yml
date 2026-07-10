@@ -29,11 +29,6 @@ navigation:
       - page: Environment Variables
         path: getting-started/environment-variables.md
 
-  # ==================== Documentation ====================
-  - section: Documentation
-    contents:
-      - page: Guides
-        path: documentation/guides.md
   # ==================== Frameworks ====================
   - section: Frameworks
     contents:
@@ -74,11 +69,11 @@ navigation:
       - page: JAX-vLLM Rollout Offloading Bridge
         path: inference/jax-inference-offloading.md
 
-  # ==================== Tools ====================
-  - section: Tools
+  # ==================== Customization ====================
+  - section: Customization
     contents:
-      - page: Triage Tool
-        path: triage-tool.md
+      - page: GPU Kernels
+        path: gpu-kernels.md
 
   # ==================== Reference ====================
   - section: Reference
