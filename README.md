@@ -3,12 +3,12 @@
 JAX Toolbox
 ===========================
 
-**JAX-Toolbox** is NVIDIA's home for [JAX and XLA on GPUs](https://docs.nvidia.com/jax-toolbox/getting-started/jax-on-nvidia-gpu-stack), including the latest updates, containers and educational resources.
+**JAX Toolbox** is NVIDIA's home for [**JAX and XLA on GPUs**](https://docs.nvidia.com/jax-toolbox/getting-started/jax-on-nvidia-gpu-stack), including the latest updates, containers and educational resources.
 
 [![License Apache 2.0](https://badgen.net/badge/license/apache2.0/blue)](https://github.com/NVIDIA/JAX-Toolbox/blob/main/LICENSE.md)
 [![Build](https://badgen.net/badge/build/check-status/blue)](#build-pipeline-status)
 
-[**Latest news**](https://github.com/NVIDIA/JAX-Toolbox/#latest-news)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Tech blogs**](https://github.com/NVIDIA/JAX-Toolbox/#tech-blogs)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Documentation**](docs.nvidia.com/jax-toolbox/introduction)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Resources**](https://github.com/NVIDIA/JAX-Toolbox/#resources)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Container images**](https://github.com/NVIDIA/JAX-Toolbox/#container-images)
+[**Latest news**](https://github.com/NVIDIA/JAX-Toolbox/#latest-news)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Tech blogs**](https://github.com/NVIDIA/JAX-Toolbox/#tech-blogs)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Documentation**](https://docs.nvidia.com/jax-toolbox/introduction)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Resources**](https://github.com/NVIDIA/JAX-Toolbox/#resources)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Container images**](https://github.com/NVIDIA/JAX-Toolbox/#container-images)
 
 ---
 <div align="left">

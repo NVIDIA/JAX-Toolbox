@@ -29,6 +29,11 @@ navigation:
       - page: Environment Variables
         path: getting-started/environment-variables.md
 
+  # ==================== Documentation ====================
+  - section: Documentation
+    contents:
+      - page: Guides
+        path: documentation/guides.md
   # ==================== Frameworks ====================
   - section: Frameworks
     contents:
