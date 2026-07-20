@@ -421,17 +421,24 @@ jobs:
       matrix:
         include:
           - test: L0_jax_unittest
+            name: l0-unit
+            nodes: 1
             gpus: 8
           - test: L0_jax_distributed_unittest
+            name: l0-dist
+            nodes: 1
             gpus: 8
-    runs-on: eks
+    runs-on: gke-a3mega
     steps:
       - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
+      - name: Run XPK workload on cluster
+        uses: ./.github/actions/gke-xpk
         with:
-          NAME: te-${{ matrix.test }}
+          NAME: te-${{ matrix.name }}
+          NUM_NODES: ${{ matrix.nodes }}
           NUM_GPUS: ${{ matrix.gpus }}
+          ENVS: |
+            CUDNN_FRONTEND_CUDART_LIB_NAME=libcudart.so.13
           IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           COMMAND: |
             set -xu -o pipefail;
@@ -442,8 +449,8 @@ jobs:
             nvidia-cuda-mps-control -d;
             export TE_PATH=\${SRC_PATH_TRANSFORMER_ENGINE};
 
-            [[ "${{ matrix.test }}" == *distributed* ]] && xdist_args=(8 1) || xdist_args=(1 4);
-            pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh | tee /opt/output/pytest.log
+            [[ ${{ matrix.test }} == *distributed* ]] && xdist_args=(8 1) || xdist_args=(1 4);
+            pytest-xdist.sh \${xdist_args[@]} /opt/output/pytest-report.jsonl bash \${TE_PATH}/qa/${{ matrix.test }}/test.sh | tee /opt/output/pytest.log;
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS_SCRIPT: |
@@ -461,27 +468,30 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
-    runs-on: eks
+    runs-on: gke-a3mega
     needs: build-jax
     strategy:
       fail-fast: false
       matrix:
         include:
-          - gpus: 8
+          - nodes: 1
+            gpus: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
+      - name: Run XPK workload on cluster
+        uses: ./.github/actions/gke-xpk
         with:
           NAME: nsys-jax-unit
+          NUM_NODES: ${{ matrix.nodes }}
           NUM_GPUS: ${{ matrix.gpus }}
           IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}
           # nsys-jax is already installed, this is just adding the test dependencies
           # abuse knowledge that nsys-jax is installed editable, so the tests exist
           COMMAND: |
             pip install pytest-reportlog nsys-jax[test];
-            test_path=\$(python -c 'import importlib.resources; print(importlib.resources.files(\"nsys_jax\").joinpath(\"..\", \"tests\").resolve())');
-            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \"\${test_path}\" | tee /opt/output/pytest.log
+            test_path=\$(eval \$'python - <<\\\\PY\nimport importlib.resources\nprint(importlib.resources.files(\\\"nsys_jax\\\").joinpath(\\\"..\\\", \\\"tests\\\").resolve())\nPY');
+            pytest --basetemp=/opt/output/pytest-tmp --report-log=/opt/output/pytest-report.jsonl \${test_path} | tee /opt/output/pytest.log;
+            EXIT_CODE=${PIPESTATUS[0]};
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
           STATISTICS_SCRIPT: |
@@ -536,7 +546,7 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax'
       )
-    runs-on: eks
+    runs-on: gke-a3mega
     strategy:
       fail-fast: false
       matrix:
@@ -546,8 +556,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
+      - name: Run XPK workload on cluster
+        uses: ./.github/actions/gke-xpk
         with:
           NAME: nsys-jax-nccl
           NUM_NODES: ${{ matrix.nodes }}
@@ -562,7 +572,7 @@ jobs:
               --distributed \
               --gpus-per-process=${{ matrix.gpus }} \
               --process-count=${{ matrix.nodes }} \
-              --process-id=\${NODE_RANK}
+              --process-id=\${NODE_RANK};
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
@@ -574,7 +584,7 @@ jobs:
         inputs.MODE == 'full' ||
         inputs.MODE == 'jax-cutlass'
       )
-    runs-on: eks
+    runs-on: gke-a3mega
     strategy:
       fail-fast: false
       matrix:
@@ -583,8 +593,8 @@ jobs:
             gpus: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
+      - name: Run XPK workload on cluster
+        uses: ./.github/actions/gke-xpk
         with:
           NAME: jax-cutlass
           NUM_NODES: ${{ matrix.nodes }}
@@ -597,17 +607,17 @@ jobs:
 
             any_failed=0;
             for f in /cutlass/examples/python/CuTeDSL/dsl_tutorials/jax/*.py; do
-              echo \"[Executing] \${f}\";
+              echo [Executing] \${f};
               log_output=\$(python \${f} 2>&1);
               exit_code=\${?};
-              if [[ "\${exit_code}" -ne 0 ]]; then any_failed=1; fi;
+              if [[ \${exit_code} -ne 0 ]]; then any_failed=1; fi;
 
-              outcome=\$( [ \${exit_code} -eq 0 ] && echo \"passed\" || echo \"failed\" );
-              echo \"=== \${f} ===\" | tee -a /opt/output/pytest_stdout.log;
-              echo \"\${log_output}\" | tee -a /opt/output/pytest_stdout.log;
-              python3 -c \"import json,sys; print(json.dumps({'outcome': sys.argv[1], 'nodeid': sys.argv[2], 'longrepr': sys.argv[3]}))\" \"\${outcome}\" \"\${f}\" \"\${log_output}\" >> /opt/output/pytest-report.jsonl;
+              outcome=\$( [ \${exit_code} -eq 0 ] && echo passed || echo failed );
+              echo === \${f} === | tee -a /opt/output/pytest_stdout.log;
+              echo \${log_output} | tee -a /opt/output/pytest_stdout.log;
+              eval \$'python3 - \\\"\${outcome}\\\" \\\"\${f}\\\" \\\"\${log_output}\\\" >> /opt/output/pytest-report.jsonl <<\\\\PY\nimport json\nimport sys\nprint(json.dumps({\\\"outcome\\\": sys.argv[1], \\\"nodeid\\\": sys.argv[2], \\\"longrepr\\\": sys.argv[3]}))\nPY';
             done;
-            if [[ \"\${any_failed}\" -ne 0 ]]; then false; else true; fi
+            if [[ \${any_failed} -ne 0 ]]; then false; else true; fi;
 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
