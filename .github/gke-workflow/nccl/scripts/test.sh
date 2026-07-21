@@ -22,7 +22,7 @@ run_nccl() {
          --hostfile "${SCRIPT_DIR}/hostfiles${NHOSTS}/hostfile${GPUS_PER_NODE}"     \
          -x LD_LIBRARY_PATH \
          -x PATH     \
-         -x NCCL_DEBUG=VERSION \
+         -x NCCL_DEBUG=INFO \
          -x NCCL_TESTS_SPLIT_MASK="${NCCL_TESTS_SPLIT_MASK:-0x0}"     \
          -x NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY="${NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY}"     \
          -x NCCL_LIB_DIR \

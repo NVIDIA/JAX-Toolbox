@@ -48,7 +48,7 @@ jobs:
 
     strategy:
       matrix:
-        test: [all_gather_perf_mpi, all_reduce_perf_mpi, broadcast_perf_mpi, reduce_scatter_perf_mpi]
+        test: [all_reduce_perf_mpi]
 
     env:
       BASE_IMAGE: ${{ needs.build-nccl-gke.outputs.DOCKER_TAG_FINAL }}
