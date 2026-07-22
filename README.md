@@ -39,6 +39,7 @@ JAX Toolbox
 Detailed release notes for NGC JAX containers are published in the [**NGC JAX release notes**](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/index.html).
 
 ## Tech blogs
+- [Jul 2026] [**Reducing High-Bandwidth Memory Bottlenecks in JAX-Based LLM Training with Host Offloading**](https://developer.nvidia.com/blog/reducing-high-bandwidth-memory-bottlenecks-in-jax-based-llm-training-with-host-offloading/)
 - [Jun 2026] [**Train Models Faster with JAX and MaxText Using NVFP4 on NVIDIA Blackwell**](https://developer.nvidia.com/blog/train-models-faster-with-jax-and-maxtext-using-nvfp4-on-nvidia-blackwell/)
 - [Feb 2026] [**Accelerating Long-Context Model Training in JAX and XLA**](https://developer.nvidia.com/blog/accelerating-long-context-model-training-in-jax-and-xla/)
 - [Jul 2025] [**Optimizing for Low-Latency Communication in Inference Workloads with JAX and XLA**](https://developer.nvidia.com/blog/optimizing-for-low-latency-communication-in-inference-workloads-with-jax-and-xla/)
