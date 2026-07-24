@@ -58,7 +58,7 @@ permissions:
 jobs:
 
   build-base:
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", small]
+    runs-on: ["linux-${{ inputs.ARCHITECTURE }}-cpu32"]
     env:
       BADGE_FILENAME_FULL: ${{ inputs.BADGE_FILENAME }}-${{ inputs.ARCHITECTURE }}.json
     outputs:
