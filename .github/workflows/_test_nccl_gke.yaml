@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-nccl-gke:
-    runs-on: [self-hosted, "amd64", "large"]
+    runs-on: ["linux-amd64-cpu32"]
     steps:
       - uses: actions/checkout@v6
       - name: Login to nvcr.io Container Registry
