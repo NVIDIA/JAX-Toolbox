@@ -4,6 +4,7 @@ ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
 ARG JAX_TOOLBOX_REF=main
 ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
+ARG PYVER
 
 ###############################################################################
 ## Build base image
@@ -17,6 +18,7 @@ ARG JAX_TOOLBOX_REF
 ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
 ENV CUDA_BASE_IMAGE=${BASE_IMAGE}
 ENV JAX_TOOLBOX_REF=${JAX_TOOLBOX_REF}
+ARG PYVER
 
 ###############################################################################
 ## Install Python and essential tools
@@ -30,8 +32,6 @@ apt-get update
 apt_packages=(
   file
   libxml2
-  python-is-python3
-  python3-dev
   xxd
   zip
 )
@@ -39,6 +39,29 @@ apt-get install --no-install-recommends --no-install-suggests -y ${apt_packages[
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
+
+###############################################################################
+## Install Python with uv
+###############################################################################
+COPY --from=ghcr.io/astral-sh/uv:0.11.32 /uv /uvx /usr/local/bin/
+
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+ENV UV_MANAGED_PYTHON=1
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv python install "${PYVER}" \
+    && uv venv --managed-python \
+         --python "${PYVER}" \
+         --seed \
+         /opt/venv
+
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+
+RUN command -v python \
+ && command -v pip \
+ && python -VV \
+ && pip --version
 
 RUN <<"EOF" bash -ex
 git config --global user.name "${GIT_USER_NAME}"
@@ -62,13 +85,13 @@ git add -u
 git commit -m 'Adds JAX_TOOLBOX_VCS_EQUIVALENCY as a trigger to treat all github VCS installs for a package as equivalent. The spec of the last encountered version will be used'
 EOF
 
-# Install all python packages system-wide.
-ENV PIP_BREAK_SYSTEM_PACKAGES=1
 # Install the pip at /opt/pip using get-pip.py
 RUN <<EOF bash -exo pipefail
 curl -O https://bootstrap.pypa.io/get-pip.py
-python get-pip.py -e /opt/pip
+python get-pip.py --force-reinstall -e /opt/pip
 rm -rf get-pip.py ~/.cache/pip
+hash -r
+pip --version
 EOF
 
 # Install pip-tools, which is used in pip-finalize.sh
