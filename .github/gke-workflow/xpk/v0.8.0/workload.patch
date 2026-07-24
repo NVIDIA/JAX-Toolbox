@@ -21,6 +21,6 @@ index a466a5c..8a5b99e 100644
 +                medium: Memory
 +                sizeLimit: 0.5Ti
 +        """
- 
+
        if args.device_type == cluster_gcluster.a3ultra_device_type:
          sub_networks = get_subnetworks_for_a3ultra(args.cluster)

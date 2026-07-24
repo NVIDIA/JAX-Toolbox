@@ -52,7 +52,9 @@ else
 
   # If there are unpinned VCS dependencies, error since these should be included in the manifest
   unpinned_vcs_dependencies=$(cat requirements.txt | egrep '^[^#].+ @ git\+' | egrep -v '^[^#].+ @ git\+.+@' || true)
-  if [[ $(echo -n "$unpinned_vcs_dependencies" | wc -l) -gt 0 ]]; then
+  # -n test rather than wc -l: a single unpinned dep has no trailing newline and
+  # would count as 0 lines, slipping through the guard
+  if [[ -n "$unpinned_vcs_dependencies" ]]; then
     echo "Unpinned VCS installs found in $(readlink -f requirements.txt):"
     echo "$unpinned_vcs_dependencies"
     exit 1

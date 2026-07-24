@@ -9,7 +9,7 @@ slug: build-status
 The table below lists the published containers and their Dockerfiles. Each
 container is built nightly for `amd64` and `arm64`. For the full, always-current
 matrix of per-test status badges (single-GPU, multi-GPU, distributed, etc.), see
-the [build-pipeline table in the repository README](https://github.com/NVIDIA/JAX-Toolbox#build-pipeline-status)
+the [build-pipeline table in the repository README](https://github.com/NVIDIA/JAX-Toolbox#nightly-build-pipeline-status)
 and the [CI workflow runs](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/ci.yaml?query=event%3Aschedule+branch%3Amain).
 
 | Component | Container | Dockerfile |
@@ -18,6 +18,7 @@ and the [CI workflow runs](https://github.com/NVIDIA/JAX-Toolbox/actions/workflo
 | core = {base, JAX, Flax, TE} | `ghcr.io/nvidia/jax:jax` | [Dockerfile.jax](https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.jax) |
 | Equinox = {core, Equinox} | `ghcr.io/nvidia/jax:equinox` | [Dockerfile.equinox](https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.equinox) |
 | MaxText = {core, MaxText} | `ghcr.io/nvidia/jax:maxtext` | [Dockerfile.maxtext](https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.maxtext) |
+| TorchAX = {core, TorchAX} | `ghcr.io/nvidia/jax:torchax` | [Dockerfile.torchax](https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.torchax) |
 | AXLearn = {core, AXLearn} | `ghcr.io/nvidia/jax:axlearn` | [Dockerfile.axlearn](https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.axlearn) |
 | AlphaFold = {core, AlphaFold} | `ghcr.io/nvidia/jax:alphafold` | [Dockerfile.alphafold](https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.alphafold) |
 

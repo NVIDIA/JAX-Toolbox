@@ -4,8 +4,8 @@ index a95c557..11e8e43 100644
 +++ b/src/xpk/core/docker_resources.py
 @@ -20,6 +20,8 @@ from .storage import GCS_FUSE_TYPE, GCP_FILESTORE_TYPE, Storage, get_storages_to
  from .system_characteristics import AcceleratorType, SystemCharacteristics
- 
- 
+
+
 +JAX_TOOLBOX_IMAGE_CONTAINER_PORT = 3389
 +
  def get_main_container_resources(
@@ -47,7 +47,7 @@ index a95c557..11e8e43 100644
 -                  {args.env}"""
 +                    value: "{{args.command}}"
 +                  {{args.env}}"""
- 
+
    if system.accelerator_type == AcceleratorType['GPU']:
      gpu_direct_name = 'fastrak'
 @@ -123,7 +125,7 @@ def get_cpu_env(num_slices, env_vars, system) -> str:
@@ -84,13 +84,13 @@ index a95c557..11e8e43 100644
 +      volume_mount_yaml = """- name: shared-memory
 +                  mountPath: /dev/shm
 +      """
- 
+
    storages: list[Storage] = get_storages_to_mount(
        setup_k8s_env(args), args.storage
 @@ -300,7 +304,7 @@ def add_container_ports(args, system: SystemCharacteristics) -> str:
    if args.use_pathways:
      return ''
- 
+
 -  gpu_port_yaml = """- containerPort: 6002"""
 +  gpu_port_yaml = f"- containerPort: {JAX_TOOLBOX_IMAGE_CONTAINER_PORT}"
    if system.accelerator_type == AcceleratorType['GPU']:

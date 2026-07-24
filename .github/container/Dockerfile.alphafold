@@ -39,6 +39,9 @@ COPY alphafold_files/model_parameters.md /opt/alphafold_input_data/model_paramet
 ###############################################################################
 
 FROM mealkit AS final
+# Global ARGs are not visible inside a stage unless re-declared: without this
+# the WORKDIR below expands to "" and is a silent no-op
+ARG SRC_PATH_ALPHAFOLD
 
 RUN pip-finalize.sh
 
