@@ -32,6 +32,7 @@ apt-get update
 apt_packages=(
   file
   libxml2
+  zlib1g-dev
   xxd
   zip
 )
