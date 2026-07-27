@@ -54,7 +54,7 @@ jobs:
 
   amd64:
     needs: metadata
-    runs-on: [self-hosted, amd64, small]
+    runs-on: [linux-amd64-cpu32]
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-container.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-container.outputs.DOCKER_TAG_FINAL }}
@@ -81,7 +81,7 @@ jobs:
 
   arm64:
     needs: metadata
-    runs-on: [self-hosted, arm64, small]
+    runs-on: [linux-arm64-cpu32]
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-container.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-container.outputs.DOCKER_TAG_FINAL }}
