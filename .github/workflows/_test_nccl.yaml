@@ -21,7 +21,7 @@ jobs:
     secrets: inherit
 
   build-mpi-operator-compatible-base:
-    runs-on: [self-hosted, "amd64", "large"]
+    runs-on: ["linux-amd64-cpu32"]
     steps:
       - name: Login to nvcr.io Container Registry
         uses: docker/login-action@v4

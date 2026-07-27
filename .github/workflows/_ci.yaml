@@ -310,7 +310,7 @@ jobs:
 
   build-alphafold:
     needs: build-jax
-    runs-on: [self-hosted, "${{ inputs.ARCHITECTURE }}", "large"]
+    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16m' || 'linux-arm64-cpu16m' }}
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-alphafold.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:  ${{ steps.build-alphafold.outputs.DOCKER_TAG_FINAL }}
