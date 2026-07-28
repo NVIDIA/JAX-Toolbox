@@ -66,6 +66,23 @@ inputs:
     description: "Optional named build context to source from a runner registry for the final image handoff"
     required: false
     default: ""
+  mealkit-load:
+    description: >-
+      Whether to load the mealkit image into the local docker daemon:
+      'true', 'false', or 'auto' (the default) to load only when no registry
+      build context is used. Set 'false' together with an empty
+      registry-build-context-name to keep the mealkit -> final handoff inside
+      BuildKit's own cache, avoiding a multi-GB push/pull round trip.
+    required: false
+    default: "auto"
+  sccache-env-file:
+    description: >-
+      Optional path to a file of `KEY=value` lines configuring a shared compiler
+      cache (bucket, region, credentials). Passed to the build as a BuildKit
+      secret named SCCACHE_ENV so it never enters an image layer or the build
+      history.
+    required: false
+    default: ""
   require-nsys-jax-version-artifact:
     description: "Whether this container build requires the nsys-jax version.py artifact"
     required: false
@@ -111,6 +128,7 @@ runs:
         driver-opts: |
           image=moby/buildkit:v0.13.2
           network=${{ inputs.docker-build-network }}
+          env.BUILDKIT_STEP_LOG_MAX_SIZE=-1
         keep-state: true
         # TODO: check whether we need the oci.worker specification
 
@@ -150,7 +168,7 @@ runs:
       with:
         builder: ${{ env.BUILDX_BUILDER_NAME }}
         context: ${{ inputs.DOCKER_CONTEXT }}
-        load: ${{inputs.registry-build-context-name == ''}}
+        load: ${{ inputs.mealkit-load == 'true' || (inputs.mealkit-load != 'false' && inputs.registry-build-context-name == '') }}
         push: true
         file: ${{ inputs.DOCKERFILE }}
         platforms: linux/${{ inputs.ARCHITECTURE }}
@@ -160,6 +178,7 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+          ${{ inputs.sccache-env-file != '' && format('"SCCACHE_ENV={0}"', inputs.sccache-env-file) || '' }}
         allow: ${{ inputs.docker-build-allow }}
         network: ${{ inputs.docker-build-network }}
         build-args: |
@@ -195,8 +214,12 @@ runs:
         labels: ${{ steps.final-metadata.outputs.labels }}
         target: final
         ssh: default
+        # SCCACHE_ENV is passed here too: without a registry build context the
+        # final image resolves `FROM mealkit` through the local build graph, so
+        # a cache miss would re-run the builder stages in this build.
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+          ${{ inputs.sccache-env-file != '' && format('"SCCACHE_ENV={0}"', inputs.sccache-env-file) || '' }}
         allow: ${{ inputs.docker-build-allow }}
         network: ${{ inputs.docker-build-network }}
         build-args: |

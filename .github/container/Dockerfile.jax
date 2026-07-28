@@ -23,37 +23,51 @@ ARG BAZEL_CACHE=/tmp
 ARG BUILD_DATE
 
 ###############################################################################
-## Build JAX
+## Check out the sources shared by the two builder stages
 ###############################################################################
 
-FROM ${BASE_IMAGE} AS builder
+FROM ${BASE_IMAGE} AS src
 ARG URLREF_JAX
 ARG URLREF_TRANSFORMER_ENGINE
 ARG URLREF_XLA
 ARG SRC_PATH_JAX
 ARG SRC_PATH_TRANSFORMER_ENGINE
 ARG SRC_PATH_XLA
-ARG BAZEL_CACHE
-ARG BUILD_PATH_JAXLIB
-ARG EXTRA_BAZEL_TARGETS
-ARG EXTRA_BUILD_JAX_ARGS
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
 
+# All three clones happen in this one stage because git-clone.sh appends to
+# /opt/manifest.d/git-clone.yaml incrementally. The mealkit stage copies that
+# file and the triage tooling reads it, so it has to record every repository.
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
     git-clone.sh ${URLREF_JAX} ${SRC_PATH_JAX}
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
+    git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 EOF
 
-ADD build-jax.sh build-te.sh local_cuda_arch /usr/local/bin/
+###############################################################################
+## Build JAX
+###############################################################################
+
+FROM src AS jax-builder
+ARG BAZEL_CACHE
+ARG BUILD_PATH_JAXLIB
+ARG EXTRA_BAZEL_TARGETS
+ARG EXTRA_BUILD_JAX_ARGS
+ARG SRC_PATH_JAX
+ARG SRC_PATH_XLA
+
+# Only the scripts this stage actually runs are added here, so that editing
+# build-te.sh does not invalidate this stage's (expensive) build layer.
+ADD build-jax.sh local_cuda_arch /usr/local/bin/
 # Install bazelisk
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
     chmod +x /usr/local/bin/bazel
 # Populate ${BUILD_PATH_JAXLIB} with editable wheels; --no-install because
-# (a) this is the builder stage, and (b) pip-finalize.sh does the install
+# (a) this is a builder stage, and (b) pip-finalize.sh does the install
 RUN mkdir -p /builder/extra-targets/{bin,python} && \
     build-jax.sh \
     --bazel-cache ${BAZEL_CACHE} \
@@ -66,17 +80,51 @@ RUN mkdir -p /builder/extra-targets/{bin,python} && \
     --clean \
     ${EXTRA_BUILD_JAX_ARGS}
 
-## Transformer engine: check out source and build wheel
-RUN --mount=type=ssh \
-    --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
-    git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
+###############################################################################
+## Build TransformerEngine
+###############################################################################
+## This stage does not depend on jax-builder: build-te.sh only needs the XLA
+## *source* tree for FFI headers (XLA_HOME), never the built jaxlib, and it runs
+## with --no-install so nothing enters the python environment either. BuildKit
+## therefore schedules this concurrently with jax-builder, which is why the two
+## are separate stages rather than consecutive RUNs.
+
+FROM src AS te-builder
+ARG SRC_PATH_TRANSFORMER_ENGINE
+ARG SRC_PATH_XLA
+
+ADD build-te.sh local_cuda_arch /usr/local/bin/
 # Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
-# because (a) this is the builder stage, and (b) pip-finalize.sh does the install
-RUN build-te.sh \
-    --clean \
-    --no-install \
-    --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \
-    --src-path-xla ${SRC_PATH_XLA}
+# because (a) this is a builder stage, and (b) pip-finalize.sh does the install.
+#
+# The compiler-cache configuration (bucket, region, credentials) is passed as a
+# BuildKit secret so it never lands in an image layer or in the build history.
+# When it is absent -- local builds, or CI without cache credentials -- build-te.sh
+# falls back to a local-only ccache, so this stage still works.
+# The cache mount is only useful on the ccache fallback path (local builds):
+# BuildKit cache mounts are not exported by any cache exporter, so on an
+# ephemeral CI runner it is always cold -- which is precisely why CI uses
+# sccache against S3 instead.
+RUN --mount=type=secret,id=SCCACHE_ENV,target=/run/secrets/sccache.env \
+    --mount=type=cache,target=/root/.cache/ccache,sharing=locked \
+<<"EOF" bash -ex
+    if [[ -f /run/secrets/sccache.env ]]; then
+        # set +x while sourcing: this RUN executes under `bash -ex`, and tracing
+        # a sourced file echoes each of its assignments -- including the AWS
+        # session credentials -- into the build log.
+        set +x
+        set -a
+        . /run/secrets/sccache.env
+        set +a
+        set -x
+    fi
+    build-te.sh \
+        --ccache \
+        --clean \
+        --no-install \
+        --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \
+        --src-path-xla ${SRC_PATH_XLA}
+EOF
 
 ###############################################################################
 ## Pack jaxlib wheel and various source dirs into a pre-installation image
@@ -98,15 +146,17 @@ ENV BUILD_DATE=${BUILD_DATE}
 ENV XLA_FLAGS=""
 ENV XLA_FLAGS="${XLA_FLAGS} --xla_gpu_enable_latency_hiding_scheduler=true"
 
-COPY --from=builder ${BUILD_PATH_JAXLIB} ${BUILD_PATH_JAXLIB}
-COPY --from=builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
-COPY --from=builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
-COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
-COPY --from=builder /builder/extra-targets/bin/* /usr/local/bin
-COPY --from=builder /builder/extra-targets/python/*.so /usr/lib/python3/dist-packages/
+COPY --from=jax-builder ${BUILD_PATH_JAXLIB} ${BUILD_PATH_JAXLIB}
+COPY --from=jax-builder ${SRC_PATH_JAX} ${SRC_PATH_JAX}
+COPY --from=jax-builder ${SRC_PATH_XLA} ${SRC_PATH_XLA}
+COPY --from=jax-builder /usr/local/bin/bazel /usr/local/bin/bazel
+COPY --from=jax-builder /builder/extra-targets/bin/* /usr/local/bin
+COPY --from=jax-builder /builder/extra-targets/python/*.so /usr/lib/python3/dist-packages/
 
-# Preserve the versions of jax and xla
-COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
+# Preserve the versions of jax, xla and transformer-engine. This comes from the
+# shared `src` stage, which is where all three clones (and therefore all three
+# manifest entries) are produced.
+COPY --from=src /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
 ADD build-jax.sh build-te.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
@@ -128,7 +178,7 @@ EOF
 
 # Copy TransformerEngine wheel from the builder stage
 ENV SRC_PATH_TRANSFORMER_ENGINE=${SRC_PATH_TRANSFORMER_ENGINE}
-COPY --from=builder ${SRC_PATH_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
+COPY --from=te-builder ${SRC_PATH_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 RUN <<"EOF" bash -ex
 ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl)" > /opt/pip-tools.d/requirements-te.in
