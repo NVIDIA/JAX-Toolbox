@@ -95,36 +95,12 @@ ARG SRC_PATH_XLA
 
 ADD build-te.sh local_cuda_arch /usr/local/bin/
 # Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
-# because (a) this is a builder stage, and (b) pip-finalize.sh does the install.
-#
-# The compiler-cache configuration (bucket, region, credentials) is passed as a
-# BuildKit secret so it never lands in an image layer or in the build history.
-# When it is absent -- local builds, or CI without cache credentials -- build-te.sh
-# falls back to a local-only ccache, so this stage still works.
-# The cache mount is only useful on the ccache fallback path (local builds):
-# BuildKit cache mounts are not exported by any cache exporter, so on an
-# ephemeral CI runner it is always cold -- which is precisely why CI uses
-# sccache against S3 instead.
-RUN --mount=type=secret,id=SCCACHE_ENV,target=/run/secrets/sccache.env \
-    --mount=type=cache,target=/root/.cache/ccache,sharing=locked \
-<<"EOF" bash -ex
-    if [[ -f /run/secrets/sccache.env ]]; then
-        # set +x while sourcing: this RUN executes under `bash -ex`, and tracing
-        # a sourced file echoes each of its assignments -- including the AWS
-        # session credentials -- into the build log.
-        set +x
-        set -a
-        . /run/secrets/sccache.env
-        set +a
-        set -x
-    fi
-    build-te.sh \
-        --ccache \
-        --clean \
-        --no-install \
-        --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \
-        --src-path-xla ${SRC_PATH_XLA}
-EOF
+# because (a) this is a builder stage, and (b) pip-finalize.sh does the install
+RUN build-te.sh \
+    --clean \
+    --no-install \
+    --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \
+    --src-path-xla ${SRC_PATH_XLA}
 
 ###############################################################################
 ## Pack jaxlib wheel and various source dirs into a pre-installation image

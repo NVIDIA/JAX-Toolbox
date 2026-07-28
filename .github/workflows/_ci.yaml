@@ -67,10 +67,6 @@ jobs:
   build-jax:
     needs: build-base
     runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu32m' || 'linux-arm64-cpu32m' }}
-    env:
-      # Job-scoped so the sidecar step, the container build and the cleanup step
-      # all agree on where the credentials live.
-      BAZEL_REMOTE_AWS_DIR: /tmp/bazel-remote-aws
     steps:
         - name: Checkout repository
           uses: actions/checkout@v6
@@ -82,16 +78,13 @@ jobs:
         - name: Start bazel-remote sidecar
           env:
             BAZEL_REMOTE_BUCKET: ${{ secrets.BAZEL_REMOTE_BUCKET }}
+            BAZEL_REMOTE_AWS_DIR: /tmp/bazel-remote-aws
             BAZEL_REMOTE_CONTAINER: bazel-remote-cache-${{ inputs.ARCHITECTURE }}
             BAZEL_REMOTE_DISK_DIR: /tmp/bazel-remote-cache
             BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
             BAZEL_REMOTE_PORT: 9090
             BAZEL_REMOTE_PREFIX: bazel-remote/${{ inputs.ARCHITECTURE }}
             BAZEL_REMOTE_REGION: ${{ secrets.AWS_REGION }}
-            # Shares the bazel cache bucket, under a separate prefix. sccache
-            # hashes the compiler binary and flags, so the CUDA/cuDNN versions
-            # are already part of the cache key and need not appear here.
-            SCCACHE_S3_KEY_PREFIX: sccache/${{ inputs.ARCHITECTURE }}
           run: |
             set -euxo pipefail
             : "${AWS_ACCESS_KEY_ID:?missing AWS_ACCESS_KEY_ID}"
@@ -109,17 +102,6 @@ jobs:
               printf 'aws_secret_access_key=%s\n' "${AWS_SECRET_ACCESS_KEY}"
               printf 'aws_session_token=%s\n' "${AWS_SESSION_TOKEN}"
             } > "${BAZEL_REMOTE_AWS_CREDENTIALS}"
-            # Same credentials, in `KEY=value` form, for sccache inside the
-            # TransformerEngine build. Passed to BuildKit as a secret, so it is
-            # never written to an image layer or the build history.
-            {
-              printf 'AWS_ACCESS_KEY_ID=%s\n' "${AWS_ACCESS_KEY_ID}"
-              printf 'AWS_SECRET_ACCESS_KEY=%s\n' "${AWS_SECRET_ACCESS_KEY}"
-              printf 'AWS_SESSION_TOKEN=%s\n' "${AWS_SESSION_TOKEN}"
-              printf 'SCCACHE_BUCKET=%s\n' "${BAZEL_REMOTE_BUCKET}"
-              printf 'SCCACHE_REGION=%s\n' "${BAZEL_REMOTE_REGION}"
-              printf 'SCCACHE_S3_KEY_PREFIX=%s\n' "${SCCACHE_S3_KEY_PREFIX}"
-            } > "${BAZEL_REMOTE_AWS_DIR}/sccache.env"
             set -x
             docker rm -f "${BAZEL_REMOTE_CONTAINER}" >/dev/null 2>&1 || true
             docker run -d \
@@ -201,7 +183,6 @@ jobs:
             # downstream jobs consume DOCKER_TAG_MEALKIT.
             registry-build-context-name: ""
             mealkit-load: "false"
-            sccache-env-file: ${{ env.BAZEL_REMOTE_AWS_DIR }}/sccache.env
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
@@ -233,7 +214,7 @@ jobs:
           if: always()
           run: |
             docker rm -f "bazel-remote-cache-${{ inputs.ARCHITECTURE }}" || true
-            rm -rf "${BAZEL_REMOTE_AWS_DIR}"
+            rm -rf /tmp/bazel-remote-aws
     outputs:
       DOCKER_TAG_MEALKIT: ${{ steps.build-jax.outputs.DOCKER_TAG_MEALKIT }}
       DOCKER_TAG_FINAL:   ${{ steps.build-jax.outputs.DOCKER_TAG_FINAL }}

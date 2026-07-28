@@ -11,12 +11,7 @@ usage() {
     echo "    OPTIONS                        DESCRIPTION"
     echo "    --clean                        Clear build caches under --src-path-te."
     echo "    -h, --help                     Print usage."
-    echo "    --ccache                       Use a compiler cache to build TransformerEngine."
-    echo "                                   sccache is used when a remote backend is configured"
-    echo "                                   (SCCACHE_BUCKET/SCCACHE_REDIS/SCCACHE_WEBDAV_ENDPOINT),"
-    echo "                                   otherwise ccache. Override with NVTE_CCACHE_BIN. The"
-    echo "                                   binary is installed if missing; the caller is"
-    echo "                                   responsible for configuring the backend."
+    echo "    --ccache                       Use ccache to build TransformerEngine. It will be installed, but the caller should configure it."
     echo "    --no-install                   Only build a wheel; do not install."
     echo "    --src-path-te                  Path to TransformerEngine source code."
     echo "    --src-path-xla                 Path to XLA source code."
@@ -153,108 +148,14 @@ subprocess.run(
     + [f"nvidia-cudnn-frontend=={os.environ['CUDNN_FRONTEND_VERSION']}"]
 )
 EOF
-# Compiler cache. TransformerEngine's build system honours NVTE_USE_CCACHE by
-# adding -DCMAKE_CXX_COMPILER_LAUNCHER and -DCMAKE_CUDA_COMPILER_LAUNCHER
-# (build_tools/build_ext.py), so the nvcc device compilations -- the overwhelming
-# majority of this build -- go through the cache too. NVTE_CCACHE_BIN selects
-# which launcher binary is used.
-#
-# Scope: those are CMake variables, so this covers the CMake sub-build only (the
-# ~98 ninja edges that dominate the build). TE's 3rdparty/nccl-extensions Makefile
-# and the 18 distutils pybind11 .cpp compiles sit outside CMake and stay uncached.
-# Do not reach for CC/CXX to cover them: those are process-global, CMake would
-# consume them alongside the launcher, and that reintroduces the recursion below.
-#
-# Do NOT also set CXX="ccache g++" here. Combined with the launcher above that
-# yields "ccache ccache g++", and ccache aborts with "Recursive invocation of
-# ccache" at the first C++ build edge -- after cmake's configure step has already
-# succeeded, so it looks like a TE incompatibility rather than a config error.
 if [[ "${CCACHE}" == "1" ]]; then
-    # sccache can share its cache over S3, which is what makes caching useful on
-    # ephemeral CI runners. Plain ccache is local-only unless the caller has
-    # configured remote storage, but it is a sensible default for local rebuilds.
-    # xtrace is off for the test itself: it would expand SCCACHE_* into the log.
-    # GitHub masks registered secrets in Actions logs, but local and triage runs
-    # have no masking, so avoid echoing credential-adjacent values anywhere.
-    set +x
-    if [[ -z "${NVTE_CCACHE_BIN:-}" ]]; then
-        if [[ -n "${SCCACHE_BUCKET:-}${SCCACHE_REDIS:-}${SCCACHE_WEBDAV_ENDPOINT:-}" ]]; then
-            NVTE_CCACHE_BIN=sccache
-        else
-            NVTE_CCACHE_BIN=ccache
-        fi
+    # Install ccache if not present (needs >= 4.1 for Redis remote storage support)
+    if ! command -v ccache &> /dev/null; then
+        apt-get update && apt-get install -y --no-install-recommends ccache
     fi
-    set -x
-
-    if ! command -v "${NVTE_CCACHE_BIN}" &> /dev/null; then
-        case "${NVTE_CCACHE_BIN}" in
-            sccache)
-                SCCACHE_VERSION="${SCCACHE_VERSION:-v0.16.0}"
-                case "$(dpkg --print-architecture)" in
-                    amd64) SCCACHE_HOST_ARCH=x86_64 ;;
-                    arm64) SCCACHE_HOST_ARCH=aarch64 ;;
-                    *)
-                        echo "No sccache build for $(dpkg --print-architecture)"
-                        exit 1
-                        ;;
-                esac
-                SCCACHE_STEM="sccache-${SCCACHE_VERSION}-${SCCACHE_HOST_ARCH}-unknown-linux-musl"
-                SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/${SCCACHE_STEM}.tar.gz"
-                # Deliberately not -q: with pipefail a 404 would otherwise surface
-                # as "tar: This does not look like a tar archive". This download
-                # sits at the head of a ~48 minute stage, so it retries.
-                wget -nv --tries=5 --retry-connrefused --waitretry=10 --timeout=60 \
-                     --retry-on-http-error=429,500,502,503,504 \
-                     -O /tmp/sccache.tgz "${SCCACHE_URL}"
-                wget -nv --tries=5 --retry-connrefused -O- "${SCCACHE_URL}.sha256" \
-                     | awk '{print $1"  /tmp/sccache.tgz"}' | sha256sum -c -
-                tar -xzf /tmp/sccache.tgz -C /tmp
-                install -m 755 "/tmp/${SCCACHE_STEM}/sccache" /usr/local/bin/sccache
-                rm -rf "/tmp/${SCCACHE_STEM}" /tmp/sccache.tgz
-                ;;
-            ccache)
-                # needs >= 4.1 for Redis remote storage support
-                apt-get update && apt-get install -y --no-install-recommends ccache
-                ;;
-            *)
-                echo "${NVTE_CCACHE_BIN} is not installed and cannot be installed automatically"
-                exit 1
-                ;;
-        esac
-    fi
-
+    export CXX="ccache g++"
     export NVTE_USE_CCACHE=1
-    export NVTE_CCACHE_BIN
-    # basename, not a bare string compare: NVTE_CCACHE_BIN may be an absolute
-    # path (the triage tool forwards arbitrary VAR=val into this script), and
-    # taking the ccache branch for a path-valued sccache would run a binary that
-    # is not installed.
-    if [[ "$(basename "${NVTE_CCACHE_BIN}")" == "sccache" ]]; then
-        # Without this the server exits after 10 minutes idle and takes the
-        # end-of-build statistics with it.
-        export SCCACHE_IDLE_TIMEOUT=0
-        # The server's stderr is discarded unless this is set, and read errors
-        # are reported as plain cache misses -- without it a broken cache is
-        # indistinguishable from a cold one.
-        export SCCACHE_ERROR_LOG=/tmp/sccache-server.log
-        # Fail soft: an unreachable or misconfigured cache should make this build
-        # slow, not red. Without this a bad bucket/credential turns every compiler
-        # invocation into an error.
-        if ! { sccache --start-server && sccache --zero-stats > /dev/null; }; then
-            echo "WARNING: could not start sccache; building without a compiler cache"
-            unset NVTE_USE_CCACHE NVTE_CCACHE_BIN
-            CCACHE=0
-        else
-            # The daemon captured the credentials at exec; there is no reason to
-            # keep them in the environment of cmake, ninja and ~500 nvcc processes.
-            unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-        fi
-    else
-        # Give ccache a stable directory so a BuildKit cache mount (or a local
-        # developer's repeated builds) can actually retain anything.
-        export CCACHE_DIR="${CCACHE_DIR:-/root/.cache/ccache}"
-        ccache --zero-stats
-    fi
+    ccache --zero-stats
 fi
 
 # The wheel filename includes the TE commit; if this has changed since the last
@@ -265,35 +166,7 @@ ls dist/
 popd
 
 if [[ "${CCACHE}" == "1" ]]; then
-    if [[ "$(basename "${NVTE_CCACHE_BIN}")" == "sccache" ]]; then
-        sccache --show-stats
-        # A one-line, greppable summary. This warns rather than asserts, to match
-        # the fail-soft behaviour above; put any hard gate in a separate CI step
-        # that greps for SCCACHE_SUMMARY.
-        sccache --show-stats --stats-format=json > /tmp/sccache-stats.json || true
-        python - <<'PY' || true
-import json
-s = json.load(open("/tmp/sccache-stats.json"))["stats"]
-hits = sum(s["cache_hits"]["counts"].values())
-misses = sum(s["cache_misses"]["counts"].values())
-writes = s["cache_write_errors"]
-print(f"SCCACHE_SUMMARY hits={hits} misses={misses} "
-      f"write_errors={writes} errors={s['cache_errors']['counts']}")
-if hits + misses == 0:
-    print("SCCACHE_SUMMARY WARNING: sccache saw no cacheable compilations")
-if writes:
-    print("SCCACHE_SUMMARY WARNING: cache not fully populated; "
-          "check whether the AWS session expired mid-build")
-PY
-        if [[ -s "${SCCACHE_ERROR_LOG}" ]]; then
-            echo "--- sccache server log ---"
-            cat "${SCCACHE_ERROR_LOG}"
-        fi
-        # Also drains any in-flight cache uploads.
-        sccache --stop-server || true
-    else
-        ccache --show-stats --verbose
-    fi
+    ccache --show-stats --verbose
 fi
 
 ## Install the built packages
