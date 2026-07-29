@@ -75,9 +75,6 @@ jobs:
           with:
             role-to-assume: ${{ secrets.S3_CACHE_ROLE }}
             aws-region: ${{ secrets.AWS_REGION}}
-            # JAX builds before Transformer Engine in this image, so the
-            # one-hour default can expire while sccache is still uploading.
-            role-duration-seconds: 7200
         - name: Start bazel-remote sidecar
           env:
             BAZEL_REMOTE_BUCKET: ${{ secrets.BAZEL_REMOTE_BUCKET }}
