@@ -39,6 +39,8 @@ ARG EXTRA_BAZEL_TARGETS
 ARG EXTRA_BUILD_JAX_ARGS
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
+ARG NVTE_BUILD_MAX_JOBS=0
+ARG NVTE_BUILD_THREADS_PER_JOB=8
 
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
@@ -72,7 +74,9 @@ RUN --mount=type=ssh \
     git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 # Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
 # because (a) this is the builder stage, and (b) pip-finalize.sh does the install
-RUN build-te.sh \
+RUN NVTE_BUILD_MAX_JOBS="${NVTE_BUILD_MAX_JOBS}" \
+    NVTE_BUILD_THREADS_PER_JOB="${NVTE_BUILD_THREADS_PER_JOB}" \
+    build-te.sh \
     --clean \
     --no-install \
     --src-path-te ${SRC_PATH_TRANSFORMER_ENGINE} \

@@ -107,12 +107,28 @@ else
     SM_LIST=${SM}
 fi
 
+# Transformer Engine uses separate controls for the number of parallel build
+# jobs and the number of threads used by each nvcc invocation. A max-jobs value
+# of 0 preserves Transformer Engine's default of using all available jobs.
+export NVTE_BUILD_MAX_JOBS="${NVTE_BUILD_MAX_JOBS:-0}"
+export NVTE_BUILD_THREADS_PER_JOB="${NVTE_BUILD_THREADS_PER_JOB:-8}"
+if [[ ! "${NVTE_BUILD_MAX_JOBS}" =~ ^[0-9]+$ ]]; then
+    echo "NVTE_BUILD_MAX_JOBS must be a non-negative integer"
+    exit 1
+fi
+if [[ ! "${NVTE_BUILD_THREADS_PER_JOB}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "NVTE_BUILD_THREADS_PER_JOB must be a positive integer"
+    exit 1
+fi
+
 ## Print info
 echo "=================================================="
 echo "                  Configuration                   "
 echo "--------------------------------------------------"
 print_var CLEAN
 print_var INSTALL
+print_var NVTE_BUILD_MAX_JOBS
+print_var NVTE_BUILD_THREADS_PER_JOB
 print_var SM
 print_var SM_LIST
 print_var SRC_PATH_TE
@@ -126,8 +142,6 @@ echo "=================================================="
 NVTE_CUDA_ARCHS="${SM_LIST//,/;}"
 set -x
 export NVTE_CUDA_ARCHS="${NVTE_CUDA_ARCHS//./}"
-# Parallelism within nvcc invocations.
-export NVTE_BUILD_THREADS_PER_JOB=8
 export NVTE_FRAMEWORK=jax
 # TransformerEngine needs FFI headers from XLA
 export XLA_HOME=${SRC_PATH_XLA}

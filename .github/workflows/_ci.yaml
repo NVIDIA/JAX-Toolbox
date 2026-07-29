@@ -174,6 +174,8 @@ jobs:
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+              NVTE_BUILD_MAX_JOBS=4
+              NVTE_BUILD_THREADS_PER_JOB=4
         - name: Collect bazel-remote diagnostics
           if: always()
           env:
