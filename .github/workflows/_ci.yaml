@@ -75,6 +75,9 @@ jobs:
           with:
             role-to-assume: ${{ secrets.S3_CACHE_ROLE }}
             aws-region: ${{ secrets.AWS_REGION}}
+            # JAX builds before Transformer Engine in this image, so the
+            # one-hour default can expire while sccache is still uploading.
+            role-duration-seconds: 7200
         - name: Start bazel-remote sidecar
           env:
             BAZEL_REMOTE_BUCKET: ${{ secrets.BAZEL_REMOTE_BUCKET }}
@@ -85,12 +88,14 @@ jobs:
             BAZEL_REMOTE_PORT: 9090
             BAZEL_REMOTE_PREFIX: bazel-remote/${{ inputs.ARCHITECTURE }}
             BAZEL_REMOTE_REGION: ${{ secrets.AWS_REGION }}
+            SCCACHE_S3_KEY_PREFIX: sccache/${{ inputs.ARCHITECTURE }}
           run: |
             set -euxo pipefail
             : "${AWS_ACCESS_KEY_ID:?missing AWS_ACCESS_KEY_ID}"
             : "${AWS_SECRET_ACCESS_KEY:?missing AWS_SECRET_ACCESS_KEY}"
             : "${AWS_SESSION_TOKEN:?missing AWS_SESSION_TOKEN}"
             BAZEL_REMOTE_AWS_CREDENTIALS="${BAZEL_REMOTE_AWS_DIR}/credentials"
+            SCCACHE_ENV_FILE="${BAZEL_REMOTE_AWS_DIR}/sccache.env"
             mkdir -p "${BAZEL_REMOTE_DIAGNOSTICS_DIR}" "${BAZEL_REMOTE_DISK_DIR}" "${BAZEL_REMOTE_AWS_DIR}"
             BAZEL_REMOTE_UID="$(id -u)"
             BAZEL_REMOTE_GID="$(id -g)"
@@ -102,6 +107,19 @@ jobs:
               printf 'aws_secret_access_key=%s\n' "${AWS_SECRET_ACCESS_KEY}"
               printf 'aws_session_token=%s\n' "${AWS_SESSION_TOKEN}"
             } > "${BAZEL_REMOTE_AWS_CREDENTIALS}"
+            {
+              printf 'AWS_ACCESS_KEY_ID=%q\n' "${AWS_ACCESS_KEY_ID}"
+              printf 'AWS_SECRET_ACCESS_KEY=%q\n' "${AWS_SECRET_ACCESS_KEY}"
+              printf 'AWS_SESSION_TOKEN=%q\n' "${AWS_SESSION_TOKEN}"
+              printf 'SCCACHE_BUCKET=%q\n' "${BAZEL_REMOTE_BUCKET}"
+              printf 'SCCACHE_REGION=%q\n' "${BAZEL_REMOTE_REGION}"
+              printf 'SCCACHE_S3_KEY_PREFIX=%q\n' "${SCCACHE_S3_KEY_PREFIX}"
+              printf 'SCCACHE_S3_USE_SSL=true\n'
+              printf 'SCCACHE_S3_RW_MODE=READ_WRITE\n'
+              printf 'NVTE_CCACHE_BIN=sccache\n'
+              printf 'SCCACHE_IDLE_TIMEOUT=0\n'
+              printf 'SCCACHE_ERROR_LOG=/tmp/sccache-server.log\n'
+            } > "${SCCACHE_ENV_FILE}"
             set -x
             docker rm -f "${BAZEL_REMOTE_CONTAINER}" >/dev/null 2>&1 || true
             docker run -d \
@@ -169,6 +187,7 @@ jobs:
             docker-build-allow: network.host
             docker-build-network: host
             registry-build-context-name: mealkit
+            sccache-env-file: /tmp/bazel-remote-aws/sccache.env
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
@@ -176,6 +195,7 @@ jobs:
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
               NVTE_BUILD_MAX_JOBS=4
               NVTE_BUILD_THREADS_PER_JOB=8
+              ENABLE_NVTE_SCCACHE=1
         - name: Collect bazel-remote diagnostics
           if: always()
           env:

@@ -11,7 +11,10 @@ usage() {
     echo "    OPTIONS                        DESCRIPTION"
     echo "    --clean                        Clear build caches under --src-path-te."
     echo "    -h, --help                     Print usage."
-    echo "    --ccache                       Use ccache to build TransformerEngine. It will be installed, but the caller should configure it."
+    echo "    --ccache                       Use a compiler cache to build TransformerEngine."
+    echo "                                   Select ccache (default) or sccache with"
+    echo "                                   NVTE_CCACHE_BIN. The binary is installed"
+    echo "                                   if missing; the caller configures its backend."
     echo "    --no-install                   Only build a wheel; do not install."
     echo "    --src-path-te                  Path to TransformerEngine source code."
     echo "    --src-path-xla                 Path to XLA source code."
@@ -162,14 +165,81 @@ subprocess.run(
     + [f"nvidia-cudnn-frontend=={os.environ['CUDNN_FRONTEND_VERSION']}"]
 )
 EOF
+# Transformer Engine adds NVTE_CCACHE_BIN as both its C++ and CUDA CMake
+# compiler launcher when NVTE_USE_CCACHE is set. Do not also wrap CXX: that
+# would produce a recursive "ccache ccache g++" invocation.
 if [[ "${CCACHE}" == "1" ]]; then
-    # Install ccache if not present (needs >= 4.1 for Redis remote storage support)
-    if ! command -v ccache &> /dev/null; then
-        apt-get update && apt-get install -y --no-install-recommends ccache
+    set +x
+    NVTE_CCACHE_BIN="${NVTE_CCACHE_BIN:-ccache}"
+    set -x
+    CACHE_PROGRAM="$(basename -- "${NVTE_CCACHE_BIN}")"
+
+    if ! command -v "${NVTE_CCACHE_BIN}" &> /dev/null; then
+        case "${NVTE_CCACHE_BIN}" in
+            sccache)
+                SCCACHE_VERSION="${SCCACHE_VERSION:-v0.16.0}"
+                if [[ ! "${SCCACHE_VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    echo "SCCACHE_VERSION must have the form vX.Y.Z"
+                    exit 1
+                fi
+                case "$(dpkg --print-architecture)" in
+                    amd64) SCCACHE_HOST_ARCH=x86_64 ;;
+                    arm64) SCCACHE_HOST_ARCH=aarch64 ;;
+                    *)
+                        echo "No prebuilt sccache binary for $(dpkg --print-architecture)"
+                        exit 1
+                        ;;
+                esac
+                SCCACHE_STEM="sccache-${SCCACHE_VERSION}-${SCCACHE_HOST_ARCH}-unknown-linux-musl"
+                SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/${SCCACHE_STEM}.tar.gz"
+                SCCACHE_TMPDIR="$(mktemp -d)"
+                SCCACHE_ARCHIVE="${SCCACHE_TMPDIR}/${SCCACHE_STEM}.tar.gz"
+                wget -nv --tries=5 --retry-connrefused --waitretry=10 --timeout=60 \
+                     --retry-on-http-error=429,500,502,503,504 \
+                     -O "${SCCACHE_ARCHIVE}" "${SCCACHE_URL}"
+                wget -nv --tries=5 --retry-connrefused -O- "${SCCACHE_URL}.sha256" \
+                     | awk -v archive="${SCCACHE_ARCHIVE}" \
+                           '{print $1"  "archive}' \
+                     | sha256sum -c -
+                tar -xzf "${SCCACHE_ARCHIVE}" -C "${SCCACHE_TMPDIR}"
+                install -m 755 \
+                    "${SCCACHE_TMPDIR}/${SCCACHE_STEM}/sccache" \
+                    /usr/local/bin/sccache
+                rm -rf "${SCCACHE_TMPDIR}"
+                ;;
+            ccache)
+                apt-get update
+                apt-get install -y --no-install-recommends ccache
+                ;;
+            *)
+                echo "${NVTE_CCACHE_BIN} is not installed; automatic installation supports only ccache and sccache"
+                exit 1
+                ;;
+        esac
     fi
-    export CXX="ccache g++"
+
     export NVTE_USE_CCACHE=1
-    ccache --zero-stats
+    export NVTE_CCACHE_BIN
+    case "${CACHE_PROGRAM}" in
+        sccache)
+            # Keep the daemon alive for long CUDA builds and retain an error log
+            # so backend failures are visible alongside the cache statistics.
+            export SCCACHE_IDLE_TIMEOUT="${SCCACHE_IDLE_TIMEOUT:-0}"
+            export SCCACHE_ERROR_LOG="${SCCACHE_ERROR_LOG:-/tmp/sccache-server.log}"
+            rm -f -- "${SCCACHE_ERROR_LOG}"
+            "${NVTE_CCACHE_BIN}" --start-server
+            "${NVTE_CCACHE_BIN}" --zero-stats
+            ;;
+        ccache)
+            export CCACHE_DIR="${CCACHE_DIR:-/root/.cache/ccache}"
+            "${NVTE_CCACHE_BIN}" --zero-stats
+            ;;
+        *)
+            echo "Unsupported compiler cache: ${NVTE_CCACHE_BIN}"
+            exit 1
+            ;;
+    esac
+    echo "Transformer Engine compiler cache: ${CACHE_PROGRAM}"
 fi
 
 # The wheel filename includes the TE commit; if this has changed since the last
@@ -180,7 +250,21 @@ ls dist/
 popd
 
 if [[ "${CCACHE}" == "1" ]]; then
-    ccache --show-stats --verbose
+    case "${CACHE_PROGRAM}" in
+        sccache)
+            "${NVTE_CCACHE_BIN}" --show-stats
+            if [[ -s "${SCCACHE_ERROR_LOG}" ]]; then
+                echo "WARNING: sccache reported backend errors:"
+                tail -n 200 "${SCCACHE_ERROR_LOG}"
+            fi
+            # Stopping the daemon drains any in-flight cache uploads.
+            "${NVTE_CCACHE_BIN}" --stop-server || true
+            rm -f -- "${SCCACHE_ERROR_LOG}"
+            ;;
+        ccache)
+            "${NVTE_CCACHE_BIN}" --show-stats --verbose
+            ;;
+    esac
 fi
 
 ## Install the built packages

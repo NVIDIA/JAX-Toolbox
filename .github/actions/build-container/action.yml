@@ -66,6 +66,12 @@ inputs:
     description: "Optional named build context to source from a runner registry for the final image handoff"
     required: false
     default: ""
+  sccache-env-file:
+    description: >-
+      Optional path to a KEY=value file configuring sccache. It is passed to
+      Docker as the SCCACHE_ENV BuildKit secret.
+    required: false
+    default: ""
   require-nsys-jax-version-artifact:
     description: "Whether this container build requires the nsys-jax version.py artifact"
     required: false
@@ -114,7 +120,24 @@ runs:
         keep-state: true
         # TODO: check whether we need the oci.worker specification
 
-
+    - name: Resolve optional sccache secret
+      id: sccache-secret
+      shell: bash
+      env:
+        SCCACHE_ENV_FILE_INPUT: ${{ inputs.sccache-env-file }}
+      run: |
+        set -euo pipefail
+        if [[ -n "${SCCACHE_ENV_FILE_INPUT}" ]]; then
+          if [[ ! -f "${SCCACHE_ENV_FILE_INPUT}" ]]; then
+            echo "sccache environment file does not exist: ${SCCACHE_ENV_FILE_INPUT}" >&2
+            exit 1
+          fi
+          secret_path="$(realpath "${SCCACHE_ENV_FILE_INPUT}")"
+        else
+          umask 077
+          secret_path="$(mktemp "${RUNNER_TEMP}/empty-sccache-env.XXXXXX")"
+        fi
+        printf 'path=%s\n' "${secret_path}" >> "${GITHUB_OUTPUT}"
 
     - name: Download nsys-jax version.py
       if: ${{ inputs.require-nsys-jax-version-artifact == 'true' && inputs.CONTAINER_NAME != 'jio' }}
@@ -160,6 +183,7 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+          "SCCACHE_ENV=${{ steps.sccache-secret.outputs.path }}"
         allow: ${{ inputs.docker-build-allow }}
         network: ${{ inputs.docker-build-network }}
         build-args: |
@@ -197,6 +221,7 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+          "SCCACHE_ENV=${{ steps.sccache-secret.outputs.path }}"
         allow: ${{ inputs.docker-build-allow }}
         network: ${{ inputs.docker-build-network }}
         build-args: |
