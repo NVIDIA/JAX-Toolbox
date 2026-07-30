@@ -42,6 +42,8 @@ ARG GIT_USER_EMAIL
 ARG NVTE_BUILD_MAX_JOBS=0
 ARG NVTE_BUILD_THREADS_PER_JOB=8
 ARG ENABLE_NVTE_SCCACHE=0
+ARG SCCACHE_REGION=""
+ARG SCCACHE_S3_KEY_PREFIX=""
 
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
@@ -50,7 +52,7 @@ RUN --mount=type=ssh \
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
-ADD build-jax.sh build-te.sh local_cuda_arch /usr/local/bin/
+ADD build-jax.sh build-te.sh install-compiler-cache.sh local_cuda_arch /usr/local/bin/
 # Install bazelisk
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
@@ -73,25 +75,57 @@ RUN mkdir -p /builder/extra-targets/{bin,python} && \
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
+
+# Install the selected compiler cache without exposing the AWS secrets used by
+# the subsequent Transformer Engine build. The binary remains in the builder
+# stage and is not copied into the mealkit or final image.
+RUN <<"EOF" bash -ex
+    if [[ "${ENABLE_NVTE_SCCACHE}" == "1" ]]; then
+        : "${SCCACHE_REGION:?ENABLE_NVTE_SCCACHE=1 requires SCCACHE_REGION}"
+        NVTE_CCACHE_BIN=sccache install-compiler-cache.sh sccache
+    elif [[ "${ENABLE_NVTE_SCCACHE}" != "0" ]]; then
+        echo "ENABLE_NVTE_SCCACHE must be 0 or 1" >&2
+        exit 1
+    fi
+EOF
+
 # Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
 # because (a) this is the builder stage, and (b) pip-finalize.sh does the install.
-# The optional SCCACHE_ENV secret configures the shared compiler cache without
-# placing AWS credentials in build arguments, image layers, or build history.
-RUN --mount=type=secret,id=SCCACHE_ENV,target=/run/secrets/sccache.env,required=false \
+# AWS credentials and the bucket are sourced from runner environment variables
+# and exposed only to this instruction as individual BuildKit secrets.
+RUN --mount=type=secret,id=AWS_ACCESS_KEY_ID,required=false \
+    --mount=type=secret,id=AWS_SECRET_ACCESS_KEY,required=false \
+    --mount=type=secret,id=AWS_SESSION_TOKEN,required=false \
+    --mount=type=secret,id=SCCACHE_BUCKET,required=false \
 <<"EOF" bash -ex
     compiler_cache_args=()
     if [[ "${ENABLE_NVTE_SCCACHE}" == "1" ]]; then
-        if [[ ! -s /run/secrets/sccache.env ]]; then
-            echo "ENABLE_NVTE_SCCACHE=1 requires the SCCACHE_ENV BuildKit secret" >&2
-            exit 1
-        fi
-        # This RUN traces commands, so disable tracing while the credential file
-        # is sourced to prevent its assignments from entering the build log.
+        required_sccache_secrets=(
+            AWS_ACCESS_KEY_ID
+            AWS_SECRET_ACCESS_KEY
+            AWS_SESSION_TOKEN
+            SCCACHE_BUCKET
+        )
+        for secret_name in "${required_sccache_secrets[@]}"; do
+            if [[ ! -s "/run/secrets/${secret_name}" ]]; then
+                echo "ENABLE_NVTE_SCCACHE=1 requires the ${secret_name} BuildKit secret" >&2
+                exit 1
+            fi
+        done
+
+        # This RUN traces commands, so disable tracing while secret values are
+        # read and exported to prevent them from entering the build log.
         set +x
-        set -a
-        . /run/secrets/sccache.env
-        set +a
+        for secret_name in "${required_sccache_secrets[@]}"; do
+            printf -v "${secret_name}" '%s' "$(<"/run/secrets/${secret_name}")"
+            export "${secret_name}"
+        done
         set -x
+        : "${SCCACHE_REGION:?ENABLE_NVTE_SCCACHE=1 requires SCCACHE_REGION}"
+        export NVTE_CCACHE_BIN=sccache
+        export SCCACHE_REGION
+        export SCCACHE_S3_KEY_PREFIX
+        export SCCACHE_S3_USE_SSL=true
         compiler_cache_args+=(--ccache)
     elif [[ "${ENABLE_NVTE_SCCACHE}" != "0" ]]; then
         echo "ENABLE_NVTE_SCCACHE must be 0 or 1" >&2
@@ -136,7 +170,7 @@ COPY --from=builder /builder/extra-targets/python/*.so /usr/lib/python3/dist-pac
 
 # Preserve the versions of jax and xla
 COPY --from=builder /opt/manifest.d/git-clone.yaml /opt/manifest.d/git-clone.yaml
-ADD build-jax.sh build-te.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/local/bin/
+ADD build-jax.sh build-te.sh install-compiler-cache.sh local_cuda_arch pytest-xdist.sh test-jax.sh /usr/local/bin/
 
 RUN mkdir -p /opt/pip-tools.d
 
