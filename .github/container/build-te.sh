@@ -124,10 +124,24 @@ if [[ ! "${NVTE_BUILD_THREADS_PER_JOB}" =~ ^[1-9][0-9]*$ ]]; then
     exit 1
 fi
 
+# NVIDIA's container initialization detects the CUDA version internally but
+# does not necessarily export CUDA_VERSION. Query nvcc so version-specific
+# compiler-cache workarounds are selected reliably.
+CUDA_TOOLKIT_VERSION="${CUDA_VERSION:-}"
+if command -v nvcc &> /dev/null; then
+    DETECTED_CUDA_TOOLKIT_VERSION="$(
+        nvcc --version | sed -n 's/.*release \([0-9][0-9.]*\),.*/\1/p'
+    )"
+    if [[ -n "${DETECTED_CUDA_TOOLKIT_VERSION}" ]]; then
+        CUDA_TOOLKIT_VERSION="${DETECTED_CUDA_TOOLKIT_VERSION}"
+    fi
+fi
+
 ## Print info
 echo "=================================================="
 echo "                  Configuration                   "
 echo "--------------------------------------------------"
+print_var CUDA_TOOLKIT_VERSION
 print_var CLEAN
 print_var INSTALL
 print_var NVTE_BUILD_MAX_JOBS
@@ -183,28 +197,97 @@ if [[ "${CCACHE}" == "1" ]]; then
                     exit 1
                 fi
                 case "$(dpkg --print-architecture)" in
-                    amd64) SCCACHE_HOST_ARCH=x86_64 ;;
-                    arm64) SCCACHE_HOST_ARCH=aarch64 ;;
+                    amd64)
+                        SCCACHE_HOST_ARCH=x86_64
+                        SCCACHE_RUSTUP_HOST=x86_64-unknown-linux-gnu
+                        ;;
+                    arm64)
+                        SCCACHE_HOST_ARCH=aarch64
+                        SCCACHE_RUSTUP_HOST=aarch64-unknown-linux-gnu
+                        ;;
                     *)
-                        echo "No prebuilt sccache binary for $(dpkg --print-architecture)"
+                        echo "Unsupported architecture for sccache: $(dpkg --print-architecture)"
                         exit 1
                         ;;
                 esac
-                SCCACHE_STEM="sccache-${SCCACHE_VERSION}-${SCCACHE_HOST_ARCH}-unknown-linux-musl"
-                SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/${SCCACHE_STEM}.tar.gz"
                 SCCACHE_TMPDIR="$(mktemp -d)"
-                SCCACHE_ARCHIVE="${SCCACHE_TMPDIR}/${SCCACHE_STEM}.tar.gz"
-                wget -nv --tries=5 --retry-connrefused --waitretry=10 --timeout=60 \
-                     --retry-on-http-error=429,500,502,503,504 \
-                     -O "${SCCACHE_ARCHIVE}" "${SCCACHE_URL}"
-                wget -nv --tries=5 --retry-connrefused -O- "${SCCACHE_URL}.sha256" \
-                     | awk -v archive="${SCCACHE_ARCHIVE}" \
-                           '{print $1"  "archive}' \
-                     | sha256sum -c -
-                tar -xzf "${SCCACHE_ARCHIVE}" -C "${SCCACHE_TMPDIR}"
-                install -m 755 \
-                    "${SCCACHE_TMPDIR}/${SCCACHE_STEM}/sccache" \
-                    /usr/local/bin/sccache
+
+                if [[ "${SCCACHE_VERSION}" == "v0.16.0" ]] && \
+                   [[ -n "${CUDA_TOOLKIT_VERSION}" ]] && \
+                   dpkg --compare-versions "${CUDA_TOOLKIT_VERSION}" ge "13.3"; then
+                    # The v0.16.0 release mis-parses CUDA 13.3's --simt-only
+                    # nvcc dry-run output. Until mozilla/sccache#2722 is in a
+                    # release, build v0.16.0 with PyTorch's pinned backport of
+                    # that upstream fix.
+                    SCCACHE_SOURCE_DIR="${SCCACHE_TMPDIR}/sccache"
+                    SCCACHE_SOURCE_COMMIT="b799af2eea02bba9e0ef2550775fe10296b62981"
+                    SCCACHE_PATCH="${SCCACHE_TMPDIR}/sccache-nvcc-13.3.patch"
+                    SCCACHE_PATCH_URL="https://raw.githubusercontent.com/pytorch/pytorch/225ab0df028a41b741a8c6f3c16a06fbdb55b14b/.ci/docker/common/patches/sccache-nvcc-13.3-dryrun-parsing.patch"
+                    SCCACHE_PATCH_SHA256="cb331bb10d735ea742f5f4463cd2b4f8686912a0a70d66870e0c0f68baf944f5"
+                    SCCACHE_RUST_TOOLCHAIN="${SCCACHE_RUST_TOOLCHAIN:-1.88.0}"
+                    SCCACHE_RUSTUP_VERSION=1.29.0
+                    SCCACHE_RUSTUP_INIT="${SCCACHE_TMPDIR}/rustup-init"
+                    SCCACHE_RUSTUP_URL="https://static.rust-lang.org/rustup/archive/${SCCACHE_RUSTUP_VERSION}/${SCCACHE_RUSTUP_HOST}/rustup-init"
+
+                    apt-get update
+                    apt-get install -y --no-install-recommends libssl-dev pkg-config
+                    rm -rf /var/lib/apt/lists/*
+                    git clone --depth 1 --branch "${SCCACHE_VERSION}" \
+                        https://github.com/mozilla/sccache.git \
+                        "${SCCACHE_SOURCE_DIR}"
+                    if [[ "$(git -C "${SCCACHE_SOURCE_DIR}" rev-parse HEAD)" != \
+                          "${SCCACHE_SOURCE_COMMIT}" ]]; then
+                        echo "Unexpected commit for sccache ${SCCACHE_VERSION}"
+                        exit 1
+                    fi
+                    wget -nv --tries=5 --retry-connrefused \
+                        -O "${SCCACHE_PATCH}" "${SCCACHE_PATCH_URL}"
+                    printf '%s  %s\n' \
+                        "${SCCACHE_PATCH_SHA256}" "${SCCACHE_PATCH}" \
+                        | sha256sum -c -
+                    git -C "${SCCACHE_SOURCE_DIR}" apply "${SCCACHE_PATCH}"
+
+                    export CARGO_HOME="${SCCACHE_TMPDIR}/cargo"
+                    export RUSTUP_HOME="${SCCACHE_TMPDIR}/rustup"
+                    wget -nv --tries=5 --retry-connrefused \
+                        -O "${SCCACHE_RUSTUP_INIT}" "${SCCACHE_RUSTUP_URL}"
+                    wget -nv --tries=5 --retry-connrefused \
+                        -O- "${SCCACHE_RUSTUP_URL}.sha256" \
+                        | awk -v binary="${SCCACHE_RUSTUP_INIT}" \
+                              '{print $1"  "binary}' \
+                        | sha256sum -c -
+                    chmod 755 "${SCCACHE_RUSTUP_INIT}"
+                    "${SCCACHE_RUSTUP_INIT}" \
+                        -y \
+                        --no-modify-path \
+                        --profile minimal \
+                        --default-toolchain "${SCCACHE_RUST_TOOLCHAIN}"
+                    "${CARGO_HOME}/bin/cargo" build \
+                        --manifest-path "${SCCACHE_SOURCE_DIR}/Cargo.toml" \
+                        --release \
+                        --locked \
+                        --no-default-features \
+                        --features=s3
+                    install -m 755 \
+                        "${SCCACHE_SOURCE_DIR}/target/release/sccache" \
+                        /usr/local/bin/sccache
+                    unset CARGO_HOME RUSTUP_HOME
+                else
+                    SCCACHE_STEM="sccache-${SCCACHE_VERSION}-${SCCACHE_HOST_ARCH}-unknown-linux-musl"
+                    SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/${SCCACHE_STEM}.tar.gz"
+                    SCCACHE_ARCHIVE="${SCCACHE_TMPDIR}/${SCCACHE_STEM}.tar.gz"
+                    wget -nv --tries=5 --retry-connrefused --waitretry=10 --timeout=60 \
+                         --retry-on-http-error=429,500,502,503,504 \
+                         -O "${SCCACHE_ARCHIVE}" "${SCCACHE_URL}"
+                    wget -nv --tries=5 --retry-connrefused -O- "${SCCACHE_URL}.sha256" \
+                         | awk -v archive="${SCCACHE_ARCHIVE}" \
+                               '{print $1"  "archive}' \
+                         | sha256sum -c -
+                    tar -xzf "${SCCACHE_ARCHIVE}" -C "${SCCACHE_TMPDIR}"
+                    install -m 755 \
+                        "${SCCACHE_TMPDIR}/${SCCACHE_STEM}/sccache" \
+                        /usr/local/bin/sccache
+                fi
                 rm -rf "${SCCACHE_TMPDIR}"
                 ;;
             ccache)
@@ -228,6 +311,35 @@ if [[ "${CCACHE}" == "1" ]]; then
             export SCCACHE_ERROR_LOG="${SCCACHE_ERROR_LOG:-/tmp/sccache-server.log}"
             rm -f -- "${SCCACHE_ERROR_LOG}"
             "${NVTE_CCACHE_BIN}" --start-server
+
+            if [[ -n "${CUDA_TOOLKIT_VERSION}" ]] && \
+               dpkg --compare-versions "${CUDA_TOOLKIT_VERSION}" ge "13.3"; then
+                # Exercise the CUDA 13.3 --simt-only path before starting the
+                # expensive TE build. This also catches S3/auth failures early.
+                SCCACHE_SMOKE_DIR="$(mktemp -d)"
+                SCCACHE_SMOKE_ARCH="${NVTE_CUDA_ARCHS%%;*}"
+                # Make the preprocessed source unique so a remote cache hit
+                # cannot bypass the compiler path this check is exercising.
+                SCCACHE_SMOKE_TOKEN="${RANDOM}${RANDOM}"
+                printf '__global__ void k() { unsigned long long token = %sULL; }\n' \
+                    "${SCCACHE_SMOKE_TOKEN}" \
+                    > "${SCCACHE_SMOKE_DIR}/sccache-smoke.cu"
+                if ! "${NVTE_CCACHE_BIN}" "$(command -v nvcc)" \
+                    -rdc=true \
+                    -gencode \
+                    "arch=compute_${SCCACHE_SMOKE_ARCH},code=sm_${SCCACHE_SMOKE_ARCH}" \
+                    -c "${SCCACHE_SMOKE_DIR}/sccache-smoke.cu" \
+                    -o "${SCCACHE_SMOKE_DIR}/sccache-smoke.o"; then
+                    echo "CUDA+sccache smoke compilation failed"
+                    "${NVTE_CCACHE_BIN}" --show-stats || true
+                    if [[ -s "${SCCACHE_ERROR_LOG}" ]]; then
+                        tail -n 200 "${SCCACHE_ERROR_LOG}"
+                    fi
+                    rm -rf "${SCCACHE_SMOKE_DIR}"
+                    exit 1
+                fi
+                rm -rf "${SCCACHE_SMOKE_DIR}"
+            fi
             "${NVTE_CCACHE_BIN}" --zero-stats
             ;;
         ccache)
@@ -245,14 +357,18 @@ fi
 # The wheel filename includes the TE commit; if this has changed since the last
 # incremental build then we would end up with multiple wheels.
 rm -fv dist/*.whl
-python setup.py bdist_wheel
-ls dist/
+BUILD_STATUS=0
+python setup.py bdist_wheel || BUILD_STATUS=$?
+if [[ "${BUILD_STATUS}" == "0" ]]; then
+    ls dist/
+fi
 popd
 
+CACHE_STATUS=0
 if [[ "${CCACHE}" == "1" ]]; then
     case "${CACHE_PROGRAM}" in
         sccache)
-            "${NVTE_CCACHE_BIN}" --show-stats
+            "${NVTE_CCACHE_BIN}" --show-stats || CACHE_STATUS=$?
             if [[ -s "${SCCACHE_ERROR_LOG}" ]]; then
                 echo "WARNING: sccache reported backend errors:"
                 tail -n 200 "${SCCACHE_ERROR_LOG}"
@@ -262,9 +378,16 @@ if [[ "${CCACHE}" == "1" ]]; then
             rm -f -- "${SCCACHE_ERROR_LOG}"
             ;;
         ccache)
-            "${NVTE_CCACHE_BIN}" --show-stats --verbose
+            "${NVTE_CCACHE_BIN}" --show-stats --verbose || CACHE_STATUS=$?
             ;;
     esac
+fi
+
+if [[ "${BUILD_STATUS}" != "0" ]]; then
+    exit "${BUILD_STATUS}"
+fi
+if [[ "${CACHE_STATUS}" != "0" ]]; then
+    exit "${CACHE_STATUS}"
 fi
 
 ## Install the built packages
