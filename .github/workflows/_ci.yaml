@@ -71,10 +71,10 @@ jobs:
         - name: Checkout repository
           uses: actions/checkout@v6
         - name: Configure AWS credentials via OIDC
-          uses: aws-actions/configure-aws-credentials@v4
+          uses: aws-actions/configure-aws-credentials@v6
           with:
             role-to-assume: ${{ secrets.S3_CACHE_ROLE }}
-            aws-region: ${{ secrets.AWS_REGION}}
+            aws-region: ${{ secrets.AWS_REGION }}
         - name: Start bazel-remote sidecar
           env:
             BAZEL_REMOTE_BUCKET: ${{ secrets.BAZEL_REMOTE_BUCKET }}
