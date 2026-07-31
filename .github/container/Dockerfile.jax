@@ -27,6 +27,7 @@ ARG BUILD_DATE
 ###############################################################################
 
 FROM ${BASE_IMAGE} AS builder
+ARG TARGETARCH
 ARG URLREF_JAX
 ARG URLREF_TRANSFORMER_ENGINE
 ARG URLREF_XLA
@@ -39,11 +40,8 @@ ARG EXTRA_BAZEL_TARGETS
 ARG EXTRA_BUILD_JAX_ARGS
 ARG GIT_USER_NAME
 ARG GIT_USER_EMAIL
-ARG NVTE_BUILD_MAX_JOBS=0
-ARG NVTE_BUILD_THREADS_PER_JOB=8
 ARG ENABLE_NVTE_SCCACHE=0
 ARG SCCACHE_REGION=""
-ARG SCCACHE_S3_KEY_PREFIX=""
 
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
@@ -76,8 +74,7 @@ RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
 
-# Install the selected compiler cache without exposing the AWS secrets used by
-# the subsequent Transformer Engine build. The binary remains in the builder
+# Install the selected compiler cache. The binary remains in the builder
 # stage and is not copied into the mealkit or final image.
 RUN <<"EOF" bash -ex
     if [[ "${ENABLE_NVTE_SCCACHE}" == "1" ]]; then
@@ -91,8 +88,6 @@ EOF
 
 # Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
 # because (a) this is the builder stage, and (b) pip-finalize.sh does the install.
-# AWS credentials and the bucket are sourced from runner environment variables
-# and exposed only to this instruction as individual BuildKit secrets.
 RUN --mount=type=secret,id=AWS_ACCESS_KEY_ID,required=false \
     --mount=type=secret,id=AWS_SECRET_ACCESS_KEY,required=false \
     --mount=type=secret,id=AWS_SESSION_TOKEN,required=false \
@@ -122,17 +117,16 @@ RUN --mount=type=secret,id=AWS_ACCESS_KEY_ID,required=false \
         done
         set -x
         : "${SCCACHE_REGION:?ENABLE_NVTE_SCCACHE=1 requires SCCACHE_REGION}"
+        : "${TARGETARCH:?BuildKit did not provide TARGETARCH}"
         export NVTE_CCACHE_BIN=sccache
         export SCCACHE_REGION
-        export SCCACHE_S3_KEY_PREFIX
+        export SCCACHE_S3_KEY_PREFIX="sccache/${TARGETARCH}"
         export SCCACHE_S3_USE_SSL=true
         compiler_cache_args+=(--ccache)
     elif [[ "${ENABLE_NVTE_SCCACHE}" != "0" ]]; then
         echo "ENABLE_NVTE_SCCACHE must be 0 or 1" >&2
         exit 1
     fi
-    NVTE_BUILD_MAX_JOBS="${NVTE_BUILD_MAX_JOBS}" \
-    NVTE_BUILD_THREADS_PER_JOB="${NVTE_BUILD_THREADS_PER_JOB}" \
     build-te.sh \
     "${compiler_cache_args[@]}" \
     --clean \

@@ -187,7 +187,6 @@ jobs:
               NVTE_BUILD_THREADS_PER_JOB=8
               ENABLE_NVTE_SCCACHE=1
               SCCACHE_REGION=${{ env.CACHE_AWS_REGION }}
-              SCCACHE_S3_KEY_PREFIX=sccache/${{ inputs.ARCHITECTURE }}
         - name: Collect bazel-remote diagnostics
           if: always()
           env:

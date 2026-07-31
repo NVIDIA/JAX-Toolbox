@@ -12,9 +12,6 @@ usage() {
     echo "    --clean                        Clear build caches under --src-path-te."
     echo "    -h, --help                     Print usage."
     echo "    --ccache                       Use a compiler cache to build TransformerEngine."
-    echo "                                   Select ccache (default) or sccache with"
-    echo "                                   NVTE_CCACHE_BIN. install-compiler-cache.sh"
-    echo "                                   installs a missing supported binary."
     echo "    --no-install                   Only build a wheel; do not install."
     echo "    --src-path-te                  Path to TransformerEngine source code."
     echo "    --src-path-xla                 Path to XLA source code."
@@ -110,23 +107,9 @@ else
     SM_LIST=${SM}
 fi
 
-# Transformer Engine uses separate controls for the number of parallel build
-# jobs and the number of threads used by each nvcc invocation. A max-jobs value
-# of 0 preserves Transformer Engine's default of using all available jobs.
-export NVTE_BUILD_MAX_JOBS="${NVTE_BUILD_MAX_JOBS:-0}"
-export NVTE_BUILD_THREADS_PER_JOB="${NVTE_BUILD_THREADS_PER_JOB:-8}"
-if [[ ! "${NVTE_BUILD_MAX_JOBS}" =~ ^[0-9]+$ ]]; then
-    echo "NVTE_BUILD_MAX_JOBS must be a non-negative integer"
-    exit 1
-fi
-if [[ ! "${NVTE_BUILD_THREADS_PER_JOB}" =~ ^[1-9][0-9]*$ ]]; then
-    echo "NVTE_BUILD_THREADS_PER_JOB must be a positive integer"
-    exit 1
-fi
 
-# NVIDIA's container initialization detects the CUDA version internally but
-# does not necessarily export CUDA_VERSION. Query nvcc so version-specific
-# compiler-cache workarounds are selected reliably.
+# Query nvcc so version-specific
+# so compiler-cache workarounds are selected reliably.
 CUDA_TOOLKIT_VERSION="${CUDA_VERSION:-}"
 if command -v nvcc &> /dev/null; then
     DETECTED_CUDA_TOOLKIT_VERSION="$(
@@ -144,8 +127,6 @@ echo "--------------------------------------------------"
 print_var CUDA_TOOLKIT_VERSION
 print_var CLEAN
 print_var INSTALL
-print_var NVTE_BUILD_MAX_JOBS
-print_var NVTE_BUILD_THREADS_PER_JOB
 print_var SM
 print_var SM_LIST
 print_var SRC_PATH_TE
@@ -159,6 +140,8 @@ echo "=================================================="
 NVTE_CUDA_ARCHS="${SM_LIST//,/;}"
 set -x
 export NVTE_CUDA_ARCHS="${NVTE_CUDA_ARCHS//./}"
+# Parallelism within nvcc invocations.
+export NVTE_BUILD_THREADS_PER_JOB=8
 export NVTE_FRAMEWORK=jax
 # TransformerEngine needs FFI headers from XLA
 export XLA_HOME=${SRC_PATH_XLA}
@@ -214,7 +197,7 @@ if [[ "${CCACHE}" == "1" ]]; then
             export SCCACHE_ERROR_LOG="${SCCACHE_ERROR_LOG:-/tmp/sccache-server.log}"
             rm -f -- "${SCCACHE_ERROR_LOG}"
             "${NVTE_CCACHE_BIN}" --start-server
-
+            # WAR needed for CUDA 13.3 because the --simt-only path is not exercised by the TE build system.
             if [[ -n "${CUDA_TOOLKIT_VERSION}" ]] && \
                dpkg --compare-versions "${CUDA_TOOLKIT_VERSION}" ge "13.3"; then
                 # Exercise the CUDA 13.3 --simt-only path before starting the
@@ -260,11 +243,7 @@ fi
 # The wheel filename includes the TE commit; if this has changed since the last
 # incremental build then we would end up with multiple wheels.
 rm -fv dist/*.whl
-BUILD_STATUS=0
-python setup.py bdist_wheel || BUILD_STATUS=$?
-if [[ "${BUILD_STATUS}" == "0" ]]; then
-    ls dist/
-fi
+python setup.py bdist_wheel
 popd
 
 CACHE_STATUS=0
@@ -284,13 +263,6 @@ if [[ "${CCACHE}" == "1" ]]; then
             "${NVTE_CCACHE_BIN}" --show-stats --verbose || CACHE_STATUS=$?
             ;;
     esac
-fi
-
-if [[ "${BUILD_STATUS}" != "0" ]]; then
-    exit "${BUILD_STATUS}"
-fi
-if [[ "${CACHE_STATUS}" != "0" ]]; then
-    exit "${CACHE_STATUS}"
 fi
 
 ## Install the built packages
