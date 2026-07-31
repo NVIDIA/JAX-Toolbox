@@ -107,24 +107,10 @@ else
     SM_LIST=${SM}
 fi
 
-
-# Query nvcc so version-specific
-# so compiler-cache workarounds are selected reliably.
-CUDA_TOOLKIT_VERSION="${CUDA_VERSION:-}"
-if command -v nvcc &> /dev/null; then
-    DETECTED_CUDA_TOOLKIT_VERSION="$(
-        nvcc --version | sed -n 's/.*release \([0-9][0-9.]*\),.*/\1/p'
-    )"
-    if [[ -n "${DETECTED_CUDA_TOOLKIT_VERSION}" ]]; then
-        CUDA_TOOLKIT_VERSION="${DETECTED_CUDA_TOOLKIT_VERSION}"
-    fi
-fi
-
 ## Print info
 echo "=================================================="
 echo "                  Configuration                   "
 echo "--------------------------------------------------"
-print_var CUDA_TOOLKIT_VERSION
 print_var CLEAN
 print_var INSTALL
 print_var SM
@@ -197,35 +183,6 @@ if [[ "${CCACHE}" == "1" ]]; then
             export SCCACHE_ERROR_LOG="${SCCACHE_ERROR_LOG:-/tmp/sccache-server.log}"
             rm -f -- "${SCCACHE_ERROR_LOG}"
             "${NVTE_CCACHE_BIN}" --start-server
-            # WAR needed for CUDA 13.3 because the --simt-only path is not exercised by the TE build system.
-            if [[ -n "${CUDA_TOOLKIT_VERSION}" ]] && \
-               dpkg --compare-versions "${CUDA_TOOLKIT_VERSION}" ge "13.3"; then
-                # Exercise the CUDA 13.3 --simt-only path before starting the
-                # expensive TE build. This also catches S3/auth failures early.
-                SCCACHE_SMOKE_DIR="$(mktemp -d)"
-                SCCACHE_SMOKE_ARCH="${NVTE_CUDA_ARCHS%%;*}"
-                # Make the preprocessed source unique so a remote cache hit
-                # cannot bypass the compiler path this check is exercising.
-                SCCACHE_SMOKE_TOKEN="${RANDOM}${RANDOM}"
-                printf '__global__ void k() { unsigned long long token = %sULL; }\n' \
-                    "${SCCACHE_SMOKE_TOKEN}" \
-                    > "${SCCACHE_SMOKE_DIR}/sccache-smoke.cu"
-                if ! "${NVTE_CCACHE_BIN}" "$(command -v nvcc)" \
-                    -rdc=true \
-                    -gencode \
-                    "arch=compute_${SCCACHE_SMOKE_ARCH},code=sm_${SCCACHE_SMOKE_ARCH}" \
-                    -c "${SCCACHE_SMOKE_DIR}/sccache-smoke.cu" \
-                    -o "${SCCACHE_SMOKE_DIR}/sccache-smoke.o"; then
-                    echo "CUDA+sccache smoke compilation failed"
-                    "${NVTE_CCACHE_BIN}" --show-stats || true
-                    if [[ -s "${SCCACHE_ERROR_LOG}" ]]; then
-                        tail -n 200 "${SCCACHE_ERROR_LOG}"
-                    fi
-                    rm -rf "${SCCACHE_SMOKE_DIR}"
-                    exit 1
-                fi
-                rm -rf "${SCCACHE_SMOKE_DIR}"
-            fi
             "${NVTE_CCACHE_BIN}" --zero-stats
             ;;
         ccache)
