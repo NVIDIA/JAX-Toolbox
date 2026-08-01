@@ -30,11 +30,14 @@ export TZ=America/Los_Angeles
 apt-get update
 
 apt_packages=(
+  curl
   file
+  git
   libxml2-16
-  zlib1g-dev
+  wget
   xxd
   zip
+  zlib1g-dev
 )
 apt-get install --no-install-recommends --no-install-suggests -y ${apt_packages[@]}
 apt-get clean
