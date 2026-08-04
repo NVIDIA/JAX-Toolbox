@@ -80,8 +80,6 @@ navigation:
     contents:
       - page: Container Versions
         path: reference/container-versions.md
-      - page: Staging Containers
-        path: reference/staging-containers.md
       - page: Cloud Providers
         path: reference/cloud-providers.md
       - page: FAQ
