@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: '0 7 * * *'
       timezone: "Europe/London"
+    - cron: '0 0 * * 6' # Saturday scale-training run
+      timezone: "Europe/London"
   push:
     branches:
       - 'pull-request/[0-9]+'
@@ -58,6 +60,11 @@ on:
           - axlearn - run only the tests for axlearn
         options: [full, jax, te, maxtext, axlearn]
         default: full
+      SCALE_TRAINING:
+        type: boolean
+        description: "Run the scale-training pipeline."
+        default: false
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -85,6 +92,7 @@ jobs:
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
       CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
+      IS_SCALE_TRAINING: ${{ steps.run-type.outputs.IS_SCALE_TRAINING }}
       SUFFIX: ${{ steps.run-type.outputs.SUFFIX }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
@@ -101,7 +109,7 @@ jobs:
         id: date
         shell: bash -x -e {0}
         run: |
-          if [[ "${{ github.event.schedule }}" == "0 6 * * 6" ]]; then
+          if [[ "${{ github.event.schedule }}" == "0 0 * * 6" ]]; then
             BUILD_DATE=$(TZ='Europe/London' date '+%Y-%m-%d')
           else
             BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
@@ -154,6 +162,18 @@ jobs:
             CUDA_IMAGE="latest"
           fi
           echo "CUDA_IMAGE=${CUDA_IMAGE}" >> $GITHUB_OUTPUT
+
+      - name: Determine whether this is a scale-training run
+        id: run-type
+        shell: bash -x -e {0}
+        run: |
+          if [[ "${{ github.event.schedule }}" == "0 0 * * 6" || "${{ inputs.SCALE_TRAINING }}" == "true" ]]; then
+            echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
+            echo "SUFFIX=-scale-training" >> $GITHUB_OUTPUT
+          else
+            echo "IS_SCALE_TRAINING=false" >> $GITHUB_OUTPUT
+            echo "SUFFIX=" >> $GITHUB_OUTPUT
+          fi
 
   bump-manifest:
     needs: metadata
@@ -213,6 +233,8 @@ jobs:
       - name: Create URL ref build args
         id: source-urlrefs
         shell: bash -x -e {0}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # converts manifest yaml to a json object of {SOFTWARE_NAME: URL#REF, ...}
           urlrefs=$(
@@ -227,6 +249,24 @@ jobs:
             URLREF=$(cut -d= -f 2- <<< "${override}")
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
           done
+
+          if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
+            scale_training_refs=$(python3 .github/workflows/scripts/extract_commits.py)
+            echo "$scale_training_refs" | jq
+
+            XLA_URLREF=$(jq -er '.xla.urlref' <<< "$scale_training_refs")
+            JAX_URLREF=$(jq -er '.jax.urlref' <<< "$scale_training_refs")
+            urlrefs=$(
+              jq -c \
+                --arg xla "$XLA_URLREF" \
+                --arg jax "$JAX_URLREF" \
+                '. + {"XLA": $xla, "JAX": $jax}' \
+                <<< "$urlrefs"
+            )
+
+            echo "Using ${XLA_URLREF} for the scale-training XLA build"
+            echo "Using ${JAX_URLREF} for the scale-training JAX build"
+          fi
 
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
           echo "Final URLREF going to be used"
