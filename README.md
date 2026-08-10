@@ -3,12 +3,12 @@
 JAX Toolbox
 ===========================
 
-JAX Toolbox is NVIDIA's home for JAX and XLA on GPUs, including the latest updates, containers and educational resources.
+**JAX Toolbox** is NVIDIA's home for [**JAX and XLA on GPUs**](https://docs.nvidia.com/jax-toolbox/getting-started/jax-on-nvidia-gpu-stack), including the latest updates, containers and educational resources.
 
 [![License Apache 2.0](https://badgen.net/badge/license/apache2.0/blue)](https://github.com/NVIDIA/JAX-Toolbox/blob/main/LICENSE.md)
 [![Build](https://badgen.net/badge/build/check-status/blue)](#nightly-build-pipeline-status)
 
-[**Latest news**](https://github.com/NVIDIA/JAX-Toolbox/#latest-news)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Tech blogs**](https://github.com/NVIDIA/JAX-Toolbox/#tech-blogs)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Documentation**](https://github.com/NVIDIA/JAX-Toolbox/#tutorials)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Resources**](https://github.com/NVIDIA/JAX-Toolbox/#resources)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Container images**](https://github.com/NVIDIA/JAX-Toolbox/#container-images)
+[**Latest news**](https://github.com/NVIDIA/JAX-Toolbox/#latest-news)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Tech blogs**](https://github.com/NVIDIA/JAX-Toolbox/#tech-blogs)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Documentation**](https://docs.nvidia.com/jax-toolbox/introduction)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Resources**](https://github.com/NVIDIA/JAX-Toolbox/#resources)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Container images**](https://github.com/NVIDIA/JAX-Toolbox/#container-images)
 
 ---
 <div align="left">
@@ -19,9 +19,7 @@ JAX Toolbox is NVIDIA's home for JAX and XLA on GPUs, including the latest updat
 
 - **Tech blogs**: Blogs highlighting key technical challenges, practical guidance and observed results
 
-- **Tutorials**: Overview of JAX on GPUs, customizing JAX with NVIDIA CUDA Toolkit and going beyond what’s possible in native JAX.
-
-- **Guides**: Practical guides for profiling, optimizing, scaling and third-party tool integrations in JAX.
+- **Documentation**: Overview of JAX on GPUs, customizing JAX with NVIDIA CUDA Toolkit and going beyond what’s possible in native JAX, practical guides for profiling, optimizing, scaling and third-party tool integrations in JAX.
 
 - **Resources**: Talks, presentations and ecosystem references
 
@@ -30,35 +28,26 @@ JAX Toolbox is NVIDIA's home for JAX and XLA on GPUs, including the latest updat
 - **Experimental projects**: Experimental projects for developers to evaluate and provide feedback on
 
 ## Latest news
-- [**NGC JAX 26.06**](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.06-py3) container image released
-  - Added support for Kimi K2-Thinking, K2.5, and K2.6 (text) models, including checkpoint conversion scripts.
-  - Added Qwen3-30B-A3B-Base tokenizer and Qwen3.5 text-only decoder layer.
-  - Added OLMo 3 7B/32B HuggingFace configs, stage-1 pretraining scripts, and numpy pretrain data pipeline.
-  - Extended Gemma4 support: HuggingFace checkpoint conversion, vLLM adapter, layer-wise unit tests, MoE inference performance improvements, and multimodal evaluation (ChartQA).
-  - Implemented DeepSeek, Gemma3, and Llama4 decoder layers in NNX.
-- [**NGC JAX 26.05**](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-py3) container image released
+- **NGC 26.07** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.07-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.07-maxtext-py3) images released
+  - [`CUDA 13.3.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-07.html), JAX [`v0.10.2`](https://github.com/jax-ml/jax/releases/tag/jax-v0.10.2)
+  - Improved NCCL plugin expereince on GCP; cuDNN-backed flex attention re-enabled; support for CuDNN AoT compilation in XLA; LLM training speedup
+- **NGC 26.06** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.06-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.06-maxtext-py3) images released
+  - [`CUDA 13.3.0`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-06.html), JAX [`v0.10.1`](https://github.com/jax-ml/jax/releases/tag/jax-v0.10.2)
+  - Improved GPU dot fusion cost model and introduced tileable GemmFusion.
+- **NGC 26.05** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.05-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.05-maxtext-py3) images released
+  - [`CUDA 13.2.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-05.html), JAX [`v0.10.0`](https://github.com/jax-ml/jax/releases/tag/jax-v0.10.2)
   - performant `jax.ragged_dot`; XLA’s `nvfp4` kernel codegen improvements; multi-stream collective support in XLA; PDL (programmatic dependent launch) enablement in XLA and improved D2H & H2D copy overlap with compute
-- [**NGC JAX 26.04**](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.04-py3) container image released
+- **NGC 26.04** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.04-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.04-maxtext-py3) images released
+  - [`CUDA 13.2.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-05.html), JAX [`v0.9.2`](https://github.com/jax-ml/jax/releases/tag/jax-v0.9.2)
   - Thor support in JAX/XLA with full Triton; FP8 reduction support in XLA; and improved collective cost model of GB200/GB300
 
 Detailed release notes for NGC JAX containers are published in the [**NGC JAX release notes**](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/index.html).
 
 ## Tech blogs
+- [Jul 2026] [**Reducing High-Bandwidth Memory Bottlenecks in JAX-Based LLM Training with Host Offloading**](https://developer.nvidia.com/blog/reducing-high-bandwidth-memory-bottlenecks-in-jax-based-llm-training-with-host-offloading/)
 - [Jun 2026] [**Train Models Faster with JAX and MaxText Using NVFP4 on NVIDIA Blackwell**](https://developer.nvidia.com/blog/train-models-faster-with-jax-and-maxtext-using-nvfp4-on-nvidia-blackwell/)
 - [Feb 2026] [**Accelerating Long-Context Model Training in JAX and XLA**](https://developer.nvidia.com/blog/accelerating-long-context-model-training-in-jax-and-xla/)
 - [Jul 2025] [**Optimizing for Low-Latency Communication in Inference Workloads with JAX and XLA**](https://developer.nvidia.com/blog/optimizing-for-low-latency-communication-in-inference-workloads-with-jax-and-xla/)
-
-## Tutorials
-- JAX on GPU stack
-- [**Writing High-Performance CuTe DSL kernels in JAX**](https://docs.jax.dev/en/latest/notebooks/cute_dsl_jax.html)
-
-## Guides
-- [**Tips for High-Performance LLMs with JAX on GPUs**](https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/GPU_performance.md)
-- [**AutoPGLE on GPU workflows**](https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/PGLE.md)
-- [**Profiling JAX programs on GPU**](https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/profiling.md)
-  - [**`nsys-jax`**](https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/nsys-jax.md)
-- [**Resilient Training with Ray and JAX**](https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/resiliency/ray_resilient_jax.md)
-- [**User Guide on Native XLA-FP8**](https://github.com/NVIDIA/JAX-Toolbox/blob/main/docs/NATIVE_FP8.md)
 
 ## Resources
 ### Talks and presentations
@@ -71,7 +60,7 @@ Detailed release notes for NGC JAX containers are published in the [**NGC JAX re
 #### 2025
 - [JAX/OpenXLA DevLab Fall 2025] [**Accelerating LLM models on Blackwell**](https://youtu.be/QDhSk-MegUg?si=AtciF3lBY0-1dV1Q)
 - [JAX/OpenXLA DevLab Fall 2025] [**Leveraging CuTeDSL in JAX**](https://youtu.be/v_DV61ErjAY?si=2COf8AIh8xBIxKPx)
-- [JAX/OpenXLA DevLab Fall 2025] [**JaxPP: A library for MPMD training in JAX**](https://youtu.be/v_DV61ErjAY?si=2COf8AIh8xBIxKPx)
+- [JAX/OpenXLA DevLab Fall 2025] [**JaxPP: A library for MPMD training in JAX**](https://www.youtube.com/watch?v=ln51xYyEsRY)
 - [GTC 2025] [**Horizontal Scaling of LLM Training with JAX**](https://www.nvidia.com/en-us/on-demand/session/gtc25-s73266/)
 - [GTC 2025] [**Scaling Transformers: Navigating Challenges and Innovations in Long-Context Modeling**](https://www.nvidia.com/gtc/session-catalog/?search=&tab.catalogallsessionstab=16566177511100015Kus&search.sessiontype=option_1614028602338#/session/1727994825598001BAtq)
 
@@ -86,7 +75,7 @@ Stable builds are released at the end of each month to NVIDIA's [**NGC Catalog**
 | Framework | Models | Use cases | Container image (nightly build) | Container image (NGC release) |
 | :--- | :---: | :---: | :---: | :---: |
 | [jax](https://github.com/jax-ml/jax)|  | pre-training | `ghcr.io/nvidia/jax:jax` | [`nvcr.io/nvidia/jax:YY.MM-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-py3) |
-| [maxtext](https://github.com/google/maxtext)| [**DeepSeek V3.2**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#deepseek), [**Gemma 4**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#gemma), [**Llama 4**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#llama), [**Qwen3**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#qwen3), [**Qwen 3.5**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#qwen3-5), [**Mixtral**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#mistral-mixtral), [**Kimi K2.6**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#kimi) | pre-training | `ghcr.io/nvidia/jax:maxtext` | [`nvcr.io/nvidia/jax:YY.MM-maxtext-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-maxtext-py3) |
+| [maxtext](https://github.com/google/maxtext)| [**DeepSeek V3.2**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#deepseek), [**Gemma 4**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#gemma), [**Llama 4**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#llama), [**Mixtral**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#mistral-mixtral) | pre-training | `ghcr.io/nvidia/jax:maxtext` | [`nvcr.io/nvidia/jax:YY.MM-maxtext-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-maxtext-py3) |
 | [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` | |
 | [equinox](https://github.com/patrick-kidger/equinox) |  | pre-training | `ghcr.io/nvidia/jax:equinox` | |
 | [torchax](https://github.com/google/torchax) |  | running PyTorch models on JAX | `ghcr.io/nvidia/jax:torchax` | |
