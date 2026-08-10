@@ -251,11 +251,11 @@ jobs:
           done
 
           if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
-            scale_training_refs=$(python3 .github/workflows/scripts/extract_commits.py)
-            echo "$scale_training_refs" | jq
+            xla_ref=$(python3 .github/workflows/scripts/extract_commits.py)
+            echo "$xla_ref" | jq
 
-            XLA_URLREF=$(jq -er '.xla.urlref' <<< "$scale_training_refs")
-            JAX_URLREF=$(jq -er '.jax.urlref' <<< "$scale_training_refs")
+            XLA_URLREF=$(jq -er '.urlref' <<< "$xla_ref")
+            JAX_URLREF="https://github.com/jax-ml/jax#main"
             urlrefs=$(
               jq -c \
                 --arg xla "$XLA_URLREF" \

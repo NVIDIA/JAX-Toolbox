@@ -14,8 +14,6 @@ XLA_REPOSITORY = "https://github.com/NVIDIA/xla_staging"
 XLA_OWNER = "NVIDIA"
 XLA_REPO = "xla_staging"
 XLA_BRANCH = "nv/staging"
-JAX_REPOSITORY = "https://github.com/jax-ml/jax"
-JAX_REF = "main"
 TAG_PATTERN = re.compile(r"^staging-(\d{4}-\d{2}-\d{2})$")
 
 
@@ -89,27 +87,20 @@ def latest_staging_tag(tags: list[dict[str, Any]]) -> tuple[str, str]:
     return name, sha
 
 
-def scale_training_refs(tags: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
-    """Build the source-ref payload consumed by ci.yaml."""
+def xla_ref(tags: list[dict[str, Any]]) -> dict[str, str]:
+    """Build the XLA source-ref payload consumed by ci.yaml."""
     xla_tag, xla_commit = latest_staging_tag(tags)
     return {
-        "xla": {
-            "repository": XLA_REPOSITORY,
-            "branch": XLA_BRANCH,
-            "tag": xla_tag,
-            "commit": xla_commit,
-            "urlref": f"{XLA_REPOSITORY}#{xla_tag}",
-        },
-        "jax": {
-            "repository": JAX_REPOSITORY,
-            "ref": JAX_REF,
-            "urlref": f"{JAX_REPOSITORY}#{JAX_REF}",
-        },
+        "repository": XLA_REPOSITORY,
+        "branch": XLA_BRANCH,
+        "tag": xla_tag,
+        "commit": xla_commit,
+        "urlref": f"{XLA_REPOSITORY}#{xla_tag}",
     }
 
 
 def main() -> None:
-    print(json.dumps(scale_training_refs(fetch_tags()), sort_keys=True))
+    print(json.dumps(xla_ref(fetch_tags()), sort_keys=True))
 
 
 if __name__ == "__main__":
