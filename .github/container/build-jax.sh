@@ -257,6 +257,7 @@ time python "${SRC_PATH_JAX}/build/build.py" build \
     --bazel_options=--force_pic \
     "--local_xla_path=${SRC_PATH_XLA}" \
     "--output_path=${BUILD_PATH_JAXLIB}" \
+    --bazel_options=--define=ynn_enable_arm64_neonfp8=false \
     $BUILD_PARAM
 
 # Make sure that JAX depends on the local jaxlib installation
