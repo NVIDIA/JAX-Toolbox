@@ -150,7 +150,6 @@ runs:
       with:
         builder: ${{ env.BUILDX_BUILDER_NAME }}
         context: ${{ inputs.DOCKER_CONTEXT }}
-        load: ${{inputs.registry-build-context-name == ''}}
         push: true
         file: ${{ inputs.DOCKERFILE }}
         platforms: linux/${{ inputs.ARCHITECTURE }}

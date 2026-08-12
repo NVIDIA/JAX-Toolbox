@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ "${DISABLE_GCP_TCPX_SETUP}" == 1 ]; then 
+if [ "${DISABLE_GCP_TCPX_SETUP}" == 1 ]; then
   return
 fi
 
@@ -12,20 +12,16 @@ NOCOLOR='\033[0m'
 if host metadata.google.internal &> /dev/null; then
     echo -e "${GREEN}
 ============================== JAX-ToolBox on GCP ==============================
-
 It looks like you're running on GCP. In order to maximize your multi-node
 performance, you'll need to use Google's TCPx NCCL plugin. This container ships
 the plugin at ${TCPX_LIBRARY_PATH}, which is already added to LD_LIBRARY_PATH by
 this script $2.
-
 For A3 instances, this script also automatically determines the best NICs to use
 by NCCL for maximum performance.
-
 However, there are additional steps you will need to take. Mainly, you'll need
 to run a separate receive-datapath-manager daemon on each of your nodes, and
 correctly configure your networks and NICs. For more information, please see the
 guide at: https://cloud.google.com/compute/docs/gpus/gpudirect#provide-access
-
 If you believe this setup is causing undesired effects, you can disable it by
 setting DISABLE_GCP_TCPX_SETUP=1
 ${NOCOLOR}"

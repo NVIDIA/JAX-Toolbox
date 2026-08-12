@@ -19,6 +19,9 @@ on:
     paths:
       - '.github/container/nsys_jax/**'
 
+permissions:
+  contents: read  # gist uploads use the NVJAX_GIST_TOKEN PAT, not GITHUB_TOKEN
+
 defaults:
   run:
     shell: bash -x -eo pipefail {0}
@@ -295,6 +298,10 @@ jobs:
           apt-get update
           apt-get install -y git python3-pip ${{ matrix.nsys_package }}
       - name: Install nsys-jax
-        run: pip install --break-system-packages git+https://github.com/NVIDIA/JAX-Toolbox.git@${{ github.head_ref || github.sha }}#subdirectory=.github/container/nsys_jax
+        # github.sha, not head_ref: branch names are attacker-controlled shell
+        # input on fork PRs, and the fork's branch does not exist in this repo
+        # anyway. For pull_request events github.sha is the merge commit, which
+        # is fetchable from this repo by SHA.
+        run: pip install --break-system-packages "git+https://github.com/NVIDIA/JAX-Toolbox.git@${{ github.sha }}#subdirectory=.github/container/nsys_jax"
       - name: Run nsys-jax-patch-nsys
         run: nsys-jax-patch-nsys

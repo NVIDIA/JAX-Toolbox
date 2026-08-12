@@ -7,8 +7,9 @@ dependencies = [
     "uncertainties",
 ]
 # Because this script needs to run on compute clusters *outside* the containers that it
-# orchestrates, it tries to tolerate old Python versions
-requires-python = ">= 3.8"
+# orchestrates, it tries to tolerate old Python versions: the floor is the oldest
+# version still receiving security fixes (3.8 and 3.9 are EOL as of 2026)
+requires-python = ">= 3.10"
 [project.scripts]
 jax-toolbox-triage = "jax_toolbox_triage:main"
 

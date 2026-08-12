@@ -45,12 +45,14 @@ git config --global user.name "${GIT_USER_NAME}"
 git config --global user.email "${GIT_USER_EMAIL}"
 EOF
 RUN mkdir -p /opt/pip-tools.d /opt/pip-tools-post-install.d
-ADD --chmod=777 \
+ADD --chmod=755 \
   git-clone.sh \
   pip-finalize.sh \
   /usr/local/bin/
+# Pinned (rather than releases/latest) for reproducible builds
+ARG YQ_VERSION=v4.53.3
 RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture) -O /usr/local/bin/yq && \
-  chmod 777 /usr/local/bin/yq
+  chmod 755 /usr/local/bin/yq
 RUN git clone -b 23.3.1 https://github.com/pypa/pip.git /opt/pip
 # Patch is specific to 23.3.1
 # Generated via: "git diff > pip-vcs-equivalency.patch"
@@ -71,7 +73,7 @@ python get-pip.py -e /opt/pip
 rm -rf get-pip.py ~/.cache/pip
 EOF
 
-# Install pip-tools, which is used in pip-finalize.sh
+# Install pip-tools, which is used in pip-finalize.sh.
 RUN pip install --no-cache-dir pip-tools
 
 # The symlinks for CUDA/cuDNN/NCCL exist to make the container's installations
@@ -112,7 +114,14 @@ ADD parallel-launch /usr/local/bin/
 ##############################################################################
 
 ADD install-nsight-systems.sh /usr/local/bin
-RUN if [[ -n "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}" ]]; then install-nsight-systems.sh "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}"; fi
+# Run under bash explicitly: with the default /bin/sh (dash) the [[ test fails
+# with status 127 and the else-less `if` still returns 0, silently skipping the
+# install even when the override is set.
+RUN <<"EOF" bash -ex
+if [[ -n "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}" ]]; then
+  install-nsight-systems.sh "${NSIGHT_SYSTEMS_VERSION_OVERRIDE}"
+fi
+EOF
 
 ##############################################################################
 ## Remove CUDA NVSHMEM symlinks

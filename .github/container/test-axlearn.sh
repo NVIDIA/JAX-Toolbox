@@ -208,10 +208,20 @@ runs=(
   "|not (gs_login or tpu or high_cpu or fp64 or for_8_devices)|base"
   "JAX_ENABLE_X64=1|fp64|fp64"
 )
+crashed=0
 for spec in "${runs[@]}"; do
     IFS='|' read -r env_spec marker suffix <<< "${spec}"
     echo "Running tests with env='${env_spec}', marker='${marker}', suffix='${suffix}'"
     run_tests "${env_spec}" "${marker}" "${suffix}" "${final_test_files[@]}"
+    status=$?
+    # pytest exits 0 (all passed) or 1 (test failures, counted from the logs
+    # below). Anything else (2=interrupted, 3=internal error, 4=usage error,
+    # 5=no tests collected, >128=crash/signal) never prints a summary line, so
+    # the grep-based counts below would report a false green.
+    if [ "${status}" -gt 1 ]; then
+        echo "Test run '${suffix}' exited with unexpected status ${status}."
+        crashed=1
+    fi
     echo "Test run '${suffix}' done."
 done
 
@@ -237,8 +247,8 @@ echo "Total failed:  ${failed}"
 echo "Total skipped: ${skipped}"
 echo "PASSED: ${passed} FAILED: ${failed} SKIPPED: ${skipped}" >> "${LOG_DIRECTORY}/summary.txt"
 
-if [ ${failed} -gt 0 ]; then
-    echo "Some tests failed. Check the logs in ${LOG_DIRECTORY} for details."
+if [ ${failed} -gt 0 ] || [ ${crashed} -ne 0 ]; then
+    echo "Some tests failed or crashed. Check the logs in ${LOG_DIRECTORY} for details."
     exit 1
 else
     echo "All tests passed successfully."

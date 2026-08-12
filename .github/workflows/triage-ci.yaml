@@ -17,6 +17,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 env:
   TRIAGE_PYTHON_FILES: .github/triage
 
@@ -39,7 +42,8 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        python-version: ["3.8", "3.14"]
+        # oldest supported (see triage/pyproject.toml requires-python) and newest
+        python-version: ["3.10", "3.14"]
       fail-fast: false
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}

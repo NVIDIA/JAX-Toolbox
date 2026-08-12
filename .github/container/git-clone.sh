@@ -8,6 +8,9 @@ Clones a git repo at a specific ref and update manifest file with the commit has
 
 Usage: $0 [OPTION]... GIT_URL#REF PATH
   -h, --help             Print usage.
+  -f, --filter SPEC      Object filter passed to git clone (default: blob:none,
+                         which keeps full history but fetches file contents
+                         lazily). Pass 'none' for a full clone.
   -m, --manifest FILE    The manifest yaml file to which the downloaded library is documented.
                          Default is /opt/manifest.d/git-clone.yaml
 
@@ -20,7 +23,7 @@ EOF
     exit $1
 }
 
-args=$(getopt -o hm: --long help,manifest: -- "$@")
+args=$(getopt -o hf:m: --long help,filter:,manifest: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -28,12 +31,17 @@ fi
 ## Set default arguments
 
 MANIFEST="/opt/manifest.d/git-clone.yaml"
+FILTER="blob:none"
 
 eval set -- "$args"
 while [ : ]; do
   case "$1" in
     -h | --help)
         usage
+        ;;
+    -f | --filter)
+        FILTER="$2"
+        shift 2
         ;;
     -m | --manifest)
         MANIFEST="$2"
@@ -72,7 +80,14 @@ echo "Fetching $GIT_REPO#$GIT_REF to $DESTINATION"
 
 set -ex -o pipefail
 
-git clone ${GIT_REPO} ${DESTINATION}
+# blob:none keeps the full commit/tag history (git describe, rebases and patch
+# application in create-distribution.sh still work) while skipping the bulk of
+# the transfer for large-history repos like XLA; blobs are fetched on demand.
+if [[ "${FILTER}" != "none" ]]; then
+    git clone --filter=${FILTER} ${GIT_REPO} ${DESTINATION}
+else
+    git clone ${GIT_REPO} ${DESTINATION}
+fi
 pushd ${DESTINATION}
 if [[ -n "${GIT_REF}" ]]; then
     git checkout ${GIT_REF}

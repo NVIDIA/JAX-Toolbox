@@ -9,7 +9,7 @@ on:
         required: true
       BASE_IMAGE:
         type: string
-        description: 'Base CUDA image, e.g. nvidia/cuda:X.Y.Z-devel-ubuntu22.04'
+        description: "Base CUDA image, e.g. nvcr.io/nvidia/cuda-dl-base:26.06-cuda13.3-devel-ubuntu24.04; 'latest' uses the Dockerfile.base default"
         required: false
         default: latest
       BUILD_DATE:
@@ -103,7 +103,10 @@ jobs:
         uses: docker/setup-buildx-action@v4
         with:
           driver-opts: |
-            image=moby/buildkit:v0.12.1
+            image=moby/buildkit:v0.13.2
+          # v0.13.2 matches the pin in .github/actions/build-container: >=0.13 is
+          # required there for multi-exporter (load+push) support, and keeping a
+          # single buildkit version avoids cache/behavior drift between stages
           version: v0.30.1
 
       - name: Set docker metadata

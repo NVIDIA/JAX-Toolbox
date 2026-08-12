@@ -30,13 +30,13 @@ jobs:
           git fetch origin main
 
           mapfile -t paths <<< "$PREVIEW_PATHS"
-          
+
           pathspecs=()
           for path in "${paths[@]}"; do
             [[ -z "$path" ]] && continue
             pathspecs+=(":(glob)$path")
           done
-      
+
           if git diff --quiet origin/main...HEAD -- "${pathspecs[@]}"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -45,7 +45,8 @@ jobs:
 
       - uses: actions/setup-node@v6
         if: steps.changes.outputs.changed == 'true'
-
+        with:
+          cache: npm
 
       - name: Install dependencies
         if: steps.changes.outputs.changed == 'true'
@@ -61,7 +62,7 @@ jobs:
             | grep -oP 'https://[A-Za-z0-9./?&=_:%#~+-]*buildwithfern\.com[A-Za-z0-9./?&=_:%#~+-]*' \
             | tail -n 1 \
             | perl -CS -pe 's/\x{200B}//g; s/%E2%80%8B$//i')
-      
+
           echo "url=$url" >> "$GITHUB_OUTPUT"
         env:
           FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
@@ -72,12 +73,12 @@ jobs:
         with:
           script: |
             const match = context.ref.match(/^refs\/heads\/pull-request\/([0-9]+)$/)
-      
+
             if (!match) {
               core.setFailed(`Could not find PR number from ref: ${context.ref}`)
               return
             }
-      
+
             await github.rest.issues.createComment({
               issue_number: Number(match[1]),
               owner: context.repo.owner,

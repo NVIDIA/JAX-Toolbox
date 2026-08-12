@@ -30,7 +30,7 @@ spec:
                 effect: NoSchedule
             containers:
             - name: gateway-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              image: JIO_IMAGE_PLACEHOLDER
               command:
               - bash
               - -c
@@ -91,7 +91,7 @@ spec:
 
             containers:
             - name: vllm-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              image: JIO_IMAGE_PLACEHOLDER
               command:
               - bash
               - -c
@@ -352,7 +352,7 @@ spec:
 
             containers:
             - name: jax-container
-              image: 941377147396.dkr.ecr.us-east-1.amazonaws.com/sbosisio/jio:latest
+              image: JIO_IMAGE_PLACEHOLDER
               command:
               - bash
               - -c

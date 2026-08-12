@@ -1,24 +1,18 @@
 ---
 title: Staging Containers
-subtitle: Pending NVIDIA-authored XLA and JAX enhancements
+subtitle: Historical NVIDIA-authored XLA and JAX staging releases
 slug: staging-containers
 ---
 
-JAX-Toolbox staging containers host pending NVIDIA-authored XLA and JAX
-enhancements for NVIDIA GPU. These are pending PRs that are awaiting upstream
-review and merge in OSS OpenXLA and JAX repositories. For this initiative, we
-publish `scale-training` tagged containers — `jax-scale-training`.
+JAX-Toolbox staging containers hosted pending NVIDIA-authored XLA and JAX
+enhancements for NVIDIA GPU — PRs awaiting upstream review and merge in the OSS
+OpenXLA and JAX repositories — published as `jax-scale-training` tagged
+containers.
 
-[![Workflow status](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-workflow-metadata-scale-training.json&logo=github-actions&logoColor=white)](https://github.com/NVIDIA/JAX-Toolbox/actions/workflows/scale-training.yaml?query=event%3Aschedule+branch%3Amain)
-
-| Pipeline | Container | Schedule |
-| --- | --- | --- |
-| `scale-training.yaml` | `ghcr.io/nvidia/jax:jax-scale-training` | Every other Saturday, 00:00 UTC |
-
-The `scale-training` container is generated and published every other Saturday
-at 00:00 UTC. Refer to [STAGING.md](https://github.com/openxla/xla/blob/nv-staging/latest/STAGING.md)
-for more information on the underlying XLA staging branch, the pending PRs
-included, and the corresponding JAX commit used.
+**The staging-container program has concluded**: the `scale-training.yaml`
+pipeline was removed from CI in June 2026 and no new `jax-scale-training`
+containers are being published. The dated images below remain available from
+`ghcr.io/nvidia/jax`.
 
 ## Staging releases
 

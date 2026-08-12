@@ -3,6 +3,10 @@ name: "~Sandbox"
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: read  # ghcr login for pulling internal images
+
 jobs:
   sandbox:
     runs-on: ubuntu-22.04

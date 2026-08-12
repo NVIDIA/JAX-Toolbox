@@ -10,8 +10,10 @@ respective guides.
 
 | Framework | Models | Use cases | Container |
 | :--- | :---: | :---: | :---: |
-| [MaxText](../frameworks/maxtext/README.md) | GPT, LLaMA, Gemma, Mistral, Mixtral | pre-training | `ghcr.io/nvidia/jax:maxtext` |
+| [MaxText](../frameworks/maxtext/README.md) | DeepSeek V3.2, Gemma 4, Llama 4, Qwen3, Qwen 3.5, Mixtral, Kimi K2.6 | pre-training | `ghcr.io/nvidia/jax:maxtext` |
 | [AXLearn](../frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` |
+| [Equinox](https://github.com/patrick-kidger/equinox) |  | pre-training | `ghcr.io/nvidia/jax:equinox` |
+| [TorchAX](https://github.com/google/torchax) |  | running PyTorch models on JAX | `ghcr.io/nvidia/jax:torchax` |
 | [AlphaFold3](https://github.com/google-deepmind/alphafold3) | EvoFormer | inference | `ghcr.io/nvidia/jax:alphafold` |
 
 ## Framework guides

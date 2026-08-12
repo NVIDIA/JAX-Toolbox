@@ -1,5 +1,8 @@
 name: ~Create GKE cluster with XPK
 
+permissions:
+  contents: read  # cloud access comes from the self-hosted runner, not GITHUB_TOKEN
+
 on:
   workflow_dispatch:
     inputs:
