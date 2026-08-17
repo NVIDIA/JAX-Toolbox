@@ -273,6 +273,13 @@ for component in jaxlib "jax-cuda${CUDA_MAJOR_VERSION}-pjrt" "jax-cuda${CUDA_MAJ
         "/^${component}/{:a;/\\\\$/N;s/\\\\\n\s*/ /;ta;s#.*#${component} @ file://${BUILD_PATH_JAXLIB}/${component//-/_}#;}" \
         build/requirements.in \
         build/requirements_lock_${PYTHON_MAJOR_VERSION}_${PYTHON_MINOR_VERSION}.txt
+
+    # Package jaxlib and cuda plugins as wheels in /opt/jax/dist for bzlmod resolution
+    python -m pip wheel \
+        --no-deps \
+        --wheel-dir="${SRC_PATH_JAX}/dist" \
+        "${BUILD_PATH_JAXLIB}/${component//-/_}"
+
 done
 if [[ "${IS_RELEASE}" == "1" ]]; then
     sed -i "s|f'jaxlib >={_minimum_jaxlib_version}, <={_jax_version}',|f'jaxlib>=0.5.0',|" /opt/jax/setup.py
