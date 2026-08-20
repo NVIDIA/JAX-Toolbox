@@ -109,17 +109,20 @@ runs:
   - name: Set job command
     shell: bash -x -u {0}
     run: |
-      PRELUDE="set -x -o pipefail; nvidia-smi; mkdir -p ${{ inputs.JOBSET_OUTPUT_DIR }};"
+      PRELUDE="set -x -e -o pipefail; nvidia-smi; mkdir -p ${{ inputs.JOBSET_OUTPUT_DIR }};"
       PRELUDE+="curl 'https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip' -o 'awscliv2.zip'; unzip awscliv2.zip > /dev/null; ./aws/install"
 
       CMD="${{ inputs.COMMAND }}"
       CMD=$(echo ${CMD} | sed 's/\n/\ /g')
 
-      POSTLUDE="EXIT_CODE=\$?;"
+      POSTLUDE="EXIT_CODE=\$?; set +e;"
       POSTLUDE+="aws s3 cp ${{ inputs.JOBSET_OUTPUT_DIR }}/ s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ --recursive;"
+      POSTLUDE+="echo EXIT_CODE=\${EXIT_CODE};"
       POSTLUDE+="${{ inputs.EXIT_COMMAND }}"
 
-      echo "CMD=${PRELUDE}; ${CMD}; ${POSTLUDE}" >> ${GITHUB_ENV}
+      # Run the workload in a subshell so `set -e` or `exit` in a user command
+      # cannot skip the postlude that records its status and uploads artifacts.
+      echo "CMD=( ${PRELUDE}; ${CMD} ); ${POSTLUDE}" >> ${GITHUB_ENV}
 
   - name: Login to GitHub Container Registry
     uses: docker/login-action@v3
@@ -163,7 +166,7 @@ runs:
               '{name: $name, value: $value}'
           done <<< "${{ inputs.ENVS }}" | jq -s -c .
         )
-        
+
         yq -iP '.spec.replicatedJobs[].template.spec.template.spec.containers[0].env += env(envs_json)' ${JOBSET_YAML}
         cat ${JOBSET_YAML}
 
@@ -178,10 +181,10 @@ runs:
       POLL_TIMEOUT: 10800
     run: |
       set -euo pipefail
-  
+
       START=$(date +%s)
       JOBSET_ACTIVE=""
-  
+
       while [[ "${JOBSET_ACTIVE:-}" != "true" ]]; do
         JOBSET_ACTIVE="$(
           kubectl get jobset -o json | jq -r '
@@ -190,18 +193,18 @@ runs:
             | .status.replicatedJobsStatus[0].active == 1
           '
         )"
-  
+
         NOW=$(date +%s)
         ELAPSED=$(( NOW - START ))
         if (( ELAPSED > POLL_TIMEOUT )); then
           echo "Timeout after waiting for JobSet ${JOBSET_NAME} to become active in the cluster"
           exit 1
         fi
-  
+
         echo "Waiting for JobSet ${JOBSET_NAME} to become active in the cluster"
         sleep 10
       done
-  
+
       echo "JobSet ${JOBSET_NAME} has just become active in the cluster"
 
   - name: Set JobSet Pods
@@ -226,41 +229,45 @@ runs:
       mkdir -p ${JOBSET_NAME}
 
       for jobset_pod in ${JOBSET_PODS//[()]/}; do
-          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${JOBSET_NAME}/${jobset_pod}.log &
+          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c "${{ inputs.MAIN_CONTAINER_NAME }}" ${jobset_pod} 2>&1 | tee -a ${JOBSET_NAME}/${jobset_pod}.log &
       done
       wait < <(jobs -p)
 
-  - name: Set exit code from JobSet pods logs
+  - name: Set exit code from JobSet Pods
     shell: bash -x -u {0}
     run: |
-      parse_pod_exit_code() {
-        local pod=$1
-        MAYBE_JOBSET_EXIT_CODE="$(cat ${JOBSET_NAME}/${pod}.log | grep -oE 'EXIT\_CODE=[0-9]+$')"
+      set -euo pipefail
 
-        if [ $? -ne 0 ]; then
-          echo "The JobSet ${JOBSET_NAME} did not complete as expected " >&2
-          echo "JOBSET_EXIT_CODE=1" >> ${GITHUB_ENV}
+      ALL_EXIT_CODES=0
+      NUM_JOBSET_PODS=0
+      for jobset_pod in ${JOBSET_PODS//[()]/}; do
+        [[ -z "${jobset_pod}" ]] && continue
+        NUM_JOBSET_PODS=$(( NUM_JOBSET_PODS + 1 ))
+
+        if ! POD_EXIT_CODE="$(
+          bash "${GITHUB_ACTION_PATH}/read-pod-exit-code.sh" \
+            "${jobset_pod}" \
+            "${{ inputs.MAIN_CONTAINER_NAME }}"
+        )"; then
+          echo "The JobSet ${JOBSET_NAME} did not expose a valid exit code for pod ${jobset_pod}" >&2
+          echo "JOBSET_EXIT_CODE=1" >> "${GITHUB_ENV}"
           exit 1
         fi
 
-        echo "Pod ${pod} exited with ${MAYBE_JOBSET_EXIT_CODE}" >&2
-
-        eval "export ${MAYBE_JOBSET_EXIT_CODE}"
-        echo ${EXIT_CODE}
-      }
-
-      ALL_EXIT_CODES=0
-      for jobset_pod in ${JOBSET_PODS//[()]/}; do
-        POD_EXIT_CODE=$(parse_pod_exit_code ${jobset_pod})
         echo "Pod ${jobset_pod} had exit code ${POD_EXIT_CODE}"
         ALL_EXIT_CODES=$(( ALL_EXIT_CODES + POD_EXIT_CODE ))
       done
 
-      echo "JOBSET_EXIT_CODE=${ALL_EXIT_CODES}" >> ${GITHUB_ENV}
-      if [ ${ALL_EXIT_CODES} -gt 0 ]; then
+      if (( NUM_JOBSET_PODS == 0 )); then
+        echo "The JobSet ${JOBSET_NAME} did not create any pods" >&2
+        echo "JOBSET_EXIT_CODE=1" >> "${GITHUB_ENV}"
         exit 1
       fi
-      exit 0
+
+      echo "JOBSET_EXIT_CODE=${ALL_EXIT_CODES}" >> "${GITHUB_ENV}"
+      if (( ALL_EXIT_CODES > 0 )); then
+        exit 1
+      fi
 
   - name: Clean up JobSet from cluster
     shell: bash -x -u {0}
@@ -272,8 +279,8 @@ runs:
     shell: bash -x -u {0}
     if: ${{ !cancelled() }}
     run: |
-      aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ ${JOBSET_NAME}/ --recursive 
-  
+      aws s3 cp s3://${{ inputs.S3_BUCKET }}/${{ inputs.NAME }}/${JOBSET_NAME}/ ${JOBSET_NAME}/ --recursive
+
   - name: Emit unit test statistics
     if: ${{ !cancelled() }}
     shell: bash -xe -u {0}
@@ -281,7 +288,7 @@ runs:
       STATISTICS_SCRIPT="${{ inputs.STATISTICS_SCRIPT }}"
       STATISTICS_SCRIPT=$(echo ${STATISTICS_SCRIPT} | sed 's/\n/\ /g')
       eval "${STATISTICS_SCRIPT}"
-      
+
       if [[ ${NUM_ERRORS} > 0 ]] || [[ ${NUM_TESTS} == 0 ]]; then
         BADGE_COLOR=red
         BADGE_MESSAGE=error
@@ -296,7 +303,7 @@ runs:
         BADGE_MESSAGE="${NUM_PASSED}/${NUM_TESTS} passed"
         SUMMARY="${{ inputs.NAME }} on ${{ inputs.GPU_ARCH }}: ${NUM_TESTS} total tests, ${NUM_ERRORS} errors, ${NUM_PASSED} passed, ${NUM_FAILED} failed."
       fi
-      
+
       source .github/workflows/scripts/to_json.sh
       BADGE_LABEL="${{ inputs.NAME }} ${{ inputs.GPU_ARCH }} Unit"
       to_json \
@@ -304,7 +311,7 @@ runs:
         NUM_ERRORS NUM_TESTS NUM_PASSED NUM_FAILED \
         BADGE_LABEL BADGE_COLOR BADGE_MESSAGE \
       > sitrep.json
-      
+
       schemaVersion=1 \
       label="${BADGE_LABEL}" \
       message="${BADGE_MESSAGE}" \
