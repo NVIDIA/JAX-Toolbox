@@ -160,6 +160,10 @@ fi
 
 # The wheel filename includes the TE commit; if this has changed since the last
 # incremental build then we would end up with multiple wheels.
+
+# ensure TE uses a consistent short sha length
+git -C "${SRC_PATH_TE}" config --local core.abbrev 9
+
 rm -fv dist/*.whl
 python setup.py bdist_wheel
 ls dist/
