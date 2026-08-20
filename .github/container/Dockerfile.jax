@@ -43,6 +43,20 @@ ARG GIT_USER_EMAIL
 ARG ENABLE_NVTE_SCCACHE=0
 ARG SCCACHE_REGION=""
 
+# Install sccache before source-dependent layers so this build can be reused
+# when JAX, XLA, or Transformer Engine commits change. The binary remains in
+# the builder stage and is not copied into the mealkit or final image.
+ADD install-compiler-cache.sh /usr/local/bin/
+RUN <<"EOF" bash -ex
+    if [[ "${ENABLE_NVTE_SCCACHE}" == "1" ]]; then
+        : "${SCCACHE_REGION:?ENABLE_NVTE_SCCACHE=1 requires SCCACHE_REGION}"
+        install-compiler-cache.sh sccache
+    elif [[ "${ENABLE_NVTE_SCCACHE}" != "0" ]]; then
+        echo "ENABLE_NVTE_SCCACHE must be 0 or 1" >&2
+        exit 1
+    fi
+EOF
+
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
 <<"EOF" bash -ex
@@ -50,7 +64,7 @@ RUN --mount=type=ssh \
     git-clone.sh ${URLREF_XLA} ${SRC_PATH_XLA}
 EOF
 
-ADD build-jax.sh build-te.sh build-te-with-sccache.sh install-compiler-cache.sh local_cuda_arch /usr/local/bin/
+ADD build-jax.sh build-te.sh build-te-with-sccache.sh local_cuda_arch /usr/local/bin/
 # Install bazelisk
 RUN ARCH="$(dpkg --print-architecture)" && \
     wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH} && \
@@ -73,18 +87,6 @@ RUN mkdir -p /builder/extra-targets/{bin,python} && \
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
-
-# Install the selected compiler cache. The binary remains in the builder
-# stage and is not copied into the mealkit or final image.
-RUN <<"EOF" bash -ex
-    if [[ "${ENABLE_NVTE_SCCACHE}" == "1" ]]; then
-        : "${SCCACHE_REGION:?ENABLE_NVTE_SCCACHE=1 requires SCCACHE_REGION}"
-        NVTE_CCACHE_BIN=sccache install-compiler-cache.sh sccache
-    elif [[ "${ENABLE_NVTE_SCCACHE}" != "0" ]]; then
-        echo "ENABLE_NVTE_SCCACHE must be 0 or 1" >&2
-        exit 1
-    fi
-EOF
 
 # Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
 # because (a) this is the builder stage, and (b) pip-finalize.sh does the install.
