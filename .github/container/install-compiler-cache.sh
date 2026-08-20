@@ -31,7 +31,7 @@ case "${CACHE_BINARY}" in
         rm -rf /var/lib/apt/lists/*
         ;;
     sccache)
-        SCCACHE_VERSION="${SCCACHE_VERSION:-v0.16.0}"
+        SCCACHE_VERSION="${SCCACHE_VERSION:-v0.17.0}"
         if [[ ! "${SCCACHE_VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "SCCACHE_VERSION must have the form vX.Y.Z"
             exit 1
@@ -70,17 +70,14 @@ case "${CACHE_BINARY}" in
         }
         trap cleanup EXIT
 
-        if [[ "${SCCACHE_VERSION}" == "v0.16.0" ]] && \
+        if [[ "${SCCACHE_VERSION}" == "v0.17.0" ]] && \
            [[ -n "${CUDA_TOOLKIT_VERSION}" ]] && \
            dpkg --compare-versions "${CUDA_TOOLKIT_VERSION}" ge "13.3"; then
-            # The v0.16.0 release mis-parses CUDA 13.3's --simt-only nvcc
-            # dry-run output. Until mozilla/sccache#2722 is in a release,
-            # build v0.16.0 with PyTorch's pinned backport of that fix.
+            # mozilla/sccache#2722, the CUDA 13.3 nvcc dry-run parsing fix,
+            # landed after v0.17.0. Build the exact upstream commit containing
+            # that fix instead of maintaining and applying a downstream patch.
             SCCACHE_SOURCE_DIR="${SCCACHE_TMPDIR}/sccache"
-            SCCACHE_SOURCE_COMMIT="b799af2eea02bba9e0ef2550775fe10296b62981"
-            SCCACHE_PATCH="${SCCACHE_TMPDIR}/sccache-nvcc-13.3.patch"
-            SCCACHE_PATCH_URL="https://raw.githubusercontent.com/pytorch/pytorch/225ab0df028a41b741a8c6f3c16a06fbdb55b14b/.ci/docker/common/patches/sccache-nvcc-13.3-dryrun-parsing.patch"
-            SCCACHE_PATCH_SHA256="cb331bb10d735ea742f5f4463cd2b4f8686912a0a70d66870e0c0f68baf944f5"
+            SCCACHE_SOURCE_COMMIT="e9b15a35f7240a7edd1b9644583edb388c6cb5f9"
             SCCACHE_RUST_TOOLCHAIN="${SCCACHE_RUST_TOOLCHAIN:-1.88.0}"
             SCCACHE_RUSTUP_VERSION=1.29.0
             SCCACHE_RUSTUP_INIT="${SCCACHE_TMPDIR}/rustup-init"
@@ -90,20 +87,17 @@ case "${CACHE_BINARY}" in
             apt-get update
             apt-get install -y --no-install-recommends libssl-dev pkg-config
             rm -rf /var/lib/apt/lists/*
-            git clone --depth 1 --branch "${SCCACHE_VERSION}" \
-                https://github.com/mozilla/sccache.git \
-                "${SCCACHE_SOURCE_DIR}"
+            git init "${SCCACHE_SOURCE_DIR}"
+            git -C "${SCCACHE_SOURCE_DIR}" remote add origin \
+                https://github.com/mozilla/sccache.git
+            git -C "${SCCACHE_SOURCE_DIR}" fetch --depth 1 \
+                origin "${SCCACHE_SOURCE_COMMIT}"
+            git -C "${SCCACHE_SOURCE_DIR}" checkout --detach FETCH_HEAD
             if [[ "$(git -C "${SCCACHE_SOURCE_DIR}" rev-parse HEAD)" != \
                   "${SCCACHE_SOURCE_COMMIT}" ]]; then
-                echo "Unexpected commit for sccache ${SCCACHE_VERSION}"
+                echo "Unexpected sccache source commit"
                 exit 1
             fi
-            wget -nv --tries=5 --retry-connrefused \
-                -O "${SCCACHE_PATCH}" "${SCCACHE_PATCH_URL}"
-            printf '%s  %s\n' \
-                "${SCCACHE_PATCH_SHA256}" "${SCCACHE_PATCH}" \
-                | sha256sum -c -
-            git -C "${SCCACHE_SOURCE_DIR}" apply "${SCCACHE_PATCH}"
 
             export CARGO_HOME="${SCCACHE_TMPDIR}/cargo"
             export RUSTUP_HOME="${SCCACHE_TMPDIR}/rustup"
