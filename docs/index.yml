@@ -55,6 +55,12 @@ navigation:
       - page: nsys-jax
         path: nsys-jax.md
 
+  # ==================== Tech Blogs ====================
+  - section: Tech Blogs
+    contents:
+      - page: Optimizing Tensor Parallelism in JAX and XLA
+        path: blog/tensor-parallelism-optimization.md
+
   # ==================== Resiliency ====================
   - section: Resiliency
     contents:
