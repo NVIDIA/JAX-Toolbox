@@ -1,6 +1,7 @@
-from typing import Any, Iterable
 import subprocess
 import xml.etree.ElementTree
+from collections.abc import Iterable
+from typing import Any
 
 from .protobuf_utils import which
 
@@ -53,5 +54,5 @@ def create_flamegraph(
 def display_flamegraph(**kwargs):
     from IPython.display import display
 
-    svg, iframe = create_flamegraph(**kwargs)
+    _svg, iframe = create_flamegraph(**kwargs)
     display(iframe)

@@ -1,8 +1,8 @@
-from dataclasses import dataclass
 import os
-import pandas as pd  # type: ignore
 import pathlib
-from typing import Optional
+from dataclasses import dataclass
+
+import pandas as pd  # type: ignore
 
 pd.options.mode.copy_on_write = True
 
@@ -21,10 +21,10 @@ class ProfilerData:
     Collection of profile data frames, as returned by load_profiler_data.
     """
 
-    communication: Optional[pd.DataFrame] = None
-    compile: Optional[pd.DataFrame] = None
-    module: Optional[pd.DataFrame] = None
-    thunk: Optional[pd.DataFrame] = None
+    communication: pd.DataFrame | None = None
+    compile: pd.DataFrame | None = None
+    module: pd.DataFrame | None = None
+    thunk: pd.DataFrame | None = None
 
 
 def make_child_mask(df: pd.DataFrame, parent_row: int) -> pd.Series:
@@ -43,7 +43,7 @@ def remove_child_ranges(df: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:
     autotuning compilation) instead of as lower-level operations (emitting IR,
     optimizing IR, ...).
     """
-    to_remove: Optional[pd.Series] = None
+    to_remove: pd.Series | None = None
     mask &= df["NumChild"] != 0
     for row in df[mask].itertuples():
         child_mask = make_child_mask(df, row.Index)

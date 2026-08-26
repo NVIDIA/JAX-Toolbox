@@ -1,11 +1,11 @@
 import argparse
-from collections import defaultdict
 import copy
 import os
 import pathlib
 import shutil
 import tempfile
 import zipfile
+from collections import defaultdict
 
 from .utils import execute_analysis_script, shuffle_analysis_arg
 

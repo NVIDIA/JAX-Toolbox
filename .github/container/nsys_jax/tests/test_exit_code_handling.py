@@ -1,11 +1,12 @@
 import os
-import pytest  # type: ignore
 import sys
+
+import pytest  # type: ignore
 
 helper_dir = os.path.join(os.path.dirname(__file__), "nsys_jax_test_helpers")
 if helper_dir not in sys.path:
     sys.path.insert(0, helper_dir)
-from nsys_jax_test_helpers import nsys_jax, nsys_jax_with_result  # noqa: E402
+from nsys_jax_test_helpers import nsys_jax, nsys_jax_with_result
 
 # This example program does different things after calling cudaProfilerStop
 cuda_profiler_api = os.path.join(os.path.dirname(__file__), "cuda_profiler_api.py")

@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Optional
 
 from .utils import default_data_prefix
 
@@ -34,7 +33,7 @@ def which(executable: str) -> pathlib.Path:
 def compile_protos(
     proto_dir: str | pathlib.Path,
     output_dir: str | pathlib.Path,
-    output_stub_dir: Optional[str | pathlib.Path] = None,
+    output_stub_dir: str | pathlib.Path | None = None,
 ):
     if not os.path.isdir(proto_dir):
         raise Exception(f"Input: {proto_dir} is not a directory")

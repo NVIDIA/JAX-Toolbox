@@ -1,6 +1,7 @@
-from nsys_jax.data_loaders import _find_overlapped as find_overlapped
 import pandas as pd  # type: ignore
 import pytest  # type: ignore
+
+from nsys_jax.data_loaders import _find_overlapped as find_overlapped
 
 
 @pytest.mark.parametrize(

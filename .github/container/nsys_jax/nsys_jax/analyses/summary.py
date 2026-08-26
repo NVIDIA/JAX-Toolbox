@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 import argparse
 import math
+import pathlib
+
+from prettytable import PrettyTable
+from uncertainties import ufloat  # type: ignore
+
 from nsys_jax import (
     apply_warmup_heuristics,
     ensure_compiled_protos_are_importable,
@@ -8,9 +13,6 @@ from nsys_jax import (
     load_profiler_data,
     remove_autotuning_detail,
 )
-import pathlib
-from prettytable import PrettyTable
-from uncertainties import ufloat  # type: ignore
 
 
 def main():

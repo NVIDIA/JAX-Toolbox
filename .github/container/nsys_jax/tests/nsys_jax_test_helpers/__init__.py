@@ -1,13 +1,15 @@
-from nsys_jax import ensure_compiled_protos_are_importable
 import os
 import pathlib
-import psutil
 import re
 import shutil
 import subprocess
 import tempfile
 import typing
 import zipfile
+
+import psutil
+
+from nsys_jax import ensure_compiled_protos_are_importable
 
 
 def nsys_jax_with_result(command, *, out_dir):

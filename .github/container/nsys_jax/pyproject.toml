@@ -52,3 +52,6 @@ dev = [
     "types-psutil>=7.2.2.20260408",
     "types-requests>=2.33.0.20260408",
 ]
+
+[tool.ruff.lint]
+ignore = ["B008", "B023", "BLE001", "PLW1510", "SIM115", "TRY002"]

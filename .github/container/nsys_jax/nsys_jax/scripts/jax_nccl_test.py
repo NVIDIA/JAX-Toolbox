@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 import argparse
+import os
+import random
+import time
+from functools import partial
+
+import jax
+import jax.numpy as jnp
+import numpy as np
 from cuda.bindings.driver import (  # type: ignore
+    CUevent,
+    CUevent_flags,
+    CUresult,
     cuCtxGetDevice_v2,
     cuDeviceGetCount,
     cuDevicePrimaryCtxRetain,
@@ -14,21 +25,12 @@ from cuda.bindings.driver import (  # type: ignore
     cuProfilerStart,
     cuProfilerStop,
     cuStreamGetCtx,
-    CUevent,
-    CUevent_flags,
-    CUresult,
 )
-from functools import partial
-import jax
 from jax.experimental.buffer_callback import buffer_callback
 from jax.experimental.mesh_utils import create_device_mesh
 from jax.experimental.multihost_utils import process_allgather
-import jax.numpy as jnp
-from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
-import numpy as np
-import os
-import random
-import time
+from jax.sharding import Mesh, NamedSharding
+from jax.sharding import PartitionSpec as P
 from uncertainties import ufloat  # type: ignore
 
 
@@ -49,7 +51,7 @@ def checkCudaErrors(result):
                     name if err == CUresult.CUDA_SUCCESS else "<unknown>",
                 )
             )
-        raise RuntimeError("Unknown error type: {}".format(result[0].value))
+        raise RuntimeError(f"Unknown error type: {result[0].value}")
     if len(result) == 1:
         return None
     elif len(result) == 2:
@@ -202,7 +204,7 @@ def stream_event_timer_data(events, callback=None):
     collectives = sorted({t[1] for t in events})
     element_counts = sorted({t[2] for t in events})
     # Get the set of (collective, element_count) pairs we measured; sort so all processes agree on the indices
-    collective_sizes = sorted(set(t[1:-1] for t in events))
+    collective_sizes = sorted({t[1:-1] for t in events})
     # Construct an array of local-process results that we can gather across processes later
     collective_timings = np.zeros(
         (jax.local_device_count(), len(collective_sizes)), dtype=float

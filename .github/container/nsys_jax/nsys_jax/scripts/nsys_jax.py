@@ -1,12 +1,7 @@
 import argparse
-from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
-from contextlib import contextmanager
-from glob import glob, iglob
 import lzma
-import numpy as np
 import os
 import os.path as osp
-import pandas as pd  # type: ignore
 import pathlib
 import queue
 import re
@@ -18,11 +13,16 @@ import sys
 import tempfile
 import time
 import traceback
-from typing import Optional
 import zipfile
+from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
+from contextlib import contextmanager
+from glob import glob, iglob
 
-from .utils import execute_analysis_script, shuffle_analysis_arg
+import numpy as np
+import pandas as pd  # type: ignore
+
 from ..version import version_tuple as jax_toolbox_version_tuple
+from .utils import execute_analysis_script, shuffle_analysis_arg
 
 
 # Expand %q{ENV_VAR} if the variable is defined.
@@ -283,7 +283,7 @@ def main() -> None:
         return f"--{n}" if v is None else f"--{n}={v}"
 
     # Get the existing XLA_FLAGS and parse them into a dictionary.
-    xla_flags: dict[str, Optional[str]] = {}
+    xla_flags: dict[str, str | None] = {}
     for flag in shlex.split(env.get("XLA_FLAGS", "")):
         assert flag.startswith("--")
         bits = flag[2:].split("=", maxsplit=1)
@@ -300,7 +300,7 @@ def main() -> None:
             return True
         if s.lower() == "false" or s == "0":
             return False
-        raise Exception("Could not convert '{}' to bool".format(s))
+        raise Exception(f"Could not convert '{s}' to bool")
 
     # Enable dumping protobufs unless it was explicitly disabled
     if "xla_dump_hlo_as_proto" not in xla_flags:
@@ -354,9 +354,7 @@ def main() -> None:
     if not osp.exists(tmp_rep):
         raise Exception(f"Could not find output file: {tmp_rep}")
 
-    def copy_proto_files_to_tmp(
-        tmp_dir, xla_dir=os.environ.get("SRC_PATH_XLA", "/opt/xla")
-    ):
+    def copy_proto_files_to_tmp(tmp_dir, xla_dir=None):
         """
         Copy .proto files from XLA into a temporary directory under `tmp_dir`.
 
@@ -366,6 +364,8 @@ def main() -> None:
 
         Returns: (name of temporary directory, list of relative .proto paths)
         """
+        if xla_dir is None:
+            xla_dir = os.environ.get("SRC_PATH_XLA", "/opt/xla")
         start = time.time()
         proto_dir = osp.join(tmp_dir, "protos")
         tsl_dir = osp.join(xla_dir, "third_party", "tsl")

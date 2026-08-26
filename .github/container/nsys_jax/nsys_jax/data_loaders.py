@@ -1,18 +1,19 @@
-from collections import defaultdict
 import functools
 import itertools
 import lzma
 import multiprocessing
-import numpy as np
 import os
-import pandas as pd  # type: ignore
 import pathlib
 import re
+from collections import defaultdict
+
+import numpy as np
+import pandas as pd  # type: ignore
 
 from .analysis import calculate_collective_metrics
 from .protobuf import _hlo_cache, _remap_program_id, xla_module_metadata
 from .protobuf_utils import ensure_compiled_protos_are_importable
-from .utils import default_data_prefix, make_child_mask, ProfilerData
+from .utils import ProfilerData, default_data_prefix, make_child_mask
 
 pd.options.mode.copy_on_write = True
 
@@ -318,9 +319,7 @@ def _load_nvtx_gpu_proj_trace_single(
             not_last, last = gpu_ops[:-1], gpu_ops[-1]
             if last < np.mean(not_last) - np.std(not_last):
                 print(
-                    "Skipping last occurence of {} because it only had {} GPU operations, compared to {} +/- {} before".format(
-                        mod_name, last, np.mean(not_last), np.std(not_last)
-                    )
+                    f"Skipping last occurence of {mod_name} because it only had {last} GPU operations, compared to {np.mean(not_last)} +/- {np.std(not_last)} before"
                 )
                 mod_id = mod_name_df.index[-1]
                 mod_ids.remove(mod_id)
@@ -779,7 +778,7 @@ def _load_nvtx_pushpop_trace(prefix: pathlib.Path, frames: set[str]) -> pd.DataF
 
 def load_profiler_data(
     prefix: pathlib.Path = default_data_prefix(),
-    frames: set[str] = {"communication", "compile", "module", "thunk"},
+    frames: set[str] | None = None,
 ) -> ProfilerData:
     """
     Load post-processed Nsight Systems traces and prepare them for analysis.
@@ -794,6 +793,8 @@ def load_profiler_data(
      ProfilerData dataclass with members set according to ``frames``
     """
     # Dependency management
+    if frames is None:
+        frames = {"communication", "compile", "module", "thunk"}
     if "communication" in frames:
         frames.add("thunk")
     output = ProfilerData()
