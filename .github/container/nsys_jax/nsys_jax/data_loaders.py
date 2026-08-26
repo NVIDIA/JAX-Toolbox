@@ -435,7 +435,7 @@ def _load_nvtx_gpu_proj_trace_single(
         # thunks + the protobuf data, and we can further clean up the data.
         thunk_df = clean_data_frame(df[all_thunks])
         thunk_df["Name"] = thunk_df["Name"].str.replace(
-            pat=f"^{tsl_prefix}Thunk:#(?:name=.*?,|)hlo_op=([a-z0-9._-]+)#$",
+            pat=f"^{tsl_prefix}Thunk:#(?:name=.*?,|)hlo_op=([a-z0-9._-]+)(?:,[^#]*)?#$",
             n=1,
             repl=lambda m: m.group(1),
             regex=True,
