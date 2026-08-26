@@ -26,7 +26,7 @@ def main():
     # install a protoc with the same version as google.protobuf. For newer versions, given
     # google.protobuf version X.Y.Z install protoc version Y.Z as described in
     # https://protobuf.dev/support/version-support
-    runtime_version = (int(v) for v in google.protobuf.__version__.split("."))
+    runtime_version = tuple(int(v) for v in google.protobuf.__version__.split("."))
     if runtime_version < (3, 21):
         # old versioning scheme, try and install a matching protoc version
         protoc_version = runtime_version
