@@ -257,10 +257,10 @@ def test_triage_scenarios(
 @pytest.mark.parametrize(
     "history,candidate_key,explicit_package,expected_log",
     [
-        ("linear", "bad_commit_for_linear", False, "Confirmed"),
+        ("linear", "bad_commit_for_linear", False, "Bisected failure to jax"),
         ("linear", "failing_linear", True, "as the failing endpoint"),
         ("linear", "good_linear", True, "as the passing endpoint"),
-        ("nonlinear", "bad_main", True, "Confirmed"),
+        ("nonlinear", "bad_main", True, "Bisected failure to jax"),
     ],
 )
 def test_specific_commit_validation_and_fallback(

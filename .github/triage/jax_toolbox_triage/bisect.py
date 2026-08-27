@@ -2,139 +2,8 @@ import argparse
 import datetime
 import logging
 import typing
-from dataclasses import dataclass
 
 from .container import Container
-
-
-@dataclass(frozen=True)
-class CommitAndParent:
-    package: str
-    commit: str
-    parent: str
-    needs_fetch: bool
-
-
-def _parse_git_date(date: str) -> datetime.datetime:
-    # Python < 3.11 does not accept the trailing Z emitted by some Git versions.
-    if date.endswith("Z"):
-        date = date[:-1] + "+00:00"
-    return datetime.datetime.fromisoformat(date).astimezone(datetime.timezone.utc)
-
-
-def _commit_exists(worker: Container, revision: str, directory: str) -> bool:
-    return (
-        worker.exec(
-            ["git", "cat-file", "-e", f"{revision}^{{commit}}"],
-            policy="once",
-            stderr="separate",
-            workdir=directory,
-        ).returncode
-        == 0
-    )
-
-
-def resolve_commit_and_parent(
-    worker: Container,
-    commit_spec: str,
-    package_dirs: typing.Dict[str, str],
-    override_remotes: typing.Dict[str, str],
-) -> CommitAndParent:
-    """Resolve ``[PACKAGE:]REVISION`` and its first parent.
-
-    Bare revisions are located among the known source repositories. If the revision
-    is not already present, each repository's configured remote is tried. An explicit
-    package avoids those probes and gives clearer errors for abbreviated revisions.
-    """
-    if not commit_spec or any(c.isspace() for c in commit_spec):
-        raise ValueError("--commit must be a non-empty Git revision without whitespace")
-
-    package = None
-    revision = commit_spec
-    if ":" in commit_spec:
-        package, revision = commit_spec.split(":", 1)
-        if package not in package_dirs:
-            known_packages = ", ".join(sorted(package_dirs))
-            raise ValueError(
-                f"Unknown package {package!r} in --commit; expected one of: "
-                f"{known_packages}"
-            )
-    if not revision or revision.startswith("-"):
-        raise ValueError(f"Invalid Git revision in --commit: {revision!r}")
-
-    if package is not None:
-        directory = package_dirs[package]
-        needs_fetch = not _commit_exists(worker, revision, directory)
-        if needs_fetch:
-            worker.check_exec(
-                ["git", "fetch", override_remotes.get(package, "origin"), revision],
-                policy="once_per_container",
-                stderr="separate",
-                workdir=directory,
-            )
-        matching_packages = [package]
-    else:
-        matching_packages = [
-            candidate_package
-            for candidate_package, directory in package_dirs.items()
-            if _commit_exists(worker, revision, directory)
-        ]
-        needs_fetch = False
-        if not matching_packages:
-            # A candidate can be newer than the checkout embedded in the bisection
-            # container. Try each source repository's remote before giving up.
-            for candidate_package, directory in package_dirs.items():
-                fetch = worker.exec(
-                    [
-                        "git",
-                        "fetch",
-                        override_remotes.get(candidate_package, "origin"),
-                        revision,
-                    ],
-                    policy="once_per_container",
-                    stderr="separate",
-                    workdir=directory,
-                )
-                if fetch.returncode == 0 and _commit_exists(
-                    worker, revision, directory
-                ):
-                    matching_packages.append(candidate_package)
-                    needs_fetch = True
-                    break
-
-    if not matching_packages:
-        raise ValueError(
-            f"Could not find --commit {revision!r} in any known source repository"
-        )
-    if len(matching_packages) > 1:
-        packages = ", ".join(sorted(matching_packages))
-        raise ValueError(
-            f"--commit {revision!r} is ambiguous across {packages}; use "
-            "PACKAGE:REVISION"
-        )
-
-    package = matching_packages[0]
-    directory = package_dirs[package]
-    commit_line = worker.check_exec(
-        ["git", "rev-list", "--parents", "-n", "1", revision],
-        policy="once",
-        stderr="separate",
-        workdir=directory,
-    ).stdout.strip()
-    commit_and_parents = commit_line.split()
-    if len(commit_and_parents) == 1:
-        raise ValueError(
-            f"--commit {commit_and_parents[0]} is a root commit and has no parent to test"
-        )
-
-    commit, parent = commit_and_parents[:2]
-
-    return CommitAndParent(
-        package=package,
-        commit=commit,
-        parent=parent,
-        needs_fetch=needs_fetch,
-    )
 
 
 def get_commit_history(
@@ -276,6 +145,10 @@ def get_commit_history(
     data = []
     for line in result.stdout.splitlines():
         commit, date = line.split()
-        data.append((commit, _parse_git_date(date)))
+        # for python < 3.11 we need to fix:
+        if date.endswith("Z"):
+            date = date[:-1] + "+00:00"
+        date = datetime.datetime.fromisoformat(date).astimezone(datetime.timezone.utc)
+        data.append((commit, date))
 
     return data, cherry_pick_ranges

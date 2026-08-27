@@ -73,10 +73,22 @@ def test_good_local_args():
     assert "xla" in args.failing_versions
 
 
-@pytest.mark.parametrize("commit", ["0123456789abcdef", "jax:0123456789abcdef"])
-def test_commit_argument(commit):
+@pytest.mark.parametrize(
+    "commit,expected",
+    [
+        ("0123456789abcdef", {"jax": "0123456789abcdef"}),
+        ("xla:0123456789abcdef", {"xla": "0123456789abcdef"}),
+    ],
+)
+def test_commit_argument(commit, expected):
     args = parse_args(valid_start_end_container + ["--commit", commit] + test_command)
-    assert args.commit == commit
+    assert args.commit == expected
+
+
+@pytest.mark.parametrize("commit", ["", "-bad", "jax:", "jax:a,xla:b"])
+def test_bad_commit_argument(commit):
+    with pytest.raises(SystemExit):
+        parse_args(valid_start_end_container + ["--commit", commit] + test_command)
 
 
 @pytest.mark.parametrize("date_args", valid_start_end_date_args)

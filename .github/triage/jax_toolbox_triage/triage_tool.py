@@ -11,7 +11,7 @@ import shlex
 import time
 from typing import Any, Dict, Optional, Set, Tuple, Union
 
-from .bisect import get_commit_history, resolve_commit_and_parent
+from .bisect import get_commit_history
 from .container import Container
 from .container_factory import make_container
 from .docker import DockerContainer
@@ -27,7 +27,6 @@ from .logic import (
     TestExecutionOutcome,
     TestResult,
     container_search,
-    verify_culprit,
     version_search,
 )
 from .metric_classifier import MetricClassifier
@@ -907,31 +906,73 @@ class TriageTool:
         candidate = None
         # Prepare the container for the bisection
         with self._make_container(self.bisection_url) as worker:
-            commit_spec = getattr(self.args, "commit", None)
-            if commit_spec is not None:
+            if self.args.commit is not None:
                 assert self.package_dirs is not None
-                candidate = resolve_commit_and_parent(
-                    worker,
-                    commit_spec,
-                    self.package_dirs,
-                    self.args.override_remotes,
-                )
-                if candidate.package not in passing_versions:
+                package, revision = next(iter(self.args.commit.items()))
+                if package not in self.package_dirs:
                     raise ValueError(
-                        f"The package selected by --commit ({candidate.package}) "
+                        f"--commit package {package!r} is not a Git repository "
+                        "known to the triage environment"
+                    )
+                if package not in passing_versions:
+                    raise ValueError(
+                        f"The package selected by --commit ({package}) "
                         "does not have passing and failing endpoint versions"
                     )
+
+                directory = self.package_dirs[package]
+                resolve_command = [
+                    "git",
+                    "rev-list",
+                    "--parents",
+                    "-n",
+                    "1",
+                    revision,
+                ]
+                commit_info = worker.exec(
+                    resolve_command,
+                    policy="once",
+                    stderr="separate",
+                    workdir=directory,
+                )
+                needs_fetch = commit_info.returncode != 0
+                if needs_fetch:
+                    worker.check_exec(
+                        [
+                            "git",
+                            "fetch",
+                            self.args.override_remotes.get(package, "origin"),
+                            revision,
+                        ],
+                        policy="once_per_container",
+                        stderr="separate",
+                        workdir=directory,
+                    )
+                    commit_info = worker.check_exec(
+                        resolve_command,
+                        policy="once",
+                        stderr="separate",
+                        workdir=directory,
+                    )
+                commit_and_parents = commit_info.stdout.split()
+                if len(commit_and_parents) == 1:
+                    raise ValueError(
+                        f"--commit {commit_and_parents[0]} has no parent to test"
+                    )
+                commit, parent = commit_and_parents[:2]
+                candidate = (package, commit, parent)
+
                 # A package can be static across the original container endpoints but
                 # still need to be checked out when an explicit candidate is supplied.
-                self.dynamic_packages.add(candidate.package)
-                if candidate.needs_fetch and self.args.container_runtime != "local":
+                self.dynamic_packages.add(package)
+                if needs_fetch and self.args.container_runtime != "local":
                     # Preparation happens in a disposable container. Make the
                     # candidate (and therefore its ancestors) available again in each
                     # fresh build container.
-                    self.commits_to_fetch[candidate.package] = candidate.commit
+                    self.commits_to_fetch[package] = commit
                 self.logger.info(
-                    f"Resolved --commit to {candidate.package} {candidate.commit}; "
-                    f"its first parent is {candidate.parent}"
+                    f"Resolved --commit to {package} {commit}; "
+                    f"its first parent is {parent}"
                 )
             package_versions = self._gather_histories(
                 worker, passing_versions, failing_versions
@@ -963,101 +1004,83 @@ class TriageTool:
         last_known_good = None
         first_known_bad = None
         if candidate is not None:
+            package, commit, parent = candidate
             # Keep every other package at its bisection-compatible failing endpoint.
             # This isolates the candidate while preserving any automatically-derived
             # cherry-picks needed to reproduce the failing environment.
-            candidate_versions = {
-                package: versions[-1][0]
-                for package, versions in package_versions.items()
-            }
-            candidate_versions[candidate.package] = candidate.commit
-            parent_versions = candidate_versions.copy()
-            parent_versions[candidate.package] = candidate.parent
+            candidate_date = package_versions[package][-1][1]
+            candidate_range = collections.OrderedDict(
+                [(package, [(parent, candidate_date), (commit, candidate_date)])]
+            )
+            candidate_range.update(
+                (
+                    other_package,
+                    [(versions[-1][0], candidate_date)],
+                )
+                for other_package, versions in package_versions.items()
+                if other_package != package
+            )
 
             self.logger.info(
-                f"Validating suspected culprit {candidate.package} "
-                f"{candidate.commit} against parent {candidate.parent}"
+                f"Validating suspected culprit {package} {commit} "
+                f"against parent {parent}"
             )
-            verification = verify_culprit(
-                candidate_versions=candidate_versions,
-                parent_versions=parent_versions,
-                build_and_test=self._build_and_test,
-                logger=self.logger,
-                confirmation_iterations=self.args.confirmation_iterations,
-                result_cache=result_cache,
-                classifier=classifier,
-            )
-            if verification.candidate_outcome == ClassifiedTestOutcome.FAIL:
-                self.logger.info(
-                    "The supplied commit reproduced a failure. IMPORTANT: check "
-                    "that the candidate test output above shows the regression you "
-                    "intended to triage."
+            fallback_range = None
+            try:
+                result, last_known_good, first_known_bad = version_search(
+                    versions=candidate_range,
+                    build_and_test=self._build_and_test,
+                    logger=self.logger,
+                    skip_precondition_checks=False,
+                    check_success_before_failure=False,
+                    confirmation_iterations=self.args.confirmation_iterations,
+                    result_cache=result_cache,
+                    classifier=classifier,
+                    precondition_failure_log_level=logging.INFO,
                 )
-            if verification.confirmed:
-                self.logger.info(
-                    f"Confirmed {candidate.package} {candidate.commit} as the "
-                    "culprit: the candidate fails and its first parent passes"
+            except CouldNotReproduceSuccess:
+                # The candidate failed but its parent did not pass. Search backwards.
+                fallback_range = (
+                    passing_versions,
+                    {**failing_versions, package: commit},
                 )
-                result = {
-                    f"{candidate.package}_bad": candidate.commit,
-                    f"{candidate.package}_good": candidate.parent,
-                }
-                for package, version in candidate_versions.items():
-                    if package != candidate.package:
-                        result[f"{package}_ref"] = version
-                last_known_good = verification.parent_results
-                first_known_bad = verification.candidate_results
-            else:
                 self.logger.info(
-                    f"Could not confirm {candidate.package} {candidate.commit} "
-                    "directly: candidate outcome "
-                    f"{verification.candidate_outcome}, parent outcome "
-                    f"{verification.parent_outcome}"
+                    "Falling back to version-level bisection with --commit "
+                    "as the failing endpoint"
                 )
-
-                fallback_passing_versions = passing_versions
-                fallback_failing_versions = failing_versions
-                if verification.candidate_outcome == ClassifiedTestOutcome.FAIL:
-                    # The candidate is a valid bad endpoint. Search backwards from it.
-                    fallback_failing_versions = failing_versions.copy()
-                    fallback_failing_versions[candidate.package] = candidate.commit
-                    self.logger.info(
-                        "Falling back to version-level bisection with --commit "
-                        "as the failing endpoint"
+            except CouldNotReproduceFailure as error:
+                if error.outcome == ClassifiedTestOutcome.PASS:
+                    # The candidate passed. Search forward from exactly what we tested.
+                    fallback_range = (
+                        {**failing_versions, package: commit},
+                        failing_versions,
                     )
-                elif verification.candidate_outcome == ClassifiedTestOutcome.PASS:
-                    # The candidate is a valid good endpoint. Search forward from it,
-                    # holding all other packages at the versions just tested.
-                    fallback_passing_versions = failing_versions.copy()
-                    fallback_passing_versions[candidate.package] = candidate.commit
                     self.logger.info(
                         "Falling back to version-level bisection with --commit "
                         "as the passing endpoint"
                     )
                 else:
                     self.logger.info(
-                        "The candidate did not yield a classifiable test result; "
-                        "falling back to the original version-level range"
+                        "The candidate did not yield a test result; falling back "
+                        "to the original version-level range"
                     )
 
-                if (
-                    fallback_passing_versions != passing_versions
-                    or fallback_failing_versions != failing_versions
-                ):
-                    if fallback_passing_versions == fallback_failing_versions:
-                        self.logger.warning(
-                            "The candidate-derived endpoints are identical; using "
-                            "the original version-level range instead"
+            if fallback_range is not None:
+                fallback_passing_versions, fallback_failing_versions = fallback_range
+                if fallback_passing_versions == fallback_failing_versions:
+                    self.logger.warning(
+                        "The candidate-derived endpoints are identical; using the "
+                        "original version-level range instead"
+                    )
+                else:
+                    with self._make_container(self.bisection_url) as worker:
+                        package_versions = self._gather_histories(
+                            worker,
+                            fallback_passing_versions,
+                            fallback_failing_versions,
                         )
-                    else:
-                        with self._make_container(self.bisection_url) as worker:
-                            package_versions = self._gather_histories(
-                                worker,
-                                fallback_passing_versions,
-                                fallback_failing_versions,
-                            )
-                        for package in packages_missing_scripts:
-                            package_versions.pop(package, None)
+                    for missing_package in packages_missing_scripts:
+                        package_versions.pop(missing_package, None)
 
         # Run the ordinary version-level bisection unless direct validation converged.
         if result is None:

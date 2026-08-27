@@ -11,7 +11,6 @@ from jax_toolbox_triage.logic import (
     ExitCodeClassifier,
     TestExecutionOutcome,
     TestResult,
-    verify_culprit,
     version_search,
 )
 from jax_toolbox_triage.metric_classifier import MetricClassifier
@@ -48,83 +47,6 @@ def make_commits(jax, xla, flax=None):
     return collections.OrderedDict(
         (("xla", xla), ("jax", jax)) + (() if flax is None else (("flax", flax),))
     )
-
-
-def test_verify_culprit_tests_candidate_then_parent(logger):
-    calls = []
-
-    def dummy_test(*, versions, **kwargs):
-        calls.append(versions.copy())
-        return wrap(versions["jax"] == "parent", versions)
-
-    verification = verify_culprit(
-        candidate_versions={"jax": "candidate", "xla": "reference"},
-        parent_versions={"jax": "parent", "xla": "reference"},
-        build_and_test=dummy_test,
-        logger=logger,
-        confirmation_iterations=0,
-    )
-
-    assert verification.confirmed
-    assert verification.candidate_outcome == ClassifiedTestOutcome.FAIL
-    assert verification.parent_outcome == ClassifiedTestOutcome.PASS
-    assert [call["jax"] for call in calls] == ["candidate", "parent"]
-
-
-@pytest.mark.parametrize(
-    "passing_versions,expected_candidate,expected_parent",
-    [
-        (
-            {"candidate", "parent"},
-            ClassifiedTestOutcome.PASS,
-            ClassifiedTestOutcome.PASS,
-        ),
-        (set(), ClassifiedTestOutcome.FAIL, ClassifiedTestOutcome.FAIL),
-    ],
-)
-def test_verify_culprit_returns_unconfirmed_observations(
-    logger, passing_versions, expected_candidate, expected_parent
-):
-    def dummy_test(*, versions, **kwargs):
-        return wrap(versions["jax"] in passing_versions, versions)
-
-    verification = verify_culprit(
-        candidate_versions={"jax": "candidate"},
-        parent_versions={"jax": "parent"},
-        build_and_test=dummy_test,
-        logger=logger,
-        confirmation_iterations=0,
-    )
-
-    assert not verification.confirmed
-    assert verification.candidate_outcome == expected_candidate
-    assert verification.parent_outcome == expected_parent
-
-
-def test_verify_culprit_still_tests_parent_after_candidate_build_failure(logger):
-    calls = []
-
-    def dummy_test(*, versions, **kwargs):
-        revision = versions["jax"]
-        calls.append(revision)
-        return wrap(
-            revision == "parent",
-            versions,
-            build_failure=revision == "candidate",
-        )
-
-    verification = verify_culprit(
-        candidate_versions={"jax": "candidate"},
-        parent_versions={"jax": "parent"},
-        build_and_test=dummy_test,
-        logger=logger,
-        confirmation_iterations=1,
-    )
-
-    assert not verification.confirmed
-    assert verification.candidate_outcome == ClassifiedTestOutcome.ERROR
-    assert verification.parent_outcome == ClassifiedTestOutcome.PASS
-    assert calls == ["candidate", "parent", "parent"]
 
 
 @pytest.mark.parametrize(

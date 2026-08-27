@@ -35,6 +35,26 @@ def parse_version_argument(s: str) -> typing.Dict[str, str]:
     return ret
 
 
+def parse_commit_argument(s: str) -> typing.Dict[str, str]:
+    # Most users of a bare --commit are triaging JAX itself. Keep that convenient,
+    # while reusing the existing package:version syntax for every other package.
+    try:
+        versions = parse_version_argument(s if ":" in s else f"jax:{s}")
+    except (AssertionError, ValueError) as error:
+        raise argparse.ArgumentTypeError("invalid --commit value") from error
+    if len(versions) != 1:
+        raise argparse.ArgumentTypeError("--commit accepts exactly one commit")
+    package, revision = next(iter(versions.items()))
+    if (
+        not package
+        or not revision
+        or revision.startswith("-")
+        or any(character.isspace() for character in s)
+    ):
+        raise argparse.ArgumentTypeError("invalid --commit value")
+    return versions
+
+
 def parse_override_remotes(s: str) -> typing.Dict[str, str]:
     """Function to parse the override remote
 
@@ -241,13 +261,15 @@ def parse_args(args=None) -> argparse.Namespace:
     version_search_args.add_argument(
         "--commit",
         metavar="[PACKAGE:]REVISION",
+        type=parse_commit_argument,
         help="""
             Commit suspected of introducing the regression. The tool first rebuilds
-            and tests this commit and its first parent using the other package versions
-            from the failing endpoint. If the commit is not confirmed as the culprit,
-            its observed test result is used to narrow the normal version-level
-            bisection. A bare revision is auto-detected among the source repositories;
-            prefix it with a package name (for example jax:abc123) to disambiguate.
+            and tests this commit, then its first parent if the failure reproduces,
+            using the other package versions from the failing endpoint. If the commit
+            is not confirmed as the culprit, its observed test result is used to narrow
+            the normal version-level bisection. A bare revision refers to JAX; prefix
+            revisions for other packages with their package name (for example
+            xla:abc123).
         """,
     )
     version_search_args.add_argument(

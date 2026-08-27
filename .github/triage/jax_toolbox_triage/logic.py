@@ -8,11 +8,22 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 
-class CouldNotReproduceFailure(Exception):
+class CouldNotReproduceOutcome(Exception):
+    def __init__(
+        self,
+        message: str,
+        *,
+        outcome: typing.Optional["ClassifiedTestOutcome"] = None,
+    ) -> None:
+        super().__init__(message)
+        self.outcome = outcome
+
+
+class CouldNotReproduceFailure(CouldNotReproduceOutcome):
     pass
 
 
-class CouldNotReproduceSuccess(Exception):
+class CouldNotReproduceSuccess(CouldNotReproduceOutcome):
     pass
 
 
@@ -434,149 +445,6 @@ def version_cache_key(
     )
 
 
-@dataclass(frozen=True)
-class CulpritVerification:
-    candidate_outcome: ClassifiedTestOutcome
-    candidate_results: typing.Sequence[TestResult]
-    parent_outcome: ClassifiedTestOutcome
-    parent_results: typing.Sequence[TestResult]
-
-    @property
-    def confirmed(self) -> bool:
-        return (
-            self.candidate_outcome == ClassifiedTestOutcome.FAIL
-            and self.parent_outcome == ClassifiedTestOutcome.PASS
-        )
-
-
-def verify_culprit(
-    *,
-    candidate_versions: typing.Dict[str, str],
-    parent_versions: typing.Dict[str, str],
-    build_and_test: BuildAndTest,
-    logger: logging.Logger,
-    confirmation_iterations: int = 1,
-    max_repetitions: typing.Optional[int] = None,
-    result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
-    classifier: typing.Optional[ExecutionClassifier] = None,
-) -> CulpritVerification:
-    """Build and test a suspected culprit commit and its parent.
-
-    The candidate is deliberately tested first so users can immediately verify that
-    the reported failure is the one they intend to triage. Unlike version-search
-    preconditions, neither outcome is assumed: both are measured so the caller can use
-    the observations to select a fallback bisection range.
-    """
-    assert candidate_versions.keys() == parent_versions.keys(), (
-        candidate_versions,
-        parent_versions,
-    )
-    assert candidate_versions != parent_versions
-    if max_repetitions is None:
-        max_repetitions = confirmation_iterations + 2
-    assert max_repetitions >= confirmation_iterations
-    if result_cache is None:
-        result_cache = {}
-    if classifier is None:
-        classifier = ExitCodeClassifier()
-
-    def build_cached(
-        versions: typing.Dict[str, str],
-        *,
-        repetition: int,
-        test_output_log_level: int,
-    ) -> TestResult:
-        cache_key = version_cache_key(versions, repetition=repetition)
-        result = result_cache.get(cache_key)
-        if result is not None:
-            logger.info(
-                f"Reusing cached result for {dict(cache_key)}: "
-                f"{result.result}: {result.metrics}"
-            )
-            return result
-        result = build_and_test(
-            versions=_strip_build_failures(versions),
-            test_output_log_level=test_output_log_level,
-            test_repetition=repetition,
-        )
-        logger.info(
-            f"New result for {dict(cache_key)}: {result.result}: {result.metrics}"
-        )
-        result_cache[cache_key] = result
-        return result
-
-    def outcome_with_retries(
-        label: str,
-        versions: typing.Dict[str, str],
-        *,
-        first_log_level: int,
-    ) -> typing.Tuple[ClassifiedTestOutcome, typing.Sequence[TestResult]]:
-        min_runs = 1 + confirmation_iterations
-        max_runs = 1 + max_repetitions
-        logger.info(f"Testing {label} versions at least {min_runs} time(s)")
-        results = []
-        for repetition in range(min_runs):
-            result = build_cached(
-                versions,
-                repetition=repetition,
-                test_output_log_level=(
-                    first_log_level if repetition == 0 else logging.DEBUG
-                ),
-            )
-            results.append(result)
-            if result.result != TestExecutionOutcome.TEST_YIELDED_RESULTS:
-                # Repeating a build failure or an execution error cannot make it
-                # classifiable. Still continue on to test the other revision.
-                break
-
-        outcome = classifier(results)
-        if outcome == ClassifiedTestOutcome.AMBIGUOUS:
-            logger.info(
-                f"Ambiguous result from {len(results)} {label} measurement(s), "
-                f"running up to {max_runs - len(results)} extra measurement(s)."
-            )
-            for repetition in range(len(results), max_runs):
-                results.append(
-                    build_cached(
-                        versions,
-                        repetition=repetition,
-                        test_output_log_level=logging.DEBUG,
-                    )
-                )
-                outcome = classifier(results)
-                if outcome != ClassifiedTestOutcome.AMBIGUOUS:
-                    logger.info(
-                        f"Got non-ambiguous {label} outcome {outcome} from "
-                        f"{len(results)} measurements."
-                    )
-                    break
-
-        logger.info(f"Observed {label} outcome: {outcome}")
-        classifier_status = classifier.text_summary()
-        if classifier_status:
-            logger.info("Updated classifier status:")
-            for row in classifier_status:
-                logger.info(row)
-        return outcome, results
-
-    candidate_outcome, candidate_results = outcome_with_retries(
-        "candidate commit",
-        candidate_versions,
-        first_log_level=logging.INFO,
-    )
-    parent_outcome, parent_results = outcome_with_retries(
-        "parent commit",
-        parent_versions,
-        first_log_level=logging.DEBUG,
-    )
-    return CulpritVerification(
-        candidate_outcome=candidate_outcome,
-        candidate_results=candidate_results,
-        parent_outcome=parent_outcome,
-        parent_results=parent_results,
-    )
-
-
 def version_search(
     *,
     versions: typing.OrderedDict[
@@ -590,6 +458,7 @@ def version_search(
     max_repetitions: typing.Optional[int] = None,
     result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
     classifier: ExecutionClassifier = ExitCodeClassifier(),
+    precondition_failure_log_level: int = logging.FATAL,
 ) -> typing.Tuple[
     typing.Dict[str, str], typing.Sequence[TestResult], typing.Sequence[TestResult]
 ]:
@@ -613,6 +482,7 @@ def version_search(
         of times any given set of versions will be executed is `max_repetitions + 1`.
         Defaults to be `confirmation_iterations + 2`.
     result_cache: previously completed build/test results to reuse
+    precondition_failure_log_level: log level for endpoint verification failures
 
     Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
     where the last element can be None if skip_precondition_checks=True. The
@@ -687,11 +557,17 @@ def version_search(
             )
             if check.result == TestExecutionOutcome.BUILD_FAILURE:
                 err = f"Build failure attempting to reproduce result with {good_or_bad} versions"
-                logger.fatal(err)
-                logger.fatal(check.build_stdouterr)
-                raise CouldNotReproduceDesiredOutcome(err)
+                logger.log(precondition_failure_log_level, err)
+                logger.log(precondition_failure_log_level, check.build_stdouterr)
+                raise CouldNotReproduceDesiredOutcome(
+                    err, outcome=ClassifiedTestOutcome.ERROR
+                )
             outcome = classifier([check])
-            assert outcome != ClassifiedTestOutcome.ERROR
+            if outcome == ClassifiedTestOutcome.ERROR:
+                err = f"Test error attempting to reproduce result with {good_or_bad} versions"
+                logger.log(precondition_failure_log_level, err)
+                logger.log(precondition_failure_log_level, check.stdouterr)
+                raise CouldNotReproduceDesiredOutcome(err, outcome=outcome)
             if outcome == ClassifiedTestOutcome.AMBIGUOUS:
                 # For metric-based triage, these up-front checking loops are important
                 # to help initialise the classifier state. Rather than spending a long
@@ -720,9 +596,9 @@ def version_search(
                     logger.info(f"Verified test result using {good_or_bad} versions.")
             elif outcome in {ClassifiedTestOutcome.PASS, ClassifiedTestOutcome.FAIL}:
                 err = f"Could not reproduce results with {good_or_bad} versions ({outcome}, iteration {n})"
-                logger.fatal(err)
-                logger.fatal(check.stdouterr)
-                raise CouldNotReproduceDesiredOutcome(err)
+                logger.log(precondition_failure_log_level, err)
+                logger.log(precondition_failure_log_level, check.stdouterr)
+                raise CouldNotReproduceDesiredOutcome(err, outcome=outcome)
 
     def _check_success():
         _check(
