@@ -139,21 +139,28 @@ preference:
   in the installed version), the enclosing training step cannot be jitted —
   jit the pure-JAX portions separately and document the constraint.
 
-## Example (version-specific)
+## Example (schematic, version-specific)
 
-The following worked against nvidia-cutlass-dsl 4.6.1/4.7.0 + cudnn-frontend
-1.27.0. It illustrates the *shape* of a solution, not a timeless API — every
-name below must be re-verified per Phase 4.
+**This is a schematic, not runnable code.** It condenses the structure of an
+integration that was validated end-to-end (forward + backward, value-checked
+against independent references on both Hopper and Blackwell) under
+nvidia-cutlass-dsl 4.6.1 + cudnn-frontend 1.27.0. `_kernel`, `_zero_f32`,
+and `aux_shape` are placeholders for the kernel instance, a zero-fill
+prologue `@cute.kernel`, and the auxiliary shape taken from the vendor's own
+allocation. It illustrates the *shape* of a solution, not a timeless API —
+every name and convention below must be re-derived per Phase 4.
 
 ```python
 @cute.jit
 def _launcher(stream, x, meta, out, aux, *, scale: float):
-    _zero_f32(aux).launch(                      # prologue: aux is accumulated into
-        grid=(cute.ceil_div(cute.size(aux), 256), 1, 1),
-        block=(256, 1, 1), stream=stream)
+    # launcher convention (verify in installed bridge source):
+    # (stream, *inputs, *outputs, **constexpr_kwargs)
+    _zero_f32(aux).launch(..., stream=stream)  # prologue: aux is accumulated
+                                               # into; bridge outputs are
+                                               # uninitialized — zero them here
     _kernel(x, out, aux, meta, cutlass.Float32(scale), stream)
 
-@functools.partial(jax.jit, static_argnums=())
+@jax.jit
 def op(x, meta):
     return cjax.cutlass_call(
         _launcher,
@@ -161,6 +168,6 @@ def op(x, meta):
             jax.ShapeDtypeStruct(x.shape, x.dtype),          # out
             jax.ShapeDtypeStruct(aux_shape, jnp.float32),    # aux — shape from
         ],                                                   # vendor allocation!
-        softmax_scale=..., 
-    )(x, meta)
+        scale=1.0 / math.sqrt(head_dim),   # constexpr kwarg — name must match
+    )(x, meta)                             # the launcher's keyword parameter
 ```
