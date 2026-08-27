@@ -97,8 +97,11 @@ Before any notebook or abstraction: a single plain-Python script that runs
 the kernel once with fixed seeds, prints **value-based** evidence (NaN
 counts, checksums, fixed-position samples), and exposes every configuration
 choice as an env-var toggle. This script is simultaneously your repro for
-bug reports and your bisection harness. Allocate outputs with `jnp.empty` so
-unwritten regions show up as NaN — a free tile-coverage diagnostic. Then run
+bug reports and your bisection harness. Where you own the output buffers
+(direct path), prefill them with a NaN sentinel — `jnp.full(shape, jnp.nan,
+dtype)` — so unwritten regions are detectable; do **not** use `jnp.empty`,
+which can return arbitrary uninitialized bits that evade `jnp.isnan`
+(bridge-path variant: validation.md Gate 3). Then run
 it **N≥3 iterations** in one process (repeated execution is where buffer and
 lifetime bugs hide) and **twice in fresh processes** (identical checksums;
 drift is a red flag).
