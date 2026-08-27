@@ -254,14 +254,19 @@ def _get_message_size(
             replica_groups = comm_inst.replica_groups
         if len(replica_groups) == 0:
             # perhaps we have the newer format
+            collective_size = 0
             try:
                 collective_size = comm_inst.collective_device_list.iota_replica_group_list.num_devices_per_group
             except AttributeError:
-                # Or the even-newer format
-                collective_size = (
-                    comm_inst.iota_collective_device_list.num_devices_per_group
-                )
-            if len(replica_groups) == 0:
+                pass
+            if collective_size == 0:
+                try:
+                    collective_size = (
+                        comm_inst.iota_collective_device_list.num_devices_per_group
+                    )
+                except AttributeError:
+                    pass
+            if collective_size == 0:
                 # Or the EVEN-newer format. It seems that process_allgather emits this. The default print(axes) is unhelpful, beware.
                 mesh = comm_inst.mesh_axes_replica_group_list.mesh
                 axes = comm_inst.mesh_axes_replica_group_list.axes
