@@ -73,8 +73,10 @@ orchestration. This single file yielded:
   kernel-vs-reference dispute in the reference's favor.
 - Analytic invariant `sum(dV) == sum(dOut) == 1.0` — free exact check on the
   backward, now asserted in the shipped artifact.
-- `jnp.empty` + NaN coverage map — turned "output has NaN" into "the
-  scheduler stops issuing tiles after the first wave".
+- NaN-sentinel coverage map (validation.md Gate 3) — turned "output has NaN"
+  into "the scheduler stops issuing tiles after the first wave". Prefill
+  outputs with `jnp.full(..., jnp.nan)`, not `jnp.empty` — uninitialized
+  memory is not guaranteed to read as NaN.
 - Size scaling: every defect above was invisible at the small smoke-test
   size and appeared only past one hardware wave of work.
 - Repeated execution (N≥3 + fresh-process reruns with checksum comparison) —

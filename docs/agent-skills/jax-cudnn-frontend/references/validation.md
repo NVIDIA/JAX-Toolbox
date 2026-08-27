@@ -46,10 +46,24 @@ development.
 
 ## Gate 3 — Coverage diagnostic
 
-Allocate outputs with `jnp.empty` during testing so unwritten regions surface
-as NaN garbage, then map defects to work units:
+Prefill outputs with a NaN sentinel during testing so unwritten regions are
+detectable, then map defects to work units. Do **not** use `jnp.empty` for
+this: it may return genuinely uninitialized memory (documented from
+JAX 0.11, and never guaranteed to be NaN before that), so an unwritten tile
+can contain any finite value and evade `jnp.isnan`.
+
+- **Direct path** (you allocate the buffers): `out = jnp.full(shape,
+  jnp.nan, dtype)`. Integer outputs need a finite sentinel instead — e.g.
+  `jnp.full(shape, -1, jnp.int32)`, then check for surviving `-1`s.
+- **Bridge path** (`cutlass_call`-style, where the bridge allocates outputs
+  uninitialized): the caller cannot prefill. In diagnostic builds, add a
+  sentinel-fill prologue kernel inside the launcher — the same pattern as
+  the zero-prologue in jax-integration.md, writing NaN instead of zero — or
+  run this gate on the direct path, where the coverage finding transfers.
 
 ```python
+out = jnp.full((B, H, S, D), jnp.nan, jnp.float32)  # sentinel prefill
+# ... kernel writes into out ...
 bad = jnp.isnan(out.astype(jnp.float32))
 per_tile = bad.reshape(B, H, n_tiles, tile, D).any(axis=(0, 1, 3, 4))
 ```
