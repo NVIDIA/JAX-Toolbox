@@ -878,6 +878,103 @@ class TriageTool:
         assert self.bisection_versions is not None
         return passing_versions, failing_versions
 
+    def _check_candidate_commit(
+        self,
+        *,
+        candidate: Tuple[str, str, str],
+        package_versions: collections.OrderedDict,
+        passing_versions: Dict[str, str],
+        failing_versions: Dict[str, str],
+        packages_missing_scripts: Set[str],
+        result_cache,
+        classifier: ExecutionClassifier,
+    ):
+        """Check ``--commit`` and prepare histories for any required fallback.
+
+        A direct result is returned when the candidate fails and its parent passes.
+        Otherwise, the returned histories define the ordinary bisection range.
+        """
+        package, commit, parent = candidate
+
+        # Test the candidate with every other package fixed at the failing endpoint.
+        candidate_date = package_versions[package][-1][1]
+        candidate_range: collections.OrderedDict = collections.OrderedDict(
+            [(package, [(parent, candidate_date), (commit, candidate_date)])]
+        )
+        candidate_range.update(
+            (
+                other_package,
+                [(versions[-1][0], candidate_date)],
+            )
+            for other_package, versions in package_versions.items()
+            if other_package != package
+        )
+
+        self.logger.info(
+            f"Validating suspected culprit {package} {commit} against parent {parent}"
+        )
+        try:
+            candidate_result = version_search(
+                versions=candidate_range,
+                build_and_test=self._build_and_test,
+                logger=self.logger,
+                skip_precondition_checks=False,
+                check_success_before_failure=False,
+                confirmation_iterations=self.args.confirmation_iterations,
+                result_cache=result_cache,
+                classifier=classifier,
+                precondition_failure_log_level=logging.INFO,
+            )
+        except CouldNotReproduceSuccess:
+            # Candidate fails, parent does not pass: search backwards from candidate.
+            fallback_range = (
+                passing_versions,
+                {**failing_versions, package: commit},
+            )
+            self.logger.info(
+                "Falling back to version-level bisection with --commit "
+                "as the failing endpoint"
+            )
+        except CouldNotReproduceFailure as error:
+            if error.outcome == ClassifiedTestOutcome.PASS:
+                # Candidate passes: search forward from the combination just tested.
+                fallback_range = (
+                    {**failing_versions, package: commit},
+                    failing_versions,
+                )
+                self.logger.info(
+                    "Falling back to version-level bisection with --commit "
+                    "as the passing endpoint"
+                )
+            else:
+                # Candidate cannot be tested: retain the original range.
+                self.logger.info(
+                    "The candidate did not yield a test result; falling back "
+                    "to the original version-level range"
+                )
+                return None, package_versions
+        else:
+            # Candidate fails, parent passes: culprit confirmed.
+            return candidate_result, package_versions
+
+        fallback_passing_versions, fallback_failing_versions = fallback_range
+        if fallback_passing_versions == fallback_failing_versions:
+            self.logger.warning(
+                "The candidate-derived endpoints are identical; using the "
+                "original version-level range instead"
+            )
+            return None, package_versions
+
+        with self._make_container(self.bisection_url) as worker:
+            package_versions = self._gather_histories(
+                worker,
+                fallback_passing_versions,
+                fallback_failing_versions,
+            )
+        for missing_package in packages_missing_scripts:
+            package_versions.pop(missing_package, None)
+        return None, package_versions
+
     def run_version_bisection(
         self,
         passing_versions: Dict[str, str],
@@ -1004,83 +1101,17 @@ class TriageTool:
         last_known_good = None
         first_known_bad = None
         if candidate is not None:
-            package, commit, parent = candidate
-            # Keep every other package at its bisection-compatible failing endpoint.
-            # This isolates the candidate while preserving any automatically-derived
-            # cherry-picks needed to reproduce the failing environment.
-            candidate_date = package_versions[package][-1][1]
-            candidate_range = collections.OrderedDict(
-                [(package, [(parent, candidate_date), (commit, candidate_date)])]
+            candidate_result, package_versions = self._check_candidate_commit(
+                candidate=candidate,
+                package_versions=package_versions,
+                passing_versions=passing_versions,
+                failing_versions=failing_versions,
+                packages_missing_scripts=packages_missing_scripts,
+                result_cache=result_cache,
+                classifier=classifier,
             )
-            candidate_range.update(
-                (
-                    other_package,
-                    [(versions[-1][0], candidate_date)],
-                )
-                for other_package, versions in package_versions.items()
-                if other_package != package
-            )
-
-            self.logger.info(
-                f"Validating suspected culprit {package} {commit} "
-                f"against parent {parent}"
-            )
-            fallback_range = None
-            try:
-                result, last_known_good, first_known_bad = version_search(
-                    versions=candidate_range,
-                    build_and_test=self._build_and_test,
-                    logger=self.logger,
-                    skip_precondition_checks=False,
-                    check_success_before_failure=False,
-                    confirmation_iterations=self.args.confirmation_iterations,
-                    result_cache=result_cache,
-                    classifier=classifier,
-                    precondition_failure_log_level=logging.INFO,
-                )
-            except CouldNotReproduceSuccess:
-                # The candidate failed but its parent did not pass. Search backwards.
-                fallback_range = (
-                    passing_versions,
-                    {**failing_versions, package: commit},
-                )
-                self.logger.info(
-                    "Falling back to version-level bisection with --commit "
-                    "as the failing endpoint"
-                )
-            except CouldNotReproduceFailure as error:
-                if error.outcome == ClassifiedTestOutcome.PASS:
-                    # The candidate passed. Search forward from exactly what we tested.
-                    fallback_range = (
-                        {**failing_versions, package: commit},
-                        failing_versions,
-                    )
-                    self.logger.info(
-                        "Falling back to version-level bisection with --commit "
-                        "as the passing endpoint"
-                    )
-                else:
-                    self.logger.info(
-                        "The candidate did not yield a test result; falling back "
-                        "to the original version-level range"
-                    )
-
-            if fallback_range is not None:
-                fallback_passing_versions, fallback_failing_versions = fallback_range
-                if fallback_passing_versions == fallback_failing_versions:
-                    self.logger.warning(
-                        "The candidate-derived endpoints are identical; using the "
-                        "original version-level range instead"
-                    )
-                else:
-                    with self._make_container(self.bisection_url) as worker:
-                        package_versions = self._gather_histories(
-                            worker,
-                            fallback_passing_versions,
-                            fallback_failing_versions,
-                        )
-                    for missing_package in packages_missing_scripts:
-                        package_versions.pop(missing_package, None)
+            if candidate_result is not None:
+                result, last_known_good, first_known_bad = candidate_result
 
         # Run the ordinary version-level bisection unless direct validation converged.
         if result is None:
