@@ -73,6 +73,12 @@ def test_good_local_args():
     assert "xla" in args.failing_versions
 
 
+@pytest.mark.parametrize("commit", ["0123456789abcdef", "jax:0123456789abcdef"])
+def test_commit_argument(commit):
+    args = parse_args(valid_start_end_container + ["--commit", commit] + test_command)
+    assert args.commit == commit
+
+
 @pytest.mark.parametrize("date_args", valid_start_end_date_args)
 def test_bad_container_arg_combinations_across_groups(date_args):
     # Can't combine --{start,end}-container with --container/--{start,end}-date

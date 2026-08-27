@@ -239,6 +239,18 @@ def parse_args(args=None) -> argparse.Namespace:
         type=parse_version_argument,
     )
     version_search_args.add_argument(
+        "--commit",
+        metavar="[PACKAGE:]REVISION",
+        help="""
+            Commit suspected of introducing the regression. The tool first rebuilds
+            and tests this commit and its first parent using the other package versions
+            from the failing endpoint. If the commit is not confirmed as the culprit,
+            its observed test result is used to narrow the normal version-level
+            bisection. A bare revision is auto-detected among the source repositories;
+            prefix it with a package name (for example jax:abc123) to disambiguate.
+        """,
+    )
+    version_search_args.add_argument(
         "--cherry-pick",
         default={},
         help="""
@@ -459,7 +471,7 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert args.container is not None, (
-            "--container must be passed for the container-level search"
-        )
+        assert (
+            args.container is not None
+        ), "--container must be passed for the container-level search"
     return args
