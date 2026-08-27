@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 
-class CouldNotReproduceOutcome(Exception):
+class CouldNotReproduceFailure(Exception):
     def __init__(
         self,
         message: str,
@@ -19,12 +19,15 @@ class CouldNotReproduceOutcome(Exception):
         self.outcome = outcome
 
 
-class CouldNotReproduceFailure(CouldNotReproduceOutcome):
-    pass
-
-
-class CouldNotReproduceSuccess(CouldNotReproduceOutcome):
-    pass
+class CouldNotReproduceSuccess(Exception):
+    def __init__(
+        self,
+        message: str,
+        *,
+        outcome: typing.Optional["ClassifiedTestOutcome"] = None,
+    ) -> None:
+        super().__init__(message)
+        self.outcome = outcome
 
 
 class TestExecutionOutcome(Enum):
