@@ -79,12 +79,41 @@ invocation of the same kernel instance (concrete arrays via the DSL's
 installed version — a missing flag produces an explicit "not a TVM-FFI
 tensor" error). This path:
 
-- is what the vendor's own wrappers use — the best-tested route;
+- uses the same invocation *machinery* as the vendor's own wrappers
+  (`from_dlpack` → compile → launch) — the best-tested route to the kernel;
 - runs eagerly on concrete arrays (cannot live under `jax.jit`);
 - is your A/B oracle: same kernel + same tensors through both paths must be
   bit-identical. Direct-correct + bridge-wrong = bridge bug (report it);
   both-wrong = kernel or contract problem; both-correct = your remaining
   bugs are above this layer.
+
+**Memory ownership on this path.** The kernel must write into the output
+and workspace buffers, and whether that is legal depends on *who owns the
+memory* — not on the machinery or on DLPack. The vendor runs this machinery
+over PyTorch tensors, which are mutable by contract, so its writes are
+legitimate. Reading JAX arrays through DLPack views is likewise fine — only
+mutation is at issue. For the kernel-writable buffers, in order of
+preference:
+
+1. **Own them outside JAX (recommended when an external GPU allocator is
+   available).** Allocate outputs/workspace with e.g. CuPy
+   (`cupy.full(shape, nan, dtype)`) or raw `cuda-python` allocations —
+   mutable-by-contract memory, so nothing is undefined. JAX arrays appear
+   only as read-only inputs; results are compared via `cupy.asnumpy`, or
+   imported into JAX with an immediate copy (`jnp.copy` / `device_put`)
+   *after* all writes complete. Fully contract-clean at the cost of one
+   debug-only dependency.
+2. **JAX-owned buffers, with containment (zero extra dependencies).**
+   Prefill fresh `jnp.full` sentinels and let the kernel write into their
+   DLPack views. This is externally-visible mutation of an immutable-by-
+   contract array — undefined behavior per the JAX docs — kept benign by
+   discipline: buffers must be fresh, eagerly created, and single-purpose
+   (never model inputs, never anything produced under `jit`, which XLA may
+   alias or cache); hold Python references until after stream sync; read
+   results with a fresh device read (`np.asarray(jnp.copy(x))` — the
+   caching trap below is a symptom of this same contract); treat mutated
+   arrays as terminal — copy values out, never feed them back into traced
+   computation. Acceptable for a debugging oracle; never for production.
 
 ## Pointers and ownership
 
