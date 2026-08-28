@@ -923,7 +923,6 @@ class TriageTool:
                 confirmation_iterations=self.args.confirmation_iterations,
                 result_cache=result_cache,
                 classifier=classifier,
-                precondition_failure_log_level=logging.INFO,
             )
         except CouldNotReproduceSuccess:
             # Candidate fails, parent does not pass: search backwards from candidate.

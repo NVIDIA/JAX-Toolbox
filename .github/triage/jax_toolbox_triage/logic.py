@@ -461,7 +461,6 @@ def version_search(
     max_repetitions: typing.Optional[int] = None,
     result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
     classifier: ExecutionClassifier = ExitCodeClassifier(),
-    precondition_failure_log_level: int = logging.FATAL,
 ) -> typing.Tuple[
     typing.Dict[str, str], typing.Sequence[TestResult], typing.Sequence[TestResult]
 ]:
@@ -485,7 +484,6 @@ def version_search(
         of times any given set of versions will be executed is `max_repetitions + 1`.
         Defaults to be `confirmation_iterations + 2`.
     result_cache: previously completed build/test results to reuse
-    precondition_failure_log_level: log level for endpoint verification failures
 
     Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
     where the last element can be None if skip_precondition_checks=True. The
@@ -560,16 +558,16 @@ def version_search(
             )
             if check.result == TestExecutionOutcome.BUILD_FAILURE:
                 err = f"Build failure attempting to reproduce result with {good_or_bad} versions"
-                logger.log(precondition_failure_log_level, err)
-                logger.log(precondition_failure_log_level, check.build_stdouterr)
+                logger.fatal(err)
+                logger.fatal(check.build_stdouterr)
                 raise CouldNotReproduceDesiredOutcome(
                     err, outcome=ClassifiedTestOutcome.ERROR
                 )
             outcome = classifier([check])
             if outcome == ClassifiedTestOutcome.ERROR:
                 err = f"Test error attempting to reproduce result with {good_or_bad} versions"
-                logger.log(precondition_failure_log_level, err)
-                logger.log(precondition_failure_log_level, check.stdouterr)
+                logger.fatal(err)
+                logger.fatal(check.stdouterr)
                 raise CouldNotReproduceDesiredOutcome(err, outcome=outcome)
             if outcome == ClassifiedTestOutcome.AMBIGUOUS:
                 # For metric-based triage, these up-front checking loops are important
@@ -599,8 +597,8 @@ def version_search(
                     logger.info(f"Verified test result using {good_or_bad} versions.")
             elif outcome in {ClassifiedTestOutcome.PASS, ClassifiedTestOutcome.FAIL}:
                 err = f"Could not reproduce results with {good_or_bad} versions ({outcome}, iteration {n})"
-                logger.log(precondition_failure_log_level, err)
-                logger.log(precondition_failure_log_level, check.stdouterr)
+                logger.fatal(err)
+                logger.fatal(check.stdouterr)
                 raise CouldNotReproduceDesiredOutcome(err, outcome=outcome)
 
     def _check_success():
