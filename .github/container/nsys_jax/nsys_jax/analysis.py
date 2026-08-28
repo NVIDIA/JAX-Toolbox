@@ -384,15 +384,13 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
     seconds of task A and 15 seconds of task B will be accounted in the returned
     statistics.
     """
-    compile_df = compile_df.copy()
     # Aggregate compilation stats in here
     compile_time_ms: dict[str, np.ndarray] = defaultdict(lambda: np.zeros(2))
     for profile_name, profile_df in compile_df.groupby("ProfileName"):
         # Identify the main thread
-        main_thread = profile_df.loc[profile_df["Name"] == "XlaCompile", "TID"].unique()
+        main_thread = profile_df.loc[compile_df["Name"] == "XlaCompile", "TID"].unique()
         assert len(main_thread) == 1
         main_thread = main_thread[0]
-        main_parallel_nonchild_ms = defaultdict(float)
 
         # Identify the ranges in the main thread that represent parallel compilation, i.e.
         # ranges whose child ranges are in different threads.
@@ -407,32 +405,35 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
         # Loop over the main-thread ranges that launched parallel work
         for launcher_row in profile_df.loc[launcher_ids, :].itertuples():
             assert launcher_row.TID == main_thread
-            # Find all child ranges; some may still be in the main thread. For
-            # simplicity, assume there is one contiguous parallel region in a given
-            # parent range. The main thread may continue doing useful compilation work
-            # while workers are active.
+            # Find all child ranges; some may still be in the main thread. Historically
+            # the sequence was something like:
+            #   M(A) M(A) M(A) .. W1(B) W2(B) W3(B) W1(B) .. M(C) M(C)
+            # i.e. the main thread M does some task (A), then workers W{1,2,3} do some task
+            # (B) in parallel, then the main thread continues with another task (C).
+            # Newer XLA may overlap B with main-thread work, which is handled below.
+            # For simplicity, we assume that there is only one parallel region B in a
+            # given parent range, but this restriction could be relaxed if needed.
             child_df = profile_df[make_child_mask(profile_df, launcher_row.Index)]
             is_main = child_df["TID"] == launcher_row.TID
             child_ends = child_df["StartMs"] + child_df["DurMs"]
-            # Assuming there is only one parallel region inside `launcher_row`.
+            # Assuming there's only one parallel region inside `launcher_row`
             parallel_start = child_df.loc[~is_main, "StartMs"].min()
             parallel_end = child_ends[~is_main].max()
             # Worker activity accounts for the parallel region's wall time below.
-            # Track the portion of main-thread activity that overlaps that region so
+            # Remove overlapping main-thread activity from the serial accounting so
             # that it is not counted for a second time later.
             main_durations = child_df.loc[is_main, "DurMs"]
             main_overlap_ms = (
                 np.minimum(child_ends[is_main], parallel_end)
                 - np.maximum(child_df.loc[is_main, "StartMs"], parallel_start)
             ).clip(lower=0.0)
-            main_overlap_fraction = (main_overlap_ms / main_durations).where(
+            main_outside_fraction = 1.0 - (main_overlap_ms / main_durations).where(
                 main_durations > 0.0, 0.0
-            )
-            main_overlap_nonchild_ms = (
-                child_df.loc[is_main, "DurNonChildMs"] * main_overlap_fraction
-            )
-            for row_id, duration in main_overlap_nonchild_ms.dropna().items():
-                main_parallel_nonchild_ms[row_id] += duration
+            ).clip(lower=0.0, upper=1.0)
+            columns = ["DurChildMs", "DurNonChildMs"]
+            compile_df.loc[main_durations.index, columns] = compile_df.loc[
+                main_durations.index, columns
+            ].mul(main_outside_fraction, axis="index")
             # Aggregate statistics for how the worker threads spend their time and use that
             # distribution to divide up the [parallel_start, parallel_end] range of the overall
             # compilation time.
@@ -446,10 +447,9 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
                 )
 
             child_df[~is_main].apply(attribute_parallel_time, axis="columns")
-            # These are set to np.nan when worker ranges are spliced in by
-            # `_load_nvtx_pushpop_trace`. Main-thread child time inside the parallel
-            # interval is already represented by parallel_dur, so only add the portion
-            # outside it.
+            # Easy to update these given the simplifying assumptions above; they are set to
+            # np.nan when worker ranges are spliced in by `_load_nvtx_pushpop_trace`.
+            # Main-thread child time inside parallel_dur has already been accounted for.
             compile_df.loc[launcher_row.Index, "DurChildMs"] = (
                 main_durations - main_overlap_ms
             ).sum() + parallel_dur
@@ -459,11 +459,8 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
 
         # `compile_time_ms` now accounts for parallel compilation worker threads, but not
         # the work from the main thread. Add that too.
-        profile_df = compile_df.loc[[profile_name]]
-        for row in profile_df[profile_df["TID"] == main_thread].itertuples():
-            nonchild_ms = row.DurNonChildMs - main_parallel_nonchild_ms[row.Index]
-            assert nonchild_ms >= -1e-9, (row.Index, nonchild_ms)
-            compile_time_ms[row.Name] += (max(nonchild_ms, 0.0), row.DurChildMs)
+        for row in compile_df[compile_df["TID"] == main_thread].itertuples():
+            compile_time_ms[row.Name] += (row.DurNonChildMs, row.DurChildMs)
 
     return pd.DataFrame.from_dict(
         compile_time_ms, columns=["DurNonChildMs", "DurChildMs"], orient="index"
