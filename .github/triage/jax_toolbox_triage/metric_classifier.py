@@ -19,7 +19,7 @@ class MetricClassifier(ExecutionClassifier):
         passing_values: typing.List[float],
         failing_values: typing.List[float],
         threshold: float = 0.997,
-        common_variance: bool = True,
+        common_variance: typing.Optional[bool] = None,
     ):
         """
         The classifier models the metric as two Gaussian distributions (pass/fail),
@@ -29,7 +29,15 @@ class MetricClassifier(ExecutionClassifier):
         using `add_data_with_label`. If new values can be assigned to one of the two
         populations with confidence greater than `threshold`, they are also used to
         update the estimated parameters of the distributions.
+
+        By default, fit separate variances when both populations have multiple seed
+        values. Fall back to a common variance when either population has only one
+        seed, since its variance cannot then be estimated independently. An explicit
+        `common_variance` value overrides this choice.
         """
+        if common_variance is None:
+            common_variance = len(passing_values) <= 1 or len(failing_values) <= 1
+        self.common_variance = common_variance
         self._metric_name = metric_name
         self._threshold = threshold
         self._log_threshold_odds = math.log(threshold / (1 - threshold))
@@ -41,7 +49,7 @@ class MetricClassifier(ExecutionClassifier):
         self._pass["b"] = max(self._min_b, self._pass["b"])
         self._fail["b"] = max(self._min_b, self._fail["b"])
         self._shared = {}
-        if common_variance:
+        if self.common_variance:
             self._shared["a"] = self._pass.pop("a") + self._fail.pop("a")
             self._shared["b"] = self._pass.pop("b") + self._fail.pop("b")
         self._pass_history = passing_values.copy()

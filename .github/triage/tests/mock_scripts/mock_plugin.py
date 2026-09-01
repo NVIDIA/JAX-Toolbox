@@ -31,7 +31,15 @@ if result.returncode == 0:
 else:
     metric_value = 0.0
 with open(args.output_prefix / "metrics.json", "w") as ofile:
-    json.dump({"test_metric": metric_value}, ofile)
+    json.dump(
+        {
+            "test_metric": metric_value,
+            "exit_code": result.returncode
+            if args.exit_code is None
+            else args.exit_code,
+        },
+        ofile,
+    )
 if args.exit_code is None:
     result.check_returncode()
 else:

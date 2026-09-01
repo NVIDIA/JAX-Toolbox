@@ -289,9 +289,15 @@ def parse_args(args=None) -> argparse.Namespace:
         default=[],
         help="""
             Takes a ENV_VAR=val format value and propagates it to the build-te.sh execution
-            environment. Can be passed multiple times. If used, --cache will be passed to
+            environment. Can be passed multiple times. If used, --ccache will be passed to
             build-te.sh. This is intended to allow configuration of a remote ccache cache.
         """,
+    )
+    version_search_args.add_argument(
+        "--extra-build-jax-args",
+        action="append",
+        default=[],
+        help="Extra arguments to pass to build-jax.sh",
     )
     version_search_args.add_argument(
         "--confirmation-iterations",
@@ -301,6 +307,16 @@ def parse_args(args=None) -> argparse.Namespace:
             When the version level search converges, re-check the last-known-good and
             first-known-bad versions this many times. This is a final line of defence
             against flaky test cases.
+        """,
+    )
+    version_search_args.add_argument(
+        "--missing-metric-retries",
+        default=1,
+        type=int,
+        help="""
+            Retry a measurement this many times if it does not produce the metric
+            requested by --metric-name. This applies to both cached and newly executed
+            results. Default: 1.
         """,
     )
     parser.add_argument(
@@ -376,6 +392,8 @@ def parse_args(args=None) -> argparse.Namespace:
                 "You should pass seed metric values via --passing-metric and "
                 "--failing-metric if --metric-name is passed."
             )
+    if args.missing_metric_retries < 0:
+        raise Exception("--missing-metric-retries must be non-negative")
     if (args.passing_metric or args.failing_metric) and args.metric_name is None:
         raise Exception(
             "--metric-name must be passed if --passing-metric or --failing-metric is."
