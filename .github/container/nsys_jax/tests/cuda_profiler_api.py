@@ -1,12 +1,13 @@
-from ctypes import cdll
-import jax
 import sys
 import time
+from ctypes import cdll
+
+import jax
 
 # what should this test program do after cudaProfilerStop?
 mode = sys.argv[1]
 assert mode in {"sleep", "exit42"}
-assert all(map(lambda d: d.platform == "gpu", jax.devices()))
+assert all(d.platform == "gpu" for d in jax.devices())
 
 
 @jax.jit

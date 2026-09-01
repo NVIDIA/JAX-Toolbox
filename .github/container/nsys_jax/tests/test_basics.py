@@ -6,7 +6,7 @@ import zipfile
 helper_dir = os.path.join(os.path.dirname(__file__), "nsys_jax_test_helpers")
 if helper_dir not in sys.path:
     sys.path.insert(0, helper_dir)
-from nsys_jax_test_helpers import nsys_jax  # noqa: E402
+from nsys_jax_test_helpers import nsys_jax
 
 
 def test_program_without_gpu_activity(tmp_path):

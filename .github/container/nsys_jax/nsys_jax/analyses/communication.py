@@ -5,14 +5,15 @@ import pathlib
 from collections import defaultdict
 from math import sqrt
 
+from prettytable import PrettyTable
+from uncertainties import ufloat  # type: ignore
+
 from nsys_jax import (
     align_profiler_data_timestamps,
     apply_warmup_heuristics,
     ensure_compiled_protos_are_importable,
     load_profiler_data,
 )
-from prettytable import PrettyTable
-from uncertainties import ufloat  # type: ignore
 
 
 def process_communication_data(steady_state):
@@ -96,7 +97,7 @@ def print_bandwidth_table(collective_types, summary_data):
         for collective in collective_types
     }
     size_heading = "Size [B]"
-    size_width = max(len(size_heading), max(len(f"{s:,}") for s in summary_data.keys()))
+    size_width = max(len(size_heading), max(len(f"{s:,}") for s in summary_data))
 
     header_log = f"{'':<{size_width}} | Bus bandwidth [GB/s]"
     print(header_log)

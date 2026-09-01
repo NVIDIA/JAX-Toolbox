@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import argparse
+import pathlib
+
 from nsys_jax import (
     apply_warmup_heuristics,
     ensure_compiled_protos_are_importable,
@@ -7,7 +9,6 @@ from nsys_jax import (
     xla_module_metadata,
 )
 from nsys_jax.protobuf import HloProto, HloProtoSet
-import pathlib
 
 
 def get_scheduling_name(module: HloProto, name: str) -> str:

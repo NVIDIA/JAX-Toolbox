@@ -5,7 +5,7 @@ import zipfile
 helper_dir = os.path.join(os.path.dirname(__file__), "nsys_jax_test_helpers")
 if helper_dir not in sys.path:
     sys.path.insert(0, helper_dir)
-from nsys_jax_test_helpers import nsys_jax_with_result  # noqa: E402
+from nsys_jax_test_helpers import nsys_jax_with_result
 
 # Deletes its own source file, so that the XLA metadata refers to a file that no longer
 # exists when nsys-jax gathers source code.

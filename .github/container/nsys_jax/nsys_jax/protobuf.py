@@ -1,10 +1,10 @@
-from collections import defaultdict
-from collections.abc import Callable
 import functools
 import lzma
 import pathlib
 import re
 import typing
+from collections import defaultdict
+from collections.abc import Callable
 
 from .utils import default_data_prefix
 
@@ -84,15 +84,13 @@ class HloInstruction:
                 _, op = wrapped_hlo_proto.find_instruction_by_id(inst.operand_ids[i])
                 return _host_memory_space(op.proto())
 
-            if inst.opcode == "dynamic-slice" and host_dest != _host_operand(0):
-                return True
-            elif (
-                inst.opcode == "dynamic-update-slice"
+            return bool(
+                inst.opcode == "dynamic-slice"
+                and host_dest != _host_operand(0)
+                or inst.opcode == "dynamic-update-slice"
                 and host_dest == _host_operand(0)
                 and host_dest != _host_operand(1)
-            ):
-                return True
-            return False
+            )
 
         if self._proto.opcode in comm_opcodes | comm_start_opcodes:
             self._comm_proto = self._proto
@@ -236,7 +234,7 @@ class HloProtoSet:
     xla_module_metadata with policy="all".
     """
 
-    def __init__(self, protos: dict[typing.Optional[str], HloProto]):
+    def __init__(self, protos: dict[str | None, HloProto]):
         assert len(protos), f"HloProtoSet got {len(protos)} HloProtos"
         self._protos = protos
 
@@ -303,7 +301,6 @@ def _remap_program_id(
     replica: str | None,
     allow_missing_protobuf: bool = False,
 ) -> str:
-    """ """
     # In multi-input mode, we will have something like:
     #   old_id = 1
     #   name = jit_foo
@@ -386,7 +383,7 @@ def xla_module_metadata(
     program_id: str,
     policy: str = "consistent",
     prefix: pathlib.Path = default_data_prefix(),
-) -> typing.Union[HloProto, HloProtoSet]:
+) -> HloProto | HloProtoSet:
     """
     Load the protobuf metadata for module `program_id`. If given, `prefix` is the
     search path. `policy` governs what happens if `nsys-jax-combine` found inconsistent

@@ -1,21 +1,23 @@
-from nsys_jax import (
-    ensure_compiled_protos_are_importable,
-    load_profiler_data,
-    xla_module_metadata,
-)
 import os
 import pathlib
-import portpicker
-import pytest  # type: ignore
 import re
 import subprocess
 import sys
 import tempfile
 
+import portpicker
+import pytest  # type: ignore
+
+from nsys_jax import (
+    ensure_compiled_protos_are_importable,
+    load_profiler_data,
+    xla_module_metadata,
+)
+
 helper_dir = os.path.join(os.path.dirname(__file__), "nsys_jax_test_helpers")
 if helper_dir not in sys.path:
     sys.path.insert(0, helper_dir)
-from nsys_jax_test_helpers import extract, multi_process_nsys_jax  # noqa: E402
+from nsys_jax_test_helpers import extract, multi_process_nsys_jax
 
 
 @pytest.fixture(scope="module")

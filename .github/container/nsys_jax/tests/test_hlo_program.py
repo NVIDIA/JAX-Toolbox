@@ -1,14 +1,16 @@
-from nsys_jax import load_profiler_data
 import os
 import pathlib
-import pytest  # type: ignore
 import shutil
 import sys
+
+import pytest  # type: ignore
+
+from nsys_jax import load_profiler_data
 
 helper_dir = os.path.join(os.path.dirname(__file__), "nsys_jax_test_helpers")
 if helper_dir not in sys.path:
     sys.path.insert(0, helper_dir)
-from nsys_jax_test_helpers import nsys_jax_archive, nsys_version  # noqa: E402
+from nsys_jax_test_helpers import nsys_jax_archive, nsys_version
 
 num_repeats = 2
 hlo_runner_main = shutil.which("hlo_runner_main")

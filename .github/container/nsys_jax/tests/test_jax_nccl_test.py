@@ -1,23 +1,25 @@
-from ctypes import byref, cdll, c_int, POINTER
 import itertools
 import math
+import os
+import pathlib
+import subprocess
+import sys
+import tempfile
+from ctypes import POINTER, byref, c_int, cdll
+
+import portpicker
+import pytest  # type: ignore
+
 from nsys_jax import (
     apply_warmup_heuristics,
     ensure_compiled_protos_are_importable,
     load_profiler_data,
 )
-import os
-import pathlib
-import portpicker
-import pytest  # type: ignore
-import subprocess
-import sys
-import tempfile
 
 helper_dir = os.path.join(os.path.dirname(__file__), "nsys_jax_test_helpers")
 if helper_dir not in sys.path:
     sys.path.insert(0, helper_dir)
-from nsys_jax_test_helpers import extract, multi_process_nsys_jax  # noqa: E402
+from nsys_jax_test_helpers import extract, multi_process_nsys_jax
 
 
 def visible_device_count() -> int:
@@ -113,7 +115,7 @@ def test_analysis_recipes(individual_results, recipe):
     """
     Test that the analysis recipes can swallow jax-nccl-test data.
     """
-    individual_files, metadata = individual_results
+    individual_files, _metadata = individual_results
     with tempfile.NamedTemporaryFile(suffix=".zip") as combined_output:
         subprocess.run(
             [
