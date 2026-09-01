@@ -113,9 +113,9 @@ class HloInstruction:
                     if called_inst.opcode in comm_opcodes or _is_offloading_instruction(
                         called_inst
                     ):
-                        assert self._comm_proto is None, (
-                            f"Found {called_inst.opcode} child having already found {self._comm_proto.opcode}"
-                        )
+                        assert (
+                            self._comm_proto is None
+                        ), f"Found {called_inst.opcode} child having already found {self._comm_proto.opcode}"
                         self._comm_proto = called_inst
 
             for called_id in self._proto.called_computation_ids:
@@ -176,6 +176,19 @@ class HloProto:
         Returns: (computation, instruction) tuple
         """
         return self._instructions_by_id[id]
+
+    def instruction_ids(self):
+        """Return the IDs of all instructions in this HLO module."""
+        return self._instructions_by_id.keys()
+
+    def entry_computation_communication_instruction_names(self) -> list[str]:
+        """Return communication launch instructions from the entry computation."""
+        entry = self.find_computation(self._proto.hlo_module.entry_computation_id)
+        return [
+            inst.name
+            for inst in entry.instructions
+            if self._instructions[inst.name][1].is_communication()
+        ]
 
     def _get_stack_frame(self, frame_id: int) -> tuple[StackFrame, int]:
         """
