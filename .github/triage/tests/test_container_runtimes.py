@@ -1,6 +1,9 @@
 from jax_toolbox_triage.args import parse_args
 from jax_toolbox_triage.container_factory import make_container
-from jax_toolbox_triage.logic import CouldNotReproduceFailure, CouldNotReproduceSuccess
+from jax_toolbox_triage.logic import (
+    ClassifiedTestOutcome,
+    CouldNotReproduceDesiredOutcome,
+)
 from jax_toolbox_triage.triage_tool import TriageTool
 import logging
 import os
@@ -193,7 +196,7 @@ def test_plugin_backend_metric_always_good(
     """
     passing_container_url, _ = passing_container
     failing_container_url, _ = passing_container_with_later_version
-    with pytest.raises(CouldNotReproduceFailure):
+    with pytest.raises(CouldNotReproduceDesiredOutcome) as error:
         run_with_plugin_backend(
             tool=[
                 "--passing-container",
@@ -203,6 +206,8 @@ def test_plugin_backend_metric_always_good(
             ]
             + metric_args,
         )
+    assert error.value.expected_outcome == ClassifiedTestOutcome.FAIL
+    assert error.value.actual_outcome == ClassifiedTestOutcome.PASS
 
 
 @skip_if_no_docker
@@ -217,7 +222,7 @@ def test_plugin_backend_metric_always_bad(
     """
     passing_container_url, _ = failing_container
     failing_container_url, _ = failing_container_with_later_version
-    with pytest.raises(CouldNotReproduceSuccess):
+    with pytest.raises(CouldNotReproduceDesiredOutcome) as error:
         run_with_plugin_backend(
             tool=[
                 "--passing-container",
@@ -227,3 +232,5 @@ def test_plugin_backend_metric_always_bad(
             ]
             + metric_args,
         )
+    assert error.value.expected_outcome == ClassifiedTestOutcome.PASS
+    assert error.value.actual_outcome == ClassifiedTestOutcome.FAIL

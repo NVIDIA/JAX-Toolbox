@@ -8,26 +8,19 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 
-class CouldNotReproduceFailure(Exception):
+class CouldNotReproduceDesiredOutcome(Exception):
+    """Raised when a precondition check does not produce its expected outcome."""
+
     def __init__(
         self,
         message: str,
         *,
-        outcome: typing.Optional["ClassifiedTestOutcome"] = None,
+        expected_outcome: "ClassifiedTestOutcome",
+        actual_outcome: "ClassifiedTestOutcome",
     ) -> None:
         super().__init__(message)
-        self.outcome = outcome
-
-
-class CouldNotReproduceSuccess(Exception):
-    def __init__(
-        self,
-        message: str,
-        *,
-        outcome: typing.Optional["ClassifiedTestOutcome"] = None,
-    ) -> None:
-        super().__init__(message)
-        self.outcome = outcome
+        self.expected_outcome = expected_outcome
+        self.actual_outcome = actual_outcome
 
 
 class TestExecutionOutcome(Enum):
@@ -361,7 +354,7 @@ def _not_first(d: typing.Dict[T, U]) -> typing.Iterable[typing.Tuple[T, U]]:
     return itertools.islice(d.items(), 1, None)
 
 
-def _get_versions(
+def get_aligned_versions(
     *,
     logger: logging.Logger,
     primary: str,
@@ -370,6 +363,13 @@ def _get_versions(
         str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
     ],
 ) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, int]]:
+    """Select the primary version and contemporary versions of other packages.
+
+    For each secondary package, choose the oldest version whose timestamp is not
+    older than the selected primary version, falling back to its latest version.
+    The returned indices allow callers to narrow every package history around the
+    selected version vector.
+    """
     if primary_index is None:
         primary_index = len(versions[primary]) // 2
         log_msg = f"Chose from {len(versions[primary])} remaining {primary} versions"
@@ -535,9 +535,7 @@ def version_search(
         result_cache[cache_key] = bisect_result
         return bisect_result
 
-    def _check(
-        good_or_bad, check_versions, desired_outcome, CouldNotReproduceDesiredOutcome
-    ):
+    def _check(good_or_bad, check_versions, desired_outcome):
         # Verify that we can build successfully and that the test gives the expected results.
         logger.info(
             f"Verifying test outcome using {good_or_bad} versions "
@@ -561,14 +559,20 @@ def version_search(
                 logger.fatal(err)
                 logger.fatal(check.build_stdouterr)
                 raise CouldNotReproduceDesiredOutcome(
-                    err, outcome=ClassifiedTestOutcome.ERROR
+                    err,
+                    expected_outcome=desired_outcome,
+                    actual_outcome=ClassifiedTestOutcome.ERROR,
                 )
             outcome = classifier([check])
             if outcome == ClassifiedTestOutcome.ERROR:
                 err = f"Test error attempting to reproduce result with {good_or_bad} versions"
                 logger.fatal(err)
                 logger.fatal(check.stdouterr)
-                raise CouldNotReproduceDesiredOutcome(err, outcome=outcome)
+                raise CouldNotReproduceDesiredOutcome(
+                    err,
+                    expected_outcome=desired_outcome,
+                    actual_outcome=outcome,
+                )
             if outcome == ClassifiedTestOutcome.AMBIGUOUS:
                 # For metric-based triage, these up-front checking loops are important
                 # to help initialise the classifier state. Rather than spending a long
@@ -599,14 +603,17 @@ def version_search(
                 err = f"Could not reproduce results with {good_or_bad} versions ({outcome}, iteration {n})"
                 logger.fatal(err)
                 logger.fatal(check.stdouterr)
-                raise CouldNotReproduceDesiredOutcome(err, outcome=outcome)
+                raise CouldNotReproduceDesiredOutcome(
+                    err,
+                    expected_outcome=desired_outcome,
+                    actual_outcome=outcome,
+                )
 
     def _check_success():
         _check(
             "'good'",
             _earliest_versions(versions),
             ClassifiedTestOutcome.PASS,
-            CouldNotReproduceSuccess,
         )
 
     def _check_failure():
@@ -614,7 +621,6 @@ def version_search(
             "'bad'",
             _latest_versions(versions),
             ClassifiedTestOutcome.FAIL,
-            CouldNotReproduceFailure,
         )
 
     if skip_precondition_checks:
@@ -638,7 +644,9 @@ def version_search(
     # take the oldest versions of the other packages that are newer than the
     # first package.
     primary = _first(versions.keys())
-    get_versions = functools.partial(_get_versions, logger=logger, primary=primary)
+    get_versions = functools.partial(
+        get_aligned_versions, logger=logger, primary=primary
+    )
 
     def find_successful_build(versions):
         # Try to find a set of versions where the build does not fail, starting with

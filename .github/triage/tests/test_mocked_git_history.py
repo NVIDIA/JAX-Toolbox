@@ -255,12 +255,17 @@ def test_triage_scenarios(
 
 
 @pytest.mark.parametrize(
-    "history,candidate_key,explicit_package,expected_log",
+    "history,candidate_keys,expected_log",
     [
-        ("linear", "bad_commit_for_linear", False, "Bisected failure to jax"),
-        ("linear", "failing_linear", True, "as the failing endpoint"),
-        ("linear", "good_linear", True, "as the passing endpoint"),
-        ("nonlinear", "bad_main", True, "Bisected failure to jax"),
+        ("linear", ["bad_commit_for_linear"], "Bisected failure to jax"),
+        ("linear", ["failing_linear"], "known failing candidate vector"),
+        ("linear", ["good_linear"], "known passing candidate vector"),
+        (
+            "linear",
+            ["good_linear", "bad_commit_for_linear"],
+            "Bisected failure to jax",
+        ),
+        ("nonlinear", ["bad_main"], "Bisected failure to jax"),
     ],
 )
 def test_specific_commit_validation_and_fallback(
@@ -268,8 +273,7 @@ def test_specific_commit_validation_and_fallback(
     triage_env,
     monkeypatch,
     history,
-    candidate_key,
-    explicit_package,
+    candidate_keys,
     expected_log,
 ):
     caplog.set_level(logging.DEBUG)
@@ -296,8 +300,11 @@ def test_specific_commit_validation_and_fallback(
     failing_commit = commits[scenario["failing"]]
     culprit_commit = commits[scenario["culprit"]]
     expected_good_commit = commits[scenario["expected_good"]]
-    candidate_commit = commits[candidate_key]
-    commit_arg = f"jax:{candidate_commit}" if explicit_package else candidate_commit
+    commit_args = [
+        argument
+        for candidate_key in candidate_keys
+        for argument in ["--commit", f"jax:{commits[candidate_key]}"]
+    ]
 
     args = parse_args(
         [
@@ -311,10 +318,11 @@ def test_specific_commit_validation_and_fallback(
             f"jax:{passing_commit}",
             "--failing-versions",
             f"jax:{failing_commit}",
-            "--commit",
-            commit_arg,
             "--confirmation-iterations",
             "0",
+        ]
+        + commit_args
+        + [
             "--",
             str(paths["scripts"] / "test-case.sh"),
             str(jax_repo_path),
