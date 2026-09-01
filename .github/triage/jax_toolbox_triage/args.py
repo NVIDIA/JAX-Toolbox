@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import argparse
 import datetime
 import getpass
 import os
 import pathlib
 import tempfile
-import typing
 import warnings
 
 # Software we know may exist in the containers that we might be able to triage
@@ -16,8 +17,8 @@ compulsory_software = ["xla", "jax"]
 optional_software = ["flax", "maxtext", "transformer-engine"]
 
 
-def parse_cherry_picks(s: str) -> typing.Dict[str, typing.List[str]]:
-    ret: typing.Dict[str, typing.List[str]] = {}
+def parse_cherry_picks(s: str) -> dict[str, list[str]]:
+    ret: dict[str, list[str]] = {}
     for part in s.split(","):
         sw, commit = part.split(":", 1)
         if sw not in ret:
@@ -26,8 +27,8 @@ def parse_cherry_picks(s: str) -> typing.Dict[str, typing.List[str]]:
     return ret
 
 
-def parse_version_argument(s: str) -> typing.Dict[str, str]:
-    ret: typing.Dict[str, str] = {}
+def parse_version_argument(s: str) -> dict[str, str]:
+    ret: dict[str, str] = {}
     for part in s.split(","):
         sw, version = part.split(":", 1)
         assert sw not in ret, ret
@@ -52,6 +53,7 @@ def parse_commit_argument(s: str) -> typing.Dict[str, str]:
 
 
 def parse_override_remotes(s: str) -> typing.Dict[str, str]:
+def parse_override_remotes(s: str) -> dict[str, str]:
     """Function to parse the override remote
 
     Inputs:
@@ -60,7 +62,7 @@ def parse_override_remotes(s: str) -> typing.Dict[str, str]:
     Returns:
         ret: (typing.Dict[str,str]) Dictionary with software as key and git-url as value.
     """
-    ret: typing.Dict[str, str] = {}
+    ret: dict[str, str] = {}
     for part in s.split(","):
         sw, url = part.split(":", 1)
         assert sw not in ret, ret
@@ -321,9 +323,15 @@ def parse_args(args=None) -> argparse.Namespace:
         default=[],
         help="""
             Takes a ENV_VAR=val format value and propagates it to the build-te.sh execution
-            environment. Can be passed multiple times. If used, --cache will be passed to
+            environment. Can be passed multiple times. If used, --ccache will be passed to
             build-te.sh. This is intended to allow configuration of a remote ccache cache.
         """,
+    )
+    version_search_args.add_argument(
+        "--extra-build-jax-args",
+        action="append",
+        default=[],
+        help="Extra arguments to pass to build-jax.sh",
     )
     version_search_args.add_argument(
         "--confirmation-iterations",
@@ -333,6 +341,16 @@ def parse_args(args=None) -> argparse.Namespace:
             When the version level search converges, re-check the last-known-good and
             first-known-bad versions this many times. This is a final line of defence
             against flaky test cases.
+        """,
+    )
+    version_search_args.add_argument(
+        "--missing-metric-retries",
+        default=1,
+        type=int,
+        help="""
+            Retry a measurement this many times if it does not produce the metric
+            requested by --metric-name. This applies to both cached and newly executed
+            results. Default: 1.
         """,
     )
     parser.add_argument(
@@ -408,6 +426,8 @@ def parse_args(args=None) -> argparse.Namespace:
                 "You should pass seed metric values via --passing-metric and "
                 "--failing-metric if --metric-name is passed."
             )
+    if args.missing_metric_retries < 0:
+        raise Exception("--missing-metric-retries must be non-negative")
     if (args.passing_metric or args.failing_metric) and args.metric_name is None:
         raise Exception(
             "--metric-name must be passed if --passing-metric or --failing-metric is."
@@ -448,7 +468,9 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), "For local runtime, --passing-versions and --failing-versions must be provided."
+        ), (
+            "For local runtime, --passing-versions and --failing-versions must be provided."
+        )
         assert (
             args.container is None
             and args.start_date is None

@@ -51,12 +51,15 @@ class TestResult:
     """
 
     __test__ = False  # stop pytest gathering this
-    build_stdouterr: typing.Optional[str]
+    build_stdouterr: str | None
     host_output_directory: pathlib.Path
     result: TestExecutionOutcome
-    stdouterr: typing.Optional[str]
-    time: typing.Optional[float]
-    metrics: typing.Dict[str, typing.Any]
+    stdouterr: str | None
+    time: float | None
+    metrics: dict[str, typing.Any]
+    # Intentionally not serialized: --restart should make one fresh attempt to obtain
+    # a result, while repeated use within one search should not consume more retries.
+    required_metric_retries_exhausted: bool = False
 
     def exit_code_based_pass(self):
         exit_code = self.metrics.get(_EXIT_CODE_METRIC)
@@ -73,6 +76,10 @@ class TestResult:
             and isinstance(exit_code, int)
             and exit_code != 0
         )
+
+
+def _yielded_results(result: TestResult) -> bool:
+    return result.result == TestExecutionOutcome.TEST_YIELDED_RESULTS
 
 
 class ClassifiedTestOutcome(Enum):
@@ -140,7 +147,7 @@ class ExitCodeClassifier(ExecutionClassifier):
             assert label == ClassifiedTestOutcome.FAIL, label
             assert all(r.exit_code_based_fail() for r in results)
 
-    def text_summary(self, *, columns: int = 120, rows: int = 3) -> typing.List[str]:
+    def text_summary(self, *, columns: int = 120, rows: int = 3) -> list[str]:
         return []
 
 
@@ -152,10 +159,10 @@ def adjust_date(
     date: datetime.datetime,
     logger: logging.Logger,
     container_exists: typing.Callable[[datetime.date], bool],
-    before: typing.Optional[datetime.date] = None,
-    after: typing.Optional[datetime.date] = None,
+    before: datetime.date | None = None,
+    after: datetime.date | None = None,
     max_steps: int = 100,
-) -> typing.Optional[datetime.date]:
+) -> datetime.date | None:
     """
     Given a datetime that may have non-zero hour/minute/second/... parts, and where
     container_url(date.date()) might be a container that does not exist due to job
@@ -211,12 +218,12 @@ def container_search(
     *,
     container_exists: typing.Callable[[datetime.date], bool],
     container_passes: DateTester,
-    start_date: typing.Optional[datetime.date],
-    end_date: typing.Optional[datetime.date],
+    start_date: datetime.date | None,
+    end_date: datetime.date | None,
     logger: logging.Logger,
     skip_precondition_checks: bool,
     threshold_days: int,
-) -> typing.Tuple[datetime.date, datetime.date]:
+) -> tuple[datetime.date, datetime.date]:
     adjust = functools.partial(
         adjust_date, logger=logger, container_exists=container_exists
     )
@@ -330,13 +337,15 @@ class BuildAndTest(typing.Protocol):
     def __call__(
         self,
         *,
-        versions: typing.Dict[str, str],
+        versions: dict[str, str],
         test_repetition: int = 0,
         test_output_log_level: int = logging.DEBUG,
+        repeating_test_repetition: bool = False,
     ) -> TestResult:
         """
         Given an [unordered] set of {package_name: package_version}, build
-        those package versions and return the test result.
+        those package versions and return the test result. repeating_test_repetition
+        indicates an intentional retry with the same test_repetition value.
         """
         ...
 
@@ -350,7 +359,7 @@ def _first(xs: typing.Iterable[T]) -> T:
     return next(iter(xs))
 
 
-def _not_first(d: typing.Dict[T, U]) -> typing.Iterable[typing.Tuple[T, U]]:
+def _not_first(d: dict[T, U]) -> typing.Iterable[tuple[T, U]]:
     return itertools.islice(d.items(), 1, None)
 
 
@@ -395,23 +404,21 @@ def _get_versions(
 
 
 def _earliest_versions(
-    versions: typing.OrderedDict[
-        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
-    ],
-) -> typing.Dict[str, str]:
+    versions: typing.OrderedDict[str, typing.Sequence[tuple[str, datetime.datetime]]],
+) -> dict[str, str]:
     return {package: version_list[0][0] for package, version_list in versions.items()}
 
 
 def _latest_versions(
-    versions: typing.OrderedDict[
-        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
-    ],
-) -> typing.Dict[str, str]:
+    versions: typing.OrderedDict[str, typing.Sequence[tuple[str, datetime.datetime]]],
+) -> dict[str, str]:
     return {package: version_list[-1][0] for package, version_list in versions.items()}
 
 
-def _strip_build_failures(versions: typing.Dict[str, str]) -> typing.Dict[str, str]:
-    def remove_build_failures(ver):
+def _strip_unavailable_versions(
+    versions: dict[str, str],
+) -> dict[str, str]:
+    def remove_unavailable_versions(ver):
         ver_bits = ver.split(",")
         if len(ver_bits) == 1:
             return ver
@@ -423,7 +430,7 @@ def _strip_build_failures(versions: typing.Dict[str, str]) -> typing.Dict[str, s
             assert ver_bits[0][0] == "[" and ver_bits[-2][-1] == "]", ver_bits
             return ver_bits[-1]
 
-    return {k: remove_build_failures(v) for k, v in versions.items()}
+    return {k: remove_unavailable_versions(v) for k, v in versions.items()}
 
 
 # Fake version key used to distinguish between intentional repeated measurements of the
@@ -438,32 +445,30 @@ _WORKLOAD_VERSION_KEY = "WORKLOAD"
 
 
 def version_cache_key(
-    versions: typing.Dict[str, str],
+    versions: dict[str, str],
     *,
     repetition: int = 0,
 ) -> FlatVersionDict:
     return tuple(
-        sorted(_strip_build_failures(versions).items())
+        sorted(_strip_unavailable_versions(versions).items())
         + [(_REPETITION_KEY, str(repetition))]
     )
 
 
 def version_search(
     *,
-    versions: typing.OrderedDict[
-        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
-    ],
+    versions: typing.OrderedDict[str, typing.Sequence[tuple[str, datetime.datetime]]],
     build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
     check_success_before_failure: bool = True,
     confirmation_iterations: int = 1,
-    max_repetitions: typing.Optional[int] = None,
-    result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
-    classifier: ExecutionClassifier = ExitCodeClassifier(),
-) -> typing.Tuple[
-    typing.Dict[str, str], typing.Sequence[TestResult], typing.Sequence[TestResult]
-]:
+    max_repetitions: int | None = None,
+    result_cache: dict[FlatVersionDict, TestResult] | None = None,
+    classifier: ExecutionClassifier | None = None,
+    metric_name: str | None = None,
+    missing_metric_retries: int = 1,
+) -> tuple[dict[str, str], typing.Sequence[TestResult], typing.Sequence[TestResult]]:
     """
     Bisect a failure back to a single version of a single component.
 
@@ -484,6 +489,13 @@ def version_search(
         of times any given set of versions will be executed is `max_repetitions + 1`.
         Defaults to be `confirmation_iterations + 2`.
     result_cache: previously completed build/test results to reuse
+    metric_name: metric that each successful test execution must produce. Functional
+        triage requires the ``exit_code`` metric. If a cached or new execution does
+        not produce the required metric, the measurement is retried. If the retries
+        are exhausted, the version set is treated as yielding no usable results so
+        the search can make progress around it.
+    missing_metric_retries: maximum number of extra measurement attempts when
+        the required metric is absent. Defaults to one retry.
 
     Returns a 3-tuple of (summary_dict, last_known_good, first_known_bad),
     where the last element can be None if skip_precondition_checks=True. The
@@ -491,12 +503,15 @@ def version_search(
     False, but the other fields can be used to obtain stdout+stderr and
     output files from those test invocations.
     """
+    if classifier is None:
+        classifier = ExitCodeClassifier()
     if max_repetitions is None:
         max_repetitions = confirmation_iterations + 2
     assert max_repetitions >= confirmation_iterations, (
         max_repetitions,
         confirmation_iterations,
     )
+    assert missing_metric_retries >= 0, missing_metric_retries
     if result_cache is None:
         result_cache = {}
 
@@ -522,17 +537,55 @@ def version_search(
                 f"Reusing cached result for {dict(cache_key)}: "
                 f"{bisect_result.result}: {bisect_result.metrics}"
             )
-            return bisect_result
-        bisect_result = build_and_test(
-            versions=_strip_build_failures(bisect_versions),
-            test_output_log_level=test_output_log_level,
-            test_repetition=repetition,
-        )
-        logger.info(
-            f"New result for {dict(cache_key)}: {bisect_result.result}: "
-            f"{bisect_result.metrics}"
-        )
-        result_cache[cache_key] = bisect_result
+        else:
+            bisect_result = build_and_test(
+                versions=_strip_unavailable_versions(bisect_versions),
+                test_output_log_level=test_output_log_level,
+                test_repetition=repetition,
+            )
+            logger.info(
+                f"New result for {dict(cache_key)}: {bisect_result.result}: "
+                f"{bisect_result.metrics}"
+            )
+            result_cache[cache_key] = bisect_result
+
+        required_metric = metric_name or _EXIT_CODE_METRIC
+        retries = 0
+        while (
+            bisect_result.result != TestExecutionOutcome.BUILD_FAILURE
+            and not bisect_result.required_metric_retries_exhausted
+            and (
+                bisect_result.result != TestExecutionOutcome.TEST_YIELDED_RESULTS
+                or required_metric not in bisect_result.metrics
+            )
+        ):
+            if retries == missing_metric_retries:
+                logger.warning(
+                    f"Execution for {dict(cache_key)} did not produce metric "
+                    f"{required_metric!r} after {retries + 1} attempt(s); "
+                    "treating this version set as yielding no usable results "
+                    "so the bisection can continue"
+                )
+                bisect_result.result = TestExecutionOutcome.TEST_ERROR
+                bisect_result.required_metric_retries_exhausted = True
+                break
+            retries += 1
+            logger.warning(
+                f"Execution for {dict(cache_key)} did not produce metric "
+                f"{required_metric!r}; retrying measurement "
+                f"({retries}/{missing_metric_retries})"
+            )
+            bisect_result = build_and_test(
+                versions=_strip_unavailable_versions(bisect_versions),
+                test_output_log_level=test_output_log_level,
+                test_repetition=repetition,
+                repeating_test_repetition=True,
+            )
+            logger.info(
+                f"Retry result for {dict(cache_key)}: {bisect_result.result}: "
+                f"{bisect_result.metrics}"
+            )
+            result_cache[cache_key] = bisect_result
         return bisect_result
 
     def _check(good_or_bad, check_versions, desired_outcome):
@@ -554,8 +607,11 @@ def version_search(
                 repetition=n,
                 test_output_log_level=test_output_log_level,
             )
-            if check.result == TestExecutionOutcome.BUILD_FAILURE:
-                err = f"Build failure attempting to reproduce result with {good_or_bad} versions"
+            if not _yielded_results(check):
+                err = (
+                    "Could not obtain test results while attempting to reproduce "
+                    f"the result with {good_or_bad} versions"
+                )
                 logger.fatal(err)
                 logger.fatal(check.build_stdouterr)
                 raise CouldNotReproduceDesiredOutcome(
@@ -646,24 +702,25 @@ def version_search(
     primary = _first(versions.keys())
     get_versions = functools.partial(_get_versions, logger=logger, primary=primary)
 
-    def find_successful_build(versions):
-        # Try to find a set of versions where the build does not fail, starting with
-        # the set of versions that implement in a binary search for the actual test failure
+    def find_usable_result(versions):
+        # Try to find a set of versions where the build succeeds and the test yields
+        # results, starting with the set of versions selected by binary search for the
+        # actual test failure.
         bisect_versions, indices = get_versions(versions=versions)
         bisect_result = build_cached(bisect_versions)
-        if bisect_result.result != TestExecutionOutcome.BUILD_FAILURE:
+        if _yielded_results(bisect_result):
             return bisect_result, bisect_versions
         logger.info(
-            f"Encountered build failure using index={indices[primary]} of "
+            f"Execution yielded no usable results using index={indices[primary]} of "
             f"the remaining {len(versions[primary])} {primary} versions"
         )
-        # Versions based on the middle of the remaining `primary` commits led to a
-        # build failure (n), but the endpoints build OK (y).
+        # Versions based on the middle of the remaining `primary` commits yielded no
+        # usable results (n), but the endpoints yielded results (y).
         # y -- ? -- n -- ? -- y
         # |         |         |
         # start   middle     end
         #
-        # We may know about other build failures (n values) in the range due to
+        # We may know about other unavailable executions (n values) in the range due to
         # previous iterations.
         #       cached
         #         |
@@ -673,25 +730,27 @@ def version_search(
         #
         # And the hope of this logic is that we will find either an early version where
         # the build succeeds and the test fails (so we can throw away the range with
-        # build failures), or a late version where the build succeeds and the test
-        # succeeds so we can do the same. The somewhat arbitrary logic here is to take
+        # unavailable results), or a late version where the test yields results and
+        # passes so we can do the same. The somewhat arbitrary logic here is to take
         # the shorter y??????n run and refine it in the hope one of the ? is a y.
-        assert (
-            result_cache[version_cache_key(_earliest_versions(versions))].result
-            != TestExecutionOutcome.BUILD_FAILURE
-        ), result_cache[version_cache_key(_earliest_versions(versions))].result
+        assert _yielded_results(
+            result_cache[version_cache_key(_earliest_versions(versions))]
+        ), result_cache[version_cache_key(_earliest_versions(versions))]
         build_statuses = [(True, {p: 0 for p in versions})]
         for n in range(1, len(versions[primary]) - 1):
             versions_n, indices_n = get_versions(primary_index=n, versions=versions)
             result_n = result_cache.get(version_cache_key(versions_n))
-            assert (
-                result_n is None
-                or result_n.result == TestExecutionOutcome.BUILD_FAILURE
-            )
+            if result_n is not None and _yielded_results(result_n):
+                logger.info(
+                    "Found a cached execution that yielded results while searching "
+                    f"around unavailable {primary} versions; reusing index={n} of "
+                    f"the remaining {len(versions[primary])} versions"
+                )
+                return result_n, versions_n
+            assert result_n is None or not _yielded_results(result_n)
             build_statuses.append((None if result_n is None else False, indices_n))
-        assert (
-            result_cache[version_cache_key(_latest_versions(versions))].result
-            != TestExecutionOutcome.BUILD_FAILURE
+        assert _yielded_results(
+            result_cache[version_cache_key(_latest_versions(versions))]
         ), result_cache.get(version_cache_key(_latest_versions(versions))).result
         build_statuses.append((True, {p: len(vs) - 1 for p, vs in versions.items()}))
         assert len(build_statuses) == len(versions[primary])
@@ -725,10 +784,10 @@ def version_search(
             while len(range_versions[primary]) > 2:
                 bisect_versions, indices = get_versions(versions=range_versions)
                 bisect_result = build_cached(bisect_versions)
-                if bisect_result.result != TestExecutionOutcome.BUILD_FAILURE:
+                if _yielded_results(bisect_result):
                     return bisect_result, bisect_versions
                 logger.info(
-                    "Encountered another build failure when refining "
+                    "Encountered another execution with no usable results when refining "
                     f"{len(range_versions[primary])} {primary} versions in "
                     f"{len(ranges)} candidate range(s)"
                 )
@@ -765,7 +824,7 @@ def version_search(
         return outcome, results
 
     while len(versions[primary]) > 2:
-        bisect_result, bisect_versions = find_successful_build(versions=versions)
+        _bisect_result, bisect_versions = find_usable_result(versions=versions)
 
         # reconstruct the indices in `versions` of the versions in `bisect_versions`
         def _index(pkg, ver):
@@ -810,10 +869,10 @@ def version_search(
             # as given middle=fail, and Q1=fail the points between Q1 and middle will
             # not be checked.
             n_primary = len(versions[primary])
-            build_fail_commits = []
+            unavailable_commits = []
             for n in range(1, n_primary - 1):
                 versions_n, _ = get_versions(primary_index=n, versions=versions)
-                # Should have been a build failure if tested.
+                # Should have yielded no usable results if tested.
                 result_n = result_cache.get(version_cache_key(versions_n))
                 if result_n is not None:
                     assert (
@@ -821,16 +880,17 @@ def version_search(
                     ), result_n
                 build_fail_commits.append(versions_n[primary])
             logger.warning(
-                f"Could not triage {primary} to a single version due to build "
-                f"failures, adding {n_primary - 2} build failure version(s) to both "
+                f"Could not triage {primary} to a single version because some "
+                f"executions yielded no results; adding {n_primary - 2} version(s) to both "
                 "last-known-good and first-known-bad versions to represent this lack "
                 "of signal. The tool has not positively verified that *all* of these "
-                "commits actually lead to build failures."
+                "commits fail to yield results."
             )
             test_pass_commit, test_pass_date = versions[primary][0]
             test_fail_commit, test_fail_date = versions[primary][-1]
-            test_pass_range = f"{test_pass_commit},[{','.join(build_fail_commits)}]"
-            test_fail_range = f"[{','.join(build_fail_commits)}],{test_fail_commit}"
+            unavailable_range = ",".join(unavailable_commits)
+            test_pass_range = f"{test_pass_commit},[{unavailable_range}]"
+            test_fail_range = f"[{unavailable_range}],{test_fail_commit}"
             versions[primary] = [
                 (test_pass_range, test_pass_date),
                 (test_fail_range, test_fail_date),
@@ -927,7 +987,10 @@ def version_search(
             skip_precondition_checks=True,
             result_cache=result_cache,
             confirmation_iterations=confirmation_iterations,
+            max_repetitions=max_repetitions,
             classifier=classifier,
+            metric_name=metric_name,
+            missing_metric_retries=missing_metric_retries,
         )
     else:
         err = f"Could not handle blame outcome {blame_outcome}"

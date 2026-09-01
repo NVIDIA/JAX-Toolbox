@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import collections
 import contextlib
 import datetime
@@ -8,6 +10,7 @@ import logging
 import pathlib
 import platform
 import shlex
+import shutil
 import tempfile
 import time
 import urllib.parse
@@ -55,9 +58,25 @@ class InconsistentResults(Exception):
     pass
 
 
+
+def _bounded_tag_suffix(container_registry: str | None, tag_suffix: str) -> str:
+    """Keep the complete Docker tag within its 128-character limit."""
+    if container_registry is None:
+        return tag_suffix
+
+    registry_leaf = container_registry.rsplit("/", 1)[-1]
+    tag_prefix = registry_leaf.split(":", 1)[1] if ":" in registry_leaf else ""
+    max_suffix_length = 128 - len(tag_prefix)
+    if len(tag_suffix) <= max_suffix_length:
+        return tag_suffix
+
+    digest = hashlib.sha1(tag_suffix.encode()).hexdigest()[:12]
+    return f"{tag_suffix[: max_suffix_length - len(digest) - 1]}-{digest}"
+
+
 def _remote_without_credentials(
     remote: str,
-) -> Tuple[str, Optional[Tuple[str, str, str]]]:
+) -> tuple[str, tuple[str, str, str] | None]:
     """Return a URL safe for build arguments and optional netrc credentials."""
     parsed = urllib.parse.urlsplit(remote)
     if (
@@ -78,9 +97,9 @@ def _remote_without_credentials(
         urllib.parse.unquote(parsed.password or ""),
     )
     return sanitized, credentials
-
-
-def _git_fetch_refs(version: str, cherry_picks: List[str]) -> List[str]:
+  
+  
+def _git_fetch_refs(version: str, cherry_picks: list[str]) -> list[str]:
     """Return every object needed to check out and cherry-pick a version."""
     refs = [version]
     for revision in cherry_picks:
@@ -121,7 +140,9 @@ class TriageTool:
         self.check_success_before_failure = True
         self.restart_cache = (
             result_cache_from_summary(
-                self.args.output_prefix, summary=load_summary(self.args.output_prefix)
+                self.logger,
+                self.args.output_prefix,
+                summary=load_summary(self.args.output_prefix),
             )
             if args.restart
             else {}
@@ -135,14 +156,21 @@ class TriageTool:
             f"to {(self.args.output_prefix / 'debug.log').resolve()}"
         )
 
-    def _version_slug(self, url: str, versions: Dict[str, str]) -> str:
+    def _version_slug(self, url: str, versions: dict[str, list[str]]) -> str:
         hash_chars = 8
-        components = {"container": hashlib.sha1(url.encode()).hexdigest()}
+        components = {"container": [hashlib.sha1(url.encode()).hexdigest()]}
         components.update(versions)
-        return "-".join(f"{k}-{v[:hash_chars]}" for k, v in components.items())
+        return "-".join(
+            f"{k}-{'_'.join(v[:hash_chars] for v in vs)}"
+            for k, vs in components.items()
+        )
 
     def _test_output_directory(
-        self, url: str, versions: Union[Dict[str, str], None]
+        self,
+        url: str,
+        versions: dict[str, str] | None,
+        *,
+        overwrite: bool = False,
     ) -> pathlib.Path:
         """
         Create a directory for test output based on the container URL and versions.
@@ -153,9 +181,15 @@ class TriageTool:
         Returns:
             pathlib.Path: The path to the output directory.
         """
-        out_dirname = self._version_slug(url=url, versions=versions or {})
+        out_dirname = self._version_slug(
+            url=url,
+            versions={k: [v] for k, v in (versions or {}).items()},
+        )
         out_dir = self.args.output_prefix / out_dirname
-        if out_dir.exists() and self.args.restart:
+        if out_dir.exists() and overwrite:
+            self.logger.info(f"Removing failed test output before retry: {out_dir}")
+            shutil.rmtree(out_dir)
+        elif out_dir.exists() and self.args.restart:
             base_out_dir = out_dir
             n = 1
             while out_dir.exists():
@@ -166,7 +200,7 @@ class TriageTool:
         return out_dir.resolve()
 
     def _make_container(
-        self, url: str, test_output_directory: Optional[pathlib.Path] = None
+        self, url: str, test_output_directory: pathlib.Path | None = None
     ) -> Container:
         """
         Wrapper for make_container factory
@@ -189,7 +223,7 @@ class TriageTool:
     def _get_versions(
         self,
         container_url: str,
-        explicit_versions: Dict[str, str],
+        explicit_versions: dict[str, str],
         versions_from_env: bool,
     ):
         """
@@ -226,8 +260,8 @@ class TriageTool:
     def _gather_histories(
         self,
         worker: Container,
-        passing_versions: Dict[str, str],
-        failing_versions: Dict[str, str],
+        passing_versions: dict[str, str],
+        failing_versions: dict[str, str],
     ) -> collections.OrderedDict:
         """
         Gather the commit histories for the passing and failing versions.
@@ -294,7 +328,7 @@ class TriageTool:
         return package_versions
 
     def _log_environment_differences(
-        self, url1: str, url2: str, env1: Dict[str, str], env2: Dict[str, str]
+        self, url1: str, url2: str, env1: dict[str, str], env2: dict[str, str]
     ):
         """
          If we have two containers, print the differences between their environments. This
@@ -395,16 +429,15 @@ class TriageTool:
             test_result = self._run_test(_test)
 
         add_summary_record(
+            self.logger,
             self.args.output_prefix,
             "container",
             {
-                **{
-                    "container": container_url,
-                    "output_directory": test_result.host_output_directory.as_posix(),
-                    "result": str(test_result.result),
-                    "test_time": test_result.time,
-                    "metrics": test_result.metrics,
-                },
+                "container": container_url,
+                "output_directory": test_result.host_output_directory.as_posix(),
+                "result": str(test_result.result),
+                "test_time": test_result.time,
+                "metrics": test_result.metrics,
                 **versions,
             },
         )
@@ -431,7 +464,7 @@ class TriageTool:
             container_url, test_output_log_level=test_output_log_level
         )
 
-    def _check_installation_scripts(self, worker: Container) -> Set[str]:
+    def _check_installation_scripts(self, worker: Container) -> set[str]:
         """
         Look for installation scripts that can be used to change the versions
         of packages like cuBLAS and cuDNN. These are expected to be named
@@ -487,7 +520,7 @@ class TriageTool:
         container_url: str,
         output_prefix: pathlib.Path,
         log_level: int,
-        workload_version: Optional[str] = None,
+        workload_version: str | None = None,
     ):
         assert self.args.container_runtime == "plugin"
         test_cmd = self.args.test_command + [
@@ -512,19 +545,24 @@ class TriageTool:
         with open(out_dir / "test.log", "w") as log:
             log.write(result.stdout)
         metrics = {_EXIT_CODE_METRIC: result.returncode}
-        if self.args.metric_name is None:
-            # For non-metric triage there is always a result: the exit code
-            result_enum = TestExecutionOutcome.TEST_YIELDED_RESULTS
-        else:
-            # metric-based triage
-            metrics_file = out_dir / "metrics.json"
+        metrics_file = out_dir / "metrics.json"
+        if self.args.container_runtime == "plugin" or self.args.metric_name is not None:
+            # A plugin distinguishes its own infrastructure failure from a
+            # completed workload failure by omitting exit_code. A missing or
+            # invalid metrics file is likewise not a workload exit code and is
+            # handled by the normal missing-metric retry.
             try:
                 with open(metrics_file) as ifile:
-                    metrics.update(json.load(ifile))
+                    metrics = json.load(ifile)
                 result_enum = TestExecutionOutcome.TEST_YIELDED_RESULTS
             except Exception as e:
+                metrics = {}
                 result_enum = TestExecutionOutcome.TEST_ERROR
                 self.logger.fatal(f"Failed to extract metrics: {e}")
+        else:
+            assert self.args.metric_name is None
+            # For non-metric triage there is always a result: the exit code
+            result_enum = TestExecutionOutcome.TEST_YIELDED_RESULTS
         self.logger.info(
             f"Test completed in {duration:.1f}s with metric values {metrics} in {container_url}"
         )
@@ -540,9 +578,10 @@ class TriageTool:
     def _build_and_test(
         self,
         *,
-        versions: Dict[str, str],
+        versions: dict[str, str],
         test_repetition: int = 0,
         test_output_log_level: int = logging.DEBUG,
+        repeating_test_repetition: bool = False,
     ) -> TestResult:
         """
         The main body of the bisection loop. Update JAX/XLA/... versions, rebuild, and
@@ -552,13 +591,15 @@ class TriageTool:
         Args:
             versions (dict): The versions of the software packages to use.
             test_output_log_level (int): The log level for test output.
+            repeating_test_repetition (bool): Whether this intentionally retries the
+                same test_repetition value.
 
         Returns:
             TestResult: The result of the test, including whether it passed and the output.
         """
         # Amortise container startup overhead by batching together git commands
         git_commands, changed, skipped = [], [], []
-        git_credentials: Dict[str, Tuple[str, str]] = {}
+        git_credentials: dict[str, tuple[str, str]] = {}
         push_intermediate_containers = self.args.container_runtime == "plugin"
         for package in sorted(self.dynamic_packages):
             version = versions[package]
@@ -647,6 +688,7 @@ class TriageTool:
         out_dir = self._test_output_directory(
             self.bisection_url,
             versions=brief_versions,
+            overwrite=repeating_test_repetition,
         )
         change_str = " ".join(changed) if len(changed) else "<nothing>"
         info_str = f"Checking out {change_str}"
@@ -667,10 +709,10 @@ class TriageTool:
                 # Not needed if we are pushing a container, because the local cache is not
                 # included in it.
                 build_cmds.append("bazel clean --expunge")
+            build_jax_cmd = ["build-jax.sh"] + self.args.extra_build_jax_args
             if self.args.bazel_cache:
-                build_cmds.append(f"build-jax.sh --bazel-cache={self.args.bazel_cache}")
-            else:
-                build_cmds.append("build-jax.sh")
+                build_jax_cmd.append(f"--bazel-cache={self.args.bazel_cache}")
+            build_cmds.append(" ".join(build_jax_cmd))
             if not self.args.exclude_transformer_engine:
                 if len(self.args.transformer_engine_ccache_env):
                     build_cmds.append(
@@ -685,12 +727,15 @@ class TriageTool:
                     self._version_slug(
                         self.bisection_url,
                         versions={
-                            k: v
+                            k: [v] + self.args.cherry_pick.get(k, [])
                             for k, v in brief_versions.items()
                             if k != _REPETITION_KEY
                         },
                     )
                     + f"-{platform.machine()}"
+                )
+                tag_suffix = _bounded_tag_suffix(
+                    self.args.container_registry, tag_suffix
                 )
                 if self.args.container_registry is None:
                     # Do not push, everything local.
@@ -826,10 +871,10 @@ class TriageTool:
             "test_time": test_result.time,
         }
         summary.update(versions)
-        add_summary_record(self.args.output_prefix, "versions", summary)
+        add_summary_record(self.logger, self.args.output_prefix, "versions", summary)
         return test_result
 
-    def find_container_range(self) -> Tuple[str, str]:
+    def find_container_range(self) -> tuple[str, str]:
         """
         Find the range from the passing and failing containers.
         Returns a tuple of the start and end container names.
@@ -1285,9 +1330,9 @@ class TriageTool:
 
     def run_version_bisection(
         self,
-        passing_versions: Dict[str, str],
-        failing_versions: Dict[str, str],
-    ) -> Dict[str, Any]:
+        passing_versions: dict[str, str],
+        failing_versions: dict[str, str],
+    ) -> dict[str, Any]:
         """
         Run the version bisection process.
 
@@ -1296,7 +1341,7 @@ class TriageTool:
             failing_versions (dict): The versions that failed.
 
         Returns:
-            Tuple[dict, TestResult]: The final versions and the test result.
+            tuple[dict, TestResult]: The final versions and the test result.
         """
         classifier: ExecutionClassifier
         if self.args.metric_name:
@@ -1354,6 +1399,8 @@ class TriageTool:
                 package_versions=package_versions,
                 result_cache=result_cache,
                 classifier=classifier,
+                metric_name=self.args.metric_name,
+                missing_metric_retries=self.args.missing_metric_retries,
             )
             if candidate_result is not None:
                 result, last_known_good, first_known_bad = candidate_result
@@ -1454,5 +1501,5 @@ class TriageTool:
         result["container"] = self.bisection_url
         self.logger.info("Version-level bisection completed")
         return add_summary_record(
-            self.args.output_prefix, "result", result, scalar=True
+            self.logger, self.args.output_prefix, "result", result, scalar=True
         )

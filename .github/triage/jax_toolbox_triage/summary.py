@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import json
 import logging
 import pathlib
 import typing
+
 from .logic import (
     TestExecutionOutcome,
     TestResult,
@@ -23,9 +26,10 @@ VERSION_RECORD_METADATA = {
 
 
 def add_summary_record(
+    logger: logging.Logger,
     output_prefix: pathlib.Path,
     section: str,
-    record: typing.Union[typing.Dict[str, typing.Any], TestResult],
+    record: dict[str, typing.Any] | TestResult,
     scalar=False,
 ):
     """
@@ -51,7 +55,7 @@ def add_summary_record(
         data = {}
     if scalar:
         if section in data:
-            logging.warning(f"Overwriting summary data in section {section}")
+            logger.warning(f"Overwriting summary data in section {section}")
         data[section] = record
     else:
         if section not in data:
@@ -63,7 +67,7 @@ def add_summary_record(
     return data
 
 
-def load_summary(output_prefix: pathlib.Path) -> typing.Dict[str, typing.Any]:
+def load_summary(output_prefix: pathlib.Path) -> dict[str, typing.Any]:
     """
     Load the JSON summary for a previous or current triage run.
     """
@@ -72,7 +76,7 @@ def load_summary(output_prefix: pathlib.Path) -> typing.Dict[str, typing.Any]:
 
 
 def _record_output_directory(
-    output_prefix: pathlib.Path, record: typing.Dict[str, typing.Any]
+    output_prefix: pathlib.Path, record: dict[str, typing.Any]
 ) -> pathlib.Path:
     out_dir = pathlib.Path(record["output_directory"])
     if out_dir.exists() or not out_dir.is_absolute():
@@ -84,9 +88,10 @@ def _record_output_directory(
 
 
 def result_cache_from_summary(
+    logger: logging.Logger,
     output_prefix: pathlib.Path,
-    summary: typing.Optional[typing.Dict[str, typing.Any]] = None,
-) -> typing.Dict[SummaryCacheKey, TestResult]:
+    summary: dict[str, typing.Any] | None = None,
+) -> dict[SummaryCacheKey, TestResult]:
     """
     Reconstruct completed build/test results from summary.json.
 
@@ -100,7 +105,7 @@ def result_cache_from_summary(
         if not isinstance(record, dict):
             continue
         if not {"container", "result", "output_directory"} <= record.keys():
-            logging.warning("Ignoring incomplete restart container record: %s", record)
+            logger.warning("Ignoring incomplete restart container record: %s", record)
             continue
         result_name = record["result"].rsplit(".", 1)[-1]
         result_enum = TestExecutionOutcome[result_name]

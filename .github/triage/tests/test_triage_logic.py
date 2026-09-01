@@ -2,8 +2,10 @@ import collections
 import datetime
 import itertools
 import logging
-import pytest
 import random
+
+import pytest
+
 from jax_toolbox_triage.logic import (
     _EXIT_CODE_METRIC,
     ClassifiedTestOutcome,
@@ -12,6 +14,8 @@ from jax_toolbox_triage.logic import (
     ExitCodeClassifier,
     TestExecutionOutcome,
     TestResult,
+    container_search,
+    version_cache_key,
     version_search,
 )
 from jax_toolbox_triage.metric_classifier import MetricClassifier
@@ -19,8 +23,10 @@ from jax_toolbox_triage.metric_classifier import MetricClassifier
 _METRIC_NAME = "metric"
 
 
-def wrap(b, versions={}, build_failure=False, metrics=None):
+def wrap(b, versions=None, build_failure=False, metrics=None):
     # TODO: return TestExecutionOutcome.TEST_ERROR sometimes
+    if versions is None:
+        versions = {}
     if metrics is None:
         metrics = {}
     metrics[_EXIT_CODE_METRIC] = 0 if b else 1
@@ -103,6 +109,173 @@ def test_version_search_explicit(
     assert ExitCodeClassifier()(first_known_bad) == ClassifiedTestOutcome.FAIL
     assert last_known_good[0].host_output_directory == last_known_good_dir
     assert first_known_bad[0].host_output_directory == first_known_bad_dir
+
+
+def test_version_search_retries_cached_result_missing_metric(logger):
+    commits = make_commits(
+        jax=[("good", 1), ("bad", 2)],
+        xla=[("ref", 1)],
+    )
+    cached_bad_key = version_cache_key({"jax": "bad", "xla": "ref"}, repetition=0)
+    result_cache = {cached_bad_key: wrap(False)}
+    executions = collections.Counter()
+    calls = []
+
+    def dummy_test(*, versions, **kwargs):
+        executions[versions["jax"]] += 1
+        calls.append((versions["jax"], kwargs))
+        return wrap(
+            True,
+            versions,
+            metrics={_METRIC_NAME: 0 if versions["jax"] == "good" else 1},
+        )
+
+    version_search(
+        build_and_test=dummy_test,
+        versions=commits,
+        logger=logger,
+        skip_precondition_checks=False,
+        confirmation_iterations=0,
+        result_cache=result_cache,
+        classifier=MetricClassifier(
+            metric_name=_METRIC_NAME,
+            passing_values=[0],
+            failing_values=[1],
+        ),
+        metric_name=_METRIC_NAME,
+    )
+
+    assert executions["bad"] == 1
+    assert result_cache[cached_bad_key].metrics[_METRIC_NAME] == 1
+    bad_call = next(kwargs for version, kwargs in calls if version == "bad")
+    assert bad_call["test_repetition"] == 0
+    assert bad_call["repeating_test_repetition"] is True
+
+
+@pytest.mark.parametrize("metric_name", [None, _METRIC_NAME])
+def test_version_search_skips_persistent_missing_results(logger, metric_name):
+    commits = make_commits(
+        jax=[("ref", 1)],
+        xla=[
+            ("good", 1),
+            ("no-result-1", 2),
+            ("no-result-2", 3),
+            ("bad", 4),
+        ],
+    )
+    calls = collections.defaultdict(list)
+
+    def dummy_test(*, versions, **kwargs):
+        version = versions["xla"]
+        calls[version].append(kwargs)
+        if version.startswith("no-result"):
+            result = wrap(True, versions)
+            result.result = TestExecutionOutcome.TEST_ERROR
+            result.metrics = {}
+            return result
+        if metric_name is None:
+            return wrap(version == "good", versions)
+        return wrap(
+            True,
+            versions,
+            metrics={_METRIC_NAME: 0 if version == "good" else 1},
+        )
+
+    classifier = (
+        ExitCodeClassifier()
+        if metric_name is None
+        else MetricClassifier(
+            metric_name=_METRIC_NAME,
+            passing_values=[0],
+            failing_values=[1],
+        )
+    )
+    result, last_known_good, first_known_bad = version_search(
+        build_and_test=dummy_test,
+        versions=commits,
+        logger=logger,
+        skip_precondition_checks=False,
+        confirmation_iterations=0,
+        classifier=classifier,
+        metric_name=metric_name,
+        missing_metric_retries=2,
+    )
+
+    assert result == {
+        "jax_ref": "ref",
+        "xla_good": "good,[no-result-1,no-result-2]",
+        "xla_bad": "[no-result-1,no-result-2],bad",
+    }
+    assert classifier(last_known_good) == ClassifiedTestOutcome.PASS
+    assert classifier(first_known_bad) == ClassifiedTestOutcome.FAIL
+    tested_missing_versions = {
+        version: version_calls
+        for version, version_calls in calls.items()
+        if version.startswith("no-result")
+    }
+    assert tested_missing_versions
+    for version_calls in tested_missing_versions.values():
+        assert [call["test_repetition"] for call in version_calls] == [0, 0, 0]
+        assert [
+            call.get("repeating_test_repetition", False) for call in version_calls
+        ] == [False, True, True]
+
+
+def test_version_search_reuses_cached_result_around_unavailable_version(logger):
+    commits = make_commits(
+        jax=[("ref", 1)],
+        xla=[
+            ("good", 1),
+            ("cached-pass", 2),
+            ("no-result", 3),
+            ("bad", 4),
+        ],
+    )
+
+    def metric_result(version, value):
+        return wrap(
+            True,
+            {"xla": version, "jax": "ref"},
+            metrics={_METRIC_NAME: value},
+        )
+
+    unavailable = wrap(True, {"xla": "no-result", "jax": "ref"})
+    unavailable.result = TestExecutionOutcome.TEST_ERROR
+    unavailable.metrics = {}
+    unavailable.required_metric_retries_exhausted = True
+
+    result_cache = {
+        version_cache_key({"xla": "good", "jax": "ref"}): metric_result("good", 0),
+        version_cache_key({"xla": "cached-pass", "jax": "ref"}): metric_result(
+            "cached-pass", 0
+        ),
+        version_cache_key({"xla": "no-result", "jax": "ref"}): unavailable,
+        version_cache_key({"xla": "bad", "jax": "ref"}): metric_result("bad", 1),
+    }
+
+    def unexpected_execution(**kwargs):
+        pytest.fail(f"Unexpected execution: {kwargs}")
+
+    result, _, _ = version_search(
+        build_and_test=unexpected_execution,
+        versions=commits,
+        logger=logger,
+        skip_precondition_checks=True,
+        confirmation_iterations=0,
+        result_cache=result_cache,
+        classifier=MetricClassifier(
+            metric_name=_METRIC_NAME,
+            passing_values=[0],
+            failing_values=[1],
+        ),
+        metric_name=_METRIC_NAME,
+    )
+
+    assert result == {
+        "jax_ref": "ref",
+        "xla_good": "cached-pass,[no-result]",
+        "xla_bad": "[no-result],bad",
+    }
 
 
 start_date = datetime.datetime(2024, 10, 1)

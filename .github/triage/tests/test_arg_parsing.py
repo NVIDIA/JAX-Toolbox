@@ -1,4 +1,5 @@
 import pytest
+
 from jax_toolbox_triage.args import parse_args
 
 test_command = ["my-test-command"]
@@ -113,6 +114,16 @@ def test_repeated_commit_arguments():
 def test_bad_commit_argument(commit):
     with pytest.raises(SystemExit):
         parse_args(valid_start_end_container + ["--commit", commit] + test_command)
+def test_missing_metric_retries():
+    assert parse_args(valid_local_args + test_command).missing_metric_retries == 1
+    assert (
+        parse_args(
+            valid_local_args + ["--missing-metric-retries=3"] + test_command
+        ).missing_metric_retries
+        == 3
+    )
+    with pytest.raises(Exception, match="must be non-negative"):
+        parse_args(valid_local_args + ["--missing-metric-retries=-1"] + test_command)
 
 
 @pytest.mark.parametrize("date_args", valid_start_end_date_args)
